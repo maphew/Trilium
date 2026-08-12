@@ -1,13 +1,14 @@
-import { useState } from "preact/hooks";
+import "./setup_unlock.css";
 
+import { useRef, useState } from "preact/hooks";
+
+import logo from "./assets/icon-color.svg?url";
 import { t } from "./services/i18n";
 import server from "./services/server";
 import { setSetupAuthToken } from "./services/setup_auth";
 import Button from "./widgets/react/Button";
 import { Card, CardSection } from "./widgets/react/Card";
-import FormGroup from "./widgets/react/FormGroup";
-import FormTextBox from "./widgets/react/FormTextBox";
-import Icon from "./widgets/react/Icon";
+import PasswordField from "./widgets/react/PasswordField";
 import SetupPage from "./widgets/react/SetupPage";
 
 /**
@@ -18,6 +19,10 @@ import SetupPage from "./widgets/react/SetupPage";
  * case, and on a server it is served to whoever can reach the port, with a whole knowledge base one
  * button away from being replaced. So this comes first, before the wizard will say or do anything.
  *
+ * Deliberately the login screen over again, down to the wording: the same logo, the same field, the
+ * same button. The user is being asked the one question they already know the answer to, and saying
+ * anything more about why would only invite them to read it as a different question.
+ *
  * Asked for only where it can be answered and where it is worth asking: a first run has no password
  * to check against, and the desktop's own window is not reachable by anyone the desktop is not.
  *
@@ -26,69 +31,59 @@ import SetupPage from "./widgets/react/SetupPage";
  * @module
  */
 export default function SetupUnlock({ onUnlocked }: { onUnlocked: () => void }) {
-    const [ password, setPassword ] = useState("");
-    const [ wrong, setWrong ] = useState(false);
-    const [ busy, setBusy ] = useState(false);
+    const passwordRef = useRef<HTMLInputElement>(null);
+    const [ error, setError ] = useState<string | null>(null);
+    const [ errorId, setErrorId ] = useState(0);
+    const [ submitting, setSubmitting ] = useState(false);
 
-    async function unlock() {
-        setBusy(true);
+    function raiseError(message: string) {
+        setError(message);
+        setErrorId((id) => id + 1);
+    }
+
+    async function handleSubmit(e: Event) {
+        e.preventDefault();
+        if (submitting) {
+            return;
+        }
+
+        setSubmitting(true);
         try {
             const { authenticated, token } = await server.post<{ authenticated: boolean; token?: string }>(
-                "setup/auth", { password });
+                "setup/auth", { password: passwordRef.current?.value ?? "" });
 
             if (!authenticated || !token) {
-                setWrong(true);
+                raiseError(t("login.incorrect-password"));
                 return;
             }
 
             setSetupAuthToken(token);
             onUnlocked();
+        } catch {
+            // A wrong password is answered, not thrown, so anything landing here is the connection
+            // or the rate limiter the attempts are counted by.
+            raiseError(t("login.connection-error"));
         } finally {
-            setBusy(false);
+            setSubmitting(false);
         }
     }
 
     return (
-        <SetupPage
-            className="setup-unlock"
-            title={t("setup.unlock-title")}
-            description={t("setup.unlock-description")}
-            illustration={<Icon icon="bx bx-lock-alt" className="illustration-icon" />}
-            footer={
-                <Button
-                    text={t("setup.continue")}
-                    kind="primary"
-                    disabled={!password || busy}
-                    onClick={() => void unlock()}
-                />
-            }
-        >
-            <form onSubmit={(e) => {
-                e.preventDefault();
-                if (password && !busy) {
-                    void unlock();
-                }
-            }}>
+        <form className="setup-unlock-form" onSubmit={(e) => void handleSubmit(e)}>
+            <SetupPage
+                className="setup-unlock"
+                title={t("login.heading")}
+                illustration={<img src={logo} alt="" className="illustration-logo" />}
+                error={error}
+                errorId={errorId}
+                footer={<Button text={t("login.button")} kind="primary" disabled={submitting} />}
+            >
                 <Card>
                     <CardSection>
-                        <FormGroup
-                            label={t("setup.unlock-password")} name="setupPassword"
-                            error={wrong ? t("setup.wrong-password") : undefined}
-                        >
-                            <FormTextBox
-                                type="password"
-                                currentValue={password}
-                                onChange={(value) => {
-                                    setPassword(value);
-                                    setWrong(false);
-                                }}
-                                autocomplete="current-password"
-                                required
-                            />
-                        </FormGroup>
+                        <PasswordField inputRef={passwordRef} />
                     </CardSection>
                 </Card>
-            </form>
-        </SetupPage>
+            </SetupPage>
+        </form>
     );
 }

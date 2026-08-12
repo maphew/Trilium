@@ -45,7 +45,7 @@ async function main() {
 
 type State = "unlock" | "backupDatabase" | "existingData" | "selectLanguage" | "firstOptions" | "createNewDocumentOptions" | "createNewDocumentWithDemo" | "createNewDocumentEmpty" | "restoreFromBackup" | "syncFromDesktop" | "syncFromServer" | "syncFromServerInProgress" | "syncFromDesktopInProgress" | "syncFailed";
 
-const STATE_ORDER: State[] = ["unlock", "backupDatabase", "existingData", "selectLanguage", "firstOptions", "createNewDocumentOptions", "createNewDocumentWithDemo", "createNewDocumentEmpty", "restoreFromBackup", "syncFromDesktop", "syncFromServer", "syncFromServerInProgress", "syncFromDesktopInProgress", "syncFailed"];
+const STATE_ORDER: State[] = ["unlock", "backupDatabase", "selectLanguage", "existingData", "firstOptions", "createNewDocumentOptions", "createNewDocumentWithDemo", "createNewDocumentEmpty", "restoreFromBackup", "syncFromDesktop", "syncFromServer", "syncFromServerInProgress", "syncFromDesktopInProgress", "syncFailed"];
 
 export function renderState(state: State, setState: (state: State) => void) {
     switch (state) {
@@ -124,10 +124,10 @@ interface SetupGlob {
 /**
  * Where the wizard opens.
  *
- * A first run starts at the language step and works forward. Everything else comes in already
- * knowing better: a wizard with a knowledge base behind it that has to be unlocked before it will
- * do anything, a sync interrupted after it created the schema, an instance offered a copy of what is
- * behind the wizard, and an instance sent to a particular screen through a `setup.json` marker.
+ * Every run starts at the language step and works forward from there. Three things come in already
+ * knowing better: a wizard with a knowledge base behind it that has to be unlocked before it will do
+ * anything, a sync interrupted after it created the schema, and an instance sent to a particular
+ * screen through a `setup.json` marker.
  */
 export function initialState(glob: SetupGlob): State {
     // First of all, because everything below it acts on a knowledge base that is still there.
@@ -145,14 +145,25 @@ export function initialState(glob: SetupGlob): State {
 /** The rest of the wizard, once there is nothing left standing in front of it. */
 function afterUnlock(glob: SetupGlob): State {
     // Asked for by a running instance that wants its database held still long enough to be copied.
-    // It skips the screen below because that screen is the same offer, made where the user is on
-    // their way somewhere else; here the copy is the whole errand.
+    // Straight there, past the language: the instance already runs in one, and the copy is the whole
+    // errand rather than a step on the way to a menu the user never asked for.
     if (glob.setupTargetScreen === "backup-database" && glob.hasExistingData) {
         return "backupDatabase";
     }
 
-    // Before the language, before the menu: this is the one moment the database is open and nothing
-    // is running against it, which is what taking a copy of it needs.
+    return "selectLanguage";
+}
+
+/**
+ * Where the language step leads.
+ *
+ * The offer of a copy comes after it rather than before, so that a question about the user's own
+ * knowledge base is put in the language they have just chosen rather than in whichever one the
+ * instance happened to be running in.
+ */
+export function afterLanguage(glob: SetupGlob): State {
+    // The one moment the database is open with nothing running against it, which is what taking a
+    // copy of it needs.
     if (glob.hasExistingData) {
         return "existingData";
     }
@@ -180,7 +191,7 @@ function afterExistingData(glob: SetupGlob): State {
         case "restore-backup": return "restoreFromBackup";
         // Deliberately not a lookup table: two of the states below create a document the moment they
         // are shown, and nothing outside this file should be able to name one.
-        default: return "selectLanguage";
+        default: return "firstOptions";
     }
 }
 
@@ -194,7 +205,7 @@ function SelectLanguage({ setState }: { setState: (state: State) => void }) {
             title={t("setup.language")}
             className="select-language"
             illustration={<Icon icon="bx bx-globe" className="illustration-icon" />}
-            footer={<Button text={t("setup.continue")} kind="primary" onClick={() => setState("firstOptions")} />}
+            footer={<Button text={t("setup.continue")} kind="primary" onClick={() => setState(afterLanguage(window.glob))} />}
         >
             <Card>
                 <CardSection>
@@ -257,21 +268,30 @@ function SetupOptions({ setState, onKeep }: { setState: (state: State) => void; 
             illustration={<img src={logo} alt="Setup illustration" className="illustration-logo" />}
             error={error}
             errorId={errorId}
-            onBack={() => setState("selectLanguage")}
+            // Back to whichever step actually came before this one: the offer of a copy where there
+            // is still something to copy, and the language where that offer was never made.
+            onBack={() => setState(hasExistingData() ? "existingData" : "selectLanguage")}
         >
             <div class="setup-options">
+                {/* First, and offered only while there is something to go back to. Set apart from
+                    the four below rather than made one of them: those replace the knowledge base
+                    and this one is how the user leaves it exactly as they found it. */}
+                {hasExistingData() && (
+                    <CardFrame className="setup-option-card setup-keep-card" onClick={onKeep}>
+                        <Icon icon="bx bx-log-in-circle" />
+
+                        <div>
+                            <h3>{t("setup.keep-existing")}</h3>
+                            <p>{t("setup.keep-existing-description")}</p>
+                        </div>
+                    </CardFrame>
+                )}
+
                 <SetupOptionCard
                     icon="bx bx-file-blank"
                     title={t("setup.new-document")}
                     description={t("setup.new-document-description")}
                     onClick={() => setState("createNewDocumentOptions")}
-                />
-
-                <SetupOptionCard
-                    icon="bx bx-archive-in"
-                    title={t("setup.restore-from-backup")}
-                    description={t("setup.restore-from-backup-description")}
-                    onClick={() => setState("restoreFromBackup")}
                 />
 
                 <SetupOptionCard
@@ -288,21 +308,14 @@ function SetupOptions({ setState, onKeep }: { setState: (state: State) => void; 
                     disabled={glob.isStandalone}
                     onClick={() => void syncFromDesktop()}
                 />
+
+                <SetupOptionCard
+                    icon="bx bx-archive-in"
+                    title={t("setup.restore-from-backup")}
+                    description={t("setup.restore-from-backup-description")}
+                    onClick={() => setState("restoreFromBackup")}
+                />
             </div>
-
-            {/* The way out, offered only while there is something to go back to. Set apart from the
-                four above rather than made a fifth of them: those replace the knowledge base and
-                this one is how the user leaves it exactly as they found it. */}
-            {hasExistingData() && (
-                <CardFrame className="setup-option-card setup-keep-card" onClick={onKeep}>
-                    <Icon icon="bx bx-log-in-circle" />
-
-                    <div>
-                        <h3>{t("setup.keep-existing")}</h3>
-                        <p>{t("setup.keep-existing-description")}</p>
-                    </div>
-                </CardFrame>
-            )}
         </SetupPage>
     );
 }

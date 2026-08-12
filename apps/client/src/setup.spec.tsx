@@ -22,7 +22,7 @@ const serverMock = vi.hoisted(() => ({
 }));
 vi.mock("./services/server", () => ({ default: serverMock }));
 
-import { initialState, openedAtRestore, renderState, SyncFailed, SyncFromServer, SyncInProgress } from "./setup";
+import { afterLanguage, initialState, openedAtRestore, renderState, SyncFailed, SyncFromServer, SyncInProgress } from "./setup";
 
 type Stats = { outstandingPullCount: number; totalPullCount: number | null; initialized: boolean; lastSyncError?: string | null };
 
@@ -62,6 +62,22 @@ afterEach(() => {
     container.remove();
     vi.useRealTimers();
     vi.clearAllMocks();
+});
+
+describe("the unlock screen, as the wizard renders it", () => {
+    it("puts a real page inside the slide, not an empty one", async () => {
+        // Worth asserting rather than assuming: the wizard's pages are absolutely positioned against
+        // a container with a fixed height, so a page that renders nothing and a container that has
+        // collapsed to nothing look exactly alike — a blank screen with no error to go on.
+        const c = renderInto(renderState("unlock", vi.fn()));
+        await flushEffects();
+
+        expect(c.querySelector(".page.setup-unlock")).not.toBeNull();
+        expect(c.querySelector("input[type=password]")).not.toBeNull();
+        // Transparent to layout, so the page it wraps fills the frame rather than sitting in a box
+        // of the width setup.css gives every other form.
+        expect(c.querySelector("form.setup-unlock-form")).not.toBeNull();
+    });
 });
 
 describe("SyncInProgress", () => {
@@ -202,14 +218,11 @@ describe("where the wizard opens", () => {
         expect(initialState({})).toBe("selectLanguage");
     });
 
-    it("goes where a setup marker asked, which is how the app sends a user here", () => {
-        expect(initialState({ setupTargetScreen: "restore-backup" })).toBe("restoreFromBackup");
-    });
-
-    it("offers a copy of the existing knowledge base before anything else, wherever it was headed", () => {
-        expect(initialState({ hasExistingData: true })).toBe("existingData");
+    it("starts there whatever a marker asked for, so the rest is read in the chosen language", () => {
+        expect(initialState({ setupTargetScreen: "restore-backup" })).toBe("selectLanguage");
+        expect(initialState({ hasExistingData: true })).toBe("selectLanguage");
         expect(initialState({ hasExistingData: true, setupTargetScreen: "restore-backup" }))
-            .toBe("existingData");
+            .toBe("selectLanguage");
     });
 
     it("goes straight to the backup screen, which is the one that replaces nothing", () => {
@@ -243,6 +256,27 @@ describe("where the wizard opens", () => {
     it("ignores a screen it does not know rather than guessing at one", () => {
         expect(initialState({ setupTargetScreen: "createNewDocumentEmpty" as never }))
             .toBe("selectLanguage");
+        expect(afterLanguage({ setupTargetScreen: "createNewDocumentEmpty" as never }))
+            .toBe("firstOptions");
+    });
+});
+
+describe("where the language step leads", () => {
+    it("offers a copy of the existing knowledge base, before the menu that replaces it", () => {
+        // After the language rather than before, so a question about the user's own knowledge base
+        // is put in the language they have just chosen.
+        expect(afterLanguage({ hasExistingData: true })).toBe("existingData");
+        expect(afterLanguage({ hasExistingData: true, setupTargetScreen: "restore-backup" }))
+            .toBe("existingData");
+    });
+
+    it("goes straight to the menu on a first run, which has nothing to copy", () => {
+        expect(afterLanguage({})).toBe("firstOptions");
+    });
+
+    it("goes where a marker asked once there is nothing left to lose", () => {
+        // A restore reached this way skips the menu: it is the errand the app was sent here for.
+        expect(afterLanguage({ setupTargetScreen: "restore-backup" })).toBe("restoreFromBackup");
     });
 
     it("knows when the restore is the whole of what the wizard was opened for", () => {

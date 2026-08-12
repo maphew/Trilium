@@ -1,17 +1,8 @@
-.options-section.start-over {
-    .start-over-actions {
-        display: flex;
-        justify-content: flex-end;
-        margin-top: 12px;
-    }
+/* The notice sits above the card it is about, so the gap belongs under it. */
+.admonition.start-over-pending {
+    margin-bottom: 16px;
 
-    /* Coloured like every other action that cannot be taken back, so it is recognised before it is
-       read rather than after. */
-    .start-over-button {
-        color: var(--dropdown-item-icon-destructive-color);
-    }
-
-    .start-over-pending {
-        margin-top: 12px;
+    p:last-of-type {
+        margin-bottom: 12px;
     }
 }

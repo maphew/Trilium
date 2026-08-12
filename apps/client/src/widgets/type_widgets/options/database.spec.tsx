@@ -80,10 +80,15 @@ describe("starting over from Options", () => {
         button("start-over-button")?.click();
         await settle();
 
-        expect(container.querySelector(".start-over-pending")?.textContent)
-            .toContain("database.start_over_pending");
-        // The button that made it is gone, so it cannot be pressed twice over.
-        expect(button("start-over-button")).toBeNull();
+        // Above the card, since a request left standing is the state of the whole page from here on.
+        const notice = container.querySelector(".start-over-pending");
+        expect(notice?.textContent).toContain("database.start_over_pending");
+        expect(notice?.compareDocumentPosition(container.querySelector(".start-over") as Node))
+            .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+        // The button that made it stays where it was, so the row still reads as a whole — but it is
+        // out of reach, since the request it would make has already been made.
+        expect(button("start-over-button")?.disabled).toBe(true);
     });
 
     it("takes it back, which is all a server owner can do until they restart", async () => {
@@ -111,6 +116,6 @@ describe("starting over from Options", () => {
 
         // What is lost is a notice; the button below it is what the page is for.
         expect(container.querySelector(".start-over-pending")).toBeNull();
-        expect(button("start-over-button")).not.toBeNull();
+        expect(button("start-over-button")?.disabled).toBe(false);
     });
 });

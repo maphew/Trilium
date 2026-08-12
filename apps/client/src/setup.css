@@ -80,6 +80,13 @@ body.setup {
                 .tn-icon {
                     font-size: 2.5em;
                     color: var(--muted-text-color);
+                    /* A box of its own rather than whatever width the glyph happens to have, so
+                       every title and description in the list starts on the same line however
+                       large the icon beside it is drawn. One em at this size is 2.5em of the card,
+                       which is the measure the quieter card below matches itself to. */
+                    width: 1em;
+                    flex-shrink: 0;
+                    text-align: center;
                 }
 
                 h3 {
@@ -99,14 +106,18 @@ body.setup {
                 }
             }
 
-            /* Apart from the four above, which all replace the knowledge base, and quieter than
+            /* Apart from the four below, which all replace the knowledge base, and quieter than
                them: this is the one that changes nothing. */
             .setup-keep-card {
-                margin-top: 1.5rem;
+                margin-bottom: 0.5rem;
                 background-color: transparent;
 
                 .tn-icon {
                     font-size: 1.75em;
+                    /* Drawn smaller, but taking the same room: 2.5em of the card, written in this
+                       icon's own units. Without it the smaller glyph pulls its title left and the
+                       item stops lining up with the four below. */
+                    width: calc(2.5em / 1.75);
                 }
 
                 h3 {

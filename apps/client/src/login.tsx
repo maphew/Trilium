@@ -10,6 +10,7 @@ import { initLocale, t } from "./services/i18n";
 import Button from "./widgets/react/Button";
 import { Card, CardSection } from "./widgets/react/Card";
 import FormTextBox from "./widgets/react/FormTextBox";
+import PasswordField from "./widgets/react/PasswordField";
 import SetupPage from "./widgets/react/SetupPage";
 import OptionsRow, { OptionsRowWithToggle } from "./widgets/type_widgets/options/components/OptionsRow";
 
@@ -157,13 +158,7 @@ export function PasswordLogin({ illustration, totpEnabled, error, errorId, onErr
             >
                 <Card>
                     <CardSection>
-                        <OptionsRow name="password" label={t("login.password")} stacked>
-                            <FormTextBox
-                                inputRef={passwordRef} autoFocus
-                                type="password" name="password"
-                                autocomplete="current-password" required
-                            />
-                        </OptionsRow>
+                        <PasswordField inputRef={passwordRef} />
 
                         {totpEnabled && (
                             <OptionsRow name="totpToken" label={t("login.totp-token")} stacked>

@@ -214,10 +214,9 @@ export function ExistingDataChoice({ error, errorId, onBackUp, onSkip, onCancel 
     return (
         <SetupPage
             className="existing-data"
-            // A question and nothing else: a paragraph above it is the part someone in a hurry
-            // reads past, and this is the one offer of a copy they will get.
+            // A question and nothing else: this is the one offer of a copy the user will get, and a
+            // paragraph above it is the part someone in a hurry reads past.
             title={t("setup.existing-data")}
-            description={t("setup.existing-data-description")}
             illustration={<Icon icon="bx bx-data" className="illustration-icon" />}
             error={error}
             errorId={errorId}
@@ -240,7 +239,10 @@ export function ExistingDataChoice({ error, errorId, onBackUp, onSkip, onCancel 
                     screen is for. Which is checked is held here rather than by the browser's own
                     grouping, so the two stay exclusive. */}
                 {CHOICES.map(({ value, label }) => (
-                    <CardSection key={value}>
+                    // Going on without a copy is coloured as the app colours what cannot be taken
+                    // back: nothing is erased by choosing it, but it is the answer that leaves the
+                    // user with nothing to go back to once they pick a path from the menu after it.
+                    <CardSection key={value} className={value === "skip" ? "existing-data-destructive" : undefined}>
                         <FormRadioGroup
                             name="existing-data-choice"
                             currentValue={choice ?? ""}
