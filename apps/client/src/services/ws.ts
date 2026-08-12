@@ -98,7 +98,9 @@ export async function dispatchMessage(message: WebSocketMessage) {
     } else if (messageType === "frontend-update") {
         await executeFrontendUpdate(msg.data.entityChanges);
     } else if (messageType === "sync-hash-check-failed") {
-        toastService.showError(t("ws.sync-check-failed"), 60000);
+        // Not auto-dismissed after the usual few seconds: syncing stays broken until the user acts,
+        // and the backend only reports it once (it would otherwise recur with every sync attempt).
+        toastService.showError(t("ws.sync-hash-check-failed", { sectors: (msg.sectors ?? []).join(", ") }), 50 * 60000);
     } else if (messageType === "consistency-checks-failed") {
         toastService.showError(t("ws.consistency-checks-failed"), 50 * 60000);
     } else if (messageType === "api-log-messages") {

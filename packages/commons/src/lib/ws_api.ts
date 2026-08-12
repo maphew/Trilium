@@ -166,6 +166,16 @@ export type WebSocketMessage = AllTaskDefinitions | {
     type: "sync-pull-in-progress" | "sync-push-in-progress" | "sync-finished" | "sync-failed";
     lastSyncedPush: number;
 } | {
+    /**
+     * Syncing stopped because the content hashes of these sectors kept differing from the sync
+     * server's even after re-syncing them: the two databases hold data sync cannot reconcile. Unlike
+     * every other sync failure this one does not resolve itself by retrying, so it is surfaced to
+     * the user instead of only being logged.
+     */
+    type: "sync-hash-check-failed";
+    /** The diverged sectors, each as `entityName/sector` (e.g. `blobs/9`). */
+    sectors: string[];
+} | {
     type: "consistency-checks-failed"
 } | {
     /**

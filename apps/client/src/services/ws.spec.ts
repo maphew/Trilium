@@ -84,7 +84,7 @@ describe("dispatchMessage", () => {
         await ws.dispatchMessage({ type: "reload-frontend", reason: "x" } as WebSocketMessage);
         expect(utilsCtrl.reloadFrontendApp).toHaveBeenCalledWith(expect.stringContaining("reload"));
 
-        await ws.dispatchMessage({ type: "sync-hash-check-failed" } as any);
+        await ws.dispatchMessage({ type: "sync-hash-check-failed", sectors: ["blobs/9"] } as any);
         await ws.dispatchMessage({ type: "consistency-checks-failed" } as any);
         expect(toast.showError).toHaveBeenCalledTimes(2);
 
