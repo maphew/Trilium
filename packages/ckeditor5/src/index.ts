@@ -87,6 +87,13 @@ declare module "ckeditor5" {
         },
         clipboard?: {
             copy(text: string): void;
+            /**
+             * Copies rich HTML, with `plainText` as the plain-text alternative. Provided by the host
+             * because `navigator.clipboard.write()` only exists in secure contexts, and Trilium is
+             * routinely served over plain HTTP on a LAN — the host falls back to a copy-event
+             * handler there.
+             */
+            copyHtml?(html: string, plainText: string): void;
         },
         clipboardImageEmbed?: ClipboardImageEmbedConfig
     }

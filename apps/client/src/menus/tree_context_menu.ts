@@ -8,6 +8,7 @@ import type FNote from "../entities/fnote.js";
 import attributes from "../services/attributes.js";
 import { executeBulkActions } from "../services/bulk_action.js";
 import clipboard from "../services/clipboard.js";
+import { copyTextWithToast } from "../services/clipboard_ext.js";
 import dialogService from "../services/dialog.js";
 import froca from "../services/froca.js";
 import { t } from "../services/i18n.js";
@@ -423,7 +424,9 @@ export async function handleTreeContextMenuSelect(
 
         toastService.showMessage(t("tree-context-menu.converted-to-attachments", { count: converted }));
     } else if (command === "copyNotePathToClipboard") {
-        navigator.clipboard.writeText(`#${notePath}`);
+        // Not `navigator.clipboard`: it is undefined outside secure contexts, and Trilium is
+        // routinely served over plain HTTP on a LAN. Matches the breadcrumb's copy of this command.
+        copyTextWithToast(`#${notePath}`);
     } else if (command) {
         component.triggerCommand<TreeCommandNames>(command, {
             node: resolved.node,

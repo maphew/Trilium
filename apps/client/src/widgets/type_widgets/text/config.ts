@@ -3,7 +3,7 @@ import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en
 import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, formatShortcut, IMAGE_UPLOAD_SUBTYPES, joinShortcut, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
 import i18next from "i18next";
 
-import { copyTextWithToast } from "../../../services/clipboard_ext.js";
+import { copyHtmlWithToast, copyTextWithToast } from "../../../services/clipboard_ext.js";
 import { t } from "../../../services/i18n.js";
 import imageService from "../../../services/image.js";
 import { getMermaidConfig } from "../../../services/mermaid.js";
@@ -175,7 +175,8 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             enabled: isSyntaxHighlightEnabled()
         },
         clipboard: {
-            copy: copyTextWithToast
+            copy: copyTextWithToast,
+            copyHtml: copyHtmlWithToast
         },
         slashCommand: {
             // Drop CKEditor's built-in slash commands whose title/icon the palette re-defines: the
