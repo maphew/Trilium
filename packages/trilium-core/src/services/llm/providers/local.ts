@@ -19,6 +19,7 @@ import { getLog } from "../../../services/log.js";
 
 import type { ModelInfo, ModelPricing } from "../types.js";
 import { BaseProvider, type RemoteModel } from "./base_provider.js";
+import { llmFetch } from "./fetch.js";
 
 /** Provider card ids that map to this implementation. */
 export type LocalProviderKind = "ollama" | "lmstudio" | "openai-compatible";
@@ -82,7 +83,8 @@ export class LocalProvider extends BaseProvider {
 
         this.openai = createOpenAI({
             apiKey: apiKey || PLACEHOLDER_API_KEY,
-            baseURL: `${this.root}/v1`
+            baseURL: `${this.root}/v1`,
+            fetch: llmFetch
         });
     }
 
@@ -194,7 +196,7 @@ export class LocalProvider extends BaseProvider {
     private async probeJson(url: string): Promise<unknown | undefined> {
         let response: Response;
         try {
-            response = await fetch(url, {
+            response = await llmFetch(url, {
                 headers: this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {},
                 signal: AbortSignal.timeout(MODEL_LIST_TIMEOUT_MS)
             });

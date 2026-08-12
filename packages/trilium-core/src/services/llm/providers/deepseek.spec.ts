@@ -22,6 +22,12 @@ vi.mock("ai", async (importOriginal) => {
 });
 
 import { DeepSeekProvider, deepSeekModelName } from "./deepseek.js";
+import { installGlobalFetchAsApiTransport } from "../../../test/request_provider.js";
+import { llmFetch } from "./fetch.js";
+
+// A provider reaches its endpoint through the request provider rather than the global `fetch`, so
+// the specs that stub that global need one installed which leads back to it.
+beforeEach(installGlobalFetchAsApiTransport);
 
 describe("DeepSeekProvider construction", () => {
     beforeEach(() => {
@@ -31,13 +37,13 @@ describe("DeepSeekProvider construction", () => {
 
     it("points at the official endpoint unless overridden, and requires a key", () => {
         new DeepSeekProvider("sk-deep");
-        expect(createOpenAiMock).toHaveBeenCalledWith({ apiKey: "sk-deep", baseURL: "https://api.deepseek.com/v1" });
+        expect(createOpenAiMock).toHaveBeenCalledWith({ apiKey: "sk-deep", baseURL: "https://api.deepseek.com/v1", fetch: llmFetch });
 
         // An override reaches a gateway in front of DeepSeek; a blank one is no override.
         new DeepSeekProvider("sk-deep", "https://gateway.example/v1");
-        expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "sk-deep", baseURL: "https://gateway.example/v1" });
+        expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "sk-deep", baseURL: "https://gateway.example/v1", fetch: llmFetch });
         new DeepSeekProvider("sk-deep", "");
-        expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "sk-deep", baseURL: "https://api.deepseek.com/v1" });
+        expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "sk-deep", baseURL: "https://api.deepseek.com/v1", fetch: llmFetch });
 
         expect(() => new DeepSeekProvider("")).toThrow(/API key is required/);
     });
