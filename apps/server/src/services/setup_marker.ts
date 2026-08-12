@@ -72,18 +72,25 @@ export const setupPlatform: SetupPlatform = {
 
     async removeDatabase() {
         // Detached first: on Windows an open handle is enough to make the file undeletable, and
-        // leaving the connection attached to a file that is gone is worse than either.
+        // leaving the connection attached to a file that is gone is worse than either. Closing also
+        // folds the -wal back into the database, so what goes below is already spent.
         getSql().detachConnection();
 
         const document = dataDirs.DOCUMENT_PATH;
-        for (const file of [ document, `${document}-wal`, `${document}-shm` ]) {
-            fs.rmSync(file, { force: true });
+        try {
+            // The sidecars before the database itself, so a removal that stops part-way leaves a
+            // whole database rather than half of one. The other order can leave a stale -wal beside
+            // a freshly created database of the same name, which SQLite would try to replay into it.
+            for (const file of [ `${document}-wal`, `${document}-shm`, document ]) {
+                fs.rmSync(file, { force: true });
+            }
+        } finally {
+            // Whatever happened above, this process has to come back holding a connection: opening
+            // a path with nothing at it creates it empty, which is the state a first run begins in.
+            // Without one, every later request answers "DB not open" until the application is
+            // restarted — including the ones the wizard needs to report what went wrong and let the
+            // user try again. A removal that failed leaves the database whole, and reopens onto it.
+            getSql().attachFromFile(document, config.General.readOnly);
         }
-
-        // And an empty one opened in its place, because everything the wizard does from here writes
-        // to a database: creating a document, taking a pushed sync seed, converging a sync. Opening
-        // a path with nothing at it creates it empty, which is the state a first run begins in — so
-        // this leaves the instance exactly where a machine that had never run Trilium would be.
-        getSql().attachFromFile(document, config.General.readOnly);
     }
 };

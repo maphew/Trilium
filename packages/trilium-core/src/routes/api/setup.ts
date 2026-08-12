@@ -28,6 +28,10 @@ function getStatus() {
         isInitialized,
         schemaExists,
         authRequired,
+        // Asked again rather than taken from the page's own start: the paths that replace a
+        // knowledge base erase it here, and a wizard that failed after one of them did would go on
+        // offering a way back to something that no longer exists.
+        hasExistingData: hasExistingData(),
         syncVersion: appInfo.syncVersion,
         // What another tab, or this one after a reload, has already started. Lets the wizard say so
         // rather than only finding out by being refused.

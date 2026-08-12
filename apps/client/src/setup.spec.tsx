@@ -48,6 +48,18 @@ function renderInto(vnode: preact.ComponentChild) {
 const flushEffects = () => vi.advanceTimersByTimeAsync(50);
 const nextPoll = () => vi.advanceTimersByTimeAsync(1000);
 
+/** Answers the sync form enough for it to let Finish be pressed. */
+function fillSyncForm(root: HTMLElement) {
+    const host = root.querySelector<HTMLInputElement>("input:not([type=password])");
+    const password = root.querySelector<HTMLInputElement>("input[type=password]");
+
+    for (const [ field, value ] of [ [ host, "https://srv" ], [ password, "pw" ] ] as const) {
+        if (!field) continue;
+        field.value = value;
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+}
+
 /** Routes the mocked server.get; `stats` can be swapped between polls. */
 let stats: Stats;
 function mockRoutes(extra: Record<string, unknown> = {}) {
@@ -284,6 +296,20 @@ describe("creating the knowledge base", () => {
             container.remove();
         }
     });
+
+    it("stops claiming there is anything to go back to once the server has erased it", async () => {
+        // This path erases server-side as its first step, so a failure may well have left nothing
+        // behind the wizard — and the page it fails on came from a start that still believed there
+        // was. Asked again rather than assumed, since only the server knows.
+        window.glob.hasExistingData = true;
+        mockRoutes({ "setup/status": { hasExistingData: false } });
+        serverMock.post.mockRejectedValue(new Error("the disk is full"));
+
+        renderInto(renderState("createNewDocumentEmpty", vi.fn()));
+        await flushEffects();
+
+        expect(window.glob.hasExistingData).toBe(false);
+    });
 });
 
 describe("SyncInProgress", () => {
@@ -407,6 +433,40 @@ describe("SyncFromServer", () => {
         await flushEffects();
 
         expect(host.value).toBe("https://typed.example.com");
+    });
+
+    it("stops claiming there is anything to go back to when the failure came after the erase", async () => {
+        // Reaching the server can fail on something the user corrects right here, and the knowledge
+        // base is deliberately still there for those. Past the point the server answers, the last
+        // step erases before it builds — so which of the two happened is asked, not assumed.
+        window.glob.hasExistingData = true;
+        mockRoutes({ "setup/status": { hasExistingData: false } });
+        serverMock.post.mockResolvedValue({ result: "failure", error: "the disk is full" });
+        const c = renderInto(<SyncFromServer setState={vi.fn()} />);
+        await flushEffects();
+        fillSyncForm(c);
+        await flushEffects();
+
+        c.querySelector<HTMLElement>("footer button")?.click();
+        await flushEffects();
+
+        expect(window.glob.hasExistingData).toBe(false);
+        expect(c.querySelector(".page-error")?.textContent).toContain("setup.sync-failed");
+    });
+
+    it("keeps it where the server refused the credentials, which erases nothing", async () => {
+        window.glob.hasExistingData = true;
+        mockRoutes({ "setup/status": { hasExistingData: true } });
+        serverMock.post.mockResolvedValue({ result: "failure", error: "Incorrect password" });
+        const c = renderInto(<SyncFromServer setState={vi.fn()} />);
+        await flushEffects();
+        fillSyncForm(c);
+        await flushEffects();
+
+        c.querySelector<HTMLElement>("footer button")?.click();
+        await flushEffects();
+
+        expect(window.glob.hasExistingData).toBe(true);
     });
 
     it("leaves the form empty on a fresh setup (no stored sync options)", async () => {

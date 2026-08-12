@@ -982,6 +982,14 @@ export interface SetupStatusResponse {
     syncVersion: number;
     schemaExists: boolean;
     isInitialized?: boolean;
+    /**
+     * Whether there is still a knowledge base behind the wizard.
+     *
+     * The same answer the bootstrap gave when the page loaded, asked again: the paths that replace a
+     * knowledge base erase it on the server, so a page that has been sitting here since before one
+     * of them ran would otherwise go on offering a way back to something that is gone.
+     */
+    hasExistingData?: boolean;
     /** The operation setup is busy with, or `null` when it is free. */
     setupOperation?: SetupOperation | null;
     /** Kept from a failed sync attempt so the wizard can prefill the form; pre-initialization only. */

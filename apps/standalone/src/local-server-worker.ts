@@ -442,13 +442,20 @@ async function removeStandaloneDatabase(): Promise<void> {
     coreModule.getSql().detachConnection();
 
     try {
-        pool.unlink(live);
-    } catch {
-        // Already gone, which is the state the caller asked for.
-    }
+        try {
+            pool.unlink(live);
+        } catch {
+            // Already gone, which is the state the caller asked for.
+        }
 
-    await writeCurrentDatabaseName(DEFAULT_DATABASE_NAME);
-    sqlProvider.loadFromSahPool(DEFAULT_DATABASE_NAME);
+        await writeCurrentDatabaseName(DEFAULT_DATABASE_NAME);
+    } finally {
+        // Whatever happened above, the worker has to come back holding a database: everything after
+        // this point writes to one, and a detached service answers every request with "DB not open"
+        // for as long as this worker lives. The pool creates the entry where there is none, so this
+        // opens either the one that was just cleared out or a fresh one under the same name.
+        sqlProvider.loadFromSahPool(DEFAULT_DATABASE_NAME);
+    }
 }
 
 /**

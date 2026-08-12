@@ -11,7 +11,12 @@ import { getCurrentLanguage, initLocale, t } from "./services/i18n";
 import server from "./services/server";
 import { isElectron, isMobileApp } from "./services/utils";
 import SetupBackupDatabase from "./setup_backup";
-import ExistingData, { deleteExistingData, hasExistingData, keepExistingData } from "./setup_existing";
+import ExistingData, {
+    deleteExistingData,
+    hasExistingData,
+    keepExistingData,
+    refreshExistingData
+} from "./setup_existing";
 import RestoreFromBackup from "./setup_restore";
 import SetupUnlock from "./setup_unlock";
 import Admonition, { ExtendedAdmonition } from "./widgets/react/Admonition";
@@ -552,7 +557,13 @@ function CreateNewDocumentInProgress({ withDemo = false, setState }: {
     useEffect(() => {
         server.post(`setup/new-document${withDemo ? "" : "?skipDemoDb"}`, { locale: getCurrentLanguage() })
             .then(onSetupFinished)
-            .catch((e: unknown) => setError(messageOf(e)));
+            .catch(async (e: unknown) => {
+                // The knowledge base is erased server-side as the first step of this, so a failure
+                // may well have left nothing behind the wizard. Asked again before the menu is
+                // shown once more, which decides from that answer what it may still offer.
+                await refreshExistingData();
+                setError(messageOf(e));
+            });
     }, [ withDemo ]);
 
     return (
@@ -646,7 +657,17 @@ export function SyncFromServer({ setState }: { setState: (state: State) => void 
 
             if (resp.result === "success") {
                 setState("syncFromServerInProgress");
-            } else if (resp.error.includes("Incorrect password")) {
+                return;
+            }
+
+            // A failure here is usually one the user can correct on this very form — a mistyped
+            // host, a refused password — and the knowledge base is deliberately still there for
+            // those. It is not for all of them: once the server has answered, the last step erases
+            // before it builds, so a failure past that point leaves nothing behind the wizard. Only
+            // the server knows which of the two happened, so it is asked rather than guessed at.
+            await refreshExistingData();
+
+            if (resp.error.includes("Incorrect password")) {
                 setIsWrongPassword(true);
             } else {
                 raiseError(t("setup.sync-failed", { message: resp.error }));

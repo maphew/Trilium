@@ -4,7 +4,8 @@ import type {
     SetupBackupDefaults,
     SetupBackupSettings,
     SetupExistingBackup,
-    SetupExistingBackupStatus
+    SetupExistingBackupStatus,
+    SetupStatusResponse
 } from "@triliumnext/commons";
 import { useEffect, useState } from "preact/hooks";
 
@@ -529,4 +530,22 @@ export function keepExistingData(): Promise<void> {
  */
 export function hasExistingData(): boolean {
     return window.glob.hasExistingData === true;
+}
+
+/**
+ * Asks the server again, for the paths that erase without going through this page.
+ *
+ * Creating a document and syncing from a server both erase server-side, at the last moment before
+ * the database that replaces this one is built. Where that replacement then fails, the wizard stays
+ * open on a screen that came from a start which still believed there was something behind it — and
+ * would go on offering a way back to it. Never throws: a wizard that cannot reach its own server has
+ * a larger problem than a stale flag, and the screens read the flag while rendering.
+ */
+export async function refreshExistingData(): Promise<void> {
+    try {
+        const { hasExistingData } = await server.get<SetupStatusResponse>("setup/status");
+        window.glob.hasExistingData = hasExistingData === true;
+    } catch {
+        // Left as it was, which is the answer the page already had.
+    }
 }

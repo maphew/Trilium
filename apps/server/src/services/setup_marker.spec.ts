@@ -106,6 +106,35 @@ describe("erasing the database the wizard was booted away from", () => {
         expect(getSql().getValue("SELECT 1")).toBe(1);
         expect(fs.existsSync(dataDirs.DOCUMENT_PATH)).toBe(true);
     });
+
+    it("takes the sidecars first, so a removal that stops part-way leaves a whole database", async () => {
+        // The other order can leave a stale `-wal` beside a freshly created database of the same
+        // name, which SQLite would try to replay into it.
+        const removed: string[] = [];
+        vi.spyOn(fs, "rmSync").mockImplementation((file) => {
+            removed.push(String(file).replace(dataDirs.DOCUMENT_PATH, "<document>"));
+        });
+
+        await setupPlatform.removeDatabase();
+
+        expect(removed).toEqual([ "<document>-wal", "<document>-shm", "<document>" ]);
+        vi.restoreAllMocks();
+    });
+
+    it("comes back holding a connection even when the files would not go", async () => {
+        // Reachable rather than theoretical: on Windows an antivirus scanner or a search indexer
+        // holding the file is enough for EPERM. Left detached, every later request answers
+        // "DB not open" until the application is restarted — including the ones the wizard needs to
+        // report what went wrong and let the user try something else.
+        vi.spyOn(fs, "rmSync").mockImplementation(() => {
+            throw new Error("EPERM: operation not permitted");
+        });
+
+        await expect(setupPlatform.removeDatabase()).rejects.toThrow(/EPERM/);
+
+        vi.restoreAllMocks();
+        expect(getSql().getValue("SELECT 1")).toBe(1);
+    });
 });
 
 function documentFiles(): string[] {
