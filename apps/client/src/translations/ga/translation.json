@@ -879,7 +879,9 @@
       "times": "amanna",
       "custom_rule": "Riail",
       "custom_hint": "Riail athfhillteach iCalendar (RRULE) a deir níos mó ná mar is féidir leis na réimsí thuas. Cuirtear stop leis an athrá má ghlanann tú í."
-    }
+    },
+    "expand_details": "Leathnaigh an t-imeacht chun an fhuinneog a líonadh",
+    "restore_details": "Cuir an ócáid ar ais in aice lena háit sa fhéilire"
   },
   "close_pane_button": {
     "close_this_pane": "Dún an phainéal seo"
@@ -1734,7 +1736,14 @@
     "backups_summary_two": "Cúltaca de {{count}}, an ceann is déanaí ó {{age}} ó shin.",
     "backups_summary_few": "Cúltaca de {{count}}, an ceann is déanaí ó {{age}} ó shin.",
     "backups_summary_many": "Cúltaca de {{count}}, an ceann is déanaí ó {{age}} ó shin.",
-    "backups_summary_other": "Cúltaca de {{count}}, an ceann is déanaí ó {{age}} ó shin."
+    "backups_summary_other": "Cúltaca de {{count}}, an ceann is déanaí ó {{age}} ó shin.",
+    "restore_backup": "Athchóirigh cúltaca",
+    "standalone_heading": "Cúltaca de do shonraí Trilium",
+    "standalone_description": "Anseo is féidir leat cúltaca de do bhunachar eolais Trilium a íoslódáil, nó cúltaca atá ann cheana a athchóiriú.",
+    "create_and_download": "Íoslódáil cúltaca",
+    "upload_and_restore": "Athchóirigh cúltaca",
+    "restart_for_backup": "Caithfidh Trilium atosú chun cúltaca de do nótaí a dhéanamh. Is féidir leat filleadh orthu a luaithe a bheidh sé déanta.\n\nAtosú anois?",
+    "restart_for_restore": "Ní mór Trilium a atosú sula dtosaíonn an próiseas athchóirithe. Nuair a thosaíonn an próiseas athchóirithe, iarrfar ort cúltaca de do shonraí atá ann cheana a dhéanamh sula ndéantar iad a athscríobh, ionas nach gcaillfear aon rud.\n\nAtosú anois?"
   },
   "etapi": {
     "description": "Is API REST é ETAPI a úsáidtear chun rochtain a fháil ar shampla Trilium go ríomhchláraitheach, gan chomhéadan úsáideora.",
@@ -2351,7 +2360,9 @@
     "exit-fullscreen": "Scoir lánscáileáin",
     "close-details": "Dún",
     "marker-color": "Dath marcóra",
-    "copy-coordinates": "Cóipeáil comhordanáidí"
+    "copy-coordinates": "Cóipeáil comhordanáidí",
+    "expand-details": "Leathnaigh an nóta chun an léarscáil a líonadh",
+    "restore-details": "Cuir an nóta ar ais in aice leis an léarscáil"
   },
   "geo-map-context": {
     "open-location": "Oscail suíomh",
@@ -3044,7 +3055,8 @@
     "exit-fullscreen": "Scoir lánscáileáin",
     "direction-left": "Brainsí ar chlé",
     "direction-right": "Brainsí ar dheis",
-    "direction-side": "Brainsí ar an dá thaobh"
+    "direction-side": "Brainsí ar an dá thaobh",
+    "direction-down": "Brainsí anuas"
   },
   "llm": {
     "add_provider": "Cuir Soláthraí leis",
@@ -3140,7 +3152,9 @@
     "mcp_config_description": "Cruthaigh comhartha faoi Roghanna → ETAPI, ansin cuir an méid seo a leanas le cumraíocht MCP do chúntóra, ag cur do chomhartha féin in ionad an áitchoinneálaí:",
     "mcp_config_token_placeholder": "do-chomhartha-etapi",
     "mcp_config_cli_description": "Is féidir Cód Claude a chumrú ón líne ordaithe ina ionad sin:",
-    "mcp_config_warning": "Tugann comhartha rochtain iomlán léite agus scríofa ar do nótaí go léir, mar sin déan é a láimhseáil mar phasfhocal. Má nascann tú ó ghléas eile, b'fhearr leat HTTPS — is féidir comhartha a sheoltar thar HTTP simplí a thascradh."
+    "mcp_config_warning": "Tugann comhartha rochtain iomlán léite agus scríofa ar do nótaí go léir, mar sin déan é a láimhseáil mar phasfhocal. Má nascann tú ó ghléas eile, b'fhearr leat HTTPS — is féidir comhartha a sheoltar thar HTTP simplí a thascradh.",
+    "provider_unavailable_standalone": "Gan a bheith ar fáil sa leagan brabhsálaí: oibríonn an soláthraí seo trí Claude Code a rith mar chlár ar leith, agus níl aon mheaisín anseo chun é a rith air.",
+    "mcp_unavailable_standalone": "Gan a bheith ar fáil sa leagan brabhsálaí: cheanglódh cúntóirí le Trilium thar an líonra, ach níl aon seoladh ag an tógáil seo le tabhairt dóibh, ós rud é go ritheann sé go hiomlán laistigh den leathanach seo."
   },
   "ocr": {
     "extracted_text": "Téacs Bainte (OCR)",
@@ -3414,7 +3428,52 @@
     "restore-stage-validating": "Ag seiceáil an bhunachar sonraí",
     "restore-stage-swapping": "Á chur ina áit",
     "restore-stage-migrating": "Ag oscailt an bhunachair shonraí",
-    "restore-do-not-close": "Ná dún an fhuinneog seo."
+    "restore-do-not-close": "Ná dún an fhuinneog seo.",
+    "existing-data": "Do shonraí atá ann cheana a shábháil?",
+    "existing-data-back-up": "Sea, cruthaigh cúltaca",
+    "existing-data-delete": "Níl, scrios gach rud",
+    "existing-data-delete-warning": "Nuair a bhrúnn tú Lean ar aghaidh, scriosfar an bunachar eolais atá ann cheana go buan. Níl aon bhealach ann é a aisghabháil ina dhiaidh sin.",
+    "existing-data-cancel": "Cealaigh",
+    "existing-data-backing-up": "Ag déanamh cúltaca",
+    "existing-data-backing-up-message": "Ag cruthú cúltaca...",
+    "existing-data-backed-up": "Cúltaca cruthaithe",
+    "existing-data-backed-up-description": "Tá do bhunachar eolais reatha sábháilte i gcomhad cúltaca.",
+    "existing-data-file-name": "Ainm comhaid chúltaca",
+    "existing-data-file-path": "Suíomh",
+    "existing-data-open-folder": "Oscail an fillteán seo",
+    "existing-data-save-as": "Sábháil cóip...",
+    "existing-data-download": "Íoslódáil",
+    "existing-data-file-size": "Méid",
+    "existing-data-backup-failed": "Níorbh fhéidir an cúltaca a chruthú.",
+    "backup-data": "Cúltaca de do shonraí Trilium",
+    "backup-name": "Ainm cúltaca",
+    "backup-name-description": "Tabhair ainm don chúltaca seo a aithneoidh tú níos déanaí, nó coinnigh an ceann molta.",
+    "backup-password": "Pasfhocal (roghnach)",
+    "backup-password-repeat": "Athdhéan an focal faire",
+    "backup-password-description": "Má shonraíonn tú pasfhocal, cripteofar an comhad cúltaca. Coinnigh an pasfhocal in áit shábháilte: gan é, ní féidir an cúltaca a athchóiriú.",
+    "backup-use-stored-password": "Úsáid an focal faire atá cumraithe agat cheana féin",
+    "backup-use-stored-password-description": "Bain úsáid as an focal faire criptithe céanna a shocraigh tú roimhe seo i Roghanna → Cúltaca.",
+    "backup-compress": "Comhbhrúigh an cúltaca",
+    "backup-compress-description": "Déanann sé an comhad níos lú, ar chostas roinnt ama agus é á scríobh.",
+    "backup-data-description": "Sa leagan Neamhspleách de Trilium Notes, gintear cúltacaí ar an toirt agus íoslódáiltear iad go díreach chuig do ghléas. Ní stóráiltear iad in áit ar bith eile, mar sin déan cinnte an comhad a shábháil.",
+    "backup-file": "Sábhálfar cúltaca mar",
+    "backup-download": "Cúltaca a ghiniúint agus a íoslódáil",
+    "backup-downloading": "Ag íoslódáil...",
+    "backup-downloading-percent": "{{percent}}%",
+    "backup-downloading-size": "({{done}} de {{total}})",
+    "backup-do-not-close": "Ná hathraigh ná dún an scáileán seo go dtí go mbeidh an íoslódáil críochnaithe.",
+    "backup-downloaded": "Tá an íoslódáil críochnaithe. Brúigh \"Críochnaigh\" chun filleadh ar an bhfeidhmchlár.",
+    "backup-download-failed": "Níor chríochnaigh an íoslódáil.",
+    "backup-finish": "Críochnaigh",
+    "existing-data-erase-confirm": "Caillfear na sonraí atá ann cheana anois. Déan cinnte go gcoinníonn tú an comhad cúltaca in áit shábháilte. Ar aghaidh?",
+    "existing-data-delete-failed": "Níorbh fhéidir an bunachar eolais atá ann cheana a scriosadh.",
+    "existing-data-keep-failed": "Níorbh fhéidir an bunachar eolais atá ann cheana a athoscailt.",
+    "restore-upload-reconnecting": "Ag fanacht le nasc a athbhunú...",
+    "restore-error-swap-failed-reload": "Níorbh fhéidir an bunachar sonraí a athsholáthar. Tá do bhunachar sonraí roimhe seo ar ais ina áit, ach níorbh fhéidir le Trilium é a athoscailt. Athlódáil an leathanach seo le leanúint ar aghaidh.",
+    "restore-error-check-failed": "Níorbh fhéidir an cúltaca a sheiceáil. B’fhéidir gur fadhb ar an ngléas seo seachas leis an gcúltaca féin atá ann, mar sin is fiú iarracht eile a dhéanamh.",
+    "restore-error-failed": "Níorbh fhéidir an t-athchóiriú a chríochnú. Níor cuireadh aon rud ina áit, mar sin tá do bhunachar eolais mar a bhí sé.",
+    "restore-error-incomplete": "Tá an comhad cúltaca seo neamhiomlán. Is dócha nár cóipeáladh ná nár íoslódáladh é go hiomlán, mar sin déan iarracht é a aistriú arís.",
+    "restore-error-upload-interrupted": "Cuireadh isteach ar an uaslódáil agus níorbh fhéidir leanúint leis. Roghnaigh an cúltaca arís le tosú arís."
   },
   "text-editor": {
     "validation-errors": {
@@ -3908,7 +3967,9 @@
     "unit_mph": "{{value}} msu"
   },
   "database_file_list": {
-    "size_on_disk": "{{size}} ar dhiosca"
+    "size_on_disk": "{{size}} ar dhiosca",
+    "invalid_backup": "Comhad cúltaca neamhbhailí",
+    "unsupported_version": "Leagan formáid comhaid chúltaca nach dtacaítear leis"
   },
   "password_with_confirmation": {
     "password": "Pasfhocal",
