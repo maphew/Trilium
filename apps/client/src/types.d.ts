@@ -1,6 +1,7 @@
 import { BootstrapDefinition, ElectronApi, ElectronContextMenuParams, StandaloneApi } from "@triliumnext/commons";
 
 import appContext, { AppContext } from "./components/app_context";
+import type triliumPerf from "./services/debug_perf";
 import type FNote from "./entities/fnote";
 import type { PrintReport } from "./print";
 import type { lint } from "./services/eslint";
@@ -43,6 +44,9 @@ declare global {
 
         logError(message: string);
         logInfo(message: string);
+
+        /** Opt-in main-thread profiler, driven from the devtools console. See `services/debug_perf`. */
+        triliumPerf: typeof triliumPerf;
 
         process?: ElectronProcess;
         glob?: CustomGlobals;

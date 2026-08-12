@@ -4,6 +4,7 @@ import { type ModelMessage, stepCountIs, streamText, type SystemModelMessage, ty
 
 import type { LlmProviderConfig, ModelInfo, StreamResult } from "../types.js";
 import { BaseProvider, buildModelMessage, type RemoteModel, TELEMETRY_OFF } from "./base_provider.js";
+import { llmFetch } from "./fetch.js";
 
 const OFFICIAL_BASE_URL = "https://api.anthropic.com/v1";
 
@@ -43,7 +44,7 @@ export class AnthropicProvider extends BaseProvider {
         if (!apiKey) {
             throw new Error("API key is required for Anthropic provider");
         }
-        this.anthropic = createAnthropic({ apiKey, headers: BROWSER_ACCESS_HEADER, ...(baseURL && { baseURL }) });
+        this.anthropic = createAnthropic({ apiKey, headers: BROWSER_ACCESS_HEADER, ...(baseURL && { baseURL }), fetch: llmFetch });
     }
 
     protected createModel(modelId: string) {
