@@ -69,6 +69,12 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
     // Which language a note with no `#language` of its own is written in, and so which quotes it
     // gets. The UI locale it can fall back to is already covered by `uiLanguage` above.
     const [ defaultContentLanguage ] = useTriliumOption("defaultContentLanguage");
+    // Rebuild triggers as well: `buildHtmlSupportConfig()` reads both at editor-creation time, and
+    // GHS turns its allow-list into schema definitions and converters when `DataSchema`/`DataFilter`
+    // register at init, so there is nothing for a live editor to re-read. The raw JSON string for
+    // the tag list, for the same by-value reason as `customReplacements` above.
+    const [ htmlSupportEnabled ] = useTriliumOptionBool("textNoteHtmlSupportEnabled");
+    const [ allowedHtmlTags ] = useTriliumOption("allowedHtmlTags");
     const [ editor, setEditor ] = useState<CKTextEditor>();
     const { parentComponent, ntxId, note } = useNoteContext();
 
@@ -297,7 +303,7 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
     }, [
         contentLanguage, uiLanguage, isClassicEditor, multilineToolbar,
         doubleQuoteStyle, singleQuoteStyle, punctuationReplacements, mathReplacements, symbolReplacements,
-        customReplacements, defaultContentLanguage
+        customReplacements, defaultContentLanguage, htmlSupportEnabled, allowedHtmlTags
     ]);
 
     // Push snippet ("template") definitions into the live editor instead of rebuilding it. The premium
