@@ -241,14 +241,32 @@ describe("LocalProvider", () => {
             );
         });
 
-        it("reports a rejected credential instead of probing on", async () => {
-            fetchMock.mockImplementation(routes({ "/api/tags": status(401) }));
+        it("reports a rejected credential from the endpoint it depends on", async () => {
+            // A key the endpoint really rejects is refused by /v1/models too, so
+            // tolerating the native probes costs nothing: the verdict still comes,
+            // it just comes from the path that decides it.
+            fetchMock.mockImplementation(routes({ "/api/tags": status(401), "/v1/models": status(401) }));
             await expect(new LocalProvider("ollama").listModels()).rejects.toThrow(/Authentication failed \(HTTP 401\)/);
         });
 
-        it("reports a server error instead of probing on", async () => {
-            fetchMock.mockImplementation(routes({ "/api/tags": status(500) }));
-            await expect(new LocalProvider("ollama").listModels()).rejects.toThrow(/HTTP 500/);
+        it("reports a server error from the endpoint it depends on", async () => {
+            fetchMock.mockImplementation(routes({ "/v1/models": status(500) }));
+            await expect(new LocalProvider("openai-compatible", "", "http://box:8080").listModels())
+                .rejects.toThrow(/HTTP 500/);
+        });
+
+        it("advances past a gateway that rejects the native probe paths", async () => {
+            // A CDN or WAF in front of a hosted OpenAI-compatible API blocks the
+            // paths outside /v1 outright — apihub.agnes-ai.com answers /api/tags
+            // with a 403 HTML block page. That is a verdict on the path, not on
+            // the credential, so the chain must still reach /v1/models. (#10996)
+            fetchMock.mockImplementation(routes({
+                "/api/tags": status(403),
+                "/api/v0/models": status(403),
+                "/v1/models": openAiModels(["gpt-4o"])
+            }));
+            const models = await new LocalProvider("openai-compatible", "sk-key", "https://apihub.example.com/v1").listModels();
+            expect(models.map(m => m.id)).toEqual(["gpt-4o"]);
         });
 
         it("reports an endpoint that serves no listing at all", async () => {

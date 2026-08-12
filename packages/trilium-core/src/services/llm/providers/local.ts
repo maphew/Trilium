@@ -141,7 +141,7 @@ export class LocalProvider extends BaseProvider {
      */
     private async listNativeModels(): Promise<LocalModel[] | null> {
         if (this.kind !== "lmstudio") {
-            const payload = await this.probeJson(`${this.root}/api/tags`);
+            const payload = await this.probeJson(`${this.root}/api/tags`, { optional: true });
             const models = payload !== undefined ? parseOllamaTags(payload) : null;
             if (models) {
                 this.isLocalRuntime = true;
@@ -155,7 +155,7 @@ export class LocalProvider extends BaseProvider {
             }
         }
         if (this.kind !== "ollama") {
-            const payload = await this.probeJson(`${this.root}/api/v0/models`);
+            const payload = await this.probeJson(`${this.root}/api/v0/models`, { optional: true });
             const models = payload !== undefined ? parseLmStudioModels(payload) : null;
             if (models) {
                 this.isLocalRuntime = true;
@@ -192,8 +192,18 @@ export class LocalProvider extends BaseProvider {
      * else throws: an unreachable host or a rejected credential is a real
      * problem the add/edit-provider screen must report, not a reason to keep
      * trying other URLs.
+     *
+     * `optional` marks a probe that exists only to enrich the listing — the two
+     * native endpoints. Those paths sit outside the OpenAI-compatible namespace,
+     * so anything fronting the endpoint (a CDN's WAF, an API gateway, a
+     * forward-auth proxy) routinely rejects them while `/v1/*` works perfectly:
+     * a 403 HTML block page on `/api/tags` says nothing about the credential.
+     * Any error status therefore just advances the chain, leaving only
+     * `/v1/models` — the endpoint the provider actually depends on — able to
+     * fail the operation. A genuinely rejected key still surfaces, because
+     * `/v1/models` answers it with the same status.
      */
-    private async probeJson(url: string): Promise<unknown | undefined> {
+    private async probeJson(url: string, { optional = false } = {}): Promise<unknown | undefined> {
         let response: Response;
         try {
             response = await llmFetch(url, {
@@ -201,12 +211,15 @@ export class LocalProvider extends BaseProvider {
                 signal: AbortSignal.timeout(MODEL_LIST_TIMEOUT_MS)
             });
         } catch (e) {
+            // Unlike a status, a transport failure is a fact about the host, not
+            // the path: the later probes go to that same host and would only
+            // burn another timeout each to reach the same verdict.
             throw new Error(`Could not reach ${url}: ${e instanceof Error ? e.message : String(e)}`);
         }
-        if (response.status === 404 || response.status === 405) {
-            return undefined;
-        }
         if (!response.ok) {
+            if (optional || response.status === 404 || response.status === 405) {
+                return undefined;
+            }
             if (response.status === 401 || response.status === 403) {
                 throw new Error(`Authentication failed (HTTP ${response.status}) — check the API key and base URL.`);
             }
