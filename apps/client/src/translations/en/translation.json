@@ -2328,7 +2328,7 @@
     "title": "Spell Check",
     "description": "These options apply only for desktop builds, browsers will use their own native spell check.",
     "enable": "Check spelling",
-    "disabled_placeholder": "Spell check is turned off. Enable it to choose languages and manage the custom dictionary.",
+    "enable_description": "Underlines misspelled words as you type, with corrections offered in the right-click menu.",
     "language_code_label": "Spell Check Languages",
     "custom_dictionary_title": "Custom Dictionary",
     "custom_dictionary_description": "Words added to the dictionary are synced across all your devices.",
@@ -3847,7 +3847,8 @@
     "direction-down": "Branches downwards"
   },
   "llm": {
-    "disabled_placeholder": "AI features are turned off. Enable them to configure providers and MCP.",
+    "enabled": "AI features",
+    "enabled_description": "Adds the AI chat sidebar and LLM chat notes, using the providers configured below.",
     "feature_not_enabled": "Enable the LLM experimental feature in Settings → Advanced → Experimental features to use AI integrations.",
     "add_provider": "Add Provider",
     "add_provider_title": "Add AI Provider",

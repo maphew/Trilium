@@ -12,7 +12,6 @@ import Button from "../../react/Button";
 import CodeBlock from "../../react/CodeBlock";
 import Collapsible from "../../react/Collapsible";
 import FormTextBox from "../../react/FormTextBox";
-import FormToggle from "../../react/FormToggle";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import MaskedIcon from "../../react/MaskedIcon";
 import NoItems from "../../react/NoItems";
@@ -26,28 +25,23 @@ export default function LlmSettings() {
 
     return (
         <>
-            <OptionsPageHeader
-                helpUrl="GBBMSlVSOIGP"
-                actions={
-                    <FormToggle
-                        switchOnName="" switchOffName=""
-                        switchOnTooltip={t("experimental_features.llm_name")}
-                        switchOffTooltip={t("experimental_features.llm_name")}
-                        currentValue={aiEnabled}
-                        onChange={setAiEnabled}
-                    />
-                }
-            />
+            <OptionsPageHeader helpUrl="GBBMSlVSOIGP" />
 
-            {aiEnabled ? (
+            <OptionsSection>
+                <OptionsRowWithToggle
+                    name="ai-enabled"
+                    label={t("llm.enabled")}
+                    description={t("llm.enabled_description")}
+                    currentValue={aiEnabled}
+                    onChange={setAiEnabled}
+                />
+            </OptionsSection>
+
+            {aiEnabled && (
                 <>
                     <ProviderSettings />
                     <McpSettings />
                 </>
-            ) : (
-                <OptionsSection>
-                    <NoItems icon="bx bx-bot" text={t("llm.disabled_placeholder")} />
-                </OptionsSection>
             )}
         </>
     );

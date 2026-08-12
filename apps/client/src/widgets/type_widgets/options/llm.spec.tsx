@@ -77,6 +77,31 @@ function mcpRow() {
     };
 }
 
+describe("the AI master switch", () => {
+    it("is a named row, so what it turns on is stated rather than left to a tooltip", () => {
+        open();
+
+        const toggle = host.querySelector<HTMLInputElement>("input.switch-toggle[id^='ai-enabled-']");
+        expect(toggle).not.toBeNull();
+
+        // Bound to the switch, not merely text near it — the switch's accessible name.
+        const row = toggle?.closest(".option-row");
+        expect(row?.querySelector("label")?.getAttribute("for")).toBe(toggle?.id);
+        expect(row?.querySelector("label")?.textContent).toBe("llm.enabled");
+        expect(row?.querySelector(".option-row-description")?.textContent).toBe("llm.enabled_description");
+    });
+
+    it("stays on the page when off, so the way back on is where the settings were", () => {
+        mocks.stored = { aiEnabled: "false", mcpEnabled: "true" };
+        open();
+
+        expect(host.querySelector("input.switch-toggle[id^='ai-enabled-']")).not.toBeNull();
+        // Everything it governs is gone, and nothing stands in for it: the switch is the page.
+        expect(host.querySelector("input.switch-toggle[id^='mcp-enabled-']")).toBeNull();
+        expect(host.querySelector(".no-items")).toBeNull();
+    });
+});
+
 describe("the MCP card in standalone", () => {
     it("offers the endpoint where Trilium listens on one", () => {
         open();
