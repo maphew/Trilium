@@ -380,6 +380,51 @@ async function reacquireAccessHandles(pool: SAHPoolUtil): Promise<void> {
     await pool.unpauseVfs();
 }
 
+/**
+ * Erases the live database and leaves an empty one in its place.
+ *
+ * What the setup wizard does when the user asks for it. The pool has no notion of "no database", and
+ * everything after this point in the wizard writes to one — creating a document, converging a sync —
+ * so the entry is unlinked and a fresh one opened under the name a first run uses, which is exactly
+ * the state a browser that had never run Trilium is in.
+ *
+ * Beside the restore because it is the same dance: close, exchange, open. The order below is what
+ * keeps a failure part-way through from leaving the two halves of "which database is live"
+ * disagreeing, and each step says what it costs when it is the one that fails.
+ *
+ * @throws Error where the pointer could not be moved, having erased nothing.
+ */
+export async function eraseDatabase(target: RestoreTarget): Promise<void> {
+    const live = await readCurrentDatabaseName();
+    target.close();
+
+    // Which entry the caller will be holding when this returns. It moves only once the pointer that
+    // outlives this worker agrees, so the two can never come out of here naming different databases:
+    // the next start reads that pointer, and running on one entry while the pointer names another
+    // would silently strand everything written in between.
+    let opening = live;
+
+    try {
+        // The pointer first, and the unlink second. The other way round, a pointer write that failed
+        // would leave it naming an entry that no longer exists while this worker ran on the default
+        // one. A pointer that is moved and then not followed through only leaks the old entry.
+        await writeCurrentDatabaseName(DEFAULT_DATABASE_NAME);
+        opening = DEFAULT_DATABASE_NAME;
+
+        try {
+            target.pool.unlink(live);
+        } catch {
+            // Already gone, which is the state the caller asked for.
+        }
+    } finally {
+        // Whatever happened above, the caller has to come back holding a database: everything after
+        // this point writes to one, and a detached service answers every request with "DB not open"
+        // for as long as this worker lives. The pool creates the entry where there is none, so this
+        // opens either the one just cleared out, or the one nothing got around to clearing.
+        target.open(opening);
+    }
+}
+
 /** Points the next start at `dbName`, which is the whole of what makes a database the live one. */
 export async function writeCurrentDatabaseName(dbName: string): Promise<void> {
     const root = await navigator.storage.getDirectory();

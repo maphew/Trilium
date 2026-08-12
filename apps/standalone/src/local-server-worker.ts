@@ -429,33 +429,17 @@ async function removeStandaloneDatabase(): Promise<void> {
         throw new Error("The database is not open, so there is nothing to erase.");
     }
 
-    const {
-        DEFAULT_DATABASE_NAME,
-        readCurrentDatabaseName,
-        writeCurrentDatabaseName
-    } = await import('./lightweight/database_restore.js');
+    const { eraseDatabase } = await import('./lightweight/database_restore.js');
 
-    const live = await readCurrentDatabaseName();
-    // Through the SQL service rather than straight at the provider: it holds prepared statements of
-    // its own, bound to the connection this closes, and the wizard goes on using the same worker
-    // afterwards — creating a document runs against the database opened below, in this very request.
-    coreModule.getSql().detachConnection();
-
-    try {
-        try {
-            pool.unlink(live);
-        } catch {
-            // Already gone, which is the state the caller asked for.
-        }
-
-        await writeCurrentDatabaseName(DEFAULT_DATABASE_NAME);
-    } finally {
-        // Whatever happened above, the worker has to come back holding a database: everything after
-        // this point writes to one, and a detached service answers every request with "DB not open"
-        // for as long as this worker lives. The pool creates the entry where there is none, so this
-        // opens either the one that was just cleared out or a fresh one under the same name.
-        sqlProvider.loadFromSahPool(DEFAULT_DATABASE_NAME);
-    }
+    await eraseDatabase({
+        pool,
+        // Closed through the SQL service rather than straight at the provider: the service holds
+        // prepared statements of its own, bound to the connection this closes, and the wizard goes
+        // on using the same worker afterwards — creating a document runs against the database
+        // opened at the end of this, in this very request.
+        close: () => coreModule?.getSql().detachConnection(),
+        open: (dbName) => sqlProvider?.loadFromSahPool(dbName)
+    });
 }
 
 /**

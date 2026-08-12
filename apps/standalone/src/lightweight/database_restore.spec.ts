@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
     DEFAULT_DATABASE_NAME,
+    eraseDatabase,
     readCurrentDatabaseName,
     readInSlices,
     restoreDatabase,
@@ -632,5 +633,83 @@ describe("a backup that cannot be restored", () => {
         // The pointer is the whole of what a start reads, so the notes that were here are still the
         // ones it opens; this instance just cannot get to them without one.
         expect(pointer).toBe(DEFAULT_DATABASE_NAME);
+    });
+});
+
+/**
+ * Erasing is the same close/exchange/open dance as a restore, and the same thing can go wrong in the
+ * middle of it: the pointer that outlives this worker and the entry the worker is actually holding
+ * can end up naming different databases. A start reads only the pointer, so everything written into
+ * the other one after that is simply never seen again.
+ */
+describe("erasing the live database", () => {
+    it("moves the pointer, unlinks what was live, and opens an empty one in its place", async () => {
+        const { files, pool } = fakePool();
+        files.set(DEFAULT_DATABASE_NAME, databaseBytes());
+        const { target, acted } = fakeTarget(pool);
+
+        await eraseDatabase(target);
+
+        expect(files.has(DEFAULT_DATABASE_NAME)).toBe(false);
+        expect(pointer).toBe(DEFAULT_DATABASE_NAME);
+        expect(acted).toEqual([ "close", `open:${DEFAULT_DATABASE_NAME}` ]);
+    });
+
+    it("comes back on the entry the pointer names, having been live on the other one", async () => {
+        // Which is where an instance sits after a restore: the two names alternate, so the live
+        // entry is the candidate rather than the default.
+        const { files, pool } = fakePool();
+        files.set(CANDIDATE_NAME, databaseBytes());
+        pointer = CANDIDATE_NAME;
+        const { target, acted } = fakeTarget(pool);
+
+        await eraseDatabase(target);
+
+        expect(files.has(CANDIDATE_NAME)).toBe(false);
+        expect(pointer).toBe(DEFAULT_DATABASE_NAME);
+        expect(acted).toEqual([ "close", `open:${DEFAULT_DATABASE_NAME}` ]);
+    });
+
+    it("erases nothing and reopens what was live when the pointer will not move", async () => {
+        // The pointer is moved first for exactly this: a write that fails has destroyed nothing, and
+        // reopening the entry it still names leaves the two halves agreeing.
+        const { files, pool } = fakePool();
+        files.set(CANDIDATE_NAME, databaseBytes());
+        pointer = CANDIDATE_NAME;
+        refusePointer = () => true;
+        const { target, acted } = fakeTarget(pool);
+
+        await expect(eraseDatabase(target)).rejects.toThrow(/pointer could not be written/);
+
+        expect(files.has(CANDIDATE_NAME)).toBe(true);
+        expect(pointer).toBe(CANDIDATE_NAME);
+        expect(acted).toEqual([ "close", `open:${CANDIDATE_NAME}` ]);
+    });
+
+    it("still comes back on the entry the pointer names when the old one will not unlink", async () => {
+        // The old entry is left behind taking up room, which is a leak and not a trap: nothing reads
+        // it again, and the worker and the next start agree on what is live.
+        const { files, pool } = fakePool();
+        files.set(CANDIDATE_NAME, databaseBytes());
+        pointer = CANDIDATE_NAME;
+        pool.unlink = () => { throw new Error("the entry is in use"); };
+        const { target, acted } = fakeTarget(pool);
+
+        await eraseDatabase(target);
+
+        expect(pointer).toBe(DEFAULT_DATABASE_NAME);
+        expect(acted).toEqual([ "close", `open:${DEFAULT_DATABASE_NAME}` ]);
+    });
+
+    it("always tries to open something, so the worker is never left holding nothing", async () => {
+        // A detached service answers every request with "DB not open" for as long as the worker
+        // lives, and the wizard needs one to report what went wrong and offer another path.
+        const { files, pool } = fakePool();
+        files.set(DEFAULT_DATABASE_NAME, databaseBytes());
+        const { target, acted } = fakeTarget(pool, { failToOpen: DEFAULT_DATABASE_NAME });
+
+        await expect(eraseDatabase(target)).rejects.toThrow(/database is locked/);
+
+        expect(acted).toEqual([ "close", `open-failed:${DEFAULT_DATABASE_NAME}` ]);
     });
 });
