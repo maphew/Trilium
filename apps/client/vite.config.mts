@@ -58,6 +58,11 @@ export default defineConfig(() => ({
         transformer: 'lightningcss',
         devSourcemap: isDev
     },
+    server: {
+        watch: {
+            ignored: ["**/test-output/**"]
+        }
+    },
     resolve: {
         alias: [
             {
