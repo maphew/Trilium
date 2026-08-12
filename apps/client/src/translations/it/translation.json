@@ -743,7 +743,7 @@
     "collapseExpand": "collassa/espande il nodo",
     "notSet": "non impostato",
     "goBackForwards": "indietro/avanti nella cronologia",
-    "showJumpToNoteDialog": "mostra <a class=\"external\" href=\"https://triliumnext.github.io/Docs/Wiki/note-navigation.html#jump-to-note\">finestra \"Vai a\"</a>",
+    "showJumpToNoteDialog": "mostra <a class=\"external\" href=\"https://triliumnext.github.io/Docs/Wiki/note-navigation.html#jump-to-note\">\"Vai a\" finestra di dialogo</a>",
     "title": "Scheda riassuntiva",
     "noteNavigation": "Nota navigazione",
     "scrollToActiveNote": "scorri fino alla nota attiva",
@@ -3338,8 +3338,6 @@
     "button-retry": "Riprova",
     "existing-data": "Salvare i dati esistenti?",
     "existing-data-back-up": "Sì, crea un backup",
-    "existing-data-delete": "No, cancella tutto",
-    "existing-data-delete-warning": "Una volta premuto Continua, la knowledge base esistente verrà cancellata in modo permanente. Non sarà possibile recuperarla in seguito.",
     "existing-data-cancel": "Cancellare",
     "existing-data-backing-up": "Backup",
     "existing-data-backing-up-message": "Creazione di un backup...",
@@ -3371,7 +3369,6 @@
     "backup-download-failed": "Il download non è stato completato.",
     "backup-finish": "Fine",
     "existing-data-erase-confirm": "Ora i dati esistenti verranno eliminati. Assicurati di conservare il file di backup in un luogo sicuro. Continuare?",
-    "existing-data-delete-failed": "Non è stato possibile eliminare la base di conoscenza esistente.",
     "existing-data-keep-failed": "Non è stato possibile riaprire la base di conoscenza esistente.",
     "restore-from-backup": "Ripristina da backup",
     "restore-from-backup-description": "Continua a utilizzare una knowledge base esistente, ripristinata da un file di backup.",
@@ -3403,7 +3400,13 @@
     "restore-stage-validating": "Controllo del database",
     "restore-stage-swapping": "Metterlo in posizione",
     "restore-stage-migrating": "Apertura del database",
-    "restore-do-not-close": "Non chiudere questa finestra."
+    "restore-do-not-close": "Non chiudere questa finestra.",
+    "backup-downloading-percent": "{{percent}}%",
+    "backup-downloading-size": "({{done}} di {{total}})",
+    "restore-error-swap-failed-reload": "Non è stato possibile sostituire il database. Il database precedente è stato ripristinato, ma Trilium non è riuscito a riaprirlo. Aggiorna questa pagina per continuare.",
+    "restore-error-check-failed": "Non è stato possibile verificare il backup. Potrebbe trattarsi di un problema legato a questo dispositivo piuttosto che al backup stesso, quindi vale la pena riprovare.",
+    "restore-error-failed": "Non è stato possibile completare il ripristino. Non è stato sostituito nulla, quindi la tua knowledge base è rimasta invariata.",
+    "restore-error-incomplete": "Questo file di backup è incompleto. Probabilmente non è stato copiato o scaricato per intero, quindi prova a trasferirlo di nuovo."
   },
   "text-editor": {
     "validation-errors": {
@@ -3841,7 +3844,9 @@
     "unit_mph": "{{value}} mph"
   },
   "database_file_list": {
-    "size_on_disk": "{{size}} su disco"
+    "size_on_disk": "{{size}} su disco",
+    "invalid_backup": "File di backup non valido",
+    "unsupported_version": "Versione del formato del file di backup non supportata"
   },
   "password_with_confirmation": {
     "password": "Password",
