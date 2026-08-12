@@ -10,26 +10,28 @@
 }
 
 .geo-map-container .geo-detail-pane {
-    /* Room at the foot for the bar of buttons, which stands in this same corner: its own height and
-       as much air again. Standing clear of it rather than moving it aside — the mind map's panel
-       reckons its foot the same way. */
-    --detail-pane-foot: calc(var(--geo-map-inset) + var(--geo-map-toolbar-height) + var(--geo-map-inset));
+    /* Room at the foot for the bar of buttons, which stands in this same corner: wherever that bar
+       has been pushed up to (a home bar in fullscreen, say — see the insets in index.css), its own
+       height, and as much air again. Standing clear of it rather than moving it aside — the mind
+       map's panel reckons its foot the same way. */
+    --detail-pane-foot: calc(var(--geo-map-inset-bottom) + var(--geo-map-toolbar-height) + var(--geo-map-inset));
 
     position: absolute;
     /* A fixed height rather than one sized to its contents, which would be a different pane for
        every marker. What it holds scrolls within it (see OverlayPanel.css). */
-    top: var(--geo-map-inset);
+    top: var(--geo-map-inset-top);
     bottom: var(--detail-pane-foot);
-    inset-inline-end: var(--geo-map-inset);
+    inset-inline-end: var(--geo-map-inset-end);
     width: var(--geo-detail-pane-width);
-    /* An embedded map may be narrower than the pane would like to be. */
-    max-width: calc(100% - 2 * var(--geo-map-inset));
+    /* An embedded map may be narrower than the pane would like to be — and in fullscreen the sides
+       are not equally free, so each is taken off by its own name rather than one of them twice. */
+    max-width: calc(100% - var(--geo-map-inset-start) - var(--geo-map-inset-end));
 
     /* Grown over the map (see the maximize in MarkerDetails). Only the width gives: the pane
        already stands the height of the map. What the map places around the pane is suppressed
        while it is grown rather than recomputed — see `maximized` in DetailPane.tsx. */
     &.maximized {
-        width: calc(100% - 2 * var(--geo-map-inset));
+        width: calc(100% - var(--geo-map-inset-start) - var(--geo-map-inset-end));
     }
     /* Clear of MapLibre's own control corners, which sit at 2 (see MapToolbar.css). */
     z-index: 3;

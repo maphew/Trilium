@@ -5,7 +5,8 @@
  * has been moved to the foot of the other side, beside the scale (see map.tsx).
  *
  * Held off the edges by as much as everything else standing over the map is, which is settled for
- * both in index.css, so the group and the scale opposite it stand on the same line.
+ * both in index.css — per edge, so that in fullscreen the group stands clear of a home bar or a
+ * notch, and still on the same line as the scale opposite it, which is held off by the same names.
  *
  * Above the canvas whatever order the two end up in: MapLibre builds its part of the container
  * itself, so what Preact renders alongside is not reliably the later sibling. The number clears
@@ -13,8 +14,8 @@
  */
 .geo-map-container .geo-map-toolbar {
     position: absolute;
-    bottom: var(--geo-map-inset);
-    inset-inline-end: var(--geo-map-inset);
+    bottom: var(--geo-map-inset-bottom);
+    inset-inline-end: var(--geo-map-inset-end);
     z-index: 3;
 }
 

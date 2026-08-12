@@ -3,16 +3,21 @@
  * the corners being spoken for (see EditToolbar.tsx). Centered by stretching across the foot and
  * letting the margins share what the group does not take, which holds in either script direction.
  *
- * Held off the edge by the shared inset, and dressed with the rest of the map's furniture: the
- * palette handoff every group over this map wears is settled once in index.css.
+ * Stretched to the sides the map can be seen at rather than to the container's own, so that in
+ * fullscreen the middle of the foot is the middle of what is visible: a notch down one side in
+ * landscape takes a strip of the map with it, and a group centred over the strip reads as off-centre.
+ *
+ * Held off the edge by the shared inset — per edge, so that the group also stands clear of a home
+ * bar in fullscreen — and dressed with the rest of the map's furniture: the palette handoff every
+ * group over this map wears is settled once in index.css.
  *
  * Above the canvas whatever order the two end up in, clearing MapLibre's own control corners at 2
  * (see MapToolbar.css).
  */
 .geo-map-container .geo-edit-toolbar {
     position: absolute;
-    bottom: var(--geo-map-inset);
-    inset-inline: 0;
+    bottom: var(--geo-map-inset-bottom);
+    inset-inline: var(--geo-map-inset-start) var(--geo-map-inset-end);
     margin-inline: auto;
     width: fit-content;
     z-index: 3;
