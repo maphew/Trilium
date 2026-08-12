@@ -329,6 +329,7 @@ function bootstrapRoute(req: { query: Record<string, string | undefined> }): Boo
         // served to nobody, so asking would be asking for nothing — and `checkSetupAuth` here is a
         // no-op, which would leave the screen holding out for an answer it never checks.
         setupAuthRequired: false,
+        setupSecondFactorRequired: false,
         isDev: import.meta.env.DEV,
         isStandalone: true,
         // A window torn off into its own popup carries `?extraWindow`, same as on the server. It has

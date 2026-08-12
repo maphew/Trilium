@@ -3738,6 +3738,7 @@
     "backup-download-failed": "The download did not finish.",
     "backup-finish": "Finish",
     "existing-data-erase-confirm": "Your existing knowledge base will now be permanently deleted, so that this device can receive one from your desktop app. Make sure you have a backup somewhere safe. Continue?",
+    "unlock-refused": "Those details were not accepted. Please try again.",
     "keep-existing": "Return to the app",
     "keep-existing-description": "Keep using your existing knowledge base and go back to the app.",
     "existing-data-keep-failed": "The existing knowledge base could not be reopened.",

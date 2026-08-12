@@ -9,7 +9,7 @@ import {
     keepExistingData,
     startBackUpExistingData
 } from "../../services/setup_existing.js";
-import { authenticateSetup, isSetupAuthRequired } from "../../services/setup_auth.js";
+import { authenticateSetup, isSetupAuthRequired, isSetupSecondFactorRequired } from "../../services/setup_auth.js";
 import { asSetupTargetScreen, getSetupPlatform, hasExistingData } from "../../services/setup_mode.js";
 import { getLog } from "../../services/log.js";
 import appInfo from "../../services/app_info.js";
@@ -28,6 +28,8 @@ function getStatus() {
         isInitialized,
         schemaExists,
         authRequired,
+        // Says a second factor is wanted, never which kind nor anything about the answer.
+        secondFactorRequired: isSetupSecondFactorRequired(),
         // Asked again rather than taken from the page's own start: the paths that replace a
         // knowledge base erase it here, and a wizard that failed after one of them did would go on
         // offering a way back to something that no longer exists.
@@ -60,7 +62,8 @@ function getStatus() {
  */
 async function authenticate(req: Request) {
     const password = typeof req.body?.password === "string" ? req.body.password : "";
-    const token = await authenticateSetup(password);
+    const totpToken = typeof req.body?.totpToken === "string" ? req.body.totpToken : "";
+    const token = await authenticateSetup(password, totpToken);
 
     return token ? { authenticated: true, token } : { authenticated: false };
 }

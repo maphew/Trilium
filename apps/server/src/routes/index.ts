@@ -46,8 +46,10 @@ export function bootstrap(req: Request, res: Response) {
         // The setup wizard's password gate is exempted for exactly what `checkSetupAuth` exempts:
         // the trusted renderer, which is the application itself, and an instance already configured
         // to trust whoever can reach it. Asked for anywhere else, the screen would be holding out
-        // for an answer the routes behind it were never going to want.
+        // for an answer the routes behind it were never going to want. The second factor rides on
+        // the same exemption, since it is only ever asked for alongside the password.
         setupAuthRequired: sharedItems.setupAuthRequired && !isElectronRenderer && !noAuthentication,
+        setupSecondFactorRequired: sharedItems.setupSecondFactorRequired && !isElectronRenderer && !noAuthentication,
         baseApiUrl: "api/",
         appPath,
         isStandalone: false,

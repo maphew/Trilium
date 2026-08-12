@@ -870,6 +870,13 @@ export type BootstrapDefinition = {
      */
     setupAuthRequired?: boolean;
     /**
+     * Whether that unlock asks for a second factor as well as the password.
+     *
+     * Only ever `true` alongside `setupAuthRequired`. Says that one is wanted and nothing else: not
+     * which kind, and nothing about the answer.
+     */
+    setupSecondFactorRequired?: boolean;
+    /**
      * The screen the wizard should open on, from the marker that asked for setup. Only meaningful
      * while `dbInitialized` is `false`, and absent for a first run, which starts at the language step.
      */
@@ -990,6 +997,10 @@ export interface SetupStatusResponse {
      * of them ran would otherwise go on offering a way back to something that is gone.
      */
     hasExistingData?: boolean;
+    /** Whether the wizard has to be unlocked before it will act on that knowledge base. */
+    authRequired?: boolean;
+    /** Whether that unlock asks for a second factor as well as the password. */
+    secondFactorRequired?: boolean;
     /** The operation setup is busy with, or `null` when it is free. */
     setupOperation?: SetupOperation | null;
     /** Kept from a failed sync attempt so the wizard can prefill the form; pre-initialization only. */

@@ -4,8 +4,10 @@ import * as passwordService from "./encryption/password.js";
 import passwordEncryptionService from "./encryption/password_encryption.js";
 import {
     authenticateSetup,
+    initSetupSecondFactor,
     isSetupAuthorized,
     isSetupAuthRequired,
+    isSetupSecondFactorRequired,
     resetSetupAuth
 } from "./setup_auth.js";
 import { enterSetupMode, leaveSetupMode, markExistingDataDiscarded } from "./setup_mode.js";
@@ -95,6 +97,64 @@ describe("unlocking it", () => {
         expect(first).not.toBe(second);
         expect(isSetupAuthorized(first ?? "")).toBe(false);
         expect(isSetupAuthorized(second ?? "")).toBe(true);
+    });
+
+    describe("where the instance guards itself with a second factor as well", () => {
+        /** Records what the factor was asked, and answers to whatever it is told is right. */
+        function secondFactorAccepting(right: string, required = true) {
+            const asked: string[] = [];
+
+            initSetupSecondFactor({
+                isRequired: () => required,
+                verify: (answer) => {
+                    asked.push(answer);
+                    return answer === right;
+                }
+            });
+
+            return asked;
+        }
+
+        it("says it wants one, but only where there is a knowledge base to want it for", () => {
+            secondFactorAccepting("123456");
+            expect(isSetupSecondFactorRequired()).toBe(true);
+
+            leaveSetupMode();
+            expect(isSetupSecondFactorRequired()).toBe(false);
+        });
+
+        it("wants none where the instance has none, however it is guarded otherwise", () => {
+            secondFactorAccepting("123456", false);
+
+            expect(isSetupAuthRequired()).toBe(true);
+            expect(isSetupSecondFactorRequired()).toBe(false);
+        });
+
+        it("issues a token only once both have been answered", async () => {
+            passwordIs("hunter2");
+            secondFactorAccepting("123456");
+
+            expect(await authenticateSetup("hunter2", "000000")).toBeNull();
+            expect(await authenticateSetup("hunter2", "123456")).toBeTruthy();
+        });
+
+        it("never reaches the second factor on a wrong password", async () => {
+            // The answer is often a recovery code. Checking one at all is worth doing only once the
+            // rest of the login is known to be right, which is the order login itself uses.
+            passwordIs("hunter2");
+            const asked = secondFactorAccepting("123456");
+
+            expect(await authenticateSetup("wrong", "123456")).toBeNull();
+            expect(asked).toEqual([]);
+        });
+
+        it("asks for nothing extra where the instance has no second factor", async () => {
+            passwordIs("hunter2");
+            const asked = secondFactorAccepting("123456", false);
+
+            expect(await authenticateSetup("hunter2")).toBeTruthy();
+            expect(asked).toEqual([]);
+        });
     });
 
     it("stops accepting one that has been held too long", async () => {

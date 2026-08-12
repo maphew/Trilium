@@ -41,19 +41,57 @@ export function isSetupAuthRequired(): boolean {
 }
 
 /**
- * Checks the instance's own password and, where it matches, issues the token that unlocks the rest
- * of the wizard.
+ * The second factor, where the instance guarding the knowledge base has one.
  *
- * Only the password. The second factor is deliberately not asked for: TOTP and recovery codes are
- * verified against a database the setup screen is standing over rather than running, and a recovery
- * code is consumed when it is checked, which is a poor thing to spend on a screen the user may well
- * leave through Cancel.
- *
- * @returns the token, or `null` where the password was wrong.
+ * Injected rather than reached for: what counts as a second factor is the server's business (TOTP
+ * and the recovery codes beside it live there), and the builds without a server have none.
  */
-export async function authenticateSetup(password: string): Promise<string | null> {
+export interface SetupSecondFactor {
+    /** Whether this instance asks for one at all. */
+    isRequired(): boolean;
+    /**
+     * Whether the answer is the right one.
+     *
+     * Must not consume what it checks. The wizard runs against a database that is attached but not
+     * migrated, with becca unloaded and nothing tracking entity changes, so `setOption` here would
+     * create a duplicate row rather than update one — and a single-use code spent in this state
+     * would still read as unspent on every other instance in a sync cluster. So a recovery code
+     * answered here stays answerable here, which is the price of not locking a user out of their
+     * own wizard when their authenticator is gone.
+     */
+    verify(answer: string): boolean;
+}
+
+let secondFactor: SetupSecondFactor | null = null;
+
+export function initSetupSecondFactor(instance: SetupSecondFactor | null): void {
+    secondFactor = instance;
+}
+
+/** Whether unlocking asks for a second factor as well as the password. */
+export function isSetupSecondFactorRequired(): boolean {
+    return isSetupAuthRequired() && secondFactor?.isRequired() === true;
+}
+
+/**
+ * Checks the instance's own credentials and, where they match, issues the token that unlocks the
+ * rest of the wizard.
+ *
+ * The password first and the second factor after it, in that order and never the other way round:
+ * the answer to a second factor is often a recovery code, and checking one at all is worth doing
+ * only once the rest of the login is known to be right.
+ *
+ * @returns the token, or `null` where the answer was wrong. Which of the two was wrong is
+ *          deliberately not said: the screen asks for both together and reports one failure.
+ */
+export async function authenticateSetup(password: string, secondFactorAnswer = ""): Promise<string | null> {
     if (!await passwordEncryptionService.verifyPassword(password)) {
         getLog().info("Setup: a wrong password was given for the existing knowledge base.");
+        return null;
+    }
+
+    if (isSetupSecondFactorRequired() && !secondFactor?.verify(secondFactorAnswer)) {
+        getLog().info("Setup: a wrong second factor was given for the existing knowledge base.");
         return null;
     }
 
@@ -81,6 +119,7 @@ export function isSetupAuthorized(token: string | undefined): boolean {
 /** Forgets it, for the tests that need one process to look like a fresh one. */
 export function resetSetupAuth(): void {
     issued = null;
+    secondFactor = null;
 }
 
 /**

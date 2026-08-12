@@ -8,7 +8,7 @@ import { getCurrentLocale } from "./i18n";
 import attributes from "./attributes";
 import BNote from "../becca/entities/bnote";
 import { getPlatform } from "./platform";
-import { isSetupAuthRequired } from "./setup_auth";
+import { isSetupAuthRequired, isSetupSecondFactorRequired } from "./setup_auth";
 import { getSetupTargetScreen, hasExistingData, isSetupRequested } from "./setup_mode";
 import sqlInit from "./sql_init";
 
@@ -35,6 +35,7 @@ export default function getSharedBootstrapItems(assetPath: string, dbInitialized
         // three at their first-run answers.
         hasExistingData: hasExistingData(),
         setupAuthRequired: isSetupAuthRequired(),
+        setupSecondFactorRequired: isSetupSecondFactorRequired(),
         setupTargetScreen: getSetupTargetScreen(),
         ...getIconConfig(assetPath)
     };

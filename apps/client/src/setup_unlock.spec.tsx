@@ -44,11 +44,13 @@ beforeEach(() => {
     onUnlocked.mockReset();
     setSetupAuthToken.mockReset();
     serverMock.post.mockReset().mockResolvedValue({ authenticated: true, token: "a-token" });
+    window.glob.setupSecondFactorRequired = undefined;
 });
 
 afterEach(() => {
     render(null, container);
     container.remove();
+    window.glob.setupSecondFactorRequired = undefined;
     vi.useRealTimers();
 });
 
@@ -76,7 +78,7 @@ describe("unlocking a wizard that is standing over a knowledge base", () => {
         submit();
         await settle();
 
-        expect(serverMock.post).toHaveBeenCalledWith("setup/auth", { password: "hunter2" });
+        expect(serverMock.post).toHaveBeenCalledWith("setup/auth", { password: "hunter2", totpToken: "" });
         expect(setSetupAuthToken).toHaveBeenCalledWith("a-token");
         expect(onUnlocked).toHaveBeenCalled();
     });
@@ -89,7 +91,7 @@ describe("unlocking a wizard that is standing over a knowledge base", () => {
         submit();
         await settle();
 
-        expect(container.querySelector(".page-error")?.textContent).toContain("login.incorrect-password");
+        expect(container.querySelector(".page-error")?.textContent).toContain("setup.unlock-refused");
         expect(setSetupAuthToken).not.toHaveBeenCalled();
         expect(onUnlocked).not.toHaveBeenCalled();
         expect(password()).not.toBeNull();
@@ -142,6 +144,44 @@ describe("unlocking a wizard that is standing over a knowledge base", () => {
         expect(onUnlocked).toHaveBeenCalled();
     });
 
+    describe("where the instance guards itself with a second factor as well", () => {
+        beforeEach(() => {
+            window.glob.setupSecondFactorRequired = true;
+        });
+
+        it("asks for it beside the password, as the login screen does", async () => {
+            renderScreen();
+            await settle();
+
+            const totp = container.querySelector<HTMLInputElement>("input[name=totpToken]");
+            expect(totp).not.toBeNull();
+            // The same field the login screen offers, so an authenticator fills it the same way.
+            expect(totp?.getAttribute("autocomplete")).toBe("one-time-code");
+        });
+
+        it("sends what was typed into it, whether a passcode or a recovery code", async () => {
+            renderScreen();
+            await settle();
+
+            const totp = container.querySelector<HTMLInputElement>("input[name=totpToken]");
+            if (totp) {
+                totp.value = "123456";
+            }
+            submit();
+            await settle();
+
+            expect(serverMock.post).toHaveBeenCalledWith("setup/auth", { password: "", totpToken: "123456" });
+        });
+
+        it("is not asked for where the instance has none", async () => {
+            window.glob.setupSecondFactorRequired = undefined;
+            renderScreen();
+            await settle();
+
+            expect(container.querySelector("input[name=totpToken]")).toBeNull();
+        });
+    });
+
     it("reads the password off the field at submit time, not from state", async () => {
         // A controlled value of "" overwrites what the browser autofilled, so the first press would
         // submit an empty password — the "incorrect password, press again" bug the login screen hit.
@@ -155,6 +195,6 @@ describe("unlocking a wizard that is standing over a knowledge base", () => {
         submit();
         await settle();
 
-        expect(serverMock.post).toHaveBeenCalledWith("setup/auth", { password: "filled-in-by-the-browser" });
+        expect(serverMock.post).toHaveBeenCalledWith("setup/auth", { password: "filled-in-by-the-browser", totpToken: "" });
     });
 });
