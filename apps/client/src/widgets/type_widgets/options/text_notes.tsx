@@ -136,6 +136,7 @@ function EditorFeatures() {
     const [slashCommandsEnabled, setSlashCommandsEnabled] = useTriliumOptionBool("textNoteSlashCommandsEnabled");
     const [contentHintsEnabled, setContentHintsEnabled] = useTriliumOptionBool("textNoteContentHintsEnabled");
     const [autoLinkPreviewsEnabled, setAutoLinkPreviewsEnabled] = useTriliumOptionBool("textNoteAutoLinkPreviewsEnabled");
+    const [htmlSupportEnabled, setHtmlSupportEnabled] = useTriliumOptionBool("textNoteHtmlSupportEnabled");
 
     return (
         <OptionsSection title={t("editorfeatures.title")}>
@@ -177,6 +178,14 @@ function EditorFeatures() {
                 description={t("editorfeatures.content_hints_description")}
                 currentValue={contentHintsEnabled}
                 onChange={setContentHintsEnabled}
+            />
+
+            <OptionsRowWithToggle
+                name="html-support-enabled"
+                label={t("editorfeatures.html_support_enabled")}
+                description={t("editorfeatures.html_support_description")}
+                currentValue={htmlSupportEnabled}
+                onChange={setHtmlSupportEnabled}
             />
         </OptionsSection>
     );

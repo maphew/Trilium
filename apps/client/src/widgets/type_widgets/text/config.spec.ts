@@ -219,6 +219,34 @@ describe("CK config", () => {
 });
 
 describe("CK config - HTML support", () => {
+    // The feature ships off, so everything below the first two tests describes what an install that
+    // has opted back in gets.
+    beforeEach(() => {
+        optionsState.map.textNoteHtmlSupportEnabled = "true";
+    });
+
+    it("keeps GHS out of the way until the user opts in", async () => {
+        optionsState.map.textNoteHtmlSupportEnabled = "false";
+        optionsState.map.allowedHtmlTags = JSON.stringify(SANITIZER_DEFAULT_ALLOWED_TAGS);
+
+        const config = await buildConfig(baseOpts());
+
+        // The allow-list is emptied rather than narrowed: GHS decides per element, so there is no
+        // subset of the option that still means anything once the feature is off. The tag list goes
+        // on governing what the server-side sanitizer accepts on import.
+        expect(config.htmlSupport?.allow).toEqual([]);
+    });
+
+    it("treats an unset option as off, the way the shipped default is", async () => {
+        // An install predating the option has no row for it, and must not silently run with GHS on.
+        delete optionsState.map.textNoteHtmlSupportEnabled;
+        optionsState.map.allowedHtmlTags = JSON.stringify(SANITIZER_DEFAULT_ALLOWED_TAGS);
+
+        const config = await buildConfig(baseOpts());
+
+        expect(config.htmlSupport?.allow).toEqual([]);
+    });
+
     it("names every allowed tag rather than handing GHS bare strings", async () => {
         optionsState.map.allowedHtmlTags = JSON.stringify(["p", "section", "en-media"]);
 

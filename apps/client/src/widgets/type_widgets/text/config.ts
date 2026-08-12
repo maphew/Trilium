@@ -389,6 +389,10 @@ function buildListOfLanguages() {
  * Turns the `allowedHtmlTags` option — a flat list of tag names, shared with the server-side
  * sanitizer — into the General HTML Support allow-list.
  *
+ * Gated on `textNoteHtmlSupportEnabled`, which ships off, so the default install runs with GHS
+ * allowing nothing and the editor keeps only what its own features model. Everything below applies
+ * once the user turns it on.
+ *
  * The wrapping is not cosmetic. `DataFilter#loadAllowedConfig` reads each entry's `name` and falls
  * back to a match-everything pattern without one, so bare strings allowed *every* element, including
  * GHS's `$customElement` catch-all: unknown tags round-tripped as opaque blobs that the editing view
@@ -397,6 +401,12 @@ function buildListOfLanguages() {
  * `splitRules` looks for; without them GHS strips every attribute off what it does preserve.
  */
 function buildHtmlSupportConfig(): EditorConfig["htmlSupport"] {
+    // GHS decides per element, so switching it off is an empty allow-list rather than a narrower
+    // one — there is no subset of the option that stays meaningful here.
+    if (options.get("textNoteHtmlSupportEnabled") !== "true") {
+        return { allow: [] };
+    }
+
     const allowedTags: string[] = JSON.parse(options.get("allowedHtmlTags"));
 
     return {

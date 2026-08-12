@@ -135,6 +135,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "textNoteSlashCommandsEnabled",
     "textNoteContentHintsEnabled",
     "textNoteAutoLinkPreviewsEnabled",
+    "textNoteHtmlSupportEnabled",
     "clipboardImageEmbedEnabled",
     "includeNoteDefaultBoxSize",
     "layoutOrientation",
