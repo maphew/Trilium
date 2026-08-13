@@ -1928,7 +1928,7 @@
     "duplicate": "创建子树副本",
     "open-in-popup": "快速编辑",
     "archive": "归档",
-    "unarchive": "解压",
+    "unarchive": "取消归档",
     "open-in-a-new-window": "在新窗口中打开",
     "hide-subtree": "隐藏子树",
     "show-subtree": "显示子树"
