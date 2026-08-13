@@ -33,7 +33,7 @@
     "@digitak/esrun": "3.2.26",
     "@triliumnext/ckeditor5": "workspace:*",
     "dotenv": "17.4.2",
-    "esbuild": "0.28.1",
+    "esbuild": "0.28.2",
     "highlight.js": "11.11.1",
     "typescript": "6.0.3"
   }
