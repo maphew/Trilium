@@ -8,7 +8,6 @@ import { t } from "./i18n.js";
 import link from "./link.js";
 import { applyLinkEmbeds } from "./link_embed.js";
 import { getMermaidConfig, loadElkIfNeeded, postprocessMermaidSvg } from "./mermaid.js";
-import { looksLikeMermaidDiagram } from "@triliumnext/commons";
 import { sanitizeNoteContentHtml } from "./sanitize_content.js";
 import { formatCodeBlocks } from "./syntax_highlight.js";
 import tree from "./tree.js";
@@ -145,23 +144,16 @@ export async function rewriteMermaidDiagramsInContainer(container: HTMLDivElemen
 
     for (const mermaidBlock of candidates) {
         const code = mermaidBlock.querySelector("code");
+        /* v8 ignore next -- defensive: the `:has(code)` selector guarantees a `<code>` child */
         if (!code) continue;
 
-        const className = code.className || "";
-        const source = code.textContent ?? "";
-        const isExplicitMermaid = /(?:^|\s)language-mermaid(?:\s|$)/.test(className);
-        const isAutoMermaid =
-            /(?:^|\s)language-text-x-trilium-auto(?:\s|$)/.test(className) &&
-            looksLikeMermaidDiagram(source);
-
-        if (!isExplicitMermaid && !isAutoMermaid) {
+        if (!/(?:^|\s)language-mermaid(?:\s|$)/.test(code.className)) {
             continue;
         }
 
         const div = document.createElement("div");
         div.classList.add("mermaid-diagram");
-        /* v8 ignore next -- defensive fallback: textContent is always a string here */
-        div.textContent = source;
+        div.textContent = code.textContent;
         mermaidBlock.replaceWith(div);
     }
 }

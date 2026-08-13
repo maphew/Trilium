@@ -7,7 +7,6 @@ import MermaidSourceViewCommand from './mermaid_source_view_command.js';
 import MermaidSplitViewCommand from './mermaid_split_view_command.js';
 import InsertMermaidCommand, { INSERT_MERMAID_COMMAND } from './insert_mermaid_command.js';
 import { DowncastAttributeEvent, DowncastConversionApi, EditorConfig, ModelElement, EventInfo, ModelItem, ModelNode, Plugin, toWidget, uid, UpcastConversionApi, UpcastConversionData, ViewElement, ViewText, ViewUIElement } from 'ckeditor5';
-import { looksLikeMermaidDiagram } from '@triliumnext/commons';
 
 import { debounce } from './utils.js';
 
@@ -237,28 +236,17 @@ export default class MermaidEditing extends Plugin {
 		const hasCodeAncestors = data.modelCursor.findAncestor( 'code' );
 		const { consumable, writer } = conversionApi;
 
-		if ( hasPreElementParent || hasCodeAncestors ) {
-			return;
-		}
-
-		const mermaidSource = Array.from( viewCodeElement.getChildren() )
-			.filter( item => item.is( '$text' ) )
-			.map( item => (item as ViewText).data )
-			.join( '' );
-
-		// Prefer the explicit language-mermaid class; also promote auto-detected
-		// code blocks whose body is clearly Mermaid (unlabeled fences on import).
-		const shouldUpcast =
-			viewCodeElement.hasClass( 'language-mermaid' ) ||
-			( viewCodeElement.hasClass( 'language-text-x-trilium-auto' ) && looksLikeMermaidDiagram( mermaidSource ) );
-
-		if ( !shouldUpcast ) {
+		if ( !viewCodeElement.hasClass( 'language-mermaid' ) || hasPreElementParent || hasCodeAncestors ) {
 			return;
 		}
 
 		if ( !consumable.test( viewCodeElement, { name: true } ) ) {
 			return;
 		}
+		const mermaidSource = Array.from( viewCodeElement.getChildren() )
+			.filter( item => item.is( '$text' ) )
+			.map( item => (item as ViewText).data )
+			.join( '' );
 
 		const mermaidElement = writer.createElement( 'mermaid', {
 			source: mermaidSource,

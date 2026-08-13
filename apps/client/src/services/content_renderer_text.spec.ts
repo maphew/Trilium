@@ -466,20 +466,10 @@ describe("rewriteMermaidDiagramsInContainer", () => {
         expect(container.querySelector("pre")).toBeNull();
     });
 
-    it("promotes auto language blocks whose body looks like Mermaid", async () => {
-        const container = document.createElement("div");
-        container.innerHTML = `<pre><code class="language-text-x-trilium-auto">sequenceDiagram\nA->>B: hi</code></pre>`;
-        await rewriteMermaidDiagramsInContainer(container);
-        const div = container.querySelector("div.mermaid-diagram");
-        expect(div).not.toBeNull();
-        expect(div?.textContent).toContain("sequenceDiagram");
-        expect(container.querySelector("pre")).toBeNull();
-    });
-
     it("uses an empty body when the code element is missing", async () => {
         const container = document.createElement("div");
-        // A <pre> matched by :has(code[...]) but where querySelector("code") returns
-        // the matched code (with no inner content) -> textContent falls back to "".
+        // A <pre> matched by :has(code) whose <code> has no inner content, so the
+        // rewritten div ends up with an empty body.
         container.innerHTML = `<pre><code class="language-mermaid"></code></pre>`;
         await rewriteMermaidDiagramsInContainer(container);
         const div = container.querySelector("div.mermaid-diagram");
