@@ -37,7 +37,18 @@ export default class MermaidEditing extends Plugin {
 
 	private _config!: EditorConfig["mermaid"];
 	private _mermaidPromise?: Promise<MermaidInstance>;
-	private _renderGeneration = 0;
+	/**
+	 * Per-preview-element render generation. A single shared counter would discard
+	 * in-flight results for other widgets when several diagrams render at once
+	 * (e.g. after importing a note with multiple Mermaid blocks), leaving blank
+	 * previews that look like the diagram "disappeared" in preview mode.
+	 */
+	private _renderGenerations = new WeakMap<HTMLElement, number>();
+	/**
+	 * Serialize mermaid.render() calls. Concurrent renders share temporary DOM
+	 * measurement nodes inside the mermaid library and can leave blank/broken SVGs.
+	 */
+	private _renderQueue: Promise<void> = Promise.resolve();
 
 	/**
 	 * @inheritDoc
@@ -214,31 +225,29 @@ export default class MermaidEditing extends Plugin {
 
 	_sourceAttributeDowncast( evt: EventInfo, data: DowncastConversionData, conversionApi: DowncastConversionApi ) {
 		// @todo: test whether the attribute was consumed.
-		const newSource = data.attributeNewValue as string;
+		const newSource = ( data.attributeNewValue as string ) ?? '';
 		const domConverter = this.editor.editing.view.domConverter;
 
-		if ( newSource ) {
-			const mermaidView = conversionApi.mapper.toViewElement( data.item as ModelElement );
-			if (!mermaidView) {
-				return;
-			}
+		const mermaidView = conversionApi.mapper.toViewElement( data.item as ModelElement );
+		if ( !mermaidView ) {
+			return;
+		}
 
-			for ( const _child of mermaidView.getChildren() ) {
-				const child = _child as ViewElement;
-				if ( child.name === 'textarea' && child.hasClass( 'ck-mermaid__editing-view' ) ) {
-					// Text & HTMLElement & ModelNode & DocumentFragment
-					const domEditingTextarea = domConverter.viewToDom(child) as HTMLElement as HTMLInputElement;
+		for ( const _child of mermaidView.getChildren() ) {
+			const child = _child as ViewElement;
+			if ( child.name === 'textarea' && child.hasClass( 'ck-mermaid__editing-view' ) ) {
+				// Text & HTMLElement & ModelNode & DocumentFragment
+				const domEditingTextarea = domConverter.viewToDom( child ) as HTMLElement as HTMLInputElement;
 
-					if ( domEditingTextarea.value != newSource ) {
-						domEditingTextarea.value = newSource;
-					}
-				} else if ( child.name === 'div' && child.hasClass( 'ck-mermaid__preview' ) ) {
-					// @todo: we could optimize this and not refresh mermaid if widget is in source mode.
-					const domPreviewWrapper = domConverter.viewToDom(child);
+				if ( domEditingTextarea.value != newSource ) {
+					domEditingTextarea.value = newSource;
+				}
+			} else if ( child.name === 'div' && child.hasClass( 'ck-mermaid__preview' ) ) {
+				// @todo: we could optimize this and not refresh mermaid if widget is in source mode.
+				const domPreviewWrapper = domConverter.viewToDom( child );
 
-					if ( domPreviewWrapper ) {
-						this._renderMermaid( domPreviewWrapper, newSource );
-					}
+				if ( domPreviewWrapper ) {
+					this._renderMermaid( domPreviewWrapper, newSource );
 				}
 			}
 		}
@@ -281,6 +290,15 @@ export default class MermaidEditing extends Plugin {
 	 * Renders Mermaid (a parsed `source`) in a given `domElement`.
 	 */
 	async _renderMermaid( domElement: HTMLElement, source: string ) {
+		if ( !source?.trim() ) {
+			// Bump generation so an in-flight render for the previous source cannot
+			// write its SVG back into a cleared preview.
+			const generation = ( this._renderGenerations.get( domElement ) ?? 0 ) + 1;
+			this._renderGenerations.set( domElement, generation );
+			domElement.innerHTML = '';
+			return;
+		}
+
 		if ( !this._mermaidPromise && typeof this._config?.lazyLoad === 'function' ) {
 			this._mermaidPromise = Promise.resolve( this._config.lazyLoad() ).then( instance => {
 				instance.initialize( this._config?.config ?? {} );
@@ -294,21 +312,43 @@ export default class MermaidEditing extends Plugin {
 			return;
 		}
 
-		const generation = ++this._renderGeneration;
+		const generation = ( this._renderGenerations.get( domElement ) ?? 0 ) + 1;
+		this._renderGenerations.set( domElement, generation );
 		const id = `ck-mermaid-${ uid() }`;
 
-		try {
-			const { svg } = await mermaid.render( id, source );
+		const run = async () => {
+			// A newer edit for this same preview landed while we waited in the queue.
+			if ( generation !== this._renderGenerations.get( domElement ) ) {
+				return;
+			}
 
-			if ( generation === this._renderGeneration ) {
-				domElement.innerHTML = svg;
+			try {
+				const { svg } = await mermaid.render( id, source );
+
+				// Mermaid leaves a temporary probe node with `id`. Remove it *before*
+				// inserting the SVG — the returned SVG reuses the same id, so a later
+				// getElementById(id).remove() would delete the rendered diagram.
+				document.getElementById( id )?.remove();
+
+				if ( generation === this._renderGenerations.get( domElement ) ) {
+					domElement.innerHTML = svg;
+				}
+			} catch ( err: unknown ) {
+				document.getElementById( id )?.remove();
+				if ( generation === this._renderGenerations.get( domElement ) ) {
+					domElement.innerText = err instanceof Error ? err.message : String( err );
+				}
 			}
-		} catch ( err: any ) {
-			if ( generation === this._renderGeneration ) {
-				domElement.innerText = err.message;
-			}
-			document.getElementById( id )?.remove();
-		}
+		};
+
+		// Chain onto the queue so only one mermaid.render runs at a time, while still
+		// letting each caller's promise settle when *its* turn finishes. `run` swallows its
+		// own failures, so the chain never rejects; passing it as the rejection handler too
+		// means a future throw would still let the next render through instead of wedging
+		// the queue permanently.
+		const queued = this._renderQueue.then( run, run );
+		this._renderQueue = queued;
+		await queued;
 	}
 }
 
