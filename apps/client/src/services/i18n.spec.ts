@@ -1,6 +1,7 @@
 import { MESSAGE_KEY_PREFIX, MESSAGE_OVERRIDES, slugify } from "@triliumnext/ckeditor5";
 import { dayjs, findDuplicateJsonKeys, findPluralKeyConflicts, LOCALES } from "@triliumnext/commons";
 import { readdirSync, readFileSync } from "fs";
+import i18next from "i18next";
 import { join } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -61,6 +62,21 @@ describe("i18n", () => {
                     pluralConflicts.map((c) => `  - "${c.path}" (plural form '_${c.suffix}')`).join("\n")}`
             ).toEqual([]);
         }
+    });
+
+    // i18next HTML-escapes interpolated values by default, so a value carrying a slash, an
+    // apostrophe or a quote reaches the user as `blobs&#x2F;9`. Almost everything we interpolate is
+    // rendered as text (a Preact child, a title attribute), where that escaping only produces
+    // gibberish, which is what the unescaped `{{- value}}` form is for. There is no way to tell
+    // from a catalog entry alone which one it should use, so this only covers the messages whose
+    // values are known to carry such characters.
+    it("interpolates values carrying special characters unescaped", async () => {
+        const catalog = JSON.parse(readFileSync(join(__dirname, "..", "translations", "en", "translation.json"), { encoding: "utf-8" }));
+        const i18n = i18next.createInstance();
+        await i18n.init({ lng: "en", resources: { en: { translation: catalog } } });
+
+        // Diverged sync sectors are formatted `entityName/sector`.
+        expect(i18n.t("ws.sync-hash-check-failed", { sectors: "blobs/9" })).toContain("blobs/9");
     });
 
     // The text editor localizes by passing the English text itself to the editor's translation

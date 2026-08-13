@@ -2748,7 +2748,8 @@
     "backend_scripting_disabled_more_info": "More info"
   },
   "ws": {
-    "sync-check-failed": "Sync check failed!",
+    "sync-hash-check-failed-title": "Sync stopped",
+    "sync-hash-check-failed": "This database and the sync server hold data that could not be reconciled by re-syncing it ({{- sectors}}).\n\nSyncing will keep failing until this is resolved. See the logs for details.",
     "consistency-checks-failed": "Consistency checks failed! See logs for details.",
     "encountered-error": "Encountered error \"{{message}}\", check out the console.",
     "lost-websocket-connection-title": "Lost connection to the server",
