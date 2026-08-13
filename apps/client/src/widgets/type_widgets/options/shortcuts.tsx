@@ -9,6 +9,7 @@ import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import options from "../../../services/options";
 import server from "../../../services/server";
+import { formatShortcut, joinShortcut } from "../../../services/keyboard_shortcut_display";
 import { canonicalizeShortcut, KEYCODES_WITH_NO_MODIFIER } from "../../../services/shortcuts";
 import toast from "../../../services/toast";
 import { arrayEqual, isElectron, isMobile, reloadFrontendApp } from "../../../services/utils";
@@ -128,7 +129,10 @@ export default function ShortcutSettings() {
                         />}
                         <Button
                             text={t("shortcuts.reload_app")}
-                            onClick={reloadFrontendApp}
+                            // Called rather than handed over: its one argument is the reason to be
+                            // logged for the reload, and passed straight to the button that would
+                            // have been the click event.
+                            onClick={() => reloadFrontendApp()}
                             size="micro"
                         />
                         <Button
@@ -413,7 +417,7 @@ function revertShortcut(action: ActionKeyboardShortcut) {
 
 function formatDefaultShortcuts(action: ActionKeyboardShortcut) {
     return action.defaultShortcuts?.length
-        ? action.defaultShortcuts.join(", ")
+        ? action.defaultShortcuts.map((shortcut) => joinShortcut(formatShortcut(shortcut))).join(", ")
         : t("shortcuts.no_default_shortcut");
 }
 
@@ -488,7 +492,7 @@ function ShortcutEditor({ keyboardShortcut: action, conflicts }: { keyboardShort
                                 </TooltipButton>
                             )
                             : global && <TooltipIcon icon="bx bx-globe" className="shortcut-chip-global-indicator" tooltip={t("shortcuts.global_shortcut")} tooltipClass="tooltip-top" />}
-                        <kbd>{stripGlobalPrefix(shortcut)}</kbd>
+                        <kbd>{joinShortcut(formatShortcut(shortcut))}</kbd>
                         <TooltipButton
                             className="shortcut-chip-action shortcut-chip-remove"
                             title={t("shortcuts.remove_shortcut")}

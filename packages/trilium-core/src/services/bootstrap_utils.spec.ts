@@ -1,10 +1,12 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import attributes from "./attributes.js";
 import getSharedBootstrapItems, { getIconConfig } from "./bootstrap_utils.js";
 import * as cls from "./context.js";
 import notes from "./notes.js";
 import options from "./options.js";
+import { enterSetupMode, leaveSetupMode } from "./setup_mode.js";
+import sqlInit from "./sql_init.js";
 
 const ASSET_PATH = "assets-x";
 
@@ -41,6 +43,42 @@ describe("bootstrap_utils (real DB)", () => {
         expect(items.assetPath).toBe(ASSET_PATH);
         expect(items.iconRegistry).toBeTruthy();
         expect(typeof items.iconPackCss).toBe("string");
+    });
+
+    it("flags syncInProgress for a not-yet-initialized DB only when the schema already exists", () => {
+        const schemaSpy = vi.spyOn(sqlInit, "schemaExists");
+        try {
+            // Schema present but DB not initialized = a sync that was interrupted → resume it.
+            schemaSpy.mockReturnValue(true);
+            expect(getSharedBootstrapItems(ASSET_PATH, false).syncInProgress).toBe(true);
+
+            // No schema yet = a fresh install → start the setup wizard from the top.
+            schemaSpy.mockReturnValue(false);
+            expect(getSharedBootstrapItems(ASSET_PATH, false).syncInProgress).toBe(false);
+        } finally {
+            schemaSpy.mockRestore();
+        }
+    });
+
+    it("tells the wizard where to open, and that it has a database to go back to", () => {
+        const schemaSpy = vi.spyOn(sqlInit, "schemaExists").mockReturnValue(true);
+        try {
+            // A first run: nowhere in particular to go, and nothing behind the wizard.
+            expect(getSharedBootstrapItems(ASSET_PATH, false)).toMatchObject({
+                hasExistingData: false, setupTargetScreen: undefined
+            });
+
+            enterSetupMode({ lang: "ro", targetScreen: "restore-backup" });
+            const items = getSharedBootstrapItems(ASSET_PATH, false);
+
+            expect(items).toMatchObject({ hasExistingData: true, setupTargetScreen: "restore-backup" });
+            // The schema of a finished database says nothing about an interrupted sync, so the
+            // wizard must not be sent to the sync-progress screen instead of the one asked for.
+            expect(items.syncInProgress).toBe(false);
+        } finally {
+            leaveSetupMode();
+            schemaSpy.mockRestore();
+        }
     });
 
     it("returns the full payload once the DB is initialized, including app CSS note ids", () => {

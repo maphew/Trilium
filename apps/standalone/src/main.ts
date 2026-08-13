@@ -1,4 +1,7 @@
-import { attachServiceWorkerBridge, registerNativeHttpHandler, startLocalServerWorker } from "./local-bridge.js";
+import { showErrorOverlay } from "./error-overlay.js";
+import { installIosInterceptors } from "./ios-interceptors.js";
+import { claimLeadership } from "./leader_election.js";
+import { announceLeadership, attachServiceWorkerBridge, downloadDatabase, registerNativeHttpHandler, restoreBackup, startLocalServerWorker } from "./local-bridge.js";
 
 async function waitForServiceWorkerControl(): Promise<void> {
     if (!("serviceWorker" in navigator) || !navigator.serviceWorker) {
@@ -18,7 +21,6 @@ async function waitForServiceWorkerControl(): Promise<void> {
         );
     }
 
-    // If already controlling, we're good
     if (navigator.serviceWorker.controller) {
         console.log("[Bootstrap] Service worker already controlling");
         return;
@@ -26,35 +28,30 @@ async function waitForServiceWorkerControl(): Promise<void> {
 
     console.log("[Bootstrap] Waiting for service worker to take control...");
 
-    // Register service worker
     await navigator.serviceWorker.register("./sw.js", { scope: "/" });
-
-    // Wait for it to be ready (installed + activated)
     await navigator.serviceWorker.ready;
 
-    // Check if we're now controlling
     if (navigator.serviceWorker.controller) {
         console.log("[Bootstrap] Service worker now controlling");
         return;
     }
 
-    // If not controlling yet, we need to reload the page for SW to take control
-    // This is standard PWA behavior on first install
     console.log("[Bootstrap] Service worker installed but not controlling yet - reloading page");
-
-    // Wait a tiny bit for SW to fully activate
     await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Reload to let SW take control
     window.location.reload();
-
-    // Throw to stop execution (page will reload)
     throw new Error("Reloading for service worker activation");
 }
 
 async function bootstrap() {
     /* fixes https://github.com/webpack/webpack/issues/10035 */
     window.global = globalThis;
+
+    // The client's way to the worker for the few things that carry a file, which the request path
+    // would serialise whole and time out on. The desktop's `window.electronApi` is the same idea.
+    window.standaloneApi = {
+        restore: { importBackup: restoreBackup },
+        backup: { downloadDatabase }
+    };
 
     try {
         // When running inside a Capacitor WebView, register the native HTTP
@@ -64,36 +61,38 @@ async function bootstrap() {
             registerNativeHttpHandler(capacitorHttpHandler);
         }
 
-        // 1) Start local worker ASAP (so /bootstrap is fast)
-        startLocalServerWorker();
+        // 1) Start the local worker ASAP (so /bootstrap is fast) — but only in
+        // the tab that wins the database lock. A second worker cannot open the
+        // OPFS database at all; before this gate it silently fell back to an
+        // empty in-memory one. Other tabs reach this worker through the service
+        // worker instead. See leader_election.ts.
+        claimLeadership(() => {
+            startLocalServerWorker();
+            announceLeadership();
+        });
 
-        // 2) Bridge SW -> local worker
-        attachServiceWorkerBridge();
-
-        // 3) Wait for service worker to control the page (may reload on first install)
-        await waitForServiceWorkerControl();
+        // iOS Capacitor loads on the capacitor:// scheme, where WebKit rejects
+        // service worker registration. Fall back to in-page request interceptors
+        // that route API calls straight to the local SQLite worker; everywhere
+        // else (Android https, web) the service worker handles this.
+        if (location.protocol === "capacitor:") {
+            installIosInterceptors();
+        } else {
+            attachServiceWorkerBridge();
+            await waitForServiceWorkerControl();
+        }
 
         await loadScripts();
     } catch (err) {
-        // If error is from reload, it will stop here (page reloads)
-        // Otherwise, show error to user
         if (err instanceof Error && err.message.includes("Reloading")) {
-            // Page is reloading, do nothing
             return;
         }
 
         console.error("[Bootstrap] Fatal error:", err);
-        document.body.innerHTML = `
-            <div style="padding: 40px; max-width: 600px; margin: 0 auto; font-family: system-ui, sans-serif;">
-                <h1 style="color: #d32f2f;">Failed to Initialize</h1>
-                <p>The application failed to start. Please check the browser console for details.</p>
-                <pre style="background: #f5f5f5; padding: 16px; border-radius: 4px; overflow: auto; white-space: pre-wrap; word-wrap: break-word;">${err instanceof Error ? err.message : String(err)}</pre>
-                <button onclick="location.reload()" style="padding: 12px 24px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">
-                    Reload Page
-                </button>
-            </div>
-        `;
-        document.body.style.display = "block";
+        showErrorOverlay(
+            "Failed to Initialize",
+            err instanceof Error ? err.message : String(err)
+        );
     }
 }
 

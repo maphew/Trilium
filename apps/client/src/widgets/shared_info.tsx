@@ -5,6 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import FNote from "../entities/fnote";
 import attributes from "../services/attributes";
 import { t } from "../services/i18n";
+import { buildShareLink } from "../services/share_link";
 import { isElectron } from "../services/utils";
 import HelpButton from "./react/HelpButton";
 import { useNoteContext, useTriliumEvent, useTriliumOption } from "./react/hooks";
@@ -40,21 +41,7 @@ export function useShareInfo(note: FNote | null | undefined) {
             return;
         }
 
-        let link;
-        const shareId = getShareId(note);
-
-        if (syncServerHost) {
-            link = new URL(`/share/${shareId}`, syncServerHost).href;
-        } else {
-            let host = location.host;
-            if (host.endsWith("/")) {
-                // seems like IE has trailing slash
-                // https://github.com/zadam/trilium/issues/3782
-                host = host.substring(0, host.length - 1);
-            }
-
-            link = `${location.protocol}//${host}${location.pathname}share/${shareId}`;
-        }
+        const link = buildShareLink(getShareId(note), syncServerHost);
 
         setLink(`<a href="${link}" class="external tn-link">${link}</a>`);
         setLinkHref(link);

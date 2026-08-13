@@ -55,44 +55,76 @@ body.setup {
                 body.desktop & {
                     gap: 0.75rem;
                 }
+            }
 
-                .setup-option-card {
-                    padding: 1.5em;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    gap: 1rem;
+            .setup-option-card {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                padding: .75em 1.5em;
+                cursor: pointer;
 
-                    &.disabled {
-                        cursor: not-allowed;
-                        opacity: 0.5;
-                        background-color: transparent;
-                        border-color: var(--main-border-color)
+                &.disabled {
+                    cursor: not-allowed;
+                    opacity: 0.5;
+                    background-color: transparent;
+                    border-color: var(--main-border-color)
+                }
+
+                &:not(.disabled):hover {
+                    background-color: var(--card-background-hover-color);
+                    filter: contrast(105%);
+                    transition: background-color .2s ease-out;
+                }
+
+                .tn-icon {
+                    font-size: 2.5em;
+                    color: var(--muted-text-color);
+                    /* A box of its own rather than whatever width the glyph happens to have, so
+                       every title and description in the list starts on the same line however
+                       large the icon beside it is drawn. One em at this size is 2.5em of the card,
+                       which is the measure the quieter card below matches itself to. */
+                    width: 1em;
+                    flex-shrink: 0;
+                    text-align: center;
+                }
+
+                h3 {
+                    margin-bottom: 4px;
+                    font-size: 1.15em;
+                    font-weight: normal;
+
+                    body.desktop & {
+                        font-size: 1.3em;
                     }
+                }
 
-                    &:not(.disabled):hover {
-                        background-color: var(--card-background-hover-color);
-                        filter: contrast(105%);
-                        transition: background-color .2s ease-out;
-                    }
+                p:last-of-type {
+                    margin-bottom: 0;
+                    font-size: .85em;
+                    color: var(--muted-text-color);
+                }
+            }
 
-                    .tn-icon {
-                        font-size: 2.5em;
-                        color: var(--muted-text-color);
-                    }
+            /* Apart from the four below, which all replace the knowledge base, and quieter than
+               them: this is the one that changes nothing. */
+            .setup-keep-card {
+                margin-bottom: 0.5rem;
+                background-color: transparent;
 
-                    h3 {
-                        font-size: 1.15em;
-                        font-weight: normal;
+                .tn-icon {
+                    font-size: 1.75em;
+                    /* Drawn smaller, but taking the same room: 2.5em of the card, written in this
+                       icon's own units. Without it the smaller glyph pulls its title left and the
+                       item stops lining up with the four below. */
+                    width: calc(2.5em / 1.75);
+                }
 
-                        body.desktop & {
-                            font-size: 1.5em;
-                        }
-                    }
+                h3 {
+                    font-size: 1em;
 
-                    p:last-of-type {
-                        margin-bottom: 0;
-                        color: var(--muted-text-color);
+                    body.desktop & {
+                        font-size: 1.05em;
                     }
                 }
             }
@@ -338,53 +370,16 @@ body.setup.platform-darwin {
     }
 }
 
+/* Stepped rather than linear: a continuously-animating element forces the browser to render
+   at full display refresh rate (90+ fps on some phones) for as long as the spinner is visible.
+   Setup spinners stay on screen for the entire initial sync — measured at ~40% of a CPU core
+   on mobile — so cap them at ~6 frames/s, which looks the same at icon size. Scoped to setup
+   because other in-app animations may want the smoother framerate. */
+body.setup .bx-spin {
+    animation-timing-function: steps(12);
+}
+
 /* Slide transitions */
-.slide-page {
-    position: absolute;
-    inset: 0;
-}
-
-.slide-out-forward,
-.slide-out-backward,
-.slide-in-forward,
-.slide-in-backward {
-    animation-duration: 0.35s;
-    animation-timing-function: ease-in-out;
-    animation-fill-mode: forwards;
-}
-
-.slide-out-forward {
-    animation-name: slide-out-left;
-}
-
-.slide-out-backward {
-    animation-name: slide-out-right;
-}
-
-.slide-in-forward {
-    animation-name: slide-in-right;
-}
-
-.slide-in-backward {
-    animation-name: slide-in-left;
-}
-
-body[dir=rtl] .slide-out-forward {
-    animation-name: slide-out-right;
-}
-
-body[dir=rtl] .slide-out-backward {
-    animation-name: slide-out-left;
-}
-
-body[dir=rtl] .slide-in-forward {
-    animation-name: slide-in-left;
-}
-
-body[dir=rtl] .slide-in-backward {
-    animation-name: slide-in-right;
-}
-
 .page.select-language {
     main {
         min-height: 0;
@@ -493,22 +488,20 @@ body[dir=rtl] .slide-in-backward {
     }
 }
 
-@keyframes slide-out-left {
-    from { transform: translateX(0); opacity: 1; }
-    to   { transform: translateX(-100%); opacity: 0; }
-}
+.page.sync-failed {
+    .admonition-body pre {
+        /* Sync errors embed full request URLs — wrap instead of overflowing the card. */
+        white-space: pre-wrap;
+        word-break: break-word;
+        margin: 0 0 0.5rem;
+        /* The error is meant to be copied into bug reports — opt back out of the
+           app-wide `body { user-select: none }`. */
+        user-select: text;
+    }
 
-@keyframes slide-out-right {
-    from { transform: translateX(0); opacity: 1; }
-    to   { transform: translateX(100%); opacity: 0; }
-}
-
-@keyframes slide-in-right {
-    from { transform: translateX(100%); opacity: 0; }
-    to   { transform: translateX(0); opacity: 1; }
-}
-
-@keyframes slide-in-left {
-    from { transform: translateX(-100%); opacity: 0; }
-    to   { transform: translateX(0); opacity: 1; }
+    .admonition-body p {
+        margin: 0;
+        color: var(--muted-text-color);
+        font-size: 0.9em;
+    }
 }

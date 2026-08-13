@@ -6,6 +6,7 @@ import FBranch, { type FBranchRow } from "../entities/fbranch.js";
 import FNote, { type FNoteRow } from "../entities/fnote.js";
 import type { Froca } from "./froca-interface.js";
 import server from "./server.js";
+import { isPreAuthScreen } from "./utils.js";
 
 interface SubtreeResponse {
     notes: FNoteRow[];
@@ -44,7 +45,9 @@ class FrocaImpl implements Froca {
     }
 
     async loadInitialTree() {
-        if (!glob.dbInitialized) return;
+        // Skip on the setup screen (!dbInitialized) and on the login / set-password pre-auth
+        // screens (isPreAuthScreen) — otherwise this fires an unauthenticated GET /api/tree (#10589).
+        if (!glob.dbInitialized || isPreAuthScreen()) return;
 
         const resp = await server.get<SubtreeResponse>("tree");
         // clear the cache only directly before adding new content which is important for e.g., switching to protected session
@@ -381,7 +384,7 @@ class FrocaImpl implements Froca {
 
         if (!this.blobPromises[key]) {
             this.blobPromises[key] = server
-                .get<FBlobRow>(`${entityType}/${entityId}/blob`)
+                .getWithSilentNotFound<FBlobRow>(`${entityType}/${entityId}/blob`)
                 .then((row) => new FBlob(row))
                 .catch((e) => {
                     console.error(`Cannot get blob for ${entityType} '${entityId}'`, e);

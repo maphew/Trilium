@@ -1,6 +1,9 @@
-import { type TaskStateDef } from "@triliumnext/commons";
+import { safeLinkPreviewHref, type TaskStateDef } from "@triliumnext/commons";
 import { ADMONITION_TYPE_MAPPINGS } from "@triliumnext/commons/src/lib/markdown_renderer.js";
-import { gfm } from "@triliumnext/turndown-plugin-gfm";
+import { HIGHLIGHT_BACKGROUND } from "@triliumnext/commons/src/lib/marked_extensions.js";
+import { gfm, serializeStructuralHtml } from "@triliumnext/turndown-plugin-gfm";
+import escapeHtml from "escape-html";
+import { parse as parseHtml } from "node-html-parser";
 import Turnish, { type Rule } from "turnish";
 
 import { getTaskStates } from "../task_states.js";
@@ -20,6 +23,8 @@ const fencedCodeBlockFilter: Rule = {
     },
 
     replacement (content, node, options) {
+        /* v8 ignore next 3 -- unreachable: the filter above only matches when firstChild is a <code>
+           element, so getAttribute is always there; the guard is here to narrow the `Node` type. */
         if (!node.firstChild || !("getAttribute" in node.firstChild) || typeof node.firstChild.getAttribute !== "function") {
             return content;
         }
@@ -45,6 +50,12 @@ function toMarkdown(content: string) {
                     return node.outerHTML;
                 }
 
+                // Only reached by a link preview without a data-url (the fallback anchor injected
+                // by `injectLinkPreviewFallbacks` makes every other one non-blank).
+                if (isLinkPreview(node)) {
+                    return linkPreviewReplacement(node);
+                }
+
                 // Original implementation as per https://github.com/mixmark-io/turndown/blob/master/src/turndown.js.
                 return ("isBlock" in node && node.isBlock) ? '\n\n' : '';
             },
@@ -56,13 +67,17 @@ function toMarkdown(content: string) {
         instance.addRule("details", buildDetailsFilter());
         instance.addRule("inlineLink", buildInlineLinkFilter());
         instance.addRule("figure", buildFigureFilter());
+        instance.addRule("linkPreview", buildLinkPreviewFilter());
+        // Before "math": rules are consulted in reverse registration order, so a highlighted
+        // formula stays a formula instead of being flattened into `==\(x\)==`.
+        instance.addRule("highlight", buildHighlightFilter());
         instance.addRule("math", buildMathFilter());
         instance.addRule("li", buildListItemFilter());
         instance.use(gfm);
         instance.keep([ "kbd", "sup", "sub" ]);
     }
 
-    return instance.render(content);
+    return instance.render(injectLinkPreviewFallbacks(content));
 }
 
 function rewriteLanguageTag(source: string) {
@@ -133,11 +148,14 @@ function buildImageFilter() {
 
 function buildAdmonitionFilter() {
     function parseAdmonitionType(_node: Node) {
+        /* v8 ignore next 3 -- unreachable: the filter below only matches an <aside> element, so
+           getAttribute is always there; the guard is here to narrow the `Node` type. */
         if (!("getAttribute" in _node)) {
             return DEFAULT_ADMONITION_TYPE;
         }
 
         const node = _node as Element;
+        /* v8 ignore next -- the filter requires class="… admonition …", so the attribute is always set. */
         const classList = node.getAttribute("class")?.split(" ") ?? [];
 
         for (const className of classList) {
@@ -200,6 +218,7 @@ function buildInlineLinkFilter(): Rule {
             // Otherwise treat as normal.
             // TODO: Call super() somehow instead of duplicating the implementation.
             let href = node.getAttribute('href');
+            /* v8 ignore next -- the filter requires a non-empty href, so this never falls through. */
             if (href) href = href.replace(/([()])/g, '\\$1');
             let title = cleanAttribute(node.getAttribute('title'));
             if (title) title = ` "${title.replace(/"/g, '\\"')}"`;
@@ -221,6 +240,72 @@ function buildFigureFilter(): Rule {
 }
 
 /**
+ * Link previews (block `<section class="link-embed">`, inline `<span class="link-mention">`) keep
+ * all their metadata in data attributes on an empty element, so without special handling turndown
+ * treats them as blank nodes and drops them from the export entirely — URL included.
+ *
+ * A fallback `<a>` child is injected before turndown parses the content, which solves three
+ * problems at once: the export stays meaningful in renderers that don't know the widget (GitHub,
+ * Obsidian show a plain link), the inline mention is no longer blank so turndown's whitespace
+ * collapsing doesn't eat the space that follows it (an empty inline element is assumed to render
+ * as nothing), and the `linkPreview` rule below fires (rules never run on blank nodes).
+ *
+ * An anchor already present — e.g. in content imported from Markdown that was never re-saved by
+ * the editor — is regenerated rather than kept, so a stale title is refreshed instead of
+ * accumulated. On reimport the round-trip is lossless: the sanitizer allows `section`/`span` and
+ * `data-*`, and the editor upcasts both purely by tag + class, ignoring children.
+ */
+function injectLinkPreviewFallbacks(content: string): string {
+    if (!content.includes("link-embed") && !content.includes("link-mention")) {
+        return content;
+    }
+
+    const root = parseHtml(content);
+    for (const element of root.querySelectorAll("section.link-embed, span.link-mention")) {
+        const url = element.getAttribute("data-url");
+        if (url) {
+            const title = element.getAttribute("data-title") || url;
+            // `safeLinkPreviewHref` renders a hostile scheme (`javascript:`, `data:`) inert —
+            // stored `data-url` values reach here unsanitized (see its JSDoc); `escapeHtml` on top
+            // stops an otherwise-valid http(s) URL containing a quote from breaking out of the attribute.
+            element.innerHTML = `<a href="${escapeHtml(safeLinkPreviewHref(url))}">${escapeHtml(title)}</a>`;
+        }
+    }
+
+    return root.toString();
+}
+
+/**
+ * The slice of a DOM node the link-preview rules read. Turndown hands its callbacks its own
+ * ExtendedNode — not a real HTMLElement — so the helpers ask only for what they use.
+ */
+interface LinkPreviewNodeLike {
+    nodeName: string;
+    classList: { contains(className: string): boolean };
+    outerHTML: string;
+}
+
+function isLinkPreview(node: LinkPreviewNodeLike): boolean {
+    return (node.nodeName === "SECTION" && node.classList.contains("link-embed"))
+        || (node.nodeName === "SPAN" && node.classList.contains("link-mention"));
+}
+
+function linkPreviewReplacement(node: LinkPreviewNodeLike): string {
+    return node.nodeName === "SECTION" ? `\n\n${node.outerHTML}\n\n` : node.outerHTML;
+}
+
+function buildLinkPreviewFilter(): Rule {
+    return {
+        filter(node) {
+            return isLinkPreview(node);
+        },
+        replacement(_content, node) {
+            return linkPreviewReplacement(node);
+        }
+    };
+}
+
+/**
  * Markdown has no native syntax for disclosure widgets, but GitHub, Obsidian
  * and most CommonMark+HTML renderers accept raw <details>/<summary> verbatim
  * — and Trilium's markdown importer already parses them back into the
@@ -229,14 +314,36 @@ function buildFigureFilter(): Rule {
  * We match on tag name only (not on the trilium-collapsible class) so any
  * pasted/imported <details> is preserved too; stripping it to plain text
  * would silently lose structure.
+ *
+ * The block is pretty-printed (one child per line, indented) with the same
+ * serializer the GFM plugin uses for raw-HTML tables, so it stays readable in
+ * the exported Markdown. The block-level containers below are recursed into so
+ * nested lists indent too; inline wrappers (<summary>, list-item <span>s, etc.)
+ * are emitted verbatim on a single line, and a node holding direct text is kept
+ * verbatim as well so its content is never dropped.
+ *
+ * The Trilium-only `trilium-collapsible` styling hook is dropped from the
+ * exported <details> (any user-added classes are kept). It is not needed to
+ * round-trip: the importer upcasts <details> by tag name and the collapsible
+ * plugin re-stamps the class on the next save.
  */
 function buildDetailsFilter(): Rule {
+    // Block containers whose children are themselves blocks. Inline-content
+    // elements (P, SUMMARY, SPAN, headings) are deliberately excluded so their
+    // formatting stays on one line.
+    const DETAILS_CONTAINER_TAGS = ["DETAILS", "UL", "OL", "LI", "BLOCKQUOTE"];
+
     return {
         filter(node) {
             return node.nodeName === "DETAILS";
         },
         replacement(_content, node) {
-            return `\n\n${(node as HTMLElement).outerHTML}\n\n`;
+            const details = node as HTMLElement;
+            details.classList.remove("trilium-collapsible");
+            if (details.classList.length === 0) {
+                details.removeAttribute("class");
+            }
+            return `\n\n${serializeStructuralHtml(details, DETAILS_CONTAINER_TAGS)}\n\n`;
         }
     };
 }
@@ -303,6 +410,96 @@ function buildMathFilter(): Rule {
             return content;
         }
     };
+}
+
+/**
+ * Coloured inline text, in every shape it reaches the exporter: CKEditor's Font Color and Font
+ * Background Color emit `<span style="color:…">` / `<span style="background-color:…">`, and
+ * `<mark>` arrives from pasted or imported HTML. None has a rule of its own, so without this
+ * the wrapper is dropped and only the text survives — the colour is silently lost on export.
+ *
+ * A *plain default-yellow* highlight collapses to `==text==`: that is the colour `==…==`
+ * imports to and CKEditor's stock Yellow, so the syntax survives a round-trip unchanged. Every
+ * other colour is kept as inline HTML, which Markdown passes through and the importer accepts
+ * verbatim — lossless, where `==…==` would silently repaint it yellow.
+ *
+ * "Plain" means the element carries nothing else that `==…==` cannot express: no second
+ * declaration, no class. Anything more and the element is kept whole rather than partly lost.
+ * The content is Markdown either way, since Markdown inside an inline tag is still parsed.
+ */
+function buildHighlightFilter(): Rule {
+    // Only a `color`/`background-color` declaration of its own — `border-color` and friends have
+    // a `-` before "color" rather than the start of the attribute or a `;`.
+    const COLOR_DECLARATION = /(?:^|;)\s*(?:background-)?color\s*:/i;
+
+    return {
+        filter(node) {
+            return node.nodeName === "MARK"
+                || (node.nodeName === "SPAN" && COLOR_DECLARATION.test(node.getAttribute("style") ?? ""));
+        },
+        replacement(content: string, node: HTMLElement) {
+            // Turnish hoists flanking whitespace out of the delimiters, but an element whose only
+            // content is a `<br>` still lands here; `==  ==` would not parse back as a highlight.
+            if (!content.trim()) {
+                return content;
+            }
+
+            if (isPlainDefaultHighlight(node)) {
+                return `==${content}==`;
+            }
+
+            const attributes = Array.from(node.attributes)
+                .map((attribute) => ` ${attribute.name}="${escapeHtml(attribute.value)}"`)
+                .join("");
+            const tag = node.nodeName.toLowerCase();
+
+            return `<${tag}${attributes}>${content}</${tag}>`;
+        }
+    };
+}
+
+/** Whether the element is a highlight in the default colour and carries nothing else. */
+function isPlainDefaultHighlight(node: HTMLElement): boolean {
+    if (Array.from(node.attributes).some((attribute) => attribute.name !== "style")) {
+        return false;
+    }
+
+    const declarations = parseStyleDeclarations(node.getAttribute("style"));
+
+    // A bare `<mark>` is a highlight with no colour of its own; a span always has a declaration,
+    // since that is what the filter matched on.
+    if (declarations.length === 0) {
+        return true;
+    }
+
+    if (declarations.length > 1) {
+        return false;
+    }
+
+    const [ declaration ] = declarations;
+
+    return declaration.property === "background-color"
+        && normalizeColor(declaration.value) === normalizeColor(HIGHLIGHT_BACKGROUND);
+}
+
+function parseStyleDeclarations(style: string | null) {
+    return (style ?? "")
+        .split(";")
+        .map((declaration) => declaration.trim())
+        .filter((declaration) => declaration.length > 0)
+        .map((declaration) => {
+            const [ property, ...value ] = declaration.split(":");
+
+            return {
+                property: property.trim().toLowerCase(),
+                value: value.join(":").trim()
+            };
+        });
+}
+
+/** Colours are compared ignoring case and the spacing browsers and sanitizers move around. */
+function normalizeColor(color: string) {
+    return color.replace(/\s+/g, "").toLowerCase();
 }
 
 // Taken from upstream since it's not exposed.

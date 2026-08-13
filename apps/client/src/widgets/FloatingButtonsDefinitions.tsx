@@ -21,9 +21,11 @@ import { createImageSrcUrl, isElectron, openInAppHelpFromUrl } from "../services
 import { ViewTypeOptions } from "./collections/interface";
 import ActionButton, { ActionButtonProps } from "./react/ActionButton";
 import { ButtonGroup } from "./react/Button";
-import { useIsNoteReadOnly, useNoteLabel, useNoteLabelBoolean, useTriliumEvent, useTriliumOption, useWindowSize } from "./react/hooks";
+import { useEffectiveReadOnly, useIsNoteReadOnly, useNoteLabel, useNoteLabelBoolean, useTriliumEvent, useTriliumOption, useWindowSize } from "./react/hooks";
+import NoItems from "./react/NoItems";
 import NoteLink from "./react/NoteLink";
 import RawHtml from "./react/RawHtml";
+import { isSplitEditorForcedReadOnly, resolveDisplayMode } from "./type_widgets/helpers/split_editor_mode";
 
 export interface FloatingButtonContext {
     parentComponent: Component;
@@ -112,12 +114,14 @@ function ToggleReadOnlyButton({ note, isDefaultViewMode }: FloatingButtonContext
     />;
 }
 
-function DisplayModeSwitcher({ note, isDefaultViewMode }: FloatingButtonContext) {
+function DisplayModeSwitcher({ note, noteContext, isDefaultViewMode }: FloatingButtonContext) {
     const [ displayMode, setDisplayMode ] = useNoteLabel(note, "displayMode");
-    const isEnabled = (note.isMarkdown() || note.type === "mermaid") && note.isContentAvailable() && isDefaultViewMode;
+    const readOnly = useEffectiveReadOnly(note, noteContext);
+    const isEnabled = (note.isMarkdown() || note.type === "mermaid" || note.isIconPack()) && note.isContentAvailable() && isDefaultViewMode;
     if (!isEnabled) return false;
 
-    const mode = displayMode === "source" || displayMode === "preview" ? displayMode : "split";
+    // Mirror SplitEditor's mode resolution so the active button matches the actual pane.
+    const mode = resolveDisplayMode(displayMode, readOnly || isSplitEditorForcedReadOnly(note));
     const buttons: Array<{ value: "source" | "split" | "preview"; icon: string; text: string }> = [
         { value: "source", icon: "bx bx-code", text: t("display_mode.source") },
         { value: "split", icon: "bx bxs-dock-left", text: t("display_mode.split") },
@@ -415,7 +419,7 @@ export function useBacklinkCount(note: FNote | null | undefined, isDefaultViewMo
 }
 
 export function BacklinksList({ note }: { note: FNote }) {
-    const [ backlinks, setBacklinks ] = useState<BacklinksResponse>([]);
+    const [ backlinks, setBacklinks ] = useState<BacklinksResponse>();
 
     function refresh() {
         server.get<BacklinksResponse>(`note-map/${note.noteId}/backlinks`).then(async (backlinks) => {
@@ -433,19 +437,38 @@ export function BacklinksList({ note }: { note: FNote }) {
         if (needsRefresh(note, loadResults)) refresh();
     });
 
-    return backlinks.map(backlink => (
-        <li>
+    // Nothing at all until the request has answered, so that the placeholder below doesn't show for
+    // as long as it takes — the note usually has backlinks, this list being what says it has.
+    if (!backlinks) return null;
+
+    if (!backlinks.length) {
+        return (
+            // An item of the list it stands in for: what holds it is a <ul> everywhere but the
+            // floating button's dropdown, which only opens once there is something to list anyway.
+            <li className="backlinks-empty">
+                <NoItems size="small" icon="bx bx-link" text={t("zpetne_odkazy.no_backlinks")} />
+            </li>
+        );
+    }
+
+    // Keyed by position: one source note takes a row per relation it points with, so a note ID names
+    // no single row, and the whole list is rebuilt at once anyway.
+    return backlinks.map((backlink, index) => (
+        <li key={index}>
+            {/* Named so that the styling has something to hang off other than the position of the
+                link within the item (see Backlinks.css). */}
             <NoteLink
                 notePath={backlink.noteId}
+                containerClassName="backlink-header"
                 showNotePath showNoteIcon
                 noPreview
             />
 
             {"relationName" in backlink ? (
-                <p>{backlink.relationName}</p>
+                <p className="backlink-relation">{backlink.relationName}</p>
             ) : (
-                backlink.excerpts.map(excerpt => (
-                    <RawHtml html={excerpt} />
+                backlink.excerpts.map((excerpt, excerptIndex) => (
+                    <RawHtml key={excerptIndex} html={excerpt} />
                 ))
             )}
         </li>

@@ -2,6 +2,7 @@ import type { CKTextEditor } from "@triliumnext/ckeditor5";
 import { AttributeRow } from "@triliumnext/commons";
 
 import appContext from "../components/app_context.js";
+import type NoteContext from "../components/note_context.js";
 import type FBranch from "../entities/fbranch.js";
 import type FNote from "../entities/fnote.js";
 import type { ChooseNoteTypeResponse } from "../widgets/dialogs/note_type_chooser.js";
@@ -28,6 +29,13 @@ export interface CreateNoteOpts {
     textEditor?: CKTextEditor;
     /** Attributes to be set on the note. These are set atomically on note creation, so entity changes are not sent for attributes defined here. */
     attributes?: Omit<AttributeRow, "noteId" | "attributeId">[];
+    /**
+     * Note context to activate the new note in. Popup dialogs (quick edit, tree popup) pass their
+     * own context here — it lives outside the tab manager, so defaulting to the active tab would
+     * activate the note in the background and close the dialog. When set, the surrounding dialog
+     * is kept open.
+     */
+    noteContext?: NoteContext;
 }
 
 interface Response {
@@ -57,12 +65,15 @@ async function createNote(parentNotePath: string | undefined, options: CreateNot
         options.isProtected = false;
     }
 
-    if (appContext.tabManager.getActiveContextNoteType() !== "text") {
+    // Whether there is a selection to save is the editor's answer, not the tab manager's: the editor
+    // handing us the selection is not necessarily the active tab's (a split, the quick editor, an
+    // embedded pane). An empty selection means there is nothing to cut, so the note is created as an
+    // ordinary empty child and the source note is left untouched.
+    const selectedHtml = options.saveSelection ? options.textEditor?.getSelectedHtml() : null;
+    if (selectedHtml) {
+        [options.title, options.content] = parseSelectedHtml(selectedHtml);
+    } else {
         options.saveSelection = false;
-    }
-
-    if (options.saveSelection && options.textEditor) {
-        [options.title, options.content] = parseSelectedHtml(options.textEditor.getSelectedHtml());
     }
 
     const parentNoteId = treeService.getNoteIdFromUrl(parentNotePath);
@@ -84,12 +95,14 @@ async function createNote(parentNotePath: string | undefined, options: CreateNot
 
     await ws.waitForMaxKnownEntityChangeId();
 
-    const activeNoteContext = appContext.tabManager.getActiveContext();
+    const activeNoteContext = options.noteContext ?? appContext.tabManager.getActiveContext();
     if (activeNoteContext && options.activate) {
-        await activeNoteContext.setNote(`${parentNotePath}/${note.noteId}`);
+        await activeNoteContext.setNote(`${parentNotePath}/${note.noteId}`, {
+            keepActiveDialog: !!options.noteContext
+        });
 
         if (options.focus === "title") {
-            appContext.triggerEvent("focusAndSelectTitle", { isNewNote: true });
+            appContext.triggerEvent("focusAndSelectTitle", { isNewNote: true, ntxId: activeNoteContext.ntxId });
         } else if (options.focus === "content") {
             appContext.triggerEvent("focusOnDetail", { ntxId: activeNoteContext.ntxId });
         }

@@ -12,8 +12,9 @@ describe("renderWithSourceLines", () => {
         return [ ...html.matchAll(/data-source-line="(\d+)"/g) ].map((m) => parseInt(m[1], 10));
     }
 
+    /** Markup with the source-line attributes stripped, so markup assertions stay readable. */
     function html(src: string): string {
-        return renderWithSourceLines(src).html;
+        return renderWithSourceLines(src).html.replace(/ data-source-line="\d+"/g, "");
     }
 
     it("returns empty html for empty input", () => {
@@ -51,11 +52,32 @@ describe("renderWithSourceLines", () => {
         expect(extractLines(src)).toEqual([ 1, 6 ]);
     });
 
-    it("renders standard markdown constructs inside the wrappers", () => {
+    it("renders standard markdown constructs", () => {
         const result = html("## Heading\n\n- item\n");
         expect(result).toContain("<h2>Heading</h2>");
         expect(result).toContain("<ul>");
         expect(result).toContain("<li>item</li>");
+    });
+
+    it("tags blocks in place so they stay direct siblings", () => {
+        // The .ck-content styles use sibling combinators (e.g. the stacked look of consecutive
+        // collapsibles), which only match if blocks are not each wrapped in a container.
+        const src = [
+            '<details class="trilium-collapsible">',
+            "<summary>One</summary>",
+            "</details>",
+            "",
+            '<details class="trilium-collapsible">',
+            "<summary>Two</summary>",
+            "</details>"
+        ].join("\n");
+
+        const container = document.createElement("div");
+        container.innerHTML = renderWithSourceLines(src).html;
+
+        const blocks = Array.from(container.children);
+        expect(blocks.map((block) => block.tagName)).toEqual([ "DETAILS", "DETAILS" ]);
+        expect(blocks.every((block) => block.hasAttribute("data-source-line"))).toBe(true);
     });
 
     it("keeps H1 as H1 in the preview (no title-row context to avoid)", () => {
@@ -222,5 +244,59 @@ describe("renderWithSourceLines", () => {
             expect(h.text).not.toMatch(/onload/i);
             expect(h.text).not.toMatch(/javascript:/i);
         }
+    });
+
+    it("renders ==text== as a highlight, surviving sanitization", () => {
+        expect(html("==hi==")).toBe('<p><span style="background-color:hsl(60, 75%, 60%);">hi</span></p>');
+        expect(html("a == b")).toBe("<p>a == b</p>");
+    });
+
+    describe("highlights", () => {
+        function highlights(src: string) {
+            return renderWithSourceLines(src).highlights;
+        }
+
+        it("extracts bold, italic and underline runs", () => {
+            expect(highlights("**bold** and *italic* and <u>underline</u>").map(h => [ h.text, h.attrs.bold, h.attrs.italic, h.attrs.underline ]))
+                .toEqual([
+                    [ "bold", true, false, false ],
+                    [ "italic", false, true, false ],
+                    [ "underline", false, false, true ]
+                ]);
+        });
+
+        it("traces each run back to the source line of its block, for scrolling the editor", () => {
+            const src = [
+                "# Heading",   // line 1
+                "",            // line 2
+                "a **one** b", // line 3
+                "",            // line 4
+                "c *two* d"    // line 5
+            ].join("\n");
+
+            expect(highlights(src).map(h => [ h.text, h.line ])).toEqual([ [ "one", 3 ], [ "two", 5 ] ]);
+        });
+
+        it("gives each run an id that is stable across re-renders", () => {
+            const src = "**a** and *b*";
+            expect(highlights(src).map(h => h.id)).toEqual(highlights(src).map(h => h.id));
+        });
+
+        it("picks up a ==highlight== as a background colour", () => {
+            const [ highlight ] = highlights("some ==marked== text");
+
+            expect(highlight.text).toBe("marked");
+            expect(highlight.attrs.background).toBeTruthy();
+        });
+
+        it("finds nothing in unformatted text", () => {
+            expect(highlights("just a plain paragraph")).toEqual([]);
+        });
+    });
+
+    it("renders a colour the exporter preserved as inline HTML", () => {
+        // Non-default colours survive a Markdown export as a span, so the preview has to show them.
+        expect(html(`a <span style="color:#ff0000">**red**</span> b`))
+            .toBe(`<p>a <span style="color:#ff0000"><strong>red</strong></span> b</p>`);
     });
 });

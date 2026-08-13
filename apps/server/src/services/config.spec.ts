@@ -406,7 +406,7 @@ corsAllowOrigin=https://ini-cors.com
 
             // Network defaults (host is the web/server bind address)
             expect(config.Network.host).toBe("0.0.0.0");
-            expect(config.Network.port).toBe("3000");
+            expect(config.Network.port).toBe("8080");
             expect(config.Network.https).toBe(false);
             expect(config.Network.certPath).toBe("");
             expect(config.Network.keyPath).toBe("");
@@ -430,6 +430,9 @@ corsAllowOrigin=https://ini-cors.com
             expect(config.MultiFactorAuthentication.oauthIssuerBaseUrl).toBe("https://accounts.google.com");
             expect(config.MultiFactorAuthentication.oauthIssuerName).toBe("Google");
             expect(config.MultiFactorAuthentication.oauthIssuerIcon).toBe("");
+            // Empty means "detect from the provider's discovery document" for both of these.
+            expect(config.MultiFactorAuthentication.oauthClientAuthMethod).toBe("");
+            expect(config.MultiFactorAuthentication.oauthIdTokenSigningAlg).toBe("");
 
             // Logging defaults
             expect(config.Logging.retentionDays).toBe(90);

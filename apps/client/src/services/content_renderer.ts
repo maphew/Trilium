@@ -1,6 +1,6 @@
 import "./content_renderer.css";
 
-import { normalizeMimeTypeForCKEditor, type TextRepresentationResponse } from "@triliumnext/commons";
+import { isImageAttachmentRole, isOfficeMimeType, normalizeMimeTypeForCKEditor, type TextRepresentationResponse } from "@triliumnext/commons";
 import DOMPurify from "dompurify";
 import { h, type JSX, render } from "preact";
 
@@ -8,11 +8,14 @@ import FAttachment from "../entities/fattachment.js";
 import FNote from "../entities/fnote.js";
 import imageContextMenuService from "../menus/image_context_menu.js";
 import { t } from "../services/i18n.js";
+import { type MediaEnvironment, showsFileActions } from "../widgets/type_widgets/file/media_environment.js";
 import type { LlmChatContent, StoredMessage } from "../widgets/type_widgets/llm_chat/llm_chat_types.js";
 import renderText, { postProcessRichContent, renderChildrenList } from "./content_renderer_text.js";
 import renderDoc from "./doc_renderer.js";
 import { loadElkIfNeeded, postprocessMermaidSvg } from "./mermaid.js";
+import { renderOfficeToHtml } from "./office_renderer.js";
 import openService from "./open.js";
+import { waitForPendingRenders } from "./pending_renders.js";
 import protectedSessionService from "./protected_session.js";
 import protectedSessionHolder from "./protected_session_holder.js";
 import renderService from "./render.js";
@@ -53,6 +56,23 @@ export interface RenderOptions {
      * default and intentionally left off for lightweight previews such as tooltips and the note list.
      */
     interactive?: boolean;
+    /**
+     * How audio/video renders. `preview` (the default) shows a click-to-load placeholder, so that a screen
+     * full of media notes doesn't have every one of them streaming from the server at once; `embedded`
+     * mounts the compact player straight away. `native` emits a plain `<audio>`/`<video>` element instead of
+     * the player, for the callers that serialize the rendered content into an HTML string or into a separate
+     * document (presentation, printing) — a mounted player would be dead markup there.
+     *
+     * A full-size player has no entry here: it needs the tab it lives in (for sibling navigation and the OS
+     * media session), which the renderer has no access to, so its hosts mount {@link MediaPreview} themselves.
+     */
+    mediaEnvironment?: "preview" | "embedded" | "native";
+    /**
+     * If enabled, PDFs render with the pdf.js toolbar (zoom, page navigation, print, download).
+     * Off by default so that lightweight previews (attachment list, tooltips, embeds) stay bare;
+     * the attachment full-detail view opts in. The viewer remains read-only either way.
+     */
+    pdfToolbar?: boolean;
 }
 
 const CODE_MIME_TYPES = new Set(["application/json"]);
@@ -83,8 +103,12 @@ export async function getRenderedContent(this: {} | { ctx: string }, entity: FNo
         await renderMarkdown(entity, $renderedContent, options);
     } else if (type === "code") {
         await renderCode(entity, $renderedContent);
+    } else if (type === "iconPack" && !options.tooltip && entity instanceof FNote) {
+        await renderIconPack(entity, $renderedContent, options);
     } else if (["image", "canvas", "mindMap", "spreadsheet"].includes(type)) {
         await renderImage(entity, $renderedContent, options);
+    } else if (!options.tooltip && type === "office") {
+        await renderOffice(entity, $renderedContent);
     } else if (!options.tooltip && ["file", "pdf", "audio", "video"].includes(type)) {
         await renderFile(entity, type, $renderedContent, options);
     } else if (type === "mermaid") {
@@ -92,9 +116,8 @@ export async function getRenderedContent(this: {} | { ctx: string }, entity: FNo
     } else if (type === "render" && entity instanceof FNote) {
         const $content = $("<div>");
 
-        await renderService.render(entity, $content, (e) => {
-            const $error = $("<div>").addClass("admonition caution").text(typeof e === "string" ? e : getErrorMessage(e));
-            $content.empty().append($error);
+        await renderService.render(entity, $content, (e, noteId) => {
+            showRenderError($content, e, noteId).catch((cardError) => console.error("Failed to render the script error card:", cardError));
         });
 
         $renderedContent.append($content);
@@ -107,8 +130,8 @@ export async function getRenderedContent(this: {} | { ctx: string }, entity: FNo
         $renderedContent.append($("<div>").append("<div>This note is protected and to access it you need to enter password.</div>").append("<br/>").append($button));
     } else if (type === "webView" && options.interactive && !options.tooltip && entity instanceof FNote && entity.hasLabel("webViewSrc")) {
         await renderWebView(entity, $renderedContent);
-    } else if (type === "llmChat" && !options.tooltip && entity instanceof FNote) {
-        await renderLlmChat(entity, $renderedContent);
+    } else if (type === "llmChat" && entity instanceof FNote) {
+        await renderLlmChat(entity, $renderedContent, options);
     } else if (entity instanceof FNote) {
         $renderedContent.addClass("no-preview");
         $renderedContent.append(
@@ -174,6 +197,33 @@ async function renderMarkdown(note: FNote | FAttachment, $renderedContent: JQuer
     });
     $renderedContent.append($('<div class="ck-content">').html(html));
     await postProcessRichContent(note, $renderedContent, options);
+}
+
+/**
+ * Renders an icon pack as its glyph grid (the same isolated-frame preview used by the editor),
+ * mounted like the PDF viewer. Its own module keeps the editor stack (SplitEditor/CodeMirror) out
+ * of this path. Falls back to the children list for an empty manifest.
+ */
+async function renderIconPack(note: FNote, $renderedContent: JQuery<HTMLElement>, options: RenderOptions) {
+    const blob = await note.getBlob();
+    const content = blob?.content ?? "";
+
+    if (!content.trim()) {
+        if (!options.noChildrenList) {
+            await renderChildrenList($renderedContent, note, options.includeArchivedNotes ?? false);
+        }
+        return;
+    }
+
+    const { IconPackPreview } = await import("../widgets/type_widgets/icon_pack/IconPackPreview");
+    const $container = $('<div class="icon-pack-rendered">');
+    const container = $container.get(0);
+    if (container) {
+        render(h(IconPackPreview, { note, content, interactive: false }), container);
+        // Mark the standalone Preact root so disposeInteractiveContent() can unmount the frame/effects.
+        container.setAttribute(INTERACTIVE_MOUNT_ATTR, "");
+    }
+    $renderedContent.append($container);
 }
 
 /**
@@ -251,86 +301,146 @@ async function addOCRTextIfAvailable(note: FNote, $content: JQuery<HTMLElement>)
 }
 
 async function renderFile(entity: FNote | FAttachment, type: string, $renderedContent: JQuery<HTMLElement>, options: RenderOptions = {}) {
-    let entityType, entityId;
-
-    if (entity instanceof FNote) {
-        entityType = "notes";
-        entityId = entity.noteId;
-    } else if (entity instanceof FAttachment) {
-        entityType = "attachments";
-        entityId = entity.attachmentId;
-    } else {
-        throw new Error(`Can't recognize entity type of '${entity}'`);
-    }
+    const { entityType, entityId } = getEntityTypeAndId(entity);
 
     const $content = $('<div style="display: flex; flex-direction: column; height: 100%; justify-content: end;">');
+    // An embedded player has no room for a footer below it, so it carries Download / Open in its own controls
+    // instead (see showsFileActions) — and this footer stands down.
+    let mediaOwnsFileActions = false;
 
     if (type === "pdf") {
         const url = `../../api/${entityType}/${entityId}/open`;
         const $viewer = $(`<div style="height: 100%">`);
         const PdfViewer = (await import("../widgets/type_widgets/file/PdfViewer")).default;
-        render(h(PdfViewer, {pdfUrl: url, editable: false, toolbar: false}), $viewer.get(0)!);
+        render(h(PdfViewer, {pdfUrl: url, editable: false, toolbar: options.pdfToolbar ?? false}), $viewer.get(0)!);
 
         $content.append($viewer);
 
 
-    } else if (type === "audio") {
-        const $audioPreview = $("<audio controls></audio>")
-            .attr("src", openService.getUrlForDownload(`api/${entityType}/${entityId}/open-partial`))
-            .attr("type", entity.mime)
-            .css("width", "100%");
+    } else if (type === "audio" || type === "video") {
+        const environment = options.mediaEnvironment ?? "preview";
 
-        $content.append($audioPreview);
-    } else if (type === "video") {
-        const $videoPreview = $("<video controls></video>")
-            .attr("src", openService.getUrlForDownload(`api/${entityType}/${entityId}/open-partial`))
-            .attr("type", entity.mime)
-            .css("width", "100%");
+        if (environment === "native") {
+            const $nativePreview = $(type === "audio" ? "<audio controls></audio>" : "<video controls></video>")
+                .attr("src", openService.getUrlForDownload(`api/${entityType}/${entityId}/open-partial`))
+                .attr("type", entity.mime)
+                .css("width", "100%");
 
-        $content.append($videoPreview);
+            $content.append($nativePreview);
+        } else {
+            mediaOwnsFileActions = showsFileActions(environment);
+            await renderMedia(entity, environment, $content);
+        }
     }
 
     if (entity instanceof FNote && options.showTextRepresentation) {
         await addOCRTextIfAvailable(entity, $content);
     }
 
-    if (entityType === "notes" && "noteId" in entity) {
-        // TODO: we should make this available also for attachments, but there's a problem with "Open externally" support
-        //       in attachment list
-        const $downloadButton = $(`
-            <button class="file-download btn btn-primary" type="button">
-                <span class="tn-icon bx bx-download"></span>
-                ${t("file_properties.download")}
-            </button>
-        `);
-
-        const $openButton = $(`
-            <button class="file-open btn btn-primary" type="button">
-                <span class="tn-icon bx bx-link-external"></span>
-                ${t("file_properties.open")}
-            </button>
-        `);
-
-        $downloadButton.on("click", (e) => {
-            e.stopPropagation();
-            openService.downloadFileNote(entity, null, null);
-        });
-        $openButton.on("click", async (e) => {
-            const iconEl = $openButton.find("> .bx");
-            iconEl.removeClass("bx bx-link-external");
-            iconEl.addClass("bx bx-loader spin");
-            e.stopPropagation();
-            await openService.openNoteExternally(entity.noteId, entity.mime);
-            iconEl.removeClass("bx bx-loader spin");
-            iconEl.addClass("bx bx-link-external");
-        });
-        // open doesn't work for protected notes since it works through a browser which isn't in protected session
-        $openButton.toggle(!entity.isProtected);
-
-        $content.append($('<footer class="file-footer">').append($downloadButton).append($openButton));
+    if (!mediaOwnsFileActions) {
+        appendNoteFileActions($content, entity);
     }
 
     $renderedContent.append($content);
+}
+
+/**
+ * Renders an inline preview of an office document (DOCX/XLSX/PPTX, ODT/ODS/ODP, RTF and
+ * EPUB) by fetching the server-rendered HTML preview and sanitizing it. On failure it
+ * falls back to a notice plus the usual download/open actions, so the file is never left
+ * unreachable.
+ */
+async function renderOffice(entity: FNote | FAttachment, $renderedContent: JQuery<HTMLElement>) {
+    const { entityType, entityId } = getEntityTypeAndId(entity);
+
+    // The scroll host is a separate, unpadded element (like the note view's .scrolling-container)
+    // so the body's padding scrolls with the document instead of sitting on the scroller itself.
+    const $content = $('<div class="office-preview">');
+    const $scroll = $('<div class="office-preview-scroll">');
+    const $body = $('<div class="ck-content office-preview-body">');
+    $body.append($('<div class="office-preview-loading">').append($('<span class="bx bx-loader bx-spin">')).append(document.createTextNode(t("content_renderer.office_rendering"))));
+    $scroll.append($body);
+    $content.append($scroll);
+    $renderedContent.append($content);
+
+    try {
+        $body.html(await renderOfficeToHtml(entityType, entityId));
+    } catch (e) {
+        console.warn("Failed to render office document preview:", getErrorMessage(e));
+        $scroll.remove();
+        $content.prepend($("<div>").addClass("admonition caution").text(t("content_renderer.office_render_error")));
+    }
+
+    appendNoteFileActions($content, entity);
+}
+
+/**
+ * Appends the download / open-externally action buttons for a file note. These are
+ * note-only for now — attachment "open externally" support isn't wired up (see the TODO
+ * that used to live inline in renderFile).
+ */
+function appendNoteFileActions($content: JQuery<HTMLElement>, entity: FNote | FAttachment) {
+    if (!(entity instanceof FNote)) {
+        return;
+    }
+
+    const $downloadButton = $(`
+        <button class="file-download btn btn-primary" type="button">
+            <span class="tn-icon bx bx-download"></span>
+            ${t("file_properties.download")}
+        </button>
+    `);
+
+    const $openButton = $(`
+        <button class="file-open btn btn-primary" type="button">
+            <span class="tn-icon bx bx-link-external"></span>
+            ${t("file_properties.open")}
+        </button>
+    `);
+
+    $downloadButton.on("click", (e) => {
+        e.stopPropagation();
+        openService.downloadFileNote(entity, null, null);
+    });
+    $openButton.on("click", async (e) => {
+        const iconEl = $openButton.find("> .bx");
+        iconEl.removeClass("bx bx-link-external");
+        iconEl.addClass("bx bx-loader spin");
+        e.stopPropagation();
+        await openService.openNoteExternally(entity.noteId, entity.mime);
+        iconEl.removeClass("bx bx-loader spin");
+        iconEl.addClass("bx bx-link-external");
+    });
+    // open doesn't work for protected notes since it works through a browser which isn't in protected session
+    $openButton.toggle(!entity.isProtected);
+
+    $content.append($('<footer class="file-footer">').append($downloadButton).append($openButton));
+}
+
+function getEntityTypeAndId(entity: FNote | FAttachment): { entityType: "notes" | "attachments"; entityId: string } {
+    if (entity instanceof FNote) {
+        return { entityType: "notes", entityId: entity.noteId };
+    } else if (entity instanceof FAttachment) {
+        return { entityType: "attachments", entityId: entity.attachmentId };
+    } else {
+        throw new Error(`Can't recognize entity type of '${entity}'`);
+    }
+}
+
+/**
+ * Mounts the Trilium media player for an audio/video note or attachment. In a `preview` it starts as a
+ * placeholder and only loads the media once the user presses play (see {@link MediaPreview}); an `embedded`
+ * one loads straight away. Like every other mounted widget here, the embedding caller must tear it down via
+ * {@link disposeInteractiveContent} — otherwise the Preact root leaks and its media keeps playing.
+ */
+async function renderMedia(entity: FNote | FAttachment, environment: MediaEnvironment, $content: JQuery<HTMLElement>) {
+    const MediaPreview = (await import("../widgets/type_widgets/file/MediaPreview")).default;
+    const $container = $('<div class="rendered-media">');
+    const container = $container.get(0);
+    if (container) {
+        await mountInteractiveWidget(h(MediaPreview, { entity, environment }), container);
+    }
+    $content.append($container);
 }
 
 async function renderMermaid(note: FNote | FAttachment, $renderedContent: JQuery<HTMLElement>) {
@@ -381,14 +491,24 @@ async function renderWebView(note: FNote, $renderedContent: JQuery<HTMLElement>)
 }
 
 /**
+ * How many messages a tooltip previews. A hover shows a ~300px-tall scroll box, so rendering the
+ * whole of a long conversation would parse hundreds of markdown bodies nobody will ever scroll to.
+ */
+const TOOLTIP_MAX_MESSAGES = 10;
+
+/**
  * Renders a saved AI chat conversation as a read-only preview: the stored messages painted with the
  * same {@link ChatMessage} components as the live timeline, but with no input bar, context menu, or
  * read-only notice — just the conversation. Mounted as a disposable Preact root (ChatMessage carries
  * effects), so the embedding caller must tear it down via {@link disposeInteractiveContent} — the
  * collection tiles that show these previews already do. Loaded lazily so the chat widget code is only
  * pulled in when a chat note is previewed.
+ *
+ * A tooltip keeps only the serialized HTML of the content and never disposes it, so it would leak a
+ * root per hover. It gets the same preview, snapshotted: mount it, let its async passes settle, take
+ * the markup, unmount. The tooltip has no use for the interactivity it drops.
  */
-async function renderLlmChat(note: FNote, $renderedContent: JQuery<HTMLElement>) {
+async function renderLlmChat(note: FNote, $renderedContent: JQuery<HTMLElement>, options: RenderOptions) {
     const blob = await note.getBlob();
     const source = blob?.content ?? "";
 
@@ -409,9 +529,27 @@ async function renderLlmChat(note: FNote, $renderedContent: JQuery<HTMLElement>)
     const ChatPreview = (await import("../widgets/type_widgets/llm_chat/ChatPreview")).default;
     const $container = $('<div class="note-detail-llm-chat-preview">');
     const container = $container.get(0);
-    if (container) {
-        await mountInteractiveWidget(h(ChatPreview, { messages }), container);
+    if (!container) return;
+
+    if (options.tooltip) {
+        messages = messages.slice(0, TOOLTIP_MAX_MESSAGES);
     }
+
+    await mountInteractiveWidget(h(ChatPreview, { messages }), container);
+
+    if (options.tooltip) {
+        // The chat's markdown renders through the read-only text pipeline, whose passes (mermaid,
+        // math, syntax highlighting) land after the mount — snapshotting before they settle would
+        // freeze half-rendered content into the tooltip. Scoped to this preview, so a hover never
+        // waits on a note rendering in another pane.
+        await waitForPendingRenders(container);
+
+        const html = container.innerHTML;
+        render(null, container);
+        container.removeAttribute(INTERACTIVE_MOUNT_ATTR);
+        container.innerHTML = html;
+    }
+
     $renderedContent.append($container);
 }
 
@@ -494,6 +632,20 @@ async function renderCollection(note: FNote, $renderedContent: JQuery<HTMLElemen
     $renderedContent.append($container);
 }
 
+/**
+ * Replaces the failed render note's content with the shared error card. The card is imported
+ * lazily: this module is loaded early (via the app-context graph), and an eager import of
+ * `RenderErrorCard` drags in the react widget tree (`Admonition` → `Collapsible` → `hooks`),
+ * which circles back into `basic_widget` before it finishes initializing.
+ */
+async function showRenderError($content: JQuery<HTMLElement>, error: unknown, noteId?: string) {
+    const { default: RenderErrorCard } = await import("../widgets/react/RenderErrorCard.js");
+    const container = $content.empty().get(0);
+    if (container) {
+        render(h(RenderErrorCard, { error, noteId }), container);
+    }
+}
+
 function getRenderingType(entity: FNote | FAttachment) {
     let type: string = "";
     if ("type" in entity) {
@@ -504,22 +656,32 @@ function getRenderingType(entity: FNote | FAttachment) {
         // for reference; render them exactly like a "file" role.
         if (type === "importSource") {
             type = "file";
+        } else if (isImageAttachmentRole(type)) {
+            // A link preview's "favicon" is a picture like any other as far as showing it goes; the
+            // role only says where it came from. Without this it would fall through to the unknown
+            // type and list as a file with no preview.
+            type = "image";
         }
     }
 
     const mime = "mime" in entity && entity.mime;
-    const isIconPack = entity instanceof FNote && entity.hasLabel("iconPack");
+    const isIconPack = entity instanceof FNote && entity.isIconPack();
 
-    if (type === "file" && mime === "application/pdf") {
+    if (isIconPack) {
+        // Icon packs (JSON `code`/`file` notes with #iconPack) render as their glyph grid, not as raw JSON.
+        type = "iconPack";
+    } else if (type === "file" && mime === "application/pdf") {
         type = "pdf";
     } else if (type === "code" && entity instanceof FNote && entity.isMarkdown()) {
         type = "markdown";
-    } else if ((type === "file" || type === "viewConfig") && mime && CODE_MIME_TYPES.has(mime) && !isIconPack) {
+    } else if ((type === "file" || type === "viewConfig") && mime && CODE_MIME_TYPES.has(mime)) {
         type = "code";
     } else if (type === "file" && mime && mime.startsWith("audio/")) {
         type = "audio";
     } else if (type === "file" && mime && mime.startsWith("video/")) {
         type = "video";
+    } else if (type === "file" && mime && isOfficeMimeType(mime)) {
+        type = "office";
     }
 
     if (entity.isProtected) {

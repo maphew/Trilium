@@ -449,6 +449,14 @@ function getDefaultKeyboardActions() {
             scope: "window"
         },
         {
+            friendlyName: t("keyboard_action_names.show-deleted-notes"),
+            actionName: "showDeletedNotes",
+            iconClass: "bx bx-trash-alt",
+            defaultShortcuts: [],
+            description: t("keyboard_actions.show-deleted-notes"),
+            scope: "window"
+        },
+        {
             friendlyName: t("keyboard_action_names.show-sql-console"),
             actionName: "showSQLConsole",
             iconClass: "bx bx-data",
@@ -478,6 +486,14 @@ function getDefaultKeyboardActions() {
             iconClass: "bx bxs-keyboard",
             defaultShortcuts: ["Shift+F1"],
             description: t("keyboard_actions.show-cheatsheet"),
+            scope: "window"
+        },
+        {
+            friendlyName: t("keyboard_action_names.show-shortcut-hints"),
+            actionName: "showShortcutHints",
+            iconClass: "bx bx-help-circle",
+            defaultShortcuts: ["Alt+F1"],
+            description: t("keyboard_actions.show-shortcut-hints"),
             scope: "window"
         },
 

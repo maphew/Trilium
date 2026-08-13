@@ -24,6 +24,19 @@ export function decodeBase64(base64: string): Uint8Array {
     return getCrypto().base64Decode(base64);
 }
 
+/**
+ * Decodes a standard base64 string into a caller-provided buffer (at least
+ * `(base64.length * 3) >> 2` bytes), returning the number of bytes written — or `null` when the
+ * active crypto provider has no in-place decoder, in which case the caller should fall back to
+ * {@link decodeBase64}. Used to reuse one scratch buffer across many decodes instead of
+ * allocating a fresh ArrayBuffer per call (see the blob decode pool in sync_update).
+ */
+export function decodeBase64Into(base64: string, target: Uint8Array): number | null {
+    const provider = getCrypto();
+
+    return provider.base64DecodeInto ? provider.base64DecodeInto(base64, target) : null;
+}
+
 export function decodeUtf8(stringOrBuffer: string | Uint8Array) {
     if (typeof stringOrBuffer === "string") {
         return stringOrBuffer;

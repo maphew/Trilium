@@ -23,7 +23,7 @@ function init() {
             log.info(`JS Info: ${message.info}`);
         } else if (message.type === "ping") {
             await syncMutexService.doExclusively(() => {
-                messagingProvider.sendMessageToClient(clientId, { type: "ping" });
+                messagingProvider.sendMessageToClient(clientId, buildPingMessage());
             });
         } else {
             log.error("Unrecognized message: ");
@@ -130,9 +130,20 @@ const ORDERING: Record<string, number> = {
     options: 0,
 };
 
+/**
+ * Server→client pings carry the live protected-session state so a client whose `reload-frontend`
+ * broadcast got lost (dead WebSocket at expiry time) can still detect the expiry and reload.
+ */
+function buildPingMessage(): WebSocketMessage {
+    return {
+        type: "ping",
+        protectedSessionAvailable: protectedSessionService.isProtectedSessionAvailable()
+    };
+}
+
 function buildFrontendUpdateMessage(entityChangeIds: number[]): WebSocketMessage | null {
     if (entityChangeIds.length === 0) {
-        return { type: "ping" };
+        return buildPingMessage();
     }
 
     const entityChanges = getSql().getManyRows<EntityChange>(/*sql*/`SELECT * FROM entity_changes WHERE id IN (???)`, entityChangeIds);
@@ -189,6 +200,16 @@ function syncFailed() {
     sendMessageToAllClients({ type: "sync-failed", lastSyncedPush });
 }
 
+/**
+ * Tells the user that syncing has stopped because the given sectors kept diverging from the sync
+ * server's, which no amount of retrying will fix. The sync status icon only ever shows a generic
+ * failure (indistinguishable from an unreachable server), so this state — which needs the user to
+ * act — is raised as a notification of its own.
+ */
+function syncHashCheckFailed(sectors: string[]) {
+    sendMessageToAllClients({ type: "sync-hash-check-failed", sectors });
+}
+
 function reloadFrontend(reason: string) {
     sendMessageToAllClients({ type: "reload-frontend", reason });
 }
@@ -204,6 +225,7 @@ export default {
     syncPullInProgress,
     syncFinished,
     syncFailed,
+    syncHashCheckFailed,
     sendTransactionEntityChangesToAllClients,
     setLastSyncedPush,
     reloadFrontend

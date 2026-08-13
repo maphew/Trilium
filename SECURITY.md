@@ -54,6 +54,13 @@ Trilium is a personal knowledge base where users have full control over their ow
 
 Vulnerabilities that require a user to inject malicious content into their own notes and then view it themselves are not considered security issues.
 
+#### Published (Shared) Note Content
+A shared note is published by its owner, and the share view renders it as it was authored, raw HTML included. Script running on a page you publish is not an escalation of anything: Trilium supports it deliberately, through the `~shareJs` relation, which loads a JavaScript note of your choosing into the share page, and through `~shareTemplate` for the page around it.
+
+Reports that reduce to "a note's own HTML or JavaScript executes for visitors to the page publishing it" are therefore out of scope, however the content was written (editor, ETAPI, sync). Content arriving through the importers and the web clipper is sanitized on write, independently of this.
+
+What crosses out of the published page remains **in scope**: disclosing notes that were never shared, bypassing `#shareCredentials` or `#shareHiddenFromTree`, or reaching the authenticated session of someone who merely visited. So does a defect in how the share renderer itself builds markup, such as a value escaping the attribute it was placed in; we fix those as correctness bugs even where the value was the publisher's own.
+
 #### Electron Architecture
 The desktop application follows the Electron security checklist: `nodeIntegration` is disabled, `contextIsolation` is enabled, and the renderer can only reach the main process through a whitelisted `contextBridge` API (`window.electronApi`). Embedded web content (Web View notes) is isolated in a dedicated session partition with deny-by-default permission handlers, `<webview>` attach requests are vetted in the main process, and window-open/navigation requests are checked against a scheme allowlist. Electron fuses additionally prevent external abuse.
 
@@ -61,6 +68,15 @@ User scripting (see Self-XSS above) still intentionally allows arbitrary JavaScr
 
 #### Authenticated User Actions
 Actions that require valid authentication and only affect the authenticated user's own data are generally not vulnerabilities.
+
+#### Private Addresses Reached by a Configured LLM Endpoint
+Outbound requests the server makes on behalf of note content — link previews, image fetches, imports — are vetted against a strict rule: the hostname is resolved, every address behind it must be a public unicast one, and the connection is pinned to the addresses actually checked. Note content is not entitled to the network its host can see.
+
+An LLM provider's base URL is not note content, and the same rule cannot apply to it. Running a model locally is the reason several of the providers exist: Ollama and LM Studio both default to `localhost`, and either is as likely to be another machine on the LAN. A server that refused those addresses would not be a safer Trilium, it would be one where local models do not work at all. So for that destination — and only that one — loopback, RFC1918 and unique-local addresses are deliberately permitted.
+
+Reports that reduce to "an authenticated user can point the LLM base URL at a host on the local network, and the server connects to it" are therefore out of scope, including the reachability and port information that connecting necessarily reveals.
+
+What stays refused is what no model server is ever served on: link-local (`169.254.0.0/16`, which is where a cloud instance answers with its own credentials) and carrier-grade NAT (`100.64.0.0/10`, likewise). Redirects are not followed on these requests at all, since the hop would carry the configured API key to whoever the endpoint named. Defects in **those** guards are in scope, as is any path that reaches them without authentication.
 
 #### Denial of Service via Resource Exhaustion
 Creating extremely large notes or performing many operations is expected user behavior in a note-taking application.

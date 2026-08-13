@@ -9,6 +9,11 @@
     --peek-button-expand-collapse-background-color: var(--hover-item-background-color);
 }
 
+/* The button follows the translucency of the rightmost split. */
+body.desktop.background-effects #center-pane:has(.note-split.last-visible.bgfx) ~ .right-pane-peek-button {
+    --peek-button-expand-background-color: var(--center-pane-background-color-bgfx, var(--main-background-color));
+}
+
 /* The peek button is absolutely positioned in a reserved gutter on the right edge of
    #vertical-main-container, so it stays fixed at the viewport's right side and fully
    owns its background — independent of whether the right pane is open or collapsed. */
@@ -25,13 +30,16 @@
     align-items: center;
     justify-content: center;
     border: 0;
-    border-bottom: 1px solid var(--status-bar-border-color);
     background: transparent;
     padding: 0;
     font-size: 16px;
     cursor: pointer;
     color: var(--peek-button-arrow-color);
     transition: background 250ms ease-in, color 250ms ease-in;
+
+    body.experimental-feature-new-layout.layout-vertical & {
+        border-bottom: 1px solid var(--status-bar-border-color);
+    }
 
     &.right-pane-peek-button-action-expand {
         background: var(--peek-button-expand-background-color);

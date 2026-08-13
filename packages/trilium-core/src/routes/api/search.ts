@@ -1,3 +1,4 @@
+import { dayjs, type TemplatesResponse } from "@triliumnext/commons";
 import type { Request } from "express";
 
 import becca from "../../becca/becca.js";
@@ -10,6 +11,12 @@ import searchService, { EMPTY_RESULT, type SearchNoteResult } from "../../servic
 import { ValidationError } from "../../errors.js";
 import becca_service from "../../becca/becca_service.js";
 import { getHoistedNoteId } from "../../services/context.js";
+
+/** The maximum age in days for a template to be marked as new. */
+const NEW_TEMPLATE_MAX_AGE = 3;
+
+/** The number of seconds after the root note's creation during which templates count as predefined. */
+const INITIAL_SETUP_GRACE_PERIOD = 30;
 
 function searchFromNote(req: Request<{ noteId: string }>): SearchNoteResult {
     const note = becca.getNoteOrThrow(req.params.noteId);
@@ -148,15 +155,47 @@ function getRelatedNotes(req: Request) {
     };
 }
 
-function searchTemplates() {
+function searchTemplates(): TemplatesResponse {
     const query = getHoistedNoteId() === "root" ? "#template" : "#template OR #workspaceTemplate";
+    const userTemplates = searchService.searchNotes(query, {
+        includeArchivedNotes: true,
+        ignoreHoistedNote: false
+    });
 
-    return searchService
-        .searchNotes(query, {
-            includeArchivedNotes: true,
-            ignoreHoistedNote: false
-        })
-        .map((note) => note.noteId);
+    // The built-in templates live in the hidden subtree, so the search above never returns them.
+    // Their "new" flag is reported here regardless, sparing the client a request per template.
+    const builtInTemplates = becca.getNote("_templates")?.getChildNotes() ?? [];
+    const rootCreationDate = becca.getNote("root")?.utcDateCreated;
+
+    return {
+        templateNoteIds: userTemplates.map((note) => note.noteId),
+        newTemplateNoteIds: [ ...userTemplates, ...builtInTemplates ]
+            .filter((note) => isNewTemplate(note.utcDateCreated, rootCreationDate))
+            .map((note) => note.noteId)
+    };
+}
+
+/**
+ * Determines whether a template was created recently enough to be marked as new in the UI.
+ *
+ * @param utcDateCreated the creation date of the template.
+ * @param rootCreationDate the creation date of the root note, used to recognize the predefined
+ *                         templates that are set up together with a new database.
+ */
+export function isNewTemplate(utcDateCreated: string | null, rootCreationDate: string | null | undefined) {
+    if (!utcDateCreated) {
+        return false;
+    }
+
+    const creationDate = dayjs.utc(utcDateCreated);
+
+    if (rootCreationDate && creationDate.diff(dayjs.utc(rootCreationDate), "second") < INITIAL_SETUP_GRACE_PERIOD) {
+        // Ignore templates created shortly after the root note. This prevents the predefined
+        // templates from being marked as new after setting up a new database.
+        return false;
+    }
+
+    return dayjs.utc().diff(creationDate, "day", true) <= NEW_TEMPLATE_MAX_AGE;
 }
 
 export default {

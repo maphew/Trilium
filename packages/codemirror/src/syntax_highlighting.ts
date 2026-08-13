@@ -142,6 +142,7 @@ const byMimeType: Record<SupportedMimeTypes, (() => Promise<StreamParser<unknown
     "text/x-mumps": async () => (await import('@codemirror/legacy-modes/mode/mumps')).mumps,
     "text/x-mysql": async () => (await import('@codemirror/legacy-modes/mode/sql')).mySQL,
     "text/x-nix": async () => (await import('@replit/codemirror-lang-nix')).nix(),
+    "text/x-nim": async () => (await import('codemirror-lang-nim')).nim(),
     "text/x-nginx-conf": async () => (await import('@codemirror/legacy-modes/mode/nginx')).nginx,
     "text/x-nsis": async () => (await import('@codemirror/legacy-modes/mode/nsis')).nsis,
     "text/x-objectivec": async () => (await import('@codemirror/legacy-modes/mode/clike')).objectiveC,

@@ -95,6 +95,8 @@ export default class SplitNoteContainer extends FlexContainer<SplitNoteWidget> {
 
             // move the note context rendered widget after the originating widget
             this.$widget.find(`[data-ntx-id="${noteContext.ntxId}"]`).insertAfter(this.$widget.find(`[data-ntx-id="${ntxId}"]`));
+
+            this.refresh();
         }
 
 
@@ -166,6 +168,10 @@ export default class SplitNoteContainer extends FlexContainer<SplitNoteWidget> {
         // reorder the note context widgets
         this.$widget.find(`[data-ntx-id="${ntxIds[leftIndex]}"]`).insertAfter(this.$widget.find(`[data-ntx-id="${ntxIds[leftIndex + 1]}"]`));
 
+        // the reorder changes which split is last; the activation below may be a no-op (the moved
+        // context can already be active), so it can't be relied on to refresh.
+        this.refresh();
+
         // activate context that now contains the original note
         await appContext.tabManager.activateNoteContext(isMovingLeft ? ntxIds[leftIndex + 1] : ntxIds[leftIndex]);
 
@@ -181,17 +187,28 @@ export default class SplitNoteContainer extends FlexContainer<SplitNoteWidget> {
     }
 
     noteContextRemovedEvent({ ntxIds }: EventData<"noteContextRemoved">) {
-        this.children = this.children.filter((c) => !ntxIds.includes(c.ntxId ?? ""));
-
         for (const ntxId of ntxIds) {
             this.$widget.find(`[data-ntx-id="${ntxId}"]`).remove();
 
             const widget = this.widgets[ntxId];
+            if (!widget) {
+                continue;
+            }
+
+            // Detach through this map, not through a `widget.ntxId` lookup: the widgets are whatever
+            // the factory builds (a NoteWrapperWidget on both layouts), and none of them carries an
+            // ntxId -- only the DOM node gets one, as `data-ntx-id`. A filter over `children` reading
+            // `c.ntxId` therefore matches nothing, leaving the closed split in the tree and its
+            // widgets handling events for a pane the user cannot see.
+            this.removeChild(widget);
             recursiveCleanup(widget);
             delete this.widgets[ntxId];
         }
 
         splitService.delNoteSplitResizer(ntxIds);
+
+        // closing a non-active split fires no activation, so nothing else would refresh here
+        this.refresh();
     }
 
     contextsReopenedEvent({ ntxId, mainNtxId, afterNtxId }: EventData<"contextsReopened">) {
@@ -204,6 +221,8 @@ export default class SplitNoteContainer extends FlexContainer<SplitNoteWidget> {
 
             this.$widget.find(`[data-ntx-id="${mainNtxId}"]`).insertBefore(this.$widget.find(`[data-ntx-id="${beforeNtxId}"]`));
         }
+
+        this.refresh();
     }
 
     async refresh() {
@@ -213,6 +232,13 @@ export default class SplitNoteContainer extends FlexContainer<SplitNoteWidget> {
         for (const child of this.children as NoteContextAwareWidget[]) {
             child.$widget.toggleClass("active", !!child.noteContext?.isActive());
         }
+
+        // Mark the rightmost visible split. CSS can't reach a split from outside #center-pane, so
+        // siblings of it (the right pane peek button) need this hook to match its background.
+        // Read the DOM, not `this.children`: splits are reordered in place, the array is not.
+        const $visibleSplits = this.$widget.children(".note-split:not(.hidden-ext)");
+        $visibleSplits.removeClass("last-visible");
+        $visibleSplits.last().addClass("last-visible");
     }
 
     toggleInt(show: boolean) {} // not needed

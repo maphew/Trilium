@@ -1,4 +1,4 @@
-import { _setModelData as setModelData, ClassicEditor, Essentials, Paragraph } from "ckeditor5";
+import { _setModelData as setModelData, ClassicEditor, Essentials, List, Paragraph } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
@@ -21,6 +21,11 @@ describe("CutToNotePlugin", () => {
     it("loads the plugin and registers the toolbar button", () => {
         expect(editor.plugins.get(CutToNotePlugin)).toBeInstanceOf(CutToNotePlugin);
         expect(editor.ui.componentFactory.has("cutToNote")).toBe(true);
+
+        // No dictionary is configured here, so `t()` renders the message id, which is the English
+        // label.
+        const view = editor.ui.componentFactory.create("cutToNote") as { label?: string };
+        expect(view.label).toBe("Cut selection into a sub-note");
     });
 
     it("triggers the cutIntoNote command on the Trilium component when the button is executed", () => {
@@ -45,6 +50,28 @@ describe("CutToNotePlugin", () => {
         expect(html).toContain("first");
         expect(html).toContain("second");
         expect(html).toContain("<p>");
+    });
+
+    it("omits editor-only data-list-item-id from getSelectedHtml via the clipboard pipeline", async () => {
+        const listEditor = await createTestEditor([Essentials, Paragraph, List, CutToNotePlugin]);
+        setModelData(
+            listEditor.model,
+            `<paragraph listIndent="0" listItemId="a00" listType="bulleted">[foo]</paragraph>`
+        );
+
+        // Stored/data output keeps the id; the clipboard-pipeline selection drops it.
+        expect(listEditor.getData()).toContain("data-list-item-id");
+
+        const html = listEditor.getSelectedHtml();
+        expect(html).toContain("foo");
+        expect(html).not.toContain("data-list-item-id");
+    });
+
+    it("returns an empty string from getSelectedHtml when nothing is selected", () => {
+        // What the host takes as "there is nothing to cut here" before it creates a sub-note (#9890).
+        setModelData(editor.model, "<paragraph>foo[]bar</paragraph>");
+
+        expect(editor.getSelectedHtml()).toBe("");
     });
 
     it("removeSelection deletes the selection, inserts a paragraph and saves the note", async () => {

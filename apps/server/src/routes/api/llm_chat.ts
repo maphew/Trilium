@@ -1,11 +1,7 @@
 import type { LlmMessage } from "@triliumnext/commons";
+import { runChat } from "@triliumnext/core/src/services/llm/chat.js";
+import type { LlmProviderConfig } from "@triliumnext/core/src/services/llm/types.js";
 import type { Request, Response } from "express";
-
-import { generateChatTitle } from "../../services/llm/chat_title.js";
-import { getAllModels, getProviderByType, hasConfiguredProviders, type LlmProviderConfig } from "../../services/llm/index.js";
-import { streamToChunks } from "../../services/llm/stream.js";
-import { getLog } from "@triliumnext/core";
-import { safeExtractMessageAndStackFromError } from "../../services/utils.js";
 
 interface ChatRequest {
     messages: LlmMessage[];
@@ -44,73 +40,24 @@ async function streamChat(req: Request, res: Response) {
     // Type assertion for flush method (available when compression is used)
     const flushableRes = res as Response & { flush?: () => void };
 
+    // Stop the turn when the client disconnects mid-stream, so a closed tab
+    // doesn't leave an agent loop running against the provider.
+    const abortController = new AbortController();
+    res.on("close", () => abortController.abort());
+
     try {
-        if (!hasConfiguredProviders()) {
-            res.write(`data: ${JSON.stringify({ type: "error", error: "No LLM providers configured. Please add a provider in Options → AI / LLM." })}\n\n`);
-            return;
-        }
-
-        const provider = getProviderByType(config.provider || "anthropic");
-        const result = provider.chat(messages, config);
-
-        // Get pricing and display name for the model
-        const modelId = config.model || provider.getAvailableModels().find(m => m.isDefault)?.id;
-        if (!modelId) {
-            res.write(`data: ${JSON.stringify({ type: "error", error: "No model specified and no default model available for the provider." })}\n\n`);
-            return;
-        }
-
-        const pricing = provider.getModelPricing(modelId);
-        const modelDisplayName = provider.getAvailableModels().find(m => m.id === modelId)?.name || modelId;
-        for await (const chunk of streamToChunks(result, { model: modelDisplayName, pricing })) {
-            if (chunk.type === "error") {
-                getLog().error(`LLM chat stream error (model ${modelDisplayName}): ${chunk.error}`);
-            }
+        for await (const chunk of runChat(messages, config, abortController.signal)) {
             res.write(`data: ${JSON.stringify(chunk)}\n\n`);
             // Flush immediately to ensure real-time streaming
             if (typeof flushableRes.flush === "function") {
                 flushableRes.flush();
             }
         }
-        // Auto-generate a title for the chat note on the first user message
-        const userMessages = messages.filter(m => m.role === "user");
-        if (userMessages.length === 1 && config.chatNoteId) {
-            try {
-                const firstContent = userMessages[0].content;
-                // Multimodal content: title from the text parts only — image
-                // bytes are useless to the title model.
-                const firstText = typeof firstContent === "string"
-                    ? firstContent
-                    : firstContent.filter(p => p.type === "text").map(p => p.text).join("\n").trim();
-                if (firstText) {
-                    await generateChatTitle(config.chatNoteId, firstText);
-                }
-            } catch (err) {
-                // Title generation is best-effort; don't fail the chat
-                getLog().error(`Failed to generate chat title: ${safeExtractMessageAndStackFromError(err)}`);
-            }
-        }
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        getLog().error(`LLM chat stream failed: ${safeExtractMessageAndStackFromError(error)}`);
-        res.write(`data: ${JSON.stringify({ type: "error", error: errorMessage })}\n\n`);
     } finally {
         res.end();
     }
 }
 
-/**
- * Get available models from all configured providers.
- */
-function getModels(_req: Request, _res: Response) {
-    if (!hasConfiguredProviders()) {
-        return { models: [] };
-    }
-
-    return { models: getAllModels() };
-}
-
 export default {
-    streamChat,
-    getModels
+    streamChat
 };

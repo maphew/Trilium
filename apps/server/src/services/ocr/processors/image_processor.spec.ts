@@ -60,6 +60,31 @@ afterEach(() => {
 
 const buffer = Buffer.from('fake-image');
 
+/**
+ * A recognition result in the shape tesseract.js actually answers with when the `blocks` output
+ * format is requested: the words are nested under blocks → paragraphs → lines, and there is no
+ * top-level `words` array to read them from.
+ */
+function pageWithLines(confidence: number, lines: [ text: string, confidence: number ][][]) {
+    return {
+        text: lines.map(line => line.map(([ text ]) => text).join(' ')).join('\n'),
+        confidence,
+        blocks: [ {
+            paragraphs: [ {
+                lines: lines.map(line => ({
+                    text: line.map(([ text ]) => text).join(' '),
+                    words: line.map(([ text, wordConfidence ]) => ({ text, confidence: wordConfidence }))
+                }))
+            } ]
+        } ]
+    };
+}
+
+/** What a recognition with no readable text answers with: text, a score, and `blocks: null`. */
+function pageWithoutBlocks(text: string, confidence: number) {
+    return { text, confidence, blocks: null };
+}
+
 describe('ImageProcessor', () => {
     it('reports the MIME types it can process', () => {
         const processor = new ImageProcessor();
@@ -67,6 +92,8 @@ describe('ImageProcessor', () => {
         expect(processor.canProcess('image/PNG')).toBe(true);
         expect(processor.canProcess('image/jpeg')).toBe(true);
         expect(processor.canProcess('application/pdf')).toBe(false);
+        // tesseract.js cannot decode TIFF (Leptonica built without libtiff)
+        expect(processor.canProcess('image/tiff')).toBe(false);
         expect(processor.getSupportedMimeTypes()).toContain('image/png');
         expect(processor.getProcessingType()).toBe('image');
     });
@@ -74,7 +101,7 @@ describe('ImageProcessor', () => {
     it('extracts text and returns it untrimmed-confidence when no threshold is set', async () => {
         const processor = new ImageProcessor();
         mockWorker.recognize.mockResolvedValue({
-            data: { text: '  hello world  ', confidence: 88, words: [] }
+            data: { text: '  hello world  ', confidence: 88, blocks: null }
         });
 
         const result = await processor.extractText(buffer, { language: 'eng' });
@@ -90,10 +117,21 @@ describe('ImageProcessor', () => {
         );
     });
 
+    it('asks tesseract for the per-word breakdown the confidence filter needs', async () => {
+        const processor = new ImageProcessor();
+        mockWorker.recognize.mockResolvedValue({ data: pageWithLines(80, [ [ [ 'x', 80 ] ] ]) });
+
+        await processor.extractText(buffer, { language: 'eng' });
+
+        // Without this output format the result carries the plain text alone, and every image is
+        // judged by its mean confidence instead of word by word.
+        expect(mockWorker.recognize).toHaveBeenCalledWith(buffer, {}, { blocks: true });
+    });
+
     it('defaults the language to eng when none is supplied', async () => {
         const processor = new ImageProcessor();
         mockWorker.recognize.mockResolvedValue({
-            data: { text: 'x', confidence: 50, words: [] }
+            data: pageWithLines(50, [ [ [ 'x', 50 ] ] ])
         });
 
         await processor.extractText(buffer);
@@ -104,7 +142,7 @@ describe('ImageProcessor', () => {
     it('reuses the worker for the same language and recreates it when the language changes', async () => {
         const processor = new ImageProcessor();
         mockWorker.recognize.mockResolvedValue({
-            data: { text: 'a', confidence: 50, words: [] }
+            data: pageWithLines(50, [ [ [ 'a', 50 ] ] ])
         });
 
         await processor.extractText(buffer, { language: 'eng' });
@@ -120,7 +158,7 @@ describe('ImageProcessor', () => {
     it('invokes the recognizing-text logger callback', async () => {
         const processor = new ImageProcessor();
         mockWorker.recognize.mockResolvedValue({
-            data: { text: 'a', confidence: 50, words: [] }
+            data: pageWithLines(50, [ [ [ 'a', 50 ] ] ])
         });
 
         await processor.extractText(buffer, { language: 'eng' });
@@ -131,6 +169,23 @@ describe('ImageProcessor', () => {
 
         expect(mockLog.info).toHaveBeenCalledWith(
             expect.stringContaining('Image OCR progress')
+        );
+    });
+
+    it('passes an errorHandler that logs worker errors instead of rethrowing them', async () => {
+        const processor = new ImageProcessor();
+        mockWorker.recognize.mockResolvedValue({
+            data: pageWithLines(50, [ [ [ 'a', 50 ] ] ])
+        });
+
+        await processor.extractText(buffer, { language: 'eng' });
+
+        // Without an errorHandler, tesseract.js turns job failures into uncaught
+        // exceptions, which surface as Electron's "JavaScript error" dialog (#9754).
+        const config = mockTesseract.createWorker.mock.calls[0][2];
+        expect(() => config.errorHandler('Error attempting to read image.')).not.toThrow();
+        expect(mockLog.error).toHaveBeenCalledWith(
+            'Tesseract worker error: Error attempting to read image.'
         );
     });
 
@@ -147,36 +202,58 @@ describe('ImageProcessor', () => {
     });
 
     describe('confidence filtering', () => {
-        it('keeps only words above the configured threshold', async () => {
+        it('keeps the words above the threshold on the lines they were read on', async () => {
             mockOptions.getOption.mockReturnValue('0.8');
             const processor = new ImageProcessor();
             mockWorker.recognize.mockResolvedValue({
-                data: {
-                    text: 'good bad good',
-                    confidence: 70,
-                    words: [
-                        { text: 'good', confidence: 90 },
-                        { text: 'bad', confidence: 50 },
-                        { text: 'good', confidence: 95 }
-                    ]
-                }
+                data: pageWithLines(70, [
+                    [ [ 'good', 90 ], [ 'bad', 50 ] ],
+                    [ [ 'also', 95 ], [ 'good', 85 ] ]
+                ])
             });
 
             const result = await processor.extractText(buffer, { language: 'eng' });
 
-            expect(result.text).toBe('good good');
-            expect(result.confidence).toBeCloseTo((0.9 + 0.95) / 2);
+            expect(result.text).toBe('good\nalso good');
+            expect(result.confidence).toBeCloseTo((0.9 + 0.95 + 0.85) / 3);
         });
 
-        it('returns empty confidence when no words pass the threshold', async () => {
+        it('keeps well-read words on an image whose mean confidence is below the threshold', async () => {
+            // The mean is dragged under the line by the marks Tesseract misread as text, which is
+            // exactly what the per-word filter is for — judging the image by that mean instead
+            // would throw away every word on it.
+            mockOptions.getOption.mockReturnValue('0.75');
+            const processor = new ImageProcessor();
+            mockWorker.recognize.mockResolvedValue({
+                data: pageWithLines(60, [ [ [ 'Invoice', 96 ], [ '®', 0 ], [ 'total', 94 ] ] ])
+            });
+
+            const result = await processor.extractText(buffer, { language: 'eng' });
+
+            expect(result.text).toBe('Invoice total');
+        });
+
+        it('leaves no blank line where every word of one was dropped', async () => {
+            mockOptions.getOption.mockReturnValue('0.8');
+            const processor = new ImageProcessor();
+            mockWorker.recognize.mockResolvedValue({
+                data: pageWithLines(70, [
+                    [ [ 'kept', 90 ] ],
+                    [ [ 'noise', 10 ] ],
+                    [ [ 'also-kept', 90 ] ]
+                ])
+            });
+
+            const result = await processor.extractText(buffer, { language: 'eng' });
+
+            expect(result.text).toBe('kept\nalso-kept');
+        });
+
+        it('returns empty text and no confidence when no word passes the threshold', async () => {
             mockOptions.getOption.mockReturnValue('0.99');
             const processor = new ImageProcessor();
             mockWorker.recognize.mockResolvedValue({
-                data: {
-                    text: 'low',
-                    confidence: 10,
-                    words: [{ text: 'low', confidence: 10 }]
-                }
+                data: pageWithLines(10, [ [ [ 'low', 10 ] ] ])
             });
 
             const result = await processor.extractText(buffer, { language: 'eng' });
@@ -185,24 +262,11 @@ describe('ImageProcessor', () => {
             expect(result.confidence).toBe(0);
         });
 
-        it('handles an empty word array with a threshold set', async () => {
+        it('falls back to overall confidence when nothing was broken down into words', async () => {
             mockOptions.getOption.mockReturnValue('0.5');
             const processor = new ImageProcessor();
             mockWorker.recognize.mockResolvedValue({
-                data: { text: 'ignored', confidence: 80, words: [] }
-            });
-
-            const result = await processor.extractText(buffer, { language: 'eng' });
-
-            expect(result.text).toBe('');
-            expect(result.confidence).toBe(0);
-        });
-
-        it('falls back to overall confidence when there is no word-level data', async () => {
-            mockOptions.getOption.mockReturnValue('0.5');
-            const processor = new ImageProcessor();
-            mockWorker.recognize.mockResolvedValue({
-                data: { text: '  whole text  ', confidence: 80, words: undefined }
+                data: pageWithoutBlocks('  whole text  ', 80)
             });
 
             const result = await processor.extractText(buffer, { language: 'eng' });
@@ -215,7 +279,7 @@ describe('ImageProcessor', () => {
             mockOptions.getOption.mockReturnValue('0.9');
             const processor = new ImageProcessor();
             mockWorker.recognize.mockResolvedValue({
-                data: { text: 'whole text', confidence: 40, words: undefined }
+                data: pageWithoutBlocks('whole text', 40)
             });
 
             const result = await processor.extractText(buffer, { language: 'eng' });
@@ -231,7 +295,7 @@ describe('ImageProcessor', () => {
             mockOptions.getOption.mockReturnValue(null);
             const processor = new ImageProcessor();
             mockWorker.recognize.mockResolvedValue({
-                data: { text: 'kept', confidence: 30, words: [{ text: 'kept', confidence: 30 }] }
+                data: pageWithLines(30, [ [ [ 'kept', 30 ] ] ])
             });
 
             const result = await processor.extractText(buffer, { language: 'eng' });

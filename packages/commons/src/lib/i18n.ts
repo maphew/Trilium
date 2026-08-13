@@ -10,7 +10,7 @@ export interface Locale {
     /** The value to pass to `--lang` for the Electron instance in order to set it as a locale. Not setting it will hide it from the list of supported locales. */
     electronLocale?: "en" | "de" | "es" | "fr" | "zh_CN" | "zh_TW" | "ro" | "af" | "am" | "ar" | "bg" | "bn" | "ca" | "cs" | "da" | "el" | "en_GB" | "es_419" | "et" | "fa" | "fi" | "fil" | "gu" | "he" | "hi" | "hr" | "hu" | "id" | "it" | "ja" | "kn" | "ko" | "lt" | "lv" | "ml" | "mr" | "ms" | "nb" | "nl" | "pl" | "pt_BR" | "pt_PT" | "ru" | "sk" | "sl" | "sr" | "sv" | "sw" | "ta" | "te" | "th" | "tr" | "uk" | "ur" | "vi";
     /** The Tesseract OCR language code for this locale (e.g. "eng", "fra", "deu"). See https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html */
-    tesseractCode?: "eng" | "deu" | "spa" | "fra" | "gle" | "ita" | "hin" | "ind" | "jpn" | "por" | "pol" | "ron" | "rus" | "chi_sim" | "chi_tra" | "ukr" | "ara" | "heb" | "kur" | "fas" | "kor" | "ces" | "uig";
+    tesseractCode?: "eng" | "deu" | "spa" | "fra" | "gle" | "ita" | "hin" | "ind" | "jpn" | "por" | "pol" | "ron" | "rus" | "chi_sim" | "chi_tra" | "ukr" | "ara" | "heb" | "kur" | "fas" | "kor" | "ces" | "uig" | "tur";
 }
 
 // When adding a new locale, prefer the version with hyphen instead of underscore.
@@ -27,11 +27,13 @@ const UNSORTED_LOCALES = [
     { id: "it", name: "Italiano", electronLocale: "it", tesseractCode: "ita" },
     { id: "hi", name: "हिन्दी", electronLocale: "hi", tesseractCode: "hin" },
     { id: "ja", name: "日本語", electronLocale: "ja", tesseractCode: "jpn" },
+    { id: "ko", name: "한국어", electronLocale: "ko", tesseractCode: "kor" },
     { id: "pt_br", name: "Português (Brasil)", electronLocale: "pt_BR", tesseractCode: "por" },
     { id: "pt", name: "Português (Portugal)", electronLocale: "pt_PT", tesseractCode: "por" },
     { id: "pl", name: "Polski", electronLocale: "pl", tesseractCode: "pol" },
     { id: "ro", name: "Română", electronLocale: "ro", tesseractCode: "ron" },
     { id: "ru", name: "Русский", electronLocale: "ru", tesseractCode: "rus" },
+    { id: "tr", name: "Türkçe", electronLocale: "tr", tesseractCode: "tur" },
     { id: "tw", name: "繁體中文", electronLocale: "zh_TW", tesseractCode: "chi_tra" },
     { id: "uk", name: "Українська", electronLocale: "uk", tesseractCode: "ukr" },
 

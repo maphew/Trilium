@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CustomMarkdownRenderer, demoteHeadings, extractCodeBlocks, renderToHtml } from "./markdown_renderer.js";
-import { DEFAULT_TASK_STATES, DONE_TASK_STATE, NONE_TASK_STATE } from "./task_states.js";
+import { DEFAULT_TASK_STATES, DONE_TASK_STATE, NONE_TASK_STATE, type TaskStateDef } from "./task_states.js";
 
 /** Identity sanitizer so we can assert the raw rendered HTML. */
 const identity = (html: string) => html;
@@ -215,6 +215,18 @@ describe("renderToHtml", () => {
         });
     });
 
+    describe("strikethrough (literal tilde)", () => {
+        it("strikes through only doubled tildes, leaving lone ones literal", () => {
+            expect(render("this is ~~gone~~ now")).toBe("<p>this is <del>gone</del> now</p>");
+            // Two approximations in one paragraph must not pair up into a strikethrough.
+            expect(render("a ~07:50 departure, supplement (~€11)"))
+                .toBe("<p>a ~07:50 departure, supplement (~€11)</p>");
+            // A lone tilde inside a real strikethrough stays part of the struck text.
+            expect(render("~~strike with ~5 min inside~~"))
+                .toBe("<p><del>strike with ~5 min inside</del></p>");
+        });
+    });
+
     describe("lists", () => {
         it("renders a task list with checkbox inputs and labels", () => {
             const html = render("- [ ] a\n- [x] b");
@@ -288,9 +300,10 @@ describe("renderToHtml", () => {
     });
 
     describe("custom task states", () => {
-        it("recognizes a custom [/] marker as a 'doing' task", () => {
+        it("recognizes a custom [/] marker as a 'doing' task and titles the <li> with the state's human name", () => {
             const html = render("- [/] x", "", { taskStates: DEFAULT_TASK_STATES });
             expect(html).toContain('data-trilium-task-state="doing"');
+            expect(html).toContain('title="Doing"');
             expect(html).toContain('<input type="checkbox"disabled="disabled">');
             expect(html).toContain('<span class="todo-list__label__description">x</span>');
             // The `[/]` marker must be stripped from the visible text.
@@ -300,13 +313,62 @@ describe("renderToHtml", () => {
         it("recognizes a custom [?] (maybe) marker", () => {
             const html = render("- [?] m", "", { taskStates: DEFAULT_TASK_STATES });
             expect(html).toContain('data-trilium-task-state="maybe"');
+            expect(html).toContain('title="Maybe"');
             expect(html).toContain('<span class="todo-list__label__description">m</span>');
         });
 
         it("recognizes a custom [-] (cancelled) marker", () => {
             const html = render("- [-] c", "", { taskStates: DEFAULT_TASK_STATES });
             expect(html).toContain('data-trilium-task-state="cancelled"');
+            expect(html).toContain('title="Cancelled"');
             expect(html).toContain('<span class="todo-list__label__description">c</span>');
+        });
+
+        it("emits no title attribute for the anchor states (native unchecked and checked)", () => {
+            // Native `[ ]` and `[x]` never carry `data-trilium-task-state` and must not
+            // carry a `title` either — the checkbox alone explains them.
+            const unchecked = render("- [ ] u", "", { taskStates: DEFAULT_TASK_STATES });
+            expect(unchecked).not.toContain(" title=");
+            const checked = render("- [x] c", "", { taskStates: DEFAULT_TASK_STATES });
+            expect(checked).not.toContain(" title=");
+        });
+
+        it("emits no title attribute for a state name the config doesn't define", () => {
+            // "shipped" is unreachable from the default markdown symbols, but a
+            // caller can still ask for it through an alternative `taskStates` list
+            // that doesn't include it. Ensure the renderer skips the title lookup
+            // rather than emitting `title="undefined"` or crashing.
+            const customStates: TaskStateDef[] = [
+                { id: "_shipped", name: "shipped", title: "Shipped", markdownSymbol: "!", isCompleted: true, icon: "bx bx-rocket" }
+            ];
+            const html = render("- [!] x", "", { taskStates: customStates });
+            expect(html).toContain('title="Shipped"'); // sanity: known state IS titled
+            // But re-rendering the same markdown against a config that doesn't
+            // include `shipped` yields no title:
+            const bareHtml = render(
+                '<ul class="todo-list"><li data-trilium-task-state="shipped">…</li></ul>',
+                "",
+                { taskStates: [] }
+            );
+            expect(bareHtml).not.toContain("title=");
+        });
+
+        it("falls back to state.name when the state's title is empty", () => {
+            const noTitleStates: TaskStateDef[] = [
+                { id: "_bare", name: "bare", title: "", markdownSymbol: "b", isCompleted: false, icon: "bx bx-x" }
+            ];
+            const html = render("- [b] x", "", { taskStates: noTitleStates });
+            expect(html).toContain('data-trilium-task-state="bare"');
+            expect(html).toContain('title="bare"'); // fell back to name
+        });
+
+        it("HTML-escapes the state title (no XSS from a malicious config)", () => {
+            const evilStates: TaskStateDef[] = [
+                { id: "_x", name: "xss", title: '<script>alert(1)</script>', markdownSymbol: "!", isCompleted: false, icon: "bx bx-x" }
+            ];
+            const html = render("- [!] x", "", { taskStates: evilStates });
+            expect(html).not.toContain("<script>");
+            expect(html).toContain('title="&lt;script&gt;alert(1)&lt;/script&gt;"');
         });
 
         it("strips the custom marker across nested tokens for a loose item", () => {
@@ -369,6 +431,14 @@ describe("renderToHtml", () => {
         it("renders an empty admonition with a non-breaking space inside", () => {
             const html = render("> [!NOTE]");
             expect(html).toBe('<aside class="admonition note">&nbsp;</aside>');
+        });
+
+        it("treats the whole marker paragraph as the title when it is raw, unterminated HTML", () => {
+            // A callout authored as a raw HTML paragraph reaches the renderer verbatim, so the
+            // marker paragraph carries neither a closing `</p>` nor a soft line break to split on.
+            // Everything after the marker is then the title, with no body.
+            expect(render("> <p>[!NOTE] raw html para"))
+                .toBe('<aside class="admonition note"><p><strong>raw html para</strong></p></aside>');
         });
 
         it("keeps an unknown admonition type as a normal blockquote", () => {
@@ -505,29 +575,34 @@ describe("renderToHtml", () => {
         });
     });
 
-    describe("Obsidian syntax (obsidian option)", () => {
-        it("renders ==text== as a background-coloured span only when the obsidian flag is set", () => {
-            expect(render("==hi==", "", { obsidian: true }))
-                .toBe('<p><span style="background-color:hsl(60, 75%, 60%);">hi</span></p>');
-            // Off by default so generic Markdown is untouched.
-            expect(render("==hi==")).toBe("<p>==hi==</p>");
+    describe("highlights (==text==)", () => {
+        const HL = '<span style="background-color:hsl(60, 75%, 60%);">';
+
+        it("renders ==text== as a background-coloured span without any flag", () => {
+            expect(render("==hi==")).toBe(`<p>${HL}hi</span></p>`);
+            expect(render("==hi==", "", { obsidian: true })).toBe(`<p>${HL}hi</span></p>`);
         });
 
         it("parses inner markdown inside a highlight", () => {
-            expect(render("==**bold**==", "", { obsidian: true }))
-                .toBe('<p><span style="background-color:hsl(60, 75%, 60%);"><strong>bold</strong></span></p>');
+            expect(render("==**bold**==")).toBe(`<p>${HL}<strong>bold</strong></span></p>`);
         });
 
         it("leaves ==== and spaced == as literal text", () => {
-            expect(render("====", "", { obsidian: true })).toBe("<p>====</p>");
-            expect(render("a == b", "", { obsidian: true })).toBe("<p>a == b</p>");
+            expect(render("====")).toBe("<p>====</p>");
+            expect(render("a == b")).toBe("<p>a == b</p>");
         });
 
-        it("does not highlight == inside inline code", () => {
-            expect(render("`==x==`", "", { obsidian: true }))
-                .toBe('<p><code spellcheck="false">==x==</code></p>');
+        it("does not highlight == inside code", () => {
+            expect(render("`==x==`")).toBe('<p><code spellcheck="false">==x==</code></p>');
+            expect(render("```\na ==x== b\n```")).toContain("a ==x== b");
         });
 
+        it("leaves a setext heading underline alone", () => {
+            expect(render("Title\n===", "", { demoteH1: false })).toBe("<h1>Title</h1>");
+        });
+    });
+
+    describe("Obsidian syntax (obsidian option)", () => {
         it("turns %% comment %% into an HTML comment only when the obsidian flag is set", () => {
             expect(render("a %%secret%% b", "", { obsidian: true })).toBe("<p>a <!-- secret --> b</p>");
             // Off by default so generic Markdown is untouched.

@@ -71,7 +71,10 @@ export default function ExportDialog() {
                 setShown(false);
             }}
             onHidden={() => setShown(false)}
-            footer={<Button className="export-button" text={t("export.export")} kind="primary" />}
+            footer={<>
+                <Button text={t("modal.cancel")} onClick={() => setShown(false)} />
+                <Button className="export-button" text={t("export.export")} kind="primary" />
+            </>}
             show={shown}
         >
             <Card heading={t("export.what_to_export")}>

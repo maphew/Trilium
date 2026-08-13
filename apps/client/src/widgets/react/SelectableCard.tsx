@@ -2,6 +2,8 @@ import "./SelectableCard.css";
 
 import type { ComponentChildren } from "preact";
 
+import MaskedIcon from "./MaskedIcon";
+
 export interface SelectableCardProps {
     title: ComponentChildren;
     description?: ComponentChildren;
@@ -11,6 +13,13 @@ export interface SelectableCardProps {
     icon?: string;
     selected: boolean;
     onSelect: () => void;
+    /**
+     * Greys the tile out and makes it unpickable, while leaving it in the list —
+     * for a choice that exists but can't be taken here. Say why in
+     * {@link description}: a card that simply refuses to respond is worse than no
+     * card at all.
+     */
+    disabled?: boolean;
     className?: string;
 }
 
@@ -19,11 +28,11 @@ export interface SelectableCardProps {
  * state. Used by the import and export dialogs to pick a provider/format. Lay several out together with
  * {@link SelectableCardGrid}.
  */
-export default function SelectableCard({ title, description, iconUrl, icon, selected, onSelect, className }: SelectableCardProps) {
+export default function SelectableCard({ title, description, iconUrl, icon, selected, onSelect, disabled, className }: SelectableCardProps) {
     return (
-        <button type="button" className={`selectable-card ${selected ? "selected" : ""} ${className ?? ""}`} onClick={onSelect}>
+        <button type="button" className={`selectable-card ${selected ? "selected" : ""} ${className ?? ""}`} onClick={onSelect} disabled={disabled}>
             {iconUrl
-                ? <span className="selectable-card-icon" style={{ "--card-mask": `url("${iconUrl}")` }} />
+                ? <MaskedIcon url={iconUrl} />
                 : icon ? <span className={`selectable-card-bxicon ${icon}`} /> : null}
             <span className="selectable-card-text">
                 <span className="selectable-card-name">{title}</span>

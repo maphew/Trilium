@@ -89,8 +89,14 @@ function loadStylesheets() {
 
     const stylesheetsPath = `${assetPath}/stylesheets`;
     appendStylesheet({ href: `${stylesheetsPath}/ckeditor-theme.css` });
-    // Marked so it can be swapped when font options change without reloading.
-    document.head.appendChild(createFontStylesheetLink());
+    // Marked so it can be swapped when font options change without reloading. Skipped on the
+    // login / set-password pre-auth screens, where the /api/fonts request 401s (and, under nosniff,
+    // surfaces as a MIME-type console error) — those screens use the theme's fonts (#10589). This is
+    // the inline equivalent of utils.isPreAuthScreen(): index.ts runs before setupGlob() populates
+    // window.glob, and utils.ts reads window.glob at module scope, so index.ts must not import utils.
+    if (glob.loggedIn !== false && glob.passwordSet !== false) {
+        document.head.appendChild(createFontStylesheetLink());
+    }
     // The light theme is always loaded as the baseline and acts as the anchor for live theme swapping.
     appendStylesheet({ href: `${stylesheetsPath}/theme-light.css` }, { base: true });
     for (const ref of buildThemeStylesheetRefs(theme, customThemeCssUrl, themeBase)) {
@@ -105,7 +111,10 @@ function appendStylesheet(ref: StylesheetRef, opts?: { base?: boolean; theme?: b
 
 function loadIcons() {
     const styleEl = document.createElement("style");
-    styleEl.innerText = window.glob.iconPackCss;
+    // Must be textContent, not innerText: the innerText setter turns every newline into a real
+    // <br> element (one per CSS line, ~20k with several icon packs). iOS WebKit's focused-element
+    // scan walks all of them on every keyboard focus, freezing the app for seconds.
+    styleEl.textContent = window.glob.iconPackCss;
     document.head.appendChild(styleEl);
 }
 

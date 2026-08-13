@@ -130,7 +130,7 @@
     "export_note_title": "Exporter la note",
     "close": "Fermer",
     "export_type_subtree": "Cette note et tous ses descendants",
-    "export_type_single": "Seulement cette note sans ses descendants",
+    "export_type_single": "Seulement cette note",
     "export": "Exporter",
     "choose_export_type": "Choisissez d'abord le type d'export",
     "export_finished_successfully": "L'exportation s'est terminée avec succès.",
@@ -205,11 +205,11 @@
     "importIntoNote": "Importer dans la note",
     "chooseImportFile": "Choisissez le fichier à importer",
     "options": "Options",
-    "safeImportTooltip": "Les fichiers d'exportation Trilium <code>.zip</code> peuvent contenir des scripts exécutables susceptibles de comporter un comportement nuisible. L'importation sécurisée désactivera l'exécution automatique de tous les scripts importés. Décochez \"Importation sécurisée\" uniquement si l'archive importée est censée contenir des scripts exécutables et que vous faites entièrement confiance au contenu du fichier d'importation.",
+    "safeImportTooltip": "Les exports <code>.zip</code> Trilium peuvent contenir des scripts exécutables. L'import sécurisé les désactive ; ne décochez cette option que si l'archive est censée exécuter des scripts et que vous en faites confiance au contenu.",
     "safeImport": "Importation sécurisée",
-    "explodeArchivesTooltip": "Si cette case est cochée, Trilium lira les fichiers <code>.zip</code>, <code>.enex</code> et <code>.opml</code> et créera des notes à partir des fichiers contenus dans ces archives. Si cette case n'est pas cochée, Trilium joindra les archives elles-mêmes à la note.",
+    "explodeArchivesTooltip": "Crée des notes à partir des fichiers contenus dans les archives <code>.zip</code>, <code>.enex</code> et <code>.opml</code>. Lorsque cette option est désactivée, les archives sont jointes telles quelles.",
     "explodeArchives": "Lire le contenu des archives <code>.zip</code>, <code>.enex</code> et <code>.opml</code>.",
-    "shrinkImagesTooltip": "<p>Si vous cochez cette option, Trilium tentera de réduire la taille des images importées, ce qui peut affecter la qualité perçue des images. Si cette option est décochée, les images seront importées sans modification..</p><p>Cela ne s'applique pas aux importations de fichiers <code>.zip</code> contenant des métadonnées, car il est supposé que ces fichiers sont déjà optimisés..</p>",
+    "shrinkImagesTooltip": "Redimensionne et optimise les images pour gagner de la place, ce qui peut légèrement réduire la qualité. Cela ne s'applique pas aux imports <code>.zip</code> avec métadonnées, supposés déjà optimisés.",
     "shrinkImages": "Réduire la taille des images",
     "textImportedAsText": "Importez HTML, Markdown et TXT sous forme de notes de texte si les métadonnées ne sont pas claires",
     "codeImportedAsCode": "Importez des fichiers de code reconnus (par exemple <code>.json</code>) en tant que notes de code si cela n'est pas clair à partir des métadonnées",
@@ -222,12 +222,19 @@
       "placeholder": "Saisir les balises HTML, une par ligne",
       "reset_button": "Réinitialiser à la liste par défaut"
     },
-    "in-progress": "Importation en cours : {{progress}}",
+    "in-progress": "{{progress}} notes importées",
     "successful": "Importation terminée avec succès.",
     "importZipRecommendation": "Lors de l'importation d'un fichier ZIP, la hiérarchie des notes reflétera la structure des sous-répertoires au sein de l'archive.",
     "spreadsheetImportedAsSpreadsheet": "Importer les fichiers CSV et Excel sous forme de feuilles de calcul modifiables plutôt que de fichiers",
     "starting": "Importation…",
-    "in-progress-with-total": "Importation {{progress}} de {{total}}"
+    "in-progress-with-total": "{{progress}} notes importées sur {{total}}",
+    "importIntoNoteNamed": "Importer dans {{- title}}",
+    "import_from": "Importer à partir de",
+    "cardName": "Fichiers et autres formats",
+    "cardDescription": "ZIP, ENEX, OPML, Markdown, HTML, images et plus encore",
+    "shrinkImagesProviderTooltip": "Redimensionne et optimise les images importées pour gagner de la place, ce qui peut légèrement réduire la qualité.",
+    "extracting": "{{progress}} éléments extraits sur {{total}}",
+    "processing": "{{progress}} notes traitées sur {{total}}"
   },
   "include_note": {
     "dialog_title": "Inclure une note",
@@ -326,23 +333,18 @@
     "tooltip": "Si vous cochez cette option, Trilium tentera de réduire la taille des images importées, ce qui peut affecter la qualité perçue des images. Si cette option est décochée, les images seront importées sans modification."
   },
   "attribute_detail": {
-    "attr_detail_title": "Titre détaillé de l'attribut",
     "close_button_title": "Annuler les modifications et fermer",
-    "attr_is_owned_by": "L'attribut appartient à",
-    "attr_name_title": "Le nom de l'attribut ne peut être composé que de caractères alphanumériques, de deux-points et de tirets bas",
     "name": "Nom",
     "value": "Valeur",
     "target_note_title": "La relation est une liaison nommée entre une note source et une note cible.",
     "target_note": "Note cible",
     "promoted_title": "L'attribut promu est affiché bien en évidence sur la note.",
     "promoted": "Promu",
-    "promoted_alias_title": "Nom à afficher dans l'interface des attributs promus.",
     "promoted_alias": "Alias",
     "multiplicity_title": "La multiplicité définit combien d'attributs du même nom peuvent être créés - au maximum 1 ou plus de 1.",
     "multiplicity": "Multiplicité",
     "single_value": "Valeur unique",
     "multi_value": "Valeur multiple",
-    "label_type_title": "Le type de label aidera Trilium à choisir l'interface appropriée pour saisir la valeur du label.",
     "label_type": "Type",
     "text": "Texte",
     "number": "Nombre",
@@ -358,14 +360,11 @@
     "inverse_relation": "Relation inverse",
     "inheritable_title": "L'attribut hérité sera transmis à tous les descendants dans cet arbre.",
     "inheritable": "Héritable",
-    "save_and_close": "Enregistrer et fermer <kbd>Ctrl+Entrée</kbd>",
     "delete": "Supprimer",
     "related_notes_title": "Autres notes avec ce label",
     "more_notes": "Plus de notes",
     "label": "Détail du label",
-    "label_definition": "Détails de la définition du label",
     "relation": "Détail de la relation",
-    "relation_definition": "Détail de la définition de la relation",
     "disable_versioning": "désactive la gestion automatique des versions. Utile pour les notes volumineuses mais sans importance - par ex. grandes bibliothèques JS utilisées pour les scripts",
     "calendar_root": "indique la note qui doit être utilisée comme racine pour les notes du jour. Une seule note doit être marquée comme telle.",
     "archived": "les notes portant ce label ne seront pas visibles par défaut dans les résultats de recherche (ou dans les boîtes de dialogue Aller à, Ajouter un lien, etc.).",
@@ -445,7 +444,6 @@
     "share_favicon": "Favicon de la note à définir dans la page partagée. En règle générale, vous souhaitez le configurer pour partager la racine et le rendre héritable. La note Favicon doit également figurer dans le sous-arbre partagé. Pensez à utiliser 'share_hidden_from_tree'.",
     "is_owned_by_note": "appartient à la note",
     "other_notes_with_name": "Autres notes portant le nom {{attributeType}} \"{{attributeName}}\"",
-    "and_more": "... et {{count}} plus.",
     "print_landscape": "Lors de l'exportation en PDF, change l'orientation de la page en paysage au lieu de portrait.",
     "print_page_size": "Lors de l'exportation en PDF, change la taille de la page. Valeurs supportées : <code>A0</code>, <code>A1</code>, <code>A2</code>, <code>A3</code>, <code>A4</code>, <code>A5</code>, <code>A6</code>, <code>Legal</code>, <code>Letter</code>, <code>Tabloid</code>, <code>Ledger</code>.",
     "color_type": "Couleur",
@@ -622,7 +620,9 @@
     "year_previous": "Année précédente",
     "year_next": "Année suivante",
     "list": "Liste",
-    "today": "Aujourd'hui"
+    "today": "Aujourd'hui",
+    "pin_date": "Épinglez la date actuelle pour que le calendrier s'ouvre toujours sur cette plage plutôt que sur aujourd'hui",
+    "unpin_date": "Désépinglez la date pour que le calendrier s'ouvre à nouveau sur la date d'aujourd'hui"
   },
   "close_pane_button": {
     "close_this_pane": "Fermer ce volet"
@@ -1251,7 +1251,6 @@
     "images_section_title": "Images",
     "download_images_automatically": "Télécharger automatiquement les images",
     "download_images_description": "Télécharge les images externes du HTML collé pour les rendre disponibles hors connexion.",
-    "enable_image_compression": "Compresser les images",
     "max_image_dimensions": "Dimensions maximales d'une image",
     "jpeg_quality_description": "La plage recommandée est entre 50 et 85. Des valeurs plus faibles réduisent la taille du fichier, des valeurs plus élevées préservent les détails.",
     "max_image_dimensions_unit": "pixels",
@@ -1396,7 +1395,6 @@
     "enable_monthly_backup": "Sauvegarde mensuelle",
     "backup_recommendation": "Il est recommandé de garder la sauvegarde activée, mais cela peut ralentir le démarrage des applications avec des bases de données volumineuses et/ou des périphériques de stockage lents.",
     "backup_now": "Sauvegarder maintenant",
-    "backup_database_now": "Sauvegarder la base de données maintenant",
     "existing_backups": "Sauvegardes existantes",
     "date-and-time": "Date & heure",
     "path": "Chemin",
@@ -1405,7 +1403,6 @@
     "title": "Sauvegarde",
     "download": "Télécharger",
     "automatic_backups_description": "Trilium peut sauvegarder la base de données automatiquement. Il est recommandé de maintenir cette fonction activée, mais cela peut ralentir le démarrage de l'application si la base de données est volumineuse et/ou si le support de stockage est lent.",
-    "backup_location_description": "Les sauvegardes sont stockées dans {{- backupFolder}}.",
     "automatic_backups_title": "Sauvegardes automatiques"
   },
   "etapi": {
@@ -1500,8 +1497,7 @@
     "custom_dictionary_edit": "Mots personnalisés",
     "custom_dictionary_edit_description": "Modifiez la liste des mots qui ne doivent pas être signalés par le correcteur orthographique. Les modifications seront visibles après un redémarrage.",
     "custom_dictionary_open": "Modifier le dictionnaire",
-    "related_description": "Configurez les langues du correcteur orthographique et le dictionnaire personnalisé.",
-    "disabled_placeholder": "La vérification orthographique est désactivée. Activez-la pour choisir les langues et gérer le dictionnaire personnalisé."
+    "related_description": "Configurez les langues du correcteur orthographique et le dictionnaire personnalisé."
   },
   "sync_2": {
     "config_title": "Serveur de synchronisation",
@@ -1522,10 +1518,6 @@
     "close": "Fermer"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "Cette pièce jointe sera automatiquement supprimée dans {{time}}",
-    "will_be_deleted_soon": "Cette pièce jointe sera bientôt supprimée automatiquement",
-    "deletion_reason": ", car la pièce jointe n'est pas liée dans le contenu de la note. Pour empêcher la suppression, ajoutez à nouveau le lien de la pièce jointe dans le contenu d'une note ou convertissez la pièce jointe en note.",
-    "role_and_size": "Rôle : {{role}}, Taille : {{size}}, MIME: {{- mimeType}}",
     "link_copied": "Référence de la pièce jointe copiée dans le presse-papiers.",
     "unrecognized_role": "Rôle de pièce jointe « {{role}} » non reconnu."
   },
@@ -1652,7 +1644,6 @@
     "title_with_count_one": "{{count}} mise en évidence",
     "title_with_count_many": "{{count}} mises en évidence",
     "title_with_count_other": "{{count}} mises en évidence",
-    "modal_title": "Configurer les Mises en évidence",
     "menu_configure": "Configuration des mises en évidence...",
     "no_highlights": "Aucune mise en évidence."
   },
@@ -1727,9 +1718,6 @@
     "search_not_executed": "La recherche n'a pas encore été exécutée.",
     "search_now": "Recherche maintenant"
   },
-  "spacer": {
-    "configure_launchbar": "Configurer la Barre de raccourcis"
-  },
   "sql_result": {
     "no_rows": "Aucune ligne n'a été renvoyée pour cette requête",
     "not_executed": "La requête n'a pas encore été exécutée.",
@@ -1774,8 +1762,6 @@
   "image": {
     "copied-to-clipboard": "Une référence à l'image a été copiée dans le presse-papiers. Elle peut être collée dans n'importe quelle note texte.",
     "cannot-copy": "Impossible de copier la référence d'image dans le presse-papiers.",
-    "copy-to-clipboard": "Copier l'image dans le presse-papiers",
-    "download": "Télécharger l'image",
     "image-copied-to-clipboard": "L'image a été copiée dans le presse-papiers.",
     "cannot-copy-image": "Impossible de copier l'image dans le presse-papiers.",
     "cannot-download": "Impossible de télécharger l'image."
@@ -1805,7 +1791,6 @@
     "sync_warning": "Vous passez une fonction synchrone à `api.runAsyncOnBackendWithManualTransactionHandling()`,\\nalors que vous devriez probablement utiliser `api.runOnBackend()` à la place."
   },
   "ws": {
-    "sync-check-failed": "Le test de synchronisation a échoué !",
     "consistency-checks-failed": "Les tests de cohérence ont échoué ! Consultez les journaux pour plus de détails.",
     "encountered-error": "Erreur \"{{message}}\", consultez la console.",
     "lost-websocket-connection-title": "Connexion au serveur perdue",
@@ -1909,7 +1894,6 @@
     "create-child-note-title": "Créer une nouvelle note enfant et l'ajouter à la carte",
     "create-child-note-instruction": "Cliquez sur la carte pour créer une nouvelle note à cet endroit ou appuyez sur Échap pour la supprimer.",
     "unable-to-load-map": "Impossible de charger la carte.",
-    "create-child-note-text": "Ajouter le marqueur",
     "create-child-note-toast-title": "Nouvelle note"
   },
   "geo-map-context": {
@@ -2300,7 +2284,6 @@
     "note_tools": "Accès aux notes",
     "sources": "Sources",
     "extended_thinking": "Réflexion étendue",
-    "legacy_models": "Modèles hérités",
     "thinking": "Réflexion...",
     "thought_process": "Processus de réflexion",
     "tool_calls": "{{count}} appel(s) d'outil",
@@ -2315,7 +2298,6 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} prompt + {{completion}} achèvement = {{total}} jetons",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} prompt + {{completion}} achèvement = {{total}} jetons (~${{cost}})",
     "tokens": "jetons",
-    "context_used": "{{percentage}}% utilisé",
     "note_context_enabled": "Cliquez pour désactiver le contexte de la note : {{title}}",
     "note_context_disabled": "Cliquez pour inclure la note actuelle dans le contexte",
     "no_provider_message": "Aucun fournisseur d'IA configuré. Ajoutez en un pour commencer à discuter.",
@@ -2399,7 +2381,11 @@
     "toggle": "Afficher/Masquer le panneau de droite",
     "custom_widget_go_to_source": "Aller sur le code source",
     "empty_message": "Rien à afficher pour cette note",
-    "empty_button": "Cacher le panneau"
+    "empty_button": "Cacher le panneau",
+    "peek": "Aperçu du panneau de droite",
+    "hide": "Masquer le panneau de droite",
+    "dock": "Ancrer le panneau",
+    "close": "Fermer le panneau"
   },
   "pdf": {
     "attachments_one": "{{count}} pièce jointe",
@@ -2485,9 +2471,7 @@
     "sample_venn": "Venn",
     "sample_ishikawa": "Ishikawa",
     "sample_treeview": "Vue arborescente",
-    "sample_wardley": "Carte Wardley",
-    "slash_command_blank_description": "Insérer un diagramme Mermaid vide",
-    "slash_command_description": "Insérer un modèle de diagramme Mermaid \"{{name}}\""
+    "sample_wardley": "Carte Wardley"
   },
   "mind-map": {
     "addChild": "Ajouter un enfant",
@@ -2498,8 +2482,6 @@
     "cancelFocus": "Annuler le mode Focus",
     "moveUp": "Monter",
     "moveDown": "Descendre",
-    "link": "Lien",
-    "linkBidirectional": "Lien bidirectionnel",
     "clickTips": "Cliquer sur le nœud cible",
     "summary": "Résumé"
   },
@@ -2509,13 +2491,11 @@
     "configured_providers": "Fournisseurs configurés",
     "no_providers_configured": "Aucun fournisseur n'est encore configuré.",
     "provider_name": "Nom",
-    "provider_type": "Fournisseur",
     "actions": "Actions",
     "delete_provider": "Supprimer",
     "delete_provider_confirmation": "Êtes-vous sûr de vouloir supprimer le fournisseur \"{{name}}\" ?",
     "api_key": "Clé API",
     "api_key_placeholder": "Entrer votre clé API",
-    "cancel": "Annuler",
     "tools": {
       "note_in_parent": "<Note/> dans <Parent/>",
       "search_notes": "Rechercher des notes",
@@ -2550,9 +2530,7 @@
     "mcp_endpoint_description": "Ajoutez cette URL à la configuration MCP de votre assistant IA",
     "base_url": "URL de base",
     "base_url_description": "Optionnel. Permet de remplacer l'endpoint API par défaut (utile pour les modèles auto-hébergés comme Ollama, LM Studio, vLLM ou proxies).",
-    "base_url_invalid": "L'URL de base doit être une adresse valide (commençant par http:// ou https://)",
-    "disabled_placeholder": "Les fonctionnalités d'IA sont désactivées. Activez-les pour configurer les fournisseurs et MCP.",
-    "not_available_in_standalone": "Les fonctionnalités basées sur l'IA ou les LLM ne sont pas disponibles dans la version autonome de Trilium, car les fournisseurs de LLM n'autorisent pas l'accès direct depuis un navigateur."
+    "base_url_invalid": "L'URL de base doit être une adresse valide (commençant par http:// ou https://)"
   },
   "status_bar": {
     "language_title": "Changer de langue",
@@ -2682,8 +2660,11 @@
     "placeholders": {
       "math": "équation",
       "collapsible_summary": "Résumé",
-      "collapsible_details": "Détails"
-    }
+      "collapsible_details": "Détails",
+      "table_column": "Colonne {{number}}"
+    },
+    "page_break": "Insérer un saut de page (pour l'impression)",
+    "table": "Insérer un tableau"
   },
   "search": {
     "title": "Rechercher",
@@ -2707,8 +2688,7 @@
     "more_actions": "Plus d’actions"
   },
   "link": {
-    "failed_to_open": "Impossible d’ouvrir le lien '{{- href}}' : {{- message}}",
-    "copy_url": "Copier l'URL"
+    "failed_to_open": "Impossible d’ouvrir le lien '{{- href}}' : {{- message}}"
   },
   "display_mode": {
     "source": "Vue source",
@@ -2762,9 +2742,6 @@
     "page_ranges_hint": "Laisser vide pour imprimer toutes les pages.",
     "page_ranges_invalid": "Format invalide. Utilisez par exemple : 1-5, 8, 11-13.",
     "page_ranges_placeholder": "ex. : 1-5, 8, 11-13"
-  },
-  "auto_link_attribute_list": {
-    "title": "Attributs système"
   },
   "setup": {
     "heading": "Démarrer avec Trilium",
@@ -2833,10 +2810,6 @@
     "export-csv-failed": "Échec de l'exportation de la feuille de calcul vers CSV."
   },
   "text-editor": {
-    "checkbox-tooltip": "Clic droit pour plus d'états.\nAppuyez sur {{shortcut}} pour changer d'état.",
-    "edit-states-tooltip": "Modifier les états des tâches",
-    "unknown-task-state": "État personnalisé non défini",
-    "task-state-dropped": "L'état \"{{title}}\" {{id}} a été supprimé pour la raison suivante : {{reason}}",
     "validation-errors": {
       "undefined-name": "identifiant non défini",
       "invalid-name": "identifiant invalide",
@@ -2846,32 +2819,39 @@
       "invalid-symbol": "le symbole Markdown doit être un seul caractère (sauf \"[\", \"X\" et \"]\")",
       "duplicate-symbol": "symbole Markdown en double"
     },
-    "collapsible-body-placeholder": "Saisissez le contenu ici...",
-    "collapsible-button-label": "Bloc repliable",
-    "collapsible-handle-tooltip": "Glisser pour déplacer le bloc repliable",
-    "collapsible-select-label": "Sélectionner le bloc repliable",
-    "collapsible-title-placeholder": "Résumé",
-    "collapsible-toggle-label": "Ouvrir/fermer le bloc repliable",
-    "collapsible-tooltip": "Cliquez sur la flèche ou appuyez sur {{shortcut}} pour replier/déplier."
-  },
-  "slash_commands": {
-    "bulleted_list_description": "Créer une liste à puces",
-    "numbered_list_description": "Créer une liste numérotée",
-    "todo_list_description": "Créer une liste de tâches",
-    "align_left_description": "Aligner le texte à gauche",
-    "align_center_description": "Centrer le texte",
-    "align_right_description": "Aligner le texte à droite",
-    "justify_description": "Justifier le texte",
-    "admonition_description": "Insérer une nouvelle admonition",
-    "collapsible_description": "Insérer une section repliable qui affiche/masque le contenu au clic.",
-    "footnote_description": "Créer une nouvelle note de bas de page et insérer sa référence ici",
-    "datetime_description": "Insérer la date et l'heure actuelles",
-    "internal_link_description": "Insérer un lien vers une autre note Trilium",
-    "math_description": "Insérer une équation mathématique",
-    "include_note_description": "Afficher le contenu d'une autre note dans cette note",
-    "page_break_description": "Insérer un saut de page (pour l'impression)",
-    "markdown_import_description": "Importer un fichier Markdown dans cette note",
-    "anchor_description": "Insérer une ancre pour les liens internes"
+    "ck": {
+      "align-text-to-the-center": "Centrer le texte",
+      "align-text-to-the-left": "Aligner le texte à gauche",
+      "align-text-to-the-right": "Aligner le texte à droite",
+      "click-on-the-arrow-or-press-0-to-collapse-expand": "Cliquez sur la flèche ou appuyez sur %0 pour replier/déplier.",
+      "collapsible-block": "Bloc repliable",
+      "copy-image-to-clipboard": "Copier l'image dans le presse-papiers",
+      "copy-url": "Copier l'URL",
+      "create-a-bulleted-list": "Créer une liste à puces",
+      "create-a-new-footnote-and-reference-it-here": "Créer une nouvelle note de bas de page et insérer sa référence ici",
+      "create-a-numbered-list": "Créer une liste numérotée",
+      "create-a-to-do-list": "Créer une liste de tâches",
+      "display-the-content-of-another-note-in-this-note": "Afficher le contenu d'une autre note dans cette note",
+      "download-image": "Télécharger l'image",
+      "drag-to-reposition-the-collapsible-block": "Glisser pour déplacer le bloc repliable",
+      "edit-task-states": "Modifier les états des tâches",
+      "insert-a-0-mermaid-diagram-template": "Insérer un modèle de diagramme Mermaid \"%0\"",
+      "insert-a-link-to-another-trilium-note": "Insérer un lien vers une autre note Trilium",
+      "insert-a-math-equation": "Insérer une équation mathématique",
+      "insert-a-new-admonition": "Insérer une nouvelle admonition",
+      "insert-a-page-break-for-printing": "Insérer un saut de page (pour l'impression)",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "Insérer une section repliable qui affiche/masque le contenu au clic.",
+      "insert-an-anchor-for-internal-linking": "Insérer une ancre pour les liens internes",
+      "insert-an-empty-mermaid-diagram": "Insérer un diagramme Mermaid vide",
+      "insert-the-current-date-and-time": "Insérer la date et l'heure actuelles",
+      "justify-text-alignment": "Justifier le texte",
+      "right-click-or-press-0-to-change-state": "Clic droit pour plus d'états.\nAppuyez sur %0 pour changer d'état.",
+      "select-collapsible-block": "Sélectionner le bloc repliable",
+      "summary": "Résumé",
+      "toggle-collapsible-block": "Ouvrir/fermer le bloc repliable",
+      "type-the-content-here": "Saisissez le contenu ici...",
+      "undefined-custom-task-state": "État personnalisé non défini"
+    }
   },
   "image_buttons": {
     "zoom_in": "Zoomer",
@@ -2911,7 +2891,7 @@
     "tooltip": "Un élément réutilisable de texte ou de code, conçu pour être inséré dans l'éditeur (depuis le menu des extraits dans la barre d'outils, ou via une commande slash)."
   },
   "import_provider": {
-    "choose_provider": "Choisisez un service pour importer :"
+    "choose_provider": "Choisissez un service ci-dessus pour importer."
   },
   "onenote_import": {
     "connecting": "En attente de la connexion de se compléter…",
@@ -2919,14 +2899,17 @@
     "disconnect": "Déconnecter",
     "load_failed": "N'a pas pu charger vos cahiers OneNote.",
     "no_notebooks": "Pas de cahiers n'ont été trouvé dans ce compte.",
-    "select_sections": "Selectionner les sections à importer :",
+    "select_sections": "Selectionner les sections à importer",
     "name": "OneNote",
-    "description": "Importer des cahiers, sections et pages de votre compte OneNote.",
+    "description": "Connexion à votre compte",
     "connect_description": "Connectez-vous avec votre compte Microsoft pour importer vos cahiers OneNote.",
     "connect": "Connectez-vous avec Microsoft",
     "import": "Importer la sélection",
     "attach_source": "Joindre le code HTML d'origine (débogage)",
-    "attach_source_hint": "Enregistre le code HTML OneNote non modifié de chaque page en tant que pièce jointe à la note importée, afin de permettre une comparaison avec le résultat converti."
+    "attach_source_hint": "Enregistre le code HTML OneNote non modifié de chaque page en tant que pièce jointe à la note importée, afin de permettre une comparaison avec le résultat converti.",
+    "section_heading": "Microsoft OneNote",
+    "checking": "Vérification de votre connexion OneNote…",
+    "select_sections_hint": "OneNote n'inclut pas l'ordre original dans les données d'importation, donc les sections et groupes sont triés par date de création et peuvent ne pas correspondre à leur affichage dans OneNote."
   },
   "split_editor": {
     "show_details": "Montrer les détails",
@@ -2945,21 +2928,21 @@
   },
   "notion_import": {
     "name": "Notion",
-    "description": "Importer des pages depuis une exportation HTML Notion (.zip).",
+    "description": "À partir d'un export HTML",
     "description_long": "Dans Notion, exportez votre espace de travail ou une page au format HTML en incluant les sous-pages, puis sélectionnez le fichier .zip obtenu ici.",
     "choose_file": "Export Notion (.zip)",
     "import": "Importer"
   },
   "keep_import": {
     "name": "Google Keep",
-    "description": "Importer des notes à partir d'un export Google Keep (.zip).",
+    "description": "À partir d'un export Takeout",
     "description_long": "Dans Google Takeout, exportez vos données Keep au format .zip, puis sélectionnez le fichier obtenu ici.",
     "choose_file": "Export Google Keep (.zip)",
     "import": "Importer"
   },
   "evernote_import": {
     "name": "Evernote",
-    "description": "Importer des notes depuis un export Evernote (.enex).",
+    "description": "À partir de fichiers .enex",
     "description_long": "Dans Evernote, exportez un carnet de notes (ou jusqu'à 100 notes à la fois) sous forme de fichier ENEX, puis sélectionnez un ou plusieurs fichiers .enex ici. Chaque fichier est importé en tant que carnet de notes distinct.",
     "choose_file": "Export Evernote (.enex)",
     "import": "Importer"
@@ -2975,5 +2958,25 @@
     "refresh-widget": "Rafraîchir",
     "remove-widget": "Retirer du tableau de bord",
     "empty-hint": "Toute note enfant devient un widget. Faites glisser une note depuis l'arborescence ou créez-en une nouvelle."
+  },
+  "file_upload": {
+    "drop_or_browse_single": "Glissez-déposez un fichier ici, ou cliquez pour parcourir",
+    "drop_or_browse_multiple": "Glissez-déposez des fichiers ici, ou cliquez pour parcourir",
+    "browse_single": "Touchez pour choisir un fichier",
+    "browse_multiple": "Touchez pour choisir des fichiers"
+  },
+  "anytype_import": {
+    "name": "Anytype",
+    "description": "À partir d'un export JSON",
+    "description_long": "Dans Anytype, exportez votre espace en utilisant le format « Any-Block » avec « JSON » sélectionné, puis choisissez le fichier .zip résultant ici. Seules les pages et leur texte sont actuellement importées.",
+    "choose_file": "Export Anytype (.zip)",
+    "import": "Import"
+  },
+  "obsidian_import": {
+    "name": "Obsidian",
+    "description": "À partir d'un coffre",
+    "description_long": "Zippez votre dossier de coffre Obsidian, puis sélectionnez le fichier .zip généré ici.",
+    "choose_file": "Coffre Obsidian (.zip)",
+    "import": "Import"
   }
 }

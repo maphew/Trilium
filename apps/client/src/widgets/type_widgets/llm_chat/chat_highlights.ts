@@ -6,7 +6,7 @@ import type NoteContext from "../../../components/note_context.js";
 import { t } from "../../../services/i18n.js";
 import { randomString } from "../../../services/utils.js";
 import type { ChatContextMenuItemsProvider } from "./chat_context_menu.js";
-import { createAnchorFromSelection, resolveAnchorRange } from "./chat_highlights_anchor.js";
+import { createAnchorFromSelection, findMessageContentRoot, resolveAnchorRange } from "./chat_highlights_anchor.js";
 import type { HighlightAnchor } from "./llm_chat_types.js";
 import type { UseLlmChatReturn } from "./useLlmChat.js";
 
@@ -188,15 +188,6 @@ function releaseRangeMap(ref: { current: RangeMap }) {
     } else {
         repaintChatHighlights();
     }
-}
-
-function findMessageContentRoot(container: HTMLElement, messageId: string): HTMLElement | null {
-    // Match on the parsed dataset value rather than an attribute selector: persisted/imported chats
-    // may carry ids with characters that would make a selector invalid and throw.
-    for (const el of container.querySelectorAll<HTMLElement>("[data-message-id]")) {
-        if (el.dataset.messageId === messageId) return el.querySelector<HTMLElement>(".llm-chat-message-content");
-    }
-    return null;
 }
 
 /** The id of the smallest highlight (of `messageId`) painted under the given viewport point, if any. */

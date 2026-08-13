@@ -6,17 +6,19 @@ import { createPortal } from "preact/compat";
 import { useEffect, useMemo, useState } from "preact/hooks";
 
 import zoomService from "../../../components/zoom";
+import { ColorScheme, resolveColorScheme, THEME_FAMILY_SCHEMES } from "../../../services/color_scheme";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import { isElectron, isMobile, reloadFrontendApp, restartDesktopApp } from "../../../services/utils";
 import { VerticalLayoutIcon } from "../../buttons/global_menu";
-import Button, { ButtonGroup } from "../../react/Button";
+import Button from "../../react/Button";
 import Dropdown from "../../react/Dropdown";
 import FormList, { FormListHeader, FormListItem } from "../../react/FormList";
 import { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import Modal from "../../react/Modal";
+import SegmentedChoice, { SegmentedChoiceOption } from "../../react/SegmentedChoice";
 import Slider from "../../react/Slider";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
@@ -34,8 +36,6 @@ interface CustomTheme {
     noteId?: string;
 }
 
-type ColorScheme = "system" | "light" | "dark";
-
 interface ThemeFamily {
     key: string;
     title: string;
@@ -48,32 +48,26 @@ const THEME_FAMILIES: ThemeFamily[] = [
         key: "modern",
         title: t("theme.modern_themes"),
         icon: "bx bx-star",
-        schemes: { system: "next", light: "next-light", dark: "next-dark" }
+        schemes: THEME_FAMILY_SCHEMES.modern
     },
     {
         key: "legacy",
         title: t("theme.legacy_themes"),
         icon: "bx bx-history",
-        schemes: { system: "auto", light: "light", dark: "dark" }
+        schemes: THEME_FAMILY_SCHEMES.legacy
     }
 ];
 
-const COLOR_SCHEMES: { key: ColorScheme; label: string; icon: string }[] = [
-    { key: "system", label: t("theme.color_scheme_system"), icon: "bx bx-brightness-half" },
-    { key: "light", label: t("theme.color_scheme_light"), icon: "bx bx-sun" },
-    { key: "dark", label: t("theme.color_scheme_dark"), icon: "bx bx-moon" }
+const COLOR_SCHEMES: SegmentedChoiceOption<ColorScheme>[] = [
+    { value: "system", label: t("theme.color_scheme_system"), icon: "bx-brightness-half" },
+    { value: "light", label: t("theme.color_scheme_light"), icon: "bx-sun" },
+    { value: "dark", label: t("theme.color_scheme_dark"), icon: "bx-moon" }
 ];
 
 function resolveTheme(themeVal: string | null): { family: ThemeFamily | null; scheme: ColorScheme; isCustom: boolean } {
-    for (const family of THEME_FAMILIES) {
-        for (const [scheme, val] of Object.entries(family.schemes)) {
-            if (val === themeVal) {
-                return { family, scheme: scheme as ColorScheme, isCustom: false };
-            }
-        }
-    }
-    // Custom theme
-    return { family: null, scheme: "system", isCustom: true };
+    const { family: familyKey, scheme, isCustom } = resolveColorScheme(themeVal);
+    const family = THEME_FAMILIES.find(f => f.key === familyKey) ?? null;
+    return { family, scheme, isCustom };
 }
 
 interface FontFamilyEntry {
@@ -189,6 +183,7 @@ function UserInterface() {
                         <span className={currentFamilyIcon} style={{ marginRight: "8px" }} />
                         {currentFamilyLabel}
                     </>}
+                    mobileBottomSheet
                 >
                     {THEME_FAMILIES.map(family => (
                         <FormListItem
@@ -219,19 +214,15 @@ function UserInterface() {
                 </Dropdown>
             </OptionsRow>
             <OptionsRow name="color-scheme" label={t("theme.color_scheme")} description={isCustom ? t("theme.color_scheme_custom_disabled") : undefined}>
-                <ButtonGroup>
-                    {COLOR_SCHEMES.map(cs => (
-                        <button
-                            key={cs.key}
-                            type="button"
-                            className={`btn btn-sm btn-secondary ${resolved.scheme === cs.key && !isCustom ? "active" : ""}`}
-                            disabled={isCustom}
-                            onClick={() => setColorScheme(cs.key)}
-                        >
-                            <Icon icon={cs.icon} /> {cs.label}
-                        </button>
-                    ))}
-                </ButtonGroup>
+                <SegmentedChoice
+                    options={COLOR_SCHEMES}
+                    // A custom theme brings its own colours, so the group highlights nothing rather
+                    // than naming a scheme it is not following.
+                    currentValue={isCustom ? "" : resolved.scheme}
+                    onChange={setColorScheme}
+                    disabled={isCustom}
+                    collapseOnMobile
+                />
             </OptionsRow>
             {!isMobile() && <>
                 <OptionsRow name="layout-style" label={t("settings_appearance.ui_layout_style")}>
@@ -411,6 +402,7 @@ function OrientationIllustration({ orientation }: { orientation: "vertical" | "h
 
 function Fonts() {
     const [ overrideThemeFonts, setOverrideThemeFonts ] = useTriliumOptionBool("overrideThemeFonts");
+    const [ ligaturesEnabled, setLigaturesEnabled ] = useTriliumOptionBool("monospaceLigaturesEnabled");
     const isEnabled = overrideThemeFonts === true;
 
     return (
@@ -427,6 +419,19 @@ function Fonts() {
             <Font label={t("fonts.note_tree_font")} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="treeFontFamily" fontSizeOption="treeFontSize" disabled={!isEnabled} />
             <Font label={t("fonts.note_detail_font")} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="detailFontFamily" fontSizeOption="detailFontSize" disabled={!isEnabled} />
             <Font label={t("fonts.monospace_font")} description={t("fonts.monospace_font_description")} fontFamilyOption="monospaceFontFamily" fontSizeOption="monospaceFontSize" disabled={!isEnabled} isMonospace />
+
+            {/*
+              * Deliberately not gated behind `overrideThemeFonts` like the rows above: the ligatures
+              * come from the *theme's* monospace font, so the setting is needed exactly when custom
+              * fonts are off. Gating it would put it out of reach of everyone affected.
+              */}
+            <OptionsRowWithToggle
+                name="monospace-ligatures-enabled"
+                label={t("fonts.monospace_ligatures")}
+                description={t("fonts.monospace_ligatures_description")}
+                currentValue={ligaturesEnabled}
+                onChange={setLigaturesEnabled}
+            />
         </OptionsSection>
     );
 }
@@ -486,7 +491,7 @@ function Font({ label, description, sizeDescription, fontFamilyOption, fontSizeO
                     {description && <small>{description}</small>}
                 </div>
                 <div className="option-row-input font-option-preview">
-                    <span style={{ fontFamily: getFontFamily(fontFamily ?? ""), fontSize: `${fontSize}%` }}>{displayLabel}</span>
+                    <span className="font-option-specimen" style={{ fontFamily: getFontFamily(fontFamily ?? ""), fontSize: `${fontSize}%` }}>{displayLabel}</span>
                     <span className="bx bx-chevron-right" />
                 </div>
             </button>
@@ -665,6 +670,8 @@ function Performance() {
 
         {isElectron() && <SmoothScrollEnabledOption />}
 
+        {isElectron() && <HardwareAccelerationOption />}
+
     </OptionsSection>;
 }
 
@@ -677,6 +684,18 @@ function SmoothScrollEnabledOption() {
         description={t("ui-performance.app-restart-required")}
         currentValue={smoothScrollEnabled}
         onChange={setSmoothScrollEnabled}
+    />;
+}
+
+function HardwareAccelerationOption() {
+    const [ hardwareAccelerationEnabled, setHardwareAccelerationEnabled ] = useTriliumOptionBool("hardwareAccelerationEnabled");
+
+    return <OptionsRowWithToggle
+        name="hardware-acceleration-enabled"
+        label={t("ui-performance.enable-hardware-acceleration")}
+        description={t("ui-performance.enable-hardware-acceleration-description")}
+        currentValue={hardwareAccelerationEnabled}
+        onChange={setHardwareAccelerationEnabled}
     />;
 }
 

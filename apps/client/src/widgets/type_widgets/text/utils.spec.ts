@@ -60,7 +60,7 @@ describe("loadIncludedNote", () => {
         expect($el.children(".include-note-title-row").length).toBe(1);
         expect($el.find("button.include-note-toggle").length).toBe(1);
         // The included note is rendered with its own includes reduced to reference links.
-        expect(content_renderer.getRenderedContent).toHaveBeenCalledWith(note, { interactive: true, includesAsReferenceLinks: true });
+        expect(content_renderer.getRenderedContent).toHaveBeenCalledWith(note, { interactive: true, includesAsReferenceLinks: true, mediaEnvironment: "embedded" });
     });
 
     it("disposes interactive content of a previous render before replacing it", async () => {

@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { createHash as nodeCreateHash, createHmac as nodeCreateHmac } from "node:crypto";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import aesjs from "aes-js";
 
 import BrowserCryptoProvider from "./crypto_provider.js";
@@ -22,6 +23,39 @@ describe("BrowserCryptoProvider hashing", () => {
         expect(typeof mac).toBe("string");
         // base64 of a 32-byte sha256 digest is 44 chars
         expect(mac).toHaveLength(44);
+    });
+});
+
+describe("BrowserCryptoProvider parity with the Node.js provider", () => {
+    // The same document is opened by both the server/desktop (node:crypto) and the standalone
+    // app (this provider), so every digest must be byte-identical across the two. The binary
+    // vector is deliberately NOT valid UTF-8: a regression here once routed bytes through a
+    // lossy UTF-8 decode (invalid sequences become U+FFFD), which passed for strings and
+    // ASCII-ish bytes but made protected binary notes fail their integrity digest and decrypt
+    // to empty on standalone/mobile.
+    const allBytes = Uint8Array.from({ length: 256 }, (_, i) => i); // contains invalid UTF-8
+    const largeBinary = Uint8Array.from({ length: 50_000 }, (_, i) => (i * 31 + 7) % 256);
+    const utf8String = "héllo — 世界";
+
+    it("createHash matches node:crypto for strings and for (invalid-UTF-8) binary content", () => {
+        for (const algorithm of ["md5", "sha1", "sha512"] as const) {
+            for (const content of [utf8String, allBytes, largeBinary]) {
+                const expected = new Uint8Array(nodeCreateHash(algorithm).update(content).digest());
+                expect(provider.createHash(algorithm, content), `${algorithm} of ${typeof content === "string" ? "string" : `${content.length} bytes`}`).toEqual(expected);
+            }
+        }
+    });
+
+    it("hmac matches node:crypto for string and binary secrets/values", () => {
+        const cases: [string | Uint8Array, string | Uint8Array][] = [
+            ["secret", "value"],
+            [allBytes, largeBinary],
+            ["secret", allBytes]
+        ];
+        for (const [secret, value] of cases) {
+            const expected = nodeCreateHmac("sha256", secret).update(value).digest("base64");
+            expect(provider.hmac(secret, value)).toBe(expected);
+        }
     });
 });
 
@@ -184,5 +218,126 @@ describe("BrowserCryptoProvider base64", () => {
             expect(Array.from(provider.base64Decode("abcd"))).toEqual([4]);
         });
         /* eslint-enable @typescript-eslint/no-explicit-any */
+    });
+
+    describe("fallback decoder (WebView < 140, no native fromBase64)", () => {
+        // Force the pure-JS decoder — the exact path the mobile WebView 136 takes — by removing the
+        // native method for the duration of these tests.
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        const ctor = Uint8Array as any;
+        const savedFromBase64 = ctor.fromBase64;
+        beforeEach(() => delete ctor.fromBase64);
+        afterEach(() => {
+            if (savedFromBase64 === undefined) delete ctor.fromBase64;
+            else ctor.fromBase64 = savedFromBase64;
+        });
+        /* eslint-enable @typescript-eslint/no-explicit-any */
+
+        it("decodes the RFC 4648 vectors (no atob intermediate)", () => {
+            for (const [input, expected] of vectors) {
+                expect(decoder.decode(provider.base64Decode(expected))).toBe(input);
+            }
+        });
+
+        it("handles empty input and both padding lengths", () => {
+            expect(provider.base64Decode("")).toHaveLength(0);
+            expect(Array.from(provider.base64Decode("Zg=="))).toEqual([0x66]); // 1 byte, 2 pad
+            expect(Array.from(provider.base64Decode("Zm8="))).toEqual([0x66, 0x6f]); // 2 bytes, 1 pad
+            expect(Array.from(provider.base64Decode("Zm9v"))).toEqual([0x66, 0x6f, 0x6f]); // 3 bytes, no pad
+        });
+
+        it("round-trips every byte value 0..255 on the fallback path", () => {
+            const bytes = new Uint8Array(256);
+            for (let i = 0; i < 256; i++) bytes[i] = i;
+            expect(Array.from(provider.base64Decode(provider.base64Encode(bytes)))).toEqual(Array.from(bytes));
+        });
+
+        it("round-trips a large buffer whose length is not a multiple of 3", () => {
+            const bytes = new Uint8Array(100_003);
+            for (let i = 0; i < bytes.length; i++) bytes[i] = (i * 31 + 7) & 0xff;
+            expect(Array.from(provider.base64Decode(provider.base64Encode(bytes)))).toEqual(Array.from(bytes));
+        });
+
+        it("ignores embedded whitespace instead of decoding it as zero bytes (atob / native parity)", () => {
+            // Line-wrapped and space-separated base64 must decode identically to the compact form,
+            // not emit spurious 0x00 bytes for the newlines/spaces.
+            expect(decoder.decode(provider.base64Decode("Zm9v\nYmFy"))).toBe("foobar");
+            expect(decoder.decode(provider.base64Decode("Zm9v YmFy"))).toBe("foobar");
+            expect(decoder.decode(provider.base64Decode("  Zm9v\r\nYmFy  \n"))).toBe("foobar");
+            // Whitespace around padding is tolerated too.
+            expect(Array.from(provider.base64Decode("Zg =="))).toEqual([0x66]);
+            expect(Array.from(provider.base64Decode("Z m 8 ="))).toEqual([0x66, 0x6f]);
+        });
+
+        it("round-trips a large buffer that is line-wrapped every 76 chars (MIME style)", () => {
+            const bytes = new Uint8Array(50_000);
+            for (let i = 0; i < bytes.length; i++) bytes[i] = (i * 17 + 3) & 0xff;
+            const wrapped = provider.base64Encode(bytes).replace(/(.{76})/g, "$1\n");
+            expect(Array.from(provider.base64Decode(wrapped))).toEqual(Array.from(bytes));
+        });
+    });
+
+    describe("base64DecodeInto (pooled decode for the sync blob path)", () => {
+        // Force the pure-JS in-place decoder — same rationale as the fallback decoder suite.
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        const proto = Uint8Array.prototype as any;
+        const savedSetFromBase64 = proto.setFromBase64;
+        beforeEach(() => delete proto.setFromBase64);
+        afterEach(() => {
+            if (savedSetFromBase64 === undefined) delete proto.setFromBase64;
+            else proto.setFromBase64 = savedSetFromBase64;
+        });
+        /* eslint-enable @typescript-eslint/no-explicit-any */
+
+        it("decodes into the given buffer and returns the number of bytes written", () => {
+            const target = new Uint8Array(16);
+            const written = provider.base64DecodeInto("Zm9vYmFy", target);
+
+            expect(written).toBe(6);
+            expect(decoder.decode(target.subarray(0, written))).toBe("foobar");
+        });
+
+        it("reusing the same buffer across decodes yields correct, uncontaminated results", () => {
+            const pool = new Uint8Array(32);
+
+            const first = provider.base64DecodeInto(provider.base64Encode(new TextEncoder().encode("first-blob-content")), pool);
+            expect(decoder.decode(pool.subarray(0, first))).toBe("first-blob-content");
+
+            const second = provider.base64DecodeInto(provider.base64Encode(new TextEncoder().encode("2nd")), pool);
+            expect(second).toBe(3);
+            expect(decoder.decode(pool.subarray(0, second))).toBe("2nd");
+        });
+
+        it("skips whitespace and padding, writing fewer bytes than the upper bound", () => {
+            const target = new Uint8Array(16);
+            const written = provider.base64DecodeInto("Zm9v\nYmFy\n", target);
+
+            expect(written).toBe(6);
+            expect(decoder.decode(target.subarray(0, written))).toBe("foobar");
+        });
+
+        it("matches base64Decode output for every byte value", () => {
+            const bytes = new Uint8Array(256);
+            for (let i = 0; i < 256; i++) bytes[i] = i;
+            const base64 = provider.base64Encode(bytes);
+
+            const target = new Uint8Array((base64.length * 3) >> 2);
+            const written = provider.base64DecodeInto(base64, target);
+
+            expect(Array.from(target.subarray(0, written ?? 0))).toEqual(Array.from(bytes));
+        });
+
+        it("prefers the native setFromBase64 when the runtime provides it", () => {
+            /* eslint-disable @typescript-eslint/no-explicit-any */
+            (Uint8Array.prototype as any).setFromBase64 = function (base64: string) {
+                this[0] = base64.length;
+                return { read: base64.length, written: 1 };
+            };
+            /* eslint-enable @typescript-eslint/no-explicit-any */
+
+            const target = new Uint8Array(4);
+            expect(provider.base64DecodeInto("abcd", target)).toBe(1);
+            expect(target[0]).toBe(4);
+        });
     });
 });

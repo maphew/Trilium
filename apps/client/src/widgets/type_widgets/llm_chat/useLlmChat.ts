@@ -2,9 +2,12 @@ import type { LlmCitation, LlmMessage, LlmMessagePart, LlmModelInfo, LlmUsage } 
 import { RefObject } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import { getAvailableModels, streamChatCompletion } from "../../../services/llm_chat.js";
+import { streamChatCompletion } from "../../../services/llm_chat.js";
+import { formatModelCost } from "../../../services/llm_model_cost.js";
+import options from "../../../services/options.js";
 import { randomString } from "../../../services/utils.js";
 import { useTriliumEvent } from "../../react/hooks.js";
+import { estimateTokens, quantizeDraftTokens } from "./chat_context_usage.js";
 import { stripQuoteSources } from "./chat_quote.js";
 import { conversationForRegenerate } from "./chat_regenerate.js";
 import { type ContentBlock, type FileBlock, type ImageBlock, type LlmChatContent, type StoredMessage, type TextFileBlock, trimToFirstUserMessage } from "./llm_chat_types.js";
@@ -76,6 +79,39 @@ export interface ModelOption extends LlmModelInfo {
     costDescription?: string;
 }
 
+/**
+ * Resolve the active model from the available list. Several providers can expose
+ * the same model ID (e.g. an Anthropic API key and a Claude subscription, or two
+ * OpenAI-compatible endpoints), so the recorded provider type/config id narrow
+ * the match; when they're absent (chats saved before they existed) we fall back
+ * to the first ID match. Returns undefined when nothing matches — e.g. a saved
+ * model ID that has since been deselected — which callers treat as "no model".
+ */
+export function resolveSelectedModel(
+    availableModels: ModelOption[],
+    selectedModel: string,
+    selectedProvider: string | undefined,
+    selectedProviderId: string | undefined
+): ModelOption | undefined {
+    if (!selectedModel) return undefined;
+    return availableModels.find(m =>
+        m.id === selectedModel
+        && (!selectedProvider || m.provider === selectedProvider)
+        && (!selectedProviderId || m.providerId === selectedProviderId));
+}
+
+/** A configured provider and the models the user selected for it (possibly none). */
+export interface ModelProviderGroup {
+    /** Provider config id — stable group key. */
+    id: string;
+    /** User-given provider name, shown as the group header. */
+    name: string;
+    /** Provider type (e.g. "openai"). */
+    provider: string;
+    /** Selected models for this provider; empty for configs migrated from before selection existed. */
+    models: ModelOption[];
+}
+
 export interface LlmChatOptions {
     /** Default value for enableNoteTools */
     defaultEnableNoteTools?: boolean;
@@ -101,7 +137,13 @@ export interface UseLlmChatReturn {
     /** Images or files the user has attached but not yet sent. */
     pendingAttachments: AttachmentBlock[];
     availableModels: ModelOption[];
+    /** Per-provider groups (including providers with no models selected yet). */
+    modelGroups: ModelProviderGroup[];
     selectedModel: string;
+    /** Provider type owning {@link selectedModel}; undefined until a model is picked or in pre-existing chats. */
+    selectedProvider: string | undefined;
+    /** ID of the provider config owning {@link selectedModel}; undefined in chats saved before it existed. */
+    selectedProviderId: string | undefined;
     enableWebSearch: boolean;
     enableNoteTools: boolean;
     enableExtendedThinking: boolean;
@@ -109,6 +151,10 @@ export interface UseLlmChatReturn {
     /** The chat note's ID — used as the upload target for attachments. */
     chatNoteId: string | undefined;
     lastPromptTokens: number;
+    /** Completion tokens of the last reply — part of the next prompt, so the context indicator counts them. */
+    lastCompletionTokens: number;
+    /** Coarse estimate of the unsent draft, quantized so typing rarely re-renders. */
+    draftTokens: number;
     messagesEndRef: RefObject<HTMLDivElement>;
     scrollContainerRef: RefObject<HTMLDivElement>;
     /** Trailing spacer below the last message; sized so the active turn can park near the top. */
@@ -133,7 +179,7 @@ export interface UseLlmChatReturn {
     // Setters
     setInput: (value: string) => void;
     setMessages: (messages: StoredMessage[]) => void;
-    setSelectedModel: (model: string) => void;
+    setSelectedModel: (model: string, provider?: string, providerId?: string) => void;
     setEnableWebSearch: (value: boolean) => void;
     setEnableNoteTools: (value: boolean) => void;
     setEnableExtendedThinking: (value: boolean) => void;
@@ -175,7 +221,13 @@ export function useLlmChat(
     const setInput = useCallback((value: string) => {
         inputRef.current = value;
         setHasInputText(value.trim().length > 0);
+        // The context indicator has to account for the draft, or it can go from hidden
+        // straight to critical inside one send. Quantized so this only actually changes
+        // state about once per hundred characters typed, keeping the ref's whole point —
+        // that typing doesn't re-render the chat tree — very nearly intact.
+        setDraftTokens(quantizeDraftTokens(estimateTokens(value)));
     }, []);
+    const [draftTokens, setDraftTokens] = useState(0);
     const getInput = useCallback(() => inputRef.current, []);
     const [isStreaming, setIsStreaming] = useState(false);
     // The canonical "target" content received from the stream so far. The
@@ -187,13 +239,19 @@ export function useLlmChat(
     const [pendingCitations, setPendingCitations] = useState<LlmCitation[]>([]);
     const [pendingAttachments, setPendingAttachments] = useState<AttachmentBlock[]>([]);
     const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
+    const [modelGroups, setModelGroups] = useState<ModelProviderGroup[]>([]);
     const [selectedModel, setSelectedModel] = useState<string>("");
+    const [selectedProvider, setSelectedProvider] = useState<string | undefined>(undefined);
+    const [selectedProviderId, setSelectedProviderId] = useState<string | undefined>(undefined);
     const [enableWebSearch, setEnableWebSearch] = useState(true);
     const [enableNoteTools, setEnableNoteTools] = useState(defaultEnableNoteTools);
     const [enableExtendedThinking, setEnableExtendedThinking] = useState(false);
     const [contextNoteId, setContextNoteId] = useState<string | undefined>(initialContextNoteId);
     const [chatNoteId, setChatNoteIdState] = useState<string | undefined>(initialChatNoteId);
     const [lastPromptTokens, setLastPromptTokens] = useState<number>(0);
+    // The reply to the last prompt is part of the *next* prompt, so the context indicator
+    // has to count it too — `lastPromptTokens` alone understates by a whole reply.
+    const [lastCompletionTokens, setLastCompletionTokens] = useState<number>(0);
     const [hasProvider, setHasProvider] = useState<boolean>(true); // Assume true initially
     const [isCheckingProvider, setIsCheckingProvider] = useState<boolean>(true);
     const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -215,8 +273,14 @@ export function useLlmChat(
     // Refs to get fresh values in getContent (avoids stale closures)
     const messagesRef = useRef(messages);
     messagesRef.current = messages;
+    const availableModelsRef = useRef(availableModels);
+    availableModelsRef.current = availableModels;
     const selectedModelRef = useRef(selectedModel);
     selectedModelRef.current = selectedModel;
+    const selectedProviderRef = useRef(selectedProvider);
+    selectedProviderRef.current = selectedProvider;
+    const selectedProviderIdRef = useRef(selectedProviderId);
+    selectedProviderIdRef.current = selectedProviderId;
     const enableWebSearchRef = useRef(enableWebSearch);
     enableWebSearchRef.current = enableWebSearch;
     const enableNoteToolsRef = useRef(enableNoteTools);
@@ -262,29 +326,33 @@ export function useLlmChat(
         onMessagesChangeRef.current?.(newMessages);
     }, []);
 
-    // Fetch available models on mount
+    // Selecting a model records its provider (and provider config id) too, so a
+    // later send resolves the right provider even when two providers expose the
+    // same model ID (e.g. an Anthropic API key and a Claude subscription both
+    // offering "claude-sonnet-5", or two OpenAI-compatible endpoints).
+    const selectModel = useCallback((model: string, provider?: string, providerId?: string) => {
+        setSelectedModel(model);
+        setSelectedProvider(provider);
+        setSelectedProviderId(providerId);
+    }, []);
+
+    // Read the user's selected models straight from the synced `llmProviders`
+    // option — no server round-trip, no live provider fetch. The models were
+    // picked (with full metadata) when the provider was configured; dynamic
+    // listing only runs in the provider-settings model picker.
     const refreshModels = useCallback(() => {
-        setIsCheckingProvider(true);
-        getAvailableModels().then(models => {
-            const modelsWithDescription = models.map(m => ({
-                ...m,
-                costDescription: m.costMultiplier ? `${m.costMultiplier}x` : undefined
-            }));
-            setAvailableModels(modelsWithDescription);
-            setHasProvider(models.length > 0);
-            setIsCheckingProvider(false);
-            if (!selectedModel) {
-                const defaultModel = models.find(m => m.isDefault) || models[0];
-                if (defaultModel) {
-                    setSelectedModel(defaultModel.id);
-                }
+        const { models, groups, hasProvider } = readSelectedModels();
+        setAvailableModels(models);
+        setModelGroups(groups);
+        setHasProvider(hasProvider);
+        setIsCheckingProvider(false);
+        if (!selectedModel) {
+            const defaultModel = models.find(m => m.isDefault) || models[0];
+            if (defaultModel) {
+                selectModel(defaultModel.id, defaultModel.provider, defaultModel.providerId);
             }
-        }).catch(err => {
-            console.error("Failed to fetch available models:", err);
-            setHasProvider(false);
-            setIsCheckingProvider(false);
-        });
-    }, [selectedModel]);
+        }
+    }, [selectedModel, selectModel]);
 
     useEffect(() => {
         refreshModels();
@@ -462,7 +530,10 @@ export function useLlmChat(
         }
         setMessagesInternal(content.messages || []);
         if (content.selectedModel) {
-            setSelectedModel(content.selectedModel);
+            // selectedProvider/selectedProviderId may be absent in chats saved
+            // before they existed; the sender then falls back to resolving the
+            // provider by model ID.
+            selectModel(content.selectedModel, content.selectedProvider, content.selectedProviderId);
         }
         if (typeof content.enableWebSearch === "boolean") {
             setEnableWebSearch(content.enableWebSearch);
@@ -476,7 +547,8 @@ export function useLlmChat(
         // Restore last prompt tokens from the most recent message with usage
         const lastUsage = [...(content.messages || [])].reverse().find(m => m.usage)?.usage;
         setLastPromptTokens(lastUsage?.promptTokens ?? 0);
-    }, [supportsExtendedThinking]);
+        setLastCompletionTokens(lastUsage?.completionTokens ?? 0);
+    }, [supportsExtendedThinking, selectModel]);
 
     // Get current state as content object (uses refs to avoid stale closures)
     const getContent = useCallback((): LlmChatContent => {
@@ -484,6 +556,8 @@ export function useLlmChat(
             version: 1,
             messages: messagesRef.current,
             selectedModel: selectedModelRef.current || undefined,
+            selectedProvider: selectedProviderRef.current || undefined,
+            selectedProviderId: selectedProviderIdRef.current || undefined,
             enableWebSearch: enableWebSearchRef.current,
             enableNoteTools: enableNoteToolsRef.current
         };
@@ -496,6 +570,7 @@ export function useLlmChat(
     const clearMessages = useCallback(() => {
         setMessages([]);
         setLastPromptTokens(0);
+        setLastCompletionTokens(0);
     }, [setMessages]);
 
     /**
@@ -531,10 +606,20 @@ export function useLlmChat(
             content: stripQuoteSourcesFromApiContent(flattenToApiContent(m.content))
         }));
 
-        const selectedModelProvider = availableModels.find(m => m.id === selectedModel)?.provider;
+        // Prefer the provider recorded when the model was picked; fall back to
+        // resolving by model ID for chats saved before selectedProvider existed.
+        // The fallback returns the first match, so it can pick the wrong provider
+        // when two share a model ID — but such chats predate the subscription
+        // provider entirely, so their IDs only ever match one provider.
+        const matchedModel = availableModels.find(m =>
+            m.id === selectedModel && (!selectedProvider || m.provider === selectedProvider));
+        const selectedModelProvider = selectedProvider ?? matchedModel?.provider;
         const streamOptions: Parameters<typeof streamChatCompletion>[1] = {
             model: selectedModel || undefined,
             provider: selectedModelProvider,
+            // The config id pins the exact provider instance when several of the
+            // same type are configured (e.g. OpenAI + self-hosted Ollama).
+            providerId: selectedProviderId ?? matchedModel?.providerId,
             enableWebSearch,
             enableNoteTools,
             contextNoteId,
@@ -711,15 +796,17 @@ export function useLlmChat(
                 onUsage: (u) => {
                     usage = u;
                     setLastPromptTokens(u.promptTokens);
+                    setLastCompletionTokens(u.completionTokens);
                 },
-                onError: (errorMsg) => {
-                    console.error("Chat error:", errorMsg);
+                onError: (errorMsg, errorDetails) => {
+                    console.error("Chat error:", errorMsg, errorDetails);
                     const errorMessage: StoredMessage = {
                         id: randomString(),
                         role: "assistant",
                         content: errorMsg,
                         createdAt: new Date().toISOString(),
-                        type: "error"
+                        type: "error",
+                        ...(errorDetails ? { errorDetails } : {})
                     };
                     const finalMessages = [...conversation, errorMessage];
                     setMessages(finalMessages);
@@ -757,11 +844,19 @@ export function useLlmChat(
             setIsStreaming(false);
             abortControllerRef.current = null;
         });
-    }, [selectedModel, availableModels, enableWebSearch, enableNoteTools, enableExtendedThinking, contextNoteId, supportsExtendedThinking, setMessages, smoothAppend, smoothDrain, smoothReset]);
+    }, [selectedModel, selectedProvider, selectedProviderId, availableModels, enableWebSearch, enableNoteTools, enableExtendedThinking, contextNoteId, supportsExtendedThinking, setMessages, smoothAppend, smoothDrain, smoothReset]);
 
     const handleSubmit = useCallback(async (e: Event) => {
         e.preventDefault();
         if (isStreaming) return;
+        // The picked model must resolve to one the provider actually offers.
+        // A bare `selectedModel` truthiness check isn't enough: a saved chat can
+        // restore a model ID that has since been deselected (so it's absent from
+        // availableModels). Sending it anyway would let the server silently fall
+        // back to some default, so block until an available model is chosen.
+        if (!resolveSelectedModel(availableModelsRef.current, selectedModelRef.current, selectedProviderRef.current, selectedProviderIdRef.current)) {
+            return;
+        }
         const trimmedInput = inputRef.current.trim();
         const attachments = pendingAttachmentsRef.current;
         if (!trimmedInput && attachments.length === 0) return;
@@ -854,13 +949,18 @@ export function useLlmChat(
         pendingCitations,
         pendingAttachments,
         availableModels,
+        modelGroups,
         selectedModel,
+        selectedProvider,
+        selectedProviderId,
         enableWebSearch,
         enableNoteTools,
         enableExtendedThinking,
         contextNoteId,
         chatNoteId,
         lastPromptTokens,
+        lastCompletionTokens,
+        draftTokens,
         messagesEndRef,
         scrollContainerRef,
         bottomSpacerRef,
@@ -876,7 +976,7 @@ export function useLlmChat(
         // Setters
         setInput,
         setMessages,
-        setSelectedModel,
+        setSelectedModel: selectModel,
         setEnableWebSearch,
         setEnableNoteTools,
         setEnableExtendedThinking,
@@ -896,4 +996,39 @@ export function useLlmChat(
         retryLast,
         regenerateLastReply
     };
+}
+
+/** Minimal shape of a provider config as stored in the `llmProviders` option. */
+interface StoredProviderConfig {
+    id: string;
+    name: string;
+    provider: string;
+    selectedModels?: LlmModelInfo[];
+}
+
+/**
+ * Read the user's selected models per configured provider. Returns:
+ * - `groups`: one entry per configured provider (in config order), each with its
+ *   selected models — the group is kept even when it has none, so a provider
+ *   migrated from before selection existed still shows up with an empty group.
+ * - `models`: the flattened list across all groups (for default selection and
+ *   the active-model lookup).
+ * - `hasProvider`: whether any provider is configured at all.
+ */
+function readSelectedModels(): { models: ModelOption[]; groups: ModelProviderGroup[]; hasProvider: boolean } {
+    const configs = (options.getJson("llmProviders") as StoredProviderConfig[] | null) ?? [];
+    const groups: ModelProviderGroup[] = configs.map(config => ({
+        id: config.id,
+        name: config.name,
+        provider: config.provider,
+        models: (config.selectedModels ?? []).map(model => ({
+            ...model,
+            provider: config.provider,
+            providerId: config.id,
+            providerName: config.name,
+            costDescription: formatModelCost(model)
+        }))
+    }));
+    const models = groups.flatMap(g => g.models);
+    return { models, groups, hasProvider: configs.length > 0 };
 }

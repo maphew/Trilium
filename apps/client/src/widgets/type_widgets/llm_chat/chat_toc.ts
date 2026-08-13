@@ -19,6 +19,13 @@ export interface ChatHeading extends RawHeading {
 const ACTIVATION_LINE_FRACTION = 0.3;
 
 /**
+ * Pixels a clicked heading is scrolled *past* the activation line, so the scroll-spy counts it as crossed
+ * despite sub-pixel scroll snapping (device-pixel rounding can leave it a hair short of the line, lighting
+ * up the previous entry). A few pixels beats the snapping while staying well within the heading's section.
+ */
+const ACTIVATION_LINE_MARGIN_PX = 4;
+
+/**
  * Publishes a table of contents for an AI chat into the note context, so the shared
  * {@link TableOfContents} widget renders it exactly like the text-note and PDF tables of
  * contents. Each user message becomes a level-1 entry (its text truncated to a short
@@ -39,10 +46,20 @@ export function useChatToc(chat: UseLlmChatReturn, noteContext: NoteContext | un
     }, [messages, scrollContainerRef]);
 
     const scrollToHeading = useCallback((heading: ChatHeading) => {
-        if (heading.element?.isConnected) {
-            heading.element.scrollIntoView({ block: "start", behavior: "smooth" });
-        }
-    }, []);
+        const container = scrollContainerRef.current;
+        const element = heading.element;
+        if (!container || !element?.isConnected) return;
+        // Scroll the heading to the activation line the scroll-spy uses to pick the active entry, so
+        // clicking a heading leaves *that* heading highlighted. Scrolling it to the top instead would drop
+        // the activation line (30% down) into the following section, highlighting the next entry. Same
+        // content-space math as `measure()` below; land the heading a few pixels *past* the line so it
+        // registers as crossed despite sub-pixel scroll snapping (otherwise it can settle a hair short and
+        // the previous entry lights up).
+        const contentTop = container.getBoundingClientRect().top - container.scrollTop;
+        const headingOffset = element.getBoundingClientRect().top - contentTop;
+        const activationOffset = container.clientHeight * ACTIVATION_LINE_FRACTION;
+        container.scrollTo({ top: headingOffset - activationOffset + ACTIVATION_LINE_MARGIN_PX, behavior: "smooth" });
+    }, [scrollContainerRef]);
 
     // Scroll-spy: pick the active heading whenever the timeline scrolls or resizes. Heading
     // offsets are measured once per headings change or container resize — never per scroll

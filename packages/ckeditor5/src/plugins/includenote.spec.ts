@@ -98,6 +98,8 @@ describe("IncludeNote", () => {
         const view = getViewData(editor.editing.view);
         expect(view).toContain("include-note");
         expect(view).toContain("ck-widget");
+        // The block widget carries CKEditor's selection handle so it can be dragged atomically.
+        expect(view).toContain("ck-widget_with-selection-handle");
         expect(view).toContain("box-size-small");
 
         // Querying the DOM root forces the UIElement render callback to run.
@@ -223,7 +225,7 @@ describe("IncludeNote", () => {
         expect(command.value).toBe("medium");
 
         // Execute through every defined box size to cover the model write path.
-        for (const { value } of BOX_SIZES) {
+        for (const value of BOX_SIZES) {
             editor.execute(BOX_SIZE_COMMAND_NAME, { value });
             expect(command.value).toBe(value);
             expect(findIncludeNote(editor)?.getAttribute("boxSize")).toBe(value);

@@ -44,10 +44,15 @@ function getStats() {
         return {};
     }
 
+    const initialized = getSql().getValue("SELECT value FROM options WHERE name = 'initialized'") === "true";
     const stats = {
-        initialized: getSql().getValue("SELECT value FROM options WHERE name = 'initialized'") === "true",
+        initialized,
         outstandingPullCount: syncService.getOutstandingPullCount(),
-        totalPullCount: syncService.getTotalPullCount()
+        totalPullCount: syncService.getTotalPullCount(),
+        // Lets the setup wizard's progress screen detect a failed initial sync (#10548).
+        // Only exposed pre-initialization: this endpoint is unauthenticated, so once the
+        // instance is up and running, sync errors must not leak to anonymous visitors.
+        ...(initialized ? {} : { lastSyncError: syncService.getLastSyncError() })
     };
 
     getLog().info(`Returning sync stats: ${JSON.stringify(stats)}`);
@@ -115,6 +120,12 @@ function forceFullSync() {
  *         schema:
  *           type: string
  *         description: Marker to identify this request in server log
+ *       - in: query
+ *         name: maxBlobContentSize
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: If set, blob rows whose content exceeds this many bytes are returned with empty content; the entity_change metadata (including its hash) is unaffected.
  *     responses:
  *       '200':
  *         description: Sync changes, limited to approximately eight megabytes.
@@ -148,6 +159,13 @@ function getChanged(req: Request) {
 
     let lastEntityChangeId = parseInt(req.query.lastEntityChangeId);
     const clientInstanceId = req.query.instanceId;
+
+    // Optional per-client limit: blob rows whose content exceeds this many bytes are served with
+    // empty content (a stub). Only clients that opt in (currently mobile) send it; the entity_change
+    // metadata is unaffected, so content-hash checks still pass. Invalid or non-positive values
+    // disable the limit.
+    const maxBlobContentSizeRaw = typeof req.query.maxBlobContentSize === "string" ? parseInt(req.query.maxBlobContentSize) : NaN;
+    const maxBlobContentSize = Number.isFinite(maxBlobContentSizeRaw) && maxBlobContentSizeRaw > 0 ? maxBlobContentSizeRaw : undefined;
 
     const sql = getSql();
     const entityChangeRecords: EntityChangeRecord[] = [];
@@ -189,7 +207,7 @@ function getChanged(req: Request) {
             continue;
         }
 
-        const records = syncService.getEntityChangeRecords(foreignEntityChanges, MAX_PULL_RESPONSE_BYTES - estimatedResponseBytes);
+        const records = syncService.getEntityChangeRecords(foreignEntityChanges, MAX_PULL_RESPONSE_BYTES - estimatedResponseBytes, maxBlobContentSize);
 
         for (const record of records) {
             estimatedResponseBytes += estimateEntityChangeRecordSize(record);

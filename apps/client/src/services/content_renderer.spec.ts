@@ -60,6 +60,13 @@ vi.mock("./mermaid.js", () => ({
     postprocessMermaidSvg: (...a: any[]) => postprocessMermaidSvg(...a)
 }));
 
+// isOfficeMimeType comes (unmocked) from @triliumnext/commons; only the server
+// round-trip is stubbed out.
+const renderOfficeToHtml = vi.fn(async (..._args: any[]) => `<div class="office-doc">converted</div>`);
+vi.mock("./office_renderer.js", () => ({
+    renderOfficeToHtml: (...a: any[]) => renderOfficeToHtml(...a)
+}));
+
 const mermaidRender = vi.fn(async (..._args: any[]) => ({ svg: "<g/>" }));
 const mermaidInitialize = vi.fn((..._args: any[]) => {});
 vi.mock("mermaid", () => ({
@@ -72,8 +79,18 @@ vi.mock("../widgets/type_widgets/file/PdfViewer", () => ({ default: pdfViewerCom
 const webViewComponent = vi.fn((_props: any): VNode<any> => h("span", { class: "mock-webview-marker" }));
 vi.mock("../widgets/type_widgets/WebView", () => ({ default: webViewComponent }));
 
+const mediaPreviewComponent = vi.fn((_props: any): VNode<any> => h("span", { class: "mock-media-marker" }));
+vi.mock("../widgets/type_widgets/file/MediaPreview", () => ({ default: mediaPreviewComponent }));
+
 const embeddedNoteListComponent = vi.fn((_props: any) => null);
 vi.mock("../widgets/collections/NoteList", () => ({ EmbeddedNoteList: embeddedNoteListComponent }));
+
+const iconPackPreviewComponent = vi.fn((_props: any) => null);
+vi.mock("../widgets/type_widgets/icon_pack/IconPackPreview", () => ({ IconPackPreview: iconPackPreviewComponent }));
+
+const chatPreviewComponent = vi.fn((props: any): VNode<any> =>
+    h("span", { class: "mock-chat-marker" }, `messages:${props.messages.length}`));
+vi.mock("../widgets/type_widgets/llm_chat/ChatPreview", () => ({ default: chatPreviewComponent }));
 
 // `addHook` is a no-op here: sanitize_content.ts registers a DOMPurify hook at
 // module load (pulled in transitively), which would otherwise throw against this mock.
@@ -110,6 +127,17 @@ function buildAttachment(row: Partial<ConstructorParameters<typeof FAttachment>[
         ...row
     } as any);
     return att;
+}
+
+/** An AI chat note whose stored conversation is one user message per given text. */
+function buildChatNote(texts: string[]) {
+    const messages = texts.map((content, i) => ({
+        id: `m${i}`,
+        role: "user",
+        content,
+        createdAt: "2026-01-01T00:00:00.000Z"
+    }));
+    return buildNote({ title: "Chat", type: "llmChat", content: JSON.stringify({ version: 1, messages }) });
 }
 
 beforeEach(() => {
@@ -283,20 +311,53 @@ describe("getRenderedContent file rendering", () => {
         expect($renderedContent.hasClass("no-preview")).toBe(true);
     });
 
-    it("renders an audio file note", async () => {
+    it("mounts a lazy media player for an audio or video note, streaming nothing until it is played", async () => {
         const note = buildNote({ title: "A", type: "file" });
         note.mime = "audio/mpeg";
         const { type, $renderedContent } = await getRenderedContent(note);
         expect(type).toBe("audio");
-        expect($renderedContent.find("audio").attr("src")).toBe(getUrlForDownload(`api/notes/${note.noteId}/open-partial`));
+        expect($renderedContent.find(".rendered-media").length).toBe(1);
+        expect(mediaPreviewComponent).toHaveBeenCalledWith(
+            expect.objectContaining({ entity: note, environment: "preview" }), expect.anything());
+        // No media element is emitted here at all — the placeholder creates one only once it is clicked.
+        expect($renderedContent.find("audio, video").length).toBe(0);
     });
 
-    it("renders a video file note", async () => {
+    it("mounts the full media player when the caller embeds the note, and drops the footer it carries itself", async () => {
         const note = buildNote({ title: "V", type: "file" });
         note.mime = "video/mp4";
-        const { type, $renderedContent } = await getRenderedContent(note);
+        const { type, $renderedContent } = await getRenderedContent(note, { mediaEnvironment: "embedded" });
         expect(type).toBe("video");
-        expect($renderedContent.find("video").length).toBe(1);
+        expect(mediaPreviewComponent).toHaveBeenCalledWith(
+            expect.objectContaining({ entity: note, environment: "embedded" }), expect.anything());
+        // An embed has no room for a footer: the player takes Download / Open into its own controls.
+        expect($renderedContent.find(".file-footer").length).toBe(0);
+    });
+
+    it("keeps the footer for a media preview, and for the file types that have no player", async () => {
+        const video = buildNote({ title: "V", type: "file" });
+        video.mime = "video/mp4";
+        expect((await getRenderedContent(video)).$renderedContent.find(".file-footer").length).toBe(1);
+
+        const pdf = buildNote({ title: "P", type: "file" });
+        pdf.mime = "application/pdf";
+        expect((await getRenderedContent(pdf, { mediaEnvironment: "embedded" })).$renderedContent.find(".file-footer").length).toBe(1);
+    });
+
+    it("renders the plain media element for callers that serialize to HTML (presentation, printing)", async () => {
+        const note = buildNote({ title: "V", type: "file" });
+        note.mime = "video/mp4";
+        const { $renderedContent } = await getRenderedContent(note, { mediaEnvironment: "native" });
+        expect(mediaPreviewComponent).not.toHaveBeenCalled();
+
+        const $video = $renderedContent.find("video");
+        expect($video.attr("src")).toBe(getUrlForDownload(`api/notes/${note.noteId}/open-partial`));
+        expect($video.attr("controls")).toBeDefined();
+
+        const audio = buildNote({ title: "A", type: "file" });
+        audio.mime = "audio/mpeg";
+        const rendered = await getRenderedContent(audio, { mediaEnvironment: "native" });
+        expect(rendered.$renderedContent.find("audio").attr("src")).toBe(getUrlForDownload(`api/notes/${audio.noteId}/open-partial`));
     });
 
     it("hides the open button for protected file notes", async () => {
@@ -325,6 +386,49 @@ describe("getRenderedContent file rendering", () => {
     });
 });
 
+describe("getRenderedContent office rendering", () => {
+    const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+    it("renders a docx file note as a converted, sanitized preview plus file actions", async () => {
+        const note = buildNote({ title: "Doc", type: "file" });
+        note.mime = DOCX;
+        const { type, $renderedContent } = await getRenderedContent(note);
+        expect(type).toBe("office");
+        expect(renderOfficeToHtml).toHaveBeenCalledWith("notes", note.noteId);
+        // the padded body sits inside a dedicated, unpadded scroll host
+        expect($renderedContent.find(".office-preview-scroll > .office-preview-body").html()).toContain("converted");
+        // the file remains downloadable / openable
+        expect($renderedContent.find(".file-download").length).toBe(1);
+        expect($renderedContent.find(".file-open").length).toBe(1);
+    });
+
+    it("shows an admonition (and drops the preview body) when conversion fails", async () => {
+        renderOfficeToHtml.mockRejectedValueOnce(new Error("bad zip"));
+        const note = buildNote({ title: "DocBad", type: "file" });
+        note.mime = "application/vnd.oasis.opendocument.text";
+        const { type, $renderedContent } = await getRenderedContent(note);
+        expect(type).toBe("office");
+        expect($renderedContent.find(".admonition.caution").length).toBe(1);
+        expect($renderedContent.find(".office-preview-scroll, .office-preview-body").length).toBe(0);
+    });
+
+    it("does not run the heavy conversion in tooltip mode", async () => {
+        const note = buildNote({ title: "DocT", type: "file" });
+        note.mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        const { $renderedContent } = await getRenderedContent(note, { tooltip: true });
+        expect(renderOfficeToHtml).not.toHaveBeenCalled();
+        expect($renderedContent.hasClass("no-preview")).toBe(true);
+    });
+
+    it("renders an office attachment preview without the note-only footer", async () => {
+        const att = buildAttachment({ role: "file", mime: "application/vnd.oasis.opendocument.spreadsheet" });
+        const { type, $renderedContent } = await getRenderedContent(att);
+        expect(type).toBe("office");
+        expect(renderOfficeToHtml).toHaveBeenCalledWith("attachments", att.attachmentId);
+        expect($renderedContent.find(".file-footer").length).toBe(0);
+    });
+});
+
 describe("getRenderedContent render / doc / protectedSession / mermaid", () => {
     it("renders a render-type note and surfaces render-service output", async () => {
         const note = buildNote({ title: "R", type: "render" });
@@ -340,9 +444,11 @@ describe("getRenderedContent render / doc / protectedSession / mermaid", () => {
         });
         const note = buildNote({ title: "RErr", type: "render" });
         const { $renderedContent } = await getRenderedContent(note);
-        const $err = $renderedContent.find(".admonition.caution");
+        // The error card component itself is imported (and mounted) asynchronously.
+        await vi.dynamicImportSettled();
+        const $err = $renderedContent.find(".admonition.caution.render-error-card");
         expect($err.length).toBe(1);
-        expect($err.text()).toContain("kaput");
+        expect($err.find(".render-error-message").text()).toContain("kaput");
     });
 
     it("render error callback accepts a string error directly", async () => {
@@ -351,7 +457,8 @@ describe("getRenderedContent render / doc / protectedSession / mermaid", () => {
         });
         const note = buildNote({ title: "RErrStr", type: "render" });
         const { $renderedContent } = await getRenderedContent(note);
-        expect($renderedContent.find(".admonition.caution").text()).toBe("plain-string-error");
+        await vi.dynamicImportSettled();
+        expect($renderedContent.find(".render-error-card .render-error-message").text()).toBe("plain-string-error");
     });
 
     it("renders a doc note via the doc renderer", async () => {
@@ -565,6 +672,44 @@ describe("generic FNote fallback / webView", () => {
         expect(noSrc.$renderedContent.find(".note-detail-web-view").length).toBe(0);
         expect(noSrc.$renderedContent.hasClass("no-preview")).toBe(true);
     });
+
+    it("mounts the chat preview for an AI chat note", async () => {
+        const { $renderedContent } = await getRenderedContent(buildChatNote(["Ping?"]));
+
+        expect(chatPreviewComponent).toHaveBeenCalledOnce();
+        const mount = $renderedContent.find("[data-interactive-mount]");
+        expect(mount.length).toBe(1);
+        expect(mount.find(".mock-chat-marker").text()).toBe("messages:1");
+    });
+
+    it("snapshots the chat preview for a tooltip, leaving no live root behind", async () => {
+        const { $renderedContent } = await getRenderedContent(buildChatNote(["Ping?"]), { tooltip: true });
+
+        // Rendered by the same preview component as the note detail...
+        expect(chatPreviewComponent).toHaveBeenCalledOnce();
+        expect($renderedContent.find(".mock-chat-marker").text()).toBe("messages:1");
+        // ...but unmounted afterwards: the markup survives with nothing left to dispose.
+        expect($renderedContent.find("[data-interactive-mount]").length).toBe(0);
+        disposeInteractiveContent($renderedContent);
+        expect($renderedContent.find(".mock-chat-marker").length).toBe(1);
+    });
+
+    it("caps how many messages a tooltip previews, but not the note detail", async () => {
+        const messages = Array.from({ length: 25 }, (_, i) => `msg-${i}`);
+
+        await getRenderedContent(buildChatNote(messages), { tooltip: true });
+        expect(chatPreviewComponent.mock.calls[0][0].messages).toHaveLength(10);
+
+        await getRenderedContent(buildChatNote(messages));
+        expect(chatPreviewComponent.mock.calls[1][0].messages).toHaveLength(25);
+    });
+
+    it("keeps a title-only tooltip for a chat with no messages", async () => {
+        const { $renderedContent } = await getRenderedContent(buildChatNote([]), { tooltip: true });
+
+        expect(chatPreviewComponent).not.toHaveBeenCalled();
+        expect($renderedContent.html()).toBe("");
+    });
 });
 
 describe("interactive content disposal", () => {
@@ -646,7 +791,8 @@ describe("getRenderingType detection", () => {
 
         const iconPack = buildNote({ title: "icons", type: "file", "#iconPack": "" });
         iconPack.mime = "application/json";
-        // iconPack stays a file -> renders as a generic file (not tooltip), so type === file
-        expect((await getRenderedContent(iconPack)).type).toBe("file");
+        iconPack.getBlob = (async () => ({ content: "{}" })) as any;
+        // Tagged as an icon pack -> renders the glyph-grid preview, not raw file/code content.
+        expect((await getRenderedContent(iconPack)).type).toBe("iconPack");
     });
 });

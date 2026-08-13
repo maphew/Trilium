@@ -22,6 +22,7 @@ import type { AttributeRow, BranchRow } from "../services/load_results.js";
 import noteCreateService from "../services/note_create.js";
 import options from "../services/options.js";
 import server from "../services/server.js";
+import { buildShareLink } from "../services/share_link.js";
 import shortcutService from "../services/shortcuts.js";
 import toastService from "../services/toast.js";
 import treeService from "../services/tree.js";
@@ -234,7 +235,12 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
             } else if (target.classList.contains("add-note-button")) {
                 const node = $.ui.fancytree.getNode(e as unknown as Event);
                 const parentNotePath = treeService.getNotePath(node);
-                noteCreateService.createNote(parentNotePath, { isProtected: node.data.isProtected });
+                noteCreateService.createNote(parentNotePath, {
+                    isProtected: node.data.isProtected,
+                    // Activate in this tree's own context — in popup dialogs (e.g. the task states
+                    // tree popup) it is not the tab manager's active context.
+                    noteContext: this.noteContext
+                });
             } else if (target.classList.contains("enter-workspace-button")) {
                 const node = $.ui.fancytree.getNode(e as unknown as Event);
                 this.triggerCommand("hoistNote", { noteId: node.data.noteId });
@@ -1153,7 +1159,9 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
 
         const newActiveNode =
             this.noteContext?.notePath &&
-            (!treeService.isNotePathInHiddenSubtree(this.noteContext.notePath) || (await hoistedNoteService.isHoistedInHiddenSubtree())) &&
+            // Pass this tree's own hoisted note (e.g. a popup hoisted into the hidden subtree) rather
+            // than the active tab's — otherwise a hidden-subtree note never gets an active node here.
+            (!treeService.isNotePathInHiddenSubtree(this.noteContext.notePath) || (await hoistedNoteService.isHoistedInHiddenSubtree(this.hoistedNoteId))) &&
             (await this.getNodeFromPath(this.noteContext.notePath));
 
         if (this.spotlightedNode && newActiveNode !== this.spotlightedNode) {
@@ -1949,7 +1957,9 @@ function buildEnhanceTitle() {
         // Add shared indicator with tooltip if note is shared
         if (note.isShared()) {
             const shareId = note.getOwnedLabelValue("shareAlias") || note.noteId;
-            const shareUrl = `${location.origin}${location.pathname}share/${shareId}`;
+            // Pass no sync host to preserve this tooltip's prior local-origin behavior; the helper
+            // still substitutes the loopback origin for the trilium-app:// desktop renderer (#10589).
+            const shareUrl = buildShareLink(shareId, undefined);
             const tooltipText = t("note_tree.shared-indicator-tooltip-with-url", { url: shareUrl });
 
             const $sharedIndicator = $(`<span class="note-indicator-icon shared-indicator"></span>`);
@@ -1966,3 +1976,31 @@ function buildEnhanceTitle() {
         }
     };
 }
+
+type ScrollIntoViewFn = (this: Fancytree.FancytreeNode, effects?: boolean | object, options?: object) => JQueryPromise<unknown>;
+
+/**
+ * jquery.fancytree's `FancytreeNode.scrollIntoView()` reads `$(this.span).offset().top`, which throws
+ * "Cannot read properties of undefined (reading 'top')" for a node that has no DOM markup — e.g. nodes
+ * recreated by `load(true)` while rendering is suspended by `batchUpdate()` during a large sync update.
+ * Its `isVisible()` guard only checks the ancestors' expanded flags, not the actual markup, and the
+ * exception then aborts the whole tab activation (see #10407). Skip the scroll instead, mirroring the
+ * library's own early return for invisible nodes; the node gets rendered (and styled as active) by the
+ * full `tree.render()` that re-enabling updates triggers anyway.
+ */
+function patchScrollIntoViewCrash() {
+    const { _FancytreeNodeClass } = $.ui.fancytree as Fancytree.FancytreeStatic & {
+        _FancytreeNodeClass: { prototype: Fancytree.FancytreeNode };
+    };
+    const originalScrollIntoView = _FancytreeNodeClass.prototype.scrollIntoView as ScrollIntoViewFn;
+
+    _FancytreeNodeClass.prototype.scrollIntoView = function (this: Fancytree.FancytreeNode, effects?: boolean | object, options?: object) {
+        if (!this.span) {
+            return $.Deferred().resolveWith(this).promise();
+        }
+
+        return originalScrollIntoView.call(this, effects, options);
+    };
+}
+
+patchScrollIntoViewCrash();

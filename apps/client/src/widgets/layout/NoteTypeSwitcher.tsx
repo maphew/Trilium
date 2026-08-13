@@ -1,6 +1,6 @@
 import "./NoteTypeSwitcher.css";
 
-import { NoteType } from "@triliumnext/commons";
+import { NoteType, type TemplatesResponse } from "@triliumnext/commons";
 import { useEffect, useMemo, useState } from "preact/hooks";
 
 import FNote from "../../entities/fnote";
@@ -27,7 +27,8 @@ export default function NoteTypeSwitcher({ note }: { note?: FNote | null }) {
         const pinnedNoteTypes: NoteTypeMapping[] = [];
         const restNoteTypes: NoteTypeMapping[] = [];
         for (const noteType of NOTE_TYPES) {
-            if (noteType.reserved || noteType.static || noteType.type === "book") continue;
+            if (noteType.reserved || noteType.type === "book") continue;
+            if (noteType.type === "search") continue;
             if (noteType.type === "llmChat" && !isExperimentalFeatureEnabled("llm")) continue;
             if (SWITCHER_PINNED_NOTE_TYPES.has(noteType.type)) {
                 pinnedNoteTypes.push(noteType);
@@ -40,7 +41,7 @@ export default function NoteTypeSwitcher({ note }: { note?: FNote | null }) {
     const currentNoteTypeData = useMemo(() => NOTE_TYPES.find(t => t.type === currentNoteType), [ currentNoteType ]);
     const { builtinTemplates, collectionTemplates } = useBuiltinTemplates();
 
-    return (currentNoteType && supportedNoteTypes.has(currentNoteType) && !note?.isTriliumSqlite() && !note?.isMarkdown() &&
+    return (currentNoteType && supportedNoteTypes.has(currentNoteType) && !note?.isTriliumSqlite() && !note?.isMarkdown() && !note?.isIconPack() &&
         <div
             className="note-type-switcher"
             onWheel={onWheelHorizontalScroll}
@@ -99,11 +100,11 @@ function CollectionNoteTypes({ noteId, collectionTemplates }: { noteId: string, 
     );
 }
 
-function TemplateNoteTypes({ noteId, builtinTemplates }: { noteId: string, builtinTemplates: FNote[] }) {
+export function TemplateNoteTypes({ noteId, builtinTemplates }: { noteId: string, builtinTemplates: FNote[] }) {
     const [ userTemplates, setUserTemplates ] = useState<FNote[]>([]);
 
     async function refreshTemplates() {
-        const templateNoteIds = await server.get<string[]>("search-templates");
+        const { templateNoteIds } = await server.get<TemplatesResponse>("search-templates");
         const templateNotes = await froca.getNotes(templateNoteIds);
         setUserTemplates(templateNotes);
     }
@@ -118,6 +119,13 @@ function TemplateNoteTypes({ noteId, builtinTemplates }: { noteId: string, built
         if (loadResults.getAttributeRows().some(attr => attr.type === "label" && attr.name === "template")) {
             refreshTemplates();
         }
+    });
+
+    // Swap to fresh FNote refs after a full froca reload (e.g. entering a protected session
+    // clears the cache and creates new instances — old refs are orphaned with stale titles,
+    // leaving protected templates stuck at "[protected]" after unlock).
+    useTriliumEvent("frocaReloaded", () => {
+        refreshTemplates();
     });
 
     return (
@@ -149,7 +157,7 @@ function setTemplate(noteId: string, templateId: string) {
     return attributes.setRelation(noteId, "template", templateId);
 }
 
-function useBuiltinTemplates() {
+export function useBuiltinTemplates() {
     const [ templates, setTemplates ] = useState<{
         builtinTemplates: FNote[];
         collectionTemplates: FNote[];
@@ -178,6 +186,13 @@ function useBuiltinTemplates() {
     useEffect(() => {
         loadBuiltinTemplates();
     }, []);
+
+    // Swap to fresh FNote refs after a full froca reload (e.g. entering a protected session
+    // clears the cache and creates new instances — old refs are orphaned with stale titles,
+    // leaving protected templates stuck at "[protected]" after unlock).
+    useTriliumEvent("frocaReloaded", () => {
+        loadBuiltinTemplates();
+    });
 
     return templates;
 }

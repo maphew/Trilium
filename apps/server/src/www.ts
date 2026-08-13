@@ -10,10 +10,12 @@ import config from "./services/config.js";
 import { startCpuProfiler, writeCpuProfile } from "./services/cpu_profiler.js";
 import { registerOcrHandlers } from "./services/handlers.js";
 import host from "./services/host.js";
+import { registerServerLlmExtensions } from "./services/llm/index.js";
 import port from "./services/port.js";
+import { installProcessErrorHandlers, markAppReady } from "./services/process_errors.js";
 import { isScriptingEnabled } from "./services/scripting_guard.js";
 import { getDbSize } from "./services/sql_init.js";
-import WebSocketMessagingProvider from "./services/ws_messaging_provider.js";
+import { isHttpAttachableMessagingProvider } from "./services/ws_messaging_provider.js";
 
 const MINIMUM_NODE_VERSION = "20.0.0";
 
@@ -29,13 +31,7 @@ export default async function startTriliumServer(): Promise<Express> {
     await displayStartupMessage();
 
     // setup basic error handling even before requiring dependencies, since those can produce errors as well
-    process.on("unhandledRejection", (error: Error) => {
-        // this makes sure that stacktrace of failed promise is printed out
-        console.log(error);
-
-        // but also try to log it into file
-        getLog().info(error);
-    });
+    installProcessErrorHandlers();
 
     // When TRILIUM_PROFILE is set we drive the V8 CPU profiler ourselves rather than relying on Node's
     // --cpu-prof flag: that flag flushes its file during the normal shutdown path, which the exit() handler
@@ -79,20 +75,26 @@ export default async function startTriliumServer(): Promise<Express> {
     const app = await buildApp();
     const httpServer = startHttpServer(app);
 
-    // Only the WS provider needs the HTTP server and session parser; other
-    // providers (e.g. the Electron-IPC provider from apps/desktop) are
-    // initialised by their owning app before startup. Gating on the concrete
-    // type keeps www.ts platform-agnostic.
+    // Only providers that serve clients over the TCP listener need the HTTP server
+    // and session parser (the server's WebSocket provider, or the desktop composite
+    // when LAN access is on). A pure Electron-IPC provider isn't HTTP-attachable, so
+    // it's skipped here and no WS endpoint is bound. Gating on the capability rather
+    // than a concrete type keeps www.ts platform-agnostic.
     const messaging = getMessagingProvider();
-    if (messaging instanceof WebSocketMessagingProvider) {
+    if (isHttpAttachableMessagingProvider(messaging)) {
         const sessionParser = (await import("./routes/session_parser.js")).default;
-        messaging.init(httpServer, sessionParser);
+        messaging.attachToHttpServer(httpServer, sessionParser);
     }
 
     const { ws } = await import("@triliumnext/core");
     ws.init();
 
     registerOcrHandlers();
+    registerServerLlmExtensions();
+
+    // Everything the application needs in order to be usable is now up, so from here on an escaped error
+    // is a contained failure rather than a broken startup, and stops being fatal.
+    markAppReady();
 
     return app;
 }

@@ -1,4 +1,4 @@
-import type { EntityChange } from "@triliumnext/commons";
+import type { EntityChange, EntityChangeRecord } from "@triliumnext/commons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import entityConstructor from "../becca/entity_constructor.js";
@@ -8,12 +8,16 @@ import * as cls from "./context.js";
 import entityChangesService from "./entity_changes.js";
 import getInstanceId from "./instance_id.js";
 import options from "./options.js";
+import { fakeRequestProvider } from "../test/request_provider.js";
 import { type ExecOpts, initRequest, type RequestProvider } from "./request.js";
 import { getSql } from "./sql/index.js";
 import setupService from "./setup.js";
-import syncService, { estimateEntityChangeRecordSize } from "./sync.js";
+import sqlInit from "./sql_init.js";
+import syncService, { estimateEntityChangeRecordSize, MAX_SECTOR_RESYNC_ATTEMPTS, MAX_SYNC_ROUNDS } from "./sync.js";
 import syncOptions from "./sync_options.js";
+import syncUpdateService from "./sync_update.js";
 import dateUtils from "./utils/date.js";
+import ws from "./ws.js";
 
 interface ChangesResponse {
     entityChanges: unknown[];
@@ -31,16 +35,24 @@ interface FakeConfig {
     changed?: ChangesResponse[];
     check?: CheckResponse[];
     onCheck?: (callIndex: number) => void;
+    onChanged?: (callIndex: number) => void;
 }
 
 let config: FakeConfig = {};
 let changedIdx = 0;
 let checkIdx = 0;
-const requestLog: Array<{ method: string; url: string }> = [];
+const requestLog: Array<{ method: string; url: string; body?: ExecOpts["body"] }> = [];
 
-const fakeRequest: RequestProvider = {
-    exec: (<T>(opts: ExecOpts): Promise<T> => {
-        requestLog.push({ method: opts.method, url: opts.url });
+/** The entity IDs actually sent to the sync server, across every push of the run. */
+const pushedEntityIds = () => requestLog
+    .filter((r) => r.url.includes("/api/sync/update"))
+    // syncRequest always serializes the body itself, so a push body is a JSON string.
+    .flatMap((r) => (typeof r.body === "string" ? JSON.parse(r.body || "{}").entities ?? [] : []) as EntityChangeRecord[])
+    .map((record) => record.entityChange.entityId);
+
+const fakeRequest: RequestProvider = fakeRequestProvider({
+    exec: (<T,>(opts: ExecOpts): Promise<T> => {
+        requestLog.push({ method: opts.method, url: opts.url, body: opts.body });
         const url = opts.url;
         const reply = (value: unknown) => Promise.resolve(value as T);
 
@@ -50,6 +62,7 @@ const fakeRequest: RequestProvider = {
             return reply(config.login ?? { instanceId: "REMOTE_INSTANCE", maxEntityChangeId: 0 });
         }
         if (url.includes("/api/sync/changed")) {
+            config.onChanged?.(changedIdx);
             const seq = config.changed ?? [{ entityChanges: [], lastEntityChangeId: 0, outstandingPullCount: 0 }];
             return reply(seq[Math.min(changedIdx++, seq.length - 1)]);
         }
@@ -64,7 +77,7 @@ const fakeRequest: RequestProvider = {
         return reply({});
     }) as RequestProvider["exec"],
     getImage: async () => new ArrayBuffer(0)
-};
+});
 initRequest(fakeRequest);
 
 const runSync = () => cls.init(() => syncService.sync());
@@ -113,6 +126,109 @@ describe("sync service", () => {
         expect(urls.some((u) => u.includes("/api/sync/check"))).toBe(true);
     });
 
+    it("prefetches the next chunk before applying the current batch (download/apply pipelining)", async () => {
+        const events: string[] = [];
+        // The first chunk's estimated size (content length) exceeds the batch budget, so the
+        // batch closes after one chunk and the next chunk must be prefetched before the apply.
+        const bigChange = { entityChange: { entityName: "notes", entityId: "pf1" }, entity: { content: "x".repeat(33 * 1024 * 1024) } };
+        const smallChange = { entityChange: { entityName: "notes", entityId: "pf2" }, entity: { content: "y" } };
+        config.changed = [
+            { entityChanges: [bigChange], lastEntityChangeId: 1, outstandingPullCount: 1 },
+            { entityChanges: [smallChange], lastEntityChangeId: 2, outstandingPullCount: 0 },
+            { entityChanges: [], lastEntityChangeId: 2, outstandingPullCount: 0 }
+        ];
+        config.onChanged = (i) => events.push(`fetch:${i}`);
+        vi.spyOn(syncUpdateService, "updateEntities").mockImplementation(() => {
+            events.push("apply");
+        });
+
+        await expect(runSync()).resolves.toEqual({ success: true });
+
+        // The request for chunk 1 is fired before batch 0 (the big chunk) is applied, so the
+        // download overlaps the SQL work; both batches are still applied, in order.
+        expect(events.indexOf("fetch:1")).toBeGreaterThan(events.indexOf("fetch:0"));
+        expect(events.indexOf("apply")).toBeGreaterThan(events.indexOf("fetch:1"));
+        expect(events.filter((e) => e === "apply")).toHaveLength(2);
+        expect(events.indexOf("fetch:2")).toBeGreaterThan(events.indexOf("apply"));
+    });
+
+    it("marks the database as initialized once a sync converges", async () => {
+        // An initial sync-from-server interrupted by a crash resumes via sync/now or the sync
+        // timer — NOT via setup.triggerSync(), which is the only other place that sets the flag.
+        // If sync() itself doesn't set it on convergence, a resumed initial sync completes but
+        // the DB stays uninitialized and the setup screen waits on "finalizing" forever.
+        const initSpy = vi.spyOn(sqlInit, "setDbAsInitialized").mockImplementation(() => {});
+
+        await expect(runSync()).resolves.toEqual({ success: true });
+        expect(initSpy).toHaveBeenCalled();
+    });
+
+    it("does not mark the database as initialized when the sync fails", async () => {
+        const initSpy = vi.spyOn(sqlInit, "setDbAsInitialized").mockImplementation(() => {});
+        config.loginThrows = new Error("kaboom");
+
+        await expect(runSync()).resolves.toMatchObject({ success: false });
+        expect(initSpy).not.toHaveBeenCalled();
+    });
+
+    it("counts already-pulled local changes into the pull total so a resumed initial sync keeps the grand total", async () => {
+        // On resume the remote only reports the *remaining* changes; the already-pulled ones live in
+        // the local entity_changes table. The total must be their sum, otherwise the setup progress
+        // bar rescales the leftover work to 0-100% and appears to restart from zero. This only applies
+        // while the DB is not yet marked initialized (the initial sync hasn't converged).
+        const countSynced = () => getSql().getValue<number>("SELECT COUNT(1) FROM entity_changes WHERE isSynced = 1") ?? 0;
+        const prevInitialized = options.getOptionOrNull("initialized");
+        cls.init(() => options.setOption("initialized", "false"));
+
+        let alreadyPulled = 0;
+        let capturedTotal: number | null = null;
+        config.onChanged = (callIndex) => {
+            // callIndex 0: same moment the sync samples the already-pulled count.
+            if (callIndex === 0) alreadyPulled = countSynced();
+            // callIndex 1: the total has now been frozen for this session — read it back.
+            if (callIndex === 1) capturedTotal = syncService.getTotalPullCount();
+        };
+        config.changed = [
+            { entityChanges: [pulledOptionChange()], lastEntityChangeId: 9, outstandingPullCount: 5 },
+            { entityChanges: [], lastEntityChangeId: 9, outstandingPullCount: 0 }
+        ];
+
+        try {
+            await runSync();
+        } finally {
+            cls.init(() => options.setOption("initialized", prevInitialized ?? "true"));
+        }
+
+        // grand total = already-pulled (local) + this batch (1) + remaining reported by the remote (5)
+        expect(capturedTotal).toBe(alreadyPulled + 1 + 5);
+    });
+
+    it("does not count historical changes into the pull total on an established (initialized) database", async () => {
+        // Post-initialization the setup progress bar isn't shown, and counting every change ever
+        // pulled would both scan the full entity_changes table and inflate the total. The session
+        // total should be just this batch plus the remaining outstanding changes.
+        const prevInitialized = options.getOptionOrNull("initialized");
+        cls.init(() => options.setOption("initialized", "true"));
+
+        let capturedTotal: number | null = null;
+        config.onChanged = (callIndex) => {
+            if (callIndex === 1) capturedTotal = syncService.getTotalPullCount();
+        };
+        config.changed = [
+            { entityChanges: [pulledOptionChange()], lastEntityChangeId: 9, outstandingPullCount: 5 },
+            { entityChanges: [], lastEntityChangeId: 9, outstandingPullCount: 0 }
+        ];
+
+        try {
+            await runSync();
+        } finally {
+            cls.init(() => options.setOption("initialized", prevInitialized ?? "true"));
+        }
+
+        // 1 change in this batch + 5 remaining, with no historical inflation.
+        expect(capturedTotal).toBe(1 + 5);
+    });
+
     it("persists an advanced cursor even when the server returns an empty change batch", async () => {
         // The server may skip past changes owned by this instance and return no entity changes but an
         // advanced lastEntityChangeId. The client must persist that advance, otherwise every subsequent
@@ -124,6 +240,37 @@ describe("sync service", () => {
         await runSync();
 
         expect(Number(options.getOption("lastSyncedPull"))).toBe(20);
+    });
+
+    it("appends maxBlobContentSize to pull URLs when the option is set", async () => {
+        // A single non-empty batch then an empty one so the pull loop terminates.
+        config.changed = [
+            { entityChanges: [pulledOptionChange()], lastEntityChangeId: 9, outstandingPullCount: 0 },
+            { entityChanges: [], lastEntityChangeId: 9, outstandingPullCount: 0 }
+        ];
+        cls.init(() => options.setOption("syncMaxBlobContentSize", "1048576"));
+
+        await runSync();
+
+        const changedUrls = requestLog.filter((r) => r.url.includes("/api/sync/changed")).map((r) => r.url);
+        expect(changedUrls.length).toBeGreaterThan(0);
+        expect(changedUrls.every((u) => u.includes("maxBlobContentSize=1048576"))).toBe(true);
+
+        cls.init(() => options.setOption("syncMaxBlobContentSize", "0"));
+    });
+
+    it("omits maxBlobContentSize from pull URLs when the option is 0", async () => {
+        config.changed = [
+            { entityChanges: [pulledOptionChange()], lastEntityChangeId: 9, outstandingPullCount: 0 },
+            { entityChanges: [], lastEntityChangeId: 9, outstandingPullCount: 0 }
+        ];
+        cls.init(() => options.setOption("syncMaxBlobContentSize", "0"));
+
+        await runSync();
+
+        const changedUrls = requestLog.filter((r) => r.url.includes("/api/sync/changed")).map((r) => r.url);
+        expect(changedUrls.length).toBeGreaterThan(0);
+        expect(changedUrls.some((u) => u.includes("maxBlobContentSize"))).toBe(false);
     });
 
     it("re-runs the content check while the server reports outstanding pulls", async () => {
@@ -148,6 +295,99 @@ describe("sync service", () => {
         expect(checksSpy).toHaveBeenCalled();
         expect(sectorSpy).toHaveBeenCalledWith("notes", "a");
         expect(requestLog.some((r) => r.url.includes("/api/sync/queue-sector/notes/a"))).toBe(true);
+    });
+
+    // The situation the sector re-queue exists for: the sync server no longer has a change this
+    // instance holds. Since the change originally came from the server it carries the server's
+    // instance ID, which is exactly what pushChanges filters out, so before the re-queue took
+    // ownership of the row the one copy left in the cluster could never be sent back (#11073).
+    it("pushes a diverged change the sync server has lost even though it came from there", async () => {
+        const blobId = "9lostByServer";
+        cls.init(() => {
+            const sql = getSql();
+            sql.execute("INSERT INTO blobs (blobId, content, dateModified, utcDateModified) VALUES (?, 'lost content', ?, ?)",
+                [blobId, dateUtils.utcNowDateTime(), dateUtils.utcNowDateTime()]);
+            sql.execute(`
+                INSERT INTO entity_changes (entityName, entityId, hash, isErased, changeId, componentId, instanceId, isSynced, utcDateChanged)
+                VALUES ('blobs', ?, 'lostHash', 0, 'lostChangeId', 'NA', 'REMOTE_INSTANCE', 1, ?)`,
+                [blobId, dateUtils.utcNowDateTime()]);
+            // Everything is pushed as far as sync is concerned, so only the re-queue can resend it.
+            options.setOption("lastSyncedPush", String(syncService.getMaxEntityChangeId()));
+        });
+
+        vi.spyOn(consistencyChecks, "runEntityChangesChecks").mockImplementation(() => {});
+        vi.mocked(contentHashService.checkContentHashes).mockReturnValueOnce([{ entityName: "blobs", sector: "9" }]);
+        config.check = [
+            { maxEntityChangeId: 0, entityHashes: { blobs: { 9: "diverged" } } },
+            { maxEntityChangeId: 0, entityHashes: {} }
+        ];
+
+        await expect(runSync()).resolves.toEqual({ success: true });
+        expect(pushedEntityIds()).toContain(blobId);
+    });
+
+    describe("unresolvable content hash divergence", () => {
+        // A sector that keeps diverging after being re-queued used to spin the sync loop forever,
+        // re-pushing the same sector every round without ever converging (#11073).
+        beforeEach(() => {
+            vi.spyOn(consistencyChecks, "runEntityChangesChecks").mockImplementation(() => {});
+            vi.spyOn(entityChangesService, "addEntityChangesForSector").mockImplementation(() => {});
+        });
+
+        it("gives up on a sector that stays diverged and reports it as a sync error", async () => {
+            vi.mocked(contentHashService.checkContentHashes).mockReturnValue([{ entityName: "blobs", sector: "9" }]);
+            const notifySpy = vi.spyOn(ws, "syncHashCheckFailed").mockImplementation(() => {});
+
+            const result = await runSync();
+
+            expect(result).toMatchObject({ success: false, errorCode: "CONTENT_HASH_MISMATCH" });
+            expect(syncService.getLastSyncError()).toContain("blobs/9");
+            // The sector is re-queued on every attempt but the last, which only reports it.
+            expect(entityChangesService.addEntityChangesForSector).toHaveBeenCalledTimes(MAX_SECTOR_RESYNC_ATTEMPTS - 1);
+            expect(notifySpy).toHaveBeenCalledWith(["blobs/9"]);
+        });
+
+        it("notifies about the same divergence once, until a sync converges again", async () => {
+            vi.mocked(contentHashService.checkContentHashes).mockReturnValue([{ entityName: "notes", sector: "b" }]);
+            const notifySpy = vi.spyOn(ws, "syncHashCheckFailed").mockImplementation(() => {});
+
+            await expect(runSync()).resolves.toMatchObject({ success: false });
+            // The sync timer re-runs every minute; the toast must not come back with it.
+            await expect(runSync()).resolves.toMatchObject({ success: false });
+            expect(notifySpy).toHaveBeenCalledTimes(1);
+
+            vi.mocked(contentHashService.checkContentHashes).mockReturnValue([]);
+            await expect(runSync()).resolves.toEqual({ success: true });
+
+            // A divergence that comes back after a healthy sync is worth reporting again.
+            vi.mocked(contentHashService.checkContentHashes).mockReturnValue([{ entityName: "notes", sector: "b" }]);
+            await expect(runSync()).resolves.toMatchObject({ success: false });
+            expect(notifySpy).toHaveBeenCalledTimes(2);
+        });
+
+        it("keeps repairing the sectors that can still be fixed", async () => {
+            // 'notes/c' is unfixable, 'notes/d' converges on its second attempt: giving up on the
+            // former must not cut the latter's repair short.
+            vi.mocked(contentHashService.checkContentHashes)
+                .mockReturnValueOnce([{ entityName: "notes", sector: "c" }, { entityName: "notes", sector: "d" }])
+                .mockReturnValue([{ entityName: "notes", sector: "c" }]);
+            vi.spyOn(ws, "syncHashCheckFailed").mockImplementation(() => {});
+
+            await expect(runSync()).resolves.toMatchObject({ success: false, errorCode: "CONTENT_HASH_MISMATCH" });
+
+            expect(entityChangesService.addEntityChangesForSector).toHaveBeenCalledWith("notes", "d");
+            expect(syncService.getLastSyncError()).toContain("notes/c");
+            expect(syncService.getLastSyncError()).not.toContain("notes/d");
+        });
+
+        it("stops a sync run that never converges instead of looping forever", async () => {
+            // The server always reports more changes than we have pulled, so every round is told to
+            // try again — the shape of an endless sync that isn't a hash divergence.
+            config.check = [{ maxEntityChangeId: 999_999_999, entityHashes: {} }];
+
+            await expect(runSync()).resolves.toMatchObject({ success: false, errorCode: "NOT_CONVERGING" });
+            expect(requestLog.filter((r) => r.url.endsWith("/api/sync/check")).length).toBe(MAX_SYNC_ROUNDS);
+        });
     });
 
     it("skips the content check while local pushes are still outstanding", async () => {
@@ -196,6 +436,41 @@ describe("sync service", () => {
     it("reports other sync errors with their message", async () => {
         config.loginThrows = new Error("kaboom");
         await expect(runSync()).resolves.toEqual({ success: false, message: "kaboom" });
+    });
+
+    describe("last sync error tracking", () => {
+        // The setup wizard's progress screen only polls sync/stats — the sync result itself
+        // is returned to whoever *triggered* the sync (often a fire-and-forget). The last
+        // error must therefore be queryable so the wizard can leave its progress screen
+        // instead of spinning forever (#10548).
+        it("records the failure message with the sync server's host redacted", async () => {
+            // The setup wizard displays this message and users paste screenshots of it
+            // into bug reports — the private host/port must not leak, while the path and
+            // status (the diagnostically useful parts) stay visible.
+            config.loginThrows = new Error(
+                "Request to PUT https://trilium.private-domain.example:8443/api/sync/update?logMarkerId=x failed, error: 401 Logged in session not found"
+            );
+            await expect(runSync()).resolves.toMatchObject({ success: false });
+            expect(syncService.getLastSyncError()).toBe(
+                "Request to PUT https://[redacted]/api/sync/update?logMarkerId=x failed, error: 401 Logged in session not found"
+            );
+        });
+
+        it("records connection failures with the user-facing message", async () => {
+            config.loginThrows = new Error("connect ECONNREFUSED 127.0.0.1:8080");
+            await expect(runSync()).resolves.toMatchObject({ success: false });
+            expect(syncService.getLastSyncError()).toBe("No connection to sync server.");
+        });
+
+        it("clears the recorded error once a subsequent sync succeeds", async () => {
+            config.loginThrows = new Error("kaboom");
+            await expect(runSync()).resolves.toMatchObject({ success: false });
+            expect(syncService.getLastSyncError()).toBe("kaboom");
+
+            config.loginThrows = undefined;
+            await expect(runSync()).resolves.toEqual({ success: true });
+            expect(syncService.getLastSyncError()).toBeNull();
+        });
     });
 
     describe("login", () => {
@@ -250,6 +525,31 @@ describe("sync service", () => {
 
             const reorder = syncService.getEntityChangeRecords([ec({ entityName: "note_reordering", entityId: "root" })]);
             expect(reorder[0]?.entity).toBeTypeOf("object");
+        });
+
+        it("does not stub oversized blob content when no size limit is passed (push path)", () => {
+            // getEntityChangeRecords is shared with the push path, which must never stub: a mobile
+            // device that creates a large blob has to push its full content, not an empty stub.
+            cls.init(() => {
+                getSql().execute(
+                    "INSERT INTO blobs (blobId, content, dateModified, utcDateModified) VALUES ('sync_pushpath_blob', ?, ?, ?)",
+                    ["z".repeat(500), dateUtils.utcNowDateTime(), dateUtils.utcNowDateTime()]
+                );
+            });
+            const records = syncService.getEntityChangeRecords([ec({ entityName: "blobs", entityId: "sync_pushpath_blob" })]);
+            expect(records[0]?.entity?.content).not.toBe("");
+        });
+
+        it("stubs oversized blob content when a size limit is passed", () => {
+            cls.init(() => {
+                getSql().execute(
+                    "INSERT INTO blobs (blobId, content, dateModified, utcDateModified) VALUES ('sync_stub_blob', ?, ?, ?)",
+                    ["z".repeat(500), dateUtils.utcNowDateTime(), dateUtils.utcNowDateTime()]
+                );
+            });
+            const [record] = syncService.getEntityChangeRecords([ec({ entityName: "blobs", entityId: "sync_stub_blob" })], undefined, 100);
+            expect(record?.entity?.content).toBe("");
+            expect(record?.entityChange.hash).toBe("remote"); // the ec hash is left untouched
         });
 
         it("throws when an entity type has no primary key", () => {

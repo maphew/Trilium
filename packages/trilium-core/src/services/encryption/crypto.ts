@@ -48,6 +48,15 @@ export interface CryptoProvider {
 
     /** Decodes a standard (RFC 4648) base64 string back into raw bytes. */
     base64Decode(base64: string): Uint8Array;
+
+    /**
+     * Decodes a standard (RFC 4648) base64 string into a caller-provided buffer, returning the
+     * number of bytes written. Optional — implemented where avoiding a fresh allocation per
+     * decode matters (the browser/WASM build, whose renderer accumulates uncollected
+     * ArrayBuffer backing stores during initial sync). The target must be at least
+     * `(base64.length * 3) >> 2` bytes.
+     */
+    base64DecodeInto?(base64: string, target: Uint8Array): number;
 }
 
 let crypto: CryptoProvider | null = null;

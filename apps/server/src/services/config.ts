@@ -11,7 +11,7 @@
  * ║      2     │ config.ini File                 │ [Network]                   ║
  * ║      ↓     │ (User Configuration)            │ port=8080                   ║
  * ║            │                                                                ║
- * ║      3     │ Default Values                  │ port='3000'                 ║
+ * ║      3     │ Default Values                  │ port='8080'                 ║
  * ║            │ (Lowest Priority - Fallback)    │ (hardcoded defaults)        ║
  * ║                                                                            ║
  * ╠════════════════════════════════════════════════════════════════════════════╣
@@ -138,6 +138,16 @@ export interface TriliumConfig {
         oauthHttpTimeout: number;
         /** Space-separated OIDC scopes requested at login. Default: 'openid profile email' */
         oauthScope: string;
+        /**
+         * How to authenticate to the provider's token endpoint: 'client_secret_basic' or
+         * 'client_secret_post'. Leave empty to auto-detect from the issuer.
+         */
+        oauthClientAuthMethod: string;
+        /**
+         * The JWS algorithm the provider signs ID tokens with (e.g. 'RS256', 'EdDSA', 'ES256').
+         * Leave empty to auto-detect from the issuer's discovery document.
+         */
+        oauthIdTokenSigningAlg: string;
     };
     /** Logging configuration */
     Logging: {
@@ -167,6 +177,17 @@ export interface TriliumConfig {
  * After this period, old log files are automatically deleted during rotation.
  */
 export const LOGGING_DEFAULT_RETENTION_DAYS = 90;
+
+/**
+ * Port the server listens on when neither an environment variable nor a
+ * `port=` entry in config.ini supplies one.
+ *
+ * In practice this fallback is rarely reached: `config-sample.ini` ships
+ * `port=8080` and is copied into the data directory on first run, so a fresh
+ * install already has the value set. Keep the two in sync — a mismatch here
+ * reads as "the default port changed" to anyone inspecting this file.
+ */
+export const DEFAULT_NETWORK_PORT = "8080";
 
 /**
  * Configuration value source with precedence handling.
@@ -346,7 +367,7 @@ const configMapping = {
         port: {
             standardEnvVar: 'TRILIUM_NETWORK_PORT',
             iniGetter: () => getIniSection("Network")?.port,
-            defaultValue: '3000'
+            defaultValue: DEFAULT_NETWORK_PORT
         },
         https: {
             standardEnvVar: 'TRILIUM_NETWORK_HTTPS',
@@ -500,6 +521,20 @@ const configMapping = {
                 const tokens = trimmed.split(/\s+/);
                 return tokens.includes('openid') ? tokens.join(' ') : `openid ${tokens.join(' ')}`;
             }
+        },
+        oauthClientAuthMethod: {
+            standardEnvVar: 'TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHCLIENTAUTHMETHOD',
+            // alternative format
+            aliasEnvVars: ['TRILIUM_OAUTH_CLIENT_AUTH_METHOD'],
+            iniGetter: () => getIniSection("MultiFactorAuthentication")?.oauthClientAuthMethod,
+            defaultValue: ''
+        },
+        oauthIdTokenSigningAlg: {
+            standardEnvVar: 'TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHIDTOKENSIGNINGALG',
+            // alternative format
+            aliasEnvVars: ['TRILIUM_OAUTH_ID_TOKEN_SIGNING_ALG'],
+            iniGetter: () => getIniSection("MultiFactorAuthentication")?.oauthIdTokenSigningAlg,
+            defaultValue: ''
         }
     },
     Logging: {
@@ -585,7 +620,9 @@ const config: TriliumConfig = {
         oauthIssuerName: getConfigValue(configMapping.MultiFactorAuthentication.oauthIssuerName),
         oauthIssuerIcon: getConfigValue(configMapping.MultiFactorAuthentication.oauthIssuerIcon),
         oauthHttpTimeout: getConfigValue(configMapping.MultiFactorAuthentication.oauthHttpTimeout),
-        oauthScope: getConfigValue(configMapping.MultiFactorAuthentication.oauthScope)
+        oauthScope: getConfigValue(configMapping.MultiFactorAuthentication.oauthScope),
+        oauthClientAuthMethod: getConfigValue(configMapping.MultiFactorAuthentication.oauthClientAuthMethod),
+        oauthIdTokenSigningAlg: getConfigValue(configMapping.MultiFactorAuthentication.oauthIdTokenSigningAlg)
     },
     Logging: {
         retentionDays: getConfigValue(configMapping.Logging.retentionDays)
@@ -651,6 +688,8 @@ const config: TriliumConfig = {
  * - TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHISSUERICON    : OAuth provider icon
  * - TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHHTTPTIMEOUT   : OAuth HTTP timeout in ms (default 30000)
  * - TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHSCOPE         : Space-separated OIDC scopes (default 'openid profile email')
+ * - TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHCLIENTAUTHMETHOD : Token-endpoint auth method
+ * - TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHIDTOKENSIGNINGALG : ID token signing algorithm
  *
  * Logging Section:
  * - TRILIUM_LOGGING_RETENTIONDAYS        : Log retention period in days

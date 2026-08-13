@@ -7,6 +7,7 @@ import { ValidationError } from "../../errors.js";
 import becca from "../../becca/becca.js";
 import type BBranch from "../../becca/entities/bbranch.js";
 import { getLog } from "../../services/log.js";
+import noteFormatConversionService from "../../services/note_format_conversion.js";
 import noteService from "../../services/notes.js";
 import { getSql } from "../../services/sql/index";
 import TaskContext from "../../services/task_context.js";
@@ -120,6 +121,18 @@ function createNote(req: Request) {
 
     const { note, branch } = noteService.createNewNoteWithTarget(target, String(targetBranchId), params);
 
+    // Content handed to us at creation gets the same pass a save gives it — `createNewNote`
+    // deliberately does none of it itself, so every caller taking content from outside runs it (see
+    // `import/single.ts`). Without it, content that came from another note keeps pointing at that
+    // note's attachments: "cut selection into sub-note" hands the new note the selected HTML,
+    // picture URLs and all, and then removes the selection from the source, which schedules the very
+    // attachments the sub-note shows for erasure. The copying step lives here, in the same
+    // transaction (`scanForLinks` runs before this promise's first await), so the note is right
+    // before the response leaves.
+    if (typeof params.content === "string" && params.content) {
+        void noteService.asyncPostProcessContent(note, params.content);
+    }
+
     return {
         note,
         branch
@@ -200,9 +213,22 @@ function deleteNote(req: Request<{ noteId: string }>) {
 function undeleteNote(req: Request<{ noteId: string }>) {
     const taskContext = TaskContext.getInstance(randomString(10), "undeleteNotes", null);
 
-    noteService.undeleteNote(req.params.noteId, taskContext);
+    // A note whose original parent is gone can only be restored by giving it a new home. The caller
+    // opts into that by naming a fallback parent (the client uses the inbox / default new-note
+    // location, after telling the user the original location no longer exists).
+    const { fallbackParentNoteId } = req.body ?? {};
+
+    if (fallbackParentNoteId !== undefined && typeof fallbackParentNoteId !== "string") {
+        throw new ValidationError("'fallbackParentNoteId' must be a note id.");
+    }
+
+    // Report whether the note was actually restored (and where): it may fail if the note was already
+    // erased, so the client can give feedback instead of navigating to a note that was never brought back.
+    const result = noteService.undeleteNote(req.params.noteId, taskContext, { fallbackParentNoteId });
 
     taskContext.taskSucceeded(null);
+
+    return result;
 }
 
 function sortChildNotes(req: Request<{ noteId: string }>) {
@@ -368,6 +394,13 @@ function convertNoteToAttachment(req: Request<{ noteId: string }>) {
     };
 }
 
+function convertNoteFormat(req: Request<{ noteId: string }>) {
+    const { noteId } = req.params;
+    const note = becca.getNoteOrThrow(noteId);
+
+    return noteFormatConversionService.convertNoteFormat(note);
+}
+
 export default {
     getNote,
     getNoteBlob,
@@ -385,5 +418,6 @@ export default {
     eraseUnusedAttachmentsNow,
     getDeleteNotesPreview,
     forceSaveRevision,
-    convertNoteToAttachment
+    convertNoteToAttachment,
+    convertNoteFormat
 };

@@ -99,10 +99,23 @@ describe("createNote", () => {
             expect.objectContaining({ title: "Hello", content: "", isProtected: false }),
             "comp-1"
         );
-        expect(setNote).toHaveBeenCalledWith(`root/${NOTE_ID}`);
-        expect(triggerEvent).toHaveBeenCalledWith("focusAndSelectTitle", { isNewNote: true });
+        expect(setNote).toHaveBeenCalledWith(`root/${NOTE_ID}`, { keepActiveDialog: false });
+        expect(triggerEvent).toHaveBeenCalledWith("focusAndSelectTitle", { isNewNote: true, ntxId: "ntx-1" });
         expect(result.note).toBe(childNote);
         expect(result.branch).toBe(froca.getBranch(BRANCH_ID));
+    });
+
+    it("activates in the supplied noteContext (popup) and keeps the dialog open", async () => {
+        // The tab manager's active context must remain untouched (background tab)
+        const activeSetNote = setActiveContext(true);
+        const popupSetNote = vi.fn(async () => {});
+        const popupContext = { ntxId: "ntx-popup", setNote: popupSetNote } as any;
+
+        await noteCreateService.createNote("root", { noteContext: popupContext });
+
+        expect(popupSetNote).toHaveBeenCalledWith(`root/${NOTE_ID}`, { keepActiveDialog: true });
+        expect(activeSetNote).not.toHaveBeenCalled();
+        expect(triggerEvent).toHaveBeenCalledWith("focusAndSelectTitle", { isNewNote: true, ntxId: "ntx-popup" });
     });
 
     it("focuses content when focus=content", async () => {
@@ -116,7 +129,7 @@ describe("createNote", () => {
         const setNote = setActiveContext(true);
         // an out-of-range focus value still activates the note but triggers no focus event
         await noteCreateService.createNote("root", { focus: undefined as any });
-        expect(setNote).toHaveBeenCalledWith(`root/${NOTE_ID}`);
+        expect(setNote).toHaveBeenCalledWith(`root/${NOTE_ID}`, { keepActiveDialog: false });
         expect(triggerEvent).not.toHaveBeenCalled();
     });
 
@@ -192,20 +205,55 @@ describe("createNote", () => {
         );
     });
 
-    it("disables saveSelection when the active context note type is not text", async () => {
+    it("saves the selection of the editor it was handed, whatever the active context shows", async () => {
+        // The editor handing us the selection belongs to a split / the quick editor / an embedded
+        // pane, so the active context is a different note of a different type entirely (#9890).
         setActiveContext(true);
-        tabManager.activeNoteType = "code";
+        tabManager.activeNoteType = "book";
         const removeSelection = vi.fn();
         const textEditor = {
-            getSelectedHtml: vi.fn(() => "<h1>x</h1>"),
+            getSelectedHtml: vi.fn(() => "<h1>Heading</h1><p>body</p>"),
             removeSelection
         } as any;
 
         await noteCreateService.createNote("root", { saveSelection: true, textEditor });
 
-        // selection parsing was skipped, so getSelectedHtml/removeSelection untouched
-        expect(textEditor.getSelectedHtml).not.toHaveBeenCalled();
+        expect(server.post).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ title: "Heading", content: "<p>body</p>" }),
+            undefined
+        );
+        expect(removeSelection).toHaveBeenCalled();
+    });
+
+    it("creates a plain empty note without touching the source when there is nothing selected", async () => {
+        setActiveContext(true);
+        const removeSelection = vi.fn();
+        const textEditor = {
+            getSelectedHtml: vi.fn(() => ""),
+            removeSelection
+        } as any;
+
+        await noteCreateService.createNote("root", { saveSelection: true, textEditor });
+
+        expect(server.post).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ title: undefined, content: "" }),
+            undefined
+        );
         expect(removeSelection).not.toHaveBeenCalled();
+    });
+
+    it("does not attempt to save a selection when no text editor was passed", async () => {
+        setActiveContext(true);
+
+        await noteCreateService.createNote("root", { saveSelection: true, title: "Plain" });
+
+        expect(server.post).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ title: "Plain", content: "" }),
+            undefined
+        );
     });
 
     it("honors an explicit target and targetBranchId in the URL", async () => {
