@@ -17,6 +17,22 @@ const DEBOUNCE_TIME = 300;
 
 type DowncastConversionData = DowncastAttributeEvent["args"][0];
 
+/** The modes the widget can be shown in, i.e. the values of its `displayMode` model attribute. */
+const DISPLAY_MODES = [ 'source', 'split', 'preview' ] as const;
+
+type MermaidDisplayMode = typeof DISPLAY_MODES[ number ];
+
+const DEFAULT_DISPLAY_MODE: MermaidDisplayMode = 'split';
+
+/**
+ * Carries the mode the user picked into the note content, the way collapsed list items persist
+ * `data-trilium-collapsed`. It is written on the `<code>` element the widget already round-trips
+ * through, and only for a non-default mode — so a diagram left in split view keeps producing
+ * byte-identical content, and every consumer that keys off `code.language-mermaid` (the share
+ * view, markdown export, the importers) is unaffected.
+ */
+const DISPLAY_MODE_DATA_ATTRIBUTE = 'data-trilium-display-mode';
+
 export default class MermaidEditing extends Plugin {
 
 	private _config!: EditorConfig["mermaid"];
@@ -97,11 +113,18 @@ export default class MermaidEditing extends Plugin {
 		}
 
 		const targetViewPosition = mapper.toViewPosition( model.createPositionBefore( data.item as ModelItem ) );
+		const displayMode = readDisplayMode( data.item.getAttribute( 'displayMode' ) );
 		// For downcast we're using only language-mermaid class. We don't set class to `mermaid language-mermaid` as
 		// multiple markdown converters that we have seen are using only `language-mermaid` class and not `mermaid` alone.
-		const code = writer.createContainerElement( 'code', {
+		const codeAttributes: Record<string, string> = {
 			class: 'language-mermaid'
-		} ) as any;
+		};
+
+		if ( displayMode !== DEFAULT_DISPLAY_MODE ) {
+			codeAttributes[ DISPLAY_MODE_DATA_ATTRIBUTE ] = displayMode;
+		}
+
+		const code = writer.createContainerElement( 'code', codeAttributes ) as any;
 		const pre = writer.createContainerElement( 'pre', {
 			spellcheck: 'false'
 		} ) as any;
@@ -241,7 +264,7 @@ export default class MermaidEditing extends Plugin {
 
 		const mermaidElement = writer.createElement( 'mermaid', {
 			source: mermaidSource,
-			displayMode: 'split'
+			displayMode: readDisplayMode( viewCodeElement.getAttribute( DISPLAY_MODE_DATA_ATTRIBUTE ) )
 		} );
 
 		// Let's try to insert mermaid element.
@@ -287,4 +310,13 @@ export default class MermaidEditing extends Plugin {
 			document.getElementById( id )?.remove();
 		}
 	}
+}
+
+/**
+ * Narrows a persisted (or model-held) display mode to a known one, falling back to the default.
+ * Content can carry anything: an older note has no attribute at all, and a hand-edited or
+ * imported one can carry a value the widget has no mode for.
+ */
+function readDisplayMode( value: unknown ): MermaidDisplayMode {
+	return DISPLAY_MODES.includes( value as MermaidDisplayMode ) ? value as MermaidDisplayMode : DEFAULT_DISPLAY_MODE;
 }
