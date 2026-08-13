@@ -2239,7 +2239,6 @@
     "backend_scripting_disabled_more_info": "Tuilleadh eolais"
   },
   "ws": {
-    "sync-check-failed": "Theip ar an seiceáil sioncrónaithe!",
     "consistency-checks-failed": "Theip ar na seiceálacha comhsheasmhachta! Féach ar na logaí le haghaidh sonraí.",
     "encountered-error": "Tharla earráid \"{{message}}\", féach ar an gconsól.",
     "lost-websocket-connection-title": "Cailleadh an nasc leis an bhfreastalaí",

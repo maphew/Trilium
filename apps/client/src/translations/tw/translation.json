@@ -1763,7 +1763,6 @@
     "sync_warning": "您正在將一個同步函數傳遞給 `api.runAsyncOnBackendWithManualTransactionHandling()`，\\n而您可能應該使用 `api.runOnBackend()`。"
   },
   "ws": {
-    "sync-check-failed": "同步檢查失敗！",
     "consistency-checks-failed": "一致性檢查失敗！請查看日誌以了解詳細資訊。",
     "encountered-error": "遇到錯誤 \"{{message}}\"，請查看控制台。",
     "lost-websocket-connection-title": "與伺服器的連線中斷",

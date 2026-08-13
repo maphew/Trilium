@@ -1893,7 +1893,6 @@
     "sync_warning": "आप `api.runAsyncOnBackendWithManualTransactionHandling()` में साधारण फ़ंक्शन यूज़ कर रहे हैं, इसके बजाय `api.runOnBackend()` का यूज़ करें।"
   },
   "ws": {
-    "sync-check-failed": "सिंक चेक फ़ेल हो गया!",
     "consistency-checks-failed": "कंसिस्टेंसी चेक फ़ेल! जानकारी के लिए लॉग देखें।",
     "encountered-error": "एरर मिला: \"{{message}}\", कंसोल चेक करें।",
     "lost-websocket-connection-title": "सर्वर से कनेक्शन टूट गया",

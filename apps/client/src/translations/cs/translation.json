@@ -1724,7 +1724,6 @@
     "sync_warning": "Předáváte synchronní funkci do `api.runAsyncOnBackendWithManualTransactionHandling()`,\\nzatímco byste pravděpodobně měli místo toho použít `api.runOnBackend()`."
   },
   "ws": {
-    "sync-check-failed": "Kontrola synchronizace selhala!",
     "consistency-checks-failed": "Kontroly konzistence selhaly! Podrobnosti najdete v protokolech.",
     "encountered-error": "Došlo k chybě \"{{message}}\", podívejte se do konzole.",
     "lost-websocket-connection-title": "Ztraceno připojení ke serveru",

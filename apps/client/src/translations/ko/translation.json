@@ -2656,7 +2656,6 @@
     "backend_scripting_disabled_more_info": "추가 정보"
   },
   "ws": {
-    "sync-check-failed": "동기화 검사 실패!",
     "consistency-checks-failed": "일관성 검사 실패! 자세한 내용은 로그를 참조하세요.",
     "encountered-error": "\"{{message}}\" 오류가 발생했는데, 콘솔을 확인해 보세요.",
     "lost-websocket-connection-title": "서버 연결이 끊겼습니다",

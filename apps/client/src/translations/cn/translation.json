@@ -2145,7 +2145,6 @@
     "backend_scripting_disabled_more_info": "更多信息"
   },
   "ws": {
-    "sync-check-failed": "同步检查失败！",
     "consistency-checks-failed": "一致性检查失败！请查看日志了解详细信息。",
     "encountered-error": "遇到错误 \"{{message}}\"，请查看控制台。",
     "lost-websocket-connection-title": "与服务器的连线中断",

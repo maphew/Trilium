@@ -1605,7 +1605,6 @@
     "sync_warning": "Está a passar uma função síncrona para `api.runAsyncOnBackendWithManualTransactionHandling()`,\\nquando deveria usar `api.runOnBackend()` no lugar."
   },
   "ws": {
-    "sync-check-failed": "A verificação de sincronização falhou!",
     "consistency-checks-failed": "A verificação de consistência falhou! Veja os logs para pormenores.",
     "encountered-error": "Encontrado o erro \"{{message}}\", verifique o console.",
     "lost-websocket-connection-title": "Perdida conexão com o servidor",

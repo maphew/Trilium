@@ -2448,7 +2448,6 @@
     "backend_scripting_disabled_more_info": "Info selengkapnya"
   },
   "ws": {
-    "sync-check-failed": "Pemeriksaan sinkronisasi gagal!",
     "consistency-checks-failed": "Pemeriksaan konsistensi gagal! Lihat log untuk detail.",
     "encountered-error": "Terjadi error \"{{message}}\", periksa konsol.",
     "lost-websocket-connection-title": "Koneksi ke server terputus",

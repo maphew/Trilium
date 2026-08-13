@@ -2264,7 +2264,6 @@
     "backend_scripting_disabled_more_info": "詳細情報"
   },
   "ws": {
-    "sync-check-failed": "同期チェックに失敗しました！",
     "consistency-checks-failed": "整合性チェックに失敗しました！ 詳細はログを参照してください。",
     "encountered-error": "エラー「{{message}}」が発生しました。コンソールを確認してください。",
     "lost-websocket-connection-title": "サーバーへの接続が失われました",

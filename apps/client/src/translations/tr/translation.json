@@ -2969,7 +2969,6 @@
     "backend_scripting_disabled_more_info": "Daha fazla bilgi"
   },
   "ws": {
-    "sync-check-failed": "Senkronizasyon denetimi başarısız oldu!",
     "consistency-checks-failed": "Tutarlılık denetimleri başarısız oldu! Ayrıntılar için günlüklere bakın.",
     "encountered-error": "\"{{message}}\" hatasıyla karşılaşıldı, konsolu kontrol edin.",
     "lost-websocket-connection-title": "Sunucuyla bağlantı kesildi",
