@@ -15,7 +15,7 @@ import toast from "../../../services/toast";
 import utils, { isMobile } from "../../../services/utils";
 import { useEditorSpacedUpdate, useLegacyImperativeHandlers, useNoteLabel, useTriliumEvent, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import { TypeWidgetProps } from "../type_widget";
-import CKEditorWithWatchdog, { CKEditorApi } from "./CKEditorWithWatchdog";
+import CKEditorWithWatchdog, { CKEditorApi, NotificationEventData, NotificationEventInfo } from "./CKEditorWithWatchdog";
 import getTemplates, { updateTemplateCache } from "./snippets.js";
 import linkEmbedService from "../../../services/link_embed";
 import { usesClassicToolbar } from "./toolbar";
@@ -578,13 +578,19 @@ function useWatchdogCrashHandling() {
     return onWatchdogStateChange;
 }
 
-function onNotificationWarning(data, evt) {
-    const title = data.title;
-    const message = data.message.message;
+/**
+ * Renders a CKEditor warning (a failed upload, most commonly) as a Trilium toast instead of the
+ * `window.alert` the notification plugin falls back to, and stops the event so that fallback never
+ * runs.
+ *
+ * Exported for testing.
+ */
+export function onNotificationWarning(evt: NotificationEventInfo, data: NotificationEventData) {
+    const { title, message } = data;
 
     if (title && message) {
-        toast.showErrorTitleAndMessage(data.title, data.message.message);
-    } else if (title) {
+        toast.showErrorTitleAndMessage(title, message);
+    } else if (title || message) {
         toast.showError(title || message);
     }
 

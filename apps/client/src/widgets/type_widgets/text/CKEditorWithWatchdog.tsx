@@ -21,12 +21,30 @@ export interface CKEditorApi {
     addImage(noteId: string): Promise<void>;
 }
 
+/**
+ * The `EventInfo` CKEditor hands to every listener as its *first* argument. Listeners on
+ * `show:warning` receive `(evt, data)` in that order — getting it backwards throws inside the
+ * event handler, which the watchdog reports as an editor crash (see #10859).
+ */
+export interface NotificationEventInfo {
+    stop(): void;
+}
+
+/** The payload of `Notification#show:warning`, as built by `Notification#_showNotification`. */
+export interface NotificationEventData {
+    /** The notification text. `Notification#showWarning` takes it as its first argument. */
+    message: string;
+    type: "success" | "info" | "warning";
+    /** Empty string when the caller did not supply one. */
+    title: string;
+}
+
 interface CKEditorWithWatchdogProps extends Pick<HTMLProps<HTMLDivElement>, "className" | "tabIndex"> {
     contentLanguage: string | null | undefined;
     isClassicEditor?: boolean;
     watchdogRef: RefObject<EditorWatchdog>;
     watchdogConfig?: WatchdogConfig;
-    onNotificationWarning?: (evt: any, data: any) => void;
+    onNotificationWarning?: (evt: NotificationEventInfo, data: NotificationEventData) => void;
     onWatchdogStateChange?: (watchdog: EditorWatchdog) => void;
     onChange: () => void;
     /** Called upon whenever a new CKEditor instance is initialized, whether it's the first initialization, after a crash or after a config change that requires it (e.g. content language). */

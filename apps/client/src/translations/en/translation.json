@@ -4070,6 +4070,8 @@
       "task-state": "Task state:",
       "text-snippet": "Text snippet",
       "text-snippets-found-0": "Text snippets found: %0",
+      "the-file-is-too-large-to-be-uploaded-http-413-if-trilium-is-behind-a-reverse-proxy-raise-its-request-body-size-limit": "The file is too large to be uploaded (HTTP 413). If Trilium is behind a reverse proxy, raise its request body size limit.",
+      "the-server-responded-with-http-0": "The server responded with HTTP %0.",
       "tip": "Tip",
       "title": "Title",
       "to-do-list": "To-do list",
