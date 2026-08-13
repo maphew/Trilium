@@ -1251,7 +1251,6 @@
     "images_section_title": "Images",
     "download_images_automatically": "Télécharger automatiquement les images",
     "download_images_description": "Télécharge les images externes du HTML collé pour les rendre disponibles hors connexion.",
-    "enable_image_compression": "Compresser les images",
     "max_image_dimensions": "Dimensions maximales d'une image",
     "jpeg_quality_description": "La plage recommandée est entre 50 et 85. Des valeurs plus faibles réduisent la taille du fichier, des valeurs plus élevées préservent les détails.",
     "max_image_dimensions_unit": "pixels",
@@ -1396,7 +1395,6 @@
     "enable_monthly_backup": "Sauvegarde mensuelle",
     "backup_recommendation": "Il est recommandé de garder la sauvegarde activée, mais cela peut ralentir le démarrage des applications avec des bases de données volumineuses et/ou des périphériques de stockage lents.",
     "backup_now": "Sauvegarder maintenant",
-    "backup_database_now": "Sauvegarder la base de données maintenant",
     "existing_backups": "Sauvegardes existantes",
     "date-and-time": "Date & heure",
     "path": "Chemin",
@@ -1405,7 +1403,6 @@
     "title": "Sauvegarde",
     "download": "Télécharger",
     "automatic_backups_description": "Trilium peut sauvegarder la base de données automatiquement. Il est recommandé de maintenir cette fonction activée, mais cela peut ralentir le démarrage de l'application si la base de données est volumineuse et/ou si le support de stockage est lent.",
-    "backup_location_description": "Les sauvegardes sont stockées dans {{- backupFolder}}.",
     "automatic_backups_title": "Sauvegardes automatiques"
   },
   "etapi": {
@@ -1500,8 +1497,7 @@
     "custom_dictionary_edit": "Mots personnalisés",
     "custom_dictionary_edit_description": "Modifiez la liste des mots qui ne doivent pas être signalés par le correcteur orthographique. Les modifications seront visibles après un redémarrage.",
     "custom_dictionary_open": "Modifier le dictionnaire",
-    "related_description": "Configurez les langues du correcteur orthographique et le dictionnaire personnalisé.",
-    "disabled_placeholder": "La vérification orthographique est désactivée. Activez-la pour choisir les langues et gérer le dictionnaire personnalisé."
+    "related_description": "Configurez les langues du correcteur orthographique et le dictionnaire personnalisé."
   },
   "sync_2": {
     "config_title": "Serveur de synchronisation",
@@ -1795,7 +1791,6 @@
     "sync_warning": "Vous passez une fonction synchrone à `api.runAsyncOnBackendWithManualTransactionHandling()`,\\nalors que vous devriez probablement utiliser `api.runOnBackend()` à la place."
   },
   "ws": {
-    "sync-check-failed": "Le test de synchronisation a échoué !",
     "consistency-checks-failed": "Les tests de cohérence ont échoué ! Consultez les journaux pour plus de détails.",
     "encountered-error": "Erreur \"{{message}}\", consultez la console.",
     "lost-websocket-connection-title": "Connexion au serveur perdue",
@@ -1899,7 +1894,6 @@
     "create-child-note-title": "Créer une nouvelle note enfant et l'ajouter à la carte",
     "create-child-note-instruction": "Cliquez sur la carte pour créer une nouvelle note à cet endroit ou appuyez sur Échap pour la supprimer.",
     "unable-to-load-map": "Impossible de charger la carte.",
-    "create-child-note-text": "Ajouter le marqueur",
     "create-child-note-toast-title": "Nouvelle note"
   },
   "geo-map-context": {
@@ -2488,8 +2482,6 @@
     "cancelFocus": "Annuler le mode Focus",
     "moveUp": "Monter",
     "moveDown": "Descendre",
-    "link": "Lien",
-    "linkBidirectional": "Lien bidirectionnel",
     "clickTips": "Cliquer sur le nœud cible",
     "summary": "Résumé"
   },
@@ -2538,9 +2530,7 @@
     "mcp_endpoint_description": "Ajoutez cette URL à la configuration MCP de votre assistant IA",
     "base_url": "URL de base",
     "base_url_description": "Optionnel. Permet de remplacer l'endpoint API par défaut (utile pour les modèles auto-hébergés comme Ollama, LM Studio, vLLM ou proxies).",
-    "base_url_invalid": "L'URL de base doit être une adresse valide (commençant par http:// ou https://)",
-    "disabled_placeholder": "Les fonctionnalités d'IA sont désactivées. Activez-les pour configurer les fournisseurs et MCP.",
-    "not_available_in_standalone": "Les fonctionnalités basées sur l'IA ou les LLM ne sont pas disponibles dans la version autonome de Trilium, car les fournisseurs de LLM n'autorisent pas l'accès direct depuis un navigateur."
+    "base_url_invalid": "L'URL de base doit être une adresse valide (commençant par http:// ou https://)"
   },
   "status_bar": {
     "language_title": "Changer de langue",

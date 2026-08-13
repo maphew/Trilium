@@ -22,22 +22,29 @@ pnpm client:build              # Frontend
 pnpm server:build              # Backend
 pnpm desktop:build             # Electron
 
-# Test
-pnpm test:all                  # All tests (parallel + sequential)
+# Test — run the narrowest thing that covers your change (see below)
+pnpm --filter server test <path-or-pattern>    # One package, filtered
+pnpm test:all                  # All tests (parallel + sequential) — CI's job, not yours
 pnpm test:parallel             # Client + most package tests
 pnpm test:sequential           # Server (shared DB) + browser-mode tests (ckeditor5)
-pnpm --filter server test      # Single package tests
 pnpm coverage                  # Coverage reports
 
 # Lint & Format
-pnpm dev:linter-check          # ESLint check
-pnpm dev:linter-fix            # ESLint fix
 pnpm dev:format-check          # Format check (stricter stylistic rules)
 pnpm dev:format-fix            # Format fix
 pnpm typecheck                 # TypeScript type check across all projects
 ```
 
 **Running a single test file**: `pnpm --filter server test spec/etapi/search.spec.ts`
+
+### Do not run full suites or ESLint
+
+- **Never run ESLint** — `pnpm dev:linter-check`, `dev:linter-fix`, or `npx eslint` on any path. It currently dies with an out-of-memory error, so a run tells you nothing and costs minutes. CI lints. (Note `packages/*` is globally ignored by the ESLint config anyway, so most of `trilium-core` was never linted locally to begin with.)
+- **Never run `pnpm test:all`, `test:parallel`, `test:sequential`, or `pnpm coverage`** during development. They take a long time, and CI runs them on every push.
+- **Run the narrowest suite that covers what you touched**, and iterate on that: `pnpm --filter <pkg> test <path-or-pattern>`. Vitest treats the trailing argument as a substring filter over test file paths, so `pnpm --filter server test special_notes` runs every matching spec.
+- **Typecheck with `pnpm typecheck`, not a raw `tsc` invocation.** It resolves the project references and per-project configs that a hand-written `tsc --noEmit -p …` or `tsc -b …` gets wrong. It drives the native compiler, so even a full check of every project is a few seconds — cheap enough to run whenever you finish a change.
+- Core specs are the one case where "narrowest" means **two** commands: they run under both the server and standalone suites (see Testing below), so a targeted run against each is still the right scope.
+- Only reach for a full suite if the user asks, or when the work is finished and they want a final check.
 
 ## Git Workflow
 
@@ -47,12 +54,16 @@ pnpm typecheck                 # TypeScript type check across all projects
 
 ## Main Applications
 
-The four main apps share `packages/trilium-core/` for business logic but differ in runtime:
-
 - **client** (`apps/client/`): Preact frontend with jQuery widget system. Shared UI layer used by both server and desktop.
 - **server** (`apps/server/`): Node.js backend (Express, better-sqlite3). Serves the client and provides REST/WebSocket APIs.
 - **desktop** (`apps/desktop/`): Electron wrapper around server + client, running both in a single process.
 - **standalone** (`apps/standalone/` + `apps/standalone-desktop/`): Runs the entire stack in the browser — server logic compiled to WASM via sql.js, executed in a service worker. No Node.js dependency at runtime.
+
+**`packages/trilium-core/` is shared by server, desktop and standalone — *not* by the client.** `apps/client` neither depends on it nor imports it (zero `@triliumnext/core` imports); it reaches the backend over REST/WebSocket and shares only **types**, via `@triliumnext/commons`. The split that matters is backend-vs-frontend, not Node-vs-browser: standalone runs core in a browser worker, which is why core carries the no-Node-built-ins rules below.
+
+Practical consequences:
+- A dependency added to core lands in the **server, desktop and standalone** bundles. It does **not** reach the client, so "the client would pay for it" is never an argument for or against putting something in core — the argument is standalone's worker, which imports core at startup.
+- Frontend code cannot call a core function. Anything the client needs is either an API route or a type in `@triliumnext/commons`.
 
 ## Monorepo Structure
 
@@ -75,7 +86,7 @@ packages/
   codemirror/           # Code editor integration
   highlightjs/          # Syntax highlighting
   share-theme/          # Theme for shared/published notes
-  express-partial-content/, pdfjs-viewer/, splitjs/
+  pdfjs-viewer/, splitjs/
   turndown-plugin-gfm/
 ```
 
@@ -238,6 +249,7 @@ SQLite via `better-sqlite3`. SQL abstraction in `packages/trilium-core/src/servi
 - **Client-side**: `import { t } from "../services/i18n"` with keys in `apps/client/src/translations/en/translation.json`
 - **Server-side**: `import { t } from "i18next"` with keys in `apps/server/src/assets/translations/en/server.json`
 - **Electron main process** (e.g. `apps/desktop/src/`): `import { t } from "i18next"` — uses server-side keys from `apps/server/src/assets/translations/en/server.json` (same as server-side). **Never hardcode user-facing strings** in Electron dialogs, tray menus, or IPC handlers — always use `t()`.
+- **`packages/trilium-core`**: `import { t } from "i18next"` — also the server catalog. Despite the name, `server.json` is the catalog for **every** non-browser-UI runtime, standalone included: `apps/standalone/src/lightweight/translation_provider.ts` initialises i18next in the worker with `ns: "server"` and fetches `server-assets/translations/{{lng}}/server.json`, which `apps/standalone/vite.config.mts` populates by copying `apps/server/src/assets/**/*`. So a `t()` call added to core resolves in server, desktop **and** standalone with no extra work — don't assume a core string needs relocating or a fallback to run in the browser build. (That copy excludes `doc_notes/en/User Guide/**`, so the in-app User Guide itself is *not* in the standalone build.)
 - **Interpolation**: Use `{{variable}}` for normal interpolation; use `{{- variable}}` (with hyphen) for **unescaped** interpolation when the value contains special characters like quotes that shouldn't be HTML-escaped
 
 #### Text Editor (`packages/ckeditor5`) Translation Usage
@@ -331,6 +343,7 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 
 - **Server tests** (`apps/server/spec/`): Vitest, must run sequentially (shared DB), forks pool, max 6 workers
 - **Client tests** (`apps/client/src/`): Vitest with happy-dom environment, can run in parallel
+- **Core tests** (`packages/trilium-core/src/**/*.spec.ts`): `trilium-core` has no runner of its own — the **server and standalone suites both include** its specs (`apps/server/vite.config.mts`, `apps/standalone/vite.config.mts`) and run them against different platform providers (node + better-sqlite3 vs. happy-dom + sql.js WASM). Green under `pnpm --filter server test` is **not** proof; run `pnpm --filter standalone test` as well. See the `writing-unit-tests` skill for the cross-runtime traps
 - **E2E tests** (`packages/trilium-e2e/`): Shared Playwright tests, run via `pnpm --filter server e2e` or `pnpm --filter standalone e2e`
 - **ETAPI tests** (`apps/server/spec/etapi/`): External API contract tests
 
@@ -373,10 +386,15 @@ Tools are defined using `defineTools()` in `apps/server/src/services/llm/tools/`
 5. Use ETAPI (`apps/server/src/etapi/`) as inspiration for what fields to expose, but **do not import ETAPI mappers** — inline the field mappings directly in the tool so the LLM layer stays decoupled from the API layer
 
 ### Updating PDF.js
-1. Update `pdfjs-dist` version in `packages/pdfjs-viewer/package.json`
-2. Run `npx tsx scripts/update-viewer.ts` from that directory
-3. Run `pnpm build` to verify success
-4. Commit all changes including updated viewer files
+The viewer under `packages/pdfjs-viewer/viewer/` is vendored from the pdf.js GitHub release matching the `pdfjs-dist` dependency, and pdf.js refuses to start when the two versions disagree — so a bump must always be followed by a re-vendor. `src/vendored_viewer.spec.ts` fails when they drift.
+
+**This is automated**: the weekly `update-pdfjs-viewer` workflow bumps `pdfjs-dist`, re-vendors, verifies, and opens a single PR carrying both. Renovate is deliberately disabled for `pdfjs-dist` (see `renovate.json`) because a bare version bump is never usable on its own. To do it by hand:
+1. Update the `pdfjs-dist` version in `packages/pdfjs-viewer/package.json`
+2. Run `pnpm --filter pdfjs-viewer update-viewer`
+3. Run `pnpm --filter pdfjs-viewer test` and `pnpm --filter pdfjs-viewer e2e` to verify
+4. Commit all changes including the updated viewer files
+
+`update-viewer.ts` re-applies our patches to `viewer.html` (custom stylesheet/script, relaxed `style-src-elem` CSP) and throws if an upstream markup change means it can no longer find them.
 
 ### Database Migrations
 - Add migration scripts in `apps/server/src/migrations/`
@@ -401,3 +419,17 @@ Tools are defined using `defineTools()` in `apps/server/src/services/llm/tools/`
 - ESBuild for production optimization
 - pnpm workspaces for dependency management
 - Docker support with multi-stage builds
+
+### Two TypeScript versions, on purpose
+The root `package.json` declares **both** `typescript` (6.x) and `@typescript/native` (an alias of `typescript@7`). Do not "deduplicate" them by bumping `typescript` to 7:
+
+- **`typescript` 6.x is the library.** TypeScript 7 is the native Go port and its package no longer exports the JS compiler API (`exports["."]` is just a version stub). Everything that does `require("typescript")` needs 6.x: TypeDoc, typescript-eslint, and — the one that also ships to users — `packages/codemirror`, which runs the real language service in the browser for script-note IntelliSense.
+- **`@typescript/native` is the compiler binary**, used only by `scripts/filter-tsc-output.mts` behind `pnpm typecheck`. It builds the whole project graph in roughly a seventh of the time 6.x takes.
+- pnpm gives `node_modules/.bin/tsc` to the alias, so a bare `tsc` on the command line is **7**, not the 6.x that tooling loads. That is also what keeps `.tsbuildinfo` in one format — the two majors cannot read each other's, and mixing them forces a full rebuild every time.
+
+**Do not switch to `@typescript/typescript6`.** Microsoft's documented side-by-side layout aliases `typescript` to that compatibility shim so the native compiler can own the `tsc` bin name. It does not fit here, for two reasons that only show up at build time:
+
+- The shim ships five files and **no `lib.*.d.ts`**, so the 96 `typescript/lib/lib.*.d.ts?raw` imports in `packages/codemirror/src/type_completion/ts_lib_files.ts` fail to resolve and the client build dies.
+- Working around that by keeping a real `typescript` under `packages/codemirror` splits resolution: `@typescript/vfs` and `@valtown/codemirror-ts` are hoisted to the root and follow the shim, while codemirror's own source follows its nested copy. Two physical paths means the 3.3 MB compiler is bundled **twice** into the lazy script-note chunk (measured: client `dist` 69 M → 72 M).
+
+The official layout assumes the only consumer of the `typescript` name is tooling. This repo also bundles it into a browser app, so the plain package has to stay.

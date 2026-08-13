@@ -18,6 +18,7 @@ import { TypeWidgetProps } from "../type_widget";
 import CKEditorWithWatchdog, { CKEditorApi } from "./CKEditorWithWatchdog";
 import getTemplates, { updateTemplateCache } from "./snippets.js";
 import linkEmbedService from "../../../services/link_embed";
+import { usesClassicToolbar } from "./toolbar";
 import { loadIncludedNote, refreshIncludedNote, setupImageOpening } from "./utils";
 
 /**
@@ -35,7 +36,11 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
     const [ textNoteEditorType ] = useTriliumOption("textNoteEditorType");
     const [ codeBlockWordWrap ] = useTriliumOptionBool("codeBlockWordWrap");
     const [ codeBlockTabWidth ] = useTriliumOption("codeBlockTabWidth");
-    const isClassicEditor = isMobile() || textNoteEditorType === "ckeditor-classic";
+    const isClassicEditor = usesClassicToolbar({
+        floatingToolbarRequested: noteContext?.viewScope?.floatingToolbar,
+        isMobile: isMobile(),
+        textNoteEditorType
+    });
     const initialized = useRef(deferred<void>());
     const spacedUpdate = useEditorSpacedUpdate({
         note,
@@ -191,18 +196,30 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
             }
         },
         async cutIntoNoteCommand() {
-            const note = appContext.tabManager.getActiveContextNote();
-            if (!note) return;
+            // The note this editor is showing, not whichever one the tab manager considers active: the
+            // editor also runs in a split, in the quick editor and in the embedded panes of the map and
+            // calendar views, where the active context is a different note entirely. Asking the tab
+            // manager there put the sub-note under an unrelated parent, and — since the selection was
+            // only saved when the *active* note was a text note — usually created it empty (#9890).
+            const sourceNote = noteContext?.note;
+            const parentNotePath = noteContext?.notePath;
+            // This component's own editor, rather than noteContext.getTextEditor(): that one races the
+            // round trip through the event bus against a 200 ms timeout and resolves to null when it
+            // loses, which again meant an empty sub-note and a selection left where it was.
+            const textEditor = await waitForEditor() as CKTextEditor | undefined;
+            if (!sourceNote || !parentNotePath || !textEditor) return;
+
+            if (!textEditor.getSelectedHtml()) {
+                toast.showMessage(t("editable_text.nothing_selected_to_cut"));
+                return;
+            }
 
             // without await as this otherwise causes deadlock through component mutex
-            const parentNotePath = appContext.tabManager.getActiveContextNotePath();
-            if (noteContext && parentNotePath) {
-                note_create.createNote(parentNotePath, {
-                    isProtected: note.isProtected,
-                    saveSelection: true,
-                    textEditor: await noteContext?.getTextEditor()
-                });
-            }
+            note_create.createNote(parentNotePath, {
+                isProtected: sourceNote.isProtected,
+                saveSelection: true,
+                textEditor
+            });
         },
         async saveNoteDetailNowCommand() {
             // used by cutToNote in CKEditor build

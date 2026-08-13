@@ -300,6 +300,14 @@ pnpm run --filter desktop electron-forge:make --arch=x64 --platform=win32
 * [Thomas Frei](https://github.com/thfrei)는 캔버스의 초기 구현에 기여했습니다.
 * [antoniotejada](https://github.com/nriver)는 최초의 구문 강조 위젯을 만들었습니다.
 * [Tabler Icons](https://tabler.io/icons)는 시스템 트레이 아이콘을 제공합니다.
+*   가져오기 대화 상자에 사용된 애플리케이션 아이콘의 출처:
+    *   [Material Design Icons](https://pictogrammers.com/library/mdi/) for
+        OneNote, Google Keep, Evernote. → OneNote, Google Keep, Evernote에는
+        [Material Design Icons](https://pictogrammers.com/library/mdi/)을 사용합니다.
+    *   Notion, Obsidian에는 [Font Awesome](https://fontawesome.com/)을 사용합니다.
+    *   Anytype에는 [SVGicons.com](https://svgicons.com/icon/187676/anytype)을
+        사용합니다.
+*  LLM 제공업체 아이콘은 [Lobe Icons](https://lobehub.com/icons)에서 가져왔습니다.
 
 Trilium은 다음 기반 기술이 있었기에 만들어질 수 있었습니다:
 

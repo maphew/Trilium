@@ -1,9 +1,10 @@
 "use strict";
 
-import { type CookieJar, type ExecOpts, getLog, type RequestProvider, sync_options as syncOptions } from "@triliumnext/core";
+import { type CookieJar, type ExecOpts, type FetchApiOpts, type FetchedResource, type FetchResourceOpts, getLog, type RequestProvider, sync_options as syncOptions } from "@triliumnext/core";
+import { readCappedResponse } from "@triliumnext/core/src/services/request.js";
 import url from "url";
 
-import { createPinnedLookup, validateHostResolution, validateUrl } from "./safe_fetch.js";
+import { createPinnedLookup, safeFetch, validateHostResolution, validateUrl } from "./safe_fetch.js";
 
 // this service provides abstraction over node's HTTP/HTTPS modules.
 // Subclasses (e.g. apps/desktop's ElectronRequestProvider) can override
@@ -190,6 +191,40 @@ export default class NodeRequestProvider implements RequestProvider {
             } catch (e: any) {
                 reject(generateError(opts, e.message));
             }
+        });
+    }
+
+    /**
+     * Fetches a third-party resource, hardened the same way {@link getImage} is: the address is
+     * vetted, the name resolved, the private ranges refused, and the connection pinned to the
+     * addresses that were actually checked, so a second lookup cannot answer differently.
+     *
+     * This is the runtime where all of that is possible, and where it is most needed — the network
+     * a server can see is not one the author of a note is entitled to reach through it.
+     */
+    async fetchResource(resourceUrl: string, opts: FetchResourceOpts): Promise<FetchedResource> {
+        const response = await safeFetch(resourceUrl, { headers: opts.headers });
+
+        return await readCappedResponse(response, opts.maxBytes);
+    }
+
+    /**
+     * Calls a configured API endpoint, vetted the same way {@link fetchResource} is but under a
+     * policy that fits what is being called rather than what a note linked to.
+     *
+     * Three things differ, and each is the endpoint's nature rather than a relaxation for its own
+     * sake. A private address is allowed where the caller says the operator chose the destination,
+     * because a model server on this machine is the ordinary case and the ranges that stay refused
+     * are the ones nothing is served on. No deadline is imposed, because a completion runs for
+     * however long the model takes and the caller carries its own abort. And a redirect is refused
+     * outright: the hop would be re-vetted as an address, but the request's `Authorization` header
+     * would go with it, and an API key is not something to hand to whoever a base URL names.
+     */
+    async fetchApi(url: string, init: RequestInit, opts: FetchApiOpts): Promise<Response> {
+        return await safeFetch(url, init, {
+            allowPrivateNetwork: opts.allowPrivateNetwork,
+            timeoutMs: null,
+            maxRedirects: 0
         });
     }
 

@@ -5,16 +5,18 @@ import "ckeditor5/ckeditor5.css";
 import "./theme/blockquote.css";
 import "./theme/code_block_toolbar.css";
 import "./theme/link_embed_form.css";
+import type { ClipboardImageEmbedConfig } from "./plugins/clipboard_image_embed.js";
 import { COMMON_PLUGINS, CORE_PLUGINS, POPUP_EDITOR_PLUGINS } from "./plugins.js";
 import { BalloonEditor, DecoupledEditor, FindAndReplaceEditing, FindCommand } from "ckeditor5";
 export { default as EditorWatchdog } from "./custom_watchdog";
-export { CHAT_INPUT_PLUGINS } from "./plugins.js";
-export type { EditorConfig, MentionFeed, MentionFeedObjectItem, ModelNode, ModelPosition, ModelElement, ModelText, WatchdogConfig, WatchdogState } from "ckeditor5";
+export { CHAT_INPUT_PLUGINS, MEMO_PLUGINS } from "./plugins.js";
+export type { EditorConfig, MentionFeed, MentionFeedObjectItem, ModelNode, ModelPosition, ModelElement, ModelText, TextTransformationConfig, TextTypingTransformationDescription, WatchdogConfig, WatchdogState } from "ckeditor5";
+export type { ClipboardImageEmbedConfig } from "./plugins/clipboard_image_embed.js";
 export type { SlashCommandConfig, SlashCommandDefinition } from "./plugins/mention/slash_commands.js";
 export type { TriliumMentionFeed } from "./plugins/mention/types.js";
 export { default as TriliumSnippets } from "./plugins/snippets/snippets.js";
 export type { SnippetDefinition } from "./plugins/snippets/snippetsconfig.js";
-export { default as getCkLocale } from "./i18n.js";
+export { default as getCkLocale, registerCkTranslations } from "./i18n.js";
 export { MESSAGE_KEY_PREFIX, MESSAGE_OVERRIDES, slugify } from "./messages.js";
 export * from "./utils.js";
 
@@ -85,6 +87,14 @@ declare module "ckeditor5" {
         },
         clipboard?: {
             copy(text: string): void;
-        }
+            /**
+             * Copies rich HTML, with `plainText` as the plain-text alternative. Provided by the host
+             * because `navigator.clipboard.write()` only exists in secure contexts, and Trilium is
+             * routinely served over plain HTTP on a LAN — the host falls back to a copy-event
+             * handler there.
+             */
+            copyHtml?(html: string, plainText: string): void;
+        },
+        clipboardImageEmbed?: ClipboardImageEmbedConfig
     }
 }

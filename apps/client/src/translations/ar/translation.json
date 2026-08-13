@@ -847,7 +847,6 @@
   "images": {
     "images_section_title": "صور",
     "max_image_dimensions_unit": "بكسل",
-    "enable_image_compression": "ضغط الصورة",
     "jpeg_quality": "جودة JPEG",
     "ocr_min_confidence": "الحد الأدنى من الثقة",
     "ocr_section_title": "استخراج النص (OCR)",
@@ -937,7 +936,6 @@
     "date-and-time": "التاريخ والوقت",
     "no_backup_yet": "لايوجد نسخة احتياطية لحد الان",
     "enable_daily_backup": "النسخ الاحتياطي اليومي",
-    "backup_database_now": "نسخ اختياطي لقاعدة البيانات الان",
     "download": "تنزيل",
     "title": "نسخة احتياطية",
     "backup_recommendation": "يُنصح بالإبقاء على النسخ الاحتياطي مفعّلًا، لكن قد يؤدي ذلك إلى بطء تشغيل التطبيق مع قواعد البيانات الكبيرة و/أو أجهزة التخزين البطيئة.",
@@ -1912,7 +1910,6 @@
     "manual_erasing_description": "تنفيذ الحذف يدويًا، مع تجاهل المهلة الزمنية المذكورة أعلاه."
   },
   "ws": {
-    "sync-check-failed": "فشل التحقق من المزامنة!",
     "lost-websocket-connection-title": "تم فقدان الاتصال بالخادم",
     "lost-websocket-connection-message": "تحقق من إعدادات الخادم العكسي (Reverse Proxy) لديك (مثل Nginx أو Apache HTTP Server) للتأكد من أن اتصالات WebSocket مسموح بها بشكل صحيح وغير محجوبة.",
     "consistency-checks-failed": "فشل التحقق من الاتساق! راجع السجلات للتفاصيل.",
@@ -1995,7 +1992,6 @@
   },
   "geo-map": {
     "unable-to-load-map": "تعذر تحميل الخريطة.",
-    "create-child-note-text": "إضافة علامة",
     "create-child-note-instruction": "انقر على الخريطة لإنشاء ملاحظة جديدة في ذلك الموقع أو اضغط مفتاح Escape للإغلاق.",
     "create-child-note-title": "إنشاء ملاحظة فرعية جديدة وإضافتها إلى الخريطة"
   },
@@ -2310,7 +2306,6 @@
   },
   "mind-map": {
     "summary": "الملخص",
-    "link": "رابط",
     "addChild": "إضافة عنصر فرعي",
     "addParent": "إضافة عنصر رئيسي",
     "addSibling": "إضافة عنصر شقيق",
@@ -2318,7 +2313,6 @@
     "focus": "وضع التركيز",
     "moveUp": "تحريك للأعلى",
     "moveDown": "تحريك للاسفل",
-    "linkBidirectional": "رابط ثنائي الاتجاه",
     "cancelFocus": "إلغاء وضع التركيز",
     "clickTips": "يرجى النقر على العقدة المستهدفة"
   },

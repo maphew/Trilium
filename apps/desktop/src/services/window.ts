@@ -1,7 +1,8 @@
-import { app_info, cls, events, getLog, keyboard_actions as keyboardActionsService, options as optionService, sql_init, utils as coreUtils } from "@triliumnext/core";
+import { app_info, cls, events, getLog, isSetupRequested, keyboard_actions as keyboardActionsService, options as optionService, sql_init, utils as coreUtils } from "@triliumnext/core";
 import { RESOURCE_DIR } from "@triliumnext/server/src/services/resource_dir.js";
 import { supportsBackgroundMaterial } from "@triliumnext/server/src/services/utils.js";
 import { type BrowserWindow, type BrowserWindowConstructorOptions, default as electron, type Session, type WebContents } from "electron";
+import { t } from "i18next";
 import path from "path";
 
 import { markStartupMetric } from "./startup_metrics.js";
@@ -367,7 +368,11 @@ async function createSetupWindow() {
         useContentSize: true,
         resizable: false,
         autoHideMenuBar: true,
-        title: "Trilium Notes Setup",
+        // What the window is for, which differs by how it was reached: a first run is getting the
+        // user started, while an instance sent here by a marker is starting over on a knowledge base
+        // it already has. Translated in the language the marker carried, which `initializeCore` has
+        // already loaded by this point.
+        title: isSetupRequested() ? t("setup-window.start-over") : t("setup-window.getting-started"),
         icon: getIcon(),
         // Background effects (Mica on Windows 11 22H2+, vibrancy on macOS)
         ...(coreUtils.isWindows() && supportsBackgroundMaterial && { backgroundMaterial: "mica" as const }),
@@ -379,6 +384,9 @@ async function createSetupWindow() {
         }
     });
     setupWindow.removeMenu();
+    // The wizard is served by the application's own page, whose `<title>` Electron would otherwise
+    // apply to the window the moment it loads, replacing the one set above with the plain app name.
+    setupWindow.on("page-title-updated", (e) => e.preventDefault());
     setupWindow.loadURL(TRILIUM_APP_BASE_URL);
     setupWindow.on("closed", () => (setupWindow = null));
 }

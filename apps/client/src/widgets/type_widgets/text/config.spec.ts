@@ -1,4 +1,4 @@
-import { DISPLAYABLE_LOCALE_IDS, IMAGE_MIMES, LOCALES } from "@triliumnext/commons";
+import { DISPLAYABLE_LOCALE_IDS, IMAGE_MIMES, LOCALES, SANITIZER_DEFAULT_ALLOWED_TAGS } from "@triliumnext/commons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import imageService from "../../../services/image.js";
@@ -35,6 +35,9 @@ vi.mock("../../../services/options.js", () => ({
         get(name: string) {
             if (name in optionsState.map) return optionsState.map[name];
             if (name === "allowedHtmlTags") return "[]";
+            // The replacement groups ship on, so an unset option here has to answer the way the
+            // real defaults do — otherwise every test would silently run with them all disabled.
+            if (name.startsWith("textNote") && name.endsWith("ReplacementsEnabled")) return "true";
             return undefined;
         },
         getJson(name: string) {
@@ -215,6 +218,88 @@ describe("CK config", () => {
     });
 });
 
+describe("CK config - HTML support", () => {
+    // The feature ships off, so everything below the first two tests describes what an install that
+    // has opted back in gets.
+    beforeEach(() => {
+        optionsState.map.textNoteHtmlSupportEnabled = "true";
+    });
+
+    it("keeps GHS out of the way until the user opts in", async () => {
+        optionsState.map.textNoteHtmlSupportEnabled = "false";
+        optionsState.map.allowedHtmlTags = JSON.stringify(SANITIZER_DEFAULT_ALLOWED_TAGS);
+
+        const config = await buildConfig(baseOpts());
+
+        // The allow-list is emptied rather than narrowed: GHS decides per element, so there is no
+        // subset of the option that still means anything once the feature is off. The tag list goes
+        // on governing what the server-side sanitizer accepts on import.
+        expect(config.htmlSupport?.allow).toEqual([]);
+    });
+
+    it("treats an unset option as off, the way the shipped default is", async () => {
+        // An install predating the option has no row for it, and must not silently run with GHS on.
+        delete optionsState.map.textNoteHtmlSupportEnabled;
+        optionsState.map.allowedHtmlTags = JSON.stringify(SANITIZER_DEFAULT_ALLOWED_TAGS);
+
+        const config = await buildConfig(baseOpts());
+
+        expect(config.htmlSupport?.allow).toEqual([]);
+    });
+
+    it("names every allowed tag rather than handing GHS bare strings", async () => {
+        optionsState.map.allowedHtmlTags = JSON.stringify(["p", "section", "en-media"]);
+
+        const config = await buildConfig(baseOpts());
+
+        // The shape is the whole point: `DataFilter#loadAllowedConfig` falls back to a
+        // match-everything pattern for an entry with no `name`, so a list of plain strings allowed
+        // every element — including the `$customElement` catch-all, which round-tripped unknown tags
+        // as opaque blobs that were invisible and un-navigable in the editing view (#10989).
+        expect(config.htmlSupport?.allow).toEqual([
+            { name: "p", attributes: true, classes: true, styles: true },
+            { name: "section", attributes: true, classes: true, styles: true },
+            { name: "en-media", attributes: true, classes: true, styles: true }
+        ]);
+        // Nothing is disallowed outright; the allow-list alone decides.
+        expect(config.htmlSupport?.disallow).toBeUndefined();
+    });
+
+    it("allows nothing beyond the natively supported elements when the list is empty", async () => {
+        const config = await buildConfig(baseOpts());
+
+        expect(config.htmlSupport?.allow).toEqual([]);
+    });
+
+    it("withholds div from the editor even when the option allows it", async () => {
+        // GHS gives div a dual content model — a paragraph impostor around inline content, an
+        // affordance-less container around a block — which is what strands the caret in a wrapped
+        // code block. Unwrapping it is the point; the sanitizer reads the same option and is
+        // deliberately left accepting div on import.
+        optionsState.map.allowedHtmlTags = JSON.stringify(["div", "p", "section"]);
+
+        const config = await buildConfig(baseOpts());
+
+        expect(config.htmlSupport?.allow).toEqual([
+            { name: "p", attributes: true, classes: true, styles: true },
+            { name: "section", attributes: true, classes: true, styles: true }
+        ]);
+    });
+
+    it("withholds div from the shipped default list too", async () => {
+        // The default is what nearly every install runs with, so the filter has to bite there
+        // rather than only on a hand-edited list.
+        optionsState.map.allowedHtmlTags = JSON.stringify(SANITIZER_DEFAULT_ALLOWED_TAGS);
+
+        const config = await buildConfig(baseOpts());
+
+        const names = (config.htmlSupport?.allow ?? []).map((pattern) => (pattern as { name: string }).name);
+        expect(names).not.toContain("div");
+        // Everything else the default list names still comes through.
+        expect(names).toEqual(SANITIZER_DEFAULT_ALLOWED_TAGS.filter((tag) => tag !== "div"));
+    });
+});
+
 describe("CK config - licensing", () => {
     it("always runs under the open-source license, with no premium plugins", async () => {
         // Every premium plugin Trilium used has an in-tree GPL replacement, so there is no
@@ -232,6 +317,153 @@ describe("CK config - language & emoji", () => {
 
         // With no content language the `language` override is skipped entirely; "en" has no CK locale mapping.
         expect(config.language).toBeUndefined();
+    });
+
+    it("resolves the content language from the note, then the default, then the UI language", async () => {
+        optionsState.map.defaultContentLanguage = "fr";
+        optionsState.map.locale = "ru";
+
+        // The note's own `#language` outranks both options.
+        expect((await buildConfig(baseOpts({ contentLanguage: "de" }))).language).toMatchObject({ content: "de" });
+        // Without one, the default content language answers.
+        expect((await buildConfig(baseOpts({ contentLanguage: null }))).language).toMatchObject({ content: "fr" });
+        // ...and its empty "auto" value follows the application's language instead.
+        optionsState.map.defaultContentLanguage = "";
+        expect((await buildConfig(baseOpts({ contentLanguage: null }))).language).toMatchObject({ content: "ru" });
+    });
+
+    it("derives the quote style from that same resolved language", async () => {
+        const quotesOf = (config: Awaited<ReturnType<typeof buildConfig>>) =>
+            (config.typing?.transformations.extra ?? []).map((t) => (t as { to: string[] }).to);
+
+        optionsState.map.defaultContentLanguage = "fr";
+        optionsState.map.locale = "ru";
+
+        expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: "de" })))).toEqual([
+            [null, "„", null, "“"],
+            [null, "‚", null, "‘"]
+        ]);
+
+        // With no note language, the default content language decides.
+        expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: null })))).toEqual([
+            // The gap inside the guillemets is U+202F, the narrow no-break space French sets
+            // there — it looks like a plain space but is not one.
+            [null, "« ", null, " »"],
+            [null, "“", null, "”"]
+        ]);
+
+        // ...and the "auto" value follows the UI language.
+        optionsState.map.defaultContentLanguage = "";
+        expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: null })))).toEqual([
+            [null, "«", null, "»"],
+            [null, "„", null, "“"]
+        ]);
+    });
+
+    it("leaves CKEditor's own quotes in force for a locale with no mapping", async () => {
+        const config = await buildConfig(baseOpts({ contentLanguage: "ku" }));
+
+        // Not removed, so CKEditor's own quotes still run — better than a locale we have no pair for
+        // losing quote replacement altogether.
+        expect(config.typing?.transformations.remove).not.toContain("quotesPrimary");
+        expect(config.typing?.transformations.remove).not.toContain("quotesSecondary");
+        expect(config.typing?.transformations.extra).toEqual([]);
+        // The language itself still applies, so right-to-left text lays out correctly regardless.
+        expect(config.language).toMatchObject({ content: "ku" });
+    });
+
+    it("expresses the enabled groups as deltas, leaving CKEditor's defaults to upstream", async () => {
+        // All four groups on: only the two quote transformations are taken over, and only because we
+        // supply our own. Named individually rather than as the `quotes` group, which would take both
+        // away together — they are configured apart.
+        const allOn = await buildConfig(baseOpts({ contentLanguage: "de" }));
+        expect(allOn.typing?.transformations.remove).toEqual(["quotesPrimary", "quotesSecondary"]);
+        expect(allOn.typing?.transformations.extra).toHaveLength(2);
+
+        // Each toggle removes its group by name, so the patterns behind the dashes and fractions
+        // stay upstream's rather than being restated here.
+        optionsState.map.textNotePunctuationReplacementsEnabled = "false";
+        optionsState.map.textNoteMathReplacementsEnabled = "false";
+        optionsState.map.textNoteSymbolReplacementsEnabled = "false";
+        const allOff = await buildConfig(baseOpts({ contentLanguage: "de" }));
+        expect(allOff.typing?.transformations.remove).toEqual([
+            "typography", "mathematical", "symbols", "quotesPrimary", "quotesSecondary"
+        ]);
+    });
+
+    it("settles the two quote keys apart", async () => {
+        const quotesOf = (config: Awaited<ReturnType<typeof buildConfig>>) =>
+            (config.typing?.transformations.extra ?? []).map((t) => (t as { to: string[] }).to);
+
+        // Guillemets on the double key, the language's own marks left on the single one — the mix
+        // that a single dropdown could not express.
+        optionsState.map.textNoteDoubleQuoteStyle = "guillemets";
+        const config = await buildConfig(baseOpts({ contentLanguage: "de" }));
+
+        expect(quotesOf(config)).toEqual([
+            [null, "«", null, "»"],
+            [null, "‚", null, "‘"]
+        ]);
+
+        // Switching one off leaves the other running.
+        optionsState.map.textNoteSingleQuoteStyle = "off";
+        const halfOff = await buildConfig(baseOpts({ contentLanguage: "de" }));
+        expect(quotesOf(halfOff)).toEqual([[null, "«", null, "»"]]);
+        expect(halfOff.typing?.transformations.remove).toContain("quotesSecondary");
+    });
+
+    it("adds the user's own replacements alongside the quote ones", async () => {
+        optionsState.map.textNoteCustomReplacements = `[{"from":"TN","to":"Trilium Notes"},{"from":"half","to":""}]`;
+
+        const config = await buildConfig(baseOpts({ contentLanguage: "de" }));
+
+        // Two quote transformations plus the one finished custom pair; the half-written row compiles
+        // to nothing rather than acting before it is done.
+        expect(config.typing?.transformations.extra).toHaveLength(3);
+        expect(String((config.typing?.transformations.extra?.[2] as { from: RegExp }).from)).toContain("TN");
+    });
+
+    it("survives a custom replacements option that cannot be read", async () => {
+        optionsState.map.textNoteCustomReplacements = "}} not json {{";
+
+        const config = await buildConfig(baseOpts({ contentLanguage: "de" }));
+
+        // The editor still builds, with the quotes intact and no custom pairs.
+        expect(config.typing?.transformations.extra).toHaveLength(2);
+    });
+
+    it("drops the quote replacements entirely when both are off", async () => {
+        optionsState.map.textNoteDoubleQuoteStyle = "off";
+        optionsState.map.textNoteSingleQuoteStyle = "off";
+
+        const config = await buildConfig(baseOpts({ contentLanguage: "de" }));
+
+        // Removed and not re-supplied, so a straight quote stays straight whatever the language.
+        expect(config.typing?.transformations.remove).toEqual(["quotesPrimary", "quotesSecondary"]);
+        expect(config.typing?.transformations.extra).toEqual([]);
+    });
+
+    it("lets a chosen style outrank the note's language", async () => {
+        const quotesOf = (config: Awaited<ReturnType<typeof buildConfig>>) =>
+            (config.typing?.transformations.extra ?? []).map((t) => (t as { to: string[] }).to);
+
+        // The whole point of picking one: a note written in German still gets the chosen marks. This
+        // is what serves someone writing several languages in a single note, whom no per-note
+        // language setting can help.
+        optionsState.map.textNoteDoubleQuoteStyle = "corner";
+        optionsState.map.textNoteSingleQuoteStyle = "white-corner";
+        expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: "de" })))).toEqual([
+            [null, "「", null, "」"],
+            [null, "『", null, "』"]
+        ]);
+
+        // An id we do not know falls back to following the language rather than to no quotes.
+        optionsState.map.textNoteDoubleQuoteStyle = "no-such-style";
+        optionsState.map.textNoteSingleQuoteStyle = "no-such-style";
+        expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: "de" })))).toEqual([
+            [null, "„", null, "“"],
+            [null, "‚", null, "‘"]
+        ]);
     });
 
     it("prefixes the emoji definitions URL with the page origin in dev mode", async () => {

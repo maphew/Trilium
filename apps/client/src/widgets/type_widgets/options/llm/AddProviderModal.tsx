@@ -6,6 +6,7 @@ import { useMemo, useState } from "preact/hooks";
 import { Trans } from "react-i18next";
 
 import { t } from "../../../../services/i18n";
+import { isStandalone } from "../../../../services/utils";
 import { Badge } from "../../../react/Badge";
 import { Card, CardSection } from "../../../react/Card";
 import FormTextBox from "../../../react/FormTextBox";
@@ -48,10 +49,25 @@ export interface ProviderType {
      * headed "Cloud providers", is a line of height for nothing.
      */
     description?: string;
+    /**
+     * What the connection step shows when the provider has neither a key nor an
+     * endpoint to ask for: the full account-and-prerequisite story, in place of
+     * the fields that would otherwise fill the step.
+     */
+    connectionDescription?: string;
     /** One-line setup reminder shown under the endpoint field (i18n key, rendered via `<Trans>`). */
     setupHintKey?: string;
     /** Marks the provider as beta, shown as a badge next to its name. */
     beta?: boolean;
+    /**
+     * The provider drives a program on the machine, so the standalone build —
+     * where the whole server is a worker inside the page — has nothing to run it
+     * on; core refuses to instantiate it there at all. Such a card is shown
+     * disabled with the reason in place of its blurb, rather than dropped: the
+     * provider is documented and the user may well be looking for it, and a list
+     * that silently omits it leaves them hunting.
+     */
+    needsHostProcess?: boolean;
     /**
      * How the provider authenticates: a key it requires (vendor APIs), one it may
      * take (self-hosted endpoints that sit behind a proxy or gateway), or none at
@@ -83,7 +99,7 @@ export interface ProviderType {
  */
 const PROVIDER_GROUPS = [
     { id: "cloud", columns: 2, headingKey: "llm.provider_group_cloud", descriptionKey: "llm.provider_group_cloud_description" },
-    { id: "subscription", columns: 1, headingKey: "llm.provider_group_subscription", descriptionKey: "llm.provider_group_subscription_description" },
+    { id: "subscription", columns: 2, headingKey: "llm.provider_group_subscription", descriptionKey: "llm.provider_group_subscription_description" },
     { id: "local", columns: 2, headingKey: "llm.provider_group_local", descriptionKey: "llm.provider_group_local_description" },
     // Kept apart from the local runtimes: the same card reaches a hosted
     // OpenAI-compatible service (OpenRouter, Groq, …), so neither "no usage cost"
@@ -103,7 +119,10 @@ export const PROVIDER_TYPES: ProviderType[] = [
     { id: "deepseek", name: "DeepSeek", group: "cloud", defaultBaseUrl: "https://api.deepseek.com/v1", iconUrl: PROVIDER_ICONS.deepseek, beta: true },
     // Uses the Claude Agent SDK on the server; auth belongs to Claude Code (`claude /login`),
     // and usage is covered by the subscription rather than charged per token.
-    { id: "claude-agent", name: "Claude Code", group: "subscription", defaultBaseUrl: "", iconUrl: PROVIDER_ICONS["claude-agent"], description: t("llm.provider_desc_claude_agent"), beta: true, apiKey: "none", baseUrl: "none" },
+    { id: "claude-agent", name: "Claude Code", group: "subscription", defaultBaseUrl: "", iconUrl: PROVIDER_ICONS["claude-agent"], description: t("llm.provider_desc_claude_agent"), connectionDescription: t("llm.claude_agent_description"), beta: true, apiKey: "none", baseUrl: "none", needsHostProcess: true },
+    // The same arrangement over the GitHub Copilot CLI, driven in its ACP mode;
+    // auth belongs to the CLI (`copilot login`).
+    { id: "copilot-agent", name: "GitHub Copilot", group: "subscription", defaultBaseUrl: "", iconUrl: PROVIDER_ICONS["copilot-agent"], description: t("llm.provider_desc_copilot_agent"), connectionDescription: t("llm.copilot_agent_description"), beta: true, apiKey: "none", baseUrl: "none", needsHostProcess: true },
     // The three self-hosted cards share one server-side provider; they differ only in
     // the endpoint they prefill and the setup hint they show.
     // No blurbs: the group heading already says local/self-hosted, and how to start
@@ -331,7 +350,7 @@ export default function AddProviderModal({ show, onHidden, onSave, existingProvi
                             )}
                             {baseUrlMode === "advanced" && baseUrlField}
                             {!usesApiKey && baseUrlMode === "none" && (
-                                <p>{t("llm.claude_agent_description")}</p>
+                                <p>{providerType?.connectionDescription}</p>
                             )}
                         </CardSection>
                     </Card>
@@ -425,18 +444,27 @@ function ProviderGroup({ heading, description, columns, providers, selectedProvi
             <CardSection>
                 <p className="add-provider-group-description">{description}</p>
                 <SelectableCardGrid columns={columns}>
-                    {providers.map((provider) => (
-                        <SelectableCard
-                            key={provider.id}
-                            iconUrl={provider.iconUrl}
-                            title={provider.beta
-                                ? <span className="add-provider-card-heading">{provider.name}<Badge text={t("llm.beta")} className="add-provider-beta-badge" outline /></span>
-                                : provider.name}
-                            description={provider.description}
-                            selected={selectedProvider === provider.id}
-                            onSelect={() => onSelect(provider.id)}
-                        />
-                    ))}
+                    {providers.map((provider) => {
+                        // A provider this build can't run keeps its place in the list but
+                        // states why in place of its blurb — the blurb describes a setup
+                        // that isn't on offer here, so it would only mislead.
+                        const unavailableReason = provider.needsHostProcess && isStandalone
+                            ? t("llm.provider_unavailable_standalone")
+                            : undefined;
+                        return (
+                            <SelectableCard
+                                key={provider.id}
+                                iconUrl={provider.iconUrl}
+                                title={provider.beta
+                                    ? <span className="add-provider-card-heading">{provider.name}<Badge text={t("llm.beta")} className="add-provider-beta-badge" outline /></span>
+                                    : provider.name}
+                                description={unavailableReason ?? provider.description}
+                                selected={selectedProvider === provider.id}
+                                onSelect={() => onSelect(provider.id)}
+                                disabled={!!unavailableReason}
+                            />
+                        );
+                    })}
                 </SelectableCardGrid>
             </CardSection>
         </Card>

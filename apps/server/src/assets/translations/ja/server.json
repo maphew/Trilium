@@ -296,7 +296,8 @@
     "desktop-title": "デスクトップ",
     "deleted-notes-title": "削除されたノート",
     "color-scheme-switcher-title": "配色の切り替え",
-    "content-manager-title": "コンテンツマネージャー"
+    "content-manager-title": "コンテンツマネージャー",
+    "database-title": "データベース"
   },
   "notes": {
     "new-note": "新しいノート",
@@ -486,5 +487,39 @@
   "note_conversion": {
     "revision_before_markdown": "マークダウンへの変換前",
     "revision_before_text": "テキストノートへの変換前"
+  },
+  "backup": {
+    "custom_directory_unwritable": "データベースのバックアップに失敗しました: {{- location}} への書き込みができませんでした。代わりにデフォルトの場所にバックアップします。",
+    "passphrase_unavailable": "バックアップパスワードが読み取れなかったため、このバックアップは暗号化されません。選択した場所ではなく、デフォルトの場所に保存されました。"
+  },
+  "dialog": {
+    "select_directory": "フォルダを選択"
+  },
+  "backup-password-dialog": {
+    "cancel": "キャンセル",
+    "set-title": "バックアップパスワードを設定しますか？",
+    "set-message": "今後のバックアップはこのパスワードで暗号化されます。",
+    "set-detail": "Trilium はこのパスワードを再度表示できないため、安全な場所にコピーを保管してください。パスワードがないとバックアップを復元できません。\n\nこの確認画面が表示されることを予期していなかった場合は、キャンセルしてください — ノートやスクリプトによってパスワードが要求された可能性があります。",
+    "set-confirm": "パスワードを設定",
+    "clear-title": "バックアップパスワードを解除（消去）しますか？",
+    "clear-message": "今後作成されるバックアップは暗号化されなくなります。",
+    "clear-detail": "既に作成されたバックアップには、作成時に使用されたパスワードが保持されており、そのパスワードを使用して復元することができます。\n\nこの確認画面が表示されることを予期していなかった場合は、キャンセルしてください — ノートやスクリプトによってパスワードが要求された可能性があります。",
+    "clear-confirm": "パスワードを解除"
+  },
+  "restore": {
+    "pick_backup_title": "復元するバックアップを選択",
+    "backup_filter": "Trilium バックアップ (*.db, *.tnbackup)",
+    "any_file_filter": "すべてのファイル"
+  },
+  "setup-window": {
+    "getting-started": "はじめに - Trilium Notes",
+    "start-over": "最初からやり直す - Trilium Notes"
+  },
+  "start-over-dialog": {
+    "title": "最初からやり直す",
+    "message": "Trilium を再起動してセットアップ画面に戻りますか？",
+    "detail": "まず現在のナレッジベースのバックアップを作成するよう案内されます。新しいナレッジベースの作成、バックアップの復元、別デバイスからの同期を選ぶまでは、何も削除されません。\n\nスクリプトや見覚えのないノートから指示された場合は、続行しないでください。",
+    "cancel": "キャンセル",
+    "confirm": "再起動して最初からやり直す"
   }
 }

@@ -45,7 +45,13 @@
       "title": "Gagal merender widget React kustom"
     },
     "widget-missing-parent": "Widget kustom tidak memiliki properti wajib '{{property}}' yang didefinisikan.\n\nJika skrip ini dimaksudkan untuk dijalankan tanpa elemen UI, gunakan '#run=frontendStartup' sebagai gantinya.",
-    "scripting-error": "Catatan skrip gagal dijalankan"
+    "scripting-error": "Catatan skrip gagal dijalankan",
+    "unhandled-error": {
+      "title": "Tugas latar belakang gagal",
+      "details-button": "Lihat detail selengkapnya...",
+      "details-intro": "Aplikasi masih berjalan dan catatan Anda tidak terpengaruh. Jika ini terus terjadi, pertimbangkan untuk melaporkannya di GitHub dengan menempelkan informasi di bawah ini.",
+      "details-title": "Informasi teknis"
+    }
   },
   "add_link": {
     "add_link": "Tambahkan tautan",
@@ -57,7 +63,9 @@
     "link_title": "Judul tautan",
     "button_add_link": "Tambahkan tautan",
     "anchor": "Anchor (opsional)",
-    "anchor_none": "Tidak ada (tautan ke catatan)"
+    "anchor_none": "Tidak ada (tautan ke catatan)",
+    "edit_link": "Edit tautan",
+    "button_edit_link": "Simpan tautan"
   },
   "branch_prefix": {
     "edit_branch_prefix_multiple": "Edit prefiks cabang untuk {{count}} cabang",
@@ -90,9 +98,12 @@
     "cancel": "Batal",
     "ok": "OK",
     "are_you_sure_remove_note": "Apakah Anda yakin ingin menghapus catatan \"{{title}}\" dari peta relasi? ",
-    "if_you_dont_check": "Jika Anda tidak mencentang ini, catatan hanya akan dihapus dari peta relasi.",
+    "if_you_dont_check": "Catatan itu sendiri tetap disimpan; hanya posisinya di sini yang dihapus.",
     "also_delete_note": "Hapus juga catatannya",
-    "confirmation": "Konfirmasi"
+    "confirmation": "Konfirmasi",
+    "delete_note_keeps_note_other": "Catatan ini memiliki {{count}} klon lain, sehingga catatan itu sendiri tetap disimpan.",
+    "delete_note_deletes_note": "Ini adalah satu-satunya posisi catatan dalam pohon, sehingga catatan itu sendiri akan dihapus. Tindakan ini dapat dibatalkan dalam perubahan terbaru.",
+    "delete_note_deletes_clones": "Catatan akan dihapus dari seluruh {{places}} tempat kemunculannya. Tindakan ini dapat dibatalkan dalam perubahan terbaru."
   },
   "delete_notes": {
     "close": "Tutup",
@@ -700,7 +711,9 @@
     "hoisted_note": "Catatan yang akan dijadikan tujuan hoist saat launcher membuka targetnya.",
     "share_logo": "Catatan gambar yang digunakan sebagai logo halaman berbagi. Catatan tersebut harus berada di dalam subpohon yang dibagikan.",
     "share_open_graph_image_relation": "Catatan gambar yang disajikan sebagai <code>og:image</code> pada halaman berbagi. Sebagai alternatif, gunakan label dengan nama yang sama untuk menunjuk ke sebuah alamat.",
-    "share_html": "Catatan HTML yang disisipkan ke halaman berbagi pada lokasi yang ditentukan oleh <code>#shareHtmlLocation</code> di catatan tersebut. Catatan harus berada di dalam subpohon yang dibagikan."
+    "share_html": "Catatan HTML yang disisipkan ke halaman berbagi pada lokasi yang ditentukan oleh <code>#shareHtmlLocation</code> di catatan tersebut. Catatan harus berada di dalam subpohon yang dibagikan.",
+    "map_dark_style": "Memberi tahu peta geo bahwa gaya kustom yang diberikan dalam <code>map:style</code> adalah gaya gelap, sehingga judul penanda digambar dengan warna terang di atasnya. Gaya yang ditawarkan dalam properti koleksi sudah menyatakannya sendiri dan tidak memerlukan label tersebut.",
+    "map_cluster": "Menggabungkan penanda yang digambar berdekatan menjadi satu gelembung bernomor, yang terbuka saat diklik."
   },
   "attribute_editor": {
     "help_text_body1": "Untuk menambahkan label, cukup ketik misalnya <code>#rock</code> atau jika Anda juga ingin menambahkan nilai maka misalnya <code>#year = 2020</code>",
@@ -876,7 +889,41 @@
     "day_previous": "Hari Sebelumnya",
     "day_next": "Hari Berikutnya",
     "pin_date": "Sematkan tanggal saat ini agar kalender selalu dibuka pada rentang ini, bukan pada hari ini",
-    "unpin_date": "Lepaskan sematan tanggal agar kalender kembali dibuka pada tanggal hari ini"
+    "unpin_date": "Lepaskan sematan tanggal agar kalender kembali dibuka pada tanggal hari ini",
+    "close_details": "Tutup detail acara",
+    "dates": {
+      "all_day": "Sepanjang hari",
+      "date": "Tanggal",
+      "start_date": "Tanggal mulai",
+      "end_date": "Tanggal selesai",
+      "time": "Waktu",
+      "start_time": "Waktu mulai",
+      "end_time": "Waktu selesai"
+    },
+    "recurrence": {
+      "repeats": "Berulang",
+      "frequency": "Frekuensi",
+      "none": "Tidak ada",
+      "does_not_repeat": "Tidak berulang",
+      "daily": "Harian",
+      "weekly": "Mingguan",
+      "monthly": "Bulanan",
+      "yearly": "Tahunan",
+      "custom": "Kustom",
+      "repeat_every": "Ulangi setiap",
+      "unit_days": "hari",
+      "unit_weeks": "minggu",
+      "unit_months": "bulan",
+      "unit_years": "tahun",
+      "on_days": "Pada hari",
+      "ends": "Berakhir",
+      "never": "Tidak pernah",
+      "until": "Pada tanggal",
+      "count": "Setelah",
+      "times": "kali",
+      "custom_rule": "Aturan",
+      "custom_hint": "Aturan perulangan iCalendar (RRULE) yang dapat menyatakan lebih banyak daripada kolom di atas. Mengosongkannya menghentikan perulangan."
+    }
   },
   "close_pane_button": {
     "close_this_pane": "Tutup panel ini"
@@ -1301,7 +1348,9 @@
     "open_help_page": "Buka halaman bantuan tentang lampiran",
     "owning_note": "Catatan pemilik: ",
     "upload_attachments": "Unggah lampiran",
-    "no_attachments": "Catatan ini tidak memiliki lampiran."
+    "no_attachments": "Catatan ini tidak memiliki lampiran.",
+    "no_user_attachments": "Catatan ini tidak memiliki lampiran sendiri.\nLampiran yang dibuat oleh Trilium untuknya tercantum di bawah.",
+    "system_group": "Dibuat oleh Trilium ({{amount}})"
   },
   "book": {
     "no_children_help": "Koleksi ini tidak memiliki catatan anak sehingga tidak ada yang dapat ditampilkan.",
@@ -1516,7 +1565,9 @@
     "serif": "Serif",
     "sans-serif": "Sans Serif",
     "monospace": "Monospace",
-    "system-default": "Default sistem"
+    "system-default": "Default sistem",
+    "monospace_ligatures": "Ligatur pemrograman",
+    "monospace_ligatures_description": "Merender pasangan karakter seperti != dan -> sebagai simbol tunggal (≠, →), jika font monospace mendukungnya. Teks itu sendiri tidak berubah."
   },
   "max_content_width": {
     "title": "Lebar Konten",
@@ -1607,7 +1658,6 @@
     "images_section_title": "Gambar",
     "download_images_automatically": "Unduh gambar secara otomatis",
     "download_images_description": "Unduh gambar online yang dirujuk dari HTML yang ditempel agar tersedia secara offline.",
-    "enable_image_compression": "Kompresi gambar",
     "enable_image_compression_description": "Kompres dan ubah ukuran gambar saat diunggah atau ditempel.",
     "max_image_dimensions": "Dimensi maksimum gambar",
     "max_image_dimensions_description": "Gambar yang melebihi ukuran ini akan diubah ukurannya secara otomatis.",
@@ -1768,7 +1818,10 @@
     "min-days-in-first-week": "Jumlah hari minimum pada minggu pertama",
     "first-week-warning": "Mengubah ini dapat menyebabkan duplikasi pada Catatan Mingguan yang sudah ada.",
     "formatting-locale": "Format tanggal & angka",
-    "formatting-locale-auto": "Berdasarkan bahasa aplikasi"
+    "formatting-locale-auto": "Berdasarkan bahasa aplikasi",
+    "default-content-language": "Bahasa konten default",
+    "default-content-language-description": "Bahasa yang digunakan untuk menulis catatan, kecuali jika bahasa ditetapkan pada catatan itu sendiri di bagian Properti Dasar. Bahasa ini memengaruhi fitur seperti perataan kanan ke kiri dan tanda kutip yang dihasilkan saat mengetik.",
+    "default-content-language-auto": "Berdasarkan bahasa aplikasi"
   },
   "backup": {
     "title": "Cadangan",
@@ -1779,7 +1832,6 @@
     "enable_monthly_backup": "Pencadangan bulanan",
     "backup_recommendation": "Disarankan untuk tetap mengaktifkan cadangan, tetapi ini dapat memperlambat startup aplikasi pada database besar dan/atau perangkat penyimpanan yang lambat.",
     "backup_now": "Cadangkan sekarang",
-    "backup_database_now": "Cadangkan database sekarang",
     "existing_backups": "Cadangan yang sudah ada",
     "date-and-time": "Tanggal & waktu",
     "path": "Path",
@@ -1788,7 +1840,31 @@
     "download": "Unduh",
     "automatic_backups_title": "Pencadangan otomatis",
     "automatic_backups_description": "Trilium dapat mencadangkan database secara otomatis. Disarankan untuk tetap mengaktifkan pencadangan, tetapi ini dapat memperlambat startup aplikasi pada database besar dan/atau perangkat penyimpanan yang lambat.",
-    "backup_location_description": "Cadangan disimpan di {{- backupFolder}}."
+    "location_title": "Lokasi cadangan",
+    "saved_in": "Cadangan disimpan di",
+    "select_location": "Pilih lokasi",
+    "select_location_desktop_only": "Memilih lokasi cadangan hanya tersedia di aplikasi desktop.",
+    "reset_location": "Atur ulang ke default",
+    "reset_location_confirmation": "Apakah Anda ingin mengatur ulang lokasi cadangan database ke default?",
+    "default_location": "Lokasi default",
+    "backups_summary_other": "{{count}} cadangan, yang terbaru dibuat {{age}} lalu.",
+    "options_title": "Opsi cadangan",
+    "enable_compression": "Aktifkan kompresi",
+    "enable_compression_description": "Membuat setiap cadangan berukuran lebih kecil, dengan konsekuensi membutuhkan sedikit waktu saat ditulis.",
+    "enable_encryption": "Aktifkan enkripsi",
+    "enable_encryption_description": "Mengunci setiap cadangan dengan kata sandi Anda sendiri, sehingga tidak ada orang lain yang dapat membacanya. Sebaiknya diaktifkan ketika cadangan ditulis ke folder yang disinkronkan atau dibagikan.",
+    "no_keyring": "Keyring tidak tersedia di sistem Anda. Artinya, kata sandi tidak dapat disimpan dengan aman, sehingga enkripsi cadangan tidak tersedia.",
+    "turn_on_encryption": "Aktifkan enkripsi",
+    "change_password": "Ubah kata sandi",
+    "password_modal_title": "Kata sandi cadangan",
+    "password_modal_description": "Simpan salinan kata sandi ini di tempat yang aman. Trilium tidak dapat menampilkannya lagi, dan tanpa kata sandi tersebut cadangan tidak dapat dipulihkan.",
+    "save_password": "Simpan kata sandi",
+    "password_stored": "Kata sandi cadangan telah disimpan.",
+    "password_not_stored": "Kata sandi cadangan tidak dapat disimpan.",
+    "encryption_not_disabled": "Kata sandi cadangan telah dihapus, tetapi enkripsi tidak dapat dinonaktifkan. Cadangan tidak akan dienkripsi sampai Anda mengaktifkan enkripsi kembali.",
+    "encryption_not_enabled": "Kata sandi cadangan telah disimpan, tetapi enkripsi tidak dapat diaktifkan. Cadangan tidak akan dienkripsi sampai Anda mengaktifkannya.",
+    "compressed": "Dikompresi",
+    "encrypted": "Terenkripsi"
   },
   "etapi": {
     "description": "ETAPI adalah REST API yang digunakan untuk mengakses instance Trilium secara terprogram, tanpa UI.",
@@ -1983,8 +2059,7 @@
     "custom_dictionary_edit": "Kata kustom",
     "custom_dictionary_edit_description": "Edit daftar kata yang tidak boleh ditandai oleh pemeriksa ejaan. Perubahan akan terlihat setelah restart.",
     "custom_dictionary_open": "Edit kamus",
-    "related_description": "Konfigurasikan bahasa pemeriksa ejaan dan kamus kustom.",
-    "disabled_placeholder": "Pemeriksaan ejaan dinonaktifkan. Aktifkan untuk memilih bahasa dan mengelola kamus kustom."
+    "related_description": "Konfigurasikan bahasa pemeriksa ejaan dan kamus kustom."
   },
   "sync_2": {
     "config_title": "Server Sinkronisasi",
@@ -2006,7 +2081,11 @@
   },
   "attachment_detail_2": {
     "link_copied": "Referensi lampiran disalin ke clipboard.",
-    "unrecognized_role": "Peran lampiran '{{role}}' tidak dikenali."
+    "unrecognized_role": "Peran lampiran '{{role}}' tidak dikenali.",
+    "deletion_badge": "Dihapus dalam {{time}}",
+    "deletion_badge_soon": "Segera dihapus",
+    "deletion_badge_tooltip": "Lampiran ini akan dihapus secara otomatis karena tidak ditautkan dalam konten catatan. Untuk mempertahankannya, tambahkan kembali tautan lampiran ke dalam konten atau ubah lampiran menjadi catatan.",
+    "kind_and_size": "{{role}} · {{size}}"
   },
   "bookmark_switch": {
     "bookmark": "Bookmark",
@@ -2369,7 +2448,6 @@
     "backend_scripting_disabled_more_info": "Info selengkapnya"
   },
   "ws": {
-    "sync-check-failed": "Pemeriksaan sinkronisasi gagal!",
     "consistency-checks-failed": "Pemeriksaan konsistensi gagal! Lihat log untuk detail.",
     "encountered-error": "Terjadi error \"{{message}}\", periksa konsol.",
     "lost-websocket-connection-title": "Koneksi ke server terputus",
@@ -2480,15 +2558,34 @@
   },
   "geo-map": {
     "create-child-note-title": "Buat catatan anak baru dan tambahkan ke peta",
-    "create-child-note-text": "Tambahkan marker",
     "create-child-note-instruction": "Klik pada peta untuk membuat catatan baru di lokasi tersebut atau tekan Escape untuk menutup.",
     "unable-to-load-map": "Tidak dapat memuat peta.",
-    "create-child-note-toast-title": "Catatan baru"
+    "create-child-note-toast-title": "Catatan baru",
+    "create-child-note-cancel": "Batalkan penambahan catatan",
+    "add-marker": "Tambahkan penanda",
+    "add-marker-cancel": "Batal",
+    "add-gpx-track": "Tambahkan lintasan GPS dari file GPX",
+    "move-marker-instruction": "Klik peta untuk memindahkan penanda ke lokasi tersebut atau tekan Escape untuk membatalkan.",
+    "move-marker-toast-title": "Pindahkan penanda",
+    "webgl-unavailable": "Peta ini tidak dapat digambar karena WebGL tidak tersedia. Periksa bahwa akselerasi perangkat keras telah diaktifkan dan driver grafis Anda sudah diperbarui.",
+    "zoom-in": "Perbesar",
+    "zoom-out": "Perkecil",
+    "enter-3d": "Miringkan ke tampilan 3D\nTahan Ctrl dan seret untuk memiringkan peta secara bebas",
+    "exit-3d": "Ratakkan kembali peta",
+    "fullscreen": "Layar penuh",
+    "exit-fullscreen": "Keluar dari layar penuh",
+    "close-details": "Tutup",
+    "marker-color": "Warna penanda",
+    "copy-coordinates": "Salin koordinat"
   },
   "geo-map-context": {
     "open-location": "Buka lokasi",
     "remove-from-map": "Hapus dari peta",
-    "add-note": "Tambahkan marker di lokasi ini"
+    "add-note": "Tambahkan marker di lokasi ini",
+    "move-marker": "Pindahkan ke lokasi lain",
+    "remove-from-map-confirmation": "Apakah Anda yakin ingin menghapus catatan \"{{title}}\" dari peta?",
+    "delete-note": "Hapus catatan",
+    "delete-note-confirmation": "Apakah Anda yakin ingin menghapus catatan \"{{title}}\"? Lintasan digambar dari catatannya sendiri, sehingga tidak dapat dihapus dari peta secara terpisah."
   },
   "help-button": {
     "title": "Buka halaman bantuan yang relevan"
@@ -2527,11 +2624,12 @@
   "note_language": {
     "not_set": "Belum ada bahasa yang diatur",
     "configure-languages": "Konfigurasikan bahasa...",
-    "help-on-languages": "Bantuan tentang bahasa konten..."
+    "help-on-languages": "Bantuan tentang bahasa konten...",
+    "not_set_with_default": "Tidak ada bahasa yang ditetapkan — {{- language}}"
   },
   "content_language": {
     "title": "Bahasa konten",
-    "description": "Pilih satu atau lebih bahasa yang akan muncul dalam pemilihan bahasa di bagian Properti Dasar pada catatan teks hanya-baca atau yang dapat diedit. Ini akan memungkinkan fitur seperti pemeriksaan ejaan, dukungan right-to-left, dan ekstraksi teks (OCR)."
+    "description": "Pilih satu atau beberapa bahasa yang harus muncul dalam pemilihan bahasa di bagian Properti Dasar pada catatan teks yang hanya-baca atau dapat diedit. Ini akan memungkinkan fitur seperti pemeriksaan ejaan, dukungan kanan-ke-kiri, tanda kutip, dan ekstraksi teks (OCR)."
   },
   "switch_layout_button": {
     "title_vertical": "Pindahkan panel pengeditan ke bawah",
@@ -2614,7 +2712,8 @@
     "vector_light": "Vector (Terang)",
     "vector_dark": "Vector (Gelap)",
     "show-scale": "Tampilkan skala",
-    "show-labels": "Tampilkan nama marker"
+    "show-labels": "Tampilkan nama marker",
+    "cluster-markers": "Kelompokkan penanda yang berdekatan"
   },
   "table_context_menu": {
     "delete_row": "Hapus baris"
@@ -2650,7 +2749,13 @@
     "slot_duration": "Durasi",
     "slot_label_interval": "Interval label",
     "minutes_other": "{{count}} menit",
-    "hours_other": "{{count}} jam"
+    "hours_other": "{{count}} jam",
+    "event_color": "Warna acara",
+    "remove_from_calendar": "Hapus dari kalender",
+    "remove_from_calendar_confirmation": "Apakah Anda yakin ingin menghapus acara \"{{title}}\" dari kalender?",
+    "new_event": "Acara baru",
+    "draft_title_placeholder": "Tambahkan judul",
+    "create_event": "Buat"
   },
   "ocr": {
     "extracted_text": "Teks yang Diekstrak (OCR)",
@@ -3012,7 +3117,36 @@
     "sync-failed-description": "Sinkronisasi awal tidak dapat diselesaikan. Anda dapat mencoba lagi, atau kembali untuk memeriksa alamat server dan kredensial.",
     "sync-failed-admonition-title": "Percobaan sinkronisasi terakhir gagal",
     "sync-failed-hint": "Hal ini dapat disebabkan oleh alamat server yang salah, proxy yang mengganggu koneksi, atau server yang untuk sementara tidak dapat dijangkau.",
-    "button-retry": "Coba lagi"
+    "button-retry": "Coba lagi",
+    "restore-from-backup": "Pulihkan dari cadangan",
+    "restore-from-backup-description": "Lanjutkan menggunakan basis pengetahuan yang sudah ada, yang dipulihkan dari file cadangan.",
+    "restore-from-backup-page-description": "Pilih cadangan yang akan dipulihkan.",
+    "restore-existing-backups": "Cadangan yang ada",
+    "restore-looking-for-backups": "Mencari cadangan...",
+    "restore-choose-file": "Pilih file cadangan",
+    "restore-choose-file-description": "Pilih file cadangan database (.db, .tnbackup) dari perangkat Anda",
+    "restore-uploading": "Mengunggah cadangan...",
+    "restore-uploaded-so-far": "{{sent}} dari {{total}}",
+    "restore-upload-speed": "{{speed}}/dtk",
+    "restore-error-unusable": "Cadangan Trilium tidak didukung atau rusak.",
+    "restore-error-too-new": "Cadangan ini berasal dari versi Trilium yang lebih baru. Perbarui Trilium lalu coba lagi.",
+    "restore-error-too-old": "Cadangan ini berasal dari versi Trilium yang terlalu lama untuk dipulihkan.",
+    "restore-error-unfinished": "Cadangan ini dibuat dari penyiapan yang tidak pernah diselesaikan, sehingga tidak ada yang dapat dipulihkan.",
+    "restore-error-swap-failed": "Database tidak dapat diganti. Database sebelumnya telah dikembalikan ke tempatnya.",
+    "restore-error-would-not-open": "Database yang dipulihkan tidak dapat dibuka. Database sebelumnya telah dikembalikan ke tempatnya.",
+    "restore-error-refused": "Langkah penyiapan lain sudah sedang berjalan.",
+    "restore-error-already-initialized": "Instans ini sudah memiliki basis pengetahuan, sehingga pemulihan tidak dapat dilakukan di atasnya. Muat ulang halaman.",
+    "restore-error-could-not-start": "Pemulihan tidak dapat dimulai.",
+    "restore-error-upload-failed": "Cadangan tidak dapat diunggah.",
+    "restore-passphrase": "Kata sandi enkripsi",
+    "restore-passphrase-description": "Cadangan ini terenkripsi. Masukkan kata sandi yang digunakan untuk membuat cadangan ini.",
+    "restore-wrong-passphrase": "Kata sandi tersebut tidak dapat membuka cadangan ini. Silakan coba lagi.",
+    "restore-continue": "Pulihkan",
+    "restore-stage-staging": "Menyiapkan cadangan",
+    "restore-stage-validating": "Memeriksa database",
+    "restore-stage-swapping": "Menempatkannya",
+    "restore-stage-migrating": "Membuka database",
+    "restore-do-not-close": "Jangan tutup jendela ini."
   },
   "mind-map": {
     "addChild": "Tambahkan anak",
@@ -3023,10 +3157,61 @@
     "cancelFocus": "Batalkan Mode Fokus",
     "moveUp": "Pindah ke atas",
     "moveDown": "Pindah ke bawah",
-    "link": "Tautan",
-    "linkBidirectional": "Tautan Dua Arah",
     "clickTips": "Silakan klik node tujuan",
-    "summary": "Ringkasan"
+    "summary": "Ringkasan",
+    "draw-arrow": "Gambar panah menuju…",
+    "draw-arrow-bidirectional": "Gambar panah dua arah menuju…",
+    "new-topic": "Topik baru",
+    "new-node": "Node baru",
+    "new-summary": "Ringkasan",
+    "custom-link": "Tautan kustom",
+    "text-color": "Teks",
+    "background-color": "Latar belakang",
+    "branch-color": "Cabang",
+    "font-size": "Ukuran",
+    "font-size-small": "S",
+    "font-size-medium": "M",
+    "font-size-large": "L",
+    "font-size-extra-large": "XL",
+    "icons": "Ikon",
+    "add-icon": "Tambahkan ikon",
+    "change-icon": "Ubah ikon ini",
+    "clear-icon": "Hapus ikon",
+    "icons-differ": "Node yang dipilih tidak memiliki ikon yang sama, sehingga ikon ini hanya dapat dibaca.",
+    "image": "Gambar",
+    "add-image": "Tambahkan gambar",
+    "change-image": "Ganti gambar",
+    "remove-image": "Hapus gambar",
+    "image-shape-original": "Asli",
+    "image-shape-square": "Persegi",
+    "image-shape-wide": "Lebar",
+    "images-differ": "Node yang dipilih tidak memiliki gambar yang sama. Untuk tetap mengganti gambar, hapus gambar tersebut terlebih dahulu.",
+    "image-upload-failed": "Tidak dapat mengunggah gambar \"{{name}}\".",
+    "node-link": "Tautan",
+    "add-link": "Tambahkan tautan",
+    "choose-link": "Tautkan node ini ke catatan atau halaman",
+    "clear-link": "Hapus tautan",
+    "link-mixed": "Tautan berbeda",
+    "links-differ": "Node yang dipilih tidak memiliki tautan yang sama.",
+    "tab-format": "Format",
+    "hide-panel": "Sembunyikan panel ini",
+    "memo": "Memo",
+    "memo-placeholder": "Tulis memo...",
+    "memos-differ": "Node yang dipilih memiliki memo berbeda, sehingga memo ini hanya dapat dibaca.",
+    "tags": "Tag",
+    "tags-placeholder": "Ketik tag lalu tekan Enter",
+    "tags-differ": "Node yang dipilih tidak memiliki tag yang sama, sehingga tag ini hanya dapat dibaca.",
+    "add-tag": "Tambahkan tag ini",
+    "remove-tag": "Hapus tag ini",
+    "zoom-in": "Perbesar",
+    "zoom-out": "Perkecil",
+    "reset-zoom": "Atur ulang zoom",
+    "center-map": "Tengahkan peta",
+    "fullscreen": "Layar penuh",
+    "exit-fullscreen": "Keluar dari layar penuh",
+    "direction-left": "Cabang di kiri",
+    "direction-right": "Cabang di kanan",
+    "direction-side": "Cabang di kedua sisi"
   },
   "llm": {
     "feature_not_enabled": "Aktifkan fitur eksperimental LLM di Pengaturan → Lanjutan → Fitur eksperimental untuk menggunakan integrasi AI.",
@@ -3076,8 +3261,6 @@
       "search_help": "Cari Panduan Pengguna",
       "get_help_toc": "Ambil isi Panduan Pengguna"
     },
-    "not_available_in_standalone": "Fitur AI/LLM tidak tersedia dalam versi standalone Trilium, karena penyedia LLM tidak mengizinkan akses langsung dari browser.",
-    "disabled_placeholder": "Fitur AI dinonaktifkan. Aktifkan untuk mengonfigurasi provider dan MCP.",
     "edit_provider_title": "Edit {{- name}}",
     "edit_provider": "Edit",
     "save": "Simpan",
@@ -3699,5 +3882,84 @@
     "button": "Tetapkan kata sandi",
     "password-too-short": "Kata sandi harus terdiri dari minimal {{length}} karakter.",
     "passwords-dont-match": "Kata sandi yang dimasukkan tidak cocok."
+  },
+  "gpx_preview": {
+    "distance": "Jarak",
+    "duration": "Durasi",
+    "avg_speed": "Kecepatan rata-rata",
+    "elevation_gain": "Kenaikan elevasi",
+    "elevation_loss": "Penurunan elevasi",
+    "max_elevation": "Elevasi maksimum",
+    "points": "Titik",
+    "segments": "Segmen",
+    "tracks": "Lintasan",
+    "routes": "Rute",
+    "waypoints": "Titik arah",
+    "waypoints_with_count": "Titik arah ({{count}})",
+    "tracks_with_count": "Lintasan ({{count}})",
+    "routes_with_count": "Rute ({{count}})",
+    "journeys_with_count": "Lintasan & rute ({{count}})",
+    "unnamed": "(tanpa nama)",
+    "recorded_on": "Direkam pada",
+    "map_hint": "Tempatkan catatan ini dalam koleksi Peta Geo untuk melihat lintasan digambar pada peta.",
+    "elevation_profile": "Profil elevasi",
+    "duration_minutes": "{{minutes}} mnt",
+    "duration_hours_minutes": "{{hours}} j {{minutes}} mnt",
+    "unit_m": "{{value}} m",
+    "unit_km": "{{value}} km",
+    "unit_mi": "{{value}} mi",
+    "unit_ft": "{{value}} kaki",
+    "unit_kmh": "{{value}} km/j",
+    "unit_mph": "{{value}} mph"
+  },
+  "database_file_list": {
+    "size_on_disk": "{{size}} di disk"
+  },
+  "password_with_confirmation": {
+    "password": "Kata sandi",
+    "repeat_password": "Ulangi kata sandi",
+    "mismatch": "Kata sandi tidak cocok."
+  },
+  "open": {
+    "directory_failed": "Tidak dapat membuka {{- directory}}: {{- reason}}"
+  },
+  "attachment_roles": {
+    "favicon": "Ikon situs",
+    "coverImage": "Gambar sampul",
+    "viewConfig": "Pengaturan tampilan",
+    "canvasLibraryItem": "Pustaka kanvas",
+    "importSource": "Sumber impor"
+  },
+  "embedded_note": {
+    "open-note": "Buka catatan",
+    "more-ways-to-open": "Cara lain untuk membuka",
+    "maximize": "Buka dalam edit cepat"
+  },
+  "automatic_replacements": {
+    "title": "Penggantian otomatis",
+    "description": "Urutan karakter tertentu diganti dengan simbol tipografis yang diwakilinya saat diketik. Penggantian tidak diterapkan di dalam blok kode atau kode inline, dan teks yang ditempel tidak terpengaruh.",
+    "double_quotes": "Tanda kutip ganda",
+    "double_quotes_description": "Karakter yang menggantikan tanda \" lurus. Berdasarkan bahasa konten, “kutipan” digunakan dalam bahasa Inggris, „kutipan“ dalam bahasa Jerman, dan « kutipan » dalam bahasa Prancis; memilih sepasang tanda menerapkannya ke setiap catatan, terlepas dari bahasanya.",
+    "single_quotes": "Tanda kutip tunggal",
+    "single_quotes_description": "Hal yang sama untuk tanda ' lurus, yang dalam sebagian besar konvensi digunakan untuk kutipan di dalam kutipan lain.",
+    "quotes_auto": "Berdasarkan bahasa konten catatan",
+    "quotes_off": "Dinonaktifkan",
+    "punctuation": "Tanda baca",
+    "punctuation_description": "Mengganti ... dengan elipsis (…), serta -- dan --- yang diapit spasi dengan en dash (–) dan em dash (—).",
+    "math": "Simbol matematika",
+    "math_description": "Mengganti pecahan seperti 1/2 dengan ½, serta operator <=, >=, !=, <-, dan -> dengan ≤, ≥, ≠, ←, dan →.",
+    "symbols": "Hak cipta dan merek dagang",
+    "symbols_description": "Mengganti (c), (r), dan (tm) dengan ©, ®, dan ™.",
+    "custom": "Penggantian kustom",
+    "custom_description": "Diterapkan saat teks diketik sebagai kata utuh dan diikuti spasi, sehingga kata yang lebih panjang yang diawali dengannya tidak terpengaruh.",
+    "custom_from_placeholder": "Teks yang akan diganti",
+    "custom_to_placeholder": "Pengganti",
+    "custom_add": "Tambahkan penggantian",
+    "custom_remove": "Hapus penggantian"
+  },
+  "color-picker": {
+    "clear-color": "Hapus warna",
+    "set-color": "Atur warna",
+    "set-custom-color": "Atur warna kustom"
   }
 }

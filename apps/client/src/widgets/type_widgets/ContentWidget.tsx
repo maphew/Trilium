@@ -10,6 +10,7 @@ import SpellcheckSettings from "./options/spellcheck";
 import PasswordSettings from "./options/password";
 import EtapiSettings from "./options/etapi";
 import BackupSettings from "./options/backup";
+import DatabaseSettings from "./options/database";
 import SyncOptions from "./options/sync";
 import DesktopSettings from "./options/desktop";
 import OtherSettings from "./options/other";
@@ -21,7 +22,7 @@ import "./ContentWidget.css";
 import { t } from "../../services/i18n";
 import BackendLog from "./code/BackendLog";
 
-export type OptionPages = "_optionsAppearance" | "_optionsShortcuts" | "_optionsTextNotes" | "_optionsCodeNotes" | "_optionsContentManager" | "_optionsMedia" | "_optionsSpellcheck" | "_optionsPassword" | "_optionsEtapi" | "_optionsBackup" | "_optionsSync" | "_optionsDesktop" | "_optionsOther" | "_optionsLocalization" | "_optionsSecurity" | "_optionsAdvanced" | "_optionsLlm";
+export type OptionPages = "_optionsAppearance" | "_optionsShortcuts" | "_optionsTextNotes" | "_optionsCodeNotes" | "_optionsContentManager" | "_optionsMedia" | "_optionsSpellcheck" | "_optionsPassword" | "_optionsEtapi" | "_optionsBackup" | "_optionsDatabase" | "_optionsSync" | "_optionsDesktop" | "_optionsOther" | "_optionsLocalization" | "_optionsSecurity" | "_optionsAdvanced" | "_optionsLlm";
 
 const CONTENT_WIDGETS: Record<OptionPages | "_backendLog", (props: TypeWidgetProps) => JSX.Element> = {
     _optionsAppearance: AppearanceSettings,
@@ -34,6 +35,7 @@ const CONTENT_WIDGETS: Record<OptionPages | "_backendLog", (props: TypeWidgetPro
     _optionsPassword: PasswordSettings,
     _optionsEtapi: EtapiSettings,
     _optionsBackup: BackupSettings,
+    _optionsDatabase: DatabaseSettings,
     _optionsSync: SyncOptions,
     _optionsDesktop: DesktopSettings,
     _optionsOther: OtherSettings,

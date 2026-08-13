@@ -26,31 +26,34 @@
         pkgs = import nixpkgs { inherit system; };
 
         electronVersion = packageJsonDesktop.devDependencies.electron;
-        electronFromNixpkgs = pkgs."electron_${lib.versions.major electronVersion}";
+        # `or null` because a major bump lands in apps/desktop/package.json long before
+        # nixpkgs has the matching electron_<major> attribute; without it the flake dies
+        # with an attribute error instead of falling through to the pinned binary below.
+        electronFromNixpkgs = pkgs."electron_${lib.versions.major electronVersion}" or null;
 
         # nixpkgs lags behind the Electron version pinned in apps/desktop/package.json
         # (electron_43 is still 43.1.0), and its source build cannot be bumped without
         # upstream's Chromium dependency hashes. Build the exact pinned version from
         # Electron's official binary release instead, reusing the nixpkgs builder.
         #
-        # When bumping Electron, refresh these hashes:
-        #   zips:    curl -sL https://github.com/electron/electron/releases/download/v<version>/SHASUMS256.txt
-        #   headers: nix-prefetch-url --unpack https://artifacts.electronjs.org/headers/dist/v<version>/node-v<version>-headers.tar.gz
-        pinnedElectronVersion = "43.2.0";
+        # Don't refresh these by hand — `pnpm chore:update-flake-electron` rewrites both
+        # bindings from the release's SHASUMS256.txt, and the update-nix-flake workflow
+        # opens a PR whenever apps/desktop/package.json moves ahead of the pin.
+        pinnedElectronVersion = "43.3.0";
         pinnedElectronHashes = {
-          x86_64-linux = "f77ca6ed67bbc68702b69b56ad499bca6ae090705ade7d04f0ac545e409dec68";
-          armv7l-linux = "e5cf445bda3ef071bbe9f16dfbabbca61b24b528f2dcbdff227e98fb349c99e8";
-          aarch64-linux = "50e1cdefbf8590e0d89b0276314a99c7b98e8eed732204c6f1a1c2a38376ed87";
-          x86_64-darwin = "1349ff423539cfe2b3edf1b14111e618db234d9ba761cbe97ea549edcb2e7a98";
-          aarch64-darwin = "ad4a0ae3c37ee05aa06c7e2ed0627608389790f0505a2b0d20319efbe33ffe28";
-          headers = "0jxrbsi1ipzkq3ah7vbqd3glzd423603ii1d1i7kabirxmxra5kk";
+          x86_64-linux = "f4987e9f045e46b117f0805d6ba4dc524e2abb2c2e33660f175bb39564bd3dae";
+          armv7l-linux = "d808208eb3179d1d33ac0269b5aada5d5a689cb9758098cb2d6e3576efaa306e";
+          aarch64-linux = "3e89a62c345d8171bf54f77df5b3d8216c492847eed00ae59cadd78d6f5535f7";
+          x86_64-darwin = "7347bbd5fb529eea64f9c2d148bb1c19222d98946ff234ffe27953a1bbcb9dae";
+          aarch64-darwin = "ee939d1564d83d61032b3b3cb23af4e46005a4900c91f0695f7ed793f0ce6e83";
+          headers = "13x2jbm1kdcnmv9lga8ba1imksjc2ahvb91ar3j3cl49w6q6qc0d";
         };
         mkElectronBin = pkgs.callPackage (
           pkgs.path + "/pkgs/development/tools/electron/binary/generic.nix"
         ) { };
 
         electron =
-          if electronFromNixpkgs.version == electronVersion then
+          if electronFromNixpkgs != null && electronFromNixpkgs.version == electronVersion then
             electronFromNixpkgs
           else
             lib.throwIf (pinnedElectronVersion != electronVersion) ''
@@ -240,7 +243,6 @@ nodejs.python
               "packages/ckeditor5"
               "packages/codemirror"
               "packages/commons"
-              "packages/express-partial-content"
               "packages/highlightjs"
               "packages/turndown-plugin-gfm"
 
@@ -380,6 +382,11 @@ nodejs.python
         packages.build-docs = build-docs;
 
         packages.default = desktop;
+
+        # Not something to install — it is here so the pinned Electron binary can be
+        # built (and therefore its hashes verified) on its own, without going through
+        # a full desktop build. The update-nix-flake workflow does exactly that.
+        packages.electron = electron;
 
         devShells.default = pkgs.mkShell {
           buildInputs = [

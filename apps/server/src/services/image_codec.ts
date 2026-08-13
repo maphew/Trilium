@@ -12,13 +12,15 @@
 
 import { IMAGE_COMPRESSIBLE_FORMATS, type ImageCompressionSkipReason } from "@triliumnext/commons";
 import { type InspectedImage, inspectImage } from "@triliumnext/core/src/services/image_inspect.js";
-import type { ImageCompressionOutcome, ImageCompressionRequest, ImageFormat } from "@triliumnext/core/src/services/image_provider.js";
+import type { ImageCompressionOutcome, ImageCompressionRequest, ImageFormat, PreviewResizeOutcome, PreviewResizeRequest } from "@triliumnext/core/src/services/image_provider.js";
 import { estimateJpegQuality } from "@triliumnext/core/src/services/jpeg_quality.js";
 import imageType from "image-type";
 import isAnimated from "is-animated";
 import isSvg from "is-svg";
 import { Jimp } from "jimp";
 import * as UPNG from "upng-js";
+
+import { asBuffer } from "./binary.js";
 
 /**
  * Where a line the codec wants written goes. Dropped by default, since nothing here needs it.
@@ -208,18 +210,6 @@ export function decodeCostOf({ width, height }: InspectedImage): number | null {
  */
 export function decodeImage(buffer: Uint8Array, budgetMb: number = DECODE_MEMORY_MB) {
     return Jimp.fromBuffer(asBuffer(buffer), { "image/jpeg": { maxMemoryUsageInMB: budgetMb } });
-}
-
-/**
- * The same bytes as a `Buffer`, over the same memory.
- *
- * `Buffer.from(uint8Array)` duplicates what it is given, and the libraries below each want one —
- * so an image was being copied whole several times on its way through, for readers that only ever
- * read. On a run over a tree that is a second copy of every photograph in it, allocated and thrown
- * away again, which costs more in collection than the copying does outright.
- */
-export function asBuffer(bytes: Uint8Array): Buffer {
-    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }
 
 /** What {@link decodeImage} hands back, for the helpers that work on a decoded image. */
@@ -440,5 +430,51 @@ export async function compressImageBytes(
     }
 
     return { compressed: true, buffer: result, format: toJpeg ? JPEG_FORMAT : PNG_FORMAT };
+}
+
+/**
+ * Scales a link preview's cover image down to `maxEdge` and re-encodes it.
+ *
+ * The bytes make a round trip — downloaded and stored in the same breath — so the reduction happens
+ * here rather than being left to the generic compression pass: a 5MB `og:image` has no business
+ * being carried through a pipeline sized for the user's own photographs to become a thumbnail
+ * nobody will see above a couple of hundred pixels.
+ *
+ * Transparency survives by re-encoding to PNG only where the picture actually has non-opaque pixels;
+ * an opaque one becomes a JPEG, which is several times smaller.
+ *
+ * Answers `undecodable` rather than throwing when Jimp cannot read the bytes — it bundles decoders
+ * for PNG/JPEG/GIF/BMP/TIFF only, so a WebP or an AVIF lands there, as does an error page served
+ * where a picture should have been. Saying so is enough; what a preview does without its picture is
+ * not this function's business.
+ */
+export async function resizePreviewImage(
+    bytes: Uint8Array,
+    { maxEdge, jpegQuality }: PreviewResizeRequest,
+    log: CodecLog = () => {}
+): Promise<PreviewResizeOutcome> {
+    try {
+        const image = await decodeImage(bytes);
+
+        // Only ever down: scaleToFit() would happily enlarge a smaller picture.
+        if (image.bitmap.width > maxEdge || image.bitmap.height > maxEdge) {
+            image.scaleToFit({ w: maxEdge, h: maxEdge });
+        }
+
+        // hasAlpha() inspects the pixels rather than just the channel, so an opaque PNG still takes
+        // the JPEG path. An animated GIF or WebP collapses to its first frame, which is all a
+        // thumbnail wanted of it.
+        const encoded = image.hasAlpha()
+            ? await image.getBuffer("image/png")
+            : await image.getBuffer("image/jpeg", { quality: jpegQuality });
+
+        return { resized: true, bytes: new Uint8Array(encoded) };
+    } catch (e: unknown) {
+        // The address is deliberately left out of the line: it is the user's private browsing, and a
+        // pasted link can carry a one-time token in its path or query.
+        log(`Could not decode a link preview image: ${e}`, true);
+
+        return { resized: false, reason: "undecodable" };
+    }
 }
 

@@ -1274,7 +1274,6 @@
     "images_section_title": "圖片",
     "download_images_automatically": "自動下載圖片",
     "download_images_description": "從貼上的 HTML 下載引用的線上圖片以便離線使用。",
-    "enable_image_compression": "圖片壓縮",
     "max_image_dimensions": "最大圖片尺寸",
     "jpeg_quality_description": "建議範圍為 50–85。較低的數值可縮小檔案大小，較高的數值則能保留更多細節。",
     "max_image_dimensions_unit": "像素",
@@ -1408,7 +1407,6 @@
     "enable_monthly_backup": "每月備份",
     "backup_recommendation": "建議打開備份功能，但這可能會使有大型資料庫和 / 或慢速儲存設備的應用程式啟動變慢。",
     "backup_now": "立即備份",
-    "backup_database_now": "立即備份資料庫",
     "existing_backups": "現有備份",
     "date-and-time": "日期和時間",
     "path": "路徑",
@@ -1765,7 +1763,6 @@
     "sync_warning": "您正在將一個同步函數傳遞給 `api.runAsyncOnBackendWithManualTransactionHandling()`，\\n而您可能應該使用 `api.runOnBackend()`。"
   },
   "ws": {
-    "sync-check-failed": "同步檢查失敗！",
     "consistency-checks-failed": "一致性檢查失敗！請查看日誌以了解詳細資訊。",
     "encountered-error": "遇到錯誤 \"{{message}}\"，請查看控制台。",
     "lost-websocket-connection-title": "與伺服器的連線中斷",
@@ -1973,8 +1970,7 @@
   "geo-map": {
     "create-child-note-title": "建立一個新的子筆記並將其加至地圖中",
     "create-child-note-instruction": "點擊地圖以在該位置建立新筆記，或按 Escape 以取消。",
-    "unable-to-load-map": "無法載入地圖。",
-    "create-child-note-text": "新增地圖標記"
+    "unable-to-load-map": "無法載入地圖。"
   },
   "geo-map-context": {
     "open-location": "打開位置",
@@ -2474,8 +2470,6 @@
     "cancelFocus": "退出專注模式",
     "moveUp": "上移",
     "moveDown": "下移",
-    "link": "連結",
-    "linkBidirectional": "雙向連結",
     "clickTips": "請點擊目標節點",
     "summary": "摘要"
   },

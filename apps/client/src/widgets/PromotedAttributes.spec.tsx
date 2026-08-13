@@ -72,7 +72,8 @@ import PromotedAttributes, { buildPromotedCells, PromotedAttributesContent, useP
 // A text field offers the values other notes hold under its name through the Algolia plugin, which
 // is not loaded here; a stub that chains like jQuery does keeps the field's setup on its feet.
 type PluggedIn = { autocomplete(...args: unknown[]): PluggedIn };
-($.fn as unknown as PluggedIn).autocomplete = function (this: PluggedIn) { return this; };
+const autocompleteMock = vi.fn(function (this: PluggedIn) { return this; });
+($.fn as unknown as PluggedIn).autocomplete = autocompleteMock;
 
 // The fields reach the server through these three; every suite stands them down, and the ones
 // asserting on what was written reach for these same handles.
@@ -280,7 +281,7 @@ describe("PromotedAttributes", () => {
         container.remove();
     });
 
-    function mount(note: FNote) {
+    function mount(note: FNote, omit?: readonly string[]) {
         shownNote.current = note;
         const parent = {
             componentId: "cid",
@@ -289,7 +290,7 @@ describe("PromotedAttributes", () => {
         } as unknown as Component;
         act(() => render(
             <ParentComponent.Provider value={parent}>
-                <PromotedAttributes />
+                <PromotedAttributes omit={omit} />
             </ParentComponent.Provider>,
             container
         ));
@@ -312,6 +313,22 @@ describe("PromotedAttributes", () => {
         act(() => handlers.get("entitiesReloaded")?.({ loadResults }));
 
         expect(multiInput.current?.values).toEqual([ "alpha", "beta" ]);
+    });
+
+    /** A host showing a value better than a field would says so by name — see the geo map's pane. */
+    it("leaves out the definitions the host names, and keeps the rest", () => {
+        const note = buildNote({
+            title: "Place",
+            "#label:geolocation": "promoted,single,text",
+            "#geolocation": "1,2",
+            "#label:visited": "promoted,single,text",
+            "#visited": "yes"
+        });
+        mount(note, [ "geolocation" ]);
+
+        const names = [ ...container.querySelectorAll(".promoted-attribute-cell > label") ]
+            .map((label) => label.textContent);
+        expect(names).toEqual([ "visited" ]);
     });
 
     it("keeps the grid empty for a table view, whose cells already edit the same fields", () => {
@@ -438,7 +455,7 @@ describe("PromotedAttributesContent rendering", () => {
             buildCell(note, { definition: { labelType: "color" }, value: "#123456" })
         ]);
 
-        expect(container.querySelector(".note-color-picker")).not.toBeNull();
+        expect(container.querySelector(".color-picker")).not.toBeNull();
         // The raw input is kept but hidden, the picker drives the value.
         expect(container.querySelector("input.promoted-attribute-input")?.getAttribute("type")).toBe("hidden");
     });
@@ -560,6 +577,20 @@ describe("PromotedAttributesContent rendering", () => {
         serverGetMock.mockClear();
         await renderCells(note, [ buildCell(note, { definition: { labelType: "number" }, uniqueId: "num" }) ]);
         expect(serverGetMock).not.toHaveBeenCalled();
+    });
+
+    it("binds the suggestion list only where there is something to suggest", async () => {
+        serverGetMock.mockResolvedValueOnce([ "one", "two" ]);
+        await renderCells(note, [ buildCell(note, { name: "tags", definition: { labelType: "text" } }) ]);
+        expect(autocompleteMock).toHaveBeenCalled();
+
+        autocompleteMock.mockClear();
+        await renderCells(note, [ buildCell(note, { name: "flag", definition: { labelType: "boolean" }, uniqueId: "flag" }) ]);
+        expect(autocompleteMock).not.toHaveBeenCalled();
+
+        // A text field whose name nothing else holds a value under is bound no more than a flag is.
+        await renderCells(note, [ buildCell(note, { name: "fresh", definition: { labelType: "text" }, uniqueId: "fresh" }) ]);
+        expect(autocompleteMock).not.toHaveBeenCalled();
     });
 });
 

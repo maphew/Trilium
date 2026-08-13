@@ -626,6 +626,22 @@ export default class BrowserSqlProvider implements DatabaseProvider {
     }
 
     /**
+     * Lets go of the database so the pool entry behind it can be replaced or unlinked.
+     *
+     * The same thing as {@link close} here, since there is no file handle to release beyond the
+     * connection itself. It exists under this name so the erase and the swap can go through the SQL
+     * service, which holds prepared statements of its own that belong to the connection being let
+     * go of and have to be dropped with it.
+     */
+    detach(): void {
+        this.close();
+    }
+
+    isAttached(): boolean {
+        return this.db !== undefined;
+    }
+
+    /**
      * Get the number of rows changed by the last INSERT, UPDATE, or DELETE statement.
      */
     changes(): number {

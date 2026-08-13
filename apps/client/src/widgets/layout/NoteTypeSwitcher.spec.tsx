@@ -66,7 +66,7 @@ async function flush() {
 describe("TemplateNoteTypes", () => {
     it("re-resolves user templates on frocaReloaded (fresh FNote refs after unlock)", async () => {
         buildNote({ id: "userTemplate1", title: "[protected]" });
-        const serverGetSpy = vi.spyOn(server, "get").mockResolvedValue([ "userTemplate1" ]);
+        const serverGetSpy = vi.spyOn(server, "get").mockResolvedValue({ templateNoteIds: [ "userTemplate1" ], newTemplateNoteIds: [] });
 
         const host = new Component();
         container = document.createElement("div");

@@ -6,8 +6,10 @@ import NodejsCryptoProvider from "@triliumnext/server/src/crypto_provider.js";
 import NodejsInAppHelpProvider from "@triliumnext/server/src/in_app_help_provider.js";
 import ServerLogService from "@triliumnext/server/src/log_provider.js";
 import config from "@triliumnext/server/src/services/config.js";
+import { recoverInterruptedRestore } from "@triliumnext/server/src/services/database_restore.js";
 import dataDirs from "@triliumnext/server/src/services/data_dir.js";
 import port from "@triliumnext/server/src/services/port.js";
+import { consumeSetupMarker, setupPlatform } from "@triliumnext/server/src/services/setup_marker.js";
 import { RESOURCE_DIR } from "@triliumnext/server/src/services/resource_dir.js";
 import WebSocketMessagingProvider from "@triliumnext/server/src/services/ws_messaging_provider.js";
 import BetterSqlite3Provider from "@triliumnext/server/src/sql_provider.js";
@@ -28,12 +30,19 @@ import DesktopPlatformProvider from "./platform_provider";
 import { registerTriliumAppScheme, setupTriliumAppProtocol } from "./protocol";
 import { applyLaunchOnStartup, setupAutoLaunch, wasLaunchedHidden } from "./services/auto_launch";
 import { setupCustomDictionary } from "./services/custom_dictionary";
-import { setupEmbedReferer } from "./services/embed_referer";
+import { setupReferer } from "./services/referer";
+import { setupDialogHandlers } from "./services/dialog";
 import { setupExportHandlers } from "./services/export";
 import { setupImportHandlers } from "./services/import";
+import {
+    adoptBackupPassphrase,
+    getBackupPassphrase,
+    registerBackupPassphraseIpcHandlers
+} from "./services/backup_passphrase";
 import { setupOneNoteHandlers } from "./services/onenote";
 import { setupPrintingHandlers } from "./services/printing";
 import ElectronRequestProvider from "./services/request";
+import { setupRestoreHandlers } from "./services/restore";
 import { getSecuritySettings, registerSecurityIpcHandlers } from "./services/security_settings";
 import { setupShellHandlers } from "./services/shell";
 import { markStartupMetric, setupStartupMetricsIpc } from "./services/startup_metrics";
@@ -129,7 +138,10 @@ export async function main() {
     setupPrintingHandlers();
     setupExportHandlers();
     setupImportHandlers();
+    setupRestoreHandlers();
+    setupDialogHandlers();
     registerSecurityIpcHandlers();
+    registerBackupPassphraseIpcHandlers();
     setupStartupMetricsIpc();
 
     app.on("will-quit", () => {
@@ -184,6 +196,10 @@ export async function main() {
     if (securitySettings.allowLanAccess !== undefined) {
         config.Security.allowLanAccess = securitySettings.allowLanAccess;
     }
+
+    // Before the database is opened: undoes a restore that was interrupted partway through
+    // exchanging the files, so the app starts on a whole database rather than on neither.
+    recoverInterruptedRestore();
 
     const dbProvider = new BetterSqlite3Provider();
     dbProvider.loadFromFile(dataDirs.DOCUMENT_PATH, config.General.readOnly);
@@ -257,9 +273,21 @@ export async function main() {
         getDemoArchive: async () => fs.readFileSync(path.join(RESOURCE_DIR, "db", "demo.zip")),
         inAppHelp: new NodejsInAppHelpProvider(),
         log: new ServerLogService(),
-        backup: new ServerBackupService(options),
+        // Only the desktop lets the user pick where backups go; the server uses TRILIUM_BACKUP_DIR.
+        backup: new ServerBackupService(
+            options,
+            {
+                allowCustomDirectory: true,
+                getPassphrase: getBackupPassphrase,
+                setPassphrase: adoptBackupPassphrase
+            }
+        ),
         image: (await import("@triliumnext/server/src/services/image_provider.js")).serverImageProvider,
         config,
+        // Read before core exists, because what it says is whether to open the database at all: a
+        // relaunch asked for by the app itself comes back here and goes to the setup window instead.
+        setupMarker: consumeSetupMarker(),
+        setupPlatform,
         extraAppInfo: {
             nodeVersion: process.version,
             dataDirectory: path.resolve(dataDirs.TRILIUM_DATA_DIR)
@@ -324,7 +352,7 @@ async function onReady() {
     // custom `trilium-app://` origin. We use the desktop's local server origin —
     // the same value the working browser client sends. Registered on the shared
     // default session before any window is created.
-    setupEmbedReferer(`http://localhost:${port}/`);
+    setupReferer(`http://localhost:${port}/`);
 
     // if db is not initialized -> setup process
     // if db is initialized, then we need to wait until the migration process is finished

@@ -65,12 +65,15 @@ async function createNote(parentNotePath: string | undefined, options: CreateNot
         options.isProtected = false;
     }
 
-    if (appContext.tabManager.getActiveContextNoteType() !== "text") {
+    // Whether there is a selection to save is the editor's answer, not the tab manager's: the editor
+    // handing us the selection is not necessarily the active tab's (a split, the quick editor, an
+    // embedded pane). An empty selection means there is nothing to cut, so the note is created as an
+    // ordinary empty child and the source note is left untouched.
+    const selectedHtml = options.saveSelection ? options.textEditor?.getSelectedHtml() : null;
+    if (selectedHtml) {
+        [options.title, options.content] = parseSelectedHtml(selectedHtml);
+    } else {
         options.saveSelection = false;
-    }
-
-    if (options.saveSelection && options.textEditor) {
-        [options.title, options.content] = parseSelectedHtml(options.textEditor.getSelectedHtml());
     }
 
     const parentNoteId = treeService.getNoteIdFromUrl(parentNotePath);

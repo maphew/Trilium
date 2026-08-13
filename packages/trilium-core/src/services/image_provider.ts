@@ -93,7 +93,37 @@ export interface ImageProvider {
      * @param request - Fully resolved compression parameters
      */
     planCompression(header: Uint8Array, request: ImageCompressionRequest): Promise<ImageCompressionPlan>;
+
+    /**
+     * Scales a link preview's cover image down to `maxEdge` and re-encodes it, or declines.
+     *
+     * Separate from {@link compressImage} because the two want opposite things. Compression is
+     * offered an image the user chose to keep and tries to make it cheaper without changing what it
+     * is; this is handed someone else's `og:image` — up to 5MB of it — and wants a thumbnail nobody
+     * will see above a couple of hundred pixels. Reusing the compression path would mean carrying
+     * the full picture through a pipeline sized for the user's own photographs, to produce something
+     * that is thrown away at the size this asks for anyway.
+     *
+     * Declining is a first-class answer, not a failure: a runtime with no decoder cannot do this at
+     * all, and the caller has a perfectly good fallback — keep the original bytes when they are
+     * small enough, and otherwise show the preview without a picture, which is what it does for an
+     * image the decoder cannot read either way.
+     */
+    resizeForPreview(bytes: Uint8Array, request: PreviewResizeRequest): Promise<PreviewResizeOutcome>;
 }
+
+/** How a preview's cover image is to be reduced. */
+export interface PreviewResizeRequest {
+    /** Longest edge to scale down to. Never up: a small picture is left at the size it came. */
+    maxEdge: number;
+    /** Quality for the JPEG an opaque image becomes; one with real transparency becomes a PNG. */
+    jpegQuality: number;
+}
+
+/** Bytes to store in place of the original, or the reason there are none. */
+export type PreviewResizeOutcome =
+    | { resized: true; bytes: Uint8Array }
+    | { resized: false; reason: "undecodable" | "unsupported-platform" };
 
 /** What a provider makes of an image from its header alone. */
 export interface ImageCompressionPlan {

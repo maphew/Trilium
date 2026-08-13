@@ -12,7 +12,6 @@ import Button from "../../react/Button";
 import CodeBlock from "../../react/CodeBlock";
 import Collapsible from "../../react/Collapsible";
 import FormTextBox from "../../react/FormTextBox";
-import FormToggle from "../../react/FormToggle";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import MaskedIcon from "../../react/MaskedIcon";
 import NoItems from "../../react/NoItems";
@@ -24,41 +23,25 @@ import AddProviderModal, { type LlmProviderConfig, PROVIDER_TYPES } from "./llm/
 export default function LlmSettings() {
     const [aiEnabled, setAiEnabled] = useTriliumOptionBool("aiEnabled");
 
-    if (isStandalone) {
-        return (
-            <>
-                <OptionsPageHeader helpUrl="GBBMSlVSOIGP" />
-                <OptionsSection>
-                    <NoItems icon="bx bx-bot" text={t("llm.not_available_in_standalone")} />
-                </OptionsSection>
-            </>
-        );
-    }
-
     return (
         <>
-            <OptionsPageHeader
-                helpUrl="GBBMSlVSOIGP"
-                actions={
-                    <FormToggle
-                        switchOnName="" switchOffName=""
-                        switchOnTooltip={t("experimental_features.llm_name")}
-                        switchOffTooltip={t("experimental_features.llm_name")}
-                        currentValue={aiEnabled}
-                        onChange={setAiEnabled}
-                    />
-                }
-            />
+            <OptionsPageHeader helpUrl="GBBMSlVSOIGP" />
 
-            {aiEnabled ? (
+            <OptionsSection>
+                <OptionsRowWithToggle
+                    name="ai-enabled"
+                    label={t("llm.enabled")}
+                    description={t("llm.enabled_description")}
+                    currentValue={aiEnabled}
+                    onChange={setAiEnabled}
+                />
+            </OptionsSection>
+
+            {aiEnabled && (
                 <>
                     <ProviderSettings />
                     <McpSettings />
                 </>
-            ) : (
-                <OptionsSection>
-                    <NoItems icon="bx bx-bot" text={t("llm.disabled_placeholder")} />
-                </OptionsSection>
             )}
         </>
     );
@@ -136,16 +119,29 @@ function McpSettings() {
     const localUrl = useMemo(() => getMcpEndpointUrl(), []);
     const tokenPlaceholder = t("llm.mcp_config_token_placeholder");
 
+    // MCP is the one inbound part of the feature: everything else here dials out to
+    // a provider, while MCP publishes Trilium's tools to programs that dial in. The
+    // standalone build binds no socket — its server is a worker inside this page, and
+    // /mcp is mounted on an Express app it never runs — so there is no address to
+    // hand out and no ETAPI token to reach it with. Shown disabled rather than
+    // hidden, so the section reads as "not in this build" instead of "not a feature".
+    //
+    // Forced off rather than merely left untoggleable: mcpEnabled is unsynced, but a
+    // database restored from a desktop instance carries the option inside it, so the
+    // stored value can be true even here.
+    const mcpUnavailable = isStandalone;
+    const mcpServing = mcpEnabled && !mcpUnavailable;
+
     // The renderer can't enumerate network interfaces itself (Node integration is
     // disabled on desktop), so reuse the endpoint the sync-from-desktop setup screen
     // already uses — it resolves the real protocol and port server-side too.
     useEffect(() => {
-        if (!mcpEnabled) return;
+        if (!mcpServing) return;
         let cancelled = false;
         void server.get<NetworkAddressesResponse>("network-addresses")
             .then((info) => { if (!cancelled) setNetworkInfo(info); });
         return () => { cancelled = true; };
-    }, [mcpEnabled]);
+    }, [mcpServing]);
 
     // Only advertise LAN addresses when Trilium is actually bound to a reachable
     // interface; on a loopback-only binding they would all refuse the connection.
@@ -161,12 +157,13 @@ function McpSettings() {
             <OptionsRowWithToggle
                 name="mcp-enabled"
                 label={t("llm.mcp_enabled")}
-                description={t("llm.mcp_enabled_description")}
-                currentValue={mcpEnabled}
+                description={mcpUnavailable ? t("llm.mcp_unavailable_standalone") : t("llm.mcp_enabled_description")}
+                currentValue={mcpServing}
                 onChange={setMcpEnabled}
+                disabled={mcpUnavailable}
             />
 
-            {mcpEnabled && (
+            {mcpServing && (
                 <>
                     <OptionsRow name="mcp-endpoint" label={t("llm.mcp_endpoint_title")} description={t("llm.mcp_endpoint_description")} stacked>
                         <div class="mcp-endpoint-list">

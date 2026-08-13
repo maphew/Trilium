@@ -179,6 +179,52 @@ describe("processNoteContent", () => {
         expect(content).not.toContain("Markdown Note_image.jpg");
     });
 
+    it("points the pictures of an imported mind map at the attachments as they were recreated", async () => {
+        // The map carries the address each picture was served from where it was exported, and every
+        // attachment is given a new id on the way in — so without rewriting, the pictures of an
+        // imported map would point at attachments of the instance it left.
+        const metaFile = {
+            formatVersion: 2,
+            appVersion: "0.0.0",
+            files: [{
+                noteId: "mindMapNote1",
+                title: "Mind Map",
+                type: "mindMap",
+                mime: "application/json",
+                dataFileName: "Mind Map.json",
+                attachments: [{
+                    attachmentId: "mapPicture1",
+                    title: "photo.png",
+                    role: "image",
+                    mime: "image/png",
+                    position: 10,
+                    dataFileName: "Mind Map_photo.png"
+                }]
+            }]
+        };
+        const mapData = {
+            nodeData: {
+                id: "root",
+                topic: "Root",
+                image: { url: "api/attachments/mapPicture1/image/photo.png", width: 240, height: 180 }
+            }
+        };
+
+        const zipBuffer = await createZipBuffer({
+            "!!!meta.json": JSON.stringify(metaFile),
+            "Mind Map.json": JSON.stringify(mapData),
+            "Mind Map_photo.png": Buffer.from("fake image data")
+        });
+
+        const { importedNote } = await testImportBuffer(zipBuffer);
+        const [ picture ] = importedNote.getAttachmentsByRole("image");
+        const content = importedNote.getContent() as string;
+
+        expect(picture.attachmentId).not.toBe("mapPicture1");
+        expect(content).toContain(`api/attachments/${picture.attachmentId}/image/photo.png`);
+        expect(content).not.toContain("mapPicture1");
+    });
+
     it("restores an embedded mermaid diagram as a note reference, not as a raw attachment", async () => {
         // The export points the <img> at the mermaid note's generated `mermaid-export.svg`.
         // On the way back in that has to resolve to `api/images/<noteId>` — which re-renders the
@@ -691,6 +737,48 @@ describe("processNoteContent", () => {
         }));
 
         await expect(testImportBuffer(zipBuffer, "import-name-collision-nested")).rejects.toThrow("Missing parent note ID.");
+    });
+
+    it("imports a note whose file name carries a character outside Latin-1", async () => {
+        // Entry names come from note titles, so a curly apostrophe (U+2019) is routine. A provider that
+        // mangles it makes the path miss its !!!meta.json entry, at which point the importer falls back
+        // to path-based parentage and aborts on the folder it can no longer place the note under.
+        const metaFile = {
+            formatVersion: 2,
+            appVersion: "0.0.0",
+            files: [{
+                noteId: "curlyFolder1",
+                title: "Map",
+                type: "text",
+                mime: "text/html",
+                format: "html",
+                dataFileName: "Map.html",
+                dirFileName: "Map",
+                attributes: [],
+                attachments: [],
+                children: [{
+                    noteId: "curlyChild01",
+                    title: "Private Murnahan’s Holotape",
+                    type: "text",
+                    mime: "text/html",
+                    format: "html",
+                    dataFileName: "Private Murnahan’s Holotape.html",
+                    attributes: [],
+                    attachments: []
+                }]
+            }]
+        };
+
+        const zipBuffer = Buffer.from(zipSync({
+            "!!!meta.json": strToU8(JSON.stringify(metaFile)),
+            "Map.html": strToU8("<p>map</p>"),
+            "Map/Private Murnahan’s Holotape.html": strToU8("<p>holotape</p>")
+        }));
+
+        const { rootNote } = await testImportBuffer(zipBuffer, "import-non-latin1-name");
+        const folder = rootNote.getChildNotes().find((n) => n.title === "Map");
+
+        expect(folder?.getChildNotes().map((n) => n.title)).toEqual(["Private Murnahan’s Holotape"]);
     });
 
     it("restores a cloned note whose clone entry precedes its primary", async () => {

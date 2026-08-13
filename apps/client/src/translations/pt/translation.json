@@ -1146,7 +1146,6 @@
     "images_section_title": "Imagens",
     "download_images_automatically": "Descarregar imagens automaticamente para uso offline.",
     "download_images_description": "HTML colado pode conter referências a imagens on-line, Trilium vai procurar estas referências e descarregar as imagens para que estejam disponíveis off-line.",
-    "enable_image_compression": "Ativar compressão de imagem",
     "max_image_dimensions": "Largura/altura máxima de uma imagem (a imagem será redimensionada se exceder este valor).",
     "max_image_dimensions_unit": "pixels",
     "jpeg_quality_description": "Qualidade JPEG (10 - pior qualidade, 100 - melhor qualidade, 50 - 85 é recomendado)"
@@ -1265,7 +1264,6 @@
     "enable_monthly_backup": "Ativar backup mensal",
     "backup_recommendation": "É recomendado manter o backup ativado, mas isto pode fazer com que a inicialização da aplicação seja lenta com grandes bases de dados e/ou dispositivos de armazenamento lentos.",
     "backup_now": "Realizar backup agora",
-    "backup_database_now": "Realizar backup da base de dados agora",
     "existing_backups": "Backups existentes",
     "date-and-time": "Data & hora",
     "path": "Caminho",
@@ -1607,7 +1605,6 @@
     "sync_warning": "Está a passar uma função síncrona para `api.runAsyncOnBackendWithManualTransactionHandling()`,\\nquando deveria usar `api.runOnBackend()` no lugar."
   },
   "ws": {
-    "sync-check-failed": "A verificação de sincronização falhou!",
     "consistency-checks-failed": "A verificação de consistência falhou! Veja os logs para pormenores.",
     "encountered-error": "Encontrado o erro \"{{message}}\", verifique o console.",
     "lost-websocket-connection-title": "Perdida conexão com o servidor",

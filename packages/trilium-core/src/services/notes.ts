@@ -1,4 +1,4 @@
-import { type AttachmentRow, attachmentRoleTraits, type AttributeRow, type BranchRow, dayjs, isEmbeddedAttachmentRole, isImageAttachmentRole, type NoteRow, NOTE_TYPE_IMAGE_ATTACHMENTS, type NoteType } from "@triliumnext/commons";
+import { type AttachmentRow, attachmentRoleTraits, type AttributeRow, type BranchRow, dayjs, isEmbeddedAttachmentRole, isImageAttachmentRole, type NoteRow, NOTE_TYPE_IMAGE_ATTACHMENTS, type NoteType, parseMindMapNoteLink } from "@triliumnext/commons";
 import { t } from "i18next";
 import { parse as parseHtml } from "node-html-parser";
 
@@ -10,6 +10,7 @@ import BNote from "../becca/entities/bnote.js";
 import { ValidationError } from "../errors.js";
 import { getLog } from "../services/log.js";
 import protectedSessionService from "../services/protected_session.js";
+import blobService from "./blob.js";
 import * as cls from "./context.js";
 import entityChangesService from "./entity_changes.js";
 import eventService from "./events.js";
@@ -108,14 +109,17 @@ function deriveMime(type: string, mime?: string) {
 }
 
 function copyChildAttributes(parentNote: BNote, childNote: BNote, isTypeDefaulted = false) {
+    // A template *owned* at this point was chosen by the user explicitly in the menu, and suppresses
+    // the `child:template` defaults (#3628). Deliberately read once, before the loop, and owned-only
+    // so an inherited `~template` on the parent doesn't count as a choice.
+    const hasUserChosenTemplate = childNote.hasOwnedRelation("template");
+
     for (const attr of parentNote.getAttributes()) {
         if (attr.name.startsWith("child:")) {
             const name = attr.name.substring(6);
 
             if (attr.type === "relation" && name === "template") {
-                if (childNote.hasRelation("template")) {
-                    // if the note already has a template, it means the template was chosen by the user explicitly
-                    // in the menu. In that case, we should override the default templates defined in the child: attrs
+                if (hasUserChosenTemplate) {
                     continue;
                 }
 
@@ -411,9 +415,12 @@ function protectNote(note: BNote, protect: boolean) {
     try {
         if (protect !== note.isProtected) {
             const content = note.getContent();
+            const extractedText = readExtractedText(note.blobId, note.isProtected);
 
             note.isProtected = protect;
             note.setContent(content, { forceSave: true });
+
+            writeExtractedText(note.blobId, extractedText, protect);
         }
 
         revisionService.protectRevisions(note);
@@ -422,9 +429,12 @@ function protectNote(note: BNote, protect: boolean) {
             if (protect !== attachment.isProtected) {
                 try {
                     const content = attachment.getContent();
+                    const extractedText = readExtractedText(attachment.blobId, attachment.isProtected);
 
                     attachment.isProtected = protect;
                     attachment.setContent(content, { forceSave: true });
+
+                    writeExtractedText(attachment.blobId, extractedText, protect);
                 } catch (e) {
                     log.error(`Could not un/protect attachment '${attachment.attachmentId}'`);
 
@@ -437,6 +447,41 @@ function protectNote(note: BNote, protect: boolean) {
 
         throw e;
     }
+}
+
+/**
+ * The text OCR pulled out of a file, read off the blob holding it.
+ *
+ * (Un)protecting re-saves content that has not changed a byte, but a blob's identity takes its
+ * protection into account, so the re-save lands on a different row — one with no extracted text on it.
+ * The text describes the same file either way, so it is read here while the old state still says how
+ * it is stored, and put back by {@link writeExtractedText} once the new state does.
+ */
+function readExtractedText(blobId: string | undefined, isProtected: boolean | undefined): string {
+    if (!blobId) {
+        return "";
+    }
+
+    const row = getSql().getRowOrNull<{ textRepresentation: string | null }>(
+        /*sql*/`SELECT textRepresentation FROM blobs WHERE blobId = ?`,
+        [blobId]
+    );
+
+    return blobService.decryptTextRepresentation(row?.textRepresentation, !!isProtected);
+}
+
+/** Puts {@link readExtractedText}'s text back, on the blob the re-save produced and in its terms. */
+function writeExtractedText(blobId: string | undefined, extractedText: string, isProtected: boolean) {
+    if (!blobId || !extractedText) {
+        return;
+    }
+
+    getSql().execute(
+        /*sql*/`UPDATE blobs SET textRepresentation = ? WHERE blobId = ?`,
+        [blobService.encryptTextRepresentation(extractedText, isProtected), blobId]
+    );
+
+    entityChangesService.putBlobEntityChange(blobId);
 }
 
 export function checkImageAttachments(note: BNote, content: string) {
@@ -456,9 +501,10 @@ export function checkImageAttachments(note: BNote, content: string) {
     if (!isCanvas) {
         let match;
 
-        // Spreadsheet content is JSON storing inline images as bare `api/attachments/{id}/image/...`
-        // URLs (no `src="..."` wrapper), so it scans with the same loose pattern as Markdown.
-        const patterns: { pattern: RegExp, previewPicture?: boolean }[] = (note.isMarkdown() || note.type === "spreadsheet")
+        // Spreadsheet and mind map content is JSON storing images as bare
+        // `api/attachments/{id}/image/...` URLs (no `src="..."` wrapper), so they scan with the same
+        // loose pattern as Markdown.
+        const patterns: { pattern: RegExp, previewPicture?: boolean }[] = (note.isMarkdown() || note.type === "spreadsheet" || note.type === "mindMap")
             ? [
                 // ![...](api/attachments/{id}/image/...) or similar markdown image syntax
                 { pattern: /api\/attachments\/([a-zA-Z0-9_]+)\/image/g },
@@ -502,6 +548,11 @@ export function checkImageAttachments(note: BNote, content: string) {
         // rendered image, looked up by title by the image endpoint — so leave it alone (otherwise it
         // would be scheduled for erasure on every save).
         if (note.type === "spreadsheet" && attachment.title === NOTE_TYPE_IMAGE_ATTACHMENTS.spreadsheet) {
+            continue;
+        }
+
+        // Likewise for the mind map SVG export preview, which the map JSON never references.
+        if (note.type === "mindMap" && attachment.title === NOTE_TYPE_IMAGE_ATTACHMENTS.mindMap) {
             continue;
         }
 
@@ -811,6 +862,47 @@ function findRelationMapLinks(content: string, foundLinks: FoundLink[]) {
     }
 }
 
+/**
+ * Collects the notes a mind map's nodes link to.
+ *
+ * A node carries one link of its own, and what makes it a link to a note is
+ * {@link parseMindMapNoteLink}'s to say; anything else is an address outside Trilium. The whole map
+ * is walked rather than only its nodes, so that a link stays found wherever Mind Elixir comes to
+ * keep one.
+ */
+export function findMindMapLinks(content: string, foundLinks: FoundLink[]) {
+    try {
+        collectMindMapLinks(JSON.parse(content), foundLinks);
+    } catch (e: any) {
+        getLog().error(`Could not scan for mind map links: ${e.message}`);
+    }
+}
+
+function collectMindMapLinks(value: unknown, foundLinks: FoundLink[]) {
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            collectMindMapLinks(item, foundLinks);
+        }
+        return;
+    }
+
+    if (!value || typeof value !== "object") {
+        return;
+    }
+
+    const record = value as Record<string, unknown>;
+    const noteId = parseMindMapNoteLink(record.hyperLink)?.noteId;
+    if (noteId) {
+        foundLinks.push({
+            name: "internalLink",
+            value: noteId
+        });
+    }
+
+    for (const key of Object.keys(record)) {
+        collectMindMapLinks(record[key], foundLinks);
+    }
+}
 
 /**
  * Derives a plain-text attachment title from the inner HTML of an inline
@@ -878,7 +970,7 @@ function stripStaleSrcset(content: string): string {
 
 
 export function saveLinks(note: BNote, content: string | Uint8Array) {
-    if ((note.type !== "text" && note.type !== "relationMap" && note.type !== "llmChat" && note.type !== "spreadsheet" && note.type !== "canvas" && !note.isMarkdown()) || (note.isProtected && !protectedSessionService.isProtectedSessionAvailable())) {
+    if ((note.type !== "text" && note.type !== "relationMap" && note.type !== "llmChat" && note.type !== "spreadsheet" && note.type !== "canvas" && note.type !== "mindMap" && !note.isMarkdown()) || (note.isProtected && !protectedSessionService.isProtectedSessionAvailable())) {
         return {
             forceFrontendReload: false,
             content
@@ -911,6 +1003,11 @@ export function saveLinks(note: BNote, content: string | Uint8Array) {
         // Canvas images are stored as attachments titled with the Excalidraw fileId referenced from
         // the scene JSON; scan for orphans (inserted-then-removed images) so they get scheduled for
         // erasure. There are no Trilium internal links to extract from canvas content.
+        ({ forceFrontendReload, content } = checkImageAttachments(note, content));
+    } else if (note.type === "mindMap" && typeof content === "string") {
+        findMindMapLinks(content, foundLinks);
+        // Mind map node images are stored as attachments referenced by URL from the map JSON; scan
+        // for orphans (inserted-then-removed images) so they get scheduled for erasure.
         ({ forceFrontendReload, content } = checkImageAttachments(note, content));
     } else if (note.type === "relationMap" && typeof content === "string") {
         findRelationMapLinks(content, foundLinks);
@@ -1190,7 +1287,9 @@ function getUndeletedParentBranchIds(noteId: string, deleteId: string) {
 }
 
 function scanForLinks(note: BNote, content: string | Uint8Array) {
-    if (!note || !["text", "relationMap"].includes(note.type)) {
+    // A mind map is scanned here as well as on save, so that one arriving by import carries its
+    // links to the notes it points at without having to be opened and edited first.
+    if (!note || !["text", "relationMap", "mindMap"].includes(note.type)) {
         return;
     }
 
