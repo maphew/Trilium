@@ -141,6 +141,7 @@ export default class CollapsibleEditing extends Plugin {
         this.registerConversion();
         this.registerBodyPlaceholder();
         this.registerKeyHandlers();
+        this.registerMergeGuard();
         this.registerClickHandler();
         this.registerDomListeners();
         this.registerPostFixers();
@@ -540,6 +541,8 @@ export default class CollapsibleEditing extends Plugin {
         this.listenTo<ViewDocumentDeleteEvent>(viewDocument, "delete",
             (evt, data) => this.onDeleteAdjacentDetails(evt, data));
         this.listenTo<ViewDocumentDeleteEvent>(viewDocument, "delete",
+            (evt, data) => this.onForwardDeleteBeforeDetails(evt, data));
+        this.listenTo<ViewDocumentDeleteEvent>(viewDocument, "delete",
             (evt, data) => this.onBackspaceInEmptySummary(evt, data), { context: "summary" });
     }
 
@@ -739,6 +742,79 @@ export default class CollapsibleEditing extends Plugin {
         data.preventDefault();
         evt.stop();
         /* v8 ignore stop */
+    }
+
+    /**
+     * Forward Delete from an empty block sitting directly before a collapsible: drop the
+     * block and put the caret at the start of the title.
+     *
+     * That is the same outcome CKEditor's own merge was reaching for, minus the merge —
+     * which {@link CollapsibleEditing#registerMergeGuard} keeps away from a <details>,
+     * so without this handler the keystroke would do nothing at all. A plain remove plus
+     * a selection change converts correctly.
+     */
+    private onForwardDeleteBeforeDetails(evt: any, data: any) {
+        if (data.direction !== "forward") return;
+        const selection = this.editor.model.document.selection;
+        if (!selection.isCollapsed) return;
+        const block = selection.getFirstPosition()?.parent;
+        if (!block || !block.is("element") || !block.isEmpty) return;
+        const details = block.nextSibling;
+        if (!details?.is("element", "details")) return;
+        const summary = details.getChild(0);
+        /* v8 ignore next -- a <details> always holds a <summary> as its first child by the time this runs */
+        if (!summary?.is("element", "summary")) return;
+
+        data.preventDefault();
+        evt.stop();
+
+        this.editor.model.change(writer => {
+            writer.setSelection(summary, 0);
+            // An empty <summary> is a title, not a blank line the user wants gone:
+            // removing it would only make the summary-invariant post-fixer put a fresh
+            // one back, so there the caret move is the whole effect.
+            if (!block.is("element", "summary")) {
+                writer.remove(block);
+            }
+        });
+    }
+
+    /**
+     * Keep `deleteContent` from merging a block into a <details>.
+     *
+     * When a deletion leaves its start block empty, CKEditor merges *right*: the empty
+     * block is moved into the <details> that holds the end of the range, renamed to
+     * `summary`, and the old title merged into it. The resulting model is correct; the
+     * editing view is not. Reconverting a <details> re-slots its children's existing view
+     * elements instead of converting them again, so a child moved in during the same
+     * change block keeps the element name and the content it had before the move — the
+     * collapsible renders with no <summary> at all (a bare native "Details" marker) and
+     * the next caret move throws `mapping-model-offset-not-found`. This is reachable from
+     * every path that deletes across the boundary: Delete on a blank line above a
+     * collapsible, a selection running from there into the title or body, and typing or
+     * pasting over such a selection.
+     *
+     * `leaveUnmerged` skips `mergeBranches` only, so the selected content is still
+     * deleted — the emptied block simply stays put instead of being folded into the
+     * collapsible. Merges in the other direction are left alone: when content survives in
+     * the start block, or the range runs out of a collapsible rather than into one,
+     * CKEditor merges left and the element it moves is the one it then removes, so nothing
+     * stale is left behind to re-slot.
+     */
+    private registerMergeGuard() {
+        this.listenTo(this.editor.model, "deleteContent", (_evt, args: any[]) => {
+            const [selection, options] = args;
+            const range = selection.getFirstRange();
+            /* v8 ignore next -- deleteContent bails on a collapsed selection before this fires */
+            if (!range) return;
+            // Content survives in the start block → CKEditor merges left, which converts fine.
+            if (!range.start.isAtStart) return;
+            // Nothing is moved into a <details> unless the range ends inside one that does
+            // not already hold its start.
+            const details = range.end.findAncestor("details");
+            if (!details || range.start.getAncestors().includes(details)) return;
+            args[1] = { ...options, leaveUnmerged: true };
+        }, { priority: "high" });
     }
 
     /** Backspace at start of an empty summary unwraps the collapsible. */
