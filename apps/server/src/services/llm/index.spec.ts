@@ -22,17 +22,19 @@ vi.mock("@triliumnext/core/src/services/llm/tools/index.js", () => ({
 
 import { registerServerLlmExtensions } from "./index.js";
 import { ClaudeAgentProvider } from "./providers/claude_agent.js";
+import { CopilotAgentProvider } from "./providers/copilot_agent.js";
 import { helpTools } from "./tools/help_tools.js";
 
 describe("registerServerLlmExtensions", () => {
     it("hands core every piece of the stack that needs Node", () => {
         registerServerLlmExtensions();
 
-        // The subscription provider, which shells out to the Claude Code CLI, under
-        // the type core knows it by. Registered as a factory, so nothing is
-        // constructed until a chat asks for it.
-        expect(registrations.hostProviders.map(p => p.type)).toEqual(["claude-agent"]);
+        // The subscription providers, which shell out to the Claude Code and Copilot
+        // CLIs, under the types core knows them by. Registered as factories, so
+        // nothing is constructed until a chat asks for it.
+        expect(registrations.hostProviders.map(p => p.type)).toEqual(["claude-agent", "copilot-agent"]);
         expect(registrations.hostProviders[0].factory()).toBeInstanceOf(ClaudeAgentProvider);
+        expect(registrations.hostProviders[1].factory()).toBeInstanceOf(CopilotAgentProvider);
         // The User Guide reader, which core's note-content helper calls for doc notes.
         expect(registrations.docNoteReader).toBeTypeOf("function");
         // The skill sheets: core owns the catalog and the tool, the server only
