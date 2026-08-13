@@ -319,9 +319,12 @@ export default class MermaidEditing extends Plugin {
 		};
 
 		// Chain onto the queue so only one mermaid.render runs at a time, while still
-		// letting each caller's promise settle when *its* turn finishes.
+		// letting each caller's promise settle when *its* turn finishes. `run` swallows its
+		// own failures, so the chain never rejects; passing it as the rejection handler too
+		// means a future throw would still let the next render through instead of wedging
+		// the queue permanently.
 		const queued = this._renderQueue.then( run, run );
-		this._renderQueue = queued.then( () => undefined, () => undefined );
+		this._renderQueue = queued;
 		await queued;
 	}
 }

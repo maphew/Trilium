@@ -259,6 +259,73 @@ describe( 'MermaidEditing rendering', () => {
 		expect( previewDom().innerHTML ).to.equal( '' );
 	} );
 
+	it( 'clears the preview when the source attribute is removed outright', async () => {
+		const instance = createFakeMermaid( async () => ( { svg: '<svg id="rendered"></svg>' } ) );
+		editor = await createEditor( { lazyLoad: async () => instance } );
+
+		setModelData( editor.model, '[<mermaid displayMode="split" source="a"></mermaid>]' );
+		editor.model.change( writer => {
+			const item = editor.model.document.getRoot()?.getChild( 0 );
+			if ( item?.is( 'element' ) ) {
+				writer.setAttribute( 'source', 'b', item );
+			}
+		} );
+		await waitFor( () => previewDom().innerHTML !== '' );
+
+		// Removal hands the downcast a null value rather than an empty string.
+		editor.model.change( writer => {
+			const item = editor.model.document.getRoot()?.getChild( 0 );
+			if ( item?.is( 'element' ) ) {
+				writer.removeAttribute( 'source', item );
+			}
+		} );
+		await waitFor( () => previewDom().innerHTML === '' );
+
+		expect( previewDom().innerHTML ).to.equal( '' );
+	} );
+
+	it( 'stringifies a non-Error thrown by the renderer', async () => {
+		const instance = createFakeMermaid( async () => {
+			throw 'boom';
+		} );
+		editor = await createEditor( { lazyLoad: async () => instance } );
+
+		setModelData( editor.model, '[<mermaid displayMode="split" source="a"></mermaid>]' );
+		editor.model.change( writer => {
+			const item = editor.model.document.getRoot()?.getChild( 0 );
+			if ( item?.is( 'element' ) ) {
+				writer.setAttribute( 'source', 'not a diagram', item );
+			}
+		} );
+		await waitFor( () => previewDom().innerText === 'boom' );
+
+		expect( previewDom().innerText ).to.equal( 'boom' );
+	} );
+
+	it( 'does not surface an error from a render a newer one has superseded', async () => {
+		const pending: Array<( reason: unknown ) => void> = [];
+		const instance = createFakeMermaid( () => new Promise( ( _resolve, reject ) => {
+			pending.push( reject );
+		} ) );
+		editor = await createEditor( { lazyLoad: async () => instance } );
+
+		const plugin = editor.plugins.get( MermaidEditing ) as unknown as {
+			_renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
+		};
+		const target = document.createElement( 'div' );
+
+		const stale = plugin._renderMermaid( target, 'first' );
+		await waitFor( () => pending.length >= 1 );
+		// Clearing bumps this element's generation synchronously, so the in-flight render is
+		// already stale by the time it rejects.
+		await plugin._renderMermaid( target, '' );
+
+		pending[ 0 ]?.( new Error( 'Parse error on line 1' ) );
+		await stale;
+
+		expect( target.innerHTML ).to.equal( '' );
+	} );
+
 	describe( 'the source textarea', () => {
 		beforeEach( async () => {
 			editor = await createEditor( { lazyLoad: async () => createFakeMermaid( async () => ( { svg: '' } ) ) } );
