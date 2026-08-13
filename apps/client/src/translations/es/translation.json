@@ -2109,7 +2109,6 @@
     "backend_scripting_disabled_more_info": "Más información"
   },
   "ws": {
-    "sync-check-failed": "¡La comprobación de sincronización falló!",
     "consistency-checks-failed": "¡Las comprobaciones de consistencia fallaron! Vea los registros para más detalles.",
     "encountered-error": "Error encontrado \"{{message}}\", compruebe la consola.",
     "lost-websocket-connection-title": "Se ha perdido la conexión con el servidor",

@@ -2343,7 +2343,6 @@
     "backend_scripting_disabled_more_info": "Maggiori informazioni"
   },
   "ws": {
-    "sync-check-failed": "Controllo di sincronizzazione fallito!",
     "consistency-checks-failed": "Controlli di coerenza falliti! Vedi i log per i dettagli.",
     "encountered-error": "Si è verificato l'errore \"{{message}}\", controlla la console.",
     "lost-websocket-connection-title": "Connessione al server persa",

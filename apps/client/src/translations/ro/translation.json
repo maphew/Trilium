@@ -1723,7 +1723,6 @@
   "ws": {
     "consistency-checks-failed": "Au fost identificate erori de consistență! Vedeți mai multe detalii în loguri.",
     "encountered-error": "A fost întâmpinată o eroare: „{{message}}”. Vedeți în loguri pentru mai multe detalii.",
-    "sync-check-failed": "Verificările de sincronizare au eșuat!",
     "lost-websocket-connection-title": "S-a pierdut conexiunea la server",
     "lost-websocket-connection-message": "Verificați configurația reverse proxy-ului (e.g. nginx sau Apache) astfel încât să permită comunicarea prin WebSocket."
   },

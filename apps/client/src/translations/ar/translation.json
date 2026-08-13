@@ -1910,7 +1910,6 @@
     "manual_erasing_description": "تنفيذ الحذف يدويًا، مع تجاهل المهلة الزمنية المذكورة أعلاه."
   },
   "ws": {
-    "sync-check-failed": "فشل التحقق من المزامنة!",
     "lost-websocket-connection-title": "تم فقدان الاتصال بالخادم",
     "lost-websocket-connection-message": "تحقق من إعدادات الخادم العكسي (Reverse Proxy) لديك (مثل Nginx أو Apache HTTP Server) للتأكد من أن اتصالات WebSocket مسموح بها بشكل صحيح وغير محجوبة.",
     "consistency-checks-failed": "فشل التحقق من الاتساق! راجع السجلات للتفاصيل.",

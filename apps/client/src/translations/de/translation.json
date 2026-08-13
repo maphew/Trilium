@@ -1825,7 +1825,6 @@
     "backend_scripting_disabled_more_info": "Weitere Informationen"
   },
   "ws": {
-    "sync-check-failed": "Synchronisationsprüfung fehlgeschlagen!",
     "consistency-checks-failed": "Konsistenzprüfung fehlgeschlagen! Siehe Logs für Details.",
     "encountered-error": "Fehler „{{message}}“ aufgetreten, siehe Konsole für Details.",
     "lost-websocket-connection-title": "Verbindung zum Server verloren",

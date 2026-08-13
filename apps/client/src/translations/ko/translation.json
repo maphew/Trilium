@@ -1546,7 +1546,8 @@
     "editor_crashed_details_intro": "이 오류가 여러 번 발생한다면, 아래 정보를 붙여넣어 GitHub에 신고하는 것을 고려해 보세요.",
     "editor_crashed_details_title": "기술 정보",
     "auto-detect-language": "자동 탐지",
-    "keeps-crashing": "편집 구성 요소가 계속 비정상 종료됩니다. Trilium을 다시 시작하세요. 문제가 계속되면 버그 보고서 작성을 고려하세요."
+    "keeps-crashing": "편집 구성 요소가 계속 비정상 종료됩니다. Trilium을 다시 시작하세요. 문제가 계속되면 버그 보고서 작성을 고려하세요.",
+    "nothing_selected_to_cut": "먼저 하위 노트로 분리할 텍스트를 선택하세요."
   },
   "empty": {
     "open_note_instruction": "아래 입력란에 노트 제목을 입력하거나 트리에서 노트를 선택하여 엽니다.",
@@ -2256,7 +2257,8 @@
     "custom_dictionary_edit": "맞춤 단어",
     "custom_dictionary_edit_description": "맞춤법 검사기에서 표시되어서는 안 되는 단어 목록을 편집하세요. 변경 사항은 재시작 후에 확인할 수 있습니다.",
     "custom_dictionary_open": "사전 편집",
-    "related_description": "맞춤법 검사 언어와 맞춤 사전을 설정하세요."
+    "related_description": "맞춤법 검사 언어와 맞춤 사전을 설정하세요.",
+    "enable_description": "입력하는 동안 맞춤법이 틀린 단어에 밑줄을 표시하고, 마우스 오른쪽 버튼 메뉴에서 수정 제안을 제공합니다."
   },
   "sync_2": {
     "config_title": "동기화 서버",
@@ -2654,7 +2656,6 @@
     "backend_scripting_disabled_more_info": "추가 정보"
   },
   "ws": {
-    "sync-check-failed": "동기화 검사 실패!",
     "consistency-checks-failed": "일관성 검사 실패! 자세한 내용은 로그를 참조하세요.",
     "encountered-error": "\"{{message}}\" 오류가 발생했는데, 콘솔을 확인해 보세요.",
     "lost-websocket-connection-title": "서버 연결이 끊겼습니다",
@@ -3064,7 +3065,9 @@
     "content_hints_enabled": "내용 힌트",
     "content_hints_description": "에디터 하단 모서리에 캐릿이나 포인터 아래 요소와 어떻게 상호작용하는지 설명하는 짧은 힌트를 표시하세요.",
     "auto_link_previews_enabled": "자동 생성 링크 미리보기",
-    "auto_link_previews_description": "감지한 링크를 웹페이지의 제목, 설명 및 이미지를 보여 주는 미리보기로 자동 변환합니다. 도구 모음에서 직접 삽입한 미리보기에는 이 설정이 적용되지 않습니다."
+    "auto_link_previews_description": "감지한 링크를 웹페이지의 제목, 설명 및 이미지를 보여 주는 미리보기로 자동 변환합니다. 도구 모음에서 직접 삽입한 미리보기에는 이 설정이 적용되지 않습니다.",
+    "html_support_enabled": "지원되지 않는 HTML 태그 유지",
+    "html_support_description": "편집기 자체에서 지원하지 않는 HTML 태그를 유지합니다. 해당 태그 목록은 옵션 → 기타 → HTML 가져오기 태그에서 확인할 수 있습니다. 이러한 태그는 직접 편집할 수 없는 블록으로 표시되며, 인식되지 않는 태그는 편집 중에 전혀 보이지 않을 수도 있습니다. 이 옵션을 끄면 해당 태그는 노트를 처음 편집하고 저장할 때 제거되며, 가져오기에는 이 설정의 영향을 받지 않습니다."
   },
   "table_view": {
     "new-row": "새 행",
@@ -3771,7 +3774,9 @@
       "get_help_toc": "사용자 가이드 콘텐츠 보기"
     },
     "provider_unavailable_standalone": "브라우저 버전에서는 사용할 수 없습니다. 이 제공자는 Claude Code를 별도의 프로그램으로 실행하는 방식으로 작동하지만, 브라우저에서는 이를 실행할 로컬 환경이 없습니다.",
-    "mcp_unavailable_standalone": "브라우저 버전에서는 사용할 수 없습니다. 어시스턴트는 네트워크를 통해 Trilium에 연결해야 하지만, 이 빌드는 이 페이지 안에서만 실행되므로 어시스턴트에 제공할 연결 주소가 없습니다."
+    "mcp_unavailable_standalone": "브라우저 버전에서는 사용할 수 없습니다. 어시스턴트는 네트워크를 통해 Trilium에 연결해야 하지만, 이 빌드는 이 페이지 안에서만 실행되므로 어시스턴트에 제공할 연결 주소가 없습니다.",
+    "enabled": "AI 기능",
+    "enabled_description": "아래에서 설정한 제공업체를 사용하여 AI 채팅 사이드바와 LLM 채팅 노트를 추가합니다."
   },
   "common": {
     "save": "저장",

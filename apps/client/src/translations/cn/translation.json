@@ -1278,7 +1278,8 @@
     "editor_crashed_content": "你的内容已经成功恢复，但是某些最近的内容可能没有保存。",
     "editor_crashed_details_button": "浏览更多明细...",
     "editor_crashed_details_intro": "如果你多次遇到此错误，请考虑通过粘贴以下信息在 GitHub 上报告。",
-    "editor_crashed_details_title": "技术信息"
+    "editor_crashed_details_title": "技术信息",
+    "nothing_selected_to_cut": "请先选中一些文本，再将其剪切为子笔记。"
   },
   "empty": {
     "open_note_instruction": "通过在下面的输入框中输入笔记标题或在树中选择笔记来打开笔记。",
@@ -1848,7 +1849,8 @@
     "custom_dictionary_edit": "自定义词",
     "custom_dictionary_edit_description": "编辑拼写检查器不应标记的单词列表。更改将在重启后生效。",
     "custom_dictionary_open": "编辑词典",
-    "related_description": "配置拼写检查语言和自定义词典。"
+    "related_description": "配置拼写检查语言和自定义词典。",
+    "enable_description": "在你输入时，为拼写错误的单词添加下划线，并在右键菜单中提供更正建议。"
   },
   "sync_2": {
     "config_title": "同步服务器",
@@ -1926,7 +1928,7 @@
     "duplicate": "创建子树副本",
     "open-in-popup": "快速编辑",
     "archive": "归档",
-    "unarchive": "解压",
+    "unarchive": "取消归档",
     "open-in-a-new-window": "在新窗口中打开",
     "hide-subtree": "隐藏子树",
     "show-subtree": "显示子树"
@@ -2143,7 +2145,6 @@
     "backend_scripting_disabled_more_info": "更多信息"
   },
   "ws": {
-    "sync-check-failed": "同步检查失败！",
     "consistency-checks-failed": "一致性检查失败！请查看日志了解详细信息。",
     "encountered-error": "遇到错误 \"{{message}}\"，请查看控制台。",
     "lost-websocket-connection-title": "与服务器的连线中断",
@@ -2378,7 +2379,9 @@
     "content_hints_enabled": "内容提示",
     "content_hints_description": "在编辑器底部角落显示简短提示，说明如何操作光标或指针指向的元素。",
     "auto_link_previews_enabled": "自动生成链接预览",
-    "auto_link_previews_description": "自动将检测到的链接转换为预览，显示网页的标题、描述和图片。从工具栏插入预览始终有效，不受此设置影响。"
+    "auto_link_previews_description": "自动将检测到的链接转换为预览，显示网页的标题、描述和图片。从工具栏插入预览始终有效，不受此设置影响。",
+    "html_support_enabled": "保留不支持的 HTML 标签",
+    "html_support_description": "保留编辑器自身没有对应功能、但列于「选项 → 其他 → HTML 导入标签」中的 HTML 标签。它们会显示为无法直接编辑的块，无法识别的标签在编辑时甚至可能完全不可见。关闭此选项后，此类标签会在笔记首次被编辑并保存时被丢弃；无论开启还是关闭，导入都不受影响。"
   },
   "table_view": {
     "new-row": "新增行",
@@ -3045,7 +3048,9 @@
     "mcp_config_cli_description": "Claude Code 也可以通过命令行配置：",
     "mcp_config_warning": "令牌拥有对你所有笔记的完全读写权限，请像对待密码一样对待它。如果从其他设备连接，请优先使用 HTTPS — 通过明文 HTTP 发送的令牌可能被截获。",
     "provider_unavailable_standalone": "浏览器版不可用：此提供商通过将 Claude Code 作为独立程序运行来工作，但此处没有可供其运行的机器。",
-    "mcp_unavailable_standalone": "浏览器版不可用：助手需通过网络连接 Trilium，但此版本没有可提供给它们的地址，因为它完全在页面内运行。"
+    "mcp_unavailable_standalone": "浏览器版不可用：助手需通过网络连接 Trilium，但此版本没有可提供给它们的地址，因为它完全在页面内运行。",
+    "enabled": "AI 功能",
+    "enabled_description": "添加 AI 聊天侧边栏和 LLM 聊天笔记，使用下方配置的提供商。"
   },
   "revisions": {
     "note_revisions": "笔记修订",

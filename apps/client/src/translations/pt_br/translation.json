@@ -2033,7 +2033,6 @@
     "backend_scripting_disabled_more_info": "Mais informações"
   },
   "ws": {
-    "sync-check-failed": "A verificação de sincronização falhou!",
     "consistency-checks-failed": "A verificação de consistência falhou! Veja os logs para detalhes.",
     "encountered-error": "Encontrado o erro \"{{message}}\", verifique o console.",
     "lost-websocket-connection-title": "Conexão com o servidor perdida",

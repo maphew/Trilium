@@ -1791,7 +1791,6 @@
     "sync_warning": "Vous passez une fonction synchrone à `api.runAsyncOnBackendWithManualTransactionHandling()`,\\nalors que vous devriez probablement utiliser `api.runOnBackend()` à la place."
   },
   "ws": {
-    "sync-check-failed": "Le test de synchronisation a échoué !",
     "consistency-checks-failed": "Les tests de cohérence ont échoué ! Consultez les journaux pour plus de détails.",
     "encountered-error": "Erreur \"{{message}}\", consultez la console.",
     "lost-websocket-connection-title": "Connexion au serveur perdue",
