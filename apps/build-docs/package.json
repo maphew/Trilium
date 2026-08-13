@@ -14,7 +14,7 @@
   "keywords": [],
   "author": "Elian Doran <contact@eliandoran.me>",
   "license": "AGPL-3.0-only",
-  "packageManager": "pnpm@11.20.0",
+  "packageManager": "pnpm@11.21.0",
   "dependencies": {
     "@triliumnext/core": "workspace:*",
     "@triliumnext/server": "workspace:*"
