@@ -1374,7 +1374,9 @@
       "times": "kez",
       "custom_rule": "Kural",
       "custom_hint": "Yukarıdaki alanların söyleyebileceğinden fazlasını belirten bir iCalendar tekrarlama kuralı (RRULE). Temizlemek tekrarı durdurur."
-    }
+    },
+    "expand_details": "Etkinliği pencereyi dolduracak şekilde genişletin",
+    "restore_details": "Etkinliği takvimdeki yerine geri koyun"
   },
   "close_pane_button": {
     "close_this_pane": "Bu bölmeyi kapat"
