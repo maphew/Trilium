@@ -1231,7 +1231,8 @@
     "custom_dictionary_edit": "カスタム単語",
     "custom_dictionary_edit_description": "スペルチェッカーでエラーとして検出されないようにする単語リストを編集します。変更は再起動後に反映されます。",
     "custom_dictionary_open": "辞書の編集",
-    "related_description": "スペルチェック対応言語とカスタム辞書を設定します。"
+    "related_description": "スペルチェック対応言語とカスタム辞書を設定します。",
+    "enable_description": "入力中にスペルミスのある単語に下線が引かれ、右クリックメニューから修正案が表示されます。"
   },
   "sync_2": {
     "config_title": "同期サーバー",
@@ -1791,7 +1792,9 @@
     "content_hints_enabled": "コンテンツのヒント",
     "content_hints_description": "エディターの右下隅に、カーソルまたはポインターの下にある要素の操作方法を説明する短いヒントを表示します。",
     "auto_link_previews_enabled": "リンクプレビューを自動生成",
-    "auto_link_previews_description": "検出されたリンクを、ウェブページのタイトル、説明、画像を表示するプレビューに自動的に変換します。ツールバーからプレビューを挿入する操作は、この設定にかかわらず常に機能します。"
+    "auto_link_previews_description": "検出されたリンクを、ウェブページのタイトル、説明、画像を表示するプレビューに自動的に変換します。ツールバーからプレビューを挿入する操作は、この設定にかかわらず常に機能します。",
+    "html_support_enabled": "サポートされていない HTML タグを保持する",
+    "html_support_description": "「オプション」→「その他」→「HTMLインポートタグ」に記載されている、エディタが独自機能を持たないHTMLタグを保持します。これらは直接編集できないブロックとして表示されますが、認識されないタグは編集画面上で全く表示されない場合もあります。この設定を無効にすると、該当するタグは、ノートを最初に編集・保存した時点で削除されます（インポート処理自体には影響しません）。"
   },
   "table_context_menu": {
     "delete_row": "行を削除"
@@ -2089,7 +2092,8 @@
     "editor_crashed_content": "コンテンツは正常に復元されましたが、最近の変更の一部が保存されていない可能性があります。",
     "editor_crashed_details_button": "詳細を見る...",
     "editor_crashed_details_intro": "このエラーが何度も発生する場合は、以下の情報を貼り付けて GitHub に報告することを検討してください。",
-    "editor_crashed_details_title": "技術情報"
+    "editor_crashed_details_title": "技術情報",
+    "nothing_selected_to_cut": "まずテキストを選択して、サブノートとして切り出してください。"
   },
   "empty": {
     "open_note_instruction": "以下の入力欄にノートのタイトルを入力するか、ツリー内のノートを選択してノートを開きます。",
@@ -3028,7 +3032,9 @@
     "mcp_config_cli_description": "Claude Code はコマンドラインから設定することもできます:",
     "mcp_config_warning": "トークンは、すべてのノートへの完全な読み取りおよび書き込みアクセス権を付与するため、パスワードと同様に扱ってください。別のデバイスから接続する場合は、HTTPS 接続を推奨します — プレーンな HTTP 経由で送信されるトークンは傍受される可能性があります。",
     "provider_unavailable_standalone": "ブラウザ版では利用できません。このプロバイダーは Claude Code を別個のプログラムとして実行する仕組みですが、それを実行するためのマシン環境がここにはないためです。",
-    "mcp_unavailable_standalone": "ブラウザ版では利用できません。アシスタントはネットワーク経由で Trilium に接続しますが、このビルドはページ内で完結して動作しているため、アシスタントに指定すべきアドレスが存在しないからです。"
+    "mcp_unavailable_standalone": "ブラウザ版では利用できません。アシスタントはネットワーク経由で Trilium に接続しますが、このビルドはページ内で完結して動作しているため、アシスタントに指定すべきアドレスが存在しないからです。",
+    "enabled": "AI 機能",
+    "enabled_description": "以下で設定されたプロバイダーを使用し、AI チャットサイドバーと LLM チャットノートを追加します。"
   },
   "ocr": {
     "extracted_text": "抽出されたテキスト（OCR）",
@@ -3048,7 +3054,12 @@
     "image_based_pdf_not_supported": "この PDF は画像ベース（スキャン画像）のようです。画像ベースの PDF からのテキスト抽出は、現時点ではサポートされていません。"
   },
   "database": {
-    "title": "データベース"
+    "title": "データベース",
+    "start_over_description": "新しい空のデータベースに切り替え、新しいサーバーと再同期するか、バックアップを復元してください。既存のデータを破棄する前にバックアップを作成するよう求められます。",
+    "start_over": "最初からやり直す",
+    "start_over_confirm": "Trilium はセットアップ画面に戻ります。そこで、新しいナレッジベースの作成、バックアップの復元、または別のデバイスからの同期を選択できます。まず現在のデータのバックアップが提示され、いずれかを選択するまでデータは削除されません。続行しますか？",
+    "start_over_pending": "このサーバーを次回再起動すると、セットアップ画面が表示されます。準備ができたらサーバーを再起動するか、以下で「キャンセル」を選択して現状を維持してください。",
+    "start_over_cancel": "キャンセルして最初からやり直す"
   },
   "search": {
     "title": "検索",
@@ -3271,7 +3282,7 @@
     "sync-failed-hint": "原因として、サーバーアドレスの誤り、プロキシによる接続の妨害、またはサーバーへの一時的な接続不可などが考えられます。",
     "button-retry": "再試行",
     "restore-from-backup": "バックアップから復元",
-    "restore-from-backup-description": "バックアップファイルから復元した既存のナレッジベースを引き続き使用します。",
+    "restore-from-backup-description": "バックアップファイルから復元したナレッジベースの使用を開始します。",
     "restore-from-backup-page-description": "復元するバックアップを選択してください。",
     "restore-existing-backups": "既存のバックアップ",
     "restore-looking-for-backups": "バックアップを検索中...",
@@ -3331,7 +3342,7 @@
     "backup-downloaded": "ダウンロードが完了しました。\"完了\" を押してアプリケーションに戻ってください。",
     "backup-download-failed": "ダウンロードが完了しませんでした。",
     "backup-finish": "完了",
-    "existing-data-erase-confirm": "既存のデータは破棄されます。バックアップファイルを安全な場所に保管してください。続行しますか？",
+    "existing-data-erase-confirm": "このデバイスがデスクトップアプリから新しいナレッジベースを受信できるように、既存のナレッジベースは完全に削除されます。安全な場所にバックアップを作成してください。続行しますか？",
     "existing-data-keep-failed": "既存のナレッジベースを再開できませんでした。",
     "restore-upload-reconnecting": "接続の再確立を待機中...",
     "restore-error-upload-interrupted": "アップロードが中断され、続行できませんでした。やり直すには、バックアップを再度選択してください。",
@@ -3340,7 +3351,13 @@
     "restore-error-swap-failed-reload": "データベースを置き換えることができませんでした。元のデータベースは復元されましたが、Trilium で再度開くことができません。続行するには、このページを再読み込みしてください。",
     "restore-error-check-failed": "バックアップを検証できませんでした。バックアップ自体ではなく、このデバイスに問題がある可能性がありますので、もう一度試してみる価値はあります。",
     "restore-error-failed": "復元を完了できませんでした。置き換えは行われなかったため、ナレッジベースは元の状態のままです。",
-    "restore-error-incomplete": "このバックアップファイルは不完全です。完全にコピーまたはダウンロードされていない可能性があるため、もう一度転送を試してください。"
+    "restore-error-incomplete": "このバックアップファイルは不完全です。完全にコピーまたはダウンロードされていない可能性があるため、もう一度転送を試してください。",
+    "create-new-document-failed": "ナレッジベースを作成できませんでした",
+    "existing-data-skip": "いいえ、バックアップなしで続行する",
+    "existing-data-skip-warning": "まだ何も削除されていません。ナレッジベースは、新しいナレッジベースを作成するか、バックアップを復元するか、別のデバイスから同期する場合にのみ置き換えられます。",
+    "unlock-refused": "入力された情報は受け付けられませんでした。もう一度お試しください。",
+    "keep-existing": "アプリに戻る",
+    "keep-existing-description": "既存のナレッジベースを引き続き使用して、アプリに戻ります。"
   },
   "text-editor": {
     "validation-errors": {
