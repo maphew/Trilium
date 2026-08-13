@@ -2659,7 +2659,9 @@
     "consistency-checks-failed": "일관성 검사 실패! 자세한 내용은 로그를 참조하세요.",
     "encountered-error": "\"{{message}}\" 오류가 발생했는데, 콘솔을 확인해 보세요.",
     "lost-websocket-connection-title": "서버 연결이 끊겼습니다",
-    "lost-websocket-connection-message": "역프록시(예: nginx나 Apache) 설정도 확인해서 WebSocket 연결이 제대로 허용되고 차단되지 않았는지 확인하세요."
+    "lost-websocket-connection-message": "역프록시(예: nginx나 Apache) 설정도 확인해서 WebSocket 연결이 제대로 허용되고 차단되지 않았는지 확인하세요.",
+    "sync-hash-check-failed-title": "동기화 중지됨",
+    "sync-hash-check-failed": "이 데이터베이스와 동기화 서버에 다시 동기화해도 일치시킬 수 없는 데이터가 있습니다({{- sectors}}).\n\n이 문제가 해결될 때까지 동기화는 계속 실패합니다. 자세한 내용은 로그를 확인하세요."
   },
   "hoisted_note": {
     "confirm_unhoisting": "\"{{requestedNote}}\" 노트는 현재 루트로 보는 \"{{hoistedNote}}\" 노트의 하위 트리 밖에 있습니다. 접근하려면 루트 보기를 해제해야 합니다. 계속하시겠습니까?"
