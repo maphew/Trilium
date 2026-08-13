@@ -14,6 +14,14 @@ or both side by side. Load the `Mermaid` glue plugin; it pulls in `MermaidEditin
 | `mermaid_{preview,source_view,split_view}_command.ts` | Switch the widget's `displayMode` |
 | `utils.ts` | `debounce` for the source textarea, `checkIsOn` for button state |
 
+## The display mode is part of the content
+
+A diagram round-trips as `<pre spellcheck="false"><code class="language-mermaid">…</code></pre>`, with
+the picked mode persisted on the `<code>` as `data-trilium-display-mode` — the same treatment
+collapsed list items get with `data-trilium-collapsed`. The default (`split`) is left out, so a
+diagram nobody switched keeps producing exactly the content it did before; a missing or unknown
+value upcasts back to `split`.
+
 ## The mermaid library is not a dependency
 
 The plugin never imports mermaid. The host passes it in through editor config:
