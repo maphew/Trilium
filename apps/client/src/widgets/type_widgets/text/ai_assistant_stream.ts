@@ -97,13 +97,13 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
             id: "tone",
             label: t("ai_assistant.group_tone"),
             actions: [
-                action("professional", t("ai_assistant.tone_professional"),
+                toneAction("professional", t("ai_assistant.tone_professional"),
                     "Rewrite this content in a polished, formal, professional tone without changing the meaning."),
-                action("casual", t("ai_assistant.tone_casual"),
+                toneAction("casual", t("ai_assistant.tone_casual"),
                     "Rewrite this content in a casual, conversational tone without changing the meaning."),
-                action("direct", t("ai_assistant.tone_direct"),
+                toneAction("direct", t("ai_assistant.tone_direct"),
                     "Rewrite this content in a direct tone, keeping only the essential information."),
-                action("friendly", t("ai_assistant.tone_friendly"),
+                toneAction("friendly", t("ai_assistant.tone_friendly"),
                     "Rewrite this content in a warm, friendly tone without changing the meaning.")
             ]
         },
@@ -111,12 +111,12 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
             id: "translate",
             label: t("ai_assistant.group_translate"),
             actions: [
-                action("translateEnglish", t("ai_assistant.lang_english"), "Translate the content to English."),
-                action("translateGerman", t("ai_assistant.lang_german"), "Translate the content to German."),
-                action("translateSpanish", t("ai_assistant.lang_spanish"), "Translate the content to Spanish."),
-                action("translateFrench", t("ai_assistant.lang_french"), "Translate the content to French."),
-                action("translateRomanian", t("ai_assistant.lang_romanian"), "Translate the content to Romanian."),
-                action("translateChinese", t("ai_assistant.lang_chinese"), "Translate the content to Simplified Chinese.")
+                translateAction("translateEnglish", t("ai_assistant.lang_english"), "Translate the content to English."),
+                translateAction("translateGerman", t("ai_assistant.lang_german"), "Translate the content to German."),
+                translateAction("translateSpanish", t("ai_assistant.lang_spanish"), "Translate the content to Spanish."),
+                translateAction("translateFrench", t("ai_assistant.lang_french"), "Translate the content to French."),
+                translateAction("translateRomanian", t("ai_assistant.lang_romanian"), "Translate the content to Romanian."),
+                translateAction("translateChinese", t("ai_assistant.lang_chinese"), "Translate the content to Simplified Chinese.")
             ]
         }
     ];
@@ -125,6 +125,21 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
 /** Shorthand for a quick-action entry; all defaults require content to work on. */
 function action(id: string, label: string, prompt: string): AiQuickAction {
     return { id, label, prompt };
+}
+
+/**
+ * A tone or a language reads as a command only together with what its group heading says: the menu
+ * lists a bare "Direct" under "Change tone", while the `/` palette has to spell out "Change tone to
+ * Direct". Composed here rather than in the editor so that a locale can reorder the two halves —
+ * and pick the right preposition and case for the language name.
+ */
+function toneAction(id: string, tone: string, prompt: string): AiQuickAction {
+    return { id, label: tone, commandLabel: t("ai_assistant.command_tone", { tone }), prompt };
+}
+
+/** The prompt stays English and spelled out: the label is translated, the instruction is not. */
+function translateAction(id: string, language: string, prompt: string): AiQuickAction {
+    return { id, label: language, commandLabel: t("ai_assistant.command_translate", { language }), prompt };
 }
 
 /**

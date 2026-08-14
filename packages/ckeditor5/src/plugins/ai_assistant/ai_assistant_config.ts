@@ -64,6 +64,14 @@ export interface AiQuickAction {
     id: string;
     /** The label shown in the menu, already translated by the host. */
     label: string;
+    /**
+     * The action phrased as a standalone command ("Translate to Romanian"), for the places that
+     * show it away from its group heading — the `/` palette, where the bare {@link label} the menu
+     * gets away with ("Romanian") would say nothing. Also translated by the host, since only it can
+     * word the composition; defaults to {@link label}, which is enough for an action whose label
+     * already reads as a command ("Fix typos").
+     */
+    commandLabel?: string;
     /** The instruction sent to the model in place of a typed query. */
     prompt: string;
     /**

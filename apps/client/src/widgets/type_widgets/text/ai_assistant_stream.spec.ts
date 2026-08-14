@@ -1,7 +1,13 @@
 import type { LlmChatConfig } from "@triliumnext/commons";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../services/i18n.js", () => ({ t: (key: string) => key }));
+// Keys stand in for their translations; a key with interpolation renders as `key(name=value)`, so
+// a composed label shows both the key it went through and what was substituted into it.
+vi.mock("../../../services/i18n.js", () => ({
+    t: (key: string, values?: Record<string, string>) => (values
+        ? `${key}(${Object.entries(values).map(([name, value]) => `${name}=${value}`).join(",")})`
+        : key)
+}));
 vi.mock("../../../services/options.js", () => ({
     default: { getJson: () => storedProviders }
 }));
@@ -13,7 +19,7 @@ vi.mock("../../../services/llm_chat.js", () => ({
     })
 }));
 
-import buildAiAssistantStream from "./ai_assistant_stream.js";
+import buildAiAssistantStream, { buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
 
 /** The `llmProviders` option as the mocked `options.getJson` will return it. */
 let storedProviders: unknown = null;
@@ -72,5 +78,35 @@ describe("buildAiAssistantStream", () => {
             { id: "cfg-ollama", provider: "ollama", selectedModels: [] }
         ];
         expect(await runOnce()).toEqual({ provider: "openai", providerId: "cfg-openai" });
+    });
+});
+
+describe("buildAiAssistantQuickActions", () => {
+    function actions(groupId: string) {
+        const group = buildAiAssistantQuickActions().find((candidate) => candidate.id === groupId);
+        if (!group) {
+            throw new Error(`no quick-action group with id "${groupId}"`);
+        }
+        return group.actions;
+    }
+
+    // A tone or a language means nothing on its own once it is away from its group heading, which
+    // is where the `/` palette shows it.
+    it("composes a standalone command label for the tones and the languages", () => {
+        const direct = actions("tone").find((action) => action.id === "direct");
+        expect(direct?.label).toBe("ai_assistant.tone_direct");
+        expect(direct?.commandLabel).toBe("ai_assistant.command_tone(tone=ai_assistant.tone_direct)");
+
+        const romanian = actions("translate").find((action) => action.id === "translateRomanian");
+        expect(romanian?.label).toBe("ai_assistant.lang_romanian");
+        expect(romanian?.commandLabel).toBe("ai_assistant.command_translate(language=ai_assistant.lang_romanian)");
+        // The instruction is not translated: it is addressed to the model, not to the user.
+        expect(romanian?.prompt).toBe("Translate the content to Romanian.");
+    });
+
+    it("leaves the labels that already read as commands alone", () => {
+        for (const action of [ ...actions("edit"), ...actions("generate") ]) {
+            expect(action.commandLabel).toBeUndefined();
+        }
     });
 });

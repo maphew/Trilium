@@ -2838,6 +2838,8 @@
     "group_generate": "Generate",
     "group_tone": "Change tone",
     "group_translate": "Translate",
+    "command_tone": "Change tone to {{tone}}",
+    "command_translate": "Translate to {{language}}",
     "action_fix_typos": "Fix typos",
     "action_improve_writing": "Improve writing",
     "action_make_shorter": "Make shorter",
@@ -3821,6 +3823,7 @@
   "text-editor": {
     "ck": {
       "admonition": "Admonition",
+      "ai-0": "AI: %0",
       "ai-assistant": "AI assistant",
       "align-text-to-the-center": "Align text to the center",
       "align-text-to-the-left": "Align text to the left",
@@ -3833,6 +3836,7 @@
       "anchor-toolbar": "Anchor toolbar",
       "anchor-widget": "anchor widget",
       "anchors": "Anchors",
+      "applies-to-the-current-paragraph": "Applies to the current paragraph.",
       "ask-ai-to": "Ask AI to…",
       "ask-ai-to-rewrite-the-selection-or-generate-new-content": "Ask AI to rewrite the selection or generate new content.",
       "box-size": "Box size",
