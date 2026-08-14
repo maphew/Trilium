@@ -72,6 +72,29 @@ describe("AiAssistantFormView", () => {
         expect(form.viewMode).toBe("result");
         expect(previewHtml()).toBe("<p>generated</p>");
         expect(form.changesToggleView.isVisible).toBe(false);
+
+        // "Try again" is the one thing left in the preview's strip, so the strip still shows.
+        expect(form.tryAgainButtonView.isVisible).toBe(true);
+    });
+
+    it("offers 'Try again' as an icon in the preview's strip rather than among the commit actions", () => {
+        const form = makeForm();
+        const button = form.tryAgainButtonView;
+
+        expect(button.isVisible).toBe(false);
+        expect(button.withText).toBe(false);
+        expect(button.icon).toContain("<svg");
+        // Icon-only: the label has to survive as the tooltip and the accessible name.
+        expect(button.label).toBe("Try again");
+        expect(button.tooltip).toBe(true);
+
+        expect(button.element?.closest(".ck-ai-assistant-form__preview-toolbar")).not.toBeNull();
+        expect(button.element?.closest(".ck-ai-assistant-form__actions")).toBeNull();
+
+        form.beginStreaming();
+        form.setPreview("<p>new</p>");
+        form.enterReview(true, null, "");
+        expect(button.isVisible).toBe(true);
     });
 
     it("shows the usage line only for a review that has one, and clears it on the next run", () => {

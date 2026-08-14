@@ -6,15 +6,19 @@
     width: min(560px, 90vw);
 }
 
-.ck.ck-ai-assistant-form .ck-ai-assistant-form__viewmodes {
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview-toolbar {
     display: flex;
     align-items: center;
     gap: var(--ck-spacing-small);
 }
 
-/* Outside a review with a diff both toggles are hidden; an empty row should not reserve a gap. */
-.ck.ck-ai-assistant-form .ck-ai-assistant-form__viewmodes:not(:has(.ck-button:not(.ck-hidden))) {
+/* Outside a review every button in the strip is hidden; it should not reserve a gap of its own. */
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview-toolbar:not(:has(.ck-button:not(.ck-hidden))) {
     display: none;
+}
+
+.ck.ck-ai-assistant-form .ck-button.ck-ai-assistant-form__try-again {
+    margin-inline-start: auto;
 }
 
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row {

@@ -1,3 +1,4 @@
+import { IconRefresh } from "@ckeditor/ckeditor5-icons";
 import {
     ButtonView,
     createLabeledInputText,
@@ -91,7 +92,11 @@ export default class AiAssistantFormView extends View {
         this.replaceButtonView = this._createActionButton(locale, t("Replace"), "review", "replace");
         this.replaceButtonView.class = "ck-button-action";
         this.insertBelowButtonView = this._createActionButton(locale, t("Insert below"), "review", "insertBelow");
+        // Icon-only, and sitting over the preview rather than among the commit actions: re-running
+        // is about the response on screen, not about what to do with it.
         this.tryAgainButtonView = this._createActionButton(locale, t("Try again"), "review", "tryAgain");
+        this.tryAgainButtonView.set({ icon: IconRefresh, withText: false, tooltip: true });
+        this.tryAgainButtonView.class = "ck-ai-assistant-form__try-again";
 
         const bind = this.bindTemplate;
 
@@ -103,11 +108,11 @@ export default class AiAssistantFormView extends View {
             },
             children: [
                 {
-                    // The feature's title belongs to the dialog's own header; all this row carries
-                    // is the Result/Changes toggle, and only when a review has a diff to offer.
+                    // The preview's own strip: the Result/Changes toggle on the left, "Try again"
+                    // pushed to the right. The feature's title belongs to the dialog's header.
                     tag: "div",
-                    attributes: { class: ["ck", "ck-ai-assistant-form__viewmodes"] },
-                    children: [this.resultToggleView, this.changesToggleView]
+                    attributes: { class: ["ck", "ck-ai-assistant-form__preview-toolbar"] },
+                    children: [this.resultToggleView, this.changesToggleView, this.tryAgainButtonView]
                 },
                 this.previewView,
                 {
@@ -133,7 +138,6 @@ export default class AiAssistantFormView extends View {
                         this.stopButtonView,
                         this.replaceButtonView,
                         this.insertBelowButtonView,
-                        this.tryAgainButtonView,
                         {
                             tag: "span",
                             attributes: {
@@ -167,15 +171,16 @@ export default class AiAssistantFormView extends View {
         // Turns a native form submit (the Enter key included) into the view's own `submit` event.
         submitHandler({ view: this });
 
+        // In DOM order, so Tab walks the form the way it reads.
         const focusables = [
             this.resultToggleView,
             this.changesToggleView,
+            this.tryAgainButtonView,
             this.promptInputView,
             this.sendButtonView,
             this.stopButtonView,
             this.replaceButtonView,
-            this.insertBelowButtonView,
-            this.tryAgainButtonView
+            this.insertBelowButtonView
         ];
         for (const view of focusables) {
             this._focusables.add(view);
