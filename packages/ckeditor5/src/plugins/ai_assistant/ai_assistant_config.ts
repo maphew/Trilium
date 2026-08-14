@@ -97,6 +97,16 @@ export interface AiQuickActionGroup {
     /** The group heading, already translated by the host. */
     label: string;
     actions: AiQuickAction[];
+    /**
+     * Whether the group opens as a submenu instead of having its actions listed directly in the
+     * menu. Use it for the long groups whose actions only read as commands under their heading —
+     * the same ones that need a {@link AiQuickAction.commandLabel}.
+     *
+     * An inlined group loses its heading: CKEditor's nested-menu definition has only buttons and
+     * submenus, no group separators, so the choice is a submenu or bare top-level entries. That
+     * suits actions that already read as commands on their own ("Fix typos", "Summarize").
+     */
+    submenu?: boolean;
 }
 
 export interface AiAssistantConfig {

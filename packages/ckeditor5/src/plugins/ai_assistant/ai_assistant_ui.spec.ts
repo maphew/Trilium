@@ -8,19 +8,19 @@ import AiAssistantUI from "./ai_assistant_ui.js";
 
 // ---- Typed views of the dropdown internals ----
 
-interface ListButtonView {
+/** A leaf entry: an action the user can pick. */
+interface MenuButtonView {
+    id: string;
     label?: string;
     isEnabled: boolean;
     fire(event: string): void;
 }
 
-interface ListItemView {
-    children: { get(idx: number): ListButtonView };
-}
-
-interface ListGroupView {
-    label: string;
-    items: { get(idx: number): ListItemView };
+/** A submenu entry: a group that opens rather than listing its actions inline. */
+interface NestedMenuView {
+    id: string;
+    buttonView: { label?: string };
+    listView: { items: Array<{ childView: MenuButtonView }> };
 }
 
 interface QuickActionsDropdown {
@@ -28,7 +28,10 @@ interface QuickActionsDropdown {
     isEnabled: boolean;
     class?: string;
     buttonView: SplitButtonView;
-    panelView: { children: { get(idx: number): { items: { get(idx: number): ListGroupView } } } };
+    menuView: {
+        items: Array<{ childView: MenuButtonView | NestedMenuView }>;
+        buttons: MenuButtonView[];
+    };
 }
 
 const QUICK_ACTIONS: AiQuickActionGroup[] = [
@@ -45,6 +48,15 @@ const QUICK_ACTIONS: AiQuickActionGroup[] = [
         label: "Generate",
         actions: [
             { id: "write", label: "Write something", prompt: "Write a paragraph.", requiresContent: false }
+        ]
+    },
+    {
+        id: "tone",
+        label: "Change tone",
+        submenu: true,
+        actions: [
+            { id: "direct", label: "Direct", prompt: "Make it direct." },
+            { id: "friendly", label: "Friendly", prompt: "Make it friendly." }
         ]
     }
 ];
@@ -75,21 +87,28 @@ function createComponent(editor: ClassicEditor) {
     return editor.ui.componentFactory.create("aiAssistant") as unknown as QuickActionsDropdown;
 }
 
-/** Opens the dropdown — `addListToDropdown` only populates the panel on the first open. */
-function quickActionGroups(dropdown: QuickActionsDropdown): Array<{ label: string; buttons: ListButtonView[] }> {
+/** Opens the dropdown — `addMenuToDropdown` only builds the menu on the first open. */
+function openMenu(dropdown: QuickActionsDropdown): QuickActionsDropdown["menuView"] {
     dropdown.isOpen = true;
-
-    const list = dropdown.panelView.children.get(0);
-    return QUICK_ACTIONS.map((configured, groupIdx) => {
-        const group = list.items.get(groupIdx);
-        const buttons = configured.actions.map((_action, itemIdx) => group.items.get(itemIdx).children.get(0));
-        return { label: group.label, buttons };
-    });
+    return dropdown.menuView;
 }
 
-/** The action buttons of every group, flattened into definition order. */
-function quickActionButtons(dropdown: QuickActionsDropdown): ListButtonView[] {
-    return quickActionGroups(dropdown).flatMap((group) => group.buttons);
+/**
+ * What the menu offers at its top level: an inlined action reads as its label, a submenu as its
+ * label plus the labels it holds.
+ */
+function menuEntries(dropdown: QuickActionsDropdown): Array<string | { menu: string; actions: string[] }> {
+    return openMenu(dropdown).items.map(({ childView }) => ("listView" in childView
+        ? {
+            menu: childView.buttonView.label ?? "",
+            actions: childView.listView.items.map((item) => item.childView.label ?? "")
+        }
+        : childView.label ?? ""));
+}
+
+/** Every action button, submenus included, in definition order. */
+function quickActionButtons(dropdown: QuickActionsDropdown): MenuButtonView[] {
+    return openMenu(dropdown).buttons;
 }
 
 /** The form the assistant put into the dialog, once it is open. */
@@ -138,24 +157,25 @@ describe("AiAssistantUI toolbar entry", () => {
             expect(showSpy).toHaveBeenCalled();
         });
 
-        it("lists every configured action under its group", () => {
-            const groups = quickActionGroups(dropdown);
-
-            expect(groups.map((group) => ({
-                label: group.label,
-                actions: group.buttons.map((button) => button.label)
-            }))).toEqual([
-                { label: "Edit or review", actions: ["Fix typos", "Make shorter"] },
-                { label: "Generate", actions: ["Write something"] }
+        it("inlines an ordinary group and gives a `submenu` one its own menu", () => {
+            // An inlined group loses its heading — its actions already read as commands, and the
+            // menu definition has no room for a heading. A submenu keeps its label as the entry.
+            expect(menuEntries(dropdown)).toEqual([
+                "Fix typos",
+                "Make shorter",
+                "Write something",
+                { menu: "Change tone", actions: ["Direct", "Friendly"] }
             ]);
         });
 
         it("gates the content-requiring actions on there being something to work on", () => {
-            const [fixTypos, , write] = quickActionButtons(dropdown);
+            const [fixTypos, , write, direct] = quickActionButtons(dropdown);
 
             setModelData(editor.model, "<paragraph>[]</paragraph>");
             expect(fixTypos.isEnabled).toBe(false);
             expect(write.isEnabled).toBe(true);
+            // Gating reaches into the submenus too, not just the inlined actions.
+            expect(direct.isEnabled).toBe(false);
 
             // A collapsed caret is enough as long as its block has content: that is what the run
             // falls back to.
@@ -164,6 +184,18 @@ describe("AiAssistantUI toolbar entry", () => {
 
             setModelData(editor.model, "<paragraph>[foo]</paragraph>");
             expect(fixTypos.isEnabled).toBe(true);
+        });
+
+        it("runs an action picked from inside a submenu", async () => {
+            // A submenu button delegates its `execute` up through its menu to the root rather than
+            // firing on the dropdown itself, so this is a different path from an inlined action.
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            const direct = quickActionButtons(dropdown).find((button) => button.id === "direct");
+
+            direct?.fire("execute");
+            await vi.waitFor(() => expect(requests).toHaveLength(1));
+
+            expect(requests[0]).toEqual({ query: "Make it direct.", context: "foo" });
         });
 
         it("falls back to the caret's block when nothing is selected", async () => {

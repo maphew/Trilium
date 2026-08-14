@@ -96,6 +96,7 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
         {
             id: "tone",
             label: t("ai_assistant.group_tone"),
+            submenu: true,
             actions: [
                 toneAction("professional", t("ai_assistant.tone_professional"),
                     "Rewrite this content in a polished, formal, professional tone without changing the meaning."),
@@ -110,6 +111,7 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
         {
             id: "translate",
             label: t("ai_assistant.group_translate"),
+            submenu: true,
             actions: [
                 translateAction("translateEnglish", t("ai_assistant.lang_english"), "Translate the content to English."),
                 translateAction("translateGerman", t("ai_assistant.lang_german"), "Translate the content to German."),

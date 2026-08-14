@@ -1,17 +1,15 @@
 import {
-    addListToDropdown,
+    addMenuToDropdown,
     ButtonView,
     CKEditorError,
-    Collection,
     createDropdown,
     Dialog,
     DialogViewPosition,
     Plugin,
     SplitButtonView,
-    ViewModel,
+    type DropdownMenuDefinition,
+    type DropdownMenuListItemButtonView,
     type DropdownView,
-    type ListDropdownButtonDefinition,
-    type ListDropdownItemDefinition,
     type Locale,
     type ModelNode,
     type ModelRange
@@ -150,33 +148,50 @@ export default class AiAssistantUI extends Plugin {
         }
         this.listenTo(splitButtonView, "execute", () => this.editor.execute("aiAssistant"));
 
-        const items = new Collection<ListDropdownItemDefinition>();
+        // The menu carries only ids and labels, so the action each button stands for is looked up
+        // on execute rather than carried by the view.
+        const actionsById = new Map<string, AiQuickAction>();
+        const definition: DropdownMenuDefinition = [];
         for (const group of groups) {
-            const children = new Collection<ListDropdownButtonDefinition>();
-            for (const action of group.actions) {
-                const definition: ListDropdownButtonDefinition = {
-                    type: "button",
-                    model: new ViewModel({
-                        _quickAction: action,
-                        label: action.label,
-                        withText: true
-                    })
-                };
-                if (action.requiresContent !== false) {
-                    definition.model.bind("isEnabled").to(this, "hasContext");
-                }
-                children.add(definition);
+            const children = group.actions.map((action) => {
+                actionsById.set(action.id, action);
+                return { id: action.id, label: action.label };
+            });
+            if (group.submenu) {
+                definition.push({ id: group.id, menu: group.label, children });
+            } else {
+                definition.push(...children);
             }
-            items.add({ type: "group", label: group.label, items: children });
         }
-        addListToDropdown(dropdownView, items);
+        addMenuToDropdown(dropdownView, this.editor.ui.view.body, definition, {
+            ariaLabel: locale.t("AI assistant")
+        });
         dropdownView.class = "ck-ai-assistant-quick-actions";
 
-        // Only the list items reach this: a split button delegates its own `execute` to itself,
-        // and its arrow to the dropdown's `open`.
+        // The menu builds its views in `render()`, which `addMenuToDropdown` defers to the first
+        // open (through its own `change:isOpen` listener, registered at `highest` priority — so it
+        // has already run by the time this one does). There are no buttons to bind before that,
+        // and they are built exactly once, so this unsubscribes itself.
+        const bindAvailability = () => {
+            for (const button of dropdownView.menuView?.buttons ?? []) {
+                if (actionsById.get(button.id)?.requiresContent !== false) {
+                    button.bind("isEnabled").to(this, "hasContext");
+                }
+            }
+            this.stopListening(dropdownView, "change:isOpen", bindAvailability);
+        };
+        this.listenTo(dropdownView, "change:isOpen", bindAvailability);
+
+        // Only the menu items reach this: a split button delegates its own `execute` to itself,
+        // and its arrow to the dropdown's `open`. An item inside a submenu arrives here too — it
+        // delegates up through its menu to the root — and delegation preserves the original
+        // source, so the button (and its id) is the same either way.
         dropdownView.on("execute", (evt) => {
-            const { _quickAction } = evt.source as unknown as { _quickAction: AiQuickAction };
-            this.runQuickAction(_quickAction);
+            const action = actionsById.get((evt.source as DropdownMenuListItemButtonView).id);
+            /* v8 ignore next -- every button in the menu was built from an action in this map */
+            if (action) {
+                this.runQuickAction(action);
+            }
         });
 
         return dropdownView;
