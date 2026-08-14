@@ -20,11 +20,16 @@ afterEach(() => {
 });
 
 describe("AiAssistantFormView", () => {
-    it("starts in the prompt phase with the view-mode toggle hidden", () => {
+    it("starts in the prompt phase with the strip on show but inert", () => {
         const form = makeForm();
         expect(form.phase).toBe("prompt");
-        expect(form.resultToggleView.isVisible).toBe(false);
-        expect(form.changesToggleView.isVisible).toBe(false);
+
+        // The strip holds its place from the start — appearing with the response would shift
+        // every row beneath it — so nothing in it is hidden, only disabled.
+        for (const view of [form.resultToggleView, form.changesToggleView, form.tryAgainButtonView]) {
+            expect(view.isVisible).toBe(true);
+            expect(view.isEnabled).toBe(false);
+        }
         // Without the reset exemption, the body wrapper's `.ck-reset_all` nowraps every paragraph.
         expect(form.previewView.element?.classList.contains("ck-reset_all-excluded")).toBe(true);
     });
@@ -49,7 +54,7 @@ describe("AiAssistantFormView", () => {
         expect(form.hasDiff).toBe(true);
         expect(form.viewMode).toBe("changes");
         expect(previewHtml()).toContain("diffins");
-        expect(form.resultToggleView.isVisible).toBe(true);
+        expect(form.resultToggleView.isEnabled).toBe(true);
         expect(form.changesToggleView.isOn).toBe(true);
 
         // The two modes are one choice, and share a container so the host can draw them as a group.
@@ -76,10 +81,9 @@ describe("AiAssistantFormView", () => {
         expect(form.hasDiff).toBe(false);
         expect(form.viewMode).toBe("result");
         expect(previewHtml()).toBe("<p>generated</p>");
-        expect(form.changesToggleView.isVisible).toBe(false);
-
-        // "Try again" is the one thing left in the preview's strip, so the strip still shows.
-        expect(form.tryAgainButtonView.isVisible).toBe(true);
+        // Nothing to diff against, so the choice stays inert while re-running does not.
+        expect(form.changesToggleView.isEnabled).toBe(false);
+        expect(form.tryAgainButtonView.isEnabled).toBe(true);
     });
 
     it("takes the prompt through a placeholder rather than a label, and sends with an icon", () => {
@@ -110,7 +114,7 @@ describe("AiAssistantFormView", () => {
         const form = makeForm();
         const button = form.tryAgainButtonView;
 
-        expect(button.isVisible).toBe(false);
+        expect(button.isEnabled).toBe(false);
         expect(button.withText).toBe(false);
         expect(button.icon).toContain("<svg");
         // Icon-only: the label has to survive as the tooltip and the accessible name.
@@ -123,7 +127,7 @@ describe("AiAssistantFormView", () => {
         form.beginStreaming();
         form.setPreview("<p>new</p>");
         form.enterReview(true, null, "");
-        expect(button.isVisible).toBe(true);
+        expect(button.isEnabled).toBe(true);
     });
 
     it("shows the usage line only for a review that has one, and clears it on the next run", () => {

@@ -13,19 +13,10 @@
     gap: var(--ck-spacing-medium);
 }
 
-/* Outside a review every button in the strip is hidden; it should not reserve a gap of its own. */
-.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview-toolbar:not(:has(.ck-button:not(.ck-hidden))) {
-    display: none;
-}
-
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__viewmodes {
     display: flex;
     align-items: center;
     gap: var(--ck-spacing-tiny);
-}
-
-.ck.ck-ai-assistant-form .ck-ai-assistant-form__viewmodes:not(:has(.ck-button:not(.ck-hidden))) {
-    display: none;
 }
 
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__preview-toolbar-end {

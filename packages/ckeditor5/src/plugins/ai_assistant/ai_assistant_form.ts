@@ -92,9 +92,17 @@ export default class AiAssistantFormView extends View {
         this.insertBelowButtonView = this._createActionButton(locale, t("Insert below"), "review", "insertBelow");
         // Icon-only, and sitting over the preview rather than among the commit actions: re-running
         // is about the response on screen, not about what to do with it.
-        this.tryAgainButtonView = this._createActionButton(locale, t("Try again"), "review", "tryAgain");
-        this.tryAgainButtonView.set({ icon: IconRefresh, withText: false, tooltip: true });
-        this.tryAgainButtonView.class = "ck-ai-assistant-form__icon-action";
+        this.tryAgainButtonView = new ButtonView(locale);
+        this.tryAgainButtonView.set({
+            label: t("Try again"),
+            icon: IconRefresh,
+            tooltip: true,
+            class: "ck-ai-assistant-form__icon-action"
+        });
+        // On show throughout, for the same reason the view modes are: the strip has to hold its
+        // place so a finished run does not move the rows beneath it.
+        this.tryAgainButtonView.bind("isEnabled").to(this, "phase", (phase) => phase === "review");
+        this.tryAgainButtonView.on("execute", () => this.fire("tryAgain"));
 
         const bind = this.bindTemplate;
 
@@ -281,7 +289,9 @@ export default class AiAssistantFormView extends View {
         const button = new ButtonView(locale);
         button.set({ label, withText: true, isToggleable: true, class: "ck-ai-assistant-form__viewmode" });
         button.bind("isOn").to(this, "viewMode", (viewMode) => viewMode === mode);
-        button.bind("isVisible").to(
+        // Enabled rather than shown: a strip that only appears once a run finishes would shift
+        // everything under it at the moment the response lands.
+        button.bind("isEnabled").to(
             this, "phase",
             this, "hasDiff",
             (phase, hasDiff) => phase === "review" && hasDiff
