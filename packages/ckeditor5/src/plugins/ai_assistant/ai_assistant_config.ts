@@ -73,6 +73,16 @@ export interface AiQuickAction {
     requiresContent?: boolean;
 }
 
+/**
+ * Sanitizes model-produced HTML before the balloon assigns it to the preview's `innerHTML`.
+ *
+ * CKEditor ships no sanitizer of its own and asks the integrator for one instead — the same
+ * contract as `config.htmlEmbed.sanitizeHtml`, whose built-in default only warns and passes the
+ * HTML straight through. (A top-level `config.sanitizeHtml` is rejected outright by the editor,
+ * so this belongs under the feature's own namespace.)
+ */
+export type AiSanitizeFunction = (html: string) => string;
+
 /** A labelled group of quick actions, rendered as a group in the dropdown. */
 export interface AiQuickActionGroup {
     id: string;
@@ -102,4 +112,13 @@ export interface AiAssistantConfig {
      * prompt remains.
      */
     quickActions?: AiQuickActionGroup[];
+
+    /**
+     * Sanitizes the response HTML before it is rendered into the preview. **Required**: the
+     * plugin has no built-in fallback and throws rather than render unsanitized model output —
+     * a hand-maintained strip list only looks like a sanitizer, missing namespaced `xlink:href`,
+     * SVG animation elements and `data:` URIs. Trilium passes the same DOMPurify pass it applies
+     * to note content.
+     */
+    sanitizeHtml: AiSanitizeFunction;
 }

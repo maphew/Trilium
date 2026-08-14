@@ -11,6 +11,7 @@ import { getMermaidConfig } from "../../../services/mermaid.js";
 import { default as mimeTypesService, getHighlightJsNameForMime } from "../../../services/mime_types.js";
 import noteAutocompleteService, { type Suggestion } from "../../../services/note_autocomplete.js";
 import options from "../../../services/options.js";
+import { sanitizeNoteContentHtml } from "../../../services/sanitize_content.js";
 import { ensureMimeTypesForHighlighting, isSyntaxHighlightEnabled } from "../../../services/syntax_highlight.js";
 import { getTaskStateDefinitions, openCustomTaskStateConfig } from "../../../services/task_states.js";
 import { isMac } from "../../../services/utils.js";
@@ -196,7 +197,12 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             // The "Changes" review view: the same HTML-aware inline diff (`<ins>`/`<del>`
             // markup) the revisions dialog uses.
             diff: (oldHtml: string, newHtml: string) => HtmlDiff.execute(oldHtml, newHtml),
-            quickActions: buildAiAssistantQuickActions()
+            quickActions: buildAiAssistantQuickActions(),
+            // The model's HTML reaches the preview through `innerHTML`, so it gets the same
+            // DOMPurify pass as any other untrusted content rendered outside the editor's
+            // data pipeline. CKEditor ships no sanitizer of its own — like `htmlEmbed`, the
+            // feature takes one from the integrator.
+            sanitizeHtml: sanitizeNoteContentHtml
         },
         htmlSupport: buildHtmlSupportConfig(),
         removePlugins: getDisabledPlugins(),

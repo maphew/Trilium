@@ -125,6 +125,21 @@ group covers the monorepo wiring/convention defects. For the idiomatic "how it s
 - Why: focus stays on the button; the user can't keep typing.
 - Fix: call `editor.editing.view.focus()` after executing.
 
+**Untrusted HTML reaching `innerHTML` without the host's sanitizer.**
+- Spot: `innerHTML =` / `createRawElement` render callbacks / preview elements fed by model output,
+  clipboard, or any non-editor source — sanitized by a hand-written tag or attribute deny-list, or
+  not at all.
+- Why: CKEditor ships no sanitizer (`htmlEmbed`'s default only warns and passes through), and a
+  hand-rolled strip list misses namespaced URL attributes (`xlink:href`), SVG animation elements
+  and `data:` URIs. Passing through `editor.data.toModel()` is *not* a substitute — the schema is a
+  correctness filter, not a security boundary.
+- Fix: take the sanitizer from the feature's config namespace (never top-level — the editor throws
+  `editor-config-sanitizehtml-not-supported`), make the config field **required** and throw a
+  `CKEditorError` when it is absent, and have `apps/client` pass `sanitizeNoteContentHtml` from
+  `services/sanitize_content.ts`. A built-in "fallback" strip is itself the defect — it becomes the
+  real defence whenever a host forgets to configure one. See the plugin-development skill,
+  `references/core-plugin-patterns.md` → "Sanitizing untrusted HTML".
+
 **Views created without `locale`; missing a11y.**
 - Spot: `new ButtonView()` with no `locale`; no `label` when `withText` is false; keystrokes not in
   `accessibility.addKeystrokeInfos`.

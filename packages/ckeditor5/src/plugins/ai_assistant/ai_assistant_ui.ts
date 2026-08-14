@@ -1,5 +1,6 @@
 import {
     ButtonView,
+    CKEditorError,
     clickOutsideHandler,
     ContextualBalloon,
     Plugin,
@@ -10,7 +11,7 @@ import {
 import type { AiCompletionUsage } from "./ai_assistant_config.js";
 import AiAssistantEditing, { AI_TARGET_MARKER } from "./ai_assistant_editing.js";
 import AiAssistantFormView, { type AiQuickActionEvent } from "./ai_assistant_form.js";
-import { sanitizeAiHtml, stripMarkdownFences } from "./ai_html.js";
+import { stripMarkdownFences } from "./ai_html.js";
 import aiIcon from "./theme/icons/ai.svg?raw";
 import "./theme/ai_assistant.css";
 
@@ -194,7 +195,7 @@ export default class AiAssistantUI extends Plugin {
 
         const balloon = editor.plugins.get(ContextualBalloon);
         const render = (html: string) => {
-            form.setPreview(sanitizeAiHtml(html));
+            form.setPreview(this._sanitize(html));
             // The preview grows as it fills; keep the balloon anchored rather than overflowing.
             if (balloon.visibleView === form) {
                 balloon.updatePosition();
@@ -274,6 +275,22 @@ export default class AiAssistantUI extends Plugin {
     }
 
     /**
+     * Makes model-produced HTML safe to render, through the host's sanitizer — Trilium passes the
+     * DOMPurify pass it already applies to note content.
+     *
+     * There is no fallback on purpose: CKEditor ships no sanitizer, and a strip list written here
+     * would only look like one. A host that streams model output without configuring one is
+     * misconfigured, so the assistant refuses to run rather than render it unsanitized.
+     */
+    private _sanitize(html: string): string {
+        const sanitize = this.editor.config.get("aiAssistant")?.sanitizeHtml;
+        if (!sanitize) {
+            throw new CKEditorError("ai-assistant-sanitize-html-required", { pluginName: "AiAssistantUI" });
+        }
+        return sanitize(html);
+    }
+
+    /**
      * The "Changes" view of the review: the finished response diffed against the context the run
      * saw (`_previousContext` — so a follow-up query diffs against the response it refined, not
      * the original selection). Only computed once the stream is complete; diffing a partial
@@ -286,7 +303,7 @@ export default class AiAssistantUI extends Plugin {
             return null;
         }
         try {
-            return sanitizeAiHtml(diff(this._previousContext, this._cumulative));
+            return this._sanitize(diff(this._previousContext, this._cumulative));
         } catch (error) {
             // A host diff failure only costs the Changes view, never the response itself.
             console.warn("AI assistant: diff renderer failed", error);
@@ -306,7 +323,7 @@ export default class AiAssistantUI extends Plugin {
             return;
         }
 
-        const modelFragment = editor.data.toModel(editor.data.processor.toView(sanitizeAiHtml(html)));
+        const modelFragment = editor.data.toModel(editor.data.processor.toView(this._sanitize(html)));
         const model = editor.model;
 
         model.change((writer) => {
