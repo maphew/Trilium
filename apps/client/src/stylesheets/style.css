@@ -498,7 +498,7 @@ body.desktop .tabulator-popup-container,
     opacity: 1;
 }
 
-.dropdown-item:hover:not(.disabled, .dropdown-container-item),
+.dropdown-item:hover:not(.disabled, .active, .dropdown-container-item),
 .tabulator-menu-item:hover,
 :root .excalidraw .context-menu .context-menu-item:hover {
     color: var(--hover-item-text-color) !important;
