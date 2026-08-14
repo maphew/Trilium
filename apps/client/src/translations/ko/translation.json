@@ -3775,10 +3775,12 @@
       "search_help": "사용자 가이드 검색",
       "get_help_toc": "사용자 가이드 콘텐츠 보기"
     },
-    "provider_unavailable_standalone": "브라우저 버전에서는 사용할 수 없습니다. 이 제공자는 Claude Code를 별도의 프로그램으로 실행하는 방식으로 작동하지만, 브라우저에서는 이를 실행할 로컬 환경이 없습니다.",
+    "provider_unavailable_standalone": "브라우저 버전에서는 사용할 수 없습니다. 이 제공업체는 컴퓨터에서 별도의 프로그램을 실행하는 방식으로 작동하며, 여기에는 해당 프로그램을 실행할 컴퓨터가 없습니다.",
     "mcp_unavailable_standalone": "브라우저 버전에서는 사용할 수 없습니다. 어시스턴트는 네트워크를 통해 Trilium에 연결해야 하지만, 이 빌드는 이 페이지 안에서만 실행되므로 어시스턴트에 제공할 연결 주소가 없습니다.",
     "enabled": "AI 기능",
-    "enabled_description": "아래에서 설정한 제공업체를 사용하여 AI 채팅 사이드바와 LLM 채팅 노트를 추가합니다."
+    "enabled_description": "아래에서 설정한 제공업체를 사용하여 AI 채팅 사이드바와 LLM 채팅 노트를 추가합니다.",
+    "provider_desc_copilot_agent": "Trilium이 실행 중인 컴퓨터에 GitHub Copilot CLI가 필요합니다.",
+    "copilot_agent_description": "GitHub Copilot CLI를 통해 GitHub Copilot 구독을 사용하므로 API 키가 필요하지 않습니다. Copilot CLI는 Trilium이 실행 중인 컴퓨터(셀프 호스팅의 경우 서버, 데스크톱의 경우 이 컴퓨터)에 설치되어 있어야 합니다. 해당 컴퓨터에서 \"copilot login\"을 한 번 실행하여 로그인하세요 — 다른 편집기에서 이미 Copilot에 로그인되어 있다면 자동으로 재사용됩니다."
   },
   "common": {
     "save": "저장",
@@ -3926,7 +3928,9 @@
       "to-do-list": "할 일 목록",
       "turn-the-current-block-into-a-heading": "현재 블록을 제목으로 변경합니다.",
       "turn-the-current-block-into-a-paragraph": "현재 블록을 문단으로 변경합니다.",
-      "warning": "경고"
+      "warning": "경고",
+      "the-file-is-too-large-to-be-uploaded-http-413-if-trilium-is-behind-a-reverse-proxy-raise-its-request-body-size-limit": "파일이 너무 커서 업로드할 수 없습니다(HTTP 413). Trilium이 리버스 프록시 뒤에 있는 경우 요청 본문 크기 제한을 늘리세요.",
+      "the-server-responded-with-http-0": "서버가 HTTP %0(으)로 응답했습니다."
     },
     "toolbar-groups": {
       "text-formatting": "텍스트 서식",
