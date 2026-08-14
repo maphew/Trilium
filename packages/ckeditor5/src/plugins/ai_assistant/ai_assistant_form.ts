@@ -101,7 +101,7 @@ export default class AiAssistantFormView extends View {
         this.setTemplate({
             tag: "form",
             attributes: {
-                class: ["ck", "ck-ai-assistant-form", "ck-responsive-form"],
+                class: ["ck", "ck-ai-assistant-form"],
                 tabindex: "-1"
             },
             children: [

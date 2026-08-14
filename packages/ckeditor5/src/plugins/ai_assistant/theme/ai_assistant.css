@@ -1,15 +1,16 @@
 .ck.ck-ai-assistant-form {
     display: flex;
     flex-direction: column;
-    gap: var(--ck-spacing-medium);
-    padding: var(--ck-spacing-large);
+    gap: var(--ck-spacing-large);
+    padding: 0 var(--ck-spacing-large) var(--ck-spacing-large) var(--ck-spacing-large);
     width: min(560px, 90vw);
+    outline: none;
 }
 
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__preview-toolbar {
     display: flex;
     align-items: center;
-    gap: var(--ck-spacing-small);
+    gap: var(--ck-spacing-medium);
 }
 
 /* Outside a review every button in the strip is hidden; it should not reserve a gap of its own. */
@@ -30,14 +31,14 @@
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__preview-toolbar-end {
     display: flex;
     align-items: center;
-    gap: var(--ck-spacing-small);
+    gap: var(--ck-spacing-medium);
     margin-inline-start: auto;
 }
 
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row {
     display: flex;
     align-items: center;
-    gap: var(--ck-spacing-small);
+    gap: var(--ck-spacing-medium);
 }
 
 .ck.ck-dropdown.ck-ai-assistant-quick-actions .ck-dropdown__panel {
@@ -78,7 +79,7 @@
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__actions {
     display: flex;
     justify-content: flex-end;
-    gap: var(--ck-spacing-small);
+    gap: var(--ck-spacing-medium);
 }
 
 /* The run's model/token/cost line, alongside the retry icon at the end of the preview's strip. */
