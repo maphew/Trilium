@@ -2267,7 +2267,9 @@
     "consistency-checks-failed": "整合性チェックに失敗しました！ 詳細はログを参照してください。",
     "encountered-error": "エラー「{{message}}」が発生しました。コンソールを確認してください。",
     "lost-websocket-connection-title": "サーバーへの接続が失われました",
-    "lost-websocket-connection-message": "リバースプロキシ（例: nginx や Apache など）の設定を確認し、WebSocket 接続が適切に許可され、ブロックされていないことを確認してください。"
+    "lost-websocket-connection-message": "リバースプロキシ（例: nginx や Apache など）の設定を確認し、WebSocket 接続が適切に許可され、ブロックされていないことを確認してください。",
+    "sync-hash-check-failed-title": "同期が停止しました",
+    "sync-hash-check-failed": "このデータベースと同期サーバーには、再同期では整合性をとることができないデータが含まれています ({{- sectors}}。\n\nこの問題が解決されるまで、同期は失敗し続けます。詳細はログを確認してください。"
   },
   "hoisted_note": {
     "confirm_unhoisting": "要求されたノート「{{requestedNote}}」は、ホイストされたノート「{{hoistedNote}}」サブツリーの外部にあるため、ノートにアクセスするにはホイストを解除する必要があります。ホイスト解除を続行しますか？"
@@ -3030,10 +3032,12 @@
     "mcp_config_token_placeholder": "あなたの etapi トークン",
     "mcp_config_cli_description": "Claude Code はコマンドラインから設定することもできます:",
     "mcp_config_warning": "トークンは、すべてのノートへの完全な読み取りおよび書き込みアクセス権を付与するため、パスワードと同様に扱ってください。別のデバイスから接続する場合は、HTTPS 接続を推奨します — プレーンな HTTP 経由で送信されるトークンは傍受される可能性があります。",
-    "provider_unavailable_standalone": "ブラウザ版では利用できません。このプロバイダーは Claude Code を別個のプログラムとして実行する仕組みですが、それを実行するためのマシン環境がここにはないためです。",
+    "provider_unavailable_standalone": "ブラウザ版では利用できません: このプロバイダーはマシン上で別のプログラムを実行することで動作しますが、ブラウザ版にはそれを実行するためのマシンが存在しないためです。",
     "mcp_unavailable_standalone": "ブラウザ版では利用できません。アシスタントはネットワーク経由で Trilium に接続しますが、このビルドはページ内で完結して動作しているため、アシスタントに指定すべきアドレスが存在しないからです。",
     "enabled": "AI 機能",
-    "enabled_description": "以下で設定されたプロバイダーを使用し、AI チャットサイドバーと LLM チャットノートを追加します。"
+    "enabled_description": "以下で設定されたプロバイダーを使用し、AI チャットサイドバーと LLM チャットノートを追加します。",
+    "provider_desc_copilot_agent": "Trilium を実行しているマシンに GitHub Copilot CLI がインストールされている必要があります。",
+    "copilot_agent_description": "GitHub Copilot CLI 経由で GitHub Copilot のサブスクリプションを使用するため、API キーは不要です。Copilot CLI は、Trilium を実行しているマシン（セルフホストの場合はサーバー、デスクトップ版の場合はこのコンピューター）にインストールされている必要があります。そのマシン上で一度 \"copilot login\" を実行してサインインしてください — 別のエディタでの既存の Copilot ログイン情報が自動的に再利用されます。"
   },
   "ocr": {
     "extracted_text": "抽出されたテキスト（OCR）",
@@ -3493,7 +3497,9 @@
       "to-do-list": "To-do リスト",
       "turn-the-current-block-into-a-heading": "現在のブロックを見出しに変換。",
       "turn-the-current-block-into-a-paragraph": "現在のブロックを段落に変換。",
-      "warning": "警告"
+      "warning": "警告",
+      "the-file-is-too-large-to-be-uploaded-http-413-if-trilium-is-behind-a-reverse-proxy-raise-its-request-body-size-limit": "ファイルが大きすぎてアップロードできません（HTTP 413）。Trilium がリバースプロキシの背後にある場合は、リクエストボディのサイズ制限を引き上げてください。",
+      "the-server-responded-with-http-0": "サーバーから HTTP %0 という応答が返されました。"
     },
     "toolbar-groups": {
       "text-formatting": "テキストの書式設定",
