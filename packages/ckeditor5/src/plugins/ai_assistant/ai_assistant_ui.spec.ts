@@ -20,6 +20,7 @@ interface MenuButtonView {
 /** A submenu entry: a group that opens rather than listing its actions inline. */
 interface NestedMenuView {
     id: string;
+    isEnabled: boolean;
     buttonView: { label?: string; element?: HTMLElement | null };
     listView: { items: Array<{ childView: MenuButtonView }> };
 }
@@ -33,6 +34,7 @@ interface QuickActionsDropdown {
         /** A separator is a plain view: no `childView`, which is how the walker tells it apart. */
         items: Array<{ childView?: MenuButtonView | NestedMenuView }>;
         buttons: MenuButtonView[];
+        menus: NestedMenuView[];
     };
 }
 
@@ -220,6 +222,16 @@ describe("AiAssistantUI toolbar entry", () => {
             expect(friendly?.element?.querySelector(".ck-ai-action-icon")).toBeNull();
         });
 
+        it("gates a submenu on the content its actions need", () => {
+            const [tone] = openMenu(dropdown).menus;
+
+            setModelData(editor.model, "<paragraph>[]</paragraph>");
+            expect(tone.isEnabled).toBe(false);
+
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            expect(tone.isEnabled).toBe(true);
+        });
+
         it("gates the content-requiring actions on there being something to work on", () => {
             const [fixTypos, , write, direct] = quickActionButtons(dropdown);
 
@@ -236,6 +248,22 @@ describe("AiAssistantUI toolbar entry", () => {
 
             setModelData(editor.model, "<paragraph>[foo]</paragraph>");
             expect(fixTypos.isEnabled).toBe(true);
+        });
+
+        it("leaves a submenu alone when one of its actions runs without content", async () => {
+            const editorWithFreeAction = await createEditor([{
+                id: "generate",
+                label: "Generate",
+                submenu: true,
+                actions: [
+                    { id: "write", label: "Write something", prompt: "Write.", requiresContent: false },
+                    { id: "rewrite", label: "Rewrite", prompt: "Rewrite." }
+                ]
+            }], createStreamStub().stream);
+            const [generate] = openMenu(createComponent(editorWithFreeAction)).menus;
+
+            setModelData(editorWithFreeAction.model, "<paragraph>[]</paragraph>");
+            expect(generate.isEnabled).toBe(true);
         });
 
         it("runs an action picked from inside a submenu", async () => {

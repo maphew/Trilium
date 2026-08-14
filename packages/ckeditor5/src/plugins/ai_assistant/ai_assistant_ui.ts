@@ -194,7 +194,14 @@ export default class AiAssistantUI extends Plugin {
                 addIcon(button, action?.iconClass);
             }
             for (const menu of dropdownView.menuView?.menus ?? []) {
-                addIcon(menu.buttonView, groupsById.get(menu.id)?.iconClass);
+                const group = groupsById.get(menu.id);
+                addIcon(menu.buttonView, group?.iconClass);
+                // A submenu with nothing runnable in it should not invite the pointer: gate the
+                // opener on the same context its actions are gated on, unless one of them can run
+                // without any. The nested menu binds its own button to this.
+                if (group?.actions.every((action) => action.requiresContent !== false)) {
+                    menu.bind("isEnabled").to(this, "hasContext");
+                }
             }
             // Back to front: each insertion shifts everything after it, and the recorded indices
             // are into the list as the definition built it.
