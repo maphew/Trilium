@@ -76,13 +76,7 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
                 // Deliberately not "fix mistakes and tighten the phrasing": that made this the same
                 // instruction as Fix typos and Make shorter, which are one click away either side.
                 action("improveWriting", t("ai_assistant.action_improve_writing"),
-                    "Improve the clarity, flow and word choice of this content, keeping its meaning and roughly its length."),
-                action("makeShorter", t("ai_assistant.action_make_shorter"),
-                    "Shorten this content by removing repetition and non-essential details, without losing key information."),
-                action("makeLonger", t("ai_assistant.action_make_longer"),
-                    "Expand this content with more detail and clearer explanations, keeping the original meaning."),
-                action("simplify", t("ai_assistant.action_simplify"),
-                    "Rewrite this content in simpler language so that it is easier to understand.")
+                    "Improve the clarity, flow and word choice of this content, keeping its meaning and roughly its length.")
             ]
         },
         {
@@ -95,6 +89,21 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
                     "Explain this content in plain language: what it says, and what it means for someone unfamiliar with it. Keep the explanation brief."),
                 action("continue", t("ai_assistant.action_continue"),
                     "Continue writing from the end of the provided content, staying on topic and matching its style. Keep the continuation brief.")
+            ]
+        },
+        {
+            // The three ways of saying the same thing differently, as against improving it
+            // (Improve writing), replacing it (Summarize, Explain) or correcting it (Fix typos).
+            id: "adjust",
+            label: t("ai_assistant.group_adjust"),
+            submenu: true,
+            actions: [
+                spelledOutAction("makeShorter", t("ai_assistant.adjust_shorter"), t("ai_assistant.command_make_shorter"),
+                    "Shorten this content by removing repetition and non-essential details, without losing key information."),
+                spelledOutAction("makeLonger", t("ai_assistant.adjust_longer"), t("ai_assistant.command_make_longer"),
+                    "Expand this content with more detail and clearer explanations, keeping the original meaning."),
+                spelledOutAction("simplify", t("ai_assistant.adjust_simpler"), t("ai_assistant.command_simplify"),
+                    "Rewrite this content in simpler language so that it is easier to understand.")
             ]
         },
         {
@@ -121,13 +130,13 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
             label: t("ai_assistant.group_reformat"),
             submenu: true,
             actions: [
-                reformatAction("bulletList", t("ai_assistant.action_bullet_list"), t("ai_assistant.command_bullet_list"),
+                spelledOutAction("bulletList", t("ai_assistant.reformat_bullet_list"), t("ai_assistant.command_bullet_list"),
                     "Rewrite this content as a bulleted list, one point per item, without losing information."),
-                reformatAction("table", t("ai_assistant.action_table"), t("ai_assistant.command_table"),
+                spelledOutAction("table", t("ai_assistant.reformat_table"), t("ai_assistant.command_table"),
                     "Reorganize this content into a table with a header row, choosing columns that fit what the content describes."),
                 // Kept to a plain list: the editor's task lists need CKEditor's own `todo-list`
                 // markup, which the system prompt does not describe to the model.
-                reformatAction("actionItems", t("ai_assistant.action_action_items"), t("ai_assistant.command_action_items"),
+                spelledOutAction("actionItems", t("ai_assistant.reformat_action_items"), t("ai_assistant.command_action_items"),
                     "Extract the action items from this content as a bulleted list, each one short and starting with a verb. Leave out anything that is not an action.")
             ]
         },
@@ -168,11 +177,13 @@ function translateAction(id: string, language: string, prompt: string): AiQuickA
 }
 
 /**
- * A reformat needs the same two labels as a tone or a language — a bare "Table" says nothing in the
- * `/` palette — but its commands do not compose from a single phrase ("Turn into a table" against
- * "Extract action items"), so each carries its own translated pair instead of a substitution.
+ * An action that needs the two labels spelled out rather than composed. Adjust and Reformat both
+ * read as a bare word under their heading ("Shorter", "Table") and so need the standalone wording
+ * the `/` palette shows, but neither composes from a single phrase the way a tone or a language
+ * does — "Make shorter" against "Simplify language", "Turn into a table" against "Extract action
+ * items". So the pair is translated as a pair.
  */
-function reformatAction(id: string, label: string, commandLabel: string, prompt: string): AiQuickAction {
+function spelledOutAction(id: string, label: string, commandLabel: string, prompt: string): AiQuickAction {
     return { id, label, commandLabel, prompt };
 }
 

@@ -104,12 +104,18 @@ describe("buildAiAssistantQuickActions", () => {
         expect(romanian?.prompt).toBe("Translate the content to Romanian.");
     });
 
-    it("gives each reformat its own command label rather than composing one", () => {
-        // "Turn into a table" against "Extract action items": no single phrase composes both.
+    // "Make shorter" against "Simplify language", "Turn into a table" against "Extract action
+    // items": no single phrase composes either pair, so both labels are translated as a pair.
+    it("spells out both labels for the adjustments and the reformats", () => {
+        expect(actions("adjust").map((action) => [action.label, action.commandLabel])).toEqual([
+            ["ai_assistant.adjust_shorter", "ai_assistant.command_make_shorter"],
+            ["ai_assistant.adjust_longer", "ai_assistant.command_make_longer"],
+            ["ai_assistant.adjust_simpler", "ai_assistant.command_simplify"]
+        ]);
         expect(actions("reformat").map((action) => [action.label, action.commandLabel])).toEqual([
-            ["ai_assistant.action_bullet_list", "ai_assistant.command_bullet_list"],
-            ["ai_assistant.action_table", "ai_assistant.command_table"],
-            ["ai_assistant.action_action_items", "ai_assistant.command_action_items"]
+            ["ai_assistant.reformat_bullet_list", "ai_assistant.command_bullet_list"],
+            ["ai_assistant.reformat_table", "ai_assistant.command_table"],
+            ["ai_assistant.reformat_action_items", "ai_assistant.command_action_items"]
         ]);
     });
 
@@ -125,13 +131,14 @@ describe("buildAiAssistantQuickActions", () => {
 
         // Improve writing leaves the mechanics to Fix typos and the length to Make shorter.
         expect(promptOf("edit", "improveWriting")).not.toMatch(/mistakes|tighten/i);
+        expect(promptOf("adjust", "makeShorter")).toMatch(/shorten/i);
         expect(promptOf("edit", "fixTypos")).toMatch(/spelling, grammar and punctuation/i);
     });
 
     it("inlines the groups whose actions already read as commands", () => {
         const groups = buildAiAssistantQuickActions();
         expect(groups.filter((group) => group.submenu).map((group) => group.id))
-            .toEqual(["tone", "reformat", "translate"]);
+            .toEqual(["adjust", "tone", "reformat", "translate"]);
         expect(groups.filter((group) => !group.submenu).map((group) => group.id))
             .toEqual(["edit", "generate"]);
     });
