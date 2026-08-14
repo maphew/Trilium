@@ -163,6 +163,35 @@ describe("the Markdown pipeline", () => {
         expect(html).toContain("language-mermaid");
     });
 
+    // Markdown has no collapsible syntax, so the model writes the HTML — which only keeps its
+    // Markdown formatted when the blank lines separate it from the surrounding block.
+    it("formats the content inside a collapsible, given the blank lines the prompt asks for", async () => {
+        responseChunks = ["<details>\n<summary>More</summary>\n\n- one\n- two\n\n</details>"];
+
+        const [html] = (await run()).rendered;
+        expect(html).toContain("<summary>More</summary>");
+        expect(html).toContain("<ul><li>one</li><li>two</li></ul>");
+    });
+
+    it("leaves a collapsible's content unformatted when the model omits them", async () => {
+        // Documented so the prompt's insistence on blank lines is not mistaken for noise.
+        responseChunks = ["<details><summary>More</summary>\n- one\n</details>"];
+
+        const [html] = (await run()).rendered;
+        expect(html).toContain("- one");
+        expect(html).not.toContain("<li>one</li>");
+    });
+
+    // The Diagram action asks for the code block and nothing else, so the whole answer is a
+    // fence — one the stripper must not mistake for a wrapper.
+    it("keeps a diagram whose fence is the entire answer", async () => {
+        responseChunks = ["```mermaid\nflowchart TD\n  a-->b\n```"];
+
+        const [html] = (await run()).rendered;
+        expect(html).toContain("language-mermaid");
+        expect(html).toContain("flowchart TD");
+    });
+
     it("strips a fence the model wrapped the whole answer in", async () => {
         responseChunks = ["\u0060\u0060\u0060markdown\n**bold**\n\u0060\u0060\u0060"];
 
@@ -186,6 +215,13 @@ describe("stripMarkdownFences", () => {
 
     it("strips an opening fence whose closing half has not streamed in yet", () => {
         expect(stripMarkdownFences(fence + "markdown\nst")).toBe("st");
+    });
+
+    it("leaves a fence that names content alone", () => {
+        expect(stripMarkdownFences(fence + "mermaid\nflowchart TD\n" + fence))
+            .toBe(fence + "mermaid\nflowchart TD\n" + fence);
+        expect(stripMarkdownFences(fence + "js\nconst a = 1;\n" + fence))
+            .toBe(fence + "js\nconst a = 1;\n" + fence);
     });
 
     it("does not treat a fence inside the content as a closing one", () => {
@@ -228,6 +264,9 @@ describe("buildAiAssistantQuickActions", () => {
         expect(actions("reformat").map((action) => [action.label, action.commandLabel])).toEqual([
             ["ai_assistant.reformat_bullet_list", "ai_assistant.command_bullet_list"],
             ["ai_assistant.reformat_table", "ai_assistant.command_table"],
+            ["ai_assistant.reformat_diagram", "ai_assistant.command_diagram"],
+            ["ai_assistant.reformat_callout", "ai_assistant.command_callout"],
+            ["ai_assistant.reformat_collapsible", "ai_assistant.command_collapsible"],
             ["ai_assistant.reformat_action_items", "ai_assistant.command_action_items"]
         ]);
     });

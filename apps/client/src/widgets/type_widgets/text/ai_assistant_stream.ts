@@ -149,6 +149,14 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
                     "Rewrite this content as a bulleted list, one point per item, without losing information."),
                 spelledOutAction("table", t("ai_assistant.reformat_table"), t("ai_assistant.command_table"),
                     "Reorganize this content into a table with a header row, choosing columns that fit what the content describes."),
+                spelledOutAction("diagram", t("ai_assistant.reformat_diagram"), t("ai_assistant.command_diagram"),
+                    "Express this content as a Mermaid diagram inside a `mermaid` code block — a flowchart unless another Mermaid diagram type fits the content better. Respond with the code block only."),
+                spelledOutAction("callout", t("ai_assistant.reformat_callout"), t("ai_assistant.command_callout"),
+                    "Turn this content into a single callout, opening with the marker that fits it best — `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!CAUTION]` or `> [!WARNING]` — and keeping the wording."),
+                // The blank lines are not cosmetic: without them the content sits inside one HTML
+                // block and its Markdown is never processed (verified against the renderer).
+                spelledOutAction("collapsible", t("ai_assistant.reformat_collapsible"), t("ai_assistant.command_collapsible"),
+                    "Wrap this content in a collapsible section: a line with <details>, then a <summary> line saying in a few words what it hides, then a blank line, then the content unchanged, then a blank line and </details>."),
                 // A real task list rather than a plain one: `- [ ]` is Markdown the model already
                 // writes, and the renderer turns it into the editor's `todo-list` markup.
                 spelledOutAction("actionItems", t("ai_assistant.reformat_action_items"), t("ai_assistant.command_action_items"),
@@ -265,13 +273,24 @@ async function loadMarkdownRenderer(): Promise<(markdown: string) => string> {
 }
 
 /**
- * Removes a leading markdown code fence (\`\`\`markdown or \`\`\`) and, when present, the matching
- * closing fence. Models add these despite instructions not to; the stripper is applied to the
- * cumulative stream, so it must also handle a fence whose closing half has not arrived yet.
+ * Info strings that mean "here is my answer" rather than naming content. A fence carrying any
+ * other language is part of the response: a `mermaid` block is the whole point of the Diagram
+ * action, and unwrapping it leaves the diagram source rendering as a paragraph of text.
+ */
+const WRAPPER_FENCE_LANGUAGES = new Set(["", "markdown", "md", "html"]);
+
+/**
+ * Removes the code fence a model wrapped its whole answer in, closing half included when it has
+ * arrived. Models add these despite instructions not to; the stripper runs against the cumulative
+ * stream, so it also has to handle a fence whose closing half has not streamed in yet.
+ *
+ * A bare ``` is treated as a wrapper, which is what it almost always is. The cost is that an
+ * answer that is nothing but an unlabelled code block loses its fence — cheap next to leaving
+ * every wrapped answer rendering as source.
  */
 export function stripMarkdownFences(cumulative: string): string {
-    const opening = /^\s*```[a-z]*\s*\n?/i.exec(cumulative);
-    if (!opening) {
+    const opening = /^\s*```([a-z]*)\s*\n?/i.exec(cumulative);
+    if (!opening || !WRAPPER_FENCE_LANGUAGES.has(opening[1].toLowerCase())) {
         return cumulative;
     }
 
