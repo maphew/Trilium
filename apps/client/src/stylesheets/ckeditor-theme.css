@@ -113,17 +113,12 @@ body {
     --ck-input-label-height: 1.5em;
 }
 
-/* -- Overrides the default .ck-dialog class to match Trilium's modals. --------------------- */
-
 div.ck.ck-dialog {
     --ck-color-dialog-background: var(--modal-background-color, var(--main-background-color));
 
-    /* CKEditor rings every :focus and :active with a blue 1px border plus a 3px #cae1fc halo, and
-       the toolbar scopes are the only place Trilium takes it off.
-       `--ck-focus-ring` has to be redefined rather than just `--ck-color-focus-border`: the ring is
-       declared at `:root`, so the colour is substituted into it there and it inherits down already
-       resolved — recolouring further down the tree cannot reach it. The ring is kept at 1px rather
-       than made transparent because `.ck-input:focus` draws its focus border from it. */
+    --ck-color-base-border: var(--main-border-color);
+    --ck-border-radius: var(--bs-border-radius);
+
     --ck-focus-ring: 1px solid var(--input-focus-outline-color, var(--main-border-color));
     --ck-color-focus-border: var(--input-focus-outline-color, var(--main-border-color));
     --ck-focus-outer-shadow: none;
@@ -169,8 +164,6 @@ div.ck.ck-dialog .ck.ck-form__header > .ck.ck-button:active {
     transform: scale(.85);
 }
 
-/* The button's own `border: 0` outranks CKEditor's focus ring, so without this the close button
-   has no focus indicator at all. Same outline `.modal .modal-header .btn-close` gets. */
 div.ck.ck-dialog .ck.ck-form__header > .ck.ck-button:focus-visible {
     outline: 2px solid var(--input-focus-outline-color, var(--main-border-color));
     outline-offset: 2px;

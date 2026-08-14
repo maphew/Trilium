@@ -94,7 +94,7 @@ export default class AiAssistantFormView extends View {
         // is about the response on screen, not about what to do with it.
         this.tryAgainButtonView = this._createActionButton(locale, t("Try again"), "review", "tryAgain");
         this.tryAgainButtonView.set({ icon: IconRefresh, withText: false, tooltip: true });
-        this.tryAgainButtonView.class = "ck-ai-assistant-form__try-again ck-ai-assistant-form__icon-action";
+        this.tryAgainButtonView.class = "ck-ai-assistant-form__icon-action";
 
         const bind = this.bindTemplate;
 
@@ -118,7 +118,28 @@ export default class AiAssistantFormView extends View {
                             attributes: { class: ["ck", "ck-ai-assistant-form__viewmodes"] },
                             children: [this.resultToggleView, this.changesToggleView]
                         },
-                        this.tryAgainButtonView
+                        {
+                            // What the run cost and the way to ask for another are both about the
+                            // response on show, so they end its strip together. A container of
+                            // their own, rather than a margin on each, keeps them to the end
+                            // whether or not the provider reported any usage.
+                            tag: "div",
+                            attributes: { class: ["ck", "ck-ai-assistant-form__preview-toolbar-end"] },
+                            children: [
+                                {
+                                    tag: "span",
+                                    attributes: {
+                                        class: [
+                                            "ck",
+                                            "ck-ai-assistant-form__usage",
+                                            bind.if("usageText", "ck-hidden", (text) => !text)
+                                        ]
+                                    },
+                                    children: [{ text: bind.to("usageText") }]
+                                },
+                                this.tryAgainButtonView
+                            ]
+                        }
                     ]
                 },
                 this.previewView,
@@ -143,19 +164,10 @@ export default class AiAssistantFormView extends View {
                     attributes: { class: ["ck", "ck-ai-assistant-form__actions"] },
                     children: [
                         this.stopButtonView,
-                        this.replaceButtonView,
+                        // The row is pushed to the end, so "Replace" comes last to land where the
+                        // eye finishes and the primary action is expected.
                         this.insertBelowButtonView,
-                        {
-                            tag: "span",
-                            attributes: {
-                                class: [
-                                    "ck",
-                                    "ck-ai-assistant-form__usage",
-                                    bind.if("usageText", "ck-hidden", (text) => !text)
-                                ]
-                            },
-                            children: [{ text: bind.to("usageText") }]
-                        }
+                        this.replaceButtonView
                     ]
                 }
             ]
@@ -186,8 +198,8 @@ export default class AiAssistantFormView extends View {
             this.promptInputView,
             this.sendButtonView,
             this.stopButtonView,
-            this.replaceButtonView,
-            this.insertBelowButtonView
+            this.insertBelowButtonView,
+            this.replaceButtonView
         ];
         for (const view of focusables) {
             this._focusables.add(view);

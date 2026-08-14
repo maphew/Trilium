@@ -23,13 +23,14 @@
     gap: var(--ck-spacing-tiny);
 }
 
-/* A review with no diff to offer hides both modes; the container must not stay behind as an
-   empty frame wherever the host gives it a background of its own. */
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__viewmodes:not(:has(.ck-button:not(.ck-hidden))) {
     display: none;
 }
 
-.ck.ck-ai-assistant-form .ck-button.ck-ai-assistant-form__try-again {
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview-toolbar-end {
+    display: flex;
+    align-items: center;
+    gap: var(--ck-spacing-small);
     margin-inline-start: auto;
 }
 
@@ -57,6 +58,8 @@
     padding: var(--ck-spacing-medium);
     background: var(--ck-color-base-background);
     white-space: pre-wrap;
+    -webkit-user-select: text;
+    user-select: text;
 
     p:last-child {
         margin-bottom: 0;
@@ -74,15 +77,15 @@
 
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__actions {
     display: flex;
+    justify-content: flex-end;
     gap: var(--ck-spacing-small);
 }
 
-/* The run's model/token/cost line, tucked to the right of the review actions. */
+/* The run's model/token/cost line, alongside the retry icon at the end of the preview's strip. */
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__usage {
-    margin-left: auto;
-    align-self: center;
     font-size: var(--ck-font-size-small);
     opacity: 0.7;
+    white-space: nowrap;
 }
 
 /* An actions row with every button hidden should not reserve a gap's worth of height. */
