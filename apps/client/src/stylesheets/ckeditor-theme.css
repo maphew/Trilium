@@ -109,3 +109,48 @@ body {
     --ck-color-widget-type-around-button: var(--main-border-color);
     --ck-color-widget-type-around-button-hover: var(--main-border-color);
 }
+
+/* -- Overrides the default .ck-dialog class to match Trilium's modals. --------------------- */
+
+div.ck.ck-dialog {
+    --ck-color-dialog-background: var(--modal-background-color, var(--main-background-color));
+
+    border: 1px solid var(--modal-border-color, var(--main-border-color));
+    border-radius: var(--bs-border-radius-lg);
+    box-shadow: 0 .5em 3em .5em var(--modal-shadow-color, rgba(0, 0, 0, .2));
+}
+
+div.ck.ck-dialog .ck.ck-form__header {
+    border-bottom: unset;
+}
+
+div.ck.ck-dialog .ck.ck-form__header .ck-form__header__label {
+    color: var(--modal-title-color, var(--main-text-color));
+}
+
+div.ck.ck-dialog .ck.ck-form__header > .ck.ck-button {
+    --ck-icon-size: calc(var(--modal-control-button-size, 22px) * .6);
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-inline-start: 8px;
+    border: 0;
+    border-radius: 50%;
+    padding: 0;
+    width: var(--modal-control-button-size, 22px);
+    height: var(--modal-control-button-size, 22px);
+    min-width: unset;
+    min-height: unset;
+    background: var(--modal-control-button-background, var(--accented-background-color));
+    color: var(--modal-control-button-color, var(--main-text-color));
+}
+
+div.ck.ck-dialog .ck.ck-form__header > .ck.ck-button:hover {
+    background: var(--modal-close-button-hover-background, var(--more-accented-background-color));
+    color: var(--modal-control-button-hover-color, var(--main-text-color));
+}
+
+div.ck.ck-dialog .ck.ck-form__header > .ck.ck-button:active {
+    transform: scale(.85);
+}
