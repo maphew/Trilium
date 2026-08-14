@@ -6,19 +6,15 @@
     width: min(560px, 90vw);
 }
 
-.ck.ck-ai-assistant-form .ck-ai-assistant-form__heading {
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__viewmodes {
     display: flex;
     align-items: center;
     gap: var(--ck-spacing-small);
-    font-weight: bold;
 }
 
-.ck.ck-ai-assistant-form .ck-ai-assistant-form__title {
-    flex-grow: 1;
-}
-
-.ck.ck-ai-assistant-form .ck-button.ck-ai-assistant-form__viewmode {
-    font-weight: normal;
+/* Outside a review with a diff both toggles are hidden; an empty row should not reserve a gap. */
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__viewmodes:not(:has(.ck-button:not(.ck-hidden))) {
+    display: none;
 }
 
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row {

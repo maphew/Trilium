@@ -1,5 +1,5 @@
 /**
- * A single completion request made by the AI assistant balloon.
+ * A single completion request made by the AI assistant.
  */
 export interface AiCompletionRequest {
     /** The user's instruction — either typed free-form or a preset command's prompt. */
@@ -74,7 +74,7 @@ export interface AiQuickAction {
 }
 
 /**
- * Sanitizes model-produced HTML before the balloon assigns it to the preview's `innerHTML`.
+ * Sanitizes model-produced HTML before the dialog assigns it to the preview's `innerHTML`.
  *
  * CKEditor ships no sanitizer of its own and asks the integrator for one instead — the same
  * contract as `config.htmlEmbed.sanitizeHtml`, whose built-in default only warns and passes the

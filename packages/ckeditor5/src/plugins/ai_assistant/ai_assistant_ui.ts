@@ -2,10 +2,10 @@ import {
     addListToDropdown,
     ButtonView,
     CKEditorError,
-    clickOutsideHandler,
     Collection,
-    ContextualBalloon,
     createDropdown,
+    Dialog,
+    DialogViewPosition,
     Plugin,
     SplitButtonView,
     ViewModel,
@@ -30,18 +30,28 @@ import "./theme/ai_assistant.css";
  */
 const RENDER_THROTTLE_MS = 80;
 
+/** Identifies our dialog in the editor-wide `Dialog` plugin, which shows one dialog at a time. */
+const DIALOG_ID = "aiAssistant";
+
 /**
  * The AI assistant's UI and orchestration: the toolbar entry (a split button whose menu holds the
- * host's quick actions), the balloon form, and the stream-preview-commit lifecycle.
+ * host's quick actions), the dialog form, and the stream-preview-commit lifecycle.
  *
  * The core design decision is that **the stream never touches the document**. The response
  * streams into the form's detached preview; the note is modified exactly once, when the user
  * commits with Replace or Insert below — a single `model.change()`, so a single undo step.
+ *
+ * The form lives in a **non-modal dialog** rather than a balloon. A balloon anchors to the target
+ * text, which means it has to be repositioned on every streamed chunk and still ends up covering
+ * the very content being rewritten on a large selection; it also shares one stack with the balloon
+ * toolbar that `PopupEditor` (floating-toolbar mode) shows on exactly the selections the assistant
+ * opens on. The dialog is anchored to the editor instead, is draggable, and leaves the document
+ * visible and editable — so the target highlight stays on screen while the response is reviewed.
  */
 export default class AiAssistantUI extends Plugin {
 
     static get requires() {
-        return [AiAssistantEditing, ContextualBalloon] as const;
+        return [AiAssistantEditing, Dialog] as const;
     }
 
     static get pluginName() {
@@ -79,7 +89,7 @@ export default class AiAssistantUI extends Plugin {
 
         editor.ui.componentFactory.add("aiAssistant", (locale) => this._createToolbarComponent(locale));
 
-        // While the balloon is closed the quick actions are offered against the selection, so
+        // While the assistant is closed the quick actions are offered against the selection, so
         // their enablement has to follow it.
         this.listenTo(editor.model.document.selection, "change:range", () => this._updateHasContext());
     }
@@ -166,8 +176,7 @@ export default class AiAssistantUI extends Plugin {
         // and its arrow to the dropdown's `open`.
         dropdownView.on("execute", (evt) => {
             const { _quickAction } = evt.source as unknown as { _quickAction: AiQuickAction };
-            this.show();
-            void this._run(_quickAction.prompt);
+            this.runQuickAction(_quickAction);
         });
 
         return dropdownView;
@@ -179,29 +188,47 @@ export default class AiAssistantUI extends Plugin {
         this._formView?.destroy();
     }
 
-    /** Opens the balloon on the current selection. Invoked by the `aiAssistant` command. */
+    /** Opens the assistant on the current selection. Invoked by the `aiAssistant` command. */
     public show(): void {
+        this._open(false);
+    }
+
+    /**
+     * Opens the assistant and runs a preset instruction against the caret's surroundings. Both
+     * entry points to the quick actions — the toolbar menu and the `/` palette — come in this way.
+     */
+    public runQuickAction(action: AiQuickAction): void {
+        this._open(true);
+        void this._run(action.prompt);
+    }
+
+    /**
+     * @param fallbackToBlock widens a collapsed caret to the block it sits in. A quick action is an
+     *                        instruction *about* content ("Fix typos"), so it needs something to
+     *                        work on, while a free-form prompt typed at a collapsed caret
+     *                        legitimately means "generate here" and must keep an empty context.
+     */
+    private _open(fallbackToBlock: boolean): void {
         const editor = this.editor;
-        const balloon = editor.plugins.get(ContextualBalloon);
+        const dialog = editor.plugins.get(Dialog);
         const form = this._getForm();
 
-        if (balloon.hasView(form)) {
+        if (dialog.id === DIALOG_ID) {
             form.focus();
             return;
         }
 
-        // Capture the context and pin the target before focus moves into the balloon and the
+        // Capture the context and pin the target before focus moves into the dialog and the
         // document selection stops being trustworthy.
         const model = editor.model;
-        const selection = model.document.selection;
-        this._context = selection.isCollapsed
+        const range = this._resolveTargetRange(fallbackToBlock);
+        this._context = !range || range.isCollapsed
             ? ""
-            : editor.data.stringify(model.getSelectedContent(selection));
+            : editor.data.stringify(model.getSelectedContent(model.createSelection(range)));
         this._previousContext = this._context;
         this._cumulative = "";
         this._updateHasContext();
 
-        const range = selection.getFirstRange();
         /* v8 ignore next -- the document selection always has at least one range */
         if (range) {
             model.change((writer) => {
@@ -210,7 +237,19 @@ export default class AiAssistantUI extends Plugin {
         }
 
         form.reset();
-        balloon.add({ view: form, position: this._getBalloonPosition() });
+        dialog.show({
+            id: DIALOG_ID,
+            // A header is what makes the dialog draggable, so the user can move it off the text
+            // being rewritten.
+            title: editor.t("AI assistant"),
+            icon: aiIcon,
+            isModal: false,
+            position: DialogViewPosition.EDITOR_CENTER,
+            content: form,
+            // Covers every way out — Esc, the close button, another dialog taking over — not just
+            // the paths that go through `_hide()`.
+            onHide: () => this._reset()
+        });
         form.focus();
     }
 
@@ -239,31 +278,9 @@ export default class AiAssistantUI extends Plugin {
             void this._run(this._lastQuery);
         });
 
-        // The Result and Changes views usually differ in height; keep the balloon anchored.
-        this.listenTo(form, "change:viewMode", () => {
-            const balloon = this.editor.plugins.get(ContextualBalloon);
-            if (balloon.visibleView === form) {
-                balloon.updatePosition();
-            }
-        });
-
-        // Esc always dismisses. A click outside only dismisses an idle, empty form — mid-stream or
-        // with a response on screen it would silently throw the result away.
-        form.keystrokes.set("Esc", (_data, cancel) => {
-            this._hide();
-            cancel();
-        });
-        clickOutsideHandler({
-            emitter: form,
-            activator: () => this.editor.plugins.get(ContextualBalloon).hasView(form),
-            contextElements: () => [this.editor.plugins.get(ContextualBalloon).view.element as HTMLElement],
-            callback: () => {
-                if (form.phase === "prompt" && !this._cumulative) {
-                    this._hide();
-                }
-            }
-        });
-
+        // Esc and the close button are the dialog's own; it also stays put as the preview grows
+        // and when the Result/Changes toggle changes its height, so there is nothing to reposition
+        // and no click-outside dismissal that could throw a streamed response away.
         return form;
     }
 
@@ -285,14 +302,7 @@ export default class AiAssistantUI extends Plugin {
         const abortController = new AbortController();
         this._abortController = abortController;
 
-        const balloon = editor.plugins.get(ContextualBalloon);
-        const render = (html: string) => {
-            form.setPreview(this._sanitize(html));
-            // The preview grows as it fills; keep the balloon anchored rather than overflowing.
-            if (balloon.visibleView === form) {
-                balloon.updatePosition();
-            }
-        };
+        const render = (html: string) => form.setPreview(this._sanitize(html));
 
         let renderTimer: ReturnType<typeof setTimeout> | null = null;
         let pendingHtml: string | null = null;
@@ -449,10 +459,23 @@ export default class AiAssistantUI extends Plugin {
         return marker?.getRange() ?? model.document.selection.getFirstRange() ?? null;
     }
 
+    /** Closes the assistant. The teardown itself rides on the dialog's `onHide`. */
     private _hide(): void {
+        const dialog = this.editor.plugins.get(Dialog);
+        // Only our own: `hide()` closes whatever dialog is open, and another feature's must not be
+        // collateral damage.
+        if (dialog.id === DIALOG_ID) {
+            dialog.hide();
+        }
+    }
+
+    /**
+     * Returns the plugin to its closed state. Invoked from the dialog's `onHide`, so it runs
+     * however the assistant was dismissed. The dialog handles removing the form and restoring
+     * focus to the editing view.
+     */
+    private _reset(): void {
         const editor = this.editor;
-        const balloon = editor.plugins.get(ContextualBalloon);
-        const form = this._formView;
 
         this._abortController?.abort();
         this._cumulative = "";
@@ -465,34 +488,35 @@ export default class AiAssistantUI extends Plugin {
         if (editor.model.markers.has(AI_TARGET_MARKER)) {
             editor.model.change((writer) => writer.removeMarker(AI_TARGET_MARKER));
         }
-        if (form && balloon.hasView(form)) {
-            balloon.remove(form);
-        }
-        form?.reset();
-        editor.editing.view.focus();
+        this._formView?.reset();
     }
 
     /**
      * What the quick actions are offered against: whatever the assistant captured while open, or
-     * the selection once it is closed.
+     * once it is closed, whatever a run started now would work on.
      */
     private _updateHasContext(): void {
-        this.hasContext = !!this._context || !this.editor.model.document.selection.isCollapsed;
+        const range = this._resolveTargetRange(true);
+        this.hasContext = !!this._context || (!!range && !range.isCollapsed);
     }
 
-    private _getBalloonPosition() {
-        const editor = this.editor;
-        return {
-            target: () => {
-                const modelRange = this._getTargetRange();
-                if (modelRange) {
-                    const viewRange = editor.editing.mapper.toViewRange(modelRange);
-                    return editor.editing.view.domConverter.viewRangeToDom(viewRange);
-                }
-                /* v8 ignore next -- there is always either a marker or a document selection range */
-                return editor.ui.getEditableElement() as HTMLElement;
-            }
-        };
+    /**
+     * The range a run works on: the selection, or — for a quick action at a collapsed caret — the
+     * block it sits in, so "Fix typos" typed into a paragraph rewrites that paragraph. It is both
+     * the context handed to the model and what the target marker pins for "Replace".
+     */
+    private _resolveTargetRange(fallbackToBlock: boolean): ModelRange | null {
+        const model = this.editor.model;
+        const selection = model.document.selection;
+        const range = selection.getFirstRange();
+
+        if (!fallbackToBlock || !selection.isCollapsed) {
+            return range;
+        }
+
+        const block = selection.getFirstPosition()?.parent;
+        /* v8 ignore next -- a collapsed selection always sits inside an element */
+        return block?.is("element") ? model.createRangeIn(block) : range;
     }
 }
 

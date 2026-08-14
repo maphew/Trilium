@@ -24,8 +24,8 @@ export type AiAssistantFormPhase = "prompt" | "streaming" | "review";
 export type AiAssistantViewMode = "result" | "changes";
 
 /**
- * The AI assistant balloon: a prompt row, a read-only streaming preview styled like note content,
- * and the review actions. In the review phase the preview can toggle between the plain result and
+ * The AI assistant dialog's contents: a prompt row, a read-only streaming preview styled like note
+ * content, and the review actions. In the review phase the preview can toggle between the plain result and
  * an inline diff ("Changes"), when the host provides a diff renderer. Purely presentational — the
  * orchestration (markers, streaming, diffing, committing to the model) lives in `AiAssistantUI`,
  * which listens to this view's `submit`, `stop`, `replace`, `insertBelow` and `tryAgain` events.
@@ -103,17 +103,11 @@ export default class AiAssistantFormView extends View {
             },
             children: [
                 {
+                    // The feature's title belongs to the dialog's own header; all this row carries
+                    // is the Result/Changes toggle, and only when a review has a diff to offer.
                     tag: "div",
-                    attributes: { class: ["ck", "ck-ai-assistant-form__heading"] },
-                    children: [
-                        {
-                            tag: "span",
-                            attributes: { class: ["ck", "ck-ai-assistant-form__title"] },
-                            children: [{ text: t("AI assistant") }]
-                        },
-                        this.resultToggleView,
-                        this.changesToggleView
-                    ]
+                    attributes: { class: ["ck", "ck-ai-assistant-form__viewmodes"] },
+                    children: [this.resultToggleView, this.changesToggleView]
                 },
                 this.previewView,
                 {
@@ -339,9 +333,10 @@ class AiPreviewView extends View {
                     "ck",
                     "ck-ai-assistant-form__preview",
                     "ck-content",
-                    // Exempt the preview subtree from CKEditor's UI reset — inside the balloon,
-                    // `.ck-reset_all` otherwise forces `white-space: nowrap` (plus zeroed margins
-                    // and the UI font) onto the content, making every paragraph one long
+                    // Exempt the preview subtree from CKEditor's UI reset. Balloons and dialogs
+                    // alike are mounted into `editor.ui.view.body`, whose wrapper carries
+                    // `.ck-reset_all` — which otherwise forces `white-space: nowrap` (plus zeroed
+                    // margins and the UI font) onto the content, making every paragraph one long
                     // unwrappable line.
                     "ck-reset_all-excluded",
                     bind.if("isVisible", "ck-hidden", (isVisible) => !isVisible)

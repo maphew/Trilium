@@ -1,4 +1,4 @@
-import { _setModelData as setModelData, ButtonView, ClassicEditor, ContextualBalloon, Essentials, Paragraph, SplitButtonView } from "ckeditor5";
+import { _setModelData as setModelData, ButtonView, ClassicEditor, Dialog, Essentials, Paragraph, SplitButtonView } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
@@ -92,6 +92,14 @@ function quickActionButtons(dropdown: QuickActionsDropdown): ListButtonView[] {
     return quickActionGroups(dropdown).flatMap((group) => group.buttons);
 }
 
+/** The form the assistant put into the dialog, once it is open. */
+function openForm(editor: ClassicEditor) {
+    return editor.plugins.get(Dialog).view?.contentView?.children.get(0) as unknown as {
+        query: string;
+        fire(event: string): void;
+    };
+}
+
 describe("AiAssistantUI toolbar entry", () => {
     it("is a plain button when the host configured no quick actions", async () => {
         const editor = await createEditor(undefined, createStreamStub().stream);
@@ -142,18 +150,45 @@ describe("AiAssistantUI toolbar entry", () => {
             ]);
         });
 
-        it("gates the content-requiring actions on the selection", () => {
+        it("gates the content-requiring actions on there being something to work on", () => {
             const [fixTypos, , write] = quickActionButtons(dropdown);
 
-            setModelData(editor.model, "<paragraph>foo[]</paragraph>");
+            setModelData(editor.model, "<paragraph>[]</paragraph>");
             expect(fixTypos.isEnabled).toBe(false);
             expect(write.isEnabled).toBe(true);
+
+            // A collapsed caret is enough as long as its block has content: that is what the run
+            // falls back to.
+            setModelData(editor.model, "<paragraph>foo[]</paragraph>");
+            expect(fixTypos.isEnabled).toBe(true);
 
             setModelData(editor.model, "<paragraph>[foo]</paragraph>");
             expect(fixTypos.isEnabled).toBe(true);
         });
 
-        it("runs the picked action against the selection and opens the balloon on it", async () => {
+        it("falls back to the caret's block when nothing is selected", async () => {
+            setModelData(editor.model, "<paragraph>first</paragraph><paragraph>seco[]nd</paragraph>");
+            const [fixTypos] = quickActionButtons(dropdown);
+
+            fixTypos.fire("execute");
+            await vi.waitFor(() => expect(requests).toHaveLength(1));
+
+            expect(requests[0]).toEqual({ query: "Fix all mistakes.", context: "second" });
+        });
+
+        it("keeps a free-form prompt at a collapsed caret generating from scratch", async () => {
+            setModelData(editor.model, "<paragraph>foo[]</paragraph>");
+            editor.execute("aiAssistant");
+
+            const form = openForm(editor);
+            form.query = "Write a haiku.";
+            form.fire("submit");
+            await vi.waitFor(() => expect(requests).toHaveLength(1));
+
+            expect(requests[0]).toEqual({ query: "Write a haiku.", context: "" });
+        });
+
+        it("runs the picked action against the selection and opens the dialog on it", async () => {
             setModelData(editor.model, "<paragraph>[foo]</paragraph>");
             const [fixTypos] = quickActionButtons(dropdown);
 
@@ -162,8 +197,9 @@ describe("AiAssistantUI toolbar entry", () => {
 
             expect(requests[0]).toEqual({ query: "Fix all mistakes.", context: "foo" });
 
-            const balloon = editor.plugins.get(ContextualBalloon);
-            expect(balloon.visibleView).not.toBeNull();
+            const dialog = editor.plugins.get(Dialog);
+            expect(dialog.isOpen).toBe(true);
+            expect(dialog.id).toBe("aiAssistant");
         });
 
         it("closes itself off while a run is in flight", async () => {

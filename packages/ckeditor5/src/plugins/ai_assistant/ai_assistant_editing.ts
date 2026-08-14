@@ -5,7 +5,7 @@ import type AiAssistantUI from "./ai_assistant_ui.js";
 
 /**
  * The model marker pinning the text the assistant was opened on. Unlike the live selection it
- * survives focus moving into the balloon, and it is remapped as the user keeps editing, so
+ * survives focus moving into the dialog, and it is remapped as the user keeps editing, so
  * "Replace" always hits the content that was originally selected. `affectsData: false` keeps it
  * out of the document data and the undo stack.
  */
@@ -36,7 +36,7 @@ export default class AiAssistantEditing extends Plugin {
 }
 
 /**
- * Opens the AI assistant balloon on the current selection. Exists as a command (rather than the
+ * Opens the AI assistant dialog on the current selection. Exists as a command (rather than the
  * button calling the UI directly) so keystrokes and slash-command entries can gate on and trigger
  * the feature the same way they do every other one.
  */
