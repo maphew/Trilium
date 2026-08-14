@@ -30,7 +30,8 @@ interface QuickActionsDropdown {
     class?: string;
     buttonView: SplitButtonView;
     menuView: {
-        items: Array<{ childView: MenuButtonView | NestedMenuView }>;
+        /** A separator is a plain view: no `childView`, which is how the walker tells it apart. */
+        items: Array<{ childView?: MenuButtonView | NestedMenuView }>;
         buttons: MenuButtonView[];
     };
 }
@@ -59,6 +60,15 @@ const QUICK_ACTIONS: AiQuickActionGroup[] = [
         actions: [
             { id: "direct", label: "Direct", commandLabel: "Make it direct", prompt: "Make it direct.", iconClass: "bx bx-target-lock" },
             { id: "friendly", label: "Friendly", prompt: "Make it friendly." }
+        ]
+    },
+    {
+        id: "translate",
+        label: "Translate",
+        submenu: true,
+        iconClass: "bx bx-globe",
+        actions: [
+            { id: "romanian", label: "Romanian", commandLabel: "Translate to Romanian", prompt: "Translate it." }
         ]
     }
 ];
@@ -100,12 +110,17 @@ function openMenu(dropdown: QuickActionsDropdown): QuickActionsDropdown["menuVie
  * label plus the labels it holds.
  */
 function menuEntries(dropdown: QuickActionsDropdown): Array<string | { menu: string; actions: string[] }> {
-    return openMenu(dropdown).items.map(({ childView }) => ("listView" in childView
-        ? {
-            menu: childView.buttonView.label ?? "",
-            actions: childView.listView.items.map((item) => item.childView.label ?? "")
+    return openMenu(dropdown).items.map(({ childView }) => {
+        if (!childView) {
+            return "---";
         }
-        : childView.label ?? ""));
+        return "listView" in childView
+            ? {
+                menu: childView.buttonView.label ?? "",
+                actions: childView.listView.items.map((item) => item.childView.label ?? "")
+            }
+            : childView.label ?? "";
+    });
 }
 
 /** Every action button, submenus included, in definition order. */
@@ -170,9 +185,20 @@ describe("AiAssistantUI toolbar entry", () => {
             expect(menuEntries(dropdown)).toEqual([
                 "Fix typos",
                 "Make shorter",
+                "---",
                 "Write something",
-                { menu: "Change tone", actions: ["Direct", "Friendly"] }
+                "---",
+                { menu: "Change tone", actions: ["Direct", "Friendly"] },
+                { menu: "Translate", actions: ["Romanian"] }
             ]);
+        });
+
+        // A rule between blocks, and none between two openers: without the headings the menu
+        // definition cannot carry, the separator is what marks where a set of actions ends.
+        it("rules off each block but not between adjacent submenus", () => {
+            const entries = menuEntries(dropdown);
+            expect(entries.filter((entry) => entry === "---")).toHaveLength(2);
+            expect(entries.at(-1)).toEqual({ menu: "Translate", actions: ["Romanian"] });
         });
 
         // The menu definition has no icon field, so the glyphs are hung on the views CKEditor
@@ -184,7 +210,7 @@ describe("AiAssistantUI toolbar entry", () => {
 
             const [tone] = openMenu(dropdown).items
                 .map(({ childView }) => childView)
-                .filter((childView): childView is NestedMenuView => "listView" in childView);
+                .filter((childView): childView is NestedMenuView => !!childView && "listView" in childView);
             expect(tone.buttonView.element?.querySelector(".ck-ai-action-icon")?.className)
                 .toBe("ck-ai-action-icon bx bx-palette");
         });

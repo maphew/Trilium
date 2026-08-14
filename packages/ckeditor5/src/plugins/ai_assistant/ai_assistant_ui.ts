@@ -5,6 +5,7 @@ import {
     createDropdown,
     Dialog,
     DialogViewPosition,
+    ListSeparatorView,
     Plugin,
     SplitButtonView,
     View,
@@ -153,7 +154,12 @@ export default class AiAssistantUI extends Plugin {
         const actionsById = new Map<string, AiQuickAction>();
         const groupsById = new Map<string, AiQuickActionGroup>();
         const definition: DropdownMenuDefinition = [];
-        for (const group of groups) {
+        // Where the menu wants a rule drawn, as indices into the finished item list. An inlined
+        // group lost its heading to the menu definition, so a separator is what is left to say
+        // where one set of actions ends and the next begins. Consecutive submenus need none: they
+        // read as one block of "openers" already.
+        const separatorAt: number[] = [];
+        for (const [index, group] of groups.entries()) {
             groupsById.set(group.id, group);
             const children = group.actions.map((action) => {
                 actionsById.set(action.id, action);
@@ -163,6 +169,11 @@ export default class AiAssistantUI extends Plugin {
                 definition.push({ id: group.id, menu: group.label, children });
             } else {
                 definition.push(...children);
+            }
+
+            const next = groups[index + 1];
+            if (next && !(group.submenu && next.submenu)) {
+                separatorAt.push(definition.length);
             }
         }
         addMenuToDropdown(dropdownView, this.editor.ui.view.body, definition, {
@@ -184,6 +195,11 @@ export default class AiAssistantUI extends Plugin {
             }
             for (const menu of dropdownView.menuView?.menus ?? []) {
                 addIcon(menu.buttonView, groupsById.get(menu.id)?.iconClass);
+            }
+            // Back to front: each insertion shifts everything after it, and the recorded indices
+            // are into the list as the definition built it.
+            for (const index of [...separatorAt].reverse()) {
+                dropdownView.menuView?.items.add(new ListSeparatorView(locale), index);
             }
             this.stopListening(dropdownView, "change:isOpen", decorateMenu);
         };
