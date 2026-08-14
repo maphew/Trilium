@@ -222,6 +222,48 @@ button.tn-low-profile:hover {
     }
 }
 
+/* The AI assistant's Result/Changes choice, drawn as the same track. Its buttons are CKEditor's,
+   so the selected one is `.ck-on` rather than `.active`, and the background has to be taken off
+   `--ck-button-background` instead of `--cmd-button-background-color`. */
+:root .ck.ck-ai-assistant-form .ck-ai-assistant-form__viewmodes {
+    gap: 4px;
+    border-radius: 8px;
+    background: var(--button-group-background-color);
+    padding: 4px;
+
+    button.ck.ck-button {
+        min-width: unset;
+        margin: 0;
+        box-shadow: unset;
+        border-radius: 8px;
+        background: transparent;
+        /* CKEditor rings a button on `:active` as well as on `:focus`, so a held segment would
+           outline itself; the segments a group is normally built from carry no border at all.
+           Only the colour is dropped, keeping the 1px so the geometry stays put. Keyboard focus
+           is covered by the outline below. */
+        border-color: transparent;
+
+        /* The segments a group is normally built from are `.icon-action`s, which hover against
+           `--hover-item-background-color`; a CKEditor button would otherwise bring its own, far
+           heavier `--ck-color-button-default-hover-background`. */
+        &:hover:not(.ck-on) {
+            background: var(--hover-item-background-color);
+            color: var(--hover-item-text-color);
+        }
+
+        &.ck-on, &.ck-on:hover {
+            background: var(--button-group-active-button-background-color);
+            color: var(--button-group-active-button-color);
+
+            box-shadow: 1px 1px 1px var(--button-group-active-button-shadow-color);
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--input-focus-outline-color);
+        }
+    }
+}
+
 /*
  * Selectable cards (import/export pickers) — mirror the button-group look: borderless, a recessed
  * group background, and a raised "selected" chip with a subtle shadow. The base component styling

@@ -17,6 +17,18 @@
     display: none;
 }
 
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__viewmodes {
+    display: flex;
+    align-items: center;
+    gap: var(--ck-spacing-tiny);
+}
+
+/* A review with no diff to offer hides both modes; the container must not stay behind as an
+   empty frame wherever the host gives it a background of its own. */
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__viewmodes:not(:has(.ck-button:not(.ck-hidden))) {
+    display: none;
+}
+
 .ck.ck-ai-assistant-form .ck-button.ck-ai-assistant-form__try-again {
     margin-inline-start: auto;
 }

@@ -52,6 +52,11 @@ describe("AiAssistantFormView", () => {
         expect(form.resultToggleView.isVisible).toBe(true);
         expect(form.changesToggleView.isOn).toBe(true);
 
+        // The two modes are one choice, and share a container so the host can draw them as a group.
+        expect(form.resultToggleView.element?.parentElement)
+            .toBe(form.changesToggleView.element?.parentElement);
+        expect(form.resultToggleView.element?.closest(".ck-ai-assistant-form__viewmodes")).not.toBeNull();
+
         form.resultToggleView.fire("execute");
         expect(form.viewMode).toBe("result");
         expect(previewHtml()).toBe("<p>new</p>");

@@ -112,7 +112,16 @@ export default class AiAssistantFormView extends View {
                     // pushed to the right. The feature's title belongs to the dialog's header.
                     tag: "div",
                     attributes: { class: ["ck", "ck-ai-assistant-form__preview-toolbar"] },
-                    children: [this.resultToggleView, this.changesToggleView, this.tryAgainButtonView]
+                    children: [
+                        {
+                            // The two modes are one choice, so they share a container the host can
+                            // draw as a group — Trilium renders it as its segmented track.
+                            tag: "div",
+                            attributes: { class: ["ck", "ck-ai-assistant-form__viewmodes"] },
+                            children: [this.resultToggleView, this.changesToggleView]
+                        },
+                        this.tryAgainButtonView
+                    ]
                 },
                 this.previewView,
                 {
