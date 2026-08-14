@@ -239,7 +239,8 @@ SQLite via `better-sqlite3`. SQL abstraction in `packages/trilium-core/src/servi
 ### Internationalization
 - Translation files in `apps/client/src/translations/`
 - Supported languages: English, German, Spanish, French, Romanian, Chinese
-- **Only add new translation keys to `en/translation.json`** — translations for other languages are managed via Weblate and will be contributed by the community
+- **Only add new translation keys to the English catalogue** — translations for other languages are managed via Weblate and will be contributed by the community
+- **Two client catalogues, split by which one the page loads.** `en/entry.json` holds `setup.*`, `login.*` and `set_password.*` — everything the setup wizard, login page and password reset need; `en/translation.json` holds the rest. The three entry pages call `initLocale(locale, "entry")` and read ~11 KB instead of the app's 200-300 KB, which matters because the wizard re-loads the catalogue every time the user picks a language. The app itself loads both (`fallbackNS: "entry"`), so a call site writes `t("login.password")` without caring which file holds it — but a **new** key must go in the file matching its section, or the entry pages will not find it
 - Third-party components (e.g., mind-map context menu) should use i18next `t()` for their labels, with the English strings added to `en/translation.json` under a dedicated namespace (e.g., `"mind-map"`)
 - When a translated string contains **interpolated components** (e.g. links, note references) whose order may vary across languages, use `<Trans>` from `react-i18next` instead of `t()`. This lets translators reorder components freely (e.g. `"<Note/> in <Parent/>"` vs `"in <Parent/>, <Note/>"`)
 - When adding a new locale, follow the step-by-step guide in `docs/Developer Guide/Developer Guide/Concepts/Internationalisation  Translations/Adding a new locale.md`

@@ -8,12 +8,34 @@ import { initReactI18next } from "react-i18next";
  */
 export const translationsInitializedPromise = $.Deferred();
 
-export async function initLocale(locale: LOCALE_IDS = "en") {
+/** Every string in the app proper: 200-300 KB depending on the language. */
+const APP_NAMESPACE = "translation";
+
+/**
+ * The screens shown before the app itself — the setup wizard, the login page and the password
+ * reset. Kept apart from the app catalogue because the wizard changes language on the spot, and
+ * re-reading the whole thing to retitle one step costs seconds on a phone; these three pages need
+ * about 11 KB of it between them.
+ */
+const ENTRY_NAMESPACE = "entry";
+
+/**
+ * @param scope which catalogue the page reads: `entry` for the pages shown before the app is
+ *              available, `app` for the app itself — which reads both, since shared widgets such as
+ *              the credentials form use `login.*` keys that live in the entry catalogue.
+ */
+export async function initLocale(locale: LOCALE_IDS = "en", scope: "app" | "entry" = "app") {
+    const entryOnly = scope === "entry";
 
     i18next.use(initReactI18next);
     await i18next.use(i18nextHttpBackend).init({
         lng: locale,
         fallbackLng: "en",
+        ns: entryOnly ? [ ENTRY_NAMESPACE ] : [ APP_NAMESPACE, ENTRY_NAMESPACE ],
+        defaultNS: entryOnly ? ENTRY_NAMESPACE : APP_NAMESPACE,
+        // Resolving through the entry catalogue on a miss keeps every call site writing
+        // `t("login.password")` without having to know which of the two holds it.
+        fallbackNS: ENTRY_NAMESPACE,
         backend: {
             loadPath: `${window.glob.assetPath}/translations/{{lng}}/{{ns}}.json`
         },

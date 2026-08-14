@@ -7,7 +7,7 @@ vi.mock("./services/i18n", () => ({
     t: (key: string, values?: Record<string, unknown>) => [ key, ...Object.values(values ?? {}) ].join(" ")
 }));
 
-import en from "./translations/en/translation.json";
+import en from "./translations/en/entry.json";
 
 const serverMock = vi.hoisted(() => ({
     // The default serves what transitively imported modules ask for as they load (keyboard_actions

@@ -30,7 +30,7 @@ import SetupPage from "./widgets/react/SetupPage";
 import SlidePages from "./widgets/react/SlidePages";
 
 async function main() {
-    await initLocale();
+    await initLocale("en", "entry");
 
     const bodyWrapper = document.createElement("div");
     bodyWrapper.classList.add("setup-outer-wrapper");
