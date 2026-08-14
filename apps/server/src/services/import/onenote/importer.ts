@@ -122,6 +122,24 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
     const startedAtMs = Date.now();
     graph.resetThrottleStats();
 
+    // While Graph is throttling, no page completes and the progress count sits still — for up to an
+    // hour — which looks exactly like a hang; users have killed healthy multi-hour imports (losing all
+    // fetched work, since notes are only committed at the end) over it. So the first gate extension
+    // flips the toast to a "waiting out rate limiting" phase, and the next completed unit of work flips
+    // it back (clearThrottledPhase below). The extra flag keeps a sustained throttle — which re-fires
+    // the listener on every retry — from re-sending an identical message each time.
+    let throttleReported = false;
+    graph.setThrottleListener(() => {
+        if (!throttleReported) {
+            throttleReported = true;
+            taskContext.reportPhase("throttled");
+        }
+    });
+    const clearThrottledPhase = () => {
+        throttleReported = false;
+        taskContext.clearPhase();
+    };
+
     try {
         // Phase 1: pull everything over the network first, so note creation can run in a single
         // synchronous transaction afterwards.
@@ -138,6 +156,7 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
             try {
                 sectionPages.push({ section, pages: await graph.listPages(getAccessToken, section.id) });
                 consecutiveSectionFailures = 0;
+                clearThrottledPhase();
             } catch (e: unknown) {
                 const rawMessage = e instanceof Error ? e.message : String(e);
                 // A password-protected section is a user-fixable, expected case, so replace Graph's opaque
@@ -190,6 +209,7 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
                         throw new Error(`Aborting the OneNote import: ${consecutivePageFailures} pages in a row failed to fetch, which points to a systemic problem rather than individual broken pages. Last error: ${message}`);
                     }
                     fetchedPages.push(buildPlaceholderPage(page, message));
+                    clearThrottledPhase();
                     taskContext.increaseProgressCount();
                     continue;
                 }
@@ -203,6 +223,7 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
                     getLog().error(`OneNote import: fetched page '${page.title}' (${page.id}) but could not process its content; a placeholder note will be imported instead: ${message}`);
                     fetchedPages.push(buildPlaceholderPage(page, message));
                 }
+                clearThrottledPhase();
                 taskContext.increaseProgressCount();
             }
             fetched.push(toFetchedSection(section, fetchedPages));
@@ -215,6 +236,8 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
     } catch (e: unknown) {
         getLog().error(`OneNote import failed: ${e instanceof Error ? (e.stack ?? e.message) : e}`);
         taskContext.reportError(e instanceof Error ? e.message : String(e));
+    } finally {
+        graph.setThrottleListener(null);
     }
 }
 

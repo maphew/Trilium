@@ -5,9 +5,9 @@ import striptags from "striptags";
 import becca from "../../../becca/becca.js";
 import becca_service from "../../../becca/becca_service.js";
 import type BNote from "../../../becca/entities/bnote.js";
+import blobService from "../../blob.js";
 import hoistedNoteService from "../../hoisted_note.js";
 import { getLog } from "../../log.js";
-import protectedSessionService from "../../protected_session.js";
 import scriptService from "../../script.js";
 import { isScriptingEnabled } from "../../scripting_guard.js";
 import { escapeHtml, escapeRegExp, unescapeHtml } from "../../utils/index.js";
@@ -472,28 +472,20 @@ function extractContentSnippet(noteId: string, searchTokens: string[], maxLength
         let content: string | undefined;
 
         if (["text", "code", "mermaid", "canvas", "mindMap", "llmChat"].includes(note.type)) {
+            // Protection is already accounted for: a note hands back its content decrypted, and hands
+            // back nothing at all when there is no session to decrypt it with.
             const raw = note.getContent();
             if (raw && typeof raw === "string") {
                 content = raw;
             }
         } else {
-            // For non-text notes (image, file), use OCR text representation
-            content = getTextRepresentationForNote(note) || undefined;
+            // For non-text notes (image, file), use OCR text representation. That one is stored as it
+            // sits on the blob, so it is the reader's job to decrypt it — or to withhold it.
+            content = blobService.decryptTextRepresentation(getTextRepresentationForNote(note), !!note.isProtected) || undefined;
         }
 
         if (!content) {
             return "";
-        }
-
-        // Handle protected notes
-        if (note.isProtected && protectedSessionService.isProtectedSessionAvailable()) {
-            try {
-                content = protectedSessionService.decryptString(content) || "";
-            } catch (e) {
-                return ""; // Can't decrypt, don't show content
-            }
-        } else if (note.isProtected) {
-            return ""; // Protected but no session available
         }
 
         // Strip HTML tags for text notes
@@ -742,37 +734,39 @@ function searchNotesForAutocomplete(query: string, fastSearch: boolean = true) {
 function highlightSearchResults(searchResults: SearchResult[], highlightedTokens: string[], ignoreInternalAttributes = false) {
     highlightedTokens = Array.from(new Set(highlightedTokens));
 
-    // we remove < signs because they can cause trouble in matching and overwriting existing highlighted chunks
-    // which would make the resulting HTML string invalid.
-    // { and } are used for marking <b> and </b> tag (to avoid matches on single 'b' character)
-    // < and > are used for marking <small> and </small>
-    highlightedTokens = highlightedTokens.map((token) => token.replace(/[<>{}]/g, "")).filter((token) => !!token?.trim());
+    // { and } are used for marking <b> and </b> tags (to avoid matches on a single 'b' character),
+    // so a token containing either would overwrite the markers already placed in the text.
+    highlightedTokens = highlightedTokens.map((token) => token.replace(/[{}]/g, "")).filter((token) => !!token?.trim());
 
     // sort by the longest, so we first highlight the longest matches
     highlightedTokens.sort((a, b) => (a.length > b.length ? -1 : 1));
 
+    // Highlighting runs on the text as written, and the result is escaped afterwards. Escaping
+    // first would let a token match inside an entity (searching for "lt" would cut &lt; in half),
+    // and stripping the offending characters instead would silently mangle the text - a title
+    // like "Issues caused by <div>" would lose its opening bracket.
+    // The only characters that have to go are the { } markers themselves.
     for (const result of searchResults) {
-        result.highlightedNotePathTitle = result.notePathTitle.replace(/[<{}]/g, "");
+        result.highlightedNotePathTitle = result.notePathTitle.replace(/[{}]/g, "");
 
-        // Initialize highlighted content snippet
+        // Initialize highlighted content snippet, preserving newlines for later conversion to <br>
         if (result.contentSnippet) {
-            // Escape HTML but preserve newlines for later conversion to <br>
-            result.highlightedContentSnippet = escapeHtml(result.contentSnippet);
-            // Remove any stray < { } that might interfere with our highlighting markers
-            result.highlightedContentSnippet = result.highlightedContentSnippet.replace(/[<{}]/g, "");
+            result.highlightedContentSnippet = result.contentSnippet.replace(/[{}]/g, "");
         }
 
         // Initialize highlighted attribute snippet
         if (result.attributeSnippet) {
-            // Escape HTML but preserve newlines for later conversion to <br>
-            result.highlightedAttributeSnippet = escapeHtml(result.attributeSnippet);
-            // Remove any stray < { } that might interfere with our highlighting markers
-            result.highlightedAttributeSnippet = result.highlightedAttributeSnippet.replace(/[<{}]/g, "");
+            result.highlightedAttributeSnippet = result.attributeSnippet.replace(/[{}]/g, "");
         }
     }
 
     function wrapText(text: string, start: number, length: number, prefix: string, suffix: string) {
         return text.substring(0, start) + prefix + text.substr(start, length) + suffix + text.substring(start + length);
+    }
+
+    /** Escapes the text for display, then turns the { } markers into the <b> tags they stand for. */
+    function renderHighlights(text: string) {
+        return escapeHtml(text).replace(/{/g, "<b>").replace(/}/g, "</b>");
     }
 
     for (const token of highlightedTokens) {
@@ -820,21 +814,19 @@ function highlightSearchResults(searchResults: SearchResult[], highlightedTokens
 
     for (const result of searchResults) {
         if (result.highlightedNotePathTitle) {
-            result.highlightedNotePathTitle = result.highlightedNotePathTitle.replace(/{/g, "<b>").replace(/}/g, "</b>");
+            result.highlightedNotePathTitle = renderHighlights(result.highlightedNotePathTitle);
         }
 
         if (result.highlightedContentSnippet) {
-            // Replace highlighting markers with HTML tags
-            result.highlightedContentSnippet = result.highlightedContentSnippet.replace(/{/g, "<b>").replace(/}/g, "</b>");
-            // Convert newlines to <br> tags for HTML display
-            result.highlightedContentSnippet = result.highlightedContentSnippet.replace(/\n/g, "<br>");
+            result.highlightedContentSnippet = renderHighlights(result.highlightedContentSnippet)
+                // Convert newlines to <br> tags for HTML display
+                .replace(/\n/g, "<br>");
         }
 
         if (result.highlightedAttributeSnippet) {
-            // Replace highlighting markers with HTML tags
-            result.highlightedAttributeSnippet = result.highlightedAttributeSnippet.replace(/{/g, "<b>").replace(/}/g, "</b>");
-            // Convert newlines to <br> tags for HTML display
-            result.highlightedAttributeSnippet = result.highlightedAttributeSnippet.replace(/\n/g, "<br>");
+            result.highlightedAttributeSnippet = renderHighlights(result.highlightedAttributeSnippet)
+                // Convert newlines to <br> tags for HTML display
+                .replace(/\n/g, "<br>");
         }
     }
 }

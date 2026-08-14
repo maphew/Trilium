@@ -8,7 +8,7 @@ import frocaUpdater from "./froca_updater.js";
 import { t } from "./i18n.js";
 import options from "./options.js";
 import server from "./server.js";
-import toastService from "./toast.js";
+import toastService, { showUnhandledError } from "./toast.js";
 import utils, { isPreAuthScreen } from "./utils.js";
 
 type MessageHandler = (message: WebSocketMessage) => void;
@@ -98,13 +98,24 @@ export async function dispatchMessage(message: WebSocketMessage) {
     } else if (messageType === "frontend-update") {
         await executeFrontendUpdate(msg.data.entityChanges);
     } else if (messageType === "sync-hash-check-failed") {
-        toastService.showError(t("ws.sync-check-failed"), 60000);
+        // Not auto-dismissed after the usual few seconds: syncing stays broken until the user acts,
+        // and the backend only reports it once (it would otherwise recur with every sync attempt).
+        // The sector list is interpolated unescaped ({{- }}) since the toast renders its message as
+        // text: i18next's HTML escaping would only turn the `entityName/sector` slash into a
+        // literal `&#x2F;`.
+        toastService.showErrorTitleAndMessage(
+            t("ws.sync-hash-check-failed-title"),
+            t("ws.sync-hash-check-failed", { sectors: (msg.sectors ?? []).join(", ") }),
+            50 * 60000
+        );
     } else if (messageType === "consistency-checks-failed") {
         toastService.showError(t("ws.consistency-checks-failed"), 50 * 60000);
     } else if (messageType === "api-log-messages") {
         appContext.triggerEvent("apiLogMessages", { noteId: msg.noteId, messages: msg.messages });
     } else if (messageType === "toast") {
         toastService.showMessage(msg.message, msg.timeout);
+    } else if (messageType === "unhandled-error") {
+        showUnhandledError(msg.message, msg.stack);
     } else if (messageType === "execute-script") {
         const originEntity = msg.originEntityId ? await froca.getNote(msg.originEntityId) : null;
 

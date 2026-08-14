@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import toast from "./toast.js";
-import { copyText, copyTextWithToast } from "./clipboard_ext.js";
+import utils from "./utils.js";
+import { copyHtmlWithToast, copyText, copyTextWithToast } from "./clipboard_ext.js";
 
 const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
 
@@ -98,6 +99,37 @@ describe("copyTextWithToast", () => {
         const showError = vi.spyOn(toast, "showError").mockImplementation(() => {});
 
         copyTextWithToast("nope");
+
+        expect(showError).toHaveBeenCalledTimes(1);
+        expect(showMessage).not.toHaveBeenCalled();
+    });
+});
+
+describe("copyHtmlWithToast", () => {
+    it("copies through the copy event, defaults the plain text to the HTML, and reports success", () => {
+        // No `navigator.clipboard` at all: the API is undefined outside secure contexts, which is
+        // how Trilium is usually served over a LAN (#10723).
+        setClipboard(undefined);
+        const copyHtmlToClipboard = vi.spyOn(utils, "copyHtmlToClipboard").mockReturnValue(true);
+        const showMessage = vi.spyOn(toast, "showMessage").mockImplementation(() => {});
+        const showError = vi.spyOn(toast, "showError").mockImplementation(() => {});
+
+        copyHtmlWithToast("<b>x</b>");
+        expect(copyHtmlToClipboard).toHaveBeenCalledWith("<b>x</b>", "<b>x</b>");
+
+        copyHtmlWithToast("<a href=\"#root/abc\">Note</a>", "#root/abc");
+        expect(copyHtmlToClipboard).toHaveBeenLastCalledWith("<a href=\"#root/abc\">Note</a>", "#root/abc");
+
+        expect(showMessage).toHaveBeenCalledTimes(2);
+        expect(showError).not.toHaveBeenCalled();
+    });
+
+    it("shows an error message when the copy fails", () => {
+        vi.spyOn(utils, "copyHtmlToClipboard").mockReturnValue(false);
+        const showMessage = vi.spyOn(toast, "showMessage").mockImplementation(() => {});
+        const showError = vi.spyOn(toast, "showError").mockImplementation(() => {});
+
+        copyHtmlWithToast("<b>x</b>");
 
         expect(showError).toHaveBeenCalledTimes(1);
         expect(showMessage).not.toHaveBeenCalled();

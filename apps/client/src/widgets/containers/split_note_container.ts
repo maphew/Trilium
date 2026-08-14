@@ -187,12 +187,20 @@ export default class SplitNoteContainer extends FlexContainer<SplitNoteWidget> {
     }
 
     noteContextRemovedEvent({ ntxIds }: EventData<"noteContextRemoved">) {
-        this.children = this.children.filter((c) => !ntxIds.includes(c.ntxId ?? ""));
-
         for (const ntxId of ntxIds) {
             this.$widget.find(`[data-ntx-id="${ntxId}"]`).remove();
 
             const widget = this.widgets[ntxId];
+            if (!widget) {
+                continue;
+            }
+
+            // Detach through this map, not through a `widget.ntxId` lookup: the widgets are whatever
+            // the factory builds (a NoteWrapperWidget on both layouts), and none of them carries an
+            // ntxId -- only the DOM node gets one, as `data-ntx-id`. A filter over `children` reading
+            // `c.ntxId` therefore matches nothing, leaving the closed split in the tree and its
+            // widgets handling events for a pane the user cannot see.
+            this.removeChild(widget);
             recursiveCleanup(widget);
             delete this.widgets[ntxId];
         }

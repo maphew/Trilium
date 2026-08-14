@@ -45,7 +45,12 @@
       "title": "Benutzerdefiniertes React-Widget konnte nicht dargestellt werden"
     },
     "widget-missing-parent": "Benutzerdefiniertes Widget hat die erforderliche '{{property}}'-Eigenschaft nicht korrekt definiert.\n\nFalls dieses Skript ohne UI-Element ausgeführt werden soll, verwenden Sie stattdessen '#run=frontendStartup'.",
-    "scripting-error": "Die Skriptnotiz konnte nicht ausgeführt werden"
+    "scripting-error": "Die Skriptnotiz konnte nicht ausgeführt werden",
+    "unhandled-error": {
+      "details-button": "Weitere Details anzeigen...",
+      "title": "Ein Hintergrundprozess ist fehlgeschlagen",
+      "details-title": "Technische Informationen"
+    }
   },
   "add_link": {
     "add_link": "Link hinzufügen",
@@ -57,7 +62,9 @@
     "link_title": "Linktitel",
     "button_add_link": "Link hinzufügen",
     "anchor": "Anker (optional)",
-    "anchor_none": "Keine (Link zur Notiz)"
+    "anchor_none": "Keine (Link zur Notiz)",
+    "edit_link": "Link bearbeiten",
+    "button_edit_link": "Link speichern"
   },
   "branch_prefix": {
     "edit_branch_prefix": "Zweigpräfix bearbeiten",
@@ -104,7 +111,9 @@
     "ok": "OK",
     "are_you_sure_remove_note": "Möchten Sie die Notiz „{{title}}“ wirklich von der Relationskarte entfernen? ",
     "if_you_dont_check": "Wenn Sie dies nicht aktivieren, wird die Notiz nur aus der Relationskarte entfernt.",
-    "also_delete_note": "Auch die Notiz löschen"
+    "also_delete_note": "Auch die Notiz löschen",
+    "delete_note_keeps_note_one": "Die Notiz hat {{count}} weiteren Klon, deswegen wird die Notiz selbst behalten.",
+    "delete_note_keeps_note_other": "Die Notiz hat {{count}} weiter Klone, deswegen wird die Notiz selbst behalten."
   },
   "delete_notes": {
     "close": "Schließen",
@@ -352,20 +361,17 @@
   },
   "attribute_detail": {
     "close_button_title": "Änderungen verwerfen und schließen",
-    "attr_name_title": "Der Attributname darf nur aus alphanumerischen Zeichen, Doppelpunkten und Unterstrichen bestehen",
     "name": "Name",
     "value": "Wert",
     "target_note_title": "Eine Relation ist eine benannte Verbindung zwischen Quellnotiz und Zielnotiz.",
     "target_note": "Zielnotiz",
     "promoted_title": "Das heraufgestufte Attribut wird deutlich in der Notiz angezeigt.",
     "promoted": "Hervorgehoben",
-    "promoted_alias_title": "Der Name, der in der Benutzeroberfläche für hervorgehobene Attribute angezeigt werden soll.",
     "promoted_alias": "Alias",
     "multiplicity_title": "Multiplizität definiert, wie viele Attribute mit demselben Namen erstellt werden können – maximal 1 oder mehr als 1.",
     "multiplicity": "Multiplizität",
     "single_value": "Einzelwert",
     "multi_value": "Mehrfachwert",
-    "label_type_title": "Der Labeltyp hilft Trilium bei der Auswahl einer geeigneten Schnittstelle zur Eingabe des Labelwerts.",
     "label_type": "Typ",
     "text": "Text",
     "number": "Zahl",
@@ -385,10 +391,8 @@
     "related_notes_title": "Weitere Notizen mit diesem Label",
     "more_notes": "Weitere Notizen",
     "label": "Labeldetail",
-    "label_definition": "Details zur Labeldefinition",
     "relation": "Relationsdetails",
-    "relation_definition": "Details zur Relationsdefinition",
-    "disable_versioning": "deaktiviert die automatische Versionierung. Nützlich für z. B. große, aber unwichtige Notizen – z. B. große JS-Bibliotheken, die für die Skripterstellung verwendet werden",
+    "disable_versioning": "Deaktiviert die automatische Versionierung. Nützlich für z. B. große, aber unwichtige Notizen – z. B. große JS-Bibliotheken, die für die Skripterstellung verwendet werden",
     "calendar_root": "Markiert eine Notiz, die als Basis für Tagesnotizen verwendet werden soll. Nur einer sollte als solcher gekennzeichnet sein.",
     "archived": "Notizen mit diesem Label werden standardmäßig nicht in den Suchergebnissen angezeigt (auch nicht in den Dialogen „Springen zu“, „Link hinzufügen“ usw.).",
     "exclude_from_export": "Notizen (mit ihrem Unterbaum) werden nicht im Notizexport inkludiert",
@@ -467,13 +471,16 @@
     "share_favicon": "Favicon-Notiz, die auf der freigegebenen Seite festgelegt werden soll. Normalerweise möchten Sie sie auf die Freigabe-Root-Notiz setzen und vererbbar machen. Die Favicon-Notiz muss sich ebenfalls im freigegebenen Unterbaum befinden. Erwägen Sie die Verwendung von 'share_hidden_from_tree'.",
     "is_owned_by_note": "gehört zur Notiz",
     "other_notes_with_name": "Andere Notizen mit dem {{attributeType}}-Namen „{{attributeName}}“",
-    "and_more": "... und {{count}} mehr.",
     "print_landscape": "Beim Export als PDF wird die Seitenausrichtung Querformat anstatt Hochformat verwendet.",
     "print_page_size": "Beim Export als PDF wird die Größe der Seite angepasst. Unterstützte Größen: <code>A0</code>, <code>A1</code>, <code>A2</code>, <code>A3</code>, <code>A4</code>, <code>A5</code>, <code>A6</code>, <code>Legal</code>, <code>Letter</code>, <code>Tabloid</code>, <code>Ledger</code>.",
     "color_type": "Farbe",
     "textarea": "Mehrzeilen-Text",
     "print_scale": "Beim Exportieren als PDF wird der Maßstab des gerenderten Inhalts geändert. Die Werte reichen von 0,1 (10 %) bis 2 (200 %), der Standardwert ist 1 (100 %).",
-    "print_margins": "Beim Exportieren als PDF werden die Seitenränder festgelegt. Verwenden Sie <code>default</code>, <code>none</code>, <code>minimum</code> oder benutzerdefinierte Werte als <code>oben,rechts,unten,links</code> in Millimetern."
+    "print_margins": "Beim Exportieren als PDF werden die Seitenränder festgelegt. Verwenden Sie <code>default</code>, <code>none</code>, <code>minimum</code> oder benutzerdefinierte Werte als <code>oben,rechts,unten,links</code> in Millimetern.",
+    "email": "Email",
+    "phone": "Telefon",
+    "select_type": "Auswählen",
+    "select_options": "Optionen"
   },
   "attribute_editor": {
     "help_text_body1": "Um ein Label hinzuzufügen, geben Sie einfach z. B. <code>#rock</code> ein, oder wenn Sie auch einen Wert hinzufügen möchten, dann z. B. <code>#year = 2020</code>",
@@ -649,7 +656,18 @@
     "day_previous": "Vorheriger Tag",
     "day_next": "Nächster Tag",
     "pin_date": "Aktuelles Datum anheften, damit sich der Kalender immer in diesem Zeitraum statt bei heute öffnet",
-    "unpin_date": "Datum lösen, damit sich der Kalender wieder beim heutigen Datum öffnet"
+    "unpin_date": "Datum lösen, damit sich der Kalender wieder beim heutigen Datum öffnet",
+    "recurrence": {
+      "repeats": "Wiederholungen",
+      "frequency": "Häufigkeit",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "monthly": "Monatlich",
+      "yearly": "Jährlich",
+      "unit_years": "Jahre",
+      "never": "Niemals",
+      "custom_rule": "Regel"
+    }
   },
   "close_pane_button": {
     "close_this_pane": "Diesen Bereich schließen"
@@ -1282,7 +1300,6 @@
     "images_section_title": "Bilder",
     "download_images_automatically": "Bilder automatisch herunterladen",
     "download_images_description": "Referenzierte Online-Bilder vom eingefügten HTML-Code herunterladen, damit diese offline zur Verfügung stehen.",
-    "enable_image_compression": "Bildkomprimierung",
     "max_image_dimensions": "Maximale Maße eines Bildes",
     "jpeg_quality_description": "Empfohlener Bereich liegt zwischen 50–85. Niedrige Werte reduzieren die Dateigröße, höhere Werte bewahren Details.",
     "max_image_dimensions_unit": "Pixel",
@@ -1428,7 +1445,6 @@
     "enable_monthly_backup": "Monatliche Sicherung",
     "backup_recommendation": "Es wird empfohlen, die Sicherung aktiviert zu lassen. Dies kann jedoch bei großen Datenbanken und/oder langsamen Speichergeräten den Anwendungsstart verlangsamen.",
     "backup_now": "Jetzt sichern",
-    "backup_database_now": "Jetzt Datenbank sichern",
     "existing_backups": "Vorhandene Sicherungen",
     "date-and-time": "Datum & Uhrzeit",
     "path": "Pfad",
@@ -1437,8 +1453,7 @@
     "title": "Sicherung",
     "download": "Herunterladen",
     "automatic_backups_title": "Automatische Sicherungen",
-    "automatic_backups_description": "Trilium kann die Datenbank automatisch sichern. Es wird empfohlen, die Sicherung aktiviert zu lassen, dies kann jedoch den Programmstart bei großen Datenbanken und/oder langsamen Speichermedien verlangsamen.",
-    "backup_location_description": "Sicherungen werden in {{- backupFolder}} gespeichert."
+    "automatic_backups_description": "Trilium kann die Datenbank automatisch sichern. Es wird empfohlen, die Sicherung aktiviert zu lassen, dies kann jedoch den Programmstart bei großen Datenbanken und/oder langsamen Speichermedien verlangsamen."
   },
   "etapi": {
     "description": "ETAPI ist eine REST-API, die für den programmgesteuerten Zugriff auf die Trilium-Instanz ohne Benutzeroberfläche verwendet wird.",
@@ -1531,8 +1546,7 @@
     "custom_dictionary_open": "Wörterbuch bearbeiten",
     "related_description": "Sprachen der Rechtschreibprüfung und benutzerdefiniertes Wörterbuch konfigurieren.",
     "custom_dictionary_description": "Zum Wörterbuch hinzugefügte Wörter werden auf all Ihren Geräten synchronisiert.",
-    "custom_dictionary_edit_description": "Bearbeiten Sie die Liste der Wörter, die von der Rechtschreibprüfung nicht markiert werden sollen. Änderungen werden nach einem Neustart sichtbar.",
-    "disabled_placeholder": "Die Rechtschreibprüfung ist deaktiviert. Aktivieren Sie sie, um Sprachen auszuwählen und das benutzerdefinierte Wörterbuch zu verwalten."
+    "custom_dictionary_edit_description": "Bearbeiten Sie die Liste der Wörter, die von der Rechtschreibprüfung nicht markiert werden sollen. Änderungen werden nach einem Neustart sichtbar."
   },
   "sync_2": {
     "config_title": "Sync-Server",
@@ -1553,10 +1567,6 @@
     "close": "Schließen"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "Dieser Anhang wird in {{time}} automatisch gelöscht",
-    "will_be_deleted_soon": "Dieser Anhang wird bald automatisch gelöscht",
-    "deletion_reason": ", da der Anhang nicht im Inhalt der Notiz verlinkt ist. Um das Löschen zu verhindern, füge den Anhangslink wieder in den Inhalt ein oder wandel den Anhang in eine Notiz um.",
-    "role_and_size": "Rolle: {{role}}, Größe: {{size}}, MIME: {{- mimeType}}",
     "link_copied": "Anhangsverweis in die Zwischenablage kopiert.",
     "unrecognized_role": "Unbekannte Anhangsrolle „{{role}}“."
   },
@@ -1681,7 +1691,6 @@
     "options": "Optionen",
     "title_with_count_one": "{{count}} Markierung",
     "title_with_count_other": "{{count}} Markierungen",
-    "modal_title": "Markierungsliste konfigurieren",
     "menu_configure": "Markierungsliste konfigurieren...",
     "no_highlights": "Keine Markierungen gefunden."
   },
@@ -1798,8 +1807,6 @@
   "image": {
     "copied-to-clipboard": "Ein Verweis auf das Bild wurde in die Zwischenablage kopiert. Dieser kann in eine beliebige Textnotiz eingefügt werden.",
     "cannot-copy": "Das Bild konnte nicht in die Zwischenablage kopiert werden.",
-    "copy-to-clipboard": "Bild in die Zwischenablage kopieren",
-    "download": "Bild herunterladen",
     "image-copied-to-clipboard": "Das Bild wurde in die Zwischenablage kopiert.",
     "cannot-copy-image": "Das Bild konnte nicht in die Zwischenablage kopiert werden.",
     "cannot-download": "Das Bild konnte nicht heruntergeladen werden."
@@ -1834,7 +1841,6 @@
     "backend_scripting_disabled_more_info": "Weitere Informationen"
   },
   "ws": {
-    "sync-check-failed": "Synchronisationsprüfung fehlgeschlagen!",
     "consistency-checks-failed": "Konsistenzprüfung fehlgeschlagen! Siehe Logs für Details.",
     "encountered-error": "Fehler „{{message}}“ aufgetreten, siehe Konsole für Details.",
     "lost-websocket-connection-title": "Verbindung zum Server verloren",
@@ -1938,7 +1944,6 @@
     "create-child-note-title": "Neue untergeordnete Notiz anlegen und zur Karte hinzufügen",
     "create-child-note-instruction": "Auf die Karte klicken, um eine neue Notiz an der Stelle zu erstellen oder Escape drücken um abzubrechen.",
     "unable-to-load-map": "Karte konnte nicht geladen werden.",
-    "create-child-note-text": "Marker hinzufügen",
     "create-child-note-toast-title": "Neue Notiz"
   },
   "geo-map-context": {
@@ -2531,8 +2536,6 @@
     "sample_ishikawa": "Ursache-Wirkung",
     "sample_treeview": "Baumansicht",
     "sample_wardley": "Wardley-Map",
-    "slash_command_blank_description": "Leeres Mermaid-Diagramm einfügen",
-    "slash_command_description": "Mermaid-Diagrammvorlage „{{name}}“ einfügen",
     "sample_cynefin": "Cynefin",
     "sample_swimlane": "Swimlane",
     "sample_railroad": "Railroad"
@@ -2567,7 +2570,6 @@
     "tool_error": "Fehlgeschlagen",
     "total_tokens": "{{total}} Token",
     "tokens": "Token",
-    "context_used": "{{percentage}}% verwendet",
     "no_provider_message": "Kein KI-Anbieter konfiguriert. Fügen Sie einen hinzu, um zu chatten.",
     "add_provider": "KI-Anbieter hinzufügen",
     "stop": "Stopp",
@@ -2681,8 +2683,6 @@
     "base_url": "Basis-URL",
     "base_url_description": "Optional. Greift über einen Proxy oder ein Gateway auf dieselbe API zu. Um ein Modell selbst auszuführen, fügen Sie stattdessen einen Ollama- oder LM-Studio-Anbieter hinzu.",
     "base_url_invalid": "Die Basis-URL muss eine gültige http://- oder https://-URL sein",
-    "disabled_placeholder": "KI-Funktionen sind deaktiviert. Aktivieren Sie sie, um Anbieter und MCP zu konfigurieren.",
-    "not_available_in_standalone": "KI/LLM-Funktionen sind in der Standalone-Version von Trilium nicht verfügbar, da LLM-Anbieter keinen direkten Zugriff aus einem Browser erlauben.",
     "edit_provider_title": "{{- name}} bearbeiten",
     "edit_provider": "Bearbeiten",
     "save": "Speichern",
@@ -2729,9 +2729,7 @@
   },
   "mind-map": {
     "summary": "Zusammenfassung",
-    "link": "Link",
     "moveDown": "Nach unten",
-    "linkBidirectional": "Bidirektionaler Link",
     "moveUp": "Nach oben",
     "cancelFocus": "Fokusmodus beenden",
     "focus": "Fokusmodus",
@@ -2841,9 +2839,6 @@
     "page_break": "Seitenumbruch einfügen (zum Drucken)",
     "table": "Tabelle einfügen"
   },
-  "auto_link_attribute_list": {
-    "title": "Systemattribute"
-  },
   "revisions_snapshot": {
     "title": "Revisionsverlauf"
   },
@@ -2874,8 +2869,7 @@
     "will_reload_frontend": "(App wird neu geladen)"
   },
   "link": {
-    "failed_to_open": "Link '{{- href}}' konnte nicht geöffnet werden: {{- message}}",
-    "copy_url": "URL kopieren"
+    "failed_to_open": "Link '{{- href}}' konnte nicht geöffnet werden: {{- message}}"
   },
   "display_mode": {
     "source": "Quellansicht",
@@ -2913,70 +2907,7 @@
     "page_ranges_invalid": "Ungültiges Format. Verwenden Sie z. B. 1-5, 8, 11-13.",
     "page_ranges_placeholder": "z. B. 1-5, 8, 11-13"
   },
-  "setup": {
-    "heading": "Erste Schritte mit Trilium",
-    "sync-from-desktop": "Desktop-App verbinden",
-    "sync-from-desktop-description": "Sie haben nur auf einem anderen Gerät eine laufende Trilium-Desktop-App. Dieses Gerät synchronisiert seine Daten von dieser Desktop-App.",
-    "sync-from-server": "Mit bestehendem Server verbinden",
-    "sync-from-server-description": "Sie betreiben anderswo einen Trilium-Server (selbst gehostet oder in der Cloud). Dieses Gerät synchronisiert seine Daten von diesem Server.",
-    "next": "Weiter",
-    "redirecting": "Sie werden in Kürze zur Anwendung weitergeleitet.",
-    "sync-from-server-page-description": "Geben Sie unten Ihre Serverdaten ein, um Ihren bestehenden Arbeitsbereich zu verbinden.",
-    "sync-in-progress-title": "Synchronisierung läuft",
-    "sync-in-progress-banner": "Dies kann je nach Umfang Ihrer Notizen eine Weile dauern. Bitte wechseln Sie nicht zu einer anderen Anwendung, bis die Synchronisierung abgeschlossen ist.",
-    "button-back": "Zurück",
-    "sync-step-connecting": "Verbindung zum Server wird hergestellt",
-    "sync-step-syncing": "Daten werden synchronisiert",
-    "sync-step-finalizing": "Optionen werden eingerichtet",
-    "create-new-document-options-title": "Wie möchten Sie starten?",
-    "create-new-document-options-with-demo": "Mit Demo-Inhalten",
-    "create-new-document-options-with-demo-description": "Entdecken Sie Trilium mit Beispielinhalten.",
-    "create-new-document-options-empty": "Leer",
-    "create-new-document-description": "Das dauert nur einen Moment.",
-    "sync-illustration-this-device": "Dieses Gerät",
-    "sync-illustration-desktop-app": "Ihre Desktop-App",
-    "sync-illustration-server": "Ihr Server",
-    "sync-from-desktop-step1": "Öffnen Sie Ihre Desktop-Instanz von Trilium Notes.",
-    "sync-from-desktop-step2": "Klicken Sie im Trilium-Menü auf Optionen.",
-    "sync-from-desktop-step3": "Klicken Sie im Notizbaum auf die Kategorie „Synchronisierung“.",
-    "sync-from-desktop-step4": "Ändern Sie die Serverinstanz-Adresse so, dass sie auf eine der rechts angezeigten Adressen verweist, und klicken Sie auf Speichern.",
-    "sync-from-desktop-step5": "Klicken Sie auf die Schaltfläche „Synchronisierung testen“, um zu prüfen, ob die Verbindung erfolgreich ist.",
-    "sync-from-desktop-warning": "Stellen Sie sicher, dass sich beide Geräte im selben Netzwerk befinden.",
-    "sync-from-desktop-waiting": "Warten auf Verbindung...",
-    "advanced-options": "Erweiterte Optionen",
-    "sync-failed": "Synchronisierung fehlgeschlagen: {{- message}}",
-    "server-host": "Trilium-Serveradresse",
-    "server-host-placeholder": "https://<hostname>:<port>",
-    "server-password": "Passwort",
-    "proxy-server": "Proxy-Server (optional)",
-    "proxy-server-placeholder": "https://<hostname>:<port>",
-    "proxy-instruction": "Wenn Sie die Proxy-Einstellung leer lassen, wird der System-Proxy verwendet.",
-    "wrong-password": "Falsches Passwort. Bitte versuchen Sie es erneut.",
-    "language": "Sprache",
-    "continue": "Fortfahren",
-    "your-ip-addresses": "Adressen dieses Geräts",
-    "new-document": "Neue Wissensbasis",
-    "new-document-description": "Mit einer leeren Wissensbasis starten und sofort loslegen.",
-    "init-in-progress": "Dokument wird initialisiert",
-    "title": "Einrichtung",
-    "sync-in-progress-description": "Ihr Gerät ist jetzt verbunden und Einträge werden synchronisiert.",
-    "button-finish-setup": "Einrichtung abschließen",
-    "create-new-document-options-empty-description": "Mit einer leeren Wissensbasis starten. Demo-Notizen können später importiert werden.",
-    "create-new-document-title": "Wissensbasis wird vorbereitet",
-    "dismiss-error": "Fehler schließen",
-    "sync-from-desktop-unreachable-title": "Dieses Gerät ist für andere Geräte nicht erreichbar",
-    "sync-from-desktop-unreachable-description": "Zur Synchronisierung muss sich der andere Desktop über das Netzwerk mit diesem verbinden. Aus Sicherheitsgründen akzeptiert diese Desktop-App nur Verbindungen von diesem Computer, sodass der andere Desktop sie noch nicht erreichen kann. Erlauben Sie unten den Netzwerkzugriff — Trilium wird neu gestartet, um die Einstellung anzuwenden.",
-    "sync-from-desktop-allow-access": "Netzwerkzugriff erlauben und neu starten",
-    "sync-failed-title": "Synchronisierung fehlgeschlagen",
-    "sync-failed-description": "Die erste Synchronisierung konnte nicht abgeschlossen werden. Sie können es erneut versuchen oder zurückgehen, um Serveradresse und Zugangsdaten zu prüfen.",
-    "sync-failed-admonition-title": "Der letzte Synchronisierungsversuch ist fehlgeschlagen",
-    "sync-failed-hint": "Mögliche Ursachen sind eine falsche Serveradresse, ein Proxy, der die Verbindung beeinträchtigt, oder ein vorübergehend nicht erreichbarer Server.",
-    "button-retry": "Erneut versuchen"
-  },
   "text-editor": {
-    "checkbox-tooltip": "Klicken Sie mit der rechten Maustaste oder drücken Sie {{- shortcut}}, um den Status zu ändern.",
-    "edit-states-tooltip": "Aufgabenzustände bearbeiten",
-    "unknown-task-state": "Unbekannter benutzerdefinierter Aufgabenzustand",
     "validation-errors": {
       "undefined-name": "undefinierter Bezeichner",
       "invalid-name": "ungültiger Bezeichner",
@@ -2986,39 +2917,55 @@
       "invalid-symbol": "das Markdown-Symbol muss ein einzelnes Zeichen sein, ausgenommen \"[\", \" \", \"X\" und \"]\"",
       "duplicate-symbol": "doppeltes Markdown-Symbol"
     },
-    "collapsible-body-placeholder": "Inhalt hier eingeben...",
-    "collapsible-button-label": "Einklappbarer Block",
-    "collapsible-handle-tooltip": "Ziehen, um den einklappbaren Block zu verschieben",
-    "collapsible-select-label": "Einklappbaren Block auswählen",
-    "collapsible-title-placeholder": "Zusammenfassung",
-    "collapsible-toggle-label": "Einklappbaren Block umschalten",
-    "collapsible-tooltip": "Klicken Sie auf den Pfeil oder drücken Sie {{- shortcut}}, um ein- oder auszuklappen.",
-    "checkbox-tooltip-state-label": "Aufgabenstatus:",
-    "checkbox-tooltip-state-unknown-suffix": "(fehlende Definition)",
     "task-state-dropped-title": "Ungültige Aufgabenstatus",
     "task-state-dropped-message_one": "Eine benutzerdefinierte Aufgabenstatusdefinition ist ungültig und wurde ignoriert.",
     "task-state-dropped-message_other": "{{count}} benutzerdefinierte Aufgabenstatusdefinitionen sind ungültig und wurden ignoriert.",
     "task-state-dropped-heading": "Ignorierte Definitionen:",
-    "task-state-dropped-configure": "Aufgabenstatus konfigurieren"
-  },
-  "slash_commands": {
-    "bulleted_list_description": "Aufzählungsliste erstellen",
-    "numbered_list_description": "Nummerierte Liste erstellen",
-    "todo_list_description": "Aufgabenliste erstellen",
-    "align_left_description": "Text linksbündig ausrichten",
-    "align_center_description": "Text zentrieren",
-    "align_right_description": "Text rechtsbündig ausrichten",
-    "justify_description": "Blocksatz",
-    "admonition_description": "Einen neuen Hinweisblock einfügen",
-    "collapsible_description": "Einen ein-/ausklappbaren Abschnitt einfügen, der Inhalt per Klick verbirgt oder anzeigt.",
-    "footnote_description": "Eine neue Fußnote erstellen und hier referenzieren",
-    "datetime_description": "Aktuelles Datum und Uhrzeit einfügen",
-    "internal_link_description": "Link zu einer anderen Trilium-Notiz einfügen",
-    "math_description": "Mathematische Gleichung einfügen",
-    "include_note_description": "Inhalt einer anderen Notiz in dieser Notiz anzeigen",
-    "page_break_description": "Seitenumbruch einfügen (zum Drucken)",
-    "markdown_import_description": "Markdown-Datei in diese Notiz importieren",
-    "anchor_description": "Anker für interne Verlinkung einfügen"
+    "task-state-dropped-configure": "Aufgabenstatus konfigurieren",
+    "ck": {
+      "align-text-to-the-center": "Text zentrieren",
+      "align-text-to-the-left": "Text linksbündig ausrichten",
+      "align-text-to-the-right": "Text rechtsbündig ausrichten",
+      "card": "Karte",
+      "click-on-the-arrow-or-press-0-to-collapse-expand": "Klicken Sie auf den Pfeil oder drücken Sie %0, um ein- oder auszuklappen.",
+      "collapsible-block": "Einklappbarer Block",
+      "copy-image-to-clipboard": "Bild in die Zwischenablage kopieren",
+      "copy-url": "URL kopieren",
+      "create-a-bulleted-list": "Aufzählungsliste erstellen",
+      "create-a-new-footnote-and-reference-it-here": "Eine neue Fußnote erstellen und hier referenzieren",
+      "create-a-numbered-list": "Nummerierte Liste erstellen",
+      "create-a-to-do-list": "Aufgabenliste erstellen",
+      "display": "Anzeige",
+      "display-the-content-of-another-note-in-this-note": "Inhalt einer anderen Notiz in dieser Notiz anzeigen",
+      "download-image": "Bild herunterladen",
+      "drag-to-reposition-the-collapsible-block": "Ziehen, um den einklappbaren Block zu verschieben",
+      "edit-task-states": "Aufgabenzustände bearbeiten",
+      "edit-title": "Titel bearbeiten",
+      "embed": "Einbetten",
+      "inline": "Inline",
+      "insert-a-0-mermaid-diagram-template": "Mermaid-Diagrammvorlage „%0“ einfügen",
+      "insert-a-link-to-another-trilium-note": "Link zu einer anderen Trilium-Notiz einfügen",
+      "insert-a-math-equation": "Mathematische Gleichung einfügen",
+      "insert-a-new-admonition": "Einen neuen Hinweisblock einfügen",
+      "insert-a-page-break-for-printing": "Seitenumbruch einfügen (zum Drucken)",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "Einen ein-/ausklappbaren Abschnitt einfügen, der Inhalt per Klick verbirgt oder anzeigt.",
+      "insert-an-anchor-for-internal-linking": "Anker für interne Verlinkung einfügen",
+      "insert-an-empty-mermaid-diagram": "Leeres Mermaid-Diagramm einfügen",
+      "insert-the-current-date-and-time": "Aktuelles Datum und Uhrzeit einfügen",
+      "justify-text-alignment": "Blocksatz",
+      "link-preview": "Linkvorschau",
+      "missing-definition": "(fehlende Definition)",
+      "plain-link": "Einfacher Link",
+      "right-click-or-press-0-to-change-state": "Klicken Sie mit der rechten Maustaste oder drücken Sie %0, um den Status zu ändern.",
+      "select-collapsible-block": "Einklappbaren Block auswählen",
+      "summary": "Zusammenfassung",
+      "task-state": "Aufgabenstatus:",
+      "title": "Titel",
+      "toggle-collapsible-block": "Einklappbaren Block umschalten",
+      "type-the-content-here": "Inhalt hier eingeben...",
+      "undefined-custom-task-state": "Unbekannter benutzerdefinierter Aufgabenzustand",
+      "url": "URL"
+    }
   },
   "image_buttons": {
     "zoom_in": "Vergrößern",
@@ -3122,7 +3069,9 @@
     "device_open_page": "Anmeldeseite öffnen",
     "device_cancel": "Anmeldung abbrechen",
     "import_count_one": "{{count}} Abschnitt importieren",
-    "import_count_other": "{{count}} Abschnitte importieren"
+    "import_count_other": "{{count}} Abschnitte importieren",
+    "refresh": "Aktualisieren",
+    "load_retry": "Erneut versuchen"
   },
   "full_content_width_switch": {
     "title": "Volle Breite"
@@ -3223,48 +3172,12 @@
     "days_one": "{{count}} Tag",
     "days_other": "{{count}} Tage"
   },
-  "login": {
-    "heading": "Bei Trilium Notes anmelden",
-    "password": "Passwort",
-    "totp-token": "Einmalpasswort oder Wiederherstellungscode",
-    "button": "Anmelden",
-    "remember-me": "Angemeldet bleiben",
-    "incorrect-password": "Das Passwort ist falsch. Bitte versuchen Sie es erneut.",
-    "incorrect-totp": "Das Einmalpasswort ist falsch. Bitte versuchen Sie es erneut.",
-    "incorrect-recovery-code": "Der Wiederherstellungscode ist falsch oder wurde bereits verwendet.",
-    "too-many-attempts": "Zu viele Anmeldeversuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
-    "connection-error": "Der Server konnte nicht erreicht werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
-    "sign_in_with_sso": "Mit {{ssoIssuerName}} anmelden",
-    "sso-wrong-account": "Dieses Konto ist nicht mit dieser Trilium-Instanz verknüpft. Melden Sie sich mit dem verknüpften Konto an.",
-    "sso-not-enrolled": "Single Sign-on ist noch nicht eingerichtet. Melden Sie sich zuerst mit Ihrem Passwort an und verknüpfen Sie anschließend Ihr Konto in den Einstellungen.",
-    "sso-connection-failed": "Der Authentifizierungsanbieter konnte nicht erreicht werden. Versuchen Sie es erneut oder prüfen Sie die Serverprotokolle auf Details."
-  },
-  "set_password": {
-    "heading": "Passwort festlegen",
-    "description": "Bevor Sie Trilium im Web verwenden können, müssen Sie zuerst ein Passwort festlegen. Anschließend verwenden Sie dieses Passwort zum Anmelden.",
-    "password": "Passwort",
-    "password-confirmation": "Passwortbestätigung",
-    "button": "Passwort festlegen",
-    "password-too-short": "Das Passwort muss mindestens {{length}} Zeichen lang sein.",
-    "passwords-dont-match": "Die eingegebenen Passwörter stimmen nicht überein."
-  },
   "shortcut_hints": {
     "show_button": "Tastenkürzel-Hinweise anzeigen",
     "esc_hint": "zum Schließen"
   },
   "link_embed": {
-    "play_video": "Video wiedergeben",
-    "title": "Linkvorschau",
-    "url": "URL",
-    "insert": "Einfügen",
-    "display": "Anzeige",
-    "mode_inline": "Inline",
-    "mode_card": "Karte",
-    "mode_embed": "Einbetten",
-    "mode_plain": "Einfacher Link",
-    "edit_title": "Titel bearbeiten",
-    "title_label": "Titel",
-    "save": "Speichern"
+    "play_video": "Video wiedergeben"
   },
   "wizard": {
     "back": "Zurück",

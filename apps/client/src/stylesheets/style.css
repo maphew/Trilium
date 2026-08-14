@@ -284,6 +284,20 @@ samp {
     font-family: var(--monospace-font-family) !important;
 }
 
+/*
+ * Programming ligatures: the bundled JetBrains Mono renders `!=` as `≠`, `->` as `→` and so on,
+ * which reads as the characters having been silently replaced (see #2851). The `monospaceLigatures-
+ * Enabled` option gates this; the class is applied by RootContainer.
+ *
+ * Scoped to the monospace surfaces rather than set on `body`: `font-variant-ligatures` is inherited,
+ * so a blanket rule would also disable `fi`/`fl` in prose, which is a typographic regression in note
+ * content and not what anyone is asking for. Inheritance is what makes `.cm-editor` enough to cover
+ * CodeMirror's internals.
+ */
+body.monospace-ligatures-disabled :is(code, kbd, pre, samp, .cm-editor, .ck-mermaid__editing-view) {
+    font-variant-ligatures: none;
+}
+
 .badge {
     --bs-badge-color: var(--muted-text-color);
 
@@ -484,7 +498,7 @@ body.desktop .tabulator-popup-container,
     opacity: 1;
 }
 
-.dropdown-item:hover:not(.disabled, .dropdown-container-item),
+.dropdown-item:hover:not(.disabled, .active, .dropdown-container-item),
 .tabulator-menu-item:hover,
 :root .excalidraw .context-menu .context-menu-item:hover {
     color: var(--hover-item-text-color) !important;
@@ -650,7 +664,7 @@ button.btn-sm {
     color: var(--left-pane-text-color);
 }
 
-.ck.ck-block-toolbar-button {
+.ck.ck-button.ck-block-toolbar-button {
     transform: translateX(7px);
     color: var(--muted-text-color);
     background-color: var(--main-background-color);
@@ -658,6 +672,8 @@ button.btn-sm {
     min-width: 0;
     padding: 0;
     z-index: 1000;
+    translate: -40% 0;
+    padding: 0;
 }
 
 body[dir=rtl] .ck.ck-block-toolbar-button {
@@ -768,16 +784,29 @@ table.promoted-attributes-in-tooltip th {
 
 .tooltip {
     font-size: var(--main-font-size) !important;
-    z-index: calc(var(--ck-z-panel) - 1) !important;
+    /* Above every layer the app opens over the page: a tooltip is appended to `<body>`, so it
+       competes with a dialog in the root stacking context rather than painting inside it, and any
+       lower layer leaves it unreadable behind the very dialog it was asked for. Bootstrap's modal
+       sits at 1055, the dialogs the app lifts itself at up to 3000, the context menu at 2500.
+
+       This layer used to be chained to CKEditor's own — `calc(var(--ck-z-panel) - 1)` — which
+       `ckeditor-theme.css` raised to 10000 for exactly this reason, landing tooltips at 9999.
+       Upstream renamed the variable (`--ck-z-modal` → `--ck-z-panel`) and the override went dead
+       with the old name, dropping tooltips to 999 — under every dialog. Nothing showed it because
+       the math form's rescue rule named a bare `[role="tooltip"]`, lifting every tooltip in the app
+       to 3000; keeping that rule to MathLive's own UI is what finally uncovered it. Stated here in
+       full, and no longer read from a variable another package owns. */
+    z-index: 9999 !important;
 }
 
 .tooltip.tooltip-top {
     z-index: 32767 !important;
 }
 
-/* Note tooltips are appended to <body> and are frequently triggered from inside modals
-   (e.g. links or deleted-note entries in a dialog). The base .tooltip z-index sits below
-   Bootstrap's modal, so raise them above it — matching .tooltip-top. */
+/* Note tooltips are appended to <body> and are frequently triggered from inside a dialog (a link,
+   a deleted-note entry), including the few that lift themselves above the base tooltip layer — the
+   content manager's active-content overlay among them. Held at the same "above everything" layer
+   .tooltip-top names, so they clear those too. */
 .tooltip.note-tooltip {
     z-index: 32767 !important;
 }
@@ -912,6 +941,13 @@ table.promoted-attributes-in-tooltip th {
     overflow: hidden;
 }
 
+.note-tooltip-detail {
+    margin-top: -5px;
+    margin-bottom: 5px;
+    color: var(--muted-text-color);
+    font-size: small;
+}
+
 .note-tooltip-content {
     /* height needs to stay small because tooltip has problem when it can't fit to either top or bottom of the cursor */
     max-height: 300px;
@@ -1039,6 +1075,36 @@ table.promoted-attributes-in-tooltip th {
 /* this is because bootstrap (?) sets code color to red for some reason */
 code {
     color: inherit !important;
+}
+
+/*
+ * Inline code — a `code` that is not the body of a code block.
+ *
+ * CKEditor ships its own `.ck-content code` rule with a hardcoded grey, which ignores the theme
+ * entirely. The rule below overrides it (one class more specific) for every surface that renders
+ * note content: the editable and read-only text notes, doc notes and the print sheet.
+ *
+ * The values are theme-tunable; the defaults here are a translucent neutral grey so they hold up
+ * on a light and a dark background alike, which is what the legacy themes fall back to.
+ */
+:where(:root) {
+    --inline-code-background-color: rgba(128, 128, 128, 0.18);
+    --inline-code-border-color: rgba(128, 128, 128, 0.28);
+    --inline-code-hover-background-color: rgba(128, 128, 128, 0.3);
+}
+
+.ck-content code:not(pre code) {
+    padding: 0.1em 0.35em;
+    border-radius: 5px;
+    background-color: var(--inline-code-background-color);
+    /* Monospace runs visually larger than the surrounding prose at the same nominal size. */
+    font-size: 0.8em;
+    /* A long path or identifier must wrap rather than push the paragraph past the note width. */
+    overflow-wrap: break-word;
+
+    &.ck-code_selected {
+        background-color: var(--inline-code-hover-background-color) !important;
+    }
 }
 
 .animated {
@@ -1704,6 +1770,28 @@ body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
     background-color: var(--selection-background-color);
 }
 
+/*
+ * Fades a scroll container's content out at its edges instead of hard-clipping it, so text
+ * dissolves toward whatever chrome sits past the edge (a section title bar, a composer).
+ * A mask rather than an overlay gradient because the content becomes genuinely transparent:
+ * this holds up when the pane background is a semi-transparent tint over a window material
+ * (Mica/vibrancy), which no painted gradient color could match. Opt in per edge by setting
+ * `--scroll-fade-top` / `--scroll-fade-bottom` on the scroll container (or an ancestor);
+ * each edge defaults to a hard clip. The defaults are `var()` fallbacks rather than custom
+ * property declarations here, so a widget's knobs win regardless of stylesheet bundling
+ * order. The overlay scrollbar fades over the same distance — the cost of masking the
+ * scroll container itself, accepted wherever this is used.
+ */
+.scroll-edge-fade {
+    mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        black var(--scroll-fade-top, 0px),
+        black calc(100% - var(--scroll-fade-bottom, 0px)),
+        transparent
+    );
+}
+
 [data-bs-toggle="tooltip"]:not(.button-widget) span {
     padding-bottom: 0;
     border-bottom: 1px dotted;
@@ -1721,6 +1809,25 @@ body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
 .ck.ck-mentions > .ck-list__item .ck-button {
     /* wrap text for very long note path title */
     white-space: normal !important;
+}
+
+/*
+ * A note suggestion is an icon beside a note path. Laid out as a row so the two are centred against
+ * each other: left inline, the icon aligns on the text baseline, and `vertical-align: middle` only
+ * gets it as far as the x-height — about a pixel below where the capitals it sits beside read as
+ * centred. The icon carries its own font, so no baseline rule can line the two up in general.
+ */
+.ck.ck-mentions .ck-button.note-mention-suggestion {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    text-align: start;
+}
+
+/* Its own box, so the row centres the glyph itself rather than the line box around it. */
+.ck.ck-mentions .ck-button.note-mention-suggestion > .bx {
+    line-height: 1;
+    flex-shrink: 0;
 }
 
 /* Slash commands */
@@ -2104,7 +2211,6 @@ body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
 }
 
 #right-pane .card-body ul {
-    padding-inline-start: 25px;
     margin-bottom: 5px;
 }
 
@@ -2875,14 +2981,6 @@ iframe.print-iframe {
     overflow: hidden;
 }
 
-/* Calendar collection */
-
-.calendar-view a.fc-timegrid-event,
-.calendar-view a.fc-daygrid-event {
-    /* Workaround: set font weight only if the theme-next is not active */
-    font-weight: var(--root-background, 800);
-}
-
 @media (max-width: 991px) {
     body.mobile {
         .split-note-container-widget {
@@ -3043,6 +3141,8 @@ iframe.print-iframe {
        variant — this makes both variants share one deterministic geometry. */
     position: absolute;
     top: calc((1lh - var(--_checkbox-size)) / 2);
+    inset-inline-start: -25px;
+    inset-inline-end: auto;
     /* `1lh` must resolve against the text's line height, not the UA form-control
        font, and the UA's 3px checkbox margins would offset the absolute position.
        (Bootstrap's reboot happens to do both, but don't depend on it.) */
@@ -3109,7 +3209,7 @@ iframe.print-iframe {
     --collapsible-block-background: var(--card-background-color);
     --collapsible-block-summary-background: var(--card-background-color);
     --collapsible-block-summary-delimiter-color: var(--main-background-color);
-    
+
     --_border-radius: 8px;
     --_block-padding: .75rem;
     --_inline-padding: 1rem;
@@ -3179,9 +3279,9 @@ iframe.print-iframe {
 
     &[open] > summary {
         margin-bottom: calc(var(--_block-padding) * 2);
-        
+
         &::after {
-            border-bottom: 2px solid var(--collapsible-block-summary-delimiter-color);            
+            border-bottom: 2px solid var(--collapsible-block-summary-delimiter-color);
         }
     }
 

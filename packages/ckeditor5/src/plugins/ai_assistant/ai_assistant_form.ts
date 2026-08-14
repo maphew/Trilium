@@ -22,9 +22,6 @@ import {
 
 import type { AiQuickAction, AiQuickActionGroup } from "./ai_assistant_config.js";
 
-/** Resolves a translation key, falling back to the given English text. See `translate.ts`. */
-type Translate = (key: string, fallback: string) => string;
-
 /**
  * Where the form is in its lifecycle: taking a prompt, streaming a response into the preview, or
  * showing a finished response for review (Replace / Insert below / Try again). The prompt row stays
@@ -89,8 +86,10 @@ export default class AiAssistantFormView extends View {
     private readonly _focusables = new ViewCollection<FocusableView>();
     private readonly _focusCycler: FocusCycler;
 
-    constructor(locale: Locale, translate: Translate, quickActions: AiQuickActionGroup[] = []) {
+    constructor(locale: Locale, quickActions: AiQuickActionGroup[] = []) {
         super(locale);
+
+        const t = locale.t;
 
         this.set("phase", "prompt");
         this.set("query", "");
@@ -103,19 +102,19 @@ export default class AiAssistantFormView extends View {
         // Re-render the preview from the stored contents whenever the toggle flips.
         this.on("change:viewMode", () => this._renderPreview());
 
-        this.resultToggleView = this._createViewModeButton(locale, translate("ai_assistant.result", "Result"), "result");
-        this.changesToggleView = this._createViewModeButton(locale, translate("ai_assistant.changes", "Changes"), "changes");
-        this.quickActionsDropdownView = this._createQuickActionsDropdown(locale, translate, quickActions);
-        this.promptInputView = this._createPromptInput(locale, translate);
-        this.sendButtonView = this._createSendButton(locale, translate);
+        this.resultToggleView = this._createViewModeButton(locale, t("Result"), "result");
+        this.changesToggleView = this._createViewModeButton(locale, t("Changes"), "changes");
+        this.quickActionsDropdownView = this._createQuickActionsDropdown(locale, quickActions);
+        this.promptInputView = this._createPromptInput(locale);
+        this.sendButtonView = this._createSendButton(locale);
         this.previewView = new AiPreviewView(locale);
         this.previewView.bind("isVisible").to(this, "phase", (phase) => phase !== "prompt");
 
-        this.stopButtonView = this._createActionButton(locale, translate("ai_assistant.stop", "Stop"), "streaming", "stop");
-        this.replaceButtonView = this._createActionButton(locale, translate("ai_assistant.replace", "Replace"), "review", "replace");
+        this.stopButtonView = this._createActionButton(locale, t("Stop"), "streaming", "stop");
+        this.replaceButtonView = this._createActionButton(locale, t("Replace"), "review", "replace");
         this.replaceButtonView.class = "ck-button-action";
-        this.insertBelowButtonView = this._createActionButton(locale, translate("ai_assistant.insert_below", "Insert below"), "review", "insertBelow");
-        this.tryAgainButtonView = this._createActionButton(locale, translate("ai_assistant.try_again", "Try again"), "review", "tryAgain");
+        this.insertBelowButtonView = this._createActionButton(locale, t("Insert below"), "review", "insertBelow");
+        this.tryAgainButtonView = this._createActionButton(locale, t("Try again"), "review", "tryAgain");
 
         const bind = this.bindTemplate;
 
@@ -133,7 +132,7 @@ export default class AiAssistantFormView extends View {
                         {
                             tag: "span",
                             attributes: { class: ["ck", "ck-ai-assistant-form__title"] },
-                            children: [{ text: translate("ai_assistant.title", "AI assistant") }]
+                            children: [{ text: t("AI assistant") }]
                         },
                         this.resultToggleView,
                         this.changesToggleView
@@ -289,11 +288,11 @@ export default class AiAssistantFormView extends View {
      * marked `requiresContent` are disabled while there is nothing to work on. Hidden entirely
      * when the host configured no actions.
      */
-    private _createQuickActionsDropdown(locale: Locale, translate: Translate, groups: AiQuickActionGroup[]) {
+    private _createQuickActionsDropdown(locale: Locale, groups: AiQuickActionGroup[]) {
         const dropdown = createDropdown(locale);
 
         dropdown.buttonView.set({
-            label: translate("ai_assistant.quick_actions", "Quick actions"),
+            label: locale.t("Quick actions"),
             withText: true
         });
         // DropdownView has no `isVisible`; an empty action list hides the component wholesale.
@@ -346,9 +345,9 @@ export default class AiAssistantFormView extends View {
         return button;
     }
 
-    private _createPromptInput(locale: Locale, translate: Translate) {
+    private _createPromptInput(locale: Locale) {
         const input = new LabeledFieldView(locale, createLabeledInputText);
-        input.label = translate("ai_assistant.prompt_label", "Ask AI to…");
+        input.label = locale.t("Ask AI to…");
 
         // Two-way: the field drives `query`, and reset() drives the field.
         input.fieldView.bind("value").to(this, "query");
@@ -361,10 +360,10 @@ export default class AiAssistantFormView extends View {
         return input;
     }
 
-    private _createSendButton(locale: Locale, translate: Translate) {
+    private _createSendButton(locale: Locale) {
         const button = new ButtonView(locale);
         button.set({
-            label: translate("ai_assistant.send", "Send"),
+            label: locale.t("Send"),
             withText: true,
             type: "submit",
             class: "ck-button-action ck-button-bold"

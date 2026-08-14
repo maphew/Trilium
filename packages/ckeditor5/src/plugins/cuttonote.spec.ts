@@ -21,6 +21,11 @@ describe("CutToNotePlugin", () => {
     it("loads the plugin and registers the toolbar button", () => {
         expect(editor.plugins.get(CutToNotePlugin)).toBeInstanceOf(CutToNotePlugin);
         expect(editor.ui.componentFactory.has("cutToNote")).toBe(true);
+
+        // No dictionary is configured here, so `t()` renders the message id, which is the English
+        // label.
+        const view = editor.ui.componentFactory.create("cutToNote") as { label?: string };
+        expect(view.label).toBe("Cut selection into a sub-note");
     });
 
     it("triggers the cutIntoNote command on the Trilium component when the button is executed", () => {
@@ -60,6 +65,13 @@ describe("CutToNotePlugin", () => {
         const html = listEditor.getSelectedHtml();
         expect(html).toContain("foo");
         expect(html).not.toContain("data-list-item-id");
+    });
+
+    it("returns an empty string from getSelectedHtml when nothing is selected", () => {
+        // What the host takes as "there is nothing to cut here" before it creates a sub-note (#9890).
+        setModelData(editor.model, "<paragraph>foo[]bar</paragraph>");
+
+        expect(editor.getSelectedHtml()).toBe("");
     });
 
     it("removeSelection deletes the selection, inserts a paragraph and saves the note", async () => {

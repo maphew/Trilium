@@ -1,6 +1,8 @@
 import { Autoformat, AutoLink, BlockQuote, BlockToolbar, Bold, CKFinderUploadAdapter, Clipboard, Code, CodeBlock, Enter, Font, FontBackgroundColor, FontColor, GeneralHtmlSupport, Heading, HeadingButtonsUI, HorizontalLine, Image, ImageCaption, ImageInline, ImageResize, ImageStyle, ImageToolbar, ImageUpload, Alignment, Indent, IndentBlock, Italic, Link, List, ListProperties, MentionEditing, PageBreak, Paragraph, ParagraphButtonUI, PasteFromOffice, PictureEditing, RemoveFormat, SelectAll, ShiftEnter, SpecialCharacters, SpecialCharactersEssentials, Strikethrough, Style, Subscript, Superscript, Table, TableCaption, TableCellProperties, TableColumnResize, TableProperties, TableSelection, TableToolbar, TextPartLanguage, TextTransformation, TodoList, Typing, Underline, Undo, Bookmark, EmojiPicker, FindAndReplaceEditing } from "ckeditor5";
-// Premium features loaded dynamically to improve initial load time
-// import { SlashCommand, Template, FormatPainter } from "ckeditor5-premium-features";
+// Nothing here comes from `ckeditor5-premium-features` any more: every premium plugin Trilium
+// once loaded has an in-tree GPL replacement — `SlashCommand` -> `TriliumSlashCommands`,
+// `FormatPainter` -> `TriliumFormatPainter`, `Template` -> `TriliumSnippets`. See each plugin's
+// doc comment for the details.
 import type { Plugin } from "ckeditor5";
 import CutToNotePlugin from "./plugins/cuttonote.js";
 import UploadimagePlugin from "./plugins/uploadimage.js";
@@ -16,26 +18,26 @@ import MentionCustomization from "./plugins/mention_customization.js";
 import TriliumEmojiMention from "./plugins/mention/emoji_mention.js";
 import TriliumMentionUI from "./plugins/mention/trilium_mention_ui.js";
 import TriliumSlashCommands from "./plugins/mention/slash_commands.js";
+import TriliumFormatPainter from "./plugins/format_painter/format_painter.js";
 import IncludeNote from "./plugins/includenote.js";
 import LinkEmbed from "./plugins/link_embed/link_embed.js";
 import Uploadfileplugin from "./plugins/file_upload/uploadfileplugin.js";
 import SyntaxHighlighting from "./plugins/syntax_highlighting/index.js";
-import { Kbd } from "@triliumnext/ckeditor5-keyboard-marker";
-import { Mermaid } from "@triliumnext/ckeditor5-mermaid";
-import { Admonition } from "@triliumnext/ckeditor5-admonition";
-import { Collapsible } from "@triliumnext/ckeditor5-collapsible";
-import { Footnotes } from "@triliumnext/ckeditor5-footnotes";
-import { Math, AutoformatMath } from "@triliumnext/ckeditor5-math";
+import Kbd from "./plugins/keyboard_marker/keyboard_marker.js";
+import Mermaid from "./plugins/mermaid/mermaid.js";
+import Admonition from "./plugins/admonition/admonition.js";
+import Collapsible from "./plugins/collapsible/collapsible.js";
+import Footnotes from "./plugins/footnotes/footnotes.js";
+import Math from "./plugins/math/math.js";
+import AutoformatMath from "./plugins/math/autoformat_math.js";
 import CopyAnchorLinkButton from "./plugins/copy_anchor_link.js";
 import CopyLinkUrlButton from "./plugins/copy_link_url.js";
 import ImageActions from "./plugins/image_actions.js";
+import ClipboardBareImage from "./plugins/clipboard_bare_image.js";
+import ClipboardImageEmbed from "./plugins/clipboard_image_embed.js";
 import TriliumSnippets from "./plugins/snippets/snippets.js";
 import TriliumAiAssistant from "./plugins/ai_assistant/ai_assistant.js";
 
-// import "@triliumnext/ckeditor5-mermaid/index.css";
-// import "@triliumnext/ckeditor5-admonition/index.css";
-// import "@triliumnext/ckeditor5-footnotes/index.css";
-// import "@triliumnext/ckeditor5-math/index.css";
 import CodeBlockToolbar from "./plugins/code_block_toolbar.js";
 import CodeBlockLanguageDropdown from "./plugins/code_block_language_dropdown.js";
 import CodeBlockInsertParagraph from "./plugins/code_block_insert_paragraph.js";
@@ -44,8 +46,8 @@ import MoveBlockUpDownPlugin from "./plugins/move_block_updown.js";
 import ScrollOnUndoRedoPlugin from "./plugins/scroll_on_undo_redo.js"
 import InlineCodeNoSpellcheck from "./plugins/inline_code_no_spellcheck.js";
 import InlineCodeToolbar from "./plugins/inline_code_toolbar.js";
-import AdmonitionTypeDropdown from "./plugins/admonition_type_dropdown.js";
-import AdmonitionToolbar from "./plugins/admonition_toolbar.js";
+import AdmonitionTypeDropdown from "./plugins/admonition/admonition_type_dropdown.js";
+import AdmonitionToolbar from "./plugins/admonition/admonition_toolbar.js";
 import IncludeNoteBoxSizeDropdown from "./plugins/include_note_box_size_dropdown.js";
 import IncludeNoteToolbar from "./plugins/include_note_toolbar.js";
 import LinkEmbedToolbar from "./plugins/link_embed/link_embed_toolbar.js";
@@ -90,6 +92,8 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     CopyAnchorLinkButton,
     CopyLinkUrlButton,
     ImageActions,
+    ClipboardImageEmbed,
+    ClipboardBareImage,
     TriliumSnippets,
     TriliumAiAssistant,
 ];
@@ -141,22 +145,32 @@ export const CHAT_INPUT_PLUGINS: typeof Plugin[] = [
 ];
 
 /**
- * Dynamically loads plugins that require a premium CKEditor license key.
- * This avoids loading ~6 seconds of premium features code during initial app startup.
+ * {@link CHAT_INPUT_PLUGINS} and the marks a sentence is written with, for an input whose text is
+ * kept rather than sent on — the memo of a mind map node. Added to an {@link AttributeEditor} the
+ * same way, and worth a toolbar there: a {@link BalloonEditor} raises one over the selection out of
+ * whatever `toolbar` it is configured with.
+ *
+ * Kept apart from {@link CHAT_INPUT_PLUGINS} rather than added to it, though the chat box would
+ * take these as readily: what is typed there is turned into markdown before it is sent, and that
+ * pass keeps the text of an inline wrapper and drops the wrapper. Bold offered there would be bold
+ * lost on its way to the model.
+ *
+ * `Autoformat` is what carries most of this: it registers `**bold**`, `_italic_`, `` `code` `` and
+ * `~~struck~~` only where the matching command exists, so the marks below are what make those
+ * spellings work at all — and the plainer way in, for anyone who would rather type than reach.
+ *
+ * The two Trilium converters ride along with them: they are what write italics as `<em>` and a
+ * strikethrough as `<del>`, which is how the rest of Trilium stores both.
  */
-export async function loadPremiumPlugins(): Promise<(typeof Plugin)[]> {
-    // `SlashCommand` is deliberately not among them: it `requires` the `Mention` façade, which loads
-    // upstream's `MentionUI` next to `TriliumMentionUI` and leaves the two fighting over the same
-    // balloon. `TriliumSlashCommands` provides `/` instead, for premium and GPL builds alike.
-    //
-    // `Template` is likewise absent: the GPL `TriliumSnippets` plugin replaces it (see
-    // `plugins/snippets/`), and additionally supports live reloading of the snippet list — the
-    // premium plugin baked its definitions in at startup, forcing an editor rebuild on any change.
-    const { FormatPainter } = await import('ckeditor5-premium-features');
-    // Also load the CSS when premium features are used
-    await import('ckeditor5-premium-features/ckeditor5-premium-features.css');
-    return [FormatPainter];
-}
+export const MEMO_PLUGINS: typeof Plugin[] = [
+    ...CHAT_INPUT_PLUGINS,
+    Bold,
+    Italic,
+    ItalicAsEmPlugin,
+    Strikethrough,
+    StrikethroughAsDel,
+    Code
+];
 
 /**
  * The set of plugins that are required for the editor to work. This is used in normal text editors (floating or fixed toolbar) but not in the attribute editor.
@@ -224,6 +238,10 @@ export const COMMON_PLUGINS: typeof Plugin[] = [
     EmojiPicker,
     TriliumEmojiMention,
     TriliumSlashCommands,
+
+    // GPL reimplementation of premium `FormatPainter` (the `formatPainter` toolbar button), built on
+    // the public `isFormatting` schema flag, so the commercial plugin can be dropped.
+    TriliumFormatPainter,
 
     ...TRILIUM_PLUGINS,
     ...EXTERNAL_PLUGINS

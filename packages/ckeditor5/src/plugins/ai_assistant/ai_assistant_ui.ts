@@ -7,7 +7,6 @@ import {
     type ModelRange
 } from "ckeditor5";
 
-import { translate } from "../translate.js";
 import type { AiCompletionUsage } from "./ai_assistant_config.js";
 import AiAssistantEditing, { AI_TARGET_MARKER } from "./ai_assistant_editing.js";
 import AiAssistantFormView, { type AiQuickActionEvent } from "./ai_assistant_form.js";
@@ -55,11 +54,12 @@ export default class AiAssistantUI extends Plugin {
         const editor = this.editor;
 
         editor.ui.componentFactory.add("aiAssistant", (locale) => {
+            const t = locale.t;
             const command = editor.commands.get("aiAssistant");
             const buttonView = new ButtonView(locale);
 
             buttonView.set({
-                label: translate(editor, "ai_assistant.title", "AI assistant"),
+                label: t("AI assistant"),
                 icon: aiIcon,
                 tooltip: true
             });
@@ -123,7 +123,6 @@ export default class AiAssistantUI extends Plugin {
         const editor = this.editor;
         const form = new AiAssistantFormView(
             editor.locale,
-            (key, fallback) => translate(editor, key, fallback),
             editor.config.get("aiAssistant")?.quickActions ?? []
         );
         this._formView = form;
@@ -265,7 +264,7 @@ export default class AiAssistantUI extends Plugin {
             parts.push(usage.model);
         }
         if (usage.totalTokens != null) {
-            parts.push(`${usage.totalTokens.toLocaleString()} ${translate(this.editor, "ai_assistant.tokens", "tokens")}`);
+            parts.push(`${usage.totalTokens.toLocaleString()} ${this.editor.t("tokens")}`);
         }
         if (usage.cost != null) {
             // A single completion usually costs well under a cent; two decimals would show $0.00.

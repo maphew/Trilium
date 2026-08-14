@@ -5,7 +5,11 @@ import BBranch from "../../../becca/entities/bbranch.js";
 import SearchContext from "../search_context.js";
 import dateUtils from "../../utils/date.js";
 import becca from "../../../becca/becca.js";
+import protectedSessionService from "../../protected_session.js";
+import { encodeUtf8 } from "../../utils/binary.js";
 import { findNoteByTitle, note, NoteBuilder } from "../../../test/becca_mocking.js";
+
+const PROTECTED_KEY = encodeUtf8("0123456789abcdef"); // exactly 16 bytes
 
 describe("Search", () => {
     let rootNote: any;
@@ -849,6 +853,23 @@ describe("Search", () => {
         expect(result.highlightedContentSnippet).toBe("Summary Title<br><b>Body</b> text here<br>After the block");
     });
 
+    it("escapes angle brackets in the note title instead of dropping them", () => {
+        // The title is interpolated into the autocomplete dropdown as raw HTML, so a title
+        // containing markup-like text must come back escaped. Stripping only "<" would render
+        // "Issues caused by <div>" as "Issues caused by div>".
+        const result: any = { notePathTitle: "Issues caused by <div>", contentSnippet: "", attributeSnippet: "" };
+        searchService.highlightSearchResults([ result ], [ "caused" ]);
+        expect(result.highlightedNotePathTitle).toBe("Issues <b>caused</b> by &lt;div&gt;");
+
+        // Escaping happens after highlighting, so a token that looks like part of an entity
+        // ("lt" in "&lt;") cannot cut the entity in half and produce "&<b>lt</b>;".
+        const entityResult: any = { notePathTitle: "a < b", contentSnippet: "x < y", attributeSnippet: "#lt=1 < 2" };
+        searchService.highlightSearchResults([ entityResult ], [ "lt" ]);
+        expect(entityResult.highlightedNotePathTitle).toBe("a &lt; b");
+        expect(entityResult.highlightedContentSnippet).toBe("x &lt; y");
+        expect(entityResult.highlightedAttributeSnippet).toBe("#<b>lt</b>=1 &lt; 2");
+    });
+
     it("surfaces link-preview url/title/description as separate lines in the quick-search snippet", () => {
         // The url/title/description live in data attributes that striptags would otherwise drop,
         // leaving a blank snippet even though the note matched on the embedded title. The entity-
@@ -870,6 +891,33 @@ describe("Search", () => {
 
         const snippet = searchService.extractContentSnippet(noteBuilder.note.noteId, [ "done" ]);
         expect(snippet).toBe("if a < b && b > c, then done");
+    });
+
+    it("takes a protected note's content as given, having already been decrypted on the way out", () => {
+        protectedSessionService.setDataKey(PROTECTED_KEY);
+        try {
+            const noteBuilder = note("Protected note");
+            noteBuilder.note.isProtected = true;
+            // What a real note hands back with a session open. Decrypting it a second time here would
+            // put it through the cipher as though it were still encrypted.
+            noteBuilder.note.getContent = () => "<p>secret body text</p>";
+            rootNote.child(noteBuilder);
+
+            expect(searchService.extractContentSnippet(noteBuilder.note.noteId, [ "secret" ]))
+                .toBe("secret body text");
+        } finally {
+            protectedSessionService.resetDataKey();
+        }
+    });
+
+    it("shows nothing of a protected note whose content the closed session withheld", () => {
+        const noteBuilder = note("Locked note");
+        noteBuilder.note.isProtected = true;
+        // A real note answers with nothing at all when it cannot be read.
+        noteBuilder.note.getContent = () => "";
+        rootNote.child(noteBuilder);
+
+        expect(searchService.extractContentSnippet(noteBuilder.note.noteId, [ "secret" ])).toBe("");
     });
 
     // FIXME: test what happens when we order without any filter criteria

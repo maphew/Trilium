@@ -8,8 +8,19 @@
  */
 
 :root {
-    --ck-slash-command-button-width: 250px;
-    --ck-slash-command-description-width: 200px;
+    /*
+     * Premium sized these 250px/200px, which ellipsised a third of the descriptions. At a 280px text
+     * column all but the longest fit; wider than that buys nothing, since the next-longest message
+     * is far below it. Capped against the viewport so the balloon still fits a phone screen.
+     */
+    --ck-slash-command-button-width: min(350px, 90vw);
+
+    /*
+     * The text column is what is left of the row: the icon chip and the gaps and padding around it.
+     * Derived rather than written out, so widening the row above cannot leave the two disagreeing —
+     * the text would either stop short of the row's edge or overflow it.
+     */
+    --ck-slash-command-description-width: calc(var(--ck-slash-command-button-width) - 4.8em);
 }
 
 .ck-mentions .ck.ck-button.ck-slash-command-button {
@@ -43,6 +54,25 @@
             display: block;
             width: 100%;
             height: 100%;
+        }
+
+        /* A snippet note's font icon: the same chip, with a glyph instead of an svg. */
+        &.ck-slash-command-button__note-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            /*
+             * The glyph is sized on the inner span, never on the chip: core's `.ck.ck-icon`
+             * width/height use the em-relative `--ck-icon-size`, so a bigger font on the chip
+             * itself would inflate the chip box (and the whole row) along with the glyph. On the
+             * child, the calc resolves against the chip's untouched font-size, which is also what
+             * `width: var(--ck-icon-size)` resolved against — so 0.85 means 85% of the content box.
+             */
+            & > span {
+                font-size: calc(var(--ck-icon-size) * 0.85);
+                line-height: 1;
+            }
         }
     }
 

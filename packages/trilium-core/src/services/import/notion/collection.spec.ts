@@ -39,6 +39,20 @@ describe("extractProperties", () => {
         )).toEqual([]);
     });
 
+    it("types a url/email/phone cell from its anchor's href, stripping an email/phone scheme", () => {
+        expect(propertiesOf(
+            row("url", "Site", `<td><a class="url-value" href="https://triliumnotes.org">Site</a></td>`),
+            row("email", "Email", `<td><a class="url-value" href="mailto:contact@acme.com">Email</a></td>`),
+            row("phone_number", "Phone", `<td><a class="url-value" href="12345">Phone</a></td>`)
+        )).toEqual([
+            { name: "Site", value: "https://triliumnotes.org", labelType: "url", multiplicity: "single" },
+            // The typed email/phone inputs hold the bare address, so a scheme on the href is dropped
+            // and a bare href is kept as it is.
+            { name: "Email", value: "contact@acme.com", labelType: "email", multiplicity: "single" },
+            { name: "Phone", value: "12345", labelType: "phone", multiplicity: "single" }
+        ]);
+    });
+
     it("normalizes a formatted number cell and keeps a non-numeric one verbatim", () => {
         expect(propertiesOf(
             row("number", "Price", "<td>$1,200.50</td>"),

@@ -1,6 +1,11 @@
 import "../../theme/slash_commands.css";
 
 import {
+    IconAlignCenter,
+    IconAlignJustify,
+    IconAlignLeft,
+    IconAlignRight,
+    IconBulletedList,
     IconCodeBlock,
     IconHeading1,
     IconHeading2,
@@ -10,13 +15,41 @@ import {
     IconHeading6,
     IconHorizontalLine,
     IconIndent,
+    IconNumberedList,
     IconOutdent,
+    IconPageBreak,
     IconParagraph,
     IconQuote,
-    IconTable
+    IconTable,
+    IconTodoList
 } from "@ckeditor/ckeditor5-icons";
-import { type Editor, type MentionFeedObjectItem, Plugin } from "ckeditor5";
+import bxBookmark from "boxicons/svg/regular/bx-bookmark.svg?raw";
+import bxBulb from "boxicons/svg/regular/bx-bulb.svg?raw";
+import bxCommentError from "boxicons/svg/regular/bx-comment-error.svg?raw";
+import bxError from "boxicons/svg/regular/bx-error.svg?raw";
+import bxErrorCircle from "boxicons/svg/regular/bx-error-circle.svg?raw";
+import bxInfoCircle from "boxicons/svg/regular/bx-info-circle.svg?raw";
+import bxNetworkChart from "boxicons/svg/regular/bx-network-chart.svg?raw";
+import { BookmarkUI, type Editor, type MentionFeedObjectItem, Plugin } from "ckeditor5";
 
+import collapsibleIcon from "../../icons/collapsible.svg?raw";
+import dateTimeIcon from "../../icons/date-time.svg?raw";
+import insertFootnoteIcon from "../../icons/insert-footnote.svg?raw";
+import importMarkdownIcon from "../../icons/markdown-mark.svg?raw";
+import mathIcon from "../../icons/math.svg?raw";
+import noteIcon from "../../icons/note.svg?raw";
+import internalLinkIcon from "../../icons/trilium.svg?raw";
+import { ADMONITION_TYPE_NAMES, type AdmonitionType } from "../admonition/admonition_command.js";
+import { getAdmonitionTitle } from "../admonition/admonition_ui.js";
+import aiIcon from "../ai_assistant/theme/icons/ai.svg?raw";
+import { COMMAND_NAME as INCLUDE_NOTE_COMMAND } from "../includenote.js";
+import { COMMAND_NAME as INSERT_DATE_TIME_COMMAND } from "../insert_date_time.js";
+import { COMMAND_NAME as INTERNAL_LINK_COMMAND } from "../internallink.js";
+import { COMMAND_NAME as MARKDOWN_IMPORT_COMMAND } from "../markdownimport.js";
+import MathUI from "../math/math_ui.js";
+import { INSERT_MERMAID_COMMAND } from "../mermaid/insert_mermaid_command.js";
+import type { MermaidSample } from "../mermaid/mermaid_ui.js";
+import SnippetsEditing from "../snippets/snippetsediting.js";
 import { registerMentionFeed } from "./register_feed.js";
 
 export const SLASH_MARKER = "/";
@@ -32,8 +65,15 @@ export interface SlashCommandDefinition {
     description?: string;
     /** Extra words the entry can be found by, beyond its title. */
     aliases?: string[];
-    /** Raw SVG markup. */
-    icon: string;
+    /** Raw SVG markup. Ignored when {@link iconClass} is set. */
+    icon?: string;
+    /**
+     * A font-icon class list (e.g. `"tn-icon bx bx-note"`) rendered as a `<span>` instead of
+     * {@link icon}'s SVG markup — the form snippet notes carry their icons in.
+     */
+    iconClass?: string;
+    /** Optional colour class applied alongside {@link iconClass} (from the note's `#color` label). */
+    iconColorClass?: string;
     /** The editor command to run. Entries naming a command that is not loaded are hidden. */
     commandName?: string;
     /** Runs instead of `commandName`, for entries that need arguments or open a UI. */
@@ -47,7 +87,6 @@ export interface SlashCommandDefinition {
 }
 
 export interface SlashCommandConfig {
-    extraCommands?: SlashCommandDefinition[];
     removeCommands?: string[];
     /** How many entries the palette shows at once. Unlimited by default, as premium's was. */
     dropdownLimit?: number;
@@ -64,8 +103,7 @@ export interface SlashCommandConfig {
  *
  * CKEditor built the premium plugin on `Mention` themselves, so hosting `/` on a mention feed is
  * not a workaround but the same architecture. What is reimplemented here is the palette: the
- * catalog, the matcher and the row rendering. The definitions Trilium already hand-authored in
- * `extra_slash_commands.ts` are consumed unchanged via `slashCommand.extraCommands`.
+ * catalog, the matcher and the row rendering.
  */
 export default class TriliumSlashCommands extends Plugin {
 
@@ -93,16 +131,16 @@ export default class TriliumSlashCommands extends Plugin {
     }
 
     /**
-     * The definitions available in *this* editor right now: the built-in palette plus the configured
-     * extras, minus anything `removeCommands` names and anything that does not apply to the current
-     * selection.
+     * The definitions available in *this* editor right now: the palette CKEditor's own features
+     * contribute, Trilium's own entries, and one per text snippet — minus anything `removeCommands`
+     * names and anything that does not apply to the current selection.
      */
     private _catalog(): SlashCommandDefinition[] {
         const editor = this.editor;
         const config = (editor.config.get("slashCommand") ?? {}) as SlashCommandConfig;
         const removed = new Set(config.removeCommands ?? []);
 
-        return [ ...buildDefaultSlashCommands(editor), ...(config.extraCommands ?? []) ]
+        return [ ...buildDefaultSlashCommands(editor), ...buildTriliumSlashCommands(editor), ...buildSnippetSlashCommands(editor) ]
             .filter((definition) => !removed.has(definition.id))
             .filter((definition) => isSlashCommandEnabled(editor, definition));
     }
@@ -126,7 +164,7 @@ declare module "ckeditor5" {
  * predicate on every keystroke in `getMatchingCommands()`, so entries appear and disappear as the
  * selection moves.
  */
-function isSlashCommandEnabled(editor: Editor, definition: SlashCommandDefinition): boolean {
+export function isSlashCommandEnabled(editor: Editor, definition: SlashCommandDefinition): boolean {
     if (definition.isEnabled) {
         return definition.isEnabled(editor);
     }
@@ -261,6 +299,249 @@ export function buildDefaultSlashCommands(editor: Editor): SlashCommandDefinitio
     ];
 }
 
+/**
+ * The palette entries for Trilium's own features, plus the handful that replace a CKEditor built-in
+ * whose title or icon Trilium re-authors (the lists, the blank Mermaid diagram).
+ *
+ * These used to be built by the host and injected through `slashCommand.extraCommands`, because
+ * premium `SlashCommand` owned the palette and config was the only way in. Trilium owns it now, so
+ * they are built here like every other group — which is also what lets them use `editor.t()`: the
+ * host translator resolved only Trilium's catalog, leaving strings such as "Align left" and "Page
+ * break" in English even though CKEditor ships translations for them.
+ */
+export function buildTriliumSlashCommands(editor: Editor): SlashCommandDefinition[] {
+    const t = editor.locale.t;
+
+    return [
+        ...buildListSlashCommands(editor),
+        ...buildAlignmentSlashCommands(editor),
+        ...buildAdmonitionSlashCommands(editor),
+        ...buildMermaidSlashCommands(editor),
+        {
+            id: "ai-assistant",
+            title: t("AI assistant"),
+            description: t("Ask AI to rewrite the selection or generate new content."),
+            aliases: [ "ask ai", "assistant" ],
+            icon: aiIcon,
+            commandName: "aiAssistant"
+        },
+        {
+            id: "collapsible",
+            title: t("Collapsible block"),
+            description: t("Insert a toggleable section that hides/shows content on click."),
+            aliases: [ "details", "fold", "toggle" ],
+            icon: collapsibleIcon,
+            commandName: "collapsible"
+        },
+        {
+            id: "footnote",
+            title: t("Footnote"),
+            description: t("Create a new footnote and reference it here"),
+            icon: insertFootnoteIcon,
+            commandName: "InsertFootnote"
+        },
+        {
+            id: "datetime",
+            title: t("Insert date/time"),
+            description: t("Insert the current date and time"),
+            icon: dateTimeIcon,
+            commandName: INSERT_DATE_TIME_COMMAND
+        },
+        {
+            id: "internal-link",
+            title: t("Internal link"),
+            description: t("Insert a link to another Trilium note"),
+            aliases: [ "internal link", "trilium link", "reference link" ],
+            icon: internalLinkIcon,
+            commandName: INTERNAL_LINK_COMMAND
+        },
+        {
+            id: "math",
+            title: t("Math equation"),
+            description: t("Insert a math equation"),
+            aliases: [ "latex", "equation" ],
+            icon: mathIcon,
+            execute: (target: Editor) => target.plugins.get(MathUI)._showUI()
+        },
+        {
+            id: "include-note",
+            title: t("Include note"),
+            description: t("Display the content of another note in this note"),
+            icon: noteIcon,
+            commandName: INCLUDE_NOTE_COMMAND
+        },
+        {
+            id: "page-break",
+            title: t("Page break"),
+            description: t("Insert a page break (for printing)"),
+            icon: IconPageBreak,
+            commandName: "pageBreak"
+        },
+        {
+            id: "markdown-import",
+            title: t("Markdown import"),
+            description: t("Import Markdown from the clipboard"),
+            icon: importMarkdownIcon,
+            commandName: MARKDOWN_IMPORT_COMMAND
+        },
+        {
+            id: "anchor",
+            title: t("Anchor"),
+            description: t("Insert an anchor for internal linking"),
+            aliases: [ "bookmark" ],
+            icon: bxBookmark,
+            execute: (target: Editor) => {
+                // Defer to the next event loop tick so the slash command fully finishes its
+                // DOM/selection cleanup; _showFormView needs the view and mapper to be in a settled
+                // state for balloon positioning.
+                setTimeout(() => (target.plugins.get(BookmarkUI) as unknown as { _showFormView(): void })._showFormView(), 0);
+            }
+        }
+    ];
+}
+
+// Replaces CKEditor's built-in `bulletedList`/`numberedList`/`todoList` slash commands (removed via
+// `removeCommands`), whose titles are Title Case, with sentence-case equivalents that run the same
+// commands.
+function buildListSlashCommands(editor: Editor): SlashCommandDefinition[] {
+    const t = editor.locale.t;
+
+    return [
+        {
+            id: "bulletedList",
+            title: t("Bulleted list"),
+            description: t("Create a bulleted list"),
+            icon: IconBulletedList,
+            commandName: "bulletedList"
+        },
+        {
+            id: "numberedList",
+            title: t("Numbered list"),
+            description: t("Create a numbered list"),
+            icon: IconNumberedList,
+            commandName: "numberedList"
+        },
+        {
+            id: "todoList",
+            title: t("To-do list"),
+            description: t("Create a to-do list"),
+            icon: IconTodoList,
+            commandName: "todoList"
+        }
+    ];
+}
+
+function buildMermaidSlashCommands(editor: Editor): SlashCommandDefinition[] {
+    const t = editor.locale.t;
+    const samples = (editor.config.get("mermaid.samples") ?? []) as MermaidSample[];
+
+    // The blank diagram. Replaces CKEditor's built-in `insertMermaidCommand` slash command (removed
+    // via `removeCommands`), which uses a generic icon.
+    const blank: SlashCommandDefinition = {
+        id: "mermaid",
+        title: t("Mermaid diagram"),
+        description: t("Insert an empty Mermaid diagram"),
+        aliases: [ "mermaid", "diagram", "flowchart" ],
+        icon: bxNetworkChart,
+        commandName: INSERT_MERMAID_COMMAND
+    };
+
+    const templates = samples.map((sample, index) => ({
+        id: `mermaid-sample-${index}`,
+        // The sample name is a placeholder rather than an appended string, so a locale can put the
+        // name where its grammar wants it. It arrives already localized, from `mermaid.samples`.
+        title: t("Mermaid diagram: %0", sample.name),
+        description: t("Insert a \"%0\" Mermaid diagram template", sample.name),
+        aliases: [ "mermaid", "diagram", sample.name ],
+        icon: bxNetworkChart,
+        // Inserts a mermaid block pre-filled with the sample source (see insertMermaidCommand).
+        execute: (target: Editor) => target.execute(INSERT_MERMAID_COMMAND, { source: sample.content })
+    }));
+
+    return [ blank, ...templates ];
+}
+
+function buildAlignmentSlashCommands(editor: Editor): SlashCommandDefinition[] {
+    const t = editor.locale.t;
+
+    return [
+        {
+            id: "align-left",
+            title: t("Align left"),
+            description: t("Align text to the left"),
+            icon: IconAlignLeft,
+            execute: (target: Editor) => target.execute("alignment", { value: "left" })
+        },
+        {
+            id: "align-center",
+            title: t("Align center"),
+            description: t("Align text to the center"),
+            icon: IconAlignCenter,
+            execute: (target: Editor) => target.execute("alignment", { value: "center" })
+        },
+        {
+            id: "align-right",
+            title: t("Align right"),
+            description: t("Align text to the right"),
+            icon: IconAlignRight,
+            execute: (target: Editor) => target.execute("alignment", { value: "right" })
+        },
+        {
+            id: "align-justify",
+            title: t("Justify"),
+            description: t("Justify text alignment"),
+            icon: IconAlignJustify,
+            execute: (target: Editor) => target.execute("alignment", { value: "justify" })
+        }
+    ];
+}
+
+function buildAdmonitionSlashCommands(editor: Editor): SlashCommandDefinition[] {
+    const t = editor.locale.t;
+    const icons: Record<AdmonitionType, string> = {
+        note: bxInfoCircle,
+        tip: bxBulb,
+        important: bxCommentError,
+        caution: bxErrorCircle,
+        warning: bxError
+    };
+
+    return ADMONITION_TYPE_NAMES.map((type) => ({
+        id: type,
+        title: getAdmonitionTitle(t, type),
+        description: t("Insert a new admonition"),
+        icon: icons[type],
+        execute: (target: Editor) => target.execute("admonition", { forceValue: type }),
+        aliases: [ "box" ]
+    }));
+}
+
+/**
+ * One palette entry per text snippet, restoring premium behaviour: premium `SlashCommand` listed the
+ * premium `Template` plugin's definitions alongside the built-ins. Since `_catalog()` runs on every
+ * query, the definitions are read live from {@link SnippetsEditing} — snippet changes pushed via
+ * `TriliumSnippets.updateDefinitions()` appear in the palette without any re-registration.
+ */
+function buildSnippetSlashCommands(editor: Editor): SlashCommandDefinition[] {
+    if (!editor.plugins.has(SnippetsEditing)) {
+        return [];
+    }
+
+    return Array.from(editor.plugins.get(SnippetsEditing).definitions, (snippet, index) => ({
+        id: `snippet-${index}`,
+        title: snippet.title,
+        description: snippet.description,
+        // Beyond its own title, every snippet is findable under the feature's generic names.
+        aliases: [ "snippet", "template" ],
+        iconClass: snippet.iconClass,
+        iconColorClass: snippet.iconColorClass,
+        // Gates the entry on `insertTemplate` (read-only mode disables it); `execute` still wins at
+        // commit time, since the command needs the snippet's content as its argument.
+        commandName: "insertTemplate",
+        execute: (target: Editor) => target.execute("insertTemplate", snippet.data)
+    }));
+}
+
 function buildHeadingSlashCommands(editor: Editor): SlashCommandDefinition[] {
     const options = (editor.config.get("heading.options") ?? []) as Array<{ model: string; title: string }>;
     const icons: Record<string, string> = {
@@ -272,12 +553,17 @@ function buildHeadingSlashCommands(editor: Editor): SlashCommandDefinition[] {
         heading6: IconHeading6
     };
 
+    // The configured titles are English message ids ("Paragraph", "Heading 2"), which CKEditor's own
+    // catalogs translate — its heading dropdown runs them through `t()` for exactly this reason. The
+    // palette has to do the same, or it shows English titles beside translated descriptions.
+    const t = editor.locale.t;
+
     return options.map((option) => {
         if (option.model === "paragraph") {
             return {
                 id: "paragraph",
-                title: option.title,
-                description: editor.locale.t("Turn the current block into a paragraph."),
+                title: t(option.title),
+                description: t("Turn the current block into a paragraph."),
                 aliases: [ "text", "body" ],
                 icon: IconParagraph,
                 commandName: "paragraph"
@@ -286,7 +572,7 @@ function buildHeadingSlashCommands(editor: Editor): SlashCommandDefinition[] {
 
         return {
             id: option.model,
-            title: option.title,
+            title: t(option.title),
             description: editor.locale.t("Turn the current block into a heading."),
             aliases: [ "title", option.model.replace("heading", "h") ],
             icon: icons[option.model] ?? IconHeading2,
@@ -313,7 +599,26 @@ function renderRow(item: SlashCommandItem): HTMLElement {
 
     const icon = document.createElement("span");
     icon.classList.add("ck", "ck-icon");
-    icon.innerHTML = definition.icon;
+
+    if (definition.iconClass) {
+        // A snippet note's font icon: the same chip, painted by icon-font classes instead of SVG.
+        // The glyph lives on an inner span: core sizes the chip box in em against the chip's own
+    // font-size, so enlarging the glyph's font on the chip itself would inflate the chip too.
+        icon.classList.add("ck-slash-command-button__note-icon");
+        const glyph = document.createElement("span");
+        for (const classList of [ definition.iconClass, definition.iconColorClass ]) {
+            if (classList) {
+                glyph.classList.add(...classList.split(/\s+/).filter(Boolean));
+            }
+        }
+        icon.append(glyph);
+    } else if (definition.icon) {
+        // `ck-icon_inherit-color` opts into core's `*:not([fill]) { fill: currentColor }` rule, as
+        // `IconView` does — without it the glyphs keep SVG's default black fill on dark themes.
+        icon.classList.add("ck-icon_inherit-color");
+        icon.innerHTML = definition.icon;
+    }
+
     button.append(icon);
 
     const textPart = document.createElement("span");

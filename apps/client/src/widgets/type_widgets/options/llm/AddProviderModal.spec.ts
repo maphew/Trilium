@@ -40,7 +40,7 @@ describe("AddProviderModal provider cards", () => {
         expect(PROVIDER_TYPES.filter(p => p.group === "cloud").map(p => p.id))
             .toEqual(["anthropic", "openai", "google", "deepseek"]);
         expect(PROVIDER_TYPES.filter(p => p.group === "subscription").map(p => p.id))
-            .toEqual(["claude-agent"]);
+            .toEqual(["claude-agent", "copilot-agent"]);
         expect(PROVIDER_TYPES.filter(p => p.group === "local").map(p => p.id))
             .toEqual(["ollama", "lmstudio"]);
         expect(PROVIDER_TYPES.filter(p => p.group === "custom").map(p => p.id))
@@ -79,6 +79,23 @@ describe("AddProviderModal provider cards", () => {
         // Subscription auth belongs to Claude Code itself.
         expect(byId.get("claude-agent")?.apiKey).toBe("none");
         expect(byId.get("claude-agent")?.baseUrl).toBe("none");
+    });
+
+    it("marks the CLI-driven cards as the ones a browser-only build cannot run", () => {
+        // They work by running a CLI as a separate process, which the standalone
+        // build — whose entire server is a worker in the page — has nowhere to do;
+        // the picker disables those cards there rather than dropping them. Every
+        // other provider is reached over HTTP and so runs anywhere.
+        expect(PROVIDER_TYPES.filter(p => p.needsHostProcess).map(p => p.id)).toEqual(["claude-agent", "copilot-agent"]);
+    });
+
+    it("explains the account behind every card that asks for neither key nor endpoint", () => {
+        // With both fields gone the connection step would otherwise be empty, so
+        // the blurb is what the user reads there — and it must be the right one:
+        // each names its own CLI and login command.
+        for (const card of PROVIDER_TYPES.filter(p => p.apiKey === "none" && p.baseUrl === "none")) {
+            expect(card.connectionDescription, `${card.id} has nothing to show on the connection step`).toBeTruthy();
+        }
     });
 
     it("gives every card a logo", () => {

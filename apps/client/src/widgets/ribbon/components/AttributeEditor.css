@@ -19,7 +19,19 @@
     margin: 0 !important;
     max-height: 100px;
     overflow: auto;
-    transition: opacity .1s linear;
+}
+
+/*
+ * A save dips the attribute text and brings it back, as a hint that it went through. It is one eased
+ * animation rather than an opacity toggle so that the two halves cannot land abruptly, and only the
+ * text takes part: dipping the whole wrapper would carry the buttons and the error message with it.
+ */
+@keyframes attribute-editor-save-blink {
+    50% { opacity: .25; }
+}
+
+.attribute-list-editor-wrapper.blink .attribute-list-editor {
+    animation: attribute-editor-save-blink 300ms ease-in-out;
 }
 
 body[dir=rtl] .attribute-list-editor {

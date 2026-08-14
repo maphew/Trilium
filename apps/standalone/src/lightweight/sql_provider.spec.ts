@@ -90,6 +90,28 @@ describe("BrowserSqlProvider unsupported operations", () => {
     });
 });
 
+/**
+ * What the SQL service reaches for when it has to let go of the database: erasing the knowledge base
+ * from the setup wizard replaces the pool entry underneath, and the service's own prepared
+ * statements belong to the connection being closed. Going through `detachConnection` is what drops
+ * them; a provider that cannot be detached would send it straight at this one instead, leaving them
+ * behind for the next request to use against a database that is gone.
+ */
+describe("BrowserSqlProvider detaching", () => {
+    it("lets go of the database and says so, which is how the service knows to stop asking", () => {
+        const own = newProviderWithModule();
+        own.loadFromMemory();
+        expect(own.isAttached()).toBe(true);
+
+        own.detach();
+
+        expect(own.isAttached()).toBe(false);
+        // What the service checks before detaching a second time, on its way to a restore that
+        // follows an erasure.
+        expect(() => own.detach()).not.toThrow();
+    });
+});
+
 // Statements are cached by SQL string and raw()/pluck() flags are sticky on the
 // cached instance, so each mode-sensitive assertion uses a distinct query string.
 describe("WasmStatement reads and writes", () => {

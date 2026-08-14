@@ -8,6 +8,7 @@ import type FNote from "../entities/fnote.js";
 import attributes from "../services/attributes.js";
 import { executeBulkActions } from "../services/bulk_action.js";
 import clipboard from "../services/clipboard.js";
+import { copyTextWithToast } from "../services/clipboard_ext.js";
 import dialogService from "../services/dialog.js";
 import froca from "../services/froca.js";
 import { t } from "../services/i18n.js";
@@ -17,6 +18,7 @@ import server from "../services/server.js";
 import toastService from "../services/toast.js";
 import treeService from "../services/tree.js";
 import utils from "../services/utils.js";
+import { showImageCompressionDialog } from "../widgets/dialogs/image_compression/image_compression_dialog.jsx";
 import type NoteTreeWidget from "../widgets/note_tree.js";
 import contextMenu, { type MenuCommandItem, type MenuItem } from "./context_menu.js";
 import NoteColorPicker from "./custom-items/NoteColorPicker.jsx";
@@ -126,6 +128,17 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
     const parentNotSearch = !parentNote || parentNote.type !== "search";
     const insertNoteAfterEnabled = isNotRoot && !isHoisted && parentNotSearch;
 
+    // Both submenus are built from the same templates, so they are fetched once and shared.
+    const noteTypeData = insertNoteAfterEnabled || notSearch
+        ? await noteTypesService.loadNoteTypeData()
+        : null;
+    const insertNoteAfterItems = noteTypeData && insertNoteAfterEnabled
+        ? noteTypesService.buildNoteTypeItems(noteTypeData, "insertNoteAfter")
+        : null;
+    const insertChildNoteItems = noteTypeData && notSearch
+        ? noteTypesService.buildNoteTypeItems(noteTypeData, "insertChildNote")
+        : null;
+
     const items: (MenuItem<TreeCommandNames> | null)[] = [
         { title: t("tree-context-menu.open-in-a-new-tab"), command: "openInTab", shortcut: "Ctrl+Click", uiIcon: "bx bx-link-external", enabled: noSelectedNotes },
         { title: t("tree-context-menu.open-in-a-new-split"), command: "openNoteInSplit", uiIcon: "bx bx-dock-right", enabled: noSelectedNotes },
@@ -152,7 +165,7 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
             command: "insertNoteAfter",
             keyboardShortcut: "createNoteAfter",
             uiIcon: "bx bx-plus",
-            items: insertNoteAfterEnabled ? await noteTypesService.getNoteTypeItems("insertNoteAfter") : null,
+            items: insertNoteAfterItems,
             enabled: insertNoteAfterEnabled && noSelectedNotes && notOptionsOrHelp,
             columns: 2
         },
@@ -162,7 +175,7 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
             command: "insertChildNote",
             keyboardShortcut: "createNoteInto",
             uiIcon: "bx bx-plus",
-            items: notSearch ? await noteTypesService.getNoteTypeItems("insertChildNote") : null,
+            items: insertChildNoteItems,
             enabled: notSearch && noSelectedNotes && notOptionsOrHelp && !hasSubtreeHidden && !isSpotlighted,
             columns: 2
         },
@@ -181,6 +194,14 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
             enabled: true,
             items: [
                 { title: t("tree-context-menu.apply-bulk-actions"), command: "openBulkActionsDialog", uiIcon: "bx bx-list-plus", enabled: true },
+                {
+                    // One note at a time: the dialog is configured against what that note holds and
+                    // reports on what it changed there, neither of which a multi-selection has.
+                    title: t("compress-images"),
+                    uiIcon: "bx bx-collapse-alt",
+                    enabled: noSelectedNotes && notOptionsOrHelp,
+                    handler: () => void showImageCompressionDialog({ type: "note", noteId: note.noteId })
+                },
 
                 { kind: "separator" },
 
@@ -403,7 +424,9 @@ export async function handleTreeContextMenuSelect(
 
         toastService.showMessage(t("tree-context-menu.converted-to-attachments", { count: converted }));
     } else if (command === "copyNotePathToClipboard") {
-        navigator.clipboard.writeText(`#${notePath}`);
+        // Not `navigator.clipboard`: it is undefined outside secure contexts, and Trilium is
+        // routinely served over plain HTTP on a LAN. Matches the breadcrumb's copy of this command.
+        copyTextWithToast(`#${notePath}`);
     } else if (command) {
         component.triggerCommand<TreeCommandNames>(command, {
             node: resolved.node,

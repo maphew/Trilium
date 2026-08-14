@@ -21,12 +21,30 @@ export interface CKEditorApi {
     addImage(noteId: string): Promise<void>;
 }
 
+/**
+ * The `EventInfo` CKEditor hands to every listener as its *first* argument. Listeners on
+ * `show:warning` receive `(evt, data)` in that order — getting it backwards throws inside the
+ * event handler, which the watchdog reports as an editor crash (see #10859).
+ */
+export interface NotificationEventInfo {
+    stop(): void;
+}
+
+/** The payload of `Notification#show:warning`, as built by `Notification#_showNotification`. */
+export interface NotificationEventData {
+    /** The notification text. `Notification#showWarning` takes it as its first argument. */
+    message: string;
+    type: "success" | "info" | "warning";
+    /** Empty string when the caller did not supply one. */
+    title: string;
+}
+
 interface CKEditorWithWatchdogProps extends Pick<HTMLProps<HTMLDivElement>, "className" | "tabIndex"> {
     contentLanguage: string | null | undefined;
     isClassicEditor?: boolean;
     watchdogRef: RefObject<EditorWatchdog>;
     watchdogConfig?: WatchdogConfig;
-    onNotificationWarning?: (evt: any, data: any) => void;
+    onNotificationWarning?: (evt: NotificationEventInfo, data: NotificationEventData) => void;
     onWatchdogStateChange?: (watchdog: EditorWatchdog) => void;
     onChange: () => void;
     /** Called upon whenever a new CKEditor instance is initialized, whether it's the first initialization, after a crash or after a config change that requires it (e.g. content language). */
@@ -54,6 +72,27 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
     // Read purely as a rebuild trigger: the value is consumed by buildToolbarConfig() via options.get() at
     // editor-creation time, so the editor must be recreated when it changes.
     const [ multilineToolbar ] = useTriliumOptionBool("textNoteEditorMultilineToolbar");
+    // Rebuild triggers for the same reason, and there is no cheaper option for these: CKEditor bakes
+    // the transformation list at plugin init — `normalizeTransformations` runs once inside
+    // `_enableTransformationWatchers` — so unlike the settings read through a getter (link previews,
+    // clipboard image embedding) a live editor has nothing left to re-read.
+    const [ doubleQuoteStyle ] = useTriliumOption("textNoteDoubleQuoteStyle");
+    const [ singleQuoteStyle ] = useTriliumOption("textNoteSingleQuoteStyle");
+    const [ punctuationReplacements ] = useTriliumOptionBool("textNotePunctuationReplacementsEnabled");
+    const [ mathReplacements ] = useTriliumOptionBool("textNoteMathReplacementsEnabled");
+    const [ symbolReplacements ] = useTriliumOptionBool("textNoteSymbolReplacementsEnabled");
+    // The raw JSON, deliberately: `useTriliumOptionJson` parses on every render and would hand back a
+    // new array each time, rebuilding the editor continuously. A string compares by value.
+    const [ customReplacements ] = useTriliumOption("textNoteCustomReplacements");
+    // Which language a note with no `#language` of its own is written in, and so which quotes it
+    // gets. The UI locale it can fall back to is already covered by `uiLanguage` above.
+    const [ defaultContentLanguage ] = useTriliumOption("defaultContentLanguage");
+    // Rebuild triggers as well: `buildHtmlSupportConfig()` reads both at editor-creation time, and
+    // GHS turns its allow-list into schema definitions and converters when `DataSchema`/`DataFilter`
+    // register at init, so there is nothing for a live editor to re-read. The raw JSON string for
+    // the tag list, for the same by-value reason as `customReplacements` above.
+    const [ htmlSupportEnabled ] = useTriliumOptionBool("textNoteHtmlSupportEnabled");
+    const [ allowedHtmlTags ] = useTriliumOption("allowedHtmlTags");
     const [ editor, setEditor ] = useState<CKTextEditor>();
     const { parentComponent, ntxId, note } = useNoteContext();
 
@@ -162,7 +201,15 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
             await link.loadReferenceLinkTitle($el, href);
         },
         async fetchLinkMetadata(url: string) {
-            return await linkEmbedService.fetchMetadata(url, note?.noteId);
+            // The preview's pictures are stored as attachments of the note being edited, so there
+            // is nothing to fetch into before the note context has resolved one. Answering as
+            // unresolved leaves the URL a plain link, which is what the editor does with any
+            // preview it could not build.
+            if (!note) {
+                return linkEmbedService.unresolvedMetadata(url);
+            }
+
+            return await linkEmbedService.fetchMetadata(url, note.noteId);
         },
         detectEmbedType(url: string) {
             return linkEmbedService.detectEmbedType(url);
@@ -209,7 +256,6 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
                 }
 
                 const editor = await buildEditor(container, !!isClassicEditor, {
-                    forceGplLicense: false,
                     isClassicEditor: !!isClassicEditor,
                     uiLanguage: uiLanguage as DISPLAYABLE_LOCALE_IDS,
                     contentLanguage: contentLanguage ?? null,
@@ -267,7 +313,16 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
         };
         // `templates` is intentionally excluded: snippet changes are pushed into the live editor by the
         // effect below, so they must not trigger a full editor rebuild.
-    }, [ contentLanguage, uiLanguage, isClassicEditor, multilineToolbar ]);
+        //
+        // The options below are not read in this effect — `buildConfig` goes to the options store
+        // itself — but they are listed so that changing one rebuilds the editor. The rebuild is what
+        // makes them apply to an already-open note; it costs the cursor position and undo history,
+        // which is acceptable for a change made deliberately over in the settings.
+    }, [
+        contentLanguage, uiLanguage, isClassicEditor, multilineToolbar,
+        doubleQuoteStyle, singleQuoteStyle, punctuationReplacements, mathReplacements, symbolReplacements,
+        customReplacements, defaultContentLanguage, htmlSupportEnabled, allowedHtmlTags
+    ]);
 
     // Push snippet ("template") definitions into the live editor instead of rebuilding it. The premium
     // Template plugin read its definitions once at init; TriliumSnippets keeps them in a live
@@ -310,15 +365,6 @@ function buildWatchdog(isClassicEditor: boolean, watchdogConfig?: WatchdogConfig
 
 async function buildEditor(element: HTMLElement, isClassicEditor: boolean, opts: BuildEditorOptions) {
     const editorClass = isClassicEditor ? ClassicEditor : PopupEditor;
-    let config = await buildConfig(opts);
-    let editor = await editorClass.create(element, config);
-
-    if (editor.isReadOnly) {
-        editor.destroy();
-
-        opts.forceGplLicense = true;
-        config = await buildConfig(opts);
-        editor = await editorClass.create(element, config);
-    }
-    return editor;
+    const config = await buildConfig(opts);
+    return await editorClass.create(element, config);
 }

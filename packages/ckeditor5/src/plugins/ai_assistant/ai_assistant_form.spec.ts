@@ -8,7 +8,7 @@ import AiAssistantFormView from "./ai_assistant_form.js";
 let form: AiAssistantFormView;
 
 function makeForm(quickActions: AiQuickActionGroup[] = []): AiAssistantFormView {
-    form = new AiAssistantFormView(new Locale(), (_key, fallback) => fallback, quickActions);
+    form = new AiAssistantFormView(new Locale(), quickActions);
     form.render();
     return form;
 }

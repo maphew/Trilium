@@ -18,6 +18,8 @@
 
 import { HTMLElement, parse } from "node-html-parser";
 
+import { parseColor, reflectLightness } from "./color.js";
+
 /** Padding around the rendered strokes, in coordinate units. */
 const PADDING = 10;
 
@@ -39,30 +41,27 @@ interface Trace {
 const DEFAULT_BRUSH: Brush = { color: "#000000", width: 70, height: 70, transparency: 0 };
 
 /**
- * OneNote's automatic ink colors. Like its automatic *text* color (see removeDefaultTextColor in
- * converter.ts), the default pen isn't a chosen color: it's black on OneNote's light canvas but
- * inverts to white in dark mode. These two are rendered theme-adaptively (see AUTO_INK_STYLE) rather
- * than baked as a hard color that would be unreadable under the opposite theme; every deliberately
- * picked color is left exactly as OneNote sent it.
+ * Ink darker than this HSL lightness (0-100) is unreadable against a dark canvas, so it gets a
+ * lightness-reflected dark-mode variant. Matches the threshold correctTableShadingColors
+ * (converter.ts) uses for the same judgement on cell backgrounds.
  */
-const AUTOMATIC_INK_COLORS = new Set(["#000000", "#000", "black", "#ffffff", "#fff", "white"]);
-
-/** The class carried by an automatic-colored shape; the color itself comes from {@link AUTO_INK_STYLE}. */
-const AUTO_INK_CLASS = "ink-auto";
+const DARK_INK_MAX_LIGHTNESS = 50;
 
 /**
- * Theme-adaptive styling for automatic-colored strokes. `color-scheme: light dark` enables the
- * `light-dark()` function; the used scheme is inherited from the embedding `<img>` — Trilium sets
- * `color-scheme` from its active theme on `:root` (theme-next/base.css) and Chromium propagates it
- * into the referenced SVG — so the ink follows Trilium's light/dark toggle instead of rendering as
- * unreadable black-on-dark. Paths take the color on `stroke`, single-point dots on `fill`; qualifying
- * each rule by element keeps the fill rule from overriding a path's `fill="none"` and flooding it solid.
- * Emitted only when at least one automatic stroke is present.
+ * Ink at least this light is unreadable against a light canvas (it's near-white ink laid down on
+ * OneNote's dark canvas — most commonly the automatic pen's white inverse), so it gets a reflected
+ * light-mode variant. Deliberately high: mid-light colors like highlighter yellows and pastels are
+ * chosen for a light canvas and read fine there, so only the near-white band is adapted.
  */
-const AUTO_INK_STYLE =
-    `<style>svg{color-scheme:light dark}` +
-    `path.${AUTO_INK_CLASS}{stroke:light-dark(#000,#fff)}` +
-    `circle.${AUTO_INK_CLASS}{fill:light-dark(#000,#fff)}</style>`;
+const LIGHT_INK_MIN_LIGHTNESS = 90;
+
+/**
+ * Enables the `light-dark()` function used by adapted strokes. The used scheme is inherited from the
+ * embedding `<img>` — Trilium sets `color-scheme` from its active theme on `:root`
+ * (theme-next/base.css) and Chromium propagates it into the referenced SVG — so adapted ink follows
+ * Trilium's light/dark toggle. Emitted only when at least one adapted stroke is present.
+ */
+const COLOR_SCHEME_STYLE = `<style>svg{color-scheme:light dark}</style>`;
 
 /**
  * The on-screen stroke thickness. Pens carry equal width/height, but highlighters (rectangle tip)
@@ -73,9 +72,35 @@ function strokeWidth(brush: Brush): number {
     return Math.max(brush.width, brush.height);
 }
 
-/** Whether a brush color is OneNote's mode-adaptive automatic ink (default black / its white inverse). */
-function isAutomaticColor(color: string): boolean {
-    return AUTOMATIC_INK_COLORS.has(color.trim().toLowerCase());
+/**
+ * The theme-adaptive `light-dark()` paint for an ink color that would be unreadable under one theme,
+ * or null for a color readable under both (kept literal, exactly as OneNote sent it).
+ *
+ * Contrast — not provenance — is the rule, because InkML gives no way to tell the automatic pen from
+ * a chosen color, and "black" ink is rarely literal `#000000`: each OneNote client's palette has its
+ * own near-black (`#404040`, `#333333`, …). OneNote's own dark mode remaps a hard-coded lookup of
+ * exact swatch values (`#000000`→`#edebe9`, `#333333`→`#cbc8c8`) and renders everything else
+ * verbatim, unreadable included — a table not worth reproducing. Reflecting the HSL lightness
+ * (L → 1 − L, hue/saturation untouched — the same correction correctTableShadingColors applies to
+ * cell backgrounds) matches OneNote's sensible mappings to within a rounding error (`#333333` →
+ * `#cccccc` vs its `#cbc8c8`) and also covers the colors OneNote itself gets wrong. A false positive
+ * is cheap by construction: the light-mode rendering keeps the exact original, and a wrongly-adapted
+ * dark color becomes a readable same-hue light one in dark mode instead of an invisible one.
+ */
+function adaptInkColor(color: string): string | null {
+    const literal = color.trim();
+    const parsed = parseColor(literal);
+    if (!parsed) {
+        return null;
+    }
+    const lightness = parsed.lightness();
+    if (lightness < DARK_INK_MAX_LIGHTNESS) {
+        return `light-dark(${literal}, ${reflectLightness(parsed)})`;
+    }
+    if (lightness >= LIGHT_INK_MIN_LIGHTNESS) {
+        return `light-dark(${reflectLightness(parsed)}, ${literal})`;
+    }
+    return null;
 }
 
 export function inkmlToSvg(inkml: string): string | null {
@@ -99,11 +124,11 @@ export function inkmlToSvg(inkml: string): string | null {
     const height = maxY - minY + PADDING * 2;
     const scale = Math.min(1, MAX_DISPLAY_SIZE / Math.max(width, height, 1));
 
-    const hasAutomaticInk = traces.some((trace) => isAutomaticColor(trace.brush.color));
+    const hasAdaptedInk = traces.some((trace) => adaptInkColor(trace.brush.color) !== null);
     const shapes = traces.flatMap((trace) => traceToSvg(trace, minX, minY)).join("");
     return (
         `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(width * scale)}" height="${Math.round(height * scale)}" ` +
-        `viewBox="0 0 ${width} ${height}">${hasAutomaticInk ? AUTO_INK_STYLE : ""}${shapes}</svg>`
+        `viewBox="0 0 ${width} ${height}">${hasAdaptedInk ? COLOR_SCHEME_STYLE : ""}${shapes}</svg>`
     );
 }
 
@@ -202,16 +227,18 @@ function traceToSvg(trace: Trace, minX: number, minY: number): string[] {
     const opacity = 1 - transparency;
     const opacityAttr = opacity < 1 ? ` opacity="${opacity.toFixed(2)}"` : "";
     const point = (coord: number[]) => [coord[0] - minX + PADDING, coord[1] - minY + PADDING];
-    const automatic = isAutomaticColor(color);
+    // Adapted paints go through `style` because `light-dark()` needs CSS value resolution, which
+    // presentation attributes don't reliably get; literal colors stay plain attributes.
+    const adapted = adaptInkColor(color);
 
     if (trace.coords.length === 1) {
         const [x, y] = point(trace.coords[0]);
-        const fillAttr = automatic ? ` class="${AUTO_INK_CLASS}"` : ` fill="${color}"`;
+        const fillAttr = adapted ? ` style="fill:${adapted}"` : ` fill="${color}"`;
         return [`<circle cx="${x}" cy="${y}" r="${width / 2}"${fillAttr}${opacityAttr}/>`];
     }
 
     const path = trace.coords.map((coord, index) => `${index === 0 ? "M" : "L"} ${point(coord).join(" ")}`).join(" ");
-    const strokeAttr = automatic ? ` class="${AUTO_INK_CLASS}"` : ` stroke="${color}"`;
+    const strokeAttr = adapted ? ` style="stroke:${adapted}"` : ` stroke="${color}"`;
     return [`<path d="${path}"${strokeAttr} stroke-width="${width}" fill="none" stroke-linecap="round" stroke-linejoin="round"${opacityAttr}/>`];
 }
 

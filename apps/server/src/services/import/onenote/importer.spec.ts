@@ -1,4 +1,4 @@
-import { becca, cls, date_utils, note_service as noteService } from "@triliumnext/core";
+import { becca, cls, date_utils, note_service as noteService, ws } from "@triliumnext/core";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import sqlInit from "../../sql_init.js";
@@ -14,6 +14,7 @@ vi.mock("./graph.js", () => ({
         getResource: vi.fn(),
         getThrottleStats: vi.fn(() => ({ requestCount: 0, waitMs: 0 })),
         resetThrottleStats: vi.fn(),
+        setThrottleListener: vi.fn(),
         isEncryptedSectionError: vi.fn(() => false)
     }
 }));
@@ -118,6 +119,57 @@ describe("importSelection (real DB)", () => {
         // Container notes (section, notebook) are not OneNote pages and must not carry the label.
         const sectionNote = Object.values(becca.notes).find((note) => note.title === "Section");
         expect(sectionNote?.getOwnedLabelValue("oneNotePageId")).toBeNull();
+    });
+
+    it("reports a throttled phase while Graph rate limits and clears it once work resumes", async () => {
+        const sent: { type: string; taskId?: string; phase?: string; progressCount?: number }[] = [];
+        const wsSpy = vi.spyOn(ws, "sendMessageToAllClients").mockImplementation((message) => {
+            sent.push(message as (typeof sent)[number]);
+        });
+
+        // Capture the listener importSelection registers so the test can play the role of graphFetch's
+        // shared throttle gate.
+        let throttleListener: ((waitMs: number) => void) | null = null;
+        graphMock.setThrottleListener.mockImplementation((listener) => {
+            throttleListener = listener;
+        });
+
+        graphMock.listPages.mockResolvedValue([{ id: "1-thr", title: "Throttled Page", level: 0 }]);
+        graphMock.getPageContent.mockImplementation(async () => {
+            // Two gate extensions before the page finally arrives — a sustained throttle re-fires the
+            // listener on every retry, but the toast must only be flipped once.
+            throttleListener?.(30_000);
+            throttleListener?.(60_000);
+            return { html: "<p>hello</p>", inkml: "" };
+        });
+
+        try {
+            await cls.init(() => importSelection({
+                getAccessToken: () => Promise.resolve("token"),
+                parentNoteId: "root",
+                sections: [{ id: "sec-thr", title: "Throttled Section", groupPath: [], notebookId: "nb-thr", notebookTitle: "Notebook" }],
+                taskId: "task-throttled"
+            }));
+        } finally {
+            wsSpy.mockRestore();
+        }
+
+        const progress = sent.filter((message) => message.type === "taskProgressCount" && message.taskId === "task-throttled");
+        const throttledIndex = progress.findIndex((message) => message.phase === "throttled");
+
+        // The throttle flips the toast exactly once (repeat extensions are deduplicated)...
+        expect(throttledIndex).toBeGreaterThanOrEqual(0);
+        expect(progress.filter((message) => message.phase === "throttled")).toHaveLength(1);
+
+        // ...and the next completed unit of work sends promptly with the label gone, so the toast
+        // returns to the normal "Imported X out of N" message.
+        const after = progress.slice(throttledIndex + 1);
+        expect(after.length).toBeGreaterThan(0);
+        expect(after.every((message) => message.phase === undefined)).toBe(true);
+
+        // The run unregisters its listener so a stale one can't outlive the import.
+        expect(graph.setThrottleListener).toHaveBeenLastCalledWith(null);
+        graphMock.setThrottleListener.mockReset();
     });
 
     it("writes an import report as the root import note's content", async () => {

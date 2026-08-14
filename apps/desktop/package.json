@@ -11,7 +11,7 @@
     "url": "https://triliumnotes.org"
   },
   "scripts": {
-    "dev": "cross-env TRILIUM_PORT=37742 TRILIUM_DATA_DIR=data TRILIUM_ELECTRON_DATA_DIR=data-electron-37742 tsx ../../scripts/electron-start.mts src/main.ts",
+    "dev": "cross-env TRILIUM_PORT=37743 TRILIUM_DATA_DIR=data TRILIUM_ELECTRON_DATA_DIR=data-electron-37742 tsx ../../scripts/electron-start.mts src/main.ts",
     "start-no-dir": "cross-env TRILIUM_PORT=37743 tsx ../../scripts/electron-start.mts src/main.ts",
     "build": "tsx scripts/build.ts",
     "start-prod": "pnpm build && cross-env TRILIUM_DATA_DIR=data TRILIUM_ELECTRON_DATA_DIR=data-electron-37841 TRILIUM_PORT=37841 ELECTRON_IS_DEV=0 tsx ../../scripts/electron-run-prod.mts dist",
@@ -27,7 +27,7 @@
     "test": "vitest --config vitest.config.mts"
   },
   "dependencies": {
-    "better-sqlite3": "13.0.1",
+    "better-sqlite3": "13.0.3",
     "electron-debug": "4.1.0",
     "electron-dl": "4.0.0",
     "electron-squirrel-startup": "1.0.1",
@@ -49,7 +49,7 @@
     "@triliumnext/server": "workspace:*",
     "@types/electron-squirrel-startup": "1.0.2",
     "@types/pngjs": "6.0.5",
-    "electron": "43.2.0",
+    "electron": "43.3.0",
     "gifenc": "1.0.3",
     "node-mocks-http": "1.18.1",
     "pngjs": "7.0.0"

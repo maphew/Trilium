@@ -191,6 +191,29 @@ describe("erase service (real DB)", () => {
             expect(entityChangeFor("attachments", attachmentId)?.isErased).toBe(1);
         });
 
+        it("purges the content the erased attachment held, rather than leaving it for later", () => {
+            const note = createNote();
+            const content = `erase-spec-orphan-${Math.random()}`;
+            const attachment = getContext().init(() =>
+                note.saveAttachment({ role: "file", mime: "text/plain", title: "orphan", content })
+            );
+            const blobId = attachment.blobId ?? "";
+            expect(rowCount("blobs", "blobId", blobId)).toBe(1);
+
+            getContext().init(() =>
+                getSql().execute(
+                    "UPDATE attachments SET utcDateScheduledForErasureSince = ? WHERE attachmentId = ?",
+                    ["2000-01-01 00:00:00.000Z", attachment.attachmentId]
+                )
+            );
+
+            getContext().init(() => eraseService.eraseUnusedAttachmentsNow());
+
+            // Dropping the row alone would leave this held by nothing and still on disk until some
+            // later sweep happened to collect it.
+            expect(rowCount("blobs", "blobId", blobId)).toBe(0);
+        });
+
         it("does not erase an attachment that is not scheduled for erasure", () => {
             const note = createNote();
             const attachment = getContext().init(() =>

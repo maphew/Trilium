@@ -358,6 +358,14 @@ Linn" thuas.
 * [antoniotejada](https://github.com/nriver) don ghiuirléid aibhsithe comhréire
   bunaidh.
 * [Deilbhíní Tábla](https://tabler.io/icons) do na deilbhíní sa tráidire córais.
+*   Is as: na deilbhíní feidhmchláir sa dialóg allmhairithe:
+    *   [Deilbhíní Dearaidh Ábhair](https://pictogrammers.com/library/mdi/) le
+        haghaidh OneNote, Google Keep, Evernote.
+    *   [Cló iontach](https://fontawesome.com/) le haghaidh Notion, Obsidian.
+    *   [SVGicons.com](https://svgicons.com/icon/187676/anytype) le haghaidh Aon
+        Chineál.
+*  Is as [Lobe Icons](https://lobehub.com/icons) atá deilbhíní an tsoláthraí
+   LLM.
 
 Ní bheadh Trilium indéanta gan na teicneolaíochtaí atá taobh thiar de:
 

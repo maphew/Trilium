@@ -17,27 +17,57 @@ import etapiTokenService from "../services/etapi_tokens.js";
 import { createMcpServer } from "../services/mcp/mcp_server.js";
 
 export function register(app: express.Application) {
-    // Token guessing is unbounded once the endpoint is reachable off-loopback, so cap
-    // failed authentications per IP. Mirrors the login limiter.
-    //
-    // Only a 401 counts. `skipSuccessfulRequests` alone would spend the budget on every
-    // 4xx/5xx — a 403 while MCP is disabled, a transport-level 406/415, a 500 — none of
-    // which is an attempt at the credential. Since the limiter necessarily runs ahead of
-    // mcpGuard, letting those count would let an unauthenticated caller exhaust the budget
-    // deliberately and lock out a valid token for the whole window. The budget is per-IP,
-    // and a Docker port mapping or a reverse proxy collapses every client onto one address.
-    const mcpRateLimiter = rateLimit({
-        windowMs: 15 * 60 * 1000,
-        max: 10,
-        skipSuccessfulRequests: true,
-        requestWasSuccessful: (_req, res) => res.statusCode !== 401
-    });
+    const mcpRateLimiter = createMcpRateLimiter();
 
     app.post("/mcp", mcpRateLimiter, mcpGuard, handleMcpRequest);
     app.get("/mcp", mcpRateLimiter, mcpGuard, handleMcpRequest);
     app.delete("/mcp", mcpRateLimiter, mcpGuard, handleMcpRequest);
 
     getLog().info("MCP server registered at /mcp (ETAPI token required)");
+}
+
+/**
+ * Caps failed authentications per IP — token guessing is unbounded once the endpoint is
+ * reachable off-loopback. Mirrors the login limiter.
+ *
+ * A request costs budget only if it is one the guard behind this would answer 401 to, and
+ * the cost is never refunded: `skip` decides before anything is recorded. The refund route
+ * that express-rate-limit offers for the same goal — `skipSuccessfulRequests`, which
+ * records the hit up front and gives it back from a `res.on("finish")` handler — cannot be
+ * used here, because a response that never finishes never gets its hit back. Abandoned
+ * responses are routine on this endpoint: an MCP client drops its standing `GET /mcp` event
+ * stream on every reconnect, and cancels in-flight tool calls on timeout or user interrupt.
+ * Ten of those inside the window — a handful of agent restarts — and the limiter answers
+ * 429 to a perfectly valid token for the rest of it, which reads to the user as the MCP
+ * connection dropping.
+ *
+ * A 401 always completes, so nothing is abandoned on the path that does spend budget.
+ *
+ * The corollary is that a valid token is served even from an address that has exhausted its
+ * budget. That is the intent, not a hole: the budget is per-IP, and a Docker port mapping,
+ * a NAT or a reverse proxy collapses every client onto one address, so anything else lets
+ * one bad client lock out the one that actually holds a credential. Guessing is still
+ * throttled — that is what the budget is for — and throttling a request that already
+ * presents the right token protects nothing.
+ */
+export function createMcpRateLimiter() {
+    return rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 10,
+        skip: (req) => {
+            const decision = readMcpAccess(req);
+            return decision.type !== "deny" || decision.status !== 401;
+        }
+    });
+}
+
+function readMcpAccess(req: express.Request): McpAccessDecision {
+    return resolveMcpAccess({
+        mcpEnabled: optionService.getOptionOrNull("mcpEnabled") === "true",
+        // Only the Authorization header authenticates — never a session cookie. A cookie would
+        // make `/mcp` CSRF-able by any page the logged-in user visits, with full tool access.
+        hasValidToken: etapiTokenService.isValidAuthHeader(req.headers.authorization)
+    });
 }
 
 export type McpAccessDecision =
@@ -82,12 +112,7 @@ export function resolveMcpAccess(opts: {
 }
 
 function mcpGuard(req: express.Request, res: express.Response, next: express.NextFunction) {
-    const decision = resolveMcpAccess({
-        mcpEnabled: optionService.getOptionOrNull("mcpEnabled") === "true",
-        // Only the Authorization header authenticates — never a session cookie. A cookie would
-        // make `/mcp` CSRF-able by any page the logged-in user visits, with full tool access.
-        hasValidToken: etapiTokenService.isValidAuthHeader(req.headers.authorization)
-    });
+    const decision = readMcpAccess(req);
 
     if (decision.type === "deny") {
         res.status(decision.status).json({ error: decision.error });

@@ -5,12 +5,11 @@ import { t } from "../../../services/i18n";
 import { isElectron } from "../../../services/utils";
 import Button from "../../react/Button";
 import FormText from "../../react/FormText";
-import FormToggle from "../../react/FormToggle";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import NoItems from "../../react/NoItems";
 import CheckboxList from "./components/CheckboxList";
 import OptionsPageHeader from "./components/OptionsPageHeader";
-import OptionsRow from "./components/OptionsRow";
+import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
 import OptionsSection from "./components/OptionsSection";
 
 export default function SpellcheckSettings() {
@@ -42,25 +41,23 @@ function ElectronSpellcheckSettings() {
 
     return (
         <>
-            <OptionsPageHeader actions={
-                <FormToggle
-                    switchOnName="" switchOffName=""
-                    switchOnTooltip={t("spellcheck.enable")}
-                    switchOffTooltip={t("spellcheck.enable")}
+            <OptionsPageHeader />
+
+            <OptionsSection>
+                <OptionsRowWithToggle
+                    name="spellcheck-enabled"
+                    label={t("spellcheck.enable")}
+                    description={t("spellcheck.enable_description")}
                     currentValue={spellCheckEnabled}
                     onChange={onToggle}
                 />
-            } />
+            </OptionsSection>
 
-            {spellCheckEnabled ? (
+            {spellCheckEnabled && (
                 <>
                     <SpellcheckLanguages />
                     <CustomDictionary />
                 </>
-            ) : (
-                <OptionsSection>
-                    <NoItems icon="bx bx-check-double" text={t("spellcheck.disabled_placeholder")} />
-                </OptionsSection>
             )}
         </>
     );

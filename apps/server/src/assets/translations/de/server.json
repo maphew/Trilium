@@ -396,9 +396,6 @@
     "db_not_initialized_desktop": "Datenbank nicht initialisiert, bitte folgen Sie den Anweisungen auf dem Bildschirm.",
     "db_not_initialized_server": "Datenbank nicht initialisiert, bitte besuchen Sie die Einrichtungsseite – http://[Server-Host]:{{port}}, um Anweisungen zur Initialisierung von Trilium zu erhalten."
   },
-  "desktop": {
-    "instance_already_running": "Es läuft bereits eine Instanz. Diese wird stattdessen in den Vordergrund geholt."
-  },
   "password": {
     "incorrect": "Das eingegebene Passwort ist nicht korrekt."
   },
