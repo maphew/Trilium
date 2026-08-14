@@ -1,14 +1,23 @@
 import type { AiCompletionUsage, AiQuickAction, AiQuickActionGroup, AiStreamFunction } from "@triliumnext/ckeditor5";
-import type { LlmChatConfig, LlmMessage, LlmModelInfo, LlmUsage } from "@triliumnext/commons";
+import type { LlmChatConfig, LlmMessage, LlmModelInfo, LlmUsage, ToMarkdownResponse } from "@triliumnext/commons";
 
 import { t } from "../../../services/i18n.js";
 import { streamChatCompletion } from "../../../services/llm_chat.js";
 import options from "../../../services/options.js";
+import { sanitizeNoteContentHtml } from "../../../services/sanitize_content.js";
+import server from "../../../services/server.js";
+import { getTaskStateDefinitions } from "../../../services/task_states.js";
 
 /**
- * Builds the transport behind the editor's AI assistant balloon (`config.aiAssistant.stream`):
- * a completion streamed from the user's default LLM provider through the existing
+ * Builds the transport behind the editor's AI assistant (`config.aiAssistant.stream`): a
+ * completion streamed from the user's default LLM provider through the existing
  * `/api/llm-chat/stream` endpoint, accumulated into the cumulative-HTML shape the plugin expects.
+ *
+ * **The model works in Markdown, not HTML.** The editor speaks HTML on both ends, so the context
+ * is converted on the way in and every streamed chunk is rendered on the way out. That buys more
+ * than cheaper tokens and a format the model is fluent in: admonitions, mermaid diagrams and task
+ * lists come out of Trilium's own Markdown renderer, from syntax the model already knows, instead
+ * of markup we would have to dictate in the system prompt and hope it reproduces byte for byte.
  *
  * Returns `undefined` when no LLM provider is configured, which disables the feature in the
  * editor. Like the snippet list, the provider set is read when the editor is built — configuring
@@ -20,12 +29,18 @@ export default function buildAiAssistantStream(): AiStreamFunction | undefined {
     }
 
     return async (request, onData, signal): Promise<AiCompletionUsage> => {
+        // Both are needed before the first token and neither depends on the other.
+        const [context, renderMarkdown] = await Promise.all([
+            toMarkdown(request.context),
+            loadMarkdownRenderer()
+        ]);
+
         const messages: LlmMessage[] = [
             { role: "system", content: SYSTEM_PROMPT },
             {
                 role: "user",
-                content: request.context
-                    ? `Content:\n${request.context}\n\nTask: ${request.query}`
+                content: context
+                    ? `Content:\n${context}\n\nTask: ${request.query}`
                     : request.query
             }
         ];
@@ -37,7 +52,7 @@ export default function buildAiAssistantStream(): AiStreamFunction | undefined {
             streamChatCompletion(messages, config, {
                 onChunk: (text) => {
                     cumulative += text;
-                    onData(cumulative);
+                    onData(renderMarkdown(cumulative));
                 },
                 onUsage: (chunk) => {
                     reported = chunk;
@@ -134,10 +149,10 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
                     "Rewrite this content as a bulleted list, one point per item, without losing information."),
                 spelledOutAction("table", t("ai_assistant.reformat_table"), t("ai_assistant.command_table"),
                     "Reorganize this content into a table with a header row, choosing columns that fit what the content describes."),
-                // Kept to a plain list: the editor's task lists need CKEditor's own `todo-list`
-                // markup, which the system prompt does not describe to the model.
+                // A real task list rather than a plain one: `- [ ]` is Markdown the model already
+                // writes, and the renderer turns it into the editor's `todo-list` markup.
                 spelledOutAction("actionItems", t("ai_assistant.reformat_action_items"), t("ai_assistant.command_action_items"),
-                    "Extract the action items from this content as a bulleted list, each one short and starting with a verb. Leave out anything that is not an action.")
+                    "Extract the action items from this content as an unchecked task list (`- [ ] …`), each one short and starting with a verb. Leave out anything that is not an action.")
             ]
         },
         {
@@ -188,18 +203,85 @@ function spelledOutAction(id: string, label: string, commandLabel: string, promp
 }
 
 /**
- * The assistant works HTML-in/HTML-out: the context is the selection's HTML and the response is
- * committed through the editor's data pipeline, so anything but clean HTML (markdown, fences,
- * commentary) would end up as literal text in the note.
+ * The assistant works Markdown-in/Markdown-out. Anything but the bare result — commentary, a
+ * preamble, a fence around the whole answer — is committed into the note verbatim, so the prompt
+ * is blunt about it.
+ *
+ * The syntaxes listed are the ones {@link loadMarkdownRenderer} turns into Trilium constructs, so
+ * naming them is what makes callouts, diagrams and task lists reachable without describing any
+ * markup: the model writes the Markdown it already knows and the renderer produces our HTML.
  */
 const SYSTEM_PROMPT = `You are a writing assistant embedded in a rich text editor of a note-taking application.
-The user gives you a task, usually together with the HTML of the content it applies to.
+The user gives you a task, usually together with the Markdown of the content it applies to.
 
 Rules:
-- Respond ONLY with HTML. No markdown, no code fences, no explanations, no preamble.
-- Use simple HTML: <p>, <strong>, <em>, <ul>, <ol>, <li>, <h2>-<h5>, <table>, <blockquote>, <code>, <a>.
+- Respond ONLY with the resulting Markdown. No explanations, no preamble, no code fence around the answer.
+- GitHub-flavoured Markdown is supported: headings, tables, footnotes and task lists (\`- [ ]\`).
+- \`> [!NOTE]\`, \`> [!TIP]\`, \`> [!IMPORTANT]\`, \`> [!CAUTION]\` and \`> [!WARNING]\` render as coloured callouts.
+- A \`mermaid\` code block renders as a diagram.
 - When rewriting content, preserve its structure and formatting unless the task says otherwise.
 - Respond in the same language as the content, unless the task says otherwise.`;
+
+/**
+ * The selection, as Markdown for the model. The conversion is the server's: turndown and the rules
+ * that keep admonitions, `<details>`, math and reference links intact live in `trilium-core`, which
+ * the client cannot import — and unlike the response, the context is one string sent once, so a
+ * round-trip before the stream costs a fraction of the completion that follows.
+ *
+ * A failed conversion falls back to the HTML. The model reads HTML perfectly well; losing the
+ * conversion is worth far less than losing the run.
+ */
+async function toMarkdown(html: string): Promise<string> {
+    if (!html.trim()) {
+        return "";
+    }
+    try {
+        const { markdownContent } = await server.post<ToMarkdownResponse>("other/to-markdown", { htmlContent: html });
+        return markdownContent;
+    } catch (error) {
+        console.warn("AI assistant: could not convert the context to Markdown, sending HTML", error);
+        return html;
+    }
+}
+
+/**
+ * The Markdown → HTML pass applied to the cumulative response on every chunk — the same shape the
+ * LLM chat renders streamed replies with, re-rendering the whole buffer rather than appending to
+ * it, which is what keeps a half-written table or fence from rendering as garbage.
+ *
+ * `marked` is a heavy import, so it is pulled in only once the assistant actually runs.
+ */
+async function loadMarkdownRenderer(): Promise<(markdown: string) => string> {
+    const [{ renderToHtml }, taskStates] = await Promise.all([
+        import("@triliumnext/commons/src/lib/markdown_renderer"),
+        getTaskStateDefinitions()
+    ]);
+
+    return (markdown) => renderToHtml(stripMarkdownFences(markdown), "", {
+        sanitize: sanitizeNoteContentHtml,
+        taskStates,
+        wikiLink: { formatHref: (id) => `#root/${id}` }
+    });
+}
+
+/**
+ * Removes a leading markdown code fence (\`\`\`markdown or \`\`\`) and, when present, the matching
+ * closing fence. Models add these despite instructions not to; the stripper is applied to the
+ * cumulative stream, so it must also handle a fence whose closing half has not arrived yet.
+ */
+export function stripMarkdownFences(cumulative: string): string {
+    const opening = /^\s*```[a-z]*\s*\n?/i.exec(cumulative);
+    if (!opening) {
+        return cumulative;
+    }
+
+    let body = cumulative.slice(opening[0].length);
+    const closingIndex = body.lastIndexOf("```");
+    if (closingIndex !== -1 && body.slice(closingIndex + 3).trim() === "") {
+        body = body.slice(0, closingIndex);
+    }
+    return body;
+}
 
 /** The subset of a stored `llmProviders` entry this module reads. */
 interface StoredProviderConfig {

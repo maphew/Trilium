@@ -1,3 +1,6 @@
+// @vitest-environment jsdom
+// The pipeline ends in DOMPurify, which needs browser-faithful NodeIterator traversal; happy-dom
+// mishandles it and drops the first node of every fragment. Same reason as sanitize_content.spec.
 import type { LlmChatConfig } from "@triliumnext/commons";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,34 +15,62 @@ vi.mock("../../../services/options.js", () => ({
     default: { getJson: () => storedProviders }
 }));
 vi.mock("../../../services/llm_chat.js", () => ({
-    streamChatCompletion: vi.fn(async (_messages, config, callbacks) => {
+    streamChatCompletion: vi.fn(async (messages, config, callbacks) => {
         requestedConfigs.push(config);
-        callbacks.onChunk("<p>hi</p>");
+        requestedMessages.push(messages);
+        for (const chunk of responseChunks) {
+            callbacks.onChunk(chunk);
+        }
         callbacks.onDone();
     })
 }));
+// The context is converted by the server: turndown lives in core, which the client cannot import.
+vi.mock("../../../services/server.js", () => ({
+    default: { post: vi.fn(async (_url: string, data: { htmlContent: string }) => toMarkdownResult(data.htmlContent)) }
+}));
+vi.mock("../../../services/task_states.js", () => ({ getTaskStateDefinitions: async () => [] }));
 
-import buildAiAssistantStream, { buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
+import buildAiAssistantStream, { buildAiAssistantQuickActions, stripMarkdownFences } from "./ai_assistant_stream.js";
 
 /** The `llmProviders` option as the mocked `options.getJson` will return it. */
 let storedProviders: unknown = null;
 /** The config each `streamChatCompletion` call was made with, in order. */
 let requestedConfigs: LlmChatConfig[] = [];
+/** The messages each `streamChatCompletion` call was made with, in order. */
+let requestedMessages: Array<Array<{ role: string; content: string }>> = [];
+/** What the mocked stream emits, one `onChunk` per entry. */
+let responseChunks: string[] = ["done"];
+/** Stands in for `POST other/to-markdown`; throws to exercise the fallback. */
+let toMarkdownResult: (html: string) => { markdownContent: string } = () => ({ markdownContent: "teh" });
+
+const PROVIDER = [{ id: "cfg-openai", provider: "openai", selectedModels: [{ id: "gpt-5", isDefault: true }] }];
 
 beforeEach(() => {
     storedProviders = null;
     requestedConfigs = [];
+    requestedMessages = [];
+    responseChunks = ["done"];
+    toMarkdownResult = () => ({ markdownContent: "teh" });
 });
 
-/** Runs one completion through the built stream and returns the config it sent. */
-async function runOnce(): Promise<LlmChatConfig> {
+/** Runs one completion through the built stream, collecting everything handed to `onData`. */
+async function run(context = "<p>teh</p>"): Promise<{ config: LlmChatConfig; prompt: string; rendered: string[] }> {
     const stream = buildAiAssistantStream();
     if (!stream) {
         throw new Error("expected the assistant to be enabled");
     }
-    await stream({ query: "Fix typos", context: "<p>teh</p>" }, () => {}, new AbortController().signal);
-    const [config] = requestedConfigs;
-    return config;
+    const rendered: string[] = [];
+    await stream({ query: "Fix typos", context }, (html) => rendered.push(html), new AbortController().signal);
+    return {
+        config: requestedConfigs[0],
+        prompt: requestedMessages[0]?.find((message) => message.role === "user")?.content ?? "",
+        rendered
+    };
+}
+
+/** Runs one completion and returns just the provider/model config it sent. */
+async function runOnce(): Promise<LlmChatConfig> {
+    return (await run()).config;
 }
 
 describe("buildAiAssistantStream", () => {
@@ -78,6 +109,88 @@ describe("buildAiAssistantStream", () => {
             { id: "cfg-ollama", provider: "ollama", selectedModels: [] }
         ];
         expect(await runOnce()).toEqual({ provider: "openai", providerId: "cfg-openai" });
+    });
+});
+
+describe("the Markdown pipeline", () => {
+    beforeEach(() => {
+        storedProviders = PROVIDER;
+    });
+
+    it("sends the context as Markdown, converted by the server", async () => {
+        toMarkdownResult = (html) => ({ markdownContent: html + " as markdown" });
+
+        const { prompt } = await run("<p>teh</p>");
+        expect(prompt).toContain("<p>teh</p> as markdown");
+        expect(prompt).toContain("Task: Fix typos");
+    });
+
+    it("sends no context at all when generating from scratch", async () => {
+        const { prompt } = await run("");
+        expect(prompt).toBe("Fix typos");
+    });
+
+    it("falls back to the HTML context when the conversion fails", async () => {
+        // Losing the conversion is worth far less than losing the run.
+        toMarkdownResult = () => { throw new Error("offline"); };
+        vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        const { prompt } = await run("<p>teh</p>");
+        expect(prompt).toContain("<p>teh</p>");
+    });
+
+    it("renders the cumulative Markdown to HTML on every chunk", async () => {
+        responseChunks = ["# Ti", "tle\n\nsome ", "**bold** text"];
+
+        const { rendered } = await run();
+        expect(rendered).toHaveLength(3);
+        // Each render is of the whole buffer, so a heading cut mid-word is still a heading —
+        // demoted to <h2>, since in Trilium the note title is the document's <h1>.
+        expect(rendered[0]).toContain("<h2");
+        expect(rendered[2]).toContain("<strong>bold</strong>");
+    });
+
+    it("turns the Trilium syntaxes the prompt advertises into their markup", async () => {
+        responseChunks = [
+            "> [!TIP]\n> Watch out\n\n",
+            "- [ ] ship it\n\n",
+            "\u0060\u0060\u0060mermaid\nflowchart TD\n  a-->b\n\u0060\u0060\u0060\n"
+        ];
+
+        const [, , html] = (await run()).rendered;
+        expect(html).toContain('<aside class="admonition tip">');
+        expect(html).toContain('<ul class="todo-list">');
+        expect(html).toContain("language-mermaid");
+    });
+
+    it("strips a fence the model wrapped the whole answer in", async () => {
+        responseChunks = ["\u0060\u0060\u0060markdown\n**bold**\n\u0060\u0060\u0060"];
+
+        const [html] = (await run()).rendered;
+        expect(html).toContain("<strong>bold</strong>");
+        expect(html).not.toContain("\u0060\u0060\u0060");
+    });
+});
+
+describe("stripMarkdownFences", () => {
+    const fence = "\u0060\u0060\u0060";
+
+    it("returns unfenced content unchanged", () => {
+        expect(stripMarkdownFences("plain")).toBe("plain");
+    });
+
+    it("strips a complete fence pair", () => {
+        expect(stripMarkdownFences(fence + "markdown\nhi\n" + fence)).toBe("hi\n");
+        expect(stripMarkdownFences(fence + "\nhi\n" + fence + "\n")).toBe("hi\n");
+    });
+
+    it("strips an opening fence whose closing half has not streamed in yet", () => {
+        expect(stripMarkdownFences(fence + "markdown\nst")).toBe("st");
+    });
+
+    it("does not treat a fence inside the content as a closing one", () => {
+        expect(stripMarkdownFences(fence + "markdown\nuse " + fence + " for fences\nmore"))
+            .toBe("use " + fence + " for fences\nmore");
     });
 });
 

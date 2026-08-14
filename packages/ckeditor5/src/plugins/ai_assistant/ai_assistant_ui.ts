@@ -18,7 +18,6 @@ import {
 import type { AiCompletionUsage, AiQuickAction, AiQuickActionGroup } from "./ai_assistant_config.js";
 import AiAssistantEditing, { AI_TARGET_MARKER } from "./ai_assistant_editing.js";
 import AiAssistantFormView from "./ai_assistant_form.js";
-import { stripMarkdownFences } from "./ai_html.js";
 import aiIcon from "./theme/icons/ai.svg?raw";
 import "./theme/ai_assistant.css";
 
@@ -71,7 +70,7 @@ export default class AiAssistantUI extends Plugin {
     private _formView: AiAssistantFormView | null = null;
     private _abortController: AbortController | null = null;
 
-    /** The cumulative response of the current/last run, after fence-stripping. */
+    /** The cumulative response HTML of the current/last run, as the host delivered it. */
     private _cumulative = "";
     /** The HTML the next query will run against: the selection, then each committed-to response. */
     private _context = "";
@@ -322,13 +321,12 @@ export default class AiAssistantUI extends Plugin {
         let renderTimer: ReturnType<typeof setTimeout> | null = null;
         let pendingHtml: string | null = null;
         const onData = (cumulative: string) => {
-            const cleaned = stripMarkdownFences(cumulative);
-            this._cumulative = cleaned;
+            this._cumulative = cumulative;
             if (renderTimer) {
-                pendingHtml = cleaned;
+                pendingHtml = cumulative;
                 return;
             }
-            render(cleaned);
+            render(cumulative);
             renderTimer = setTimeout(() => {
                 renderTimer = null;
                 if (pendingHtml !== null) {
