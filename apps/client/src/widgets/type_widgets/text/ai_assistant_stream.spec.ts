@@ -104,6 +104,38 @@ describe("buildAiAssistantQuickActions", () => {
         expect(romanian?.prompt).toBe("Translate the content to Romanian.");
     });
 
+    it("gives each reformat its own command label rather than composing one", () => {
+        // "Turn into a table" against "Extract action items": no single phrase composes both.
+        expect(actions("reformat").map((action) => [action.label, action.commandLabel])).toEqual([
+            ["ai_assistant.action_bullet_list", "ai_assistant.command_bullet_list"],
+            ["ai_assistant.action_table", "ai_assistant.command_table"],
+            ["ai_assistant.action_action_items", "ai_assistant.command_action_items"]
+        ]);
+    });
+
+    // Two entries one click apart must not carry the same instruction, or the menu offers the same
+    // rewrite twice under different names.
+    it("keeps the length actions and the tones from asking for the same thing", () => {
+        const promptOf = (groupId: string, id: string) =>
+            actions(groupId).find((action) => action.id === id)?.prompt ?? "";
+
+        // The direct tone is about voice, not length — length belongs to Make shorter.
+        expect(promptOf("tone", "direct")).toContain("active voice");
+        expect(promptOf("tone", "direct")).not.toMatch(/shorten|essential information|non-essential/i);
+
+        // Improve writing leaves the mechanics to Fix typos and the length to Make shorter.
+        expect(promptOf("edit", "improveWriting")).not.toMatch(/mistakes|tighten/i);
+        expect(promptOf("edit", "fixTypos")).toMatch(/spelling, grammar and punctuation/i);
+    });
+
+    it("inlines the groups whose actions already read as commands", () => {
+        const groups = buildAiAssistantQuickActions();
+        expect(groups.filter((group) => group.submenu).map((group) => group.id))
+            .toEqual(["tone", "reformat", "translate"]);
+        expect(groups.filter((group) => !group.submenu).map((group) => group.id))
+            .toEqual(["edit", "generate"]);
+    });
+
     it("leaves the labels that already read as commands alone", () => {
         for (const action of [ ...actions("edit"), ...actions("generate") ]) {
             expect(action.commandLabel).toBeUndefined();

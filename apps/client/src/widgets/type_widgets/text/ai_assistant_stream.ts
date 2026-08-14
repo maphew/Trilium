@@ -73,8 +73,10 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
             actions: [
                 action("fixTypos", t("ai_assistant.action_fix_typos"),
                     "Fix all spelling, grammar and punctuation mistakes. Do not change the meaning, tone or formatting."),
+                // Deliberately not "fix mistakes and tighten the phrasing": that made this the same
+                // instruction as Fix typos and Make shorter, which are one click away either side.
                 action("improveWriting", t("ai_assistant.action_improve_writing"),
-                    "Improve the writing: fix mistakes, tighten the phrasing and apply good writing practices without changing the meaning."),
+                    "Improve the clarity, flow and word choice of this content, keeping its meaning and roughly its length."),
                 action("makeShorter", t("ai_assistant.action_make_shorter"),
                     "Shorten this content by removing repetition and non-essential details, without losing key information."),
                 action("makeLonger", t("ai_assistant.action_make_longer"),
@@ -89,6 +91,8 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
             actions: [
                 action("summarize", t("ai_assistant.action_summarize"),
                     "Summarize this content into one short paragraph containing only the key ideas and conclusions."),
+                action("explain", t("ai_assistant.action_explain"),
+                    "Explain this content in plain language: what it says, and what it means for someone unfamiliar with it. Keep the explanation brief."),
                 action("continue", t("ai_assistant.action_continue"),
                     "Continue writing from the end of the provided content, staying on topic and matching its style. Keep the continuation brief.")
             ]
@@ -102,10 +106,29 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
                     "Rewrite this content in a polished, formal, professional tone without changing the meaning."),
                 toneAction("casual", t("ai_assistant.tone_casual"),
                     "Rewrite this content in a casual, conversational tone without changing the meaning."),
+                // A tone, not a length: "keeping only the essential information" made this Make
+                // shorter under another name.
                 toneAction("direct", t("ai_assistant.tone_direct"),
-                    "Rewrite this content in a direct tone, keeping only the essential information."),
+                    "Rewrite this content in a direct tone: active voice, no hedging and no throat-clearing. Keep all of the information."),
                 toneAction("friendly", t("ai_assistant.tone_friendly"),
-                    "Rewrite this content in a warm, friendly tone without changing the meaning.")
+                    "Rewrite this content in a warm, friendly tone without changing the meaning."),
+                toneAction("confident", t("ai_assistant.tone_confident"),
+                    "Rewrite this content in a confident, assertive tone without changing the meaning.")
+            ]
+        },
+        {
+            id: "reformat",
+            label: t("ai_assistant.group_reformat"),
+            submenu: true,
+            actions: [
+                reformatAction("bulletList", t("ai_assistant.action_bullet_list"), t("ai_assistant.command_bullet_list"),
+                    "Rewrite this content as a bulleted list, one point per item, without losing information."),
+                reformatAction("table", t("ai_assistant.action_table"), t("ai_assistant.command_table"),
+                    "Reorganize this content into a table with a header row, choosing columns that fit what the content describes."),
+                // Kept to a plain list: the editor's task lists need CKEditor's own `todo-list`
+                // markup, which the system prompt does not describe to the model.
+                reformatAction("actionItems", t("ai_assistant.action_action_items"), t("ai_assistant.command_action_items"),
+                    "Extract the action items from this content as a bulleted list, each one short and starting with a verb. Leave out anything that is not an action.")
             ]
         },
         {
@@ -142,6 +165,15 @@ function toneAction(id: string, tone: string, prompt: string): AiQuickAction {
 /** The prompt stays English and spelled out: the label is translated, the instruction is not. */
 function translateAction(id: string, language: string, prompt: string): AiQuickAction {
     return { id, label: language, commandLabel: t("ai_assistant.command_translate", { language }), prompt };
+}
+
+/**
+ * A reformat needs the same two labels as a tone or a language — a bare "Table" says nothing in the
+ * `/` palette — but its commands do not compose from a single phrase ("Turn into a table" against
+ * "Extract action items"), so each carries its own translated pair instead of a substitution.
+ */
+function reformatAction(id: string, label: string, commandLabel: string, prompt: string): AiQuickAction {
+    return { id, label, commandLabel, prompt };
 }
 
 /**
