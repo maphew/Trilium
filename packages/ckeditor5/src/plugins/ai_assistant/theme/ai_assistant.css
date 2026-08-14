@@ -27,8 +27,7 @@
     gap: var(--ck-spacing-small);
 }
 
-/* The quick-actions list is long (four groups); scroll it rather than overflow the screen. */
-.ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row .ck-dropdown__panel {
+.ck.ck-dropdown.ck-ai-assistant-quick-actions .ck-dropdown__panel {
     max-height: 320px;
     overflow-y: auto;
 }

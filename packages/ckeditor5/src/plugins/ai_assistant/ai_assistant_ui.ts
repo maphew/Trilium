@@ -1,16 +1,25 @@
 import {
+    addListToDropdown,
     ButtonView,
     CKEditorError,
     clickOutsideHandler,
+    Collection,
     ContextualBalloon,
+    createDropdown,
     Plugin,
+    SplitButtonView,
+    ViewModel,
+    type DropdownView,
+    type ListDropdownButtonDefinition,
+    type ListDropdownItemDefinition,
+    type Locale,
     type ModelNode,
     type ModelRange
 } from "ckeditor5";
 
-import type { AiCompletionUsage } from "./ai_assistant_config.js";
+import type { AiCompletionUsage, AiQuickAction, AiQuickActionGroup } from "./ai_assistant_config.js";
 import AiAssistantEditing, { AI_TARGET_MARKER } from "./ai_assistant_editing.js";
-import AiAssistantFormView, { type AiQuickActionEvent } from "./ai_assistant_form.js";
+import AiAssistantFormView from "./ai_assistant_form.js";
 import { stripMarkdownFences } from "./ai_html.js";
 import aiIcon from "./theme/icons/ai.svg?raw";
 import "./theme/ai_assistant.css";
@@ -22,8 +31,8 @@ import "./theme/ai_assistant.css";
 const RENDER_THROTTLE_MS = 80;
 
 /**
- * The AI assistant's UI and orchestration: the toolbar button, the balloon form, and the
- * stream-preview-commit lifecycle.
+ * The AI assistant's UI and orchestration: the toolbar entry (a split button whose menu holds the
+ * host's quick actions), the balloon form, and the stream-preview-commit lifecycle.
  *
  * The core design decision is that **the stream never touches the document**. The response
  * streams into the form's detached preview; the note is modified exactly once, when the user
@@ -39,9 +48,20 @@ export default class AiAssistantUI extends Plugin {
         return "AiAssistantUI" as const;
     }
 
+    /**
+     * Whether a run is in flight. Observable, because the toolbar entry closes itself off while
+     * the assistant is busy — a second run would stream into the same preview.
+     */
+    declare public isStreaming: boolean;
+    /**
+     * Whether there is content for a quick action to work on: a non-collapsed selection, or, once
+     * the assistant is open, whatever it captured — after a run, the response being chained on.
+     * Gates the `requiresContent` actions in the toolbar menu.
+     */
+    declare public hasContext: boolean;
+
     private _formView: AiAssistantFormView | null = null;
     private _abortController: AbortController | null = null;
-    private _streaming = false;
 
     /** The cumulative response of the current/last run, after fence-stripping. */
     private _cumulative = "";
@@ -54,25 +74,103 @@ export default class AiAssistantUI extends Plugin {
     public init(): void {
         const editor = this.editor;
 
-        editor.ui.componentFactory.add("aiAssistant", (locale) => {
-            const t = locale.t;
-            const command = editor.commands.get("aiAssistant");
-            const buttonView = new ButtonView(locale);
+        this.set("isStreaming", false);
+        this.set("hasContext", false);
 
-            buttonView.set({
-                label: t("AI assistant"),
-                icon: aiIcon,
-                tooltip: true
-            });
+        editor.ui.componentFactory.add("aiAssistant", (locale) => this._createToolbarComponent(locale));
 
-            /* v8 ignore next -- AiAssistantEditing always registers the command (it is required by this plugin) */
-            if (command) {
-                buttonView.bind("isEnabled").to(command, "isEnabled");
-            }
+        // While the balloon is closed the quick actions are offered against the selection, so
+        // their enablement has to follow it.
+        this.listenTo(editor.model.document.selection, "change:range", () => this._updateHasContext());
+    }
 
-            this.listenTo(buttonView, "execute", () => editor.execute("aiAssistant"));
-            return buttonView;
+    /**
+     * The toolbar entry. Its main action opens the assistant on the selection; its menu lists the
+     * host's quick actions, grouped as configured, and picking one opens the assistant and runs
+     * that instruction straight away — the free-form prompt is one way in, not the only one.
+     *
+     * With no quick actions configured there is nothing to hang off an arrow, so the component
+     * degrades to a plain button.
+     */
+    private _createToolbarComponent(locale: Locale): ButtonView | DropdownView {
+        const groups = this.editor.config.get("aiAssistant")?.quickActions ?? [];
+        return groups.length
+            ? this._createQuickActionsDropdown(locale, groups)
+            : this._createAssistantButton(locale);
+    }
+
+    private _createAssistantButton(locale: Locale): ButtonView {
+        const command = this.editor.commands.get("aiAssistant");
+        const buttonView = new ButtonView(locale);
+
+        buttonView.set({
+            label: locale.t("AI assistant"),
+            icon: aiIcon,
+            tooltip: true
         });
+        /* v8 ignore next -- AiAssistantEditing always registers the command (it is required by this plugin) */
+        if (command) {
+            buttonView.bind("isEnabled").to(command, "isEnabled", this, "isStreaming", isAvailable);
+        }
+        this.listenTo(buttonView, "execute", () => this.editor.execute("aiAssistant"));
+
+        return buttonView;
+    }
+
+    /**
+     * The split button: the icon opens the assistant, the arrow opens the quick actions. Actions
+     * marked `requiresContent` stay disabled until there is something to work on — a selection, or
+     * a response to chain on.
+     */
+    private _createQuickActionsDropdown(locale: Locale, groups: AiQuickActionGroup[]): DropdownView {
+        const command = this.editor.commands.get("aiAssistant");
+        const dropdownView = createDropdown(locale, SplitButtonView);
+        const splitButtonView = dropdownView.buttonView;
+
+        splitButtonView.set({
+            label: locale.t("AI assistant"),
+            icon: aiIcon,
+            tooltip: true
+        });
+        // A dropdown passes `isEnabled` down to its button, so this covers both halves of the
+        // split button.
+        /* v8 ignore next -- AiAssistantEditing always registers the command (it is required by this plugin) */
+        if (command) {
+            dropdownView.bind("isEnabled").to(command, "isEnabled", this, "isStreaming", isAvailable);
+        }
+        this.listenTo(splitButtonView, "execute", () => this.editor.execute("aiAssistant"));
+
+        const items = new Collection<ListDropdownItemDefinition>();
+        for (const group of groups) {
+            const children = new Collection<ListDropdownButtonDefinition>();
+            for (const action of group.actions) {
+                const definition: ListDropdownButtonDefinition = {
+                    type: "button",
+                    model: new ViewModel({
+                        _quickAction: action,
+                        label: action.label,
+                        withText: true
+                    })
+                };
+                if (action.requiresContent !== false) {
+                    definition.model.bind("isEnabled").to(this, "hasContext");
+                }
+                children.add(definition);
+            }
+            items.add({ type: "group", label: group.label, items: children });
+        }
+        addListToDropdown(dropdownView, items);
+        dropdownView.class = "ck-ai-assistant-quick-actions";
+
+        // Only the list items reach this: a split button delegates its own `execute` to itself,
+        // and its arrow to the dropdown's `open`.
+        dropdownView.on("execute", (evt) => {
+            const { _quickAction } = evt.source as unknown as { _quickAction: AiQuickAction };
+            this.show();
+            void this._run(_quickAction.prompt);
+        });
+
+        return dropdownView;
     }
 
     public override destroy(): void {
@@ -101,7 +199,7 @@ export default class AiAssistantUI extends Plugin {
             : editor.data.stringify(model.getSelectedContent(selection));
         this._previousContext = this._context;
         this._cumulative = "";
-        form.hasContext = !!this._context;
+        this._updateHasContext();
 
         const range = selection.getFirstRange();
         /* v8 ignore next -- the document selection always has at least one range */
@@ -122,10 +220,7 @@ export default class AiAssistantUI extends Plugin {
         }
 
         const editor = this.editor;
-        const form = new AiAssistantFormView(
-            editor.locale,
-            editor.config.get("aiAssistant")?.quickActions ?? []
-        );
+        const form = new AiAssistantFormView(editor.locale);
         this._formView = form;
 
         form.on("submit", () => {
@@ -134,9 +229,6 @@ export default class AiAssistantUI extends Plugin {
                 form.query = "";
                 void this._run(query);
             }
-        });
-        form.on<AiQuickActionEvent>("quickAction", (_evt, action) => {
-            void this._run(action.prompt);
         });
         form.on("stop", () => this._abortController?.abort());
         form.on("replace", () => this._commit("replace"));
@@ -180,13 +272,13 @@ export default class AiAssistantUI extends Plugin {
         const stream = editor.config.get("aiAssistant")?.stream;
         const form = this._getForm();
         /* v8 ignore next -- the command is disabled without a stream, and the form blocks submits while streaming */
-        if (!stream || this._streaming) {
+        if (!stream || this.isStreaming) {
             return;
         }
 
         this._previousContext = this._context;
         this._lastQuery = query;
-        this._streaming = true;
+        this.isStreaming = true;
         this._cumulative = "";
         form.beginStreaming();
 
@@ -239,7 +331,7 @@ export default class AiAssistantUI extends Plugin {
             if (pendingHtml !== null) {
                 render(pendingHtml);
             }
-            this._streaming = false;
+            this.isStreaming = false;
             this._abortController = null;
         }
 
@@ -248,7 +340,7 @@ export default class AiAssistantUI extends Plugin {
             this._context = this._cumulative;
         }
         // A response counts as content, so content-requiring quick actions unlock for chaining.
-        form.hasContext = !!this._context;
+        this._updateHasContext();
         form.enterReview(!!this._cumulative, this._buildDiff(), errorMessage, this._formatUsage(usage));
     }
 
@@ -364,6 +456,11 @@ export default class AiAssistantUI extends Plugin {
 
         this._abortController?.abort();
         this._cumulative = "";
+        // Dropping the captured context hands the quick actions back to the selection; keeping it
+        // would leave them enabled over a closed assistant that has nothing to work on.
+        this._context = "";
+        this._previousContext = "";
+        this._updateHasContext();
 
         if (editor.model.markers.has(AI_TARGET_MARKER)) {
             editor.model.change((writer) => writer.removeMarker(AI_TARGET_MARKER));
@@ -373,6 +470,14 @@ export default class AiAssistantUI extends Plugin {
         }
         form?.reset();
         editor.editing.view.focus();
+    }
+
+    /**
+     * What the quick actions are offered against: whatever the assistant captured while open, or
+     * the selection once it is closed.
+     */
+    private _updateHasContext(): void {
+        this.hasContext = !!this._context || !this.editor.model.document.selection.isCollapsed;
     }
 
     private _getBalloonPosition() {
@@ -389,4 +494,12 @@ export default class AiAssistantUI extends Plugin {
             }
         };
     }
+}
+
+/**
+ * Whether the toolbar entry can be used: the command is enabled (an LLM provider is configured)
+ * and no run is in flight.
+ */
+function isAvailable(isEnabled: boolean, isStreaming: boolean): boolean {
+    return isEnabled && !isStreaming;
 }

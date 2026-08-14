@@ -56,19 +56,19 @@ export type AiStreamFunction = (
 export type AiDiffFunction = (oldHtml: string, newHtml: string) => string;
 
 /**
- * A predefined instruction offered in the balloon's "Quick actions" dropdown — the GPL counterpart
- * of the premium `AICommandDefinition`. Labels arrive pre-translated from the host; only the
- * `prompt` is sent to the model.
+ * A predefined instruction offered in the menu of the toolbar's AI entry — the GPL counterpart of
+ * the premium `AICommandDefinition`. Labels arrive pre-translated from the host; only the `prompt`
+ * is sent to the model.
  */
 export interface AiQuickAction {
     id: string;
-    /** The label shown in the dropdown, already translated by the host. */
+    /** The label shown in the menu, already translated by the host. */
     label: string;
     /** The instruction sent to the model in place of a typed query. */
     prompt: string;
     /**
      * Whether the action needs content to work on. Actions that do (the default) are disabled
-     * when the assistant was opened on an empty selection and nothing has been generated yet.
+     * while there is nothing selected and nothing has been generated yet.
      */
     requiresContent?: boolean;
 }
@@ -83,7 +83,7 @@ export interface AiQuickAction {
  */
 export type AiSanitizeFunction = (html: string) => string;
 
-/** A labelled group of quick actions, rendered as a group in the dropdown. */
+/** A labelled group of quick actions, rendered as a group in the menu. */
 export interface AiQuickActionGroup {
     id: string;
     /** The group heading, already translated by the host. */
@@ -107,9 +107,9 @@ export interface AiAssistantConfig {
     diff?: AiDiffFunction;
 
     /**
-     * The predefined instructions offered in the balloon's "Quick actions" dropdown ("Fix typos",
-     * "Make shorter", …). Optional — without them the dropdown is hidden and only the free-form
-     * prompt remains.
+     * The predefined instructions hanging off the toolbar entry ("Fix typos", "Make shorter", …).
+     * Optional — without them the toolbar entry is a plain button and only the free-form prompt
+     * remains.
      */
     quickActions?: AiQuickActionGroup[];
 

@@ -1,8 +1,5 @@
 import {
-    addListToDropdown,
     ButtonView,
-    Collection,
-    createDropdown,
     createLabeledInputText,
     FocusCycler,
     FocusTracker,
@@ -11,16 +8,10 @@ import {
     submitHandler,
     View,
     ViewCollection,
-    ViewModel,
-    type DropdownView,
     type FocusableView,
     type InputTextView,
-    type ListDropdownButtonDefinition,
-    type ListDropdownItemDefinition,
     type Locale
 } from "ckeditor5";
-
-import type { AiQuickAction, AiQuickActionGroup } from "./ai_assistant_config.js";
 
 /**
  * Where the form is in its lifecycle: taking a prompt, streaming a response into the preview, or
@@ -31,12 +22,6 @@ export type AiAssistantFormPhase = "prompt" | "streaming" | "review";
 
 /** What the preview shows in the review phase: the response, or its diff against the context. */
 export type AiAssistantViewMode = "result" | "changes";
-
-/** Fired when the user picks an entry in the "Quick actions" dropdown. */
-export type AiQuickActionEvent = {
-    name: "quickAction";
-    args: [action: AiQuickAction];
-};
 
 /**
  * The AI assistant balloon: a prompt row, a read-only streaming preview styled like note content,
@@ -58,11 +43,6 @@ export default class AiAssistantFormView extends View {
     declare public hasDiff: boolean;
     /** The run's cost line ("model · tokens · price"), shown in the review actions row. */
     declare public usageText: string;
-    /**
-     * Whether there is content for a quick action to work on — the captured selection, or after a
-     * run, the response being chained on. Gates the `requiresContent` quick actions.
-     */
-    declare public hasContext: boolean;
 
     /** The (sanitized) response HTML, kept for re-rendering when the view mode flips. */
     private _resultHtml = "";
@@ -71,7 +51,6 @@ export default class AiAssistantFormView extends View {
 
     public readonly promptInputView: LabeledFieldView<InputTextView>;
     public readonly sendButtonView: ButtonView;
-    public readonly quickActionsDropdownView: DropdownView;
     public readonly resultToggleView: ButtonView;
     public readonly changesToggleView: ButtonView;
     public readonly previewView: AiPreviewView;
@@ -86,7 +65,7 @@ export default class AiAssistantFormView extends View {
     private readonly _focusables = new ViewCollection<FocusableView>();
     private readonly _focusCycler: FocusCycler;
 
-    constructor(locale: Locale, quickActions: AiQuickActionGroup[] = []) {
+    constructor(locale: Locale) {
         super(locale);
 
         const t = locale.t;
@@ -97,14 +76,12 @@ export default class AiAssistantFormView extends View {
         this.set("viewMode", "result");
         this.set("hasDiff", false);
         this.set("usageText", "");
-        this.set("hasContext", false);
 
         // Re-render the preview from the stored contents whenever the toggle flips.
         this.on("change:viewMode", () => this._renderPreview());
 
         this.resultToggleView = this._createViewModeButton(locale, t("Result"), "result");
         this.changesToggleView = this._createViewModeButton(locale, t("Changes"), "changes");
-        this.quickActionsDropdownView = this._createQuickActionsDropdown(locale, quickActions);
         this.promptInputView = this._createPromptInput(locale);
         this.sendButtonView = this._createSendButton(locale);
         this.previewView = new AiPreviewView(locale);
@@ -153,7 +130,7 @@ export default class AiAssistantFormView extends View {
                 {
                     tag: "div",
                     attributes: { class: ["ck", "ck-ai-assistant-form__prompt-row"] },
-                    children: [this.quickActionsDropdownView, this.promptInputView, this.sendButtonView]
+                    children: [this.promptInputView, this.sendButtonView]
                 },
                 {
                     tag: "div",
@@ -199,7 +176,6 @@ export default class AiAssistantFormView extends View {
         const focusables = [
             this.resultToggleView,
             this.changesToggleView,
-            this.quickActionsDropdownView,
             this.promptInputView,
             this.sendButtonView,
             this.stopButtonView,
@@ -280,53 +256,6 @@ export default class AiAssistantFormView extends View {
     /** Shows whichever stored content the current view mode selects. */
     private _renderPreview(): void {
         this.previewView.setContent(this.viewMode === "changes" && this._diffHtml ? this._diffHtml : this._resultHtml);
-    }
-
-    /**
-     * The grouped "Quick actions" dropdown. Picking an entry fires `quickAction` with its
-     * {@link AiQuickAction} — the orchestrator runs its prompt as if it had been typed. Actions
-     * marked `requiresContent` are disabled while there is nothing to work on. Hidden entirely
-     * when the host configured no actions.
-     */
-    private _createQuickActionsDropdown(locale: Locale, groups: AiQuickActionGroup[]) {
-        const dropdown = createDropdown(locale);
-
-        dropdown.buttonView.set({
-            label: locale.t("Quick actions"),
-            withText: true
-        });
-        // DropdownView has no `isVisible`; an empty action list hides the component wholesale.
-        if (!groups.length) {
-            dropdown.class = "ck-hidden";
-        }
-        dropdown.bind("isEnabled").to(this, "phase", (phase) => phase !== "streaming");
-
-        const items = new Collection<ListDropdownItemDefinition>();
-        for (const group of groups) {
-            const children = new Collection<ListDropdownButtonDefinition>();
-            for (const action of group.actions) {
-                const definition: ListDropdownButtonDefinition = {
-                    type: "button",
-                    model: new ViewModel({
-                        _quickAction: action,
-                        label: action.label,
-                        withText: true
-                    })
-                };
-                if (action.requiresContent !== false) {
-                    definition.model.bind("isEnabled").to(this, "hasContext");
-                }
-                children.add(definition);
-            }
-            items.add({ type: "group", label: group.label, items: children });
-        }
-        addListToDropdown(dropdown, items);
-
-        dropdown.on("execute", (evt) => {
-            this.fire<AiQuickActionEvent>("quickAction", (evt.source as unknown as { _quickAction: AiQuickAction })._quickAction);
-        });
-
-        return dropdown;
     }
 
     /** One half of the Result/Changes toggle, visible only when a review has a diff to offer. */
