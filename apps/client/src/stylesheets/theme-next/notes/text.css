@@ -202,6 +202,15 @@ body.background-effects .ck.ck-balloon-panel.ck-dropdown-menu__nested-menu__pane
     min-width: 10em;
 }
 
+/* Menu list item, in a menu with submenus */
+:root .ck.ck-dropdown-menu-list {
+    --ck-color-button-default-hover-background: var(--hover-item-background-color);
+    --ck-color-list-button-hover-background: var(--hover-item-background-color);
+    --ck-color-list-button-on-background: var(--hover-item-background-color);
+    --ck-color-list-button-on-background-focus: var(--hover-item-background-color);
+    --ck-color-list-button-on-text: var(--hover-item-text-color);
+}
+
 /* Item with icon */
 :root .ck.ck-button_with-text svg:first-child {
     color: var(--menu-item-icon-color);
