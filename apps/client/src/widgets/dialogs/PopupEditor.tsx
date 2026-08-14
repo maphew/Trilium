@@ -92,6 +92,18 @@ export default function PopupEditor() {
         document.body.classList.toggle("popup-editor-stacked", shown && stacked);
     }, [shown, stacked]);
 
+    // A CKEditor dialog — the AI assistant — stacks at `--ck-z-dialog` (9999), far above the 999
+    // this popup is deliberately held at so the editor's own panels can float over it. One already
+    // open belongs to the editor behind and has to give way; one opened later belongs to the editor
+    // *in* the popup and has to stay above it. Both are appended to `<body>`, so no selector tells
+    // them apart — but the one to demote is exactly the one standing when the popup opens.
+    useEffect(() => {
+        if (!shown) return;
+        const openDialog = document.querySelector(".ck-dialog-overlay");
+        openDialog?.classList.add("ck-dialog-behind-popup-editor");
+        return () => openDialog?.classList.remove("ck-dialog-behind-popup-editor");
+    }, [shown]);
+
     // When stacked on top of another modal, raise this popup's own backdrop above
     // the underlying modal. Bootstrap does not auto-increment z-index for stacked
     // modals, and the appended `.modal-backdrop` is not individually addressable.
