@@ -2148,7 +2148,9 @@
     "consistency-checks-failed": "一致性检查失败！请查看日志了解详细信息。",
     "encountered-error": "遇到错误 \"{{message}}\"，请查看控制台。",
     "lost-websocket-connection-title": "与服务器的连线中断",
-    "lost-websocket-connection-message": "检查你的反向代理（如 nginx 或 Apache）设置以确保 Websocket 连线没有被阻挡。"
+    "lost-websocket-connection-message": "检查你的反向代理（如 nginx 或 Apache）设置以确保 Websocket 连线没有被阻挡。",
+    "sync-hash-check-failed-title": "同步已停止",
+    "sync-hash-check-failed": "此数据库与同步服务器持有的数据无法通过重新同步来调和（{{- sectors}}）。\n\n在解决此问题之前，同步将持续失败。详情请查看日志。"
   },
   "hoisted_note": {
     "confirm_unhoisting": "请求的笔记 '{{requestedNote}}' 位于聚焦的笔记 '{{hoistedNote}}' 的子树之外，你必须取消聚焦才能访问该笔记。是否继续取消聚焦？"
@@ -3047,10 +3049,12 @@
     "mcp_config_token_placeholder": "你的-etapi-令牌",
     "mcp_config_cli_description": "Claude Code 也可以通过命令行配置：",
     "mcp_config_warning": "令牌拥有对你所有笔记的完全读写权限，请像对待密码一样对待它。如果从其他设备连接，请优先使用 HTTPS — 通过明文 HTTP 发送的令牌可能被截获。",
-    "provider_unavailable_standalone": "浏览器版不可用：此提供商通过将 Claude Code 作为独立程序运行来工作，但此处没有可供其运行的机器。",
+    "provider_unavailable_standalone": "浏览器版不可用：此提供商通过运行机器上的独立程序来工作，但此处没有可供其运行的机器。",
     "mcp_unavailable_standalone": "浏览器版不可用：助手需通过网络连接 Trilium，但此版本没有可提供给它们的地址，因为它完全在页面内运行。",
     "enabled": "AI 功能",
-    "enabled_description": "添加 AI 聊天侧边栏和 LLM 聊天笔记，使用下方配置的提供商。"
+    "enabled_description": "添加 AI 聊天侧边栏和 LLM 聊天笔记，使用下方配置的提供商。",
+    "provider_desc_copilot_agent": "需要在运行 Trilium 的机器上安装 GitHub Copilot CLI。",
+    "copilot_agent_description": "通过 GitHub Copilot CLI 使用你的 GitHub Copilot 订阅，因此无需 API 密钥。Copilot CLI 必须安装在运行 Trilium 的机器上（自托管时为服务器，桌面版为本机）；在该机器上运行「copilot login」登录一次即可——来自其他编辑器的现有 Copilot 登录会被自动复用。"
   },
   "revisions": {
     "note_revisions": "笔记修订",
@@ -3493,7 +3497,9 @@
       "to-do-list": "待办列表",
       "turn-the-current-block-into-a-heading": "将当前块转换为标题。",
       "turn-the-current-block-into-a-paragraph": "将当前块转换为段落。",
-      "warning": "警告"
+      "warning": "警告",
+      "the-file-is-too-large-to-be-uploaded-http-413-if-trilium-is-behind-a-reverse-proxy-raise-its-request-body-size-limit": "文件过大，无法上传（HTTP 413）。如果 Trilium 位于反向代理之后，请提高其请求体大小限制。",
+      "the-server-responded-with-http-0": "服务器返回了 HTTP %0。"
     },
     "toolbar-groups": {
       "text-formatting": "文本格式",
