@@ -35,7 +35,7 @@
 
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     gap: var(--ck-spacing-small);
 }
 
@@ -44,8 +44,9 @@
     overflow-y: auto;
 }
 
-.ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row .ck-labeled-field-view {
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row .ck-input {
     flex-grow: 1;
+    min-width: 0;
 }
 
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__preview {

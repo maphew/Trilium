@@ -1,16 +1,14 @@
-import { IconRefresh } from "@ckeditor/ckeditor5-icons";
+import { IconArrowUp, IconRefresh } from "@ckeditor/ckeditor5-icons";
 import {
     ButtonView,
-    createLabeledInputText,
     FocusCycler,
     FocusTracker,
+    InputTextView,
     KeystrokeHandler,
-    LabeledFieldView,
     submitHandler,
     View,
     ViewCollection,
     type FocusableView,
-    type InputTextView,
     type Locale
 } from "ckeditor5";
 
@@ -50,7 +48,7 @@ export default class AiAssistantFormView extends View {
     /** The (sanitized) diff HTML of the review phase, when the host provided one. */
     private _diffHtml = "";
 
-    public readonly promptInputView: LabeledFieldView<InputTextView>;
+    public readonly promptInputView: InputTextView;
     public readonly sendButtonView: ButtonView;
     public readonly resultToggleView: ButtonView;
     public readonly changesToggleView: ButtonView;
@@ -96,7 +94,7 @@ export default class AiAssistantFormView extends View {
         // is about the response on screen, not about what to do with it.
         this.tryAgainButtonView = this._createActionButton(locale, t("Try again"), "review", "tryAgain");
         this.tryAgainButtonView.set({ icon: IconRefresh, withText: false, tooltip: true });
-        this.tryAgainButtonView.class = "ck-ai-assistant-form__try-again";
+        this.tryAgainButtonView.class = "ck-ai-assistant-form__try-again ck-ai-assistant-form__icon-action";
 
         const bind = this.bindTemplate;
 
@@ -283,16 +281,25 @@ export default class AiAssistantFormView extends View {
     }
 
     private _createPromptInput(locale: Locale) {
-        const input = new LabeledFieldView(locale, createLabeledInputText);
-        input.label = locale.t("Ask AI to…");
+        const t = locale.t;
+        const input = new InputTextView(locale);
+
+        input.set({
+            placeholder: t("Describe a change then press Enter"),
+            // A placeholder is not a label, and the field no longer has a visible one, so the
+            // accessible name has to be given outright.
+            ariaLabel: t("Ask AI to…")
+        });
 
         // Two-way: the field drives `query`, and reset() drives the field.
-        input.fieldView.bind("value").to(this, "query");
-        input.fieldView.on("input", () => {
+        input.bind("value").to(this, "query");
+        input.on("input", () => {
             /* v8 ignore next -- the input event can only come from a rendered element */
-            this.query = input.fieldView.element?.value ?? "";
+            this.query = input.element?.value ?? "";
         });
-        input.bind("isEnabled").to(this, "phase", (phase) => phase !== "streaming");
+        // An input has no `isEnabled`; read-only rather than disabled also leaves the prompt
+        // selectable while the response it asked for streams in.
+        input.bind("isReadOnly").to(this, "phase", (phase) => phase === "streaming");
 
         return input;
     }
@@ -301,9 +308,10 @@ export default class AiAssistantFormView extends View {
         const button = new ButtonView(locale);
         button.set({
             label: locale.t("Send"),
-            withText: true,
+            icon: IconArrowUp,
+            tooltip: true,
             type: "submit",
-            class: "ck-button-action ck-button-bold"
+            class: "ck-button-action ck-ai-assistant-form__icon-action"
         });
         button.bind("isEnabled").to(
             this, "query",

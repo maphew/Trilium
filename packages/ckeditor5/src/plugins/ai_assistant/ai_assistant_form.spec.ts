@@ -82,6 +82,30 @@ describe("AiAssistantFormView", () => {
         expect(form.tryAgainButtonView.isVisible).toBe(true);
     });
 
+    it("takes the prompt through a placeholder rather than a label, and sends with an icon", () => {
+        const form = makeForm();
+
+        expect(form.promptInputView.placeholder).toBe("Describe a change then press Enter");
+        // A placeholder is not an accessible name, so the field carries one of its own.
+        expect(form.promptInputView.ariaLabel).toBe("Ask AI to…");
+        expect(form.element?.querySelector("label")).toBeNull();
+
+        expect(form.sendButtonView.icon).toContain("<svg");
+        expect(form.sendButtonView.withText).toBeFalsy();
+        expect(form.sendButtonView.label).toBe("Send");
+        expect(form.sendButtonView.tooltip).toBe(true);
+
+        // Nothing to send until something is typed, and nothing to send while a run is in flight —
+        // where the field goes read-only rather than disabled, so the prompt stays selectable.
+        expect(form.sendButtonView.isEnabled).toBe(false);
+        form.query = "make it shorter";
+        expect(form.sendButtonView.isEnabled).toBe(true);
+
+        form.beginStreaming();
+        expect(form.sendButtonView.isEnabled).toBe(false);
+        expect(form.promptInputView.isReadOnly).toBe(true);
+    });
+
     it("offers 'Try again' as an icon in the preview's strip rather than among the commit actions", () => {
         const form = makeForm();
         const button = form.tryAgainButtonView;
