@@ -153,17 +153,25 @@ function readProviderConfigs(): StoredProviderConfig[] {
 }
 
 /**
- * The provider/model the assistant uses: the first configured provider's default model (or its
- * first model). The same resolution the LLM chat starts out with — a per-run model picker in the
- * balloon can come later.
+ * The provider/model the assistant uses: the first configured provider that has a model selected,
+ * preferring its default. The same resolution the LLM chat starts out with — a per-run model
+ * picker in the balloon can come later.
+ *
+ * The provider is always named, even when no model can be: the server falls back to
+ * `getProviderByType("anthropic")` for a request that names none (`runChat` in
+ * `packages/trilium-core/src/services/llm/chat.ts`), which would fail outright for an
+ * OpenAI-only setup and silently use the wrong provider for a mixed one. Naming the provider
+ * without a model instead lets the server resolve that provider's own default.
  */
 function pickDefaultModel(): LlmChatConfig {
-    for (const config of readProviderConfigs()) {
+    const configs = readProviderConfigs();
+    for (const config of configs) {
         const model = config.selectedModels?.find((m) => m.isDefault) ?? config.selectedModels?.[0];
         if (model) {
             return { model: model.id, provider: config.provider, providerId: config.id };
         }
     }
-    // No selected models anywhere: let the server resolve the provider's own default.
-    return {};
+
+    const [first] = configs;
+    return first ? { provider: first.provider, providerId: first.id } : {};
 }
