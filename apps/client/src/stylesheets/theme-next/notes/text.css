@@ -138,6 +138,24 @@
     --ck-editor-popup-padding: var(--menu-padding-size);
 }
 
+/* Submenu panel */
+:root .ck.ck-balloon-panel.ck-dropdown-menu__nested-menu__panel {
+    --ck-editor-popup-padding: var(--menu-padding-size);
+
+    backdrop-filter: var(--dropdown-backdrop-filter);
+}
+
+body.background-effects .ck.ck-balloon-panel.ck-dropdown-menu__nested-menu__panel {
+    --menu-background-color: var(--menu-background-color-no-backdrop);
+
+    backdrop-filter: none;
+}
+
+/* Submenu arrow */
+:root .ck.ck-button.ck-dropdown-menu-list__nested-menu__button > .ck-dropdown-menu-list__nested-menu__button__arrow {
+    color: var(--menu-item-arrow-color);
+}
+
 /* Dropdown panel containing a toolbar */
 :root .ck.ck-dropdown__panel:has(>.ck-toolbar) {
     --ck-editor-popup-padding: calc(var(--menu-padding-size) - var(--ck-spacing-small));
