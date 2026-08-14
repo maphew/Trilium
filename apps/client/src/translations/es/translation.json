@@ -1056,9 +1056,7 @@
     "open_all_confirm_one": "Esto abrirá {{count}} nota en una nueva pestaña. ¿Continuar?",
     "open_all_confirm_many": "Esto abrirá {{count}} notas en nuevas pestañas. ¿Continuar?",
     "open_all_confirm_other": "Esto abrirá {{count}} notas en nuevas pestañas. ¿Continuar?",
-    "open_all_too_one": "",
-    "open_all_too_many": "Demasiadas notas para abrir a la vez ({{count}}). El máximo es {{max}}; intente acotar los resultados primero.",
-    "open_all_too_other": "",
+    "open_all_limit_exceeded": "Demasiadas notas para abrir a la vez ({{count}}). El máximo es {{max}}; intente acotar los resultados primero.",
     "dashboard": "Panel"
   },
   "edited_notes": {

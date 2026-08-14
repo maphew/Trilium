@@ -1173,9 +1173,7 @@
     "open_all_confirm_one": "Isso abrirá {{count}} nota em novas abas. Continuar?",
     "open_all_confirm_many": "",
     "open_all_confirm_other": "Isso abrirá {{count}} notas em novas abas. Continuar?",
-    "open_all_too_one": "",
-    "open_all_too_many": "Notas demais para abrir de uma vez ({{count}}). O máximo é {{max}}, tente estreitar os resultados primeiro.",
-    "open_all_too_other": ""
+    "open_all_limit_exceeded": "Notas demais para abrir de uma vez ({{count}}). O máximo é {{max}}, tente estreitar os resultados primeiro."
   },
   "edited_notes": {
     "no_edited_notes_found": "Ainda não há nenhuma nota editada neste dia…",

@@ -1084,9 +1084,7 @@
     "open_all_confirm_one": "Это откроет заметки ({{count}}) в новых вкладках. Продолжить?",
     "open_all_confirm_few": "",
     "open_all_confirm_many": "",
-    "open_all_too_one": "Слишком много результатов ({{count}}). Максимум — {{max}}.",
-    "open_all_too_few": "Слишком много результатов ({{count}}). Максимум — {{max}}.",
-    "open_all_too_many": "Слишком много результатов ({{count}}). Максимум — {{max}}."
+    "open_all_limit_exceeded": "Слишком много результатов ({{count}}). Максимум — {{max}}."
   },
   "edited_notes": {
     "deleted": "(удалено)",

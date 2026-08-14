@@ -403,13 +403,7 @@
     "open_all_confirm_many": "",
     "open_all_confirm_other": "",
     "expand_tooltip": "يوسّع العناصر الفرعية المباشرة لهذه المجموعة (مستوى واحد فقط). لمزيد من الخيارات، اضغط السهم الموجود على اليمين.",
-    "open_all_in_tabs_tooltip": "فتح جميع النتائج في علامات تبويب جديدة",
-    "open_all_too_zero": "book_properties.open_all_too",
-    "open_all_too_one": "book_properties.open_all_too",
-    "open_all_too_two": "book_properties.open_all_too",
-    "open_all_too_few": "book_properties.open_all_too",
-    "open_all_too_many": "book_properties.open_all_too",
-    "open_all_too_other": "book_properties.open_all_too"
+    "open_all_in_tabs_tooltip": "فتح جميع النتائج في علامات تبويب جديدة"
   },
   "file_properties": {
     "download": "تنزيل",
