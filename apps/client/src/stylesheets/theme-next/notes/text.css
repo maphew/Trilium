@@ -2,11 +2,6 @@
  * CKEDITOR
  */
 
- :root {
-    --ck-font-face: var(--main-font-family);
-    --ck-input-label-height: 1.5em;
- }
-
 /*
  * Toolbar
  */
@@ -468,7 +463,7 @@ div.ck-template-form .ck-template-form__text-part {
 
 div.ck-template-form .ck-template-form__text-part mark {
     --ck-color-highlight-background: transparent;
-    
+
     color: var(--quick-search-result-highlight-color);
     text-decoration: underline;
     font-weight: bold;

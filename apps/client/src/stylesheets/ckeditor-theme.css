@@ -108,6 +108,9 @@ body {
 
     --ck-color-widget-type-around-button: var(--main-border-color);
     --ck-color-widget-type-around-button-hover: var(--main-border-color);
+
+    --ck-font-face: var(--main-font-family);
+    --ck-input-label-height: 1.5em;
 }
 
 /* -- Overrides the default .ck-dialog class to match Trilium's modals. --------------------- */
