@@ -48,7 +48,8 @@
     "scripting-error": "Die Skriptnotiz konnte nicht ausgeführt werden",
     "unhandled-error": {
       "details-button": "Weitere Details anzeigen...",
-      "title": "Eine Hintergrundaufgabe ist fehlgeschlagen"
+      "title": "Ein Hintergrundprozess ist fehlgeschlagen",
+      "details-title": "Technische Informationen"
     }
   },
   "add_link": {
@@ -391,7 +392,7 @@
     "more_notes": "Weitere Notizen",
     "label": "Labeldetail",
     "relation": "Relationsdetails",
-    "disable_versioning": "deaktiviert die automatische Versionierung. Nützlich für z. B. große, aber unwichtige Notizen – z. B. große JS-Bibliotheken, die für die Skripterstellung verwendet werden",
+    "disable_versioning": "Deaktiviert die automatische Versionierung. Nützlich für z. B. große, aber unwichtige Notizen – z. B. große JS-Bibliotheken, die für die Skripterstellung verwendet werden",
     "calendar_root": "Markiert eine Notiz, die als Basis für Tagesnotizen verwendet werden soll. Nur einer sollte als solcher gekennzeichnet sein.",
     "archived": "Notizen mit diesem Label werden standardmäßig nicht in den Suchergebnissen angezeigt (auch nicht in den Dialogen „Springen zu“, „Link hinzufügen“ usw.).",
     "exclude_from_export": "Notizen (mit ihrem Unterbaum) werden nicht im Notizexport inkludiert",
@@ -475,7 +476,11 @@
     "color_type": "Farbe",
     "textarea": "Mehrzeilen-Text",
     "print_scale": "Beim Exportieren als PDF wird der Maßstab des gerenderten Inhalts geändert. Die Werte reichen von 0,1 (10 %) bis 2 (200 %), der Standardwert ist 1 (100 %).",
-    "print_margins": "Beim Exportieren als PDF werden die Seitenränder festgelegt. Verwenden Sie <code>default</code>, <code>none</code>, <code>minimum</code> oder benutzerdefinierte Werte als <code>oben,rechts,unten,links</code> in Millimetern."
+    "print_margins": "Beim Exportieren als PDF werden die Seitenränder festgelegt. Verwenden Sie <code>default</code>, <code>none</code>, <code>minimum</code> oder benutzerdefinierte Werte als <code>oben,rechts,unten,links</code> in Millimetern.",
+    "email": "Email",
+    "phone": "Telefon",
+    "select_type": "Auswählen",
+    "select_options": "Optionen"
   },
   "attribute_editor": {
     "help_text_body1": "Um ein Label hinzuzufügen, geben Sie einfach z. B. <code>#rock</code> ein, oder wenn Sie auch einen Wert hinzufügen möchten, dann z. B. <code>#year = 2020</code>",
@@ -651,7 +656,18 @@
     "day_previous": "Vorheriger Tag",
     "day_next": "Nächster Tag",
     "pin_date": "Aktuelles Datum anheften, damit sich der Kalender immer in diesem Zeitraum statt bei heute öffnet",
-    "unpin_date": "Datum lösen, damit sich der Kalender wieder beim heutigen Datum öffnet"
+    "unpin_date": "Datum lösen, damit sich der Kalender wieder beim heutigen Datum öffnet",
+    "recurrence": {
+      "repeats": "Wiederholungen",
+      "frequency": "Häufigkeit",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "monthly": "Monatlich",
+      "yearly": "Jährlich",
+      "unit_years": "Jahre",
+      "never": "Niemals",
+      "custom_rule": "Regel"
+    }
   },
   "close_pane_button": {
     "close_this_pane": "Diesen Bereich schließen"
@@ -3053,7 +3069,9 @@
     "device_open_page": "Anmeldeseite öffnen",
     "device_cancel": "Anmeldung abbrechen",
     "import_count_one": "{{count}} Abschnitt importieren",
-    "import_count_other": "{{count}} Abschnitte importieren"
+    "import_count_other": "{{count}} Abschnitte importieren",
+    "refresh": "Aktualisieren",
+    "load_retry": "Erneut versuchen"
   },
   "full_content_width_switch": {
     "title": "Volle Breite"
