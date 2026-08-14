@@ -13,13 +13,14 @@ interface MenuButtonView {
     id: string;
     label?: string;
     isEnabled: boolean;
+    element?: HTMLElement | null;
     fire(event: string): void;
 }
 
 /** A submenu entry: a group that opens rather than listing its actions inline. */
 interface NestedMenuView {
     id: string;
-    buttonView: { label?: string };
+    buttonView: { label?: string; element?: HTMLElement | null };
     listView: { items: Array<{ childView: MenuButtonView }> };
 }
 
@@ -54,8 +55,9 @@ const QUICK_ACTIONS: AiQuickActionGroup[] = [
         id: "tone",
         label: "Change tone",
         submenu: true,
+        iconClass: "bx bx-palette",
         actions: [
-            { id: "direct", label: "Direct", prompt: "Make it direct." },
+            { id: "direct", label: "Direct", commandLabel: "Make it direct", prompt: "Make it direct.", iconClass: "bx bx-target-lock" },
             { id: "friendly", label: "Friendly", prompt: "Make it friendly." }
         ]
     }
@@ -109,6 +111,11 @@ function menuEntries(dropdown: QuickActionsDropdown): Array<string | { menu: str
 /** Every action button, submenus included, in definition order. */
 function quickActionButtons(dropdown: QuickActionsDropdown): MenuButtonView[] {
     return openMenu(dropdown).buttons;
+}
+
+/** What the dialog's header currently reads. */
+function dialogTitle(editor: ClassicEditor) {
+    return editor.plugins.get(Dialog).view?.headerView?.label;
 }
 
 /** The form the assistant put into the dialog, once it is open. */
@@ -166,6 +173,25 @@ describe("AiAssistantUI toolbar entry", () => {
                 "Write something",
                 { menu: "Change tone", actions: ["Direct", "Friendly"] }
             ]);
+        });
+
+        // The menu definition has no icon field, so the glyphs are hung on the views CKEditor
+        // built — on an item inside a submenu as much as on an inlined one.
+        it("renders an icon-pack glyph for the actions and submenus that have one", () => {
+            const direct = quickActionButtons(dropdown).find((button) => button.id === "direct");
+            expect(direct?.element?.querySelector(".ck-ai-action-icon")?.className)
+                .toBe("ck-ai-action-icon bx bx-target-lock");
+
+            const [tone] = openMenu(dropdown).items
+                .map(({ childView }) => childView)
+                .filter((childView): childView is NestedMenuView => "listView" in childView);
+            expect(tone.buttonView.element?.querySelector(".ck-ai-action-icon")?.className)
+                .toBe("ck-ai-action-icon bx bx-palette");
+        });
+
+        it("leaves an action without an icon alone", () => {
+            const friendly = quickActionButtons(dropdown).find((button) => button.id === "friendly");
+            expect(friendly?.element?.querySelector(".ck-ai-action-icon")).toBeNull();
         });
 
         it("gates the content-requiring actions on there being something to work on", () => {
@@ -232,6 +258,28 @@ describe("AiAssistantUI toolbar entry", () => {
             const dialog = editor.plugins.get(Dialog);
             expect(dialog.isOpen).toBe(true);
             expect(dialog.id).toBe("aiAssistant");
+        });
+
+        it("titles the dialog with the action it is running, as the palette names it", async () => {
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            const [fixTypos, , , direct] = quickActionButtons(dropdown);
+
+            fixTypos.fire("execute");
+            await vi.waitFor(() => expect(requests).toHaveLength(1));
+            expect(dialogTitle(editor)).toBe("Fix typos");
+
+            // A submenu's label can be a fragment ("Direct"), so an action may carry a standalone
+            // phrasing for the places that show it away from its group.
+            direct.fire("execute");
+            await vi.waitFor(() => expect(requests).toHaveLength(2));
+            expect(dialogTitle(editor)).toBe("Make it direct");
+
+            // A typed follow-up is no longer that action.
+            const form = openForm(editor);
+            form.query = "now make it shorter";
+            form.fire("submit");
+            await vi.waitFor(() => expect(requests).toHaveLength(3));
+            expect(dialogTitle(editor)).toBe("AI assistant");
         });
 
         it("closes itself off while a run is in flight", async () => {

@@ -125,3 +125,11 @@
 .ck-content .ck-ai-assistant-target {
     background: rgba(148, 112, 219, 0.22);
 }
+
+/* Not scoped to the dropdown: a submenu's panel is appended to the editor's body collection, so it
+   is not inside the toolbar entry's element. */
+.ck.ck-button > .ck-ai-action-icon {
+    margin-inline-end: var(--ck-spacing-medium);
+    font-size: 1.1em;
+    line-height: 1;
+}

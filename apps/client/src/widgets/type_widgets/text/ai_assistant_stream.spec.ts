@@ -295,6 +295,26 @@ describe("buildAiAssistantQuickActions", () => {
             .toEqual(["edit", "generate"]);
     });
 
+    // A new action reaching the menu without an icon should fail here rather than ship a gap in
+    // the column. Two exemptions, both pinned so they read as decisions: an inlined group has no
+    // heading to put an icon on, and the languages share a panel with nothing that has one.
+    it("gives every action, and every submenu, an icon from the pack", () => {
+        for (const group of buildAiAssistantQuickActions()) {
+            if (group.submenu) {
+                expect(group.iconClass, group.id).toMatch(/^bx bx-[a-z-]+$/);
+            } else {
+                expect(group.iconClass, group.id).toBeUndefined();
+            }
+            for (const action of group.actions) {
+                if (group.id === "translate") {
+                    expect(action.iconClass, action.id).toBeUndefined();
+                } else {
+                    expect(action.iconClass, action.id).toMatch(/^bx bx-[a-z-]+$/);
+                }
+            }
+        }
+    });
+
     it("leaves the labels that already read as commands alone", () => {
         for (const action of [ ...actions("edit"), ...actions("generate") ]) {
             expect(action.commandLabel).toBeUndefined();

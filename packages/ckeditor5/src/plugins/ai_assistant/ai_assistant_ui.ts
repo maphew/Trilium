@@ -7,6 +7,7 @@ import {
     DialogViewPosition,
     Plugin,
     SplitButtonView,
+    View,
     type DropdownMenuDefinition,
     type DropdownMenuListItemButtonView,
     type DropdownView,
@@ -150,8 +151,10 @@ export default class AiAssistantUI extends Plugin {
         // The menu carries only ids and labels, so the action each button stands for is looked up
         // on execute rather than carried by the view.
         const actionsById = new Map<string, AiQuickAction>();
+        const groupsById = new Map<string, AiQuickActionGroup>();
         const definition: DropdownMenuDefinition = [];
         for (const group of groups) {
+            groupsById.set(group.id, group);
             const children = group.actions.map((action) => {
                 actionsById.set(action.id, action);
                 return { id: action.id, label: action.label };
@@ -171,15 +174,20 @@ export default class AiAssistantUI extends Plugin {
         // open (through its own `change:isOpen` listener, registered at `highest` priority — so it
         // has already run by the time this one does). There are no buttons to bind before that,
         // and they are built exactly once, so this unsubscribes itself.
-        const bindAvailability = () => {
+        const decorateMenu = () => {
             for (const button of dropdownView.menuView?.buttons ?? []) {
-                if (actionsById.get(button.id)?.requiresContent !== false) {
+                const action = actionsById.get(button.id);
+                if (action?.requiresContent !== false) {
                     button.bind("isEnabled").to(this, "hasContext");
                 }
+                addIcon(button, action?.iconClass);
             }
-            this.stopListening(dropdownView, "change:isOpen", bindAvailability);
+            for (const menu of dropdownView.menuView?.menus ?? []) {
+                addIcon(menu.buttonView, groupsById.get(menu.id)?.iconClass);
+            }
+            this.stopListening(dropdownView, "change:isOpen", decorateMenu);
         };
-        this.listenTo(dropdownView, "change:isOpen", bindAvailability);
+        this.listenTo(dropdownView, "change:isOpen", decorateMenu);
 
         // Only the menu items reach this: a split button delegates its own `execute` to itself,
         // and its arrow to the dropdown's `open`. An item inside a submenu arrives here too — it
@@ -212,7 +220,9 @@ export default class AiAssistantUI extends Plugin {
      * entry points to the quick actions — the toolbar menu and the `/` palette — come in this way.
      */
     public runQuickAction(action: AiQuickAction): void {
-        this._open(true);
+        // Titled the way the `/` palette names the action: a bare label can be a fragment
+        // ("Romanian") that only reads as an instruction beside its group heading.
+        this._open(true, action.commandLabel ?? action.label);
         void this._run(action.prompt);
     }
 
@@ -221,13 +231,17 @@ export default class AiAssistantUI extends Plugin {
      *                        instruction *about* content ("Fix typos"), so it needs something to
      *                        work on, while a free-form prompt typed at a collapsed caret
      *                        legitimately means "generate here" and must keep an empty context.
+     * @param title names the run in the dialog's header, for a quick action. Defaults to the
+     *              feature's own name, which is all a free-form prompt can be called.
      */
-    private _open(fallbackToBlock: boolean): void {
+    private _open(fallbackToBlock: boolean, title?: string): void {
         const editor = this.editor;
         const dialog = editor.plugins.get(Dialog);
         const form = this._getForm();
+        const heading = title ?? editor.t("AI assistant");
 
         if (dialog.id === DIALOG_ID) {
+            this._setTitle(heading);
             form.focus();
             return;
         }
@@ -255,7 +269,7 @@ export default class AiAssistantUI extends Plugin {
             id: DIALOG_ID,
             // A header is what makes the dialog draggable, so the user can move it off the text
             // being rewritten.
-            title: editor.t("AI assistant"),
+            title: heading,
             icon: aiIcon,
             isModal: false,
             position: DialogViewPosition.EDITOR_CENTER,
@@ -265,6 +279,21 @@ export default class AiAssistantUI extends Plugin {
             onHide: () => this._reset()
         });
         form.focus();
+    }
+
+    /**
+     * Retitles the dialog while it stands. `show()` takes the title only once, so a quick action
+     * picked over an already-open assistant has to write to the header itself — and to the aria
+     * label, which the dialog otherwise derives from the same string.
+     */
+    private _setTitle(title: string): void {
+        const view = this.editor.plugins.get(Dialog).view;
+        /* v8 ignore next -- every call site has just established that the dialog is open */
+        if (!view?.headerView) {
+            return;
+        }
+        view.headerView.label = title;
+        view.ariaLabel = title;
     }
 
     private _getForm(): AiAssistantFormView {
@@ -280,6 +309,9 @@ export default class AiAssistantUI extends Plugin {
             const query = form.query.trim();
             if (query) {
                 form.query = "";
+                // A typed follow-up is no longer the quick action that opened the assistant, so
+                // the header stops claiming to be one.
+                this._setTitle(editor.t("AI assistant"));
                 void this._run(query);
             }
         });
@@ -530,6 +562,34 @@ export default class AiAssistantUI extends Plugin {
         const block = selection.getFirstPosition()?.parent;
         /* v8 ignore next -- a collapsed selection always sits inside an element */
         return block?.is("element") ? model.createRangeIn(block) : range;
+    }
+}
+
+/**
+ * Puts a font icon in front of a menu button's label. The menu definition has no icon field and
+ * CKEditor builds these views itself, so the glyph is added to the button's children afterwards —
+ * the same after-render mutation the snippet list does, and safe because a `ViewCollection` bound
+ * to a rendered element renders whatever is added to it.
+ */
+function addIcon(button: ButtonView, iconClass: string | undefined): void {
+    if (iconClass) {
+        button.children.add(new FontIconView(button.locale, iconClass), 0);
+    }
+}
+
+/**
+ * An icon-pack glyph as a plain `<span>`. CKEditor's `IconView` takes SVG source, which a font
+ * icon has none of; Trilium owns this plugin, so the class list can be rendered directly.
+ */
+class FontIconView extends View {
+
+    constructor(locale: Locale | undefined, iconClass: string) {
+        super(locale);
+
+        this.setTemplate({
+            tag: "span",
+            attributes: { class: ["ck-ai-action-icon", ...iconClass.split(" ")] }
+        });
     }
 }
 

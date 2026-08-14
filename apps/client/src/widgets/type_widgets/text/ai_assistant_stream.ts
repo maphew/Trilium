@@ -81,7 +81,7 @@ export default function buildAiAssistantStream(): AiStreamFunction | undefined {
  * given); prompts stay English — they are instructions to the model, not UI.
  */
 export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
-    return [
+    return withIcons([
         {
             id: "edit",
             label: t("ai_assistant.group_edit"),
@@ -176,7 +176,67 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
                 translateAction("translateChinese", t("ai_assistant.lang_chinese"), "Translate the content to Simplified Chinese.")
             ]
         }
-    ];
+    ]);
+}
+
+/**
+ * The Boxicon each action and submenu shows in the menu — the icon pack the rest of the app draws
+ * from, so no SVG is involved (the editor plugin renders the classes on a `<span>`, the same way
+ * the template list renders a note's icon).
+ *
+ * Kept as one table keyed by id rather than threaded through the label helpers: those are about how
+ * a label reads as a command, and one list is easier to keep complete than twenty-odd call sites.
+ * The inlined groups are absent on purpose — without a heading there is nothing to put an icon on.
+ */
+const ICONS: Record<string, string> = {
+    // Submenus.
+    adjust: "bx bx-ruler",
+    tone: "bx bx-palette",
+    reformat: "bx bx-shape-square",
+    translate: "bx bx-globe",
+
+    // Edit or review.
+    fixTypos: "bx bx-check-double",
+    improveWriting: "bx bx-brush",
+
+    // Generate.
+    summarize: "bx bx-align-left",
+    explain: "bx bx-bulb",
+    continue: "bx bx-fast-forward",
+
+    // Adjust.
+    makeShorter: "bx bx-collapse-vertical",
+    makeLonger: "bx bx-expand-vertical",
+    simplify: "bx bx-leaf",
+
+    // Change tone.
+    professional: "bx bx-briefcase",
+    casual: "bx bx-coffee",
+    direct: "bx bx-target-lock",
+    friendly: "bx bx-smile",
+    confident: "bx bx-medal",
+
+    // Reformat.
+    bulletList: "bx bx-list-ul",
+    table: "bx bx-table",
+    diagram: "bx bx-network-chart",
+    callout: "bx bx-info-circle",
+    collapsible: "bx bx-chevrons-down",
+    actionItems: "bx bx-task"
+
+    // The languages are deliberately absent. The pack has no flags and nothing else tells German
+    // from French, so the choice was one repeated glyph or none. `bx-empty` — Trilium's slot
+    // reserver — is for an item sitting next to items that *do* have icons; the Translate submenu
+    // is its own panel holding nothing but languages, so there is nothing to line up against.
+};
+
+/** Hangs {@link ICONS} on the definitions by id, leaving the ids that have none untouched. */
+function withIcons(groups: AiQuickActionGroup[]): AiQuickActionGroup[] {
+    return groups.map((group) => ({
+        ...group,
+        iconClass: ICONS[group.id],
+        actions: group.actions.map((action) => ({ ...action, iconClass: ICONS[action.id] }))
+    }));
 }
 
 /** Shorthand for a quick-action entry; all defaults require content to work on. */

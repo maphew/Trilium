@@ -75,6 +75,13 @@ export interface AiQuickAction {
     /** The instruction sent to the model in place of a typed query. */
     prompt: string;
     /**
+     * The action's icon, as a Boxicon class list (e.g. `"bx bx-check-double"`). Rendered directly
+     * as a font-icon `<span>`, the same way {@link SnippetDefinition.iconClass} is: Trilium owns
+     * this plugin, so there is no need to wrap the glyph in an SVG to satisfy CKEditor's generic
+     * `IconView`.
+     */
+    iconClass?: string;
+    /**
      * Whether the action needs content to work on. Actions that do (the default) are disabled
      * while there is nothing selected and nothing has been generated yet.
      */
@@ -97,6 +104,8 @@ export interface AiQuickActionGroup {
     /** The group heading, already translated by the host. */
     label: string;
     actions: AiQuickAction[];
+    /** The group's icon, as a Boxicon class list. Only shown when the group is a {@link submenu}. */
+    iconClass?: string;
     /**
      * Whether the group opens as a submenu instead of having its actions listed directly in the
      * menu. Use it for the long groups whose actions only read as commands under their heading —
