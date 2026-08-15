@@ -18,7 +18,9 @@ import HtmlDiff from "htmldiff-js";
  * against each other; only a pair that is still the same block — a container of the same kind, and
  * enough words in common — is handed to the word differ, and only what the two containers hold is.
  * A pair that is not is shown as what it is: the old block struck through, the response's block
- * after it. A block with no counterpart is a plain insertion or deletion.
+ * after it. A block with no counterpart is a plain insertion or deletion. The word differ is held
+ * to that same standard afterwards: a pair whose diff comes back marked end to end (see
+ * {@link markedRatio}) is shredded too, and is shown as the replacement it turned out to be.
  *
  * The second thing that falls out of the block pass is {@link AiDiffResult.rewriteRatio}: how much
  * of the response the alignment gave up on. The review reads it to decide whether to open on the
@@ -48,8 +50,9 @@ export default function diffAiResponse(oldHtml: string, newHtml: string): AiDiff
             const after = index < added.length ? added[index] : null;
 
             if (before && after) {
-                if (isSameBlockRewritten(before, after)) {
-                    chunks.push(diffInside(before, after));
+                const edited = isSameBlockRewritten(before, after) ? diffInside(before, after) : null;
+                if (edited) {
+                    chunks.push(edited);
                 } else {
                     chunks.push(markBlock("del", before), markBlock("ins", after));
                     rewrittenLength += after.text.length;
@@ -115,6 +118,14 @@ function isSameContent(before: Block[], after: Block[]): boolean {
  * as a replacement instead — which is what a translation or a heavy rewrite is.
  */
 const INLINE_DIFF_SIMILARITY = 0.4;
+
+/**
+ * How much of a pair's text a word-level diff may come out having marked before the pair is shown
+ * as a replacement instead. Past half of it the marks are no longer marks on a text — they are the
+ * old text and the new one interleaved a word at a time, which is the shape the block pass exists
+ * to avoid.
+ */
+const INLINE_DIFF_CHURN_LIMIT = 0.5;
 
 /** A top-level piece of a fragment: what the block pass aligns, and the unit a mark is put on. */
 interface Block {
@@ -233,7 +244,8 @@ function kindOf(block: Block): string {
 }
 
 /**
- * The word-level diff of a pair, put back inside the container the *response* gave it.
+ * The word-level diff of a pair, put back inside the container the *response* gave it, or null
+ * when the diff came out as noise and the pair is better shown as a replacement.
  *
  * Only what the blocks hold is diffed. The containers are rarely identical even when the block is
  * the same one — the captured selection may have none at all, and a rewrapped paragraph carries
@@ -241,8 +253,35 @@ function kindOf(block: Block): string {
  * tags that close in the wrong order, leaving the preview's parser to rebuild the result in
  * whatever shape it likes.
  */
-function diffInside(before: Block, after: Block): string {
-    return wrap(after, HtmlDiff.execute(before.inner, after.inner));
+function diffInside(before: Block, after: Block): string | null {
+    const diffed = HtmlDiff.execute(before.inner, after.inner);
+    return markedRatio(before, after, diffed) > INLINE_DIFF_CHURN_LIMIT ? null : wrap(after, diffed);
+}
+
+/**
+ * How much of a pair's text the word differ ended up marking, from 0 to 1.
+ *
+ * {@link similarity} only predicts this, and it predicts it over lowercased words with the
+ * punctuation dropped, because that is what makes it recognise a reworded sentence as the sentence
+ * it was. The word differ recognises none of that: change the case of a text and every word of it
+ * is a word it has never seen, so a pair the prefilter reads as near-identical comes back with a
+ * `<del>`/`<ins>` pair on each of its words — the whole text twice, alternating, which is unreadable
+ * in a way neither of the two texts is. Measuring the diff that was actually produced costs one
+ * parse and answers for every such case, so the prefilter is left to do what it is cheap at.
+ */
+function markedRatio(before: Block, after: Block, diffed: string): number {
+    const total = before.text.length + after.text.length;
+    if (!total) {
+        return 0;
+    }
+
+    const doc = new DOMParser().parseFromString(diffed, "text/html");
+    let marked = 0;
+    for (const mark of doc.body.querySelectorAll("ins, del")) {
+        marked += normalize(mark.textContent).length;
+    }
+
+    return marked / total;
 }
 
 /** Puts diffed content back inside a block's own container, attributes and all. */

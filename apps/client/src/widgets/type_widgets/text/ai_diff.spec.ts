@@ -53,6 +53,36 @@ describe("diffAiResponse", () => {
         );
     });
 
+    // The prefilter reads two casings of one sentence as the same sentence — it compares lowercased
+    // words — while the word differ recognises not one of them, so this is the pair that gets past
+    // the block pass and comes back with every word of the paragraph marked twice.
+    it("shows a recased paragraph as a replacement rather than marking every word of it", () => {
+        const { html, rewriteRatio } = diffAiResponse(
+            "<p>Age, imaginemur numeros esse quasi scalas magicas quae deorsum descendunt!</p>",
+            "<p>AGE IMAGINEMVR NVMEROS ESSE QVASI SCALAS MAGICAS QVAE DEORSVM DESCENDVNT</p>"
+        );
+
+        expect(html).toBe([
+            "<del class=\"diffdel diffblock\"><p>Age, imaginemur numeros esse quasi scalas magicas quae deorsum descendunt!</p></del>",
+            "<ins class=\"diffins diffblock\"><p>AGE IMAGINEMVR NVMEROS ESSE QVASI SCALAS MAGICAS QVAE DEORSVM DESCENDVNT</p></ins>"
+        ].join(""));
+        expect(rewriteRatio).toBe(1);
+    });
+
+    // The other side of the same measurement: a text the model recased *in places* is still the
+    // text it was, and the marks land on the words that moved.
+    it("keeps the word diff when only some of a block came out marked", () => {
+        const { html } = diffAiResponse(
+            "<p>trilium keeps a copy of the database every day.</p>",
+            "<p>Trilium keeps a copy of the database every day.</p>"
+        );
+
+        expect(html).toBe(
+            "<p><del class=\"diffmod\">trilium</del><ins class=\"diffmod\">Trilium</ins>"
+            + " keeps a copy of the database every day.</p>"
+        );
+    });
+
     it("marks an added paragraph as an addition, leaving the ratio to the rewrites", () => {
         const expanded = ORIGINAL.replace("<p>You can", "<p>The copies live next to the database file.</p><p>You can");
         const { html, rewriteRatio } = diffAiResponse(ORIGINAL, expanded);
