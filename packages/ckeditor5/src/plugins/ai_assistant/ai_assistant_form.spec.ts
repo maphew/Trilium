@@ -315,4 +315,104 @@ describe("AiAssistantFormView", () => {
         form.enterReview({ hasContent: true });
         expect(previewHtml()).toBe("");
     });
+
+    // Following the stream is only wanted while the reader is at the end of it. Someone who
+    // scrolled up to re-read something is reading, and yanking them back down loses their place.
+    it("follows the stream only while the preview is scrolled to the bottom", () => {
+        const form = makeForm();
+        const element = form.element;
+        const preview = form.previewView.element;
+        if (!element || !preview) {
+            throw new Error("the form did not render");
+        }
+
+        // Layout is what the check reads, so the form has to be on the page and the preview has to
+        // be smaller than what it holds.
+        document.body.appendChild(element);
+        preview.style.height = "20px";
+        preview.style.overflowY = "auto";
+
+        try {
+            form.beginStreaming();
+            form.setPreview("<p>line</p>".repeat(40));
+            expect(preview.scrollTop).toBeGreaterThan(0);
+
+            preview.scrollTop = 0;
+            form.setPreview("<p>line</p>".repeat(80));
+            expect(preview.scrollTop).toBe(0);
+        } finally {
+            element.remove();
+        }
+    });
+
+    // The form owns no behaviour of its own: each button says what was asked for and the plugin
+    // decides what that means.
+    it("announces each action from the button that carries it", () => {
+        const form = makeForm();
+        const fired: string[] = [];
+        for (const event of [ "tryAgain", "replace", "insertBelow", "stop" ]) {
+            form.on(event, () => fired.push(event));
+        }
+
+        form.tryAgainButtonView.fire("execute");
+        form.replaceButtonView.fire("execute");
+        form.insertBelowButtonView.fire("execute");
+        form.stopButtonView.fire("execute");
+
+        expect(fired).toEqual([ "tryAgain", "replace", "insertBelow", "stop" ]);
+    });
+
+    // Two-way: `reset()` drives the field through the binding, and typing drives `query` back.
+    it("takes what is typed in the prompt as the query", () => {
+        const form = makeForm();
+        const input = form.promptInputView.element;
+        if (!input) {
+            throw new Error("the prompt input did not render");
+        }
+
+        input.value = "make it shorter";
+        form.promptInputView.fire("input");
+
+        expect(form.query).toBe("make it shorter");
+    });
+
+    describe("the model picker", () => {
+        it("runs the choice a row stands for, and nothing at all for a row that stands for none", () => {
+            const form = makeForm();
+            const run = vi.fn();
+            form.setPicker({
+                label: "Model",
+                children: [
+                    { label: "Sonnet 5", isCurrent: true, run },
+                    // A row with nothing to run: the picker still has to survive being told to.
+                    { label: "Opus 5" }
+                ]
+            });
+
+            // The list is only built on the first open, so the rows do not exist until then.
+            form.pickerView.isOpen = true;
+            const rows = [ ...(form.pickerView.listView?.items ?? []) ]
+                .map((item) => (item as { children?: { first?: { fire(event: string): void } | null } }).children?.first);
+
+            rows[1]?.fire("execute");
+            expect(run).not.toHaveBeenCalled();
+
+            rows[0]?.fire("execute");
+            expect(run).toHaveBeenCalledTimes(1);
+            // Picking closes the list: the setting is settled and the row already says so.
+            expect(form.pickerView.isOpen).toBe(false);
+        });
+
+        // Only the rows carry an index. Anything else reaching the handler — the dropdown's own
+        // button among them — is not a choice and must not be looked up as one.
+        it("ignores an execute that came from something other than a row", () => {
+            const form = makeForm();
+            const run = vi.fn();
+            form.setPicker({ label: "Model", children: [ { label: "Sonnet 5", run } ] });
+
+            form.pickerView.fire("execute");
+
+            expect(run).not.toHaveBeenCalled();
+        });
+    });
 });

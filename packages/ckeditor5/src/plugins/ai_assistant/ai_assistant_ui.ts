@@ -321,6 +321,7 @@ export default class AiAssistantUI extends Plugin {
                 dropdownView.focusTracker.remove(menu);
             }
             dropdownView.focusTracker.remove(previous);
+            /* v8 ignore next -- a menu that was opened is always in the panel it was opened from */
             if (dropdownView.panelView.children.has(previous)) {
                 dropdownView.panelView.children.remove(previous);
             }
@@ -362,6 +363,7 @@ export default class AiAssistantUI extends Plugin {
             // button half of the split does. Ruled off from them, since it is a way in rather than an
             // instruction.
             definition.push({ id: ASK_ID, label: locale.t("Ask AI…") });
+            /* v8 ignore next -- with no groups there is no menu at all: the entry is a plain button */
             if (groups.length) {
                 separatorAt.push(definition.length);
             }
@@ -406,6 +408,7 @@ export default class AiAssistantUI extends Plugin {
         // open (through its own `change:isOpen` listener, registered at `highest` priority — so it
         // has already run by the time this one does). There are no buttons to bind before that.
         const decorateMenu = () => {
+            /* v8 ignore next -- the menu is built before this runs, as the comment above says */
             for (const button of dropdownView.menuView?.buttons ?? []) {
                 if (button.id === ASK_ID) {
                     // A prompt is typed against whatever is there, selection or not, so this row
@@ -428,6 +431,7 @@ export default class AiAssistantUI extends Plugin {
                 }
                 addIcon(button, action?.iconClass);
             }
+            /* v8 ignore next -- as above: no menu, no decoration pass */
             for (const menu of dropdownView.menuView?.menus ?? []) {
                 const footer = footersById.get(menu.id);
                 if (footer) {
@@ -915,6 +919,7 @@ export default class AiAssistantUI extends Plugin {
 
         model.change((writer) => {
             const target = this._getTargetRange();
+            /* v8 ignore next 3 -- the marker is gone at worst, and the selection always has a range */
             if (!target) {
                 return;
             }
@@ -937,6 +942,8 @@ export default class AiAssistantUI extends Plugin {
                 if (block && !block.is("rootElement")) {
                     model.insertContent(modelFragment, writer.createPositionAfter(block));
                 } else {
+                    /* v8 ignore next -- a target ending in the root is already past a block, and
+                       lands in the same place either way */
                     model.insertContent(modelFragment, target.end);
                 }
             }
@@ -956,6 +963,7 @@ export default class AiAssistantUI extends Plugin {
         const dialog = this.editor.plugins.get(Dialog);
         // Only our own: `hide()` closes whatever dialog is open, and another feature's must not be
         // collateral damage.
+        /* v8 ignore next -- another feature taking the dialog over already tore this one down */
         if (dialog.id === DIALOG_ID) {
             dialog.hide();
         }

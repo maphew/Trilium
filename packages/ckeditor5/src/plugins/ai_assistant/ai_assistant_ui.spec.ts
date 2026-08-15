@@ -1,4 +1,4 @@
-import { _getModelData as getModelData, _setModelData as setModelData, ButtonView, ClassicEditor, CodeBlockEditing, Dialog, Essentials, keyCodes, Paragraph, SplitButtonView } from "ckeditor5";
+import { BlockQuote, _getModelData as getModelData, _setModelData as setModelData, ButtonView, ClassicEditor, CodeBlockEditing, Dialog, Essentials, keyCodes, Paragraph, SplitButtonView } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
@@ -9,7 +9,8 @@ import type {} from "../math/math.js";
 import type {} from "../mermaid/mermaid.js";
 import MermaidEditing from "../mermaid/mermaid_editing.js";
 import TriliumAiAssistant from "./ai_assistant.js";
-import type { AiCompletionRequest, AiDiffFunction, AiQuickActionGroup, AiStreamCallback, AiStreamFunction } from "./ai_assistant_config.js";
+import { AI_TARGET_MARKER } from "./ai_assistant_editing.js";
+import type { AiCompletionRequest, AiCompletionUsage, AiDiffFunction, AiQuickActionGroup, AiStreamCallback, AiStreamFunction } from "./ai_assistant_config.js";
 import AiAssistantUI from "./ai_assistant_ui.js";
 
 // ---- Typed views of the dropdown internals ----
@@ -163,6 +164,8 @@ function openForm(editor: ClassicEditor) {
         viewMode: string;
         hasDiff: boolean;
         isUnchanged: boolean;
+        usageText: string;
+        errorMessage: string;
         previewView: { element?: HTMLElement | null };
         hasPicker: boolean;
         pickerView: {
@@ -1157,5 +1160,272 @@ describe("AiAssistantUI toolbar entry", () => {
     it("is disabled when no LLM provider is configured", async () => {
         const editor = await createEditor(QUICK_ACTIONS);
         expect(createComponent(editor).isEnabled).toBe(false);
+    });
+
+    // What the `/` palette and the right-click menu read instead of the config: the config only
+    // seeded these, and both are replaced as content languages change or a custom action is written.
+    describe("the lists it publishes", () => {
+        it("hands out the groups and footer rows it is holding", async () => {
+            const editor = await createEditor(QUICK_ACTIONS, createStreamStub().stream);
+            const plugin = editor.plugins.get(AiAssistantUI);
+            const footer = [ { label: "Model: Sonnet 5" } ];
+
+            expect(plugin.quickActions).toEqual(QUICK_ACTIONS);
+            expect(plugin.menuFooter).toEqual([]);
+
+            plugin.updateMenuFooter(footer);
+            expect(plugin.menuFooter).toEqual(footer);
+        });
+    });
+
+    describe("streaming", () => {
+        /** A stream that reports chunks on demand, so a test can pace them against the throttle. */
+        function createPacedStream(usage?: AiCompletionUsage) {
+            let emit: AiStreamCallback = () => undefined;
+            let finish: () => void = () => undefined;
+            const stream: AiStreamFunction = (_request, onData) => {
+                emit = onData;
+                return new Promise<AiCompletionUsage | void>((resolve) => {
+                    finish = () => resolve(usage);
+                });
+            };
+            return { stream, emit: (html: string) => emit(html), finish: () => finish() };
+        }
+
+        async function runPaced(paced: ReturnType<typeof createPacedStream>) {
+            const editor = await createEditor(QUICK_ACTIONS, paced.stream);
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(createComponent(editor))[0].fire("execute");
+            return editor;
+        }
+
+        // The first chunk renders at once and opens the throttle window; the ones behind it
+        // coalesce, so a fast stream re-parses its growing prefix a few times a second rather than
+        // once per token.
+        it("coalesces the chunks arriving inside the throttle window", async () => {
+            const paced = createPacedStream();
+            const editor = await runPaced(paced);
+
+            paced.emit("<p>a</p>");
+            await vi.waitFor(() => expect(previewHtml(editor)).toBe("<p>a</p>"));
+
+            paced.emit("<p>ab</p>");
+            paced.emit("<p>abc</p>");
+            // Both landed inside the window, so the preview still shows what opened it...
+            expect(previewHtml(editor)).toBe("<p>a</p>");
+            // ...and the window closing shows the last of them, never the one in between.
+            await vi.waitFor(() => expect(previewHtml(editor)).toBe("<p>abc</p>"));
+        });
+
+        // The window can outlive the stream, and what arrived inside it still has to be shown.
+        it("flushes a chunk still pending when the stream ends", async () => {
+            const paced = createPacedStream();
+            const editor = await runPaced(paced);
+
+            paced.emit("<p>a</p>");
+            await vi.waitFor(() => expect(previewHtml(editor)).toBe("<p>a</p>"));
+            paced.emit("<p>ab</p>");
+            paced.finish();
+
+            const form = openForm(editor);
+            await vi.waitFor(() => expect(form.phase).toBe("review"));
+            expect(previewHtml(editor)).toBe("<p>ab</p>");
+        });
+
+        // Stop is not a failure: the run ends where the user ended it, and what arrived before that
+        // is a response like any other — reviewable, and committable.
+        it("keeps what already streamed when the user stops the run", async () => {
+            const editor = await createEditor(QUICK_ACTIONS, (_request, onData, signal) => (
+                new Promise<void>((_resolve, reject) => {
+                    onData("<p>half an answ</p>");
+                    signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+                })
+            ));
+
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(createComponent(editor))[0].fire("execute");
+
+            const form = openForm(editor);
+            await vi.waitFor(() => expect(previewHtml(editor)).toBe("<p>half an answ</p>"));
+            form.fire("stop");
+
+            await vi.waitFor(() => expect(form.phase).toBe("review"));
+            // The abort was asked for, so it is not reported as something going wrong.
+            expect(form.errorMessage).toBe("");
+            expect(previewHtml(editor)).toBe("<p>half an answ</p>");
+        });
+
+        it("reports what the run cost, in the currency the provider quoted it in", async () => {
+            const paced = createPacedStream({ model: "claude-sonnet-5", totalTokens: 1234, cost: 0.0042 });
+            const editor = await runPaced(paced);
+            paced.emit("<p>a</p>");
+            paced.finish();
+
+            const form = openForm(editor);
+            await vi.waitFor(() => expect(form.phase).toBe("review"));
+            // Four decimals: a single completion usually costs well under a cent, and two would
+            // round the whole thing away to $0.00.
+            expect(form.usageText).toBe("claude-sonnet-5 · 1,234 tokens · ~$0.0042");
+        });
+
+        // Whatever the provider left out simply is not shown — a local model reports no price, and
+        // a run that names one without counting tokens still has something worth saying.
+        it("shows only the fields the provider reported", async () => {
+            const paced = createPacedStream({ model: "llama4", totalTokens: 12 });
+            const editor = await runPaced(paced);
+            paced.emit("<p>a</p>");
+            paced.finish();
+
+            const form = openForm(editor);
+            await vi.waitFor(() => expect(form.phase).toBe("review"));
+            expect(form.usageText).toBe("llama4 · 12 tokens");
+        });
+
+        it("drops to two decimals once the run costs more than a cent", async () => {
+            const paced = createPacedStream({ cost: 1.5 });
+            const editor = await runPaced(paced);
+            paced.emit("<p>a</p>");
+            paced.finish();
+
+            const form = openForm(editor);
+            await vi.waitFor(() => expect(form.phase).toBe("review"));
+            expect(form.usageText).toBe("~$1.50");
+        });
+
+        it("shows what the provider failed with, however it failed", async () => {
+            const editor = await createEditor(QUICK_ACTIONS, () => Promise.reject(new Error("rate limited")));
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(createComponent(editor))[0].fire("execute");
+
+            const form = openForm(editor);
+            await vi.waitFor(() => expect(form.errorMessage).toBe("rate limited"));
+
+            // A provider that rejects with something other than an Error still has to say so.
+            const other = await createEditor(QUICK_ACTIONS, () => Promise.reject("gateway closed"));
+            setModelData(other.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(createComponent(other))[0].fire("execute");
+
+            await vi.waitFor(() => expect(openForm(other).errorMessage).toBe("gateway closed"));
+        });
+
+        // The sanitizer is the one piece of config with no fallback: the plugin would rather fail
+        // the run than write model output into the preview unchecked.
+        it("refuses to render at all when the host configured no sanitizer", async () => {
+            const editor = await createTestEditor([Essentials, Paragraph, TriliumAiAssistant], {
+                aiAssistant: { stream: createStreamStub().stream, quickActions: QUICK_ACTIONS } as never
+            });
+
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(createComponent(editor))[0].fire("execute");
+
+            await vi.waitFor(() => {
+                expect(openForm(editor).errorMessage).toContain("ai-assistant-sanitize-html-required");
+            });
+        });
+    });
+
+    describe("committing below the target", () => {
+        /** Runs one completion against whatever the model data selected, then commits it. */
+        async function commitBelow(modelData: string, response = "<p>new</p>") {
+            // BlockQuote for the nesting the walk exists to climb out of.
+            const editor = await createTestEditor([Essentials, Paragraph, BlockQuote, TriliumAiAssistant], {
+                aiAssistant: { sanitizeHtml, quickActions: QUICK_ACTIONS, stream: createStreamStub(response).stream }
+            });
+            setModelData(editor.model, modelData);
+            quickActionButtons(createComponent(editor))[0].fire("execute");
+
+            const form = openForm(editor);
+            await vi.waitFor(() => expect(form.phase).toBe("review"));
+            form.fire("insertBelow");
+            return editor;
+        }
+
+        // Out to the outermost block first: inserting after the paragraph itself would land the
+        // response inside the quote it was taken from.
+        it("clears the block the target is nested in", async () => {
+            const editor = await commitBelow("<blockQuote><paragraph>[foo]</paragraph></blockQuote>");
+
+            expect(getModelData(editor.model, { withoutSelection: true }))
+                .toBe("<blockQuote><paragraph>foo</paragraph></blockQuote><paragraph>new</paragraph>");
+        });
+
+        // The marker is what "Replace" aims at, but it is not operational and rides on a model that
+        // keeps changing behind the dialog. Losing it falls back to the live selection rather than
+        // dropping the response the user already approved.
+        it("falls back to the selection when the pinned target is gone", async () => {
+            const editor = await createEditor(QUICK_ACTIONS, createStreamStub("<p>new</p>").stream);
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(createComponent(editor))[0].fire("execute");
+
+            const form = openForm(editor);
+            await vi.waitFor(() => expect(form.phase).toBe("review"));
+            editor.model.change((writer) => writer.removeMarker(AI_TARGET_MARKER));
+            form.fire("replace");
+
+            expect(getModelData(editor.model, { withoutSelection: true })).toBe("<paragraph>new</paragraph>");
+        });
+
+        // A range whose end sits in the root has no block to walk out of — it is already past one.
+        it("inserts at the range's end when it ends in the root itself", async () => {
+            const editor = await commitBelow("<paragraph>a</paragraph>[<paragraph>b</paragraph>]");
+
+            expect(getModelData(editor.model, { withoutSelection: true }))
+                .toBe("<paragraph>a</paragraph><paragraph>b</paragraph><paragraph>new</paragraph>");
+        });
+    });
+
+    // The model is handed the words either side of the target so it can tell what it is writing
+    // into, but only so many of them, and the ones nearest the target are the ones that place it.
+    it("keeps the end nearest the target when the note runs on without a break", async () => {
+        const { requests, stream } = createStreamStub();
+        const editor = await createEditor(QUICK_ACTIONS, stream);
+        const run = "x".repeat(2000);
+        setModelData(editor.model, `<paragraph>${run}[foo]${run}</paragraph>`);
+
+        quickActionButtons(createComponent(editor))[0].fire("execute");
+        await vi.waitFor(() => expect(requests).toHaveLength(1));
+
+        // One paragraph, so there is no line break to cut back to — the limit lands mid-run.
+        expect(requests[0].surroundings.before).toBe("x".repeat(1500));
+        expect(requests[0].surroundings.after).toBe("x".repeat(1500));
+    });
+
+    // Enter on an empty prompt is a stray keystroke, not a request to spend tokens on nothing.
+    it("ignores a submit with nothing typed in it", async () => {
+        const { requests, stream } = createStreamStub();
+        const editor = await createEditor(QUICK_ACTIONS, stream);
+        setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+        editor.execute("aiAssistant");
+
+        const form = openForm(editor);
+        form.query = "   ";
+        form.fire("submit");
+
+        expect(requests).toHaveLength(0);
+        expect(form.phase).toBe("prompt");
+    });
+
+    it("keeps the response when the host's diff renderer throws", async () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        const editor = await createTestEditor([Essentials, Paragraph, TriliumAiAssistant], {
+            aiAssistant: {
+                sanitizeHtml,
+                quickActions: QUICK_ACTIONS,
+                stream: createStreamStub("<p>fixed</p>").stream,
+                diff: (() => {
+                    throw new Error("no diff for you");
+                }) as AiDiffFunction
+            }
+        });
+
+        setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+        quickActionButtons(createComponent(editor))[0].fire("execute");
+
+        const form = openForm(editor);
+        await vi.waitFor(() => expect(form.phase).toBe("review"));
+        // Only the Changes view is lost; the answer itself is still there to commit.
+        expect(form.hasDiff).toBe(false);
+        expect(previewHtml(editor)).toBe("<p>fixed</p>");
+        expect(warn).toHaveBeenCalledWith("AI assistant: diff renderer failed", expect.any(Error));
     });
 });
