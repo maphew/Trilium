@@ -59,6 +59,22 @@ vi.mock("../../../services/toast", () => ({ default: toast }));
 // The page header renders the note's own title, which needs a note context this spec has no use for.
 vi.mock("./components/OptionsPageHeader", () => ({ default: () => null }));
 
+// Maintenance hands over to the Content Manager, which needs a note context to navigate with. Only
+// that hook is replaced: the card rows still need the rest of the module, ID generation included.
+const noteContext = vi.hoisted(() => ({ setNote: vi.fn(async () => {}) }));
+vi.mock("../../react/hooks", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../react/hooks")>()),
+    useNoteContext: () => ({ noteContext })
+}));
+
+const contentManager = vi.hoisted(() => ({ requestContentManagerSection: vi.fn() }));
+vi.mock("./content_manager", () => contentManager);
+
+// Opening the real dialog would measure the whole database and draw its charts; what this page
+// answers for is that it opens one, and what it does with the answer.
+const cleanup = vi.hoisted(() => ({ showCleanupDialog: vi.fn(async () => 1234 as number | null) }));
+vi.mock("./content_manager/space_usage/cleanup_dialog", () => cleanup);
+
 import DatabaseSettings from "./database";
 
 let container: HTMLDivElement;
@@ -86,6 +102,9 @@ beforeEach(() => {
     setupMode.isStartOverPending.mockReset().mockResolvedValue(false);
     setupMode.cancelStartOver.mockReset().mockResolvedValue(undefined);
     failing.info = false;
+    noteContext.setNote.mockClear();
+    contentManager.requestContentManagerSection.mockClear();
+    cleanup.showCleanupDialog.mockReset().mockResolvedValue(1234);
     server.get.mockClear();
     server.post.mockClear();
     server.postWithTimeout.mockClear();
@@ -146,6 +165,37 @@ describe("what the database is", () => {
 });
 
 describe("database maintenance", () => {
+    it("hands the two tools over to the Content Manager rather than repeating them", async () => {
+        renderPage();
+        await settle();
+
+        button("analyze-space-usage-button")?.click();
+        await settle();
+
+        // The Content Manager opens on Active Content unless asked otherwise, and the page is
+        // reached through this page's own note context — Options can itself be a dialog.
+        expect(contentManager.requestContentManagerSection).toHaveBeenCalledWith("spaceUsage");
+        expect(noteContext.setNote).toHaveBeenCalledWith("_optionsContentManager", { keepActiveDialog: true });
+
+        button("cleanup-button")?.click();
+        await settle();
+
+        expect(cleanup.showCleanupDialog).toHaveBeenCalled();
+        // Erasing changes what the database holds, so the card above states it again.
+        expect(server.get.mock.calls.filter(([ url ]) => url === "database/info")).toHaveLength(2);
+    });
+
+    it("leaves the figures alone when the cleanup was called off", async () => {
+        cleanup.showCleanupDialog.mockResolvedValue(null);
+        renderPage();
+        await settle();
+
+        button("cleanup-button")?.click();
+        await settle();
+
+        expect(server.get.mock.calls.filter(([ url ]) => url === "database/info")).toHaveLength(1);
+    });
+
     it("runs each check against its own endpoint, and says how it went", async () => {
         renderPage();
         await settle();

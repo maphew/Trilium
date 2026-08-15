@@ -24,9 +24,12 @@ import Admonition from "../../react/Admonition";
 import Button from "../../react/Button";
 import { Card, CardOption } from "../../react/Card";
 import DirectoryLink from "../../react/DirectoryLink";
+import { useNoteContext } from "../../react/hooks";
 import { useFetch } from "../../react/use_fetch";
 import DatabaseFileList from "./components/DatabaseFileList";
 import OptionsPageHeader from "./components/OptionsPageHeader";
+import { requestContentManagerSection } from "./content_manager";
+import { showCleanupDialog } from "./content_manager/space_usage/cleanup_dialog";
 
 /**
  * What can be done to the knowledge base as a whole, rather than to anything inside it: keeping the
@@ -37,8 +40,8 @@ import OptionsPageHeader from "./components/OptionsPageHeader";
  */
 export default function DatabaseSettings() {
     const startOverState = useStartOver();
-    // Compacting is the one action on this page that changes what the card above it states, so the
-    // figures are read again once a rebuild has finished rather than left saying what they did.
+    // Maintenance is what changes the figures the card above it states — a rebuild its size, a
+    // cleanup what it holds — so they are read again afterwards rather than left as they were.
     const [ infoToken, setInfoToken ] = useState(0);
     const refreshInfo = useCallback(() => setInfoToken((token) => token + 1), []);
 
@@ -64,7 +67,7 @@ export default function DatabaseSettings() {
             )}
 
             <DatabaseInfo refreshToken={infoToken} />
-            <MaintenanceOptions onDatabaseCompacted={refreshInfo} />
+            <MaintenanceOptions onDatabaseChanged={refreshInfo} />
             <AnonymizationOptions />
             <StartOverOption state={startOverState} />
         </>
@@ -118,11 +121,58 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
     );
 }
 
-/** Checks and repairs that act on the database file itself, rather than on what is kept in it. */
-function MaintenanceOptions({ onDatabaseCompacted }: { onDatabaseCompacted: () => void }) {
+/**
+ * Keeping the database in good order: finding out what it is spent on, taking back what is no longer
+ * needed, and the checks and repairs that act on the file itself rather than on what is kept in it.
+ *
+ * The first two hand over to the tools that do the work — the Content Manager's space usage section
+ * and its cleanup dialog — which is why they are named here rather than duplicated.
+ */
+function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => void }) {
+    const { noteContext } = useNoteContext();
+
     return (
         <div className="options-section database-maintenance">
             <Card heading={t("database.maintenance")}>
+                <CardOption
+                    label={t("database.analyze_space_usage")}
+                    description={t("database.analyze_space_usage_description")}
+                >
+                    <Button
+                        name="analyze-space-usage-button"
+                        text={t("database.analyze_space_usage_button")}
+                        size="micro"
+                        onClick={() => {
+                            // The Content Manager opens on Active Content unless asked otherwise,
+                            // and navigating by hand rather than by link is what lets us ask first.
+                            requestContentManagerSection("spaceUsage");
+                            // Kept in whichever context this page is shown in — the settings dialog
+                            // holds a note context of its own, outside the tab manager.
+                            void noteContext?.setNote("_optionsContentManager", { keepActiveDialog: true });
+                        }}
+                    />
+                </CardOption>
+
+                <CardOption
+                    label={t("database.cleanup")}
+                    description={t("database.cleanup_description")}
+                >
+                    {/* Named after the tool it opens, so the button and the dialog's own heading
+                        cannot come to say different things. */}
+                    <Button
+                        name="cleanup-button"
+                        text={t("space_usage.cleanup_title")}
+                        size="micro"
+                        onClick={() => void showCleanupDialog().then((reclaimed) => {
+                            // Erasing frees pages inside the file rather than shrinking it, so what
+                            // the card above has to re-read is what the database holds.
+                            if (reclaimed !== null) {
+                                onDatabaseChanged();
+                            }
+                        })}
+                    />
+                </CardOption>
+
                 <CardOption
                     label={t("database_integrity_check.check_integrity_label")}
                     description={t("database_integrity_check.check_integrity_description")}
@@ -157,7 +207,7 @@ function MaintenanceOptions({ onDatabaseCompacted }: { onDatabaseCompacted: () =
                         size="micro"
                         onClick={async () => {
                             await vacuumDatabase();
-                            onDatabaseCompacted();
+                            onDatabaseChanged();
                         }}
                     />
                 </CardOption>
