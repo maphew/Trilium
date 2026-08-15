@@ -9,6 +9,8 @@ import {
     ExistingBackupsResponse
 } from "@triliumnext/commons";
 import { useCallback, useEffect, useState } from "preact/hooks";
+import type React from "react";
+import { Trans } from "react-i18next";
 
 import { summarizeBackups } from "../../../services/database_files";
 import dialogService from "../../../services/dialog";
@@ -26,7 +28,7 @@ import { formatDateTime } from "../../../utils/formatters";
 import Admonition from "../../react/Admonition";
 import Button from "../../react/Button";
 import { Card, CardOption } from "../../react/Card";
-import { FileLink } from "../../react/DirectoryLink";
+import DirectoryLink, { FileLink } from "../../react/DirectoryLink";
 import { useNoteContext } from "../../react/hooks";
 import { useFetch } from "../../react/use_fetch";
 import DatabaseFileList from "./components/DatabaseFileList";
@@ -369,14 +371,21 @@ function AnonymizationOptions() {
                 </Card>
             </div>
 
+            {/* Where the copies are kept is stated only once there is one to find there: an empty
+                list saying where it would have been answers a question nobody asked. */}
             <DatabaseFileList
                 title={t("database_anonymization.existing_anonymized_databases")}
-                description={anonymizedFolderPath && (
-                    <span className="selectable-text">
-                        {t("database_anonymization.anonymized_databases_location", {
-                            anonymizedFolder: anonymizedFolderPath
-                        })}
-                    </span>
+                description={databases.length > 0 && anonymizedFolderPath && (
+                    <Trans
+                        i18nKey="database_anonymization.anonymized_databases_location"
+                        // Kept beside the component: a locale still carrying the placeholder from
+                        // before the folder became a link states the path as text rather than
+                        // losing it, until its own translation catches up.
+                        values={{ anonymizedFolder: anonymizedFolderPath }}
+                        components={{
+                            Folder: <DirectoryLink directory={anonymizedFolderPath} /> as React.ReactElement
+                        }}
+                    />
                 )}
                 files={databases}
                 downloadEndpoint="api/database/anonymized/download"

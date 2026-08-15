@@ -7,6 +7,14 @@ vi.mock("../../../services/i18n", () => ({
     t: (key: string, params?: { count?: number }) => params?.count === undefined ? key : `${key}=${params.count}`
 }));
 
+// The real i18n is not initialized under test, so `Trans` would render the bare key and drop what
+// it wires in; the stub renders the components themselves, which is what the page is answering for.
+vi.mock("react-i18next", () => ({
+    Trans: ({ i18nKey, components }: { i18nKey: string, components: Record<string, preact.VNode> }) => (
+        <span data-i18n-key={i18nKey}>{Object.values(components)}</span>
+    )
+}));
+
 const setupMode = vi.hoisted(() => ({
     canBootToSetup: vi.fn(() => true),
     startOver: vi.fn(async () => "restarting" as string),
@@ -36,6 +44,9 @@ const ANONYMIZED_COPY = {
     fileSize: 4096
 };
 
+/** What the anonymized-databases endpoint would list; emptied by the test about having made none. */
+let ANONYMIZED: (typeof ANONYMIZED_COPY)[] = [];
+
 // The info, maintenance and anonymization cards call the backend as they render and as they are used.
 const server = vi.hoisted(() => ({
     get: vi.fn(async (url: string) => {
@@ -50,7 +61,7 @@ const server = vi.hoisted(() => ({
             case "database/check-integrity":
                 return { results: [{ integrity_check: "ok" }] };
             case "database/anonymized-databases":
-                return { databases: [ ANONYMIZED_COPY ], anonymizedFolderPath: "/data/anonymized" };
+                return { databases: ANONYMIZED, anonymizedFolderPath: "/data/anonymized" };
             // Whatever the page's own imports ask for while they load, e.g. keyboard actions.
             default:
                 return [];
@@ -119,6 +130,7 @@ beforeEach(() => {
     setupMode.cancelStartOver.mockReset().mockResolvedValue(undefined);
     failing.info = false;
     BACKUPS = [ { mtime: new Date("2026-01-01T10:00:00Z") }, { mtime: new Date("2026-01-02T10:00:00Z") } ];
+    ANONYMIZED = [ ANONYMIZED_COPY ];
     noteContext.setNote.mockClear();
     contentManager.requestContentManagerSection.mockClear();
     cleanup.showCleanupDialog.mockReset().mockResolvedValue(1234);
@@ -151,8 +163,7 @@ describe("what the database is", () => {
         expect(server.get).toHaveBeenCalledWith("database/info");
 
         const [ location, content, created, size ] = infoValues();
-        // The file is named in full; the link behind it opens the folder holding it, since that is
-        // what a file manager can be pointed at.
+        // Named in full; the desktop reveals it in the file manager rather than opening it.
         expect(location).toBe(DATABASE_INFO.filePath);
         expect(created).toContain("2020");
         expect(content).toBe("database.info_notes=12, database.info_attachments=3");
@@ -257,12 +268,29 @@ describe("anonymized copies", () => {
 
         expect(server.get).toHaveBeenCalledWith("database/anonymized-databases");
 
+        // Where the copies are kept is stated as a link into the sentence, so the folder can be
+        // opened rather than read out and typed somewhere else.
+        const location = container.querySelector(".database-file-list [data-i18n-key]");
+        expect(location?.textContent).toBe("/data/anonymized");
+
         button("light-anonymization-button")?.click();
         await settle();
 
         expect(server.post).toHaveBeenCalledWith("database/anonymize/light");
         // The copy is a file beside the database, so the list is the only way back to it.
         expect(server.get.mock.calls.filter(([url]) => url === "database/anonymized-databases")).toHaveLength(2);
+    });
+
+    it("says nothing about where copies are kept while there are none", async () => {
+        ANONYMIZED = [];
+        renderPage();
+        await settle();
+
+        // A location is worth stating once something can be found there; the empty list says the
+        // rest on its own.
+        expect(container.querySelector(".database-file-list [data-i18n-key]")).toBeNull();
+        expect(container.querySelector(".database-file-list")?.textContent)
+            .toContain("database_anonymization.no_anonymized_database_yet");
     });
 
     it("throws a copy away once asked about, and lists what is left", async () => {

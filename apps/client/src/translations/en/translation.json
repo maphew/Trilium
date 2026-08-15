@@ -1714,7 +1714,7 @@
     "choose_anonymization": "You can decide yourself if you want to provide a fully or lightly anonymized database. Even fully anonymized DB is very useful, however in some cases lightly anonymized database can speed up the process of bug identification and fixing.",
     "save_lightly_anonymized_database": "Create copy",
     "existing_anonymized_databases": "Existing anonymized databases",
-    "anonymized_databases_location": "Anonymized databases are stored in {{- anonymizedFolder}}.",
+    "anonymized_databases_location": "Anonymized databases are stored in <Folder/>.",
     "download": "Download",
     "delete_confirmation": "Delete the anonymized database {{fileName}}? The original database is not affected.",
     "creating_fully_anonymized_database": "Creating fully anonymized database...",
