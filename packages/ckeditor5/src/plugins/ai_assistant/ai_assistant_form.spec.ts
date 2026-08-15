@@ -1,5 +1,5 @@
 import { Locale } from "ckeditor5";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import AiAssistantFormView from "./ai_assistant_form.js";
 
@@ -165,6 +165,24 @@ describe("AiAssistantFormView", () => {
 
         form.changesToggleView.fire("execute");
         expect(previewHtml()).toBe("<p>diff</p>");
+    });
+
+    // `document.activeElement` cannot be asserted here — the headless window holds no focus, so
+    // even a direct `element.focus()` leaves it on `<body>`. Delegation is the testable part.
+    it("puts focus in the prompt whatever phase it is asked in", () => {
+        const form = makeForm();
+        const focusPrompt = vi.spyOn(form.promptInputView, "focus");
+
+        form.focus();
+        expect(focusPrompt).toHaveBeenCalledTimes(1);
+
+        // Not the first focusable in the list, and which rows are on show varies by phase, so the
+        // landing spot must not be arrived at by cycling.
+        form.beginStreaming();
+        form.setPreview("<p>new</p>");
+        form.enterReview({ hasContent: true });
+        form.focus();
+        expect(focusPrompt).toHaveBeenCalledTimes(2);
     });
 
     it("takes the prompt through a placeholder rather than a label, and sends with an icon", () => {

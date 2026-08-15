@@ -80,7 +80,6 @@ export default class AiAssistantFormView extends View {
     public readonly keystrokes = new KeystrokeHandler();
 
     private readonly _focusables = new ViewCollection<FocusableView>();
-    private readonly _focusCycler: FocusCycler;
 
     constructor(locale: Locale) {
         super(locale);
@@ -254,7 +253,9 @@ export default class AiAssistantFormView extends View {
             ]
         });
 
-        this._focusCycler = new FocusCycler({
+        // Kept for its wiring rather than its handle: constructing it is what binds Tab and
+        // Shift+Tab to the focusables, and nothing here drives the cycle by hand.
+        new FocusCycler({
             focusables: this._focusables,
             focusTracker: this.focusTracker,
             keystrokeHandler: this.keystrokes,
@@ -353,8 +354,14 @@ export default class AiAssistantFormView extends View {
         this._renderPreview();
     }
 
+    /**
+     * Lands on the prompt, which is the one thing there is to do on arrival in every phase — the
+     * rest of the form is a response to read or an action to take on one. Straight to the field
+     * rather than cycling to the first focusable, so where focus goes does not depend on which
+     * rows the current phase happens to be showing.
+     */
     public focus(): void {
-        this._focusCycler.focusFirst();
+        this.promptInputView.focus();
     }
 
     /** Shows whichever stored content the current view mode selects. */
