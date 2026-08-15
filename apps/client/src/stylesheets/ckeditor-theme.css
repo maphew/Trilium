@@ -185,3 +185,7 @@ div.ck.ck-balloon-panel.ck-dropdown-menu__nested-menu__panel {
 :root .ck.ck-button.ck-dropdown-menu-list__nested-menu__button > .ck-dropdown-menu-list__nested-menu__button__arrow {
     height: var(--ck-dropdown-arrow-size);
 }
+
+div.ck.ck-balloon-panel.ck-dropdown-menu__nested-menu__panel {
+    overflow-x: clip;
+}
