@@ -33,10 +33,11 @@ import { showCleanupDialog } from "./content_manager/space_usage/cleanup_dialog"
 
 /**
  * What can be done to the knowledge base as a whole, rather than to anything inside it: keeping the
- * database sound, handing a copy of it to someone else with the contents taken out, and replacing
- * it altogether.
+ * database sound, replacing it altogether, and handing a copy of it to someone else with the
+ * contents taken out.
  *
- * Starting over comes last, being the only thing in Options that leaves the application.
+ * Starting over follows the maintenance it is the last resort of; anonymized copies come after both,
+ * being for somebody else's benefit rather than this database's.
  */
 export default function DatabaseSettings() {
     const startOverState = useStartOver();
@@ -68,8 +69,8 @@ export default function DatabaseSettings() {
 
             <DatabaseInfo refreshToken={infoToken} />
             <MaintenanceOptions onDatabaseChanged={refreshInfo} />
-            <AnonymizationOptions />
             <StartOverOption state={startOverState} />
+            <AnonymizationOptions />
         </>
     );
 }
@@ -174,18 +175,6 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
                 </CardOption>
 
                 <CardOption
-                    label={t("database_integrity_check.check_integrity_label")}
-                    description={t("database_integrity_check.check_integrity_description")}
-                >
-                    <Button
-                        name="check-integrity-button"
-                        text={t("database_integrity_check.check_button")}
-                        size="micro"
-                        onClick={checkIntegrity}
-                    />
-                </CardOption>
-
-                <CardOption
                     label={t("consistency_checks.find_and_fix_label")}
                     description={t("consistency_checks.find_and_fix_description")}
                 >
@@ -194,6 +183,18 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
                         text={t("consistency_checks.find_and_fix_button")}
                         size="micro"
                         onClick={fixConsistencyIssues}
+                    />
+                </CardOption>
+
+                <CardOption
+                    label={t("database_integrity_check.check_integrity_label")}
+                    description={t("database_integrity_check.check_integrity_description")}
+                >
+                    <Button
+                        name="check-integrity-button"
+                        text={t("database_integrity_check.check_button")}
+                        size="micro"
+                        onClick={checkIntegrity}
                     />
                 </CardOption>
 
