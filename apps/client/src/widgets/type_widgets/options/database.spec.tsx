@@ -12,6 +12,30 @@ const setupMode = vi.hoisted(() => ({
 }));
 vi.mock("../../../services/setup_mode", () => setupMode);
 
+// The maintenance and anonymization cards call the backend as they render and as they are used.
+const server = vi.hoisted(() => ({
+    get: vi.fn(async (url: string) => {
+        switch (url) {
+            case "database/check-integrity":
+                return { results: [{ integrity_check: "ok" }] };
+            case "database/anonymized-databases":
+                return { databases: [], anonymizedFolderPath: "/data/anonymized" };
+            // Whatever the page's own imports ask for while they load, e.g. keyboard actions.
+            default:
+                return [];
+        }
+    }),
+    post: vi.fn(async () => ({ success: true, anonymizedFilePath: "/data/anonymized/copy.db" })),
+    postWithTimeout: vi.fn(async () => ({}))
+}));
+vi.mock("../../../services/server", () => ({ default: server }));
+
+const toast = vi.hoisted(() => ({
+    showMessage: vi.fn(),
+    showError: vi.fn()
+}));
+vi.mock("../../../services/toast", () => ({ default: toast }));
+
 // The page header renders the note's own title, which needs a note context this spec has no use for.
 vi.mock("./components/OptionsPageHeader", () => ({ default: () => null }));
 
@@ -41,12 +65,63 @@ beforeEach(() => {
     setupMode.startOver.mockReset().mockResolvedValue("restarting");
     setupMode.isStartOverPending.mockReset().mockResolvedValue(false);
     setupMode.cancelStartOver.mockReset().mockResolvedValue(undefined);
+    server.get.mockClear();
+    server.post.mockClear();
+    server.postWithTimeout.mockClear();
+    toast.showMessage.mockClear();
+    toast.showError.mockClear();
 });
 
 afterEach(() => {
     render(null, container);
     container.remove();
     vi.useRealTimers();
+});
+
+describe("database maintenance", () => {
+    it("runs each check against its own endpoint, and says how it went", async () => {
+        renderPage();
+        await settle();
+
+        button("check-integrity-button")?.click();
+        button("fix-consistency-issues-button")?.click();
+        button("vacuum-database-button")?.click();
+        await settle();
+
+        expect(server.get).toHaveBeenCalledWith("database/check-integrity");
+        expect(server.post).toHaveBeenCalledWith("database/find-and-fix-consistency-issues");
+        // With a timeout of its own: a rebuild outlives the default one on a large database.
+        expect(server.postWithTimeout).toHaveBeenCalledWith("database/vacuum-database", expect.any(Number));
+        expect(toast.showMessage).toHaveBeenCalledWith("database_integrity_check.integrity_check_succeeded");
+    });
+});
+
+describe("anonymized copies", () => {
+    it("reads the existing copies on arrival, and lists the new one it makes", async () => {
+        renderPage();
+        await settle();
+
+        expect(server.get).toHaveBeenCalledWith("database/anonymized-databases");
+
+        button("light-anonymization-button")?.click();
+        await settle();
+
+        expect(server.post).toHaveBeenCalledWith("database/anonymize/light");
+        // The copy is a file beside the database, so the list is the only way back to it.
+        expect(server.get.mock.calls.filter(([url]) => url === "database/anonymized-databases")).toHaveLength(2);
+    });
+
+    it("says so when the copy could not be made, and asks the list for nothing", async () => {
+        server.post.mockResolvedValueOnce({ success: false, anonymizedFilePath: "" });
+        renderPage();
+        await settle();
+
+        button("full-anonymization-button")?.click();
+        await settle();
+
+        expect(toast.showError).toHaveBeenCalledWith("database_anonymization.error_creating_anonymized_database");
+        expect(server.get.mock.calls.filter(([url]) => url === "database/anonymized-databases")).toHaveLength(1);
+    });
 });
 
 describe("starting over from Options", () => {

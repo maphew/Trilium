@@ -1,4 +1,4 @@
-/* The notice sits above the card it is about, so the gap belongs under it. */
+/* The notice sits above the cards it precedes, so the gap belongs under it. */
 .admonition.start-over-pending {
     margin-bottom: 16px;
 

@@ -1748,6 +1748,7 @@
   },
   "database": {
     "title": "Database",
+    "maintenance": "Maintenance",
     "start_over_description": "Switch to a new blank database, start again syncing with a new server or restore a backup. You will be prompted to backup your data before discarding the existing data.",
     "start_over": "Start over",
     "start_over_confirm": "Trilium will go back to the setup screen, where you can start a new knowledge base, restore a backup or sync from another device. You will be offered a backup of your current data first, and nothing is deleted until you choose one of those. Continue?",
