@@ -37,10 +37,15 @@ let INFO: typeof DATABASE_INFO = DATABASE_INFO;
 /** Set where a test needs the info card to have nothing to say. */
 const failing = vi.hoisted(() => ({ info: false }));
 
-/** The browser build, which keeps no backups and has no path to its database. */
+/** The browser build, which keeps no backups, has no path to its database and cannot compact it. */
 const standalone = vi.hoisted(() => ({ enabled: false }));
 vi.mock("../../../services/backup_download", () => ({
     isBackupDownloadSupported: () => standalone.enabled
+}));
+vi.mock("../../../services/utils", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../../services/utils")>()),
+    // A getter, since the real one is read from `window.glob` when the module loads.
+    get isStandalone() { return standalone.enabled; }
 }));
 
 /** What the backup page would list; emptied by the test about a database never backed up. */
@@ -205,6 +210,17 @@ describe("what the database is", () => {
         // The rest of the card holds: the figures come from the database itself, wherever it lives.
         expect(infoValues()).toHaveLength(4);
         expect(server.get).not.toHaveBeenCalledWith("database/backups");
+
+        // Compacting rebuilds through a temporary store this build keeps in memory, so it is not
+        // offered; the checks beside it are, both being things the engine does on its own.
+        expect(button("vacuum-database-button")).toBeNull();
+        expect(button("check-integrity-button")).not.toBeNull();
+        expect(button("fix-consistency-issues-button")).not.toBeNull();
+
+        // An anonymized copy is a file written beside the database, of which there is neither here.
+        expect(container.querySelector(".database-anonymization")).toBeNull();
+        expect(container.querySelector(".database-file-list")).toBeNull();
+        expect(server.get).not.toHaveBeenCalledWith("database/anonymized-databases");
     });
 
     it("says a database has never been backed up rather than leaving the row blank", async () => {

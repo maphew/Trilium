@@ -24,7 +24,7 @@ import {
     startOver
 } from "../../../services/setup_mode";
 import toast from "../../../services/toast";
-import { formatSize } from "../../../services/utils";
+import { formatSize, isStandalone } from "../../../services/utils";
 import { formatDateTime } from "../../../utils/formatters";
 import Admonition from "../../react/Admonition";
 import Button from "../../react/Button";
@@ -77,7 +77,9 @@ export default function DatabaseSettings() {
             <DatabaseInfo refreshToken={infoToken} />
             <MaintenanceOptions onDatabaseChanged={refreshInfo} />
             <StartOverOption state={startOverState} />
-            <AnonymizationOptions />
+            {/* An anonymized copy is a file written beside the database and handed to someone else.
+                The browser build has nowhere to write one and no database file to copy. */}
+            {!isStandalone && <AnonymizationOptions />}
 
             <RelatedSettings items={[
                 {
@@ -249,20 +251,26 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
                     />
                 </CardOption>
 
-                <CardOption
-                    label={t("vacuum_database.vacuum_label")}
-                    description={t("vacuum_database.vacuum_description")}
-                >
-                    <Button
-                        name="vacuum-database-button"
-                        text={t("vacuum_database.button_text")}
-                        size="micro"
-                        onClick={async () => {
-                            await vacuumDatabase();
-                            onDatabaseChanged();
-                        }}
-                    />
-                </CardOption>
+                {/* Offered everywhere the rebuild has somewhere to happen. The browser build keeps
+                    the temporary store in memory, so compacting would ask it for the size of the
+                    database over again at the very moment there is too little room — which is why
+                    the cleanup tool leaves compaction out there as well. */}
+                {!isStandalone && (
+                    <CardOption
+                        label={t("vacuum_database.vacuum_label")}
+                        description={t("vacuum_database.vacuum_description")}
+                    >
+                        <Button
+                            name="vacuum-database-button"
+                            text={t("vacuum_database.button_text")}
+                            size="micro"
+                            onClick={async () => {
+                                await vacuumDatabase();
+                                onDatabaseChanged();
+                            }}
+                        />
+                    </CardOption>
+                )}
             </Card>
         </div>
     );
