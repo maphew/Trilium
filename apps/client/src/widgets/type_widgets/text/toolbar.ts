@@ -83,6 +83,10 @@ export function buildClassicToolbar(multilineToolbar: boolean) {
                 "numberedList",
                 "todoList",
                 "|",
+                // Ahead of the overflow dropdown, which a single-line toolbar fills from the end:
+                // down among the last items the assistant was grouped away at every ordinary note
+                // width.
+                "aiAssistant",
                 "imageUpload",
                 "blockQuote",
                 "admonition",
@@ -101,7 +105,6 @@ export function buildClassicToolbar(multilineToolbar: boolean) {
                 "outdent",
                 "indent",
                 "|",
-                "aiAssistant",
                 "insertTemplate",
                 "markdownImport",
                 "cuttonote",
@@ -131,6 +134,12 @@ export function buildFloatingToolbar() {
                 "fontColor",
                 "fontBackgroundColor",
                 "|",
+                // Heads the third group, as it does on the classic bar: the selection toolbar is
+                // the assistant's own case — an instruction about the text under it — but leading
+                // the bar outright puts it where the eye lands before the formatting it came for.
+                // The block toolbar keeps its own entry for the other case: at a collapsed caret a
+                // quick action widens to the block it sits in.
+                "aiAssistant",
                 "code",
                 "link",
                 "bookmark",
@@ -143,6 +152,8 @@ export function buildFloatingToolbar() {
         },
 
         blockToolbar: [
+            "aiAssistant",
+            "|",
             "heading",
             "|",
             "bulletedList",
@@ -164,7 +175,6 @@ export function buildFloatingToolbar() {
             "outdent",
             "indent",
             "|",
-            "aiAssistant",
             "insertTemplate",
             "markdownImport",
             "specialCharacters",
