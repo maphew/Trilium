@@ -1044,7 +1044,8 @@
     "open_all_in_tabs": "全部打开",
     "open_all_in_tabs_tooltip": "在新标签页中打开所有结果",
     "open_all_confirm_other": "这将在新标签页中打开 {{count}} 个笔记。继续吗？",
-    "dashboard": "仪表板"
+    "dashboard": "仪表板",
+    "open_all_limit_exceeded": "一次性打开的笔记过多（{{count}} 个）。上限为 {{max}} 个，请先缩小结果范围。"
   },
   "edited_notes": {
     "no_edited_notes_found": "今天还没有编辑过的笔记...",
