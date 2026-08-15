@@ -357,7 +357,7 @@ describe("ClaudeAgentProvider.chatChunks", () => {
     it("wires Trilium's in-process MCP server instance and disables built-in tools", async () => {
         scriptAgent([successResult()]);
         const provider = new ClaudeAgentProvider();
-        await collect(provider.chatChunks([{ role: "user", content: "hi" }], {}));
+        await collect(provider.chatChunks([{ role: "user", content: "hi" }], { enableNoteTools: true }));
 
         const options = queryMock.mock.calls[0][0].options;
         expect(options.tools).toEqual([]);
@@ -453,6 +453,21 @@ describe("ClaudeAgentProvider.chatChunks", () => {
         // Prompt matches the wiring: no note-tools guidance when they're off.
         expect(options.systemPrompt).not.toContain("load_skill");
         expect(options.systemPrompt).toContain("do not have access to the user's notes");
+    });
+
+    // A caller with no opinion gets no note access, the same reading `base_provider` gives an
+    // absent flag — so what a request leaves unsaid means one thing across every provider. This
+    // used to go the other way here, handing the whole tree to anything that simply did not ask.
+    it("omits note-tools wiring when the chat says nothing about them", async () => {
+        scriptAgent([successResult()]);
+        const provider = new ClaudeAgentProvider();
+        await collect(provider.chatChunks([{ role: "user", content: "hi" }], {}));
+
+        const options = queryMock.mock.calls[0][0].options;
+        expect(options.mcpServers).toBeUndefined();
+        expect(createMcpServerMock).not.toHaveBeenCalled();
+        expect(options.allowedTools).toEqual([]);
+        expect(options.systemPrompt).not.toContain("load_skill");
     });
 
     it("logs a diagnostic when the in-process MCP bridge fails to connect", async () => {

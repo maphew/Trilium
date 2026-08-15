@@ -24,7 +24,8 @@ import { editorHtmlToMarkdown } from "./chat_input_markdown.js";
 import { shortModelName } from "./model_name.js";
 import { SafeImage } from "./retry_image.js";
 import { useChatAttachments } from "./useChatAttachments.js";
-import { type ModelOption, resolveSelectedModel, type UseLlmChatReturn } from "./useLlmChat.js";
+import { type ModelOption, resolveSelectedModel } from "../../../services/llm_providers.js";
+import { type UseLlmChatReturn } from "./useLlmChat.js";
 
 const READ_ONLY_LOCK = "llm-chat-streaming";
 

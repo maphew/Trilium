@@ -16,6 +16,8 @@ export type { SlashCommandConfig, SlashCommandDefinition } from "./plugins/menti
 export type { TriliumMentionFeed } from "./plugins/mention/types.js";
 export { default as TriliumSnippets } from "./plugins/snippets/snippets.js";
 export type { SnippetDefinition } from "./plugins/snippets/snippetsconfig.js";
+export { default as TriliumAiAssistant } from "./plugins/ai_assistant/ai_assistant.js";
+export type { AiAssistantConfig, AiCompletionRequest, AiCompletionUsage, AiConversationTurn, AiDiffFunction, AiDiffResult, AiQuickAction, AiQuickActionFooter, AiQuickActionGroup, AiReviewView, AiSanitizeFunction, AiStreamCallback, AiStreamFunction, AiSurroundings } from "./plugins/ai_assistant/ai_assistant_config.js";
 export { default as getCkLocale, registerCkTranslations } from "./i18n.js";
 export { MESSAGE_KEY_PREFIX, MESSAGE_OVERRIDES, slugify } from "./messages.js";
 export * from "./utils.js";

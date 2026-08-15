@@ -6,7 +6,7 @@ import MermaidEditing from './mermaid_editing.js';
 /* global document */
 
 /**
- * The diagram renderer: how `_renderMermaid` lazy-loads the mermaid instance, what it does with
+ * The diagram renderer: how `renderMermaid` lazy-loads the mermaid instance, what it does with
  * the SVG it gets back, and how it behaves when a render fails or is superseded by a newer one.
  */
 describe( 'MermaidEditing rendering', () => {
@@ -130,16 +130,16 @@ describe( 'MermaidEditing rendering', () => {
 		// widget and hand each render a different preview node, which is not what is under
 		// test here — the generation guard is.
 		const plugin = editor.plugins.get( MermaidEditing ) as unknown as {
-			_renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
+			renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
 		};
 		const target = document.createElement( 'div' );
 
-		const stale = plugin._renderMermaid( target, 'first' );
+		const stale = plugin.renderMermaid( target, 'first' );
 		await waitFor( () => pending.length >= 1 );
 		// Queue the newer render while the first is still in flight. Renders are serialized,
 		// so the second mermaid.render() only starts after the first settles — but the
 		// generation bump must still discard the stale SVG.
-		const latest = plugin._renderMermaid( target, 'second' );
+		const latest = plugin.renderMermaid( target, 'second' );
 
 		pending[ 0 ]?.( { svg: '<svg id="first"></svg>' } );
 		await stale;
@@ -158,13 +158,13 @@ describe( 'MermaidEditing rendering', () => {
 		editor = await createEditor( { lazyLoad: async () => instance } );
 
 		const plugin = editor.plugins.get( MermaidEditing ) as unknown as {
-			_renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
+			renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
 		};
 		const first = document.createElement( 'div' );
 		const second = document.createElement( 'div' );
 
-		const firstRender = plugin._renderMermaid( first, 'diagram-a' );
-		const secondRender = plugin._renderMermaid( second, 'diagram-b' );
+		const firstRender = plugin.renderMermaid( first, 'diagram-a' );
+		const secondRender = plugin.renderMermaid( second, 'diagram-b' );
 
 		// Serialized queue: only the first render is in flight initially.
 		await waitFor( () => pending.has( 'diagram-a' ) );
@@ -185,12 +185,12 @@ describe( 'MermaidEditing rendering', () => {
 		editor = await createEditor( { lazyLoad: async () => instance } );
 
 		const plugin = editor.plugins.get( MermaidEditing ) as unknown as {
-			_renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
+			renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
 		};
 		const target = document.createElement( 'div' );
 		target.innerHTML = '<svg id="stale"></svg>';
 
-		await plugin._renderMermaid( target, '   ' );
+		await plugin.renderMermaid( target, '   ' );
 
 		expect( target.innerHTML ).to.equal( '' );
 		expect( instance.render ).not.toHaveBeenCalled();
@@ -204,14 +204,14 @@ describe( 'MermaidEditing rendering', () => {
 		editor = await createEditor( { lazyLoad: async () => instance } );
 
 		const plugin = editor.plugins.get( MermaidEditing ) as unknown as {
-			_renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
+			renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
 		};
 		const target = document.createElement( 'div' );
 
-		const first = plugin._renderMermaid( target, 'graph TD; A-->B;' );
+		const first = plugin.renderMermaid( target, 'graph TD; A-->B;' );
 		await waitFor( () => pending.length >= 1 );
 
-		await plugin._renderMermaid( target, '   ' );
+		await plugin.renderMermaid( target, '   ' );
 		expect( target.innerHTML ).to.equal( '' );
 
 		pending[ 0 ]?.( { svg: '<svg id="stale"></svg>' } );
@@ -232,11 +232,11 @@ describe( 'MermaidEditing rendering', () => {
 		editor = await createEditor( { lazyLoad: async () => instance } );
 
 		const plugin = editor.plugins.get( MermaidEditing ) as unknown as {
-			_renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
+			renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
 		};
 		const target = document.createElement( 'div' );
 
-		await plugin._renderMermaid( target, 'graph TD; A-->B;' );
+		await plugin.renderMermaid( target, 'graph TD; A-->B;' );
 
 		expect( target.querySelector( 'svg' ) ).to.not.equal( null );
 		expect( target.contains( target.querySelector( 'svg' )! ) ).to.equal( true );
@@ -310,15 +310,15 @@ describe( 'MermaidEditing rendering', () => {
 		editor = await createEditor( { lazyLoad: async () => instance } );
 
 		const plugin = editor.plugins.get( MermaidEditing ) as unknown as {
-			_renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
+			renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
 		};
 		const target = document.createElement( 'div' );
 
-		const stale = plugin._renderMermaid( target, 'first' );
+		const stale = plugin.renderMermaid( target, 'first' );
 		await waitFor( () => pending.length >= 1 );
 		// Clearing bumps this element's generation synchronously, so the in-flight render is
 		// already stale by the time it rejects.
-		await plugin._renderMermaid( target, '' );
+		await plugin.renderMermaid( target, '' );
 
 		pending[ 0 ]?.( new Error( 'Parse error on line 1' ) );
 		await stale;

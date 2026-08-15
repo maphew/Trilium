@@ -312,6 +312,8 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     aiEnabled: boolean;
     /** JSON array of configured LLM providers with their API keys */
     llmProviders: string;
+    /** The model the text editor's AI assistant runs on, as JSON `{ providerId, provider, model }`; empty to follow the first configured provider's default. */
+    aiAssistantModel: string;
     /** Whether the MCP (Model Context Protocol) server endpoint is enabled. */
     mcpEnabled: boolean;
 

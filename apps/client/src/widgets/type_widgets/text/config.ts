@@ -10,11 +10,14 @@ import { getMermaidConfig } from "../../../services/mermaid.js";
 import { default as mimeTypesService, getHighlightJsNameForMime } from "../../../services/mime_types.js";
 import noteAutocompleteService, { type Suggestion } from "../../../services/note_autocomplete.js";
 import options from "../../../services/options.js";
+import { sanitizeNoteContentHtml } from "../../../services/sanitize_content.js";
 import { ensureMimeTypesForHighlighting, isSyntaxHighlightEnabled } from "../../../services/syntax_highlight.js";
 import { getTaskStateDefinitions, openCustomTaskStateConfig } from "../../../services/task_states.js";
 import { isMac } from "../../../services/utils.js";
 import { resolveContentLanguage } from "../../../utils/formatters.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
+import buildAiAssistantStream, { type AiNoteLocationProvider, buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
+import diffAiResponse from "./ai_diff.js";
 import { buildQuoteTransformation, resolveQuoteSetting } from "./quotes.js";
 import { buildCustomTransformations, parseCustomReplacements } from "./replacements.js";
 import { buildToolbarConfig } from "./toolbar.js";
@@ -30,6 +33,12 @@ export interface BuildEditorOptions {
     uiLanguage: DISPLAYABLE_LOCALE_IDS;
     contentLanguage: string | null;
     templates: SnippetDefinition[];
+    /**
+     * Names the note the editor is open on, for the AI assistant to say where a run is writing.
+     * A getter rather than the note itself: switching notes reuses the editor, so anything captured
+     * here would name the note that happened to be open when it was built.
+     */
+    getNoteLocation?: AiNoteLocationProvider;
 }
 
 export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfig> {
@@ -187,6 +196,23 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         },
         snippets: {
             definitions: opts.templates
+        },
+        aiAssistant: {
+            // `undefined` when no LLM provider is configured, which disables the feature.
+            stream: buildAiAssistantStream(opts.getNoteLocation),
+            // The "Changes" review view: a block-aware inline diff, so that a response which
+            // rewrote a paragraph rather than editing it reads as a replacement instead of as
+            // shredded `<ins>`/`<del>` pairs.
+            diff: diffAiResponse,
+            quickActions: buildAiAssistantQuickActions(),
+            // The glyph the context menu gives the same row, so the two ways into a typed prompt
+            // look alike.
+            askIconClass: "bx bx-message-square-dots",
+            // The model's HTML reaches the preview through `innerHTML`, so it gets the same
+            // DOMPurify pass as any other untrusted content rendered outside the editor's
+            // data pipeline. CKEditor ships no sanitizer of its own — like `htmlEmbed`, the
+            // feature takes one from the integrator.
+            sanitizeHtml: sanitizeNoteContentHtml
         },
         htmlSupport: buildHtmlSupportConfig(),
         removePlugins: getDisabledPlugins(),
