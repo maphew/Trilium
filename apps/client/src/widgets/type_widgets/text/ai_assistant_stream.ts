@@ -1,13 +1,15 @@
 import type { AiCompletionUsage, AiQuickAction, AiQuickActionGroup, AiStreamFunction } from "@triliumnext/ckeditor5";
-import { getEnglishName, type LlmChatConfig, type LlmMessage, type LlmModelInfo, type LlmUsage, type Locale, type ToMarkdownResponse } from "@triliumnext/commons";
+import { getEnglishName, type LlmMessage, type LlmUsage, type Locale, type ToMarkdownResponse } from "@triliumnext/commons";
 
 import appContext from "../../../components/app_context.js";
 import { getAvailableLocales, t } from "../../../services/i18n.js";
+import { readSelectedModels } from "../../../services/llm_providers.js";
 import { streamChatCompletion } from "../../../services/llm_chat.js";
 import options from "../../../services/options.js";
 import { sanitizeNoteContentHtml } from "../../../services/sanitize_content.js";
 import server from "../../../services/server.js";
 import { getTaskStateDefinitions } from "../../../services/task_states.js";
+import { pickModel } from "./ai_model_picker.js";
 
 /**
  * Builds the transport behind the editor's AI assistant (`config.aiAssistant.stream`): a
@@ -25,7 +27,7 @@ import { getTaskStateDefinitions } from "../../../services/task_states.js";
  * a first provider shows the button after the editor is next rebuilt.
  */
 export default function buildAiAssistantStream(): AiStreamFunction | undefined {
-    if (!readProviderConfigs().length) {
+    if (!readSelectedModels().hasProvider) {
         return undefined;
     }
 
@@ -46,7 +48,7 @@ export default function buildAiAssistantStream(): AiStreamFunction | undefined {
             }
         ];
 
-        const config = pickDefaultModel();
+        const config = pickModel();
         let cumulative = "";
         const usage = await new Promise<LlmUsage | null>((resolve, reject) => {
             let reported: LlmUsage | null = null;
@@ -428,37 +430,4 @@ export function stripMarkdownFences(cumulative: string): string {
     return body;
 }
 
-/** The subset of a stored `llmProviders` entry this module reads. */
-interface StoredProviderConfig {
-    id: string;
-    provider: string;
-    selectedModels?: LlmModelInfo[];
-}
 
-function readProviderConfigs(): StoredProviderConfig[] {
-    return (options.getJson("llmProviders") as StoredProviderConfig[] | null) ?? [];
-}
-
-/**
- * The provider/model the assistant uses: the first configured provider that has a model selected,
- * preferring its default. The same resolution the LLM chat starts out with — a per-run model
- * picker in the balloon can come later.
- *
- * The provider is always named, even when no model can be: the server falls back to
- * `getProviderByType("anthropic")` for a request that names none (`runChat` in
- * `packages/trilium-core/src/services/llm/chat.ts`), which would fail outright for an
- * OpenAI-only setup and silently use the wrong provider for a mixed one. Naming the provider
- * without a model instead lets the server resolve that provider's own default.
- */
-function pickDefaultModel(): LlmChatConfig {
-    const configs = readProviderConfigs();
-    for (const config of configs) {
-        const model = config.selectedModels?.find((m) => m.isDefault) ?? config.selectedModels?.[0];
-        if (model) {
-            return { model: model.id, provider: config.provider, providerId: config.id };
-        }
-    }
-
-    const [first] = configs;
-    return first ? { provider: first.provider, providerId: first.id } : {};
-}

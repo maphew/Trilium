@@ -137,19 +137,29 @@ export interface AiQuickAction {
 export type AiSanitizeFunction = (html: string) => string;
 
 /**
- * A row appended to the bottom of a group's submenu, below a rule, that runs host code instead of
- * asking the model — for a group whose contents the user configures, so that what configures them
- * is reachable from the group itself rather than only from the settings.
+ * A row that runs host code instead of asking the model, below a rule at the foot of a group's
+ * submenu ({@link AiQuickActionGroup.footer}) or of the menu itself ({@link AiAssistantConfig.menuFooter}).
+ * For the settings a run answers to, rather than instructions for one — what fills a group whose
+ * contents the user configures, or which model the assistant speaks to.
  *
  * It is not an {@link AiQuickAction}: it has no prompt, needs no content, and has no business in
  * the `/` palette, which lists ways to instruct the model.
+ *
+ * A row showing the state of what it sets — the model in force, say — says so with its
+ * {@link iconClass}, the way every checked row in Trilium does: `bx bx-check` when it is the one in
+ * force, `bx bx-empty` to hold the slot when it is not.
  */
 export interface AiQuickActionFooter {
     /** The label shown in the menu, already translated by the host. */
     label: string;
     /** The row's icon, as a Boxicon class list. */
     iconClass?: string;
-    run: () => void;
+    /**
+     * Rows this one opens onto, making it a submenu rather than something that runs. A row with
+     * children never runs, so {@link run} is beside the point for it.
+     */
+    children?: AiQuickActionFooter[];
+    run?: () => void;
 }
 
 /** A labelled group of quick actions, rendered as a group in the menu. */
@@ -198,6 +208,12 @@ export interface AiAssistantConfig {
      * remains.
      */
     quickActions?: AiQuickActionGroup[];
+
+    /**
+     * Rows closing the toolbar entry's menu, below a rule under the last group — what a run answers
+     * to rather than an instruction for one. Trilium hangs the model picker here.
+     */
+    menuFooter?: AiQuickActionFooter[];
 
     /**
      * The icon for the row that heads the toolbar entry's menu — the one that opens the assistant

@@ -155,6 +155,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     // LLM options
     "aiEnabled",
     "llmProviders",
+    "aiAssistantModel",
     "mcpEnabled",
     // OCR options
     "ocrAutoProcessImages",

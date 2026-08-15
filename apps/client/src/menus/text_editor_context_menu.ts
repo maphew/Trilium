@@ -1,4 +1,4 @@
-import type { AiQuickAction, AiQuickActionGroup, CKTextEditor } from "@triliumnext/ckeditor5";
+import type { AiQuickAction, AiQuickActionFooter, AiQuickActionGroup, CKTextEditor } from "@triliumnext/ckeditor5";
 
 import type { CommandNames } from "../components/app_context.js";
 import appContext from "../components/app_context.js";
@@ -59,9 +59,20 @@ export async function buildAiActionsMenuItem(): Promise<MenuItem<CommandNames> |
                 handler: () => editor.execute("aiAssistant")
             },
             { kind: "separator" },
-            ...quickActions
+            ...quickActions,
+            ...(ui.menuFooter.length ? [{ kind: "separator" } as const, ...footerItems(ui.menuFooter)] : [])
         ]
     };
+}
+
+/** A footer row, or the submenu it opens onto when it has children rather than something to run. */
+function footerItems(rows: ReadonlyArray<AiQuickActionFooter>): MenuItem<CommandNames>[] {
+    return rows.map((row) => ({
+        title: row.label,
+        uiIcon: row.iconClass,
+        enabled: true,
+        ...(row.children ? { items: footerItems(row.children) } : { handler: row.run })
+    }));
 }
 
 /**

@@ -288,7 +288,7 @@ describe("buildAiAssistantQuickActions", () => {
         const group = buildAiAssistantQuickActions().find((candidate) => candidate.id === "translate");
         expect(group?.footer?.label).toBe("note_language.configure-languages");
 
-        group?.footer?.run();
+        group?.footer?.run?.();
         expect(appContext.triggerCommand).toHaveBeenCalledWith("showContentLanguagesDialog");
 
         // It is the only group whose contents the user chooses, so the only one with a footer.

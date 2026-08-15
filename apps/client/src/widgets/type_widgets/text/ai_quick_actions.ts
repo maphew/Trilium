@@ -1,5 +1,5 @@
-import type { AiQuickAction, AiQuickActionGroup } from "@triliumnext/ckeditor5";
-import { useEffect, useState } from "preact/hooks";
+import type { AiQuickAction, AiQuickActionFooter, AiQuickActionGroup } from "@triliumnext/ckeditor5";
+import { useEffect, useMemo, useState } from "preact/hooks";
 
 import type FNote from "../../../entities/fnote.js";
 import debounce from "../../../services/debounce.js";
@@ -9,6 +9,7 @@ import type LoadResults from "../../../services/load_results.js";
 import search from "../../../services/search.js";
 import { useTriliumEvent, useTriliumOption } from "../../react/hooks.jsx";
 import { buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
+import { buildAiModelPicker } from "./ai_model_picker.js";
 
 /**
  * Everything the AI assistant's menu offers: the built-in groups, followed by the instructions the
@@ -33,6 +34,17 @@ export function useAiQuickActions(): AiQuickActionGroup[] {
     });
 
     return quickActions;
+}
+
+/**
+ * The rows closing the assistant's menu. Rebuilt when the model is picked or the providers change,
+ * so the row restates which model is in force and moves the tick to it.
+ */
+export function useAiMenuFooter(): AiQuickActionFooter[] {
+    const [ chosenModel ] = useTriliumOption("aiAssistantModel");
+    const [ providers ] = useTriliumOption("llmProviders");
+
+    return useMemo(buildAiModelPicker, [ chosenModel, providers ]);
 }
 
 /** The label marking a note as an instruction to offer in the assistant's menu. */

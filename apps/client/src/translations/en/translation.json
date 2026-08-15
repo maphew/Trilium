@@ -2844,6 +2844,8 @@
     "group_reformat": "Reformat",
     "group_translate": "Translate",
     "group_custom": "Custom",
+    "model": "Model: {{model}}",
+    "model_default": "Default",
     "command_make_shorter": "Make shorter",
     "command_make_longer": "Make longer",
     "command_simplify": "Simplify language",

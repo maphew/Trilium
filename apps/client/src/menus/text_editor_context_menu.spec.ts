@@ -1,4 +1,4 @@
-import type { AiQuickAction, AiQuickActionGroup } from "@triliumnext/ckeditor5";
+import type { AiQuickAction, AiQuickActionFooter, AiQuickActionGroup } from "@triliumnext/ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => {
@@ -50,6 +50,7 @@ const GROUPS: AiQuickActionGroup[] = [
 function fakeEditor({
     domRoot,
     groups = GROUPS,
+    menuFooter = [],
     hasContext = true,
     isStreaming = false,
     isEnabled = true,
@@ -57,13 +58,14 @@ function fakeEditor({
 }: {
     domRoot: Node | null;
     groups?: AiQuickActionGroup[];
+    menuFooter?: AiQuickActionFooter[];
     hasContext?: boolean;
     isStreaming?: boolean;
     isEnabled?: boolean;
     hasPlugin?: boolean;
 }) {
-    // The live list is the plugin's, which the editor config only seeded.
-    const ui = { hasContext, isStreaming, quickActions: groups, runQuickAction: vi.fn() };
+    // The live lists are the plugin's, which the editor config only seeded.
+    const ui = { hasContext, isStreaming, quickActions: groups, menuFooter, runQuickAction: vi.fn() };
     const editor = {
         editing: { view: { getDomRoot: () => domRoot } },
         plugins: { has: () => hasPlugin, get: () => ui },
@@ -188,6 +190,31 @@ describe("buildAiActionsMenuItem", () => {
         expect([configure?.enabled, configure?.uiIcon]).toEqual([true, "bx bx-cog"]);
         configure?.handler?.(configure, null as never);
         expect(GROUPS.find((g) => g.id === "tone")?.footer?.run).toHaveBeenCalled();
+    });
+
+    // The rows the menu itself ends with — what a run answers to, the model it speaks to — reached
+    // through a submenu when one holds others.
+    it("closes the whole menu with its footer rows", async () => {
+        const run = vi.fn();
+        build({
+            hasContext: false,
+            menuFooter: [{
+                label: "Model: Sonnet 5",
+                iconClass: "bx bx-chip",
+                children: [{ label: "Sonnet 5", iconClass: "bx bx-check", run }]
+            }]
+        });
+        const item = await buildAiActionsMenuItem() as MenuCommandItem<string>;
+
+        expect(titles(item.items ?? []).slice(-2)).toEqual(["--- separator ---", "Model: Sonnet 5"]);
+
+        const picker = commandItems(item.items ?? []).find((i) => i.title === "Model: Sonnet 5");
+        expect([picker?.enabled, picker?.uiIcon]).toEqual([true, "bx bx-chip"]);
+
+        const [model] = commandItems(picker?.items ?? []);
+        expect([model.title, model.uiIcon]).toEqual(["Sonnet 5", "bx bx-check"]);
+        model.handler?.(model, null as never);
+        expect(run).toHaveBeenCalled();
     });
 
     it("runs the picked action, and opens the free-form prompt from the first row", async () => {

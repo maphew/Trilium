@@ -6,7 +6,7 @@ import froca from "../../../services/froca";
 import link from "../../../services/link";
 import linkEmbedService, { type EmbedMetadata } from "../../../services/link_embed";
 import { useKeyboardShortcuts, useLegacyImperativeHandlers, useNoteContext, useSyncedRef, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
-import { useAiQuickActions } from "./ai_quick_actions";
+import { useAiMenuFooter, useAiQuickActions } from "./ai_quick_actions";
 import { buildConfig, BuildEditorOptions } from "./config";
 
 export type BoxSize = "small" | "medium" | "full" | "expandable";
@@ -101,6 +101,7 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
     // editor itself. A rebuild for either would cost the caret and the undo history of the note
     // being written.
     const quickActions = useAiQuickActions();
+    const menuFooter = useAiMenuFooter();
     const [ editor, setEditor ] = useState<CKTextEditor>();
     const { parentComponent, ntxId, note } = useNoteContext();
 
@@ -350,6 +351,14 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
             editor.plugins.get("AiAssistantUI").updateQuickActions(quickActions);
         }
     }, [ editor, quickActions ]);
+
+    // Likewise for the row naming the model a run speaks to, which restates itself once picked.
+    useEffect(() => {
+        if (!editor) return;
+        if (editor.plugins.has("AiAssistantUI")) {
+            editor.plugins.get("AiAssistantUI").updateMenuFooter(menuFooter);
+        }
+    }, [ editor, menuFooter ]);
 
 
     // React to notification warning callback.

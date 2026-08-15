@@ -39,6 +39,9 @@ const DIALOG_ID = "aiAssistant";
  */
 const ASK_ID = "__ask";
 
+/** Prefixes the ids of the rows closing the menu, out of the way of the host's own. */
+const MENU_FOOTER_ID = "__footer";
+
 /**
  * How much of a response has to be a replacement rather than an edit (see
  * `AiDiffResult.rewriteRatio`) before the review opens on the plain result instead of the diff.
@@ -106,6 +109,8 @@ export default class AiAssistantUI extends Plugin {
      * what is on offer.
      */
     private _quickActions: AiQuickActionGroup[] = [];
+    /** The rows closing the menu, which the config likewise only seeds. */
+    private _menuFooter: AiQuickActionFooter[] = [];
     /**
      * Marks each menu built from {@link _quickActions} as owing a redraw, one closure per toolbar
      * showing us.
@@ -116,12 +121,17 @@ export default class AiAssistantUI extends Plugin {
         return this._quickActions;
     }
 
+    public get menuFooter(): ReadonlyArray<AiQuickActionFooter> {
+        return this._menuFooter;
+    }
+
     public init(): void {
         const editor = this.editor;
 
         this.set("isStreaming", false);
         this.set("hasContext", false);
         this._quickActions = editor.config.get("aiAssistant")?.quickActions ?? [];
+        this._menuFooter = editor.config.get("aiAssistant")?.menuFooter ?? [];
 
         editor.ui.componentFactory.add("aiAssistant", (locale) => this._createToolbarComponent(locale));
 
@@ -158,6 +168,19 @@ export default class AiAssistantUI extends Plugin {
      */
     public updateQuickActions(groups: AiQuickActionGroup[]): void {
         this._quickActions = groups;
+        this._redrawMenus();
+    }
+
+    /**
+     * Replaces the rows closing the menu. Same contract as {@link updateQuickActions} — and the same
+     * necessity, since a row that names a setting has to restate it once the setting changes.
+     */
+    public updateMenuFooter(rows: AiQuickActionFooter[]): void {
+        this._menuFooter = rows;
+        this._redrawMenus();
+    }
+
+    private _redrawMenus(): void {
         for (const invalidate of this._invalidateMenu) {
             invalidate();
         }
@@ -246,6 +269,18 @@ export default class AiAssistantUI extends Plugin {
             const groups = this._quickActions;
             const definition: DropdownMenuDefinition = [];
 
+            /** Records a footer row against its id and describes it, opener or leaf, to the menu. */
+            const defineFooter = (id: string, footer: AiQuickActionFooter): DropdownMenuDefinition[number] => {
+                footersById.set(id, footer);
+                return footer.children
+                    ? {
+                        id,
+                        menu: footer.label,
+                        children: footer.children.map((child, index) => defineFooter(`${id}:${index}`, child))
+                    }
+                    : { id, label: footer.label };
+            };
+
             // Heads the menu: the typed prompt every row below it is a shortcut past, and what the
             // button half of the split does. Ruled off from them, since it is a way in rather than an
             // instruction.
@@ -256,15 +291,13 @@ export default class AiAssistantUI extends Plugin {
 
             for (const [index, group] of groups.entries()) {
                 groupsById.set(group.id, group);
-                const children = group.actions.map((action) => {
+                const children: DropdownMenuDefinition = group.actions.map((action) => {
                     actionsById.set(action.id, action);
                     return { id: action.id, label: action.label };
                 });
                 if (group.submenu) {
                     if (group.footer) {
-                        const id = `${group.id}:footer`;
-                        footersById.set(id, group.footer);
-                        children.push({ id, label: group.footer.label });
+                        children.push(defineFooter(`${group.id}:footer`, group.footer));
                     }
                     definition.push({ id: group.id, menu: group.label, children });
                 } else {
@@ -275,6 +308,12 @@ export default class AiAssistantUI extends Plugin {
                 if (next && !(group.submenu && next.submenu)) {
                     separatorAt.push(definition.length);
                 }
+            }
+
+            // What a run answers to, under the instructions that make one.
+            if (this._menuFooter.length) {
+                separatorAt.push(definition.length);
+                definition.push(...this._menuFooter.map((row, index) => defineFooter(`${MENU_FOOTER_ID}:${index}`, row)));
             }
 
             discardMenu();
@@ -313,6 +352,14 @@ export default class AiAssistantUI extends Plugin {
                 addIcon(button, action?.iconClass);
             }
             for (const menu of dropdownView.menuView?.menus ?? []) {
+                const footer = footersById.get(menu.id);
+                if (footer) {
+                    // A footer submenu holds settings, not instructions, so nothing about it turns
+                    // on there being content to work on.
+                    addIcon(menu.buttonView, footer.iconClass);
+                    continue;
+                }
+
                 const group = groupsById.get(menu.id);
                 addIcon(menu.buttonView, group?.iconClass);
                 // A submenu with nothing runnable in it should not invite the pointer: gate the
@@ -375,7 +422,8 @@ export default class AiAssistantUI extends Plugin {
 
             const footer = footersById.get(id);
             if (footer) {
-                footer.run();
+                // A footer that opens onto others has nothing of its own to run.
+                footer.run?.();
                 return;
             }
 

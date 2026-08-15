@@ -382,6 +382,40 @@ describe("AiAssistantUI toolbar entry", () => {
             expect(requests[0]).toEqual({ query: "Translate to Japanese.", context: "foo" });
         });
 
+        // What a run answers to rather than an instruction for one — Trilium hangs the model picker
+        // here — so it closes the menu below a rule and never asks whether there is content.
+        it("closes the menu with its footer rows, and opens the ones that hold others", async () => {
+            const run = vi.fn();
+            editor.plugins.get(AiAssistantUI).updateMenuFooter([{
+                label: "Model: Sonnet 5",
+                iconClass: "bx bx-chip",
+                children: [
+                    { label: "Sonnet 5", iconClass: "bx bx-check", run },
+                    { label: "Opus 5", iconClass: "bx bx-empty", run: vi.fn() }
+                ]
+            }]);
+
+            dropdown.isOpen = false;
+            dropdown.isOpen = true;
+            const entries = menuEntries(dropdown);
+            expect(entries.at(-1)).toEqual({ menu: "Model: Sonnet 5", actions: ["Sonnet 5", "Opus 5"] });
+            expect(entries.at(-2)).toBe("---");
+
+            const [picker] = openMenu(dropdown).menus.filter((menu) => menu.id.startsWith("__footer"));
+            expect(picker.buttonView.element?.querySelector(".ck-ai-action-icon")?.className)
+                .toBe("ck-ai-action-icon bx bx-chip");
+
+            // Nothing is selected, yet the picker and its rows stay reachable.
+            setModelData(editor.model, "<paragraph>[]</paragraph>");
+            expect(picker.isEnabled).toBe(true);
+
+            const sonnet = quickActionButtons(dropdown).find((button) => button.label === "Sonnet 5");
+            expect(sonnet?.isEnabled).toBe(true);
+            sonnet?.fire("execute");
+            expect(run).toHaveBeenCalled();
+            expect(requests).toHaveLength(0);
+        });
+
         it("runs an action picked from inside a submenu", async () => {
             // A submenu button delegates its `execute` up through its menu to the root rather than
             // firing on the dropdown itself, so this is a different path from an inlined action.
