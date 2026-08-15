@@ -30,6 +30,13 @@ const failing = vi.hoisted(() => ({ info: false }));
 /** What the backup page would list; emptied by the test about a database never backed up. */
 let BACKUPS: { mtime: Date }[] = [];
 
+const ANONYMIZED_COPY = {
+    fileName: "anonymized-light-2026-01-02.db",
+    filePath: "/data/anonymized/anonymized-light-2026-01-02.db",
+    mtime: new Date("2026-01-02T10:00:00Z"),
+    fileSize: 4096
+};
+
 // The info, maintenance and anonymization cards call the backend as they render and as they are used.
 const server = vi.hoisted(() => ({
     get: vi.fn(async (url: string) => {
@@ -44,16 +51,21 @@ const server = vi.hoisted(() => ({
             case "database/check-integrity":
                 return { results: [{ integrity_check: "ok" }] };
             case "database/anonymized-databases":
-                return { databases: [], anonymizedFolderPath: "/data/anonymized" };
+                return { databases: [ ANONYMIZED_COPY ], anonymizedFolderPath: "/data/anonymized" };
             // Whatever the page's own imports ask for while they load, e.g. keyboard actions.
             default:
                 return [];
         }
     }),
     post: vi.fn(async () => ({ success: true, anonymizedFilePath: "/data/anonymized/copy.db" })),
-    postWithTimeout: vi.fn(async () => ({}))
+    postWithTimeout: vi.fn(async () => ({})),
+    remove: vi.fn(async () => ({}))
 }));
 vi.mock("../../../services/server", () => ({ default: server }));
+
+/** Deleting is asked about first; the answer is the test's to give. */
+const dialog = vi.hoisted(() => ({ confirm: vi.fn(async () => true) }));
+vi.mock("../../../services/dialog", () => ({ default: dialog }));
 
 const toast = vi.hoisted(() => ({
     showMessage: vi.fn(),
@@ -114,6 +126,8 @@ beforeEach(() => {
     server.get.mockClear();
     server.post.mockClear();
     server.postWithTimeout.mockClear();
+    server.remove.mockClear();
+    dialog.confirm.mockReset().mockResolvedValue(true);
     toast.showMessage.mockClear();
     toast.showError.mockClear();
 });
@@ -250,6 +264,30 @@ describe("anonymized copies", () => {
         expect(server.post).toHaveBeenCalledWith("database/anonymize/light");
         // The copy is a file beside the database, so the list is the only way back to it.
         expect(server.get.mock.calls.filter(([url]) => url === "database/anonymized-databases")).toHaveLength(2);
+    });
+
+    it("throws a copy away once asked about, and lists what is left", async () => {
+        renderPage();
+        await settle();
+
+        container.querySelector<HTMLButtonElement>(".database-file-list button.bx-trash")?.click();
+        await settle();
+
+        expect(dialog.confirm).toHaveBeenCalled();
+        expect(server.remove).toHaveBeenCalledWith(
+            `database/anonymized?filePath=${encodeURIComponent(ANONYMIZED_COPY.filePath)}`);
+        expect(server.get.mock.calls.filter(([ url ]) => url === "database/anonymized-databases")).toHaveLength(2);
+    });
+
+    it("keeps the copy where the question was answered no", async () => {
+        dialog.confirm.mockResolvedValue(false);
+        renderPage();
+        await settle();
+
+        container.querySelector<HTMLButtonElement>(".database-file-list button.bx-trash")?.click();
+        await settle();
+
+        expect(server.remove).not.toHaveBeenCalled();
     });
 
     it("says so when the copy could not be made, and asks the list for nothing", async () => {

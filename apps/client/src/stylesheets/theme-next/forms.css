@@ -146,6 +146,14 @@ button.tn-low-profile:hover {
     margin-inline-start: 4px !important;
 }
 
+/* An action that takes something away, marked as such the way destructive menu items are. Given as
+   the button's own colors rather than as a `color`, which the rules above and the hover one below
+   would both out-specify. */
+:root .icon-action.destructive-action-icon {
+    --icon-button-color: var(--dropdown-item-icon-destructive-color);
+    --icon-button-hover-color: var(--dropdown-item-icon-destructive-color);
+}
+
 /* The "x" icon button */
 :root .icon-action.bx-x,
 :root .tn-tool-button.bx-x {

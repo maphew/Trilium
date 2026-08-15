@@ -1716,6 +1716,7 @@
     "existing_anonymized_databases": "Existing anonymized databases",
     "anonymized_databases_location": "Anonymized databases are stored in {{- anonymizedFolder}}.",
     "download": "Download",
+    "delete_confirmation": "Delete the anonymized database {{fileName}}? The original database is not affected.",
     "creating_fully_anonymized_database": "Creating fully anonymized database...",
     "creating_lightly_anonymized_database": "Creating lightly anonymized database...",
     "error_creating_anonymized_database": "Could not create anonymized database, check backend logs for details",
@@ -2131,6 +2132,7 @@
     "encrypted": "Encrypted"
   },
   "database_file_list": {
+    "delete": "Delete",
     "size_on_disk": "{{size}} on disk",
     "invalid_backup": "Invalid backup file",
     "unsupported_version": "Unsupported backup file format version"

@@ -11,6 +11,7 @@ import {
 import { useCallback, useEffect, useState } from "preact/hooks";
 
 import { summarizeBackups } from "../../../services/database_files";
+import dialogService from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import {
@@ -310,6 +311,20 @@ function AnonymizationOptions() {
         }
     }
 
+    /**
+     * A copy is made to be handed out, and is of no further use once it has been: it is the one
+     * thing on this page that can be thrown away without losing anything, and the only way to do so
+     * short of the file manager.
+     */
+    async function remove(file: AnonymizedDbResponse) {
+        if (!await dialogService.confirm(t("database_anonymization.delete_confirmation", { fileName: file.fileName }))) {
+            return;
+        }
+
+        await server.remove(`database/anonymized?filePath=${encodeURIComponent(file.filePath)}`);
+        refreshAnonymizedDatabases();
+    }
+
     return (
         <>
             <div className="options-section database-anonymization">
@@ -357,6 +372,7 @@ function AnonymizationOptions() {
                 files={databases}
                 downloadEndpoint="api/database/anonymized/download"
                 downloadText={t("database_anonymization.download")}
+                onDelete={remove}
                 emptyIcon="bx bx-glasses"
                 emptyText={t("database_anonymization.no_anonymized_database_yet")}
             />

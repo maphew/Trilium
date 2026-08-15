@@ -118,6 +118,24 @@ async function anonymize(req: Request) {
     return await anonymizationService.createAnonymizedCopy(req.params.type);
 }
 
+/**
+ * Removes one anonymized copy, named by the path the listing gave out.
+ *
+ * Confined to the directory those copies are written to, exactly as the download of one is: the path
+ * arrives from the client, and what follows it is an unguarded file deletion. A file already gone is
+ * not an error — the listing is a moment old by the time it is acted on, and the caller asked for it
+ * to be absent, which it is.
+ */
+function deleteAnonymizedDatabase(req: Request) {
+    const filePath = resolveInsideDirectory(String(req.query.filePath ?? ""), dataDir.ANONYMIZED_DB_DIR);
+
+    if (!filePath) {
+        throw new ValidationError("Not an anonymized database.");
+    }
+
+    fs.rmSync(filePath, { force: true });
+}
+
 function checkIntegrity() {
     const results = sql.getRows<{ integrity_check: string }>("PRAGMA integrity_check");
 
@@ -146,10 +164,22 @@ export default {
     rebuildIntegrationTestDatabase,
     getExistingAnonymizedDatabases,
     anonymize,
+    deleteAnonymizedDatabase,
     checkIntegrity,
     downloadBackup,
     downloadAnonymizedDatabase
 };
+
+/**
+ * The path resolved, or null where it does not land inside the directory it has to be in. Every
+ * route acting on a file the client named goes through here: the paths come from a listing this
+ * server gave out, but nothing about the request says so.
+ */
+function resolveInsideDirectory(filePath: string, allowedDir: string): string | null {
+    const resolvedPath = path.resolve(filePath);
+
+    return resolvedPath.startsWith(path.resolve(allowedDir) + path.sep) ? resolvedPath : null;
+}
 
 function downloadDatabaseFile(req: Request, res: Response, allowedDir: string, notFoundMessage: string) {
     const filePath = req.query.filePath as string;
@@ -158,8 +188,8 @@ function downloadDatabaseFile(req: Request, res: Response, allowedDir: string, n
         return;
     }
 
-    const resolvedPath = path.resolve(filePath);
-    if (!resolvedPath.startsWith(path.resolve(allowedDir) + path.sep)) {
+    const resolvedPath = resolveInsideDirectory(filePath, allowedDir);
+    if (!resolvedPath) {
         res.status(403).send("Access denied");
         return;
     }

@@ -364,6 +364,11 @@ button.custom-title-bar-button {
     border-color: var(--button-border-color);
 }
 
+/* An action that takes something away, marked as such the way destructive menu items are. */
+.icon-action.destructive-action-icon {
+    color: var(--dropdown-item-icon-destructive-color);
+}
+
 .icon-action.disabled {
     color: var(--muted-text-color) !important;
     cursor: not-allowed;
