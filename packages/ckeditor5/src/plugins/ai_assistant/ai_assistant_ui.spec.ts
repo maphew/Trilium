@@ -271,6 +271,42 @@ describe("AiAssistantUI toolbar entry", () => {
             expect(generate.isEnabled).toBe(true);
         });
 
+        // A group whose contents the host lets the user choose ends with the row that chooses them,
+        // which is not an action: no prompt, nothing to work on, and nothing for the model to do.
+        it("closes a group's submenu with its footer, below a rule and reachable without content", async () => {
+            const run = vi.fn();
+            const stub = createStreamStub();
+            const editorWithFooter = await createEditor([{
+                id: "translate",
+                label: "Translate",
+                submenu: true,
+                actions: [{ id: "german", label: "German", prompt: "Translate to German." }],
+                footer: { label: "Configure languages…", iconClass: "bx bx-cog", run }
+            }], stub.stream);
+            const dropdownWithFooter = createComponent(editorWithFooter);
+            const [translate] = openMenu(dropdownWithFooter).menus;
+
+            expect(translate.listView.items.map((item) => item.childView?.label ?? "---"))
+                .toEqual(["German", "---", "Configure languages…"]);
+
+            // Its one action needs content; the footer does not, so neither the row nor the submenu
+            // holding it closes off with nothing selected.
+            setModelData(editorWithFooter.model, "<paragraph>[]</paragraph>");
+            expect(translate.isEnabled).toBe(true);
+
+            const configure = quickActionButtons(dropdownWithFooter)
+                .find((button) => button.id === "translate:footer");
+            expect(configure?.isEnabled).toBe(true);
+            expect(configure?.element?.querySelector(".ck-ai-action-icon")?.className)
+                .toBe("ck-ai-action-icon bx bx-cog");
+
+            configure?.fire("execute");
+            expect(run).toHaveBeenCalled();
+            // It runs host code instead of the assistant: no request, and no dialog.
+            expect(stub.requests).toHaveLength(0);
+            expect(editorWithFooter.plugins.get(Dialog).id).toBeNull();
+        });
+
         it("runs an action picked from inside a submenu", async () => {
             // A submenu button delegates its `execute` up through its menu to the root rather than
             // firing on the dropdown itself, so this is a different path from an inlined action.

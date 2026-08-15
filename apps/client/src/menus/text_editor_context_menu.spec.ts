@@ -41,7 +41,8 @@ const GROUPS: AiQuickActionGroup[] = [
         id: "tone",
         label: "Change tone",
         submenu: true,
-        actions: [{ id: "casual", label: "Casual", prompt: "…" }]
+        actions: [{ id: "casual", label: "Casual", prompt: "…" }],
+        footer: { label: "Configure…", iconClass: "bx bx-cog", run: vi.fn() }
     }
 ];
 
@@ -168,8 +169,25 @@ describe("buildAiActionsMenuItem", () => {
             "Fix typos": false,
             Draft: true,
             Adjust: false,
-            "Change tone": false
+            // Its actions all need content, but the row that configures them does not, so the
+            // submenu still opens.
+            "Change tone": true
         });
+    });
+
+    // A group whose contents are configurable ends with the row that configures them, below a rule
+    // and runnable whatever the selection is.
+    it("closes a group's submenu with its footer, and leaves it runnable without content", async () => {
+        build({ hasContext: false });
+        const item = await buildAiActionsMenuItem() as MenuCommandItem<string>;
+        const tone = commandItems(item.items ?? []).find((i) => i.title === "Change tone");
+
+        expect(titles(tone?.items ?? [])).toEqual(["Casual", "--- separator ---", "Configure…"]);
+
+        const configure = commandItems(tone?.items ?? []).find((i) => i.title === "Configure…");
+        expect([configure?.enabled, configure?.uiIcon]).toEqual([true, "bx bx-cog"]);
+        configure?.handler?.(configure, null as never);
+        expect(GROUPS.find((g) => g.id === "tone")?.footer?.run).toHaveBeenCalled();
     });
 
     it("runs the picked action, and opens the free-form prompt from the first row", async () => {

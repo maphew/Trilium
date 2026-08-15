@@ -35,7 +35,9 @@ vi.mock("../../../services/server.js", () => ({
     default: { post: vi.fn(async (_url: string, data: { htmlContent: string }) => toMarkdownResult(data.htmlContent)) }
 }));
 vi.mock("../../../services/task_states.js", () => ({ getTaskStateDefinitions: async () => [] }));
+vi.mock("../../../components/app_context.js", () => ({ default: { triggerCommand: vi.fn() } }));
 
+import appContext from "../../../components/app_context.js";
 import buildAiAssistantStream, { buildAiAssistantQuickActions, stripMarkdownFences } from "./ai_assistant_stream.js";
 
 /** The `llmProviders` option as the mocked `options.getJson` will return it. */
@@ -278,6 +280,19 @@ describe("buildAiAssistantQuickActions", () => {
             // so "Simplified Chinese" is the name that tells them apart and "Chinese (China)" is not.
             ["translate:cn", "简体中文", "Translate the content to Simplified Chinese."]
         ]);
+    });
+
+    // The list is configurable, so what configures it closes the submenu — the same row the status
+    // bar and the ribbon end their language pickers with, raising the same modal.
+    it("closes the Translate submenu with the row that configures the list", () => {
+        const group = buildAiAssistantQuickActions().find((candidate) => candidate.id === "translate");
+        expect(group?.footer?.label).toBe("note_language.configure-languages");
+
+        group?.footer?.run();
+        expect(appContext.triggerCommand).toHaveBeenCalledWith("showContentLanguagesDialog");
+
+        // It is the only group whose contents the user chooses, so the only one with a footer.
+        expect(buildAiAssistantQuickActions().filter((candidate) => candidate.footer)).toHaveLength(1);
     });
 
     // Nothing is enabled on a fresh install, and an empty Translate submenu would say the feature

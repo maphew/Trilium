@@ -36,6 +36,7 @@ export function applyModals(rootContainer: RootContainer) {
         .child(<LazyDialog triggerEvents={["showPromptDialog"]} loader={() => import("../widgets/dialogs/prompt.js")} />)
         .child(<LazyDialog triggerEvents={["showCpuArchWarning"]} loader={() => import("../widgets/dialogs/incorrect_cpu_arch.js")} />)
         .child(<LazyDialog triggerEvents={["showOptions"]} loader={() => import("../widgets/dialogs/OptionsDialog.jsx")} />)
+        .child(<LazyDialog triggerEvents={["showContentLanguagesDialog"]} loader={() => import("../widgets/dialogs/content_languages.js")} />)
         .child(<LazyDialog triggerEvents={["showOcrTextDialog"]} loader={() => import("../widgets/dialogs/ocr_text.js")} />)
         .child(<LazyDialog triggerEvents={["showNoteAttributes"]} loader={() => import("../widgets/dialogs/note_attributes.jsx")} />)
         .child(<LazyDialog triggerEvents={["showUploadAttachmentsDialog"]} loader={() => import("../widgets/dialogs/upload_attachments.js")} />)

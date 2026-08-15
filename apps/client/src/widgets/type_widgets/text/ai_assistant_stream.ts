@@ -1,6 +1,7 @@
 import type { AiCompletionUsage, AiQuickAction, AiQuickActionGroup, AiStreamFunction } from "@triliumnext/ckeditor5";
 import { getEnglishName, type LlmChatConfig, type LlmMessage, type LlmModelInfo, type LlmUsage, type Locale, type ToMarkdownResponse } from "@triliumnext/commons";
 
+import appContext from "../../../components/app_context.js";
 import { getAvailableLocales, t } from "../../../services/i18n.js";
 import { streamChatCompletion } from "../../../services/llm_chat.js";
 import options from "../../../services/options.js";
@@ -167,7 +168,16 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
             id: "translate",
             label: t("ai_assistant.group_translate"),
             submenu: true,
-            actions: buildTranslateActions()
+            actions: buildTranslateActions(),
+            // The one group whose contents are the user's to choose, so the way to choose them
+            // closes it — as it closes the note's own language picker in the status bar and the
+            // ribbon, and for the same reason: nobody looking at the list would think to go
+            // hunting through the settings for what fills it.
+            footer: {
+                label: t("note_language.configure-languages"),
+                iconClass: "bx bx-cog",
+                run: () => appContext.triggerCommand("showContentLanguagesDialog")
+            }
         }
     ]);
 }

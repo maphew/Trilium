@@ -81,7 +81,7 @@ function buildQuickActionItems(
     const items: MenuItem<CommandNames>[] = [];
 
     for (const [index, group] of groups.entries()) {
-        const children = group.actions.map((action) => ({
+        const children: MenuItem<CommandNames>[] = group.actions.map((action) => ({
             title: action.label,
             uiIcon: action.iconClass,
             enabled: canRun(action),
@@ -89,10 +89,20 @@ function buildQuickActionItems(
         }));
 
         if (group.submenu) {
+            if (group.footer) {
+                children.push({ kind: "separator" }, {
+                    title: group.footer.label,
+                    uiIcon: group.footer.iconClass,
+                    // Configures the group rather than running against the document, so it stays
+                    // reachable when everything above it is closed off — as does its submenu.
+                    enabled: true,
+                    handler: group.footer.run
+                });
+            }
             items.push({
                 title: group.label,
                 uiIcon: group.iconClass,
-                enabled: group.actions.some(canRun),
+                enabled: !!group.footer || group.actions.some(canRun),
                 items: children
             });
         } else {

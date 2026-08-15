@@ -136,6 +136,22 @@ export interface AiQuickAction {
  */
 export type AiSanitizeFunction = (html: string) => string;
 
+/**
+ * A row appended to the bottom of a group's submenu, below a rule, that runs host code instead of
+ * asking the model — for a group whose contents the user configures, so that what configures them
+ * is reachable from the group itself rather than only from the settings.
+ *
+ * It is not an {@link AiQuickAction}: it has no prompt, needs no content, and has no business in
+ * the `/` palette, which lists ways to instruct the model.
+ */
+export interface AiQuickActionFooter {
+    /** The label shown in the menu, already translated by the host. */
+    label: string;
+    /** The row's icon, as a Boxicon class list. */
+    iconClass?: string;
+    run: () => void;
+}
+
 /** A labelled group of quick actions, rendered as a group in the menu. */
 export interface AiQuickActionGroup {
     id: string;
@@ -154,6 +170,8 @@ export interface AiQuickActionGroup {
      * suits actions that already read as commands on their own ("Fix typos", "Summarize").
      */
     submenu?: boolean;
+    /** A row closing the group's submenu. Only rendered when the group is a {@link submenu}. */
+    footer?: AiQuickActionFooter;
 }
 
 export interface AiAssistantConfig {
