@@ -30,18 +30,19 @@ export function buildAiModelPicker(): AiQuickActionFooter[] {
         return [];
     }
 
-    // The same model can be reached through two configured providers, so the rows have to say which
-    // one they mean — but only where there is more than one to confuse them with.
-    const name = (model: ModelOption) => {
-        const short = shortModelName(model.name, model.provider);
-        return groups.length > 1 && model.providerName ? `${short} (${model.providerName})` : short;
-    };
+    const name = (model: ModelOption) => shortModelName(model.name, model.provider);
 
     return [{
-        label: t("ai_assistant.model", { model: name(current) }),
+        // The row above the list still has to name one model out of several providers on its own,
+        // with no heading over it to say whose it is.
+        label: t("ai_assistant.model", { model: nameWithProvider(current, groups.length) }),
         iconClass: "bx bx-chip",
-        children: models.map((model) => ({
+        children: groups.flatMap((group) => group.models.map((model, index) => ({
             label: name(model),
+            // Headed by the provider it belongs to, as the chat's picker heads them — the same
+            // model can be reached through two of them, and a name saying so in brackets on every
+            // row says it over and over.
+            ...(index === 0 && groups.length > 1 ? { heading: group.name } : {}),
             // The tick every checked row in Trilium wears, and the reserver that keeps the labels
             // of the unticked ones lined up with it.
             iconClass: model === current ? "bx bx-check" : "bx bx-empty",
@@ -50,7 +51,7 @@ export function buildAiModelPicker(): AiQuickActionFooter[] {
                 provider: model.provider,
                 providerId: model.providerId
             } satisfies StoredModel))
-        }))
+        })))
     }];
 }
 
@@ -85,6 +86,15 @@ export function pickModel(): LlmChatConfig {
  */
 function resolveModel(models: ModelOption[]): ModelOption | undefined {
     return resolveStoredModel(models) ?? models.find((model) => model.isDefault) ?? models[0];
+}
+
+/**
+ * A model named for somewhere with no heading to lean on — the row over the list. The provider
+ * comes along only when more than one is configured, since that is the only time it distinguishes.
+ */
+function nameWithProvider(model: ModelOption, providerCount: number): string {
+    const short = shortModelName(model.name, model.provider);
+    return providerCount > 1 && model.providerName ? `${short} (${model.providerName})` : short;
 }
 
 /** What the `aiAssistantModel` option holds — the three fields it takes to name a model exactly. */

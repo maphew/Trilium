@@ -238,6 +238,8 @@ export default class AiAssistantUI extends Plugin {
         // where one set of actions ends and the next begins. Consecutive submenus need none: they
         // read as one block of "openers" already.
         let separatorAt: number[] = [];
+        /** Where each footer submenu wants headings, by its id. */
+        const headingsIn = new Map<string, Array<{ index: number; label: string }>>();
 
         /**
          * Lets go of the menu a previous draw left behind. `addMenuToDropdown` only ever assigns
@@ -264,6 +266,7 @@ export default class AiAssistantUI extends Plugin {
             actionsById.clear();
             footersById.clear();
             groupsById.clear();
+            headingsIn.clear();
             separatorAt = [];
 
             const groups = this._quickActions;
@@ -272,13 +275,22 @@ export default class AiAssistantUI extends Plugin {
             /** Records a footer row against its id and describes it, opener or leaf, to the menu. */
             const defineFooter = (id: string, footer: AiQuickActionFooter): DropdownMenuDefinition[number] => {
                 footersById.set(id, footer);
-                return footer.children
-                    ? {
-                        id,
-                        menu: footer.label,
-                        children: footer.children.map((child, index) => defineFooter(`${id}:${index}`, child))
-                    }
-                    : { id, label: footer.label };
+                if (!footer.children) {
+                    return { id, label: footer.label };
+                }
+
+                // The headings its children asked for, as indices into the submenu's finished item
+                // list — the same bookkeeping the top level does for its rules, and for the same
+                // reason: a menu definition carries buttons and submenus, nothing else.
+                headingsIn.set(id, footer.children.flatMap((child, index) => (child.heading
+                    ? [{ index, label: child.heading }]
+                    : [])));
+
+                return {
+                    id,
+                    menu: footer.label,
+                    children: footer.children.map((child, index) => defineFooter(`${id}:${index}`, child))
+                };
             };
 
             // Heads the menu: the typed prompt every row below it is a shortcut past, and what the
@@ -357,6 +369,10 @@ export default class AiAssistantUI extends Plugin {
                     // A footer submenu holds settings, not instructions, so nothing about it turns
                     // on there being content to work on.
                     addIcon(menu.buttonView, footer.iconClass);
+                    // Back to front, as at the top level: each insertion shifts what follows it.
+                    for (const { index, label } of [...(headingsIn.get(menu.id) ?? [])].reverse()) {
+                        menu.listView.items.add(new ListHeaderView(locale, label), index);
+                    }
                     continue;
                 }
 
@@ -922,6 +938,32 @@ export default class AiAssistantUI extends Plugin {
 function addIcon(button: ButtonView, iconClass: string | undefined): void {
     if (iconClass) {
         button.children.add(new FontIconView(button.locale, iconClass), 0);
+    }
+}
+
+/**
+ * A heading over a block of rows, in the markup CKEditor styles its own list groups with — bold,
+ * small, ruled off from the block above.
+ *
+ * `ListItemGroupView` would bring the same look but wants to *own* the rows under it, and the menu
+ * builds those from a definition that has no notion of a group. A heading inserted beside them,
+ * the way the separators are, needs no such ownership. It is presentational: the rows keep their
+ * own roles, and a screen reader is not told a menu item sits here.
+ */
+class ListHeaderView extends View {
+
+    constructor(locale: Locale | undefined, label: string) {
+        super(locale);
+
+        this.setTemplate({
+            tag: "li",
+            attributes: { class: ["ck", "ck-list__group"], role: "presentation" },
+            children: [{
+                tag: "span",
+                attributes: { class: ["ck", "ck-label"] },
+                children: [{ text: label }]
+            }]
+        });
     }
 }
 

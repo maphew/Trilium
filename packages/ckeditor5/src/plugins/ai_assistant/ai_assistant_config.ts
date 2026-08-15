@@ -155,6 +155,12 @@ export interface AiQuickActionFooter {
     /** The row's icon, as a Boxicon class list. */
     iconClass?: string;
     /**
+     * A heading over this row, opening the block it starts — how a long list of rows says what
+     * divides it. Already translated by the host, and only honoured inside a {@link children} list,
+     * which is where a list long enough to want dividing ends up.
+     */
+    heading?: string;
+    /**
      * Rows this one opens onto, making it a submenu rather than something that runs. A row with
      * children never runs, so {@link run} is beside the point for it.
      */

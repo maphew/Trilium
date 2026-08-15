@@ -38,8 +38,9 @@ const TWO_PROVIDERS = [
     }
 ];
 
-function labelsOf(picker: ReturnType<typeof buildAiModelPicker>) {
-    return (picker[0]?.children ?? []).map((row) => [row.label, row.iconClass]);
+/** Each row as it reads: the heading it opens a block with, its label, and its icon slot. */
+function rowsOf(picker: ReturnType<typeof buildAiModelPicker>) {
+    return (picker[0]?.children ?? []).map((row) => [row.heading ?? "", row.label, row.iconClass]);
 }
 
 describe("the AI assistant's model picker", () => {
@@ -56,10 +57,11 @@ describe("the AI assistant's model picker", () => {
         // More than one provider is configured, so a row says which one it means: the same model id
         // can be reached through two of them.
         expect(picker[0].label).toBe("ai_assistant.model(model=GPT-5 (OpenAI))");
-        expect(labelsOf(picker)).toEqual([
-            ["Opus 5 (Anthropic)", "bx bx-empty"],
-            ["Sonnet 5 (Anthropic)", "bx bx-empty"],
-            ["GPT-5 (OpenAI)", "bx bx-check"]
+        // Headed by their provider rather than trailing it in brackets on every row.
+        expect(rowsOf(picker)).toEqual([
+            ["Anthropic", "Opus 5", "bx bx-empty"],
+            ["", "Sonnet 5", "bx bx-empty"],
+            ["OpenAI", "GPT-5", "bx bx-check"]
         ]);
     });
 
@@ -70,7 +72,8 @@ describe("the AI assistant's model picker", () => {
 
         const picker = buildAiModelPicker();
         expect(picker[0].label).toBe("ai_assistant.model(model=Sonnet 5)");
-        expect(labelsOf(picker)).toEqual([["Opus 5", "bx bx-empty"], ["Sonnet 5", "bx bx-check"]]);
+        // One provider distinguishes nothing, so no heading and no bracket.
+        expect(rowsOf(picker)).toEqual([["", "Opus 5", "bx bx-empty"], ["", "Sonnet 5", "bx bx-check"]]);
     });
 
     // Nothing flagged, so the first one answers — and the row says so.
@@ -87,8 +90,8 @@ describe("the AI assistant's model picker", () => {
 
         const picker = buildAiModelPicker();
         expect(picker[0].label).toBe("ai_assistant.model(model=Sonnet 5 (Anthropic))");
-        expect(labelsOf(picker).filter(([, icon]) => icon === "bx bx-check"))
-            .toEqual([["Sonnet 5 (Anthropic)", "bx bx-check"]]);
+        expect(rowsOf(picker).filter(([, , icon]) => icon === "bx bx-check"))
+            .toEqual([["", "Sonnet 5", "bx bx-check"]]);
     });
 
     // A row offering the only answer there is takes up space and settles nothing.

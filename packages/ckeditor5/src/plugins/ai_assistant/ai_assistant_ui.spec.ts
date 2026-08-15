@@ -416,6 +416,30 @@ describe("AiAssistantUI toolbar entry", () => {
             expect(requests).toHaveLength(0);
         });
 
+        // A list long enough to want dividing says what divides it. The menu definition carries
+        // buttons and submenus and nothing else, so the headings are put in beside the rows.
+        it("heads the blocks of a footer submenu that asked for headings", () => {
+            editor.plugins.get(AiAssistantUI).updateMenuFooter([{
+                label: "Model: Sonnet 5",
+                children: [
+                    { label: "Sonnet 5", heading: "Anthropic", run: vi.fn() },
+                    { label: "Opus 5", run: vi.fn() },
+                    { label: "GPT-5", heading: "OpenAI", run: vi.fn() }
+                ]
+            }]);
+
+            dropdown.isOpen = false;
+            dropdown.isOpen = true;
+            const [picker] = openMenu(dropdown).menus.filter((menu) => menu.id.startsWith("__footer"));
+
+            // A heading is a plain view beside the rows, so it reads as a gap in the button list.
+            expect(picker.listView.items.map((item) => item.childView?.label ?? "---"))
+                .toEqual(["---", "Sonnet 5", "Opus 5", "---", "GPT-5"]);
+            expect([ ...picker.listView.items ].flatMap((item) =>
+                (item.childView ? [] : [(item as unknown as { element?: HTMLElement }).element?.textContent])))
+                .toEqual(["Anthropic", "OpenAI"]);
+        });
+
         it("runs an action picked from inside a submenu", async () => {
             // A submenu button delegates its `execute` up through its menu to the root rather than
             // firing on the dropdown itself, so this is a different path from an inlined action.
