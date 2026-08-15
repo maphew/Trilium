@@ -114,7 +114,7 @@ export default class AiAssistantFormView extends View {
         // Takes Send's place in the prompt row while a run is in flight: the control that acts on
         // the run belongs where the eye already is, and one icon replacing another keeps the row
         // from resizing as the phase turns over.
-        this.stopButtonView = this._createActionButton(locale, t("Stop"), "streaming", "stop");
+        this.stopButtonView = this._createActionButton(locale, t("Stop"), "streaming", "stop", "isVisible");
         this.stopButtonView.set({ icon: IconStop, withText: false, tooltip: true });
         this.stopButtonView.class = "ck-button-action ck-ai-assistant-form__icon-action";
         this.replaceButtonView = this._createActionButton(locale, t("Replace"), "review", "replace");
@@ -152,8 +152,18 @@ export default class AiAssistantFormView extends View {
                 {
                     // The preview's own strip: the Result/Changes toggle on the left, "Try again"
                     // pushed to the right. The feature's title belongs to the dialog's header.
+                    //
+                    // Absent until a run is asked for — before that the form is a prompt and
+                    // nothing else — and present unchanged from then on, so the only thing that
+                    // moves once the response is on its way is the preview filling up.
                     tag: "div",
-                    attributes: { class: ["ck", "ck-ai-assistant-form__preview-toolbar"] },
+                    attributes: {
+                        class: [
+                            "ck",
+                            "ck-ai-assistant-form__preview-toolbar",
+                            bind.if("phase", "ck-hidden", (phase) => phase === "prompt")
+                        ]
+                    },
                     children: [
                         {
                             // The two modes are one choice, so they share a container the host can
@@ -223,8 +233,17 @@ export default class AiAssistantFormView extends View {
                     children: [this.promptInputView, this.sendButtonView, this.stopButtonView]
                 },
                 {
+                    // Reserved from the moment a run is asked for, its buttons inert until there is
+                    // something to commit: appearing at the end of a run would drop the dialog's
+                    // last row in under the reader mid-read.
                     tag: "div",
-                    attributes: { class: ["ck", "ck-ai-assistant-form__actions"] },
+                    attributes: {
+                        class: [
+                            "ck",
+                            "ck-ai-assistant-form__actions",
+                            bind.if("phase", "ck-hidden", (phase) => phase === "prompt")
+                        ]
+                    },
                     children: [
                         // The row is pushed to the end, so "Replace" comes last to land where the
                         // eye finishes and the primary action is expected.
@@ -408,10 +427,21 @@ export default class AiAssistantFormView extends View {
     }
 
     /** A text action button that is only visible in the given phase and re-emits `eventName`. */
-    private _createActionButton(locale: Locale, label: string, phase: AiAssistantFormPhase, eventName: string) {
+    /**
+     * A text button that fires `eventName` when the form reaches `phase`. Gated by enablement, so
+     * the row it sits in keeps its height across the phase it belongs to — `isVisible` is for a
+     * button that shares its slot with another, which only "Stop" does.
+     */
+    private _createActionButton(
+        locale: Locale,
+        label: string,
+        phase: AiAssistantFormPhase,
+        eventName: string,
+        gate: "isVisible" | "isEnabled" = "isEnabled"
+    ) {
         const button = new ButtonView(locale);
         button.set({ label, withText: true });
-        button.bind("isVisible").to(this, "phase", (currentPhase) => currentPhase === phase);
+        button.bind(gate).to(this, "phase", (currentPhase) => currentPhase === phase);
         button.on("execute", () => this.fire(eventName));
         return button;
     }

@@ -20,18 +20,57 @@ afterEach(() => {
 });
 
 describe("AiAssistantFormView", () => {
-    it("starts in the prompt phase with the strip on show but inert", () => {
+    /** Whether a row of the form is on show, by the class the template hides it with. */
+    function rowShown(selector: string): boolean {
+        const row = form.element?.querySelector(selector);
+        return !!row && !row.classList.contains("ck-hidden");
+    }
+
+    it("starts as a prompt and nothing else", () => {
         const form = makeForm();
         expect(form.phase).toBe("prompt");
 
-        // The strip holds its place from the start — appearing with the response would shift
-        // every row beneath it — so nothing in it is hidden, only disabled.
-        for (const view of [form.resultToggleView, form.changesToggleView, form.tryAgainButtonView]) {
+        // Nothing to review yet, so the review's rows are not there to be reviewed with.
+        expect(rowShown(".ck-ai-assistant-form__preview-toolbar")).toBe(false);
+        expect(rowShown(".ck-ai-assistant-form__actions")).toBe(false);
+        expect(rowShown(".ck-ai-assistant-form__prompt-row")).toBe(true);
+
+        // Without the reset exemption, the body wrapper's `.ck-reset_all` nowraps every paragraph.
+        expect(form.previewView.element?.classList.contains("ck-reset_all-excluded")).toBe(true);
+    });
+
+    it("settles its layout when the run is asked for, not when it lands", () => {
+        const form = makeForm();
+        form.beginStreaming();
+
+        // Everything the review needs arrives at once, with the keystroke that asked for it, and
+        // is inert until there is something to use it on. Nothing may appear later: the wait for
+        // the first chunk, and the moment it lands, both have to leave the rows where they are.
+        expect(rowShown(".ck-ai-assistant-form__preview-toolbar")).toBe(true);
+        expect(rowShown(".ck-ai-assistant-form__actions")).toBe(true);
+
+        const reviewViews = [
+            form.resultToggleView,
+            form.changesToggleView,
+            form.tryAgainButtonView,
+            form.insertBelowButtonView,
+            form.replaceButtonView
+        ];
+        for (const view of reviewViews) {
             expect(view.isVisible).toBe(true);
             expect(view.isEnabled).toBe(false);
         }
-        // Without the reset exemption, the body wrapper's `.ck-reset_all` nowraps every paragraph.
-        expect(form.previewView.element?.classList.contains("ck-reset_all-excluded")).toBe(true);
+
+        form.setPreview("<p>new</p>");
+        form.enterReview({ hasContent: true });
+
+        expect(rowShown(".ck-ai-assistant-form__preview-toolbar")).toBe(true);
+        expect(rowShown(".ck-ai-assistant-form__actions")).toBe(true);
+        for (const view of reviewViews) {
+            expect(view.isVisible).toBe(true);
+        }
+        expect(form.insertBelowButtonView.isEnabled).toBe(true);
+        expect(form.replaceButtonView.isEnabled).toBe(true);
     });
 
     it("streams into the preview and always shows the raw result while streaming", () => {

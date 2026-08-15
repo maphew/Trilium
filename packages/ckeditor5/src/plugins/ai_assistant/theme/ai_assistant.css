@@ -134,11 +134,6 @@
     white-space: nowrap;
 }
 
-/* An actions row with every button hidden should not reserve a gap's worth of height. */
-.ck.ck-ai-assistant-form .ck-ai-assistant-form__actions:not(:has(.ck-button:not(.ck-hidden))) {
-    display: none;
-}
-
 /* The inline diff shown by the "Changes" view (htmldiff-js `ins`/`del` markup, the same
    convention the revisions dialog styles). Colors are self-contained rather than borrowing the
    client's Bootstrap variables, so the plugin package stays host-agnostic. */
