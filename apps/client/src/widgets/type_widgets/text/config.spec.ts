@@ -1,3 +1,4 @@
+import type { EditorConfig } from "@triliumnext/ckeditor5";
 import { DISPLAYABLE_LOCALE_IDS, IMAGE_MIMES, LOCALES, SANITIZER_DEFAULT_ALLOWED_TAGS } from "@triliumnext/commons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,7 +8,10 @@ import { ensureMimeTypesForHighlighting } from "../../../services/syntax_highlig
 import { buildConfig, type BuildEditorOptions, OPEN_SOURCE_LICENSE_KEY } from "./config.js";
 
 // Mutable option values, reset before each test (see `beforeEach`).
-const optionsState = vi.hoisted(() => ({ map: {} as Record<string, string | undefined> }));
+const optionsState = vi.hoisted(() => ({
+    map: {} as Record<string, string | undefined>,
+    json: {} as Record<string, unknown>
+}));
 // Toggles whether the editor advertises raw-image clipboard support.
 const imageState = vi.hoisted(() => ({ copySupported: false }));
 
@@ -48,7 +52,11 @@ vi.mock("../../../services/options.js", () => ({
             if (name === "codeNotesMimeTypes") {
                 return ["text/javascript", "application/javascript;env=frontend", "application/javascript;env=backend", "text/css"];
             }
+            if (name in optionsState.json) return optionsState.json[name];
             return [];
+        },
+        is(name: string) {
+            return optionsState.map[name] === "true";
         }
     }
 }));
@@ -128,6 +136,7 @@ async function buildDynamicConfig(overrides: Partial<BuildEditorOptions> = {}) {
 
 beforeEach(() => {
     optionsState.map = {};
+    optionsState.json = {};
     imageState.copySupported = false;
     catalogState.bundle = undefined;
     catalogState.entries = {};
@@ -581,6 +590,34 @@ describe("CK config - mention feed", () => {
         expect(createItem.querySelector("b")).toBeNull();
     });
 });
+
+describe("CK config - AI assistant", () => {
+    const PROVIDER = [{ id: "cfg-openai", provider: "openai", selectedModels: [{ id: "gpt-5" }] }];
+
+    // The two halves are settled together: without a transport the command can never be enabled,
+    // so the button would only ever be there to be greyed out.
+    it("offers the assistant only once the feature is on and a provider is configured", async () => {
+        const off = await buildConfig(baseOpts());
+        expect(off.aiAssistant?.stream).toBeUndefined();
+        expect(toolbarItems(off)).not.toContain("aiAssistant");
+
+        // The master switch off, but a provider still stored — what disabling it actually leaves.
+        optionsState.json["llmProviders"] = PROVIDER;
+        const noSwitch = await buildConfig(baseOpts());
+        expect(noSwitch.aiAssistant?.stream).toBeUndefined();
+        expect(toolbarItems(noSwitch)).not.toContain("aiAssistant");
+
+        optionsState.map["aiEnabled"] = "true";
+        const on = await buildConfig(baseOpts());
+        expect(on.aiAssistant?.stream).toBeDefined();
+        expect(toolbarItems(on)).toContain("aiAssistant");
+    });
+});
+
+/** The built toolbar's own items, whichever of the two shapes CKEditor accepts it took. */
+function toolbarItems(config: EditorConfig): unknown[] {
+    return Array.isArray(config.toolbar) ? config.toolbar : (config.toolbar?.items ?? []);
+}
 
 describe("CK config - disabled plugins", () => {
     it("removes the emoji and slash-command plugins based on their option toggles", async () => {
