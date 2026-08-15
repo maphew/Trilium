@@ -39,7 +39,7 @@
 }
 
 .ck.ck-dropdown.ck-ai-assistant-quick-actions .ck-dropdown__panel > .ck-list {
-    max-height: 320px;
+    max-height: 60vh;
     padding-inline: var(--ck-editor-popup-padding, 0px);
     overflow-x: clip;
     overflow-y: auto;
