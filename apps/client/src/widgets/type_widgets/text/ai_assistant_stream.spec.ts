@@ -6,13 +6,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Keys stand in for their translations; a key with interpolation renders as `key(name=value)`, so
 // a composed label shows both the key it went through and what was substituted into it.
-vi.mock("../../../services/i18n.js", () => ({
-    t: (key: string, values?: Record<string, string>) => (values
-        ? `${key}(${Object.entries(values).map(([name, value]) => `${name}=${value}`).join(",")})`
-        : key)
-}));
+vi.mock("../../../services/i18n.js", async () => {
+    // The real catalogue, which is what the function returns in a production build: the languages
+    // the Translate submenu offers are exactly the ones out of it the user enabled.
+    const { LOCALES } = await import("@triliumnext/commons");
+    return {
+        t: (key: string, values?: Record<string, string>) => (values
+            ? `${key}(${Object.entries(values).map(([name, value]) => `${name}=${value}`).join(",")})`
+            : key),
+        getAvailableLocales: () => LOCALES
+    };
+});
 vi.mock("../../../services/options.js", () => ({
-    default: { getJson: () => storedProviders }
+    default: { getJson: (key: string) => (key === "languages" ? storedLanguages : storedProviders) }
 }));
 vi.mock("../../../services/llm_chat.js", () => ({
     streamChatCompletion: vi.fn(async (messages, config, callbacks) => {
@@ -34,6 +40,8 @@ import buildAiAssistantStream, { buildAiAssistantQuickActions, stripMarkdownFenc
 
 /** The `llmProviders` option as the mocked `options.getJson` will return it. */
 let storedProviders: unknown = null;
+/** The `languages` option — the locale ids enabled as content languages. */
+let storedLanguages: unknown = null;
 /** The config each `streamChatCompletion` call was made with, in order. */
 let requestedConfigs: LlmChatConfig[] = [];
 /** The messages each `streamChatCompletion` call was made with, in order. */
@@ -47,6 +55,7 @@ const PROVIDER = [{ id: "cfg-openai", provider: "openai", selectedModels: [{ id:
 
 beforeEach(() => {
     storedProviders = null;
+    storedLanguages = null;
     requestedConfigs = [];
     requestedMessages = [];
     responseChunks = ["done"];
@@ -246,11 +255,40 @@ describe("buildAiAssistantQuickActions", () => {
         expect(direct?.label).toBe("ai_assistant.tone_direct");
         expect(direct?.commandLabel).toBe("ai_assistant.command_tone(tone=ai_assistant.tone_direct)");
 
-        const romanian = actions("translate").find((action) => action.id === "translateRomanian");
-        expect(romanian?.label).toBe("ai_assistant.lang_romanian");
-        expect(romanian?.commandLabel).toBe("ai_assistant.command_translate(language=ai_assistant.lang_romanian)");
+        const romanian = actions("translate").find((action) => action.id === "translate:ro");
+        expect(romanian?.label).toBe("Română");
+        expect(romanian?.commandLabel).toBe("ai_assistant.command_translate(language=Română)");
         // The instruction is not translated: it is addressed to the model, not to the user.
         expect(romanian?.prompt).toBe("Translate the content to Romanian.");
+    });
+
+    // The list is the user's own — the languages they enabled as content languages, the same ones a
+    // note's language is picked from — rather than a fixed six that suit nobody in particular.
+    it("offers the enabled content languages, naming each in itself but to the model in English", () => {
+        storedLanguages = ["ja", "cn", "pt_br", "en-GB", "ar"];
+
+        // Ordered as the catalogue is — by native name — so the submenu reads the same way as the
+        // language picker the list was configured in.
+        expect(actions("translate").map((action) => [action.id, action.label, action.prompt])).toEqual([
+            ["translate:en-GB", "English (United Kingdom)", "Translate the content to English (United Kingdom)."],
+            ["translate:pt_br", "Português (Brasil)", "Translate the content to Brazilian Portuguese."],
+            ["translate:ar", "اَلْعَرَبِيَّةُ", "Translate the content to Arabic."],
+            ["translate:ja", "日本語", "Translate the content to Japanese."],
+            // `zh-Hans`, not the `zh-CN` the locale maps to elsewhere: the pair differs by script,
+            // so "Simplified Chinese" is the name that tells them apart and "Chinese (China)" is not.
+            ["translate:cn", "简体中文", "Translate the content to Simplified Chinese."]
+        ]);
+    });
+
+    // Nothing is enabled on a fresh install, and an empty Translate submenu would say the feature
+    // was broken rather than unconfigured.
+    it("falls back to the original six when no content language is enabled", () => {
+        for (const empty of [null, []]) {
+            storedLanguages = empty;
+            expect(actions("translate").map((action) => action.id)).toEqual([
+                "translate:de", "translate:en", "translate:es", "translate:fr", "translate:ro", "translate:cn"
+            ]);
+        }
     });
 
     // "Make shorter" against "Simplify language", "Turn into a table" against "Extract action
@@ -331,8 +369,7 @@ describe("buildAiAssistantQuickActions", () => {
         expect([ ...reviewViews ].filter(([, view]) => view === "result").map(([id]) => id))
             .toEqual([
                 "summarize", "explain", "continue", "table", "diagram", "actionItems",
-                "translateEnglish", "translateGerman", "translateSpanish", "translateFrench",
-                "translateRomanian", "translateChinese"
+                "translate:de", "translate:en", "translate:es", "translate:fr", "translate:ro", "translate:cn"
             ]);
         for (const id of ["fixTypos", "improveWriting", "makeShorter", "professional", "callout"]) {
             expect(reviewViews.get(id), id).toBeUndefined();

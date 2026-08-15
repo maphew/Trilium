@@ -1,7 +1,7 @@
 import type { AiCompletionUsage, AiQuickAction, AiQuickActionGroup, AiStreamFunction } from "@triliumnext/ckeditor5";
-import type { LlmChatConfig, LlmMessage, LlmModelInfo, LlmUsage, ToMarkdownResponse } from "@triliumnext/commons";
+import { getEnglishName, type LlmChatConfig, type LlmMessage, type LlmModelInfo, type LlmUsage, type Locale, type ToMarkdownResponse } from "@triliumnext/commons";
 
-import { t } from "../../../services/i18n.js";
+import { getAvailableLocales, t } from "../../../services/i18n.js";
 import { streamChatCompletion } from "../../../services/llm_chat.js";
 import options from "../../../services/options.js";
 import { sanitizeNoteContentHtml } from "../../../services/sanitize_content.js";
@@ -167,14 +167,7 @@ export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
             id: "translate",
             label: t("ai_assistant.group_translate"),
             submenu: true,
-            actions: [
-                translateAction("translateEnglish", t("ai_assistant.lang_english"), "Translate the content to English."),
-                translateAction("translateGerman", t("ai_assistant.lang_german"), "Translate the content to German."),
-                translateAction("translateSpanish", t("ai_assistant.lang_spanish"), "Translate the content to Spanish."),
-                translateAction("translateFrench", t("ai_assistant.lang_french"), "Translate the content to French."),
-                translateAction("translateRomanian", t("ai_assistant.lang_romanian"), "Translate the content to Romanian."),
-                translateAction("translateChinese", t("ai_assistant.lang_chinese"), "Translate the content to Simplified Chinese.")
-            ]
+            actions: buildTranslateActions()
         }
     ]);
 }
@@ -276,9 +269,50 @@ function toneAction(id: string, tone: string, prompt: string): AiQuickAction {
     return { id, label: tone, commandLabel: t("ai_assistant.command_tone", { tone }), prompt };
 }
 
-/** The prompt stays English and spelled out: the label is translated, the instruction is not. */
-function translateAction(id: string, language: string, prompt: string): AiQuickAction {
-    return { id, label: language, commandLabel: t("ai_assistant.command_translate", { language }), prompt };
+/**
+ * The languages the Translate submenu offers: the ones enabled as content languages, which is the
+ * list a note's own language is picked from and the closest thing Trilium has to a record of the
+ * languages this user works in. macOS reads the system's preferred languages for its own Translate
+ * for the same reason, and Word offers a shortlist with the full picker behind it — a fixed six is
+ * the one shape nobody ships, because no six are right for everybody.
+ *
+ * Read when the editor is built, like the provider list: enabling a language in Options →
+ * Localization shows it after the editor is next rebuilt.
+ *
+ * A fresh install has none enabled, so the original six stand in — enough to show what the submenu
+ * is for, and the settings are where it is made the user's own.
+ */
+function buildTranslateActions(): AiQuickAction[] {
+    const available = getAvailableLocales();
+    const enabled = (options.getJson("languages") as string[] | null) ?? [];
+
+    const selected = available.filter((locale) => enabled.includes(locale.id));
+    const locales = selected.length
+        ? selected
+        : available.filter((locale) => FALLBACK_TRANSLATE_LOCALES.has(locale.id));
+
+    return locales.map((locale) => translateAction(locale));
+}
+
+const FALLBACK_TRANSLATE_LOCALES = new Set(["en", "de", "es", "fr", "ro", "cn"]);
+
+/**
+ * The label is the language's own name, as everywhere else a language is picked in Trilium — a
+ * speaker looking for their own language expects to find it written in it.
+ *
+ * The prompt is not: it addresses the model, and a model told to translate "to 简体中文" has to read
+ * the target out of the very script it is written in first. `Intl` has no English name for the
+ * English entries (their own name is already one) or for a tag it does not know, which is what the
+ * fallback covers.
+ */
+function translateAction(locale: Locale): AiQuickAction {
+    const language = locale.name;
+    return {
+        id: `translate:${locale.id}`,
+        label: language,
+        commandLabel: t("ai_assistant.command_translate", { language }),
+        prompt: `Translate the content to ${getEnglishName(locale.id) ?? locale.name}.`
+    };
 }
 
 /**

@@ -2871,13 +2871,7 @@
     "reformat_diagram": "Diagram",
     "reformat_callout": "Callout",
     "reformat_collapsible": "Collapsible",
-    "reformat_action_items": "Action items",
-    "lang_english": "English",
-    "lang_german": "German",
-    "lang_spanish": "Spanish",
-    "lang_french": "French",
-    "lang_romanian": "Romanian",
-    "lang_chinese": "Simplified Chinese"
+    "reformat_action_items": "Action items"
   },
   "link_context_menu": {
     "open_note_in_new_tab": "Open note in a new tab",
