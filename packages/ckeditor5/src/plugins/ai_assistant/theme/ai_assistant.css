@@ -26,10 +26,31 @@
     margin-inline-start: auto;
 }
 
+/* The composer, as the chat's is: one bordered island holding the field and, under it, the row of
+   controls the writing is sent with. */
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row {
     display: flex;
+    flex-direction: column;
+    gap: var(--ck-spacing-small);
+    padding: var(--ck-spacing-small);
+    border: 1px solid var(--ck-color-input-border);
+    border-radius: var(--ck-border-radius);
+    background: var(--ck-color-input-background);
+    outline: 2px solid transparent;
+    transition: outline-color 100ms linear;
+}
+
+/* Keyed off the field's own focus rather than `:focus-within`, so reaching the model or the send
+   button does not light the whole island up. */
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row:has(.ck-input_focused) {
+    outline-color: var(--ck-color-focus-border);
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-actions {
+    display: flex;
     align-items: center;
-    gap: var(--ck-spacing-medium);
+    justify-content: flex-end;
+    gap: var(--ck-spacing-small);
 }
 
 /* The list scrolls, so it also clips: the panel's inline padding moves onto it, leaving a rule
@@ -45,16 +66,28 @@
     overflow-y: auto;
 }
 
+/* The island carries the border, the fill and the focus ring, so the field inside carries none. */
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row .ck-input {
-    flex-grow: 1;
+    width: 100%;
     min-width: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
 }
 
-/* The prompt is what the row is for, so the picker gives way to it: it is allowed to shrink, down
-   to a name of a few characters, and truncates rather than pushing the input narrower. */
+/* The only thing in the control row allowed to give — everything beside it is a fixed-size button.
+   It keeps the row's start, leaving Send at the end. */
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__picker {
     flex-shrink: 1;
     min-width: 0;
+    margin-inline-end: auto;
+}
+
+/* Smaller than the prompt above it, as the chat's picker is: state to glance at rather than the
+   thing the island is for. */
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__picker .ck-button {
+    font-size: var(--ck-font-size-small);
 }
 
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__picker .ck-button__label {

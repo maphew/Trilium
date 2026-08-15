@@ -260,24 +260,33 @@ export default class AiAssistantFormView extends View {
                 },
                 {
                     tag: "div",
+                    // One island, as the chat's composer is: what is being written on top, and
+                    // underneath it what the writing will be sent to and the button that sends it.
+                    // The border and the focus ring belong to the island, not to the field inside.
                     attributes: { class: ["ck", "ck-ai-assistant-form__prompt-row"] },
-                    // Send and Stop share the slot at the end of the row; the phase decides which
-                    // of the two is on show.
                     children: [
+                        this.promptInputView,
                         {
                             tag: "div",
-                            attributes: {
-                                class: [
-                                    "ck",
-                                    "ck-ai-assistant-form__picker",
-                                    bind.if("hasPicker", "ck-hidden", (hasPicker) => !hasPicker)
-                                ]
-                            },
-                            children: [this.pickerView]
-                        },
-                        this.promptInputView,
-                        this.sendButtonView,
-                        this.stopButtonView
+                            attributes: { class: ["ck", "ck-ai-assistant-form__prompt-actions"] },
+                            // Send and Stop share the slot at the end of the row; the phase decides
+                            // which of the two is on show.
+                            children: [
+                                {
+                                    tag: "div",
+                                    attributes: {
+                                        class: [
+                                            "ck",
+                                            "ck-ai-assistant-form__picker",
+                                            bind.if("hasPicker", "ck-hidden", (hasPicker) => !hasPicker)
+                                        ]
+                                    },
+                                    children: [this.pickerView]
+                                },
+                                this.sendButtonView,
+                                this.stopButtonView
+                            ]
+                        }
                     ]
                 },
                 {
@@ -326,8 +335,8 @@ export default class AiAssistantFormView extends View {
             this.resultToggleView,
             this.changesToggleView,
             this.tryAgainButtonView,
-            this.pickerView.buttonView,
             this.promptInputView,
+            this.pickerView.buttonView,
             this.sendButtonView,
             this.stopButtonView,
             this.insertBelowButtonView,

@@ -600,6 +600,15 @@ button.ck.ck-button:is(.ck-button-action, .ck-button-save, .ck-button-cancel).ck
     background: var(--input-background-color);
 }
 
+/* AI assistant composer */
+
+:root .ck-ai-assistant-form__prompt-row input.ck.ck-input-text,
+:root .ck-ai-assistant-form__prompt-row input.ck.ck-input-text:not([readonly="true"]):hover,
+:root .ck-ai-assistant-form__prompt-row input.ck.ck-input-text:not([readonly="true"]):focus {
+    outline: none;
+    background: transparent;
+}
+
 /* Forms */
 
 :root .ck.ck-form__row.ck-form__row_with-submit > :not(:first-child) {
