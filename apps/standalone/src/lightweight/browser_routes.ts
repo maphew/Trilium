@@ -4,7 +4,7 @@
  */
 
 import { BootstrapDefinition } from '@triliumnext/commons';
-import { entity_changes, getContext, getPlatform, getSharedBootstrapItems, getSql, routes, sql_init } from '@triliumnext/core';
+import { checkIntegrity, consistency_checks, entity_changes, getContext, getPlatform, getSharedBootstrapItems, getSql, routes, sql_init } from '@triliumnext/core';
 import llmRoute from '@triliumnext/core/src/routes/api/llm.js';
 
 import packageJson from '../../package.json' with { type: 'json' };
@@ -311,6 +311,23 @@ export function registerRoutes(router: BrowserRouter): void {
     // asked rather than broadcasting them to every device signed in.
     apiRoute('post', '/api/llm-chat/stream-start', llmRoute.startChatStream);
     apiRoute('post', '/api/llm-chat/stream-abort', llmRoute.abortChatStream);
+
+    // Keeping the database in order, which the server answers from its own routes (see the server's
+    // `routes.ts`). Registered here rather than in the shared table because only two of the three
+    // belong in this runtime: compacting rebuilds the database through the temporary store, which
+    // this build keeps in memory, so it would ask the browser for the size of the database again at
+    // the moment the user is short of room.
+    apiRoute("get", "/api/database/check-integrity", () => checkIntegrity());
+    // Awaited rather than left running, and without a transaction of its own: the checks write as
+    // they go and reload becca at the end, which no other request may be interleaved with. The
+    // server lets its own run on past the response, having no such connection to protect.
+    createAsyncRoute(router, { transactional: false })(
+        "post",
+        "/api/database/find-and-fix-consistency-issues",
+        [],
+        () => consistency_checks.runOnDemandChecks(true),
+        apiResultHandler
+    );
 
     // Dummy routes for compatibility.
     apiRoute("get", "/api/script/widgets", () => []);

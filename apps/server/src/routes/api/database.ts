@@ -1,11 +1,10 @@
 import {
     BackupDatabaseNowResponse,
     CompactionEstimateResponse,
-    DatabaseCheckIntegrityResponse,
     ExistingAnonymizedDatabasesResponse,
     VacuumDatabaseResponse
 } from "@triliumnext/commons";
-import { becca_loader, consistency_checks as consistencyChecksService, getBackup, getDatabaseSizeBytes, getLog, getReclaimableBytes, utils, ValidationError } from "@triliumnext/core";
+import { becca_loader, checkIntegrity, consistency_checks as consistencyChecksService, getBackup, getDatabaseSizeBytes, getLog, getReclaimableBytes, utils, ValidationError } from "@triliumnext/core";
 import type { Request, Response } from "express";
 import fs, { readFileSync } from "fs";
 import path from "path";
@@ -98,16 +97,6 @@ function deleteAnonymizedDatabase(req: Request) {
     }
 
     fs.rmSync(filePath, { force: true });
-}
-
-function checkIntegrity() {
-    const results = sql.getRows<{ integrity_check: string }>("PRAGMA integrity_check");
-
-    getLog().info(`Integrity check result: ${JSON.stringify(results)}`);
-
-    return {
-        results
-    } satisfies DatabaseCheckIntegrityResponse;
 }
 
 function downloadBackup(req: Request, res: Response) {
