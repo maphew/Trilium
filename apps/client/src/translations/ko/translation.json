@@ -151,7 +151,7 @@
     "delete_all_clones_description": "모든 복제본 삭제(최근 변경 사항에서 되돌릴 수 있습니다)",
     "title": "노트 삭제",
     "clones_label": "복제",
-    "delete_clones_description_other": "다른 복제본 {{count}}개도 함께 삭제합니다. 최근 변경 사항에서 되돌릴 수 있습니다.",
+    "delete_clones_description_other": "다른 복제본 {{count}}개도 함께 삭제합니다. 최근 변경 사항에서 실행 취소할 수 있습니다.",
     "erase_notes_label": "영구적으로 삭제",
     "table_note_with_relation": "관계가 설정된 노트",
     "table_relation": "관계",
@@ -1300,7 +1300,8 @@
     "hide_child_notes": "트리에서 하위 노트 숨기기",
     "open_all_in_tabs": "모두 열기",
     "open_all_in_tabs_tooltip": "새 탭에서 모든 결과를 열기",
-    "open_all_confirm_other": "노트 {{count}}개를 새 탭에서 엽니다. 계속하시겠습니까?"
+    "open_all_confirm_other": "노트 {{count}}개를 새 탭에서 엽니다. 계속하시겠습니까?",
+    "open_all_limit_exceeded": "한 번에 열 수 있는 노트가 너무 많습니다({{count}}). 최대 {{max}}개까지 열 수 있으므로 먼저 결과 범위를 좁혀보세요."
   },
   "edited_notes": {
     "no_edited_notes_found": "아직 이날 편집한 노트가 없습니다...",
@@ -1725,7 +1726,7 @@
     "title": "실험적 옵션",
     "disclaimer": "이러한 선택지는 실험적이며 불안정성을 초래할 수 있습니다. 조심해서 사용하세요.",
     "new_layout_name": "새 레이아웃",
-    "new_layout_description": "더 현대적인 외관과 향상된 사용성을 위해 새로운 레이아웃을 시도해 보세요. 향후 출시 시 큰 변화가 있을 수 있습니다.",
+    "new_layout_description": "더 현대적인 디자인과 향상된 사용성을 위해 새로운 레이아웃을 사용해 보세요. 향후 릴리스에서 크게 변경될 수 있습니다.",
     "llm_name": "AI / LLM 채팅",
     "llm_description": "AI 채팅 사이드바와 대형 언어 모델이 지원하는 LLM 채팅 노트를 활성화하세요."
   },
@@ -1781,7 +1782,7 @@
     "triliumnext": "시스템 색상 체계를 따르세요",
     "triliumnext-light": "밝게",
     "triliumnext-dark": "어둡게",
-    "modern_themes": "현대",
+    "modern_themes": "모던",
     "legacy_themes": "레거시",
     "custom_themes": "사용자 지정",
     "recommended": "추천",
@@ -2753,7 +2754,7 @@
     "native-title-bar": "기본 제목 표시줄",
     "native-title-bar-description": "Windows와 macOS에서는 기본 제목 표시줄을 끄면 애플리케이션이 더 간결해 보입니다. Linux에서는 기본 제목 표시줄을 켜야 시스템의 나머지 부분과 더 자연스럽게 통합됩니다.",
     "background-effects": "배경 효과 활성화",
-    "background-effects-description": "앱 창의 배경을 흐리게 처리하여 깊이감 있고 현대적인 모양을 만듭니다. ‘기본 제목 표시줄’을 꺼야 합니다.",
+    "background-effects-description": "앱 창에 흐릿하고 세련된 배경 효과를 추가하여 깊이감과 현대적인 느낌을 줍니다. \"기본 제목 표시줄\"은 비활성화되어 있어야 합니다.",
     "restart-app-button": "변경 사항을 확인하려면 애플리케이션을 재시작하세요",
     "zoom-factor": "줌 팩터"
   },
