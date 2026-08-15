@@ -17,6 +17,7 @@ import {
     type ModelRange
 } from "ckeditor5";
 
+import { extractDelimiters, renderEquation } from "../math/utils.js";
 import type { AiCompletionUsage, AiDiffResult, AiQuickAction, AiQuickActionFooter, AiQuickActionGroup, AiReviewView } from "./ai_assistant_config.js";
 import AiAssistantEditing, { AI_TARGET_MARKER } from "./ai_assistant_editing.js";
 import AiAssistantFormView from "./ai_assistant_form.js";
@@ -488,7 +489,7 @@ export default class AiAssistantUI extends Plugin {
 
         const editor = this.editor;
         const form = new AiAssistantFormView(editor.locale, {
-            onResultRendered: (preview) => this._renderPreviewDiagrams(preview)
+            onResultRendered: (preview) => this._enrichPreview(preview)
         });
         this._formView = form;
 
@@ -646,6 +647,45 @@ export default class AiAssistantUI extends Plugin {
             throw new CKEditorError("ai-assistant-sanitize-html-required", { pluginName: "AiAssistantUI" });
         }
         return sanitize(html);
+    }
+
+    /**
+     * Everything a finished response holds that is content in source form until the editor sees it.
+     * The response is note HTML rendered from Markdown, and the editor turns such a source into the
+     * thing it denotes only when the content is upcast into the model — which the assistant
+     * deliberately postpones until commit, so the preview has to do it for itself or the review
+     * shows the source where the note will show a diagram or an equation.
+     */
+    private _enrichPreview(preview: HTMLElement): void {
+        this._renderPreviewDiagrams(preview);
+        this._renderPreviewMath(preview);
+    }
+
+    /**
+     * Typesets the equations of a finished response, in place. In note HTML an equation is a
+     * `math-tex` span holding its own LaTeX source, delimiters and all — which is exactly what the
+     * preview showed: `\(c^2 = a^2 + b^2\)`, printed rather than set.
+     *
+     * The renderer is the Math feature's own, so the engine, the lazy load and the macro set are
+     * the ones the note is typeset with. Without a `math` config there is nothing to typeset with
+     * and the source stands, as it does for a build without the feature.
+     */
+    private _renderPreviewMath(preview: HTMLElement): void {
+        const math = this.editor.config.get("math");
+        if (!math) {
+            return;
+        }
+
+        for (const span of preview.querySelectorAll<HTMLElement>("span.math-tex")) {
+            /* v8 ignore next -- defensive fallback: textContent on an element is always a string */
+            const { equation, display } = extractDelimiters(span.textContent ?? "");
+            void renderEquation(
+                equation, span, math.engine, math.lazyLoad, display,
+                // Not a preview in the Math feature's sense: that is the balloon's live rendering
+                // of an equation being typed, which mounts into a element of its own.
+                false, "", math.previewClassName, math.katexRenderOptions
+            );
+        }
     }
 
     /**

@@ -2,8 +2,10 @@ import { _getModelData as getModelData, _setModelData as setModelData, ButtonVie
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
-// The glue plugin is imported for its type augmentations alone (`config.mermaid`); the editing
-// half is the one the specs load, being where the renderer lives.
+// Both glue plugins are imported for their type augmentations alone (`config.math`,
+// `config.mermaid`). Only Mermaid's editing half is loaded as a plugin, being where its renderer
+// lives; the maths pass calls `renderEquation` directly, so the feature itself is not needed.
+import type {} from "../math/math.js";
 import type {} from "../mermaid/mermaid.js";
 import MermaidEditing from "../mermaid/mermaid_editing.js";
 import TriliumAiAssistant from "./ai_assistant.js";
@@ -675,6 +677,96 @@ describe("AiAssistantUI toolbar entry", () => {
             // The toggle back to the result is a render of its own, so the diagram lands there.
             form.viewMode = "result";
             await vi.waitFor(() => expect(previewHtml(editor)).toContain("<svg"));
+        });
+    });
+
+    // An equation reaches the preview as its own LaTeX source, inside the `math-tex` span note HTML
+    // stores it in — so a review of one used to read `\(c^2 = a^2 + b^2\)` where the note shows it
+    // set. Same shape as the diagrams above: the editor only typesets on upcast.
+    describe("equations in the preview", () => {
+        const MATH_ACTION: AiQuickActionGroup[] = [{
+            id: "edit",
+            label: "Edit or review",
+            actions: [{ id: "explain", label: "Explain", prompt: "Explain it.", reviewView: "result" }]
+        }];
+
+        /**
+         * The typesetting engine, as the host's own function rather than KaTeX: `config.math.engine`
+         * takes one, which keeps the assertions about what the assistant asks for — the equation
+         * without its delimiters, and whether it is display maths.
+         */
+        function createEngineStub() {
+            return vi.fn((equation: string, element: HTMLElement, display: boolean) => {
+                element.textContent = `[${display ? "display" : "inline"}:${equation}]`;
+            });
+        }
+
+        async function createMathEditor(response: string, engine?: ReturnType<typeof createEngineStub>) {
+            return createTestEditor([Essentials, Paragraph, TriliumAiAssistant], {
+                aiAssistant: { sanitizeHtml, quickActions: MATH_ACTION, stream: createStreamStub(response).stream },
+                ...(engine ? { math: { engine } } : {})
+            });
+        }
+
+        async function review(editor: ClassicEditor) {
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(createComponent(editor))[0].fire("execute");
+            await vi.waitFor(() => expect(openForm(editor).phase).toBe("review"));
+        }
+
+        it("typesets the equations a finished response holds, inline and display alike", async () => {
+            const engine = createEngineStub();
+            const editor = await createMathEditor(
+                String.raw`<p>so <span class="math-tex">\(c^2 = a^2 + b^2\)</span></p>`
+                + String.raw`<span class="math-tex">\[e^{i\pi} = -1\]</span>`,
+                engine
+            );
+
+            await review(editor);
+            await vi.waitFor(() => expect(previewHtml(editor)).toContain("["));
+
+            // The delimiters are the span's, not the equation's: the engine is handed the source
+            // alone, and told from which pair it came whether to set it as display maths.
+            expect(engine.mock.calls.map(([equation, , display]) => [equation, display])).toEqual([
+                ["c^2 = a^2 + b^2", false],
+                ["e^{i\\pi} = -1", true]
+            ]);
+            expect(previewHtml(editor)).toContain(`<span class="math-tex">[inline:c^2 = a^2 + b^2]</span>`);
+            expect(previewHtml(editor)).toContain(`<span class="math-tex">[display:e^{i\\pi} = -1]</span>`);
+
+            // The response itself is untouched, so the note is given the source the editor upcasts
+            // into equations of its own.
+            openForm(editor).fire("replace");
+            expect(editor.getData()).toContain(String.raw`\(c^2 = a^2 + b^2\)`);
+        });
+
+        it("leaves the source standing when the host configured no maths", async () => {
+            const html = String.raw`<p><span class="math-tex">\(x^2\)</span></p>`;
+            const editor = await createMathEditor(html);
+
+            await review(editor);
+            expect(previewHtml(editor)).toBe(html);
+        });
+
+        it("leaves a half-streamed equation alone", async () => {
+            const engine = createEngineStub();
+            const editor = await createTestEditor([Essentials, Paragraph, TriliumAiAssistant], {
+                aiAssistant: {
+                    sanitizeHtml,
+                    quickActions: MATH_ACTION,
+                    stream: async (_request, onData) => {
+                        onData(String.raw`<p><span class="math-tex">\(c^2 = a^2</span></p>`);
+                        await new Promise(() => {});
+                    }
+                },
+                math: { engine }
+            });
+
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(createComponent(editor))[0].fire("execute");
+
+            await vi.waitFor(() => expect(previewHtml(editor)).toContain("math-tex"));
+            expect(engine).not.toHaveBeenCalled();
         });
     });
 
