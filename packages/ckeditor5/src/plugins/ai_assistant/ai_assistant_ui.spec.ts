@@ -31,6 +31,8 @@ interface QuickActionsDropdown {
     isEnabled: boolean;
     class?: string;
     buttonView: SplitButtonView;
+    /** Holds the menu once it is open; a redraw has to leave exactly one behind. */
+    panelView: { children: { length: number } };
     menuView: {
         /** A separator is a plain view: no `childView`, which is how the walker tells it apart. */
         items: Array<{ childView?: MenuButtonView | NestedMenuView }>;
@@ -126,9 +128,12 @@ function menuEntries(dropdown: QuickActionsDropdown): Array<string | { menu: str
     });
 }
 
-/** Every action button, submenus included, in definition order. */
+/**
+ * Every action button, submenus included, in definition order — without the row that heads the
+ * menu, which opens the assistant rather than running anything.
+ */
 function quickActionButtons(dropdown: QuickActionsDropdown): MenuButtonView[] {
-    return openMenu(dropdown).buttons;
+    return openMenu(dropdown).buttons.filter((button) => button.id !== "__ask");
 }
 
 /** What the dialog's header currently reads. */
@@ -190,6 +195,10 @@ describe("AiAssistantUI toolbar entry", () => {
             // An inlined group loses its heading — its actions already read as commands, and the
             // menu definition has no room for a heading. A submenu keeps its label as the entry.
             expect(menuEntries(dropdown)).toEqual([
+                // The way in the button half offers, for the menu — a prompt rather than an
+                // instruction, so it heads the menu behind a rule of its own.
+                "Ask AI…",
+                "---",
                 "Fix typos",
                 "Make shorter",
                 "---",
@@ -202,9 +211,26 @@ describe("AiAssistantUI toolbar entry", () => {
 
         // A rule between blocks, and none between two openers: without the headings the menu
         // definition cannot carry, the separator is what marks where a set of actions ends.
+        it("heads the menu with the way in the button half offers", () => {
+            const showSpy = vi.spyOn(editor.plugins.get(AiAssistantUI), "show");
+            const [ask] = openMenu(dropdown).buttons;
+
+            expect(ask.id).toBe("__ask");
+            expect(ask.label).toBe("Ask AI…");
+
+            // A prompt is typed against whatever is there, so unlike an instruction about content
+            // this row does not go inert when there is none.
+            setModelData(editor.model, "<paragraph>[]</paragraph>");
+            expect(ask.isEnabled).toBe(true);
+
+            ask.fire("execute");
+            expect(showSpy).toHaveBeenCalled();
+        });
+
         it("rules off each block but not between adjacent submenus", () => {
             const entries = menuEntries(dropdown);
-            expect(entries.filter((entry) => entry === "---")).toHaveLength(2);
+            // One under the prompt row, then one per group boundary that is not between submenus.
+            expect(entries.filter((entry) => entry === "---")).toHaveLength(3);
             expect(entries.at(-1)).toEqual({ menu: "Translate", actions: ["Romanian"] });
         });
 
@@ -305,6 +331,43 @@ describe("AiAssistantUI toolbar entry", () => {
             // It runs host code instead of the assistant: no request, and no dialog.
             expect(stub.requests).toHaveLength(0);
             expect(editorWithFooter.plugins.get(Dialog).id).toBeNull();
+        });
+
+        // The Translate group lists the enabled content languages, which the footer above lets the
+        // user change from inside the editor — so the menu has to be able to say something new
+        // without the editor being torn down and rebuilt, which would cost the caret and the undo
+        // history of the note being written.
+        it("redraws the menu when the quick actions are replaced on a live editor", async () => {
+            expect(menuEntries(dropdown)).toContainEqual({ menu: "Translate", actions: ["Romanian"] });
+
+            editor.plugins.get(AiAssistantUI).updateQuickActions([{
+                id: "translate",
+                label: "Translate",
+                submenu: true,
+                actions: [
+                    { id: "german", label: "German", prompt: "Translate to German." },
+                    { id: "japanese", label: "Japanese", prompt: "Translate to Japanese." }
+                ]
+            }]);
+
+            // Redrawn on the way open, so it is still the old menu until the dropdown is reopened.
+            dropdown.isOpen = false;
+            dropdown.isOpen = true;
+            expect(menuEntries(dropdown)).toEqual([
+                "Ask AI…",
+                "---",
+                { menu: "Translate", actions: ["German", "Japanese"] }
+            ]);
+
+            // The menu the redraw replaced is gone rather than left beside its successor.
+            expect(dropdown.panelView.children.length).toBe(1);
+
+            // A button from the new draw still reaches the assistant, so the execute lookup was
+            // refilled along with the views.
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(dropdown).find((button) => button.id === "japanese")?.fire("execute");
+            await vi.waitFor(() => expect(requests).toHaveLength(1));
+            expect(requests[0]).toEqual({ query: "Translate to Japanese.", context: "foo" });
         });
 
         it("runs an action picked from inside a submenu", async () => {

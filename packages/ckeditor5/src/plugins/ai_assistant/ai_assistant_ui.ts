@@ -33,6 +33,12 @@ const RENDER_THROTTLE_MS = 80;
 const DIALOG_ID = "aiAssistant";
 
 /**
+ * Identifies the menu row that opens the assistant for a typed prompt. Prefixed out of the way of
+ * the host's action ids, which share the same id space.
+ */
+const ASK_ID = "__ask";
+
+/**
  * How much of a response has to be a replacement rather than an edit (see
  * `AiDiffResult.rewriteRatio`) before the review opens on the plain result instead of the diff.
  * Half is the point where the "Changes" view stops being a set of marks on a text one can still
@@ -93,11 +99,28 @@ export default class AiAssistantUI extends Plugin {
      */
     private _reviewView: AiReviewView | null = null;
 
+    /**
+     * The quick actions as they stand, which the config only seeds — see {@link updateQuickActions}.
+     * Every surface offering them reads this rather than the config, so they cannot disagree about
+     * what is on offer.
+     */
+    private _quickActions: AiQuickActionGroup[] = [];
+    /**
+     * Marks each menu built from {@link _quickActions} as owing a redraw, one closure per toolbar
+     * showing us.
+     */
+    private readonly _invalidateMenu: Array<() => void> = [];
+
+    public get quickActions(): ReadonlyArray<AiQuickActionGroup> {
+        return this._quickActions;
+    }
+
     public init(): void {
         const editor = this.editor;
 
         this.set("isStreaming", false);
         this.set("hasContext", false);
+        this._quickActions = editor.config.get("aiAssistant")?.quickActions ?? [];
 
         editor.ui.componentFactory.add("aiAssistant", (locale) => this._createToolbarComponent(locale));
 
@@ -115,10 +138,28 @@ export default class AiAssistantUI extends Plugin {
      * degrades to a plain button.
      */
     private _createToolbarComponent(locale: Locale): ButtonView | DropdownView {
-        const groups = this.editor.config.get("aiAssistant")?.quickActions ?? [];
-        return groups.length
-            ? this._createQuickActionsDropdown(locale, groups)
+        // Which of the two the entry is, is settled here and for good: a toolbar item cannot change
+        // its own kind. A host that configures actions at all keeps configuring some.
+        return this._quickActions.length
+            ? this._createQuickActionsDropdown(locale)
             : this._createAssistantButton(locale);
+    }
+
+    /**
+     * Replaces the quick actions on a live editor, redrawing every menu built from them — the same
+     * contract `TriliumSnippets.updateDefinitions` has, and for the same reason: a list the user
+     * edits from inside the editor cannot wait for the editor to be rebuilt to say what it now
+     * holds, and rebuilding one costs the caret and the undo history.
+     *
+     * A menu is redrawn the next time it opens rather than on the spot. CKEditor builds its views
+     * in `render()`, which `addMenuToDropdown` defers to the first open, so a menu that has never
+     * been opened has nothing to redraw yet — and one that has is not on screen to see it happen.
+     */
+    public updateQuickActions(groups: AiQuickActionGroup[]): void {
+        this._quickActions = groups;
+        for (const invalidate of this._invalidateMenu) {
+            invalidate();
+        }
     }
 
     private _createAssistantButton(locale: Locale): ButtonView {
@@ -144,7 +185,7 @@ export default class AiAssistantUI extends Plugin {
      * marked `requiresContent` stay disabled until there is something to work on — a selection, or
      * a response to chain on.
      */
-    private _createQuickActionsDropdown(locale: Locale, groups: AiQuickActionGroup[]): DropdownView {
+    private _createQuickActionsDropdown(locale: Locale): DropdownView {
         const command = this.editor.commands.get("aiAssistant");
         const dropdownView = createDropdown(locale, SplitButtonView);
         const splitButtonView = dropdownView.buttonView;
@@ -163,49 +204,99 @@ export default class AiAssistantUI extends Plugin {
         this.listenTo(splitButtonView, "execute", () => this.editor.execute("aiAssistant"));
 
         // The menu carries only ids and labels, so the action each button stands for is looked up
-        // on execute rather than carried by the view.
+        // on execute rather than carried by the view. Refilled by every draw: which actions there
+        // are is the very thing a redraw changes.
         const actionsById = new Map<string, AiQuickAction>();
         const footersById = new Map<string, AiQuickActionFooter>();
         const groupsById = new Map<string, AiQuickActionGroup>();
-        const definition: DropdownMenuDefinition = [];
         // Where the menu wants a rule drawn, as indices into the finished item list. An inlined
         // group lost its heading to the menu definition, so a separator is what is left to say
         // where one set of actions ends and the next begins. Consecutive submenus need none: they
         // read as one block of "openers" already.
-        const separatorAt: number[] = [];
-        for (const [index, group] of groups.entries()) {
-            groupsById.set(group.id, group);
-            const children = group.actions.map((action) => {
-                actionsById.set(action.id, action);
-                return { id: action.id, label: action.label };
-            });
-            if (group.submenu) {
-                if (group.footer) {
-                    const id = `${group.id}:footer`;
-                    footersById.set(id, group.footer);
-                    children.push({ id, label: group.footer.label });
-                }
-                definition.push({ id: group.id, menu: group.label, children });
-            } else {
-                definition.push(...children);
-            }
+        let separatorAt: number[] = [];
 
-            const next = groups[index + 1];
-            if (next && !(group.submenu && next.submenu)) {
+        /**
+         * Lets go of the menu a previous draw left behind. `addMenuToDropdown` only ever assigns
+         * `menuView`, so without this the old one stays in the panel and in the focus tracker and
+         * the new one is added beside it.
+         */
+        const discardMenu = () => {
+            const previous = dropdownView.menuView;
+            /* v8 ignore next 3 -- only the first draw finds no menu, and it is not a redraw */
+            if (!previous) {
+                return;
+            }
+            for (const menu of previous.menus) {
+                dropdownView.focusTracker.remove(menu);
+            }
+            dropdownView.focusTracker.remove(previous);
+            if (dropdownView.panelView.children.has(previous)) {
+                dropdownView.panelView.children.remove(previous);
+            }
+            previous.destroy();
+        };
+
+        const buildMenu = () => {
+            actionsById.clear();
+            footersById.clear();
+            groupsById.clear();
+            separatorAt = [];
+
+            const groups = this._quickActions;
+            const definition: DropdownMenuDefinition = [];
+
+            // Heads the menu: the typed prompt every row below it is a shortcut past, and what the
+            // button half of the split does. Ruled off from them, since it is a way in rather than an
+            // instruction.
+            definition.push({ id: ASK_ID, label: locale.t("Ask AI…") });
+            if (groups.length) {
                 separatorAt.push(definition.length);
             }
-        }
-        addMenuToDropdown(dropdownView, this.editor.ui.view.body, definition, {
-            ariaLabel: locale.t("AI assistant")
-        });
+
+            for (const [index, group] of groups.entries()) {
+                groupsById.set(group.id, group);
+                const children = group.actions.map((action) => {
+                    actionsById.set(action.id, action);
+                    return { id: action.id, label: action.label };
+                });
+                if (group.submenu) {
+                    if (group.footer) {
+                        const id = `${group.id}:footer`;
+                        footersById.set(id, group.footer);
+                        children.push({ id, label: group.footer.label });
+                    }
+                    definition.push({ id: group.id, menu: group.label, children });
+                } else {
+                    definition.push(...children);
+                }
+
+                const next = groups[index + 1];
+                if (next && !(group.submenu && next.submenu)) {
+                    separatorAt.push(definition.length);
+                }
+            }
+
+            discardMenu();
+            addMenuToDropdown(dropdownView, this.editor.ui.view.body, definition, {
+                ariaLabel: locale.t("AI assistant")
+            });
+        };
+
+        buildMenu();
         dropdownView.class = "ck-ai-assistant-quick-actions";
 
         // The menu builds its views in `render()`, which `addMenuToDropdown` defers to the first
         // open (through its own `change:isOpen` listener, registered at `highest` priority — so it
-        // has already run by the time this one does). There are no buttons to bind before that,
-        // and they are built exactly once, so this unsubscribes itself.
+        // has already run by the time this one does). There are no buttons to bind before that.
         const decorateMenu = () => {
             for (const button of dropdownView.menuView?.buttons ?? []) {
+                if (button.id === ASK_ID) {
+                    // A prompt is typed against whatever is there, selection or not, so this row
+                    // is never gated the way an instruction about content is.
+                    addIcon(button, this.editor.config.get("aiAssistant")?.askIconClass);
+                    continue;
+                }
+
                 const footer = footersById.get(button.id);
                 if (footer) {
                     // A footer configures the group rather than running against the document, so it
@@ -241,9 +332,33 @@ export default class AiAssistantUI extends Plugin {
             for (const index of [...separatorAt].reverse()) {
                 dropdownView.menuView?.items.add(new ListSeparatorView(locale), index);
             }
-            this.stopListening(dropdownView, "change:isOpen", decorateMenu);
         };
-        this.listenTo(dropdownView, "change:isOpen", decorateMenu);
+
+        // Everything the menu needs doing happens on the way open: the views to decorate do not
+        // exist until then, and a redraw asked for meanwhile is invisible until then anyway. Both
+        // are one-shot per menu — hence the flags rather than an unsubscribe, since a redraw makes
+        // the work due again.
+        let needsDraw = false;
+        let needsDecoration = true;
+        this._invalidateMenu.push(() => {
+            needsDraw = true;
+        });
+        this.listenTo(dropdownView, "change:isOpen", () => {
+            if (!dropdownView.isOpen) {
+                return;
+            }
+            if (needsDraw) {
+                // Open, so `addMenuToDropdown` attaches and renders on the spot rather than
+                // deferring to an opening that has already happened.
+                buildMenu();
+                needsDraw = false;
+                needsDecoration = true;
+            }
+            if (needsDecoration) {
+                decorateMenu();
+                needsDecoration = false;
+            }
+        });
 
         // Only the menu items reach this: a split button delegates its own `execute` to itself,
         // and its arrow to the dropdown's `open`. An item inside a submenu arrives here too — it
@@ -251,6 +366,12 @@ export default class AiAssistantUI extends Plugin {
         // source, so the button (and its id) is the same either way.
         dropdownView.on("execute", (evt) => {
             const id = (evt.source as DropdownMenuListItemButtonView).id;
+            if (id === ASK_ID) {
+                // Through the command, so this row and the button half arrive by the same road.
+                this.editor.execute("aiAssistant");
+                return;
+            }
+
             const footer = footersById.get(id);
             if (footer) {
                 footer.run();
@@ -366,7 +487,9 @@ export default class AiAssistantUI extends Plugin {
         }
 
         const editor = this.editor;
-        const form = new AiAssistantFormView(editor.locale);
+        const form = new AiAssistantFormView(editor.locale, {
+            onResultRendered: (preview) => this._renderPreviewDiagrams(preview)
+        });
         this._formView = form;
 
         form.on("submit", () => {
@@ -523,6 +646,33 @@ export default class AiAssistantUI extends Plugin {
             throw new CKEditorError("ai-assistant-sanitize-html-required", { pluginName: "AiAssistantUI" });
         }
         return sanitize(html);
+    }
+
+    /**
+     * Turns the `language-mermaid` code blocks of a finished response into rendered diagrams, so
+     * the review shows what committing it will show. The response is Markdown rendered to note
+     * HTML, in which a diagram is a code block — the editor only makes one a diagram when the
+     * content is upcast into the model, which the assistant deliberately postpones until commit.
+     *
+     * Soft-coupled to the Mermaid feature by name: a build without it renders the source, which is
+     * also all a commit could produce there.
+     */
+    private _renderPreviewDiagrams(preview: HTMLElement): void {
+        const editor = this.editor;
+        if (!editor.plugins.has("MermaidEditing")) {
+            return;
+        }
+
+        const mermaid = editor.plugins.get("MermaidEditing");
+        for (const code of preview.querySelectorAll("pre > code.language-mermaid")) {
+            const source = code.textContent ?? "";
+            const diagram = preview.ownerDocument.createElement("div");
+            diagram.className = "ck-ai-assistant-form__diagram";
+            // The `<pre>` goes with it: what is left has to be a plain block, or the code-block
+            // styling frames the diagram in the preview and nowhere else.
+            code.parentElement?.replaceWith(diagram);
+            void mermaid.renderMermaid(diagram, source);
+        }
     }
 
     /**

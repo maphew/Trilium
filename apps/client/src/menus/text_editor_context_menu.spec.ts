@@ -62,12 +62,12 @@ function fakeEditor({
     isEnabled?: boolean;
     hasPlugin?: boolean;
 }) {
-    const ui = { hasContext, isStreaming, runQuickAction: vi.fn() };
+    // The live list is the plugin's, which the editor config only seeded.
+    const ui = { hasContext, isStreaming, quickActions: groups, runQuickAction: vi.fn() };
     const editor = {
         editing: { view: { getDomRoot: () => domRoot } },
         plugins: { has: () => hasPlugin, get: () => ui },
         commands: { get: () => ({ isEnabled }) },
-        config: { get: () => ({ quickActions: groups }) },
         execute: vi.fn()
     };
     tabManager.activeNote = { type: "text" };

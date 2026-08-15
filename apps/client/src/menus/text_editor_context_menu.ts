@@ -31,8 +31,10 @@ export async function buildAiActionsMenuItem(): Promise<MenuItem<CommandNames> |
         return null;
     }
 
+    // The plugin's list rather than the config's: the config only seeded it, and the content
+    // languages behind Translate can be changed from inside the editor.
     const quickActions = buildQuickActionItems(
-        editor.config.get("aiAssistant")?.quickActions ?? [],
+        ui.quickActions,
         ui.hasContext,
         (action) => ui.runQuickAction(action)
     );
@@ -73,7 +75,7 @@ export async function buildAiActionsMenuItem(): Promise<MenuItem<CommandNames> |
  *                   submenu whose actions all do.
  */
 function buildQuickActionItems(
-    groups: AiQuickActionGroup[],
+    groups: ReadonlyArray<AiQuickActionGroup>,
     hasContext: boolean,
     run: (action: AiQuickAction) => void
 ): MenuItem<CommandNames>[] {

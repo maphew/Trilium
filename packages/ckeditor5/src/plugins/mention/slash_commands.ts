@@ -427,7 +427,9 @@ function buildAiQuickActionSlashCommands(editor: Editor): SlashCommandDefinition
 
     const t = editor.locale.t;
 
-    return (editor.config.get("aiAssistant")?.quickActions ?? []).flatMap((group) =>
+    // The plugin's list rather than the config's: the config only seeded it, and the content
+    // languages behind Translate can be changed from inside the editor.
+    return editor.plugins.get("AiAssistantUI").quickActions.flatMap((group) =>
         group.actions.map((action) => ({
             id: `ai-${action.id}`,
             title: t("AI: %0", action.commandLabel ?? action.label),
