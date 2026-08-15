@@ -63,12 +63,32 @@ describe("the AI assistant's model picker", () => {
         ]);
     });
 
-    it("names the row for the default while nothing has been picked, and drops the provider with one configured", () => {
+    // Before anything is picked the row still names a model — the one a run would resolve to —
+    // rather than saying "Default", which answers nothing. The provider goes with one configured.
+    it("names what a run would resolve to while nothing has been picked", () => {
         stored.llmProviders = [TWO_PROVIDERS[0]];
 
         const picker = buildAiModelPicker();
-        expect(picker[0].label).toBe("ai_assistant.model(model=ai_assistant.model_default)");
-        expect(labelsOf(picker)).toEqual([["Opus 5", "bx bx-empty"], ["Sonnet 5", "bx bx-empty"]]);
+        expect(picker[0].label).toBe("ai_assistant.model(model=Sonnet 5)");
+        expect(labelsOf(picker)).toEqual([["Opus 5", "bx bx-empty"], ["Sonnet 5", "bx bx-check"]]);
+    });
+
+    // Nothing flagged, so the first one answers — and the row says so.
+    it("falls back to the first model when none is flagged as the default", () => {
+        stored.llmProviders = [{ ...TWO_PROVIDERS[0], selectedModels: TWO_PROVIDERS[0].selectedModels.map(({ id, name }) => ({ id, name })) }];
+
+        expect(buildAiModelPicker()[0].label).toBe("ai_assistant.model(model=Opus 5)");
+    });
+
+    // The stored model is gone, so the row names the one that replaced it rather than a stale name.
+    it("names the fallback once the stored model is no longer on offer", () => {
+        stored.llmProviders = TWO_PROVIDERS;
+        stored.aiAssistantModel = { model: "gpt-4", provider: "openai", providerId: "cfg-openai" };
+
+        const picker = buildAiModelPicker();
+        expect(picker[0].label).toBe("ai_assistant.model(model=Sonnet 5 (Anthropic))");
+        expect(labelsOf(picker).filter(([, icon]) => icon === "bx bx-check"))
+            .toEqual([["Sonnet 5 (Anthropic)", "bx bx-check"]]);
     });
 
     // A row offering the only answer there is takes up space and settles nothing.

@@ -19,7 +19,14 @@ import { shortModelName } from "../llm_chat/model_name.js";
  */
 export function buildAiModelPicker(): AiQuickActionFooter[] {
     const { models, groups } = readSelectedModels();
-    if (models.length < 2) {
+
+    // What a run resolves to, not what was stored: before anything is picked the row would
+    // otherwise say "Default", which names no model and leaves the question it exists to answer —
+    // which one am I about to spend tokens on — unanswered.
+    const current = resolveModel(models);
+
+    // A picker offering the only answer there is takes up space and settles nothing.
+    if (!current || models.length < 2) {
         return [];
     }
 
@@ -30,9 +37,8 @@ export function buildAiModelPicker(): AiQuickActionFooter[] {
         return groups.length > 1 && model.providerName ? `${short} (${model.providerName})` : short;
     };
 
-    const current = resolveStoredModel(models);
     return [{
-        label: t("ai_assistant.model", { model: current ? name(current) : t("ai_assistant.model_default") }),
+        label: t("ai_assistant.model", { model: name(current) }),
         iconClass: "bx bx-chip",
         children: models.map((model) => ({
             label: name(model),
@@ -49,9 +55,7 @@ export function buildAiModelPicker(): AiQuickActionFooter[] {
 }
 
 /**
- * The model a run should use: the stored one while it is still on offer, and otherwise the same
- * first-provider default the assistant used before there was anything to store — a model can be
- * deselected or its provider deleted long after it was picked.
+ * The provider and model a run is made with.
  *
  * The provider is always named, even when no model can be: the server falls back to
  * `getProviderByType("anthropic")` for a request that names none (`runChat` in
@@ -62,13 +66,25 @@ export function buildAiModelPicker(): AiQuickActionFooter[] {
 export function pickModel(): LlmChatConfig {
     const { models, groups } = readSelectedModels();
 
-    const chosen = resolveStoredModel(models) ?? models.find((model) => model.isDefault) ?? models[0];
+    const chosen = resolveModel(models);
     if (chosen) {
         return { model: chosen.id, provider: chosen.provider, providerId: chosen.providerId };
     }
 
     const [first] = groups;
     return first ? { provider: first.provider, providerId: first.id } : {};
+}
+
+/**
+ * The model a run answers with: the stored one while it is still on offer, and otherwise the same
+ * first-provider default the assistant used before there was anything to store — a model can be
+ * deselected, or its provider deleted, long after it was picked.
+ *
+ * The menu asks this too rather than asking what was stored, so the model it names and ticks is the
+ * one that will actually answer.
+ */
+function resolveModel(models: ModelOption[]): ModelOption | undefined {
+    return resolveStoredModel(models) ?? models.find((model) => model.isDefault) ?? models[0];
 }
 
 /** What the `aiAssistantModel` option holds — the three fields it takes to name a model exactly. */
