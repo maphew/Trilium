@@ -2,8 +2,6 @@ import type { AiDiffResult } from "@triliumnext/ckeditor5";
 import { diffArrays } from "diff";
 import HtmlDiff from "htmldiff-js";
 
-import { escapeHtml } from "../../../services/utils.js";
-
 /**
  * The "Changes" view of the AI assistant's review: the response marked up against the content it
  * would replace.
@@ -17,10 +15,10 @@ import { escapeHtml } from "../../../services/utils.js";
  * old text nor the new one.
  *
  * So the alignment happens a level up first. Both sides are cut into top-level blocks and matched
- * against each other; only a pair that is still the same block — same container, and enough words
- * in common — is handed to the word differ. A pair that is not is shown as what it is: the old
- * block struck through, the response's block after it. A block with no counterpart is a plain
- * insertion or deletion.
+ * against each other; only a pair that is still the same block — a container of the same kind, and
+ * enough words in common — is handed to the word differ, and only what the two containers hold is.
+ * A pair that is not is shown as what it is: the old block struck through, the response's block
+ * after it. A block with no counterpart is a plain insertion or deletion.
  *
  * The second thing that falls out of the block pass is {@link AiDiffResult.rewriteRatio}: how much
  * of the response the alignment gave up on. The review reads it to decide whether to open on the
@@ -51,7 +49,7 @@ export default function diffAiResponse(oldHtml: string, newHtml: string): AiDiff
 
             if (before && after) {
                 if (isSameBlockRewritten(before, after)) {
-                    chunks.push(HtmlDiff.execute(before.html, after.html));
+                    chunks.push(diffInside(before, after));
                 } else {
                     chunks.push(markBlock("del", before), markBlock("ins", after));
                     rewrittenLength += after.text.length;
@@ -99,8 +97,10 @@ const INLINE_DIFF_SIMILARITY = 0.4;
 interface Block {
     /** The block's own HTML, as it will appear in the diff. */
     html: string;
-    /** Its container's tag name, or the empty string for a run of loose inline content. */
-    tag: string;
+    /** What it holds, which is what a pair is compared over — the container is not part of it. */
+    inner: string;
+    /** Its container, or null for a run of loose inline content, which has none. */
+    element: Element | null;
     /** Its text, whitespace-collapsed — what similarity and equality are measured over. */
     text: string;
 }
@@ -128,9 +128,11 @@ function splitIntoBlocks(html: string): Block[] {
 
     function flushInline() {
         if (inline.length) {
+            const html = inline.map((node) => serialize(node, doc)).join("");
             blocks.push({
-                html: inline.map(serialize).join(""),
-                tag: "",
+                html,
+                inner: html,
+                element: null,
                 text: normalize(inline.map((node) => node.textContent).join(" "))
             });
             inline = [];
@@ -142,7 +144,12 @@ function splitIntoBlocks(html: string): Block[] {
 
         if (element && BLOCK_TAGS.has(element.tagName)) {
             flushInline();
-            blocks.push({ html: element.outerHTML, tag: element.tagName, text: normalize(node.textContent) });
+            blocks.push({
+                html: element.outerHTML,
+                inner: element.innerHTML,
+                element,
+                text: normalize(node.textContent)
+            });
         } else if (element || node.textContent?.trim() || inline.length) {
             // Whitespace between two blocks is formatting rather than content, so it starts
             // nothing — but once a run is open, the space between two inline elements is part of
@@ -155,11 +162,18 @@ function splitIntoBlocks(html: string): Block[] {
     return blocks;
 }
 
-/** A node as it will appear in the diff. A bare text node is content, not markup, so it escapes. */
-function serialize(node: ChildNode): string {
-    return node.nodeType === Node.ELEMENT_NODE
-        ? (node as Element).outerHTML
-        : escapeHtml(node.textContent ?? "");
+/**
+ * A node as it will appear in the diff. Serialized by the browser rather than by hand, so that a
+ * text node comes out escaped exactly as the same text inside an element does — a bare `"` against
+ * a hand-escaped `&quot;` is a difference the word differ would faithfully mark.
+ */
+function serialize(node: ChildNode, doc: Document): string {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+        return (node as Element).outerHTML;
+    }
+    const holder = doc.createElement("div");
+    holder.append(node.cloneNode(true));
+    return holder.innerHTML;
 }
 
 /**
@@ -174,15 +188,53 @@ function isUnchangedBlock(left: Block, right: Block): boolean {
 
 /**
  * Whether a pair is the same block reworded — the case the word differ handles well — rather than
- * one block replaced by another.
- *
- * The containers have to match, and not only because a paragraph turned into a list is a
- * structural change rather than a reworded one: `htmldiff-js` interleaves the two markup streams,
- * so diffing a `<p>` against a `<ul>` emits tags that close in the wrong order, and the preview's
- * parser then puts the mess back together in whatever shape it likes.
+ * one block replaced by another. That takes a container of the same kind and enough words in
+ * common; a paragraph turned into a list is a restructuring, and marking it word by word says
+ * nothing about what actually happened to it.
  */
 function isSameBlockRewritten(before: Block, after: Block): boolean {
-    return before.tag === after.tag && similarity(before, after) >= INLINE_DIFF_SIMILARITY;
+    return kindOf(before) === kindOf(after) && similarity(before, after) >= INLINE_DIFF_SIMILARITY;
+}
+
+/**
+ * The containers that are one kind for the purpose above. Every text container counts as the same
+ * one, loose inline content included: a selection made inside a paragraph stringifies without the
+ * paragraph, while the response — Markdown, rendered — always comes back wrapped in one, and those
+ * two are the same block by any reading a user would give them.
+ */
+const TEXT_BLOCK_TAGS = new Set(["P", "H1", "H2", "H3", "H4", "H5", "H6"]);
+
+function kindOf(block: Block): string {
+    const tag = block.element?.tagName ?? "";
+    return !tag || TEXT_BLOCK_TAGS.has(tag) ? "text" : tag;
+}
+
+/**
+ * The word-level diff of a pair, put back inside the container the *response* gave it.
+ *
+ * Only what the blocks hold is diffed. The containers are rarely identical even when the block is
+ * the same one — the captured selection may have none at all, and a rewrapped paragraph carries
+ * different attributes — and handing two markup streams to `htmldiff-js` is what makes it emit
+ * tags that close in the wrong order, leaving the preview's parser to rebuild the result in
+ * whatever shape it likes.
+ */
+function diffInside(before: Block, after: Block): string {
+    return wrap(after, HtmlDiff.execute(before.inner, after.inner));
+}
+
+/** Puts diffed content back inside a block's own container, attributes and all. */
+function wrap(block: Block, content: string): string {
+    const element = block.element;
+    if (!element) {
+        return content;
+    }
+
+    const empty = (element.cloneNode(false) as Element).outerHTML;
+    const closingTag = `</${element.tagName.toLowerCase()}>`;
+    // A void element holds nothing, so there is nowhere to put the content: keep the block as it is.
+    return empty.endsWith(closingTag)
+        ? empty.slice(0, -closingTag.length) + content + closingTag
+        : block.html;
 }
 
 /**

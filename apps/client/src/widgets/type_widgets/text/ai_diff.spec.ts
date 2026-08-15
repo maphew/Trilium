@@ -72,6 +72,32 @@ describe("diffAiResponse", () => {
         expect(html).toBe("<blockquote class=\"admonition warning\"><p>Never edit the database while the app runs.</p></blockquote>");
     });
 
+    // What a run at a collapsed caret actually looks like: the assistant widens to the block and
+    // stringifies its *contents*, so the captured side has no paragraph, while the response — being
+    // rendered Markdown — always has one. Compared as markup that pair is a different block
+    // entirely, and a one-word fix comes out as the whole paragraph replaced.
+    it("marks a fixed word when the captured side has no container and the response has one", () => {
+        const { html, rewriteRatio } = diffAiResponse(
+            "You can play with it, and modify the note structurey as you wish.",
+            "<p>You can play with it, and modify the note structure as you wish.</p>"
+        );
+
+        expect(html).toBe(
+            "<p>You can play with it, and modify the note "
+            + "<del class=\"diffmod\">structurey</del><ins class=\"diffmod\">structure</ins>"
+            + " as you wish.</p>"
+        );
+        expect(rewriteRatio).toBe(0);
+    });
+
+    // Serializing a text node by hand escapes what the browser leaves alone, and the word differ
+    // then marks `&quot;` against `"` as a change the model never made.
+    it("escapes a loose text node the way the browser escapes the same text in an element", () => {
+        const { html } = diffAiResponse("a \"demo\" document", "<p>a \"demo\" document</p>");
+
+        expect(html).toBe("<p>a \"demo\" document</p>");
+    });
+
     it("diffs a selection made inside a paragraph, which has no blocks at all", () => {
         const { html } = diffAiResponse("the quick <strong>brown</strong> fox", "the quick <strong>red</strong> fox");
 
