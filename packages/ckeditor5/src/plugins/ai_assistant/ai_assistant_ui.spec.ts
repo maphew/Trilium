@@ -1,4 +1,4 @@
-import { _setModelData as setModelData, ButtonView, ClassicEditor, Dialog, Essentials, Paragraph, SplitButtonView } from "ckeditor5";
+import { _getModelData as getModelData, _setModelData as setModelData, ButtonView, ClassicEditor, Dialog, Essentials, Paragraph, SplitButtonView } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
@@ -22,7 +22,8 @@ interface NestedMenuView {
     id: string;
     isEnabled: boolean;
     buttonView: { label?: string; element?: HTMLElement | null };
-    listView: { items: Array<{ childView: MenuButtonView }> };
+    /** A separator is a plain view: no `childView`, the same as at the top level. */
+    listView: { items: Array<{ childView?: MenuButtonView }> };
 }
 
 interface QuickActionsDropdown {
@@ -119,7 +120,7 @@ function menuEntries(dropdown: QuickActionsDropdown): Array<string | { menu: str
         return "listView" in childView
             ? {
                 menu: childView.buttonView.label ?? "",
-                actions: childView.listView.items.map((item) => item.childView.label ?? "")
+                actions: childView.listView.items.map((item) => item.childView?.label ?? "---")
             }
             : childView.label ?? "";
     });
@@ -316,6 +317,42 @@ describe("AiAssistantUI toolbar entry", () => {
             const dialog = editor.plugins.get(Dialog);
             expect(dialog.isOpen).toBe(true);
             expect(dialog.id).toBe("aiAssistant");
+        });
+
+        it("hands the pinned range back as the selection when dismissed", async () => {
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            editor.execute("aiAssistant");
+
+            // The marker, not the selection, is what shows the target while the dialog stands.
+            expect(editor.model.markers.has("triliumAiTarget")).toBe(true);
+
+            // Whatever becomes of the selection meanwhile — the editable is blurred for the
+            // dialog's whole life, so nothing is holding it in place.
+            const start = editor.model.document.selection.getFirstPosition();
+            if (start) {
+                editor.model.change((writer) => writer.setSelection(start));
+            }
+            expect(getModelData(editor.model)).toBe("<paragraph>[]foo</paragraph>");
+
+            editor.plugins.get(Dialog).hide();
+
+            expect(editor.model.markers.has("triliumAiTarget")).toBe(false);
+            expect(getModelData(editor.model)).toBe("<paragraph>[foo]</paragraph>");
+        });
+
+        it("leaves the selection to the insertion when the response is committed", async () => {
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            const [fixTypos] = quickActionButtons(dropdown);
+
+            fixTypos.fire("execute");
+            await vi.waitFor(() => expect(requests).toHaveLength(1));
+
+            openForm(editor).fire("replace");
+
+            // A commit places the selection itself; the pinned range it wrote over must not be
+            // restored over the top of that, which would leave the insertion selected.
+            expect(editor.model.markers.has("triliumAiTarget")).toBe(false);
+            expect(getModelData(editor.model)).toBe("<paragraph>[]done</paragraph>");
         });
 
         it("titles the dialog with the action it is running, as the palette names it", async () => {

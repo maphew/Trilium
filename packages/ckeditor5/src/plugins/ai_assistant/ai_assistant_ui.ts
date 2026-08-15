@@ -17,7 +17,7 @@ import {
     type ModelRange
 } from "ckeditor5";
 
-import type { AiCompletionUsage, AiDiffResult, AiQuickAction, AiQuickActionGroup, AiReviewView } from "./ai_assistant_config.js";
+import type { AiCompletionUsage, AiDiffResult, AiQuickAction, AiQuickActionFooter, AiQuickActionGroup, AiReviewView } from "./ai_assistant_config.js";
 import AiAssistantEditing, { AI_TARGET_MARKER } from "./ai_assistant_editing.js";
 import AiAssistantFormView from "./ai_assistant_form.js";
 import aiIcon from "./theme/icons/ai.svg?raw";
@@ -165,6 +165,7 @@ export default class AiAssistantUI extends Plugin {
         // The menu carries only ids and labels, so the action each button stands for is looked up
         // on execute rather than carried by the view.
         const actionsById = new Map<string, AiQuickAction>();
+        const footersById = new Map<string, AiQuickActionFooter>();
         const groupsById = new Map<string, AiQuickActionGroup>();
         const definition: DropdownMenuDefinition = [];
         // Where the menu wants a rule drawn, as indices into the finished item list. An inlined
@@ -179,6 +180,11 @@ export default class AiAssistantUI extends Plugin {
                 return { id: action.id, label: action.label };
             });
             if (group.submenu) {
+                if (group.footer) {
+                    const id = `${group.id}:footer`;
+                    footersById.set(id, group.footer);
+                    children.push({ id, label: group.footer.label });
+                }
                 definition.push({ id: group.id, menu: group.label, children });
             } else {
                 definition.push(...children);
@@ -200,6 +206,14 @@ export default class AiAssistantUI extends Plugin {
         // and they are built exactly once, so this unsubscribes itself.
         const decorateMenu = () => {
             for (const button of dropdownView.menuView?.buttons ?? []) {
+                const footer = footersById.get(button.id);
+                if (footer) {
+                    // A footer configures the group rather than running against the document, so it
+                    // stays reachable when everything above it is closed off.
+                    addIcon(button, footer.iconClass);
+                    continue;
+                }
+
                 const action = actionsById.get(button.id);
                 if (action?.requiresContent !== false) {
                     button.bind("isEnabled").to(this, "hasContext");
@@ -211,9 +225,15 @@ export default class AiAssistantUI extends Plugin {
                 addIcon(menu.buttonView, group?.iconClass);
                 // A submenu with nothing runnable in it should not invite the pointer: gate the
                 // opener on the same context its actions are gated on, unless one of them can run
-                // without any. The nested menu binds its own button to this.
-                if (group?.actions.every((action) => action.requiresContent !== false)) {
+                // without any — a footer counts, since it runs whatever the selection is. The
+                // nested menu binds its own button to this.
+                if (!group?.footer && group?.actions.every((action) => action.requiresContent !== false)) {
                     menu.bind("isEnabled").to(this, "hasContext");
+                }
+                // The footer was appended as the last child; the rule telling it from the actions
+                // above goes immediately before it.
+                if (group?.footer) {
+                    menu.listView.items.add(new ListSeparatorView(locale), menu.listView.items.length - 1);
                 }
             }
             // Back to front: each insertion shifts everything after it, and the recorded indices
@@ -230,7 +250,14 @@ export default class AiAssistantUI extends Plugin {
         // delegates up through its menu to the root — and delegation preserves the original
         // source, so the button (and its id) is the same either way.
         dropdownView.on("execute", (evt) => {
-            const action = actionsById.get((evt.source as DropdownMenuListItemButtonView).id);
+            const id = (evt.source as DropdownMenuListItemButtonView).id;
+            const footer = footersById.get(id);
+            if (footer) {
+                footer.run();
+                return;
+            }
+
+            const action = actionsById.get(id);
             /* v8 ignore next -- every button in the menu was built from an action in this map */
             if (action) {
                 this.runQuickAction(action);
@@ -542,6 +569,13 @@ export default class AiAssistantUI extends Plugin {
             if (!target) {
                 return;
             }
+            // Retired here rather than left to the teardown, which hands the pinned range back as
+            // the selection: `insertContent` decides where the selection lands after a commit, and
+            // restoring the range it just wrote over would overrule it. Same change, so the marker
+            // goes with the insertion in a single undo step.
+            if (model.markers.has(AI_TARGET_MARKER)) {
+                writer.removeMarker(AI_TARGET_MARKER);
+            }
             if (mode === "replace") {
                 model.insertContent(modelFragment, target);
             } else {
@@ -595,8 +629,17 @@ export default class AiAssistantUI extends Plugin {
         this._reviewView = null;
         this._updateHasContext();
 
-        if (editor.model.markers.has(AI_TARGET_MARKER)) {
-            editor.model.change((writer) => writer.removeMarker(AI_TARGET_MARKER));
+        const marker = editor.model.markers.get(AI_TARGET_MARKER);
+        if (marker) {
+            // Hand the pinned range back as the selection. The marker is what showed the target
+            // for as long as the dialog stood — the editable was blurred throughout, so the
+            // selection was neither on show nor under anyone's control — and dropping it without
+            // this leaves whatever the selection decayed to meanwhile.
+            const range = marker.getRange();
+            editor.model.change((writer) => {
+                writer.removeMarker(AI_TARGET_MARKER);
+                writer.setSelection(range);
+            });
         }
         this._formView?.reset();
     }
