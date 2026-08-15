@@ -727,7 +727,8 @@
     "open_all_in_tabs": "すべて開く",
     "open_all_in_tabs_tooltip": "すべての結果を新しいタブで開く",
     "open_all_confirm_other": "{{count}} 件のノートを新しいタブで開きます。続行しますか？",
-    "dashboard": "ダッシュボード"
+    "dashboard": "ダッシュボード",
+    "open_all_limit_exceeded": "一度に開こうとしているノートが多すぎます（{{count}}）。上限は {{max}} です。先に検索結果を絞り込んでください。"
   },
   "note_types": {
     "geo-map": "ジオマップ",
