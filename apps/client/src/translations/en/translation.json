@@ -2834,6 +2834,8 @@
     "play_video": "Play video"
   },
   "ai_assistant": {
+    "title": "AI assistant",
+    "action_ask": "Ask AI…",
     "group_edit": "Edit or review",
     "group_generate": "Generate",
     "group_adjust": "Adjust",
@@ -3976,7 +3978,8 @@
       "type-the-content-here": "Type the content here...",
       "undefined-custom-task-state": "Undefined custom task state",
       "url": "URL",
-      "warning": "Warning"
+      "warning": "Warning",
+      "working": "Working…"
     },
     "task-state-dropped-title": "Invalid task states",
     "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",
