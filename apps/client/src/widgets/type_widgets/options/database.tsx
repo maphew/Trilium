@@ -26,7 +26,7 @@ import { formatDateTime } from "../../../utils/formatters";
 import Admonition from "../../react/Admonition";
 import Button from "../../react/Button";
 import { Card, CardOption } from "../../react/Card";
-import DirectoryLink from "../../react/DirectoryLink";
+import { FileLink } from "../../react/DirectoryLink";
 import { useNoteContext } from "../../react/hooks";
 import { useFetch } from "../../react/use_fetch";
 import DatabaseFileList from "./components/DatabaseFileList";
@@ -108,10 +108,10 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
         <div className="options-section database-info">
             <Card heading={t("database.info")}>
                 <CardOption label={t("database.info_location")}>
-                    {/* The file is named in full, while the link opens the folder holding it: a
-                        file manager is what the path is useful in, not the database's own reader. */}
+                    {/* Revealed rather than opened: a file manager is what the path is useful in,
+                        and the database's own reader is Trilium. */}
                     <span className="database-info-value">
-                        <DirectoryLink directory={info.directoryPath}>{info.filePath}</DirectoryLink>
+                        <FileLink filePath={info.filePath} />
                     </span>
                 </CardOption>
 

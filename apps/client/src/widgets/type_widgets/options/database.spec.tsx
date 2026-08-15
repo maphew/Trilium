@@ -17,7 +17,6 @@ vi.mock("../../../services/setup_mode", () => setupMode);
 
 const DATABASE_INFO = {
     filePath: "/data/trilium/document.db",
-    directoryPath: "/data/trilium",
     utcDateCreated: "2020-05-17 08:30:00.000Z",
     noteCount: 12,
     attachmentCount: 3,

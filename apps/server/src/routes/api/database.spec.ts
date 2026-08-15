@@ -29,12 +29,9 @@ describe("Database API", () => {
 
     it("describes the database: where it is, when it began, what it holds and how large it is", () => {
         const info = databaseRoute.getDatabaseInfo();
-        const filePath = path.resolve(dataDir.DOCUMENT_PATH);
 
-        // The file is named in full, and the directory separately: what a file manager can be
-        // pointed at is the folder, never the database itself.
-        expect(info.filePath).toBe(filePath);
-        expect(info.directoryPath).toBe(path.dirname(filePath));
+        // Named in full: the desktop reveals the file in the file manager rather than opening it.
+        expect(info.filePath).toBe(path.resolve(dataDir.DOCUMENT_PATH));
 
         // SQLite records nothing about when a file was made, so the root note answers for it.
         expect(info.utcDateCreated).toBe(becca.getNoteOrThrow("root").utcDateCreated);

@@ -308,6 +308,14 @@ describe("preload script", () => {
             });
         });
 
+        it("showItemInFolder sends correct IPC message", () => {
+            shell().showItemInFolder("/tmp/test.txt");
+            expect(ipcRendererSent).toContainEqual({
+                channel: "show-item-in-folder",
+                args: ["/tmp/test.txt"]
+            });
+        });
+
         it("openFileUrl invokes correct IPC channel", async () => {
             await shell().openFileUrl("file:///tmp/test.txt");
             expect(ipcRendererInvoked).toContainEqual({

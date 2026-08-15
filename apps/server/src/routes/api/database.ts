@@ -27,11 +27,8 @@ function getExistingBackups() {
  * made, and the root is created once, by the very first startup that had no database to open.
  */
 function getDatabaseInfo() {
-    const filePath = path.resolve(dataDir.DOCUMENT_PATH);
-
     return {
-        filePath,
-        directoryPath: path.dirname(filePath),
+        filePath: path.resolve(dataDir.DOCUMENT_PATH),
         utcDateCreated: becca.getNoteOrThrow("root").utcDateCreated,
         ...getContentCounts(),
         sizeBytes: databaseBytes()

@@ -127,8 +127,6 @@ export interface SpaceUsageCounts {
 export interface DatabaseInfoResponse extends SpaceUsageCounts {
     /** Absolute path of the database file, its name included. */
     filePath: string;
-    /** The directory holding it, which is what a file manager can be pointed at. */
-    directoryPath: string;
     /** When the root note was created, standing in for when the knowledge base itself was. */
     utcDateCreated: string;
     /**
