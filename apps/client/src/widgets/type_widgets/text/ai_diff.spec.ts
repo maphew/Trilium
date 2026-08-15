@@ -109,4 +109,20 @@ describe("diffAiResponse", () => {
     it("treats a response with nothing to align against as entirely rewritten", () => {
         expect(diffAiResponse("", "<p>generated</p>").rewriteRatio).toBe(1);
     });
+
+    // Proofreading text that has nothing wrong with it. The container the response adds is not a
+    // change — otherwise an untouched response could never be reported as untouched.
+    it("reports a response that changed nothing, container differences aside", () => {
+        expect(diffAiResponse(ORIGINAL, ORIGINAL).isUnchanged).toBe(true);
+        expect(diffAiResponse("It is already perfect.", "<p>It is already perfect.</p>").isUnchanged).toBe(true);
+
+        for (const [name, changed] of [
+            ["a word", ORIGINAL.replace("every day", "daily")],
+            ["a block", `${ORIGINAL}<p>One more thought.</p>`],
+            // The same words, but the note would come out different — so not "no changes".
+            ["only the markup", ORIGINAL.replace("<h2>Backups</h2>", "<h3>Backups</h3>")]
+        ] as const) {
+            expect(diffAiResponse(ORIGINAL, changed).isUnchanged, name).toBe(false);
+        }
+    });
 });

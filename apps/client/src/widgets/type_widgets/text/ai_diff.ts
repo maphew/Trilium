@@ -82,8 +82,31 @@ export default function diffAiResponse(oldHtml: string, newHtml: string): AiDiff
     const responseLength = newBlocks.reduce((total, block) => total + block.text.length, 0);
     return {
         html: chunks.join(""),
-        rewriteRatio: responseLength ? rewrittenLength / responseLength : 0
+        rewriteRatio: responseLength ? rewrittenLength / responseLength : 0,
+        isUnchanged: isSameContent(oldBlocks, newBlocks)
     };
+}
+
+/**
+ * Whether the response came back as the content it was given — what proofreading text that has
+ * nothing wrong with it produces.
+ *
+ * Blocks with a container on both sides are compared as markup, so the same words moved into a
+ * different heading, or a paragraph rewrapped in a callout, still counts as a change: the note
+ * would come out different. Where one side has no container the comparison drops to what the two
+ * hold, because a selection made inside a block is captured without it (see {@link kindOf}) and
+ * treating that as a change would mean never reporting an untouched response as untouched.
+ */
+function isSameContent(before: Block[], after: Block[]): boolean {
+    return before.length === after.length && before.every((block, index) => {
+        const counterpart = after[index];
+        if (!counterpart) {
+            return false;
+        }
+        return block.element && counterpart.element
+            ? block.html === counterpart.html
+            : block.inner === counterpart.inner;
+    });
 }
 
 /**

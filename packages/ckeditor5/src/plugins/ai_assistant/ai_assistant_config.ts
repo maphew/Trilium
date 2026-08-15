@@ -65,6 +65,15 @@ export interface AiDiffResult {
      * which is the behaviour of a plain word-level diff.
      */
     rewriteRatio?: number;
+    /**
+     * Whether the response *is* the content it was given — what proofreading text with nothing
+     * wrong with it produces. The review says so outright rather than offering a diff with no
+     * marks in it, which reads as a diff that failed.
+     *
+     * Optional, and only a renderer that compares the two sides itself can answer it: an empty
+     * diff and an unchanged one are the same string.
+     */
+    isUnchanged?: boolean;
 }
 
 /**

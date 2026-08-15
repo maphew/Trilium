@@ -142,6 +142,7 @@ function openForm(editor: ClassicEditor) {
         phase: string;
         viewMode: string;
         hasDiff: boolean;
+        isUnchanged: boolean;
         fire(event: string): void;
     };
 }
@@ -399,6 +400,15 @@ describe("AiAssistantUI toolbar entry", () => {
 
             expect((await review(diff, "fixTypos")).viewMode).toBe("changes");
             expect((await review(diff, "translate")).viewMode).toBe("result");
+        });
+
+        it("withholds the diff of a response the differ reports as unchanged", async () => {
+            const form = await review(() => ({ html: "<p>done</p>", isUnchanged: true }), "fixTypos");
+
+            // The form says so in words; a diff with no marks in it reads as a diff that failed.
+            expect(form.isUnchanged).toBe(true);
+            expect(form.hasDiff).toBe(false);
+            expect(form.viewMode).toBe("result");
         });
 
         it("is the result when the diff reports the response as mostly a rewrite", async () => {

@@ -438,7 +438,10 @@ export default class AiAssistantUI extends Plugin {
         const diff = this._buildDiff();
         form.enterReview({
             hasContent: !!this._cumulative,
-            diffHtml: diff?.html,
+            // A response that changed nothing has a diff with no marks in it, which reads as a
+            // diff that failed. The review says so in words instead, and offers no view of it.
+            diffHtml: diff?.isUnchanged ? null : diff?.html,
+            isUnchanged: diff?.isUnchanged,
             errorMessage,
             usageText: this._formatUsage(usage),
             viewMode: this._resolveReviewView(diff)
@@ -510,8 +513,8 @@ export default class AiAssistantUI extends Plugin {
         try {
             // A renderer may answer with the diff alone or with the diff and what it made of it.
             const result = diff(this._previousContext, this._cumulative);
-            const { html, rewriteRatio }: AiDiffResult = typeof result === "string" ? { html: result } : result;
-            return { html: this._sanitize(html), rewriteRatio };
+            const normalized: AiDiffResult = typeof result === "string" ? { html: result } : result;
+            return { ...normalized, html: this._sanitize(normalized.html) };
         } catch (error) {
             // A host diff failure only costs the Changes view, never the response itself.
             console.warn("AI assistant: diff renderer failed", error);

@@ -1,8 +1,9 @@
-import { IconArrowUp, IconRefresh, IconStop } from "@ckeditor/ckeditor5-icons";
+import { IconArrowUp, IconCheck, IconRefresh, IconStop } from "@ckeditor/ckeditor5-icons";
 import {
     ButtonView,
     FocusCycler,
     FocusTracker,
+    IconView,
     InputTextView,
     KeystrokeHandler,
     submitHandler,
@@ -33,6 +34,8 @@ export interface AiReviewOptions {
     usageText?: string;
     /** Which view to open on. Defaults to "changes" whenever there is a diff to show. */
     viewMode?: AiReviewView;
+    /** Whether the response came back as the content it was given, which the review says outright. */
+    isUnchanged?: boolean;
 }
 
 /**
@@ -53,6 +56,8 @@ export default class AiAssistantFormView extends View {
     declare public viewMode: AiReviewView;
     /** Whether the current review has a diff to offer; controls the view-mode toggle. */
     declare public hasDiff: boolean;
+    /** Whether the review is of a response that changed nothing; shows the notice saying so. */
+    declare public isUnchanged: boolean;
     /** The run's cost line ("model · tokens · price"), shown in the review actions row. */
     declare public usageText: string;
 
@@ -87,6 +92,7 @@ export default class AiAssistantFormView extends View {
         this.set("errorMessage", "");
         this.set("viewMode", "result");
         this.set("hasDiff", false);
+        this.set("isUnchanged", false);
         this.set("usageText", "");
 
         // Re-render the preview from the stored contents whenever the toggle flips.
@@ -97,7 +103,13 @@ export default class AiAssistantFormView extends View {
         this.promptInputView = this._createPromptInput(locale);
         this.sendButtonView = this._createSendButton(locale);
         this.previewView = new AiPreviewView(locale);
-        this.previewView.bind("isVisible").to(this, "phase", (phase) => phase !== "prompt");
+        // A response that changed nothing is the text the user is already looking at, so the
+        // placeholder stands in its place rather than sitting under a copy of it.
+        this.previewView.bind("isVisible").to(
+            this, "phase",
+            this, "isUnchanged",
+            (phase, isUnchanged) => phase !== "prompt" && !isUnchanged
+        );
 
         // Takes Send's place in the prompt row while a run is in flight: the control that acts on
         // the run belongs where the eye already is, and one icon replacing another keeps the row
@@ -187,6 +199,23 @@ export default class AiAssistantFormView extends View {
                     children: [{ text: bind.to("errorMessage") }]
                 },
                 {
+                    // What the preview would have shown is the text the run was given, word for
+                    // word, and a "Changes" view of it would be a diff with no marks in it — which
+                    // reads as a diff that failed. So the answer is given as an answer.
+                    tag: "div",
+                    attributes: {
+                        class: [
+                            "ck",
+                            "ck-ai-assistant-form__empty",
+                            bind.if("isUnchanged", "ck-hidden", (isUnchanged) => !isUnchanged)
+                        ]
+                    },
+                    children: [
+                        createIcon(IconCheck),
+                        { text: t("Looks good already — nothing to change.") }
+                    ]
+                },
+                {
                     tag: "div",
                     attributes: { class: ["ck", "ck-ai-assistant-form__prompt-row"] },
                     // Send and Stop share the slot at the end of the row; the phase decides which
@@ -262,6 +291,7 @@ export default class AiAssistantFormView extends View {
         this._resultHtml = "";
         this._diffHtml = "";
         this.hasDiff = false;
+        this.isUnchanged = false;
         this.viewMode = "result";
         this.usageText = "";
         this._renderPreview();
@@ -274,6 +304,7 @@ export default class AiAssistantFormView extends View {
         this._resultHtml = "";
         this._diffHtml = "";
         this.hasDiff = false;
+        this.isUnchanged = false;
         this.viewMode = "result";
         this.usageText = "";
         this._renderPreview();
@@ -290,8 +321,11 @@ export default class AiAssistantFormView extends View {
      * for (the "Changes" view by default, whenever there is a diff), while a run that produced
      * nothing falls back to the prompt phase, showing `errorMessage` when the run failed.
      */
-    public enterReview({ hasContent, diffHtml, errorMessage = "", usageText = "", viewMode }: AiReviewOptions): void {
+    public enterReview({
+        hasContent, diffHtml, errorMessage = "", usageText = "", viewMode, isUnchanged = false
+    }: AiReviewOptions): void {
         this.phase = hasContent ? "review" : "prompt";
+        this.isUnchanged = hasContent && isUnchanged;
         this.errorMessage = errorMessage;
         this._diffHtml = diffHtml ?? "";
         this.hasDiff = hasContent && !!this._diffHtml;
@@ -381,6 +415,13 @@ export default class AiAssistantFormView extends View {
         button.on("execute", () => this.fire(eventName));
         return button;
     }
+}
+
+/** A standalone glyph for a template. `IconView` takes its SVG through a property, not a call. */
+function createIcon(content: string): IconView {
+    const icon = new IconView();
+    icon.content = content;
+    return icon;
 }
 
 /**

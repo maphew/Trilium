@@ -86,6 +86,32 @@ describe("AiAssistantFormView", () => {
         expect(form.tryAgainButtonView.isEnabled).toBe(true);
     });
 
+    it("stands a message in for a response that changed nothing", () => {
+        const form = makeForm();
+        const empty = () => form.element?.querySelector(".ck-ai-assistant-form__empty");
+
+        expect(empty()?.classList.contains("ck-hidden")).toBe(true);
+
+        form.beginStreaming();
+        form.setPreview("<p>already perfect</p>");
+        form.enterReview({ hasContent: true, isUnchanged: true });
+
+        expect(form.isUnchanged).toBe(true);
+        expect(empty()?.classList.contains("ck-hidden")).toBe(false);
+        expect(empty()?.textContent).toContain("nothing to change");
+        // The response is the text the user is already looking at, so it takes the place of the
+        // preview rather than being shown above the message saying it changed nothing.
+        expect(form.previewView.isVisible).toBe(false);
+        // Nothing changed, so there is no second view of it to offer either.
+        expect(form.hasDiff).toBe(false);
+        expect(form.viewMode).toBe("result");
+
+        // The next run starts over rather than carrying the message into it.
+        form.beginStreaming();
+        expect(empty()?.classList.contains("ck-hidden")).toBe(true);
+        expect(form.previewView.isVisible).toBe(true);
+    });
+
     it("opens the review on the view the caller names, keeping the other one click away", () => {
         const form = makeForm();
         form.beginStreaming();
