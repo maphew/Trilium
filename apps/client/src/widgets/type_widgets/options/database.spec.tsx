@@ -151,7 +151,7 @@ describe("what the database is", () => {
 
         expect(server.get).toHaveBeenCalledWith("database/info");
 
-        const [ location, created, content, size ] = infoValues();
+        const [ location, content, created, size ] = infoValues();
         // The file is named in full; the link behind it opens the folder holding it, since that is
         // what a file manager can be pointed at.
         expect(location).toBe(DATABASE_INFO.filePath);

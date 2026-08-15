@@ -115,17 +115,17 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
                     </span>
                 </CardOption>
 
-                <CardOption label={t("database.info_created")}>
-                    <span className="database-info-value">
-                        {formatDateTime(info.utcDateCreated, "long", "none")}
-                    </span>
-                </CardOption>
-
                 <CardOption label={t("database.info_content")}>
                     <span className="database-info-value">
                         {t("database.info_notes", { count: info.noteCount })}
                         {", "}
                         {t("database.info_attachments", { count: info.attachmentCount })}
+                    </span>
+                </CardOption>
+
+                <CardOption label={t("database.info_created")}>
+                    <span className="database-info-value">
+                        {formatDateTime(info.utcDateCreated, "long", "none")}
                     </span>
                 </CardOption>
 
@@ -166,25 +166,6 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
         <div className="options-section database-maintenance">
             <Card heading={t("database.maintenance")}>
                 <CardOption
-                    label={t("database.analyze_space_usage")}
-                    description={t("database.analyze_space_usage_description")}
-                >
-                    <Button
-                        name="analyze-space-usage-button"
-                        text={t("database.analyze_space_usage_button")}
-                        size="micro"
-                        onClick={() => {
-                            // The Content Manager opens on Active Content unless asked otherwise,
-                            // and navigating by hand rather than by link is what lets us ask first.
-                            requestContentManagerSection("spaceUsage");
-                            // Kept in whichever context this page is shown in — the settings dialog
-                            // holds a note context of its own, outside the tab manager.
-                            void noteContext?.setNote("_optionsContentManager", { keepActiveDialog: true });
-                        }}
-                    />
-                </CardOption>
-
-                <CardOption
                     label={t("database.cleanup")}
                     description={t("database.cleanup_description")}
                 >
@@ -201,6 +182,25 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
                                 onDatabaseChanged();
                             }
                         })}
+                    />
+                </CardOption>
+
+                <CardOption
+                    label={t("database.analyze_space_usage")}
+                    description={t("database.analyze_space_usage_description")}
+                >
+                    <Button
+                        name="analyze-space-usage-button"
+                        text={t("database.analyze_space_usage_button")}
+                        size="micro"
+                        onClick={() => {
+                            // The Content Manager opens on Active Content unless asked otherwise,
+                            // and navigating by hand rather than by link is what lets us ask first.
+                            requestContentManagerSection("spaceUsage");
+                            // Kept in whichever context this page is shown in — the settings dialog
+                            // holds a note context of its own, outside the tab manager.
+                            void noteContext?.setNote("_optionsContentManager", { keepActiveDialog: true });
+                        }}
                     />
                 </CardOption>
 
