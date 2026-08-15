@@ -31,6 +31,7 @@ import { useNoteContext } from "../../react/hooks";
 import { useFetch } from "../../react/use_fetch";
 import DatabaseFileList from "./components/DatabaseFileList";
 import OptionsPageHeader from "./components/OptionsPageHeader";
+import RelatedSettings from "./components/RelatedSettings";
 import { requestContentManagerSection } from "./content_manager";
 import { showCleanupDialog } from "./content_manager/space_usage/cleanup_dialog";
 
@@ -74,6 +75,14 @@ export default function DatabaseSettings() {
             <MaintenanceOptions onDatabaseChanged={refreshInfo} />
             <StartOverOption state={startOverState} />
             <AnonymizationOptions />
+
+            <RelatedSettings items={[
+                {
+                    title: t("database.related_backup"),
+                    description: t("database.related_backup_description"),
+                    targetPage: "_optionsBackup"
+                }
+            ]} />
         </>
     );
 }

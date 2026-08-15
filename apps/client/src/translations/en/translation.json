@@ -1770,7 +1770,9 @@
     "start_over": "Start over",
     "start_over_confirm": "Trilium will go back to the setup screen, where you can start a new knowledge base, restore a backup or sync from another device. You will be offered a backup of your current data first, and nothing is deleted until you choose one of those. Continue?",
     "start_over_pending": "The setup screen will appear the next time this server is restarted. Restart the server when you are ready, or cancel below to leave everything as it is.",
-    "start_over_cancel": "Cancel start over"
+    "start_over_cancel": "Cancel start over",
+    "related_backup": "Backup",
+    "related_backup_description": "Create or restore database backups, manage automatic backups."
   },
   "vacuum_database": {
     "title": "Vacuum Database",
