@@ -6,7 +6,7 @@ import froca from "../../../services/froca";
 import link from "../../../services/link";
 import linkEmbedService, { type EmbedMetadata } from "../../../services/link_embed";
 import { useKeyboardShortcuts, useLegacyImperativeHandlers, useNoteContext, useSyncedRef, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
-import { buildAiAssistantQuickActions } from "./ai_assistant_stream";
+import { useAiQuickActions } from "./ai_quick_actions";
 import { buildConfig, BuildEditorOptions } from "./config";
 
 export type BoxSize = "small" | "medium" | "full" | "expandable";
@@ -94,12 +94,13 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
     // the tag list, for the same by-value reason as `customReplacements` above.
     const [ htmlSupportEnabled ] = useTriliumOptionBool("textNoteHtmlSupportEnabled");
     const [ allowedHtmlTags ] = useTriliumOption("allowedHtmlTags");
-    // Deliberately *not* a rebuild trigger: the enabled content languages fill the AI assistant's
-    // Translate submenu, which now offers the row that edits them — so the change is made from
-    // inside the editor, several times over while the modal is open, and a rebuild each time would
-    // cost the caret and the undo history of the note being written. Pushed into the live editor by
-    // the effect below instead. The raw JSON, for the by-value reason above.
-    const [ contentLanguages ] = useTriliumOption("languages");
+    // Deliberately *not* a rebuild trigger — pushed into the live editor by the effect below
+    // instead. The enabled content languages fill the assistant's Translate submenu, which now
+    // offers the row that edits them, so the change is made from inside the editor and several
+    // times over while the modal is open; the custom actions are notes, written and revised in the
+    // editor itself. A rebuild for either would cost the caret and the undo history of the note
+    // being written.
+    const quickActions = useAiQuickActions();
     const [ editor, setEditor ] = useState<CKTextEditor>();
     const { parentComponent, ntxId, note } = useNoteContext();
 
@@ -341,15 +342,14 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
         }
     }, [ editor, templates ]);
 
-    // Likewise for the AI quick actions, whose Translate group lists the enabled content languages:
-    // rebuilt from the current options and pushed into the live editor, so enabling a language shows
-    // it in the menu without the note losing its undo history.
+    // Likewise for the AI quick actions: enabling a content language or writing a `#aiQuickAction`
+    // note shows up in the menu without the note being edited losing its undo history.
     useEffect(() => {
         if (!editor) return;
         if (editor.plugins.has("AiAssistantUI")) {
-            editor.plugins.get("AiAssistantUI").updateQuickActions(buildAiAssistantQuickActions());
+            editor.plugins.get("AiAssistantUI").updateQuickActions(quickActions);
         }
-    }, [ editor, contentLanguages ]);
+    }, [ editor, quickActions ]);
 
 
     // React to notification warning callback.
