@@ -122,7 +122,7 @@
     "title": "Delete notes",
     "close": "Close",
     "clones_label": "Clones",
-    "delete_clones_description_one": "Also delete {{count}} other clone. Can be undone in recent changes.",
+    "delete_clones_description_one": "Also delete the other clone. Can be undone in recent changes.",
     "delete_clones_description_other": "Also delete {{count}} other clones. Can be undone in recent changes.",
     "delete_all_clones_description": "Delete also all clones (can be undone in recent changes)",
     "erase_notes_label": "Erase permanently",

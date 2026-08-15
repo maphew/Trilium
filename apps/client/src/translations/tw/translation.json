@@ -122,7 +122,6 @@
     "title": "刪除筆記",
     "clones_label": "克隆",
     "delete_clones_description_one": "同時刪除 {{count}} 個其他克隆。此操作可在最近修改中撤銷。",
-    "delete_clones_description_other": "",
     "erase_notes_label": "永久擦除",
     "table_note_with_relation": "有關聯的筆記",
     "table_relation": "關聯",
