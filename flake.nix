@@ -39,14 +39,14 @@
         # Don't refresh these by hand — `pnpm chore:update-flake-electron` rewrites both
         # bindings from the release's SHASUMS256.txt, and the update-nix-flake workflow
         # opens a PR whenever apps/desktop/package.json moves ahead of the pin.
-        pinnedElectronVersion = "43.3.0";
+        pinnedElectronVersion = "43.4.0";
         pinnedElectronHashes = {
-          x86_64-linux = "f4987e9f045e46b117f0805d6ba4dc524e2abb2c2e33660f175bb39564bd3dae";
-          armv7l-linux = "d808208eb3179d1d33ac0269b5aada5d5a689cb9758098cb2d6e3576efaa306e";
-          aarch64-linux = "3e89a62c345d8171bf54f77df5b3d8216c492847eed00ae59cadd78d6f5535f7";
-          x86_64-darwin = "7347bbd5fb529eea64f9c2d148bb1c19222d98946ff234ffe27953a1bbcb9dae";
-          aarch64-darwin = "ee939d1564d83d61032b3b3cb23af4e46005a4900c91f0695f7ed793f0ce6e83";
-          headers = "13x2jbm1kdcnmv9lga8ba1imksjc2ahvb91ar3j3cl49w6q6qc0d";
+          x86_64-linux = "7c5f7918bcae74a05a814543940eb28469c055edaa3cfcf41d0ff1787b314c52";
+          armv7l-linux = "8fd14c358e04c1720f13b2ae1fced79d9abac30287c7b4ac330f14ec041ed0f0";
+          aarch64-linux = "17021d48739857106a26dd95bf749f95b89ae924955c3c7e7ff5a3f06251ac14";
+          x86_64-darwin = "7ab39ec1b0bcf5463f2dc0040142fbc1c30cd7bc3f99086066f588c717b11e24";
+          aarch64-darwin = "827f9f182566f46846377575b51c547b9926b111637313a373b6f717462aebac";
+          headers = "1mi5mn4r9mj9ml30jv0qsp3ma38sj83k8naahp45md235kmdry2l";
         };
         mkElectronBin = pkgs.callPackage (
           pkgs.path + "/pkgs/development/tools/electron/binary/generic.nix"
