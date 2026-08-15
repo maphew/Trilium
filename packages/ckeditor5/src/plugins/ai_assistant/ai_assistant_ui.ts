@@ -62,6 +62,17 @@ const SURROUNDINGS_LIMIT = 1500;
 const EMPTY_SURROUNDINGS: AiSurroundings = { before: "", after: "" };
 
 /**
+ * Opens the assistant from the keyboard, which is how the feature is reached without leaving the
+ * text being written.
+ *
+ * Neither of the idioms it would like is free: Ctrl+K creates a link, here as in every other
+ * editor, and Ctrl+J is Trilium's Jump to note. This keeps the K that Cursor, Linear and Slack
+ * made the key for "ask for something" without taking either — and CKEditor maps `Ctrl` to `Cmd`
+ * on macOS, so it reads as ⌘⇧K there.
+ */
+const AI_ASSISTANT_KEYSTROKE = "Ctrl+Shift+K";
+
+/**
  * The AI assistant's UI and orchestration: the toolbar entry (a split button whose menu holds the
  * host's quick actions), the dialog form, and the stream-preview-commit lifecycle.
  *
@@ -163,6 +174,17 @@ export default class AiAssistantUI extends Plugin {
 
         editor.ui.componentFactory.add("aiAssistant", (locale) => this._createToolbarComponent(locale));
 
+        editor.keystrokes.set(AI_ASSISTANT_KEYSTROKE, (_data, cancel) => {
+            const command = editor.commands.get("aiAssistant");
+            // Nothing to open without a provider configured, and the keystroke has to fall through
+            // rather than be swallowed by a feature that cannot run.
+            if (!command?.isEnabled) {
+                return;
+            }
+            editor.execute("aiAssistant");
+            cancel();
+        });
+
         // While the assistant is closed the quick actions are offered against the selection, so
         // their enablement has to follow it.
         this.listenTo(editor.model.document.selection, "change:range", () => this._updateHasContext());
@@ -232,6 +254,7 @@ export default class AiAssistantUI extends Plugin {
         buttonView.set({
             label: locale.t("AI assistant"),
             icon: aiIcon,
+            keystroke: AI_ASSISTANT_KEYSTROKE,
             tooltip: true
         });
         /* v8 ignore next -- AiAssistantEditing always registers the command (it is required by this plugin) */
@@ -256,6 +279,9 @@ export default class AiAssistantUI extends Plugin {
         splitButtonView.set({
             label: locale.t("AI assistant"),
             icon: aiIcon,
+            // On the action half, which is the half the keystroke stands for: the arrow opens the
+            // quick actions, and Ctrl+Shift+K opens the prompt.
+            keystroke: AI_ASSISTANT_KEYSTROKE,
             tooltip: true
         });
         // A dropdown passes `isEnabled` down to its button, so this covers both halves of the

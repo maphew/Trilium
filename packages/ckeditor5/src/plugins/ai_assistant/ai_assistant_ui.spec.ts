@@ -1,4 +1,4 @@
-import { _getModelData as getModelData, _setModelData as setModelData, ButtonView, ClassicEditor, CodeBlockEditing, Dialog, Essentials, Paragraph, SplitButtonView } from "ckeditor5";
+import { _getModelData as getModelData, _setModelData as setModelData, ButtonView, ClassicEditor, CodeBlockEditing, Dialog, Essentials, keyCodes, Paragraph, SplitButtonView } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
@@ -216,6 +216,51 @@ describe("AiAssistantUI toolbar entry", () => {
 
         button.fire("execute");
         expect(showSpy).toHaveBeenCalled();
+    });
+
+    // The feature has to be reachable without leaving the text being written, and the toolbar
+    // tooltip is where a keystroke is discovered.
+    describe("the keystroke", () => {
+        /** Presses Ctrl+Shift+K on the editor, reporting whether the editor took the key. */
+        function press(editor: ClassicEditor): boolean {
+            const preventDefault = vi.fn();
+            const keyEvtData = {
+                keyCode: keyCodes.k,
+                ctrlKey: true,
+                shiftKey: true,
+                altKey: false,
+                metaKey: false,
+                preventDefault,
+                stopPropagation: vi.fn()
+            };
+
+            editor.keystrokes.press(keyEvtData);
+            // What `cancel()` does, so this says whether the editor took the key or let it through.
+            return preventDefault.mock.calls.length > 0;
+        }
+
+        it("opens the assistant, and says so on the toolbar entry", async () => {
+            const editor = await createEditor(QUICK_ACTIONS, createStreamStub().stream);
+            const showSpy = vi.spyOn(editor.plugins.get(AiAssistantUI), "show");
+
+            expect(press(editor)).toBe(true);
+            expect(showSpy).toHaveBeenCalled();
+
+            // The action half of the split button, which is the half the keystroke stands for.
+            expect(createComponent(editor).buttonView.keystroke).toBe("Ctrl+Shift+K");
+            const plain = (await createEditor(undefined, createStreamStub().stream))
+                .ui.componentFactory.create("aiAssistant") as ButtonView;
+            expect(plain.keystroke).toBe("Ctrl+Shift+K");
+        });
+
+        it("lets the key through when no LLM provider is configured", async () => {
+            // Swallowing it would cost the user a keystroke to a feature that cannot run.
+            const editor = await createEditor(QUICK_ACTIONS);
+            const showSpy = vi.spyOn(editor.plugins.get(AiAssistantUI), "show");
+
+            expect(press(editor)).toBe(false);
+            expect(showSpy).not.toHaveBeenCalled();
+        });
     });
 
     describe("with quick actions configured", () => {
