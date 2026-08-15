@@ -1751,6 +1751,7 @@
     "title": "Database",
     "info": "Database info",
     "info_location": "Location",
+    "info_location_opfs": "Browser's origin private file system (OPFS)",
     "info_created": "Original creation date",
     "info_content": "Content",
     "info_notes_one": "{{count}} note",

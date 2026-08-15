@@ -24,15 +24,24 @@ const setupMode = vi.hoisted(() => ({
 vi.mock("../../../services/setup_mode", () => setupMode);
 
 const DATABASE_INFO = {
-    filePath: "/data/trilium/document.db",
+    filePath: "/data/trilium/document.db" as string | null,
     utcDateCreated: "2020-05-17 08:30:00.000Z",
     noteCount: 12,
     attachmentCount: 3,
     sizeBytes: 3 * 1024 * 1024
 };
 
+/** What the info endpoint answers; replaced by the test about a database that is not a file. */
+let INFO: typeof DATABASE_INFO = DATABASE_INFO;
+
 /** Set where a test needs the info card to have nothing to say. */
 const failing = vi.hoisted(() => ({ info: false }));
+
+/** The browser build, which keeps no backups and has no path to its database. */
+const standalone = vi.hoisted(() => ({ enabled: false }));
+vi.mock("../../../services/backup_download", () => ({
+    isBackupDownloadSupported: () => standalone.enabled
+}));
 
 /** What the backup page would list; emptied by the test about a database never backed up. */
 let BACKUPS: { mtime: Date }[] = [];
@@ -55,7 +64,7 @@ const server = vi.hoisted(() => ({
                 if (failing.info) {
                     throw new Error("no answer");
                 }
-                return DATABASE_INFO;
+                return INFO;
             case "database/backups":
                 return { backupFolderPath: "/data/backup", backups: BACKUPS };
             case "database/check-integrity":
@@ -129,6 +138,8 @@ beforeEach(() => {
     setupMode.isStartOverPending.mockReset().mockResolvedValue(false);
     setupMode.cancelStartOver.mockReset().mockResolvedValue(undefined);
     failing.info = false;
+    INFO = DATABASE_INFO;
+    standalone.enabled = false;
     BACKUPS = [ { mtime: new Date("2026-01-01T10:00:00Z") }, { mtime: new Date("2026-01-02T10:00:00Z") } ];
     ANONYMIZED = [ ANONYMIZED_COPY ];
     noteContext.setNote.mockClear();
@@ -178,6 +189,22 @@ describe("what the database is", () => {
         // The same sentence the backup page's header carries, counted over the same listing.
         expect(backup?.textContent).toBe("backup.backups_summary=2");
         expect(backup?.getAttribute("href")).toBe("#root/_hidden/_options/_optionsBackup");
+    });
+
+    it("names the storage where the database is no file, and drops what is not kept there", async () => {
+        standalone.enabled = true;
+        INFO = { ...DATABASE_INFO, filePath: null };
+        renderPage();
+        await settle();
+
+        // Nothing a file manager could be pointed at, so the storage is named instead of linked.
+        const [ location ] = infoValues();
+        expect(location).toBe("database.info_location_opfs");
+        expect(container.querySelector(".database-info a[href]")).toBeNull();
+
+        // The rest of the card holds: the figures come from the database itself, wherever it lives.
+        expect(infoValues()).toHaveLength(4);
+        expect(server.get).not.toHaveBeenCalledWith("database/backups");
     });
 
     it("says a database has never been backed up rather than leaving the row blank", async () => {

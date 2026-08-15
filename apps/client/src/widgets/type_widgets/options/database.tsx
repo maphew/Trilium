@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "preact/hooks";
 import type React from "react";
 import { Trans } from "react-i18next";
 
+import { isBackupDownloadSupported } from "../../../services/backup_download";
 import { summarizeBackups } from "../../../services/database_files";
 import dialogService from "../../../services/dialog";
 import { t } from "../../../services/i18n";
@@ -98,9 +99,6 @@ export default function DatabaseSettings() {
  */
 function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
     const { data: info } = useFetch<DatabaseInfoResponse>("database/info", refreshToken);
-    // The backups are the one thing here this page does nothing about, so they are read from the
-    // page that does — the same listing, summarized by the same sentence its own header carries.
-    const { data: backups } = useFetch<ExistingBackupsResponse>("database/backups", refreshToken);
 
     if (!info) {
         return null;
@@ -110,10 +108,13 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
         <div className="options-section database-info">
             <Card heading={t("database.info")}>
                 <CardOption label={t("database.info_location")}>
-                    {/* Revealed rather than opened: a file manager is what the path is useful in,
-                        and the database's own reader is Trilium. */}
                     <span className="database-info-value">
-                        <FileLink filePath={info.filePath} />
+                        {/* Revealed rather than opened: a file manager is what a path is useful in,
+                            and the database's own reader is Trilium. Where there is no path, the
+                            storage holding it is named instead — nothing there can be pointed at. */}
+                        {info.filePath
+                            ? <FileLink filePath={info.filePath} />
+                            : t("database.info_location_opfs")}
                     </span>
                 </CardOption>
 
@@ -135,19 +136,37 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
                     <span className="database-info-value">{formatSize(info.sizeBytes)}</span>
                 </CardOption>
 
-                {backups && (
-                    <CardOption label={t("database.info_backup")}>
-                        {/* The whole value is the way to the page that acts on it: this row states
-                            how the backups stand, and everything else about them is done there. */}
-                        <span className="database-info-value">
-                            <a className="tn-link" href={BACKUP_PAGE_LINK}>
-                                {summarizeBackups(backups.backups) ?? t("database.info_no_backup")}
-                            </a>
-                        </span>
-                    </CardOption>
-                )}
+                {/* Absent where backups are not kept at all: the browser build's one backup is a
+                    download, taken there and then, so there is nothing standing to state. */}
+                {!isBackupDownloadSupported() && <BackupStanding refreshToken={refreshToken} />}
             </Card>
         </div>
+    );
+}
+
+/**
+ * How the backups stand, and the way to the page that acts on them.
+ *
+ * The backups are the one thing on this page it does nothing about, so they are read from the page
+ * that does — the same listing, summarized by the same sentence its own header carries.
+ */
+function BackupStanding({ refreshToken }: { refreshToken: number }) {
+    const { data: backups } = useFetch<ExistingBackupsResponse>("database/backups", refreshToken);
+
+    if (!backups) {
+        return null;
+    }
+
+    return (
+        <CardOption label={t("database.info_backup")}>
+            {/* The whole value is the way to the page that acts on it: this row states how the
+                backups stand, and everything else about them is done there. */}
+            <span className="database-info-value">
+                <a className="tn-link" href={BACKUP_PAGE_LINK}>
+                    {summarizeBackups(backups.backups) ?? t("database.info_no_backup")}
+                </a>
+            </span>
+        </CardOption>
     );
 }
 

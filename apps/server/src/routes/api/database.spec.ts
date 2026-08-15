@@ -1,4 +1,4 @@
-import { becca, getBackup, getLog, utils, ValidationError } from "@triliumnext/core";
+import { getBackup, getLog, utils, ValidationError } from "@triliumnext/core";
 import type { Request, Response } from "express";
 import fs from "fs";
 import path from "path";
@@ -25,24 +25,6 @@ describe("Database API", () => {
         const { anonymizedFolderPath, databases } = databaseRoute.getExistingAnonymizedDatabases();
         expect(anonymizedFolderPath).toBe(path.resolve(dataDir.ANONYMIZED_DB_DIR));
         expect(Array.isArray(databases)).toBe(true);
-    });
-
-    it("describes the database: where it is, when it began, what it holds and how large it is", () => {
-        const info = databaseRoute.getDatabaseInfo();
-
-        // Named in full: the desktop reveals the file in the file manager rather than opening it.
-        expect(info.filePath).toBe(path.resolve(dataDir.DOCUMENT_PATH));
-
-        // SQLite records nothing about when a file was made, so the root note answers for it.
-        expect(info.utcDateCreated).toBe(becca.getNoteOrThrow("root").utcDateCreated);
-
-        // The same figure the compaction estimate reports, so the two never disagree.
-        expect(info.sizeBytes).toBe(databaseRoute.getCompactionEstimate().databaseBytes);
-
-        // Counted, and the hidden subtree — launchers, options, templates — left out of the count.
-        expect(info.noteCount).toBeGreaterThan(0);
-        expect(info.noteCount).toBeLessThan(Object.keys(becca.notes).length);
-        expect(info.attachmentCount).toBeGreaterThanOrEqual(0);
     });
 
     it("runs an integrity check that reports 'ok'", () => {

@@ -2,11 +2,10 @@ import {
     BackupDatabaseNowResponse,
     CompactionEstimateResponse,
     DatabaseCheckIntegrityResponse,
-    DatabaseInfoResponse,
     ExistingAnonymizedDatabasesResponse,
     VacuumDatabaseResponse
 } from "@triliumnext/commons";
-import { becca, becca_loader, consistency_checks as consistencyChecksService, getBackup, getContentCounts, getLog, utils, ValidationError } from "@triliumnext/core";
+import { becca_loader, consistency_checks as consistencyChecksService, getBackup, getDatabaseSizeBytes, getLog, getReclaimableBytes, utils, ValidationError } from "@triliumnext/core";
 import type { Request, Response } from "express";
 import fs, { readFileSync } from "fs";
 import path from "path";
@@ -20,21 +19,6 @@ function getExistingBackups() {
     return getBackup().getExistingBackups();
 }
 
-/**
- * What the Database page states about the knowledge base as a whole.
- *
- * The root note stands in for the database itself: SQLite records nothing about when a file was
- * made, and the root is created once, by the very first startup that had no database to open.
- */
-function getDatabaseInfo() {
-    return {
-        filePath: path.resolve(dataDir.DOCUMENT_PATH),
-        utcDateCreated: becca.getNoteOrThrow("root").utcDateCreated,
-        ...getContentCounts(),
-        sizeBytes: databaseBytes()
-    } satisfies DatabaseInfoResponse;
-}
-
 async function backupDatabase() {
     return {
         backupFile: await getBackup().backupNow("now")
@@ -45,7 +29,7 @@ function vacuumDatabase() {
     // Timed from here, the two readings included: they are a pragma query each, and what the log is
     // answering for is how long the whole thing held the database.
     const startedAt = Date.now();
-    const sizeBefore = databaseBytes();
+    const sizeBefore = getDatabaseSizeBytes();
 
     // Announced before the rebuild starts, not only once it ends: this holds the process for minutes
     // on a large database, and if it is killed or the machine goes down in the meantime, this line
@@ -53,7 +37,7 @@ function vacuumDatabase() {
     getLog().info(`Compacting the database (${utils.formatSize(sizeBefore)}). This may take several minutes.`);
 
     sql.execute("VACUUM");
-    const sizeAfter = databaseBytes();
+    const sizeAfter = getDatabaseSizeBytes();
 
     getLog().info(`Compacted the database from ${utils.formatSize(sizeBefore)}`
         + ` to ${utils.formatSize(sizeAfter)} in ${Date.now() - startedAt} ms.`);
@@ -68,26 +52,9 @@ function vacuumDatabase() {
  */
 function getCompactionEstimate() {
     return {
-        reclaimableBytes: reclaimableBytes(),
-        databaseBytes: databaseBytes()
+        reclaimableBytes: getReclaimableBytes(),
+        databaseBytes: getDatabaseSizeBytes()
     } satisfies CompactionEstimateResponse;
-}
-
-/**
- * The database's own view of its size: every page it has allocated, the free ones included. Read
- * through pragma functions rather than the file itself, so there is no path to resolve and no race
- * with the filesystem — and it is exactly the figure a vacuum moves.
- *
- * Covers the main database alone; in WAL mode the `-wal` sidecar is not part of it.
- */
-function databaseBytes(): number {
-    return sql.getValue<number>("SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()");
-}
-
-/** Pages already free inside the file. A floor, not a promise: a rebuild also recovers the slack
- *  left inside pages that are still in use, which no count of whole pages can see. */
-function reclaimableBytes(): number {
-    return sql.getValue<number>("SELECT freelist_count * page_size FROM pragma_freelist_count(), pragma_page_size()");
 }
 
 function findAndFixConsistencyIssues() {
@@ -153,7 +120,6 @@ function downloadAnonymizedDatabase(req: Request, res: Response) {
 
 export default {
     getExistingBackups,
-    getDatabaseInfo,
     backupDatabase,
     vacuumDatabase,
     getCompactionEstimate,

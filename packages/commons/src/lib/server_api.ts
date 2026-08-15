@@ -125,8 +125,11 @@ export interface SpaceUsageCounts {
 
 /** What the database is: where it lives, when it began, what it holds and how large it has grown. */
 export interface DatabaseInfoResponse extends SpaceUsageCounts {
-    /** Absolute path of the database file, its name included. */
-    filePath: string;
+    /**
+     * Absolute path of the database file, its name included. Null where the database is not a file
+     * the user can reach: the browser build keeps it in storage the browser owns, which has no path.
+     */
+    filePath: string | null;
     /** When the root note was created, standing in for when the knowledge base itself was. */
     utcDateCreated: string;
     /**

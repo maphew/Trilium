@@ -144,6 +144,7 @@ export { type ImageProvider, type ImageFormat, type ImageCompressionOutcome, typ
 export { default as imageCompressionService } from "./services/image_compression";
 export { default as imageInventoryService, type ImageInventoryOptions } from "./services/image_inventory";
 export { getContentCounts } from "./services/space_usage";
+export { getDatabaseSizeBytes, getReclaimableBytes } from "./services/database_size";
 export { default as imageInfoService } from "./services/image_info";
 export { estimateJpegQuality } from "./services/jpeg_quality";
 export { inspectImage, type InspectedImage, UNKNOWN_FORMAT } from "./services/image_inspect";

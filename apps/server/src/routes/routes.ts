@@ -143,7 +143,6 @@ function register(app: express.Application) {
     route(PST, "/api/clipper/open/:noteId", clipperMiddleware, clipperRoute.openNote, apiResultHandler);
     asyncRoute(GET, "/api/clipper/notes-by-url/:noteUrl", clipperMiddleware, clipperRoute.findNotesByUrl, apiResultHandler);
 
-    apiRoute(GET, "/api/database/info", databaseRoute.getDatabaseInfo);
     asyncRoute(PST, "/api/database/anonymize/:type", [auth.checkApiAuthOrElectron, csrfMiddleware], databaseRoute.anonymize, apiResultHandler);
     apiRoute(GET, "/api/database/anonymized-databases", databaseRoute.getExistingAnonymizedDatabases);
     route(GET, "/api/database/anonymized/download", [auth.checkApiAuthOrElectron], databaseRoute.downloadAnonymizedDatabase);
