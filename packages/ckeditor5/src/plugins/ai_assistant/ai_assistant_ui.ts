@@ -18,7 +18,7 @@ import {
 } from "ckeditor5";
 
 import { extractDelimiters, renderEquation } from "../math/utils.js";
-import type { AiCompletionUsage, AiConversationTurn, AiDiffResult, AiQuickAction, AiQuickActionFooter, AiQuickActionGroup, AiReviewView } from "./ai_assistant_config.js";
+import type { AiCompletionUsage, AiConversationTurn, AiDiffResult, AiQuickAction, AiQuickActionFooter, AiQuickActionGroup, AiReviewView, AiSurroundings } from "./ai_assistant_config.js";
 import AiAssistantEditing, { AI_TARGET_MARKER } from "./ai_assistant_editing.js";
 import AiAssistantFormView from "./ai_assistant_form.js";
 import aiIcon from "./theme/icons/ai.svg?raw";
@@ -49,6 +49,17 @@ const MENU_FOOTER_ID = "__footer";
  * read and becomes two texts stacked on each other.
  */
 const REWRITE_RATIO_THRESHOLD = 0.5;
+
+/**
+ * How much of the note either side of the target is sent as surroundings. Enough for the section
+ * the target sits in, which is what places it; a note long enough to overrun this is one whose
+ * distant paragraphs say nothing about the sentence being rewritten, and the assistant is not a
+ * retrieval engine — it should not quietly turn every run into a whole-note upload.
+ */
+const SURROUNDINGS_LIMIT = 1500;
+
+/** What a run with nothing around it sends, and what the plugin holds while it is closed. */
+const EMPTY_SURROUNDINGS: AiSurroundings = { before: "", after: "" };
 
 /**
  * The AI assistant's UI and orchestration: the toolbar entry (a split button whose menu holds the
@@ -99,6 +110,8 @@ export default class AiAssistantUI extends Plugin {
     private _cumulativeSource = "";
     /** The HTML the conversation opened on, sent with every request it makes. */
     private _openingContext = "";
+    /** What surrounds it in the note, captured with it and sent alongside it. */
+    private _surroundings: AiSurroundings = EMPTY_SURROUNDINGS;
     /**
      * The HTML each response is measured against: the selection, then each response chained on.
      * What a run *asks* about is {@link _openingContext} plus {@link _history} — this is what the
@@ -530,6 +543,7 @@ export default class AiAssistantUI extends Plugin {
             ? ""
             : editor.data.stringify(model.getSelectedContent(model.createSelection(range)));
         this._openingContext = this._context;
+        this._surroundings = this._captureSurroundings(range);
         this._previousContext = this._context;
         this._history = [];
         this._previousHistory = [];
@@ -662,7 +676,12 @@ export default class AiAssistantUI extends Plugin {
         let usage: AiCompletionUsage | null = null;
         try {
             usage = (await stream(
-                { query, context: this._openingContext, history: this._history },
+                {
+                    query,
+                    context: this._openingContext,
+                    surroundings: this._surroundings,
+                    history: this._history
+                },
                 onData,
                 abortController.signal
             )) ?? null;
@@ -931,6 +950,7 @@ export default class AiAssistantUI extends Plugin {
         // would leave them enabled over a closed assistant that has nothing to work on.
         this._context = "";
         this._openingContext = "";
+        this._surroundings = EMPTY_SURROUNDINGS;
         this._previousContext = "";
         // The conversation was the dialog's: the next one opens on a fresh selection, with nothing
         // the model should still be answering in the light of.
@@ -964,6 +984,54 @@ export default class AiAssistantUI extends Plugin {
     }
 
     /**
+     * The rest of the note either side of the target, as plain text — what tells the model where in
+     * the note it is writing. A selection alone does not: "continue this" and "summarize this" both
+     * read differently under a heading than they do in a note's opening paragraph.
+     *
+     * Captured once, with the context, and unchanged for the conversation: the document is not
+     * modified until a response is committed, and a commit closes the assistant.
+     */
+    private _captureSurroundings(target: ModelRange | null): AiSurroundings {
+        const model = this.editor.model;
+        const root = model.document.getRoot();
+        /* v8 ignore next 3 -- the target always resolves, and an editor always has a main root */
+        if (!target || !root) {
+            return EMPTY_SURROUNDINGS;
+        }
+
+        const before = model.createRange(model.createPositionAt(root, 0), target.start);
+        const after = model.createRange(target.end, model.createPositionAt(root, "end"));
+        return {
+            // Each side keeps the part nearest the target: the paragraph just above the selection
+            // says far more about it than the note's first one does.
+            before: clampText(this._plainText(before), "end"),
+            after: clampText(this._plainText(after), "start")
+        };
+    }
+
+    /**
+     * A range of the document as plain text, one line per block. Blocks are what the model has to
+     * see — that a heading opens the passage, that the lines around it are list items — and the
+     * markup carrying them is worth nothing to content nobody is asking it to rewrite.
+     */
+    private _plainText(range: ModelRange): string {
+        const schema = this.editor.model.schema;
+        let text = "";
+
+        for (const { type, item } of range.getWalker()) {
+            if (item.is("$textProxy")) {
+                text += item.data;
+            } else if (type === "elementEnd" && item.is("element") && schema.isBlock(item)) {
+                text += "\n";
+            }
+        }
+
+        // A range that starts or ends inside a block leaves that block's own line unclosed, and
+        // nested blocks close one line per level; neither is worth showing as a blank line.
+        return text.replace(/\n{2,}/g, "\n").trim();
+    }
+
+    /**
      * The range a run works on: the selection, or — for a quick action at a collapsed caret — the
      * block it sits in, so "Fix typos" typed into a paragraph rewrites that paragraph. It is both
      * the context handed to the model and what the target marker pins for "Replace".
@@ -981,6 +1049,30 @@ export default class AiAssistantUI extends Plugin {
         /* v8 ignore next -- a collapsed selection always sits inside an element */
         return block?.is("element") ? model.createRangeIn(block) : range;
     }
+}
+
+/**
+ * Trims one side of the surroundings to {@link SURROUNDINGS_LIMIT}, keeping the end nearest the
+ * target and cutting on a line break so the model is never handed half a sentence as if it were a
+ * whole one.
+ *
+ * @param keep which end survives: `"end"` for the text before the target, `"start"` for the text
+ *             after it.
+ */
+function clampText(text: string, keep: "start" | "end"): string {
+    if (text.length <= SURROUNDINGS_LIMIT) {
+        return text;
+    }
+
+    if (keep === "start") {
+        const cut = text.slice(0, SURROUNDINGS_LIMIT);
+        const lastBreak = cut.lastIndexOf("\n");
+        return (lastBreak > 0 ? cut.slice(0, lastBreak) : cut).trimEnd();
+    }
+
+    const cut = text.slice(-SURROUNDINGS_LIMIT);
+    const firstBreak = cut.indexOf("\n");
+    return (firstBreak >= 0 ? cut.slice(firstBreak + 1) : cut).trimStart();
 }
 
 /**

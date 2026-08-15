@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // The pipeline ends in DOMPurify, which needs browser-faithful NodeIterator traversal; happy-dom
 // mishandles it and drops the first node of every fragment. Same reason as sanitize_content.spec.
-import type { AiConversationTurn } from "@triliumnext/ckeditor5";
+import type { AiConversationTurn, AiSurroundings } from "@triliumnext/ckeditor5";
 import type { LlmChatConfig } from "@triliumnext/commons";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -36,10 +36,14 @@ vi.mock("../../../services/server.js", () => ({
     default: { post: vi.fn(async (_url: string, data: { htmlContent: string }) => toMarkdownResult(data.htmlContent)) }
 }));
 vi.mock("../../../services/task_states.js", () => ({ getTaskStateDefinitions: async () => [] }));
+// The breadcrumb is the tree service's own, resolved out of Froca one ancestor at a time.
+vi.mock("../../../services/tree.js", () => ({
+    default: { getNotePathTitle: vi.fn(async (notePath: string) => notePathTitle(notePath)) }
+}));
 vi.mock("../../../components/app_context.js", () => ({ default: { triggerCommand: vi.fn() } }));
 
 import appContext from "../../../components/app_context.js";
-import buildAiAssistantStream, { buildAiAssistantQuickActions, stripMarkdownFences } from "./ai_assistant_stream.js";
+import buildAiAssistantStream, { type AiNoteLocation, buildAiAssistantQuickActions, stripMarkdownFences } from "./ai_assistant_stream.js";
 
 /** The `llmProviders` option as the mocked `options.getJson` will return it. */
 let storedProviders: unknown = null;
@@ -53,6 +57,8 @@ let requestedMessages: Array<Array<{ role: string; content: string }>> = [];
 let responseChunks: string[] = ["done"];
 /** Stands in for `POST other/to-markdown`; throws to exercise the fallback. */
 let toMarkdownResult: (html: string) => { markdownContent: string } = () => ({ markdownContent: "teh" });
+/** Stands in for the tree service's breadcrumb; throws to exercise the fallback. */
+let notePathTitle: (notePath: string) => string = (notePath) => `Root › ${notePath}`;
 
 const PROVIDER = [{ id: "cfg-openai", provider: "openai", selectedModels: [{ id: "gpt-5", isDefault: true }] }];
 
@@ -63,23 +69,36 @@ beforeEach(() => {
     requestedMessages = [];
     responseChunks = ["done"];
     toMarkdownResult = () => ({ markdownContent: "teh" });
+    notePathTitle = (notePath) => `Root › ${notePath}`;
 });
 
+/** What a run carries besides the content: the conversation, the note, and what surrounds it. */
+interface RunOptions {
+    history?: AiConversationTurn[];
+    surroundings?: AiSurroundings;
+    note?: AiNoteLocation | null;
+}
+
 /** Runs one completion through the built stream, collecting everything handed to `onData`. */
-async function run(context = "<p>teh</p>", history: AiConversationTurn[] = []): Promise<{
+async function run(context = "<p>teh</p>", opts: RunOptions = {}): Promise<{
     config: LlmChatConfig;
     prompt: string;
     messages: Array<{ role: string; content: string }>;
     rendered: string[];
     sources: string[];
 }> {
-    const stream = buildAiAssistantStream();
+    const stream = buildAiAssistantStream(opts.note !== undefined ? () => opts.note ?? null : undefined);
     if (!stream) {
         throw new Error("expected the assistant to be enabled");
     }
     const rendered: string[] = [];
     const sources: string[] = [];
-    await stream({ query: "Fix typos", context, history }, (html, source) => {
+    await stream({
+        query: "Fix typos",
+        context,
+        surroundings: opts.surroundings ?? { before: "", after: "" },
+        history: opts.history ?? []
+    }, (html, source) => {
         rendered.push(html);
         sources.push(source ?? "");
     }, new AbortController().signal);
@@ -226,6 +245,84 @@ describe("the Markdown pipeline", () => {
     });
 });
 
+// A selection alone leaves the model writing into a document it cannot see; the note it sits in
+// and the text either side of it are what place the answer, without a line of retrieval.
+describe("where the run is writing", () => {
+    beforeEach(() => {
+        storedProviders = PROVIDER;
+    });
+
+    it("opens with the note's breadcrumb and the text around the content", async () => {
+        toMarkdownResult = () => ({ markdownContent: "the target" });
+
+        const { prompt } = await run("<p>the target</p>", {
+            note: { title: "Meeting notes", notePath: "abc123" },
+            surroundings: { before: "A heading\nBefore it", after: "After it" }
+        });
+
+        expect(prompt).toBe([
+            "Note: Root › abc123",
+            "Text before the content (context only):\nA heading\nBefore it",
+            "Text after the content (context only):\nAfter it",
+            "Content:\nthe target",
+            "Task: Fix typos"
+        ].join("\n\n"));
+    });
+
+    // The whole point of naming the sections: the model has to place the answer without touching
+    // them.
+    it("tells the model the background is not its to rewrite", async () => {
+        const { messages } = await run();
+        expect(messages[0].role).toBe("system");
+        expect(messages[0].content).toContain("never rewrite, repeat or answer them");
+    });
+
+    it("names the cursor rather than the content when generating from scratch", async () => {
+        const { prompt } = await run("", {
+            note: { title: "Meeting notes" },
+            surroundings: { before: "Before it", after: "" }
+        });
+
+        // There is no "Content" section for it to be before, and saying otherwise would name
+        // something the model was never shown.
+        expect(prompt).toBe("Note: Meeting notes\n\nText before the cursor (context only):\nBefore it\n\nTask: Fix typos");
+    });
+
+    it("names the note by its title alone when it has no path", async () => {
+        expect((await run("", { note: { title: "Meeting notes" } })).prompt)
+            .toBe("Note: Meeting notes\n\nTask: Fix typos");
+    });
+
+    // Nothing to place it against — an instruction typed into an empty note by a host that names
+    // none — so it goes as it was typed rather than as the sole entry of a form.
+    it("sends the instruction bare when there is nothing to place it against", async () => {
+        expect((await run("", { note: null })).prompt).toBe("Fix typos");
+    });
+
+    it("falls back to the title when the breadcrumb cannot be resolved", async () => {
+        notePathTitle = () => { throw new Error("gone"); };
+        vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        const { prompt } = await run("", { note: { title: "Meeting notes", notePath: "abc123" } });
+        expect(prompt).toBe("Note: Meeting notes\n\nTask: Fix typos");
+    });
+
+    // The note has not changed under the assistant, and the answers to it are in the transcript.
+    it("places only the opening turn, leaving the follow-ups bare", async () => {
+        const { messages } = await run("<p>the target</p>", {
+            note: { title: "Meeting notes" },
+            surroundings: { before: "Before it", after: "" },
+            history: [
+                { role: "user", content: "Translate to German" },
+                { role: "assistant", content: "Guten Tag" }
+            ]
+        });
+
+        expect(messages[1].content).toContain("Note: Meeting notes");
+        expect(messages[3].content).toBe("Fix typos");
+    });
+});
+
 describe("the conversation", () => {
     const fence = "\u0060\u0060\u0060";
 
@@ -248,10 +345,12 @@ describe("the conversation", () => {
     it("sends the exchanges so far, with only the opening turn carrying the content", async () => {
         toMarkdownResult = (html) => ({ markdownContent: html + " as markdown" });
 
-        const { messages } = await run("<p>teh</p>", [
-            { role: "user", content: "Translate to German" },
-            { role: "assistant", content: "Guten Tag" }
-        ]);
+        const { messages } = await run("<p>teh</p>", {
+            history: [
+                { role: "user", content: "Translate to German" },
+                { role: "assistant", content: "Guten Tag" }
+            ]
+        });
 
         expect(messages.map((message) => message.role)).toEqual(["system", "user", "assistant", "user"]);
         expect(messages[1].content).toBe("Content:\n<p>teh</p> as markdown\n\nTask: Translate to German");
@@ -261,10 +360,12 @@ describe("the conversation", () => {
     });
 
     it("leaves the turns bare when the conversation started from scratch", async () => {
-        const { messages } = await run("", [
-            { role: "user", content: "Write a haiku" },
-            { role: "assistant", content: "an old silent pond" }
-        ]);
+        const { messages } = await run("", {
+            history: [
+                { role: "user", content: "Write a haiku" },
+                { role: "assistant", content: "an old silent pond" }
+            ]
+        });
 
         expect(messages.slice(1).map((message) => message.content))
             .toEqual(["Write a haiku", "an old silent pond", "Fix typos"]);

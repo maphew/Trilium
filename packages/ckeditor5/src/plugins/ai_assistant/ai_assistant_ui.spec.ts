@@ -47,6 +47,9 @@ interface QuickActionsDropdown {
     };
 }
 
+/** What a target with nothing around it in the note sends. */
+const NO_SURROUNDINGS = { before: "", after: "" };
+
 const QUICK_ACTIONS: AiQuickActionGroup[] = [
     {
         id: "edit",
@@ -414,7 +417,7 @@ describe("AiAssistantUI toolbar entry", () => {
             setModelData(editor.model, "<paragraph>[foo]</paragraph>");
             quickActionButtons(dropdown).find((button) => button.id === "japanese")?.fire("execute");
             await vi.waitFor(() => expect(requests).toHaveLength(1));
-            expect(requests[0]).toEqual({ query: "Translate to Japanese.", context: "foo", history: [] });
+            expect(requests[0]).toEqual({ query: "Translate to Japanese.", context: "foo", surroundings: NO_SURROUNDINGS, history: [] });
         });
 
         // What a run answers to rather than an instruction for one — Trilium hangs the model picker
@@ -538,7 +541,7 @@ describe("AiAssistantUI toolbar entry", () => {
             direct?.fire("execute");
             await vi.waitFor(() => expect(requests).toHaveLength(1));
 
-            expect(requests[0]).toEqual({ query: "Make it direct.", context: "foo", history: [] });
+            expect(requests[0]).toEqual({ query: "Make it direct.", context: "foo", surroundings: NO_SURROUNDINGS, history: [] });
         });
 
         it("falls back to the caret's block when nothing is selected", async () => {
@@ -548,7 +551,7 @@ describe("AiAssistantUI toolbar entry", () => {
             fixTypos.fire("execute");
             await vi.waitFor(() => expect(requests).toHaveLength(1));
 
-            expect(requests[0]).toEqual({ query: "Fix all mistakes.", context: "second", history: [] });
+            expect(requests[0]).toEqual({ query: "Fix all mistakes.", context: "second", surroundings: { before: "first", after: "" }, history: [] });
         });
 
         it("keeps a free-form prompt at a collapsed caret generating from scratch", async () => {
@@ -560,7 +563,7 @@ describe("AiAssistantUI toolbar entry", () => {
             form.fire("submit");
             await vi.waitFor(() => expect(requests).toHaveLength(1));
 
-            expect(requests[0]).toEqual({ query: "Write a haiku.", context: "", history: [] });
+            expect(requests[0]).toEqual({ query: "Write a haiku.", context: "", surroundings: { before: "foo", after: "" }, history: [] });
         });
 
         it("runs the picked action against the selection and opens the dialog on it", async () => {
@@ -570,7 +573,7 @@ describe("AiAssistantUI toolbar entry", () => {
             fixTypos.fire("execute");
             await vi.waitFor(() => expect(requests).toHaveLength(1));
 
-            expect(requests[0]).toEqual({ query: "Fix all mistakes.", context: "foo", history: [] });
+            expect(requests[0]).toEqual({ query: "Fix all mistakes.", context: "foo", surroundings: NO_SURROUNDINGS, history: [] });
 
             const dialog = editor.plugins.get(Dialog);
             expect(dialog.isOpen).toBe(true);
@@ -660,6 +663,85 @@ describe("AiAssistantUI toolbar entry", () => {
         });
     });
 
+    // A selection says nothing about where in the note it sits, and "continue this" or "summarize
+    // this" read differently under a heading than they do in an opening paragraph.
+    describe("the note around the target", () => {
+        let editor: ClassicEditor;
+        let dropdown: QuickActionsDropdown;
+        let requests: AiCompletionRequest[];
+
+        beforeEach(async () => {
+            const stub = createStreamStub();
+            requests = stub.requests;
+            editor = await createEditor(QUICK_ACTIONS, stub.stream);
+            dropdown = createComponent(editor);
+        });
+
+        /** Runs the first quick action and hands back what it sent as the target's surroundings. */
+        async function surroundingsOf(data: string) {
+            const expected = requests.length + 1;
+            setModelData(editor.model, data);
+            quickActionButtons(dropdown)[0].fire("execute");
+            await vi.waitFor(() => expect(requests).toHaveLength(expected));
+            return requests[expected - 1].surroundings;
+        }
+
+        it("sends the text either side of it, one line per block", async () => {
+            expect(await surroundingsOf([
+                "<paragraph>A heading</paragraph>",
+                "<paragraph>Before it</paragraph>",
+                "<paragraph>[the target]</paragraph>",
+                "<paragraph>After it</paragraph>"
+            ].join(""))).toEqual({ before: "A heading\nBefore it", after: "After it" });
+        });
+
+        it("splits at the caret when there is no selection to work on", async () => {
+            // The quick action widens a collapsed caret to its block, so the block being rewritten
+            // is the target and belongs to neither side.
+            expect(await surroundingsOf("<paragraph>one</paragraph><paragraph>t[]wo</paragraph><paragraph>three</paragraph>"))
+                .toEqual({ before: "one", after: "three" });
+        });
+
+        it("sends nothing around a target that is the whole note", async () => {
+            expect(await surroundingsOf("<paragraph>[all of it]</paragraph>")).toEqual(NO_SURROUNDINGS);
+        });
+
+        it("keeps the end nearest the target when the note is longer than the limit", async () => {
+            // Numbered lines of a hundred characters each, so that only the last dozen or so of
+            // the forty either side can fit in what a run sends.
+            const line = (marker: string, index: number) => `${marker}${index}`.padEnd(100, ".");
+            const filler = (marker: string) => Array.from({ length: 40 },
+                (_, index) => `<paragraph>${line(marker, index)}</paragraph>`).join("");
+
+            const { before, after } = await surroundingsOf(
+                `${filler("b")}<paragraph>[the target]</paragraph>${filler("a")}`);
+
+            // Whole lines only, and the ones closest to the target: the paragraph just above the
+            // selection says far more about it than the note's first one does.
+            expect(before.split("\n").at(-1)).toBe(line("b", 39));
+            expect(before).not.toContain(line("b", 0));
+            expect(after.split("\n").at(0)).toBe(line("a", 0));
+            expect(after).not.toContain(line("a", 39));
+            for (const side of [before, after]) {
+                expect(side.length).toBeLessThanOrEqual(1500);
+                expect(side.split("\n").every((entry) => /^[ab]\d+\.*$/.test(entry))).toBe(true);
+            }
+        });
+
+        it("stays with the conversation it was captured for, and goes when it closes", async () => {
+            await surroundingsOf("<paragraph>one</paragraph><paragraph>[two]</paragraph>");
+
+            const form = openForm(editor);
+            form.query = "now make it shorter";
+            form.fire("submit");
+            await vi.waitFor(() => expect(requests).toHaveLength(2));
+            expect(requests[1].surroundings).toEqual({ before: "one", after: "" });
+
+            editor.plugins.get(Dialog).hide();
+            expect(await surroundingsOf("<paragraph>[nothing around it]</paragraph>")).toEqual(NO_SURROUNDINGS);
+        });
+    });
+
     // A follow-up is a turn in a conversation rather than a fresh instruction about the last
     // answer: asked to translate and then to shorten, the model has to still see that the first
     // instruction was German, or it shortens the German back into English.
@@ -703,6 +785,7 @@ describe("AiAssistantUI toolbar entry", () => {
                 // The selection, still: what has been said about it is on the record instead of
                 // being restated as the thing to work on.
                 context: "foo",
+                surroundings: NO_SURROUNDINGS,
                 history: [
                     { role: "user", content: "Fix all mistakes." },
                     { role: "assistant", content: "Guten Tag" }
@@ -748,7 +831,7 @@ describe("AiAssistantUI toolbar entry", () => {
             fixTypos.fire("execute");
             await vi.waitFor(() => expect(requests).toHaveLength(2));
 
-            expect(requests[1]).toEqual({ query: "Fix all mistakes.", context: "bar", history: [] });
+            expect(requests[1]).toEqual({ query: "Fix all mistakes.", context: "bar", surroundings: NO_SURROUNDINGS, history: [] });
         });
 
         it("records the delivered HTML for a host that reports no source", async () => {

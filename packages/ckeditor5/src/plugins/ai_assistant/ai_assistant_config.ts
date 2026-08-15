@@ -12,6 +12,22 @@ export interface AiConversationTurn {
 }
 
 /**
+ * The rest of the note around the content a conversation opened on, as plain text.
+ *
+ * The assistant works on a selection, but a selection says nothing about where it sits: asked to
+ * continue a paragraph, or to summarize under a heading, a model that can see only the selected
+ * text is guessing at the document it is writing into. Plain text rather than the HTML the
+ * selection is sent as, because this is for orientation and never for rewriting — the words are
+ * what place it, and the markup would cost more than it says.
+ */
+export interface AiSurroundings {
+    /** The note's text before the target, ending where the target begins. */
+    before: string;
+    /** The note's text after the target. */
+    after: string;
+}
+
+/**
  * A single completion request made by the AI assistant.
  */
 export interface AiCompletionRequest {
@@ -25,6 +41,12 @@ export interface AiCompletionRequest {
      * than restated here.
      */
     context: string;
+
+    /**
+     * What surrounds {@link context} in the note, captured with it and just as unchanging: a
+     * follow-up is still writing into the same place.
+     */
+    surroundings: AiSurroundings;
 
     /**
      * The exchanges before this one, oldest first, alternating user and assistant; empty on the

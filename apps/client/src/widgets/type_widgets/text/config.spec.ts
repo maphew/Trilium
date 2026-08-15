@@ -19,7 +19,11 @@ const catalogState = vi.hoisted(() => ({
     bundle: undefined as Record<string, unknown> | undefined,
     entries: {} as Record<string, string>
 }));
-vi.mock("../../../services/i18n.js", () => ({ t: (key: string) => catalogState.entries[key] ?? key }));
+vi.mock("../../../services/i18n.js", () => ({
+    t: (key: string) => catalogState.entries[key] ?? key,
+    // Read while the AI assistant's Translate submenu is built, which every config goes through.
+    getAvailableLocales: () => []
+}));
 vi.mock("i18next", () => ({
     default: {
         // i18next binds `getResourceBundle` in `init()`, so it is absent until the app has booted —

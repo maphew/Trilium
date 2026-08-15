@@ -16,7 +16,7 @@ import { getTaskStateDefinitions, openCustomTaskStateConfig } from "../../../ser
 import { isMac } from "../../../services/utils.js";
 import { resolveContentLanguage } from "../../../utils/formatters.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
-import buildAiAssistantStream, { buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
+import buildAiAssistantStream, { type AiNoteLocationProvider, buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
 import diffAiResponse from "./ai_diff.js";
 import { buildQuoteTransformation, resolveQuoteSetting } from "./quotes.js";
 import { buildCustomTransformations, parseCustomReplacements } from "./replacements.js";
@@ -33,6 +33,12 @@ export interface BuildEditorOptions {
     uiLanguage: DISPLAYABLE_LOCALE_IDS;
     contentLanguage: string | null;
     templates: SnippetDefinition[];
+    /**
+     * Names the note the editor is open on, for the AI assistant to say where a run is writing.
+     * A getter rather than the note itself: switching notes reuses the editor, so anything captured
+     * here would name the note that happened to be open when it was built.
+     */
+    getNoteLocation?: AiNoteLocationProvider;
 }
 
 export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfig> {
@@ -193,7 +199,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         },
         aiAssistant: {
             // `undefined` when no LLM provider is configured, which disables the feature.
-            stream: buildAiAssistantStream(),
+            stream: buildAiAssistantStream(opts.getNoteLocation),
             // The "Changes" review view: a block-aware inline diff, so that a response which
             // rewrote a paragraph rather than editing it reads as a replacement instead of as
             // shredded `<ins>`/`<del>` pairs.

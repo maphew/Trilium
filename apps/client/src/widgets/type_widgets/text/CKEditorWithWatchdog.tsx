@@ -6,6 +6,7 @@ import froca from "../../../services/froca";
 import link from "../../../services/link";
 import linkEmbedService, { type EmbedMetadata } from "../../../services/link_embed";
 import { useKeyboardShortcuts, useLegacyImperativeHandlers, useNoteContext, useSyncedRef, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
+import type { AiNoteLocation } from "./ai_assistant_stream";
 import { useAiMenuFooter, useAiQuickActions } from "./ai_quick_actions";
 import { buildConfig, BuildEditorOptions } from "./config";
 
@@ -103,7 +104,12 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
     const quickActions = useAiQuickActions();
     const menuFooter = useAiMenuFooter();
     const [ editor, setEditor ] = useState<CKTextEditor>();
-    const { parentComponent, ntxId, note } = useNoteContext();
+    const { parentComponent, ntxId, note, notePath } = useNoteContext();
+    // Which note the assistant says a run is writing into. Kept in a ref for the same reason the
+    // snippets are: switching notes reuses the editor rather than rebuilding it, so a captured
+    // note would name whichever one happened to be open when the editor was built.
+    const noteLocationRef = useRef<AiNoteLocation | null>(null);
+    noteLocationRef.current = note ? { title: note.title, notePath } : null;
 
     useKeyboardShortcuts("text-detail", containerRef, parentComponent, ntxId);
 
@@ -268,7 +274,8 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
                     isClassicEditor: !!isClassicEditor,
                     uiLanguage: uiLanguage as DISPLAYABLE_LOCALE_IDS,
                     contentLanguage: contentLanguage ?? null,
-                    templates: templatesRef.current
+                    templates: templatesRef.current,
+                    getNoteLocation: () => noteLocationRef.current
                 });
 
                 if (isStale) {

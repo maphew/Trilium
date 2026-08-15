@@ -9,7 +9,18 @@ import options from "../../../services/options.js";
 import { sanitizeNoteContentHtml } from "../../../services/sanitize_content.js";
 import server from "../../../services/server.js";
 import { getTaskStateDefinitions } from "../../../services/task_states.js";
+import treeService from "../../../services/tree.js";
 import { pickModel } from "./ai_model_picker.js";
+
+/** The note an editor is open on, as much of it as placing a run in the tree needs. */
+export interface AiNoteLocation {
+    title: string;
+    /** Where it sits, for the ancestor titles a bare title cannot give. */
+    notePath?: string | null;
+}
+
+/** Names the note an editor is open on, at the moment a run asks — see `buildAiAssistantStream`. */
+export type AiNoteLocationProvider = () => AiNoteLocation | null;
 
 /**
  * Builds the transport behind the editor's AI assistant (`config.aiAssistant.stream`): a
@@ -25,20 +36,25 @@ import { pickModel } from "./ai_model_picker.js";
  * Returns `undefined` when no LLM provider is configured, which disables the feature in the
  * editor. Like the snippet list, the provider set is read when the editor is built — configuring
  * a first provider shows the button after the editor is next rebuilt.
+ *
+ * @param getNoteLocation names the note being edited, so a run can say where in Trilium it is
+ *                        writing. Read per request rather than captured: switching notes reuses
+ *                        the editor rather than rebuilding it.
  */
-export default function buildAiAssistantStream(): AiStreamFunction | undefined {
+export default function buildAiAssistantStream(getNoteLocation?: AiNoteLocationProvider): AiStreamFunction | undefined {
     if (!readSelectedModels().hasProvider) {
         return undefined;
     }
 
     return async (request, onData, signal): Promise<AiCompletionUsage> => {
-        // Both are needed before the first token and neither depends on the other.
-        const [context, renderMarkdown] = await Promise.all([
+        // All three are needed before the first token and none depends on the others.
+        const [context, renderMarkdown, note] = await Promise.all([
             toMarkdown(request.context),
-            loadMarkdownRenderer()
+            loadMarkdownRenderer(),
+            describeNote(getNoteLocation?.() ?? null)
         ]);
 
-        const messages = buildMessages(request, context);
+        const messages = buildMessages(request, context, note);
         const config = pickModel();
         let cumulative = "";
         const usage = await new Promise<LlmUsage | null>((resolve, reject) => {
@@ -347,6 +363,7 @@ The user gives you a task, usually together with the Markdown of the content it 
 
 Rules:
 - Respond ONLY with the resulting Markdown. No explanations, no preamble, no code fence around the answer.
+- The task may come with the note it was given in: its title, and the text before and after the content. Those are there to place the content — write so that the answer fits in with them, but never rewrite, repeat or answer them. Only the content under "Content" is yours to work on.
 - GitHub-flavoured Markdown is supported: headings, tables, footnotes and task lists (\`- [ ]\`).
 - \`> [!NOTE]\`, \`> [!TIP]\`, \`> [!IMPORTANT]\`, \`> [!CAUTION]\` and \`> [!WARNING]\` render as coloured callouts.
 - A \`mermaid\` code block renders as a diagram.
@@ -357,22 +374,78 @@ Rules:
  * The conversation as the provider takes it: the system prompt, the exchanges so far, and the new
  * instruction last.
  *
- * Only the opening turn carries the content, because it is the same content for the whole
- * conversation and the answers to it are in the transcript. That is what makes a follow-up a
- * follow-up: "now make it shorter" after "translate this to German" reaches a model that can still
- * see it was asked for German, instead of one handed German text and a bare request to shorten it.
+ * Only the opening turn carries the content and its surroundings, because they are the same for
+ * the whole conversation and the answers to them are in the transcript. That is what makes a
+ * follow-up a follow-up: "now make it shorter" after "translate this to German" reaches a model
+ * that can still see German was asked for, instead of one handed German text and a bare request
+ * to shorten it.
  */
-function buildMessages(request: AiCompletionRequest, context: string): LlmMessage[] {
+function buildMessages(request: AiCompletionRequest, context: string, note: string): LlmMessage[] {
     const turns: AiConversationTurn[] = [...request.history, { role: "user", content: request.query }];
     return [
         { role: "system", content: SYSTEM_PROMPT },
         ...turns.map((turn, index) => ({
             role: turn.role,
-            content: index === 0 && context
-                ? `Content:\n${context}\n\nTask: ${turn.content}`
+            content: index === 0
+                ? buildOpeningTurn(request, context, note, turn.content)
                 : turn.content
         }))
     ];
+}
+
+/**
+ * The turn a conversation opens with: where in Trilium the note sits, what surrounds the content
+ * there, the content itself and the instruction — each section named, and only the ones with
+ * anything in them.
+ *
+ * The point of the first three is that a selection says nothing about where it is: asked to
+ * continue a paragraph or to summarize under a heading, a model shown the selection alone is
+ * writing into a document it cannot see. The instruction goes last, where it is not read as a
+ * remark about the background above it.
+ */
+function buildOpeningTurn(request: AiCompletionRequest, context: string, note: string, query: string): string {
+    const { before, after } = request.surroundings;
+    // What the surroundings surround: a run with no content generates at the caret, and "before
+    // the content" would be naming something the model was never shown.
+    const anchor = context ? "the content" : "the cursor";
+    const sections: string[] = [];
+
+    if (note) {
+        sections.push(`Note: ${note}`);
+    }
+    if (before) {
+        sections.push(`Text before ${anchor} (context only):\n${before}`);
+    }
+    if (after) {
+        sections.push(`Text after ${anchor} (context only):\n${after}`);
+    }
+    if (context) {
+        sections.push(`Content:\n${context}`);
+    }
+
+    // Nothing to place it against — an instruction into an empty note — so it is sent as it was
+    // typed, rather than as the sole entry of a form.
+    return sections.length ? [...sections, `Task: ${query}`].join("\n\n") : query;
+}
+
+/**
+ * Where the note being edited sits, as one line: its ancestors and its own title, joined the way
+ * every other breadcrumb in Trilium is. Reuses the tree service's own resolver rather than walking
+ * Froca here, so a hoisted or cloned note reads the same as it does in the title bar.
+ *
+ * A note whose path cannot be resolved is named by its title alone, which is the part that matters;
+ * a caller that names no note at all leaves the section out.
+ */
+async function describeNote(location: AiNoteLocation | null): Promise<string> {
+    if (!location?.notePath) {
+        return location?.title ?? "";
+    }
+    try {
+        return await treeService.getNotePathTitle(location.notePath);
+    } catch (error) {
+        console.warn("AI assistant: could not resolve the note path", error);
+        return location.title;
+    }
 }
 
 /**
