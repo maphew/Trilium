@@ -33,16 +33,17 @@ export type AiNoteLocationProvider = () => AiNoteLocation | null;
  * lists come out of Trilium's own Markdown renderer, from syntax the model already knows, instead
  * of markup we would have to dictate in the system prompt and hope it reproduces byte for byte.
  *
- * Returns `undefined` when no LLM provider is configured, which disables the feature in the
- * editor. Like the snippet list, the provider set is read when the editor is built — configuring
- * a first provider shows the button after the editor is next rebuilt.
+ * Returns `undefined` when the AI features are switched off or no LLM provider is configured,
+ * which disables the feature in the editor and drops its toolbar entry (see `buildToolbarConfig`).
+ * The master switch is checked as well as the provider set, because turning it off leaves the
+ * configured providers stored — they are what the switch turns back on.
  *
  * @param getNoteLocation names the note being edited, so a run can say where in Trilium it is
  *                        writing. Read per request rather than captured: switching notes reuses
  *                        the editor rather than rebuilding it.
  */
 export default function buildAiAssistantStream(getNoteLocation?: AiNoteLocationProvider): AiStreamFunction | undefined {
-    if (!readSelectedModels().hasProvider) {
+    if (!options.is("aiEnabled") || !readSelectedModels().hasProvider) {
         return undefined;
     }
 

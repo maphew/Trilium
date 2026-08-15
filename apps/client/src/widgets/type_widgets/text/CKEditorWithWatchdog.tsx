@@ -95,6 +95,14 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
     // the tag list, for the same by-value reason as `customReplacements` above.
     const [ htmlSupportEnabled ] = useTriliumOptionBool("textNoteHtmlSupportEnabled");
     const [ allowedHtmlTags ] = useTriliumOption("allowedHtmlTags");
+    // Whether the AI assistant is offered at all, which `buildConfig()` settles at creation time:
+    // it decides both the transport the command gates on and whether the toolbars carry the
+    // assistant's entries, neither of which a live editor can be told about afterwards. Switching
+    // the AI features off has to take the button away there and then, not at the next rebuild.
+    // The provider list is a rebuild trigger for the same reason — configuring the first one (or
+    // removing the last) is what makes the feature usable.
+    const [ aiEnabled ] = useTriliumOptionBool("aiEnabled");
+    const [ llmProviders ] = useTriliumOption("llmProviders");
     // Deliberately *not* a rebuild trigger — pushed into the live editor by the effect below
     // instead. The enabled content languages fill the assistant's Translate submenu, which now
     // offers the row that edits them, so the change is made from inside the editor and several
@@ -337,7 +345,8 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
     }, [
         contentLanguage, uiLanguage, isClassicEditor, multilineToolbar,
         doubleQuoteStyle, singleQuoteStyle, punctuationReplacements, mathReplacements, symbolReplacements,
-        customReplacements, defaultContentLanguage, htmlSupportEnabled, allowedHtmlTags
+        customReplacements, defaultContentLanguage, htmlSupportEnabled, allowedHtmlTags,
+        aiEnabled, llmProviders
     ]);
 
     // Push snippet ("template") definitions into the live editor instead of rebuilding it. The premium

@@ -19,7 +19,10 @@ vi.mock("../../../services/i18n.js", async () => {
     };
 });
 vi.mock("../../../services/options.js", () => ({
-    default: { getJson: (key: string) => (key === "languages" ? storedLanguages : storedProviders) }
+    default: {
+        getJson: (key: string) => (key === "languages" ? storedLanguages : storedProviders),
+        is: (key: string) => (key === "aiEnabled" ? aiEnabled : false)
+    }
 }));
 vi.mock("../../../services/llm_chat.js", () => ({
     streamChatCompletion: vi.fn(async (messages, config, callbacks) => {
@@ -49,6 +52,8 @@ import buildAiAssistantStream, { type AiNoteLocation, buildAiAssistantQuickActio
 let storedProviders: unknown = null;
 /** The `languages` option — the locale ids enabled as content languages. */
 let storedLanguages: unknown = null;
+/** The `aiEnabled` option — the master switch over every AI feature. */
+let aiEnabled = true;
 /** The config each `streamChatCompletion` call was made with, in order. */
 let requestedConfigs: LlmChatConfig[] = [];
 /** The messages each `streamChatCompletion` call was made with, in order. */
@@ -65,6 +70,7 @@ const PROVIDER = [{ id: "cfg-openai", provider: "openai", selectedModels: [{ id:
 beforeEach(() => {
     storedProviders = null;
     storedLanguages = null;
+    aiEnabled = true;
     requestedConfigs = [];
     requestedMessages = [];
     responseChunks = ["done"];
@@ -122,6 +128,17 @@ describe("buildAiAssistantStream", () => {
         expect(buildAiAssistantStream()).toBeUndefined();
         storedProviders = [];
         expect(buildAiAssistantStream()).toBeUndefined();
+    });
+
+    // Switching the AI features off leaves the configured providers stored — they are what
+    // switching it back on restores — so the master switch has to be read in its own right.
+    it("stays disabled when the AI features are switched off, provider or no provider", () => {
+        aiEnabled = false;
+        storedProviders = PROVIDER;
+        expect(buildAiAssistantStream()).toBeUndefined();
+
+        aiEnabled = true;
+        expect(buildAiAssistantStream()).toBeDefined();
     });
 
     it("uses the first provider's default model, else its first", async () => {

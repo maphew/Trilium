@@ -42,6 +42,9 @@ export interface BuildEditorOptions {
 }
 
 export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfig> {
+    // `undefined` when the AI features are off or no LLM provider is configured. Decided once:
+    // it both disables the assistant's command and keeps its entries off the toolbar.
+    const aiAssistantStream = buildAiAssistantStream(opts.getNoteLocation);
     const config: EditorConfig = {
         licenseKey: OPEN_SOURCE_LICENSE_KEY,
         placeholder: t("editable_text.placeholder"),
@@ -198,8 +201,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             definitions: opts.templates
         },
         aiAssistant: {
-            // `undefined` when no LLM provider is configured, which disables the feature.
-            stream: buildAiAssistantStream(opts.getNoteLocation),
+            stream: aiAssistantStream,
             // The "Changes" review view: a block-aware inline diff, so that a response which
             // rewrote a paragraph rather than editing it reads as a replacement instead of as
             // shredded `<ins>`/`<del>` pairs.
@@ -328,7 +330,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
 
     return {
         ...config,
-        ...buildToolbarConfig(opts.isClassicEditor)
+        ...buildToolbarConfig(opts.isClassicEditor, !!aiAssistantStream)
     };
 }
 
