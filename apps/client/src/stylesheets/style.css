@@ -1690,7 +1690,10 @@ body.desktop li.dropdown-submenu:hover > ul.dropdown-menu {
     top: 0;
     inset-inline-start: calc(100% - 2px); /* -2px, otherwise there's a small gap between menu and submenu where the hover can disappear */
     margin-top: -10px;
-    /* to make submenu scrollable https://github.com/zadam/trilium/issues/3136 */
+}
+
+/* to make submenu scrollable https://github.com/zadam/trilium/issues/3136 */
+.dropdown-submenu > .dropdown-menu:not(:has(.dropdown-submenu)) {
     max-height: 600px;
     overflow: auto;
 }
