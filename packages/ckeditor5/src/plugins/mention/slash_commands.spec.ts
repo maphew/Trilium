@@ -653,6 +653,13 @@ describe("buildTriliumSlashCommands", () => {
             vi.spyOn(editor.plugins, "has").mockImplementation(
                 (key) => key === "AiAssistantUI" || hasPlugin(key)
             );
+            // Answering `has` is not enough: the palette reads the list off the plugin rather than
+            // off the config, which only seeded it. Every other key falls through to the real
+            // collection, which the rest of `buildTriliumSlashCommands` still asks about.
+            const getPlugin = editor.plugins.get.bind(editor.plugins);
+            vi.spyOn(editor.plugins, "get").mockImplementation(
+                ((key: unknown) => (key === "AiAssistantUI" ? { quickActions } : getPlugin(key as string))) as never
+            );
         }
 
         function aiEntries() {
