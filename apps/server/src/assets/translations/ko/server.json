@@ -451,7 +451,8 @@
     "presentation_slide_first": "첫 번째 슬라이드",
     "presentation_slide_second": "두 번째 슬라이드",
     "background": "배경",
-    "dashboard": "대시보드"
+    "dashboard": "대시보드",
+    "ai-quick-action": "AI 빠른 작업"
   },
   "sql_init": {
     "db_not_initialized_desktop": "DB가 초기화되지 않았습니다. 화면의 안내를 따르세요.",
