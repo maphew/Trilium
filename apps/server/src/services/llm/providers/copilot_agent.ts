@@ -304,7 +304,10 @@ export class CopilotAgentProvider implements LlmProvider {
         const stored = config.chatNoteId ? sessionsByChatNote.get(config.chatNoteId) : undefined;
         const resume = stored && stored.transcriptHash === historyHash ? stored.sessionId : undefined;
 
-        const noteToolsEnabled = config.enableNoteTools !== false;
+        // A config that does not mention the note tools does not get them, as `base_provider` reads
+        // it and as the AI-SDK providers therefore behave — what a request leaves unsaid has to
+        // mean the same thing whichever provider answers it.
+        const noteToolsEnabled = !!config.enableNoteTools;
         const model = config.model || "auto";
 
         // Queue between the ACP notification callback and this generator: the

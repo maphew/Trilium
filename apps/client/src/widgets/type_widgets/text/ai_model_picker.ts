@@ -65,6 +65,9 @@ export function buildAiModelPicker(): AiQuickActionFooter[] {
  * `packages/trilium-core/src/services/llm/chat.ts`), which would fail outright for an
  * OpenAI-only setup and silently use the wrong provider for a mixed one. Naming the provider
  * without a model instead lets the server resolve that provider's own default.
+ *
+ * Nothing is said about the note tools, which is how the assistant asks for none of them: a
+ * request that does not mention them does not get them, on every provider.
  */
 export function pickModel(): LlmChatConfig {
     const { models, groups } = readSelectedModels();

@@ -154,6 +154,15 @@ describe("buildAiAssistantStream", () => {
         ];
         expect(await runOnce()).toEqual({ provider: "openai", providerId: "cfg-openai" });
     });
+
+    // The assistant rewrites what it was handed and needs nothing from the note tools. It asks for
+    // none by saying nothing about them, which every provider reads as off — see the two agent
+    // providers' own specs, which pin that down on the side where it used to go the other way.
+    it("asks for no note tools", async () => {
+        storedProviders = [{ id: "cfg-openai", provider: "openai", selectedModels: [{ id: "gpt-5" }] }];
+
+        expect(await runOnce()).not.toHaveProperty("enableNoteTools");
+    });
 });
 
 describe("the Markdown pipeline", () => {

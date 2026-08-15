@@ -325,6 +325,18 @@ describe("CopilotAgentProvider.chatChunks", () => {
         expect(mcpEndpointMock).not.toHaveBeenCalled();
     });
 
+    // A caller with no opinion gets no note access, the same reading `base_provider` gives an
+    // absent flag — so what a request leaves unsaid means one thing across every provider. This
+    // used to go the other way here, handing the whole tree to anything that simply did not ask.
+    it("omits MCP servers when the chat says nothing about note tools", async () => {
+        const provider = new CopilotAgentProvider();
+        await collect(provider.chatChunks([userMessage("hi")], {}));
+
+        const sessionNew = FakeAcpClient.current?.requests.find(r => r.method === "session/new");
+        expect(sessionNew?.params).toMatchObject({ mcpServers: [] });
+        expect(mcpEndpointMock).not.toHaveBeenCalled();
+    });
+
     it("spawns the CLI with the note-tool allow-list and built-in tool denials", async () => {
         const startSpy = vi.spyOn(FakeAcpClient, "start");
         const provider = new CopilotAgentProvider();

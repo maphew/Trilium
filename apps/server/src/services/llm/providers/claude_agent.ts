@@ -646,9 +646,15 @@ export class ClaudeAgentProvider implements LlmProvider {
  * Whether the chat requested note tools. With in-process MCP the tools have no
  * external dependency, so this is simply the chat toggle — the tool wiring and
  * the system prompt both gate on it so they never disagree.
+ *
+ * A config that does not mention them does not get them. That reading matches
+ * `base_provider`, which every AI-SDK provider inherits, so what a request
+ * leaves unsaid means the same thing whichever provider answers it; the
+ * previous `!== false` handed the whole note tree to any caller that simply
+ * had no opinion.
  */
 function areNoteToolsAvailable(config: Pick<LlmProviderConfig, "enableNoteTools">): boolean {
-    return config.enableNoteTools !== false;
+    return !!config.enableNoteTools;
 }
 
 /**
