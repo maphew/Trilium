@@ -246,6 +246,7 @@ body.background-effects .ck.ck-balloon-panel.ck-dropdown-menu__nested-menu__pane
 
 /* Separator */
 :root .ck .ck-list__separator {
+    flex-shrink: 0;
     margin: .5em 0;
     margin-inline-start: calc(0px - var(--ck-editor-popup-padding));
     width: calc(100% + (var(--ck-editor-popup-padding) * 2));
