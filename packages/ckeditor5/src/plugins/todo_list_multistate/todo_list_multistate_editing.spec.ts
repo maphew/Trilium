@@ -182,6 +182,19 @@ describe("TodoListMultistateEditing", () => {
             expect(getBlock(editor, 0).hasAttribute(TASK_STATE_ATTRIBUTE)).toBe(false);
         });
 
+        it("leaves a checkbox that belongs to no todo item alone", () => {
+            // The converter listens for every `<input>` in the incoming data, so it meets
+            // checkboxes that upstream never marked as a todo item: one in a plain list, and one
+            // loose in a paragraph, whose block is not even an element by the time it is asked.
+            editor.setData('<ul><li data-trilium-task-state="doing">Plain<input type="checkbox"></li></ul>'
+                + '<p><input type="checkbox" data-trilium-task-state="doing">Loose</p>');
+
+            for (let index = 0; index < (editor.model.document.getRoot()?.childCount ?? 0); index++) {
+                expect(getBlock(editor, index).hasAttribute(TASK_STATE_ATTRIBUTE)).toBe(false);
+            }
+            expect(editor.getData()).not.toContain("data-trilium-task-state");
+        });
+
         it("upcasts a state onto its own item only, never onto nested or sibling items", () => {
             // The list model is flat, so a nested item is a sibling block covered by the
             // parent <li>'s converted range. The state must not spread across it.

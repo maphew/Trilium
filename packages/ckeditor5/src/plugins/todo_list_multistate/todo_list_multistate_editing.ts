@@ -494,6 +494,8 @@ function upcastTaskState(
         return;
     }
     const listItem = findListItemAncestor(data.viewItem);
+    /* v8 ignore next 3 -- the block above is a todo item only because upstream made one out of the
+       `<li>` this very checkbox sits in, so by here there is always one to find */
     if (!listItem) {
         return;
     }
@@ -515,6 +517,7 @@ function findListItemAncestor(viewElement: ViewElement): ViewElement | null {
         }
         ancestor = ancestor.parent;
     }
+    /* v8 ignore next -- only ever called from a checkbox inside a todo item's own `<li>` */
     return null;
 }
 

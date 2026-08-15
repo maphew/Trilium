@@ -270,6 +270,23 @@ describe("registerCkTranslations", () => {
         expect(boldButton.label).toBe("Fett");
     });
 
+    it("hands the plural form on as a number, whichever way the catalog answers", async () => {
+        // A catalog with two forms answers with a boolean, one with more answers with an index.
+        // CKEditor reads the result through `Number()` when it takes a plural form itself, so what
+        // is laid here has to answer the same way rather than with what the catalog happened to say.
+        await registerCkTranslations("de");
+        await registerCkTranslations("ro");
+
+        for (const [ languageCode, counts ] of [ [ "de", [ 1, 2 ] ], [ "ro", [ 1, 2, 20 ] ] ] as const) {
+            const pluralForm = window.CKEDITOR_TRANSLATIONS?.[languageCode]?.getPluralForm;
+            if (!pluralForm) throw new Error(`expected a plural form for '${languageCode}'`);
+
+            for (const count of counts) {
+                expect(typeof pluralForm(count)).toBe("number");
+            }
+        }
+    });
+
     it("fetches a locale once, however many fields ask for it", async () => {
         // Every field on the page asks as it is built, and a catalog is a chunk to go and get.
         expect(registerCkTranslations("fr")).toBe(registerCkTranslations("fr"));
