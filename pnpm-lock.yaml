@@ -1021,8 +1021,8 @@ importers:
         specifier: 10.29.8
         version: 10.29.8(preact-render-to-string@6.7.0)
       preact-iso:
-        specifier: 2.12.1
-        version: 2.12.1(preact-render-to-string@6.7.0)(preact@10.29.8)
+        specifier: 2.12.2
+        version: 2.12.2(preact-render-to-string@6.7.0)(preact@10.29.8)
       preact-render-to-string:
         specifier: 6.7.0
         version: 6.7.0(preact@10.29.8)
@@ -10449,8 +10449,8 @@ packages:
   potpack@2.1.0:
     resolution: {integrity: sha512-pcaShQc1Shq0y+E7GqJqvZj8DTthWV1KeHGdi0Z6IAin2Oi3JnLCOfwnCo84qc+HAp52wT9nK9H7FAJp5a44GQ==}
 
-  preact-iso@2.12.1:
-    resolution: {integrity: sha512-fkZ64W0oa6fSkiUboTaCnqGzk9wU0d7FX2cRqFfPU9i9Kgz8G5H4EyWWfzqsiuHxc44NiB8VWt0N6wBwr6Jkbg==}
+  preact-iso@2.12.2:
+    resolution: {integrity: sha512-qit+qSMiZ41K0EQkLNa3MSxnWVCm5yXvy9m3CcGf/zF1QhVJzSwVCbpiz52VSbWpg8v8nYNIYDrXJZPNFpM1uw==}
     peerDependencies:
       preact: 10.29.8
       preact-render-to-string: '>=6.4.0'
@@ -23981,7 +23981,7 @@ snapshots:
 
   potpack@2.1.0: {}
 
-  preact-iso@2.12.1(preact-render-to-string@6.7.0)(preact@10.29.8):
+  preact-iso@2.12.2(preact-render-to-string@6.7.0)(preact@10.29.8):
     dependencies:
       preact: 10.29.8(preact-render-to-string@6.7.0)
       preact-render-to-string: 6.7.0(preact@10.29.8)
