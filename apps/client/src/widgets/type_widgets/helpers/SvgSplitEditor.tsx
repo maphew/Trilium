@@ -175,6 +175,13 @@ function useResizer(containerRef: RefObject<HTMLDivElement>, noteId: string, svg
             return;
         };
 
+        // svg-pan-zoom strips the SVG's viewBox attribute on init and never restores it on
+        // destroy(), so a re-init (e.g. triggered by a `width` change below) would otherwise
+        // fit from `getBBox()` instead. For mermaid gantt diagrams the bounding box is inflated
+        // by an off-screen "today" marker, which makes the re-fit shrink the chart to invisibility
+        // (issue #9749). Save it here and restore it in the cleanup below.
+        const viewBox = svgEl.getAttribute("viewBox");
+
         const zoomInstance = svgPanZoom(svgEl, {
             zoomEnabled: true,
             controlIconsEnabled: false
@@ -198,6 +205,9 @@ function useResizer(containerRef: RefObject<HTMLDivElement>, noteId: string, svg
             };
             zoomRef.current = undefined;
             zoomInstance.destroy();
+            if (viewBox !== null) {
+                svgEl.setAttribute("viewBox", viewBox);
+            }
         };
     }, [ containerRef, noteId, svg, width ]);
 
