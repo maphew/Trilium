@@ -156,8 +156,38 @@ function openForm(editor: ClassicEditor) {
         hasDiff: boolean;
         isUnchanged: boolean;
         previewView: { element?: HTMLElement | null };
+        hasPicker: boolean;
+        pickerView: {
+            isOpen: boolean;
+            isEnabled: boolean;
+            buttonView: { label?: string; tooltip?: string | boolean };
+            listView?: { items: Iterable<PickerListItem> };
+        };
         fire(event: string): void;
     };
+}
+
+/**
+ * A row of the dialog's picker, or the group heading one opens: a group carries its own `label` and
+ * holds its rows in `items`, while a plain row wraps its button in `children`.
+ */
+interface PickerListItem {
+    label?: string;
+    items?: Iterable<PickerListItem>;
+    children?: { first?: PickerButton | null };
+}
+
+interface PickerButton {
+    label?: string;
+    isOn?: boolean;
+    fire(event: string): void;
+}
+
+/** The picker's rows, flattened out of their groups, each paired with the heading it sits under. */
+function pickerRows(form: ReturnType<typeof openForm>): Array<[string, string, boolean]> {
+    return [ ...(form.pickerView.listView?.items ?? []) ].flatMap((item) => (item.items
+        ? [ ...item.items ].map((row) => [item.label ?? "", row.children?.first?.label ?? "", !!row.children?.first?.isOn] as [string, string, boolean])
+        : [["", item.children?.first?.label ?? "", !!item.children?.first?.isOn] as [string, string, boolean]]));
 }
 
 /** What the preview currently holds, for the specs that assert on rendered content. */
@@ -438,6 +468,60 @@ describe("AiAssistantUI toolbar entry", () => {
             expect([ ...picker.listView.items ].flatMap((item) =>
                 (item.childView ? [] : [(item as unknown as { element?: HTMLElement }).element?.textContent])))
                 .toEqual(["Anthropic", "OpenAI"]);
+        });
+
+        // The menu can only be reached before anything opens; the dialog stays open across a
+        // follow-up and a retry, which is when the setting is actually worth changing.
+        it("offers the same setting beside the prompt, grouped and ticked by the picker's own list", () => {
+            const run = vi.fn();
+            editor.plugins.get(AiAssistantUI).updateMenuFooter([{
+                label: "Model: Sonnet 5",
+                children: [
+                    { label: "Sonnet 5", heading: "Anthropic", isCurrent: true, run: vi.fn() },
+                    { label: "Opus 5", run },
+                    { label: "GPT-5", heading: "OpenAI", run: vi.fn() }
+                ]
+            }]);
+
+            editor.execute("aiAssistant");
+            const form = openForm(editor);
+            expect(form.hasPicker).toBe(true);
+
+            // The button names what is in force, not the setting — the setting's name is the tooltip.
+            expect(form.pickerView.buttonView.label).toBe("Sonnet 5");
+            expect(form.pickerView.buttonView.tooltip).toBe("Model: Sonnet 5");
+
+            // A heading opens a group and the rows after it belong to it — CKEditor's own list
+            // groups, with the tick and the column reserving it theirs too, rather than the
+            // headings and the empty icons the menu has to supply by hand.
+            form.pickerView.isOpen = true;
+            expect(pickerRows(form)).toEqual([
+                ["Anthropic", "Sonnet 5", true],
+                ["Anthropic", "Opus 5", false],
+                ["OpenAI", "GPT-5", false]
+            ]);
+        });
+
+        it("closes the dialog's picker once a choice is made, and runs it", () => {
+            const run = vi.fn();
+            editor.plugins.get(AiAssistantUI).updateMenuFooter([{
+                label: "Model: Sonnet 5",
+                children: [{ label: "Opus 5", run }]
+            }]);
+
+            editor.execute("aiAssistant");
+            const form = openForm(editor);
+            form.pickerView.isOpen = true;
+            [ ...(form.pickerView.listView?.items ?? []) ][0].children?.first?.fire("execute");
+
+            expect(run).toHaveBeenCalled();
+            expect(form.pickerView.isOpen).toBe(false);
+            expect(requests).toHaveLength(0);
+        });
+
+        it("keeps the prompt row bare when the host offers no setting", () => {
+            editor.execute("aiAssistant");
+            expect(openForm(editor).hasPicker).toBe(false);
         });
 
         it("runs an action picked from inside a submenu", async () => {

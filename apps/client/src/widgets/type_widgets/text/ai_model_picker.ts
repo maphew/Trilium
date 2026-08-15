@@ -43,8 +43,10 @@ export function buildAiModelPicker(): AiQuickActionFooter[] {
             // model can be reached through two of them, and a name saying so in brackets on every
             // row says it over and over.
             ...(index === 0 && groups.length > 1 ? { heading: group.name } : {}),
+            isCurrent: model === current,
             // The tick every checked row in Trilium wears, and the reserver that keeps the labels
-            // of the unticked ones lined up with it.
+            // of the unticked ones lined up with it. Only the menu needs them: the dialog's picker
+            // has a check column of its own and reads `isCurrent`.
             iconClass: model === current ? "bx bx-check" : "bx bx-empty",
             run: () => void options.save("aiAssistantModel", JSON.stringify({
                 model: model.id,

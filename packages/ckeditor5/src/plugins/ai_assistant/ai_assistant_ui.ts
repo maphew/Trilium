@@ -178,6 +178,17 @@ export default class AiAssistantUI extends Plugin {
     public updateMenuFooter(rows: AiQuickActionFooter[]): void {
         this._menuFooter = rows;
         this._redrawMenus();
+        // The dialog offers the same setting beside its prompt, and outlives the menu: it stays
+        // open across a follow-up and a retry, which is exactly when the model is worth changing.
+        this._formView?.setPicker(this._pickerRow());
+    }
+
+    /**
+     * The footer row the dialog offers as a picker: the one that opens onto choices. A row that
+     * simply runs is a menu action, and the dialog has its own buttons for those.
+     */
+    private _pickerRow(): AiQuickActionFooter | null {
+        return this._menuFooter.find((row) => row.children?.length) ?? null;
     }
 
     private _redrawMenus(): void {
@@ -556,6 +567,7 @@ export default class AiAssistantUI extends Plugin {
             onResultRendered: (preview) => this._enrichPreview(preview)
         });
         this._formView = form;
+        form.setPicker(this._pickerRow());
 
         form.on("submit", () => {
             const query = form.query.trim();

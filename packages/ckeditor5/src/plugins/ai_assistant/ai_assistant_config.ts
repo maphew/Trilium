@@ -161,6 +161,12 @@ export interface AiQuickActionFooter {
      */
     heading?: string;
     /**
+     * Whether this row is the choice currently in force. The menu draws its own tick through
+     * {@link iconClass}, since its rows have no selected state of their own; the dialog's picker has
+     * one and reads this instead — and names its button after whichever row says yes.
+     */
+    isCurrent?: boolean;
+    /**
      * Rows this one opens onto, making it a submenu rather than something that runs. A row with
      * children never runs, so {@link run} is beside the point for it.
      */

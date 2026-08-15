@@ -50,6 +50,20 @@
     min-width: 0;
 }
 
+/* The prompt is what the row is for, so the picker gives way to it: it is allowed to shrink, down
+   to a name of a few characters, and truncates rather than pushing the input narrower. */
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__picker {
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__picker .ck-button__label {
+    max-width: 12ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__preview {
     max-height: 320px;
     overflow-y: auto;

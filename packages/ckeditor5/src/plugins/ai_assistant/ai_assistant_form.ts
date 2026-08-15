@@ -1,19 +1,26 @@
 import { IconArrowUp, IconCheck, IconRefresh, IconStop } from "@ckeditor/ckeditor5-icons";
 import {
+    addListToDropdown,
     ButtonView,
+    Collection,
+    createDropdown,
     FocusCycler,
     FocusTracker,
     IconView,
     InputTextView,
     KeystrokeHandler,
     submitHandler,
+    UIModel,
     View,
     ViewCollection,
+    type DropdownView,
     type FocusableView,
+    type ListDropdownButtonDefinition,
+    type ListDropdownItemDefinition,
     type Locale
 } from "ckeditor5";
 
-import type { AiReviewView } from "./ai_assistant_config.js";
+import type { AiQuickActionFooter, AiReviewView } from "./ai_assistant_config.js";
 
 /**
  * Where the form is in its lifecycle: taking a prompt, streaming a response into the preview, or
@@ -71,6 +78,8 @@ export default class AiAssistantFormView extends View {
     declare public isUnchanged: boolean;
     /** The run's cost line ("model · tokens · price"), shown in the review actions row. */
     declare public usageText: string;
+    /** Whether the host gave the prompt row a setting to offer; without one it is not drawn. */
+    declare public hasPicker: boolean;
 
     /** The (sanitized) response HTML, kept for re-rendering when the view mode flips. */
     private _resultHtml = "";
@@ -86,12 +95,21 @@ export default class AiAssistantFormView extends View {
     public readonly replaceButtonView: ButtonView;
     public readonly insertBelowButtonView: ButtonView;
     public readonly tryAgainButtonView: ButtonView;
+    /**
+     * The setting a run answers to, offered beside the prompt — Trilium hangs the model here. Its
+     * list is bound to {@link _pickerItems}, so replacing the picker re-renders it in place.
+     */
+    public readonly pickerView: DropdownView;
 
     public readonly focusTracker = new FocusTracker();
     public readonly keystrokes = new KeystrokeHandler();
 
     private readonly _focusables = new ViewCollection<FocusableView>();
     private readonly _onResultRendered?: (preview: HTMLElement) => void;
+    /** What the picker offers. Bound to its list, so refilling it redraws the list in place. */
+    private readonly _pickerItems = new Collection<ListDropdownItemDefinition>();
+    /** The choices behind those rows, in the order the rows carry as their index. */
+    private _pickerChoices: AiQuickActionFooter[] = [];
 
     constructor(locale: Locale, { onResultRendered }: AiAssistantFormOptions = {}) {
         super(locale);
@@ -106,6 +124,8 @@ export default class AiAssistantFormView extends View {
         this.set("hasDiff", false);
         this.set("isUnchanged", false);
         this.set("usageText", "");
+        // Nothing to answer to until the host says otherwise, so the row starts without it.
+        this.set("hasPicker", false);
 
         // Re-render the preview from the stored contents whenever the toggle flips.
         this.on("change:viewMode", () => this._renderPreview());
@@ -114,6 +134,7 @@ export default class AiAssistantFormView extends View {
         this.changesToggleView = this._createViewModeButton(locale, t("Changes"), "changes");
         this.promptInputView = this._createPromptInput(locale);
         this.sendButtonView = this._createSendButton(locale);
+        this.pickerView = this._createPicker(locale);
         this.previewView = new AiPreviewView(locale);
         // A response that changed nothing is the text the user is already looking at, so the
         // placeholder stands in its place rather than sitting under a copy of it.
@@ -242,7 +263,22 @@ export default class AiAssistantFormView extends View {
                     attributes: { class: ["ck", "ck-ai-assistant-form__prompt-row"] },
                     // Send and Stop share the slot at the end of the row; the phase decides which
                     // of the two is on show.
-                    children: [this.promptInputView, this.sendButtonView, this.stopButtonView]
+                    children: [
+                        {
+                            tag: "div",
+                            attributes: {
+                                class: [
+                                    "ck",
+                                    "ck-ai-assistant-form__picker",
+                                    bind.if("hasPicker", "ck-hidden", (hasPicker) => !hasPicker)
+                                ]
+                            },
+                            children: [this.pickerView]
+                        },
+                        this.promptInputView,
+                        this.sendButtonView,
+                        this.stopButtonView
+                    ]
                 },
                 {
                     // Reserved from the moment a run is asked for, its buttons inert until there is
@@ -290,6 +326,7 @@ export default class AiAssistantFormView extends View {
             this.resultToggleView,
             this.changesToggleView,
             this.tryAgainButtonView,
+            this.pickerView.buttonView,
             this.promptInputView,
             this.sendButtonView,
             this.stopButtonView,
@@ -434,6 +471,81 @@ export default class AiAssistantFormView extends View {
         input.bind("isReadOnly").to(this, "phase", (phase) => phase === "streaming");
 
         return input;
+    }
+
+    /**
+     * Replaces what the picker offers, or takes it off the row entirely when the host has nothing
+     * to offer. Rebuilding the definitions is enough: the list is bound to them.
+     *
+     * A row's children become the choices, grouped by the {@link AiQuickActionFooter.heading} they
+     * open a block with — CKEditor's own list groups here, rather than the headings the menu has to
+     * insert by hand, because a plain list can express a group and a nested menu definition cannot.
+     */
+    public setPicker(picker: AiQuickActionFooter | null): void {
+        this._pickerItems.clear();
+        this._pickerChoices = [];
+
+        const choices = picker?.children ?? [];
+        this.hasPicker = choices.length > 0;
+        if (!this.hasPicker) {
+            return;
+        }
+
+        let group: { type: "group"; label: string; items: Collection<ListDropdownButtonDefinition> } | null = null;
+        for (const choice of choices) {
+            const definition = this._createPickerChoice(choice);
+
+            if (choice.heading) {
+                group = { type: "group", label: choice.heading, items: new Collection() };
+                this._pickerItems.add(group);
+            }
+
+            // Everything up to the first heading, and everything at all when there are none, sits
+            // at the top level — a group is opened by the row that names it, not assumed around it.
+            (group?.items ?? this._pickerItems).add(definition);
+        }
+
+        // The button says what is in force rather than repeating the picker's own name: the row it
+        // sits in is already about the run, and the name of the setting is what the tooltip is for.
+        const current = choices.find((choice) => choice.isCurrent);
+        this.pickerView.buttonView.set({ label: current?.label ?? picker?.label, tooltip: picker?.label });
+    }
+
+    private _createPicker(locale: Locale): DropdownView {
+        const dropdown = createDropdown(locale);
+
+        dropdown.buttonView.set({ withText: true, tooltip: true });
+        dropdown.class = "ck-ai-assistant-form__picker-dropdown";
+        // Nothing to pick between mid-run: the model a response is streaming from is settled.
+        dropdown.bind("isEnabled").to(this, "phase", (phase) => phase !== "streaming");
+        addListToDropdown(dropdown, this._pickerItems, { role: "menu" });
+
+        // A list definition is a bag of *properties*, bound onto the button CKEditor builds from it
+        // — it is not something that can be listened to. So the row carries its index, the way
+        // CKEditor's own dropdowns carry a command name, and the choice is looked up on execute.
+        dropdown.on("execute", (evt) => {
+            dropdown.isOpen = false;
+            const { choiceIndex } = evt.source as { choiceIndex?: number };
+            if (choiceIndex !== undefined) {
+                this._pickerChoices[choiceIndex]?.run?.();
+            }
+        });
+
+        return dropdown;
+    }
+
+    /** One choice, as a checkable list row — the check column and its alignment are CKEditor's. */
+    private _createPickerChoice(choice: AiQuickActionFooter): ListDropdownButtonDefinition {
+        return {
+            type: "button",
+            model: new UIModel({
+                label: choice.label,
+                withText: true,
+                role: "menuitemcheckbox",
+                isOn: !!choice.isCurrent,
+                choiceIndex: this._pickerChoices.push(choice) - 1
+            })
+        };
     }
 
     private _createSendButton(locale: Locale) {
