@@ -154,6 +154,51 @@
     <p>All the fields here are optional, since the default OAuth issuer is Google.</p>
   </li>
   <li>
+    <p>Optionally, tune the following advanced settings. All are optional and
+      have sensible defaults:</p>
+    <figure class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>Configuration</th>
+            <th><code spellcheck="false">config.ini</code> in <code spellcheck="false">[MultiFactorAuthentication]</code> section</th>
+            <th>Environment variable</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>HTTP timeout</td>
+            <td><code spellcheck="false">oauthHttpTimeout</code>
+            </td>
+            <td><code spellcheck="false">TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHHTTPTIMEOUT</code>
+            </td>
+            <td>Timeout in milliseconds for the provider HTTP requests (discovery, token
+              exchange, userinfo). Defaults to <code spellcheck="false">30000</code> (30s).
+              Raise this if your provider cold-starts slowly and you are occasionally
+              asked to sign in twice. Minimum accepted value is <code spellcheck="false">500</code>.</td>
+          </tr>
+          <tr>
+            <td>Scopes</td>
+            <td><code spellcheck="false">oauthScope</code>
+            </td>
+            <td><code spellcheck="false">TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHSCOPE</code>
+            </td>
+            <td>Space-separated list of OIDC scopes requested at login. Defaults to
+              <code
+              spellcheck="false">openid profile email</code>. <code spellcheck="false">openid</code> is required
+                and is prepended automatically if you omit it.</td>
+          </tr>
+        </tbody>
+      </table>
+    </figure>
+    <p>The OIDC session lifetime is automatically bound to Trilium's own session
+      cookie lifetime (the <code spellcheck="false">cookieMaxAge</code> setting
+      in the <code spellcheck="false">[Session]</code> section, 21 days by default),
+      so a single sign-in stays valid for as long as your Trilium session does
+      rather than expiring early on the OIDC library's shorter internal defaults.</p>
+  </li>
+  <li>
     <p>Restart the server so that the changes are applied.</p>
   </li>
 </ol>
@@ -165,7 +210,9 @@
       <code
       spellcheck="false">TRILIUM_OAUTH_ISSUER_NAME</code>, <code spellcheck="false">TRILIUM_OAUTH_ISSUER_ICON</code>,
         <code
-        spellcheck="false">TRILIUM_OAUTH_CLIENT_AUTH_METHOD</code>, <code spellcheck="false">TRILIUM_OAUTH_ID_TOKEN_SIGNING_ALG</code> .</p>
+        spellcheck="false">TRILIUM_OAUTH_HTTP_TIMEOUT</code>, <code spellcheck="false">TRILIUM_OAUTH_SCOPE</code>,
+          <code
+          spellcheck="false">TRILIUM_OAUTH_CLIENT_AUTH_METHOD</code>, <code spellcheck="false">TRILIUM_OAUTH_ID_TOKEN_SIGNING_ALG</code>.</p>
 </aside>
 <h2>Connecting to the authentication provider</h2>
 <p>Once the server has been configured at the previous step, the next step

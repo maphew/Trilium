@@ -18,12 +18,14 @@ export function RawHtmlBlock({containerRef, ...props}: RawHtmlProps & { containe
     return <div ref={containerRef} {...getProps(props)} />;
 }
 
-function getProps({ className, html, style, onClick }: RawHtmlProps) {
+function getProps({ className, html, style, onClick, dir, tabindex }: RawHtmlProps) {
     return {
         className,
         dangerouslySetInnerHTML: getHtml(html ?? ""),
         style,
-        onClick
+        onClick,
+        dir,
+        tabindex
     };
 }
 

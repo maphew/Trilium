@@ -22,7 +22,7 @@
 
 import { type Options as AgentOptions, query, type SDKAssistantMessage, type SDKMessage, type SDKUserMessage, type SpawnedProcess } from "@anthropic-ai/claude-agent-sdk";
 import type { ContentBlockParam } from "@anthropic-ai/sdk/resources";
-import type { LlmFilePart, LlmImagePart, LlmMessage, LlmMessagePart, LlmStreamChunk, LlmTextAttachmentPart } from "@triliumnext/commons";
+import type { LlmMessage, LlmMessagePart, LlmStreamChunk } from "@triliumnext/commons";
 import { getLog } from "@triliumnext/core";
 import { resolveAttachmentPart } from "@triliumnext/core/src/services/llm/attachment_content.js";
 import { buildNoteHint } from "@triliumnext/core/src/services/llm/note_hint.js";
@@ -32,13 +32,17 @@ import { buildSystemPrompt } from "@triliumnext/core/src/services/llm/system_pro
 import type { LlmProvider, LlmProviderConfig, ModelInfo, ModelPricing, StreamResult } from "@triliumnext/core/src/services/llm/types.js";
 import { encodeBase64 } from "@triliumnext/core/src/services/utils/binary.js";
 import { spawn as nodeSpawn } from "child_process";
-import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 
 import dataDirs from "../../data_dir.js";
 import { createMcpServer } from "../../mcp/mcp_server.js";
 import { resolveClaudeBinaryPath } from "./claude_binary.js";
+import { attachmentPlaceholder, buildHistoryReplay, flattenContent, hashTranscript } from "./transcript.js";
+
+// Re-exported for existing importers (specs, siblings); the implementations
+// now live in the shared transcript module.
+export { buildSeededPrompt, hashTranscript } from "./transcript.js";
 
 /** Image media types Anthropic accepts as a base64 image block. */
 type SupportedImageMime = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
@@ -642,9 +646,15 @@ export class ClaudeAgentProvider implements LlmProvider {
  * Whether the chat requested note tools. With in-process MCP the tools have no
  * external dependency, so this is simply the chat toggle — the tool wiring and
  * the system prompt both gate on it so they never disagree.
+ *
+ * A config that does not mention them does not get them. That reading matches
+ * `base_provider`, which every AI-SDK provider inherits, so what a request
+ * leaves unsaid means the same thing whichever provider answers it; the
+ * previous `!== false` handed the whole note tree to any caller that simply
+ * had no opinion.
  */
 function areNoteToolsAvailable(config: Pick<LlmProviderConfig, "enableNoteTools">): boolean {
-    return config.enableNoteTools !== false;
+    return !!config.enableNoteTools;
 }
 
 /**
@@ -885,49 +895,6 @@ function buildContentBlocks(content: LlmMessagePart[], prefix: string): ContentB
 /** One-shot streaming-input prompt: a single user message, then end of input. */
 async function* streamSingleUserMessage(content: ContentBlockParam[]): AsyncIterable<SDKUserMessage> {
     yield { type: "user", message: { role: "user", content }, parent_tool_use_id: null };
-}
-
-/** Flatten possibly-multimodal message content to plain text (attachments as placeholders). */
-function flattenContent(content: string | LlmMessagePart[]): string {
-    if (typeof content === "string") {
-        return content;
-    }
-    return content
-        .map(part => (part.type === "text" ? part.text : attachmentPlaceholder(part)))
-        .join("\n");
-}
-
-/** Short "[attached …]" stand-in used wherever an attachment's bytes aren't sent. */
-function attachmentPlaceholder(part: LlmImagePart | LlmFilePart | LlmTextAttachmentPart): string {
-    const kind = part.type === "image" ? "image" : "file";
-    const name = "filename" in part ? `: ${part.filename}` : "";
-    return `[attached ${kind}${name}]`;
-}
-
-/**
- * Stable hash of a transcript (roles + text only). Used to detect whether the
- * history the client sent still matches what the mapped agent session saw.
- */
-export function hashTranscript(messages: LlmMessage[]): string {
-    const normalized = messages.map(m => [m.role, flattenContent(m.content).trim()]);
-    return createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
-}
-
-/**
- * First prompt of a reseeded session: replays the retained transcript as
- * context so the agent can continue a conversation whose session was lost or
- * diverged (edited history, server restart).
- */
-export function buildSeededPrompt(history: LlmMessage[], lastText: string): string {
-    return `${buildHistoryReplay(history)}\n\n${lastText}`;
-}
-
-/** The `<conversation_history>` replay block, without any trailing user message. */
-function buildHistoryReplay(history: LlmMessage[]): string {
-    const transcript = history
-        .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${flattenContent(m.content)}`)
-        .join("\n\n");
-    return `<conversation_history>\nThis is the prior conversation between the user and you. Continue it naturally; do not mention this replay.\n\n${transcript}\n</conversation_history>`;
 }
 
 /** Strip the MCP prefix so the client shows "search_notes", not "mcp__trilium__search_notes". */

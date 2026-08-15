@@ -128,6 +128,7 @@ export type CommandMappings = {
     showOptions: CommandData & {
         section?: string;
     };
+    showContentLanguagesDialog: CommandData;
     showExportDialog: CommandData & {
         notePath: string;
         defaultType: "single" | "subtree";

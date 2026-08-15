@@ -30,7 +30,7 @@ import SetupPage from "./widgets/react/SetupPage";
 import SlidePages from "./widgets/react/SlidePages";
 
 async function main() {
-    await initLocale();
+    await initLocale("en", "entry");
 
     const bodyWrapper = document.createElement("div");
     bodyWrapper.classList.add("setup-outer-wrapper");
@@ -204,6 +204,9 @@ function SelectLanguage({ setState }: { setState: (state: State) => void }) {
     const { t, i18n } = useTranslation();
     const [ currentLocale, setCurrentLocale ] = useState(i18n.language);
     const filteredLocales = useMemo(() => LOCALES.filter(l => !l.contentOnly), []);
+    // The row the user chose last, which is not the last bundle to arrive: each language is a
+    // 160-290 KB fetch, so two taps in a row are answered in whichever order the two loads finish.
+    const chosen = useRef(currentLocale);
 
     return (
         <SetupPage
@@ -220,10 +223,22 @@ function SelectLanguage({ setState }: { setState: (state: State) => void }) {
                             value={locale.id}
                             active={locale.id === currentLocale}
                             rtl={locale.rtl}
-                            onClick={async () => {
-                                await i18n.changeLanguage(locale.id);
+                            onClick={() => {
+                                // Marked chosen on the press rather than once its bundle has
+                                // loaded: on a phone that wait is seconds long, and a row that
+                                // does not light up reads as a tap that missed.
+                                chosen.current = locale.id;
                                 setCurrentLocale(locale.id);
                                 document.body.dir = locale.rtl ? "rtl" : "ltr";
+
+                                void i18n.changeLanguage(locale.id).then(() => {
+                                    // An earlier, larger bundle landing after this one would
+                                    // otherwise leave the app speaking a language the user has
+                                    // already tapped away from.
+                                    if (chosen.current !== locale.id) {
+                                        void i18n.changeLanguage(chosen.current);
+                                    }
+                                });
                             }}
                         >
                             {locale.name}

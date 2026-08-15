@@ -135,6 +135,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "textNoteSlashCommandsEnabled",
     "textNoteContentHintsEnabled",
     "textNoteAutoLinkPreviewsEnabled",
+    "textNoteHtmlSupportEnabled",
     "clipboardImageEmbedEnabled",
     "includeNoteDefaultBoxSize",
     "layoutOrientation",
@@ -154,6 +155,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     // LLM options
     "aiEnabled",
     "llmProviders",
+    "aiAssistantModel",
     "mcpEnabled",
     // OCR options
     "ocrAutoProcessImages",

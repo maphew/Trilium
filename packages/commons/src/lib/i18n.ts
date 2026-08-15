@@ -115,3 +115,43 @@ export function isDisplayableLocale(localeId: string | null | undefined): locale
     if (!localeId) return false;
     return LOCALES.some((l) => l.id === localeId && !l.contentOnly);
 }
+
+/**
+ * The English name of a locale, or `null` when there is none worth showing: the English entries are
+ * named in English already, and anything `Intl` does not recognize has nothing to offer.
+ *
+ * Used both to annotate the locale list for a developer who cannot tell `한국어` from `हिन्दी`, and to
+ * name a language to something other than the user — an instruction to a language model, say, which
+ * would otherwise have to read its target out of the script that target is written in.
+ *
+ * @param englishNames a formatter to reuse, for a caller naming a whole list of locales at once.
+ */
+export function getEnglishName(
+    localeId: string,
+    englishNames = new Intl.DisplayNames([ "en" ], { type: "language" })
+): string | null {
+    const tag = ENGLISH_NAME_TAGS[localeId] ?? localeId.replaceAll("_", "-");
+
+    // Covers `en_rtl` too, which is not even a well-formed tag — `Intl` would throw on it.
+    if (tag === "en" || tag.startsWith("en-")) return null;
+
+    try {
+        return englishNames.of(tag) ?? null;
+    } catch {
+        // A malformed tag is a RangeError rather than an empty result.
+        return null;
+    }
+}
+
+/**
+ * Locale ids that are not BCP-47 tags, mapped to one.
+ *
+ * The Chinese pair deliberately resolves through the script subtags rather than the regions
+ * `normalizeLocale` (in the client's `utils/formatters`) maps them to: `zh-Hans` reads as
+ * "Simplified Chinese", whereas `zh-CN` would say "Chinese (China)" — the wrong distinction for
+ * entries differing by script.
+ */
+const ENGLISH_NAME_TAGS: Record<string, string> = {
+    cn: "zh-Hans",
+    tw: "zh-Hant"
+};

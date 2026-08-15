@@ -1491,7 +1491,6 @@
     "sync_warning": "Ви передаєте синхронну функцію до `api.runAsyncOnBackendWithManualTransactionHandling()`,\\nхоча, ймовірно, вам слід використовувати `api.runOnBackend()` замість цього."
   },
   "ws": {
-    "sync-check-failed": "Перевірка синхронізації не вдалася!",
     "consistency-checks-failed": "Перевірка узгодженості не вдалася! Див. logs для отримання інформації.",
     "encountered-error": "Виникла помилка \"{{message}}\", перевірте консоль.",
     "lost-websocket-connection-title": "Втрачено з'єднання із сервером",

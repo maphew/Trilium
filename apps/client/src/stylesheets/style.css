@@ -498,7 +498,7 @@ body.desktop .tabulator-popup-container,
     opacity: 1;
 }
 
-.dropdown-item:hover:not(.disabled, .dropdown-container-item),
+.dropdown-item:hover:not(.disabled, .active, .dropdown-container-item),
 .tabulator-menu-item:hover,
 :root .excalidraw .context-menu .context-menu-item:hover {
     color: var(--hover-item-text-color) !important;
@@ -1690,7 +1690,10 @@ body.desktop li.dropdown-submenu:hover > ul.dropdown-menu {
     top: 0;
     inset-inline-start: calc(100% - 2px); /* -2px, otherwise there's a small gap between menu and submenu where the hover can disappear */
     margin-top: -10px;
-    /* to make submenu scrollable https://github.com/zadam/trilium/issues/3136 */
+}
+
+/* to make submenu scrollable https://github.com/zadam/trilium/issues/3136 */
+.dropdown-submenu > .dropdown-menu:not(:has(.dropdown-submenu)) {
     max-height: 600px;
     overflow: auto;
 }
@@ -3141,6 +3144,8 @@ iframe.print-iframe {
        variant — this makes both variants share one deterministic geometry. */
     position: absolute;
     top: calc((1lh - var(--_checkbox-size)) / 2);
+    inset-inline-start: -25px;
+    inset-inline-end: auto;
     /* `1lh` must resolve against the text's line height, not the UA form-control
        font, and the UA's 3px checkbox margins would offset the absolute position.
        (Bootstrap's reboot happens to do both, but don't depend on it.) */

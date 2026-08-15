@@ -36,8 +36,13 @@ vi.mock("@triliumnext/ckeditor5", () => ({}));
 vi.stubGlobal("logError", vi.fn());
 vi.stubGlobal("logInfo", vi.fn());
 
-function setupHarness({ isVisible: initialIsVisible }: { isVisible: boolean }) {
-    const note = buildNote({ title: "Big note", type: "text", content: "<p>hello</p>" });
+function setupHarness({ isVisible: initialIsVisible, language }: { isVisible: boolean; language?: string }) {
+    const note = buildNote({
+        title: "Big note",
+        type: "text",
+        content: "<p>hello</p>",
+        ...(language ? { "#language": language } : {})
+    });
 
     // Count blob fetches without changing what they resolve to.
     const originalGetBlob = note.getBlob.bind(note);
@@ -169,5 +174,40 @@ describe("ReadOnlyText reacting to content changes (#10575)", () => {
         // ...and re-locks the note: the read-only view must not show stale content.
         await harness.mount(true);
         expect(harness.getBlobSpy).toHaveBeenCalledTimes(2);
+    });
+});
+
+/**
+ * The direction is resolved from the note's `#language` label and handed to the content
+ * element as `dir`, which is what the RTL rules in the content stylesheets key off (they
+ * match on the `.ck-content` ancestor carrying it). The editor sets it via CKEditor's own
+ * `language.content` config, so a read-only note that drops it flips back to LTR the moment
+ * editing is disabled.
+ */
+describe("ReadOnlyText text direction", () => {
+    let cleanupContainer: HTMLElement | undefined;
+
+    afterEach(() => {
+        if (cleanupContainer) {
+            render(null, cleanupContainer);
+            cleanupContainer.remove();
+            cleanupContainer = undefined;
+        }
+    });
+
+    async function mountWithLanguage(language?: string) {
+        const harness = setupHarness({ isVisible: true, language });
+        cleanupContainer = harness.container;
+        await harness.mount();
+        return harness.container.querySelector(".note-detail-readonly-text-content");
+    }
+
+    it("marks the content right-to-left for a note in an RTL language", async () => {
+        expect((await mountWithLanguage("he"))?.getAttribute("dir")).toBe("rtl");
+    });
+
+    it("marks the content left-to-right otherwise", async () => {
+        expect((await mountWithLanguage("en"))?.getAttribute("dir")).toBe("ltr");
+        expect((await mountWithLanguage(undefined))?.getAttribute("dir")).toBe("ltr");
     });
 });

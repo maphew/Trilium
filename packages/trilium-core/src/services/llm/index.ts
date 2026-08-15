@@ -28,19 +28,19 @@ export interface LlmProviderSetup {
 }
 
 /** Provider type identifiers that can be instantiated, for error messages. */
-const PROVIDER_TYPES = ["anthropic", "openai", "google", "deepseek", "claude-agent", "ollama", "lmstudio", "openai-compatible"];
+const PROVIDER_TYPES = ["anthropic", "openai", "google", "deepseek", "claude-agent", "copilot-agent", "ollama", "lmstudio", "openai-compatible"];
 
 /**
  * Provider types core cannot build for itself, each mapped to the name the user
  * knows it by.
  *
  * What they have in common is a dependency on the runtime around them rather
- * than on an API key: Claude Code is a CLI this process spawns, and the
- * subscription services lined up behind it authenticate through the host's own
- * account plumbing. Core runs in the browser too, where none of that exists, so
- * the host that *can* do it registers a factory at startup with
- * {@link registerHostProvider}. Where nothing registers one, selecting the
- * provider fails with a message naming it rather than a bare "unknown type".
+ * than on an API key: both are CLIs this process spawns, authenticating through
+ * the host's own account plumbing rather than a key the user pastes in. Core
+ * runs in the browser too, where none of that exists, so the host that *can* do
+ * it registers a factory at startup with {@link registerHostProvider}. Where
+ * nothing registers one, selecting the provider fails with a message naming it
+ * rather than a bare "unknown type".
  *
  * Adding one means an entry here, a literal branch in
  * {@link createProviderInstance} (see the note there on why it must be literal),
@@ -48,7 +48,9 @@ const PROVIDER_TYPES = ["anthropic", "openai", "google", "deepseek", "claude-age
  */
 export const HOST_PROVIDED_TYPES = {
     /** Claude Pro/Max through the Claude Agent SDK, authenticated by `claude /login`. */
-    "claude-agent": "Claude Code"
+    "claude-agent": "Claude Code",
+    /** GitHub Copilot through the Copilot CLI's ACP mode, authenticated by `copilot login`. */
+    "copilot-agent": "GitHub Copilot"
 } as const;
 
 /** A provider type from {@link HOST_PROVIDED_TYPES}. */
@@ -116,6 +118,8 @@ function createProviderInstance(provider: string, apiKey: string, baseURL?: stri
         // naming its own type: see HOST_PROVIDED_TYPES.
         case "claude-agent":
             return createHostProvider("claude-agent");
+        case "copilot-agent":
+            return createHostProvider("copilot-agent");
         // Self-hosted endpoints. The three cards differ only in the URL and setup
         // hint the UI prefills; they all speak the OpenAI-compatible API, with
         // Ollama and LM Studio additionally offering a richer native listing.

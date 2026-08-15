@@ -6,7 +6,9 @@ button.btn.btn-primary,
 button.btn.btn-secondary,
 button.btn.btn-sm:not(.select-button),
 button.btn.btn-success,
-button.ck.ck-button:is(.ck-button-action, .ck-button-save, .ck-button-cancel, .ck-button-replaceall, .ck-button-replace).ck-button_with-text {
+button.ck.ck-button:is(.ck-button-action, .ck-button-save, .ck-button-cancel, .ck-button-replaceall, .ck-button-replace).ck-button_with-text,
+.ck-ai-assistant-form__actions > button.ck.ck-button.ck-button_with-text,
+button.ck.ck-button.ck-ai-assistant-form__icon-action {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -27,7 +29,9 @@ button.btn.btn-primary:hover,
 button.btn.btn-secondary:hover,
 button.btn.btn-sm:not(.select-button):hover,
 button.btn.btn-success:hover,
-button.ck.ck-button:is(.ck-button-action, .ck-button-save, .ck-button-cancel, .ck-button-replaceall, .ck-button-replace).ck-button_with-text:not(.ck-disabled):hover {
+button.ck.ck-button:is(.ck-button-action, .ck-button-save, .ck-button-cancel, .ck-button-replaceall, .ck-button-replace).ck-button_with-text:not(.ck-disabled):hover,
+.ck-ai-assistant-form__actions > button.ck.ck-button.ck-button_with-text:not(.ck-disabled):hover,
+button.ck.ck-button.ck-ai-assistant-form__icon-action:not(.ck-disabled):hover {
     background: var(--cmd-button-hover-background-color);
     color: var(--cmd-button-hover-text-color);
 }
@@ -36,7 +40,9 @@ button.btn.btn-primary:active,
 button.btn.btn-secondary:active,
 button.btn.btn-sm:not(.select-button):active,
 button.btn.btn-success:active,
-button.ck.ck-button:is(.ck-button-action, .ck-button-save, .ck-button-cancel, .ck-button-replaceall, .ck-button-replace).ck-button_with-text:not(.ck-disabled):active {
+button.ck.ck-button:is(.ck-button-action, .ck-button-save, .ck-button-cancel, .ck-button-replaceall, .ck-button-replace).ck-button_with-text:not(.ck-disabled):active,
+.ck-ai-assistant-form__actions > button.ck.ck-button.ck-button_with-text:not(.ck-disabled):active,
+button.ck.ck-button.ck-ai-assistant-form__icon-action:not(.ck-disabled):active {
     opacity: 0.85;
     box-shadow: unset;
     background: var(--cmd-button-background-color) !important;
@@ -48,7 +54,9 @@ button.btn.btn-primary:disabled,
 button.btn.btn-secondary:disabled,
 button.btn.btn-sm:not(.select-button):disabled,
 button.btn.btn-success:disabled,
-button.ck.ck-button:is(.ck-button-action, .ck-button-save, .ck-button-cancel, .ck-button-replaceall, .ck-button-replace).ck-button_with-text.ck-disabled {
+button.ck.ck-button:is(.ck-button-action, .ck-button-save, .ck-button-cancel, .ck-button-replaceall, .ck-button-replace).ck-button_with-text.ck-disabled,
+.ck-ai-assistant-form__actions > button.ck.ck-button.ck-button_with-text.ck-disabled,
+button.ck.ck-button.ck-ai-assistant-form__icon-action.ck-disabled {
     opacity: var(--cmd-button-disabled-opacity);
 }
 
@@ -57,8 +65,15 @@ button.btn.btn-secondary:focus-visible,
 button.btn.btn-sm:not(.select-button):focus-visible,
 button.btn.btn-success:focus-visible,
 button.ck.ck-button:is(.ck-button-action, .ck-button-save, .ck-button-cancel, .ck-button-replaceall, .ck-button-replace).ck-button_with-text:not(.ck-disabled):focus-visible,
+.ck-ai-assistant-form__actions > button.ck.ck-button.ck-button_with-text:not(.ck-disabled):focus-visible,
+button.ck.ck-button.ck-ai-assistant-form__icon-action:not(.ck-disabled):focus-visible,
 .tn-focusable-button:focus-visible {
     outline: 2px solid var(--input-focus-outline-color);
+}
+
+button.ck.ck-button.ck-ai-assistant-form__icon-action {
+    min-width: unset;
+    padding: 4px;
 }
 
 /* Button's icon. The text spacing is a margin rather than padding on purpose: transforms rotate the
@@ -204,6 +219,38 @@ button.tn-low-profile:hover {
         --icon-button-size: 28px;
         --icon-button-icon-ratio: .75;
         width: calc(var(--icon-button-size) * 1.25);
+    }
+}
+
+:root .ck.ck-ai-assistant-form .ck-ai-assistant-form__viewmodes {
+    gap: 4px;
+    border-radius: 8px;
+    background: var(--button-group-background-color);
+    padding: 4px;
+
+    button.ck.ck-button {
+        min-width: unset;
+        margin: 0;
+        box-shadow: unset;
+        border-radius: 8px;
+        background: transparent;
+        border-color: transparent;
+
+        &:hover:not(.ck-on) {
+            background: var(--hover-item-background-color);
+            color: var(--hover-item-text-color);
+        }
+
+        &.ck-on, &.ck-on:hover {
+            background: var(--button-group-active-button-background-color);
+            color: var(--button-group-active-button-color);
+
+            box-shadow: 1px 1px 1px var(--button-group-active-button-shadow-color);
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--input-focus-outline-color);
+        }
     }
 }
 

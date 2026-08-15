@@ -121,6 +121,18 @@ function createNote(req: Request) {
 
     const { note, branch } = noteService.createNewNoteWithTarget(target, String(targetBranchId), params);
 
+    // Content handed to us at creation gets the same pass a save gives it — `createNewNote`
+    // deliberately does none of it itself, so every caller taking content from outside runs it (see
+    // `import/single.ts`). Without it, content that came from another note keeps pointing at that
+    // note's attachments: "cut selection into sub-note" hands the new note the selected HTML,
+    // picture URLs and all, and then removes the selection from the source, which schedules the very
+    // attachments the sub-note shows for erasure. The copying step lives here, in the same
+    // transaction (`scanForLinks` runs before this promise's first await), so the note is right
+    // before the response leaves.
+    if (typeof params.content === "string" && params.content) {
+        void noteService.asyncPostProcessContent(note, params.content);
+    }
+
     return {
         note,
         branch

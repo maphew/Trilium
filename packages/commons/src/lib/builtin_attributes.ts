@@ -183,6 +183,8 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "snippetDescription", valueType: "text", hasUserValue: true },
     { type: "label", name: "textSnippet", valueType: "boolean" },
     { type: "label", name: "textSnippetDescription", valueType: "text", hasUserValue: true },
+    // Offers the note's content as an instruction in the text editor's AI assistant menu.
+    { type: "label", name: "aiQuickAction", valueType: "boolean" },
     // Forces the table of contents open or shut; without the label the heading count decides.
     { type: "label", name: "toc", valueType: "select", selectOptions: [ "show", "hide" ] },
     { type: "label", name: "color", valueType: "color" },

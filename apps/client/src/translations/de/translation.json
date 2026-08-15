@@ -48,7 +48,8 @@
     "scripting-error": "Die Skriptnotiz konnte nicht ausgeführt werden",
     "unhandled-error": {
       "details-button": "Weitere Details anzeigen...",
-      "title": "Eine Hintergrundaufgabe ist fehlgeschlagen"
+      "title": "Ein Hintergrundprozess ist fehlgeschlagen",
+      "details-title": "Technische Informationen"
     }
   },
   "add_link": {
@@ -391,7 +392,7 @@
     "more_notes": "Weitere Notizen",
     "label": "Labeldetail",
     "relation": "Relationsdetails",
-    "disable_versioning": "deaktiviert die automatische Versionierung. Nützlich für z. B. große, aber unwichtige Notizen – z. B. große JS-Bibliotheken, die für die Skripterstellung verwendet werden",
+    "disable_versioning": "Deaktiviert die automatische Versionierung. Nützlich für z. B. große, aber unwichtige Notizen – z. B. große JS-Bibliotheken, die für die Skripterstellung verwendet werden",
     "calendar_root": "Markiert eine Notiz, die als Basis für Tagesnotizen verwendet werden soll. Nur einer sollte als solcher gekennzeichnet sein.",
     "archived": "Notizen mit diesem Label werden standardmäßig nicht in den Suchergebnissen angezeigt (auch nicht in den Dialogen „Springen zu“, „Link hinzufügen“ usw.).",
     "exclude_from_export": "Notizen (mit ihrem Unterbaum) werden nicht im Notizexport inkludiert",
@@ -475,7 +476,11 @@
     "color_type": "Farbe",
     "textarea": "Mehrzeilen-Text",
     "print_scale": "Beim Exportieren als PDF wird der Maßstab des gerenderten Inhalts geändert. Die Werte reichen von 0,1 (10 %) bis 2 (200 %), der Standardwert ist 1 (100 %).",
-    "print_margins": "Beim Exportieren als PDF werden die Seitenränder festgelegt. Verwenden Sie <code>default</code>, <code>none</code>, <code>minimum</code> oder benutzerdefinierte Werte als <code>oben,rechts,unten,links</code> in Millimetern."
+    "print_margins": "Beim Exportieren als PDF werden die Seitenränder festgelegt. Verwenden Sie <code>default</code>, <code>none</code>, <code>minimum</code> oder benutzerdefinierte Werte als <code>oben,rechts,unten,links</code> in Millimetern.",
+    "email": "Email",
+    "phone": "Telefon",
+    "select_type": "Auswählen",
+    "select_options": "Optionen"
   },
   "attribute_editor": {
     "help_text_body1": "Um ein Label hinzuzufügen, geben Sie einfach z. B. <code>#rock</code> ein, oder wenn Sie auch einen Wert hinzufügen möchten, dann z. B. <code>#year = 2020</code>",
@@ -651,7 +656,18 @@
     "day_previous": "Vorheriger Tag",
     "day_next": "Nächster Tag",
     "pin_date": "Aktuelles Datum anheften, damit sich der Kalender immer in diesem Zeitraum statt bei heute öffnet",
-    "unpin_date": "Datum lösen, damit sich der Kalender wieder beim heutigen Datum öffnet"
+    "unpin_date": "Datum lösen, damit sich der Kalender wieder beim heutigen Datum öffnet",
+    "recurrence": {
+      "repeats": "Wiederholungen",
+      "frequency": "Häufigkeit",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "monthly": "Monatlich",
+      "yearly": "Jährlich",
+      "unit_years": "Jahre",
+      "never": "Niemals",
+      "custom_rule": "Regel"
+    }
   },
   "close_pane_button": {
     "close_this_pane": "Diesen Bereich schließen"
@@ -1530,8 +1546,7 @@
     "custom_dictionary_open": "Wörterbuch bearbeiten",
     "related_description": "Sprachen der Rechtschreibprüfung und benutzerdefiniertes Wörterbuch konfigurieren.",
     "custom_dictionary_description": "Zum Wörterbuch hinzugefügte Wörter werden auf all Ihren Geräten synchronisiert.",
-    "custom_dictionary_edit_description": "Bearbeiten Sie die Liste der Wörter, die von der Rechtschreibprüfung nicht markiert werden sollen. Änderungen werden nach einem Neustart sichtbar.",
-    "disabled_placeholder": "Die Rechtschreibprüfung ist deaktiviert. Aktivieren Sie sie, um Sprachen auszuwählen und das benutzerdefinierte Wörterbuch zu verwalten."
+    "custom_dictionary_edit_description": "Bearbeiten Sie die Liste der Wörter, die von der Rechtschreibprüfung nicht markiert werden sollen. Änderungen werden nach einem Neustart sichtbar."
   },
   "sync_2": {
     "config_title": "Sync-Server",
@@ -1826,7 +1841,6 @@
     "backend_scripting_disabled_more_info": "Weitere Informationen"
   },
   "ws": {
-    "sync-check-failed": "Synchronisationsprüfung fehlgeschlagen!",
     "consistency-checks-failed": "Konsistenzprüfung fehlgeschlagen! Siehe Logs für Details.",
     "encountered-error": "Fehler „{{message}}“ aufgetreten, siehe Konsole für Details.",
     "lost-websocket-connection-title": "Verbindung zum Server verloren",
@@ -2669,7 +2683,6 @@
     "base_url": "Basis-URL",
     "base_url_description": "Optional. Greift über einen Proxy oder ein Gateway auf dieselbe API zu. Um ein Modell selbst auszuführen, fügen Sie stattdessen einen Ollama- oder LM-Studio-Anbieter hinzu.",
     "base_url_invalid": "Die Basis-URL muss eine gültige http://- oder https://-URL sein",
-    "disabled_placeholder": "KI-Funktionen sind deaktiviert. Aktivieren Sie sie, um Anbieter und MCP zu konfigurieren.",
     "edit_provider_title": "{{- name}} bearbeiten",
     "edit_provider": "Bearbeiten",
     "save": "Speichern",
@@ -2894,66 +2907,6 @@
     "page_ranges_invalid": "Ungültiges Format. Verwenden Sie z. B. 1-5, 8, 11-13.",
     "page_ranges_placeholder": "z. B. 1-5, 8, 11-13"
   },
-  "setup": {
-    "heading": "Erste Schritte mit Trilium",
-    "sync-from-desktop": "Desktop-App verbinden",
-    "sync-from-desktop-description": "Sie haben nur auf einem anderen Gerät eine laufende Trilium-Desktop-App. Dieses Gerät synchronisiert seine Daten von dieser Desktop-App.",
-    "sync-from-server": "Mit bestehendem Server verbinden",
-    "sync-from-server-description": "Sie betreiben anderswo einen Trilium-Server (selbst gehostet oder in der Cloud). Dieses Gerät synchronisiert seine Daten von diesem Server.",
-    "next": "Weiter",
-    "redirecting": "Sie werden in Kürze zur Anwendung weitergeleitet.",
-    "sync-from-server-page-description": "Geben Sie unten Ihre Serverdaten ein, um Ihren bestehenden Arbeitsbereich zu verbinden.",
-    "sync-in-progress-title": "Synchronisierung läuft",
-    "sync-in-progress-banner": "Dies kann je nach Umfang Ihrer Notizen eine Weile dauern. Bitte wechseln Sie nicht zu einer anderen Anwendung, bis die Synchronisierung abgeschlossen ist.",
-    "button-back": "Zurück",
-    "sync-step-connecting": "Verbindung zum Server wird hergestellt",
-    "sync-step-syncing": "Daten werden synchronisiert",
-    "sync-step-finalizing": "Optionen werden eingerichtet",
-    "create-new-document-options-title": "Wie möchten Sie starten?",
-    "create-new-document-options-with-demo": "Mit Demo-Inhalten",
-    "create-new-document-options-with-demo-description": "Entdecken Sie Trilium mit Beispielinhalten.",
-    "create-new-document-options-empty": "Leer",
-    "create-new-document-description": "Das dauert nur einen Moment.",
-    "sync-illustration-this-device": "Dieses Gerät",
-    "sync-illustration-desktop-app": "Ihre Desktop-App",
-    "sync-illustration-server": "Ihr Server",
-    "sync-from-desktop-step1": "Öffnen Sie Ihre Desktop-Instanz von Trilium Notes.",
-    "sync-from-desktop-step2": "Klicken Sie im Trilium-Menü auf Optionen.",
-    "sync-from-desktop-step3": "Klicken Sie im Notizbaum auf die Kategorie „Synchronisierung“.",
-    "sync-from-desktop-step4": "Ändern Sie die Serverinstanz-Adresse so, dass sie auf eine der rechts angezeigten Adressen verweist, und klicken Sie auf Speichern.",
-    "sync-from-desktop-step5": "Klicken Sie auf die Schaltfläche „Synchronisierung testen“, um zu prüfen, ob die Verbindung erfolgreich ist.",
-    "sync-from-desktop-warning": "Stellen Sie sicher, dass sich beide Geräte im selben Netzwerk befinden.",
-    "sync-from-desktop-waiting": "Warten auf Verbindung...",
-    "advanced-options": "Erweiterte Optionen",
-    "sync-failed": "Synchronisierung fehlgeschlagen: {{- message}}",
-    "server-host": "Trilium-Serveradresse",
-    "server-host-placeholder": "https://<hostname>:<port>",
-    "server-password": "Passwort",
-    "proxy-server": "Proxy-Server (optional)",
-    "proxy-server-placeholder": "https://<hostname>:<port>",
-    "proxy-instruction": "Wenn Sie die Proxy-Einstellung leer lassen, wird der System-Proxy verwendet.",
-    "wrong-password": "Falsches Passwort. Bitte versuchen Sie es erneut.",
-    "language": "Sprache",
-    "continue": "Fortfahren",
-    "your-ip-addresses": "Adressen dieses Geräts",
-    "new-document": "Neue Wissensbasis",
-    "new-document-description": "Mit einer leeren Wissensbasis starten und sofort loslegen.",
-    "init-in-progress": "Dokument wird initialisiert",
-    "title": "Einrichtung",
-    "sync-in-progress-description": "Ihr Gerät ist jetzt verbunden und Einträge werden synchronisiert.",
-    "button-finish-setup": "Einrichtung abschließen",
-    "create-new-document-options-empty-description": "Mit einer leeren Wissensbasis starten. Demo-Notizen können später importiert werden.",
-    "create-new-document-title": "Wissensbasis wird vorbereitet",
-    "dismiss-error": "Fehler schließen",
-    "sync-from-desktop-unreachable-title": "Dieses Gerät ist für andere Geräte nicht erreichbar",
-    "sync-from-desktop-unreachable-description": "Zur Synchronisierung muss sich der andere Desktop über das Netzwerk mit diesem verbinden. Aus Sicherheitsgründen akzeptiert diese Desktop-App nur Verbindungen von diesem Computer, sodass der andere Desktop sie noch nicht erreichen kann. Erlauben Sie unten den Netzwerkzugriff — Trilium wird neu gestartet, um die Einstellung anzuwenden.",
-    "sync-from-desktop-allow-access": "Netzwerkzugriff erlauben und neu starten",
-    "sync-failed-title": "Synchronisierung fehlgeschlagen",
-    "sync-failed-description": "Die erste Synchronisierung konnte nicht abgeschlossen werden. Sie können es erneut versuchen oder zurückgehen, um Serveradresse und Zugangsdaten zu prüfen.",
-    "sync-failed-admonition-title": "Der letzte Synchronisierungsversuch ist fehlgeschlagen",
-    "sync-failed-hint": "Mögliche Ursachen sind eine falsche Serveradresse, ein Proxy, der die Verbindung beeinträchtigt, oder ein vorübergehend nicht erreichbarer Server.",
-    "button-retry": "Erneut versuchen"
-  },
   "text-editor": {
     "validation-errors": {
       "undefined-name": "undefinierter Bezeichner",
@@ -3116,7 +3069,9 @@
     "device_open_page": "Anmeldeseite öffnen",
     "device_cancel": "Anmeldung abbrechen",
     "import_count_one": "{{count}} Abschnitt importieren",
-    "import_count_other": "{{count}} Abschnitte importieren"
+    "import_count_other": "{{count}} Abschnitte importieren",
+    "refresh": "Aktualisieren",
+    "load_retry": "Erneut versuchen"
   },
   "full_content_width_switch": {
     "title": "Volle Breite"
@@ -3216,31 +3171,6 @@
     "hours_other": "{{count}} Stunden",
     "days_one": "{{count}} Tag",
     "days_other": "{{count}} Tage"
-  },
-  "login": {
-    "heading": "Bei Trilium Notes anmelden",
-    "password": "Passwort",
-    "totp-token": "Einmalpasswort oder Wiederherstellungscode",
-    "button": "Anmelden",
-    "remember-me": "Angemeldet bleiben",
-    "incorrect-password": "Das Passwort ist falsch. Bitte versuchen Sie es erneut.",
-    "incorrect-totp": "Das Einmalpasswort ist falsch. Bitte versuchen Sie es erneut.",
-    "incorrect-recovery-code": "Der Wiederherstellungscode ist falsch oder wurde bereits verwendet.",
-    "too-many-attempts": "Zu viele Anmeldeversuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
-    "connection-error": "Der Server konnte nicht erreicht werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
-    "sign_in_with_sso": "Mit {{ssoIssuerName}} anmelden",
-    "sso-wrong-account": "Dieses Konto ist nicht mit dieser Trilium-Instanz verknüpft. Melden Sie sich mit dem verknüpften Konto an.",
-    "sso-not-enrolled": "Single Sign-on ist noch nicht eingerichtet. Melden Sie sich zuerst mit Ihrem Passwort an und verknüpfen Sie anschließend Ihr Konto in den Einstellungen.",
-    "sso-connection-failed": "Der Authentifizierungsanbieter konnte nicht erreicht werden. Versuchen Sie es erneut oder prüfen Sie die Serverprotokolle auf Details."
-  },
-  "set_password": {
-    "heading": "Passwort festlegen",
-    "description": "Bevor Sie Trilium im Web verwenden können, müssen Sie zuerst ein Passwort festlegen. Anschließend verwenden Sie dieses Passwort zum Anmelden.",
-    "password": "Passwort",
-    "password-confirmation": "Passwortbestätigung",
-    "button": "Passwort festlegen",
-    "password-too-short": "Das Passwort muss mindestens {{length}} Zeichen lang sein.",
-    "passwords-dont-match": "Die eingegebenen Passwörter stimmen nicht überein."
   },
   "shortcut_hints": {
     "show_button": "Tastenkürzel-Hinweise anzeigen",

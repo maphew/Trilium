@@ -81,7 +81,7 @@ function OpenAllButton({ note, isOpening, setIsOpening }: {
         if (count === 0) return;
 
         if (count > MAX_OPEN_TABS) {
-            toast.showError(t("book_properties.open_all_too_many", { count, max: MAX_OPEN_TABS }));
+            toast.showError(t("book_properties.open_all_limit_exceeded", { count, max: MAX_OPEN_TABS }));
             return;
         }
 

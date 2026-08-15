@@ -16,7 +16,7 @@ import OptionsRow from "./widgets/type_widgets/options/components/OptionsRow";
 const MIN_PASSWORD_LENGTH = 4;
 
 async function main() {
-    await initLocale((window.glob.currentLocale?.id ?? "en") as LOCALE_IDS);
+    await initLocale((window.glob.currentLocale?.id ?? "en") as LOCALE_IDS, "entry");
 
     const bodyWrapper = document.createElement("div");
     bodyWrapper.classList.add("setup-outer-wrapper");

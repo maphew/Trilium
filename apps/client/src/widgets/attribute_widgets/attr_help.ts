@@ -110,6 +110,7 @@ export const ATTR_HELP: AttrHelpMap = {
         snippetDescription: t("attribute_detail.snippet_description"),
         textSnippet: t("attribute_detail.text_snippet"),
         textSnippetDescription: t("attribute_detail.text_snippet_description"),
+        aiQuickAction: t("attribute_detail.ai_quick_action"),
         executeTitle: t("attribute_detail.execute_title"),
         clipperInbox: t("attribute_detail.clipper_inbox"),
         clipType: t("attribute_detail.clip_type"),

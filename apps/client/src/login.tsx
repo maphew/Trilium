@@ -11,7 +11,7 @@ import CredentialsForm, { type Credentials } from "./widgets/react/CredentialsFo
 import SetupPage from "./widgets/react/SetupPage";
 
 async function main() {
-    await initLocale((window.glob.currentLocale?.id ?? "en") as LOCALE_IDS);
+    await initLocale((window.glob.currentLocale?.id ?? "en") as LOCALE_IDS, "entry");
 
     const bodyWrapper = document.createElement("div");
     bodyWrapper.classList.add("setup-outer-wrapper");

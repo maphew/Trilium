@@ -1888,7 +1888,6 @@
     "sync_warning": "Przekazujesz funkcję synchroniczną do `api.runAsyncOnBackendWithManualTransactionHandling()`,\\npodczas gdy prawdopodobnie powinieneś użyć `api.runOnBackend()`."
   },
   "ws": {
-    "sync-check-failed": "Sprawdzanie synchronizacji nie powiodło się!",
     "consistency-checks-failed": "Sprawdzanie spójności nie powiodło się! Zobacz logi po szczegóły.",
     "encountered-error": "Napotkano błąd \"{{message}}\", sprawdź konsolę.",
     "lost-websocket-connection-title": "Utracono połączenie z serwerem",

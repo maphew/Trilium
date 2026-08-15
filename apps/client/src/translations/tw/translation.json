@@ -122,7 +122,6 @@
     "title": "刪除筆記",
     "clones_label": "克隆",
     "delete_clones_description_one": "同時刪除 {{count}} 個其他克隆。此操作可在最近修改中撤銷。",
-    "delete_clones_description_other": "",
     "erase_notes_label": "永久擦除",
     "table_note_with_relation": "有關聯的筆記",
     "table_relation": "關聯",
@@ -1763,7 +1762,6 @@
     "sync_warning": "您正在將一個同步函數傳遞給 `api.runAsyncOnBackendWithManualTransactionHandling()`，\\n而您可能應該使用 `api.runOnBackend()`。"
   },
   "ws": {
-    "sync-check-failed": "同步檢查失敗！",
     "consistency-checks-failed": "一致性檢查失敗！請查看日誌以了解詳細資訊。",
     "encountered-error": "遇到錯誤 \"{{message}}\"，請查看控制台。",
     "lost-websocket-connection-title": "與伺服器的連線中斷",

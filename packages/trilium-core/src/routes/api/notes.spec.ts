@@ -74,6 +74,45 @@ describe("Notes API (core)", () => {
             expect(res.body.branch.parentNoteId).toBe("root");
         });
 
+        // What "cut selection into sub-note" does: the new note is handed HTML carrying the source
+        // note's pictures, and the source then drops them from its own content, scheduling those
+        // attachments for erasure. The new note has to end up owning copies, not pointing at them.
+        it("copies a foreign attachment referenced by the content it is created with", async () => {
+            const source = await createTextNote(api, { content: "<p>source</p>" });
+            const save = await api.post(`/api/notes/${source.noteId}/attachments`, {
+                body: { role: "image", mime: "image/png", title: "picture.png", content: "picture bytes" }
+            });
+            expect(save.status).toBe(204);
+
+            const [ original ] = (await api.get<{ attachmentId: string }[]>(
+                `/api/notes/${source.noteId}/attachments`
+            )).body;
+
+            const created = await api.post<{ note: { noteId: string } }>(
+                "/api/notes/root/children?target=into",
+                {
+                    body: {
+                        title: "Cut selection",
+                        type: "text",
+                        content: `<p><img src="api/attachments/${original.attachmentId}/image/picture.png"></p>`
+                    }
+                }
+            );
+            expect(created.status).toBe(200);
+            const { noteId } = created.body.note;
+
+            const copies = await api.get<{ attachmentId: string; ownerId: string; title: string }[]>(
+                `/api/notes/${noteId}/attachments`
+            );
+            expect(copies.body).toHaveLength(1);
+            expect(copies.body[0].ownerId).toBe(noteId);
+            expect(copies.body[0].attachmentId).not.toBe(original.attachmentId);
+
+            const blob = await api.get<{ content: string }>(`/api/notes/${noteId}/blob`);
+            expect(blob.body.content).toContain(`api/attachments/${copies.body[0].attachmentId}/image/`);
+            expect(blob.body.content).not.toContain(original.attachmentId);
+        });
+
         it("400s when the target query param is invalid", async () => {
             const res = await api.post("/api/notes/root/children", {
                 body: { title: "no target", type: "text" }
