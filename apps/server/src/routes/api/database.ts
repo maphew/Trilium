@@ -2,10 +2,11 @@ import {
     BackupDatabaseNowResponse,
     CompactionEstimateResponse,
     DatabaseCheckIntegrityResponse,
+    DatabaseInfoResponse,
     ExistingAnonymizedDatabasesResponse,
     VacuumDatabaseResponse
 } from "@triliumnext/commons";
-import { becca_loader, consistency_checks as consistencyChecksService, getBackup, getLog, utils, ValidationError } from "@triliumnext/core";
+import { becca, becca_loader, consistency_checks as consistencyChecksService, getBackup, getContentCounts, getLog, utils, ValidationError } from "@triliumnext/core";
 import type { Request, Response } from "express";
 import fs, { readFileSync } from "fs";
 import path from "path";
@@ -17,6 +18,24 @@ import sql_init from "../../services/sql_init.js";
 
 function getExistingBackups() {
     return getBackup().getExistingBackups();
+}
+
+/**
+ * What the Database page states about the knowledge base as a whole.
+ *
+ * The root note stands in for the database itself: SQLite records nothing about when a file was
+ * made, and the root is created once, by the very first startup that had no database to open.
+ */
+function getDatabaseInfo() {
+    const filePath = path.resolve(dataDir.DOCUMENT_PATH);
+
+    return {
+        filePath,
+        directoryPath: path.dirname(filePath),
+        utcDateCreated: becca.getNoteOrThrow("root").utcDateCreated,
+        ...getContentCounts(),
+        sizeBytes: databaseBytes()
+    } satisfies DatabaseInfoResponse;
 }
 
 async function backupDatabase() {
@@ -119,6 +138,7 @@ function downloadAnonymizedDatabase(req: Request, res: Response) {
 
 export default {
     getExistingBackups,
+    getDatabaseInfo,
     backupDatabase,
     vacuumDatabase,
     getCompactionEstimate,

@@ -4,6 +4,7 @@ import {
     AnonymizedDbResponse,
     DatabaseAnonymizeResponse,
     DatabaseCheckIntegrityResponse,
+    DatabaseInfoResponse,
     ExistingAnonymizedDatabasesResponse
 } from "@triliumnext/commons";
 import { useCallback, useEffect, useState } from "preact/hooks";
@@ -17,9 +18,13 @@ import {
     startOver
 } from "../../../services/setup_mode";
 import toast from "../../../services/toast";
+import { formatSize } from "../../../services/utils";
+import { formatDateTime } from "../../../utils/formatters";
 import Admonition from "../../react/Admonition";
 import Button from "../../react/Button";
 import { Card, CardOption } from "../../react/Card";
+import DirectoryLink from "../../react/DirectoryLink";
+import { useFetch } from "../../react/use_fetch";
 import DatabaseFileList from "./components/DatabaseFileList";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 
@@ -32,6 +37,10 @@ import OptionsPageHeader from "./components/OptionsPageHeader";
  */
 export default function DatabaseSettings() {
     const startOverState = useStartOver();
+    // Compacting is the one action on this page that changes what the card above it states, so the
+    // figures are read again once a rebuild has finished rather than left saying what they did.
+    const [ infoToken, setInfoToken ] = useState(0);
+    const refreshInfo = useCallback(() => setInfoToken((token) => token + 1), []);
 
     return (
         <>
@@ -54,15 +63,63 @@ export default function DatabaseSettings() {
                 </Admonition>
             )}
 
-            <MaintenanceOptions />
+            <DatabaseInfo refreshToken={infoToken} />
+            <MaintenanceOptions onDatabaseCompacted={refreshInfo} />
             <AnonymizationOptions />
             <StartOverOption state={startOverState} />
         </>
     );
 }
 
+/**
+ * What the database is, before anything is done to it: where its file is, how far back it goes, how
+ * much it holds and how large it has grown.
+ *
+ * Nothing is shown until the figures arrive, and nothing at all where they cannot be had. A card of
+ * empty rows would state no less than a card that is not there, and rather less clearly.
+ */
+function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
+    const { data: info } = useFetch<DatabaseInfoResponse>("database/info", refreshToken);
+
+    if (!info) {
+        return null;
+    }
+
+    return (
+        <div className="options-section database-info">
+            <Card heading={t("database.info")}>
+                <CardOption label={t("database.info_location")}>
+                    {/* The file is named in full, while the link opens the folder holding it: a
+                        file manager is what the path is useful in, not the database's own reader. */}
+                    <span className="database-info-value">
+                        <DirectoryLink directory={info.directoryPath}>{info.filePath}</DirectoryLink>
+                    </span>
+                </CardOption>
+
+                <CardOption label={t("database.info_created")}>
+                    <span className="database-info-value">
+                        {formatDateTime(info.utcDateCreated, "long", "none")}
+                    </span>
+                </CardOption>
+
+                <CardOption label={t("database.info_content")}>
+                    <span className="database-info-value">
+                        {t("database.info_notes", { count: info.noteCount })}
+                        {", "}
+                        {t("database.info_attachments", { count: info.attachmentCount })}
+                    </span>
+                </CardOption>
+
+                <CardOption label={t("database.info_size")}>
+                    <span className="database-info-value">{formatSize(info.sizeBytes)}</span>
+                </CardOption>
+            </Card>
+        </div>
+    );
+}
+
 /** Checks and repairs that act on the database file itself, rather than on what is kept in it. */
-function MaintenanceOptions() {
+function MaintenanceOptions({ onDatabaseCompacted }: { onDatabaseCompacted: () => void }) {
     return (
         <div className="options-section database-maintenance">
             <Card heading={t("database.maintenance")}>
@@ -98,7 +155,10 @@ function MaintenanceOptions() {
                         name="vacuum-database-button"
                         text={t("vacuum_database.button_text")}
                         size="micro"
-                        onClick={vacuumDatabase}
+                        onClick={async () => {
+                            await vacuumDatabase();
+                            onDatabaseCompacted();
+                        }}
                     />
                 </CardOption>
             </Card>

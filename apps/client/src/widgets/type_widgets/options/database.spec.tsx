@@ -1,8 +1,11 @@
 import { render } from "preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// t() returns the key so assertions are deterministic and not tied to English text.
-vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
+// t() returns the key so assertions are deterministic and not tied to English text; a counted
+// string carries its count, which is the part of those the page decides.
+vi.mock("../../../services/i18n", () => ({
+    t: (key: string, params?: { count?: number }) => params?.count === undefined ? key : `${key}=${params.count}`
+}));
 
 const setupMode = vi.hoisted(() => ({
     canBootToSetup: vi.fn(() => true),
@@ -12,10 +15,27 @@ const setupMode = vi.hoisted(() => ({
 }));
 vi.mock("../../../services/setup_mode", () => setupMode);
 
-// The maintenance and anonymization cards call the backend as they render and as they are used.
+const DATABASE_INFO = {
+    filePath: "/data/trilium/document.db",
+    directoryPath: "/data/trilium",
+    utcDateCreated: "2020-05-17 08:30:00.000Z",
+    noteCount: 12,
+    attachmentCount: 3,
+    sizeBytes: 3 * 1024 * 1024
+};
+
+/** Set where a test needs the info card to have nothing to say. */
+const failing = vi.hoisted(() => ({ info: false }));
+
+// The info, maintenance and anonymization cards call the backend as they render and as they are used.
 const server = vi.hoisted(() => ({
     get: vi.fn(async (url: string) => {
         switch (url) {
+            case "database/info":
+                if (failing.info) {
+                    throw new Error("no answer");
+                }
+                return DATABASE_INFO;
             case "database/check-integrity":
                 return { results: [{ integrity_check: "ok" }] };
             case "database/anonymized-databases":
@@ -65,6 +85,7 @@ beforeEach(() => {
     setupMode.startOver.mockReset().mockResolvedValue("restarting");
     setupMode.isStartOverPending.mockReset().mockResolvedValue(false);
     setupMode.cancelStartOver.mockReset().mockResolvedValue(undefined);
+    failing.info = false;
     server.get.mockClear();
     server.post.mockClear();
     server.postWithTimeout.mockClear();
@@ -76,6 +97,52 @@ afterEach(() => {
     render(null, container);
     container.remove();
     vi.useRealTimers();
+});
+
+describe("what the database is", () => {
+    /** The facts of the info card, in the order the card states them. */
+    function infoValues() {
+        return [ ...container.querySelectorAll(".database-info .database-info-value") ]
+            .map((value) => value.textContent);
+    }
+
+    it("states where it lives, when it began, what it holds and how large it has grown", async () => {
+        renderPage();
+        await settle();
+
+        expect(server.get).toHaveBeenCalledWith("database/info");
+
+        const [ location, created, content, size ] = infoValues();
+        // The file is named in full; the link behind it opens the folder holding it, since that is
+        // what a file manager can be pointed at.
+        expect(location).toBe(DATABASE_INFO.filePath);
+        expect(created).toContain("2020");
+        expect(content).toBe("database.info_notes=12, database.info_attachments=3");
+        expect(size).toBe("3 MiB");
+    });
+
+    it("reads the figures again once the database has been compacted", async () => {
+        renderPage();
+        await settle();
+
+        button("vacuum-database-button")?.click();
+        await settle();
+
+        // Compacting is the one action on the page that changes what the card states, and a size
+        // left saying what it did before the rebuild would be plainly wrong.
+        expect(server.get.mock.calls.filter(([ url ]) => url === "database/info")).toHaveLength(2);
+    });
+
+    it("says nothing at all where the figures cannot be had", async () => {
+        failing.info = true;
+        renderPage();
+        await settle();
+
+        // A card of empty rows would state no less, and rather less clearly. The rest of the page
+        // stands: each card answers for itself.
+        expect(container.querySelector(".database-info")).toBeNull();
+        expect(button("check-integrity-button")).not.toBeNull();
+    });
 });
 
 describe("database maintenance", () => {

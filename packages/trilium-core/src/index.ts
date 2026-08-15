@@ -143,6 +143,7 @@ export { InAppHelpProvider } from "./services/in_app_help";
 export { type ImageProvider, type ImageFormat, type ImageCompressionOutcome, type ImageCompressionRequest, type ProcessedImage, getImageProvider } from "./services/image_provider";
 export { default as imageCompressionService } from "./services/image_compression";
 export { default as imageInventoryService, type ImageInventoryOptions } from "./services/image_inventory";
+export { getContentCounts } from "./services/space_usage";
 export { default as imageInfoService } from "./services/image_info";
 export { estimateJpegQuality } from "./services/jpeg_quality";
 export { inspectImage, type InspectedImage, UNKNOWN_FORMAT } from "./services/image_inspect";
