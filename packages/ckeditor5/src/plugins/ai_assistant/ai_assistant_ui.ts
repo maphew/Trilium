@@ -654,12 +654,13 @@ export default class AiAssistantUI extends Plugin {
      * HTML, in which a diagram is a code block — the editor only makes one a diagram when the
      * content is upcast into the model, which the assistant deliberately postpones until commit.
      *
-     * Soft-coupled to the Mermaid feature by name: a build without it renders the source, which is
-     * also all a commit could produce there.
+     * Soft-coupled to the Mermaid feature by name: a build without it — or one whose host supplies
+     * no diagram library — leaves the source standing, which is also all a commit could produce
+     * there, rather than emptying the block in favour of a diagram that will never arrive.
      */
     private _renderPreviewDiagrams(preview: HTMLElement): void {
         const editor = this.editor;
-        if (!editor.plugins.has("MermaidEditing")) {
+        if (!editor.plugins.has("MermaidEditing") || !editor.config.get("mermaid")?.lazyLoad) {
             return;
         }
 

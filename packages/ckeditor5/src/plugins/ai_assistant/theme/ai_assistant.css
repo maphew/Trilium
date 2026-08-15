@@ -66,6 +66,18 @@
     }
 }
 
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__diagram {
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+    margin-bottom: var(--ck-spacing-medium);
+
+    svg {
+        flex-shrink: 0;
+        max-width: none;
+    }
+}
+
 /* An empty preview is just a hollow frame — collapse it until there is a run to show. */
 .ck.ck-ai-assistant-form:not(.ck-ai-assistant-form_streaming) .ck-ai-assistant-form__preview:empty {
     display: none;

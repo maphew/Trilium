@@ -22,6 +22,17 @@ import type { AiReviewView } from "./ai_assistant_config.js";
  */
 export type AiAssistantFormPhase = "prompt" | "streaming" | "review";
 
+/** The hooks the orchestrating plugin hangs on the form, which is otherwise self-contained. */
+export interface AiAssistantFormOptions {
+    /**
+     * Called with the preview element whenever it has just been filled with a finished response —
+     * the point at which content that only renders as itself once processed (a Mermaid diagram)
+     * can be turned into what the note will show. See {@link AiAssistantFormView._renderPreview}
+     * for why the streaming and diff renders are not offered.
+     */
+    onResultRendered?: (preview: HTMLElement) => void;
+}
+
 /** What a finished run leaves the form showing. */
 export interface AiReviewOptions {
     /** Whether the run produced anything at all; without it the form falls back to the prompt. */
@@ -80,11 +91,13 @@ export default class AiAssistantFormView extends View {
     public readonly keystrokes = new KeystrokeHandler();
 
     private readonly _focusables = new ViewCollection<FocusableView>();
+    private readonly _onResultRendered?: (preview: HTMLElement) => void;
 
-    constructor(locale: Locale) {
+    constructor(locale: Locale, { onResultRendered }: AiAssistantFormOptions = {}) {
         super(locale);
 
         const t = locale.t;
+        this._onResultRendered = onResultRendered;
 
         this.set("phase", "prompt");
         this.set("query", "");
@@ -366,7 +379,16 @@ export default class AiAssistantFormView extends View {
 
     /** Shows whichever stored content the current view mode selects. */
     private _renderPreview(): void {
-        this.previewView.setContent(this.viewMode === "changes" && this._diffHtml ? this._diffHtml : this._resultHtml);
+        const isDiff = this.viewMode === "changes" && !!this._diffHtml;
+        this.previewView.setContent(isDiff ? this._diffHtml : this._resultHtml);
+
+        // Only the finished result is handed on: half a diagram cannot be parsed, so rendering
+        // each streamed tick would flash a parse error where the diagram is about to be, and the
+        // "Changes" view is two responses interleaved — its code blocks are not source any more.
+        const preview = this.previewView.element;
+        if (preview && this.phase === "review" && !isDiff) {
+            this._onResultRendered?.(preview);
+        }
     }
 
     /** One half of the Result/Changes toggle, visible only when a review has a diff to offer. */

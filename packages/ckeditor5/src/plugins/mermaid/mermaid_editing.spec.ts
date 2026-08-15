@@ -295,7 +295,7 @@ describe( 'MermaidEditing', () => {
 					let renderMermaidStub: MockInstance;
 
 					beforeEach( () => {
-						renderMermaidStub = vi.spyOn( editor.plugins.get( 'MermaidEditing' ) as unknown as MermaidEditing, '_renderMermaid' );
+						renderMermaidStub = vi.spyOn( editor.plugins.get( 'MermaidEditing' ) as unknown as MermaidEditing, 'renderMermaid' );
 
 						// Using editor.setData() instead of setModelData helper because of #11365.
 						editor.setData(

@@ -278,6 +278,26 @@ describe("AiAssistantFormView", () => {
         expect(form.errorMessage).toBe("provider unreachable");
     });
 
+    // The hook the host renders Mermaid diagrams through: only a finished result can be, so it is
+    // offered the preview at the one point at which what it holds is a whole response.
+    it("hands the preview to the host once it holds a finished result, and not before", () => {
+        const onResultRendered = vi.fn();
+        form = new AiAssistantFormView(new Locale(), { onResultRendered });
+        form.render();
+
+        form.beginStreaming();
+        form.setPreview("<p>par</p>");
+        form.setPreview("<p>partial</p>");
+        expect(onResultRendered).not.toHaveBeenCalled();
+
+        // A review opening on the diff shows two responses at once, which is nobody's content.
+        form.enterReview({ hasContent: true, diffHtml: "<p><ins>partial</ins></p>" });
+        expect(onResultRendered).not.toHaveBeenCalled();
+
+        form.resultToggleView.fire("execute");
+        expect(onResultRendered).toHaveBeenCalledWith(form.previewView.element);
+    });
+
     it("reset clears the stored contents and view-mode state", () => {
         const form = makeForm();
         form.beginStreaming();

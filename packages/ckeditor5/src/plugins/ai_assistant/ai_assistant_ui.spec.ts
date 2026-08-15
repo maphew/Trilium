@@ -1,7 +1,11 @@
-import { _getModelData as getModelData, _setModelData as setModelData, ButtonView, ClassicEditor, Dialog, Essentials, Paragraph, SplitButtonView } from "ckeditor5";
+import { _getModelData as getModelData, _setModelData as setModelData, ButtonView, ClassicEditor, CodeBlockEditing, Dialog, Essentials, Paragraph, SplitButtonView } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
+// The glue plugin is imported for its type augmentations alone (`config.mermaid`); the editing
+// half is the one the specs load, being where the renderer lives.
+import type {} from "../mermaid/mermaid.js";
+import MermaidEditing from "../mermaid/mermaid_editing.js";
 import TriliumAiAssistant from "./ai_assistant.js";
 import type { AiCompletionRequest, AiDiffFunction, AiQuickActionGroup, AiStreamCallback, AiStreamFunction } from "./ai_assistant_config.js";
 import AiAssistantUI from "./ai_assistant_ui.js";
@@ -580,7 +584,7 @@ describe("AiAssistantUI toolbar entry", () => {
         function createMermaidStub() {
             return {
                 initialize: vi.fn(),
-                render: vi.fn(async (id: string, source: string) => ({ svg: `<svg data-source="${source}"></svg>` }))
+                render: vi.fn(async (_id: string, source: string) => ({ svg: `<svg data-source="${source}"></svg>` }))
             };
         }
 
@@ -602,7 +606,8 @@ describe("AiAssistantUI toolbar entry", () => {
             await vi.waitFor(() => expect(previewHtml(editor)).toContain("<svg"));
             expect(mermaid.render).toHaveBeenCalledWith(expect.any(String), DIAGRAM);
             // The `<pre>` goes with the `<code>`: what is left is the diagram, not a framed one.
-            expect(previewHtml(editor)).toContain(`<div class="ck-ai-assistant-form__diagram"><svg data-source="${DIAGRAM}">`);
+            expect(previewHtml(editor))
+                .toContain(`<div class="ck-ai-assistant-form__diagram"><svg data-source="graph TD; A--&gt;B;">`);
             expect(previewHtml(editor)).not.toContain("<pre>");
 
             // Nothing was done to the response itself — the note gets the code block, which the
@@ -613,7 +618,7 @@ describe("AiAssistantUI toolbar entry", () => {
 
         it("leaves a half-streamed diagram as its source", async () => {
             const mermaid = createMermaidStub();
-            const editor = await createDiagramEditor(mermaid, async (request, onData) => {
+            const editor = await createDiagramEditor(mermaid, async (_request, onData) => {
                 onData(`<pre><code class="language-mermaid">graph TD; A--</code></pre>`);
                 await new Promise(() => {});
             });
@@ -627,6 +632,22 @@ describe("AiAssistantUI toolbar entry", () => {
             expect(mermaid.render).not.toHaveBeenCalled();
         });
 
+        // The library is the host's to supply (`config.mermaid.lazyLoad`), so the feature can be
+        // loaded with nothing behind it. Emptying the block for a diagram that will never arrive
+        // would lose the response; the source is at least what a commit would produce.
+        it("leaves the source standing when the host supplies no diagram library", async () => {
+            const stub = createStreamStub(DIAGRAM_HTML);
+            const editor = await createTestEditor([Essentials, Paragraph, CodeBlockEditing, MermaidEditing, TriliumAiAssistant], {
+                aiAssistant: { sanitizeHtml, quickActions: DIAGRAM_ACTION, stream: stub.stream }
+            });
+
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(createComponent(editor))[0].fire("execute");
+
+            await vi.waitFor(() => expect(openForm(editor).phase).toBe("review"));
+            expect(previewHtml(editor)).toBe(DIAGRAM_HTML);
+        });
+
         it("leaves the code block alone in the diff, whose text is two responses at once", async () => {
             const mermaid = createMermaidStub();
             const stub = createStreamStub(DIAGRAM_HTML);
@@ -637,7 +658,8 @@ describe("AiAssistantUI toolbar entry", () => {
                     stream: stub.stream,
                     // Opens on the diff, since the action asking for the result is not the one run.
                     diff: () => `<pre><code class="language-mermaid">graph <del>LR</del><ins>TD</ins></code></pre>`
-                }
+                },
+                mermaid: { lazyLoad: () => mermaid, config: {} }
             });
 
             setModelData(editor.model, "<paragraph>[foo]</paragraph>");

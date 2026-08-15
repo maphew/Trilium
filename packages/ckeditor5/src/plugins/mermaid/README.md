@@ -7,7 +7,7 @@ or both side by side. Load the `Mermaid` glue plugin; it pulls in `MermaidEditin
 | File | Role |
 |---|---|
 | `mermaid.ts` | Glue plugin; also declares the `ckeditor5` module augmentation and the global mermaid types |
-| `mermaid_editing.ts` | Schema, conversion, and the renderer (`_renderMermaid`) |
+| `mermaid_editing.ts` | Schema, conversion, and the renderer (`renderMermaid`) |
 | `mermaid_ui.ts` | The insert split button with its template dropdown, the mode buttons, the info button |
 | `mermaid_toolbar.ts` | Registers the balloon toolbar shown when a diagram is selected |
 | `insert_mermaid_command.ts` | `insertMermaid` — inserts a blank or pre-filled diagram |
@@ -34,9 +34,11 @@ mermaid: {
 }
 ```
 
-`_renderMermaid` calls `lazyLoad` once, memoises the promise, and calls `initialize()` on the
+`renderMermaid` calls `lazyLoad` once, memoises the promise, and calls `initialize()` on the
 resolved instance. Renders are generation-stamped so a slow render that has been superseded cannot
-overwrite a newer one, and a failed render shows the error message in place.
+overwrite a newer one, and a failed render shows the error message in place. It is public because
+the widget is not the only diagram on screen: the AI assistant renders the `language-mermaid` blocks
+of a finished response through it, so its review shows what committing will produce.
 
 ## Provenance
 

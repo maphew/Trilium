@@ -217,7 +217,7 @@ export default class MermaidEditing extends Plugin {
 			const mermaidSource = data.item.getAttribute( 'source' ) as string;
 			const domElement = this.toDomElement( domDocument );
 
-			that._renderMermaid( domElement, mermaidSource );
+			that.renderMermaid( domElement, mermaidSource );
 
 			return domElement;
 		}
@@ -247,7 +247,7 @@ export default class MermaidEditing extends Plugin {
 				const domPreviewWrapper = domConverter.viewToDom( child );
 
 				if ( domPreviewWrapper ) {
-					this._renderMermaid( domPreviewWrapper, newSource );
+					this.renderMermaid( domPreviewWrapper, newSource );
 				}
 			}
 		}
@@ -288,8 +288,14 @@ export default class MermaidEditing extends Plugin {
 
 	/**
 	 * Renders Mermaid (a parsed `source`) in a given `domElement`.
+	 *
+	 * Public because the widget's preview pane is no longer the only surface showing a diagram:
+	 * the AI assistant renders the `language-mermaid` blocks of a finished response the same way,
+	 * so that what it previews is what committing it will produce. Everything the widget needs of
+	 * the renderer — the one lazy load, the shared queue, the per-element generation — is what an
+	 * outside caller needs too, so it takes this rather than a copy of it.
 	 */
-	async _renderMermaid( domElement: HTMLElement, source: string ) {
+	async renderMermaid( domElement: HTMLElement, source: string ) {
 		if ( !source?.trim() ) {
 			// Bump generation so an in-flight render for the previous source cannot
 			// write its SVG back into a cleared preview.
