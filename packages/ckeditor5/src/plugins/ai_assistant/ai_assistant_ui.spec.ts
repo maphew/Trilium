@@ -90,12 +90,17 @@ const QUICK_ACTIONS: AiQuickActionGroup[] = [
  */
 const sanitizeHtml = (html: string) => html;
 
-/** The requests handed to the stream, in order, plus the stub itself. */
-function createStreamStub(response = "<p>done</p>") {
+/**
+ * The requests handed to the stream, in order, plus the stub itself.
+ *
+ * @param source what a host that renders its responses would report the HTML was rendered from —
+ *               omitted by one that streams HTML outright, which is delivered as its own source.
+ */
+function createStreamStub(response = "<p>done</p>", source?: string) {
     const requests: AiCompletionRequest[] = [];
     const stream: AiStreamFunction = async (request: AiCompletionRequest, onData: AiStreamCallback) => {
         requests.push(request);
-        onData(response);
+        onData(response, source);
     };
     return { requests, stream };
 }
@@ -409,7 +414,7 @@ describe("AiAssistantUI toolbar entry", () => {
             setModelData(editor.model, "<paragraph>[foo]</paragraph>");
             quickActionButtons(dropdown).find((button) => button.id === "japanese")?.fire("execute");
             await vi.waitFor(() => expect(requests).toHaveLength(1));
-            expect(requests[0]).toEqual({ query: "Translate to Japanese.", context: "foo" });
+            expect(requests[0]).toEqual({ query: "Translate to Japanese.", context: "foo", history: [] });
         });
 
         // What a run answers to rather than an instruction for one — Trilium hangs the model picker
@@ -533,7 +538,7 @@ describe("AiAssistantUI toolbar entry", () => {
             direct?.fire("execute");
             await vi.waitFor(() => expect(requests).toHaveLength(1));
 
-            expect(requests[0]).toEqual({ query: "Make it direct.", context: "foo" });
+            expect(requests[0]).toEqual({ query: "Make it direct.", context: "foo", history: [] });
         });
 
         it("falls back to the caret's block when nothing is selected", async () => {
@@ -543,7 +548,7 @@ describe("AiAssistantUI toolbar entry", () => {
             fixTypos.fire("execute");
             await vi.waitFor(() => expect(requests).toHaveLength(1));
 
-            expect(requests[0]).toEqual({ query: "Fix all mistakes.", context: "second" });
+            expect(requests[0]).toEqual({ query: "Fix all mistakes.", context: "second", history: [] });
         });
 
         it("keeps a free-form prompt at a collapsed caret generating from scratch", async () => {
@@ -555,7 +560,7 @@ describe("AiAssistantUI toolbar entry", () => {
             form.fire("submit");
             await vi.waitFor(() => expect(requests).toHaveLength(1));
 
-            expect(requests[0]).toEqual({ query: "Write a haiku.", context: "" });
+            expect(requests[0]).toEqual({ query: "Write a haiku.", context: "", history: [] });
         });
 
         it("runs the picked action against the selection and opens the dialog on it", async () => {
@@ -565,7 +570,7 @@ describe("AiAssistantUI toolbar entry", () => {
             fixTypos.fire("execute");
             await vi.waitFor(() => expect(requests).toHaveLength(1));
 
-            expect(requests[0]).toEqual({ query: "Fix all mistakes.", context: "foo" });
+            expect(requests[0]).toEqual({ query: "Fix all mistakes.", context: "foo", history: [] });
 
             const dialog = editor.plugins.get(Dialog);
             expect(dialog.isOpen).toBe(true);
@@ -652,6 +657,115 @@ describe("AiAssistantUI toolbar entry", () => {
             await vi.waitFor(() => expect(slowDropdown.isEnabled).toBe(false));
             release();
             await vi.waitFor(() => expect(slowDropdown.isEnabled).toBe(true));
+        });
+    });
+
+    // A follow-up is a turn in a conversation rather than a fresh instruction about the last
+    // answer: asked to translate and then to shorten, the model has to still see that the first
+    // instruction was German, or it shortens the German back into English.
+    describe("the conversation a follow-up continues", () => {
+        let editor: ClassicEditor;
+        let dropdown: QuickActionsDropdown;
+        let requests: AiCompletionRequest[];
+
+        beforeEach(async () => {
+            // A host that renders its responses reports what it rendered them from, and that is
+            // what the conversation records — the model gets its own words back, not our HTML.
+            const stub = createStreamStub("<p>Guten Tag</p>", "Guten Tag");
+            requests = stub.requests;
+            editor = await createEditor(QUICK_ACTIONS, stub.stream);
+            dropdown = createComponent(editor);
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+        });
+
+        /** Runs the first quick action, which is how every conversation here is opened. */
+        async function open() {
+            const [fixTypos] = quickActionButtons(dropdown);
+            fixTypos.fire("execute");
+            await vi.waitFor(() => expect(requests).toHaveLength(1));
+            return fixTypos;
+        }
+
+        /** Types a follow-up into the standing dialog and waits for the run it starts. */
+        async function followUp(query: string, expected: number) {
+            const form = openForm(editor);
+            form.query = query;
+            form.fire("submit");
+            await vi.waitFor(() => expect(requests).toHaveLength(expected));
+        }
+
+        it("carries every exchange so far, against the content it opened on", async () => {
+            await open();
+            await followUp("now make it shorter", 2);
+
+            expect(requests[1]).toEqual({
+                query: "now make it shorter",
+                // The selection, still: what has been said about it is on the record instead of
+                // being restated as the thing to work on.
+                context: "foo",
+                history: [
+                    { role: "user", content: "Fix all mistakes." },
+                    { role: "assistant", content: "Guten Tag" }
+                ]
+            });
+
+            await followUp("and in bullet points", 3);
+            expect(requests[2].history).toHaveLength(4);
+            expect(requests[2].history.at(-2)).toEqual({ role: "user", content: "now make it shorter" });
+        });
+
+        it("keeps a quick action picked over the open assistant in the same conversation", async () => {
+            await open();
+            const [, makeShorter] = quickActionButtons(dropdown);
+
+            makeShorter.fire("execute");
+            await vi.waitFor(() => expect(requests).toHaveLength(2));
+
+            expect(requests[1].query).toBe("Shorten it.");
+            expect(requests[1].history).toEqual([
+                { role: "user", content: "Fix all mistakes." },
+                { role: "assistant", content: "Guten Tag" }
+            ]);
+        });
+
+        it("drops the exchange a retry replaces", async () => {
+            await open();
+            await followUp("now make it shorter", 2);
+
+            openForm(editor).fire("tryAgain");
+            await vi.waitFor(() => expect(requests).toHaveLength(3));
+
+            // The retry asks the same question of the same conversation: the answer it is
+            // replacing is gone from the transcript, or the model would be refining it again.
+            expect(requests[2]).toEqual(requests[1]);
+        });
+
+        it("opens a fresh conversation each time the assistant does", async () => {
+            const fixTypos = await open();
+
+            editor.plugins.get(Dialog).hide();
+            setModelData(editor.model, "<paragraph>[bar]</paragraph>");
+            fixTypos.fire("execute");
+            await vi.waitFor(() => expect(requests).toHaveLength(2));
+
+            expect(requests[1]).toEqual({ query: "Fix all mistakes.", context: "bar", history: [] });
+        });
+
+        it("records the delivered HTML for a host that reports no source", async () => {
+            const stub = createStreamStub("<p>done</p>");
+            const htmlEditor = await createEditor(QUICK_ACTIONS, stub.stream);
+            const htmlDropdown = createComponent(htmlEditor);
+
+            setModelData(htmlEditor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(htmlDropdown)[0].fire("execute");
+            await vi.waitFor(() => expect(stub.requests).toHaveLength(1));
+
+            const form = openForm(htmlEditor);
+            form.query = "now make it shorter";
+            form.fire("submit");
+            await vi.waitFor(() => expect(stub.requests).toHaveLength(2));
+
+            expect(stub.requests[1].history.at(-1)).toEqual({ role: "assistant", content: "<p>done</p>" });
         });
     });
 

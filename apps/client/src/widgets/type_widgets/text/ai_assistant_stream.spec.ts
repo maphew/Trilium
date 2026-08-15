@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // The pipeline ends in DOMPurify, which needs browser-faithful NodeIterator traversal; happy-dom
 // mishandles it and drops the first node of every fragment. Same reason as sanitize_content.spec.
+import type { AiConversationTurn } from "@triliumnext/ckeditor5";
 import type { LlmChatConfig } from "@triliumnext/commons";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -65,17 +66,30 @@ beforeEach(() => {
 });
 
 /** Runs one completion through the built stream, collecting everything handed to `onData`. */
-async function run(context = "<p>teh</p>"): Promise<{ config: LlmChatConfig; prompt: string; rendered: string[] }> {
+async function run(context = "<p>teh</p>", history: AiConversationTurn[] = []): Promise<{
+    config: LlmChatConfig;
+    prompt: string;
+    messages: Array<{ role: string; content: string }>;
+    rendered: string[];
+    sources: string[];
+}> {
     const stream = buildAiAssistantStream();
     if (!stream) {
         throw new Error("expected the assistant to be enabled");
     }
     const rendered: string[] = [];
-    await stream({ query: "Fix typos", context }, (html) => rendered.push(html), new AbortController().signal);
+    const sources: string[] = [];
+    await stream({ query: "Fix typos", context, history }, (html, source) => {
+        rendered.push(html);
+        sources.push(source ?? "");
+    }, new AbortController().signal);
+    const messages = requestedMessages[0] ?? [];
     return {
         config: requestedConfigs[0],
-        prompt: requestedMessages[0]?.find((message) => message.role === "user")?.content ?? "",
-        rendered
+        prompt: messages.find((message) => message.role === "user")?.content ?? "",
+        messages,
+        rendered,
+        sources
     };
 }
 
@@ -209,6 +223,51 @@ describe("the Markdown pipeline", () => {
         const [html] = (await run()).rendered;
         expect(html).toContain("<strong>bold</strong>");
         expect(html).not.toContain("\u0060\u0060\u0060");
+    });
+});
+
+describe("the conversation", () => {
+    const fence = "\u0060\u0060\u0060";
+
+    beforeEach(() => {
+        storedProviders = PROVIDER;
+    });
+
+    // What the editor records as the assistant's turn, so that a follow-up hands the model back
+    // its own Markdown rather than our rendering of it — stripped exactly as the preview shows it.
+    it("reports the Markdown each render was made from", async () => {
+        responseChunks = [fence + "markdown\n**bo", "ld**\n" + fence];
+
+        const { sources, rendered } = await run();
+        expect(sources).toEqual(["**bo", "**bold**\n"]);
+        expect(rendered.at(-1)).toContain("<strong>bold</strong>");
+    });
+
+    // The instruction behind an answer stays on the record, so "make it shorter" after a
+    // translation shortens the translation instead of quietly undoing it.
+    it("sends the exchanges so far, with only the opening turn carrying the content", async () => {
+        toMarkdownResult = (html) => ({ markdownContent: html + " as markdown" });
+
+        const { messages } = await run("<p>teh</p>", [
+            { role: "user", content: "Translate to German" },
+            { role: "assistant", content: "Guten Tag" }
+        ]);
+
+        expect(messages.map((message) => message.role)).toEqual(["system", "user", "assistant", "user"]);
+        expect(messages[1].content).toBe("Content:\n<p>teh</p> as markdown\n\nTask: Translate to German");
+        expect(messages[2].content).toBe("Guten Tag");
+        // The new instruction alone: what it applies to is the answer above it.
+        expect(messages[3].content).toBe("Fix typos");
+    });
+
+    it("leaves the turns bare when the conversation started from scratch", async () => {
+        const { messages } = await run("", [
+            { role: "user", content: "Write a haiku" },
+            { role: "assistant", content: "an old silent pond" }
+        ]);
+
+        expect(messages.slice(1).map((message) => message.content))
+            .toEqual(["Write a haiku", "an old silent pond", "Fix typos"]);
     });
 });
 

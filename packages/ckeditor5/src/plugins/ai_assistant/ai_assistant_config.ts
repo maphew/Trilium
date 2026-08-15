@@ -1,4 +1,17 @@
 /**
+ * One exchange of an assistant conversation, as {@link AiCompletionRequest.history} carries it.
+ */
+export interface AiConversationTurn {
+    role: "user" | "assistant";
+    /**
+     * What was said: the instruction, for a user turn; for an assistant turn, the response in the
+     * source form the host reported it in ({@link AiStreamCallback}'s `source`), or the HTML it
+     * delivered when it reported none.
+     */
+    content: string;
+}
+
+/**
  * A single completion request made by the AI assistant.
  */
 export interface AiCompletionRequest {
@@ -6,18 +19,32 @@ export interface AiCompletionRequest {
     query: string;
 
     /**
-     * The HTML the instruction applies to (the selection, or on a follow-up query the previous
-     * response). Empty when the user generates new content from a collapsed selection.
+     * The HTML the conversation opened on — the selection the assistant was opened over, empty
+     * when the user generates new content from a collapsed selection. It is the same for every
+     * request of a conversation: a follow-up's subject is on the record in {@link history} rather
+     * than restated here.
      */
     context: string;
+
+    /**
+     * The exchanges before this one, oldest first, alternating user and assistant; empty on the
+     * first request of a conversation. What makes a follow-up a turn in a conversation rather than
+     * a fresh instruction about the last answer: "translate this to German" then "make it shorter"
+     * only means what it says while the first instruction is still on the record.
+     */
+    history: AiConversationTurn[];
 }
 
 /**
  * Called with the *cumulative* response HTML every time more of the stream arrives — the same
  * contract CKEditor's premium `AITextAdapter` uses. Re-parsing the growing prefix keeps the
  * preview renderable at every tick (the HTML parser auto-closes tags cut off mid-stream).
+ *
+ * `source` is what that HTML was rendered from, for a host that renders at all — Trilium's model
+ * answers in Markdown. It is what the response enters {@link AiCompletionRequest.history} as, so a
+ * follow-up hands the model back its own words instead of our rendering of them.
  */
-export type AiStreamCallback = (cumulativeHtml: string) => void;
+export type AiStreamCallback = (cumulativeHtml: string, source?: string) => void;
 
 /**
  * What a finished completion cost, shown in the review phase. All fields are optional — whatever

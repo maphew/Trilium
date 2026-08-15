@@ -18,7 +18,7 @@ import {
 } from "ckeditor5";
 
 import { extractDelimiters, renderEquation } from "../math/utils.js";
-import type { AiCompletionUsage, AiDiffResult, AiQuickAction, AiQuickActionFooter, AiQuickActionGroup, AiReviewView } from "./ai_assistant_config.js";
+import type { AiCompletionUsage, AiConversationTurn, AiDiffResult, AiQuickAction, AiQuickActionFooter, AiQuickActionGroup, AiReviewView } from "./ai_assistant_config.js";
 import AiAssistantEditing, { AI_TARGET_MARKER } from "./ai_assistant_editing.js";
 import AiAssistantFormView from "./ai_assistant_form.js";
 import aiIcon from "./theme/icons/ai.svg?raw";
@@ -92,10 +92,25 @@ export default class AiAssistantUI extends Plugin {
 
     /** The cumulative response HTML of the current/last run, as the host delivered it. */
     private _cumulative = "";
-    /** The HTML the next query will run against: the selection, then each committed-to response. */
+    /**
+     * The same response in the form the host rendered it from, which is what the conversation
+     * records — a host reporting no source records the HTML instead.
+     */
+    private _cumulativeSource = "";
+    /** The HTML the conversation opened on, sent with every request it makes. */
+    private _openingContext = "";
+    /**
+     * The HTML each response is measured against: the selection, then each response chained on.
+     * What a run *asks* about is {@link _openingContext} plus {@link _history} — this is what the
+     * diff runs against and what tells the quick actions there is something to work on.
+     */
     private _context = "";
     /** The context of the last run, restored by "Try again" so a retry does not chain on itself. */
     private _previousContext = "";
+    /** The exchanges so far, which the next request carries — see `AiCompletionRequest.history`. */
+    private _history: AiConversationTurn[] = [];
+    /** The history of the last run, restored by "Try again" alongside {@link _previousContext}. */
+    private _previousHistory: AiConversationTurn[] = [];
     private _lastQuery = "";
     /**
      * The view the running quick action asked its review to open on, when it named one. Null for a
@@ -514,8 +529,12 @@ export default class AiAssistantUI extends Plugin {
         this._context = !range || range.isCollapsed
             ? ""
             : editor.data.stringify(model.getSelectedContent(model.createSelection(range)));
+        this._openingContext = this._context;
         this._previousContext = this._context;
+        this._history = [];
+        this._previousHistory = [];
         this._cumulative = "";
+        this._cumulativeSource = "";
         this._updateHasContext();
 
         /* v8 ignore next -- the document selection always has at least one range */
@@ -584,8 +603,10 @@ export default class AiAssistantUI extends Plugin {
         form.on("replace", () => this._commit("replace"));
         form.on("insertBelow", () => this._commit("insertBelow"));
         form.on("tryAgain", () => {
-            // Retry against what the last run saw, not against its own output.
+            // Retry against what the last run saw, not against its own output — so the exchange
+            // being retried leaves the conversation along with the response it produced.
             this._context = this._previousContext;
+            this._history = this._previousHistory;
             void this._run(this._lastQuery);
         });
 
@@ -605,9 +626,11 @@ export default class AiAssistantUI extends Plugin {
         }
 
         this._previousContext = this._context;
+        this._previousHistory = this._history;
         this._lastQuery = query;
         this.isStreaming = true;
         this._cumulative = "";
+        this._cumulativeSource = "";
         form.beginStreaming();
 
         const abortController = new AbortController();
@@ -617,8 +640,9 @@ export default class AiAssistantUI extends Plugin {
 
         let renderTimer: ReturnType<typeof setTimeout> | null = null;
         let pendingHtml: string | null = null;
-        const onData = (cumulative: string) => {
+        const onData = (cumulative: string, source?: string) => {
             this._cumulative = cumulative;
+            this._cumulativeSource = source ?? cumulative;
             if (renderTimer) {
                 pendingHtml = cumulative;
                 return;
@@ -637,7 +661,11 @@ export default class AiAssistantUI extends Plugin {
         let errorMessage = "";
         let usage: AiCompletionUsage | null = null;
         try {
-            usage = (await stream({ query, context: this._context }, onData, abortController.signal)) ?? null;
+            usage = (await stream(
+                { query, context: this._openingContext, history: this._history },
+                onData,
+                abortController.signal
+            )) ?? null;
         } catch (error) {
             // An abort is the user's Stop: whatever already streamed stays reviewable.
             if (!(error instanceof DOMException && error.name === "AbortError")) {
@@ -656,8 +684,16 @@ export default class AiAssistantUI extends Plugin {
         }
 
         if (this._cumulative) {
-            // Follow-up queries chain on the response ("now make it shorter"), premium-style.
+            // Follow-up queries chain on the response ("now make it shorter"), premium-style — and
+            // the exchange joins the conversation the next one is asked in, so the instruction
+            // behind the response is still on the record when the response is refined. Without it
+            // "translate this to German" followed by "make it shorter" shortens in English.
             this._context = this._cumulative;
+            this._history = [
+                ...this._history,
+                { role: "user", content: query },
+                { role: "assistant", content: this._cumulativeSource }
+            ];
         }
         // A response counts as content, so content-requiring quick actions unlock for chaining.
         this._updateHasContext();
@@ -890,10 +926,16 @@ export default class AiAssistantUI extends Plugin {
 
         this._abortController?.abort();
         this._cumulative = "";
+        this._cumulativeSource = "";
         // Dropping the captured context hands the quick actions back to the selection; keeping it
         // would leave them enabled over a closed assistant that has nothing to work on.
         this._context = "";
+        this._openingContext = "";
         this._previousContext = "";
+        // The conversation was the dialog's: the next one opens on a fresh selection, with nothing
+        // the model should still be answering in the light of.
+        this._history = [];
+        this._previousHistory = [];
         this._reviewView = null;
         this._updateHasContext();
 

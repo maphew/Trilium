@@ -1,4 +1,4 @@
-import type { AiCompletionUsage, AiQuickAction, AiQuickActionGroup, AiStreamFunction } from "@triliumnext/ckeditor5";
+import type { AiCompletionRequest, AiCompletionUsage, AiConversationTurn, AiQuickAction, AiQuickActionGroup, AiStreamFunction } from "@triliumnext/ckeditor5";
 import { getEnglishName, type LlmMessage, type LlmUsage, type Locale, type ToMarkdownResponse } from "@triliumnext/commons";
 
 import appContext from "../../../components/app_context.js";
@@ -38,16 +38,7 @@ export default function buildAiAssistantStream(): AiStreamFunction | undefined {
             loadMarkdownRenderer()
         ]);
 
-        const messages: LlmMessage[] = [
-            { role: "system", content: SYSTEM_PROMPT },
-            {
-                role: "user",
-                content: context
-                    ? `Content:\n${context}\n\nTask: ${request.query}`
-                    : request.query
-            }
-        ];
-
+        const messages = buildMessages(request, context);
         const config = pickModel();
         let cumulative = "";
         const usage = await new Promise<LlmUsage | null>((resolve, reject) => {
@@ -55,7 +46,11 @@ export default function buildAiAssistantStream(): AiStreamFunction | undefined {
             streamChatCompletion(messages, config, {
                 onChunk: (text) => {
                     cumulative += text;
-                    onData(renderMarkdown(cumulative));
+                    // The wrapper fence comes off here rather than inside the renderer: the
+                    // stripped Markdown is both what the preview shows and what the assistant
+                    // hands back as this turn when the user follows up on it.
+                    const markdown = stripMarkdownFences(cumulative);
+                    onData(renderMarkdown(markdown), markdown);
                 },
                 onUsage: (chunk) => {
                     reported = chunk;
@@ -359,6 +354,28 @@ Rules:
 - Respond in the same language as the content, unless the task says otherwise.`;
 
 /**
+ * The conversation as the provider takes it: the system prompt, the exchanges so far, and the new
+ * instruction last.
+ *
+ * Only the opening turn carries the content, because it is the same content for the whole
+ * conversation and the answers to it are in the transcript. That is what makes a follow-up a
+ * follow-up: "now make it shorter" after "translate this to German" reaches a model that can still
+ * see it was asked for German, instead of one handed German text and a bare request to shorten it.
+ */
+function buildMessages(request: AiCompletionRequest, context: string): LlmMessage[] {
+    const turns: AiConversationTurn[] = [...request.history, { role: "user", content: request.query }];
+    return [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...turns.map((turn, index) => ({
+            role: turn.role,
+            content: index === 0 && context
+                ? `Content:\n${context}\n\nTask: ${turn.content}`
+                : turn.content
+        }))
+    ];
+}
+
+/**
  * The selection, as Markdown for the model. The conversion is the server's: turndown and the rules
  * that keep admonitions, `<details>`, math and reference links intact live in `trilium-core`, which
  * the client cannot import — and unlike the response, the context is one string sent once, so a
@@ -393,7 +410,7 @@ async function loadMarkdownRenderer(): Promise<(markdown: string) => string> {
         getTaskStateDefinitions()
     ]);
 
-    return (markdown) => renderToHtml(stripMarkdownFences(markdown), "", {
+    return (markdown) => renderToHtml(markdown, "", {
         sanitize: sanitizeNoteContentHtml,
         taskStates,
         wikiLink: { formatHref: (id) => `#root/${id}` }
