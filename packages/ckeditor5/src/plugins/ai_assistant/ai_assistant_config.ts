@@ -48,12 +48,32 @@ export type AiStreamFunction = (
     signal: AbortSignal
 ) => Promise<AiCompletionUsage | void>;
 
+/** Which of the review's two views the preview shows: the plain response, or its diff. */
+export type AiReviewView = "result" | "changes";
+
+/** What a {@link AiDiffFunction} produced, when it has more to say than the diff itself. */
+export interface AiDiffResult {
+    /** The diff, marked up with `<ins>`/`<del>` elements. */
+    html: string;
+    /**
+     * How much of the response — 0 to 1, measured over its text — replaced what it was given
+     * outright instead of editing it in place. Past half the review opens on the plain result:
+     * a diff of two texts with next to nothing in common is noise however well it is rendered,
+     * and the response itself is the thing worth reading.
+     *
+     * Optional; a renderer that does not measure this is treated as having rewritten nothing,
+     * which is the behaviour of a plain word-level diff.
+     */
+    rewriteRatio?: number;
+}
+
 /**
  * Renders an inline HTML diff between two HTML fragments, returning HTML in which insertions and
  * deletions are marked with `<ins>`/`<del>` elements (the `htmldiff-js` output convention, the
- * same mechanism Trilium's revision dialog uses).
+ * same mechanism Trilium's revision dialog uses). Returning an {@link AiDiffResult} instead of a
+ * bare string lets the renderer also say how much of the response it could not align.
  */
-export type AiDiffFunction = (oldHtml: string, newHtml: string) => string;
+export type AiDiffFunction = (oldHtml: string, newHtml: string) => string | AiDiffResult;
 
 /**
  * A predefined instruction offered in the menu of the toolbar's AI entry — the GPL counterpart of
@@ -86,6 +106,15 @@ export interface AiQuickAction {
      * while there is nothing selected and nothing has been generated yet.
      */
     requiresContent?: boolean;
+    /**
+     * Which view the review opens on once this action's run finishes. Left unset, how much of the
+     * response the diff could align decides (see {@link AiDiffResult.rewriteRatio}).
+     *
+     * Set it to `"result"` for an action whose answer replaces its source by definition — a
+     * translation, a summary, a diagram — where the diff is two unrelated texts stacked on each
+     * other whatever the measurement says.
+     */
+    reviewView?: AiReviewView;
 }
 
 /**
@@ -130,6 +159,9 @@ export interface AiAssistantConfig {
      * content it replaces. Optional — without it the review phase only shows the result. The diff
      * is computed once per finished run, never against a partial stream (a half-streamed response
      * would render as a sea of deletions).
+     *
+     * Which of the two views the review opens on follows from what this returns, unless the quick
+     * action that started the run named one itself ({@link AiQuickAction.reviewView}).
      */
     diff?: AiDiffFunction;
 

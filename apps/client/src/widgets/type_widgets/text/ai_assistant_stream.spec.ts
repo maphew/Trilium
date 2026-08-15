@@ -320,4 +320,22 @@ describe("buildAiAssistantQuickActions", () => {
             expect(action.commandLabel).toBeUndefined();
         }
     });
+
+    // The actions that answer with a replacement rather than an edit open their review on the
+    // result; everything else lets the diff of the run decide, which is what an unset view means.
+    it("sends the replacements to the result view and leaves the edits to the diff", () => {
+        const reviewViews = new Map(buildAiAssistantQuickActions()
+            .flatMap((group) => group.actions)
+            .map((action) => [action.id, action.reviewView]));
+
+        expect([ ...reviewViews ].filter(([, view]) => view === "result").map(([id]) => id))
+            .toEqual([
+                "summarize", "explain", "continue", "table", "diagram", "actionItems",
+                "translateEnglish", "translateGerman", "translateSpanish", "translateFrench",
+                "translateRomanian", "translateChinese"
+            ]);
+        for (const id of ["fixTypos", "improveWriting", "makeShorter", "professional", "callout"]) {
+            expect(reviewViews.get(id), id).toBeUndefined();
+        }
+    });
 });

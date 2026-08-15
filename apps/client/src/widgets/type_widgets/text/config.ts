@@ -1,7 +1,6 @@
 import { type EditorConfig, getCkLocale, SnippetDefinition, type TextTransformationConfig } from "@triliumnext/ckeditor5";
 import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en.json?url";
 import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, formatShortcut, IMAGE_UPLOAD_SUBTYPES, joinShortcut, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
-import HtmlDiff from "htmldiff-js";
 import i18next from "i18next";
 
 import { copyHtmlWithToast, copyTextWithToast } from "../../../services/clipboard_ext.js";
@@ -18,6 +17,7 @@ import { isMac } from "../../../services/utils.js";
 import { resolveContentLanguage } from "../../../utils/formatters.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
 import buildAiAssistantStream, { buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
+import diffAiResponse from "./ai_diff.js";
 import { buildQuoteTransformation, resolveQuoteSetting } from "./quotes.js";
 import { buildCustomTransformations, parseCustomReplacements } from "./replacements.js";
 import { buildToolbarConfig } from "./toolbar.js";
@@ -194,9 +194,10 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         aiAssistant: {
             // `undefined` when no LLM provider is configured, which disables the feature.
             stream: buildAiAssistantStream(),
-            // The "Changes" review view: the same HTML-aware inline diff (`<ins>`/`<del>`
-            // markup) the revisions dialog uses.
-            diff: (oldHtml: string, newHtml: string) => HtmlDiff.execute(oldHtml, newHtml),
+            // The "Changes" review view: a block-aware inline diff, so that a response which
+            // rewrote a paragraph rather than editing it reads as a replacement instead of as
+            // shredded `<ins>`/`<del>` pairs.
+            diff: diffAiResponse,
             quickActions: buildAiAssistantQuickActions(),
             // The model's HTML reaches the preview through `innerHTML`, so it gets the same
             // DOMPurify pass as any other untrusted content rendered outside the editor's

@@ -81,7 +81,7 @@ export default function buildAiAssistantStream(): AiStreamFunction | undefined {
  * given); prompts stay English — they are instructions to the model, not UI.
  */
 export function buildAiAssistantQuickActions(): AiQuickActionGroup[] {
-    return withIcons([
+    return decorate([
         {
             id: "edit",
             label: t("ai_assistant.group_edit"),
@@ -230,12 +230,34 @@ const ICONS: Record<string, string> = {
     // is its own panel holding nothing but languages, so there is nothing to line up against.
 };
 
-/** Hangs {@link ICONS} on the definitions by id, leaving the ids that have none untouched. */
-function withIcons(groups: AiQuickActionGroup[]): AiQuickActionGroup[] {
+/**
+ * The actions whose answer replaces what it was given instead of editing it: a translation, a
+ * summary, a diagram. Their review opens on the result — an inline diff of two texts with nothing
+ * in common says nothing, however well it is rendered, and the answer is what wants reading.
+ *
+ * Only the outright replacements are listed. Everything else lets the run decide for itself, from
+ * how much of the response the differ could align (see `diffAiResponse`) — which is also what
+ * answers for a prompt the user typed, where there is no definition to go on.
+ */
+const REPLACEMENT_GROUPS = new Set(["translate"]);
+const REPLACEMENT_ACTIONS = new Set(["summarize", "explain", "continue", "table", "diagram", "actionItems"]);
+
+/**
+ * Hangs {@link ICONS} and the review view on the definitions by id, leaving the ids that have
+ * neither untouched. Kept out of the definitions themselves so that each stays about what it asks
+ * the model for, and so that one list per concern can be read for completeness.
+ */
+function decorate(groups: AiQuickActionGroup[]): AiQuickActionGroup[] {
     return groups.map((group) => ({
         ...group,
         iconClass: ICONS[group.id],
-        actions: group.actions.map((action) => ({ ...action, iconClass: ICONS[action.id] }))
+        actions: group.actions.map((action) => ({
+            ...action,
+            iconClass: ICONS[action.id],
+            reviewView: REPLACEMENT_GROUPS.has(group.id) || REPLACEMENT_ACTIONS.has(action.id)
+                ? "result" as const
+                : undefined
+        }))
     }));
 }
 

@@ -1,0 +1,86 @@
+import { describe, expect, it } from "vitest";
+
+import diffAiResponse from "./ai_diff.js";
+
+const ORIGINAL = [
+    "<h2>Backups</h2>",
+    "<p>Trilium keeps a copy of the database every day, every week and every month.</p>",
+    "<p>You can restore one by stopping the application and swapping the file.</p>"
+].join("");
+
+describe("diffAiResponse", () => {
+    it("marks a corrected word inside the paragraph it was corrected in", () => {
+        const corrected = ORIGINAL.replace("swapping the file.", "swapping the file out.");
+        const { html, rewriteRatio } = diffAiResponse(ORIGINAL, corrected);
+
+        // The two untouched blocks come through as they were, and the third carries the mark.
+        expect(html).toContain("<h2>Backups</h2>");
+        expect(html).toContain("<ins class=\"diffins\">");
+        expect(html).not.toContain("diffblock");
+        expect(rewriteRatio).toBe(0);
+    });
+
+    it("shows a paragraph that shares no words as a replacement rather than word by word", () => {
+        const translated = [
+            "<h2>Copii de rezervă</h2>",
+            "<p>Trilium păstrează o copie a bazei de date în fiecare zi, săptămână și lună.</p>",
+            "<p>Poți restaura una oprind aplicația și înlocuind fișierul.</p>"
+        ].join("");
+        const { html, rewriteRatio } = diffAiResponse(ORIGINAL, translated);
+
+        // Each old block struck out whole, with the block that replaced it right after — not the
+        // alternating word pairs a plain word-level diff produces for two unrelated texts.
+        expect(html).toBe([
+            "<del class=\"diffdel diffblock\"><h2>Backups</h2></del>",
+            "<ins class=\"diffins diffblock\"><h2>Copii de rezervă</h2></ins>",
+            "<del class=\"diffdel diffblock\"><p>Trilium keeps a copy of the database every day, every week and every month.</p></del>",
+            "<ins class=\"diffins diffblock\"><p>Trilium păstrează o copie a bazei de date în fiecare zi, săptămână și lună.</p></ins>",
+            "<del class=\"diffdel diffblock\"><p>You can restore one by stopping the application and swapping the file.</p></del>",
+            "<ins class=\"diffins diffblock\"><p>Poți restaura una oprind aplicația și înlocuind fișierul.</p></ins>"
+        ].join(""));
+        // Nothing of the response was an edit, which is what sends the review to the result view.
+        expect(rewriteRatio).toBe(1);
+    });
+
+    it("keeps a restructured block whole instead of interleaving two kinds of markup", () => {
+        const asList = "<ul><li>A daily copy</li><li>A weekly copy</li><li>A monthly copy</li></ul>";
+        const { html } = diffAiResponse("<p>Trilium keeps a daily, weekly and monthly copy.</p>", asList);
+
+        // A `<p>` word-diffed against a `<ul>` comes out with its tags closing in the wrong order.
+        expect(html).toBe(
+            "<del class=\"diffdel diffblock\"><p>Trilium keeps a daily, weekly and monthly copy.</p></del>"
+            + `<ins class="diffins diffblock">${asList}</ins>`
+        );
+    });
+
+    it("marks an added paragraph as an addition, leaving the ratio to the rewrites", () => {
+        const expanded = ORIGINAL.replace("<p>You can", "<p>The copies live next to the database file.</p><p>You can");
+        const { html, rewriteRatio } = diffAiResponse(ORIGINAL, expanded);
+
+        expect(html).toContain("<ins class=\"diffins diffblock\"><p>The copies live next to the database file.</p></ins>");
+        expect(html).not.toContain("diffdel");
+        // An insertion is readable as a diff however large it is, so it is not a rewrite.
+        expect(rewriteRatio).toBe(0);
+    });
+
+    it("renders an unchanged block in the shape the response gave it", () => {
+        const { html } = diffAiResponse(
+            "<p>Never edit the database while the app runs.</p>",
+            "<blockquote class=\"admonition warning\"><p>Never edit the database while the app runs.</p></blockquote>"
+        );
+
+        expect(html).toBe("<blockquote class=\"admonition warning\"><p>Never edit the database while the app runs.</p></blockquote>");
+    });
+
+    it("diffs a selection made inside a paragraph, which has no blocks at all", () => {
+        const { html } = diffAiResponse("the quick <strong>brown</strong> fox", "the quick <strong>red</strong> fox");
+
+        expect(html).toContain("brown");
+        expect(html).toContain("red");
+        expect(html).not.toContain("diffblock");
+    });
+
+    it("treats a response with nothing to align against as entirely rewritten", () => {
+        expect(diffAiResponse("", "<p>generated</p>").rewriteRatio).toBe(1);
+    });
+});

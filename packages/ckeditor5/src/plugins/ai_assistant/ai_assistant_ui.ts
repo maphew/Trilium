@@ -17,7 +17,7 @@ import {
     type ModelRange
 } from "ckeditor5";
 
-import type { AiCompletionUsage, AiQuickAction, AiQuickActionGroup } from "./ai_assistant_config.js";
+import type { AiCompletionUsage, AiDiffResult, AiQuickAction, AiQuickActionGroup, AiReviewView } from "./ai_assistant_config.js";
 import AiAssistantEditing, { AI_TARGET_MARKER } from "./ai_assistant_editing.js";
 import AiAssistantFormView from "./ai_assistant_form.js";
 import aiIcon from "./theme/icons/ai.svg?raw";
@@ -31,6 +31,14 @@ const RENDER_THROTTLE_MS = 80;
 
 /** Identifies our dialog in the editor-wide `Dialog` plugin, which shows one dialog at a time. */
 const DIALOG_ID = "aiAssistant";
+
+/**
+ * How much of a response has to be a replacement rather than an edit (see
+ * `AiDiffResult.rewriteRatio`) before the review opens on the plain result instead of the diff.
+ * Half is the point where the "Changes" view stops being a set of marks on a text one can still
+ * read and becomes two texts stacked on each other.
+ */
+const REWRITE_RATIO_THRESHOLD = 0.5;
 
 /**
  * The AI assistant's UI and orchestration: the toolbar entry (a split button whose menu holds the
@@ -79,6 +87,11 @@ export default class AiAssistantUI extends Plugin {
     /** The context of the last run, restored by "Try again" so a retry does not chain on itself. */
     private _previousContext = "";
     private _lastQuery = "";
+    /**
+     * The view the running quick action asked its review to open on, when it named one. Null for a
+     * typed prompt, which leaves the choice to the diff.
+     */
+    private _reviewView: AiReviewView | null = null;
 
     public init(): void {
         const editor = this.editor;
@@ -246,6 +259,7 @@ export default class AiAssistantUI extends Plugin {
         // Titled the way the `/` palette names the action: a bare label can be a fragment
         // ("Romanian") that only reads as an instruction beside its group heading.
         this._open(true, action.commandLabel ?? action.label);
+        this._reviewView = action.reviewView ?? null;
         void this._run(action.prompt);
     }
 
@@ -333,8 +347,9 @@ export default class AiAssistantUI extends Plugin {
             if (query) {
                 form.query = "";
                 // A typed follow-up is no longer the quick action that opened the assistant, so
-                // the header stops claiming to be one.
+                // the header stops claiming to be one — and its review view goes with it.
                 this._setTitle(editor.t("AI assistant"));
+                this._reviewView = null;
                 void this._run(query);
             }
         });
@@ -419,7 +434,27 @@ export default class AiAssistantUI extends Plugin {
         }
         // A response counts as content, so content-requiring quick actions unlock for chaining.
         this._updateHasContext();
-        form.enterReview(!!this._cumulative, this._buildDiff(), errorMessage, this._formatUsage(usage));
+
+        const diff = this._buildDiff();
+        form.enterReview({
+            hasContent: !!this._cumulative,
+            diffHtml: diff?.html,
+            errorMessage,
+            usageText: this._formatUsage(usage),
+            viewMode: this._resolveReviewView(diff)
+        });
+    }
+
+    /**
+     * Which view the finished run opens on: whatever the quick action asked for, and otherwise
+     * what the diff makes of the response — a rewrite the differ could barely align is shown as
+     * the result, since the marks would outnumber the text they are on.
+     */
+    private _resolveReviewView(diff: AiDiffResult | null): AiReviewView {
+        if (this._reviewView) {
+            return this._reviewView;
+        }
+        return (diff?.rewriteRatio ?? 0) > REWRITE_RATIO_THRESHOLD ? "result" : "changes";
     }
 
     /**
@@ -467,13 +502,16 @@ export default class AiAssistantUI extends Plugin {
      * response would render everything not yet streamed as deleted. Null when the host provides
      * no diff renderer or there is nothing to diff against (generate-from-scratch).
      */
-    private _buildDiff(): string | null {
+    private _buildDiff(): AiDiffResult | null {
         const diff = this.editor.config.get("aiAssistant")?.diff;
         if (!diff || !this._cumulative || !this._previousContext) {
             return null;
         }
         try {
-            return this._sanitize(diff(this._previousContext, this._cumulative));
+            // A renderer may answer with the diff alone or with the diff and what it made of it.
+            const result = diff(this._previousContext, this._cumulative);
+            const { html, rewriteRatio }: AiDiffResult = typeof result === "string" ? { html: result } : result;
+            return { html: this._sanitize(html), rewriteRatio };
         } catch (error) {
             // A host diff failure only costs the Changes view, never the response itself.
             console.warn("AI assistant: diff renderer failed", error);
@@ -551,6 +589,7 @@ export default class AiAssistantUI extends Plugin {
         // would leave them enabled over a closed assistant that has nothing to work on.
         this._context = "";
         this._previousContext = "";
+        this._reviewView = null;
         this._updateHasContext();
 
         if (editor.model.markers.has(AI_TARGET_MARKER)) {

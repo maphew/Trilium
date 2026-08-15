@@ -1,4 +1,4 @@
-import { IconArrowUp, IconRefresh } from "@ckeditor/ckeditor5-icons";
+import { IconArrowUp, IconRefresh, IconStop } from "@ckeditor/ckeditor5-icons";
 import {
     ButtonView,
     FocusCycler,
@@ -12,6 +12,8 @@ import {
     type Locale
 } from "ckeditor5";
 
+import type { AiReviewView } from "./ai_assistant_config.js";
+
 /**
  * Where the form is in its lifecycle: taking a prompt, streaming a response into the preview, or
  * showing a finished response for review (Replace / Insert below / Try again). The prompt row stays
@@ -19,8 +21,19 @@ import {
  */
 export type AiAssistantFormPhase = "prompt" | "streaming" | "review";
 
-/** What the preview shows in the review phase: the response, or its diff against the context. */
-export type AiAssistantViewMode = "result" | "changes";
+/** What a finished run leaves the form showing. */
+export interface AiReviewOptions {
+    /** Whether the run produced anything at all; without it the form falls back to the prompt. */
+    hasContent: boolean;
+    /** The (sanitized) diff of the response against what it would replace, when there is one. */
+    diffHtml?: string | null;
+    /** A transport/provider failure to surface; empty when the run succeeded. */
+    errorMessage?: string;
+    /** The run's cost line ("model · tokens · price"). */
+    usageText?: string;
+    /** Which view to open on. Defaults to "changes" whenever there is a diff to show. */
+    viewMode?: AiReviewView;
+}
 
 /**
  * The AI assistant dialog's contents: a prompt row, a read-only streaming preview styled like note
@@ -37,7 +50,7 @@ export default class AiAssistantFormView extends View {
     /** A transport/provider failure to surface; empty string when there is none. */
     declare public errorMessage: string;
     /** Which of the stored contents the preview shows. Only meaningful in the review phase. */
-    declare public viewMode: AiAssistantViewMode;
+    declare public viewMode: AiReviewView;
     /** Whether the current review has a diff to offer; controls the view-mode toggle. */
     declare public hasDiff: boolean;
     /** The run's cost line ("model · tokens · price"), shown in the review actions row. */
@@ -86,7 +99,12 @@ export default class AiAssistantFormView extends View {
         this.previewView = new AiPreviewView(locale);
         this.previewView.bind("isVisible").to(this, "phase", (phase) => phase !== "prompt");
 
+        // Takes Send's place in the prompt row while a run is in flight: the control that acts on
+        // the run belongs where the eye already is, and one icon replacing another keeps the row
+        // from resizing as the phase turns over.
         this.stopButtonView = this._createActionButton(locale, t("Stop"), "streaming", "stop");
+        this.stopButtonView.set({ icon: IconStop, withText: false, tooltip: true });
+        this.stopButtonView.class = "ck-button-action ck-ai-assistant-form__icon-action";
         this.replaceButtonView = this._createActionButton(locale, t("Replace"), "review", "replace");
         this.replaceButtonView.class = "ck-button-action";
         this.insertBelowButtonView = this._createActionButton(locale, t("Insert below"), "review", "insertBelow");
@@ -109,7 +127,13 @@ export default class AiAssistantFormView extends View {
         this.setTemplate({
             tag: "form",
             attributes: {
-                class: ["ck", "ck-ai-assistant-form"],
+                class: [
+                    "ck",
+                    "ck-ai-assistant-form",
+                    // Lets the stylesheet stand a placeholder in for the response that has been
+                    // asked for and not yet begun to arrive.
+                    bind.if("phase", "ck-ai-assistant-form_streaming", (phase) => phase === "streaming")
+                ],
                 tabindex: "-1"
             },
             children: [
@@ -165,13 +189,14 @@ export default class AiAssistantFormView extends View {
                 {
                     tag: "div",
                     attributes: { class: ["ck", "ck-ai-assistant-form__prompt-row"] },
-                    children: [this.promptInputView, this.sendButtonView]
+                    // Send and Stop share the slot at the end of the row; the phase decides which
+                    // of the two is on show.
+                    children: [this.promptInputView, this.sendButtonView, this.stopButtonView]
                 },
                 {
                     tag: "div",
                     attributes: { class: ["ck", "ck-ai-assistant-form__actions"] },
                     children: [
-                        this.stopButtonView,
                         // The row is pushed to the end, so "Replace" comes last to land where the
                         // eye finishes and the primary action is expected.
                         this.insertBelowButtonView,
@@ -261,16 +286,16 @@ export default class AiAssistantFormView extends View {
     }
 
     /**
-     * Leaves the streaming phase. With content the form enters review — defaulting to the
-     * "Changes" view when a diff is available — while a run that produced nothing falls back to
-     * the prompt phase, showing `errorMessage` when the run failed.
+     * Leaves the streaming phase. With content the form enters review, on the view the caller asks
+     * for (the "Changes" view by default, whenever there is a diff), while a run that produced
+     * nothing falls back to the prompt phase, showing `errorMessage` when the run failed.
      */
-    public enterReview(hasContent: boolean, diffHtml: string | null, errorMessage: string, usageText = ""): void {
+    public enterReview({ hasContent, diffHtml, errorMessage = "", usageText = "", viewMode }: AiReviewOptions): void {
         this.phase = hasContent ? "review" : "prompt";
         this.errorMessage = errorMessage;
         this._diffHtml = diffHtml ?? "";
         this.hasDiff = hasContent && !!this._diffHtml;
-        this.viewMode = this.hasDiff ? "changes" : "result";
+        this.viewMode = this.hasDiff ? (viewMode ?? "changes") : "result";
         this.usageText = hasContent ? usageText : "";
         this._renderPreview();
     }
@@ -285,7 +310,7 @@ export default class AiAssistantFormView extends View {
     }
 
     /** One half of the Result/Changes toggle, visible only when a review has a diff to offer. */
-    private _createViewModeButton(locale: Locale, label: string, mode: AiAssistantViewMode) {
+    private _createViewModeButton(locale: Locale, label: string, mode: AiReviewView) {
         const button = new ButtonView(locale);
         button.set({ label, withText: true, isToggleable: true, class: "ck-ai-assistant-form__viewmode" });
         button.bind("isOn").to(this, "viewMode", (viewMode) => viewMode === mode);
@@ -306,12 +331,15 @@ export default class AiAssistantFormView extends View {
         const t = locale.t;
         const input = new InputTextView(locale);
 
-        input.set({
-            placeholder: t("Describe a change then press Enter"),
-            // A placeholder is not a label, and the field no longer has a visible one, so the
-            // accessible name has to be given outright.
-            ariaLabel: t("Ask AI to…")
-        });
+        // A placeholder is not a label, and the field no longer has a visible one, so the
+        // accessible name has to be given outright.
+        input.set({ ariaLabel: t("Ask AI to…") });
+
+        // The field is read-only mid-run, so an instruction to type would be inviting something
+        // that cannot happen; it says what is happening instead.
+        input.bind("placeholder").to(this, "phase", (phase) => (phase === "streaming"
+            ? t("Working…")
+            : t("Describe a change then press Enter")));
 
         // Two-way: the field drives `query`, and reset() drives the field.
         input.bind("value").to(this, "query");
@@ -340,6 +368,8 @@ export default class AiAssistantFormView extends View {
             this, "phase",
             (query, phase) => !!String(query).trim() && phase !== "streaming"
         );
+        // Stands aside for "Stop", which takes over the slot for the length of a run.
+        button.bind("isVisible").to(this, "phase", (phase) => phase !== "streaming");
         return button;
     }
 

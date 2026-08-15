@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
 import TriliumAiAssistant from "./ai_assistant.js";
-import type { AiCompletionRequest, AiQuickActionGroup, AiStreamCallback, AiStreamFunction } from "./ai_assistant_config.js";
+import type { AiCompletionRequest, AiDiffFunction, AiQuickActionGroup, AiStreamCallback, AiStreamFunction } from "./ai_assistant_config.js";
 import AiAssistantUI from "./ai_assistant_ui.js";
 
 // ---- Typed views of the dropdown internals ----
@@ -139,6 +139,9 @@ function dialogTitle(editor: ClassicEditor) {
 function openForm(editor: ClassicEditor) {
     return editor.plugins.get(Dialog).view?.contentView?.children.get(0) as unknown as {
         query: string;
+        phase: string;
+        viewMode: string;
+        hasDiff: boolean;
         fire(event: string): void;
     };
 }
@@ -358,6 +361,53 @@ describe("AiAssistantUI toolbar entry", () => {
             await vi.waitFor(() => expect(slowDropdown.isEnabled).toBe(false));
             release();
             await vi.waitFor(() => expect(slowDropdown.isEnabled).toBe(true));
+        });
+    });
+
+    describe("the view a finished review opens on", () => {
+        const REVIEW_ACTIONS: AiQuickActionGroup[] = [
+            {
+                id: "edit",
+                label: "Edit or review",
+                actions: [
+                    { id: "fixTypos", label: "Fix typos", prompt: "Fix all mistakes." },
+                    // A replacement by definition, whatever the diff makes of it.
+                    { id: "translate", label: "Translate", prompt: "Translate it.", reviewView: "result" }
+                ]
+            }
+        ];
+
+        /** Runs one quick action against a selection and hands back the form in its review. */
+        async function review(diff: AiDiffFunction, actionId: string) {
+            const stub = createStreamStub();
+            const editor = await createTestEditor([Essentials, Paragraph, TriliumAiAssistant], {
+                aiAssistant: { sanitizeHtml, quickActions: REVIEW_ACTIONS, stream: stub.stream, diff }
+            });
+            const dropdown = createComponent(editor);
+
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(dropdown).find((button) => button.id === actionId)?.fire("execute");
+            await vi.waitFor(() => expect(stub.requests).toHaveLength(1));
+
+            const form = openForm(editor);
+            await vi.waitFor(() => expect(form.phase).toBe("review"));
+            return form;
+        }
+
+        it("is the changes by default, and the result for an action that asks for it", async () => {
+            const diff = () => "<ins>done</ins>";
+
+            expect((await review(diff, "fixTypos")).viewMode).toBe("changes");
+            expect((await review(diff, "translate")).viewMode).toBe("result");
+        });
+
+        it("is the result when the diff reports the response as mostly a rewrite", async () => {
+            // The same call the differ makes for a response it could not align with its source.
+            const form = await review(() => ({ html: "<ins>done</ins>", rewriteRatio: 1 }), "fixTypos");
+
+            expect(form.viewMode).toBe("result");
+            // Still offered, only not opened on.
+            expect(form.hasDiff).toBe(true);
         });
     });
 
