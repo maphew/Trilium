@@ -664,13 +664,14 @@ export default class AiAssistantUI extends Plugin {
         }
 
         const mermaid = editor.plugins.get("MermaidEditing");
-        for (const code of preview.querySelectorAll("pre > code.language-mermaid")) {
-            const source = code.textContent ?? "";
+        // The `<pre>` is replaced along with the `<code>` it holds: a diagram left inside one is
+        // framed as a code block in the preview and nowhere else.
+        for (const pre of preview.querySelectorAll("pre:has(> code.language-mermaid)")) {
+            /* v8 ignore next -- defensive fallback: textContent on an element is always a string */
+            const source = pre.textContent ?? "";
             const diagram = preview.ownerDocument.createElement("div");
             diagram.className = "ck-ai-assistant-form__diagram";
-            // The `<pre>` goes with it: what is left has to be a plain block, or the code-block
-            // styling frames the diagram in the preview and nowhere else.
-            code.parentElement?.replaceWith(diagram);
+            pre.replaceWith(diagram);
             void mermaid.renderMermaid(diagram, source);
         }
     }

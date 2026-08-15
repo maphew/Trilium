@@ -149,8 +149,14 @@ function openForm(editor: ClassicEditor) {
         viewMode: string;
         hasDiff: boolean;
         isUnchanged: boolean;
+        previewView: { element?: HTMLElement | null };
         fire(event: string): void;
     };
+}
+
+/** What the preview currently holds, for the specs that assert on rendered content. */
+function previewHtml(editor: ClassicEditor): string {
+    return openForm(editor).previewView.element?.innerHTML ?? "";
 }
 
 describe("AiAssistantUI toolbar entry", () => {
@@ -554,6 +560,99 @@ describe("AiAssistantUI toolbar entry", () => {
             expect(form.viewMode).toBe("result");
             // Still offered, only not opened on.
             expect(form.hasDiff).toBe(true);
+        });
+    });
+
+    // A diagram is a `language-mermaid` code block until the content is upcast into the model,
+    // which the assistant only does on commit — so the preview has to render it itself, or the
+    // Diagram quick action reviews its own source and the diagram only appears once accepted.
+    describe("Mermaid diagrams in the preview", () => {
+        const DIAGRAM = "graph TD; A-->B;";
+        const DIAGRAM_HTML = `<pre><code class="language-mermaid">graph TD; A--&gt;B;</code></pre>`;
+
+        const DIAGRAM_ACTION: AiQuickActionGroup[] = [{
+            id: "reformat",
+            label: "Reformat",
+            actions: [{ id: "diagram", label: "Diagram", prompt: "Draw it.", reviewView: "result" }]
+        }];
+
+        /** Stands in for the mermaid library the host lazy-loads, one SVG per source. */
+        function createMermaidStub() {
+            return {
+                initialize: vi.fn(),
+                render: vi.fn(async (id: string, source: string) => ({ svg: `<svg data-source="${source}"></svg>` }))
+            };
+        }
+
+        async function createDiagramEditor(mermaid: ReturnType<typeof createMermaidStub>, stream: AiStreamFunction) {
+            return createTestEditor([Essentials, Paragraph, CodeBlockEditing, MermaidEditing, TriliumAiAssistant], {
+                aiAssistant: { sanitizeHtml, quickActions: DIAGRAM_ACTION, stream },
+                mermaid: { lazyLoad: () => mermaid, config: {} }
+            });
+        }
+
+        it("renders the diagram a finished response holds, in place of its code block", async () => {
+            const mermaid = createMermaidStub();
+            const stub = createStreamStub(DIAGRAM_HTML);
+            const editor = await createDiagramEditor(mermaid, stub.stream);
+
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(createComponent(editor))[0].fire("execute");
+
+            await vi.waitFor(() => expect(previewHtml(editor)).toContain("<svg"));
+            expect(mermaid.render).toHaveBeenCalledWith(expect.any(String), DIAGRAM);
+            // The `<pre>` goes with the `<code>`: what is left is the diagram, not a framed one.
+            expect(previewHtml(editor)).toContain(`<div class="ck-ai-assistant-form__diagram"><svg data-source="${DIAGRAM}">`);
+            expect(previewHtml(editor)).not.toContain("<pre>");
+
+            // Nothing was done to the response itself — the note gets the code block, which the
+            // editor upcasts into a diagram widget of its own.
+            openForm(editor).fire("replace");
+            expect(editor.getData()).toContain(`<code class="language-mermaid">`);
+        });
+
+        it("leaves a half-streamed diagram as its source", async () => {
+            const mermaid = createMermaidStub();
+            const editor = await createDiagramEditor(mermaid, async (request, onData) => {
+                onData(`<pre><code class="language-mermaid">graph TD; A--</code></pre>`);
+                await new Promise(() => {});
+            });
+
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            quickActionButtons(createComponent(editor))[0].fire("execute");
+
+            // Parsing a fragment would put a parse error where the diagram is about to be, once
+            // per streamed chunk. The source stands until the response is complete.
+            await vi.waitFor(() => expect(previewHtml(editor)).toContain("language-mermaid"));
+            expect(mermaid.render).not.toHaveBeenCalled();
+        });
+
+        it("leaves the code block alone in the diff, whose text is two responses at once", async () => {
+            const mermaid = createMermaidStub();
+            const stub = createStreamStub(DIAGRAM_HTML);
+            const editor = await createTestEditor([Essentials, Paragraph, CodeBlockEditing, MermaidEditing, TriliumAiAssistant], {
+                aiAssistant: {
+                    sanitizeHtml,
+                    quickActions: DIAGRAM_ACTION,
+                    stream: stub.stream,
+                    // Opens on the diff, since the action asking for the result is not the one run.
+                    diff: () => `<pre><code class="language-mermaid">graph <del>LR</del><ins>TD</ins></code></pre>`
+                }
+            });
+
+            setModelData(editor.model, "<paragraph>[foo]</paragraph>");
+            editor.execute("aiAssistant");
+            const form = openForm(editor);
+            form.query = "Draw it.";
+            form.fire("submit");
+
+            await vi.waitFor(() => expect(form.viewMode).toBe("changes"));
+            expect(mermaid.render).not.toHaveBeenCalled();
+            expect(previewHtml(editor)).toContain("<del>LR</del>");
+
+            // The toggle back to the result is a render of its own, so the diagram lands there.
+            form.viewMode = "result";
+            await vi.waitFor(() => expect(previewHtml(editor)).toContain("<svg"));
         });
     });
 

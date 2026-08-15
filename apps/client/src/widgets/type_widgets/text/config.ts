@@ -199,6 +199,9 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             // shredded `<ins>`/`<del>` pairs.
             diff: diffAiResponse,
             quickActions: buildAiAssistantQuickActions(),
+            // The glyph the context menu gives the same row, so the two ways into a typed prompt
+            // look alike.
+            askIconClass: "bx bx-message-square-dots",
             // The model's HTML reaches the preview through `innerHTML`, so it gets the same
             // DOMPurify pass as any other untrusted content rendered outside the editor's
             // data pipeline. CKEditor ships no sanitizer of its own — like `htmlEmbed`, the

@@ -200,6 +200,14 @@ export interface AiAssistantConfig {
     quickActions?: AiQuickActionGroup[];
 
     /**
+     * The icon for the row that heads the toolbar entry's menu — the one that opens the assistant
+     * for a typed prompt, the menu's equivalent of clicking the button rather than its arrow. Only
+     * the icon is the host's to choose; the row is the feature's own, so it names itself. Without
+     * one the row simply goes iconless, as any action configured without one does.
+     */
+    askIconClass?: string;
+
+    /**
      * Sanitizes the response HTML before it is rendered into the preview. **Required**: the
      * plugin has no built-in fallback and throws rather than render unsanitized model output —
      * a hand-maintained strip list only looks like a sanitizer, missing namespaced `xlink:href`,
