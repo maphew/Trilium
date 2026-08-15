@@ -212,7 +212,8 @@ body.background-effects .ck.ck-balloon-panel.ck-dropdown-menu__nested-menu__pane
 }
 
 /* Item with icon */
-:root .ck.ck-button_with-text svg:first-child {
+:root .ck.ck-button_with-text svg:first-child,
+:root .ck.ck-button_with-text > .ck-ai-action-icon {
     color: var(--menu-item-icon-color);
 }
 
