@@ -5,10 +5,12 @@ import {
     DatabaseAnonymizeResponse,
     DatabaseCheckIntegrityResponse,
     DatabaseInfoResponse,
-    ExistingAnonymizedDatabasesResponse
+    ExistingAnonymizedDatabasesResponse,
+    ExistingBackupsResponse
 } from "@triliumnext/commons";
 import { useCallback, useEffect, useState } from "preact/hooks";
 
+import { summarizeBackups } from "../../../services/database_files";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import {
@@ -84,6 +86,9 @@ export default function DatabaseSettings() {
  */
 function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
     const { data: info } = useFetch<DatabaseInfoResponse>("database/info", refreshToken);
+    // The backups are the one thing here this page does nothing about, so they are read from the
+    // page that does — the same listing, summarized by the same sentence its own header carries.
+    const { data: backups } = useFetch<ExistingBackupsResponse>("database/backups", refreshToken);
 
     if (!info) {
         return null;
@@ -117,10 +122,25 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
                 <CardOption label={t("database.info_size")}>
                     <span className="database-info-value">{formatSize(info.sizeBytes)}</span>
                 </CardOption>
+
+                {backups && (
+                    <CardOption label={t("database.info_backup")}>
+                        {/* The whole value is the way to the page that acts on it: this row states
+                            how the backups stand, and everything else about them is done there. */}
+                        <span className="database-info-value">
+                            <a className="tn-link" href={BACKUP_PAGE_LINK}>
+                                {summarizeBackups(backups.backups) ?? t("database.info_no_backup")}
+                            </a>
+                        </span>
+                    </CardOption>
+                )}
             </Card>
         </div>
     );
 }
+
+/** A note path, which is how one options page links to another. */
+const BACKUP_PAGE_LINK = "#root/_hidden/_options/_optionsBackup";
 
 /**
  * Keeping the database in good order: finding out what it is spent on, taking back what is no longer

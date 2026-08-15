@@ -1757,6 +1757,8 @@
     "info_attachments_one": "{{count}} attachment",
     "info_attachments_other": "{{count}} attachments",
     "info_size": "Size",
+    "info_backup": "Backup",
+    "info_no_backup": "No backups yet",
     "maintenance": "Maintenance",
     "analyze_space_usage": "Analyze space usage",
     "analyze_space_usage_description": "Identify which notes take up the most space, and get a clearer picture of how large your notes are.",

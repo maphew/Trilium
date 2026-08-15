@@ -1,3 +1,5 @@
+import { dayjs } from "@triliumnext/commons";
+
 import { formatDateTime } from "../utils/formatters.js";
 import { t } from "./i18n.js";
 import { formatSize } from "./utils.js";
@@ -69,4 +71,27 @@ export function describeDatabaseFile(file: DatabaseFile): string {
     }
 
     return parts.join(" • ");
+}
+
+/**
+ * How many backups there are and how long ago the last one was made — the two things a list of them
+ * only answers by being read through. Nothing is said while there are none: wherever this is shown
+ * the list itself, or the page it links to, states that more plainly than a sentence could.
+ *
+ * Shared by the backup page's own header and by the Database page's summary of it, so that the two
+ * never state the same thing differently.
+ */
+export function summarizeBackups(backups: { mtime: Date }[]): string | null {
+    if (!backups.length) {
+        return null;
+    }
+
+    const mostRecent = backups.reduce((latest, backup) => (
+        backup.mtime > latest.mtime ? backup : latest
+    ));
+
+    return t("backup.backups_summary", {
+        count: backups.length,
+        age: dayjs(mostRecent.mtime).fromNow(true)
+    });
 }

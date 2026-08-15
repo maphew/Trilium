@@ -27,6 +27,9 @@ const DATABASE_INFO = {
 /** Set where a test needs the info card to have nothing to say. */
 const failing = vi.hoisted(() => ({ info: false }));
 
+/** What the backup page would list; emptied by the test about a database never backed up. */
+let BACKUPS: { mtime: Date }[] = [];
+
 // The info, maintenance and anonymization cards call the backend as they render and as they are used.
 const server = vi.hoisted(() => ({
     get: vi.fn(async (url: string) => {
@@ -36,6 +39,8 @@ const server = vi.hoisted(() => ({
                     throw new Error("no answer");
                 }
                 return DATABASE_INFO;
+            case "database/backups":
+                return { backupFolderPath: "/data/backup", backups: BACKUPS };
             case "database/check-integrity":
                 return { results: [{ integrity_check: "ok" }] };
             case "database/anonymized-databases":
@@ -102,6 +107,7 @@ beforeEach(() => {
     setupMode.isStartOverPending.mockReset().mockResolvedValue(false);
     setupMode.cancelStartOver.mockReset().mockResolvedValue(undefined);
     failing.info = false;
+    BACKUPS = [ { mtime: new Date("2026-01-01T10:00:00Z") }, { mtime: new Date("2026-01-02T10:00:00Z") } ];
     noteContext.setNote.mockClear();
     contentManager.requestContentManagerSection.mockClear();
     cleanup.showCleanupDialog.mockReset().mockResolvedValue(1234);
@@ -138,6 +144,24 @@ describe("what the database is", () => {
         expect(created).toContain("2020");
         expect(content).toBe("database.info_notes=12, database.info_attachments=3");
         expect(size).toBe("3 MiB");
+    });
+
+    it("summarizes the backups as their own page does, and leads to it", async () => {
+        renderPage();
+        await settle();
+
+        const backup = container.querySelector<HTMLAnchorElement>(".database-info a[href]");
+        // The same sentence the backup page's header carries, counted over the same listing.
+        expect(backup?.textContent).toBe("backup.backups_summary=2");
+        expect(backup?.getAttribute("href")).toBe("#root/_hidden/_options/_optionsBackup");
+    });
+
+    it("says a database has never been backed up rather than leaving the row blank", async () => {
+        BACKUPS = [];
+        renderPage();
+        await settle();
+
+        expect(container.querySelector(".database-info a[href]")?.textContent).toBe("database.info_no_backup");
     });
 
     it("reads the figures again once the database has been compacted", async () => {
