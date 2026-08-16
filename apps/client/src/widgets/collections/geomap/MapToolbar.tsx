@@ -21,6 +21,11 @@ import { ParentMap, useMapPitch } from "./map";
  * out of the cartographer's toolbox, not the reader's, and a map has no fitted view a readout
  * could offer back the way an image has.
  *
+ * In the foot corner, where every other set of zoom controls floating over content in the app
+ * stands, rather than in the top corner MapLibre keeps its own zoom buttons in. The corner is the
+ * map's to give: its attribution has been moved to the foot of the other side, beside the scale
+ * (see map.tsx).
+ *
  * At the group's leading end stands the tilt, after Google Maps's own button: 3D leans the view
  * over, 2D lays it flat again. Which of the two it offers is read off the view itself rather than
  * remembered from the last press — MapLibre tilts for Ctrl and a drag as well, and a button that

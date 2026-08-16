@@ -1,28 +1,109 @@
 /*
- * Where a placed group stands over what it is put on: the corner it names (see `placement` in
- * OverlayControlGroup.tsx) against the nearest positioned ancestor, held off the edges by the room
- * the caller hands over. Said once here rather than at each of the nine sites that used to pin a
- * group of their own — the same three declarations for a centred one every time, and nothing to
- * catch a site that wrote the insets but forgot to take the group out of the flow.
+ * A run of buttons standing over content, joined edge to edge into one segmented chip: what it is
+ * made of, and where it stands.
  *
- * The group's own dress — its surface, the seams between its buttons and the rounding of the two
- * ends — is the theme's to give (see the overlay buttons in theme-next/forms.css). Standing is not:
- * a group is pinned to its corner whatever it is wearing, so it is settled here, beside the
- * component that names the corner.
+ * Both are settled here rather than by the theme, so that a group is a chip in whatever theme the
+ * reader has chosen — the Next theme is one of several, and the others have never heard of an
+ * overlay button. Every value below is a name the theme may fill in, with what the app draws
+ * otherwise beside it; the Next theme fills them all in (see the overlay buttons in
+ * theme-next/base.css), and what it hands over is the whole difference in looks: a surface you can
+ * see through and the frosting behind it. Nothing here asks for either.
  *
- * A group without a placement is untouched: laid out where it stands, for the caller that has
- * somewhere of its own to put it.
- *
- * What a group stands above is left to whoever puts it there. It is not about the group but about
- * the company it keeps — a map's own furniture, a note's floating buttons, an error card over a
- * preview — and every corner answers that differently.
+ * A group without a placement is untouched as to standing: laid out where it stands, for the caller
+ * that has somewhere of its own to put it. What a group stands above is left to whoever puts it
+ * there — it is not about the group but about the company it keeps (a map's own furniture, a note's
+ * floating buttons, an error card over a preview), and every corner answers that differently.
  */
 
-/* The room a placed group keeps from the edges it is pinned to, which is the room every overlay
-   button in the app keeps (named by the theme, where one names it). At no specificity at all, so
-   that whoever puts the group somewhere can say otherwise — per edge, where one edge differs. */
 :where(.tn-overlay-control-group) {
+    /* The room a placed group keeps from the edges it is pinned to, which is the room every overlay
+       button in the app keeps. At no specificity at all, so that whoever puts the group somewhere
+       can say otherwise — per edge, where one edge differs. */
     --overlay-group-inset: var(--overlay-button-inset, 10px);
+
+    /* What the chip is drawn with: the theme's names first, then the ones every theme has, then a
+       plain value for a theme that has neither. The surfaces are opaque here — a translucent one is
+       the Next theme's own answer, and it is only readable with the frosting that comes with it. */
+    --_overlay-radius: var(--overlay-button-border-radius, 6px);
+    --_overlay-height: var(--overlay-button-height, 28px);
+    --_overlay-surface: var(--overlay-button-background, var(--menu-background-color, #fff));
+    --_overlay-ink: var(--overlay-button-color, var(--menu-text-color, inherit));
+    --_overlay-hover-surface: var(--opaque-icon-button-hover-background-color, var(--more-accented-background-color, #ddd));
+    --_overlay-hover-ink: var(--opaque-icon-button-hover-color, var(--menu-text-color, inherit));
+    --_overlay-edge: var(--overlay-button-shadow-color, var(--main-border-color, #0000002e));
+
+    display: flex;
+    align-items: stretch;
+    gap: 0px;
+    border-radius: var(--_overlay-radius);
+    /* Two edges rather than four, which is a shadow said in the cheapest way there is: a chip over
+       content wants lifting off it, and the light in this app comes from the top leading corner. */
+    border-right: 1px solid var(--_overlay-edge);
+    border-bottom: 1px solid var(--_overlay-edge);
+
+    :where(button) {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        border: none;
+        margin: 0;
+        /* Nothing to frost unless the theme asks for it, the surface below being opaque otherwise. */
+        backdrop-filter: var(--overlay-button-backdrop-filter, none);
+        background-color: var(--_overlay-surface);
+        color: var(--_overlay-ink);
+
+        &:not(:disabled):hover {
+            background-color: var(--_overlay-hover-surface);
+            color: var(--_overlay-hover-ink);
+        }
+
+        /* A button standing for a choice in force is shown held down — the geo map's + while the
+           map is armed for a placement. Held through a hover as well, so that pointing at the one
+           already chosen does not lower it. The fill the app marks a chosen thing with, which every
+           theme names. */
+        &.active,
+        &.active:not(:disabled):hover {
+            background-color: var(--active-item-background-color);
+            color: var(--active-item-text-color);
+        }
+
+        &.tn-overlay-icon-button {
+            height: var(--_overlay-height);
+            width: 32px;
+            font-size: var(--overlay-button-icon-size, 16px);
+
+            &:active {
+                font-size: calc(var(--overlay-button-icon-size, 16px) * .85);
+            }
+        }
+
+        &.tn-overlay-text-button {
+            height: var(--_overlay-height);
+            min-width: 50px;
+            font-size: var(--overlay-button-text-size, 14px);
+        }
+
+        &:first-child {
+            --_start-border-radius: var(--_overlay-radius);
+        }
+
+        &:last-child {
+            --_end-border-radius: var(--_overlay-radius);
+        }
+
+        /* Reboot sets `button { border-radius: 0 }` (specificity 0,0,1), so the rounding must live on
+           these end selectors (0,1,0) to out-specify it; middle buttons keep Reboot's square corners. */
+        &:first-child,
+        &:last-child {
+            border-radius: var(--_start-border-radius, 0) var(--_end-border-radius, 0) var(--_end-border-radius, 0) var(--_start-border-radius, 0);
+        }
+
+        /* A button that would do nothing says as much rather than merely failing to answer. */
+        &:disabled {
+            opacity: .4;
+            pointer-events: none;
+        }
+    }
 }
 
 .tn-overlay-control-group[data-placement] {
