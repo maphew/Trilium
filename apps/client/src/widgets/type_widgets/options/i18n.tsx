@@ -1,24 +1,27 @@
-import { useMemo } from "preact/hooks";
-import { getAvailableLocales, t } from "../../../services/i18n";
-import FormSelect from "../../react/FormSelect";
-import OptionsPageHeader from "./components/OptionsPageHeader";
-import OptionsRow from "./components/OptionsRow";
-import OptionsSection from "./components/OptionsSection";
-import { useTriliumOption, useTriliumOptionJson } from "../../react/hooks";
+import "./i18n.css";
+
 import type { Locale } from "@triliumnext/commons";
+import { useMemo } from "preact/hooks";
+
+import { getAvailableLocales, t } from "../../../services/i18n";
 import { isElectron, restartDesktopApp } from "../../../services/utils";
-import FormText from "../../react/FormText";
 import Button from "../../react/Button";
+import { Card, CardOption, CardSection } from "../../react/Card";
+import FormSelect from "../../react/FormSelect";
+import { useTriliumOption, useTriliumOptionJson } from "../../react/hooks";
 import CheckboxList from "./components/CheckboxList";
-import RelatedSettings from "./components/RelatedSettings";
 import { LocaleSelector } from "./components/LocaleSelector";
+import OptionsPageHeader from "./components/OptionsPageHeader";
+import RelatedSettings from "./components/RelatedSettings";
 
 export default function InternationalizationOptions() {
     return (
         <>
             <OptionsPageHeader />
             <LocalizationOptions />
+            <DateSettings />
             <ContentLanguages />
+            <RestartAction />
             {isElectron() && (
                 <RelatedSettings items={[
                     {
@@ -32,6 +35,7 @@ export default function InternationalizationOptions() {
     );
 }
 
+/** The languages the app is read in, written in, and formats its figures and dates by. */
 function LocalizationOptions() {
     const { uiLocales, formattingLocales: contentLocales, writingLocales } = useMemo<{ uiLocales: Locale[], formattingLocales: Locale[], writingLocales: Locale[] }>(() => {
         const allLocales = getAvailableLocales();
@@ -59,102 +63,116 @@ function LocalizationOptions() {
     const [ defaultContentLanguage, setDefaultContentLanguage ] = useTriliumOption("defaultContentLanguage");
 
     return (
-        <OptionsSection title={t("i18n.title")}>
-            <OptionsRow name="language" label={t("i18n.language")}>
-                <LocaleSelector locales={uiLocales} currentValue={locale} onChange={setLocale} />
-            </OptionsRow>
+        <div className="options-section">
+            <Card heading={t("i18n.title")}>
+                <CardOption name="language" label={t("i18n.language")}>
+                    <LocaleSelector locales={uiLocales} currentValue={locale} onChange={setLocale} />
+                </CardOption>
 
-            {<OptionsRow name="formatting-locale" label={t("i18n.formatting-locale")}>
-                <LocaleSelector locales={contentLocales} currentValue={formattingLocale} onChange={setFormattingLocale} defaultLocale={{ id: "", name: t("i18n.formatting-locale-auto") }} />
-            </OptionsRow>}
+                <CardOption name="formatting-locale" label={t("i18n.formatting-locale")}>
+                    <LocaleSelector
+                        locales={contentLocales}
+                        currentValue={formattingLocale}
+                        onChange={setFormattingLocale}
+                        defaultLocale={{ id: "", name: t("i18n.formatting-locale-auto") }}
+                    />
+                </CardOption>
 
-            <OptionsRow
-                name="default-content-language"
-                label={t("i18n.default-content-language")}
-                description={t("i18n.default-content-language-description")}
-            >
-                <LocaleSelector
-                    locales={writingLocales}
-                    currentValue={defaultContentLanguage}
-                    onChange={setDefaultContentLanguage}
-                    defaultLocale={{ id: "", name: t("i18n.default-content-language-auto") }}
-                />
-            </OptionsRow>
-
-            <DateSettings />
-        </OptionsSection>
+                <CardOption
+                    name="default-content-language"
+                    label={t("i18n.default-content-language")}
+                    description={t("i18n.default-content-language-description")}
+                >
+                    <LocaleSelector
+                        locales={writingLocales}
+                        currentValue={defaultContentLanguage}
+                        onChange={setDefaultContentLanguage}
+                        defaultLocale={{ id: "", name: t("i18n.default-content-language-auto") }}
+                    />
+                </CardOption>
+            </Card>
+        </div>
     )
 }
 
+/**
+ * Where a week starts and which one counts as the first of the year — conventions the calendar and
+ * week notes are numbered by, rather than languages, which is why they stand apart from the card
+ * above.
+ */
 function DateSettings() {
     const [ firstDayOfWeek, setFirstDayOfWeek ] = useTriliumOption("firstDayOfWeek");
     const [ firstWeekOfYear, setFirstWeekOfYear ] = useTriliumOption("firstWeekOfYear");
     const [ minDaysInFirstWeek, setMinDaysInFirstWeek ] = useTriliumOption("minDaysInFirstWeek");
 
     return (
-        <>
-            <OptionsRow name="first-day-of-week" label={t("i18n.first-day-of-the-week")}>
-                <FormSelect
-                    name="first-day-of-week"
-                    currentValue={firstDayOfWeek}
-                    onChange={setFirstDayOfWeek}
-                    keyProperty="value"
-                    titleProperty="label"
-                    values={[
-                        { value: "1", label: t("i18n.monday") },
-                        { value: "2", label: t("i18n.tuesday") },
-                        { value: "3", label: t("i18n.wednesday") },
-                        { value: "4", label: t("i18n.thursday") },
-                        { value: "5", label: t("i18n.friday") },
-                        { value: "6", label: t("i18n.saturday") },
-                        { value: "7", label: t("i18n.sunday") },
-                    ]}
-                />
-            </OptionsRow>
+        <div className="options-section i18n-dates">
+            <Card heading={t("i18n.dates-title")}>
+                <CardOption name="first-day-of-week" label={t("i18n.first-day-of-the-week")}>
+                    <FormSelect
+                        name="first-day-of-week"
+                        currentValue={firstDayOfWeek}
+                        onChange={setFirstDayOfWeek}
+                        keyProperty="value"
+                        titleProperty="label"
+                        values={[
+                            { value: "1", label: t("i18n.monday") },
+                            { value: "2", label: t("i18n.tuesday") },
+                            { value: "3", label: t("i18n.wednesday") },
+                            { value: "4", label: t("i18n.thursday") },
+                            { value: "5", label: t("i18n.friday") },
+                            { value: "6", label: t("i18n.saturday") },
+                            { value: "7", label: t("i18n.sunday") },
+                        ]}
+                    />
+                </CardOption>
 
-            <OptionsRow name="first-week-of-year" label={t("i18n.first-week-of-the-year")} description={t("i18n.first-week-warning")}>
-                <FormSelect
+                <CardOption
                     name="first-week-of-year"
-                    currentValue={firstWeekOfYear}
-                    onChange={setFirstWeekOfYear}
-                    keyProperty="value"
-                    titleProperty="label"
-                    values={[
-                        { value: "0", label: t("i18n.first-week-contains-first-day") },
-                        { value: "1", label: t("i18n.first-week-contains-first-thursday") },
-                        { value: "2", label: t("i18n.first-week-has-minimum-days") }
-                    ]}
-                />
-            </OptionsRow>
+                    label={t("i18n.first-week-of-the-year")}
+                    description={t("i18n.first-week-warning")}
+                >
+                    <FormSelect
+                        name="first-week-of-year"
+                        currentValue={firstWeekOfYear}
+                        onChange={setFirstWeekOfYear}
+                        keyProperty="value"
+                        titleProperty="label"
+                        values={[
+                            { value: "0", label: t("i18n.first-week-contains-first-day") },
+                            { value: "1", label: t("i18n.first-week-contains-first-thursday") },
+                            { value: "2", label: t("i18n.first-week-has-minimum-days") }
+                        ]}
+                    />
+                </CardOption>
 
-            {firstWeekOfYear === "2" && <OptionsRow name="min-days-in-first-week" label={t("i18n.min-days-in-first-week")}>
-                <FormSelect
-                    keyProperty="days"
-                    currentValue={minDaysInFirstWeek} onChange={setMinDaysInFirstWeek}
-                    values={Array.from(
-                        { length: 7 },
-                        (_, i) => ({ days: String(i + 1) }))} />
-            </OptionsRow>}
-
-            <OptionsRow name="restart" centered>
-                <Button
-                    name="restart-app-button"
-                    text={t("electron_integration.restart-app-button")}
-                    size="micro"
-                    onClick={restartDesktopApp}
-                />
-            </OptionsRow>
-        </>
+                {firstWeekOfYear === "2" && (
+                    <CardOption name="min-days-in-first-week" label={t("i18n.min-days-in-first-week")}>
+                        <FormSelect
+                            keyProperty="days"
+                            currentValue={minDaysInFirstWeek} onChange={setMinDaysInFirstWeek}
+                            values={Array.from(
+                                { length: 7 },
+                                (_, i) => ({ days: String(i + 1) }))} />
+                    </CardOption>
+                )}
+            </Card>
+        </div>
     )
 }
 
 function ContentLanguages() {
     return (
-        <OptionsSection title={t("content_language.title")}>
-            <FormText>{t("content_language.description")}</FormText>
-
-            <ContentLanguagesList />
-        </OptionsSection>
+        <div className="options-section">
+            <Card
+                heading={t("content_language.title")}
+                description={t("content_language.description")}
+            >
+                <CardSection className="i18n-content-languages">
+                    <ContentLanguagesList />
+                </CardSection>
+            </Card>
+        </div>
     );
 }
 
@@ -169,5 +187,23 @@ export function ContentLanguagesList() {
             currentValue={languages} onChange={setLanguages}
             columnWidth="300px"
         />
+    );
+}
+
+/**
+ * Both cards above only take effect once the app has started again. The way to do that carries no
+ * card of its own — it is an action the page offers rather than anything it holds — but keeps the
+ * cards' width, so it ends where they do.
+ */
+function RestartAction() {
+    return (
+        <div className="options-section i18n-restart">
+            <Button
+                name="restart-app-button"
+                text={t("electron_integration.restart-app-button")}
+                size="micro"
+                onClick={restartDesktopApp}
+            />
+        </div>
     );
 }

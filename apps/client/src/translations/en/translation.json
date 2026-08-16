@@ -2063,6 +2063,7 @@
   "i18n": {
     "title": "Localization",
     "language": "Language",
+    "dates-title": "Dates & calendar",
     "first-day-of-the-week": "First day of the week",
     "monday": "Monday",
     "tuesday": "Tuesday",
