@@ -16,12 +16,12 @@ import { isExperimentalFeatureEnabled } from "../../../services/experimental_fea
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
-import { useEditorSpacedUpdate, useTriliumEvent, useTriliumEvents } from "../../react/hooks";
+import { useEditorSpacedUpdate, useNoteLabelBoolean, useTriliumEvent, useTriliumEvents } from "../../react/hooks";
 import { TypeWidgetProps } from "../type_widget";
 import RelationMapApi, { ClientRelation, MapData, MapDataNoteEntry, RelationType } from "./api";
 import { buildRelationContextMenuHandler } from "./context_menu";
 import { JsPlumb } from "./jsplumb";
-import MapToolbar from "./MapToolbar";
+import MapToolbar, { EditToolbar } from "./MapToolbar";
 import { NoteBox } from "./NoteBox";
 import setupOverlays, { uniDirectionalOverlays } from "./overlays";
 import { getMousePosition, getZoom, idToNoteId, noteIdToId, promptForRelationName } from "./utils";
@@ -52,6 +52,8 @@ declare module "jsplumb" {
 
 export default function RelationMap({ note, noteContext, ntxId, parentComponent }: TypeWidgetProps) {
     const [ data, setData ] = useState<MapData>();
+    // The same read-only the note's own bar of actions read while the + stood there.
+    const [ isReadOnly ] = useNoteLabelBoolean(note, "readOnly");
     const containerRef = useRef<HTMLDivElement>(null);
     const mapApiRef = useRef<RelationMapApi>(null);
     const pbApiRef = useRef<jsPlumbInstance>(null);
@@ -164,6 +166,14 @@ export default function RelationMap({ note, noteContext, ntxId, parentComponent 
                     <NoteBox {...note} mapApiRef={mapApiRef} />
                 ))}
             </JsPlumb>
+
+            {/* Stands on the map in either layout, unlike the camera below, so that the one thing
+                the map is edited by is on the map itself wherever the rest of the note's buttons
+                happen to live. */}
+            <EditToolbar
+                isReadOnly={isReadOnly}
+                onAddNote={() => parentComponent?.triggerEvent("relationMapCreateChildNote", { ntxId })}
+            />
 
             {isNewLayout && (
                 <MapToolbar

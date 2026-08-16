@@ -59,6 +59,43 @@ export default function MapToolbar({ panZoom, onCommand }: MapToolbarProps) {
     );
 }
 
+interface EditToolbarProps {
+    /** The map may not be edited, which is every one of these buttons refused at once. */
+    isReadOnly: boolean;
+    /** Asks for a title and leaves the note waiting for a place to be clicked (see `useNoteCreation`
+     *  in RelationMap.tsx). */
+    onAddNote: () => void;
+}
+
+/**
+ * The editing actions, standing in the corner of the foot opposite, on a group of their own — adding
+ * a note today, with room along the row for whatever editing the map comes to offer next.
+ *
+ * A group of its own rather than more buttons on {@link MapToolbar}, as on the geo map: that one is
+ * the camera — how close in the map is drawn and where it stands — and what changes the map is
+ * another kind of thing. Beside it here rather than in a module of its own, as the mind map's two
+ * bars are: a group of one button is not a file's worth, and the two are read together.
+ *
+ * Adding a note is the one thing this map is edited by, so the + carries its name in words rather
+ * than standing as a bare glyph, as the geo map's does. It stands on the map rather than in the
+ * note's own bar of actions, where it was: what it starts is finished by a click on the map, so it
+ * belongs beside the canvas that answers it — the toast that follows says as much in words.
+ */
+export function EditToolbar({ isReadOnly, onAddNote }: EditToolbarProps) {
+    return (
+        <OverlayControlGroup className="relation-map-edit-toolbar">
+            <OverlayControlButton
+                title={t("relation_map_buttons.create_child_note_title")}
+                icon="bx-folder-plus"
+                text={t("relation_map_buttons.create_child_note_text")}
+                className="relation-map-add-note-button"
+                disabled={isReadOnly}
+                onClick={onAddNote}
+            />
+        </OverlayControlGroup>
+    );
+}
+
 /**
  * The scale the map is drawn at, followed as it changes — by these buttons, by the wheel, or by the
  * saved view being restored.

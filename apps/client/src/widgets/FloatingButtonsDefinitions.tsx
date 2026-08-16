@@ -255,12 +255,8 @@ function RelationMapButtons({ note, isDefaultViewMode, triggerEvent }: FloatingB
     const isEnabled = (note.type === "relationMap" && isDefaultViewMode);
     return isEnabled && (
         <>
-            <FloatingButton
-                icon="bx bx-folder-plus"
-                text={t("relation_map_buttons.create_child_note_title")}
-                onClick={() => triggerEvent("relationMapCreateChildNote")}
-            />
-
+            {/* Adding a note is not offered here: it stands on the map itself, where the click that
+                places the note lands (see EditToolbar.tsx in the relation map). */}
             <FloatingButton
                 icon="bx bx-crop"
                 text={t("relation_map_buttons.reset_pan_zoom_title")}

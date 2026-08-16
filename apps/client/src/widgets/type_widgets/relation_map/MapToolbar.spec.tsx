@@ -1,79 +1,132 @@
+/**
+ * The two groups standing over a relation map (see MapToolbar.tsx): the camera at one foot corner,
+ * and the editing actions at the other.
+ */
 import { render } from "preact";
 import { act } from "preact/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-// The bootstrap tooltip the buttons wear needs real layout, which happy-dom hasn't.
-vi.mock("../../react/hooks", async (importOriginal) => ({
-    ...(await importOriginal<object>()),
-    useStaticTooltip: () => {}
-}));
+import { renderInto } from "../../../test/render";
+import MapToolbar, { EditToolbar, type MapCommand } from "./MapToolbar";
+
 vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
 
-import MapToolbar, { type MapCommand } from "./MapToolbar";
-
-let container: HTMLDivElement;
-
-afterEach(() => {
-    act(() => render(null, container));
-    container.remove();
-});
-
-describe("MapToolbar", () => {
+describe("relation map MapToolbar", () => {
     it("says the scale the map is drawn at, following it as the map is moved", () => {
-        const map = fakeMap();
-        mount(map);
+        const { map, readout } = renderToolbar();
 
-        expect(readout().textContent).toBe("100%");
+        expect(readout()?.textContent).toBe("100%");
 
         act(() => map.moveTo(2.5));
-        expect(readout().textContent).toBe("250%");
+        expect(readout()?.textContent).toBe("250%");
 
         // A pan leaves the scale where it was, so the readout says the same thing.
         act(() => map.moveTo(2.5));
-        expect(readout().textContent).toBe("250%");
+        expect(readout()?.textContent).toBe("250%");
     });
 
     it("leaves a step with no room left to it disabled", () => {
-        const map = fakeMap();
-        mount(map);
+        const { map, zoomIn, zoomOut } = renderToolbar();
 
-        expect([ zoomOut().disabled, zoomIn().disabled ]).toEqual([ false, false ]);
+        expect([ zoomOut()?.disabled, zoomIn()?.disabled ]).toEqual([ false, false ]);
 
         act(() => map.moveTo(MIN_ZOOM));
-        expect([ zoomOut().disabled, zoomIn().disabled ]).toEqual([ true, false ]);
+        expect([ zoomOut()?.disabled, zoomIn()?.disabled ]).toEqual([ true, false ]);
 
         act(() => map.moveTo(MAX_ZOOM));
-        expect([ zoomOut().disabled, zoomIn().disabled ]).toEqual([ false, true ]);
+        expect([ zoomOut()?.disabled, zoomIn()?.disabled ]).toEqual([ false, true ]);
     });
 
     it("asks for what each button stands for rather than moving the map itself", () => {
-        const commands: MapCommand[] = [];
-        const map = fakeMap();
-        mount(map, (command) => commands.push(command));
+        const { map, commands, readout, zoomIn, zoomOut } = renderToolbar();
 
-        act(() => zoomOut().click());
-        act(() => readout().click());
-        act(() => zoomIn().click());
+        act(() => zoomOut()?.click());
+        act(() => readout()?.click());
+        act(() => zoomIn()?.click());
 
         expect(commands).toEqual([ "relationMapResetZoomOut", "relationMapResetPanZoom", "relationMapResetZoomIn" ]);
         expect(map.transformListeners()).toBe(1);
     });
 
-    it("stands aside while there is no map to read, and stops listening to one that is torn down", () => {
-        const map = fakeMap();
-        mount(undefined);
-        expect(container.querySelector(".relation-map-toolbar")).toBeNull();
+    it("stands aside while there is no map to read", () => {
+        const { buttons } = renderToolbar({ withMap: false });
 
-        mount(map);
+        expect(buttons()).toHaveLength(0);
+    });
+
+    it("stops listening to a map that is torn down", () => {
+        const { map, unmount } = renderToolbar();
         expect(map.transformListeners()).toBe(1);
 
-        act(() => render(null, container));
+        unmount();
         expect(map.transformListeners()).toBe(0);
+    });
+});
+
+describe("relation map EditToolbar", () => {
+    it("offers to add a note in words as well as in a mark, and hands the asking to the map view", () => {
+        const { button, onAddNote } = renderEditToolbar();
+
+        // The mark is a child of the button rather than the button's own class — the words beside it
+        // are to stay words (see OverlayControlGroup.tsx).
+        expect(button()?.querySelector(".bx-folder-plus")).not.toBeNull();
+        expect(button()?.textContent).toBe("relation_map_buttons.create_child_note_text");
+
+        act(() => button()?.click());
+        expect(onAddNote).toHaveBeenCalledTimes(1);
+    });
+
+    it("refuses on a map that may not be edited", () => {
+        const { button } = renderEditToolbar({ isReadOnly: true });
+
+        expect(button()?.disabled).toBe(true);
     });
 });
 
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 2;
+
+/** Builds the camera group over a map, holding on to what the buttons ask of it. */
+function renderToolbar({ withMap = true } = {}) {
+    const map = fakeMap();
+    const commands: MapCommand[] = [];
+    let container: HTMLElement | undefined;
+    act(() => {
+        container = renderInto(
+            <MapToolbar
+                panZoom={withMap ? map as unknown as Parameters<typeof MapToolbar>[0]["panZoom"] : undefined}
+                onCommand={(command) => commands.push(command)}
+            />
+        );
+    });
+    if (!container) throw new Error("the toolbar was not rendered");
+
+    const all = () => [ ...container?.querySelectorAll<HTMLButtonElement>(".relation-map-toolbar button") ?? [] ];
+    return {
+        map,
+        commands,
+        buttons: all,
+        zoomOut: () => all()[0],
+        readout: () => all()[1],
+        zoomIn: () => all()[2],
+        unmount: () => act(() => render(null, container as HTMLElement))
+    };
+}
+
+/** Builds the editing group, which asks for nothing beyond what its one button is driven by. */
+function renderEditToolbar({ isReadOnly = false } = {}) {
+    const onAddNote = vi.fn();
+    let container: HTMLElement | undefined;
+    act(() => {
+        container = renderInto(<EditToolbar isReadOnly={isReadOnly} onAddNote={onAddNote} />);
+    });
+    if (!container) throw new Error("the toolbar was not rendered");
+
+    return {
+        onAddNote,
+        button: () => container?.querySelector<HTMLButtonElement>(".relation-map-edit-toolbar button") ?? null
+    };
+}
 
 /** A stand-in for panzoom: a scale that can be moved, told to whoever asked to be told. */
 function fakeMap() {
@@ -94,21 +147,3 @@ function fakeMap() {
         transformListeners: () => listeners.size
     };
 }
-
-function mount(map: ReturnType<typeof fakeMap> | undefined, onCommand: (command: MapCommand) => void = () => {}) {
-    container ??= document.createElement("div");
-    document.body.appendChild(container);
-    act(() => render(
-        <MapToolbar panZoom={map as unknown as Parameters<typeof MapToolbar>[0]["panZoom"]} onCommand={onCommand} />,
-        container
-    ));
-    return container;
-}
-
-function buttons() {
-    return container.querySelectorAll<HTMLButtonElement>(".relation-map-toolbar button");
-}
-
-const zoomOut = () => buttons()[0];
-const readout = () => buttons()[1];
-const zoomIn = () => buttons()[2];

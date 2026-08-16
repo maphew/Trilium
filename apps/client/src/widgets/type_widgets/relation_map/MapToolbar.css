@@ -1,6 +1,23 @@
-.relation-map-wrapper .relation-map-toolbar {
+.relation-map-wrapper .relation-map-toolbar,
+.relation-map-wrapper .relation-map-edit-toolbar {
     position: absolute;
-    inset-inline-end: var(--overlay-button-inset, 10px);
     bottom: var(--overlay-button-inset, 10px);
     z-index: 10;
+}
+
+.relation-map-wrapper .relation-map-toolbar {
+    inset-inline-end: var(--overlay-button-inset, 10px);
+}
+
+.relation-map-wrapper .relation-map-edit-toolbar {
+    inset-inline-start: var(--overlay-button-inset, 10px);
+}
+
+.relation-map-wrapper .relation-map-add-note-button {
+    gap: 6px;
+    padding-inline: 12px;
+}
+
+.relation-map-wrapper .relation-map-add-note-button .bx {
+    font-size: var(--overlay-button-icon-size);
 }
