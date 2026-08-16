@@ -7,8 +7,10 @@
 
     > .tn-card {
         /* More room above and below than a settings row needs: what these hold is a pair of
-           pictures, not a line of text. */
+           pictures, not a line of text — and nothing behind them, so the page shows through and the
+           illustrations read as the drawings they are rather than as a filled-in control. */
         --card-padding-block: 12px;
+        --card-background-color: transparent;
         flex: 1 1 320px;
     }
 }
