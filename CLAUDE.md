@@ -150,6 +150,7 @@ Common UI components are available in `apps/client/src/widgets/react/` — **alw
 - `Table` - Generic [Tabulator](https://tabulator.info/)-based data grid (`columns`, `data`, `events`, `modules`, `tabulatorRef`; props typed via `TableProps<T>`). Decoupled from the note/collection model — deals purely in columns/data/events, so use it for any grid (e.g. the SQL console results, the note collection table view). Prefer it over instantiating `tabulator-tables` directly
 - `Calendar` - Generic [FullCalendar](https://fullcalendar.io/) wrapper (accepts any `CalendarOptions` plus a `calendarRef`; props typed via `CalendarProps`). Decoupled from the note/collection model — deals purely in FullCalendar options, so use it for any calendar rather than instantiating `@fullcalendar/core` directly
 - `Dropdown` - Bootstrap dropdown wrapper (toggle button + menu, with `FormListItem`/`FormDropdownDivider` as the items). **Pass `noDropdownListStyle` unless the menu actually scrolls** — see "Dropdown menus and the backdrop blur" below
+- `OverlayControlGroup` / `OverlayToolbar` - the two ways to float controls over a note's content. **Never hand-roll a `<button>` over a canvas** — see "Controls floating over a note's content" below
 
 Fluent builder pattern: `.child()`, `.class()`, `.css()` chaining with position-based ordering.
 
@@ -160,6 +161,23 @@ Fluent builder pattern: `.child()`, `.class()`, `.css()` chaining with position-
 - **Per-component CSS files**: each component should have a matching `.css` file (e.g. `my_dialog.tsx` → `my_dialog.css`), imported at the top of the component file.
 - **CSS nesting for scoping**: since CSS modules are not available, scope styles using a root class and native CSS nesting. For example, a dialog with `className="my-dialog"` should have its styles nested under `.modal.my-dialog { … }`.
 - **Reuse existing components** instead of building custom markup — prefer `FormTextBox`, `FormTextBoxWithUnit`, `FormSelect`, `Slider`, `Button`, etc. over hand-rolled `<input>`, `<select>`, or `<button>` elements.
+
+#### Controls floating over a note's content
+
+Any control laid **over** a note's own content — a geo map, a mind map, an image, a video, a diagram, a presentation, and whatever comes next — goes on one of two shared components in `apps/client/src/widgets/react/`. **Never hand-roll a `<button>` with `tn-overlay-*` classes**: those classes are the components' business, and a site that writes them itself also has to write the ref, the tooltip, the `aria-label` and the `type="button"` that the component already owns.
+
+- **`OverlayControlGroup`** (`OverlayControlGroup.tsx`) — a run of buttons joined edge to edge into one segmented chip. **This is the default**, and specifically what zoom steps, a zoom/scale readout, next/previous navigation, fullscreen and "add a thing to this view" buttons are built from. Its buttons are `OverlayControlButton`; `OverlayFullscreenButton` is the ready-made fullscreen toggle (pass it `isFullscreen` + `onToggle` from `useFullscreen`).
+- **`OverlayToolbar`** (`OverlayToolbar.tsx`) — separate buttons spaced out on their own pane of frosted glass. Use it only where the controls are *not* one run of related steps (e.g. the mind map's four layout-direction choices).
+
+Rules for `OverlayControlButton`, which cover every case seen so far:
+
+- **`title` is the tooltip.** A button wearing no words is also named by it; one that wears words is named by them. Do not add an `aria-label` — the component decides, and a title that says more at length would otherwise speak over the visible words. The one exception is a face that is neither words nor a mark (a keycap, a glyph standing for itself), which passes a plain `aria-label` of its own.
+- **`icon` is a boxicons name** (`bx-plus-circle`), **`text` is what stands inside**. Given both, the component renders the mark as a child span itself — never put a `bx` class on a button that also wears words, since the icon font would fall on the words too.
+- **`active`/`disabled` are props**, not classes concatenated into `className`.
+- **Pass `overCanvas`** when the group stands over something that is dragged (a map), so a press on a button is not taken for the start of a drag.
+- **Tooltip direction is the group's**, via `titlePosition` — a group at the foot of the content leaves it at the default `top`; one at the head passes `"bottom"`. Per-button overrides exist but are rarely right.
+- **Positioning is the caller's**: pass a `className` and place the group in that widget's CSS. Only add a class to a *button* if a rule actually uses it.
+- Reuse shared labels from the `common` translation namespace (e.g. `common.fullscreen`) rather than adding a per-widget copy of a string the app already has.
 
 #### Dropdown menus and the backdrop blur
 The Next theme frosts every `.dropdown-menu` with `backdrop-filter`, but it does so along **two different paths**, and only one of them is reliable:
