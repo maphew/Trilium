@@ -8,8 +8,7 @@
         break-inside: avoid-column;
     }
 
-    /* The initial the group is filed under, marked the way a card marks its heading: it names a
-       column of entries rather than introducing a subject of its own. */
+    /* The initial the group is filed under, marked the way a card marks its heading. */
     h5 {
         margin-bottom: 0.25em;
         font-size: .75rem;

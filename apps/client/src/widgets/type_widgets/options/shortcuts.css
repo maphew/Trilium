@@ -52,8 +52,7 @@
 
     .shortcut-editor {
         display: flex;
-        /* A card option holds its controls at their natural width; this one is a set that wraps, so
-           it gives way to the name beside it instead of carrying the chips off the card. */
+        /* Overrides the card option's no-shrink rule: a wrapping set of chips gives way instead. */
         flex-shrink: 1;
         flex-wrap: wrap;
         align-items: center;
@@ -157,8 +156,7 @@
         }
     }
 
-    /* On mobile, stack each segment so the shortcut editor sits underneath the action label. A card
-       option only stacks itself for a button or a slider, and this is neither. */
+    /* A card option stacks itself only for a button or a slider, and the editor is neither. */
     body.mobile & {
         .tn-card-option {
             flex-direction: column;

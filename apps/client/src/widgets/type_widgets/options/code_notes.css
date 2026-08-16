@@ -1,4 +1,6 @@
-/* Clipped to the corners the last segment rounds, which the editor inside would otherwise paint over. */
-.code-note-preview {
+/* The frame a code block has inside a note (theme-next/notes/text.css). */
+.code-note-preview .note-detail-readonly-code-content {
+    border-radius: 6px;
+    box-shadow: var(--code-block-box-shadow);
     overflow: hidden;
 }

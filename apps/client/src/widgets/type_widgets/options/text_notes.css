@@ -124,15 +124,13 @@
     }
 }
 
-/* A format string of known length rather than a sentence: `auto` is the browser's own twenty
-   characters, which is what the format written in it needs. */
+/* A date format, not a sentence: the browser's default twenty characters is the right width. */
 .text-notes-editor input[type="text"] {
     width: auto;
     max-width: 100%;
 }
 
-/* The heading threshold stands in a plain segment rather than a settings row, so the figure sizing a
-   card option gets does not reach it. */
+/* A plain segment rather than a card option, so it is sized here instead. */
 .text-notes-toc .tn-number-unit-pair {
     width: auto;
 
@@ -141,8 +139,6 @@
     }
 }
 
-/* Each pair held, and the boxes the next one is typed into: one segment apiece, what is written on
-   the leading edge and the way to be rid of it on the trailing one. */
 .custom-replacement {
     display: flex;
     align-items: center;
@@ -155,11 +151,6 @@
     overflow-wrap: anywhere;
 }
 
-/*
- * The two boxes, the arrow between them and the button asking for what they hold, kept together as
- * the one thing they are: a pair is entered, not a value, so they take the segment between them
- * rather than the `to` box stranding itself on a line of its own.
- */
 .custom-replacement-entry {
     display: flex;
     align-items: center;
@@ -179,11 +170,7 @@
     opacity: 0.5;
 }
 
-/*
- * Both sized to the segment rather than to an icon button anywhere else, so a segment does not grow
- * the moment a pair is complete and shrink again once it is taken — a row is as tall as the tallest
- * thing in it.
- */
+/* Sized alike, so a segment's height does not change as a pair is completed or removed. */
 .custom-replacement-add,
 .custom-replacement-remove {
     --icon-button-size: 20px;

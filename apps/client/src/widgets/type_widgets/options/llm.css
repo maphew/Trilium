@@ -9,7 +9,6 @@
     gap: 4px;
 }
 
-/* The way to add one, at the end of the list it adds to. */
 .llm-add-provider {
     text-align: end;
 }

@@ -69,8 +69,7 @@
     justify-content: flex-end;
 }
 
-/* A page whose settings all hang off one switch carries it here rather than in a card of its own.
-   It is a card option without a card, so it needs the room a segment would have given it. */
+/* A card option without a card, so it needs the room a segment would have given it. */
 .options-header-switch {
     padding-block: 4px;
 }

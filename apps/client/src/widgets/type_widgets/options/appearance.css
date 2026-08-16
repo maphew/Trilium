@@ -1,5 +1,3 @@
-/* The two layout choices, read against one another. Each keeps enough width to draw its pictures
-   side by side; a pane with no room for both puts them on lines of their own. */
 .appearance-layout-choices {
     display: flex;
     flex-wrap: wrap;
@@ -14,8 +12,7 @@
 .font-option {
     cursor: pointer;
 
-    /* Left on show with custom fonts off, so that what the switch above would put in force can still
-       be read; greyed and inert, since until then none of it is in force. */
+    /* Shown rather than hidden with custom fonts off, so the settings can still be read. */
     &.disabled {
         opacity: 0.5;
         pointer-events: none;
@@ -29,16 +26,8 @@
     color: var(--muted-text-color);
 }
 
-/*
- * On a narrow card the font takes a line of its own, under the name rather than beside it.
- *
- * The value in this row is not a word but a specimen — the family drawn in itself, at the size it is
- * set to — so its width is the user's to decide and can exceed the screen's: "American Typewriter"
- * at 150% measures 400px on a 412px phone. A card option's controls do not shrink, so beside a name
- * there was nowhere for that to go but off the card, taking the chevron with it.
- *
- * The card is made the container the width is read from: the page's own cards no longer carry one.
- */
+/* The specimen is drawn at the user's own family and size, so it can outgrow the screen: on a narrow
+   card it takes the line below the name instead of being carried off the edge. */
 .appearance-fonts .tn-card {
     container-type: inline-size;
 }
@@ -50,13 +39,11 @@
     }
 
     .font-option .font-option-preview {
-        /* The chevron stays at the far edge, where it is on every other row that leads somewhere. */
         justify-content: space-between;
     }
 
     .font-option .font-option-specimen {
-        /* A long name breaks rather than overflowing: `anywhere` because a family name is one word
-           as often as not, and there is no break the browser would take on its own. */
+        /* `anywhere`: a family name is often one word, with no break the browser would take. */
         min-width: 0;
         overflow-wrap: anywhere;
     }

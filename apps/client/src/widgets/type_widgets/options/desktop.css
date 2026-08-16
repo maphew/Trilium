@@ -1,5 +1,4 @@
-/* The engines offered ready-made, as a set of chips rather than a list. A card option holds its
-   controls at their natural width; this one is a set that wraps, so it gives way to the label. */
+/* Overrides the card option's no-shrink rule: a wrapping set of chips gives way instead. */
 .tn-card-option > .search-engine-templates {
     flex-shrink: 1;
     min-width: 0;
@@ -26,9 +25,7 @@
     outline-offset: -2px;
 }
 
-/* A name is a word or two, so the box is sized to what is typed in it rather than to the row:
-   Bootstrap would otherwise give it the whole width of what holds it. Not said of the URL below it,
-   which is stacked and wants the line it was given. */
+/* A name is a word or two. Not said of the URL below it, which is stacked and uses its whole line. */
 .desktop-search-name input {
     width: auto;
     max-width: 100%;

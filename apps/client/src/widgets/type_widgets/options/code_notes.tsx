@@ -49,7 +49,7 @@ function Editor({ wordWrapping, setWordWrapping }: EditorProps) {
                 </CardOption>
 
                 {/* Avoid using "code" in the name of numeric inputs to prevent KeepassXC from triggering. */}
-                <CardOption
+                <CardOption
                     name="editor-tab-width"
                     label={t("code-editor-options.tab_width")}
                 >
@@ -62,7 +62,7 @@ function Editor({ wordWrapping, setWordWrapping }: EditorProps) {
                     />
                 </CardOption>
 
-                <CardOption
+                <CardOption
                     name="source-readonly-threshold"
                     label={t("code_auto_read_only_size.label")}
                     description={t("text_auto_read_only_size.description")}
@@ -150,9 +150,9 @@ function Appearance({ wordWrapping, indentSize }: AppearanceProps) {
                     </CardOption>
                 )}
 
-                {/* The whole segment, edge to edge: a specimen of the editor rather than a control
-                    standing beside a label. */}
-                <CardSection className="code-note-preview" noPadding>
+                {/* A specimen of the editor rather than a control standing beside a label, shown
+                    the way a code block is shown in a note. */}
+                <CardSection className="code-note-preview">
                     <CodeNotePreview wordWrapping={wordWrapping} themeName={effectiveTheme} indentSize={indentSize} />
                 </CardSection>
             </Card>

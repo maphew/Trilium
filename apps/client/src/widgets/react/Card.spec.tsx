@@ -85,6 +85,22 @@ describe("CardOption", () => {
         expect(label?.querySelector(".tn-card-option-description")?.textContent).toBe("Wraps long lines.");
     });
 
+    it("holds a name made of several things together, rather than stacking its parts", () => {
+        const container = renderInto(
+            <CardOption
+                label={<>Background effects <span className="platforms" /></>}
+                description="Blurs the window behind."
+            />
+        );
+
+        // The label lays the sentence out under the name, so a name in pieces would be laid out
+        // the same way — a badge marking which platforms a setting applies to would end up on a
+        // line of its own.
+        const title = container.querySelector(".tn-card-option-title");
+        expect(title?.textContent).toContain("Background effects");
+        expect(title?.querySelector(".platforms")).not.toBeNull();
+    });
+
     it("puts the control on the line below when stacked", () => {
         const inline = renderInto(<CardOption label="Address"><input /></CardOption>);
         expect(inline.querySelector(".tn-card-option")?.className).not.toContain("tn-card-option-stacked");

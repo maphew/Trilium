@@ -32,8 +32,6 @@
     text-transform: uppercase;
 }
 
-/* Kept at the far end of the heading line, where the options page's own sections keep theirs, and
-   sized against the heading rather than against a full-height toolbar. */
 .tn-card-heading-actions {
     --icon-button-size: 28px;
     display: flex;
@@ -56,8 +54,7 @@
     align-items: center;
     gap: 8px;
 
-    /* The controls keep their natural width. Left to shrink, a button's nowrap label spills across
-       its own padding and ends up reading as though it had none; the label below gives instead. */
+    /* The controls keep their natural width; the label gives instead. */
     > * {
         flex-shrink: 0;
     }
@@ -70,7 +67,6 @@
         margin-bottom: 0;
         min-width: 0;
 
-        /* Tied to a control, so that the text operates it too. */
         &[for] {
             cursor: pointer;
         }
@@ -86,8 +82,6 @@
     }
 }
 
-/* A segment that leads somewhere rather than holding a control: it keeps the page's own text colour
-   and gives up the underline, the chevron at its end standing in for both. */
 .tn-card-section-link {
     display: flex;
     align-items: center;
@@ -108,28 +102,18 @@
     font-size: 1.3em;
 }
 
-/*
- * Bootstrap sizes a form control to whatever holds it, and a card option's controls do not shrink —
- * so left alone, a select or a figure takes the whole row and leaves the label a word to the line.
- * Each is sized to what it actually holds instead.
- *
- * Only a control the option holds directly: a select nested inside one (the scale beside a duration)
- * is sized by whatever built it.
- */
+/* Bootstrap sizes a form control to whatever holds it, so left alone a select or a figure takes the
+   whole row. Direct children only: a select nested in one (the scale beside a duration) is not ours. */
 .tn-card-option {
     > select {
         width: auto;
         min-width: 150px;
-        /* A choice too long to show is cut short rather than carried off the card. The arrow is a
-           background image with padding reserved for it (forms.css), so it keeps its place. */
         max-width: min(260px, 100%);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
-    /* A figure is a few characters wherever it appears — a duration, a count, a percentage — and
-       where a unit sits beside it, the pair belongs to the figure rather than to the row. */
     input[type="number"] {
         width: 7em;
     }
@@ -143,22 +127,17 @@
     flex-direction: column;
     align-items: stretch;
 
-    /* Given a line of its own, the control uses all of it — including a slider, which otherwise
-       carries a width of its own (200px) that `stretch` cannot override. */
+    /* Explicit, since a slider's own 200px width overrides `stretch`. */
     > * {
         width: 100%;
     }
 }
 
-/* On a phone, a control too wide to sit beside the text takes the line below it. A switch is narrow
-   enough to stay put; a button labelled with a sentence is not, and left the description beside it
-   reading a word to the line. */
+/* On a phone, a control too wide to sit beside the text takes the line below it. */
 body.mobile .tn-card-option:has(> .btn, > .slider) {
     flex-direction: column;
     align-items: stretch;
 
-    /* A slider carries its own width (200px), which `stretch` cannot override — and having been
-       given a line, it may as well use it. */
     > .slider {
         width: 100%;
     }

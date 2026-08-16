@@ -1,5 +1,4 @@
-/* Many lines rather than a control on one, so it is given room from the section's own edges.
-   `!important` because CheckboxList zeroes its bottom margin inline, which no selector outweighs. */
+/* `!important` because CheckboxList zeroes its bottom margin inline. */
 .i18n-content-languages ul {
     margin-block: 1em !important;
 }

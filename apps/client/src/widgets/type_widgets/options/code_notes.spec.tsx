@@ -113,11 +113,13 @@ describe("the code note theme", () => {
 });
 
 describe("the code note editor settings", () => {
-    it("shows the preview as its own segment, filling it edge to edge", () => {
+    it("shows the preview as a segment of its own, framed the way a code block is", () => {
         open();
 
+        // A segment of its own, holding the editor rather than a control beside a label — and a
+        // padded one, so the sample sits in the card the way a code block sits in a note.
         const preview = host.querySelector(".code-note-preview");
-        expect(preview?.className).toContain("tn-no-padding");
+        expect(preview?.className).not.toContain("tn-no-padding");
         expect(preview?.querySelector(".note-detail-readonly-code-content")).not.toBeNull();
     });
 

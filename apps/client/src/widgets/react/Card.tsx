@@ -159,7 +159,10 @@ export function CardOption(props: CardOptionProps) {
                             "tn-card-option-stacked": stacked
                         })} {...rest}>
         <label className="tn-card-option-label" for={bound ? id : undefined}>
-            {label}
+            {/* Held together as one thing, because the label stacks the sentence under the name and
+                would otherwise stack whatever the name is made of too — a badge marking which
+                platforms a setting applies to belongs after the words, not under them. */}
+            <span className="tn-card-option-title">{label}</span>
             {description && <small className="tn-card-option-description">{description}</small>}
         </label>
 
