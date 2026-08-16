@@ -58,13 +58,16 @@ export default function TimeSelector({ id, name, includedTimeScales, optionValue
                         return false;
                     }
 
-                    let time = parseInt(value, 10);
+                    const time = parseInt(value, 10);
                     const minimumSecondsOrDefault = (minimumSeconds ?? 0);
                     const newTime = convertTime(time, scale).toOption();
 
-                    if (Number.isNaN(time) || newTime < (minimumSecondsOrDefault)) {
+                    // Held up to the floor rather than merely complained about: the figure is
+                    // stored in seconds, so that is what the floor is applied to.
+                    if (Number.isNaN(time) || newTime < minimumSecondsOrDefault) {
                         toast.showError(t("time_selector.minimum_input", { minimumSeconds: minimumSecondsOrDefault }));
-                        time = minimumSecondsOrDefault;
+                        setValue(minimumSecondsOrDefault);
+                        return;
                     }
 
                     setValue(newTime);

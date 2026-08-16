@@ -4,10 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
     stored: {} as Record<string, string>,
+    /** Every option write, which is where the provider list is kept. */
+    saved: [] as [ string, string ][],
+    confirm: vi.fn(async () => true),
     standalone: false,
     // Routed by URL: the page under test asks for network addresses, while modules pulled in
     // alongside it (keyboard actions) expect a list from the same service.
-    get: vi.fn(async (url: string) => (url === "network-addresses" ? { addresses: [], reachableOnNetwork: false } : []))
+    /** What the server says about the interfaces it is bound to. */
+    network: { addresses: [] as string[], reachableOnNetwork: false },
+    get: vi.fn(async (url: string) => (url === "network-addresses" ? mocks.network : []))
 }));
 
 // `isStandalone` is a const in the target, read here through a getter so a scenario can flip which
@@ -27,9 +32,14 @@ vi.mock("../../../services/i18n", () => ({
 
 vi.mock("../../react/hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../react/hooks")>()),
-    useTriliumOption: (name: string) => [ mocks.stored[name] ?? "", () => {} ],
+    useTriliumOption: (name: string) => [
+        mocks.stored[name] ?? "",
+        (value: string) => void mocks.saved.push([ name, value ])
+    ],
     useTriliumOptionBool: (name: string) => [ mocks.stored[name] === "true", () => {} ]
 }));
+
+vi.mock("../../../services/dialog", () => ({ default: { confirm: mocks.confirm } }));
 
 // The request the card makes: the LAN addresses the endpoint is reachable on. Standalone serves
 // no such route, so whether it is asked for at all is part of what is under test.
@@ -53,6 +63,8 @@ let host: HTMLElement;
 beforeEach(() => {
     mocks.standalone = false;
     mocks.stored = { aiEnabled: "true", mcpEnabled: "true" };
+    mocks.saved = [];
+    mocks.network = { addresses: [], reachableOnNetwork: false };
     host = document.body.appendChild(document.createElement("div"));
 });
 
@@ -139,6 +151,115 @@ describe("the MCP card in standalone", () => {
         expect(toggle?.checked).toBe(false);
         expect(endpointsShown).toBe(false);
         expect(mocks.get).not.toHaveBeenCalledWith("network-addresses");
+    });
+});
+
+describe("the addresses MCP is reachable on", () => {
+    const groups = () => [ ...host.querySelectorAll(".mcp-endpoint-group") ];
+    const urls = () => [ ...host.querySelectorAll<HTMLInputElement>(".mcp-endpoint-list input") ].map((box) => box.value);
+
+    /** Opens the page and lets the address lookup settle. */
+    async function openAndSettle() {
+        open();
+        await act(async () => {});
+    }
+
+    it("offers the address on this device, whatever the machine is bound to", async () => {
+        await openAndSettle();
+
+        expect(groups()).toHaveLength(1);
+        expect(urls()[0]).toMatch(/\/mcp$/);
+    });
+
+    it("says so plainly when nothing outside this machine could reach it", async () => {
+        await openAndSettle();
+
+        // Every LAN address would refuse the connection on a loopback-only binding.
+        expect(host.querySelector(".mcp-endpoint-note")).not.toBeNull();
+    });
+
+    it("adds the addresses on the network once it is actually bound to one", async () => {
+        mocks.network = {
+            addresses: [ "http://192.168.1.10:8080", "http://10.0.0.5:8080" ],
+            reachableOnNetwork: true
+        };
+        await openAndSettle();
+
+        expect(groups()).toHaveLength(2);
+        expect(urls()).toContain("http://192.168.1.10:8080/mcp");
+        // Nothing to explain once there is something to hand out.
+        expect(host.querySelector(".mcp-endpoint-note")).toBeNull();
+    });
+
+    it("does not offer the same address twice under two headings", async () => {
+        mocks.network = { addresses: [ `${window.location.protocol}//${window.location.host}` ], reachableOnNetwork: true };
+        await openAndSettle();
+
+        // The one it is already offering as "this device" is left out of the network list.
+        expect(new Set(urls()).size).toBe(urls().length);
+    });
+});
+
+describe("the configured providers", () => {
+    const providers = () => [ ...host.querySelectorAll(".tn-card-option") ]
+        .filter((option) => option.querySelector(".llm-provider-name"));
+
+    function withProviders(configured: { id: string; name: string; provider: string; apiKey: string; selectedModels?: unknown[] }[]) {
+        mocks.stored = { ...mocks.stored, llmProviders: JSON.stringify(configured) };
+    }
+
+    it("says there are none rather than showing an empty card", () => {
+        open();
+
+        expect(host.querySelector(".no-items")).not.toBeNull();
+        expect(providers()).toHaveLength(0);
+    });
+
+    it("survives a stored list that is not readable, rather than taking the page down with it", () => {
+        mocks.stored = { ...mocks.stored, llmProviders: "{ not json" };
+        open();
+
+        expect(host.querySelector(".no-items")).not.toBeNull();
+    });
+
+    it("gives each provider a segment, named, and says how many models it was given", () => {
+        withProviders([
+            { id: "a", name: "My OpenAI", provider: "openai", apiKey: "sk", selectedModels: [ {}, {} ] },
+            { id: "b", name: "Local", provider: "ollama", apiKey: "" }
+        ]);
+        open();
+
+        expect(providers()).toHaveLength(2);
+        expect(providers()[0].querySelector(".llm-provider-name")?.textContent).toContain("My OpenAI");
+        // With no models chosen there is no count to give, so the kind of provider is said instead.
+        expect(providers()[1].querySelector(".tn-card-option-description")?.textContent).toBeTruthy();
+    });
+
+    it("marks only the destructive action, and drops the one provider it was pressed on", async () => {
+        withProviders([
+            { id: "a", name: "First", provider: "openai", apiKey: "sk" },
+            { id: "b", name: "Second", provider: "openai", apiKey: "sk" }
+        ]);
+        open();
+
+        const [ edit, remove ] = [ ...providers()[0].querySelectorAll("button") ];
+        expect(edit.className).not.toContain("destructive-action-icon");
+        expect(remove.className).toContain("destructive-action-icon");
+
+        await act(async () => remove.click());
+        const written = mocks.saved.find(([ name ]) => name === "llmProviders");
+        expect(JSON.parse(written?.[1] ?? "[]").map((provider: { id: string }) => provider.id)).toEqual([ "b" ]);
+    });
+
+    it("asks first, and keeps the provider when the answer is no", async () => {
+        withProviders([ { id: "a", name: "First", provider: "openai", apiKey: "sk" } ]);
+        mocks.confirm.mockResolvedValueOnce(false);
+        open();
+
+        const remove = [ ...providers()[0].querySelectorAll("button") ][1];
+        await act(async () => remove.click());
+
+        expect(mocks.saved.some(([ name ]) => name === "llmProviders")).toBe(false);
     });
 });
 

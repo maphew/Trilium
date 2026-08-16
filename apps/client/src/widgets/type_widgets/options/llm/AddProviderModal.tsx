@@ -147,7 +147,11 @@ export const PROVIDER_TYPES: ProviderType[] = [
     }
 ];
 
-function isValidBaseUrl(value: string): boolean {
+/**
+ * Whether an endpoint is one the app could actually reach. An empty field is not invalid — it means
+ * the provider's own default stands — so it is only the shape of what was typed that is judged here.
+ */
+export function isValidBaseUrl(value: string): boolean {
     if (!value) {
         return true;
     }
@@ -157,6 +161,29 @@ function isValidBaseUrl(value: string): boolean {
     } catch {
         return false;
     }
+}
+
+/**
+ * Whether the connection step has been given everything the provider needs of it: a key where one is
+ * required, an endpoint where the provider has no default of its own, and nothing malformed in the
+ * endpoint field either way.
+ *
+ * Both fields are taken as typed; the trimming is done here so a field of spaces counts as empty.
+ */
+export function isConnectionValid(providerType: ProviderType | undefined, apiKey: string, baseUrl: string): boolean {
+    const apiKeyMode = providerType?.apiKey ?? "required";
+    const baseUrlMode = providerType?.baseUrl ?? "advanced";
+    const trimmedBaseUrl = baseUrl.trim();
+
+    if (apiKeyMode === "required" && !apiKey.trim()) {
+        return false;
+    }
+
+    if (baseUrlMode === "none") {
+        return true;
+    }
+
+    return isValidBaseUrl(trimmedBaseUrl) && (baseUrlMode !== "required" || !!trimmedBaseUrl);
 }
 
 /**
@@ -202,8 +229,7 @@ export default function AddProviderModal({ show, onHidden, onSave, existingProvi
     const trimmedApiKey = apiKey.trim();
     const trimmedBaseUrl = baseUrl.trim();
     const baseUrlIsValid = isValidBaseUrl(trimmedBaseUrl);
-    const connectionValid = (apiKeyMode !== "required" || !!trimmedApiKey)
-        && (baseUrlMode === "none" || (baseUrlIsValid && (baseUrlMode !== "required" || !!trimmedBaseUrl)));
+    const connectionValid = isConnectionValid(providerType, apiKey, baseUrl);
 
     /**
      * Picking a card swaps in that provider's endpoint — so the right port is

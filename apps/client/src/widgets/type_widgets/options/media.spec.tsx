@@ -15,7 +15,30 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
     stored: {} as Record<string, string>,
     saved: vi.fn<(name: string, value: string) => void>(),
-    standalone: false
+    standalone: false,
+    /** How the batch run reports itself, read again on every poll. */
+    progress: { inProgress: false, total: 0, processed: 0, failed: 0, percentage: 0 },
+    /** Whether asking for a run is accepted at all. */
+    startResult: { success: true } as { success: boolean; message?: string },
+    showMessage: vi.fn(),
+    showError: vi.fn()
+}));
+
+// Replacing the shared server mock means also answering what the modules pulled in alongside the
+// page ask for on import — the keyboard actions, which expect a list.
+vi.mock("../../../services/server", () => ({
+    default: {
+        get: async (url: string) => {
+            if (url === "ocr/batch-progress") return mocks.progress;
+            if (url === "keyboard-actions") return [];
+            return {};
+        },
+        post: async (url: string) => (url === "ocr/batch-process" ? mocks.startResult : {})
+    }
+}));
+
+vi.mock("../../../services/toast", () => ({
+    default: { showMessage: mocks.showMessage, showError: mocks.showError }
 }));
 
 // `isStandalone` is a const in the target, read here through a getter so a scenario can flip which
@@ -138,6 +161,8 @@ async function choose(title: string, label: string) {
 
 beforeEach(() => {
     mocks.standalone = false;
+    mocks.progress = { inProgress: false, total: 0, processed: 0, failed: 0, percentage: 0 };
+    mocks.startResult = { success: true };
     host = document.body.appendChild(document.createElement("div"));
 });
 
@@ -238,5 +263,56 @@ describe("the OCR card", () => {
         expect(host.querySelector(".media-batch-ocr")).toBeNull();
         // The card itself stays: its two settings govern the extraction wherever it happens.
         expect(host.querySelector(".media-ocr .tn-card-option")).not.toBeNull();
+    });
+});
+
+/**
+ * Running OCR over everything already stored. The run belongs to the server, so the page's part is
+ * asking for it and then reporting what it hears back — polled, because there is nothing pushed.
+ */
+describe("processing every image at once", () => {
+    const startButton = () => host.querySelector<HTMLButtonElement>("button[name='batch-ocr-start-button']");
+    const progressBar = () => host.querySelector(".media-batch-ocr-progress");
+
+    /** Presses the button and lets the request and its first poll settle. */
+    async function start() {
+        await act(async () => startButton()?.click());
+        await act(async () => {});
+    }
+
+    it("swaps the button for a bar once a run is under way", async () => {
+        mocks.progress = { inProgress: true, total: 10, processed: 3, failed: 0, percentage: 30 };
+        open();
+        await start();
+
+        expect(startButton()).toBeNull();
+        expect(progressBar()).not.toBeNull();
+    });
+
+    it("puts the button back and says what the run came to, once it is over", async () => {
+        mocks.progress = { inProgress: false, total: 4, processed: 4, failed: 0, percentage: 100 };
+        open();
+        await start();
+
+        expect(progressBar()).toBeNull();
+        expect(startButton()).not.toBeNull();
+        expect(mocks.showMessage).toHaveBeenCalledWith(expect.stringContaining("images.batch_ocr_completed"));
+    });
+
+    it("reports a run that finished with failures as a failure, not as a success", async () => {
+        mocks.progress = { inProgress: false, total: 4, processed: 3, failed: 1, percentage: 100 };
+        open();
+        await start();
+
+        expect(mocks.showError).toHaveBeenCalledWith(expect.stringContaining("images.batch_ocr_completed_with_failures"));
+    });
+
+    it("says why when the server will not start one at all", async () => {
+        mocks.startResult = { success: false, message: "no engine" };
+        open();
+        await start();
+
+        expect(mocks.showError).toHaveBeenCalledWith("no engine");
+        expect(progressBar()).toBeNull();
     });
 });
