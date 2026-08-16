@@ -86,6 +86,17 @@
     }
 }
 
+.tn-card-option-stacked {
+    flex-direction: column;
+    align-items: stretch;
+
+    /* Given a line of its own, the control uses all of it — including a slider, which otherwise
+       carries a width of its own (200px) that `stretch` cannot override. */
+    > * {
+        width: 100%;
+    }
+}
+
 /* On a phone, a control too wide to sit beside the text takes the line below it. A switch is narrow
    enough to stay put; a button labelled with a sentence is not, and left the description beside it
    reading a word to the line. */

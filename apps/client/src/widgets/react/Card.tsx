@@ -111,6 +111,11 @@ export interface CardOptionProps extends CardSectionProps {
      * child can be bound, which covers the usual case of one toggle or one input per option.
      */
     name?: string;
+    /**
+     * Puts the control on the line below the label rather than beside it, for one that needs the
+     * whole width — a URL, a path, anything read as well as typed.
+     */
+    stacked?: boolean;
     /** The controls the option is operated with, placed on the trailing edge. */
     children?: ComponentChildren;
 }
@@ -120,11 +125,13 @@ export interface CardOptionProps extends CardSectionProps {
  * trailing one, with the sentence explaining it below the label.
  */
 export function CardOption(props: CardOptionProps) {
-    const {label, description, name, children, className, ...rest} = props;
+    const {label, description, name, stacked, children, className, ...rest} = props;
     const id = useUniqueName(name);
     const bound = !!name && isValidElement(children);
 
-    return <CardSection className={clsx("tn-card-option", className)} {...rest}>
+    return <CardSection className={clsx("tn-card-option", className, {
+                            "tn-card-option-stacked": stacked
+                        })} {...rest}>
         <label className="tn-card-option-label" for={bound ? id : undefined}>
             {label}
             {description && <small className="tn-card-option-description">{description}</small>}
