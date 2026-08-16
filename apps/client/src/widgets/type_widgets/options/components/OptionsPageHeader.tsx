@@ -22,6 +22,10 @@ interface OptionsPageHeaderProps {
      * where the help is page-level rather than scoped to one card.
      */
     helpUrl?: string;
+    /** Title of a page that is not a note of its own, such as the options search. */
+    title?: string;
+    /** Icon to go with {@link OptionsPageHeaderProps.title}, in `bx bx-…` form. */
+    icon?: string;
 }
 
 /**
@@ -34,23 +38,25 @@ interface OptionsPageHeaderProps {
  * for options pages. The sticky-bar styling differs per context (see the CSS), but each page owns its
  * header the same way in all of them.
  */
-export default function OptionsPageHeader({ actions, below, helpUrl }: OptionsPageHeaderProps) {
+export default function OptionsPageHeader({ actions, below, helpUrl, title, icon }: OptionsPageHeaderProps) {
     const { note } = useNoteContext();
+    const shownTitle = title ?? note?.title;
+    const shownIcon = icon ?? note?.getIcon();
 
     // Nothing to render: the note isn't available yet and the page provided no content.
-    if (!note && !actions && !below) return null;
+    if (!shownTitle && !actions && !below) return null;
 
     return (
         // A header carrying nothing but the page's name is marked as such: on a phone the name is
         // shown beside the way back instead, leaving this with no band of its own to draw (see CSS).
         <div className={clsx("options-page-header", !actions && !below && "options-page-header-title-only")}>
             <div className="options-page-header-inner">
-                {(note || actions) && (
+                {(shownTitle || actions) && (
                     <div className="options-page-header-main">
-                        {note && (
+                        {shownTitle && (
                             <div className="options-page-header-titles">
-                                <span className={`options-page-header-icon ${note.getIcon()}`} aria-hidden="true" />
-                                <h2 className="options-page-header-title">{note.title}</h2>
+                                <span className={`options-page-header-icon ${shownIcon}`} aria-hidden="true" />
+                                <h2 className="options-page-header-title">{shownTitle}</h2>
                                 {/* Classed so it can be told from the name it stands beside: on a
                                     phone the name moves into the dialog's header and this stays. */}
                                 {helpUrl && <HelpButton className="options-page-header-help" helpPage={helpUrl} />}

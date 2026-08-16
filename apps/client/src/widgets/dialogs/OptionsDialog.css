@@ -23,15 +23,21 @@ body.desktop .modal.options-dialog > .modal-dialog {
     height: 75vh;
 }
 
+/* Stated on the column itself rather than left to whichever child turns out to be the widest, so
+   that the search field takes the width it is given instead of setting it. */
 .modal.options-dialog > .modal-dialog > .modal-content > .modal-sidebar {
+    width: 240px;
     background-color: var(--card-background-color);
+}
+
+.modal.options-dialog > .modal-dialog > .modal-content > .modal-sidebar .settings-search {
+    margin: 8px 8px 0;
 }
 
 .modal.options-dialog > .modal-dialog > .modal-content > .modal-sidebar .settings-navigation {
     flex: 1 1 0;
     min-height: 0;
     overflow: auto;
-    width: 240px;
     padding: 8px;
 }
 

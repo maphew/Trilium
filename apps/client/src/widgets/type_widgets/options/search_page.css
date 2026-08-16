@@ -1,0 +1,45 @@
+.options-search {
+    .options-search-loading,
+    .options-search-hint {
+        margin-top: 2em;
+        color: var(--muted-text-color);
+        font-size: 1.2em;
+        text-align: center;
+    }
+
+    .options-search-results,
+    .options-search-page {
+        display: flex;
+        flex-direction: column;
+        gap: 26px;
+    }
+
+    /* The layout above out-weighs the browser's own rule for the attribute, so it is said again. */
+    .options-search-results[hidden] {
+        display: none;
+    }
+
+    .options-search-page-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        color: var(--muted-text-color);
+        font-size: 1.5rem;
+        font-weight: 400;
+    }
+}
+
+/*
+ * A page brings its whole self along, of which the search wants only the cards: its header names the
+ * page it thinks it is showing, and its tables and listings are not settings anyone can search for.
+ *
+ * What counts as something to show is therefore a card that matched by name, or any single setting
+ * that matched — the same test decides whether a page is worth naming and whether the search found
+ * anything at all.
+ */
+.options-search-page > :not(.tn-card, .options-search-page-title),
+.options-search-page:not(:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option)),
+.options-search-results:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option) .options-search-empty {
+    display: none;
+}

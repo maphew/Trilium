@@ -1062,7 +1062,12 @@
   },
   "options": {
     "title": "Options",
-    "back": "Back to all options"
+    "back": "Back to all options",
+    "search_placeholder": "Search settings",
+    "search_clear": "Clear the search",
+    "search_title": "Options search",
+    "search_hint": "Type a keyword to search across every settings page.",
+    "search_no_results": "No setting matches what you are looking for."
   },
   "global_menu": {
     "menu": "Menu",
