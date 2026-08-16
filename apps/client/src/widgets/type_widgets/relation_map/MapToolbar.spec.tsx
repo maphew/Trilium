@@ -69,7 +69,7 @@ describe("relation map EditToolbar", () => {
 
         // The mark is a child of the button rather than the button's own class — the words beside it
         // are to stay words (see OverlayControlGroup.tsx).
-        expect(button()?.querySelector(".bx-folder-plus")).not.toBeNull();
+        expect(button()?.querySelector(".bx-note")).not.toBeNull();
         expect(button()?.textContent).toBe("relation_map_buttons.create_child_note_text");
 
         act(() => button()?.click());

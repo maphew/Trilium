@@ -78,17 +78,24 @@ interface EditToolbarProps {
  * narrow pane. Beside it in this module rather than in one of its own, as the mind map's two bars
  * are: a group of one button is not a file's worth, and the two are read together.
  *
- * Adding a note is the one thing this map is edited by, so the + carries its name in words rather
- * than standing as a bare glyph, as the geo map's does. It stands on the map rather than in the
- * note's own bar of actions, where it was: what it starts is finished by a click on the map, so it
- * belongs beside the canvas that answers it — the toast that follows says as much in words.
+ * Adding a note is the one thing this map is edited by, so the button carries its name in words
+ * rather than standing as a bare glyph, as the geo map's does. It wears the mark a note wears — the
+ * very thing a press drops on the map, as the geo map's + wears the pin it drops — rather than the
+ * folder-and-plus it was given among the floating buttons: a folder is what a note wearing no mark of
+ * its own is drawn as once it has children (see `getNoteIcon` in commons), which is neither what this
+ * makes nor what lands on the map. The adding is said by the words beside it, there being no
+ * note-and-plus in the icon set, and that leaves the mark unlike the + of the zoom step opposite.
+ *
+ * It stands on the map rather than in the note's own bar of actions, where it was: what it starts is
+ * finished by a click on the map, so it belongs beside the canvas that answers it — the toast that
+ * follows says as much in words.
  */
 export function EditToolbar({ isReadOnly, onAddNote }: EditToolbarProps) {
     return (
         <OverlayControlGroup className="relation-map-edit-toolbar" placement="bottom-center">
             <OverlayControlButton
                 title={t("relation_map_buttons.create_child_note_title")}
-                icon="bx-folder-plus"
+                icon="bx-note"
                 text={t("relation_map_buttons.create_child_note_text")}
                 className="relation-map-add-note-button"
                 disabled={isReadOnly}
