@@ -1,7 +1,6 @@
 import "./other.css";
 
 import { SANITIZER_DEFAULT_ALLOWED_TAGS } from "@triliumnext/commons";
-import { useMemo } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
 import search from "../../../services/search";
@@ -237,10 +236,7 @@ function RevisionSettings() {
 
 function HtmlImportTags() {
     const [ allowedHtmlTags, setAllowedHtmlTags ] = useTriliumOptionJson<readonly string[]>("allowedHtmlTags");
-
-    const parsedValue = useMemo(() => {
-        return allowedHtmlTags.join(" ");
-    }, allowedHtmlTags);
+    const parsedValue = allowedHtmlTags.join(" ");
 
     return (
         <div className="options-section">
