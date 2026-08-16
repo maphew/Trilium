@@ -66,8 +66,22 @@ export interface CardSectionProps {
     subSections?: JSX.Element | JSX.Element[];
     subSectionsVisible?: boolean;
     highlightOnHover?: boolean;
-    onAction?: () => void;
+    /** Called when the section is pressed. Handed the event, which a link's handler may need. */
+    onAction?: (event: MouseEvent) => void;
     noPadding?: boolean;
+    /**
+     * Makes the section a segment that leads somewhere rather than one holding a control: it becomes
+     * an `<a>` carrying this address, highlights on hover, and reads a chevron on its trailing edge.
+     *
+     * A card of these is a card of anchors — do not mix them with ordinary segments, whose rounded
+     * first and last corners are matched by element type.
+     */
+    href?: string;
+    /**
+     * Opts the link out of the options dialog's contained navigation, which would otherwise swallow
+     * the click before {@link CardSectionProps.onAction} ever saw it. Ignored without an `href`.
+     */
+    noContainedNavigation?: boolean;
 }
 
 interface CardSectionContextType {
@@ -80,16 +94,28 @@ export function CardSection(props: {children: ComponentChildren} & CardSectionPr
     const parentContext = useContext(CardSectionContext);
     const nestingLevel = (parentContext && parentContext.nestingLevel + 1) ?? 0;
 
+    const className = clsx("tn-card-section", props.className, {
+        "tn-card-section-nested": nestingLevel > 0,
+        "tn-card-highlight-on-hover": props.highlightOnHover || props.onAction || props.href,
+        "tn-no-padding": props.noPadding
+    });
+    const style = {"--tn-card-section-nesting-level": (nestingLevel) ? nestingLevel : null};
+
     return <>
-        <section className={clsx("tn-card-section", props.className, {
-                    "tn-card-section-nested": nestingLevel > 0,
-                    "tn-card-highlight-on-hover": props.highlightOnHover || props.onAction,
-                    "tn-no-padding": props.noPadding
-                 })}
-                 style={{"--tn-card-section-nesting-level": (nestingLevel) ? nestingLevel : null}}
+        {props.href
+            ? <a className={clsx(className, "tn-card-section-link", "no-tooltip-preview")}
+                 style={style}
+                 href={props.href}
+                 data-no-contained-navigation={props.noContainedNavigation ? "" : undefined}
                  onClick={props.onAction}>
-            {props.children}
-        </section>
+                {props.children}
+                <span className="tn-card-section-chevron bx bx-chevron-right" />
+            </a>
+            : <section className={className}
+                       style={style}
+                       onClick={props.onAction}>
+                {props.children}
+            </section>}
 
         {props.subSectionsVisible && props.subSections &&
             <CardSectionContext.Provider value={{nestingLevel}}>

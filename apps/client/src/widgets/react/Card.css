@@ -86,6 +86,28 @@
     }
 }
 
+/* A segment that leads somewhere rather than holding a control: it keeps the page's own text colour
+   and gives up the underline, the chevron at its end standing in for both. */
+.tn-card-section-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover {
+        color: inherit;
+    }
+}
+
+.tn-card-section-chevron {
+    flex-shrink: 0;
+    margin-inline-start: auto;
+    color: var(--muted-text-color);
+    font-size: 1.3em;
+}
+
 .tn-card-option-stacked {
     flex-direction: column;
     align-items: stretch;
