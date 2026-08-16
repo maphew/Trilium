@@ -1,41 +1,36 @@
-/* The shortcuts page feeds its controls into its OptionsPageHeader: the conflicts badge and reset
-   buttons on the title row, the filter/search box on the full-width row beneath. The sticky bar,
+/* The shortcuts page feeds its controls into its OptionsPageHeader: the conflicts badge on the title
+   row, the filter box and the page's actions on the full-width row beneath. The sticky bar,
    background and bottom border come from the header itself. */
-.shortcut-header-buttons {
-    display: flex;
-    align-items: center;
-    gap: 0.5em;
-    justify-content: flex-end;
-    /* Keep the reset buttons clear of the dialog's window buttons (top-right). */
+
+/* Prominent danger badge flagging that conflicts exist; click to filter to them. Kept clear of the
+   dialog's own window buttons, which share the title row with it. */
+.shortcut-conflicts-badge {
+    --color: var(--icon-button-danger-color, #d9534f);
+    flex: 0 0 auto;
     margin-inline-end: 3em;
+}
 
-    /* Prominent danger badge flagging that conflicts exist; click to filter to them. Pushed to the
-       leading edge of the row, away from the buttons. */
-    .shortcut-conflicts-badge {
-        flex: 0 0 auto;
-        margin-inline-end: auto;
-        --color: var(--icon-button-danger-color, #d9534f);
-    }
-
-    /* While the conflicts filter is active, fill the outline badge solid. */
-    .shortcut-conflicts-badge.active {
-        background-color: var(--color);
-        color: white;
-    }
+/* While the conflicts filter is active, fill the outline badge solid. */
+.shortcut-conflicts-badge.active {
+    background-color: var(--color);
+    color: white;
 }
 
 .shortcut-header-filter {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.5em;
 
-    /* The search box grows so the filter button sits at the trailing edge. */
+    /* The search box grows so the filter button and the actions after it sit at the trailing edge. */
     > :first-child {
         flex: 1;
     }
 
-    .dropdown {
+    .dropdown,
+    > .btn {
         flex: 0 0 auto;
+        white-space: nowrap;
     }
 
     /* Highlight the filter button while a filter is applied. */
@@ -57,10 +52,14 @@
 
     .shortcut-editor {
         display: flex;
+        /* A card option holds its controls at their natural width; this one is a set that wraps, so
+           it gives way to the name beside it instead of carrying the chips off the card. */
+        flex-shrink: 1;
         flex-wrap: wrap;
         align-items: center;
         justify-content: flex-end;
         gap: 0.4em;
+        min-width: 0;
     }
 
     /* Reserve the revert button's slot (matching its .icon-action width) so the add button to its
@@ -150,7 +149,7 @@
             transition: opacity 0.15s ease;
         }
 
-        .option-row:hover .shortcut-recorder,
+        .tn-card-option:hover .shortcut-recorder,
         .shortcut-recorder:focus,
         .shortcut-recorder.recording {
             opacity: 1;
@@ -158,17 +157,12 @@
         }
     }
 
-    /* On mobile, stack each row so the shortcut editor sits underneath the action label.
-       OptionsRow keeps these rows inline because they contain .icon-action buttons. */
+    /* On mobile, stack each segment so the shortcut editor sits underneath the action label. A card
+       option only stacks itself for a button or a slider, and this is neither. */
     body.mobile & {
-        .option-row {
+        .tn-card-option {
             flex-direction: column;
             align-items: stretch;
-            gap: 8px;
-        }
-
-        .option-row-input {
-            width: 100%;
         }
 
         .shortcut-editor {
