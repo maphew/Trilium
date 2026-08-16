@@ -10,7 +10,9 @@
 }
 
 .relation-map-wrapper .relation-map-edit-toolbar {
-    inset-inline-start: var(--overlay-button-inset, 10px);
+    inset-inline: var(--overlay-button-inset, 10px);
+    margin-inline: auto;
+    width: fit-content;
 }
 
 .relation-map-wrapper .relation-map-add-note-button {

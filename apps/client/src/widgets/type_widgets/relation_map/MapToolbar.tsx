@@ -68,13 +68,15 @@ interface EditToolbarProps {
 }
 
 /**
- * The editing actions, standing in the corner of the foot opposite, on a group of their own — adding
- * a note today, with room along the row for whatever editing the map comes to offer next.
+ * The editing actions, standing in the middle of the map's foot on a group of their own — adding a
+ * note today, with room along the row for whatever editing the map comes to offer next.
  *
  * A group of its own rather than more buttons on {@link MapToolbar}, as on the geo map: that one is
  * the camera — how close in the map is drawn and where it stands — and what changes the map is
- * another kind of thing. Beside it here rather than in a module of its own, as the mind map's two
- * bars are: a group of one button is not a file's worth, and the two are read together.
+ * another kind of thing. The middle of the foot is where the geo map's editing stands too, and it
+ * keeps the two apart at any width: a group pinned to the corner opposite would meet the camera on a
+ * narrow pane. Beside it in this module rather than in one of its own, as the mind map's two bars
+ * are: a group of one button is not a file's worth, and the two are read together.
  *
  * Adding a note is the one thing this map is edited by, so the + carries its name in words rather
  * than standing as a bare glyph, as the geo map's does. It stands on the map rather than in the
