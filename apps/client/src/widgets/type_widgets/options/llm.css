@@ -1,7 +1,23 @@
+/* The page's own switch, standing on the header's second row rather than in a card: it carries the
+   card option's layout without a card's frame, so it needs the room a segment would have given it. */
+.llm-master-switch {
+    padding-block: 4px;
+}
+
 .llm-provider-name {
     display: inline-flex;
     align-items: center;
     gap: 0.5em;
+}
+
+.llm-provider-actions {
+    display: flex;
+    gap: 4px;
+}
+
+/* The way to add one, at the end of the list it adds to. */
+.llm-add-provider {
+    text-align: end;
 }
 
 /* Scale the provider logo down to sit inline with the row label text. */

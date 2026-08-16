@@ -35,7 +35,11 @@ vi.mock("../../react/hooks", async (importOriginal) => ({
 // no such route, so whether it is asked for at all is part of what is under test.
 vi.mock("../../../services/server", () => ({ default: { get: mocks.get } }));
 
-vi.mock("./components/OptionsPageHeader", () => ({ default: () => <div className="header-stub" /> }));
+// Stubbed for the note context it would otherwise need, but its second row is rendered: the page's
+// master switch lives there now.
+vi.mock("./components/OptionsPageHeader", () => ({
+    default: ({ below }: { below?: preact.ComponentChildren }) => <div className="header-stub">{below}</div>
+}));
 // Carries a bootstrap modal into the tree, and the MCP card below it is what is being read here.
 vi.mock("./llm/AddProviderModal", () => ({ default: () => null, PROVIDER_TYPES: [] }));
 
@@ -66,29 +70,33 @@ function open() {
 
 /** The MCP switch, plus the sentence under it — which is where the reason has to appear. */
 function mcpRow() {
-    // The row names its input `mcp-enabled-<random>`, so match on the stable prefix.
+    // The option names its input `mcp-enabled-<random>`, so match on the stable prefix.
     const toggle = host.querySelector<HTMLInputElement>("input.switch-toggle[id^='mcp-enabled-']");
-    const row = toggle?.closest(".option-row");
+    const row = toggle?.closest(".tn-card-option");
     return {
         toggle,
-        description: row?.querySelector(".option-row-description")?.textContent,
+        description: row?.querySelector(".tn-card-option-description")?.textContent,
         // Only rendered while MCP is actually serving: the endpoint list and the paste-in config.
         endpointsShown: !!host.querySelector(".mcp-endpoint-list")
     };
 }
 
 describe("the AI master switch", () => {
-    it("is a named row, so what it turns on is stated rather than left to a tooltip", () => {
+    it("is a named row in the page header, so what it turns on is stated rather than left to a tooltip", () => {
         open();
 
         const toggle = host.querySelector<HTMLInputElement>("input.switch-toggle[id^='ai-enabled-']");
         expect(toggle).not.toBeNull();
+        // It governs the page rather than any one card, so it stands in the header rather than
+        // in a card of its own above the ones it turns on.
+        expect(toggle?.closest(".header-stub")).not.toBeNull();
 
-        // Bound to the switch, not merely text near it — the switch's accessible name.
-        const row = toggle?.closest(".option-row");
+        // Bound to the switch, not merely text near it — the switch's accessible name. The label
+        // carries the sentence too, so the name itself is read from the text leading it.
+        const row = toggle?.closest(".tn-card-option");
         expect(row?.querySelector("label")?.getAttribute("for")).toBe(toggle?.id);
-        expect(row?.querySelector("label")?.textContent).toBe("llm.enabled");
-        expect(row?.querySelector(".option-row-description")?.textContent).toBe("llm.enabled_description");
+        expect(row?.querySelector("label")?.firstChild?.textContent).toBe("llm.enabled");
+        expect(row?.querySelector(".tn-card-option-description")?.textContent).toBe("llm.enabled_description");
     });
 
     it("stays on the page when off, so the way back on is where the settings were", () => {
