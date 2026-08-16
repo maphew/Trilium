@@ -72,9 +72,18 @@ test("gantt diagram survives split divider drag (issue 9749)", async ({ page, co
     await testDividerDragSurvival({ page, context, noteTitle: "Gantt" });
 });
 
-test("gantt diagram with pathological date range survives split divider drag (issue 9749)", async ({ page, context }) => {
-    await testDividerDragSurvival({ page, context, noteTitle: "Bar chart" });
-});
+test(
+    "gantt diagram with pathological date range survives split divider drag (issue 9749)",
+    async ({ page, context }) => {
+        await testDividerDragSurvival({ page, context, noteTitle: "Bar chart" });
+    }
+);
+
+interface DividerDragTestOpts {
+    page: Page;
+    context: BrowserContext;
+    noteTitle: string;
+}
 
 /**
  * Regression test for issue #9749: mermaid gantt-based diagrams (which mermaid renders with a
@@ -90,7 +99,7 @@ test("gantt diagram with pathological date range survives split divider drag (is
  * the height before dragging. Height is asserted rather than width because the gantt bounding box
  * width is dominated by the off-screen "today" marker even in the healthy case.
  */
-async function testDividerDragSurvival({ page, context, noteTitle }: { page: Page; context: BrowserContext; noteTitle: string }) {
+async function testDividerDragSurvival({ page, context, noteTitle }: DividerDragTestOpts) {
     const app = new App(page, context);
     await app.goto();
     await app.goToNoteInNewTab(noteTitle);
@@ -146,7 +155,9 @@ async function testDividerDragSurvival({ page, context, noteTitle }: { page: Pag
  */
 function requireBoundingBox(box: Awaited<ReturnType<Locator["boundingBox"]>>, label: string) {
     if (!box) {
-        throw new Error(`Expected a bounding box for ${label}, but the element was not visible/attached.`);
+        throw new Error(
+            `Expected a bounding box for ${label}, but the element was not visible/attached.`
+        );
     }
     return box;
 }
