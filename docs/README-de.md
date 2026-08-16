@@ -116,7 +116,7 @@ Unsere Dokumentation ist verfügbar in mehreren Formaten:
 * Integriertes [dunkles
   Design](https://docs.triliumnotes.org/user-guide/concepts/themes),
   Unterstützung für benutzerdefinierte Designs
-* [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/evernote)
+* [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/import-from-apps/evernote.html)
   und [Markdown importieren und
   exportieren](https://docs.triliumnotes.org/user-guide/concepts/import-export/markdown)
 * [Web Clipper](https://docs.triliumnotes.org/user-guide/setup/web-clipper) zum

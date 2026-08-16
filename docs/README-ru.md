@@ -115,7 +115,7 @@ Trilium Notes – это приложение для заметок с иера�
   смартфонов и планшетов
 * [Темная тема](https://docs.triliumnotes.org/user-guide/concepts/themes)
 * Импорт и экпорт
-  [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/evernote)
+  [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/import-from-apps/evernote.html)
   и данных в
   [markdown](https://docs.triliumnotes.org/user-guide/concepts/import-export/markdown)
   формате
