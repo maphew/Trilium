@@ -1,16 +1,26 @@
-.note-detail-content-widget-content.options {
-    /* #region Code Preview */
-    .options-section.code-block-appearance .options-section-card {
-        overflow: hidden;
+/* Bootstrap gives a select the whole width of what holds it, which in a card row leaves the label
+   beside it a word to the line. Sized to what it offers instead, and cut short rather than carried
+   across the row. */
+.code-notes-appearance select {
+    width: auto;
+    min-width: 150px;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
-        .option-row:nth-last-child(2) {
-            border-bottom: 0;
-        }
+/* A figure and the unit it is read in, sized to the figure: Bootstrap gives an input group the whole
+   width of what holds it, which in a card row is the row. */
+.code-notes-number .tn-number-unit-pair {
+    width: auto;
 
-        .note-detail-readonly-code-content {
-            border-top: solid 1px var(--main-border-color);
-            margin: 0 calc(var(--options-card-padding) * -1) calc(var(--options-card-padding) * -1) calc(var(--options-card-padding) * -1) !important;
-        }
+    input[type="number"] {
+        width: 7em;
     }
-    /* #endregion */
+}
+
+/* Clipped to the corners the last segment rounds, which the editor inside would otherwise paint over. */
+.code-note-preview {
+    overflow: hidden;
 }

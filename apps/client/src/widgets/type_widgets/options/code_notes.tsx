@@ -4,14 +4,14 @@ import CodeMirror, { ColorThemes, getThemeById, type ThemeVariant } from "@trili
 import { useEffect, useMemo, useRef } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
+import { Card, CardOption, CardSection } from "../../react/Card";
 import FormSelect from "../../react/FormSelect";
 import { FormTextBoxWithUnit } from "../../react/FormTextBox";
+import FormToggle from "../../react/FormToggle";
 import { useColorScheme, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import { CODE_THEME_DEFAULT_PREFIX as DEFAULT_PREFIX } from "../constants";
 import { CodeMimeTypesList } from "./code_mime_types_list";
 import OptionsPageHeader from "./components/OptionsPageHeader";
-import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
-import OptionsSection from "./components/OptionsSection";
 import ThemeModeSelector from "./components/ThemeModeSelector";
 import codeNoteSample from "./samples/code_note.txt?raw";
 
@@ -42,42 +42,50 @@ function Editor({ wordWrapping, setWordWrapping }: EditorProps) {
     const [codeNoteTabWidth, setCodeNoteTabWidth] = useTriliumOption("codeNoteTabWidth");
 
     return (
-        <OptionsSection title={t("code-editor-options.title")}>
-            <OptionsRowWithToggle
-                name="word-wrap"
-                label={t("code_theme.word_wrapping")}
-                currentValue={wordWrapping}
-                onChange={setWordWrapping}
-            />
+        <div className="options-section">
+            <Card heading={t("code-editor-options.title")}>
+                <CardOption name="word-wrap" label={t("code_theme.word_wrapping")}>
+                    <FormToggle currentValue={wordWrapping} onChange={setWordWrapping} />
+                </CardOption>
 
-            {/* Avoid using "code" in the name of numeric inputs to prevent KeepassXC from triggering. */}
-            <OptionsRow name="editor-tab-width" label={t("code-editor-options.tab_width")}>
-                <FormTextBoxWithUnit
-                    type="number" min={1} max={16} step={1}
-                    unit={t("code-editor-options.tab_width_unit")}
-                    currentValue={codeNoteTabWidth}
-                    onChange={setCodeNoteTabWidth}
-                    onBlur={setCodeNoteTabWidth}
-                />
-            </OptionsRow>
+                {/* Avoid using "code" in the name of numeric inputs to prevent KeepassXC from triggering. */}
+                <CardOption
+                    className="code-notes-number"
+                    name="editor-tab-width"
+                    label={t("code-editor-options.tab_width")}
+                >
+                    <FormTextBoxWithUnit
+                        type="number" min={1} max={16} step={1}
+                        unit={t("code-editor-options.tab_width_unit")}
+                        currentValue={codeNoteTabWidth}
+                        onChange={setCodeNoteTabWidth}
+                        onBlur={setCodeNoteTabWidth}
+                    />
+                </CardOption>
 
-            <OptionsRow name="source-readonly-threshold" label={t("code_auto_read_only_size.label")} description={t("text_auto_read_only_size.description")}>
-                <FormTextBoxWithUnit
-                    type="number" min={0}
-                    unit={t("text_auto_read_only_size.unit")}
-                    currentValue={autoReadonlySize}
-                    onBlur={setAutoReadonlySize}
-                />
-            </OptionsRow>
+                <CardOption
+                    className="code-notes-number"
+                    name="source-readonly-threshold"
+                    label={t("code_auto_read_only_size.label")}
+                    description={t("text_auto_read_only_size.description")}
+                >
+                    <FormTextBoxWithUnit
+                        type="number" min={0}
+                        unit={t("text_auto_read_only_size.unit")}
+                        currentValue={autoReadonlySize}
+                        onBlur={setAutoReadonlySize}
+                    />
+                </CardOption>
 
-            <OptionsRowWithToggle
-                name="vim-keymap-enabled"
-                label={t("vim_key_bindings.use_vim_keybindings_in_code_notes")}
-                description={t("vim_key_bindings.enable_vim_keybindings")}
-                currentValue={vimKeymapEnabled}
-                onChange={setVimKeymapEnabled}
-            />
-        </OptionsSection>
+                <CardOption
+                    name="vim-keymap-enabled"
+                    label={t("vim_key_bindings.use_vim_keybindings_in_code_notes")}
+                    description={t("vim_key_bindings.enable_vim_keybindings")}
+                >
+                    <FormToggle currentValue={vimKeymapEnabled} onChange={setVimKeymapEnabled} />
+                </CardOption>
+            </Card>
+        </div>
     );
 }
 
@@ -113,38 +121,44 @@ function Appearance({ wordWrapping, indentSize }: AppearanceProps) {
         : codeNoteTheme;
 
     return (
-        <OptionsSection title={t("code_theme.title")} className="code-block-appearance">
-            <ThemeModeSelector matchesApp={matchesApp} onMatchesAppChange={setMatchesApp} />
+        <div className="options-section code-notes-appearance">
+            <Card heading={t("code_theme.title")}>
+                <ThemeModeSelector matchesApp={matchesApp} onMatchesAppChange={setMatchesApp} />
 
-            {matchesApp ? (
-                <>
-                    <OptionsRow name="light-theme" label={t("code_theme.light_theme")}>
+                {matchesApp ? (
+                    <>
+                        <CardOption name="light-theme" label={t("code_theme.light_theme")}>
+                            <FormSelect
+                                values={lightThemes}
+                                keyProperty="id" titleProperty="name"
+                                currentValue={lightTheme} onChange={setLightTheme}
+                            />
+                        </CardOption>
+                        <CardOption name="dark-theme" label={t("code_theme.dark_theme")}>
+                            <FormSelect
+                                values={darkThemes}
+                                keyProperty="id" titleProperty="name"
+                                currentValue={darkTheme} onChange={setDarkTheme}
+                            />
+                        </CardOption>
+                    </>
+                ) : (
+                    <CardOption name="color-scheme" label={t("code_theme.color-scheme")}>
                         <FormSelect
-                            values={lightThemes}
+                            values={allThemes}
                             keyProperty="id" titleProperty="name"
-                            currentValue={lightTheme} onChange={setLightTheme}
+                            currentValue={codeNoteTheme} onChange={setCodeNoteTheme}
                         />
-                    </OptionsRow>
-                    <OptionsRow name="dark-theme" label={t("code_theme.dark_theme")}>
-                        <FormSelect
-                            values={darkThemes}
-                            keyProperty="id" titleProperty="name"
-                            currentValue={darkTheme} onChange={setDarkTheme}
-                        />
-                    </OptionsRow>
-                </>
-            ) : (
-                <OptionsRow name="color-scheme" label={t("code_theme.color-scheme")}>
-                    <FormSelect
-                        values={allThemes}
-                        keyProperty="id" titleProperty="name"
-                        currentValue={codeNoteTheme} onChange={setCodeNoteTheme}
-                    />
-                </OptionsRow>
-            )}
+                    </CardOption>
+                )}
 
-            <CodeNotePreview wordWrapping={wordWrapping} themeName={effectiveTheme} indentSize={indentSize} />
-        </OptionsSection>
+                {/* The whole segment, edge to edge: a specimen of the editor rather than a control
+                    standing beside a label. */}
+                <CardSection className="code-note-preview" noPadding>
+                    <CodeNotePreview wordWrapping={wordWrapping} themeName={effectiveTheme} indentSize={indentSize} />
+                </CardSection>
+            </Card>
+        </div>
     );
 }
 
@@ -210,9 +224,13 @@ function reindentSample(sample: string, indentSize: number): string {
 
 function CodeMimeTypes() {
     return (
-        <OptionsSection title={t("code_mime_types.title")}>
-            <CodeMimeTypesList />
-        </OptionsSection>
+        <div className="options-section">
+            <Card heading={t("code_mime_types.title")}>
+                <CardSection>
+                    <CodeMimeTypesList />
+                </CardSection>
+            </Card>
+        </div>
     );
 }
 

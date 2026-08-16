@@ -20,12 +20,12 @@ import FormTextBox, { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
 import { useColorScheme, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import { getHtml } from "../../react/RawHtml";
-import SegmentedChoice, { SegmentedChoiceOption } from "../../react/SegmentedChoice";
 import { QUOTE_MARK_PRESETS } from "../text/quotes";
 import { type CustomReplacement, parseCustomReplacements } from "../text/replacements";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import RadioWithIllustration from "./components/RadioWithIllustration";
 import RelatedSettings from "./components/RelatedSettings";
+import ThemeModeSelector from "./components/ThemeModeSelector";
 import { HighlightsListOptions } from "./highlights_list_options";
 
 const isNewLayout = isExperimentalFeatureEnabled("new-layout");
@@ -564,7 +564,7 @@ function CodeBlockStyle() {
     return (
         <div className="options-section text-notes-code-blocks">
             <Card heading={t("highlighting.title")}>
-                <ThemeModeOption matchesApp={matchesApp} onMatchesAppChange={setMatchesApp} />
+                <ThemeModeSelector matchesApp={matchesApp} onMatchesAppChange={setMatchesApp} />
 
                 {matchesApp ? (
                     <>
@@ -613,31 +613,6 @@ function CodeBlockStyle() {
                 </CardSection>
             </Card>
         </div>
-    );
-}
-
-type ThemeMode = "app" | "fixed";
-
-/**
- * Whether the code block theme follows the app's own light and dark, or stays on one whatever the app
- * does. Kept here rather than taken from `ThemeModeSelector`, which still speaks in option rows for
- * the code notes page — the two rejoin once that page has cards of its own.
- */
-function ThemeModeOption({ matchesApp, onMatchesAppChange }: { matchesApp: boolean, onMatchesAppChange: (value: boolean) => void }) {
-    const modes: SegmentedChoiceOption<ThemeMode>[] = [
-        { value: "app", label: t("code_theme.match_app_appearance"), icon: "bx-brightness-half" },
-        { value: "fixed", label: t("code_theme.always_use_one_theme"), icon: "bx-pin" }
-    ];
-
-    return (
-        <CardOption name="theme-mode" label={t("code_theme.theme_mode")}>
-            <SegmentedChoice
-                options={modes}
-                currentValue={matchesApp ? "app" : "fixed"}
-                onChange={(mode) => onMatchesAppChange(mode === "app")}
-                collapseOnMobile
-            />
-        </CardOption>
     );
 }
 
