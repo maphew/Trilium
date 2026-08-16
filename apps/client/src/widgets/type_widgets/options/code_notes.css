@@ -1,6 +1,8 @@
 /* The frame a code block has inside a note (theme-next/notes/text.css). */
 .code-note-preview .note-detail-readonly-code-content {
+    margin: 0;
     border-radius: 6px;
     box-shadow: var(--code-block-box-shadow);
+    height: 200px;
     overflow: hidden;
 }

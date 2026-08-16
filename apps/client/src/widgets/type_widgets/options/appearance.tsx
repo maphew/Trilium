@@ -182,7 +182,7 @@ function UserInterface() {
             <OptionCardSection name="theme" label={t("theme.theme_label")}>
                 <Dropdown
                     text={<>
-                        <span className={currentFamilyIcon} style={{ marginRight: "8px" }} />
+                        <span className={`theme-family-icon ${currentFamilyIcon}`} />
                         {currentFamilyLabel}
                     </>}
                     mobileBottomSheet

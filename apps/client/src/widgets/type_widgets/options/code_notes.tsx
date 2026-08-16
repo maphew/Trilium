@@ -199,11 +199,7 @@ function CodeNotePreview({ themeName, wordWrapping, indentSize }: { themeName: s
     }, [ themeName ]);
 
     return (
-        <div
-            ref={containerRef}
-            class="note-detail-readonly-code-content"
-            style={{ margin: 0, height: "200px" }}
-        />
+        <div ref={containerRef} class="note-detail-readonly-code-content" />
     );
 }
 

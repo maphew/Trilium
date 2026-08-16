@@ -112,3 +112,4 @@ describe("the Language & Region page", () => {
         expect(mocks.saved).toContainEqual([ "firstDayOfWeek", "7" ]);
     });
 });
+

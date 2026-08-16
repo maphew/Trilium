@@ -1,3 +1,7 @@
+.theme-family-icon {
+    margin-inline-end: 8px;
+}
+
 .appearance-layout-choices {
     display: flex;
     flex-wrap: wrap;
