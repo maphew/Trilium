@@ -17,7 +17,7 @@ import { formatSize, isElectron } from "./services/utils";
 import { BackupDownloadPanel, BackupParameters, useBackupDownload } from "./setup_backup";
 import Admonition from "./widgets/react/Admonition";
 import Button from "./widgets/react/Button";
-import { Card, CardOption, CardSection } from "./widgets/react/Card";
+import { Card, CardSection, OptionCardSection } from "./widgets/react/Card";
 import FormRadioGroup from "./widgets/react/FormRadioGroup";
 import Icon from "./widgets/react/Icon";
 import SetupPage from "./widgets/react/SetupPage";
@@ -379,17 +379,17 @@ export function ExistingDataBackedUp({ backup, onContinue, onCancel }: {
             }
         >
             <Card>
-                <CardOption label={t("setup.existing-data-file-name")}>
+                <OptionCardSection label={t("setup.existing-data-file-name")}>
                     <span class="existing-data-file-name">{backup.fileName}</span>
-                </CardOption>
+                </OptionCardSection>
 
-                <CardOption label={t("setup.existing-data-file-path")}>
+                <OptionCardSection label={t("setup.existing-data-file-path")}>
                     <BackupDirectory path={backup.directoryPath} />
-                </CardOption>
+                </OptionCardSection>
 
-                <CardOption label={t("setup.existing-data-file-size")}>
+                <OptionCardSection label={t("setup.existing-data-file-size")}>
                     {formatSize(backup.fileSize)}
-                </CardOption>
+                </OptionCardSection>
 
                 <CardSection className="existing-data-actions">
                     <Button

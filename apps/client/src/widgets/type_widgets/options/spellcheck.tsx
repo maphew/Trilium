@@ -4,7 +4,7 @@ import appContext from "../../../components/app_context";
 import { t } from "../../../services/i18n";
 import { isElectron } from "../../../services/utils";
 import Button from "../../react/Button";
-import { Card, CardOption, CardSection } from "../../react/Card";
+import { Card, CardSection, OptionCardSection } from "../../react/Card";
 import FormToggle from "../../react/FormToggle";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import NoItems from "../../react/NoItems";
@@ -44,14 +44,14 @@ function ElectronSpellcheckSettings() {
                 header — on the row below the title, clear of the dialog's own close button. */}
             <OptionsPageHeader
                 below={
-                    <CardOption
+                    <OptionCardSection
                         className="options-header-switch"
                         name="spellcheck-enabled"
                         label={t("spellcheck.enable")}
                         description={t("spellcheck.enable_description")}
                     >
                         <FormToggle currentValue={spellCheckEnabled} onChange={onToggle} />
-                    </CardOption>
+                    </OptionCardSection>
                 }
             />
 
@@ -123,7 +123,7 @@ function CustomDictionary() {
             heading={t("spellcheck.custom_dictionary_title")}
             description={t("spellcheck.custom_dictionary_description")}
         >
-            <CardOption
+            <OptionCardSection
                 label={t("spellcheck.custom_dictionary_edit")}
                 description={t("spellcheck.custom_dictionary_edit_description")}
             >
@@ -134,7 +134,7 @@ function CustomDictionary() {
                     size="micro"
                     onClick={openDictionary}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }

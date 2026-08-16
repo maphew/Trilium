@@ -5,7 +5,7 @@ import { useMemo } from "preact/hooks";
 import { t } from "../../../services/i18n";
 import utils, { isElectron } from "../../../services/utils";
 import { Badge } from "../../react/Badge";
-import { Card, CardOption } from "../../react/Card";
+import { Card, OptionCardSection } from "../../react/Card";
 import FormTextBox from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
@@ -41,7 +41,7 @@ function TrayOptionsSettings() {
 
     return (
         <Card heading={t("tray.title")}>
-            <CardOption
+            <OptionCardSection
                 name="tray-enabled"
                 label={t("tray.enable_tray")}
                 description={t("tray.enable_tray_description")}
@@ -54,9 +54,9 @@ function TrayOptionsSettings() {
                         utils.reloadTray();
                     }}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="close-to-tray"
                 label={t("tray.close_to_tray")}
                 description={t("tray.close_to_tray_description")}
@@ -67,7 +67,7 @@ function TrayOptionsSettings() {
                     disabled={disableTray}
                     onChange={setCloseToTray}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -79,7 +79,7 @@ function StartupSettings() {
 
     return (
         <Card heading={t("startup.title")}>
-            <CardOption
+            <OptionCardSection
                 name="launch-on-startup"
                 label={t("startup.launch_on_startup")}
                 description={t("startup.launch_on_startup_description")}
@@ -92,9 +92,9 @@ function StartupSettings() {
                         utils.reapplyLaunchOnStartup();
                     }}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="hide-on-auto-start"
                 label={t("startup.hide_on_auto_start")}
                 description={t("startup.hide_on_auto_start_description")}
@@ -110,7 +110,7 @@ function StartupSettings() {
                         utils.reapplyLaunchOnStartup();
                     }}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -133,7 +133,7 @@ function SearchEngineSettings() {
             heading={t("search_engine.title")}
             description={t("search_engine.custom_search_engine_info")}
         >
-            <CardOption label={t("search_engine.predefined_templates_label")}>
+            <OptionCardSection label={t("search_engine.predefined_templates_label")}>
                 <div className="search-engine-templates">
                     {searchEngines.map(engine => (
                         <Badge
@@ -148,9 +148,9 @@ function SearchEngineSettings() {
                         />
                     ))}
                 </div>
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 className="desktop-search-name"
                 name="custom-name"
                 label={t("search_engine.custom_name_label")}
@@ -159,9 +159,9 @@ function SearchEngineSettings() {
                     currentValue={customSearchEngineName} onBlur={setCustomSearchEngineName}
                     placeholder={t("search_engine.custom_name_placeholder")}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="custom-url"
                 label={t("search_engine.custom_url_label")}
                 description={t("search_engine.custom_url_description")}
@@ -171,7 +171,7 @@ function SearchEngineSettings() {
                     currentValue={customSearchEngineUrl} onBlur={setCustomSearchEngineUrl}
                     placeholder={t("search_engine.custom_url_placeholder")}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }

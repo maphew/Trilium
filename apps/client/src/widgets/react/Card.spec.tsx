@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { renderInto } from "../../test/render";
-import { Card, CardFrame, CardOption, CardSection } from "./Card";
+import { Card, CardFrame, CardSection, OptionCardSection } from "./Card";
 
 describe("Card", () => {
     it("carries a heading, a sentence and controls of its own, and drops the heading line with nothing on it", () => {
@@ -61,10 +61,10 @@ describe("CardSection", () => {
     });
 });
 
-describe("CardOption", () => {
+describe("OptionCardSection", () => {
     it("ties the label to its control when named, and leaves it loose when not", () => {
         const bound = renderInto(
-            <CardOption name="word-wrap" label="Word wrapping"><input type="checkbox" /></CardOption>
+            <OptionCardSection name="word-wrap" label="Word wrapping"><input type="checkbox" /></OptionCardSection>
         );
         const input = bound.querySelector("input");
         expect(bound.querySelector("label")?.getAttribute("for")).toBe(input?.id);
@@ -72,13 +72,13 @@ describe("CardOption", () => {
 
         // Nothing to point at: a set of buttons, not one control.
         const loose = renderInto(
-            <CardOption label="Shortcut"><button>a</button><button>b</button></CardOption>
+            <OptionCardSection label="Shortcut"><button>a</button><button>b</button></OptionCardSection>
         );
         expect(loose.querySelector("label")?.getAttribute("for")).toBeNull();
     });
 
     it("keeps the sentence with the label, so the two read as one name", () => {
-        const container = renderInto(<CardOption label="Word wrapping" description="Wraps long lines." />);
+        const container = renderInto(<OptionCardSection label="Word wrapping" description="Wraps long lines." />);
         const label = container.querySelector(".tn-card-option-label");
 
         expect(label?.firstChild?.textContent).toBe("Word wrapping");
@@ -87,7 +87,7 @@ describe("CardOption", () => {
 
     it("holds a name made of several things together, rather than stacking its parts", () => {
         const container = renderInto(
-            <CardOption
+            <OptionCardSection
                 label={<>Background effects <span className="platforms" /></>}
                 description="Blurs the window behind."
             />
@@ -102,17 +102,17 @@ describe("CardOption", () => {
     });
 
     it("puts the control on the line below when stacked", () => {
-        const inline = renderInto(<CardOption label="Address"><input /></CardOption>);
+        const inline = renderInto(<OptionCardSection label="Address"><input /></OptionCardSection>);
         expect(inline.querySelector(".tn-card-option")?.className).not.toContain("tn-card-option-stacked");
 
-        const stacked = renderInto(<CardOption label="Address" stacked><input /></CardOption>);
+        const stacked = renderInto(<OptionCardSection label="Address" stacked><input /></OptionCardSection>);
         expect(stacked.querySelector(".tn-card-option")?.className).toContain("tn-card-option-stacked");
     });
 });
 
 describe("a segment that leads somewhere", () => {
     it("becomes a link carrying a chevron, rather than a section", () => {
-        const container = renderInto(<CardOption label="Backup" href="#root/_hidden/_options/_optionsBackup" />);
+        const container = renderInto(<OptionCardSection label="Backup" href="#root/_hidden/_options/_optionsBackup" />);
         const link = container.querySelector("a");
 
         expect(container.querySelector("section")).toBeNull();
@@ -127,7 +127,7 @@ describe("a segment that leads somewhere", () => {
 
     it("hands its handler the event, which is what lets an entry navigate for itself", () => {
         const onAction = vi.fn();
-        const container = renderInto(<CardOption label="Task states" href="#root/_hidden/_taskStates" onAction={onAction} />);
+        const container = renderInto(<OptionCardSection label="Task states" href="#root/_hidden/_taskStates" onAction={onAction} />);
 
         container.querySelector("a")?.click();
         expect(onAction).toHaveBeenCalledTimes(1);
@@ -135,10 +135,10 @@ describe("a segment that leads somewhere", () => {
     });
 
     it("opts out of the dialog's contained navigation only when told to", () => {
-        const contained = renderInto(<CardOption label="Backup" href="#a" />);
+        const contained = renderInto(<OptionCardSection label="Backup" href="#a" />);
         expect(contained.querySelector("a")?.hasAttribute("data-no-contained-navigation")).toBe(false);
 
-        const own = renderInto(<CardOption label="Backup" href="#a" noContainedNavigation />);
+        const own = renderInto(<OptionCardSection label="Backup" href="#a" noContainedNavigation />);
         expect(own.querySelector("a")?.hasAttribute("data-no-contained-navigation")).toBe(true);
     });
 });

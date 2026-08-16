@@ -16,7 +16,7 @@ import { arrayEqual, isElectron, isMobile, reloadFrontendApp } from "../../../se
 import ActionButton from "../../react/ActionButton";
 import { Badge } from "../../react/Badge";
 import Button from "../../react/Button";
-import { Card, CardOption } from "../../react/Card";
+import { Card, OptionCardSection } from "../../react/Card";
 import Dropdown from "../../react/Dropdown";
 import { FormDropdownDivider, FormListItem } from "../../react/FormList";
 import FormTextBox from "../../react/FormTextBox";
@@ -432,7 +432,7 @@ export function filterKeyboardAction(action: ActionKeyboardShortcut, filter: str
  */
 function ShortcutRow({ action, conflicts }: { action: ActionKeyboardShortcut; conflicts?: ShortcutConflicts }) {
     return (
-        <CardOption
+        <OptionCardSection
             label={
                 <>
                     {isShortcutModified(action) &&
@@ -443,7 +443,7 @@ function ShortcutRow({ action, conflicts }: { action: ActionKeyboardShortcut; co
             description={action.description}
         >
             <ShortcutEditor keyboardShortcut={action} conflicts={conflicts} />
-        </CardOption>
+        </OptionCardSection>
     );
 }
 

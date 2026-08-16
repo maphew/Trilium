@@ -5,7 +5,7 @@ import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
 import Button from "../../react/Button";
-import { Card, CardOption } from "../../react/Card";
+import { Card, OptionCardSection } from "../../react/Card";
 import FormToggle from "../../react/FormToggle";
 import { useTriliumOptionJson } from "../../react/hooks";
 import OptionsPageHeader from "./components/OptionsPageHeader";
@@ -42,7 +42,7 @@ function ExperimentalOptions() {
             description={t("experimental_features.disclaimer")}
         >
             {filteredFeatures.map((feature) => (
-                <CardOption
+                <OptionCardSection
                     key={feature.id}
                     name={`experimental-${feature.id}`}
                     label={feature.name}
@@ -52,7 +52,7 @@ function ExperimentalOptions() {
                         currentValue={enabledFeatures.includes(feature.id)}
                         onChange={(enabled) => toggleFeature(feature.id, enabled)}
                     />
-                </CardOption>
+                </OptionCardSection>
             ))}
         </Card>
     );
@@ -61,7 +61,7 @@ function ExperimentalOptions() {
 function AdvancedSyncOptions() {
     return (
         <Card heading={t("sync.title")}>
-            <CardOption
+            <OptionCardSection
                 label={t("sync.force_full_sync_label")}
                 description={t("sync.force_full_sync_description")}
             >
@@ -74,9 +74,9 @@ function AdvancedSyncOptions() {
                         toast.showMessage(t("sync.full_sync_triggered"));
                     }}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 label={t("sync.fill_entity_changes_label")}
                 description={t("sync.fill_entity_changes_description")}
             >
@@ -90,7 +90,7 @@ function AdvancedSyncOptions() {
                         toast.showMessage(t("sync.sync_rows_filled_successfully"));
                     }}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }

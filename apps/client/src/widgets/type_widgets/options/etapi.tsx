@@ -10,7 +10,7 @@ import toast from "../../../services/toast";
 import { formatDateTime } from "../../../utils/formatters";
 import ActionButton from "../../react/ActionButton";
 import Button from "../../react/Button";
-import { Card, CardOption } from "../../react/Card";
+import { Card, OptionCardSection } from "../../react/Card";
 import { useTriliumEvent } from "../../react/hooks";
 import NoItems from "../../react/NoItems";
 import OptionsPageHeader from "./components/OptionsPageHeader";
@@ -113,7 +113,7 @@ function TokenList({ tokens }: { tokens: EtapiToken[] }) {
     return (
         <Card>
             {tokens.map(({ etapiTokenId, name, utcDateCreated }) => (
-                <CardOption
+                <OptionCardSection
                     key={etapiTokenId ?? name}
                     label={name}
                     description={formatDateTime(utcDateCreated)}
@@ -134,7 +134,7 @@ function TokenList({ tokens }: { tokens: EtapiToken[] }) {
                             />
                         </span>
                     )}
-                </CardOption>
+                </OptionCardSection>
             ))}
         </Card>
     );

@@ -13,7 +13,7 @@ import toast from "../../../services/toast";
 import { isElectron } from "../../../services/utils";
 import { ExtendedAdmonition } from "../../react/Admonition";
 import Button from "../../react/Button";
-import { Card, CardOption, CardSection } from "../../react/Card";
+import { Card, CardSection, OptionCardSection } from "../../react/Card";
 import FormGroup from "../../react/FormGroup";
 import FormSelect from "../../react/FormSelect";
 import FormText from "../../react/FormText";
@@ -45,7 +45,7 @@ function ChangePassword() {
 
     return (<>
         <Card heading={t("password.heading")}>
-            <CardOption
+            <OptionCardSection
                 label={t("password.change_password")}
                 description={t("password.change_password_description")}
             >
@@ -55,9 +55,9 @@ function ChangePassword() {
                     size="micro"
                     onClick={() => setShowModal(true)}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 label={t("password.reset_password")}
                 description={t("password.reset_password_description")}
             >
@@ -74,7 +74,7 @@ function ChangePassword() {
                         toast.showError(t("password.reset_success_message"));
                     }}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
 
         {createPortal(
@@ -172,7 +172,7 @@ function ChangePasswordModal({ show, onHidden }: ChangePasswordModalProps) {
 function ProtectedSessionTimeout() {
     return (
         <Card heading={t("password.protected_session_timeout")}>
-            <CardOption
+            <OptionCardSection
                 name="protected-session-timeout"
                 label={t("password.protected_session_timeout_label")}
                 description={<>{t("password.protected_session_timeout_description")} <a class="tn-link" href="https://triliumnext.github.io/Docs/Wiki/protected-notes.html">{t("password.wiki")}</a> {t("password.for_more_info")}</>}
@@ -183,7 +183,7 @@ function ProtectedSessionTimeout() {
                     optionTimeScaleId="protectedSessionTimeoutTimeScale"
                     minimumSeconds={60}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -219,7 +219,7 @@ function SignInMethod() {
     return (
         <>
             <Card className="signin-method" heading={t("multi_factor_authentication.authentication_title")}>
-                <CardOption name="signin-method" label={t("multi_factor_authentication.signin_method")}>
+                <OptionCardSection name="signin-method" label={t("multi_factor_authentication.signin_method")}>
                     <FormSelect
                         values={[
                             { value: "local", label: t("multi_factor_authentication.signin_local") },
@@ -229,7 +229,7 @@ function SignInMethod() {
                         currentValue={usingOAuth ? "oauth" : "local"}
                         onChange={(value) => setMfaMethod(value === "oauth" ? "oauth" : "totp")}
                     />
-                </CardOption>
+                </OptionCardSection>
 
                 {/* What the chosen method means, below the choice rather than above it — it
                     describes what was picked, not what is on offer. */}
@@ -323,14 +323,14 @@ function OAuthStatusCard({ status, refreshStatus }: { status?: OAuthStatus, refr
             ) : enrolled ? (
                 <>
                     <OAuthProviderRows status={status} />
-                    <CardOption label={t("multi_factor_authentication.oauth_user_account")}>
+                    <OptionCardSection label={t("multi_factor_authentication.oauth_user_account")}>
                         <span>{status?.name ?? t("multi_factor_authentication.oauth_user_not_logged_in")}</span>
-                    </CardOption>
-                    <CardOption label={t("multi_factor_authentication.oauth_user_email")}>
+                    </OptionCardSection>
+                    <OptionCardSection label={t("multi_factor_authentication.oauth_user_email")}>
                         <span>{status?.email ?? t("multi_factor_authentication.oauth_user_not_logged_in")}</span>
-                    </CardOption>
+                    </OptionCardSection>
 
-                    <CardOption
+                    <OptionCardSection
                         label={t("multi_factor_authentication.oauth_disconnect_label")}
                         description={t("multi_factor_authentication.oauth_disconnect_description")}
                     >
@@ -342,7 +342,7 @@ function OAuthStatusCard({ status, refreshStatus }: { status?: OAuthStatus, refr
                             size="micro"
                             onClick={() => void disconnectAccount()}
                         />
-                    </CardOption>
+                    </OptionCardSection>
                 </>
             ) : (
                 <>
@@ -360,7 +360,7 @@ function OAuthStatusCard({ status, refreshStatus }: { status?: OAuthStatus, refr
 
                     <OAuthProviderRows status={status} />
 
-                    <CardOption
+                    <OptionCardSection
                         label={t("multi_factor_authentication.oauth_connect_label")}
                         description={t("multi_factor_authentication.oauth_connect_description")}
                     >
@@ -371,7 +371,7 @@ function OAuthStatusCard({ status, refreshStatus }: { status?: OAuthStatus, refr
                             size="micro"
                             onClick={connectAccount}
                         />
-                    </CardOption>
+                    </OptionCardSection>
                 </>
             )}
         </Card>
@@ -386,16 +386,16 @@ function OAuthProviderRows({ status }: { status?: OAuthStatus }) {
     const displayName = oauthProviderDisplayName(status);
     return (
         <>
-            <CardOption label={t("multi_factor_authentication.oauth_provider")}>
+            <OptionCardSection label={t("multi_factor_authentication.oauth_provider")}>
                 <span className="oauth-provider">
                     <OAuthProviderIcon src={status?.issuerIcon} />
                     <span>{displayName}</span>
                 </span>
-            </CardOption>
+            </OptionCardSection>
             { status?.issuerUrl && (
-                <CardOption label={t("multi_factor_authentication.oauth_provider_url")}>
+                <OptionCardSection label={t("multi_factor_authentication.oauth_provider_url")}>
                     <span>{status.issuerUrl}</span>
-                </CardOption>
+                </OptionCardSection>
             )}
         </>
     );

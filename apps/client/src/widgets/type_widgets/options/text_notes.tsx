@@ -10,7 +10,7 @@ import { t } from "../../../services/i18n";
 import { ensureMimeTypesForHighlighting, loadHighlightingTheme } from "../../../services/syntax_highlight";
 import { formatDateTime, toggleBodyClass } from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
-import { Card, CardOption, CardSection } from "../../react/Card";
+import { Card, CardSection, OptionCardSection } from "../../react/Card";
 import Dropdown from "../../react/Dropdown";
 import FormGroup from "../../react/FormGroup";
 import { FormListItem } from "../../react/FormList";
@@ -58,7 +58,7 @@ function FormattingToolbar() {
 
     return (
         <Card heading={t("editing.editor_type.label")}>
-            <CardOption
+            <OptionCardSection
                 name="multiline-toolbar"
                 label={t("editing.editor_type.multiline-toolbar")}
             >
@@ -68,7 +68,7 @@ function FormattingToolbar() {
                     // Nothing to wrap onto a second line where the toolbar follows the cursor.
                     disabled={textNoteEditorType === "ckeditor-balloon"}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -157,53 +157,53 @@ function EditorFeatures() {
 
     return (
         <Card heading={t("editorfeatures.title")}>
-            <CardOption
+            <OptionCardSection
                 name="emoji-completion-enabled"
                 label={t("editorfeatures.emoji_completion_enabled")}
                 description={t("editorfeatures.emoji_completion_description")}
             >
                 <FormToggle currentValue={emojiCompletionEnabled} onChange={setEmojiCompletionEnabled} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="auto-link-previews-enabled"
                 label={t("editorfeatures.auto_link_previews_enabled")}
                 description={t("editorfeatures.auto_link_previews_description")}
             >
                 <FormToggle currentValue={autoLinkPreviewsEnabled} onChange={setAutoLinkPreviewsEnabled} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="note-completion-enabled"
                 label={t("editorfeatures.note_completion_enabled")}
                 description={t("editorfeatures.note_completion_description")}
             >
                 <FormToggle currentValue={noteCompletionEnabled} onChange={setNoteCompletionEnabled} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="slash-commands-enabled"
                 label={t("editorfeatures.slash_commands_enabled")}
                 description={t("editorfeatures.slash_commands_description")}
             >
                 <FormToggle currentValue={slashCommandsEnabled} onChange={setSlashCommandsEnabled} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="content-hints-enabled"
                 label={t("editorfeatures.content_hints_enabled")}
                 description={t("editorfeatures.content_hints_description")}
             >
                 <FormToggle currentValue={contentHintsEnabled} onChange={setContentHintsEnabled} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="html-support-enabled"
                 label={t("editorfeatures.html_support_enabled")}
                 description={t("editorfeatures.html_support_description")}
             >
                 <FormToggle currentValue={htmlSupportEnabled} onChange={setHtmlSupportEnabled} />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -225,45 +225,45 @@ function AutomaticReplacements() {
             heading={t("automatic_replacements.title")}
             description={t("automatic_replacements.description")}
         >
-            <CardOption
+            <OptionCardSection
                 name="double-quote-style"
                 label={t("automatic_replacements.double_quotes")}
                 description={t("automatic_replacements.double_quotes_description")}
             >
                 <QuoteStyleSelect currentValue={doubleQuoteStyle} onChange={setDoubleQuoteStyle} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="single-quote-style"
                 label={t("automatic_replacements.single_quotes")}
                 description={t("automatic_replacements.single_quotes_description")}
             >
                 <QuoteStyleSelect currentValue={singleQuoteStyle} onChange={setSingleQuoteStyle} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="punctuation-replacements-enabled"
                 label={t("automatic_replacements.punctuation")}
                 description={t("automatic_replacements.punctuation_description")}
             >
                 <FormToggle currentValue={punctuationEnabled} onChange={setPunctuationEnabled} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="math-replacements-enabled"
                 label={t("automatic_replacements.math")}
                 description={t("automatic_replacements.math_description")}
             >
                 <FormToggle currentValue={mathEnabled} onChange={setMathEnabled} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="symbol-replacements-enabled"
                 label={t("automatic_replacements.symbols")}
                 description={t("automatic_replacements.symbols_description")}
             >
                 <FormToggle currentValue={symbolsEnabled} onChange={setSymbolsEnabled} />
-            </CardOption>
+            </OptionCardSection>
 
             <CustomReplacements />
         </Card>
@@ -341,7 +341,7 @@ export function CustomReplacements() {
     }
 
     return (
-        <CardOption
+        <OptionCardSection
             className="custom-replacements"
             label={t("automatic_replacements.custom")}
             description={t("automatic_replacements.custom_description")}
@@ -417,15 +417,15 @@ function Editor() {
 
     return (
         <Card className="text-notes-editor" heading={t("text_editor.title")}>
-            <CardOption
+            <OptionCardSection
                 name="heading-style"
                 label={t("heading_style.title")}
                 description={t("heading_style.description")}
             >
                 <HeadingStyleSelector currentValue={headingStyle} onChange={setHeadingStyle} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="auto-readonly-size-text"
                 label={t("text_auto_read_only_size.label")}
                 description={t("text_auto_read_only_size.description")}
@@ -436,9 +436,9 @@ function Editor() {
                     currentValue={autoReadonlySize}
                     onBlur={setAutoReadonlySize}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="custom-date-time-format"
                 label={t("custom_date_time_format.title")}
                 description={<>{t("custom_date_time_format.description_short")} {t("custom_date_time_format.preview", { preview: formatDateTime(new Date(), customDateTimeFormat) })}</>}
@@ -447,7 +447,7 @@ function Editor() {
                     placeholder="YYYY-MM-DD HH:mm"
                     currentValue={customDateTimeFormat || "YYYY-MM-DD HH:mm"} onBlur={setCustomDateTimeFormat}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -556,37 +556,37 @@ function CodeBlockStyle() {
 
             {matchesApp ? (
                 <>
-                    <CardOption name="light-theme" label={t("code_theme.light_theme")}>
+                    <OptionCardSection name="light-theme" label={t("code_theme.light_theme")}>
                         <FormSelect
                             values={lightThemes}
                             keyProperty="val" titleProperty="title"
                             currentValue={lightTheme} onChange={setLightTheme}
                         />
-                    </CardOption>
-                    <CardOption name="dark-theme" label={t("code_theme.dark_theme")}>
+                    </OptionCardSection>
+                    <OptionCardSection name="dark-theme" label={t("code_theme.dark_theme")}>
                         <FormSelect
                             values={darkThemes}
                             keyProperty="val" titleProperty="title"
                             currentValue={darkTheme} onChange={setDarkTheme}
                         />
-                    </CardOption>
+                    </OptionCardSection>
                 </>
             ) : (
-                <CardOption name="code-block-theme" label={t("highlighting.color-scheme")}>
+                <OptionCardSection name="code-block-theme" label={t("highlighting.color-scheme")}>
                     <FormSelectWithGroups
                         values={groupedThemes}
                         keyProperty="val" titleProperty="title"
                         currentValue={codeBlockTheme} onChange={setCodeBlockTheme}
                     />
-                </CardOption>
+                </OptionCardSection>
             )}
 
-            <CardOption name="code-block-word-wrap" label={t("code_block.word_wrapping")}>
+            <OptionCardSection name="code-block-word-wrap" label={t("code_block.word_wrapping")}>
                 <FormToggle currentValue={codeBlockWordWrap} onChange={setCodeBlockWordWrap} />
-            </CardOption>
+            </OptionCardSection>
 
             {/* Avoid using "code" in the name of numeric inputs to prevent KeepassXC from triggering. */}
-            <CardOption name="block-tab-width" label={t("code_block.tab_width")}>
+            <OptionCardSection name="block-tab-width" label={t("code_block.tab_width")}>
                 <FormTextBoxWithUnit
                     type="number" min={1} max={16} step={1}
                     unit={t("code_block.tab_width_unit")}
@@ -594,7 +594,7 @@ function CodeBlockStyle() {
                     onChange={setCodeBlockTabWidth}
                     onBlur={setCodeBlockTabWidth}
                 />
-            </CardOption>
+            </OptionCardSection>
 
             <CardSection className="code-block-preview">
                 <CodeBlockPreview theme={effectiveTheme} wordWrap={codeBlockWordWrap} tabWidth={codeBlockTabWidth} />

@@ -9,7 +9,7 @@ import server from "../../../services/server";
 import { isStandalone } from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
 import Button from "../../react/Button";
-import { Card, CardOption, CardSection } from "../../react/Card";
+import { Card, CardSection, OptionCardSection } from "../../react/Card";
 import CodeBlock from "../../react/CodeBlock";
 import Collapsible from "../../react/Collapsible";
 import FormTextBox from "../../react/FormTextBox";
@@ -30,14 +30,14 @@ export default function LlmSettings() {
             <OptionsPageHeader
                 helpUrl="GBBMSlVSOIGP"
                 below={
-                    <CardOption
+                    <OptionCardSection
                         className="options-header-switch"
                         name="ai-enabled"
                         label={t("llm.enabled")}
                         description={t("llm.enabled_description")}
                     >
                         <FormToggle currentValue={aiEnabled} onChange={setAiEnabled} />
-                    </CardOption>
+                    </OptionCardSection>
                 }
             />
 
@@ -158,7 +158,7 @@ function McpSettings() {
 
     return (
         <Card heading={t("llm.mcp_title")}>
-            <CardOption
+            <OptionCardSection
                 name="mcp-enabled"
                 label={t("llm.mcp_enabled")}
                 description={mcpUnavailable ? t("llm.mcp_unavailable_standalone") : t("llm.mcp_enabled_description")}
@@ -168,11 +168,11 @@ function McpSettings() {
                     onChange={setMcpEnabled}
                     disabled={mcpUnavailable}
                 />
-            </CardOption>
+            </OptionCardSection>
 
             {mcpServing && (
                 <>
-                    <CardOption
+                    <OptionCardSection
                         name="mcp-endpoint"
                         label={t("llm.mcp_endpoint_title")}
                         description={t("llm.mcp_endpoint_description")}
@@ -187,7 +187,7 @@ function McpSettings() {
                                 <p class="mcp-endpoint-note">{t("llm.mcp_endpoint_loopback_only")}</p>
                             )}
                         </div>
-                    </CardOption>
+                    </OptionCardSection>
 
                     <CardSection>
                         <Collapsible title={t("llm.mcp_config_title")} initiallyExpanded>
@@ -278,7 +278,7 @@ function ProviderList({ providers, onEdit, onDelete }: ProviderListProps) {
             const providerType = PROVIDER_TYPES.find(p => p.id === provider.provider);
             const modelCount = provider.selectedModels?.length ?? 0;
             return (
-                <CardOption
+                <OptionCardSection
                     key={provider.id}
                     label={
                         <span className="llm-provider-name">
@@ -303,7 +303,7 @@ function ProviderList({ providers, onEdit, onDelete }: ProviderListProps) {
                             onClick={() => onDelete(provider.id, provider.name)}
                         />
                     </span>
-                </CardOption>
+                </OptionCardSection>
             );
         })}
     </>;

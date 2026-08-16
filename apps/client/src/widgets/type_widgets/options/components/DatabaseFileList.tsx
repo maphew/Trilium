@@ -7,7 +7,7 @@ import { type DatabaseFile, describeDatabaseFile } from "../../../../services/da
 import { t } from "../../../../services/i18n";
 import open from "../../../../services/open";
 import ActionButton from "../../../react/ActionButton";
-import { Card, CardOption, CardSection } from "../../../react/Card";
+import { Card, CardSection, OptionCardSection } from "../../../react/Card";
 import DatabaseFileBadges from "../../../react/DatabaseFileBadges";
 import NoItems from "../../../react/NoItems";
 
@@ -52,7 +52,7 @@ export default function DatabaseFileList<T extends DatabaseFile>(props: Database
         <Card className="database-file-list" heading={title} description={description}>
             {sortedFiles.length > 0 ? (
                 sortedFiles.map((file) => (
-                    <CardOption
+                    <OptionCardSection
                         key={file.filePath}
                         label={
                             <span className="database-file-label">
@@ -78,7 +78,7 @@ export default function DatabaseFileList<T extends DatabaseFile>(props: Database
                                 onClick={() => onDelete(file)}
                             />
                         )}
-                    </CardOption>
+                    </OptionCardSection>
                 ))
             ) : (
                 <CardSection>

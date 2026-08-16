@@ -28,7 +28,7 @@ import { formatSize, isStandalone } from "../../../services/utils";
 import { formatDateTime } from "../../../utils/formatters";
 import Admonition from "../../react/Admonition";
 import Button from "../../react/Button";
-import { Card, CardOption } from "../../react/Card";
+import { Card, OptionCardSection } from "../../react/Card";
 import DirectoryLink, { FileLink } from "../../react/DirectoryLink";
 import { useNoteContext } from "../../react/hooks";
 import { useFetch } from "../../react/use_fetch";
@@ -108,7 +108,7 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
 
     return (
         <Card className="database-info" heading={t("database.info")}>
-            <CardOption label={t("database.info_location")}>
+            <OptionCardSection label={t("database.info_location")}>
                 <span className="database-info-value">
                     {/* Revealed rather than opened: a file manager is what a path is useful in,
                         and the database's own reader is Trilium. Where there is no path, the
@@ -117,25 +117,25 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
                         ? <FileLink filePath={info.filePath} />
                         : t("database.info_location_opfs")}
                 </span>
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption label={t("database.info_content")}>
+            <OptionCardSection label={t("database.info_content")}>
                 <span className="database-info-value">
                     {t("database.info_notes", { count: info.noteCount })}
                     {", "}
                     {t("database.info_attachments", { count: info.attachmentCount })}
                 </span>
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption label={t("database.info_created")}>
+            <OptionCardSection label={t("database.info_created")}>
                 <span className="database-info-value">
                     {formatDateTime(info.utcDateCreated, "long", "none")}
                 </span>
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption label={t("database.info_size")}>
+            <OptionCardSection label={t("database.info_size")}>
                 <span className="database-info-value">{formatSize(info.sizeBytes)}</span>
-            </CardOption>
+            </OptionCardSection>
 
             {/* Absent where backups are not kept at all: the browser build's one backup is a
                 download, taken there and then, so there is nothing standing to state. */}
@@ -158,7 +158,7 @@ function BackupStanding({ refreshToken }: { refreshToken: number }) {
     }
 
     return (
-        <CardOption label={t("database.info_backup")}>
+        <OptionCardSection label={t("database.info_backup")}>
             {/* The whole value is the way to the page that acts on it: this row states how the
                 backups stand, and everything else about them is done there. */}
             <span className="database-info-value">
@@ -166,7 +166,7 @@ function BackupStanding({ refreshToken }: { refreshToken: number }) {
                     {summarizeBackups(backups.backups) ?? t("database.info_no_backup")}
                 </a>
             </span>
-        </CardOption>
+        </OptionCardSection>
     );
 }
 
@@ -185,7 +185,7 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
 
     return (
         <Card heading={t("database.maintenance")}>
-            <CardOption
+            <OptionCardSection
                 label={t("database.cleanup")}
                 description={t("database.cleanup_description")}
             >
@@ -203,9 +203,9 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
                         }
                     })}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 label={t("database.analyze_space_usage")}
                 description={t("database.analyze_space_usage_description")}
             >
@@ -222,9 +222,9 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
                         void noteContext?.setNote("_optionsContentManager", { keepActiveDialog: true });
                     }}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 label={t("consistency_checks.find_and_fix_label")}
                 description={t("consistency_checks.find_and_fix_description")}
             >
@@ -234,9 +234,9 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
                     size="micro"
                     onClick={fixConsistencyIssues}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 label={t("database_integrity_check.check_integrity_label")}
                 description={t("database_integrity_check.check_integrity_description")}
             >
@@ -246,14 +246,14 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
                     size="micro"
                     onClick={checkIntegrity}
                 />
-            </CardOption>
+            </OptionCardSection>
 
             {/* Offered everywhere the rebuild has somewhere to happen. The browser build keeps
                 the temporary store in memory, so compacting would ask it for the size of the
                 database over again at the very moment there is too little room — which is why
                 the cleanup tool leaves compaction out there as well. */}
             {!isStandalone && (
-                <CardOption
+                <OptionCardSection
                     label={t("vacuum_database.vacuum_label")}
                     description={t("vacuum_database.vacuum_description")}
                 >
@@ -266,7 +266,7 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
                             onDatabaseChanged();
                         }}
                     />
-                </CardOption>
+                </OptionCardSection>
             )}
         </Card>
     );
@@ -365,7 +365,7 @@ function AnonymizationOptions() {
                 heading={t("database_anonymization.title")}
                 description={t("database_anonymization.description")}
             >
-                <CardOption
+                <OptionCardSection
                     label={t("database_anonymization.full_anonymization")}
                     description={t("database_anonymization.full_anonymization_description")}
                 >
@@ -376,9 +376,9 @@ function AnonymizationOptions() {
                         disabled={anonymizationInProgress}
                         onClick={() => void anonymize("full")}
                     />
-                </CardOption>
+                </OptionCardSection>
 
-                <CardOption
+                <OptionCardSection
                     label={t("database_anonymization.light_anonymization")}
                     description={t("database_anonymization.light_anonymization_description")}
                 >
@@ -389,7 +389,7 @@ function AnonymizationOptions() {
                         disabled={anonymizationInProgress}
                         onClick={() => void anonymize("light")}
                     />
-                </CardOption>
+                </OptionCardSection>
             </Card>
 
             {/* Where the copies are kept is stated only once there is one to find there: an empty
@@ -423,7 +423,7 @@ function AnonymizationOptions() {
 function StartOverOption({ state }: { state: ReturnType<typeof useStartOver> }) {
     return (
         <Card className="start-over">
-            <CardOption
+            <OptionCardSection
                 label={t("database.start_over")}
                 description={t("database.start_over_description")}
             >
@@ -435,7 +435,7 @@ function StartOverOption({ state }: { state: ReturnType<typeof useStartOver> }) 
                     disabled={state.busy || state.pending}
                     onClick={() => void state.begin()}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }

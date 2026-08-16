@@ -127,9 +127,9 @@ export function CardSection(props: {children: ComponentChildren} & CardSectionPr
 
 // #endregion
 
-// #region Card Option
+// #region Option Card Section
 
-export interface CardOptionProps extends CardSectionProps {
+export interface OptionCardSectionProps extends CardSectionProps {
     label: ComponentChildren;
     description?: ComponentChildren;
     /**
@@ -150,7 +150,7 @@ export interface CardOptionProps extends CardSectionProps {
  * A card section built as one setting: what it is on the leading edge, what changes it on the
  * trailing one, with the sentence explaining it below the label.
  */
-export function CardOption(props: CardOptionProps) {
+export function OptionCardSection(props: OptionCardSectionProps) {
     const {label, description, name, stacked, children, className, ...rest} = props;
     const id = useUniqueName(name);
     const bound = !!name && isValidElement(children);

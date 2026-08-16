@@ -4,7 +4,7 @@ import CodeMirror, { ColorThemes, getThemeById, type ThemeVariant } from "@trili
 import { useEffect, useMemo, useRef } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
-import { Card, CardOption, CardSection } from "../../react/Card";
+import { Card, CardSection, OptionCardSection } from "../../react/Card";
 import FormSelect from "../../react/FormSelect";
 import { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
@@ -43,12 +43,12 @@ function Editor({ wordWrapping, setWordWrapping }: EditorProps) {
 
     return (
         <Card heading={t("code-editor-options.title")}>
-            <CardOption name="word-wrap" label={t("code_theme.word_wrapping")}>
+            <OptionCardSection name="word-wrap" label={t("code_theme.word_wrapping")}>
                 <FormToggle currentValue={wordWrapping} onChange={setWordWrapping} />
-            </CardOption>
+            </OptionCardSection>
 
             {/* Avoid using "code" in the name of numeric inputs to prevent KeepassXC from triggering. */}
-            <CardOption
+            <OptionCardSection
                 name="editor-tab-width"
                 label={t("code-editor-options.tab_width")}
             >
@@ -59,9 +59,9 @@ function Editor({ wordWrapping, setWordWrapping }: EditorProps) {
                     onChange={setCodeNoteTabWidth}
                     onBlur={setCodeNoteTabWidth}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="source-readonly-threshold"
                 label={t("code_auto_read_only_size.label")}
                 description={t("text_auto_read_only_size.description")}
@@ -72,15 +72,15 @@ function Editor({ wordWrapping, setWordWrapping }: EditorProps) {
                     currentValue={autoReadonlySize}
                     onBlur={setAutoReadonlySize}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="vim-keymap-enabled"
                 label={t("vim_key_bindings.use_vim_keybindings_in_code_notes")}
                 description={t("vim_key_bindings.enable_vim_keybindings")}
             >
                 <FormToggle currentValue={vimKeymapEnabled} onChange={setVimKeymapEnabled} />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -122,29 +122,29 @@ function Appearance({ wordWrapping, indentSize }: AppearanceProps) {
 
             {matchesApp ? (
                 <>
-                    <CardOption name="light-theme" label={t("code_theme.light_theme")}>
+                    <OptionCardSection name="light-theme" label={t("code_theme.light_theme")}>
                         <FormSelect
                             values={lightThemes}
                             keyProperty="id" titleProperty="name"
                             currentValue={lightTheme} onChange={setLightTheme}
                         />
-                    </CardOption>
-                    <CardOption name="dark-theme" label={t("code_theme.dark_theme")}>
+                    </OptionCardSection>
+                    <OptionCardSection name="dark-theme" label={t("code_theme.dark_theme")}>
                         <FormSelect
                             values={darkThemes}
                             keyProperty="id" titleProperty="name"
                             currentValue={darkTheme} onChange={setDarkTheme}
                         />
-                    </CardOption>
+                    </OptionCardSection>
                 </>
             ) : (
-                <CardOption name="color-scheme" label={t("code_theme.color-scheme")}>
+                <OptionCardSection name="color-scheme" label={t("code_theme.color-scheme")}>
                     <FormSelect
                         values={allThemes}
                         keyProperty="id" titleProperty="name"
                         currentValue={codeNoteTheme} onChange={setCodeNoteTheme}
                     />
-                </CardOption>
+                </OptionCardSection>
             )}
 
             {/* A specimen of the editor rather than a control standing beside a label, shown

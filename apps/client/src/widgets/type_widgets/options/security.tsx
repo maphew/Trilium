@@ -2,7 +2,7 @@ import { useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
 import { isElectron } from "../../../services/utils";
-import { Card, CardOption, CardSection } from "../../react/Card";
+import { Card, CardSection, OptionCardSection } from "../../react/Card";
 import CodeBlock from "../../react/CodeBlock";
 import Collapsible from "../../react/Collapsible";
 import FormToggle from "../../react/FormToggle";
@@ -98,7 +98,7 @@ function BackendScriptingSettings({ liveValue, pendingValue, setPendingValue }: 
             description={t("security.backend_scripting_section_description")}
             actions={<HelpButton helpPage="SPirpZypehBG" />}
         >
-            <CardOption
+            <OptionCardSection
                 name="backend-scripting-enabled"
                 label={t("security.backend_scripting_label")}
                 description={hasPendingChange
@@ -106,7 +106,7 @@ function BackendScriptingSettings({ liveValue, pendingValue, setPendingValue }: 
                     : t("security.backend_scripting_description")}
             >
                 <FormToggle currentValue={displayValue} onChange={handleToggle} disabled={!isDesktop} />
-            </CardOption>
+            </OptionCardSection>
 
             <ServerConfigHint
                 configKey="backendScriptingEnabled"
@@ -134,7 +134,7 @@ function SqlConsoleSettings({ liveValue, pendingValue, setPendingValue }: Toggle
             description={t("security.sql_console_section_description")}
             actions={<HelpButton helpPage="YKWqdJhzi2VY" />}
         >
-            <CardOption
+            <OptionCardSection
                 name="sql-console-enabled"
                 label={t("security.sql_console_label")}
                 description={hasPendingChange
@@ -142,7 +142,7 @@ function SqlConsoleSettings({ liveValue, pendingValue, setPendingValue }: Toggle
                     : t("security.sql_console_description")}
             >
                 <FormToggle currentValue={displayValue} onChange={handleToggle} disabled={!isDesktop} />
-            </CardOption>
+            </OptionCardSection>
 
             <ServerConfigHint
                 configKey="sqlConsoleEnabled"
@@ -172,7 +172,7 @@ function LanAccessSettings({ liveValue, pendingValue, setPendingValue }: ToggleS
             description={t("security.lan_access_section_description")}
             actions={<HelpButton helpPage="swSFivWk6KkA" />}
         >
-            <CardOption
+            <OptionCardSection
                 name="lan-access-enabled"
                 label={t("security.lan_access_label")}
                 description={hasPendingChange
@@ -180,7 +180,7 @@ function LanAccessSettings({ liveValue, pendingValue, setPendingValue }: ToggleS
                     : t("security.lan_access_description")}
             >
                 <FormToggle currentValue={displayValue} onChange={handleToggle} />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }

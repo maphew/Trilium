@@ -14,7 +14,7 @@ import toast from "../../../services/toast";
 import utils from "../../../services/utils";
 import Admonition from "../../react/Admonition";
 import Button from "../../react/Button";
-import { Card, CardOption } from "../../react/Card";
+import { Card, OptionCardSection } from "../../react/Card";
 import FormCheckbox from "../../react/FormCheckbox";
 import FormGroup from "../../react/FormGroup";
 import FormText from "../../react/FormText";
@@ -125,7 +125,7 @@ export function TotpSettings({ totpStatus, refreshTotpStatus }: {
                 onRemoveTotp={removeTotp}
             />
             : <Card heading={t("multi_factor_authentication.totp_section_title")} actions={totpBadge}>
-                <CardOption
+                <OptionCardSection
                     label={t("multi_factor_authentication.totp_setup_label")}
                     description={t("multi_factor_authentication.totp_setup_description")}
                 >
@@ -136,7 +136,7 @@ export function TotpSettings({ totpStatus, refreshTotpStatus }: {
                         size="micro"
                         onClick={() => setShowEnroll(true)}
                     />
-                </CardOption>
+                </OptionCardSection>
             </Card>}
 
         {createPortal(
@@ -505,7 +505,7 @@ function TotpRecoveryKeys({ badge, status, onRegenerate, onRemoveTotp }: {
 
     return (
         <Card heading={t("multi_factor_authentication.totp_section_title")} actions={badge}>
-            <CardOption
+            <OptionCardSection
                 label={
                     <span className="recovery-codes-title">
                         {t("multi_factor_authentication.recovery_keys_label")}
@@ -523,9 +523,9 @@ function TotpRecoveryKeys({ badge, status, onRegenerate, onRemoveTotp }: {
                     size="micro"
                     onClick={onRegenerate}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 label={t("multi_factor_authentication.totp_remove_label")}
                 description={t("multi_factor_authentication.totp_remove_description")}
             >
@@ -537,7 +537,7 @@ function TotpRecoveryKeys({ badge, status, onRegenerate, onRemoveTotp }: {
                     size="micro"
                     onClick={onRemoveTotp}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }

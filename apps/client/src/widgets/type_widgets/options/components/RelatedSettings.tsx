@@ -1,6 +1,6 @@
 import appContext from "../../../../components/app_context";
 import { t } from "../../../../services/i18n";
-import { Card, CardOption } from "../../../react/Card";
+import { Card, OptionCardSection } from "../../../react/Card";
 import type { OptionPages } from "../../ContentWidget";
 
 interface RelatedSettingsItem {
@@ -38,7 +38,7 @@ export default function RelatedSettings({ items, title }: RelatedSettingsProps) 
             {filteredItems.map((item) => {
                 const { targetPage, targetNoteId, onClick } = item;
                 return (
-                    <CardOption
+                    <OptionCardSection
                         key={targetPage ?? targetNoteId}
                         label={item.title}
                         description={item.description}

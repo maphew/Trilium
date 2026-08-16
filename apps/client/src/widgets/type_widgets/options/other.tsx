@@ -7,7 +7,7 @@ import search from "../../../services/search";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
 import Button from "../../react/Button";
-import { Card, CardOption, CardSection } from "../../react/Card";
+import { Card, CardSection, OptionCardSection } from "../../react/Card";
 import { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
 import { useNoteContext, useTriliumOption, useTriliumOptionBool, useTriliumOptionJson } from "../../react/hooks";
@@ -65,21 +65,21 @@ function SearchSettings() {
 
     return (
         <Card heading={t("search.title")}>
-            <CardOption
+            <OptionCardSection
                 name="search-fuzzy-matching"
                 label={t("search.fuzzy_matching_label")}
                 description={t("search.fuzzy_matching_description")}
             >
                 <FormToggle currentValue={fuzzyEnabled} onChange={setFuzzyEnabled} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="search-autocomplete-fuzzy"
                 label={t("search.autocomplete_fuzzy_label")}
                 description={t("search.autocomplete_fuzzy_description")}
             >
                 <FormToggle currentValue={autocompleteFuzzy} onChange={setAutocompleteFuzzy} />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -90,7 +90,7 @@ function NoteErasureTimeout() {
             heading={t("note_erasure_timeout.note_erasure_timeout_title")}
             description={t("note_erasure_timeout.description")}
         >
-            <CardOption
+            <OptionCardSection
                 name="erase-entities-after"
                 label={t("note_erasure_timeout.erase_notes_after")}
                 description={t("note_erasure_timeout.erase_notes_after_description")}
@@ -99,9 +99,9 @@ function NoteErasureTimeout() {
                     name="erase-entities-after"
                     optionValueId="eraseEntitiesAfterTimeInSeconds" optionTimeScaleId="eraseEntitiesAfterTimeScale"
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 label={t("note_erasure_timeout.erase_deleted_notes_now")}
                 description={t("note_erasure_timeout.manual_erasing_description")}
             >
@@ -115,7 +115,7 @@ function NoteErasureTimeout() {
                         });
                     }}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -126,7 +126,7 @@ function AttachmentErasureTimeout() {
             heading={t("attachment_erasure_timeout.attachment_erasure_timeout")}
             description={t("attachment_erasure_timeout.description")}
         >
-            <CardOption
+            <OptionCardSection
                 name="erase-unused-attachments-after"
                 label={t("attachment_erasure_timeout.erase_attachments_after")}
                 description={t("attachment_erasure_timeout.erase_attachments_after_description")}
@@ -135,9 +135,9 @@ function AttachmentErasureTimeout() {
                     name="erase-unused-attachments-after"
                     optionValueId="eraseUnusedAttachmentsAfterSeconds" optionTimeScaleId="eraseUnusedAttachmentsAfterTimeScale"
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 label={t("attachment_erasure_timeout.erase_unused_attachments_now")}
                 description={t("attachment_erasure_timeout.manual_erasing_description")}
             >
@@ -151,7 +151,7 @@ function AttachmentErasureTimeout() {
                         });
                     }}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -162,7 +162,7 @@ function RevisionSettings() {
 
     return (
         <Card heading={t("revisions_snapshot.title")}>
-            <CardOption
+            <OptionCardSection
                 name="revision-snapshot-time-interval"
                 label={t("revisions_snapshot_interval.snapshot_time_interval_label")}
                 description={t("revisions_snapshot_interval.note_revisions_snapshot_description_short")}
@@ -172,9 +172,9 @@ function RevisionSettings() {
                     optionValueId="revisionSnapshotTimeInterval" optionTimeScaleId="revisionSnapshotTimeIntervalTimeScale"
                     minimumSeconds={10}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="revision-snapshot-number-limit"
                 label={t("revisions_snapshot_limit.snapshot_number_limit_label")}
                 description={t("revisions_snapshot_limit.note_revisions_snapshot_limit_description_short")}
@@ -190,17 +190,17 @@ function RevisionSettings() {
                         }
                     }}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="revision-keep-named-snapshots"
                 label={t("revisions_snapshot_limit.keep_named_revisions_label")}
                 description={t("revisions_snapshot_limit.keep_named_revisions_description")}
             >
                 <FormToggle currentValue={revisionIgnoreNamedSnapshots} onChange={setRevisionIgnoreNamedSnapshots} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 label={t("revisions_snapshot_limit.erase_excess_revision_snapshots")}
                 description={t("revisions_snapshot_limit.erase_excess_revision_snapshots_description")}
             >
@@ -217,7 +217,7 @@ function RevisionSettings() {
                         toast.showMessage(t("revisions_snapshot_limit.erase_excess_revision_snapshots_prompt"));
                     }}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -263,7 +263,7 @@ function ShareSettings() {
 
     return (
         <Card heading={t("share.title")}>
-            <CardOption
+            <OptionCardSection
                 name="redirect-bare-domain"
                 label={t("share.redirect_bare_domain")}
                 description={t("share.redirect_bare_domain_description")}
@@ -286,15 +286,15 @@ function ShareSettings() {
                         setRedirectBareDomain(value);
                     }}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="show-login-in-share-theme"
                 label={t("share.show_login_link")}
                 description={t("share.show_login_link_description")}
             >
                 <FormToggle currentValue={showLogInShareTheme} onChange={setShowLogInShareTheme} />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -304,13 +304,13 @@ function NetworkSettings() {
 
     return (
         <Card heading={t("network_connections.network_connections_title")}>
-            <CardOption
+            <OptionCardSection
                 name="check-for-updates"
                 label={t("network_connections.check_for_updates")}
                 description={t("network_connections.check_for_updates_description")}
             >
                 <FormToggle currentValue={checkForUpdates} onChange={setCheckForUpdates} />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }

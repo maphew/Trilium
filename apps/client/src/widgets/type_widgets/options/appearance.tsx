@@ -12,7 +12,7 @@ import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import { isElectron, isMobile, reloadFrontendApp } from "../../../services/utils";
 import { VerticalLayoutIcon } from "../../buttons/global_menu";
-import { Card, CardOption, CardSection } from "../../react/Card";
+import { Card, CardSection, OptionCardSection } from "../../react/Card";
 import Dropdown from "../../react/Dropdown";
 import FormList, { FormListHeader, FormListItem } from "../../react/FormList";
 import { FormTextBoxWithUnit } from "../../react/FormTextBox";
@@ -179,7 +179,7 @@ function UserInterface() {
 
     return (
         <Card heading={t("theme.title")}>
-            <CardOption name="theme" label={t("theme.theme_label")}>
+            <OptionCardSection name="theme" label={t("theme.theme_label")}>
                 <Dropdown
                     text={<>
                         <span className={currentFamilyIcon} style={{ marginRight: "8px" }} />
@@ -214,9 +214,9 @@ function UserInterface() {
                         </>
                     )}
                 </Dropdown>
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="color-scheme"
                 label={t("theme.color_scheme")}
                 description={isCustom ? t("theme.color_scheme_custom_disabled") : undefined}
@@ -230,10 +230,10 @@ function UserInterface() {
                     disabled={isCustom}
                     collapseOnMobile
                 />
-            </CardOption>
+            </OptionCardSection>
 
             {!isMobile() && !newLayout && (
-                <CardOption
+                <OptionCardSection
                     name="edited-notes-open-in-ribbon"
                     label={t("ribbon.edited_notes_message")}
                 >
@@ -241,7 +241,7 @@ function UserInterface() {
                         currentValue={editedNotesOpenInRibbon}
                         onChange={setEditedNotesOpenInRibbon}
                     />
-                </CardOption>
+                </OptionCardSection>
             )}
         </Card>
     );
@@ -451,7 +451,7 @@ function Fonts() {
 
     return (
         <Card className="appearance-fonts" heading={t("fonts.fonts")}>
-            <CardOption
+            <OptionCardSection
                 name="override-theme-fonts"
                 label={t("fonts.custom_fonts")}
                 description={t("fonts.not_all_fonts_available")}
@@ -467,20 +467,20 @@ function Fonts() {
                 ]}
             >
                 <FormToggle currentValue={overrideThemeFonts} onChange={setOverrideThemeFonts} />
-            </CardOption>
+            </OptionCardSection>
 
             {/*
               * Deliberately not nested under `overrideThemeFonts` like the fonts above: the
               * ligatures come from the *theme's* monospace font, so the setting is needed exactly
               * when custom fonts are off. Gating it would put it out of reach of everyone affected.
               */}
-            <CardOption
+            <OptionCardSection
                 name="monospace-ligatures-enabled"
                 label={t("fonts.monospace_ligatures")}
                 description={t("fonts.monospace_ligatures_description")}
             >
                 <FormToggle currentValue={ligaturesEnabled} onChange={setLigaturesEnabled} />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }
@@ -529,7 +529,7 @@ function Font({ label, description, sizeDescription, fontFamilyOption, fontSizeO
 
     return (
         <>
-            <CardOption
+            <OptionCardSection
                 className={clsx("font-option", disabled && "disabled")}
                 label={label}
                 description={description}
@@ -539,7 +539,7 @@ function Font({ label, description, sizeDescription, fontFamilyOption, fontSizeO
                     <span className="font-option-specimen" style={{ fontFamily: getFontFamily(fontFamily ?? ""), fontSize: `${fontSize}%` }}>{displayLabel}</span>
                     <span className="bx bx-chevron-right" />
                 </span>
-            </CardOption>
+            </OptionCardSection>
 
             <FontPickerModal
                 show={showModal}
@@ -648,7 +648,7 @@ function ElectronIntegration() {
     return (
         <>
             <Card className="appearance-electron" heading={t("electron_integration.desktop-application")}>
-                <CardOption
+                <OptionCardSection
                     name="zoom-factor"
                     label={t("electron_integration.zoom-factor")}
                     description={t("zoom_factor.description")}
@@ -660,17 +660,17 @@ function ElectronIntegration() {
                         onChange={(v) => zoomService.setZoomFactorAndSave(parseInt(v, 10) / 100)}
                         unit={t("units.percentage")}
                     />
-                </CardOption>
+                </OptionCardSection>
 
-                <CardOption
+                <OptionCardSection
                     name="native-title-bar"
                     label={t("electron_integration.native-title-bar")}
                     description={t("electron_integration.native-title-bar-description")}
                 >
                     <FormToggle currentValue={nativeTitleBarVisible} onChange={setNativeTitleBarVisible} />
-                </CardOption>
+                </OptionCardSection>
 
-                <CardOption
+                <OptionCardSection
                     name="background-effects"
                     label={<>{t("electron_integration.background-effects")} <PlatformIndicator windows="11" mac /></>}
                     description={t("electron_integration.background-effects-description")}
@@ -680,7 +680,7 @@ function ElectronIntegration() {
                         onChange={setBackgroundEffects}
                         disabled={nativeTitleBarVisible || !backgroundEffectsSupported}
                     />
-                </CardOption>
+                </OptionCardSection>
             </Card>
 
             <RestartAction text={t("electron_integration.restart-app-button")} icon="bx-refresh" />
@@ -695,18 +695,18 @@ function Performance() {
 
     return (
         <Card heading={t("ui-performance.title")}>
-            <CardOption name="motion-enabled" label={t("ui-performance.enable-motion")}>
+            <OptionCardSection name="motion-enabled" label={t("ui-performance.enable-motion")}>
                 <FormToggle currentValue={motionEnabled} onChange={setMotionEnabled} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption name="shadows-enabled" label={t("ui-performance.enable-shadows")}>
+            <OptionCardSection name="shadows-enabled" label={t("ui-performance.enable-shadows")}>
                 <FormToggle currentValue={shadowsEnabled} onChange={setShadowsEnabled} />
-            </CardOption>
+            </OptionCardSection>
 
             {!isMobile() && (
-                <CardOption name="backdrop-effects-enabled" label={t("ui-performance.enable-backdrop-effects")}>
+                <OptionCardSection name="backdrop-effects-enabled" label={t("ui-performance.enable-backdrop-effects")}>
                     <FormToggle currentValue={backdropEffectsEnabled} onChange={setBackdropEffectsEnabled} />
-                </CardOption>
+                </OptionCardSection>
             )}
 
             {isElectron() && <SmoothScrollEnabledOption />}
@@ -720,13 +720,13 @@ function SmoothScrollEnabledOption() {
     const [ smoothScrollEnabled, setSmoothScrollEnabled ] = useTriliumOptionBool("smoothScrollEnabled");
 
     return (
-        <CardOption
+        <OptionCardSection
             name="smooth-scroll-enabled"
             label={t("ui-performance.enable-smooth-scroll")}
             description={t("ui-performance.app-restart-required")}
         >
             <FormToggle currentValue={smoothScrollEnabled} onChange={setSmoothScrollEnabled} />
-        </CardOption>
+        </OptionCardSection>
     );
 }
 
@@ -734,13 +734,13 @@ function HardwareAccelerationOption() {
     const [ hardwareAccelerationEnabled, setHardwareAccelerationEnabled ] = useTriliumOptionBool("hardwareAccelerationEnabled");
 
     return (
-        <CardOption
+        <OptionCardSection
             name="hardware-acceleration-enabled"
             label={t("ui-performance.enable-hardware-acceleration")}
             description={t("ui-performance.enable-hardware-acceleration-description")}
         >
             <FormToggle currentValue={hardwareAccelerationEnabled} onChange={setHardwareAccelerationEnabled} />
-        </CardOption>
+        </OptionCardSection>
     );
 }
 
@@ -754,7 +754,7 @@ function MaxContentWidth() {
             description={t("max_content_width.default_description")}
             actions={<HelpButton helpPage="t596jLvPrqkS" />}
         >
-            <CardOption
+            <OptionCardSection
                 name="max-content-width"
                 label={t("max_content_width.max_width_label")}
             >
@@ -763,11 +763,11 @@ function MaxContentWidth() {
                     currentValue={maxContentWidth} onBlur={setMaxContentWidth}
                     unit={t("max_content_width.max_width_unit")}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption name="center-content" label={t("max_content_width.centerContent")}>
+            <OptionCardSection name="center-content" label={t("max_content_width.centerContent")}>
                 <FormToggle currentValue={centerContent} onChange={setCenterContent} />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     );
 }

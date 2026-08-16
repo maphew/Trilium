@@ -5,7 +5,7 @@ import { useMemo } from "preact/hooks";
 
 import { getAvailableLocales, t } from "../../../services/i18n";
 import { isElectron } from "../../../services/utils";
-import { Card, CardOption, CardSection } from "../../react/Card";
+import { Card, CardSection, OptionCardSection } from "../../react/Card";
 import FormSelect from "../../react/FormSelect";
 import { useTriliumOption, useTriliumOptionJson } from "../../react/hooks";
 import CheckboxList from "./components/CheckboxList";
@@ -65,20 +65,20 @@ function LocalizationOptions() {
 
     return (
         <Card heading={t("i18n.title")}>
-            <CardOption name="language" label={t("i18n.language")}>
+            <OptionCardSection name="language" label={t("i18n.language")}>
                 <LocaleSelector locales={uiLocales} currentValue={locale} onChange={setLocale} />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption name="formatting-locale" label={t("i18n.formatting-locale")}>
+            <OptionCardSection name="formatting-locale" label={t("i18n.formatting-locale")}>
                 <LocaleSelector
                     locales={contentLocales}
                     currentValue={formattingLocale}
                     onChange={setFormattingLocale}
                     defaultLocale={{ id: "", name: t("i18n.formatting-locale-auto") }}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="default-content-language"
                 label={t("i18n.default-content-language")}
                 description={t("i18n.default-content-language-description")}
@@ -89,7 +89,7 @@ function LocalizationOptions() {
                     onChange={setDefaultContentLanguage}
                     defaultLocale={{ id: "", name: t("i18n.default-content-language-auto") }}
                 />
-            </CardOption>
+            </OptionCardSection>
         </Card>
     )
 }
@@ -106,7 +106,7 @@ function DateSettings() {
 
     return (
         <Card heading={t("i18n.dates-title")}>
-            <CardOption name="first-day-of-week" label={t("i18n.first-day-of-the-week")}>
+            <OptionCardSection name="first-day-of-week" label={t("i18n.first-day-of-the-week")}>
                 <FormSelect
                     name="first-day-of-week"
                     currentValue={firstDayOfWeek}
@@ -123,9 +123,9 @@ function DateSettings() {
                         { value: "7", label: t("i18n.sunday") },
                     ]}
                 />
-            </CardOption>
+            </OptionCardSection>
 
-            <CardOption
+            <OptionCardSection
                 name="first-week-of-year"
                 label={t("i18n.first-week-of-the-year")}
                 description={t("i18n.first-week-warning")}
@@ -142,17 +142,17 @@ function DateSettings() {
                         { value: "2", label: t("i18n.first-week-has-minimum-days") }
                     ]}
                 />
-            </CardOption>
+            </OptionCardSection>
 
             {firstWeekOfYear === "2" && (
-                <CardOption name="min-days-in-first-week" label={t("i18n.min-days-in-first-week")}>
+                <OptionCardSection name="min-days-in-first-week" label={t("i18n.min-days-in-first-week")}>
                     <FormSelect
                         keyProperty="days"
                         currentValue={minDaysInFirstWeek} onChange={setMinDaysInFirstWeek}
                         values={Array.from(
                             { length: 7 },
                             (_, i) => ({ days: String(i + 1) }))} />
-                </CardOption>
+                </OptionCardSection>
             )}
         </Card>
     )

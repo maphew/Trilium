@@ -5,7 +5,7 @@ import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
 import Button from "../../react/Button";
-import { Card, CardOption } from "../../react/Card";
+import { Card, OptionCardSection } from "../../react/Card";
 import FormTextBox from "../../react/FormTextBox";
 import { useTriliumOption } from "../../react/hooks";
 import OptionsPageHeader from "./components/OptionsPageHeader";
@@ -53,7 +53,7 @@ export function SyncConfiguration() {
     return (
         <>
             <Card heading={t("sync_2.config_title")}>
-                <CardOption
+                <OptionCardSection
                     name="sync-server-host"
                     label={t("sync_2.server_address")}
                     description={t("sync_2.server_address_description")}
@@ -65,9 +65,9 @@ export function SyncConfiguration() {
                         onChange={setLocalHost}
                         onBlur={setSyncServerHost}
                     />
-                </CardOption>
+                </OptionCardSection>
 
-                <CardOption
+                <OptionCardSection
                     name="sync-proxy"
                     label={t("sync_2.proxy_label")}
                     description={t("sync_2.proxy_description")}
@@ -79,9 +79,9 @@ export function SyncConfiguration() {
                         onChange={setLocalProxy}
                         onBlur={setSyncProxy}
                     />
-                </CardOption>
+                </OptionCardSection>
 
-                <CardOption
+                <OptionCardSection
                     name="sync-server-timeout"
                     label={t("sync_2.timeout")}
                     description={t("sync_2.timeout_description")}
@@ -92,11 +92,11 @@ export function SyncConfiguration() {
                         optionTimeScaleId="syncServerTimeoutTimeScale"
                         minimumSeconds={1}
                     />
-                </CardOption>
+                </OptionCardSection>
             </Card>
 
             <Card>
-                <CardOption
+                <OptionCardSection
                     label={t("sync_2.test_title")}
                     description={t("sync_2.test_description")}
                 >
@@ -106,7 +106,7 @@ export function SyncConfiguration() {
                         size="micro"
                         onClick={() => void testConnection()}
                     />
-                </CardOption>
+                </OptionCardSection>
             </Card>
         </>
     );
