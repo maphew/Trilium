@@ -125,6 +125,29 @@ describe("attribute detail popup naming", () => {
         expect(addDefinitionPrefix("priority", "relation")).toBe("priority");
     });
 
+    it("completes a definition against bare names, so that picking one does not prefix it twice", async () => {
+        vi.resetModules();
+        const server = (await import("../../services/server")).default;
+        const { fetchDefinitionNames } = await import("./attribute_detail");
+        // The label list holds the definitions of both kinds, definitions being labels themselves.
+        const labelNames = [ "priority", "label:priority", "label:due", "relation:author", "label:" ];
+        const get = vi.fn(async (url: string) => url.includes("type=label") ? labelNames : [ "template" ]);
+        server.get = get as unknown as typeof server.get;
+
+        // A label's definitions come out of the one list it shares with them.
+        expect(await fetchDefinitionNames("label", "")).toEqual([ "priority", "due" ]);
+        expect(get).toHaveBeenCalledExactlyOnceWith("attribute-names/?type=label&query=");
+
+        // A relation's are only in the label list, which is asked for on top of the relation names —
+        // whose plain labels are no names for a relation, and stay out.
+        get.mockClear();
+        expect(await fetchDefinitionNames("relation", "a b")).toEqual([ "template", "author" ]);
+        expect(get.mock.calls.map(([ url ]) => url)).toEqual([
+            "attribute-names/?type=relation&query=a%20b",
+            "attribute-names/?type=label&query=a%20b"
+        ]);
+    });
+
     it("searches for every note carrying the attribute by name alone", async () => {
         const { formatAttributeForSearch } = await import("./attribute_detail");
 

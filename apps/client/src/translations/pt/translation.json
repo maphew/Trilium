@@ -1,6 +1,8 @@
 {
   "about": {
-    "data_directory": "Diretório de dados:"
+    "data_directory": "Diretório de dados:",
+    "version_label": "Versão:",
+    "contributors_label": "Contribuidores:"
   },
   "toast": {
     "critical-error": {
