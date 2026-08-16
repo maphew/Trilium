@@ -19,7 +19,7 @@ interface RestartActionProps {
  */
 export default function RestartAction({ text, icon }: RestartActionProps) {
     return (
-        <div className="options-section restart-action">
+        <div className="restart-action">
             <Button
                 name="restart-app-button"
                 text={text}

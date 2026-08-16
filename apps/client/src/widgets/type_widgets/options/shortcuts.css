@@ -39,7 +39,12 @@
     }
 }
 
+/* The cards are grouped one level in, out of reach of the page's own stacking rule. */
 .shortcuts-options-section {
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+
     .shortcut-modified-indicator {
         display: inline-block;
         width: 0.5em;

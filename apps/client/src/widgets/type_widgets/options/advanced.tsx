@@ -37,64 +37,60 @@ function ExperimentalOptions() {
     }
 
     return (
-        <div className="options-section">
-            <Card
-                heading={t("experimental_features.title")}
-                description={t("experimental_features.disclaimer")}
-            >
-                {filteredFeatures.map((feature) => (
-                    <CardOption
-                        key={feature.id}
-                        name={`experimental-${feature.id}`}
-                        label={feature.name}
-                        description={feature.description}
-                    >
-                        <FormToggle
-                            currentValue={enabledFeatures.includes(feature.id)}
-                            onChange={(enabled) => toggleFeature(feature.id, enabled)}
-                        />
-                    </CardOption>
-                ))}
-            </Card>
-        </div>
+        <Card
+            heading={t("experimental_features.title")}
+            description={t("experimental_features.disclaimer")}
+        >
+            {filteredFeatures.map((feature) => (
+                <CardOption
+                    key={feature.id}
+                    name={`experimental-${feature.id}`}
+                    label={feature.name}
+                    description={feature.description}
+                >
+                    <FormToggle
+                        currentValue={enabledFeatures.includes(feature.id)}
+                        onChange={(enabled) => toggleFeature(feature.id, enabled)}
+                    />
+                </CardOption>
+            ))}
+        </Card>
     );
 }
 
 function AdvancedSyncOptions() {
     return (
-        <div className="options-section">
-            <Card heading={t("sync.title")}>
-                <CardOption
-                    label={t("sync.force_full_sync_label")}
-                    description={t("sync.force_full_sync_description")}
-                >
-                    <Button
-                        name="force-full-sync-button"
-                        text={t("sync.force_full_sync_button")}
-                        size="micro"
-                        onClick={async () => {
-                            await server.post("sync/force-full-sync");
-                            toast.showMessage(t("sync.full_sync_triggered"));
-                        }}
-                    />
-                </CardOption>
+        <Card heading={t("sync.title")}>
+            <CardOption
+                label={t("sync.force_full_sync_label")}
+                description={t("sync.force_full_sync_description")}
+            >
+                <Button
+                    name="force-full-sync-button"
+                    text={t("sync.force_full_sync_button")}
+                    size="micro"
+                    onClick={async () => {
+                        await server.post("sync/force-full-sync");
+                        toast.showMessage(t("sync.full_sync_triggered"));
+                    }}
+                />
+            </CardOption>
 
-                <CardOption
-                    label={t("sync.fill_entity_changes_label")}
-                    description={t("sync.fill_entity_changes_description")}
-                >
-                    <Button
-                        name="fill-entity-changes-button"
-                        text={t("sync.fill_entity_changes_button")}
-                        size="micro"
-                        onClick={async () => {
-                            toast.showMessage(t("sync.filling_entity_changes"));
-                            await server.post("sync/fill-entity-changes");
-                            toast.showMessage(t("sync.sync_rows_filled_successfully"));
-                        }}
-                    />
-                </CardOption>
-            </Card>
-        </div>
+            <CardOption
+                label={t("sync.fill_entity_changes_label")}
+                description={t("sync.fill_entity_changes_description")}
+            >
+                <Button
+                    name="fill-entity-changes-button"
+                    text={t("sync.fill_entity_changes_button")}
+                    size="micro"
+                    onClick={async () => {
+                        toast.showMessage(t("sync.filling_entity_changes"));
+                        await server.post("sync/fill-entity-changes");
+                        toast.showMessage(t("sync.sync_rows_filled_successfully"));
+                    }}
+                />
+            </CardOption>
+        </Card>
     );
 }

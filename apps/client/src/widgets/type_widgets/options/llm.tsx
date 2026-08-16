@@ -89,34 +89,32 @@ function ProviderSettings() {
         setProviders(providers.filter(p => p.id !== providerId));
     }, [providers, setProviders]);
 
-    return (
-        <div className="options-section">
-            <Card heading={t("llm.configured_providers")}>
-                <ProviderList
-                    providers={providers}
-                    onEdit={openModal}
-                    onDelete={handleDeleteProvider}
-                />
-
-                <CardSection className="llm-add-provider">
-                    <Button
-                        name="add-llm-provider-button"
-                        size="micro" icon="bx-plus"
-                        text={t("llm.add_provider")}
-                        onClick={() => openModal()}
-                    />
-                </CardSection>
-            </Card>
-
-            <AddProviderModal
-                key={openToken}
-                show={modalOpen}
-                existingProvider={modalProvider}
-                onHidden={() => setModalOpen(false)}
-                onSave={handleSaveProvider}
+    return (<>
+        <Card heading={t("llm.configured_providers")}>
+            <ProviderList
+                providers={providers}
+                onEdit={openModal}
+                onDelete={handleDeleteProvider}
             />
-        </div>
-    );
+
+            <CardSection className="llm-add-provider">
+                <Button
+                    name="add-llm-provider-button"
+                    size="micro" icon="bx-plus"
+                    text={t("llm.add_provider")}
+                    onClick={() => openModal()}
+                />
+            </CardSection>
+        </Card>
+
+        <AddProviderModal
+            key={openToken}
+            show={modalOpen}
+            existingProvider={modalProvider}
+            onHidden={() => setModalOpen(false)}
+            onSave={handleSaveProvider}
+        />
+    </>);
 }
 
 function McpSettings() {
@@ -159,61 +157,59 @@ function McpSettings() {
     }, [networkInfo, localUrl]);
 
     return (
-        <div className="options-section">
-            <Card heading={t("llm.mcp_title")}>
-                <CardOption
-                    name="mcp-enabled"
-                    label={t("llm.mcp_enabled")}
-                    description={mcpUnavailable ? t("llm.mcp_unavailable_standalone") : t("llm.mcp_enabled_description")}
-                >
-                    <FormToggle
-                        currentValue={mcpServing}
-                        onChange={setMcpEnabled}
-                        disabled={mcpUnavailable}
-                    />
-                </CardOption>
+        <Card heading={t("llm.mcp_title")}>
+            <CardOption
+                name="mcp-enabled"
+                label={t("llm.mcp_enabled")}
+                description={mcpUnavailable ? t("llm.mcp_unavailable_standalone") : t("llm.mcp_enabled_description")}
+            >
+                <FormToggle
+                    currentValue={mcpServing}
+                    onChange={setMcpEnabled}
+                    disabled={mcpUnavailable}
+                />
+            </CardOption>
 
-                {mcpServing && (
-                    <>
-                        <CardOption
-                            name="mcp-endpoint"
-                            label={t("llm.mcp_endpoint_title")}
-                            description={t("llm.mcp_endpoint_description")}
-                            stacked
-                        >
-                            <div class="mcp-endpoint-list">
-                                <McpEndpointGroup label={t("llm.mcp_endpoint_this_device")} urls={[localUrl]} />
-                                {networkUrls.length > 0 && (
-                                    <McpEndpointGroup label={t("llm.mcp_endpoint_network")} urls={networkUrls} />
-                                )}
-                                {networkInfo && !networkInfo.reachableOnNetwork && (
-                                    <p class="mcp-endpoint-note">{t("llm.mcp_endpoint_loopback_only")}</p>
-                                )}
-                            </div>
-                        </CardOption>
+            {mcpServing && (
+                <>
+                    <CardOption
+                        name="mcp-endpoint"
+                        label={t("llm.mcp_endpoint_title")}
+                        description={t("llm.mcp_endpoint_description")}
+                        stacked
+                    >
+                        <div class="mcp-endpoint-list">
+                            <McpEndpointGroup label={t("llm.mcp_endpoint_this_device")} urls={[localUrl]} />
+                            {networkUrls.length > 0 && (
+                                <McpEndpointGroup label={t("llm.mcp_endpoint_network")} urls={networkUrls} />
+                            )}
+                            {networkInfo && !networkInfo.reachableOnNetwork && (
+                                <p class="mcp-endpoint-note">{t("llm.mcp_endpoint_loopback_only")}</p>
+                            )}
+                        </div>
+                    </CardOption>
 
-                        <CardSection>
-                            <Collapsible title={t("llm.mcp_config_title")} initiallyExpanded>
-                                <p>{t("llm.mcp_config_description")}</p>
-                                <CodeBlock
-                                    mimeType="application/json"
-                                    code={buildMcpClientConfig(localUrl, tokenPlaceholder)}
-                                    placeholder={tokenPlaceholder}
-                                />
-                                <p>{t("llm.mcp_config_cli_description")}</p>
-                                <CodeBlock
-                                    mimeType="text/x-sh"
-                                    code={buildMcpClientCommand(localUrl, tokenPlaceholder)}
-                                    placeholder={tokenPlaceholder}
-                                    wrap
-                                />
-                                <p class="mcp-config-warning">{t("llm.mcp_config_warning")}</p>
-                            </Collapsible>
-                        </CardSection>
-                    </>
-                )}
-            </Card>
-        </div>
+                    <CardSection>
+                        <Collapsible title={t("llm.mcp_config_title")} initiallyExpanded>
+                            <p>{t("llm.mcp_config_description")}</p>
+                            <CodeBlock
+                                mimeType="application/json"
+                                code={buildMcpClientConfig(localUrl, tokenPlaceholder)}
+                                placeholder={tokenPlaceholder}
+                            />
+                            <p>{t("llm.mcp_config_cli_description")}</p>
+                            <CodeBlock
+                                mimeType="text/x-sh"
+                                code={buildMcpClientCommand(localUrl, tokenPlaceholder)}
+                                placeholder={tokenPlaceholder}
+                                wrap
+                            />
+                            <p class="mcp-config-warning">{t("llm.mcp_config_warning")}</p>
+                        </Collapsible>
+                    </CardSection>
+                </>
+            )}
+        </Card>
     );
 }
 

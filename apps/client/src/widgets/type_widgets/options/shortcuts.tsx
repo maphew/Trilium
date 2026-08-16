@@ -170,13 +170,11 @@ export default function ShortcutSettings() {
             <div className="shortcuts-options-section">
                 {filteredGroups.length > 0
                     ? filteredGroups.map((group) => (
-                        <div key={group.title} className="options-section">
-                            <Card heading={group.title}>
-                                {group.actions.map((action) => (
-                                    <ShortcutRow key={action.actionName} action={action} conflicts={conflicts.get(action.actionName)} />
-                                ))}
-                            </Card>
-                        </div>
+                        <Card heading={group.title}>
+                            {group.actions.map((action) => (
+                                <ShortcutRow key={action.actionName} action={action} conflicts={conflicts.get(action.actionName)} />
+                            ))}
+                        </Card>
                     ))
                     : filter
                         ? (

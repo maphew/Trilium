@@ -107,42 +107,40 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
     }
 
     return (
-        <div className="options-section database-info">
-            <Card heading={t("database.info")}>
-                <CardOption label={t("database.info_location")}>
-                    <span className="database-info-value">
-                        {/* Revealed rather than opened: a file manager is what a path is useful in,
-                            and the database's own reader is Trilium. Where there is no path, the
-                            storage holding it is named instead — nothing there can be pointed at. */}
-                        {info.filePath
-                            ? <FileLink filePath={info.filePath} />
-                            : t("database.info_location_opfs")}
-                    </span>
-                </CardOption>
+        <Card className="database-info" heading={t("database.info")}>
+            <CardOption label={t("database.info_location")}>
+                <span className="database-info-value">
+                    {/* Revealed rather than opened: a file manager is what a path is useful in,
+                        and the database's own reader is Trilium. Where there is no path, the
+                        storage holding it is named instead — nothing there can be pointed at. */}
+                    {info.filePath
+                        ? <FileLink filePath={info.filePath} />
+                        : t("database.info_location_opfs")}
+                </span>
+            </CardOption>
 
-                <CardOption label={t("database.info_content")}>
-                    <span className="database-info-value">
-                        {t("database.info_notes", { count: info.noteCount })}
-                        {", "}
-                        {t("database.info_attachments", { count: info.attachmentCount })}
-                    </span>
-                </CardOption>
+            <CardOption label={t("database.info_content")}>
+                <span className="database-info-value">
+                    {t("database.info_notes", { count: info.noteCount })}
+                    {", "}
+                    {t("database.info_attachments", { count: info.attachmentCount })}
+                </span>
+            </CardOption>
 
-                <CardOption label={t("database.info_created")}>
-                    <span className="database-info-value">
-                        {formatDateTime(info.utcDateCreated, "long", "none")}
-                    </span>
-                </CardOption>
+            <CardOption label={t("database.info_created")}>
+                <span className="database-info-value">
+                    {formatDateTime(info.utcDateCreated, "long", "none")}
+                </span>
+            </CardOption>
 
-                <CardOption label={t("database.info_size")}>
-                    <span className="database-info-value">{formatSize(info.sizeBytes)}</span>
-                </CardOption>
+            <CardOption label={t("database.info_size")}>
+                <span className="database-info-value">{formatSize(info.sizeBytes)}</span>
+            </CardOption>
 
-                {/* Absent where backups are not kept at all: the browser build's one backup is a
-                    download, taken there and then, so there is nothing standing to state. */}
-                {!isBackupDownloadSupported() && <BackupStanding refreshToken={refreshToken} />}
-            </Card>
-        </div>
+            {/* Absent where backups are not kept at all: the browser build's one backup is a
+                download, taken there and then, so there is nothing standing to state. */}
+            {!isBackupDownloadSupported() && <BackupStanding refreshToken={refreshToken} />}
+        </Card>
     );
 }
 
@@ -186,93 +184,91 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
     const { noteContext } = useNoteContext();
 
     return (
-        <div className="options-section database-maintenance">
-            <Card heading={t("database.maintenance")}>
-                <CardOption
-                    label={t("database.cleanup")}
-                    description={t("database.cleanup_description")}
-                >
-                    {/* Named after the tool it opens, so the button and the dialog's own heading
-                        cannot come to say different things. */}
-                    <Button
-                        name="cleanup-button"
-                        text={t("space_usage.cleanup_title")}
-                        size="micro"
-                        onClick={() => void showCleanupDialog().then((reclaimed) => {
-                            // Erasing frees pages inside the file rather than shrinking it, so what
-                            // the card above has to re-read is what the database holds.
-                            if (reclaimed !== null) {
-                                onDatabaseChanged();
-                            }
-                        })}
-                    />
-                </CardOption>
+        <Card heading={t("database.maintenance")}>
+            <CardOption
+                label={t("database.cleanup")}
+                description={t("database.cleanup_description")}
+            >
+                {/* Named after the tool it opens, so the button and the dialog's own heading
+                    cannot come to say different things. */}
+                <Button
+                    name="cleanup-button"
+                    text={t("space_usage.cleanup_title")}
+                    size="micro"
+                    onClick={() => void showCleanupDialog().then((reclaimed) => {
+                        // Erasing frees pages inside the file rather than shrinking it, so what
+                        // the card above has to re-read is what the database holds.
+                        if (reclaimed !== null) {
+                            onDatabaseChanged();
+                        }
+                    })}
+                />
+            </CardOption>
 
+            <CardOption
+                label={t("database.analyze_space_usage")}
+                description={t("database.analyze_space_usage_description")}
+            >
+                <Button
+                    name="analyze-space-usage-button"
+                    text={t("database.analyze_space_usage_button")}
+                    size="micro"
+                    onClick={() => {
+                        // The Content Manager opens on Active Content unless asked otherwise,
+                        // and navigating by hand rather than by link is what lets us ask first.
+                        requestContentManagerSection("spaceUsage");
+                        // Kept in whichever context this page is shown in — the settings dialog
+                        // holds a note context of its own, outside the tab manager.
+                        void noteContext?.setNote("_optionsContentManager", { keepActiveDialog: true });
+                    }}
+                />
+            </CardOption>
+
+            <CardOption
+                label={t("consistency_checks.find_and_fix_label")}
+                description={t("consistency_checks.find_and_fix_description")}
+            >
+                <Button
+                    name="fix-consistency-issues-button"
+                    text={t("consistency_checks.find_and_fix_button")}
+                    size="micro"
+                    onClick={fixConsistencyIssues}
+                />
+            </CardOption>
+
+            <CardOption
+                label={t("database_integrity_check.check_integrity_label")}
+                description={t("database_integrity_check.check_integrity_description")}
+            >
+                <Button
+                    name="check-integrity-button"
+                    text={t("database_integrity_check.check_button")}
+                    size="micro"
+                    onClick={checkIntegrity}
+                />
+            </CardOption>
+
+            {/* Offered everywhere the rebuild has somewhere to happen. The browser build keeps
+                the temporary store in memory, so compacting would ask it for the size of the
+                database over again at the very moment there is too little room — which is why
+                the cleanup tool leaves compaction out there as well. */}
+            {!isStandalone && (
                 <CardOption
-                    label={t("database.analyze_space_usage")}
-                    description={t("database.analyze_space_usage_description")}
+                    label={t("vacuum_database.vacuum_label")}
+                    description={t("vacuum_database.vacuum_description")}
                 >
                     <Button
-                        name="analyze-space-usage-button"
-                        text={t("database.analyze_space_usage_button")}
+                        name="vacuum-database-button"
+                        text={t("vacuum_database.button_text")}
                         size="micro"
-                        onClick={() => {
-                            // The Content Manager opens on Active Content unless asked otherwise,
-                            // and navigating by hand rather than by link is what lets us ask first.
-                            requestContentManagerSection("spaceUsage");
-                            // Kept in whichever context this page is shown in — the settings dialog
-                            // holds a note context of its own, outside the tab manager.
-                            void noteContext?.setNote("_optionsContentManager", { keepActiveDialog: true });
+                        onClick={async () => {
+                            await vacuumDatabase();
+                            onDatabaseChanged();
                         }}
                     />
                 </CardOption>
-
-                <CardOption
-                    label={t("consistency_checks.find_and_fix_label")}
-                    description={t("consistency_checks.find_and_fix_description")}
-                >
-                    <Button
-                        name="fix-consistency-issues-button"
-                        text={t("consistency_checks.find_and_fix_button")}
-                        size="micro"
-                        onClick={fixConsistencyIssues}
-                    />
-                </CardOption>
-
-                <CardOption
-                    label={t("database_integrity_check.check_integrity_label")}
-                    description={t("database_integrity_check.check_integrity_description")}
-                >
-                    <Button
-                        name="check-integrity-button"
-                        text={t("database_integrity_check.check_button")}
-                        size="micro"
-                        onClick={checkIntegrity}
-                    />
-                </CardOption>
-
-                {/* Offered everywhere the rebuild has somewhere to happen. The browser build keeps
-                    the temporary store in memory, so compacting would ask it for the size of the
-                    database over again at the very moment there is too little room — which is why
-                    the cleanup tool leaves compaction out there as well. */}
-                {!isStandalone && (
-                    <CardOption
-                        label={t("vacuum_database.vacuum_label")}
-                        description={t("vacuum_database.vacuum_description")}
-                    >
-                        <Button
-                            name="vacuum-database-button"
-                            text={t("vacuum_database.button_text")}
-                            size="micro"
-                            onClick={async () => {
-                                await vacuumDatabase();
-                                onDatabaseChanged();
-                            }}
-                        />
-                    </CardOption>
-                )}
-            </Card>
-        </div>
+            )}
+        </Card>
     );
 }
 
@@ -365,38 +361,36 @@ function AnonymizationOptions() {
 
     return (
         <>
-            <div className="options-section database-anonymization">
-                <Card
-                    heading={t("database_anonymization.title")}
-                    description={t("database_anonymization.description")}
+            <Card className="database-anonymization"
+                heading={t("database_anonymization.title")}
+                description={t("database_anonymization.description")}
+            >
+                <CardOption
+                    label={t("database_anonymization.full_anonymization")}
+                    description={t("database_anonymization.full_anonymization_description")}
                 >
-                    <CardOption
-                        label={t("database_anonymization.full_anonymization")}
-                        description={t("database_anonymization.full_anonymization_description")}
-                    >
-                        <Button
-                            name="full-anonymization-button"
-                            text={t("database_anonymization.save_fully_anonymized_database")}
-                            size="micro"
-                            disabled={anonymizationInProgress}
-                            onClick={() => void anonymize("full")}
-                        />
-                    </CardOption>
+                    <Button
+                        name="full-anonymization-button"
+                        text={t("database_anonymization.save_fully_anonymized_database")}
+                        size="micro"
+                        disabled={anonymizationInProgress}
+                        onClick={() => void anonymize("full")}
+                    />
+                </CardOption>
 
-                    <CardOption
-                        label={t("database_anonymization.light_anonymization")}
-                        description={t("database_anonymization.light_anonymization_description")}
-                    >
-                        <Button
-                            name="light-anonymization-button"
-                            text={t("database_anonymization.save_lightly_anonymized_database")}
-                            size="micro"
-                            disabled={anonymizationInProgress}
-                            onClick={() => void anonymize("light")}
-                        />
-                    </CardOption>
-                </Card>
-            </div>
+                <CardOption
+                    label={t("database_anonymization.light_anonymization")}
+                    description={t("database_anonymization.light_anonymization_description")}
+                >
+                    <Button
+                        name="light-anonymization-button"
+                        text={t("database_anonymization.save_lightly_anonymized_database")}
+                        size="micro"
+                        disabled={anonymizationInProgress}
+                        onClick={() => void anonymize("light")}
+                    />
+                </CardOption>
+            </Card>
 
             {/* Where the copies are kept is stated only once there is one to find there: an empty
                 list saying where it would have been answers a question nobody asked. */}
@@ -428,23 +422,21 @@ function AnonymizationOptions() {
 /** Headingless: the row names the feature itself, and nothing else belongs beside it. */
 function StartOverOption({ state }: { state: ReturnType<typeof useStartOver> }) {
     return (
-        <div className="options-section start-over">
-            <Card>
-                <CardOption
-                    label={t("database.start_over")}
-                    description={t("database.start_over_description")}
-                >
-                    <Button
-                        name="start-over-button"
-                        text={t("database.start_over")}
-                        icon="bx-reset"
-                        size="micro"
-                        disabled={state.busy || state.pending}
-                        onClick={() => void state.begin()}
-                    />
-                </CardOption>
-            </Card>
-        </div>
+        <Card className="start-over">
+            <CardOption
+                label={t("database.start_over")}
+                description={t("database.start_over_description")}
+            >
+                <Button
+                    name="start-over-button"
+                    text={t("database.start_over")}
+                    icon="bx-reset"
+                    size="micro"
+                    disabled={state.busy || state.pending}
+                    onClick={() => void state.begin()}
+                />
+            </CardOption>
+        </Card>
     );
 }
 

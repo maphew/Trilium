@@ -49,47 +49,45 @@ export default function DatabaseFileList<T extends DatabaseFile>(props: Database
     }), [files]);
 
     return (
-        <div className="options-section database-file-list">
-            <Card heading={title} description={description}>
-                {sortedFiles.length > 0 ? (
-                    sortedFiles.map((file) => (
-                        <CardOption
-                            key={file.filePath}
-                            label={
-                                <span className="database-file-label">
-                                    <span className="selectable-text">{file.fileName}</span>
-                                    <DatabaseFileBadges badges={fileBadges?.(file) ?? []} />
-                                </span>
-                            }
-                            description={describeDatabaseFile(file)}
-                        >
+        <Card className="database-file-list" heading={title} description={description}>
+            {sortedFiles.length > 0 ? (
+                sortedFiles.map((file) => (
+                    <CardOption
+                        key={file.filePath}
+                        label={
+                            <span className="database-file-label">
+                                <span className="selectable-text">{file.fileName}</span>
+                                <DatabaseFileBadges badges={fileBadges?.(file) ?? []} />
+                            </span>
+                        }
+                        description={describeDatabaseFile(file)}
+                    >
+                        <ActionButton
+                            icon="bx bx-download"
+                            text={downloadText}
+                            onClick={() => downloadFile(downloadEndpoint, file.filePath)}
+                        />
+
+                        {/* Labelled from the shared catalogue rather than per list: removing a
+                            file is the same act whichever list it is in. */}
+                        {onDelete && (
                             <ActionButton
-                                icon="bx bx-download"
-                                text={downloadText}
-                                onClick={() => downloadFile(downloadEndpoint, file.filePath)}
+                                className="destructive-action-icon"
+                                icon="bx bx-trash"
+                                text={t("database_file_list.delete")}
+                                onClick={() => onDelete(file)}
                             />
+                        )}
+                    </CardOption>
+                ))
+            ) : (
+                <CardSection>
+                    <NoItems icon={emptyIcon} text={emptyText} size="small" />
+                </CardSection>
+            )}
 
-                            {/* Labelled from the shared catalogue rather than per list: removing a
-                                file is the same act whichever list it is in. */}
-                            {onDelete && (
-                                <ActionButton
-                                    className="destructive-action-icon"
-                                    icon="bx bx-trash"
-                                    text={t("database_file_list.delete")}
-                                    onClick={() => onDelete(file)}
-                                />
-                            )}
-                        </CardOption>
-                    ))
-                ) : (
-                    <CardSection>
-                        <NoItems icon={emptyIcon} text={emptyText} size="small" />
-                    </CardSection>
-                )}
-
-                {children}
-            </Card>
-        </div>
+            {children}
+        </Card>
     );
 }
 

@@ -20,9 +20,7 @@ export default function DesktopSettings() {
         return (
             <>
                 <OptionsPageHeader />
-                <div className="options-section">
-                    <NoItems text={t("desktop.web_placeholder")} icon="bx bx-desktop" />
-                </div>
+                <NoItems text={t("desktop.web_placeholder")} icon="bx bx-desktop" />
             </>
         );
     }
@@ -42,37 +40,35 @@ function TrayOptionsSettings() {
     const [ closeToTray, setCloseToTray ] = useTriliumOptionBool("closeToTray");
 
     return (
-        <div className="options-section">
-            <Card heading={t("tray.title")}>
-                <CardOption
-                    name="tray-enabled"
-                    label={t("tray.enable_tray")}
-                    description={t("tray.enable_tray_description")}
-                >
-                    <FormToggle
-                        currentValue={!disableTray}
-                        onChange={async trayEnabled => {
-                            await setDisableTray(!trayEnabled);
-                            // Apply the change immediately so the user doesn't have to restart the app.
-                            utils.reloadTray();
-                        }}
-                    />
-                </CardOption>
+        <Card heading={t("tray.title")}>
+            <CardOption
+                name="tray-enabled"
+                label={t("tray.enable_tray")}
+                description={t("tray.enable_tray_description")}
+            >
+                <FormToggle
+                    currentValue={!disableTray}
+                    onChange={async trayEnabled => {
+                        await setDisableTray(!trayEnabled);
+                        // Apply the change immediately so the user doesn't have to restart the app.
+                        utils.reloadTray();
+                    }}
+                />
+            </CardOption>
 
-                <CardOption
-                    name="close-to-tray"
-                    label={t("tray.close_to_tray")}
-                    description={t("tray.close_to_tray_description")}
-                >
-                    <FormToggle
-                        currentValue={closeToTray}
-                        // Close-to-tray with no tray icon would hide the app with no way back.
-                        disabled={disableTray}
-                        onChange={setCloseToTray}
-                    />
-                </CardOption>
-            </Card>
-        </div>
+            <CardOption
+                name="close-to-tray"
+                label={t("tray.close_to_tray")}
+                description={t("tray.close_to_tray_description")}
+            >
+                <FormToggle
+                    currentValue={closeToTray}
+                    // Close-to-tray with no tray icon would hide the app with no way back.
+                    disabled={disableTray}
+                    onChange={setCloseToTray}
+                />
+            </CardOption>
+        </Card>
     );
 }
 
@@ -82,42 +78,40 @@ function StartupSettings() {
     const [ disableTray ] = useTriliumOptionBool("disableTray");
 
     return (
-        <div className="options-section">
-            <Card heading={t("startup.title")}>
-                <CardOption
-                    name="launch-on-startup"
-                    label={t("startup.launch_on_startup")}
-                    description={t("startup.launch_on_startup_description")}
-                >
-                    <FormToggle
-                        currentValue={launchOnStartup}
-                        onChange={async enabled => {
-                            await setLaunchOnStartup(enabled);
-                            // Apply the change immediately so the user doesn't have to restart the app.
-                            utils.reapplyLaunchOnStartup();
-                        }}
-                    />
-                </CardOption>
+        <Card heading={t("startup.title")}>
+            <CardOption
+                name="launch-on-startup"
+                label={t("startup.launch_on_startup")}
+                description={t("startup.launch_on_startup_description")}
+            >
+                <FormToggle
+                    currentValue={launchOnStartup}
+                    onChange={async enabled => {
+                        await setLaunchOnStartup(enabled);
+                        // Apply the change immediately so the user doesn't have to restart the app.
+                        utils.reapplyLaunchOnStartup();
+                    }}
+                />
+            </CardOption>
 
-                <CardOption
-                    name="hide-on-auto-start"
-                    label={t("startup.hide_on_auto_start")}
-                    description={t("startup.hide_on_auto_start_description")}
-                >
-                    <FormToggle
-                        currentValue={hideOnAutoStart}
-                        // Only meaningful when launched at login, and the tray must exist to
-                        // bring the hidden window back.
-                        disabled={!launchOnStartup || disableTray}
-                        onChange={async enabled => {
-                            await setHideOnAutoStart(enabled);
-                            // Re-tag the autostart entry so it launches hidden (or not).
-                            utils.reapplyLaunchOnStartup();
-                        }}
-                    />
-                </CardOption>
-            </Card>
-        </div>
+            <CardOption
+                name="hide-on-auto-start"
+                label={t("startup.hide_on_auto_start")}
+                description={t("startup.hide_on_auto_start_description")}
+            >
+                <FormToggle
+                    currentValue={hideOnAutoStart}
+                    // Only meaningful when launched at login, and the tray must exist to
+                    // bring the hidden window back.
+                    disabled={!launchOnStartup || disableTray}
+                    onChange={async enabled => {
+                        await setHideOnAutoStart(enabled);
+                        // Re-tag the autostart entry so it launches hidden (or not).
+                        utils.reapplyLaunchOnStartup();
+                    }}
+                />
+            </CardOption>
+        </Card>
     );
 }
 
@@ -135,51 +129,49 @@ function SearchEngineSettings() {
     }, []);
 
     return (
-        <div className="options-section">
-            <Card
-                heading={t("search_engine.title")}
-                description={t("search_engine.custom_search_engine_info")}
+        <Card
+            heading={t("search_engine.title")}
+            description={t("search_engine.custom_search_engine_info")}
+        >
+            <CardOption label={t("search_engine.predefined_templates_label")}>
+                <div className="search-engine-templates">
+                    {searchEngines.map(engine => (
+                        <Badge
+                            key={engine.url}
+                            icon={engine.icon}
+                            text={engine.name}
+                            className={customSearchEngineUrl === engine.url ? "selected" : ""}
+                            onClick={() => {
+                                setCustomSearchEngineName(engine.name);
+                                setCustomSearchEngineUrl(engine.url);
+                            }}
+                        />
+                    ))}
+                </div>
+            </CardOption>
+
+            <CardOption
+                className="desktop-search-name"
+                name="custom-name"
+                label={t("search_engine.custom_name_label")}
             >
-                <CardOption label={t("search_engine.predefined_templates_label")}>
-                    <div className="search-engine-templates">
-                        {searchEngines.map(engine => (
-                            <Badge
-                                key={engine.url}
-                                icon={engine.icon}
-                                text={engine.name}
-                                className={customSearchEngineUrl === engine.url ? "selected" : ""}
-                                onClick={() => {
-                                    setCustomSearchEngineName(engine.name);
-                                    setCustomSearchEngineUrl(engine.url);
-                                }}
-                            />
-                        ))}
-                    </div>
-                </CardOption>
+                <FormTextBox
+                    currentValue={customSearchEngineName} onBlur={setCustomSearchEngineName}
+                    placeholder={t("search_engine.custom_name_placeholder")}
+                />
+            </CardOption>
 
-                <CardOption
-                    className="desktop-search-name"
-                    name="custom-name"
-                    label={t("search_engine.custom_name_label")}
-                >
-                    <FormTextBox
-                        currentValue={customSearchEngineName} onBlur={setCustomSearchEngineName}
-                        placeholder={t("search_engine.custom_name_placeholder")}
-                    />
-                </CardOption>
-
-                <CardOption
-                    name="custom-url"
-                    label={t("search_engine.custom_url_label")}
-                    description={t("search_engine.custom_url_description")}
-                    stacked
-                >
-                    <FormTextBox
-                        currentValue={customSearchEngineUrl} onBlur={setCustomSearchEngineUrl}
-                        placeholder={t("search_engine.custom_url_placeholder")}
-                    />
-                </CardOption>
-            </Card>
-        </div>
+            <CardOption
+                name="custom-url"
+                label={t("search_engine.custom_url_label")}
+                description={t("search_engine.custom_url_description")}
+                stacked
+            >
+                <FormTextBox
+                    currentValue={customSearchEngineUrl} onBlur={setCustomSearchEngineUrl}
+                    placeholder={t("search_engine.custom_url_placeholder")}
+                />
+            </CardOption>
+        </Card>
     );
 }

@@ -44,10 +44,6 @@ body.desktop .modal.options-dialog > .modal-dialog > .modal-content > .modal-mai
     z-index: 9999;
 }
 
-.modal.options-dialog .options-section {
-    margin: auto;
-}
-
 /* The dialog fills the full mobile page (isFullPageOnMobile), so the body stretches instead of
    using the fixed desktop height. Applies to both the master-detail and the tablet layout. */
 body.mobile .modal.options-dialog > .modal-dialog > .modal-content > .modal-main > .modal-body,

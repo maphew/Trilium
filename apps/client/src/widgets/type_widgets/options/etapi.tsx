@@ -106,40 +106,36 @@ function TokenList({ tokens }: { tokens: EtapiToken[] }) {
     // empty card being a statement of its own.
     if (!tokens.length) {
         return (
-            <div className="options-section">
-                <NoItems icon="bx bx-key" text={t("etapi.no_tokens")} />
-            </div>
+            <NoItems icon="bx bx-key" text={t("etapi.no_tokens")} />
         );
     }
 
     return (
-        <div className="options-section">
-            <Card>
-                {tokens.map(({ etapiTokenId, name, utcDateCreated }) => (
-                    <CardOption
-                        key={etapiTokenId ?? name}
-                        label={name}
-                        description={formatDateTime(utcDateCreated)}
-                    >
-                        {etapiTokenId && (
-                            <span className="etapi-token-actions">
-                                <ActionButton
-                                    icon="bx bx-edit-alt"
-                                    text={t("etapi.rename_token")}
-                                    onClick={() => renameCallback(etapiTokenId, name)}
-                                />
+        <Card>
+            {tokens.map(({ etapiTokenId, name, utcDateCreated }) => (
+                <CardOption
+                    key={etapiTokenId ?? name}
+                    label={name}
+                    description={formatDateTime(utcDateCreated)}
+                >
+                    {etapiTokenId && (
+                        <span className="etapi-token-actions">
+                            <ActionButton
+                                icon="bx bx-edit-alt"
+                                text={t("etapi.rename_token")}
+                                onClick={() => renameCallback(etapiTokenId, name)}
+                            />
 
-                                <ActionButton
-                                    className="destructive-action-icon"
-                                    icon="bx bx-trash"
-                                    text={t("etapi.delete_token")}
-                                    onClick={() => deleteCallback(etapiTokenId, name)}
-                                />
-                            </span>
-                        )}
-                    </CardOption>
-                ))}
-            </Card>
-        </div>
+                            <ActionButton
+                                className="destructive-action-icon"
+                                icon="bx bx-trash"
+                                text={t("etapi.delete_token")}
+                                onClick={() => deleteCallback(etapiTokenId, name)}
+                            />
+                        </span>
+                    )}
+                </CardOption>
+            ))}
+        </Card>
     );
 }

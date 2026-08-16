@@ -93,28 +93,26 @@ function BackendScriptingSettings({ liveValue, pendingValue, setPendingValue }: 
     }
 
     return (
-        <div className="options-section">
-            <Card
-                heading={t("security.backend_scripting_title")}
-                description={t("security.backend_scripting_section_description")}
-                actions={<HelpButton helpPage="SPirpZypehBG" />}
+        <Card
+            heading={t("security.backend_scripting_title")}
+            description={t("security.backend_scripting_section_description")}
+            actions={<HelpButton helpPage="SPirpZypehBG" />}
+        >
+            <CardOption
+                name="backend-scripting-enabled"
+                label={t("security.backend_scripting_label")}
+                description={hasPendingChange
+                    ? t("security.restart_required")
+                    : t("security.backend_scripting_description")}
             >
-                <CardOption
-                    name="backend-scripting-enabled"
-                    label={t("security.backend_scripting_label")}
-                    description={hasPendingChange
-                        ? t("security.restart_required")
-                        : t("security.backend_scripting_description")}
-                >
-                    <FormToggle currentValue={displayValue} onChange={handleToggle} disabled={!isDesktop} />
-                </CardOption>
+                <FormToggle currentValue={displayValue} onChange={handleToggle} disabled={!isDesktop} />
+            </CardOption>
 
-                <ServerConfigHint
-                    configKey="backendScriptingEnabled"
-                    envVar="TRILIUM_SECURITY_BACKEND_SCRIPTING_ENABLED"
-                />
-            </Card>
-        </div>
+            <ServerConfigHint
+                configKey="backendScriptingEnabled"
+                envVar="TRILIUM_SECURITY_BACKEND_SCRIPTING_ENABLED"
+            />
+        </Card>
     );
 }
 
@@ -131,28 +129,26 @@ function SqlConsoleSettings({ liveValue, pendingValue, setPendingValue }: Toggle
     }
 
     return (
-        <div className="options-section">
-            <Card
-                heading={t("security.sql_console_title")}
-                description={t("security.sql_console_section_description")}
-                actions={<HelpButton helpPage="YKWqdJhzi2VY" />}
+        <Card
+            heading={t("security.sql_console_title")}
+            description={t("security.sql_console_section_description")}
+            actions={<HelpButton helpPage="YKWqdJhzi2VY" />}
+        >
+            <CardOption
+                name="sql-console-enabled"
+                label={t("security.sql_console_label")}
+                description={hasPendingChange
+                    ? t("security.restart_required")
+                    : t("security.sql_console_description")}
             >
-                <CardOption
-                    name="sql-console-enabled"
-                    label={t("security.sql_console_label")}
-                    description={hasPendingChange
-                        ? t("security.restart_required")
-                        : t("security.sql_console_description")}
-                >
-                    <FormToggle currentValue={displayValue} onChange={handleToggle} disabled={!isDesktop} />
-                </CardOption>
+                <FormToggle currentValue={displayValue} onChange={handleToggle} disabled={!isDesktop} />
+            </CardOption>
 
-                <ServerConfigHint
-                    configKey="sqlConsoleEnabled"
-                    envVar="TRILIUM_SECURITY_SQL_CONSOLE_ENABLED"
-                />
-            </Card>
-        </div>
+            <ServerConfigHint
+                configKey="sqlConsoleEnabled"
+                envVar="TRILIUM_SECURITY_SQL_CONSOLE_ENABLED"
+            />
+        </Card>
     );
 }
 
@@ -171,22 +167,20 @@ function LanAccessSettings({ liveValue, pendingValue, setPendingValue }: ToggleS
     }
 
     return (
-        <div className="options-section">
-            <Card
-                heading={t("security.lan_access_title")}
-                description={t("security.lan_access_section_description")}
-                actions={<HelpButton helpPage="swSFivWk6KkA" />}
+        <Card
+            heading={t("security.lan_access_title")}
+            description={t("security.lan_access_section_description")}
+            actions={<HelpButton helpPage="swSFivWk6KkA" />}
+        >
+            <CardOption
+                name="lan-access-enabled"
+                label={t("security.lan_access_label")}
+                description={hasPendingChange
+                    ? t("security.restart_required")
+                    : t("security.lan_access_description")}
             >
-                <CardOption
-                    name="lan-access-enabled"
-                    label={t("security.lan_access_label")}
-                    description={hasPendingChange
-                        ? t("security.restart_required")
-                        : t("security.lan_access_description")}
-                >
-                    <FormToggle currentValue={displayValue} onChange={handleToggle} />
-                </CardOption>
-            </Card>
-        </div>
+                <FormToggle currentValue={displayValue} onChange={handleToggle} />
+            </CardOption>
+        </Card>
     );
 }

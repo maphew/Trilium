@@ -64,35 +64,33 @@ function LocalizationOptions() {
     const [ defaultContentLanguage, setDefaultContentLanguage ] = useTriliumOption("defaultContentLanguage");
 
     return (
-        <div className="options-section">
-            <Card heading={t("i18n.title")}>
-                <CardOption name="language" label={t("i18n.language")}>
-                    <LocaleSelector locales={uiLocales} currentValue={locale} onChange={setLocale} />
-                </CardOption>
+        <Card heading={t("i18n.title")}>
+            <CardOption name="language" label={t("i18n.language")}>
+                <LocaleSelector locales={uiLocales} currentValue={locale} onChange={setLocale} />
+            </CardOption>
 
-                <CardOption name="formatting-locale" label={t("i18n.formatting-locale")}>
-                    <LocaleSelector
-                        locales={contentLocales}
-                        currentValue={formattingLocale}
-                        onChange={setFormattingLocale}
-                        defaultLocale={{ id: "", name: t("i18n.formatting-locale-auto") }}
-                    />
-                </CardOption>
+            <CardOption name="formatting-locale" label={t("i18n.formatting-locale")}>
+                <LocaleSelector
+                    locales={contentLocales}
+                    currentValue={formattingLocale}
+                    onChange={setFormattingLocale}
+                    defaultLocale={{ id: "", name: t("i18n.formatting-locale-auto") }}
+                />
+            </CardOption>
 
-                <CardOption
-                    name="default-content-language"
-                    label={t("i18n.default-content-language")}
-                    description={t("i18n.default-content-language-description")}
-                >
-                    <LocaleSelector
-                        locales={writingLocales}
-                        currentValue={defaultContentLanguage}
-                        onChange={setDefaultContentLanguage}
-                        defaultLocale={{ id: "", name: t("i18n.default-content-language-auto") }}
-                    />
-                </CardOption>
-            </Card>
-        </div>
+            <CardOption
+                name="default-content-language"
+                label={t("i18n.default-content-language")}
+                description={t("i18n.default-content-language-description")}
+            >
+                <LocaleSelector
+                    locales={writingLocales}
+                    currentValue={defaultContentLanguage}
+                    onChange={setDefaultContentLanguage}
+                    defaultLocale={{ id: "", name: t("i18n.default-content-language-auto") }}
+                />
+            </CardOption>
+        </Card>
     )
 }
 
@@ -107,73 +105,69 @@ function DateSettings() {
     const [ minDaysInFirstWeek, setMinDaysInFirstWeek ] = useTriliumOption("minDaysInFirstWeek");
 
     return (
-        <div className="options-section">
-            <Card heading={t("i18n.dates-title")}>
-                <CardOption name="first-day-of-week" label={t("i18n.first-day-of-the-week")}>
-                    <FormSelect
-                        name="first-day-of-week"
-                        currentValue={firstDayOfWeek}
-                        onChange={setFirstDayOfWeek}
-                        keyProperty="value"
-                        titleProperty="label"
-                        values={[
-                            { value: "1", label: t("i18n.monday") },
-                            { value: "2", label: t("i18n.tuesday") },
-                            { value: "3", label: t("i18n.wednesday") },
-                            { value: "4", label: t("i18n.thursday") },
-                            { value: "5", label: t("i18n.friday") },
-                            { value: "6", label: t("i18n.saturday") },
-                            { value: "7", label: t("i18n.sunday") },
-                        ]}
-                    />
-                </CardOption>
+        <Card heading={t("i18n.dates-title")}>
+            <CardOption name="first-day-of-week" label={t("i18n.first-day-of-the-week")}>
+                <FormSelect
+                    name="first-day-of-week"
+                    currentValue={firstDayOfWeek}
+                    onChange={setFirstDayOfWeek}
+                    keyProperty="value"
+                    titleProperty="label"
+                    values={[
+                        { value: "1", label: t("i18n.monday") },
+                        { value: "2", label: t("i18n.tuesday") },
+                        { value: "3", label: t("i18n.wednesday") },
+                        { value: "4", label: t("i18n.thursday") },
+                        { value: "5", label: t("i18n.friday") },
+                        { value: "6", label: t("i18n.saturday") },
+                        { value: "7", label: t("i18n.sunday") },
+                    ]}
+                />
+            </CardOption>
 
-                <CardOption
+            <CardOption
+                name="first-week-of-year"
+                label={t("i18n.first-week-of-the-year")}
+                description={t("i18n.first-week-warning")}
+            >
+                <FormSelect
                     name="first-week-of-year"
-                    label={t("i18n.first-week-of-the-year")}
-                    description={t("i18n.first-week-warning")}
-                >
-                    <FormSelect
-                        name="first-week-of-year"
-                        currentValue={firstWeekOfYear}
-                        onChange={setFirstWeekOfYear}
-                        keyProperty="value"
-                        titleProperty="label"
-                        values={[
-                            { value: "0", label: t("i18n.first-week-contains-first-day") },
-                            { value: "1", label: t("i18n.first-week-contains-first-thursday") },
-                            { value: "2", label: t("i18n.first-week-has-minimum-days") }
-                        ]}
-                    />
-                </CardOption>
+                    currentValue={firstWeekOfYear}
+                    onChange={setFirstWeekOfYear}
+                    keyProperty="value"
+                    titleProperty="label"
+                    values={[
+                        { value: "0", label: t("i18n.first-week-contains-first-day") },
+                        { value: "1", label: t("i18n.first-week-contains-first-thursday") },
+                        { value: "2", label: t("i18n.first-week-has-minimum-days") }
+                    ]}
+                />
+            </CardOption>
 
-                {firstWeekOfYear === "2" && (
-                    <CardOption name="min-days-in-first-week" label={t("i18n.min-days-in-first-week")}>
-                        <FormSelect
-                            keyProperty="days"
-                            currentValue={minDaysInFirstWeek} onChange={setMinDaysInFirstWeek}
-                            values={Array.from(
-                                { length: 7 },
-                                (_, i) => ({ days: String(i + 1) }))} />
-                    </CardOption>
-                )}
-            </Card>
-        </div>
+            {firstWeekOfYear === "2" && (
+                <CardOption name="min-days-in-first-week" label={t("i18n.min-days-in-first-week")}>
+                    <FormSelect
+                        keyProperty="days"
+                        currentValue={minDaysInFirstWeek} onChange={setMinDaysInFirstWeek}
+                        values={Array.from(
+                            { length: 7 },
+                            (_, i) => ({ days: String(i + 1) }))} />
+                </CardOption>
+            )}
+        </Card>
     )
 }
 
 function ContentLanguages() {
     return (
-        <div className="options-section">
-            <Card
-                heading={t("content_language.title")}
-                description={t("content_language.description")}
-            >
-                <CardSection className="i18n-content-languages">
-                    <ContentLanguagesList />
-                </CardSection>
-            </Card>
-        </div>
+        <Card
+            heading={t("content_language.title")}
+            description={t("content_language.description")}
+        >
+            <CardSection className="i18n-content-languages">
+                <ContentLanguagesList />
+            </CardSection>
+        </Card>
     );
 }
 

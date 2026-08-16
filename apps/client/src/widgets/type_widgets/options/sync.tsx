@@ -52,66 +52,62 @@ export function SyncConfiguration() {
 
     return (
         <>
-            <div className="options-section">
-                <Card heading={t("sync_2.config_title")}>
-                    <CardOption
-                        name="sync-server-host"
-                        label={t("sync_2.server_address")}
-                        description={t("sync_2.server_address_description")}
-                        stacked
-                    >
-                        <FormTextBox
-                            placeholder="https://<host>:<port>"
-                            currentValue={localHost}
-                            onChange={setLocalHost}
-                            onBlur={setSyncServerHost}
-                        />
-                    </CardOption>
+            <Card heading={t("sync_2.config_title")}>
+                <CardOption
+                    name="sync-server-host"
+                    label={t("sync_2.server_address")}
+                    description={t("sync_2.server_address_description")}
+                    stacked
+                >
+                    <FormTextBox
+                        placeholder="https://<host>:<port>"
+                        currentValue={localHost}
+                        onChange={setLocalHost}
+                        onBlur={setSyncServerHost}
+                    />
+                </CardOption>
 
-                    <CardOption
-                        name="sync-proxy"
-                        label={t("sync_2.proxy_label")}
-                        description={t("sync_2.proxy_description")}
-                        stacked
-                    >
-                        <FormTextBox
-                            placeholder="https://<host>:<port>"
-                            currentValue={localProxy}
-                            onChange={setLocalProxy}
-                            onBlur={setSyncProxy}
-                        />
-                    </CardOption>
+                <CardOption
+                    name="sync-proxy"
+                    label={t("sync_2.proxy_label")}
+                    description={t("sync_2.proxy_description")}
+                    stacked
+                >
+                    <FormTextBox
+                        placeholder="https://<host>:<port>"
+                        currentValue={localProxy}
+                        onChange={setLocalProxy}
+                        onBlur={setSyncProxy}
+                    />
+                </CardOption>
 
-                    <CardOption
+                <CardOption
+                    name="sync-server-timeout"
+                    label={t("sync_2.timeout")}
+                    description={t("sync_2.timeout_description")}
+                >
+                    <TimeSelector
                         name="sync-server-timeout"
-                        label={t("sync_2.timeout")}
-                        description={t("sync_2.timeout_description")}
-                    >
-                        <TimeSelector
-                            name="sync-server-timeout"
-                            optionValueId="syncServerTimeout"
-                            optionTimeScaleId="syncServerTimeoutTimeScale"
-                            minimumSeconds={1}
-                        />
-                    </CardOption>
-                </Card>
-            </div>
+                        optionValueId="syncServerTimeout"
+                        optionTimeScaleId="syncServerTimeoutTimeScale"
+                        minimumSeconds={1}
+                    />
+                </CardOption>
+            </Card>
 
-            <div className="options-section">
-                <Card>
-                    <CardOption
-                        label={t("sync_2.test_title")}
-                        description={t("sync_2.test_description")}
-                    >
-                        <Button
-                            name="test-sync-button"
-                            text={t("sync_2.test_button")}
-                            size="micro"
-                            onClick={() => void testConnection()}
-                        />
-                    </CardOption>
-                </Card>
-            </div>
+            <Card>
+                <CardOption
+                    label={t("sync_2.test_title")}
+                    description={t("sync_2.test_description")}
+                >
+                    <Button
+                        name="test-sync-button"
+                        text={t("sync_2.test_button")}
+                        size="micro"
+                        onClick={() => void testConnection()}
+                    />
+                </CardOption>
+            </Card>
         </>
     );
 }

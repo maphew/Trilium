@@ -42,48 +42,46 @@ function Editor({ wordWrapping, setWordWrapping }: EditorProps) {
     const [codeNoteTabWidth, setCodeNoteTabWidth] = useTriliumOption("codeNoteTabWidth");
 
     return (
-        <div className="options-section">
-            <Card heading={t("code-editor-options.title")}>
-                <CardOption name="word-wrap" label={t("code_theme.word_wrapping")}>
-                    <FormToggle currentValue={wordWrapping} onChange={setWordWrapping} />
-                </CardOption>
+        <Card heading={t("code-editor-options.title")}>
+            <CardOption name="word-wrap" label={t("code_theme.word_wrapping")}>
+                <FormToggle currentValue={wordWrapping} onChange={setWordWrapping} />
+            </CardOption>
 
-                {/* Avoid using "code" in the name of numeric inputs to prevent KeepassXC from triggering. */}
-                <CardOption
-                    name="editor-tab-width"
-                    label={t("code-editor-options.tab_width")}
-                >
-                    <FormTextBoxWithUnit
-                        type="number" min={1} max={16} step={1}
-                        unit={t("code-editor-options.tab_width_unit")}
-                        currentValue={codeNoteTabWidth}
-                        onChange={setCodeNoteTabWidth}
-                        onBlur={setCodeNoteTabWidth}
-                    />
-                </CardOption>
+            {/* Avoid using "code" in the name of numeric inputs to prevent KeepassXC from triggering. */}
+            <CardOption
+                name="editor-tab-width"
+                label={t("code-editor-options.tab_width")}
+            >
+                <FormTextBoxWithUnit
+                    type="number" min={1} max={16} step={1}
+                    unit={t("code-editor-options.tab_width_unit")}
+                    currentValue={codeNoteTabWidth}
+                    onChange={setCodeNoteTabWidth}
+                    onBlur={setCodeNoteTabWidth}
+                />
+            </CardOption>
 
-                <CardOption
-                    name="source-readonly-threshold"
-                    label={t("code_auto_read_only_size.label")}
-                    description={t("text_auto_read_only_size.description")}
-                >
-                    <FormTextBoxWithUnit
-                        type="number" min={0}
-                        unit={t("text_auto_read_only_size.unit")}
-                        currentValue={autoReadonlySize}
-                        onBlur={setAutoReadonlySize}
-                    />
-                </CardOption>
+            <CardOption
+                name="source-readonly-threshold"
+                label={t("code_auto_read_only_size.label")}
+                description={t("text_auto_read_only_size.description")}
+            >
+                <FormTextBoxWithUnit
+                    type="number" min={0}
+                    unit={t("text_auto_read_only_size.unit")}
+                    currentValue={autoReadonlySize}
+                    onBlur={setAutoReadonlySize}
+                />
+            </CardOption>
 
-                <CardOption
-                    name="vim-keymap-enabled"
-                    label={t("vim_key_bindings.use_vim_keybindings_in_code_notes")}
-                    description={t("vim_key_bindings.enable_vim_keybindings")}
-                >
-                    <FormToggle currentValue={vimKeymapEnabled} onChange={setVimKeymapEnabled} />
-                </CardOption>
-            </Card>
-        </div>
+            <CardOption
+                name="vim-keymap-enabled"
+                label={t("vim_key_bindings.use_vim_keybindings_in_code_notes")}
+                description={t("vim_key_bindings.enable_vim_keybindings")}
+            >
+                <FormToggle currentValue={vimKeymapEnabled} onChange={setVimKeymapEnabled} />
+            </CardOption>
+        </Card>
     );
 }
 
@@ -119,44 +117,42 @@ function Appearance({ wordWrapping, indentSize }: AppearanceProps) {
         : codeNoteTheme;
 
     return (
-        <div className="options-section">
-            <Card heading={t("code_theme.title")}>
-                <ThemeModeSelector matchesApp={matchesApp} onMatchesAppChange={setMatchesApp} />
+        <Card heading={t("code_theme.title")}>
+            <ThemeModeSelector matchesApp={matchesApp} onMatchesAppChange={setMatchesApp} />
 
-                {matchesApp ? (
-                    <>
-                        <CardOption name="light-theme" label={t("code_theme.light_theme")}>
-                            <FormSelect
-                                values={lightThemes}
-                                keyProperty="id" titleProperty="name"
-                                currentValue={lightTheme} onChange={setLightTheme}
-                            />
-                        </CardOption>
-                        <CardOption name="dark-theme" label={t("code_theme.dark_theme")}>
-                            <FormSelect
-                                values={darkThemes}
-                                keyProperty="id" titleProperty="name"
-                                currentValue={darkTheme} onChange={setDarkTheme}
-                            />
-                        </CardOption>
-                    </>
-                ) : (
-                    <CardOption name="color-scheme" label={t("code_theme.color-scheme")}>
+            {matchesApp ? (
+                <>
+                    <CardOption name="light-theme" label={t("code_theme.light_theme")}>
                         <FormSelect
-                            values={allThemes}
+                            values={lightThemes}
                             keyProperty="id" titleProperty="name"
-                            currentValue={codeNoteTheme} onChange={setCodeNoteTheme}
+                            currentValue={lightTheme} onChange={setLightTheme}
                         />
                     </CardOption>
-                )}
+                    <CardOption name="dark-theme" label={t("code_theme.dark_theme")}>
+                        <FormSelect
+                            values={darkThemes}
+                            keyProperty="id" titleProperty="name"
+                            currentValue={darkTheme} onChange={setDarkTheme}
+                        />
+                    </CardOption>
+                </>
+            ) : (
+                <CardOption name="color-scheme" label={t("code_theme.color-scheme")}>
+                    <FormSelect
+                        values={allThemes}
+                        keyProperty="id" titleProperty="name"
+                        currentValue={codeNoteTheme} onChange={setCodeNoteTheme}
+                    />
+                </CardOption>
+            )}
 
-                {/* A specimen of the editor rather than a control standing beside a label, shown
-                    the way a code block is shown in a note. */}
-                <CardSection className="code-note-preview">
-                    <CodeNotePreview wordWrapping={wordWrapping} themeName={effectiveTheme} indentSize={indentSize} />
-                </CardSection>
-            </Card>
-        </div>
+            {/* A specimen of the editor rather than a control standing beside a label, shown
+                the way a code block is shown in a note. */}
+            <CardSection className="code-note-preview">
+                <CodeNotePreview wordWrapping={wordWrapping} themeName={effectiveTheme} indentSize={indentSize} />
+            </CardSection>
+        </Card>
     );
 }
 
@@ -222,13 +218,11 @@ function reindentSample(sample: string, indentSize: number): string {
 
 function CodeMimeTypes() {
     return (
-        <div className="options-section">
-            <Card heading={t("code_mime_types.title")}>
-                <CardSection>
-                    <CodeMimeTypesList />
-                </CardSection>
-            </Card>
-        </div>
+        <Card heading={t("code_mime_types.title")}>
+            <CardSection>
+                <CodeMimeTypesList />
+            </CardSection>
+        </Card>
     );
 }
 

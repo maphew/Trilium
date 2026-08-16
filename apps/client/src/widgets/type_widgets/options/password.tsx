@@ -43,47 +43,45 @@ export default function PasswordSettings() {
 function ChangePassword() {
     const [showModal, setShowModal] = useState(false);
 
-    return (
-        <div className="options-section">
-            <Card heading={t("password.heading")}>
-                <CardOption
-                    label={t("password.change_password")}
-                    description={t("password.change_password_description")}
-                >
-                    <Button
-                        name="change-password-button"
-                        text={t("password.change_password_button")}
-                        size="micro"
-                        onClick={() => setShowModal(true)}
-                    />
-                </CardOption>
+    return (<>
+        <Card heading={t("password.heading")}>
+            <CardOption
+                label={t("password.change_password")}
+                description={t("password.change_password_description")}
+            >
+                <Button
+                    name="change-password-button"
+                    text={t("password.change_password_button")}
+                    size="micro"
+                    onClick={() => setShowModal(true)}
+                />
+            </CardOption>
 
-                <CardOption
-                    label={t("password.reset_password")}
-                    description={t("password.reset_password_description")}
-                >
-                    <Button
-                        name="reset-password-button"
-                        text={t("password.reset_password_button")}
-                        size="micro"
-                        onClick={async () => {
-                            if (!await dialog.confirm(t("password.reset_confirmation"))) {
-                                return;
-                            }
+            <CardOption
+                label={t("password.reset_password")}
+                description={t("password.reset_password_description")}
+            >
+                <Button
+                    name="reset-password-button"
+                    text={t("password.reset_password_button")}
+                    size="micro"
+                    onClick={async () => {
+                        if (!await dialog.confirm(t("password.reset_confirmation"))) {
+                            return;
+                        }
 
-                            await server.post("password/reset?really=yesIReallyWantToResetPasswordAndLoseAccessToMyProtectedNotes");
-                            toast.showError(t("password.reset_success_message"));
-                        }}
-                    />
-                </CardOption>
-            </Card>
+                        await server.post("password/reset?really=yesIReallyWantToResetPasswordAndLoseAccessToMyProtectedNotes");
+                        toast.showError(t("password.reset_success_message"));
+                    }}
+                />
+            </CardOption>
+        </Card>
 
-            {createPortal(
-                <ChangePasswordModal show={showModal} onHidden={() => setShowModal(false)} />,
-                document.body
-            )}
-        </div>
-    );
+        {createPortal(
+            <ChangePasswordModal show={showModal} onHidden={() => setShowModal(false)} />,
+            document.body
+        )}
+    </>);
 }
 
 interface ChangePasswordModalProps {
@@ -173,22 +171,20 @@ function ChangePasswordModal({ show, onHidden }: ChangePasswordModalProps) {
 
 function ProtectedSessionTimeout() {
     return (
-        <div className="options-section">
-            <Card heading={t("password.protected_session_timeout")}>
-                <CardOption
+        <Card heading={t("password.protected_session_timeout")}>
+            <CardOption
+                name="protected-session-timeout"
+                label={t("password.protected_session_timeout_label")}
+                description={<>{t("password.protected_session_timeout_description")} <a class="tn-link" href="https://triliumnext.github.io/Docs/Wiki/protected-notes.html">{t("password.wiki")}</a> {t("password.for_more_info")}</>}
+            >
+                <TimeSelector
                     name="protected-session-timeout"
-                    label={t("password.protected_session_timeout_label")}
-                    description={<>{t("password.protected_session_timeout_description")} <a class="tn-link" href="https://triliumnext.github.io/Docs/Wiki/protected-notes.html">{t("password.wiki")}</a> {t("password.for_more_info")}</>}
-                >
-                    <TimeSelector
-                        name="protected-session-timeout"
-                        optionValueId="protectedSessionTimeout"
-                        optionTimeScaleId="protectedSessionTimeoutTimeScale"
-                        minimumSeconds={60}
-                    />
-                </CardOption>
-            </Card>
-        </div>
+                    optionValueId="protectedSessionTimeout"
+                    optionTimeScaleId="protectedSessionTimeoutTimeScale"
+                    minimumSeconds={60}
+                />
+            </CardOption>
+        </Card>
     );
 }
 
@@ -222,31 +218,29 @@ function SignInMethod() {
 
     return (
         <>
-            <div className="options-section signin-method">
-                <Card heading={t("multi_factor_authentication.authentication_title")}>
-                    <CardOption name="signin-method" label={t("multi_factor_authentication.signin_method")}>
-                        <FormSelect
-                            values={[
-                                { value: "local", label: t("multi_factor_authentication.signin_local") },
-                                { value: "oauth", label: t("multi_factor_authentication.signin_oauth") }
-                            ]}
-                            keyProperty="value" titleProperty="label"
-                            currentValue={usingOAuth ? "oauth" : "local"}
-                            onChange={(value) => setMfaMethod(value === "oauth" ? "oauth" : "totp")}
-                        />
-                    </CardOption>
+            <Card className="signin-method" heading={t("multi_factor_authentication.authentication_title")}>
+                <CardOption name="signin-method" label={t("multi_factor_authentication.signin_method")}>
+                    <FormSelect
+                        values={[
+                            { value: "local", label: t("multi_factor_authentication.signin_local") },
+                            { value: "oauth", label: t("multi_factor_authentication.signin_oauth") }
+                        ]}
+                        keyProperty="value" titleProperty="label"
+                        currentValue={usingOAuth ? "oauth" : "local"}
+                        onChange={(value) => setMfaMethod(value === "oauth" ? "oauth" : "totp")}
+                    />
+                </CardOption>
 
-                    {/* What the chosen method means, below the choice rather than above it — it
-                        describes what was picked, not what is on offer. */}
-                    <CardSection className="signin-method-description">
-                        <FormText>
-                            { usingOAuth
-                                ? <RawHtml html={t("multi_factor_authentication.oauth_description")} />
-                                : t("multi_factor_authentication.signin_local_description") }
-                        </FormText>
-                    </CardSection>
-                </Card>
-            </div>
+                {/* What the chosen method means, below the choice rather than above it — it
+                    describes what was picked, not what is on offer. */}
+                <CardSection className="signin-method-description">
+                    <FormText>
+                        { usingOAuth
+                            ? <RawHtml html={t("multi_factor_authentication.oauth_description")} />
+                            : t("multi_factor_authentication.signin_local_description") }
+                    </FormText>
+                </CardSection>
+            </Card>
 
             { usingOAuth
                 ? <OAuthStatusCard status={oauthStatus} refreshStatus={refreshOauthStatus} />
@@ -302,87 +296,85 @@ function OAuthStatusCard({ status, refreshStatus }: { status?: OAuthStatus, refr
     }, [ status, refreshStatus ]);
 
     return (
-        <div className="options-section">
-            <Card
-                heading={t("multi_factor_authentication.oauth_title")}
-                actions={<MfaStatusBadge tone={badge.tone} text={badge.text} />}
-            >
-                { !configured ? (
+        <Card
+            heading={t("multi_factor_authentication.oauth_title")}
+            actions={<MfaStatusBadge tone={badge.tone} text={badge.text} />}
+        >
+            { !configured ? (
+                <CardSection className="mfa-notice">
+                    <ExtendedAdmonition
+                        type="note"
+                        icon="bx bx-info-circle"
+                        title={t("multi_factor_authentication.oauth_not_configured_title")}
+                        detailsLabel={t("multi_factor_authentication.oauth_how_to_enable")}
+                        details={<OAuthConfigInstructions />}
+                    >
+                        <p>{t("multi_factor_authentication.oauth_not_configured_hint")}</p>
+
+                        { status?.missingVars && status.missingVars.length > 0 && (
+                            <p>
+                                {t("multi_factor_authentication.oauth_missing_vars", {
+                                    variables: status.missingVars.map(v => `"${v}"`).join(", ")
+                                })}
+                            </p>
+                        )}
+                    </ExtendedAdmonition>
+                </CardSection>
+            ) : enrolled ? (
+                <>
+                    <OAuthProviderRows status={status} />
+                    <CardOption label={t("multi_factor_authentication.oauth_user_account")}>
+                        <span>{status?.name ?? t("multi_factor_authentication.oauth_user_not_logged_in")}</span>
+                    </CardOption>
+                    <CardOption label={t("multi_factor_authentication.oauth_user_email")}>
+                        <span>{status?.email ?? t("multi_factor_authentication.oauth_user_not_logged_in")}</span>
+                    </CardOption>
+
+                    <CardOption
+                        label={t("multi_factor_authentication.oauth_disconnect_label")}
+                        description={t("multi_factor_authentication.oauth_disconnect_description")}
+                    >
+                        <Button
+                            name="oauth-disconnect-button"
+                            className="oauth-disconnect-button"
+                            icon="bx-trash"
+                            text={t("multi_factor_authentication.oauth_disconnect_button")}
+                            size="micro"
+                            onClick={() => void disconnectAccount()}
+                        />
+                    </CardOption>
+                </>
+            ) : (
+                <>
                     <CardSection className="mfa-notice">
                         <ExtendedAdmonition
                             type="note"
                             icon="bx bx-info-circle"
-                            title={t("multi_factor_authentication.oauth_not_configured_title")}
-                            detailsLabel={t("multi_factor_authentication.oauth_how_to_enable")}
-                            details={<OAuthConfigInstructions />}
+                            title={t("multi_factor_authentication.oauth_not_enrolled_title")}
+                            detailsLabel={t("multi_factor_authentication.oauth_not_enrolled_details_label")}
+                            details={t("multi_factor_authentication.oauth_not_enrolled_details")}
                         >
-                            <p>{t("multi_factor_authentication.oauth_not_configured_hint")}</p>
-
-                            { status?.missingVars && status.missingVars.length > 0 && (
-                                <p>
-                                    {t("multi_factor_authentication.oauth_missing_vars", {
-                                        variables: status.missingVars.map(v => `"${v}"`).join(", ")
-                                    })}
-                                </p>
-                            )}
+                            {t("multi_factor_authentication.oauth_not_enrolled_hint")}
                         </ExtendedAdmonition>
                     </CardSection>
-                ) : enrolled ? (
-                    <>
-                        <OAuthProviderRows status={status} />
-                        <CardOption label={t("multi_factor_authentication.oauth_user_account")}>
-                            <span>{status?.name ?? t("multi_factor_authentication.oauth_user_not_logged_in")}</span>
-                        </CardOption>
-                        <CardOption label={t("multi_factor_authentication.oauth_user_email")}>
-                            <span>{status?.email ?? t("multi_factor_authentication.oauth_user_not_logged_in")}</span>
-                        </CardOption>
 
-                        <CardOption
-                            label={t("multi_factor_authentication.oauth_disconnect_label")}
-                            description={t("multi_factor_authentication.oauth_disconnect_description")}
-                        >
-                            <Button
-                                name="oauth-disconnect-button"
-                                className="oauth-disconnect-button"
-                                icon="bx-trash"
-                                text={t("multi_factor_authentication.oauth_disconnect_button")}
-                                size="micro"
-                                onClick={() => void disconnectAccount()}
-                            />
-                        </CardOption>
-                    </>
-                ) : (
-                    <>
-                        <CardSection className="mfa-notice">
-                            <ExtendedAdmonition
-                                type="note"
-                                icon="bx bx-info-circle"
-                                title={t("multi_factor_authentication.oauth_not_enrolled_title")}
-                                detailsLabel={t("multi_factor_authentication.oauth_not_enrolled_details_label")}
-                                details={t("multi_factor_authentication.oauth_not_enrolled_details")}
-                            >
-                                {t("multi_factor_authentication.oauth_not_enrolled_hint")}
-                            </ExtendedAdmonition>
-                        </CardSection>
+                    <OAuthProviderRows status={status} />
 
-                        <OAuthProviderRows status={status} />
-
-                        <CardOption
-                            label={t("multi_factor_authentication.oauth_connect_label")}
-                            description={t("multi_factor_authentication.oauth_connect_description")}
-                        >
-                            <Button
-                                name="oauth-connect-button"
-                                icon="bx-log-in"
-                                text={t("multi_factor_authentication.oauth_connect_button")}
-                                size="micro"
-                                onClick={connectAccount}
-                            />
-                        </CardOption>
-                    </>
-                )}
-            </Card>
-        </div>
+                    <CardOption
+                        label={t("multi_factor_authentication.oauth_connect_label")}
+                        description={t("multi_factor_authentication.oauth_connect_description")}
+                    >
+                        <Button
+                            name="oauth-connect-button"
+                            icon="bx-log-in"
+                            text={t("multi_factor_authentication.oauth_connect_button")}
+                            size="micro"
+                            onClick={connectAccount}
+                        />
+                    </CardOption>
+                </>
+            )}
+        </Card>
     );
 }
 

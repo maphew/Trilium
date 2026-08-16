@@ -89,7 +89,7 @@ function StandaloneBackupSettings() {
  */
 export function StandaloneBackupSection() {
     return (
-        <div className="options-section standalone-backup">
+        <div className="standalone-backup">
             <SetupForm icon="bx bx-data">
                 <h3>{t("backup.standalone_heading")}</h3>
                 <p>{t("backup.standalone_description")}</p>
@@ -206,33 +206,31 @@ export function BackupConfiguration() {
     const [monthlyBackupEnabled, setMonthlyBackupEnabled] = useTriliumOptionBool("monthlyBackupEnabled");
 
     return (
-        <div className="options-section backup-configuration">
-            <Card
-                heading={t("backup.automatic_backups_title")}
-                description={t("backup.automatic_backups_description")}
-            >
-                <CardOption name="daily-backup-enabled" label={t("backup.enable_daily_backup")}>
-                    <FormToggle
-                        currentValue={dailyBackupEnabled}
-                        onChange={setDailyBackupEnabled}
-                    />
-                </CardOption>
+        <Card className="backup-configuration"
+            heading={t("backup.automatic_backups_title")}
+            description={t("backup.automatic_backups_description")}
+        >
+            <CardOption name="daily-backup-enabled" label={t("backup.enable_daily_backup")}>
+                <FormToggle
+                    currentValue={dailyBackupEnabled}
+                    onChange={setDailyBackupEnabled}
+                />
+            </CardOption>
 
-                <CardOption name="weekly-backup-enabled" label={t("backup.enable_weekly_backup")}>
-                    <FormToggle
-                        currentValue={weeklyBackupEnabled}
-                        onChange={setWeeklyBackupEnabled}
-                    />
-                </CardOption>
+            <CardOption name="weekly-backup-enabled" label={t("backup.enable_weekly_backup")}>
+                <FormToggle
+                    currentValue={weeklyBackupEnabled}
+                    onChange={setWeeklyBackupEnabled}
+                />
+            </CardOption>
 
-                <CardOption name="monthly-backup-enabled" label={t("backup.enable_monthly_backup")}>
-                    <FormToggle
-                        currentValue={monthlyBackupEnabled}
-                        onChange={setMonthlyBackupEnabled}
-                    />
-                </CardOption>
-            </Card>
-        </div>
+            <CardOption name="monthly-backup-enabled" label={t("backup.enable_monthly_backup")}>
+                <FormToggle
+                    currentValue={monthlyBackupEnabled}
+                    onChange={setMonthlyBackupEnabled}
+                />
+            </CardOption>
+        </Card>
     );
 }
 
@@ -264,36 +262,34 @@ export function BackupLocation({ backupFolderPath, refreshCallback }: { backupFo
     }
 
     return (
-        <div className="options-section backup-location">
-            <Card heading={t("backup.location_title")}>
-                <CardSection>
-                    <Icon icon="bx bx-folder" className="backup-location-icon" />
+        <Card className="backup-location" heading={t("backup.location_title")}>
+            <CardSection>
+                <Icon icon="bx bx-folder" className="backup-location-icon" />
 
-                    <div className="backup-location-label">{t("backup.saved_in")}</div>
-                    <div className="backup-location-path"><DirectoryLink directory={backupFolderPath} /></div>
+                <div className="backup-location-label">{t("backup.saved_in")}</div>
+                <div className="backup-location-path"><DirectoryLink directory={backupFolderPath} /></div>
 
-                    <div className="backup-location-actions">
+                <div className="backup-location-actions">
+                    <Button
+                        name="select-backup-location-button"
+                        text={t("backup.select_location")}
+                        size="micro"
+                        disabled={!canSelect}
+                        disabledTooltip={t("backup.select_location_desktop_only")}
+                        onClick={selectLocation}
+                    />
+
+                    {customDir && (
                         <Button
-                            name="select-backup-location-button"
-                            text={t("backup.select_location")}
+                            name="reset-backup-location-button"
+                            text={t("backup.reset_location")}
                             size="micro"
-                            disabled={!canSelect}
-                            disabledTooltip={t("backup.select_location_desktop_only")}
-                            onClick={selectLocation}
+                            onClick={resetToDefault}
                         />
-
-                        {customDir && (
-                            <Button
-                                name="reset-backup-location-button"
-                                text={t("backup.reset_location")}
-                                size="micro"
-                                onClick={resetToDefault}
-                            />
-                        )}
-                    </div>
-                </CardSection>
-            </Card>
-        </div>
+                    )}
+                </div>
+            </CardSection>
+        </Card>
     );
 }
 
@@ -369,7 +365,7 @@ export function BackupOptions() {
     }
 
     return (
-        <div className="options-section backup-options">
+        <>
             <Card heading={t("backup.options_title")}>
                 <CardOption
                     label={t("backup.enable_encryption")}
@@ -418,7 +414,7 @@ export function BackupOptions() {
                 onHidden={() => setPasswordModalShown(false)}
                 onSave={storePassword}
             />
-        </div>
+        </>
     );
 }
 

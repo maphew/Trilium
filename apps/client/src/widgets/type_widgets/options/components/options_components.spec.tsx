@@ -131,8 +131,8 @@ describe("RestartAction", () => {
         const container = renderInto(<RestartAction text="Restart" icon="bx-refresh" />);
         const block = container.querySelector(".restart-action");
 
-        // `options-section` is what gives it the cards' width; `restart-action` puts it at their end.
-        expect(block?.className).toContain("options-section");
+        // A top-level block of the page, so it takes the cards' width; `restart-action` puts the
+        // button where their controls end.
         expect(block?.querySelector("button[name='restart-app-button']")).not.toBeNull();
         expect(container.querySelector(".tn-card")).toBeNull();
     });

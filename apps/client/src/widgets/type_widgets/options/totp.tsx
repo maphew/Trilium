@@ -124,22 +124,20 @@ export function TotpSettings({ totpStatus, refreshTotpStatus }: {
                 onRegenerate={regenerateRecoveryCodes}
                 onRemoveTotp={removeTotp}
             />
-            : <div className="options-section">
-                <Card heading={t("multi_factor_authentication.totp_section_title")} actions={totpBadge}>
-                    <CardOption
-                        label={t("multi_factor_authentication.totp_setup_label")}
-                        description={t("multi_factor_authentication.totp_setup_description")}
-                    >
-                        <Button
-                            name="totp-setup-button"
-                            icon="bx-plus"
-                            text={t("multi_factor_authentication.totp_setup_button")}
-                            size="micro"
-                            onClick={() => setShowEnroll(true)}
-                        />
-                    </CardOption>
-                </Card>
-            </div>}
+            : <Card heading={t("multi_factor_authentication.totp_section_title")} actions={totpBadge}>
+                <CardOption
+                    label={t("multi_factor_authentication.totp_setup_label")}
+                    description={t("multi_factor_authentication.totp_setup_description")}
+                >
+                    <Button
+                        name="totp-setup-button"
+                        icon="bx-plus"
+                        text={t("multi_factor_authentication.totp_setup_button")}
+                        size="micro"
+                        onClick={() => setShowEnroll(true)}
+                    />
+                </CardOption>
+            </Card>}
 
         {createPortal(
             <TotpEnrollmentModal
@@ -506,43 +504,41 @@ function TotpRecoveryKeys({ badge, status, onRegenerate, onRemoveTotp }: {
     const remaining = status?.filter(isUnusedRecoveryCode).length ?? 0;
 
     return (
-        <div className="options-section">
-            <Card heading={t("multi_factor_authentication.totp_section_title")} actions={badge}>
-                <CardOption
-                    label={
-                        <span className="recovery-codes-title">
-                            {t("multi_factor_authentication.recovery_keys_label")}
-                            {status && status.length > 0 && <RecoveryCodeDots status={status} />}
-                        </span>
-                    }
-                    description={status && status.length > 0
-                        ? t("multi_factor_authentication.recovery_keys_remaining", { remaining, total: status.length })
-                        : t("multi_factor_authentication.recovery_keys_no_key_set")}
-                >
-                    <Button
-                        name="regenerate-recovery-keys-button"
-                        icon="bx-refresh"
-                        text={t("multi_factor_authentication.recovery_keys_regenerate")}
-                        size="micro"
-                        onClick={onRegenerate}
-                    />
-                </CardOption>
+        <Card heading={t("multi_factor_authentication.totp_section_title")} actions={badge}>
+            <CardOption
+                label={
+                    <span className="recovery-codes-title">
+                        {t("multi_factor_authentication.recovery_keys_label")}
+                        {status && status.length > 0 && <RecoveryCodeDots status={status} />}
+                    </span>
+                }
+                description={status && status.length > 0
+                    ? t("multi_factor_authentication.recovery_keys_remaining", { remaining, total: status.length })
+                    : t("multi_factor_authentication.recovery_keys_no_key_set")}
+            >
+                <Button
+                    name="regenerate-recovery-keys-button"
+                    icon="bx-refresh"
+                    text={t("multi_factor_authentication.recovery_keys_regenerate")}
+                    size="micro"
+                    onClick={onRegenerate}
+                />
+            </CardOption>
 
-                <CardOption
-                    label={t("multi_factor_authentication.totp_remove_label")}
-                    description={t("multi_factor_authentication.totp_remove_description")}
-                >
-                    <Button
-                        name="totp-remove-button"
-                        className="totp-remove-button"
-                        icon="bx-trash"
-                        text={t("multi_factor_authentication.totp_remove_button")}
-                        size="micro"
-                        onClick={onRemoveTotp}
-                    />
-                </CardOption>
-            </Card>
-        </div>
+            <CardOption
+                label={t("multi_factor_authentication.totp_remove_label")}
+                description={t("multi_factor_authentication.totp_remove_description")}
+            >
+                <Button
+                    name="totp-remove-button"
+                    className="totp-remove-button"
+                    icon="bx-trash"
+                    text={t("multi_factor_authentication.totp_remove_button")}
+                    size="micro"
+                    onClick={onRemoveTotp}
+                />
+            </CardOption>
+        </Card>
     );
 }
 

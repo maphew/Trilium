@@ -99,19 +99,17 @@ function SpellcheckLanguages() {
     }, []);
 
     return (
-        <div className="options-section spellcheck-languages">
-            <Card heading={t("spellcheck.language_code_label")}>
-                <CardSection>
-                    <CheckboxList
-                        values={availableLanguages}
-                        keyProperty="code" titleProperty="name"
-                        currentValue={selectedCodes}
-                        onChange={setSelectedCodes}
-                        columnWidth="200px"
-                    />
-                </CardSection>
-            </Card>
-        </div>
+        <Card className="spellcheck-languages" heading={t("spellcheck.language_code_label")}>
+            <CardSection>
+                <CheckboxList
+                    values={availableLanguages}
+                    keyProperty="code" titleProperty="name"
+                    currentValue={selectedCodes}
+                    onChange={setSelectedCodes}
+                    columnWidth="200px"
+                />
+            </CardSection>
+        </Card>
     );
 }
 
@@ -121,35 +119,31 @@ function CustomDictionary() {
     }
 
     return (
-        <div className="options-section">
-            <Card
-                heading={t("spellcheck.custom_dictionary_title")}
-                description={t("spellcheck.custom_dictionary_description")}
+        <Card
+            heading={t("spellcheck.custom_dictionary_title")}
+            description={t("spellcheck.custom_dictionary_description")}
+        >
+            <CardOption
+                label={t("spellcheck.custom_dictionary_edit")}
+                description={t("spellcheck.custom_dictionary_edit_description")}
             >
-                <CardOption
-                    label={t("spellcheck.custom_dictionary_edit")}
-                    description={t("spellcheck.custom_dictionary_edit_description")}
-                >
-                    <Button
-                        name="open-custom-dictionary"
-                        text={t("spellcheck.custom_dictionary_open")}
-                        icon="bx-edit"
-                        size="micro"
-                        onClick={openDictionary}
-                    />
-                </CardOption>
-            </Card>
-        </div>
+                <Button
+                    name="open-custom-dictionary"
+                    text={t("spellcheck.custom_dictionary_open")}
+                    icon="bx-edit"
+                    size="micro"
+                    onClick={openDictionary}
+                />
+            </CardOption>
+        </Card>
     );
 }
 
 function WebSpellcheckSettings() {
     return (
-        <div className="options-section">
-            <NoItems
-                text={t("spellcheck.description")}
-                icon="bx bx-check-double"
-            />
-        </div>
+        <NoItems
+            text={t("spellcheck.description")}
+            icon="bx bx-check-double"
+        />
     );
 }

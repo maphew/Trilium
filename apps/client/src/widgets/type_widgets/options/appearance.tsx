@@ -178,74 +178,72 @@ function UserInterface() {
     };
 
     return (
-        <div className="options-section">
-            <Card heading={t("theme.title")}>
-                <CardOption name="theme" label={t("theme.theme_label")}>
-                    <Dropdown
-                        text={<>
-                            <span className={currentFamilyIcon} style={{ marginRight: "8px" }} />
-                            {currentFamilyLabel}
-                        </>}
-                        mobileBottomSheet
-                    >
-                        {THEME_FAMILIES.map(family => (
-                            <FormListItem
-                                key={family.key}
-                                icon={family.icon}
-                                selected={resolved.family?.key === family.key}
-                                onClick={() => setFamily(family)}
-                                badges={family.key === "modern" ? [{ text: t("theme.recommended") }] : undefined}
-                            >
-                                {family.title}
-                            </FormListItem>
-                        ))}
-                        {customThemes.length > 0 && (
-                            <>
-                                <FormListHeader text={t("theme.custom_themes")} />
-                                {customThemes.map(ct => (
-                                    <FormListItem
-                                        key={ct.val}
-                                        icon={ct.icon}
-                                        selected={theme === ct.val}
-                                        onClick={() => setTheme(ct.val)}
-                                    >
-                                        {ct.title}
-                                    </FormListItem>
-                                ))}
-                            </>
-                        )}
-                    </Dropdown>
-                </CardOption>
-
-                <CardOption
-                    name="color-scheme"
-                    label={t("theme.color_scheme")}
-                    description={isCustom ? t("theme.color_scheme_custom_disabled") : undefined}
+        <Card heading={t("theme.title")}>
+            <CardOption name="theme" label={t("theme.theme_label")}>
+                <Dropdown
+                    text={<>
+                        <span className={currentFamilyIcon} style={{ marginRight: "8px" }} />
+                        {currentFamilyLabel}
+                    </>}
+                    mobileBottomSheet
                 >
-                    <SegmentedChoice
-                        options={COLOR_SCHEMES}
-                        // A custom theme brings its own colours, so the group highlights nothing rather
-                        // than naming a scheme it is not following.
-                        currentValue={isCustom ? "" : resolved.scheme}
-                        onChange={setColorScheme}
-                        disabled={isCustom}
-                        collapseOnMobile
+                    {THEME_FAMILIES.map(family => (
+                        <FormListItem
+                            key={family.key}
+                            icon={family.icon}
+                            selected={resolved.family?.key === family.key}
+                            onClick={() => setFamily(family)}
+                            badges={family.key === "modern" ? [{ text: t("theme.recommended") }] : undefined}
+                        >
+                            {family.title}
+                        </FormListItem>
+                    ))}
+                    {customThemes.length > 0 && (
+                        <>
+                            <FormListHeader text={t("theme.custom_themes")} />
+                            {customThemes.map(ct => (
+                                <FormListItem
+                                    key={ct.val}
+                                    icon={ct.icon}
+                                    selected={theme === ct.val}
+                                    onClick={() => setTheme(ct.val)}
+                                >
+                                    {ct.title}
+                                </FormListItem>
+                            ))}
+                        </>
+                    )}
+                </Dropdown>
+            </CardOption>
+
+            <CardOption
+                name="color-scheme"
+                label={t("theme.color_scheme")}
+                description={isCustom ? t("theme.color_scheme_custom_disabled") : undefined}
+            >
+                <SegmentedChoice
+                    options={COLOR_SCHEMES}
+                    // A custom theme brings its own colours, so the group highlights nothing rather
+                    // than naming a scheme it is not following.
+                    currentValue={isCustom ? "" : resolved.scheme}
+                    onChange={setColorScheme}
+                    disabled={isCustom}
+                    collapseOnMobile
+                />
+            </CardOption>
+
+            {!isMobile() && !newLayout && (
+                <CardOption
+                    name="edited-notes-open-in-ribbon"
+                    label={t("ribbon.edited_notes_message")}
+                >
+                    <FormToggle
+                        currentValue={editedNotesOpenInRibbon}
+                        onChange={setEditedNotesOpenInRibbon}
                     />
                 </CardOption>
-
-                {!isMobile() && !newLayout && (
-                    <CardOption
-                        name="edited-notes-open-in-ribbon"
-                        label={t("ribbon.edited_notes_message")}
-                    >
-                        <FormToggle
-                            currentValue={editedNotesOpenInRibbon}
-                            onChange={setEditedNotesOpenInRibbon}
-                        />
-                    </CardOption>
-                )}
-            </Card>
-        </div>
+            )}
+        </Card>
     );
 }
 
@@ -259,7 +257,7 @@ function UserInterface() {
  */
 function LayoutChoices() {
     return (
-        <div className="options-section appearance-layout-choices">
+        <div className="appearance-layout-choices">
             <LayoutOrientation />
             <LayoutStyle />
         </div>
@@ -452,40 +450,38 @@ function Fonts() {
     const isEnabled = overrideThemeFonts === true;
 
     return (
-        <div className="options-section appearance-fonts">
-            <Card heading={t("fonts.fonts")}>
-                <CardOption
-                    name="override-theme-fonts"
-                    label={t("fonts.custom_fonts")}
-                    description={t("fonts.not_all_fonts_available")}
-                    // The four fonts stay on show with the switch off, greyed rather than gone: what
-                    // is there to be set is the whole reason for turning it on, and a switch with
-                    // nothing under it says nothing about what it would bring.
-                    subSectionsVisible
-                    subSections={[
-                        <Font key="main" label={t("fonts.main_font")} fontFamilyOption="mainFontFamily" fontSizeOption="mainFontSize" disabled={!isEnabled} />,
-                        <Font key="tree" label={t("fonts.note_tree_font")} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="treeFontFamily" fontSizeOption="treeFontSize" disabled={!isEnabled} />,
-                        <Font key="detail" label={t("fonts.note_detail_font")} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="detailFontFamily" fontSizeOption="detailFontSize" disabled={!isEnabled} />,
-                        <Font key="monospace" label={t("fonts.monospace_font")} description={t("fonts.monospace_font_description")} fontFamilyOption="monospaceFontFamily" fontSizeOption="monospaceFontSize" disabled={!isEnabled} isMonospace />
-                    ]}
-                >
-                    <FormToggle currentValue={overrideThemeFonts} onChange={setOverrideThemeFonts} />
-                </CardOption>
+        <Card className="appearance-fonts" heading={t("fonts.fonts")}>
+            <CardOption
+                name="override-theme-fonts"
+                label={t("fonts.custom_fonts")}
+                description={t("fonts.not_all_fonts_available")}
+                // The four fonts stay on show with the switch off, greyed rather than gone: what
+                // is there to be set is the whole reason for turning it on, and a switch with
+                // nothing under it says nothing about what it would bring.
+                subSectionsVisible
+                subSections={[
+                    <Font key="main" label={t("fonts.main_font")} fontFamilyOption="mainFontFamily" fontSizeOption="mainFontSize" disabled={!isEnabled} />,
+                    <Font key="tree" label={t("fonts.note_tree_font")} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="treeFontFamily" fontSizeOption="treeFontSize" disabled={!isEnabled} />,
+                    <Font key="detail" label={t("fonts.note_detail_font")} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="detailFontFamily" fontSizeOption="detailFontSize" disabled={!isEnabled} />,
+                    <Font key="monospace" label={t("fonts.monospace_font")} description={t("fonts.monospace_font_description")} fontFamilyOption="monospaceFontFamily" fontSizeOption="monospaceFontSize" disabled={!isEnabled} isMonospace />
+                ]}
+            >
+                <FormToggle currentValue={overrideThemeFonts} onChange={setOverrideThemeFonts} />
+            </CardOption>
 
-                {/*
-                  * Deliberately not nested under `overrideThemeFonts` like the fonts above: the
-                  * ligatures come from the *theme's* monospace font, so the setting is needed exactly
-                  * when custom fonts are off. Gating it would put it out of reach of everyone affected.
-                  */}
-                <CardOption
-                    name="monospace-ligatures-enabled"
-                    label={t("fonts.monospace_ligatures")}
-                    description={t("fonts.monospace_ligatures_description")}
-                >
-                    <FormToggle currentValue={ligaturesEnabled} onChange={setLigaturesEnabled} />
-                </CardOption>
-            </Card>
-        </div>
+            {/*
+              * Deliberately not nested under `overrideThemeFonts` like the fonts above: the
+              * ligatures come from the *theme's* monospace font, so the setting is needed exactly
+              * when custom fonts are off. Gating it would put it out of reach of everyone affected.
+              */}
+            <CardOption
+                name="monospace-ligatures-enabled"
+                label={t("fonts.monospace_ligatures")}
+                description={t("fonts.monospace_ligatures_description")}
+            >
+                <FormToggle currentValue={ligaturesEnabled} onChange={setLigaturesEnabled} />
+            </CardOption>
+        </Card>
     );
 }
 
@@ -651,43 +647,41 @@ function ElectronIntegration() {
 
     return (
         <>
-            <div className="options-section appearance-electron">
-                <Card heading={t("electron_integration.desktop-application")}>
-                    <CardOption
-                        name="zoom-factor"
-                        label={t("electron_integration.zoom-factor")}
-                        description={t("zoom_factor.description")}
-                    >
-                        <FormTextBoxWithUnit
-                            type="number"
-                            min={50} max={200} step={10}
-                            currentValue={String(zoomPercentage)}
-                            onChange={(v) => zoomService.setZoomFactorAndSave(parseInt(v, 10) / 100)}
-                            unit={t("units.percentage")}
-                        />
-                    </CardOption>
+            <Card className="appearance-electron" heading={t("electron_integration.desktop-application")}>
+                <CardOption
+                    name="zoom-factor"
+                    label={t("electron_integration.zoom-factor")}
+                    description={t("zoom_factor.description")}
+                >
+                    <FormTextBoxWithUnit
+                        type="number"
+                        min={50} max={200} step={10}
+                        currentValue={String(zoomPercentage)}
+                        onChange={(v) => zoomService.setZoomFactorAndSave(parseInt(v, 10) / 100)}
+                        unit={t("units.percentage")}
+                    />
+                </CardOption>
 
-                    <CardOption
-                        name="native-title-bar"
-                        label={t("electron_integration.native-title-bar")}
-                        description={t("electron_integration.native-title-bar-description")}
-                    >
-                        <FormToggle currentValue={nativeTitleBarVisible} onChange={setNativeTitleBarVisible} />
-                    </CardOption>
+                <CardOption
+                    name="native-title-bar"
+                    label={t("electron_integration.native-title-bar")}
+                    description={t("electron_integration.native-title-bar-description")}
+                >
+                    <FormToggle currentValue={nativeTitleBarVisible} onChange={setNativeTitleBarVisible} />
+                </CardOption>
 
-                    <CardOption
-                        name="background-effects"
-                        label={<>{t("electron_integration.background-effects")} <PlatformIndicator windows="11" mac /></>}
-                        description={t("electron_integration.background-effects-description")}
-                    >
-                        <FormToggle
-                            currentValue={backgroundEffects}
-                            onChange={setBackgroundEffects}
-                            disabled={nativeTitleBarVisible || !backgroundEffectsSupported}
-                        />
-                    </CardOption>
-                </Card>
-            </div>
+                <CardOption
+                    name="background-effects"
+                    label={<>{t("electron_integration.background-effects")} <PlatformIndicator windows="11" mac /></>}
+                    description={t("electron_integration.background-effects-description")}
+                >
+                    <FormToggle
+                        currentValue={backgroundEffects}
+                        onChange={setBackgroundEffects}
+                        disabled={nativeTitleBarVisible || !backgroundEffectsSupported}
+                    />
+                </CardOption>
+            </Card>
 
             <RestartAction text={t("electron_integration.restart-app-button")} icon="bx-refresh" />
         </>
@@ -700,27 +694,25 @@ function Performance() {
     const [ backdropEffectsEnabled, setBackdropEffectsEnabled ] = useTriliumOptionBool("backdropEffectsEnabled");
 
     return (
-        <div className="options-section">
-            <Card heading={t("ui-performance.title")}>
-                <CardOption name="motion-enabled" label={t("ui-performance.enable-motion")}>
-                    <FormToggle currentValue={motionEnabled} onChange={setMotionEnabled} />
+        <Card heading={t("ui-performance.title")}>
+            <CardOption name="motion-enabled" label={t("ui-performance.enable-motion")}>
+                <FormToggle currentValue={motionEnabled} onChange={setMotionEnabled} />
+            </CardOption>
+
+            <CardOption name="shadows-enabled" label={t("ui-performance.enable-shadows")}>
+                <FormToggle currentValue={shadowsEnabled} onChange={setShadowsEnabled} />
+            </CardOption>
+
+            {!isMobile() && (
+                <CardOption name="backdrop-effects-enabled" label={t("ui-performance.enable-backdrop-effects")}>
+                    <FormToggle currentValue={backdropEffectsEnabled} onChange={setBackdropEffectsEnabled} />
                 </CardOption>
+            )}
 
-                <CardOption name="shadows-enabled" label={t("ui-performance.enable-shadows")}>
-                    <FormToggle currentValue={shadowsEnabled} onChange={setShadowsEnabled} />
-                </CardOption>
+            {isElectron() && <SmoothScrollEnabledOption />}
 
-                {!isMobile() && (
-                    <CardOption name="backdrop-effects-enabled" label={t("ui-performance.enable-backdrop-effects")}>
-                        <FormToggle currentValue={backdropEffectsEnabled} onChange={setBackdropEffectsEnabled} />
-                    </CardOption>
-                )}
-
-                {isElectron() && <SmoothScrollEnabledOption />}
-
-                {isElectron() && <HardwareAccelerationOption />}
-            </Card>
-        </div>
+            {isElectron() && <HardwareAccelerationOption />}
+        </Card>
     );
 }
 
@@ -757,27 +749,25 @@ function MaxContentWidth() {
     const [centerContent, setCenterContent] = useTriliumOptionBool("centerContent");
 
     return (
-        <div className="options-section">
-            <Card
-                heading={t("max_content_width.title")}
-                description={t("max_content_width.default_description")}
-                actions={<HelpButton helpPage="t596jLvPrqkS" />}
+        <Card
+            heading={t("max_content_width.title")}
+            description={t("max_content_width.default_description")}
+            actions={<HelpButton helpPage="t596jLvPrqkS" />}
+        >
+            <CardOption
+                name="max-content-width"
+                label={t("max_content_width.max_width_label")}
             >
-                <CardOption
-                    name="max-content-width"
-                    label={t("max_content_width.max_width_label")}
-                >
-                    <FormTextBoxWithUnit
-                        type="number" min={MIN_CONTENT_WIDTH} step="10"
-                        currentValue={maxContentWidth} onBlur={setMaxContentWidth}
-                        unit={t("max_content_width.max_width_unit")}
-                    />
-                </CardOption>
+                <FormTextBoxWithUnit
+                    type="number" min={MIN_CONTENT_WIDTH} step="10"
+                    currentValue={maxContentWidth} onBlur={setMaxContentWidth}
+                    unit={t("max_content_width.max_width_unit")}
+                />
+            </CardOption>
 
-                <CardOption name="center-content" label={t("max_content_width.centerContent")}>
-                    <FormToggle currentValue={centerContent} onChange={setCenterContent} />
-                </CardOption>
-            </Card>
-        </div>
+            <CardOption name="center-content" label={t("max_content_width.centerContent")}>
+                <FormToggle currentValue={centerContent} onChange={setCenterContent} />
+            </CardOption>
+        </Card>
     );
 }
