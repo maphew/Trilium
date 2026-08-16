@@ -1349,8 +1349,9 @@
     "successfully_created_lightly_anonymized_database": "成功创建轻度匿名化的数据库，路径为 {{anonymizedFilePath}}",
     "no_anonymized_database_yet": "尚无匿名化数据库。",
     "description": "创建数据库的匿名副本，以便在调试问题时与开发人员共享，而不会泄露个人数据。",
-    "anonymized_databases_location": "匿名化后的数据库保存在 {{- anonymizedFolder}}。",
-    "download": "下载"
+    "anonymized_databases_location": "匿名化后的数据库保存在 <Folder/>。",
+    "download": "下载",
+    "delete_confirmation": "删除匿名化的数据库 {{fileName}} 吗？原始数据库不受影响。"
   },
   "database_integrity_check": {
     "title": "数据库完整性检查",
@@ -3123,7 +3124,25 @@
     "start_over": "从头开始",
     "start_over_confirm": "Trilium 将返回设置界面，你可以在那里创建新的知识库、恢复备份或从其他设备同步。系统会先提供当前数据的备份，在你做出选择之前不会删除任何内容。继续吗？",
     "start_over_pending": "下次重启此服务器时，将出现设置界面。准备好后请重启服务器，或点击下方的「取消」保持现状。",
-    "start_over_cancel": "取消从头开始"
+    "start_over_cancel": "取消从头开始",
+    "info": "数据库信息",
+    "info_location": "位置",
+    "info_location_opfs": "浏览器的源私有文件系统（OPFS）",
+    "info_created": "原始创建日期",
+    "info_content": "内容",
+    "info_notes_other": "{{count}} 篇笔记",
+    "info_attachments_other": "{{count}} 个附件",
+    "info_size": "大小",
+    "info_no_backup": "暂无备份",
+    "maintenance": "维护",
+    "analyze_space_usage": "分析空间占用",
+    "analyze_space_usage_description": "识别哪些笔记占用空间最多，更清晰地了解你的笔记有多大。",
+    "analyze_space_usage_button": "分析",
+    "cleanup": "执行清理",
+    "cleanup_description": "擦除已删除的笔记和附件，修剪修订快照并压缩图片，以保持数据库精简。",
+    "related_backup": "备份",
+    "related_backup_description": "创建或恢复数据库备份，管理自动备份。",
+    "info_backup": "备份"
   },
   "revisions_snapshot": {
     "title": "笔记修订"
@@ -3863,7 +3882,8 @@
   "database_file_list": {
     "size_on_disk": "磁盘占用 {{size}}",
     "invalid_backup": "无效的备份文件",
-    "unsupported_version": "不支持的备份文件格式版本"
+    "unsupported_version": "不支持的备份文件格式版本",
+    "delete": "删除"
   },
   "password_with_confirmation": {
     "password": "密码",
