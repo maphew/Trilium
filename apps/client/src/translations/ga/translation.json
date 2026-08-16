@@ -1000,7 +1000,8 @@
     "reset_pan_zoom_title": "Athshocraigh panáil agus súmáil go dtí na comhordanáidí agus an formhéadú tosaigh",
     "zoom_in_title": "Zúmáil Isteach",
     "zoom_out_title": "Zúmáil Amach",
-    "create_child_note_title": "Cruthaigh nóta linbh agus cuir leis an léarscáil é"
+    "create_child_note_title": "Cruthaigh nóta linbh agus cuir leis an léarscáil é",
+    "create_child_note_text": "Cuir nóta leis"
   },
   "zpetne_odkazy": {
     "backlink_one": "{{count}} Nasc siar",
@@ -1694,7 +1695,8 @@
     "formatting-locale-auto": "Bunaithe ar theanga an fheidhmchláir",
     "default-content-language": "Teanga réamhshocraithe an ábhair",
     "default-content-language-description": "Scríobhtar na nótaí teanga isteach mura bhfuil ceann socraithe ar an nóta féin, sa rannán Airíonna Bunúsacha. Bíonn tionchar aige seo ar ghnéithe amhail ailíniú deas go clé agus ar na comharthaí athfhriotail a chruthaíonn clóscríobh.",
-    "default-content-language-auto": "Bunaithe ar theanga an fheidhmchláir"
+    "default-content-language-auto": "Bunaithe ar theanga an fheidhmchláir",
+    "dates-title": "Dátaí & féilire"
   },
   "backup": {
     "automatic_backup": "Cúltaca uathoibríoch",
@@ -2434,7 +2436,10 @@
   },
   "svg": {
     "export_to_png": "Níorbh fhéidir an léaráid a easpórtáil go PNG.",
-    "export_to_svg": "Níorbh fhéidir an léaráid a easpórtáil chuig SVG."
+    "export_to_svg": "Níorbh fhéidir an léaráid a easpórtáil chuig SVG.",
+    "zoom_in": "Zúmáil isteach",
+    "zoom_out": "Zúmáil amach",
+    "reset_zoom": "Athshocraigh súmáil"
   },
   "code_theme": {
     "title": "Dealramh",
@@ -3331,7 +3336,9 @@
   },
   "common": {
     "save": "Sábháil",
-    "cancel": "Cealaigh"
+    "cancel": "Cealaigh",
+    "fullscreen": "Lánscáileán",
+    "exit_fullscreen": "Scoir lánscáileáin"
   },
   "spreadsheet": {
     "read-only": "Is nóta inléite amháin atá ann.",
