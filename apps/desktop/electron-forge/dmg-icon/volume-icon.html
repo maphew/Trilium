@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Trilium DMG volume icon</title>
+<style>
+    html, body { margin: 0; padding: 0; background: transparent; }
+
+    /* The design is authored once in a 1024 x 1024 box and scaled to the target slot size by
+       generate.mts (--scale), so every slot is rendered from vectors instead of downsampled from
+       one bitmap. Chromium rasterises the SVG at the scaled device resolution, which keeps the
+       16pt sidebar slot as crisp as the 1024 one. */
+    .stage {
+        width: 1024px;
+        height: 1024px;
+        transform: scale(var(--scale, 1));
+        transform-origin: 0 0;
+    }
+    svg { display: block; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+    <!-- Geometry measured off the icon macOS itself shows for a DMG with no custom volume icon
+         (NSWorkspace icon for a mounted, unbranded image), so this reads as a disk image in the
+         system's own form language rather than as a bespoke box. On a 1024 canvas that reference
+         is: body 719 x 877 at (152, 74) — portrait, aspect 0.82 — corner radius ~60, and a silver
+         base plinth occupying the bottom ~12%, with the glyph centred in the area above it. The
+         only deliberate departure is the glyph: Apple's grey download arrow becomes the brand
+         mark, in full colour, which is the entire point of shipping our own. -->
+    <svg viewBox="0 0 1024 1024" width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <!-- Body: near-white with a faint vertical fall-off, matching the reference's
+                 243-at-top / 235-near-the-base readings. -->
+            <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#fafafc"/>
+                <stop offset="0.45" stop-color="#eeeff2"/>
+                <stop offset="1" stop-color="#dcdee3"/>
+            </linearGradient>
+            <!-- Moulded plastic edge, sampled across the reference's left edge: a bright rim, a
+                 darker hairline a few px in, then the interior. This is what stops the body
+                 reading as a flat rectangle — and at the 16pt slot the outline is most of
+                 what still says "drive", so it is deliberately stronger than the reference's. -->
+            <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#d9dade" stop-opacity="1"/>
+                <stop offset="0.015" stop-color="#c7c8cd" stop-opacity="1"/>
+                <stop offset="0.045" stop-color="#eceded" stop-opacity="0.75"/>
+                <stop offset="0.12" stop-color="#ffffff" stop-opacity="0"/>
+                <stop offset="0.88" stop-color="#ffffff" stop-opacity="0"/>
+                <stop offset="0.955" stop-color="#e4e5e8" stop-opacity="0.75"/>
+                <stop offset="0.985" stop-color="#c5c6cb" stop-opacity="1"/>
+                <stop offset="1" stop-color="#d6d7db" stop-opacity="1"/>
+            </linearGradient>
+            <!-- Base plinth: brushed silver, darker than the body so the silhouette has a foot. -->
+            <linearGradient id="plinth" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#c4c6cc"/>
+                <stop offset="0.55" stop-color="#b2b4bb"/>
+                <stop offset="1" stop-color="#a2a4ac"/>
+            </linearGradient>
+            <!-- Rounded bottom corners are the body's, so the plinth is drawn clipped to it. -->
+            <clipPath id="bodyClip">
+                <rect x="152" y="74" width="719" height="877" rx="60"/>
+            </clipPath>
+            <filter id="shade" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#4c5261" flood-opacity="0.34"/>
+            </filter>
+        </defs>
+
+        <g filter="url(#shade)">
+            <rect x="152" y="74" width="719" height="877" rx="60" fill="url(#body)"/>
+
+            <g clip-path="url(#bodyClip)">
+                <!-- Plinth, its seam, and the highlight the reference catches just below it. -->
+                <rect x="152" y="845" width="719" height="106" fill="url(#plinth)"/>
+                <rect x="152" y="838" width="719" height="7" fill="#82858c" fill-opacity="0.55"/>
+                <rect x="152" y="845" width="719" height="4" fill="#ffffff" fill-opacity="0.85"/>
+                <!-- Activity LED, right of centre on the plinth. -->
+                <circle cx="790" cy="898" r="14" fill="#ffffff" fill-opacity="0.92"/>
+            </g>
+
+            <rect x="152" y="74" width="719" height="877" rx="60" fill="url(#edge)"/>
+            <!-- Outline width is set per slot by the script below, NOT fixed here. See the note
+                 there: a constant design-space stroke vanishes at the small slots. -->
+            <rect id="outline" x="152" y="74" width="719" height="877" rx="60" fill="none"
+                  stroke="#868c99" stroke-opacity="0.85"/>
+        </g>
+
+        <!-- Brand mark, single-sourced from the client's icon SVG (injected by generate.mts).
+             Centred in the area above the plinth, where the reference puts its arrow, and sized
+             to ~58% of the body width so it still reads as colour at the 16pt slot. -->
+        <image id="mark" x="302" y="238" width="420" height="420" preserveAspectRatio="xMidYMid meet"/>
+    </svg>
+</div>
+<script>
+    const params = new URLSearchParams(location.search);
+    const scale = parseFloat(params.get("scale") ?? "1");
+    document.getElementById("stage").style.setProperty("--scale", scale);
+    document.getElementById("mark").setAttribute("href", params.get("mark") ?? "");
+
+    // The body outline is the one part that cannot live in design space. Everything else is an
+    // area, so it shrinks gracefully; a stroke is a *width*, and a fixed 5 design units is 0.08
+    // device px at the 16pt slot — i.e. gone, taking the drive silhouette with it and leaving the
+    // mark floating on a white blob. Apple avoids this by hand-tuning their small slots. Deriving
+    // the width from the slot scale gets the same result from one artwork: ~1.1 device px at the
+    // small slots, and a proportionate 5 units once the icon is big enough to carry it.
+    document.getElementById("outline").setAttribute("stroke-width", Math.max(5, 1.1 / scale));
+</script>
+</body>
+</html>
