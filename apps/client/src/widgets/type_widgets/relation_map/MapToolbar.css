@@ -1,0 +1,6 @@
+.relation-map-wrapper .relation-map-toolbar {
+    position: absolute;
+    inset-inline-end: var(--overlay-button-inset, 10px);
+    bottom: var(--overlay-button-inset, 10px);
+    z-index: 10;
+}
