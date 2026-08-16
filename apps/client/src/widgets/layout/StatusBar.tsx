@@ -18,7 +18,7 @@ import { NOTE_TYPES } from "../../services/note_types";
 import server from "../../services/server";
 import { openInAppHelpFromUrl } from "../../services/utils";
 import { formatDateTime } from "../../utils/formatters";
-import { useBacklinkCount } from "../FloatingButtonsDefinitions";
+import { BacklinksWidget, useBacklinkCount } from "../FloatingButtonsDefinitions";
 import Dropdown, { DropdownProps } from "../react/Dropdown";
 import { FormDropdownDivider, FormListHeader, FormListItem } from "../react/FormList";
 import HelpDropdown from "../react/HelpDropdown";
@@ -31,7 +31,7 @@ import AttributeEditor, { AttributeEditorImperativeHandlers } from "../ribbon/co
 import AttributeHelp from "../ribbon/components/AttributeHelp";
 import InheritedAttributesTab from "../ribbon/InheritedAttributesTab";
 import { NoteSizeWidget, useNoteMetadata } from "../ribbon/NoteInfoTab";
-import { useSortedNotePaths } from "../ribbon/NotePathsTab";
+import { NotePathsWidget, useSortedNotePaths } from "../ribbon/NotePathsTab";
 import { useAttachments } from "../type_widgets/Attachment";
 import { useProcessedLocales } from "../type_widgets/options/components/LocaleSelector";
 import Breadcrumb from "./Breadcrumb";
@@ -42,14 +42,15 @@ interface StatusBarContext {
     noteContext: NoteContext;
     viewScope?: ViewScope;
     hoistedNoteId?: string;
+    notePath?: string | null;
 }
 
 export default function StatusBar() {
-    const { note, noteContext, viewScope, hoistedNoteId } = useActiveNoteContext();
-    // The attributes are the one thing the status bar still shows in a panel of its own; the rest of
-    // what it stands for is shown in the sidebar (see useConnectionsToggle).
+    const { note, noteContext, viewScope, hoistedNoteId, notePath } = useActiveNoteContext();
+    // The attributes are the one thing the status bar shows in a panel of its own, being edited rather
+    // than read; the lists the other badges stand for are read at a glance, so they come as dropdowns.
     const [ attributesShown, setAttributesShown ] = useState(false);
-    const context: StatusBarContext | undefined | null = note && noteContext && { note, noteContext, viewScope, hoistedNoteId };
+    const context: StatusBarContext | undefined | null = note && noteContext && { note, noteContext, viewScope, hoistedNoteId, notePath };
     const attributesContext: AttributesProps | undefined | null = context && { ...context, attributesShown, setAttributesShown };
     const isHiddenNote = note?.isHiddenCompletely();
 
@@ -153,12 +154,12 @@ function StatusBarButton({ className, icon, text, title, active, ...restProps }:
 }
 
 /**
- * Opens the sidebar's connections tab at one of its widgets, and closes it again on a second press —
- * what the badges standing for a connection of the note offer instead of a popup copy of the list.
+ * Opens the sidebar's connections tab at one of its widgets, and closes it again on a second press.
+ * The way to the one connection the status bar carries no list of its own for: what a note resembles
+ * is computed rather than counted, so no badge stands for it to hang a dropdown off.
  *
  * A pane the user keeps closed is peeked rather than docked: the status bar is no place to reflow the
- * content from. Buttons wired to this carry `right-pane-peek-source`, which is what keeps their press
- * from dismissing the very peek it is toggling (see RightPanelContainer's peek dismissal).
+ * content from.
  */
 function useConnectionsToggle(expandWidgetId: string) {
     return useCallback(() => {
@@ -298,19 +299,23 @@ function NoteInfoValue({ text, title, value }: { text: string; title?: string, v
 //#endregion
 
 //#region Backlinks
-/** What points at the note is listed in the sidebar's connections tab, which the badge is the way to. */
+/**
+ * What points at the note, in a dropdown of the badge naming them — the same list the sidebar's
+ * connections tab holds, which stays the place to keep it open beside the note.
+ */
 function BacklinksBadge({ note, viewScope }: StatusBarContext) {
     const count = useBacklinkCount(note, viewScope?.viewMode === "default");
-    const toggleBacklinks = useConnectionsToggle("backlinks");
 
     return (note && count > 0 &&
-        <StatusBarButton
-            className="backlinks-badge right-pane-peek-source"
+        <StatusBarDropdown
+            className="backlinks-badge"
             icon="bx bx-link"
             text={t("status_bar.backlinks", { count })}
             title={t("status_bar.backlinks_title", { count })}
-            onClick={toggleBacklinks}
-        />
+            dropdownContainerClassName="dropdown-backlinks"
+        >
+            <BacklinksWidget note={note} />
+        </StatusBarDropdown>
     );
 }
 //#endregion
@@ -426,23 +431,30 @@ function AttributesPane({ note, noteContext, attributesShown, setAttributesShown
 //#endregion
 
 //#region Note paths
-/** Where the note sits in the tree is listed in the sidebar's connections tab, which the badge is the way to. */
-function NotePaths({ note, hoistedNoteId }: StatusBarContext) {
+/**
+ * Where the note sits in the tree, in a dropdown of the badge counting the places — the same list the
+ * sidebar's connections tab holds, which stays the place to keep it open beside the note.
+ */
+function NotePaths({ note, hoistedNoteId, notePath }: StatusBarContext) {
+    const dropdownRef = useRef<BootstrapDropdown>(null);
     const sortedNotePaths = useSortedNotePaths(note, hoistedNoteId);
     const count = sortedNotePaths?.length ?? 0;
-    const toggleNotePaths = useConnectionsToggle("notePaths");
 
     // Keyboard shortcut.
-    useTriliumEvent("toggleRibbonTabNotePaths", toggleNotePaths);
+    useTriliumEvent("toggleRibbonTabNotePaths", () => dropdownRef.current?.show());
 
     return (
-        <StatusBarButton
-            className="note-paths-button right-pane-peek-source"
+        <StatusBarDropdown
+            className="note-paths-button"
             icon="bx bx-directions"
             title={t("status_bar.note_paths_title")}
             text={t("status_bar.note_paths", { count })}
-            onClick={toggleNotePaths}
-        />
+            dropdownRef={dropdownRef}
+            dropdownContainerClassName="dropdown-note-paths"
+            noDropdownListStyle
+        >
+            <NotePathsWidget sortedNotePaths={sortedNotePaths} currentNotePath={notePath} />
+        </StatusBarDropdown>
     );
 }
 //#endregion

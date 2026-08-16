@@ -441,6 +441,21 @@ export function BacklinksList({ note }: { note: FNote }) {
     ));
 }
 
+/**
+ * {@link BacklinksList} in the markup its styling hangs off (see Backlinks.css), for the places that
+ * frame the list rather than build it: the sidebar's card, the mobile note menu's modal, the status
+ * bar's dropdown. The floating button keeps its own container, being a popup it also sizes by hand.
+ */
+export function BacklinksWidget({ note }: { note: FNote }) {
+    return (
+        <div class="tn-backlinks-widget">
+            <ul class="backlinks-items">
+                <BacklinksList note={note} />
+            </ul>
+        </div>
+    );
+}
+
 function needsRefresh(note: FNote, loadResults: LoadResults) {
     return loadResults.getAttributeRows().some(attr =>
         attr.type === "relation" &&

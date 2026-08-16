@@ -15,7 +15,7 @@ export const CollapsibleWidgets = createContext(true);
 
 /**
  * A request to expand one widget of the pane, raised by an entry point aimed at it (the status bar's
- * note paths badge) so that it doesn't land on a widget the user has collapsed. The counter tells
+ * similar notes link) so that it doesn't land on a widget the user has collapsed. The counter tells
  * repeated requests apart, so the widget opens again after having been collapsed in between.
  */
 export interface ExpandWidgetRequest {
