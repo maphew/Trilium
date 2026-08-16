@@ -225,7 +225,7 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): 
         },
         {
             // Where the note sits in the tree, above what points at it: placements first, then the
-            // backlinks below take whatever height is left.
+            // backlinks below.
             el: <NotePaths />,
             enabled: !!note,
             tab: "connections"

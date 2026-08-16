@@ -14,7 +14,6 @@ export default function Backlinks() {
             id="backlinks"
             title={t("right_pane.backlinks")}
             buttons={<SidebarHelp section="backlinks" />}
-            grow
         >
             {note && <BacklinksWidget note={note} />}
         </RightPanelWidget>
