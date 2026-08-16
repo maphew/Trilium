@@ -1625,8 +1625,6 @@
     "rotate": "Rotate",
     "picture-in-picture": "Picture-in-picture",
     "exit-picture-in-picture": "Exit picture-in-picture",
-    "fullscreen": "Fullscreen",
-    "exit-fullscreen": "Exit fullscreen",
     "unsupported-format": "Media preview is not available for this file format:\n{{mime}}",
     "zoom-to-fit": "Zoom to fill",
     "zoom-reset": "Reset zoom to fill",
