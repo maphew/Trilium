@@ -44,38 +44,60 @@ vi.mock("./SplitEditor", () => ({
 const ORIGINAL_VIEW_BOX = "0 0 1234 56";
 const SVG_MARKUP = `<svg viewBox="${ORIGINAL_VIEW_BOX}" xmlns="http://www.w3.org/2000/svg">`
     + `<rect width="10" height="10"/></svg>`;
+const SVG_MARKUP_WITHOUT_VIEW_BOX = `<svg xmlns="http://www.w3.org/2000/svg">`
+    + `<rect width="10" height="10"/></svg>`;
 
 describe("SvgSplitEditor", () => {
     it("restores the viewBox on cleanup, undoing what svg-pan-zoom stripped on init", async () => {
-        const container = document.createElement("div");
-        document.body.appendChild(container);
-
-        await act(async () => {
-            render(<SvgSplitEditor {...svgSplitEditorProps()} />, container);
+        const svgEl = await mountAndUnmount(SVG_MARKUP, (el) => {
+            // Sanity check that the mocked library actually ran and stripped the attribute, so a
+            // passing assertion below reflects the restore and not an untouched attribute.
+            expect(el.getAttribute("viewBox")).toBeNull();
         });
 
-        await vi.waitFor(() => expect(container.querySelector("svg")).not.toBeNull());
-        const svgEl = container.querySelector("svg");
-        expect(svgEl).not.toBeNull();
+        expect(svgEl.getAttribute("viewBox")).toBe(ORIGINAL_VIEW_BOX);
+    });
 
-        // Sanity check that the mocked library actually ran and stripped the attribute, so a
-        // passing assertion below reflects the restore and not an untouched attribute.
-        expect(svgEl?.getAttribute("viewBox")).toBeNull();
+    it("does not invent a viewBox for an SVG that never had one", async () => {
+        const svgEl = await mountAndUnmount(SVG_MARKUP_WITHOUT_VIEW_BOX);
 
-        // Unmounting tears the effect down (its only cleanup), which is where the fix lives.
-        act(() => render(null, container));
-
-        expect(svgEl?.getAttribute("viewBox")).toBe(ORIGINAL_VIEW_BOX);
-
-        container.remove();
+        expect(svgEl.getAttribute("viewBox")).toBeNull();
     });
 });
+
+/**
+ * Mounts `SvgSplitEditor` around the given SVG markup, waits for the SVG to render, runs the
+ * optional pre-unmount assertion, then unmounts to trigger the effect cleanup under test and
+ * returns the (now detached) SVG element for post-cleanup assertions.
+ */
+async function mountAndUnmount(svgMarkup: string, beforeUnmount?: (svgEl: SVGElement) => void) {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    await act(async () => {
+        render(<SvgSplitEditor {...svgSplitEditorProps(svgMarkup)} />, container);
+    });
+
+    await vi.waitFor(() => expect(container.querySelector("svg")).not.toBeNull());
+    const svgEl = container.querySelector("svg");
+    if (!svgEl) {
+        throw new Error("Expected the rendered SVG to be present after waiting for it.");
+    }
+
+    beforeUnmount?.(svgEl);
+
+    // Unmounting tears the effect down (its only cleanup), which is where the fix lives.
+    act(() => render(null, container));
+
+    container.remove();
+    return svgEl;
+}
 
 /**
  * Minimal props for `SvgSplitEditor`; SplitEditor is mocked away, so most of `SplitEditorProps`
  * is unused.
  */
-function svgSplitEditorProps() {
+function svgSplitEditorProps(svgMarkup: string) {
     const note = {
         noteId: "note1",
         title: "Gantt",
@@ -87,6 +109,6 @@ function svgSplitEditorProps() {
         note,
         noteContext: {},
         attachmentTitle: "gantt-export.svg",
-        renderSvg: async () => SVG_MARKUP
+        renderSvg: async () => svgMarkup
     } as unknown as Parameters<typeof SvgSplitEditor>[0];
 }
