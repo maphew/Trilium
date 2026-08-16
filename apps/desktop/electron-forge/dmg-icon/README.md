@@ -54,6 +54,24 @@ Matching it means the icon reads as a disk image in the system's own language in
 box. The one deliberate departure is the glyph: Apple's grey download arrow becomes the brand mark in
 full colour, which is the entire point of shipping our own.
 
+Three details do most of the work of looking native, and each was got wrong first:
+
+- **No outline stroke.** The reference has none anywhere — the silhouette is defined purely by
+  shading. A uniform stroke is what makes an icon read as a picture frame rather than a drive. The
+  only stroke here is the small-slot rescue below, and it fades out entirely by 128px.
+- **Lateral bevel instead.** The shell darkens at each extreme edge with a bright band just inside
+  it, so it reads as curved moulding catching light. This is what replaces the outline.
+- **The plinth is a capsule, not a band.** Radius = half its height, so its rounded top corners let
+  the body show behind them and it reads as a metal foot standing in front of the shell. A
+  full-width rectangle reads as a stripe printed on it. It is also drawn *after* the bevel — drawn
+  before, the bevel's bright lateral bands wash the foot back to body tone.
+
+And one thing that is deliberately **absent**: a soft contact shadow above the plinth. It is the
+obvious way to sell "this part stands in front", and it is wrong. Measured down the centre column,
+the reference holds the body at 235 right up to the join and then steps to 210; a gradient haze sags
+the body to ~205 first and destroys exactly the crisp step that reads as an edge. A thin dark seam
+capsule, offset a few units up so it follows the same curve, does the job.
+
 An earlier attempt used a **landscape** body with a dark inset face plate and a wide media slot,
 loosely after Firefox's. It's a defensible look — Firefox's is a variation on Apple's older *external
 drive* icon — but it is not what a disk image looks like on this system, and the landscape silhouette
