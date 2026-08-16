@@ -54,11 +54,15 @@ export function ShortcutHintOverlayButton() {
     return (
         <OverlayControlButton
             title={t("shortcut_hints.show_button")}
+            // A keycap standing for itself rather than words that would name the button, so what it
+            // is called is said outright.
+            aria-label={t("shortcut_hints.show_button")}
+            text={<>
+                <kbd>?</kbd>
+                <span className="shortcut-hint-button-key">{shortcut}</span>
+            </>}
             className="shortcut-hint-button tn-shortcut-hints-kbd"
             onClick={onClick}
-        >
-            <kbd>?</kbd>
-            <span className="shortcut-hint-button-key">{shortcut}</span>
-        </OverlayControlButton>
+        />
     );
 }

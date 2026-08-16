@@ -91,9 +91,11 @@ export default function SiblingNavigator({ note, noteContext, viewScope, sibling
                 onClick={() => navigation.navigatePrevious()}
             />
 
-            <OverlayControlButton className="sibling-navigator-index" disabled>
-                {navigation.index}/{navigation.total}
-            </OverlayControlButton>
+            <OverlayControlButton
+                text={`${navigation.index}/${navigation.total}`}
+                className="sibling-navigator-index"
+                disabled
+            />
 
             <OverlayControlButton
                 title={t(nextTooltipI18nKey, { title: navigation.nextTitle })}

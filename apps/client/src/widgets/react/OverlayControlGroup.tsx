@@ -10,6 +10,11 @@ interface OverlayControlGroupProps {
     className?: string;
     /** Which way the buttons' tooltips open — away from the edge the group is pinned to. */
     titlePosition?: ActionButtonProps["titlePosition"];
+    /**
+     * Keeps a press on the group from reaching what it stands on, for a group over a canvas that is
+     * dragged: a map would otherwise take a press on a button for the start of a drag.
+     */
+    overCanvas?: boolean;
     children: ComponentChildren;
 }
 
@@ -25,9 +30,12 @@ interface OverlayControlGroupProps {
  * is a bar of separate buttons on a pane of glass, and it brings its own surface with it. This is a
  * single chip with no gaps, and it is what the app's zoom and navigation controls are built from.
  */
-export default function OverlayControlGroup({ className, titlePosition, children }: OverlayControlGroupProps) {
+export default function OverlayControlGroup({ className, titlePosition, overCanvas, children }: OverlayControlGroupProps) {
     return (
-        <div className={clsx("tn-overlay-control-group", className)}>
+        <div
+            className={clsx("tn-overlay-control-group", className)}
+            onMouseDown={overCanvas ? (e) => e.stopPropagation() : undefined}
+        >
             <TooltipDirection.Provider value={titlePosition ?? "top"}>
                 {children}
             </TooltipDirection.Provider>
@@ -35,19 +43,13 @@ export default function OverlayControlGroup({ className, titlePosition, children
     );
 }
 
-interface OverlayControlButtonProps extends Pick<HTMLAttributes<HTMLButtonElement>, "onClick"> {
-    /**
-     * What the button does: shown as its tooltip, and read out as its accessible name. A readout that
-     * says what it is through its own children — an index, a percentage — needs none, and is left to
-     * be named by what it shows.
-     */
+interface OverlayControlButtonProps extends Pick<HTMLAttributes<HTMLButtonElement>, "onClick" | "aria-label"> {
+    /** What the button does, said on hover. Where the button wears nothing to read, it is its name too. */
     title?: string;
-    /**
-     * The boxicons name of the mark it wears (`bx-plus-circle`), for a button that speaks in a glyph.
-     * Given one, the button is drawn at an icon's width; without one it is drawn at a word's, and
-     * says what it has to say through its children.
-     */
+    /** The boxicons name of the mark it wears (`bx-plus-circle`). */
     icon?: string;
+    /** What stands inside the button: the words it wears, or the value it shows. */
+    text?: ComponentChildren;
     /** Extra class for whatever is peculiar to this one button. */
     className?: string;
     /** Shown held down, for a button standing for a choice in force. */
@@ -55,19 +57,28 @@ interface OverlayControlButtonProps extends Pick<HTMLAttributes<HTMLButtonElemen
     disabled?: boolean;
     /** Overrides the direction the group hands down, for a button placed unlike its neighbours. */
     titlePosition?: ActionButtonProps["titlePosition"];
-    children?: ComponentChildren;
 }
 
 /**
- * A button on such a group. It carries its own tooltip, which says the same thing its accessible name
- * does — one `title` rather than the two that would otherwise have to be kept in step — and opens the
- * way the group it stands on says, so that a group at the foot of the content does not open its
- * tooltips off the bottom edge.
+ * A button on such a group, in one of two shapes: a mark, drawn at an icon's width, or something to
+ * read, drawn at a word's. Given both, the mark stands beside the words — as a child rather than as a
+ * class on the button, the boxicons class setting the icon font on whatever wears it and the words
+ * beside it being meant to stay words.
+ *
+ * What it is called follows from that: a button wearing words is named by them, and one wearing only a
+ * mark by its title, so that a title saying more at length never speaks over the words on the face of
+ * the button. Where what it wears is neither — a keycap, a glyph standing for itself — say so with a
+ * plain `aria-label`.
+ *
+ * Its tooltip opens the way the group it stands on says, so that a group at the foot of the content
+ * does not open its tooltips off the bottom edge.
  */
-export function OverlayControlButton({ title, icon, className, active, disabled, titlePosition, children, ...restProps }: OverlayControlButtonProps) {
+export function OverlayControlButton(props: OverlayControlButtonProps) {
+    const { title, icon, text, className, active, disabled, titlePosition, ...restProps } = props;
     const buttonRef = useRef<HTMLButtonElement>(null);
     const groupDirection = useContext(TooltipDirection);
     const placement = titlePosition ?? groupDirection;
+    const hasText = "text" in props;
 
     // Memoized so the tooltip is only rebuilt when what it says (or where it opens) actually changes,
     // rather than on every render of the group.
@@ -80,12 +91,14 @@ export function OverlayControlButton({ title, icon, className, active, disabled,
             // Driven by its onClick, so it must never act as a form's implicit submit button
             // (a <button> defaults to type="submit").
             type="button"
-            className={clsx(icon ? "tn-overlay-icon-button bx" : "tn-overlay-text-button", icon, active && "active", className)}
-            aria-label={title}
+            className={clsx(hasText ? "tn-overlay-text-button" : [ "tn-overlay-icon-button bx", icon ], active && "active", className)}
+            // A caller passing one of its own wins, for a face that is neither words nor a mark.
+            aria-label={hasText ? undefined : title}
             disabled={disabled}
             {...restProps}
         >
-            {children}
+            {hasText && icon && <span className={clsx("bx", icon)} aria-hidden="true" />}
+            {text}
         </button>
     );
 }

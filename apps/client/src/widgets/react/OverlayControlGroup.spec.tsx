@@ -32,11 +32,11 @@ function tooltipFor(label: string) {
 }
 
 describe("OverlayControlGroup", () => {
-    it("renders a group of icon and text buttons, each labelled by its title", () => {
+    it("draws a button wearing a mark at an icon's width, and one wearing words at a word's", () => {
         mount(
             <OverlayControlGroup className="my-position">
                 <OverlayControlButton title="Zoom out" icon="bx-minus-circle" />
-                <OverlayControlButton title="Reset zoom" className="my-readout">100%</OverlayControlButton>
+                <OverlayControlButton title="Reset zoom" text="100%" className="my-readout" />
             </OverlayControlGroup>
         );
 
@@ -45,26 +45,104 @@ describe("OverlayControlGroup", () => {
         // A button is driven by its onClick and must never submit a form it happens to stand in.
         expect(icon.getAttribute("type")).toBe("button");
         expect(icon.className.split(" ")).toEqual(expect.arrayContaining([ "tn-overlay-icon-button", "bx", "bx-minus-circle" ]));
-        expect(icon.getAttribute("aria-label")).toBe("Zoom out");
-        // No icon given: drawn at a word's width, saying what it has to say through its children.
         expect(text.className.split(" ")).toEqual(expect.arrayContaining([ "tn-overlay-text-button", "my-readout" ]));
         expect(text.className).not.toContain("tn-overlay-icon-button");
-        expect(text.getAttribute("aria-label")).toBe("Reset zoom");
         expect(text.textContent).toBe("100%");
     });
 
-    it("leaves a readout to be named by what it shows, with nothing to say on hover", () => {
+    it("names a button by the words it wears, and one wearing only a mark by its title", () => {
         mount(
             <OverlayControlGroup>
-                <OverlayControlButton className="my-readout" disabled>3/12</OverlayControlButton>
+                <OverlayControlButton title="Zoom out" icon="bx-minus-circle" />
+                <OverlayControlButton title="Create a new child note and add it to the map" text="Add marker" />
+            </OverlayControlGroup>
+        );
+
+        const [ mark, words ] = container.querySelectorAll("button");
+        // Nothing to read on it, so what it is called has to be said outright.
+        expect(mark.getAttribute("aria-label")).toBe("Zoom out");
+        // A title saying more at length would otherwise speak over the words on the face of it.
+        expect(words.hasAttribute("aria-label")).toBe(false);
+        expect(staticTooltipSpy.mock.calls.at(-1)?.[1]?.title).toBe("Create a new child note and add it to the map");
+    });
+
+    it("stands a mark beside the words where it is given both", () => {
+        mount(
+            <OverlayControlGroup>
+                <OverlayControlButton title="Create a new child note" icon="bx-pin" text="Add marker" />
+            </OverlayControlGroup>
+        );
+
+        const button = container.querySelector("button");
+        // The button keeps a word's width; the mark is a child, so the boxicons font it sets does
+        // not fall on the words beside it.
+        expect(button?.className).toContain("tn-overlay-text-button");
+        expect(button?.className).not.toContain("bx-pin");
+        const mark = button?.querySelector(".bx.bx-pin");
+        expect(mark?.getAttribute("aria-hidden")).toBe("true");
+        expect(button?.textContent).toBe("Add marker");
+    });
+
+    it("stays a worded button where the words it was handed came back empty", () => {
+        // A translation resolved before the catalogue is loaded, which must not quietly narrow the
+        // button to a mark's width and take its name with it.
+        mount(
+            <OverlayControlGroup>
+                <OverlayControlButton title="Create a new child note" icon="bx-pin" text={undefined} />
+            </OverlayControlGroup>
+        );
+
+        const button = container.querySelector("button");
+        expect(button?.className).toContain("tn-overlay-text-button");
+        expect(button?.querySelector(".bx.bx-pin")).not.toBeNull();
+    });
+
+    it("lets a caller name a button whose face is neither words nor a mark", () => {
+        mount(
+            <OverlayControlGroup>
+                <OverlayControlButton
+                    title="Show keyboard shortcuts"
+                    aria-label="Show keyboard shortcuts"
+                    text={<kbd>?</kbd>}
+                />
+            </OverlayControlGroup>
+        );
+
+        const button = container.querySelector("button");
+        expect(button?.getAttribute("aria-label")).toBe("Show keyboard shortcuts");
+        expect(button?.querySelector("kbd")?.textContent).toBe("?");
+    });
+
+    it("says nothing on hover where there is no title to say", () => {
+        mount(
+            <OverlayControlGroup>
+                <OverlayControlButton text="3/12" className="my-readout" disabled />
             </OverlayControlGroup>
         );
 
         const readout = container.querySelector("button");
         expect(readout?.hasAttribute("aria-label")).toBe(false);
         expect(readout?.textContent).toBe("3/12");
-        // No title, so the hook finds nothing to build a tooltip from.
         expect(staticTooltipSpy.mock.calls.at(-1)?.[1]?.title).toBeUndefined();
+    });
+
+    it("keeps a press from reaching the canvas underneath only where it stands over one", () => {
+        const onMouseDown = vi.fn();
+        const group = (overCanvas: boolean) => (
+            <OverlayControlGroup overCanvas={overCanvas}>
+                <OverlayControlButton title="Zoom in" icon="bx-plus-circle" />
+            </OverlayControlGroup>
+        );
+        mount(group(true));
+        container.addEventListener("mousedown", onMouseDown);
+
+        container.querySelector("button")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        expect(onMouseDown).not.toHaveBeenCalled();
+
+        // A group over something that is not dragged lets the press through, as any button would.
+        act(() => render(group(false), container));
+        container.querySelector("button")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        expect(onMouseDown).toHaveBeenCalledTimes(1);
     });
 
     it("marks a button held down or refused when asked to", () => {
@@ -107,7 +185,7 @@ describe("OverlayControlGroup", () => {
     it("keeps the same tooltip config across renders that don't change it, so it isn't rebuilt", () => {
         const group = (label: string) => (
             <OverlayControlGroup>
-                <OverlayControlButton title="Reset zoom">{label}</OverlayControlButton>
+                <OverlayControlButton title="Reset zoom" text={label} />
             </OverlayControlGroup>
         );
         mount(group("100%"));

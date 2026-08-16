@@ -197,11 +197,10 @@ export default function ImageViewer({ src, imgClassName, alt = "", minScale = 0.
                     />
                     <OverlayControlButton
                         title={t("image_buttons.reset_zoom")}
+                        text={`${zoomPercent}%`}
                         className="image-viewer-zoom-level"
                         onClick={() => zoomRef.current?.resetTransform()}
-                    >
-                        {zoomPercent}%
-                    </OverlayControlButton>
+                    />
                     <OverlayControlButton
                         title={t("image_buttons.zoom_in")}
                         icon="bx-plus-circle"
