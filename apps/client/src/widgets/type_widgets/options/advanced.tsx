@@ -4,11 +4,11 @@ import { type ExperimentalFeatureId, getAvailableExperimentalFeatures } from "..
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
-import FormText from "../../react/FormText";
+import Button from "../../react/Button";
+import { Card, CardOption } from "../../react/Card";
+import FormToggle from "../../react/FormToggle";
 import { useTriliumOptionJson } from "../../react/hooks";
 import OptionsPageHeader from "./components/OptionsPageHeader";
-import { OptionsRowWithButton, OptionsRowWithToggle } from "./components/OptionsRow";
-import OptionsSection from "./components/OptionsSection";
 
 export default function AdvancedSettings() {
     return <>
@@ -37,46 +37,64 @@ function ExperimentalOptions() {
     }
 
     return (
-        <OptionsSection title={t("experimental_features.title")}>
-            <FormText>{t("experimental_features.disclaimer")}</FormText>
-
-            {filteredFeatures.map((feature) => (
-                <OptionsRowWithToggle
-                    key={feature.id}
-                    name={`experimental-${feature.id}`}
-                    label={feature.name}
-                    description={feature.description}
-                    currentValue={enabledFeatures.includes(feature.id)}
-                    onChange={(enabled) => toggleFeature(feature.id, enabled)}
-                />
-            ))}
-        </OptionsSection>
+        <div className="options-section">
+            <Card
+                heading={t("experimental_features.title")}
+                description={t("experimental_features.disclaimer")}
+            >
+                {filteredFeatures.map((feature) => (
+                    <CardOption
+                        key={feature.id}
+                        name={`experimental-${feature.id}`}
+                        label={feature.name}
+                        description={feature.description}
+                    >
+                        <FormToggle
+                            currentValue={enabledFeatures.includes(feature.id)}
+                            onChange={(enabled) => toggleFeature(feature.id, enabled)}
+                        />
+                    </CardOption>
+                ))}
+            </Card>
+        </div>
     );
 }
 
 function AdvancedSyncOptions() {
     return (
-        <OptionsSection title={t("sync.title")}>
-            <OptionsRowWithButton
-                label={t("sync.force_full_sync_label")}
-                description={t("sync.force_full_sync_description")}
-                buttonText={t("sync.force_full_sync_button")}
-                onClick={async () => {
-                    await server.post("sync/force-full-sync");
-                    toast.showMessage(t("sync.full_sync_triggered"));
-                }}
-            />
+        <div className="options-section">
+            <Card heading={t("sync.title")}>
+                <CardOption
+                    label={t("sync.force_full_sync_label")}
+                    description={t("sync.force_full_sync_description")}
+                >
+                    <Button
+                        name="force-full-sync-button"
+                        text={t("sync.force_full_sync_button")}
+                        size="micro"
+                        onClick={async () => {
+                            await server.post("sync/force-full-sync");
+                            toast.showMessage(t("sync.full_sync_triggered"));
+                        }}
+                    />
+                </CardOption>
 
-            <OptionsRowWithButton
-                label={t("sync.fill_entity_changes_label")}
-                description={t("sync.fill_entity_changes_description")}
-                buttonText={t("sync.fill_entity_changes_button")}
-                onClick={async () => {
-                    toast.showMessage(t("sync.filling_entity_changes"));
-                    await server.post("sync/fill-entity-changes");
-                    toast.showMessage(t("sync.sync_rows_filled_successfully"));
-                }}
-            />
-        </OptionsSection>
+                <CardOption
+                    label={t("sync.fill_entity_changes_label")}
+                    description={t("sync.fill_entity_changes_description")}
+                >
+                    <Button
+                        name="fill-entity-changes-button"
+                        text={t("sync.fill_entity_changes_button")}
+                        size="micro"
+                        onClick={async () => {
+                            toast.showMessage(t("sync.filling_entity_changes"));
+                            await server.post("sync/fill-entity-changes");
+                            toast.showMessage(t("sync.sync_rows_filled_successfully"));
+                        }}
+                    />
+                </CardOption>
+            </Card>
+        </div>
     );
 }
