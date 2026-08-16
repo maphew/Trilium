@@ -26,8 +26,11 @@ vi.mock("../../../services/utils", async (importActual) => ({
     isElectron: vi.fn(() => true)
 }));
 
+// Stubbed for the note context it would otherwise need, but both its slots are rendered: the page's
+// master switch lives on the row below the title.
 vi.mock("./components/OptionsPageHeader", () => ({
-    default: ({ actions }: { actions?: ComponentChildren }) => <div className="header-stub">{actions}</div>
+    default: ({ actions, below }: { actions?: ComponentChildren; below?: ComponentChildren }) =>
+        <div className="header-stub">{actions}{below}</div>
 }));
 
 vi.mock("../../react/FormToggle", () => ({

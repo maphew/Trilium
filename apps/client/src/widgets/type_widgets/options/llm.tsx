@@ -31,7 +31,7 @@ export default function LlmSettings() {
                 helpUrl="GBBMSlVSOIGP"
                 below={
                     <CardOption
-                        className="llm-master-switch"
+                        className="options-header-switch"
                         name="ai-enabled"
                         label={t("llm.enabled")}
                         description={t("llm.enabled_description")}
