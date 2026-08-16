@@ -4,7 +4,7 @@
     padding: 0;
     display: flex;
     gap: 1.5em;
-    justify-content: center;
+    justify-content: start;
 
     figure {
         figcaption {
