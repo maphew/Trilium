@@ -65,7 +65,6 @@ export default function MapToolbar({ mind }: MapToolbarProps) {
                 <OverlayControlButton
                     title={t("mind-map.reset-zoom")}
                     text={`${Math.round(scale * 100)}%`}
-                    className="mind-map-zoom-level"
                     onClick={() => mind.scale(1)}
                 />
                 <OverlayControlButton
