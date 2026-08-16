@@ -218,7 +218,8 @@
     "title": "资料表",
     "newTabNoteLink": "在新标签页开启链接",
     "editShortcuts": "编辑键盘快捷键",
-    "toggleArchivedNotes": "显示/隐藏已归档笔记"
+    "toggleArchivedNotes": "显示/隐藏已归档笔记",
+    "openAiAssistant": "对选中内容打开 AI 助手"
   },
   "import": {
     "importIntoNote": "导入到笔记",
@@ -625,7 +626,8 @@
     "share_html": "注入到共享页面的 HTML 笔记，位置由该笔记上的 <code>#shareHtmlLocation</code> 指定。该笔记必须位于共享子树内。",
     "select_options_placeholder": "输入一个选项并按 Enter",
     "map_dark_style": "告知地理地图：<code>map:style</code> 中给定的自定义样式为深色样式，因此标记标题将以浅色绘制。集合属性中提供的样式本身即表明这一点，无需此类标注。",
-    "map_cluster": "将彼此靠近的标记聚合成单个带编号的气泡，点击即可展开。"
+    "map_cluster": "将彼此靠近的标记聚合成单个带编号的气泡，点击即可展开。",
+    "ai_quick_action": "将这篇笔记作为指令提供给文本编辑器的 AI 助手菜单。标题为操作命名，内容为提示词。"
   },
   "attribute_editor": {
     "help_text_body1": "要添加标签，只需输入例如 <code>#rock</code> ；或者如果你还想同时添加数值，则可输入例如 <code>#year = 2020</code>",
@@ -3363,7 +3365,23 @@
       "turn-the-current-block-into-a-paragraph": "将当前块转换为段落。",
       "warning": "警告",
       "the-file-is-too-large-to-be-uploaded-http-413-if-trilium-is-behind-a-reverse-proxy-raise-its-request-body-size-limit": "文件过大，无法上传（HTTP 413）。如果 Trilium 位于反向代理之后，请提高其请求体大小限制。",
-      "the-server-responded-with-http-0": "服务器返回了 HTTP %0。"
+      "the-server-responded-with-http-0": "服务器返回了 HTTP %0。",
+      "ai-0": "AI：%0",
+      "ai-assistant": "AI 助手",
+      "applies-to-the-current-paragraph": "应用于当前段落。",
+      "ask-ai": "向 AI 提问…",
+      "ask-ai-to": "让 AI…",
+      "ask-ai-to-rewrite-the-selection-or-generate-new-content": "让 AI 重写所选内容或生成新内容。",
+      "changes": "更改",
+      "describe-a-change-then-press-enter": "描述更改内容，然后按回车",
+      "insert-below": "在下方插入",
+      "looks-good-already-nothing-to-change": "看起来已经不错了——无需更改。",
+      "result": "结果",
+      "send": "发送",
+      "stop": "停止",
+      "tokens": "tokens",
+      "try-again": "重试",
+      "working": "正在处理…"
     },
     "toolbar-groups": {
       "text-formatting": "文本格式",
@@ -3881,5 +3899,47 @@
     "custom_to_placeholder": "替换为",
     "custom_add": "添加替换",
     "custom_remove": "移除替换"
+  },
+  "ai_assistant": {
+    "title": "AI 助手",
+    "action_ask": "向 AI 提问…",
+    "group_edit": "编辑或审阅",
+    "group_generate": "生成",
+    "group_adjust": "调整",
+    "group_tone": "更改语气",
+    "group_reformat": "重新格式化",
+    "group_translate": "翻译",
+    "group_custom": "自定义",
+    "model": "模型：{{model}}",
+    "command_make_shorter": "缩短",
+    "command_make_longer": "加长",
+    "command_simplify": "简化语言",
+    "command_tone": "将语气改为 {{tone}}",
+    "command_bullet_list": "转换为项目符号列表",
+    "command_table": "转换为表格",
+    "command_diagram": "转换为图表",
+    "command_callout": "转换为提示块",
+    "command_collapsible": "转换为可折叠区块",
+    "command_action_items": "提取行动项",
+    "command_translate": "翻译为 {{language}}",
+    "action_fix_typos": "修复错别字",
+    "action_improve_writing": "改进写作",
+    "action_summarize": "总结",
+    "action_explain": "解释",
+    "action_continue": "继续写作",
+    "adjust_shorter": "更短",
+    "adjust_longer": "更长",
+    "adjust_simpler": "更简单",
+    "tone_professional": "专业",
+    "tone_casual": "随意",
+    "tone_direct": "直接",
+    "tone_friendly": "友好",
+    "tone_confident": "自信",
+    "reformat_bullet_list": "项目符号列表",
+    "reformat_table": "表格",
+    "reformat_diagram": "图表",
+    "reformat_callout": "提示块",
+    "reformat_collapsible": "可折叠区块",
+    "reformat_action_items": "行动项"
   }
 }
