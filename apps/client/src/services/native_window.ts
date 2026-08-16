@@ -9,8 +9,9 @@ import { getThemeStyle } from "./theme.js";
  * window background material and the native title bar colors and button position.
  *
  * These all come from the active theme's CSS variables, which Electron cannot observe itself, so
- * this runs at startup, after every live theme change (see `applyTheme`) and when the OS color
- * scheme changes. No-op outside Electron.
+ * this runs at startup, after every live theme change (see `applyTheme`), when the OS color scheme
+ * changes and when the zoom factor changes (see `zoom.ts`, since the button geometry is expressed
+ * in the theme's own CSS pixels). No-op outside Electron.
  */
 export function syncNativeWindowWithTheme() {
     const win = window.electronApi?.window;
@@ -65,6 +66,13 @@ function applyTransparencyEffects(win: ElectronWindowApi, style: CSSStyleDeclara
 }
 
 function applyTitleBarButtons(win: ElectronWindowApi, style: CSSStyleDeclaration) {
+    // The themes express these offsets in the same CSS pixels as the tab bar they have to line up
+    // with, but Electron takes them in device-independent pixels, which the page zoom does not
+    // touch. Converting through the zoom factor keeps the native buttons where the (scaled) tab bar
+    // expects them instead of leaving them stranded at their 100% position.
+    const zoomFactor = win.getZoomFactor();
+    const toDeviceIndependentPixels = (value: number) => Math.round(value * zoomFactor);
+
     // Window Controls Overlay is supported on Windows and Linux. The height is opt-in: themes only
     // set --native-titlebar-height where the buttons need repositioning (currently Linux), and
     // leaving it unset keeps Chromium's system caption height.
@@ -73,13 +81,20 @@ function applyTitleBarButtons(win: ElectronWindowApi, style: CSSStyleDeclaration
         const symbolColor = style.getPropertyValue("--native-titlebar-foreground");
         const height = parseInt(style.getPropertyValue("--native-titlebar-height"), 10);
         if (color && symbolColor) {
-            win.setTitleBarOverlay({ color, symbolColor, ...(Number.isFinite(height) && { height }) });
+            win.setTitleBarOverlay({
+                color,
+                symbolColor,
+                ...(Number.isFinite(height) && { height: toDeviceIndependentPixels(height) })
+            });
         }
     }
 
     if (window.glob.platform === "darwin") {
         const xOffset = parseInt(style.getPropertyValue("--native-titlebar-darwin-x-offset"), 10);
         const yOffset = parseInt(style.getPropertyValue("--native-titlebar-darwin-y-offset"), 10);
-        win.setWindowButtonPosition({ x: xOffset, y: yOffset });
+        win.setWindowButtonPosition({
+            x: toDeviceIndependentPixels(xOffset),
+            y: toDeviceIndependentPixels(yOffset)
+        });
     }
 }
