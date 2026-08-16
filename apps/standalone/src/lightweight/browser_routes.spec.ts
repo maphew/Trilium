@@ -1,4 +1,4 @@
-import { getSql, routes, sql_init } from "@triliumnext/core";
+import { consistency_checks, getSql, routes, sql_init } from "@triliumnext/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BrowserRouter } from "./browser_router.js";
@@ -50,6 +50,22 @@ describe("registerRoutes (real wiring)", () => {
         // reaching a 200 here is what proves the route is wired at all.
         const abort = await router.dispatch("POST", "http://localhost/api/llm-chat/stream-abort", { streamId: "nope" });
         expect(abort.status).toBe(200);
+    });
+
+    // Registered here rather than in the shared table, so nothing else would catch their loss. Both
+    // run against the browser's own SQLite: the checks the server offers that need no file.
+    it("serves the maintenance routes, and no compaction", async () => {
+        const integrity = await router.dispatch("GET", "http://localhost/api/database/check-integrity");
+        expect(parseJson(integrity.body)).toEqual({ results: [ { integrity_check: "ok" } ] });
+
+        // Awaited rather than left running: the response arriving is what says the checks are over.
+        const consistency = vi.spyOn(consistency_checks, "runOnDemandChecks").mockResolvedValue(undefined);
+        expect((await router.dispatch("POST", "http://localhost/api/database/find-and-fix-consistency-issues", {})).status).toBe(200);
+        expect(consistency).toHaveBeenCalledWith(true);
+
+        // Compacting rebuilds through a temporary store this build keeps in memory, so it is left
+        // to the platforms that have somewhere to put it.
+        expect((await router.dispatch("POST", "http://localhost/api/database/vacuum-database", {})).status).toBe(404);
     });
 
     it("serves the compatibility dummy routes", async () => {

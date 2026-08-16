@@ -271,6 +271,22 @@ export interface ElectronShellApi {
     openPath(path: string): Promise<string>;
 
     /**
+     * Shows a local file in the OS file manager, with the file itself selected,
+     * via `electron.shell.showItemInFolder`. For pointing at a file the user is
+     * not meant to open — the database, whose reader is Trilium itself.
+     *
+     * **Security:** the same sandbox as {@link openPath}, with the database
+     * file added as a root of its own, since `TRILIUM_DOCUMENT_PATH` may put it
+     * outside the data directory. Revealing is the milder act of the two, the
+     * file being selected rather than launched, but a path the renderer names
+     * is still a path the renderer must not be free to choose.
+     *
+     * Nothing is reported back: the OS is asked to bring a window forward, and
+     * whether it did is not something Electron answers.
+     */
+    showItemInFolder(path: string): void;
+
+    /**
      * Opens a `file://` URL with its default OS handler. Exists as a separate
      * channel from {@link openExternal} because Electron's `shell.openExternal`
      * mishandles Unicode characters in `file:` URLs on Windows; converting to

@@ -68,26 +68,30 @@ export function validateOpenCustomPath(filePath: unknown, tmpDir: string): strin
 /**
  * Validates a path for the "open-path" IPC channel (Open Note Externally,
  * Open Attachment Externally, and the "open data directory" / "open backup
- * directory" links in the About dialog and the backup settings). The legit
- * callers only ever pass server-generated paths either inside the tmp dir or
- * equal to one of the directories themselves.
+ * directory" links in the About dialog and the backup settings), and for the
+ * "show-item-in-folder" channel, which reveals a file rather than opening it.
+ * The legit callers only ever pass server-generated paths either inside the tmp
+ * dir or equal to one of the directories themselves.
  *
- * `backupDir` is a root of its own because the user may have moved backups
- * outside the data directory. It is resolved from the app's own configuration
- * rather than taken from the renderer, so the sandbox still bounds the caller.
+ * Beyond the data and tmp directories, each caller names the roots its own case
+ * needs: the backup directory, which the user may have moved elsewhere, and the
+ * database file, which `TRILIUM_DOCUMENT_PATH` may likewise put outside the
+ * data directory. Those come from the app's own configuration rather than from
+ * the renderer, so the sandbox still bounds the caller. A root may be a file, in
+ * which case only that exact path passes.
  *
  * UNC paths are blocked implicitly — they cannot normalise to a descendant
  * of those roots, so the sandbox check rejects them. This closes the
  * NTLM-hash-leak vector that affects file:// and smb:// URLs.
  */
-export function validateOpenPath(input: unknown, dataDir: string, tmpDir: string, backupDir?: string | null): string {
+export function validateOpenPath(input: unknown, dataDir: string, tmpDir: string, ...extraRoots: (string | null | undefined)[]): string {
     if (typeof input !== "string" || input.length === 0 || input.includes("\0")) {
         throw new Error("open-path: invalid filePath");
     }
 
-    const roots = backupDir ? [dataDir, tmpDir, backupDir] : [dataDir, tmpDir];
+    const roots = [dataDir, tmpDir, ...extraRoots];
     const resolved = path.resolve(input);
-    if (!roots.some((root) => isUnderOrEquals(resolved, root))) {
+    if (!roots.some((root) => root && isUnderOrEquals(resolved, root))) {
         throw new Error(`open-path: refusing path outside data dir: ${resolved}`);
     }
 
@@ -253,6 +257,18 @@ export function setupShellHandlers() {
         } catch (e) {
             getLog().error(`open-path failed: ${coreUtils.safeExtractMessageAndStackFromError(e)}`);
             return coreUtils.safeExtractMessageAndStackFromError(e);
+        }
+    });
+
+    // Nothing is returned: `showItemInFolder` reports nothing back, and a refused path is a
+    // main-process log line rather than an answer the renderer could act on.
+    electron.ipcMain.on("show-item-in-folder", (_event, filePath: string) => {
+        try {
+            const resolved = validateOpenPath(filePath, dataDirs.TRILIUM_DATA_DIR, dataDirs.TMP_DIR,
+                getConfiguredBackupDir(), dataDirs.DOCUMENT_PATH);
+            electron.shell.showItemInFolder(resolved);
+        } catch (e) {
+            getLog().error(`show-item-in-folder failed: ${coreUtils.safeExtractMessageAndStackFromError(e)}`);
         }
     });
 

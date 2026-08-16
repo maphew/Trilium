@@ -110,6 +110,36 @@ export interface DatabaseCheckIntegrityResponse {
 }
 
 /**
+ * How much the knowledge base holds, counted rather than measured: the two figures the Database
+ * page states, produced without the pass over every blob that the space usage pages take.
+ *
+ * The hidden subtree is left out of both — launchers, options and the like are the application's
+ * own furniture, not anything the user put there.
+ */
+export interface SpaceUsageCounts {
+    /** Live notes reachable outside the hidden subtree. */
+    noteCount: number;
+    /** Attachments those notes own; the ones belonging to revisions are history, and left out. */
+    attachmentCount: number;
+}
+
+/** What the database is: where it lives, when it began, what it holds and how large it has grown. */
+export interface DatabaseInfoResponse extends SpaceUsageCounts {
+    /**
+     * Absolute path of the database file, its name included. Null where the database is not a file
+     * the user can reach: the browser build keeps it in storage the browser owns, which has no path.
+     */
+    filePath: string | null;
+    /** When the root note was created, standing in for when the knowledge base itself was. */
+    utcDateCreated: string;
+    /**
+     * What the database occupies now, free pages included — the same figure the compaction estimate
+     * reports, so the two never disagree about how large the file is.
+     */
+    sizeBytes: number;
+}
+
+/**
  * What rebuilding the database file gave back, measured either side of the vacuum. Erasing content
  * does not shrink the file — the pages it frees stay allocated on the freelist — so this difference
  * is the only figure that says what the disk actually got back.

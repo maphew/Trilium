@@ -32,6 +32,7 @@ import exportRoute from "./api/export";
 import scriptRoute from "./api/script";
 import backendLogRoute from "./api/backend_log";
 import backupRoute from "./api/backup";
+import databaseInfoRoute from "./api/database_info";
 import passwordApiRoute from "./api/password";
 import loginApiRoute from "./api/login";
 import fontsRoute from "./api/fonts";
@@ -295,6 +296,8 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
 
     apiRoute(GET, "/api/app-info", appInfoRoute.getAppInfo);
     asyncApiRoute(GET, "/api/backend-log", backendLogRoute.getBackendLog);
+
+    apiRoute(GET, "/api/database/info", databaseInfoRoute.getDatabaseInfo);
 
     // Backup routes
     asyncApiRoute(GET, "/api/database/backups", backupRoute.getExistingBackups);

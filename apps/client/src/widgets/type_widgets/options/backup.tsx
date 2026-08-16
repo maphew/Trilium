@@ -4,13 +4,12 @@ import {
     BackupDatabaseNowResponse,
     BackupPassphraseStatus,
     DatabaseBackup,
-    dayjs,
     ExistingBackupsResponse
 } from "@triliumnext/commons";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { isBackupDownloadSupported } from "../../../services/backup_download";
-import { describeDatabaseFormat } from "../../../services/database_files";
+import { describeDatabaseFormat, summarizeBackups } from "../../../services/database_files";
 import dialogService from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import options from "../../../services/options";
@@ -199,26 +198,6 @@ export function BackupStatus({ backups, refreshCallback }: BackupStatusProps) {
             />
         </div>
     );
-}
-
-/**
- * How many backups there are and how long ago the last one was made — the two things the list
- * itself only answers by being read through. Nothing is said while there are none: the list
- * stands empty right below, which states it more plainly than a sentence could.
- */
-function summarizeBackups(backups: DatabaseBackup[]) {
-    if (!backups.length) {
-        return null;
-    }
-
-    const mostRecent = backups.reduce((latest, backup) => (
-        backup.mtime > latest.mtime ? backup : latest
-    ));
-
-    return t("backup.backups_summary", {
-        count: backups.length,
-        age: dayjs(mostRecent.mtime).fromNow(true)
-    });
 }
 
 export function BackupConfiguration() {

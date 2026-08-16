@@ -232,8 +232,7 @@ body.desktop .options-section:not(.tn-no-card) {
     color: var(--root-background);
 }
 
-.options-section-card p:last-of-type:not(:first-of-type),
-.options-section-card .existing-anonymized-databases {
+.options-section-card p:last-of-type:not(:first-of-type) {
     margin-bottom: 0;
 }
 

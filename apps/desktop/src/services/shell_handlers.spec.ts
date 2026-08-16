@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
     handle: new Map<string, Handler>(),
     openExternal: vi.fn(),
     openPath: vi.fn(() => Promise.resolve("")),
+    showItemInFolder: vi.fn(),
     execFile: vi.fn()
 }));
 
@@ -20,7 +21,8 @@ vi.mock("electron", () => ({
         },
         shell: {
             openExternal: h.openExternal,
-            openPath: h.openPath
+            openPath: h.openPath,
+            showItemInFolder: h.showItemInFolder
         }
     }
 }));
@@ -101,6 +103,18 @@ describe("setupShellHandlers", () => {
             const result = fireHandle("open-path", process.platform === "win32" ? "C:\\Windows\\evil" : "/etc/passwd");
             expect(result).toBeTruthy();
             expect(h.openPath).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("show-item-in-folder", () => {
+        it("reveals a file inside the sandbox", () => {
+            fireOn("show-item-in-folder", dataFile);
+            expect(h.showItemInFolder).toHaveBeenCalledWith(path.resolve(dataFile));
+        });
+
+        it("reveals nothing for a path outside the sandbox", () => {
+            fireOn("show-item-in-folder", process.platform === "win32" ? "C:\\Windows\\evil" : "/etc/passwd");
+            expect(h.showItemInFolder).not.toHaveBeenCalled();
         });
     });
 

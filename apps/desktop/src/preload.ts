@@ -134,6 +134,9 @@ contextBridge.exposeInMainWorld("electronApi", {
         openPath(path: string): Promise<string> {
             return ipcRenderer.invoke("open-path", path);
         },
+        showItemInFolder(path: string) {
+            ipcRenderer.send("show-item-in-folder", path);
+        },
         openFileUrl(fileUrl: string): Promise<string> {
             return ipcRenderer.invoke("open-file-url", fileUrl);
         },
