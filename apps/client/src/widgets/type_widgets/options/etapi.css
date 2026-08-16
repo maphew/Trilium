@@ -1,0 +1,28 @@
+/* What the page is for, and the one thing it offers, on the row below the title — a narrow header
+   puts the button on a line of its own rather than squeezing the sentence to a word. */
+.etapi-header-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: end;
+    align-items: center;
+    gap: 16px;
+
+    > .btn {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+}
+
+/* Carried by the page's header rather than by a card, so it states its own type: the size and colour
+   a card's own introducing sentence is set in. */
+.etapi-description {
+    flex: 1 1 auto;
+    margin: 0;
+    color: var(--muted-text-color);
+    font-size: 13px;
+}
+
+.etapi-token-actions {
+    display: flex;
+    gap: 4px;
+}
