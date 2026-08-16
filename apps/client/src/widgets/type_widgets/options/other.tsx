@@ -1,3 +1,5 @@
+import "./other.css";
+
 import { SANITIZER_DEFAULT_ALLOWED_TAGS } from "@triliumnext/commons";
 import { useMemo } from "preact/hooks";
 
@@ -6,12 +8,11 @@ import search from "../../../services/search";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
 import Button from "../../react/Button";
-import FormText from "../../react/FormText";
+import { Card, CardOption, CardSection } from "../../react/Card";
 import { FormTextBoxWithUnit } from "../../react/FormTextBox";
+import FormToggle from "../../react/FormToggle";
 import { useNoteContext, useTriliumOption, useTriliumOptionBool, useTriliumOptionJson } from "../../react/hooks";
 import OptionsPageHeader from "./components/OptionsPageHeader";
-import OptionsRow, { OptionsRowWithButton, OptionsRowWithToggle } from "./components/OptionsRow";
-import OptionsSection from "./components/OptionsSection";
 import RelatedSettings from "./components/RelatedSettings";
 import TimeSelector from "./components/TimeSelector";
 import { requestContentManagerSection } from "./content_manager";
@@ -64,75 +65,103 @@ function SearchSettings() {
     const [ autocompleteFuzzy, setAutocompleteFuzzy ] = useTriliumOptionBool("searchAutocompleteFuzzy");
 
     return (
-        <OptionsSection title={t("search.title")}>
-            <OptionsRowWithToggle
-                name="search-fuzzy-matching"
-                label={t("search.fuzzy_matching_label")}
-                description={t("search.fuzzy_matching_description")}
-                currentValue={fuzzyEnabled}
-                onChange={setFuzzyEnabled}
-            />
+        <div className="options-section">
+            <Card heading={t("search.title")}>
+                <CardOption
+                    name="search-fuzzy-matching"
+                    label={t("search.fuzzy_matching_label")}
+                    description={t("search.fuzzy_matching_description")}
+                >
+                    <FormToggle currentValue={fuzzyEnabled} onChange={setFuzzyEnabled} />
+                </CardOption>
 
-            <OptionsRowWithToggle
-                name="search-autocomplete-fuzzy"
-                label={t("search.autocomplete_fuzzy_label")}
-                description={t("search.autocomplete_fuzzy_description")}
-                currentValue={autocompleteFuzzy}
-                onChange={setAutocompleteFuzzy}
-            />
-        </OptionsSection>
+                <CardOption
+                    name="search-autocomplete-fuzzy"
+                    label={t("search.autocomplete_fuzzy_label")}
+                    description={t("search.autocomplete_fuzzy_description")}
+                >
+                    <FormToggle currentValue={autocompleteFuzzy} onChange={setAutocompleteFuzzy} />
+                </CardOption>
+            </Card>
+        </div>
     );
 }
 
 function NoteErasureTimeout() {
     return (
-        <OptionsSection title={t("note_erasure_timeout.note_erasure_timeout_title")}>
-            <FormText>{t("note_erasure_timeout.description")}</FormText>
-
-            <OptionsRow name="erase-entities-after" label={t("note_erasure_timeout.erase_notes_after")} description={t("note_erasure_timeout.erase_notes_after_description")}>
-                <TimeSelector
+        <div className="options-section">
+            <Card
+                heading={t("note_erasure_timeout.note_erasure_timeout_title")}
+                description={t("note_erasure_timeout.description")}
+            >
+                <CardOption
+                    className="other-number"
                     name="erase-entities-after"
-                    optionValueId="eraseEntitiesAfterTimeInSeconds" optionTimeScaleId="eraseEntitiesAfterTimeScale"
-                />
-            </OptionsRow>
+                    label={t("note_erasure_timeout.erase_notes_after")}
+                    description={t("note_erasure_timeout.erase_notes_after_description")}
+                >
+                    <TimeSelector
+                        name="erase-entities-after"
+                        optionValueId="eraseEntitiesAfterTimeInSeconds" optionTimeScaleId="eraseEntitiesAfterTimeScale"
+                    />
+                </CardOption>
 
-            <OptionsRowWithButton
-                label={t("note_erasure_timeout.erase_deleted_notes_now")}
-                description={t("note_erasure_timeout.manual_erasing_description")}
-                buttonText={t("note_erasure_timeout.erase_now_button")}
-                onClick={() => {
-                    server.post("notes/erase-deleted-notes-now").then(() => {
-                        toast.showMessage(t("note_erasure_timeout.deleted_notes_erased"));
-                    });
-                }}
-            />
-        </OptionsSection>
+                <CardOption
+                    label={t("note_erasure_timeout.erase_deleted_notes_now")}
+                    description={t("note_erasure_timeout.manual_erasing_description")}
+                >
+                    <Button
+                        name="erase-deleted-notes-now-button"
+                        text={t("note_erasure_timeout.erase_now_button")}
+                        size="micro"
+                        onClick={() => {
+                            server.post("notes/erase-deleted-notes-now").then(() => {
+                                toast.showMessage(t("note_erasure_timeout.deleted_notes_erased"));
+                            });
+                        }}
+                    />
+                </CardOption>
+            </Card>
+        </div>
     );
 }
 
 function AttachmentErasureTimeout() {
     return (
-        <OptionsSection title={t("attachment_erasure_timeout.attachment_erasure_timeout")}>
-            <FormText>{t("attachment_erasure_timeout.description")}</FormText>
-
-            <OptionsRow name="erase-unused-attachments-after" label={t("attachment_erasure_timeout.erase_attachments_after")} description={t("attachment_erasure_timeout.erase_attachments_after_description")}>
-                <TimeSelector
+        <div className="options-section">
+            <Card
+                heading={t("attachment_erasure_timeout.attachment_erasure_timeout")}
+                description={t("attachment_erasure_timeout.description")}
+            >
+                <CardOption
+                    className="other-number"
                     name="erase-unused-attachments-after"
-                    optionValueId="eraseUnusedAttachmentsAfterSeconds" optionTimeScaleId="eraseUnusedAttachmentsAfterTimeScale"
-                />
-            </OptionsRow>
+                    label={t("attachment_erasure_timeout.erase_attachments_after")}
+                    description={t("attachment_erasure_timeout.erase_attachments_after_description")}
+                >
+                    <TimeSelector
+                        name="erase-unused-attachments-after"
+                        optionValueId="eraseUnusedAttachmentsAfterSeconds" optionTimeScaleId="eraseUnusedAttachmentsAfterTimeScale"
+                    />
+                </CardOption>
 
-            <OptionsRowWithButton
-                label={t("attachment_erasure_timeout.erase_unused_attachments_now")}
-                description={t("attachment_erasure_timeout.manual_erasing_description")}
-                buttonText={t("attachment_erasure_timeout.erase_now_button")}
-                onClick={() => {
-                    server.post("notes/erase-unused-attachments-now").then(() => {
-                        toast.showMessage(t("attachment_erasure_timeout.unused_attachments_erased"));
-                    });
-                }}
-            />
-        </OptionsSection>
+                <CardOption
+                    label={t("attachment_erasure_timeout.erase_unused_attachments_now")}
+                    description={t("attachment_erasure_timeout.manual_erasing_description")}
+                >
+                    <Button
+                        name="erase-unused-attachments-now-button"
+                        text={t("attachment_erasure_timeout.erase_now_button")}
+                        size="micro"
+                        onClick={() => {
+                            server.post("notes/erase-unused-attachments-now").then(() => {
+                                toast.showMessage(t("attachment_erasure_timeout.unused_attachments_erased"));
+                            });
+                        }}
+                    />
+                </CardOption>
+            </Card>
+        </div>
     );
 }
 
@@ -141,50 +170,68 @@ function RevisionSettings() {
     const [ revisionIgnoreNamedSnapshots, setRevisionIgnoreNamedSnapshots ] = useTriliumOptionBool("revisionIgnoreNamedSnapshots");
 
     return (
-        <OptionsSection title={t("revisions_snapshot.title")}>
-            <OptionsRow name="revision-snapshot-time-interval" label={t("revisions_snapshot_interval.snapshot_time_interval_label")} description={t("revisions_snapshot_interval.note_revisions_snapshot_description_short")}>
-                <TimeSelector
+        <div className="options-section">
+            <Card heading={t("revisions_snapshot.title")}>
+                <CardOption
+                    className="other-number"
                     name="revision-snapshot-time-interval"
-                    optionValueId="revisionSnapshotTimeInterval" optionTimeScaleId="revisionSnapshotTimeIntervalTimeScale"
-                    minimumSeconds={10}
-                />
-            </OptionsRow>
+                    label={t("revisions_snapshot_interval.snapshot_time_interval_label")}
+                    description={t("revisions_snapshot_interval.note_revisions_snapshot_description_short")}
+                >
+                    <TimeSelector
+                        name="revision-snapshot-time-interval"
+                        optionValueId="revisionSnapshotTimeInterval" optionTimeScaleId="revisionSnapshotTimeIntervalTimeScale"
+                        minimumSeconds={10}
+                    />
+                </CardOption>
 
-            <OptionsRow name="revision-snapshot-number-limit" label={t("revisions_snapshot_limit.snapshot_number_limit_label")} description={t("revisions_snapshot_limit.note_revisions_snapshot_limit_description_short")}>
-                <FormTextBoxWithUnit
-                    type="number" min={-1}
-                    currentValue={revisionSnapshotNumberLimit}
-                    unit={t("revisions_snapshot_limit.snapshot_number_limit_unit")}
-                    onBlur={value => {
-                        const newValue = parseInt(value, 10);
-                        if (!isNaN(newValue) && newValue >= -1) {
-                            setRevisionSnapshotNumberLimit(newValue);
-                        }
-                    }}
-                />
-            </OptionsRow>
+                <CardOption
+                    className="other-number"
+                    name="revision-snapshot-number-limit"
+                    label={t("revisions_snapshot_limit.snapshot_number_limit_label")}
+                    description={t("revisions_snapshot_limit.note_revisions_snapshot_limit_description_short")}
+                >
+                    <FormTextBoxWithUnit
+                        type="number" min={-1}
+                        currentValue={revisionSnapshotNumberLimit}
+                        unit={t("revisions_snapshot_limit.snapshot_number_limit_unit")}
+                        onBlur={value => {
+                            const newValue = parseInt(value, 10);
+                            if (!isNaN(newValue) && newValue >= -1) {
+                                setRevisionSnapshotNumberLimit(newValue);
+                            }
+                        }}
+                    />
+                </CardOption>
 
-            <OptionsRowWithToggle
-                name="revision-keep-named-snapshots"
-                label={t("revisions_snapshot_limit.keep_named_revisions_label")}
-                description={t("revisions_snapshot_limit.keep_named_revisions_description")}
-                currentValue={revisionIgnoreNamedSnapshots}
-                onChange={setRevisionIgnoreNamedSnapshots}
-            />
+                <CardOption
+                    name="revision-keep-named-snapshots"
+                    label={t("revisions_snapshot_limit.keep_named_revisions_label")}
+                    description={t("revisions_snapshot_limit.keep_named_revisions_description")}
+                >
+                    <FormToggle currentValue={revisionIgnoreNamedSnapshots} onChange={setRevisionIgnoreNamedSnapshots} />
+                </CardOption>
 
-            <OptionsRowWithButton
-                label={t("revisions_snapshot_limit.erase_excess_revision_snapshots")}
-                description={t("revisions_snapshot_limit.erase_excess_revision_snapshots_description")}
-                buttonText={t("revisions_snapshot_limit.erase_now_button")}
-                // A negative limit keeps every snapshot, so nothing is excess and the erasure would
-                // report success having dropped nothing. Offered again as soon as a limit is set.
-                disabled={parseInt(revisionSnapshotNumberLimit, 10) < 0}
-                onClick={async () => {
-                    await server.post("revisions/erase-all-excess-revisions");
-                    toast.showMessage(t("revisions_snapshot_limit.erase_excess_revision_snapshots_prompt"));
-                }}
-            />
-        </OptionsSection>
+                <CardOption
+                    label={t("revisions_snapshot_limit.erase_excess_revision_snapshots")}
+                    description={t("revisions_snapshot_limit.erase_excess_revision_snapshots_description")}
+                >
+                    <Button
+                        name="erase-excess-revisions-button"
+                        text={t("revisions_snapshot_limit.erase_now_button")}
+                        size="micro"
+                        // A negative limit keeps every snapshot, so nothing is excess and the erasure
+                        // would report success having dropped nothing. Offered again as soon as a
+                        // limit is set.
+                        disabled={parseInt(revisionSnapshotNumberLimit, 10) < 0}
+                        onClick={async () => {
+                            await server.post("revisions/erase-all-excess-revisions");
+                            toast.showMessage(t("revisions_snapshot_limit.erase_excess_revision_snapshots_prompt"));
+                        }}
+                    />
+                </CardOption>
+            </Card>
+        </div>
     );
 }
 
@@ -196,34 +243,35 @@ function HtmlImportTags() {
     }, allowedHtmlTags);
 
     return (
-        <OptionsSection title={t("import.html_import_tags.title")}>
-            <FormText>{t("import.html_import_tags.description")}</FormText>
+        <div className="options-section">
+            <Card
+                heading={t("import.html_import_tags.title")}
+                description={t("import.html_import_tags.description")}
+            >
+                <CardSection className="other-html-tags">
+                    <textarea
+                        className="allowed-html-tags"
+                        spellcheck={false}
+                        placeholder={t("import.html_import_tags.placeholder")}
+                        value={parsedValue}
+                        onBlur={e => {
+                            const tags = e.currentTarget.value
+                                .split(/[\n,\s]+/) // Split on newlines, commas, or spaces
+                                .map((tag) => tag.trim())
+                                .filter((tag) => tag.length > 0);
+                            setAllowedHtmlTags(tags);
+                        }}
+                    />
 
-            <textarea
-                className="allowed-html-tags"
-                spellcheck={false}
-                placeholder={t("import.html_import_tags.placeholder")}
-                style={useMemo(() => ({
-                    width: "100%",
-                    height: "150px",
-                    marginBottom: "12px",
-                    fontFamily: "var(--monospace-font-family)"
-                }), [])}
-                value={parsedValue}
-                onBlur={e => {
-                    const tags = e.currentTarget.value
-                        .split(/[\n,\s]+/) // Split on newlines, commas, or spaces
-                        .map((tag) => tag.trim())
-                        .filter((tag) => tag.length > 0);
-                    setAllowedHtmlTags(tags);
-                }}
-            />
-
-            <Button
-                text={t("import.html_import_tags.reset_button")}
-                onClick={() => setAllowedHtmlTags(SANITIZER_DEFAULT_ALLOWED_TAGS)}
-            />
-        </OptionsSection>
+                    <Button
+                        name="reset-allowed-html-tags-button"
+                        text={t("import.html_import_tags.reset_button")}
+                        size="micro"
+                        onClick={() => setAllowedHtmlTags(SANITIZER_DEFAULT_ALLOWED_TAGS)}
+                    />
+                </CardSection>
+            </Card>
+        </div>
     );
 }
 
@@ -232,37 +280,42 @@ function ShareSettings() {
     const [ showLogInShareTheme, setShowLogInShareTheme ] = useTriliumOptionBool("showLoginInShareTheme");
 
     return (
-        <OptionsSection title={t("share.title")}>
-            <OptionsRowWithToggle
-                name="redirect-bare-domain"
-                label={t("share.redirect_bare_domain")}
-                description={t("share.redirect_bare_domain_description")}
-                currentValue={redirectBareDomain}
-                onChange={async value => {
-                    if (value) {
-                        const shareRootNotes = await search.searchForNotes("#shareRoot");
-                        const sharedShareRootNote = shareRootNotes.find((note) => note.isShared());
+        <div className="options-section">
+            <Card heading={t("share.title")}>
+                <CardOption
+                    name="redirect-bare-domain"
+                    label={t("share.redirect_bare_domain")}
+                    description={t("share.redirect_bare_domain_description")}
+                >
+                    <FormToggle
+                        currentValue={redirectBareDomain}
+                        onChange={async value => {
+                            if (value) {
+                                const shareRootNotes = await search.searchForNotes("#shareRoot");
+                                const sharedShareRootNote = shareRootNotes.find((note) => note.isShared());
 
-                        if (sharedShareRootNote) {
-                            toast.showMessage(t("share.share_root_found", { noteTitle: sharedShareRootNote.title }));
-                        } else if (shareRootNotes.length > 0) {
-                            toast.showError(t("share.share_root_not_shared", { noteTitle: shareRootNotes[0].title }));
-                        } else {
-                            toast.showError(t("share.share_root_not_found"));
-                        }
-                    }
-                    setRedirectBareDomain(value);
-                }}
-            />
+                                if (sharedShareRootNote) {
+                                    toast.showMessage(t("share.share_root_found", { noteTitle: sharedShareRootNote.title }));
+                                } else if (shareRootNotes.length > 0) {
+                                    toast.showError(t("share.share_root_not_shared", { noteTitle: shareRootNotes[0].title }));
+                                } else {
+                                    toast.showError(t("share.share_root_not_found"));
+                                }
+                            }
+                            setRedirectBareDomain(value);
+                        }}
+                    />
+                </CardOption>
 
-            <OptionsRowWithToggle
-                name="show-login-in-share-theme"
-                label={t("share.show_login_link")}
-                description={t("share.show_login_link_description")}
-                currentValue={showLogInShareTheme}
-                onChange={setShowLogInShareTheme}
-            />
-        </OptionsSection>
+                <CardOption
+                    name="show-login-in-share-theme"
+                    label={t("share.show_login_link")}
+                    description={t("share.show_login_link_description")}
+                >
+                    <FormToggle currentValue={showLogInShareTheme} onChange={setShowLogInShareTheme} />
+                </CardOption>
+            </Card>
+        </div>
     );
 }
 
@@ -270,14 +323,16 @@ function NetworkSettings() {
     const [ checkForUpdates, setCheckForUpdates ] = useTriliumOptionBool("checkForUpdates");
 
     return (
-        <OptionsSection title={t("network_connections.network_connections_title")}>
-            <OptionsRowWithToggle
-                name="check-for-updates"
-                label={t("network_connections.check_for_updates")}
-                description={t("network_connections.check_for_updates_description")}
-                currentValue={checkForUpdates}
-                onChange={setCheckForUpdates}
-            />
-        </OptionsSection>
+        <div className="options-section">
+            <Card heading={t("network_connections.network_connections_title")}>
+                <CardOption
+                    name="check-for-updates"
+                    label={t("network_connections.check_for_updates")}
+                    description={t("network_connections.check_for_updates_description")}
+                >
+                    <FormToggle currentValue={checkForUpdates} onChange={setCheckForUpdates} />
+                </CardOption>
+            </Card>
+        </div>
     );
 }
