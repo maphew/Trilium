@@ -33,12 +33,14 @@
 /*
  * A page brings its whole self along, of which the search wants only the cards: its header names the
  * page it thinks it is showing, and its tables and listings are not settings anyone can search for.
+ * A page is free to keep its cards inside a block of its own (the shortcuts page does), so what is
+ * kept is anything with a card still left in it rather than the cards alone.
  *
- * What counts as something to show is therefore a card that matched by name, or any single setting
- * that matched — the same test decides whether a page is worth naming and whether the search found
- * anything at all.
+ * Something is left when a card matched by name, or when a single setting inside one did — the same
+ * test decides whether a block is worth keeping, whether a page is worth naming, and whether the
+ * search came back with anything at all.
  */
-.options-search-page > :not(.tn-card, .options-search-page-title),
+.options-search-page > :not(.tn-card, .options-search-page-title):not(:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option)),
 .options-search-page:not(:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option)),
 .options-search-results:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option) .options-search-empty {
     display: none;
