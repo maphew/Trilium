@@ -7,7 +7,6 @@ import { useEffect, useRef } from "preact/hooks";
 import { t } from "../../../services/i18n";
 import { DEFAULT_GUTTER_SIZE } from "../../../services/resizer";
 import utils, { isMobile } from "../../../services/utils";
-import ActionButton, { ActionButtonProps } from "../../react/ActionButton";
 import { ExtendedAdmonition } from "../../react/Admonition";
 import { Badge } from "../../react/Badge";
 import { useEffectiveReadOnly, useNoteBlob, useNoteLabel, useTriliumOption } from "../../react/hooks";
@@ -157,9 +156,9 @@ function PreviewContainer({ error, previewStale, previewContent, previewButtons 
                     text={t("split_editor.last_valid_render")}
                 />
             )}
-            <div className="btn-group btn-group-sm map-type-switcher content-floating-buttons preview-buttons bottom-right" role="group">
-                {previewButtons}
-            </div>
+            {/* Placed by whoever supplies them: they stand on a group that brings its own surface
+                and pins itself to a corner of the pane (see the SVG section of SplitEditor.css). */}
+            {previewButtons}
         </div>
     );
 }
@@ -180,15 +179,6 @@ function splitPreviewError(error: string): { summary: string; details?: string }
         summary: trimmed.slice(0, newlineIndex).trim(),
         details: trimmed.slice(newlineIndex + 1).trim() || undefined
     };
-}
-
-export function PreviewButton(props: Omit<ActionButtonProps, "titlePosition">) {
-    return <ActionButton
-        {...props}
-        className="tn-tool-button"
-        noIconActionClass
-        titlePosition="top"
-    />;
 }
 
 function useSplitOrientation(forceOrientation?: "horizontal" | "vertical") {

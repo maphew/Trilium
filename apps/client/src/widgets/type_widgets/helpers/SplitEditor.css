@@ -166,4 +166,11 @@ body.desktop .note-detail-split .note-detail-code-editor {
     height: 100%;
     max-width: 100% !important;
 }
+
+.note-detail-split.svg-editor .svg-preview-controls {
+    position: absolute;
+    inset-inline-end: var(--overlay-button-inset, 10px);
+    bottom: var(--overlay-button-inset, 10px);
+    z-index: 10;
+}
 /* #endregion */

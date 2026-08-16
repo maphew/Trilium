@@ -36,8 +36,8 @@ export default function OverlayToolbar({ className, titlePosition, children }: O
 }
 
 /**
- * A button on such a bar, dressed as the buttons floating over a rendered diagram are (see
- * SplitEditor's `PreviewButton`).
+ * A button on such a bar, dressed as the buttons floating over a relation map are (see
+ * {@link RelationMap}).
  *
  * Its tooltip opens the way the bar it stands on says, so that a bar at the foot of a canvas does not
  * open its tooltips off the bottom edge — overridable per button where one of them is placed

@@ -3214,7 +3214,10 @@
   },
   "svg": {
     "export_to_png": "The diagram could not be exported to PNG.",
-    "export_to_svg": "The diagram could not be exported to SVG."
+    "export_to_svg": "The diagram could not be exported to SVG.",
+    "zoom_in": "Zoom in",
+    "zoom_out": "Zoom out",
+    "reset_zoom": "Reset zoom"
   },
   "code_theme": {
     "title": "Appearance",
