@@ -12,7 +12,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks"
 
 import FNote from "../../../entities/fnote";
 import dialog from "../../../services/dialog";
-import { isExperimentalFeatureEnabled } from "../../../services/experimental_features";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
@@ -25,8 +24,6 @@ import MapToolbar, { EditToolbar } from "./MapToolbar";
 import { NoteBox } from "./NoteBox";
 import setupOverlays, { uniDirectionalOverlays } from "./overlays";
 import { getMousePosition, getZoom, idToNoteId, noteIdToId, promptForRelationName } from "./utils";
-
-const isNewLayout = isExperimentalFeatureEnabled("new-layout");
 
 interface Clipboard {
     noteId: string;
@@ -167,20 +164,18 @@ export default function RelationMap({ note, noteContext, ntxId, parentComponent 
                 ))}
             </JsPlumb>
 
-            {/* Stands on the map in either layout, unlike the camera below, so that the one thing
-                the map is edited by is on the map itself wherever the rest of the note's buttons
-                happen to live. */}
+            {/* Both groups stand on the map whatever layout the note is read in: what is done to a
+                canvas belongs on the canvas, and the bar of buttons above the note is not where the
+                reader is looking while dragging one. */}
             <EditToolbar
                 isReadOnly={isReadOnly}
                 onAddNote={() => parentComponent?.triggerEvent("relationMapCreateChildNote", { ntxId })}
             />
 
-            {isNewLayout && (
-                <MapToolbar
-                    panZoom={panZoom}
-                    onCommand={(command) => parentComponent?.triggerEvent(command, { ntxId })}
-                />
-            )}
+            <MapToolbar
+                panZoom={panZoom}
+                onCommand={(command) => parentComponent?.triggerEvent(command, { ntxId })}
+            />
         </div>
     );
 }

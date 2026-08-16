@@ -21,15 +21,15 @@ interface MapToolbarProps {
  *
  * They stand on the {@link OverlayControlGroup} the image viewer's zoom buttons stand on (see
  * {@link ImageViewer}), as the other two maps' controls and the diagram preview's do, in place of the
- * three floating buttons that were here before. The readout between the steps says the scale the way
+ * three buttons that floated above the note. The readout between the steps says the scale the way
  * those do — a hundred being the map drawn at its own size — and pressed, takes the map back there
  * and to the corner it started in, which is what the button wearing a crop mark did.
  *
- * What the three do is asked for as commands rather than done here, the same commands the floating
- * buttons above the map ask for (`RelationMapButtons` in FloatingButtonsDefinitions.tsx): the map is
- * driven from two places, and how far a step goes is settled in the one place that answers them. The
- * map itself is only read from — for the scale to show, and for the ends of its range, which is what
- * leaves a step with nothing left to give disabled. Absent until there is a map to read.
+ * What the three do is asked for as commands rather than done here — the same commands a script can
+ * trigger (`api.triggerCommand`), which is why they outlive the floating buttons that were the other
+ * caller. The map itself is only read from: for the scale to show, and for the ends of its range,
+ * which is what leaves a step with nothing left to give disabled. Absent until there is a map to
+ * read.
  */
 export default function MapToolbar({ panZoom, onCommand }: MapToolbarProps) {
     const scale = useMapScale(panZoom);
@@ -81,7 +81,7 @@ interface EditToolbarProps {
  * Adding a note is the one thing this map is edited by, so the button carries its name in words
  * rather than standing as a bare glyph, as the geo map's does. It wears the mark a note wears — the
  * very thing a press drops on the map, as the geo map's + wears the pin it drops — rather than the
- * folder-and-plus it was given among the floating buttons: a folder is what a note wearing no mark of
+ * folder-and-plus it wore among the floating buttons: a folder is what a note wearing no mark of
  * its own is drawn as once it has children (see `getNoteIcon` in commons), which is neither what this
  * makes nor what lands on the map. The adding is said by the words beside it, there being no
  * note-and-plus in the icon set, and that leaves the mark unlike the + of the zoom step opposite.
