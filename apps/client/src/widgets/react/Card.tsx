@@ -4,6 +4,7 @@ import { JSX, HTMLAttributes } from "preact";
 import { useContext } from "preact/hooks";
 import clsx from "clsx";
 
+import { FilterPassthrough, useFilterMatch, useIsFiltering } from "./filter";
 import { useUniqueName } from "./hooks";
 
 // #region Card Frame
@@ -44,15 +45,28 @@ export interface CardProps {
     actions?: ComponentChildren;
 }
 
+/**
+ * A titled group of sections.
+ *
+ * Under a `FilterProvider`, a card matching by its heading or description shows everything it holds,
+ * since asking for the group is asking for its contents. One that does not match keeps only the
+ * sections that matched on their own, and disappears when none did (both through CSS, so nothing is
+ * torn down and rebuilt as the query changes).
+ */
 export function Card(props: {children: ComponentChildren} & CardProps) {
-    return <div className={clsx("tn-card", props.className)}>
+    const matched = useFilterMatch(props.heading, props.description);
+    const filtering = useIsFiltering();
+
+    return <div className={clsx("tn-card", props.className, {
+                    "tn-card-filter-unmatched": filtering && !matched
+                })}>
         {(props.heading || props.actions) && <h5 class="tn-card-heading">
             {props.heading}
             {props.actions && <span className="tn-card-heading-actions">{props.actions}</span>}
         </h5>}
         {props.description && <p className="tn-card-description">{props.description}</p>}
         <div className="tn-card-body">
-            {props.children}
+            <FilterPassthrough when={matched}>{props.children}</FilterPassthrough>
         </div>
     </div>;
 }
@@ -149,15 +163,24 @@ export interface OptionCardSectionProps extends CardSectionProps {
 /**
  * A card section built as one setting: what it is on the leading edge, what changes it on the
  * trailing one, with the sentence explaining it below the label.
+ *
+ * Under a `FilterProvider`, the setting shows itself only while its label or description matches
+ * what is being looked for, and its sub-sections come with it: they are details of this setting
+ * rather than settings of their own, so they are neither shown without it nor matched separately.
  */
 export function OptionCardSection(props: OptionCardSectionProps) {
-    const {label, description, name, stacked, children, className, ...rest} = props;
+    const {label, description, name, stacked, children, className, subSections, ...rest} = props;
+    const matched = useFilterMatch(label, description);
     const id = useUniqueName(name);
     const bound = !!name && isValidElement(children);
 
+    if (!matched) return null;
+
     return <CardSection className={clsx("tn-card-option", className, {
                             "tn-card-option-stacked": stacked
-                        })} {...rest}>
+                        })}
+                        subSections={subSections && <FilterPassthrough>{subSections}</FilterPassthrough>}
+                        {...rest}>
         <label className="tn-card-option-label" for={bound ? id : undefined}>
             {/* Held together as one thing, because the label stacks the sentence under the name and
                 would otherwise stack whatever the name is made of too — a badge marking which

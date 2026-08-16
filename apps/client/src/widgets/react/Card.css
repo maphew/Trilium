@@ -173,3 +173,16 @@ body.mobile .tn-card-option:has(> .btn, > .slider) {
         }
     }
 }
+
+/* A card the filter did not ask for by name is left with the settings that matched: whatever else it
+   holds belongs to the card as a whole, and the card goes once no setting is left in it. Hidden
+   rather than dropped, so that what is filtered out keeps its state and comes back untouched. */
+.tn-card-filter-unmatched {
+    > .tn-card-body > :not(.tn-card-option, .tn-card-section-nested) {
+        display: none;
+    }
+
+    &:not(:has(> .tn-card-body > .tn-card-option)) {
+        display: none;
+    }
+}

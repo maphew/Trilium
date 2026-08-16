@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { renderInto } from "../../test/render";
 import { Card, CardFrame, CardSection, OptionCardSection } from "./Card";
+import { FilterProvider } from "./filter";
 
 describe("Card", () => {
     it("carries a heading, a sentence and controls of its own, and drops the heading line with nothing on it", () => {
@@ -140,5 +141,83 @@ describe("a segment that leads somewhere", () => {
 
         const own = renderInto(<OptionCardSection label="Backup" href="#a" noContainedNavigation />);
         expect(own.querySelector("a")?.hasAttribute("data-no-contained-navigation")).toBe(true);
+    });
+});
+
+describe("under a filter", () => {
+    const settings = (
+        <>
+            <OptionCardSection className="wrapping" label="Word wrapping" description="Wraps long lines." />
+            <OptionCardSection className="theme" label="Theme" />
+        </>
+    );
+
+    it("shows a setting only while it matches, by its label or by its sentence", () => {
+        const unfiltered = renderInto(settings);
+        expect(unfiltered.querySelectorAll(".tn-card-option")).toHaveLength(2);
+
+        const byLabel = renderInto(<FilterProvider query="theme">{settings}</FilterProvider>);
+        expect(byLabel.querySelector(".wrapping")).toBeNull();
+        expect(byLabel.querySelector(".theme")).not.toBeNull();
+
+        const bySentence = renderInto(<FilterProvider query="long lines">{settings}</FilterProvider>);
+        expect(bySentence.querySelector(".wrapping")).not.toBeNull();
+        expect(bySentence.querySelector(".theme")).toBeNull();
+    });
+
+    it("hands a card that matched by name everything it holds", () => {
+        const container = renderInto(
+            <FilterProvider query="appearance">
+                <Card heading="Appearance" description="How the app is drawn.">
+                    {settings}
+                    <CardSection className="picture">an illustrated choice</CardSection>
+                </Card>
+            </FilterProvider>
+        );
+
+        expect(container.querySelector(".tn-card")?.className).not.toContain("tn-card-filter-unmatched");
+        expect(container.querySelectorAll(".tn-card-option")).toHaveLength(2);
+        expect(container.querySelector(".picture")).not.toBeNull();
+    });
+
+    it("marks a card that did not match, so CSS can take it down to the settings that did", () => {
+        const container = renderInto(
+            <FilterProvider query="theme">
+                <Card heading="Appearance">
+                    {settings}
+                    <CardSection className="picture">an illustrated choice</CardSection>
+                </Card>
+            </FilterProvider>
+        );
+
+        expect(container.querySelector(".tn-card")?.className).toContain("tn-card-filter-unmatched");
+        expect(container.querySelector(".wrapping")).toBeNull();
+        expect(container.querySelector(".theme")).not.toBeNull();
+        // Still rendered: hiding it is the CSS rule's job, which happy-dom does not apply.
+        expect(container.querySelector(".picture")).not.toBeNull();
+    });
+
+    it("leaves a card unmarked while nothing is being filtered", () => {
+        const container = renderInto(<Card heading="Appearance">{settings}</Card>);
+
+        expect(container.querySelector(".tn-card")?.className).not.toContain("tn-card-filter-unmatched");
+    });
+
+    it("keeps a setting's sub-sections with it, instead of filtering them on their own", () => {
+        const subSections = [ <OptionCardSection key="size" className="size" label="Font size" /> ];
+        const card = (query: string) => renderInto(
+            <FilterProvider query={query}>
+                <Card heading="Appearance">
+                    <OptionCardSection label="Custom fonts" subSections={subSections} subSectionsVisible />
+                </Card>
+            </FilterProvider>
+        );
+
+        const withParent = card("custom fonts");
+        expect(withParent.querySelector(".size")).not.toBeNull();
+        // The filter sits between the section and what it nests, so the indent must survive it.
+        expect(withParent.querySelector(".size")?.className).toContain("tn-card-section-nested");
+
+        expect(card("font size").querySelector(".size")).toBeNull();
     });
 });
