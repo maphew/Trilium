@@ -2477,8 +2477,6 @@
     "rotate": "Rotieren",
     "picture-in-picture": "Bild-in-Bild",
     "exit-picture-in-picture": "Bild-in-Bild verlassen",
-    "fullscreen": "Vollbild",
-    "exit-fullscreen": "Vollbild verlassen",
     "unsupported-format": "Medienvorschau ist für dieses Format nicht verfügbar:\n{{mime}}",
     "zoom-to-fit": "Zoomen um auszufüllen",
     "zoom-reset": "Zoomen um auszufüllen zurücksetzen",

@@ -1187,7 +1187,7 @@
     "encryption_not_enabled": "バックアップパスワードは保存されましたが、暗号化を有効にできませんでした。暗号化を有効にするまで、バックアップは暗号化されません。",
     "compressed": "圧縮済み",
     "encrypted": "暗号化済み",
-    "backups_summary_other": "{{count}} 件のバックアップがあり、最新のものは {{age}} 前に作成されました。",
+    "backups_summary_other": "{{count}} 件のバックアップがあり、最新のものは {{age}} 前に作成されました",
     "restore_backup": "バックアップを復元",
     "standalone_heading": "Trilium のデータをバックアップ",
     "standalone_description": "ここでは、Trilium ナレッジベースのバックアップをダウンロードしたり、既存のバックアップを復元したりできます。",
@@ -1963,8 +1963,9 @@
     "successfully_created_lightly_anonymized_database": "軽く匿名化されたデータベースを {{anonymizedFilePath}} に作成",
     "no_anonymized_database_yet": "匿名化されたデータベースはまだありません。",
     "description": "問題のデバッグ時に開発者と共有するために、個人データを公開することなく、データベースの匿名化されたコピーを作成します。",
-    "anonymized_databases_location": "匿名化されたデータベースは {{- anonymizedFolder}} に保存されます。",
-    "download": "ダウンロード"
+    "anonymized_databases_location": "匿名化されたデータベースは <Folder/> に保存されています。",
+    "download": "ダウンロード",
+    "delete_confirmation": "匿名化されたデータベース {{fileName}} を削除しますか？ 元のデータベースには影響しません。"
   },
   "database_integrity_check": {
     "title": "データベースの整合性チェック",
@@ -2299,8 +2300,6 @@
     "webgl-unavailable": "WebGL が利用できないため、この地図を表示できません。ハードウェアアクセラレーションが有効になっていること、およびグラフィックスドライバーが最新であることを確認してください。",
     "zoom-in": "拡大",
     "zoom-out": "縮小",
-    "fullscreen": "全画面表示",
-    "exit-fullscreen": "全画面表示を終了",
     "create-child-note-cancel": "ノートの追加をキャンセル",
     "add-marker": "マーカーを追加",
     "add-marker-cancel": "キャンセル",
@@ -2730,8 +2729,6 @@
     "rotate": "回転",
     "picture-in-picture": "ピクチャーインピクチャー",
     "exit-picture-in-picture": "ピクチャーインピクチャーを終了",
-    "fullscreen": "全画面表示",
-    "exit-fullscreen": "全画面表示を終了",
     "unsupported-format": "このファイル形式ではメディアプレビューはご利用いただけません:\n{{mime}}",
     "zoom-to-fit": "ズームして全体を表示",
     "zoom-reset": "ズーム設定をリセット",
@@ -2937,8 +2934,6 @@
     "zoom-in": "拡大",
     "zoom-out": "縮小",
     "center-map": "マップを中央に配置",
-    "fullscreen": "全画面表示",
-    "exit-fullscreen": "全画面表示を終了",
     "direction-left": "左にブランチを配置",
     "direction-right": "右にブランチを配置",
     "direction-side": "両側にブランチを配置",
@@ -3065,7 +3060,25 @@
     "start_over": "最初からやり直す",
     "start_over_confirm": "Trilium はセットアップ画面に戻ります。そこで、新しいナレッジベースの作成、バックアップの復元、または別のデバイスからの同期を選択できます。まず現在のデータのバックアップが提示され、いずれかを選択するまでデータは削除されません。続行しますか？",
     "start_over_pending": "このサーバーを次回再起動すると、セットアップ画面が表示されます。準備ができたらサーバーを再起動するか、以下で「キャンセル」を選択して現状を維持してください。",
-    "start_over_cancel": "キャンセルして最初からやり直す"
+    "start_over_cancel": "キャンセルして最初からやり直す",
+    "info": "データベース情報",
+    "info_location": "保存場所",
+    "info_location_opfs": "ブラウザのオリジン プライベート ファイルシステム (OPFS)",
+    "info_created": "オリジナル作成日",
+    "info_content": "内容",
+    "info_notes_other": "{{count}} 件のノート",
+    "info_attachments_other": "{{count}} 件の添付ファイル",
+    "info_size": "サイズ",
+    "info_backup": "バックアップ",
+    "info_no_backup": "バックアップはまだありません",
+    "maintenance": "メンテナンス",
+    "analyze_space_usage": "スペース利用状況を分析",
+    "analyze_space_usage_description": "どのノートが最もスペースを占めているかを特定し、ノートのサイズをより明確に把握します。",
+    "analyze_space_usage_button": "分析",
+    "cleanup": "クリーンアップの実行",
+    "cleanup_description": "削除済みのノートや添付ファイルを消去し、変更履歴スナップショットを整理して画像を圧縮することで、データベースを軽量に保ちます。",
+    "related_backup": "バックアップ",
+    "related_backup_description": "データベースのバックアップ作成や復元、自動バックアップの管理を行います。"
   },
   "search": {
     "title": "検索",
@@ -3863,7 +3876,8 @@
   "database_file_list": {
     "size_on_disk": "ディスク上のサイズ {{size}}",
     "invalid_backup": "無効なバックアップファイル",
-    "unsupported_version": "サポートされていないバックアップファイル形式のバージョン"
+    "unsupported_version": "サポートされていないバックアップファイル形式のバージョン",
+    "delete": "削除"
   },
   "password_with_confirmation": {
     "password": "パスワード",

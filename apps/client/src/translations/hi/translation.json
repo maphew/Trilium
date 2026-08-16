@@ -2508,8 +2508,6 @@
     "rotate": "घुमाएं (Rotate)",
     "picture-in-picture": "पिक्चर-इन-पिक्चर",
     "exit-picture-in-picture": "पिक्चर-इन-पिक्चर से बाहर निकलें",
-    "fullscreen": "फुलस्क्रीन (F)",
-    "exit-fullscreen": "फुलस्क्रीन से बाहर निकलें",
     "unsupported-format": "इस फ़ाइल फॉर्मेट के लिए मीडिया प्रीव्यू उपलब्ध नहीं है:\n{{mime}}",
     "zoom-to-fit": "ज़ूम टू फिट",
     "zoom-reset": "ज़ूम रीसेट करें"

@@ -1928,8 +1928,6 @@
     "rotate": "Döndür",
     "picture-in-picture": "Kısmi ekran (resim içinde resim)",
     "exit-picture-in-picture": "Kısmi ekrandan çık",
-    "fullscreen": "Tam ekran",
-    "exit-fullscreen": "Tam ekrandan çık",
     "unsupported-format": "Bu dosya biçimi için medya önizlemesi mevcut değil:\n{{mime}}",
     "zoom-to-fit": "Sığdırmak için yakınlaştır",
     "zoom-reset": "Sığdırmaya sıfırla",
@@ -3098,8 +3096,6 @@
     "zoom-out": "Uzaklaştır",
     "enter-3d": "3B görünüme eğ\nHaritayı serbestçe eğmek için Ctrl'yi basılı tutup sürükleyin",
     "exit-3d": "Haritayı tekrar düz yatır",
-    "fullscreen": "Tam ekran",
-    "exit-fullscreen": "Tam ekrandan çık",
     "close-details": "Kapat",
     "marker-color": "İşaretçi rengi",
     "copy-coordinates": "Koordinatları kopyala"
@@ -3896,8 +3892,6 @@
     "zoom-out": "Uzaklaştır",
     "reset-zoom": "Yakınlaştırmayı sıfırla",
     "center-map": "Haritayı ortala",
-    "fullscreen": "Tam ekran",
-    "exit-fullscreen": "Tam ekrandan çık",
     "direction-left": "Dallar sola",
     "direction-right": "Dallar sağa",
     "direction-side": "Dallar her iki tarafa"
