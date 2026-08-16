@@ -392,7 +392,8 @@
     "background": "背景",
     "markdown-snippet": "Markdown 片段",
     "code-snippet": "代码片段",
-    "dashboard": "仪表板"
+    "dashboard": "仪表板",
+    "ai-quick-action": "AI 快捷操作"
   },
   "sql_init": {
     "db_not_initialized_desktop": "数据库尚未初始化，请依照屏幕提示操作。",
