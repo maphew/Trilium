@@ -167,10 +167,9 @@ body.desktop .note-detail-split .note-detail-code-editor {
     max-width: 100% !important;
 }
 
+/* Pinned by the corner it names (see `placement` on OverlayControlGroup); left here is only what it
+   stands above, which is the error card the preview may be dimmed behind. */
 .note-detail-split.svg-editor .svg-preview-controls {
-    position: absolute;
-    inset-inline-end: var(--overlay-button-inset, 10px);
-    bottom: var(--overlay-button-inset, 10px);
     z-index: 10;
 }
 /* #endregion */

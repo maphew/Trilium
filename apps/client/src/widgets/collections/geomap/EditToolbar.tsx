@@ -42,7 +42,7 @@ export default function EditToolbar({ isReadOnly, placing, onTogglePlacement, on
     if (!map) return null;
 
     return (
-        <OverlayControlGroup className="geo-edit-toolbar" overCanvas>
+        <OverlayControlGroup className="geo-edit-toolbar" placement="bottom-center" overCanvas>
             {/* The pin a note dropped on the map wears (see CHILD_NOTE_ICON in api.ts) — the button
                 shows the very thing it drops, which is also the ghost that will follow the pointer
                 once armed. The words beside it are what names the button; the tooltip says at more

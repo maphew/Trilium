@@ -42,7 +42,7 @@ export default function MapToolbar({ mind }: MapToolbarProps) {
     const zoomedOut = stepZoom(scale, -1, limits);
 
     return (
-        <OverlayControlGroup className="mind-map-view-toolbar" overCanvas>
+        <OverlayControlGroup className="mind-map-view-toolbar" placement="bottom-end" overCanvas>
             {/* Leaving focus mode is about the map rather than about any one node, so it stands
                 here rather than in the menu a node is right-clicked for — which is where Mind
                 Elixir kept it, offered on every node whether the map was narrowed or not. It is

@@ -172,7 +172,7 @@ function PreviewControls({ panZoom }: { panZoom: SvgPanZoom.Instance | undefined
     if (!panZoom) return null;
 
     return (
-        <OverlayControlGroup className="svg-preview-controls">
+        <OverlayControlGroup className="svg-preview-controls" placement="bottom-end">
             <OverlayControlButton
                 title={t("svg.zoom_out")}
                 icon="bx-minus-circle"

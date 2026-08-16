@@ -1,3 +1,5 @@
+import "./OverlayControlGroup.css";
+
 import clsx from "clsx";
 import { type ComponentChildren, createContext, type HTMLAttributes } from "preact";
 import { useContext, useMemo, useRef } from "preact/hooks";
@@ -6,10 +8,28 @@ import { t } from "../../services/i18n";
 import type { ActionButtonProps } from "./ActionButton";
 import { useStaticTooltip } from "./hooks";
 
+/**
+ * Where a group stands over what it is put on: which edge of it, and where along that edge. Every
+ * group over the app's content stands at one of these six.
+ */
+export type OverlayPlacement = `${"top" | "bottom"}-${"start" | "center" | "end"}`;
+
 interface OverlayControlGroupProps {
-    /** Where the group stands and what else is peculiar to it, styled by whoever puts it there. */
+    /**
+     * Which corner — or middle of which edge — the group is pinned to, over the nearest positioned
+     * ancestor. How much room it keeps from the edges is the caller's to name, through
+     * `--overlay-group-inset` or one of its per-edge forms, and so is what the group stands above
+     * (`z-index`), that being about the company it keeps rather than about the group. Left out, the
+     * group is laid out in the flow like anything else and placing it is the caller's business
+     * entirely.
+     */
+    placement?: OverlayPlacement;
+    /** What is peculiar to this group, styled by whoever puts it there. */
     className?: string;
-    /** Which way the buttons' tooltips open — away from the edge the group is pinned to. */
+    /**
+     * Which way the buttons' tooltips open. Follows the placement by default — away from the edge the
+     * group is pinned to — and is only worth passing for a group placed by hand.
+     */
     titlePosition?: ActionButtonProps["titlePosition"];
     /**
      * Keeps a press on the group from reaching what it stands on, for a group over a canvas that is
@@ -23,25 +43,39 @@ interface OverlayControlGroupProps {
  * A run of buttons standing over content, joined edge to edge into one segmented chip: the image
  * viewer's zoom steps, and the like.
  *
- * The surface, the seams and the rounding of the two ends come from the theme (see the overlay
- * buttons in theme-next/forms.css); where the group stands is left to the caller, which is the one
- * thing that differs between them.
+ * The surface, the seams and the rounding of the two ends are the theme's to give (see the overlay
+ * buttons in theme-next/forms.css). The standing is the group's own, and comes with it
+ * (OverlayControlGroup.css): a group names the corner it is pinned to (see {@link OverlayPlacement})
+ * rather than each site pinning itself afresh. What is left to the caller is the room to keep from
+ * the edges and what the group stands above, both handed over as properties — the first because a
+ * map in fullscreen keeps clear of what the screen keeps for itself, the second because it is about
+ * what else is in that corner.
  *
  * Not to be confused with {@link OverlayToolbar}, the other thing that floats over content: that one
  * is a bar of separate buttons on a pane of glass, and it brings its own surface with it. This is a
  * single chip with no gaps, and it is what the app's zoom and navigation controls are built from.
  */
-export default function OverlayControlGroup({ className, titlePosition, overCanvas, children }: OverlayControlGroupProps) {
+export default function OverlayControlGroup({ placement, className, titlePosition, overCanvas, children }: OverlayControlGroupProps) {
     return (
         <div
             className={clsx("tn-overlay-control-group", className)}
+            data-placement={placement}
             onMouseDown={overCanvas ? (e) => e.stopPropagation() : undefined}
         >
-            <TooltipDirection.Provider value={titlePosition ?? "top"}>
+            <TooltipDirection.Provider value={titlePosition ?? tooltipDirectionFor(placement)}>
                 {children}
             </TooltipDirection.Provider>
         </div>
     );
+}
+
+/**
+ * Which way a group's tooltips open, given where it stands: away from the edge it is pinned to, so
+ * that a group at the head of the content does not open its tooltips off the top of it. A group
+ * placed by hand is taken to stand at the foot, which is where all but one of them do.
+ */
+function tooltipDirectionFor(placement: OverlayPlacement | undefined): ActionButtonProps["titlePosition"] {
+    return placement?.startsWith("top-") ? "bottom" : "top";
 }
 
 interface OverlayControlButtonProps extends Pick<HTMLAttributes<HTMLButtonElement>, "onClick" | "aria-label"> {

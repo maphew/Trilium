@@ -183,6 +183,46 @@ describe("OverlayControlGroup", () => {
         expect(tooltipFor("Zoom in")?.placement).toBe("top");
     });
 
+    it("says where it stands, for its own stylesheet to pin it there", () => {
+        mount(
+            <OverlayControlGroup className="my-group" placement="bottom-center">
+                <OverlayControlButton title="Add note" icon="bx-folder-plus" />
+            </OverlayControlGroup>
+        );
+
+        expect(container.querySelector(".my-group")?.getAttribute("data-placement")).toBe("bottom-center");
+    });
+
+    it("stays where it is put where it names no place, rather than being pinned to a corner it never asked for", () => {
+        mount(
+            <OverlayControlGroup className="my-group">
+                <OverlayControlButton title="Add note" icon="bx-folder-plus" />
+            </OverlayControlGroup>
+        );
+
+        expect(container.querySelector(".my-group")?.hasAttribute("data-placement")).toBe(false);
+    });
+
+    it("opens the tooltips of a group at the head downwards, away from the edge it stands at", () => {
+        mount(
+            <OverlayControlGroup placement="top-end">
+                <OverlayControlButton title="Show keyboard shortcuts" icon="bx-help-circle" />
+            </OverlayControlGroup>
+        );
+
+        expect(tooltipFor("Show keyboard shortcuts")?.placement).toBe("bottom");
+    });
+
+    it("lets a caller open the tooltips against the placement where it has reason to", () => {
+        mount(
+            <OverlayControlGroup placement="top-end" titlePosition="right">
+                <OverlayControlButton title="Show keyboard shortcuts" icon="bx-help-circle" />
+            </OverlayControlGroup>
+        );
+
+        expect(tooltipFor("Show keyboard shortcuts")?.placement).toBe("right");
+    });
+
     it("keeps the same tooltip config across renders that don't change it, so it isn't rebuilt", () => {
         const group = (label: string) => (
             <OverlayControlGroup>

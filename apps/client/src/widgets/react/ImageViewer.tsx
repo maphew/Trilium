@@ -185,11 +185,11 @@ export default function ImageViewer({ src, imgClassName, alt = "", minScale = 0.
             )}
 
             {!isMobile() && loaded && (
-                <ShortcutHintButton className="image-viewer-hint-button" />
+                <ShortcutHintButton />
             )}
 
             {!isMobile() && loaded && (
-                <OverlayControlGroup className="image-viewer-controls">
+                <OverlayControlGroup className="image-viewer-controls" placement="bottom-end">
                     <OverlayControlButton
                         title={t("image_buttons.zoom_out")}
                         icon="bx-minus-circle"

@@ -84,7 +84,7 @@ export default function SiblingNavigator({ note, noteContext, viewScope, sibling
     if (!navigation) return null;
 
     return (
-        <OverlayControlGroup className="sibling-navigator">
+        <OverlayControlGroup className="sibling-navigator" placement="bottom-start">
             <OverlayControlButton
                 title={t(previousTooltipI18nKey, { title: navigation.previousTitle })}
                 icon="bx-chevron-left"

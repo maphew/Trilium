@@ -37,7 +37,7 @@ export default function MapToolbar({ panZoom, onCommand }: MapToolbarProps) {
     if (!panZoom) return null;
 
     return (
-        <OverlayControlGroup className="relation-map-toolbar">
+        <OverlayControlGroup className="relation-map-toolbar" placement="bottom-end">
             <OverlayControlButton
                 title={t("relation_map_buttons.zoom_out_title")}
                 icon="bx-minus-circle"
@@ -85,7 +85,7 @@ interface EditToolbarProps {
  */
 export function EditToolbar({ isReadOnly, onAddNote }: EditToolbarProps) {
     return (
-        <OverlayControlGroup className="relation-map-edit-toolbar">
+        <OverlayControlGroup className="relation-map-edit-toolbar" placement="bottom-center">
             <OverlayControlButton
                 title={t("relation_map_buttons.create_child_note_title")}
                 icon="bx-folder-plus"

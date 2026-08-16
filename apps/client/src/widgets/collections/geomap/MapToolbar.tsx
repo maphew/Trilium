@@ -53,7 +53,7 @@ export default function MapToolbar() {
     const current = zoom ?? map.getZoom();
 
     return (
-        <OverlayControlGroup className="geo-map-toolbar" overCanvas>
+        <OverlayControlGroup className="geo-map-toolbar" placement="bottom-end" overCanvas>
             {/* Its face names the view it offers, not the one in force — Google Maps's way round. */}
             <OverlayControlButton
                 title={isTilted ? t("geo-map.exit-3d") : t("geo-map.enter-3d")}

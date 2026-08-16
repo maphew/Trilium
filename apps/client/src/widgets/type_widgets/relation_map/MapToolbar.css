@@ -1,18 +1,8 @@
+/* Both groups are pinned by the corner they name (see `placement` on OverlayControlGroup); left here
+   is only what they stand above, which is the map and the boxes on it. */
 .relation-map-wrapper .relation-map-toolbar,
 .relation-map-wrapper .relation-map-edit-toolbar {
-    position: absolute;
-    bottom: var(--overlay-button-inset, 10px);
     z-index: 10;
-}
-
-.relation-map-wrapper .relation-map-toolbar {
-    inset-inline-end: var(--overlay-button-inset, 10px);
-}
-
-.relation-map-wrapper .relation-map-edit-toolbar {
-    inset-inline: var(--overlay-button-inset, 10px);
-    margin-inline: auto;
-    width: fit-content;
 }
 
 .relation-map-wrapper .relation-map-add-note-button {

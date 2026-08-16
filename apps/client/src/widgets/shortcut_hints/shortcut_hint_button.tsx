@@ -20,9 +20,9 @@ import { ParentComponent } from "../react/react_utils.js";
  */
 export default function ShortcutHintButton({ className }: { className?: string }) {
     return (
-        // The group stands at the head of what it is put over, so its tooltip opens downwards, away
-        // from that edge.
-        <OverlayControlGroup className={clsx("shortcut-hint-button-group", className)} titlePosition="bottom">
+        // Standing at the head of what it is put over, its tooltip opens downwards of its own accord,
+        // away from that edge (see `placement` on OverlayControlGroup).
+        <OverlayControlGroup className={clsx("shortcut-hint-button-group", className)} placement="top-end">
             <ShortcutHintOverlayButton />
         </OverlayControlGroup>
     );
