@@ -191,7 +191,7 @@ function Group({ heading, children }: { heading: string, children: ComponentChil
 
 let mounts = 0;
 
-/** Sits inside the group without filtering itself, so its mounts tell whether the group remounted. */
+/** Sits in the group without filtering itself, so its mounts tell whether the group remounted. */
 function Persistent() {
     useEffect(() => {
         mounts++;

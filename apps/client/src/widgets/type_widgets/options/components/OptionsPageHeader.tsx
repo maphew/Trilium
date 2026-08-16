@@ -38,7 +38,9 @@ interface OptionsPageHeaderProps {
  * for options pages. The sticky-bar styling differs per context (see the CSS), but each page owns its
  * header the same way in all of them.
  */
-export default function OptionsPageHeader({ actions, below, helpUrl, title, icon }: OptionsPageHeaderProps) {
+export default function OptionsPageHeader({
+    actions, below, helpUrl, title, icon
+}: OptionsPageHeaderProps) {
     const { note } = useNoteContext();
     const shownTitle = title ?? note?.title;
     const shownIcon = icon ?? note?.getIcon();

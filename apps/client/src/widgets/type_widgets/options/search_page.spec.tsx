@@ -110,7 +110,8 @@ describe("OptionsSearchPage", () => {
 
     it("names the page each result belongs to", async () => {
         const container = await renderSearch("theme");
-        const titles = [ ...container.querySelectorAll(".options-search-page-title") ].map((el) => el.textContent);
+        const titles = [ ...container.querySelectorAll(".options-search-page-title") ]
+            .map((el) => el.textContent);
 
         expect(titles).toContain("Appearance");
     });

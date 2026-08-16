@@ -11,14 +11,16 @@ import { renderInto } from "../../../../test/render";
 import SettingsSearch from "./SettingsSearch";
 
 describe("SettingsSearch", () => {
-    it("carries what is being looked for, and offers to clear it only once there is something to clear", () => {
+    it("carries what is being looked for, and offers to clear it only once there is text", () => {
         const onChange = vi.fn();
 
         const empty = renderInto(<SettingsSearch query="" onChange={onChange} onFocus={vi.fn()} />);
         expect(empty.querySelector("input")?.value).toBe("");
         expect(empty.querySelector(".settings-search-clear")).toBeNull();
 
-        const filled = renderInto(<SettingsSearch query="backup" onChange={onChange} onFocus={vi.fn()} />);
+        const filled = renderInto(
+            <SettingsSearch query="backup" onChange={onChange} onFocus={vi.fn()} />
+        );
         expect(filled.querySelector("input")?.value).toBe("backup");
 
         filled.querySelector<HTMLButtonElement>(".settings-search-clear")?.click();

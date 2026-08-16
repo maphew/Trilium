@@ -147,7 +147,11 @@ describe("a segment that leads somewhere", () => {
 describe("under a filter", () => {
     const settings = (
         <>
-            <OptionCardSection className="wrapping" label="Word wrapping" description="Wraps long lines." />
+            <OptionCardSection
+                className="wrapping"
+                label="Word wrapping"
+                description="Wraps long lines."
+            />
             <OptionCardSection className="theme" label="Theme" />
         </>
     );
@@ -160,7 +164,9 @@ describe("under a filter", () => {
         expect(byLabel.querySelector(".wrapping")).toBeNull();
         expect(byLabel.querySelector(".theme")).not.toBeNull();
 
-        const bySentence = renderInto(<FilterProvider query="long lines">{settings}</FilterProvider>);
+        const bySentence = renderInto(
+            <FilterProvider query="long lines">{settings}</FilterProvider>
+        );
         expect(bySentence.querySelector(".wrapping")).not.toBeNull();
         expect(bySentence.querySelector(".theme")).toBeNull();
     });
@@ -175,7 +181,7 @@ describe("under a filter", () => {
             </FilterProvider>
         );
 
-        expect(container.querySelector(".tn-card")?.className).not.toContain("tn-card-filter-unmatched");
+        expect(classesOf(container, ".tn-card")).not.toContain("tn-card-filter-unmatched");
         expect(container.querySelectorAll(".tn-card-option")).toHaveLength(2);
         expect(container.querySelector(".picture")).not.toBeNull();
     });
@@ -190,7 +196,7 @@ describe("under a filter", () => {
             </FilterProvider>
         );
 
-        expect(container.querySelector(".tn-card")?.className).toContain("tn-card-filter-unmatched");
+        expect(classesOf(container, ".tn-card")).toContain("tn-card-filter-unmatched");
         expect(container.querySelector(".wrapping")).toBeNull();
         expect(container.querySelector(".theme")).not.toBeNull();
         // Still rendered: hiding it is the CSS rule's job, which happy-dom does not apply.
@@ -200,7 +206,7 @@ describe("under a filter", () => {
     it("leaves a card unmarked while nothing is being filtered", () => {
         const container = renderInto(<Card heading="Appearance">{settings}</Card>);
 
-        expect(container.querySelector(".tn-card")?.className).not.toContain("tn-card-filter-unmatched");
+        expect(classesOf(container, ".tn-card")).not.toContain("tn-card-filter-unmatched");
     });
 
     it("brings a setting's sub-sections along when the setting itself matched", () => {
@@ -212,31 +218,33 @@ describe("under a filter", () => {
         expect(container.querySelector(".tn-card-option-filter-unmatched")).toBeNull();
     });
 
-    it("keeps a setting whose sub-section matched, so the detail is read under what it belongs to", () => {
+    it("keeps a setting whose sub-section matched, so the detail is read under it", () => {
         const container = fontsCard("font size");
 
         expect(container.querySelector(".size")).not.toBeNull();
         // Kept for the sub-section's sake rather than its own, which is what the mark says: CSS
         // takes it down again once nothing is left beside it, and happy-dom applies no CSS.
-        expect(container.querySelector(".fonts")?.className).toContain("tn-card-option-filter-unmatched");
+        expect(classesOf(container, ".fonts")).toContain("tn-card-option-filter-unmatched");
     });
 
     it("leaves a setting nothing to stand on once none of its sub-sections matched", () => {
         const container = fontsCard("nothing at all");
 
         expect(container.querySelector(".size")).toBeNull();
-        expect(container.querySelector(".fonts")?.className).toContain("tn-card-option-filter-unmatched");
+        expect(classesOf(container, ".fonts")).toContain("tn-card-option-filter-unmatched");
     });
 
     /** A setting with a single detail under it, the pairing the filter has to tell apart. */
     function fontsCard(query: string) {
+        const fontSize = <OptionCardSection key="size" className="size" label="Font size" />;
+
         return renderInto(
             <FilterProvider query={query}>
                 <Card heading="Appearance">
                     <OptionCardSection
                         className="fonts"
                         label="Custom fonts"
-                        subSections={[ <OptionCardSection key="size" className="size" label="Font size" /> ]}
+                        subSections={[ fontSize ]}
                         subSectionsVisible
                     />
                 </Card>
@@ -244,3 +252,7 @@ describe("under a filter", () => {
         );
     }
 });
+
+function classesOf(container: HTMLElement, selector: string) {
+    return container.querySelector(selector)?.className;
+}

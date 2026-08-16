@@ -197,7 +197,9 @@ export function isOptionPageVisibleOnPlatform(page: FNote) {
  * resets both scroll containers in use: the `.modal-body` on the desktop sidebar layout and the
  * `.note-detail` pane in the mobile master-detail flow.
  */
-function SettingsScrollReset({ modalRef, searching }: { modalRef: RefObject<HTMLDivElement>, searching: boolean }) {
+function SettingsScrollReset(
+    { modalRef, searching }: { modalRef: RefObject<HTMLDivElement>, searching: boolean }
+) {
     const { noteId } = useNoteContext();
     useLayoutEffect(() => {
         const modal = modalRef.current;
@@ -210,7 +212,7 @@ function SettingsScrollReset({ modalRef, searching }: { modalRef: RefObject<HTML
 
 interface SettingsSidebarProps {
     searchQuery: string;
-    /** Whether the search is what the dialog is showing, in which case no page is the active one. */
+    /** Whether the search is showing, in which case no page in the list is the active one. */
     searching: boolean;
     onSearchChange(query: string): void;
     onSearchFocus(): void;
@@ -223,7 +225,9 @@ interface SettingsSidebarProps {
  * context via the surrounding provider) so the highlighted entry tracks navigation. The link clicks
  * themselves are handled by the dialog's {@link useContainedLinkNavigation} interceptor.
  */
-function SettingsSidebar({ searchQuery, searching, onSearchChange, onSearchFocus }: SettingsSidebarProps) {
+function SettingsSidebar({
+    searchQuery, searching, onSearchChange, onSearchFocus
+}: SettingsSidebarProps) {
     const { noteId } = useNoteContext();
 
     return (

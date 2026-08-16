@@ -27,8 +27,8 @@ const PAGES_LEFT_OUT = new Set([ "_optionsContentManager" ]);
 
 /**
  * The settings search: every options page at once, cut down to the settings matching what is being
- * looked for. Reached by focusing the field in the sidebar rather than from the list of pages, since
- * it is a way of finding a setting rather than a page of its own.
+ * looked for. Reached by focusing the field in the sidebar rather than from the list of pages,
+ * since it is a way of finding a setting rather than a page of its own.
  *
  * The pages are mounted as they are, and each takes care of hiding what does not match through
  * {@link FilterProvider}. Mounting them costs a moment, which is what the spinner covers; from then
@@ -53,8 +53,8 @@ export default function OptionsSearchPage({ query }: { query: string }) {
                 <p className="options-search-hint">{t("options.search_hint")}</p>
             )}
 
-            {/* Kept mounted while there is nothing to look for, so that the first search is as quick
-                as every one after it. */}
+            {/* Kept mounted while there is nothing to look for, so that the first search is as
+                quick as every one after it. */}
             <FilterProvider query={filter}>
                 <div className="options-search-results" hidden={!filter}>
                     <SearchedPages />
@@ -84,7 +84,9 @@ function SearchedPages() {
     const { noteContext, parentComponent, ntxId, viewScope } = useNoteContext();
     const pageProps = { noteContext, parentComponent, ntxId, viewScope, isVisible: true };
 
-    return <>{pages.map((page) => <SearchedPage key={page.noteId} page={page} {...pageProps} />)}</>;
+    return <>
+        {pages.map((page) => <SearchedPage key={page.noteId} page={page} {...pageProps} />)}
+    </>;
 }
 
 /** One page's cards, under the name of the page they belong to, so a result says where it lives. */
@@ -105,8 +107,8 @@ function SearchedPage({ page, ...pageProps }: { page: FNote } & Omit<TypeWidgetP
 }
 
 /**
- * False for the first render and true from the next one, which gives the spinner a chance to be seen
- * before the pages are built and the browser is busy with them.
+ * False for the first render and true from the next one, which gives the spinner a chance to be
+ * seen before the pages are built and the browser is busy with them.
  */
 function useDeferredMount() {
     const [ ready, setReady ] = useState(false);

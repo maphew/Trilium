@@ -31,9 +31,9 @@ interface FilterProviderProps {
  * Filters everything rendered below it by `query`, without those components needing to know where
  * the query came from or that a filter exists at all.
  *
- * Each participating component asks {@link useFilterMatch} whether its own text matches, and returns
- * `null` when it does not. Components that do not ask are left alone, so a filter can be added over
- * an existing tree and only the parts opted in respond to it.
+ * Each participating component asks {@link useFilterMatch} whether its own text matches, and
+ * returns `null` when it does not. Components that do not ask are left alone, so a filter can be
+ * added over an existing tree and only the parts opted in respond to it.
  *
  * Nothing here is debounced: pass a value already settled with `useDebouncedValue` when the filter
  * covers enough content that filtering on every keystroke would be felt.
@@ -109,8 +109,8 @@ export function useFilterState(): FilterState | null {
 }
 
 /**
- * Whether anything is being filtered here. Useful for styling a component differently while a filter
- * is running, for example to hide a group left empty by it through CSS rather than in code.
+ * Whether anything is being filtered here. Useful for styling a component differently while a
+ * filter is running, for example to hide a group left empty by it through CSS rather than in code.
  */
 export function useIsFiltering(): boolean {
     return useContext(FilterContext) !== null;

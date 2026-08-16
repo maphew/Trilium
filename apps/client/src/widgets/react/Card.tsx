@@ -48,10 +48,10 @@ export interface CardProps {
 /**
  * A titled group of sections.
  *
- * Under a `FilterProvider`, a card matching by its heading or description shows everything it holds,
- * since asking for the group is asking for its contents. One that does not match keeps only the
- * sections that matched on their own, and disappears when none did (both through CSS, so nothing is
- * torn down and rebuilt as the query changes).
+ * Under a `FilterProvider`, a card matching by its heading or description shows everything it
+ * holds, since asking for the group is asking for its contents. One that does not match keeps only
+ * the sections that matched on their own, and disappears when none did (both through CSS, so
+ * nothing is torn down and rebuilt as the query changes).
  */
 export function Card(props: {children: ComponentChildren} & CardProps) {
     const matched = useFilterMatch(props.heading, props.description);
@@ -182,7 +182,9 @@ export function OptionCardSection(props: OptionCardSectionProps) {
                             "tn-card-option-stacked": stacked,
                             "tn-card-option-filter-unmatched": !matched
                         })}
-                        subSections={subSections && <FilterPassthrough when={matched}>{subSections}</FilterPassthrough>}
+                        subSections={subSections && (
+                            <FilterPassthrough when={matched}>{subSections}</FilterPassthrough>
+                        )}
                         {...rest}>
         <label className="tn-card-option-label" for={bound ? id : undefined}>
             {/* Held together as one thing, because the label stacks the sentence under the name and
