@@ -38,10 +38,11 @@
  *
  * Something is left when a card matched by name, or when a single setting inside one did — the same
  * test decides whether a block is worth keeping, whether a page is worth naming, and whether the
- * search came back with anything at all.
+ * search came back with anything at all. A setting kept only for the details under it does not
+ * count, since it is shown for their sake and goes with them (see `Card.css`).
  */
-.options-search-page > :not(.tn-card, .options-search-page-title):not(:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option)),
-.options-search-page:not(:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option)),
-.options-search-results:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option) .options-search-empty {
+.options-search-page > :not(.tn-card, .options-search-page-title):not(:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option:not(.tn-card-option-filter-unmatched))),
+.options-search-page:not(:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option:not(.tn-card-option-filter-unmatched))),
+.options-search-results:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option:not(.tn-card-option-filter-unmatched)) .options-search-empty {
     display: none;
 }

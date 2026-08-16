@@ -203,21 +203,44 @@ describe("under a filter", () => {
         expect(container.querySelector(".tn-card")?.className).not.toContain("tn-card-filter-unmatched");
     });
 
-    it("keeps a setting's sub-sections with it, instead of filtering them on their own", () => {
-        const subSections = [ <OptionCardSection key="size" className="size" label="Font size" /> ];
-        const card = (query: string) => renderInto(
+    it("brings a setting's sub-sections along when the setting itself matched", () => {
+        const container = fontsCard("custom fonts");
+
+        expect(container.querySelector(".size")).not.toBeNull();
+        // The filter sits between the section and what it nests, so the indent must survive it.
+        expect(container.querySelector(".size")?.className).toContain("tn-card-section-nested");
+        expect(container.querySelector(".tn-card-option-filter-unmatched")).toBeNull();
+    });
+
+    it("keeps a setting whose sub-section matched, so the detail is read under what it belongs to", () => {
+        const container = fontsCard("font size");
+
+        expect(container.querySelector(".size")).not.toBeNull();
+        // Kept for the sub-section's sake rather than its own, which is what the mark says: CSS
+        // takes it down again once nothing is left beside it, and happy-dom applies no CSS.
+        expect(container.querySelector(".fonts")?.className).toContain("tn-card-option-filter-unmatched");
+    });
+
+    it("leaves a setting nothing to stand on once none of its sub-sections matched", () => {
+        const container = fontsCard("nothing at all");
+
+        expect(container.querySelector(".size")).toBeNull();
+        expect(container.querySelector(".fonts")?.className).toContain("tn-card-option-filter-unmatched");
+    });
+
+    /** A setting with a single detail under it, the pairing the filter has to tell apart. */
+    function fontsCard(query: string) {
+        return renderInto(
             <FilterProvider query={query}>
                 <Card heading="Appearance">
-                    <OptionCardSection label="Custom fonts" subSections={subSections} subSectionsVisible />
+                    <OptionCardSection
+                        className="fonts"
+                        label="Custom fonts"
+                        subSections={[ <OptionCardSection key="size" className="size" label="Font size" /> ]}
+                        subSectionsVisible
+                    />
                 </Card>
             </FilterProvider>
         );
-
-        const withParent = card("custom fonts");
-        expect(withParent.querySelector(".size")).not.toBeNull();
-        // The filter sits between the section and what it nests, so the indent must survive it.
-        expect(withParent.querySelector(".size")?.className).toContain("tn-card-section-nested");
-
-        expect(card("font size").querySelector(".size")).toBeNull();
-    });
+    }
 });

@@ -182,7 +182,15 @@ body.mobile .tn-card-option:has(> .btn, > .slider) {
         display: none;
     }
 
-    &:not(:has(> .tn-card-body > .tn-card-option)) {
+    &:not(:has(> .tn-card-body > .tn-card-option:not(.tn-card-option-filter-unmatched))) {
         display: none;
     }
+}
+
+/* A setting kept only for the details under it stands on whether one of them is still there. They
+   follow it as siblings, and a detail that did not match leaves nothing behind, so the one left
+   next to it is the one that matched. Details that never take part in a filter (a plain section
+   rather than a setting) are not what it stands on, or it would stay for every search. */
+.tn-card-option-filter-unmatched:not(:has(+ .tn-card-option.tn-card-section-nested)) {
+    display: none;
 }

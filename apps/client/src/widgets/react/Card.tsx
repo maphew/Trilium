@@ -165,8 +165,10 @@ export interface OptionCardSectionProps extends CardSectionProps {
  * trailing one, with the sentence explaining it below the label.
  *
  * Under a `FilterProvider`, the setting shows itself only while its label or description matches
- * what is being looked for, and its sub-sections come with it: they are details of this setting
- * rather than settings of their own, so they are neither shown without it nor matched separately.
+ * what is being looked for. A setting that matched brings its sub-sections with it, since they are
+ * details of it rather than settings of their own; one that did not stays only for as long as a
+ * sub-section of its own matched, so that the detail found is read under the setting it belongs to.
+ * That last part is settled in CSS, from whether any sub-section is still there.
  */
 export function OptionCardSection(props: OptionCardSectionProps) {
     const {label, description, name, stacked, children, className, subSections, ...rest} = props;
@@ -174,12 +176,13 @@ export function OptionCardSection(props: OptionCardSectionProps) {
     const id = useUniqueName(name);
     const bound = !!name && isValidElement(children);
 
-    if (!matched) return null;
+    if (!matched && !subSections) return null;
 
     return <CardSection className={clsx("tn-card-option", className, {
-                            "tn-card-option-stacked": stacked
+                            "tn-card-option-stacked": stacked,
+                            "tn-card-option-filter-unmatched": !matched
                         })}
-                        subSections={subSections && <FilterPassthrough>{subSections}</FilterPassthrough>}
+                        subSections={subSections && <FilterPassthrough when={matched}>{subSections}</FilterPassthrough>}
                         {...rest}>
         <label className="tn-card-option-label" for={bound ? id : undefined}>
             {/* Held together as one thing, because the label stacks the sentence under the name and
