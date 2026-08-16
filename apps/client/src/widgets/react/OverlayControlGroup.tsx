@@ -36,8 +36,12 @@ export default function OverlayControlGroup({ className, titlePosition, children
 }
 
 interface OverlayControlButtonProps extends Pick<HTMLAttributes<HTMLButtonElement>, "onClick"> {
-    /** What the button does: shown as its tooltip, and read out as its accessible name. */
-    title: string;
+    /**
+     * What the button does: shown as its tooltip, and read out as its accessible name. A readout that
+     * says what it is through its own children — an index, a percentage — needs none, and is left to
+     * be named by what it shows.
+     */
+    title?: string;
     /**
      * The boxicons name of the mark it wears (`bx-plus-circle`), for a button that speaks in a glyph.
      * Given one, the button is drawn at an icon's width; without one it is drawn at a word's, and

@@ -53,6 +53,20 @@ describe("OverlayControlGroup", () => {
         expect(text.textContent).toBe("100%");
     });
 
+    it("leaves a readout to be named by what it shows, with nothing to say on hover", () => {
+        mount(
+            <OverlayControlGroup>
+                <OverlayControlButton className="my-readout" disabled>3/12</OverlayControlButton>
+            </OverlayControlGroup>
+        );
+
+        const readout = container.querySelector("button");
+        expect(readout?.hasAttribute("aria-label")).toBe(false);
+        expect(readout?.textContent).toBe("3/12");
+        // No title, so the hook finds nothing to build a tooltip from.
+        expect(staticTooltipSpy.mock.calls.at(-1)?.[1]?.title).toBeUndefined();
+    });
+
     it("marks a button held down or refused when asked to", () => {
         mount(
             <OverlayControlGroup>
