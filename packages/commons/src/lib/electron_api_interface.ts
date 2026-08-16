@@ -78,13 +78,16 @@ export interface ElectronWindowApi {
     /**
      * Customizes the Windows and Linux native title bar overlay (the area containing the
      * minimize / maximize / close buttons). `height` also controls their vertical placement,
-     * since the buttons are centred within the overlay.
+     * since the buttons are centred within the overlay. It is given in device-independent
+     * pixels, which the page zoom does not scale — see {@link setWindowButtonPosition}.
      */
     setTitleBarOverlay(options: { color: string; symbolColor: string; height?: number }): void;
 
     /**
-     * Repositions the macOS traffic-light window buttons.
-     * Coordinates are in CSS pixels relative to the window's top-left corner.
+     * Repositions the macOS traffic-light window buttons. Coordinates are relative to the
+     * window's top-left corner and given in device-independent pixels: the buttons are drawn by
+     * the system rather than by the page, so unlike the surrounding chrome they are unaffected by
+     * the page zoom factor and callers have to scale the offsets themselves.
      */
     setWindowButtonPosition(position: { x: number; y: number }): void;
 

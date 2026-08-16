@@ -23,6 +23,8 @@
     "e2e": "pnpm build && cross-env TRILIUM_INTEGRATION_TEST=memory-no-store TRILIUM_PORT=8082 TRILIUM_DATA_DIR=data-e2e TRILIUM_ELECTRON_DATA_DIR=data-e2e-electron-8082 ELECTRON_IS_DEV=0 playwright test",
     "generate-setup-banners": "tsx electron-forge/setup-icon/generate/generate.mts",
     "generate-dmg-background": "tsx electron-forge/dmg-background/generate.mts",
+    "generate-dmg-icon": "tsx electron-forge/dmg-icon/generate.mts",
+    "generate-dmg-icon-preview": "tsx electron-forge/dmg-icon/preview.mjs",
     "generate-dmg-preview": "tsx electron-forge/dmg-background/preview.mjs",
     "test": "vitest --config vitest.config.mts"
   },

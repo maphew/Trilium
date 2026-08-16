@@ -2316,13 +2316,16 @@ body.electron.platform-darwin:not(.native-titlebar) .tab-row-container {
  * Only macOS reserves the traffic lights' room with this spacer; every other platform uses the
  * container padding below, which handles controls on either side. Keeping the spacer at zero
  * elsewhere avoids reserving `titlebar-area-x` twice on a Linux desktop with left-hand controls.
+ *
+ * `titlebar-area-x` is where the traffic lights actually end, as the platform measures it, and it
+ * is reported in CSS pixels — so it already accounts both for the width the running macOS gives
+ * the cluster and for the page zoom, which the system-drawn buttons do not follow. A fixed reserve
+ * cannot do either: it shrinks with the page while the buttons stay put, so zooming out slid them
+ * over whatever the tab bar puts first (the pane toggle). It resolves to zero when there are no
+ * controls to clear, i.e. with a native title bar or in full screen.
  */
 body.electron.platform-darwin #tab-row-left-spacer {
     width: env(titlebar-area-x);
-}
-
-body.electron.platform-darwin:not(.native-titlebar):not(.full-screen) #tab-row-left-spacer {
-    width: 80px;
 }
 
 /*
