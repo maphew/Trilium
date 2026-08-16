@@ -308,7 +308,8 @@
     "desktop-title": "Deasc",
     "deleted-notes-title": "Nótaí scriosta",
     "color-scheme-switcher-title": "Athraitheoir Scéim Dathanna",
-    "content-manager-title": "Bainisteoir Ábhair"
+    "content-manager-title": "Bainisteoir Ábhair",
+    "database-title": "Bunachar Sonraí"
   },
   "notes": {
     "new-note": "Nóta nua",
@@ -391,7 +392,8 @@
     "background": "Cúlra",
     "markdown-snippet": "Sleachta Marcála",
     "code-snippet": "Sleachta Cód",
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "ai-quick-action": "Gníomh Tapa AI"
   },
   "sql_init": {
     "db_not_initialized_desktop": "Níl an bunachar sonraí tosaithe, lean na treoracha ar an scáileán le do thoil.",
@@ -517,5 +519,16 @@
     "pick_backup_title": "Roghnaigh cúltaca le hathchóiriú",
     "backup_filter": "Cúltaca trilium (*.db, *.tnbackup)",
     "any_file_filter": "Gach comhad"
+  },
+  "setup-window": {
+    "getting-started": "Ag Tosú - Nótaí Trilium",
+    "start-over": "Tosaigh Arís - Nótaí Trilium"
+  },
+  "start-over-dialog": {
+    "title": "Tosaigh arís",
+    "message": "Atosaigh Trilium agus fill ar an scáileán socraithe?",
+    "detail": "Tairgfear cúltaca de do bhunachar eolais reatha duit ar dtús. Ní scriostar aon rud go dtí go roghnaíonn tú bunachar eolais nua a chruthú, cúltaca a athbhunú nó sioncrónú ó ghléas eile.\n\nNá lean ar aghaidh má spreag script nó nóta nach bhfuil tú eolach air thú.",
+    "cancel": "Cealaigh",
+    "confirm": "Atosaigh agus tosaigh arís"
   }
 }
