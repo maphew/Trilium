@@ -124,13 +124,6 @@
     }
 }
 
-/* The illustrated choice reads as a pair of drawings rather than a filled-in control, so the card
-   gives it room and stands back behind it — the same treatment the layout choices have. */
-.text-notes-toolbar-style .tn-card {
-    --card-padding-block: 12px;
-    --card-background-color: transparent;
-}
-
 /* Bootstrap gives a select the whole width of what holds it, which in a card row leaves the label
    beside it a word to the line. Sized to what it offers instead, and cut short rather than carried
    across the row — the bounds the option rows carried before these were card segments. */

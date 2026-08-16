@@ -270,7 +270,7 @@ function LayoutStyle() {
     const [ newLayout, setNewLayout ] = useTriliumOptionBool("newLayout");
 
     return (
-        <Card heading={t("settings_appearance.ui_layout_style")}>
+        <Card className="thumbnail-selector-option-card" heading={t("settings_appearance.ui_layout_style")}>
             <CardSection>
                 <RadioWithIllustration
                     currentValue={newLayout ? "new-layout" : "old-layout"}
@@ -292,7 +292,7 @@ function LayoutOrientation() {
     const [ layoutOrientation, setLayoutOrientation ] = useTriliumOption("layoutOrientation", true);
 
     return (
-        <Card heading={t("settings_appearance.ui_layout_orientation")}>
+        <Card className="thumbnail-selector-option-card" heading={t("settings_appearance.ui_layout_orientation")}>
             <CardSection>
                 <RadioWithIllustration
                     currentValue={layoutOrientation ?? "vertical"}

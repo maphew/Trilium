@@ -1,3 +1,14 @@
+/*
+ * A card given over to a single illustrated choice, its heading standing in for the label such a
+ * choice is too large to sit beside: no ground of its own, so the thumbnails read as the drawings
+ * they are rather than as a filled-in control, and more room above and below than a row of text asks
+ * for.
+ */
+.thumbnail-selector-option-card {
+    --card-padding-block: 12px;
+    --card-background-color: transparent;
+}
+
 .radio-with-illustration {
     list-style-type: none;
     margin-bottom: 0;

@@ -84,8 +84,8 @@ function ToolbarStyle() {
     const [ textNoteEditorType, setTextNoteEditorType ] = useTriliumOption("textNoteEditorType");
 
     return (
-        <div className="options-section text-notes-toolbar-style">
-            <Card heading={t("editing.editor_type.toolbar_style")}>
+        <div className="options-section">
+            <Card className="thumbnail-selector-option-card" heading={t("editing.editor_type.toolbar_style")}>
                 <CardSection>
                     <RadioWithIllustration
                         currentValue={textNoteEditorType}
