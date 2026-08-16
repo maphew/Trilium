@@ -41,8 +41,7 @@ import SyncOptions from "./sync";
 let host: HTMLElement;
 
 beforeEach(() => {
-    // The timeout row reads a figure and a scale and does arithmetic on both, so it needs real
-    // values rather than the empty string an unset option would answer with.
+    // What a real install holds for the timeout row: a figure and the scale it is read at.
     mocks.stored = { syncServerTimeout: "120", syncServerTimeoutTimeScale: "1" };
     mocks.saved = [];
     host = document.body.appendChild(document.createElement("div"));

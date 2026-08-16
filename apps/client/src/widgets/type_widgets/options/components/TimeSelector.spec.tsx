@@ -96,6 +96,21 @@ describe("TimeSelector", () => {
         expect(mocks.saved).toEqual([]);
     });
 
+    it("draws a row whose option has never been written, rather than taking the page down", () => {
+        // An unset option answers with an empty string, which is no duration at all.
+        const { box, scaleSelect } = selector("", "");
+
+        expect(box?.value).toBe("0");
+        // Seconds: the scale a bare figure is read at until one has been chosen.
+        expect(scaleSelect?.value).toBe("1");
+        expect(mocks.showError).not.toHaveBeenCalled();
+    });
+
+    it("falls back on a stored scale that could never divide anything", () => {
+        expect(selector("120", "0").box?.value).toBe("120");
+        expect(selector("120", "nonsense").box?.value).toBe("120");
+    });
+
     it("keeps the figure as it stands when only the scale changes, so the stored seconds move with it", () => {
         const { scaleSelect } = selector("3600", "3600");
 

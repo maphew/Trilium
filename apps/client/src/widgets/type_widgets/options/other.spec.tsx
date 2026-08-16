@@ -57,8 +57,7 @@ import OtherSettings from "./other";
 let host: HTMLElement;
 
 beforeEach(() => {
-    // Every duration row does arithmetic on a figure and a scale, so none of them may be the empty
-    // string an unset option would answer with.
+    // What a real install holds: each duration row's figure and the scale it is read at.
     mocks.stored = {
         eraseEntitiesAfterTimeInSeconds: "86400", eraseEntitiesAfterTimeScale: "1",
         eraseUnusedAttachmentsAfterSeconds: "86400", eraseUnusedAttachmentsAfterTimeScale: "1",

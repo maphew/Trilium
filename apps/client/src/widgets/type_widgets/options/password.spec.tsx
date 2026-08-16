@@ -88,8 +88,7 @@ let host: HTMLElement;
 
 beforeEach(() => {
     mocks.state.electron = false;
-    // The protected-session row does arithmetic on both, so neither may be the empty string an
-    // unset option would answer with.
+    // What a real install holds for the protected-session row: a figure and the scale it is read at.
     mocks.state.stored = { protectedSessionTimeout: "600", protectedSessionTimeoutTimeScale: "1" };
     mocks.state.oauth = {};
     mocks.state.totpSet = false;

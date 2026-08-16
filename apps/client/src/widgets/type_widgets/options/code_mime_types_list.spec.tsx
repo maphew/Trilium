@@ -54,19 +54,38 @@ function tooltipFor(container: HTMLElement, mime: string) {
 }
 
 describe("the code MIME type list", () => {
-    it("files each language under its initial, with plain text kept apart and out of reach", () => {
-        mocks.stored = [ "text/plain" ];
+    it("files each language under its initial, with plain text kept apart", () => {
         const container = renderInto(<CodeMimeTypesList />);
 
         // The first group carries no heading: plain text is not filed under a letter.
         const headings = [ ...container.querySelectorAll("h5") ].map((heading) => heading.textContent);
         expect(headings).toEqual([ "C", "J" ]);
+    });
 
-        const plainText = [ ...container.querySelectorAll<HTMLInputElement>("input") ]
-            .find((box) => box.value === "text/plain");
-        expect(plainText?.checked).toBe(true);
-        // It cannot be turned off: a code note has to be able to fall back to something.
-        expect(plainText?.disabled).toBe(true);
+    it("shows plain text as on and out of reach, whatever the stored set holds", () => {
+        // `mime_types` applies it regardless, so a box reading empty would say the opposite of
+        // what happens — and one that cannot be cleared has no business reading empty either.
+        for (const stored of [ [], [ "text/plain" ] ]) {
+            mocks.stored = stored;
+            const plainText = [ ...renderInto(<CodeMimeTypesList />).querySelectorAll<HTMLInputElement>("input") ]
+                .find((box) => box.value === "text/plain");
+
+            expect(plainText?.checked).toBe(true);
+            expect(plainText?.disabled).toBe(true);
+        }
+    });
+
+    it("leaves the stored set alone when another language is ticked", () => {
+        mocks.stored = [];
+        mocks.saved = [];
+        const container = renderInto(<CodeMimeTypesList />);
+
+        const java = [ ...container.querySelectorAll<HTMLInputElement>("input") ].find((box) => box.value === "text/x-java");
+        java?.dispatchEvent(new Event("change", { bubbles: true }));
+
+        // Plain text is on because the app applies it, not because it was chosen — so choosing
+        // something else must not quietly write it into the user's option.
+        expect(mocks.saved.at(-1)).toEqual([ "text/x-java" ]);
     });
 
     it("sorts the languages by name rather than leaving them in the order they arrived", () => {
