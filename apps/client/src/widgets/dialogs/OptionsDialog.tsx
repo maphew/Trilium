@@ -16,7 +16,7 @@ import Modal from "../react/Modal";
 import { NoteContextContext, ParentComponent } from "../react/react_utils";
 import SettingsNavigation from "../type_widgets/options/components/SettingsNavigation";
 import SettingsSearch from "../type_widgets/options/components/SettingsSearch";
-import OptionsSearchPage from "../type_widgets/options/search_page";
+import OptionsSearchPage, { hasSearchTerms } from "../type_widgets/options/search_page";
 
 /** The settings page shown when no specific section was requested and none was viewed yet this session. */
 const DEFAULT_SECTION = "_optionsAppearance";
@@ -44,6 +44,9 @@ export default function OptionsDialog() {
     const modalRef = useRef<HTMLDivElement>(null);
     const isMobile = utils.isMobile();
     const { isMasterDetail, mobileView, switchMobileView, resetMobileView } = useMobileMasterDetail(modalRef);
+    // On a phone the results take the place of the list of pages, which is where the field sits, so
+    // they wait for a search to have begun rather than for the field to have been tapped.
+    const showsMobileResults = searching && hasSearchTerms(searchQuery);
 
     useTriliumEvent("showOptions", async ({ section }) => {
         const noteContext = new NoteContext("_options-dialog");
@@ -118,10 +121,26 @@ export default function OptionsDialog() {
             >
                 {isMasterDetail && (
                     <MasterPane className="options-mobile-nav">
-                        <MobileSettingsList onSelect={(noteId) => {
-                            void noteContext.setNote(noteId, { keepActiveDialog: true });
-                            switchMobileView("page");
-                        }} />
+                        <SettingsSearch
+                            query={searchQuery}
+                            onChange={setSearchQuery}
+                            onFocus={() => setSearching(true)}
+                        />
+
+                        {/* The results stand in the list's place once there is something to look
+                            for, and the list comes back as soon as the field is emptied. Below that
+                            they are mounted out of sight, so the first search is as quick as the
+                            rest and the way out of the search is never anything but the field. */}
+                        <div className="options-mobile-results" hidden={!showsMobileResults}>
+                            {searching && <OptionsSearchPage query={searchQuery} />}
+                        </div>
+
+                        {!showsMobileResults && (
+                            <MobileSettingsList onSelect={(noteId) => {
+                                void noteContext.setNote(noteId, { keepActiveDialog: true });
+                                switchMobileView("page");
+                            }} />
+                        )}
                     </MasterPane>
                 )}
                 <SettingsScrollReset modalRef={modalRef} searching={searching} />

@@ -82,6 +82,21 @@ body.mobile .modal.options-dialog:not(.mobile-master-detail) > .modal-dialog {
 body.mobile .modal.options-dialog.mobile-master-detail {
     .options-mobile-nav {
         padding: 8px 25px;
+
+        /* The list is the pane's own content here, not a menu standing over something else. */
+        .dropdown-menu.static {
+            padding-block: 0;
+        }
+    }
+
+    /* Left to scroll away with the list beneath it, as a phone's search fields do. */
+    .settings-search {
+        margin-bottom: 12px;
+    }
+
+    /* The pane already holds the results clear of its edges, so the page inside adds nothing. */
+    .options-mobile-results .options-search {
+        padding-inline: 0;
     }
 
     .note-detail {

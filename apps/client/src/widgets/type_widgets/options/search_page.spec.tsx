@@ -41,7 +41,19 @@ vi.mock("../ContentWidget", async () => {
 });
 
 import { renderInto } from "../../../test/render";
-import OptionsSearchPage, { MIN_QUERY_LENGTH } from "./search_page";
+import OptionsSearchPage, { hasSearchTerms, MIN_QUERY_LENGTH } from "./search_page";
+
+describe("hasSearchTerms", () => {
+    it("waits for a word worth looking for, whatever space is typed around it", () => {
+        expect(hasSearchTerms("")).toBe(false);
+        expect(hasSearchTerms("   ")).toBe(false);
+        expect(hasSearchTerms("th")).toBe(false);
+        expect(hasSearchTerms("  th  ")).toBe(false);
+
+        expect(hasSearchTerms("the")).toBe(true);
+        expect(hasSearchTerms("  theme  ")).toBe(true);
+    });
+});
 
 function fakePage(noteId: string, title: string) {
     return { noteId, title, getIcon: () => "bx bx-cog" } as unknown as FNote;

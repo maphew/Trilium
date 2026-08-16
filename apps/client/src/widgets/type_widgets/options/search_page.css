@@ -30,6 +30,13 @@
     }
 }
 
+/* The field says what is being done, so on a small screen the room above the results is worth more
+   than a banner repeating it. (The narrow flow drops it anyway, by the rule in OptionsPageHeader.css
+   that takes down a banner carrying nothing but a name.) */
+body.mobile .options-search .options-page-header {
+    display: none;
+}
+
 /*
  * A page brings its whole self along, of which the search wants only the cards: its header names
  * the page it thinks it is showing, and its tables and listings are not settings anyone can search

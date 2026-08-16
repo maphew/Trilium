@@ -20,6 +20,14 @@ export const MIN_QUERY_LENGTH = 3;
 const DEBOUNCE_MS = 250;
 
 /**
+ * Whether there is enough typed to search by. Also what tells the mobile flow when to put the
+ * results in the list's place, so that the two agree on when a search has begun.
+ */
+export function hasSearchTerms(query: string) {
+    return query.trim().length >= MIN_QUERY_LENGTH;
+}
+
+/**
  * Pages the search leaves out. The Content Manager is a tool rather than a set of settings, and
  * showing it costs a scan of the database that nobody asked for by typing in a search box.
  */
@@ -36,7 +44,7 @@ const PAGES_LEFT_OUT = new Set([ "_optionsContentManager" ]);
  */
 export default function OptionsSearchPage({ query }: { query: string }) {
     const settled = useDebouncedValue(query.trim(), DEBOUNCE_MS);
-    const filter = settled.length >= MIN_QUERY_LENGTH ? settled : "";
+    const filter = hasSearchTerms(settled) ? settled : "";
     const ready = useDeferredMount();
 
     if (!ready) {
