@@ -2241,8 +2241,6 @@
     "rotate": "Rotation",
     "picture-in-picture": "Image dans l'image",
     "exit-picture-in-picture": "Sortir de Image dans l'image",
-    "fullscreen": "Plein-écran (F)",
-    "exit-fullscreen": "Sortir du mode plein-écran",
     "unsupported-format": "L'aperçu multimédia n'est pas disponible pour ce format de fichier:\n{{mime}}",
     "zoom-to-fit": "Zoom pour remplir",
     "zoom-reset": "Annuler zoom pour remplir",

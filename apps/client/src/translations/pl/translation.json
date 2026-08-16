@@ -2131,10 +2131,8 @@
     "more_info": "Dowiedz się więcej"
   },
   "media": {
-    "fullscreen": "Pełny ekran (F)",
     "mute": "Wycisz (M)",
     "unmute": "Wyłącz wyciszenie (M)",
-    "exit-fullscreen": "Wyłącz pełny ekran",
     "rotate": "Obróć",
     "picture-in-picture": "Obraz w obrazie",
     "pause": "Zatrzymaj (Space)",

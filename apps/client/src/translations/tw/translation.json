@@ -2366,8 +2366,6 @@
     "rotate": "旋轉",
     "picture-in-picture": "畫中畫",
     "exit-picture-in-picture": "退出畫中畫",
-    "fullscreen": "全螢幕 (F)",
-    "exit-fullscreen": "退出全螢幕",
     "unsupported-format": "此檔案格式不支援媒體預覽：\n{{mime}}",
     "zoom-to-fit": "放大至填滿畫面",
     "zoom-reset": "重設放大至填滿畫面",
