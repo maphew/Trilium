@@ -1,6 +1,7 @@
 import "./appearance.css";
 
 import { FontFamily, OptionNames, SYSTEM_MONOSPACE_FONT_STACK, SYSTEM_SANS_SERIF_FONT_STACK } from "@triliumnext/commons";
+import clsx from "clsx";
 import { Fragment } from "preact";
 import { createPortal } from "preact/compat";
 import { useEffect, useMemo, useState } from "preact/hooks";
@@ -12,17 +13,18 @@ import server from "../../../services/server";
 import { isElectron, isMobile, reloadFrontendApp, restartDesktopApp } from "../../../services/utils";
 import { VerticalLayoutIcon } from "../../buttons/global_menu";
 import Button from "../../react/Button";
+import { Card, CardOption, CardSection } from "../../react/Card";
 import Dropdown from "../../react/Dropdown";
 import FormList, { FormListHeader, FormListItem } from "../../react/FormList";
 import { FormTextBoxWithUnit } from "../../react/FormTextBox";
+import FormToggle from "../../react/FormToggle";
+import HelpButton from "../../react/HelpButton";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import Modal from "../../react/Modal";
 import SegmentedChoice, { SegmentedChoiceOption } from "../../react/SegmentedChoice";
 import Slider from "../../react/Slider";
 import OptionsPageHeader from "./components/OptionsPageHeader";
-import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
-import OptionsSection from "./components/OptionsSection";
 import PlatformIndicator from "./components/PlatformIndicator";
 import RadioWithIllustration from "./components/RadioWithIllustration";
 import RelatedSettings from "./components/RelatedSettings";
@@ -122,6 +124,7 @@ export default function AppearanceSettings() {
         <>
             <OptionsPageHeader />
             <UserInterface />
+            {!isMobile() && <LayoutChoices />}
             <Fonts />
             {isElectron() && <ElectronIntegration /> }
             <Performance />
@@ -143,8 +146,7 @@ export default function AppearanceSettings() {
 function UserInterface() {
     const [ theme, setTheme ] = useTriliumOption("theme");
     const [ customThemes, setCustomThemes ] = useState<CustomTheme[]>([]);
-    const [ newLayout, setNewLayout ] = useTriliumOptionBool("newLayout");
-    const [ layoutOrientation, setLayoutOrientation ] = useTriliumOption("layoutOrientation", true);
+    const [ newLayout ] = useTriliumOptionBool("newLayout");
     const [ editedNotesOpenInRibbon, setEditedNotesOpenInRibbon ] = useTriliumOptionBool("editedNotesOpenInRibbon");
 
     useEffect(() => {
@@ -176,88 +178,132 @@ function UserInterface() {
     };
 
     return (
-        <OptionsSection title={t("theme.title")}>
-            <OptionsRow name="theme" label={t("theme.theme_label")}>
-                <Dropdown
-                    text={<>
-                        <span className={currentFamilyIcon} style={{ marginRight: "8px" }} />
-                        {currentFamilyLabel}
-                    </>}
-                    mobileBottomSheet
+        <div className="options-section">
+            <Card heading={t("theme.title")}>
+                <CardOption name="theme" label={t("theme.theme_label")}>
+                    <Dropdown
+                        text={<>
+                            <span className={currentFamilyIcon} style={{ marginRight: "8px" }} />
+                            {currentFamilyLabel}
+                        </>}
+                        mobileBottomSheet
+                    >
+                        {THEME_FAMILIES.map(family => (
+                            <FormListItem
+                                key={family.key}
+                                icon={family.icon}
+                                selected={resolved.family?.key === family.key}
+                                onClick={() => setFamily(family)}
+                                badges={family.key === "modern" ? [{ text: t("theme.recommended") }] : undefined}
+                            >
+                                {family.title}
+                            </FormListItem>
+                        ))}
+                        {customThemes.length > 0 && (
+                            <>
+                                <FormListHeader text={t("theme.custom_themes")} />
+                                {customThemes.map(ct => (
+                                    <FormListItem
+                                        key={ct.val}
+                                        icon={ct.icon}
+                                        selected={theme === ct.val}
+                                        onClick={() => setTheme(ct.val)}
+                                    >
+                                        {ct.title}
+                                    </FormListItem>
+                                ))}
+                            </>
+                        )}
+                    </Dropdown>
+                </CardOption>
+
+                <CardOption
+                    name="color-scheme"
+                    label={t("theme.color_scheme")}
+                    description={isCustom ? t("theme.color_scheme_custom_disabled") : undefined}
                 >
-                    {THEME_FAMILIES.map(family => (
-                        <FormListItem
-                            key={family.key}
-                            icon={family.icon}
-                            selected={resolved.family?.key === family.key}
-                            onClick={() => setFamily(family)}
-                            badges={family.key === "modern" ? [{ text: t("theme.recommended") }] : undefined}
-                        >
-                            {family.title}
-                        </FormListItem>
-                    ))}
-                    {customThemes.length > 0 && (
-                        <>
-                            <FormListHeader text={t("theme.custom_themes")} />
-                            {customThemes.map(ct => (
-                                <FormListItem
-                                    key={ct.val}
-                                    icon={ct.icon}
-                                    selected={theme === ct.val}
-                                    onClick={() => setTheme(ct.val)}
-                                >
-                                    {ct.title}
-                                </FormListItem>
-                            ))}
-                        </>
-                    )}
-                </Dropdown>
-            </OptionsRow>
-            <OptionsRow name="color-scheme" label={t("theme.color_scheme")} description={isCustom ? t("theme.color_scheme_custom_disabled") : undefined}>
-                <SegmentedChoice
-                    options={COLOR_SCHEMES}
-                    // A custom theme brings its own colours, so the group highlights nothing rather
-                    // than naming a scheme it is not following.
-                    currentValue={isCustom ? "" : resolved.scheme}
-                    onChange={setColorScheme}
-                    disabled={isCustom}
-                    collapseOnMobile
-                />
-            </OptionsRow>
-            {!isMobile() && <>
-                <OptionsRow name="layout-style" label={t("settings_appearance.ui_layout_style")}>
-                    <RadioWithIllustration
-                        currentValue={newLayout ? "new-layout" : "old-layout"}
-                        onChange={async newValue => {
-                            await setNewLayout(newValue === "new-layout");
-                            reloadFrontendApp();
-                        }}
-                        values={[
-                            { key: "old-layout", text: t("settings_appearance.ui_old_layout"), illustration: <LayoutIllustration /> },
-                            { key: "new-layout", text: t("settings_appearance.ui_new_layout"), illustration: <LayoutIllustration isNewLayout /> }
-                        ]}
+                    <SegmentedChoice
+                        options={COLOR_SCHEMES}
+                        // A custom theme brings its own colours, so the group highlights nothing rather
+                        // than naming a scheme it is not following.
+                        currentValue={isCustom ? "" : resolved.scheme}
+                        onChange={setColorScheme}
+                        disabled={isCustom}
+                        collapseOnMobile
                     />
-                </OptionsRow>
-                {!newLayout && (
-                    <OptionsRowWithToggle
+                </CardOption>
+
+                {!isMobile() && !newLayout && (
+                    <CardOption
                         name="edited-notes-open-in-ribbon"
                         label={t("ribbon.edited_notes_message")}
-                        currentValue={editedNotesOpenInRibbon}
-                        onChange={setEditedNotesOpenInRibbon}
-                    />
+                    >
+                        <FormToggle
+                            currentValue={editedNotesOpenInRibbon}
+                            onChange={setEditedNotesOpenInRibbon}
+                        />
+                    </CardOption>
                 )}
-                <OptionsRow name="layout-orientation" label={t("settings_appearance.ui_layout_orientation")}>
-                    <RadioWithIllustration
-                        currentValue={layoutOrientation ?? "vertical"}
-                        onChange={setLayoutOrientation}
-                        values={[
-                            { key: "vertical", text: t("theme.layout-vertical-title"), illustration: <OrientationIllustration orientation="vertical" /> },
-                            { key: "horizontal", text: t("theme.layout-horizontal-title"), illustration: <OrientationIllustration orientation="horizontal" /> }
-                        ]}
-                    />
-                </OptionsRow>
-            </>}
-        </OptionsSection>
+            </Card>
+        </div>
+    );
+}
+
+/**
+ * The two choices that decide the shape of the window, each shown as a picture rather than named in
+ * words. Neither fits a settings row — an illustration is too large to stand as a value beside a
+ * label — so each takes a card of its own, with what the choice is called as the card's heading.
+ *
+ * Side by side, being read against one another rather than one after the other; a pane too narrow to
+ * hold both puts them on lines of their own instead (see the CSS).
+ */
+function LayoutChoices() {
+    return (
+        <div className="options-section appearance-layout-choices">
+            <LayoutOrientation />
+            <LayoutStyle />
+        </div>
+    );
+}
+
+function LayoutStyle() {
+    const [ newLayout, setNewLayout ] = useTriliumOptionBool("newLayout");
+
+    return (
+        <Card heading={t("settings_appearance.ui_layout_style")}>
+            <CardSection>
+                <RadioWithIllustration
+                    currentValue={newLayout ? "new-layout" : "old-layout"}
+                    onChange={async newValue => {
+                        await setNewLayout(newValue === "new-layout");
+                        reloadFrontendApp();
+                    }}
+                    values={[
+                        { key: "old-layout", text: t("settings_appearance.ui_old_layout"), illustration: <LayoutIllustration /> },
+                        { key: "new-layout", text: t("settings_appearance.ui_new_layout"), illustration: <LayoutIllustration isNewLayout /> }
+                    ]}
+                />
+            </CardSection>
+        </Card>
+    );
+}
+
+function LayoutOrientation() {
+    const [ layoutOrientation, setLayoutOrientation ] = useTriliumOption("layoutOrientation", true);
+
+    return (
+        <Card heading={t("settings_appearance.ui_layout_orientation")}>
+            <CardSection>
+                <RadioWithIllustration
+                    currentValue={layoutOrientation ?? "vertical"}
+                    onChange={setLayoutOrientation}
+                    values={[
+                        { key: "vertical", text: t("theme.layout-vertical-title"), illustration: <OrientationIllustration orientation="vertical" /> },
+                        { key: "horizontal", text: t("theme.layout-horizontal-title"), illustration: <OrientationIllustration orientation="horizontal" /> }
+                    ]}
+                />
+            </CardSection>
+        </Card>
     );
 }
 
@@ -406,33 +452,40 @@ function Fonts() {
     const isEnabled = overrideThemeFonts === true;
 
     return (
-        <OptionsSection title={t("fonts.fonts")}>
-            <OptionsRowWithToggle
-                name="override-theme-fonts"
-                label={t("fonts.custom_fonts")}
-                description={t("fonts.not_all_fonts_available")}
-                currentValue={overrideThemeFonts}
-                onChange={setOverrideThemeFonts}
-            />
+        <div className="options-section appearance-fonts">
+            <Card heading={t("fonts.fonts")}>
+                <CardOption
+                    name="override-theme-fonts"
+                    label={t("fonts.custom_fonts")}
+                    description={t("fonts.not_all_fonts_available")}
+                    // The four fonts stay on show with the switch off, greyed rather than gone: what
+                    // is there to be set is the whole reason for turning it on, and a switch with
+                    // nothing under it says nothing about what it would bring.
+                    subSectionsVisible
+                    subSections={[
+                        <Font key="main" label={t("fonts.main_font")} fontFamilyOption="mainFontFamily" fontSizeOption="mainFontSize" disabled={!isEnabled} />,
+                        <Font key="tree" label={t("fonts.note_tree_font")} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="treeFontFamily" fontSizeOption="treeFontSize" disabled={!isEnabled} />,
+                        <Font key="detail" label={t("fonts.note_detail_font")} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="detailFontFamily" fontSizeOption="detailFontSize" disabled={!isEnabled} />,
+                        <Font key="monospace" label={t("fonts.monospace_font")} description={t("fonts.monospace_font_description")} fontFamilyOption="monospaceFontFamily" fontSizeOption="monospaceFontSize" disabled={!isEnabled} isMonospace />
+                    ]}
+                >
+                    <FormToggle currentValue={overrideThemeFonts} onChange={setOverrideThemeFonts} />
+                </CardOption>
 
-            <Font label={t("fonts.main_font")} fontFamilyOption="mainFontFamily" fontSizeOption="mainFontSize" disabled={!isEnabled} />
-            <Font label={t("fonts.note_tree_font")} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="treeFontFamily" fontSizeOption="treeFontSize" disabled={!isEnabled} />
-            <Font label={t("fonts.note_detail_font")} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="detailFontFamily" fontSizeOption="detailFontSize" disabled={!isEnabled} />
-            <Font label={t("fonts.monospace_font")} description={t("fonts.monospace_font_description")} fontFamilyOption="monospaceFontFamily" fontSizeOption="monospaceFontSize" disabled={!isEnabled} isMonospace />
-
-            {/*
-              * Deliberately not gated behind `overrideThemeFonts` like the rows above: the ligatures
-              * come from the *theme's* monospace font, so the setting is needed exactly when custom
-              * fonts are off. Gating it would put it out of reach of everyone affected.
-              */}
-            <OptionsRowWithToggle
-                name="monospace-ligatures-enabled"
-                label={t("fonts.monospace_ligatures")}
-                description={t("fonts.monospace_ligatures_description")}
-                currentValue={ligaturesEnabled}
-                onChange={setLigaturesEnabled}
-            />
-        </OptionsSection>
+                {/*
+                  * Deliberately not nested under `overrideThemeFonts` like the fonts above: the
+                  * ligatures come from the *theme's* monospace font, so the setting is needed exactly
+                  * when custom fonts are off. Gating it would put it out of reach of everyone affected.
+                  */}
+                <CardOption
+                    name="monospace-ligatures-enabled"
+                    label={t("fonts.monospace_ligatures")}
+                    description={t("fonts.monospace_ligatures_description")}
+                >
+                    <FormToggle currentValue={ligaturesEnabled} onChange={setLigaturesEnabled} />
+                </CardOption>
+            </Card>
+        </div>
     );
 }
 
@@ -480,21 +533,17 @@ function Font({ label, description, sizeDescription, fontFamilyOption, fontSizeO
 
     return (
         <>
-            <button
-                type="button"
-                className="option-row option-row-link font-option-row"
-                onClick={() => setShowModal(true)}
-                disabled={disabled}
+            <CardOption
+                className={clsx("font-option", disabled && "disabled")}
+                label={label}
+                description={description}
+                onAction={disabled ? undefined : () => setShowModal(true)}
             >
-                <div className="option-row-label">
-                    <label style={{ cursor: "pointer" }}>{label}</label>
-                    {description && <small>{description}</small>}
-                </div>
-                <div className="option-row-input font-option-preview">
+                <span className="font-option-preview">
                     <span className="font-option-specimen" style={{ fontFamily: getFontFamily(fontFamily ?? ""), fontSize: `${fontSize}%` }}>{displayLabel}</span>
                     <span className="bx bx-chevron-right" />
-                </div>
-            </button>
+                </span>
+            </CardOption>
 
             <FontPickerModal
                 show={showModal}
@@ -601,43 +650,57 @@ function ElectronIntegration() {
     const backgroundEffectsSupported = window.glob.platform === "win32" || window.glob.platform === "darwin";
 
     return (
-        <OptionsSection title={t("electron_integration.desktop-application")}>
-            <OptionsRow name="zoom-factor" label={t("electron_integration.zoom-factor")} description={t("zoom_factor.description")}>
-                <FormTextBoxWithUnit
-                    type="number"
-                    min={50} max={200} step={10}
-                    currentValue={String(zoomPercentage)}
-                    onChange={(v) => zoomService.setZoomFactorAndSave(parseInt(v, 10) / 100)}
-                    unit={t("units.percentage")}
-                />
-            </OptionsRow>
+        <>
+            <div className="options-section appearance-electron">
+                <Card heading={t("electron_integration.desktop-application")}>
+                    <CardOption
+                        className="appearance-number"
+                        name="zoom-factor"
+                        label={t("electron_integration.zoom-factor")}
+                        description={t("zoom_factor.description")}
+                    >
+                        <FormTextBoxWithUnit
+                            type="number"
+                            min={50} max={200} step={10}
+                            currentValue={String(zoomPercentage)}
+                            onChange={(v) => zoomService.setZoomFactorAndSave(parseInt(v, 10) / 100)}
+                            unit={t("units.percentage")}
+                        />
+                    </CardOption>
 
-            <OptionsRowWithToggle
-                name="native-title-bar"
-                label={t("electron_integration.native-title-bar")}
-                description={t("electron_integration.native-title-bar-description")}
-                currentValue={nativeTitleBarVisible}
-                onChange={setNativeTitleBarVisible}
-            />
+                    <CardOption
+                        name="native-title-bar"
+                        label={t("electron_integration.native-title-bar")}
+                        description={t("electron_integration.native-title-bar-description")}
+                    >
+                        <FormToggle currentValue={nativeTitleBarVisible} onChange={setNativeTitleBarVisible} />
+                    </CardOption>
 
-            <OptionsRowWithToggle
-                name="background-effects"
-                label={<>{t("electron_integration.background-effects")} <PlatformIndicator windows="11" mac /></>}
-                description={t("electron_integration.background-effects-description")}
-                currentValue={backgroundEffects}
-                onChange={setBackgroundEffects}
-                disabled={nativeTitleBarVisible || !backgroundEffectsSupported}
-            />
+                    <CardOption
+                        name="background-effects"
+                        label={<>{t("electron_integration.background-effects")} <PlatformIndicator windows="11" mac /></>}
+                        description={t("electron_integration.background-effects-description")}
+                    >
+                        <FormToggle
+                            currentValue={backgroundEffects}
+                            onChange={setBackgroundEffects}
+                            disabled={nativeTitleBarVisible || !backgroundEffectsSupported}
+                        />
+                    </CardOption>
+                </Card>
+            </div>
 
-            <OptionsRow name="restart-app" centered>
+            {/* No card of its own — an action the card above calls for rather than a setting it
+                holds — but kept to the cards' width, so it ends where their controls do. */}
+            <div className="options-section appearance-restart">
                 <Button
                     name="restart-app-button"
                     text={t("electron_integration.restart-app-button")}
                     icon="bx-refresh"
                     onClick={restartDesktopApp}
                 />
-            </OptionsRow>
-        </OptionsSection>
+            </div>
+        </>
     );
 }
 
@@ -646,57 +709,57 @@ function Performance() {
     const [ shadowsEnabled, setShadowsEnabled ] = useTriliumOptionBool("shadowsEnabled");
     const [ backdropEffectsEnabled, setBackdropEffectsEnabled ] = useTriliumOptionBool("backdropEffectsEnabled");
 
-    return <OptionsSection title={t("ui-performance.title")}>
-        <OptionsRowWithToggle
-            name="motion-enabled"
-            label={t("ui-performance.enable-motion")}
-            currentValue={motionEnabled}
-            onChange={setMotionEnabled}
-        />
+    return (
+        <div className="options-section">
+            <Card heading={t("ui-performance.title")}>
+                <CardOption name="motion-enabled" label={t("ui-performance.enable-motion")}>
+                    <FormToggle currentValue={motionEnabled} onChange={setMotionEnabled} />
+                </CardOption>
 
-        <OptionsRowWithToggle
-            name="shadows-enabled"
-            label={t("ui-performance.enable-shadows")}
-            currentValue={shadowsEnabled}
-            onChange={setShadowsEnabled}
-        />
+                <CardOption name="shadows-enabled" label={t("ui-performance.enable-shadows")}>
+                    <FormToggle currentValue={shadowsEnabled} onChange={setShadowsEnabled} />
+                </CardOption>
 
-        {!isMobile() && <OptionsRowWithToggle
-            name="backdrop-effects-enabled"
-            label={t("ui-performance.enable-backdrop-effects")}
-            currentValue={backdropEffectsEnabled}
-            onChange={setBackdropEffectsEnabled}
-        />}
+                {!isMobile() && (
+                    <CardOption name="backdrop-effects-enabled" label={t("ui-performance.enable-backdrop-effects")}>
+                        <FormToggle currentValue={backdropEffectsEnabled} onChange={setBackdropEffectsEnabled} />
+                    </CardOption>
+                )}
 
-        {isElectron() && <SmoothScrollEnabledOption />}
+                {isElectron() && <SmoothScrollEnabledOption />}
 
-        {isElectron() && <HardwareAccelerationOption />}
-
-    </OptionsSection>;
+                {isElectron() && <HardwareAccelerationOption />}
+            </Card>
+        </div>
+    );
 }
 
 function SmoothScrollEnabledOption() {
     const [ smoothScrollEnabled, setSmoothScrollEnabled ] = useTriliumOptionBool("smoothScrollEnabled");
 
-    return <OptionsRowWithToggle
-        name="smooth-scroll-enabled"
-        label={t("ui-performance.enable-smooth-scroll")}
-        description={t("ui-performance.app-restart-required")}
-        currentValue={smoothScrollEnabled}
-        onChange={setSmoothScrollEnabled}
-    />;
+    return (
+        <CardOption
+            name="smooth-scroll-enabled"
+            label={t("ui-performance.enable-smooth-scroll")}
+            description={t("ui-performance.app-restart-required")}
+        >
+            <FormToggle currentValue={smoothScrollEnabled} onChange={setSmoothScrollEnabled} />
+        </CardOption>
+    );
 }
 
 function HardwareAccelerationOption() {
     const [ hardwareAccelerationEnabled, setHardwareAccelerationEnabled ] = useTriliumOptionBool("hardwareAccelerationEnabled");
 
-    return <OptionsRowWithToggle
-        name="hardware-acceleration-enabled"
-        label={t("ui-performance.enable-hardware-acceleration")}
-        description={t("ui-performance.enable-hardware-acceleration-description")}
-        currentValue={hardwareAccelerationEnabled}
-        onChange={setHardwareAccelerationEnabled}
-    />;
+    return (
+        <CardOption
+            name="hardware-acceleration-enabled"
+            label={t("ui-performance.enable-hardware-acceleration")}
+            description={t("ui-performance.enable-hardware-acceleration-description")}
+        >
+            <FormToggle currentValue={hardwareAccelerationEnabled} onChange={setHardwareAccelerationEnabled} />
+        </CardOption>
+    );
 }
 
 function MaxContentWidth() {
@@ -704,21 +767,28 @@ function MaxContentWidth() {
     const [centerContent, setCenterContent] = useTriliumOptionBool("centerContent");
 
     return (
-        <OptionsSection title={t("max_content_width.title")} description={t("max_content_width.default_description")} helpUrl="t596jLvPrqkS">
-            <OptionsRow name="max-content-width" label={t("max_content_width.max_width_label")}>
-                <FormTextBoxWithUnit
-                    type="number" min={MIN_CONTENT_WIDTH} step="10"
-                    currentValue={maxContentWidth} onBlur={setMaxContentWidth}
-                    unit={t("max_content_width.max_width_unit")}
-                />
-            </OptionsRow>
+        <div className="options-section">
+            <Card
+                heading={t("max_content_width.title")}
+                description={t("max_content_width.default_description")}
+                actions={<HelpButton helpPage="t596jLvPrqkS" />}
+            >
+                <CardOption
+                    className="appearance-number"
+                    name="max-content-width"
+                    label={t("max_content_width.max_width_label")}
+                >
+                    <FormTextBoxWithUnit
+                        type="number" min={MIN_CONTENT_WIDTH} step="10"
+                        currentValue={maxContentWidth} onBlur={setMaxContentWidth}
+                        unit={t("max_content_width.max_width_unit")}
+                    />
+                </CardOption>
 
-            <OptionsRowWithToggle
-                name="center-content"
-                label={t("max_content_width.centerContent")}
-                currentValue={centerContent}
-                onChange={setCenterContent}
-            />
-        </OptionsSection>
+                <CardOption name="center-content" label={t("max_content_width.centerContent")}>
+                    <FormToggle currentValue={centerContent} onChange={setCenterContent} />
+                </CardOption>
+            </Card>
+        </div>
     );
 }

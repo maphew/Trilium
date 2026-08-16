@@ -1,6 +1,40 @@
+/* The two layout choices, read against one another. Each keeps enough width to draw its pictures
+   side by side; a pane with no room for both puts them on lines of their own. */
+.appearance-layout-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+
+    > .tn-card {
+        /* More room above and below than a settings row needs: what these hold is a pair of
+           pictures, not a line of text. */
+        --card-padding-block: 12px;
+        flex: 1 1 320px;
+    }
+}
+
+/* A figure and the unit it is read in, sized to the figure: Bootstrap gives an input group the whole
+   width of what holds it, which in a card row is the row. */
+.appearance-number .tn-number-unit-pair {
+    width: auto;
+
+    input[type="number"] {
+        width: 7em;
+    }
+}
+
+/* No card of its own, so it keeps the width of the one above and ends where its controls do. */
+.appearance-restart {
+    text-align: end;
+}
+
 /* Font Option Row */
-.font-option-row {
-    &:disabled {
+.font-option {
+    cursor: pointer;
+
+    /* Left on show with custom fonts off, so that what the switch above would put in force can still
+       be read; greyed and inert, since until then none of it is in force. */
+    &.disabled {
         opacity: 0.5;
         pointer-events: none;
     }
@@ -18,25 +52,27 @@
  *
  * The value in this row is not a word but a specimen — the family drawn in itself, at the size it is
  * set to — so its width is the user's to decide and can exceed the screen's: "American Typewriter"
- * at 150% measures 400px on a 412px phone. `.option-row-input` does not shrink, so beside a name
+ * at 150% measures 400px on a 412px phone. A card option's controls do not shrink, so beside a name
  * there was nowhere for that to go but off the card, taking the chevron with it.
  *
- * Matches the width the other rows stack at (see OptionsRow.css), which this row is held out of:
- * that exclusion is for the link rows carrying nothing but a chevron, which have no reason to.
+ * The card is made the container the width is read from: the page's own cards no longer carry one.
  */
+.appearance-fonts .tn-card {
+    container-type: inline-size;
+}
+
 @container (max-width: 600px) {
-    .font-option-row {
+    .font-option {
         flex-direction: column;
         align-items: stretch;
-        gap: 8px;
     }
 
-    .font-option-row .font-option-preview {
+    .font-option .font-option-preview {
         /* The chevron stays at the far edge, where it is on every other row that leads somewhere. */
         justify-content: space-between;
     }
 
-    .font-option-row .font-option-specimen {
+    .font-option .font-option-specimen {
         /* A long name breaks rather than overflowing: `anywhere` because a family name is one word
            as often as not, and there is no break the browser would take on its own. */
         min-width: 0;
