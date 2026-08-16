@@ -148,18 +148,34 @@ body[dir=rtl] .geo-map-container {
 }
 
 /*
- * The control groups standing over the map — the camera's in the foot corner (MapToolbar) and the
- * editing actions at the middle of the foot (EditToolbar) — dressed in the set the map's furniture
- * shares, handed over here under the names the shared group reads (see the overlay buttons in
- * theme-next/forms.css). The hover pair has no overlay-button name of its own, so the group's is
- * asked for directly.
+ * Everything the control groups standing over the map have in common — the camera's in the foot
+ * corner (MapToolbar) and the editing actions at the middle of the foot (EditToolbar) — said here
+ * once for both: the room they keep from the map's edges, the layer they stand on, and the set the
+ * map's furniture is dressed in, all under the names the shared group reads (see the overlay buttons
+ * in theme-next/forms.css). What is left for each of them to say is the corner it stands at.
  *
  * Set on the groups rather than on the map, so that nothing else standing over the map is dressed
  * for a theme the reader did not choose — a marker's preview is the app's own note tooltip, and it
- * belongs to the app. The last pair marks a choice in force, which is the editing group's + while
- * the map waits to be told a place.
+ * belongs to the app.
  */
 .geo-map-container .tn-overlay-control-group {
+  /* The room the map keeps at each of its edges, handed to whichever corner a group names (see
+     `placement` on OverlayControlGroup): in fullscreen the edges of the map are the edges of the
+     screen, and part of a screen may not be the screen's to draw on. Told per edge, so that a group
+     at the foot stands clear of a home bar and still on the line the scale opposite it keeps. */
+  --overlay-group-inset-top: var(--geo-map-inset-top);
+  --overlay-group-inset-bottom: var(--geo-map-inset-bottom);
+  --overlay-group-inset-start: var(--geo-map-inset-start);
+  --overlay-group-inset-end: var(--geo-map-inset-end);
+
+  /* Above the canvas whatever order the two end up in: MapLibre builds its part of the container
+     itself, so what Preact renders alongside is not reliably the later sibling. The number clears
+     MapLibre's own control corners, which sit at 2. */
+  z-index: 3;
+
+  /* The hover pair has no overlay-button name of its own, so the group's is asked for directly; the
+     last pair marks a choice in force, which is the editing group's + while the map waits to be told
+     a place. */
   --overlay-button-background: var(--geo-map-panel-background);
   --overlay-button-color: var(--geo-map-panel-text-color);
   --overlay-button-backdrop-filter: var(--dropdown-backdrop-filter, blur(10px));

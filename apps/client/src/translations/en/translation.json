@@ -1194,6 +1194,7 @@
   },
   "relation_map_buttons": {
     "create_child_note_title": "Create child note and add it to map",
+    "create_child_note_text": "Add note",
     "reset_pan_zoom_title": "Reset pan & zoom to initial coordinates and magnification",
     "zoom_in_title": "Zoom In",
     "zoom_out_title": "Zoom Out"
@@ -1625,8 +1626,6 @@
     "rotate": "Rotate",
     "picture-in-picture": "Picture-in-picture",
     "exit-picture-in-picture": "Exit picture-in-picture",
-    "fullscreen": "Fullscreen",
-    "exit-fullscreen": "Exit fullscreen",
     "unsupported-format": "Media preview is not available for this file format:\n{{mime}}",
     "zoom-to-fit": "Zoom to fill",
     "zoom-reset": "Reset zoom to fill",
@@ -2946,8 +2945,6 @@
     "zoom-out": "Zoom out",
     "enter-3d": "Tilt into a 3D view\nHold Ctrl and drag to tilt the map freely",
     "exit-3d": "Lay the map flat again",
-    "fullscreen": "Fullscreen",
-    "exit-fullscreen": "Exit fullscreen",
     "close-details": "Close",
     "marker-color": "Marker color",
     "copy-coordinates": "Copy coordinates"
@@ -3219,7 +3216,10 @@
   },
   "svg": {
     "export_to_png": "The diagram could not be exported to PNG.",
-    "export_to_svg": "The diagram could not be exported to SVG."
+    "export_to_svg": "The diagram could not be exported to SVG.",
+    "zoom_in": "Zoom in",
+    "zoom_out": "Zoom out",
+    "reset_zoom": "Reset zoom"
   },
   "code_theme": {
     "title": "Appearance",
@@ -3746,8 +3746,6 @@
     "zoom-out": "Zoom out",
     "reset-zoom": "Reset zoom",
     "center-map": "Center the map",
-    "fullscreen": "Fullscreen",
-    "exit-fullscreen": "Exit fullscreen",
     "direction-left": "Branches to the left",
     "direction-right": "Branches to the right",
     "direction-side": "Branches to both sides",
@@ -3853,7 +3851,9 @@
   },
   "common": {
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "fullscreen": "Fullscreen",
+    "exit_fullscreen": "Exit fullscreen"
   },
   "spreadsheet": {
     "read-only": "This note is read-only.",

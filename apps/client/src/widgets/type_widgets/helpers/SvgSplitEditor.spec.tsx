@@ -11,17 +11,31 @@ import type { SplitEditorProps } from "./SplitEditor";
 // never puts it back. `useResizer` (SvgSplitEditor.tsx) is responsible for restoring it itself;
 // this fake reproduces exactly that stripping-without-restoring behavior so the test exercises
 // the real bug shape rather than a strawman.
+//
+// It also keeps a scale, the way the library does: a step multiplies it by the library's own
+// sensitivity and is clamped to the same bounds, a fit takes it back to the view it opened at, and
+// every change is told to whoever asked to be told (`setOnZoom`) — which is what the readout follows.
 vi.mock("svg-pan-zoom", () => ({
     default: vi.fn((svgEl: SVGElement) => {
         svgEl.removeAttribute("viewBox");
+        let zoom = 1;
+        let onZoom: ((zoom: number) => void) | undefined;
+        const setZoom = (value: number) => {
+            zoom = Math.min(10, Math.max(0.5, value));
+            onZoom?.(zoom);
+            return instance;
+        };
         const instance = {
             resize: () => instance,
             center: () => instance,
-            fit: () => instance,
-            zoom: () => instance,
+            fit: () => setZoom(1),
+            zoom: (value: number) => setZoom(value),
+            zoomIn: () => setZoom(zoom * 1.2),
+            zoomOut: () => setZoom(zoom / 1.2),
             pan: () => instance,
             getPan: () => ({ x: 0, y: 0 }),
-            getZoom: () => 1,
+            getZoom: () => zoom,
+            setOnZoom: (fn: (zoom: number) => void) => { onZoom = fn; return instance; },
             destroy: () => {}
         };
         return instance;
@@ -29,16 +43,21 @@ vi.mock("svg-pan-zoom", () => ({
 }));
 
 // SplitEditor pulls in CodeMirror, Split.js and a Bootstrap ribbon that have nothing to do with
-// the pan/zoom behavior under test; stub it down to just the preview pane, and fire the same
-// `onContentChanged` callback the real editor would once content arrives.
+// the pan/zoom behavior under test; stub it down to just the preview pane and the controls over it,
+// and fire the same `onContentChanged` callback the real editor would once content arrives.
 vi.mock("./SplitEditor", () => ({
-    default: ({ previewContent, onContentChanged }: SplitEditorProps) => {
+    default: ({ previewContent, previewButtons, onContentChanged }: SplitEditorProps) => {
         useEffect(() => {
             onContentChanged?.("gantt\nsection Test\nTask: 2024-01-01, 1d");
         }, []);
-        return <div>{previewContent}</div>;
-    },
-    PreviewButton: () => null
+        return <div>{previewContent}{previewButtons}</div>;
+    }
+}));
+
+// The bootstrap tooltip the control buttons wear needs real layout, which happy-dom hasn't.
+vi.mock("../../react/hooks", async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    useStaticTooltip: () => {}
 }));
 
 const ORIGINAL_VIEW_BOX = "0 0 1234 56";
@@ -63,7 +82,66 @@ describe("SvgSplitEditor", () => {
 
         expect(svgEl.getAttribute("viewBox")).toBeNull();
     });
+
+    it("says the scale the diagram is drawn at, and fits it back to the pane when the readout is pressed", async () => {
+        const { container, controls, unmount } = await mountControls();
+
+        expect(controls().readout.textContent).toBe("100%");
+
+        act(() => controls().zoomIn.click());
+        expect(controls().readout.textContent).toBe("120%");
+
+        act(() => controls().readout.click());
+        expect(controls().readout.textContent).toBe("100%");
+
+        unmount();
+        container.remove();
+    });
+
+    it("leaves a step with no room left to it disabled", async () => {
+        const { container, controls, unmount } = await mountControls();
+
+        expect(controls().zoomOut.disabled).toBe(false);
+
+        // Far enough to be clamped at either end, so the readout sits exactly on the limit — which
+        // is where the rounding the tolerance covers would otherwise leave the button live.
+        for (let i = 0; i < 20; i++) act(() => controls().zoomOut.click());
+        expect(controls().readout.textContent).toBe("50%");
+        expect(controls().zoomOut.disabled).toBe(true);
+        expect(controls().zoomIn.disabled).toBe(false);
+
+        for (let i = 0; i < 20; i++) act(() => controls().zoomIn.click());
+        expect(controls().readout.textContent).toBe("1000%");
+        expect(controls().zoomIn.disabled).toBe(true);
+        expect(controls().zoomOut.disabled).toBe(false);
+
+        unmount();
+        container.remove();
+    });
 });
+
+/**
+ * Mounts `SvgSplitEditor` and waits for the controls over the rendered diagram to appear, handing
+ * back a reader for the three buttons. They are read afresh on every call, the group being drawn
+ * anew whenever the scale changes.
+ */
+async function mountControls() {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    await act(async () => {
+        render(<SvgSplitEditor {...svgSplitEditorProps(SVG_MARKUP)} />, container);
+    });
+
+    await vi.waitFor(() => expect(container.querySelectorAll(".tn-overlay-control-group button")).toHaveLength(3));
+
+    const controls = () => {
+        const [ zoomOut, readout, zoomIn ] = container.querySelectorAll<HTMLButtonElement>(".svg-preview-controls button");
+        return { zoomOut, readout, zoomIn };
+    };
+
+    return { container, controls, unmount: () => act(() => render(null, container)) };
+}
 
 /**
  * Mounts `SvgSplitEditor` around the given SVG markup, waits for the SVG to render, runs the

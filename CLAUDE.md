@@ -150,6 +150,7 @@ Common UI components are available in `apps/client/src/widgets/react/` — **alw
 - `Table` - Generic [Tabulator](https://tabulator.info/)-based data grid (`columns`, `data`, `events`, `modules`, `tabulatorRef`; props typed via `TableProps<T>`). Decoupled from the note/collection model — deals purely in columns/data/events, so use it for any grid (e.g. the SQL console results, the note collection table view). Prefer it over instantiating `tabulator-tables` directly
 - `Calendar` - Generic [FullCalendar](https://fullcalendar.io/) wrapper (accepts any `CalendarOptions` plus a `calendarRef`; props typed via `CalendarProps`). Decoupled from the note/collection model — deals purely in FullCalendar options, so use it for any calendar rather than instantiating `@fullcalendar/core` directly
 - `Dropdown` - Bootstrap dropdown wrapper (toggle button + menu, with `FormListItem`/`FormDropdownDivider` as the items). **Pass `noDropdownListStyle` unless the menu actually scrolls** — see "Dropdown menus and the backdrop blur" below
+- `OverlayControlGroup` / `OverlayToolbar` - the two ways to float controls over a note's content. **Never hand-roll a `<button>` over a canvas** — see "Controls floating over a note's content" below
 
 Fluent builder pattern: `.child()`, `.class()`, `.css()` chaining with position-based ordering.
 
@@ -160,6 +161,23 @@ Fluent builder pattern: `.child()`, `.class()`, `.css()` chaining with position-
 - **Per-component CSS files**: each component should have a matching `.css` file (e.g. `my_dialog.tsx` → `my_dialog.css`), imported at the top of the component file.
 - **CSS nesting for scoping**: since CSS modules are not available, scope styles using a root class and native CSS nesting. For example, a dialog with `className="my-dialog"` should have its styles nested under `.modal.my-dialog { … }`.
 - **Reuse existing components** instead of building custom markup — prefer `FormTextBox`, `FormTextBoxWithUnit`, `FormSelect`, `Slider`, `Button`, etc. over hand-rolled `<input>`, `<select>`, or `<button>` elements.
+
+#### Controls floating over a note's content
+
+Any control laid **over** a note's own content — a geo map, a mind map, an image, a video, a diagram, a presentation, and whatever comes next — goes on one of two shared components in `apps/client/src/widgets/react/`. **Never hand-roll a `<button>` with `tn-overlay-*` classes**: those classes are the components' business, and a site that writes them itself also has to write the ref, the tooltip, the `aria-label` and the `type="button"` that the component already owns.
+
+- **`OverlayControlGroup`** (`OverlayControlGroup.tsx`) — a run of buttons joined edge to edge into one segmented chip. **This is the default**, and specifically what zoom steps, a zoom/scale readout, next/previous navigation, fullscreen and "add a thing to this view" buttons are built from. Its buttons are `OverlayControlButton`; `OverlayFullscreenButton` is the ready-made fullscreen toggle (pass it `isFullscreen` + `onToggle` from `useFullscreen`).
+- **`OverlayToolbar`** (`OverlayToolbar.tsx`) — separate buttons spaced out on their own pane of frosted glass. Use it only where the controls are *not* one run of related steps (e.g. the mind map's four layout-direction choices).
+
+Rules for `OverlayControlButton`, which cover every case seen so far:
+
+- **`title` is the tooltip.** A button wearing no words is also named by it; one that wears words is named by them. Do not add an `aria-label` — the component decides, and a title that says more at length would otherwise speak over the visible words. The one exception is a face that is neither words nor a mark (a keycap, a glyph standing for itself), which passes a plain `aria-label` of its own.
+- **`icon` is a boxicons name** (`bx-plus-circle`), **`text` is what stands inside**. Given both, the component renders the mark as a child span itself — never put a `bx` class on a button that also wears words, since the icon font would fall on the words too.
+- **`active`/`disabled` are props**, not classes concatenated into `className`.
+- **Pass `overCanvas`** when the group stands over something that is dragged (a map), so a press on a button is not taken for the start of a drag.
+- **Where the group stands is the group's own**, via `placement` (`top`/`bottom` × `start`/`center`/`end`): it pins itself over the nearest positioned ancestor, and its tooltips open away from that edge. **Never write `position: absolute` plus insets at the call site.** What the caller does hand over, in that widget's CSS, is the room to keep from the edges (`--overlay-group-inset`, or the per-edge `--overlay-group-inset-top`/`-bottom`/`-start`/`-end` where one edge differs — a fullscreen map clearing a notch) and the `z-index`. `titlePosition` overrides the tooltip direction and is rarely right; only add a class to a *button* if a rule actually uses it.
+- **Overlay controls exist in every layout.** Never gate a group on `isExperimentalFeatureEnabled("new-layout")`, and when an action moves onto a group, **delete its twin in `FloatingButtonsDefinitions.tsx`** rather than keeping both: that bar only renders in the old layout (`desktop_layout.tsx` mounts it with `!isNewLayout`), so a layout-gated group plus a floating fallback means two implementations of one button that drift. Keep the underlying app commands (e.g. `relationMapResetZoomIn`) even once the group is their only caller — note scripts can fire them via `api.triggerCommand`.
+- Reuse shared labels from the `common` translation namespace (e.g. `common.fullscreen`) rather than adding a per-widget copy of a string the app already has.
 
 #### Dropdown menus and the backdrop blur
 The Next theme frosts every `.dropdown-menu` with `backdrop-filter`, but it does so along **two different paths**, and only one of them is reliable:
@@ -339,6 +357,7 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 - Import sorting via `eslint-plugin-simple-import-sort`
 - **Never use the TypeScript non-null assertion operator (postfix `!`)** — including in tests. Narrow instead: optional chaining (`?.`), a `?? fallback`, an explicit null check before use, or an `*OrThrow` accessor (e.g. `becca.getNoteOrThrow(id)` rather than `becca.getNote(id)!`).
 - **Helper placement** — when extracting a standalone helper function from a component, widget, hook, or route, place it **below** the primary export it supports (or in a separate module), not wedged between the imports and the main definition. Keep the file's primary export near the top so the entry point reads first; supporting helpers follow it.
+- **No ~10-SLOC modules** — do not give a component, hook, or helper a file of its own when it amounts to about ten lines of substance. A file that exists to hold one small thing costs a module boundary, an import at every call site, and a second place to look, and buys nothing. Add it to an existing module instead — preferably one it is already built from, or that owns the same concept, so the group of related things stays discoverable from a single import. Example: `OverlayFullscreenButton` is a preset `OverlayControlButton`, so it lives in `apps/client/src/widgets/react/OverlayControlGroup.tsx` beside the group and button it composes, not in a file of its own — and its tests live in that module's spec for the same reason. Split a module out once it has grown enough substance to stand alone.
 
 ## Testing
 
