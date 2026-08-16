@@ -24,7 +24,7 @@
 
 /* The standalone page is this one block, so the setup form is asked to sit in a page among cards
    rather than fill a note's pane the way it does where it came from. */
-.options-section.standalone-backup {
+.standalone-backup {
     .setup-form {
         height: auto;
         padding-inline: 0;

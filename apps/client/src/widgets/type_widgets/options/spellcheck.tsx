@@ -4,13 +4,12 @@ import appContext from "../../../components/app_context";
 import { t } from "../../../services/i18n";
 import { isElectron } from "../../../services/utils";
 import Button from "../../react/Button";
-import FormText from "../../react/FormText";
+import { Card, CardSection, OptionCardSection } from "../../react/Card";
+import FormToggle from "../../react/FormToggle";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import NoItems from "../../react/NoItems";
 import CheckboxList from "./components/CheckboxList";
 import OptionsPageHeader from "./components/OptionsPageHeader";
-import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
-import OptionsSection from "./components/OptionsSection";
 
 export default function SpellcheckSettings() {
     if (isElectron()) {
@@ -41,17 +40,20 @@ function ElectronSpellcheckSettings() {
 
     return (
         <>
-            <OptionsPageHeader />
-
-            <OptionsSection>
-                <OptionsRowWithToggle
-                    name="spellcheck-enabled"
-                    label={t("spellcheck.enable")}
-                    description={t("spellcheck.enable_description")}
-                    currentValue={spellCheckEnabled}
-                    onChange={onToggle}
-                />
-            </OptionsSection>
+            {/* The switch governs the whole page rather than anything on it, so it belongs to the
+                header — on the row below the title, clear of the dialog's own close button. */}
+            <OptionsPageHeader
+                below={
+                    <OptionCardSection
+                        className="options-header-switch"
+                        name="spellcheck-enabled"
+                        label={t("spellcheck.enable")}
+                        description={t("spellcheck.enable_description")}
+                    >
+                        <FormToggle currentValue={spellCheckEnabled} onChange={onToggle} />
+                    </OptionCardSection>
+                }
+            />
 
             {spellCheckEnabled && (
                 <>
@@ -97,15 +99,17 @@ function SpellcheckLanguages() {
     }, []);
 
     return (
-        <OptionsSection title={t("spellcheck.language_code_label")}>
-            <CheckboxList
-                values={availableLanguages}
-                keyProperty="code" titleProperty="name"
-                currentValue={selectedCodes}
-                onChange={setSelectedCodes}
-                columnWidth="200px"
-            />
-        </OptionsSection>
+        <Card className="spellcheck-languages" heading={t("spellcheck.language_code_label")}>
+            <CardSection>
+                <CheckboxList
+                    values={availableLanguages}
+                    keyProperty="code" titleProperty="name"
+                    currentValue={selectedCodes}
+                    onChange={setSelectedCodes}
+                    columnWidth="200px"
+                />
+            </CardSection>
+        </Card>
     );
 }
 
@@ -115,28 +119,31 @@ function CustomDictionary() {
     }
 
     return (
-        <OptionsSection title={t("spellcheck.custom_dictionary_title")}>
-            <FormText>{t("spellcheck.custom_dictionary_description")}</FormText>
-
-            <OptionsRow name="custom-dictionary" label={t("spellcheck.custom_dictionary_edit")} description={t("spellcheck.custom_dictionary_edit_description")}>
+        <Card
+            heading={t("spellcheck.custom_dictionary_title")}
+            description={t("spellcheck.custom_dictionary_description")}
+        >
+            <OptionCardSection
+                label={t("spellcheck.custom_dictionary_edit")}
+                description={t("spellcheck.custom_dictionary_edit_description")}
+            >
                 <Button
                     name="open-custom-dictionary"
                     text={t("spellcheck.custom_dictionary_open")}
-                    icon="bx bx-edit"
+                    icon="bx-edit"
+                    size="micro"
                     onClick={openDictionary}
                 />
-            </OptionsRow>
-        </OptionsSection>
+            </OptionCardSection>
+        </Card>
     );
 }
 
 function WebSpellcheckSettings() {
     return (
-        <OptionsSection>
-            <NoItems
-                text={t("spellcheck.description")}
-                icon="bx bx-check-double"
-            />
-        </OptionsSection>
+        <NoItems
+            text={t("spellcheck.description")}
+            icon="bx bx-check-double"
+        />
     );
 }

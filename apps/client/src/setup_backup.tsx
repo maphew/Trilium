@@ -13,7 +13,7 @@ import { t } from "./services/i18n";
 import { formatSize } from "./services/utils";
 import Admonition from "./widgets/react/Admonition";
 import Button from "./widgets/react/Button";
-import { Card, CardOption, CardSection } from "./widgets/react/Card";
+import { Card, CardSection, OptionCardSection } from "./widgets/react/Card";
 import FilesystemFriendlyName from "./widgets/react/FilesystemFriendlyName";
 import FormGroup from "./widgets/react/FormGroup";
 import FormPasswordWithConfirmation from "./widgets/react/FormPasswordWithConfirmation";
@@ -149,7 +149,7 @@ export function BackupParameters({ defaults, onContinue, footer }: {
                         does: the stored passphrase cannot be shown, so choosing it is the only way
                         to ask for the password the user has already set up. */}
                     {defaults?.storedPassphrase && (
-                        <CardOption
+                        <OptionCardSection
                             name="backup-use-stored-password"
                             label={t("setup.backup-use-stored-password")}
                             description={t("setup.backup-use-stored-password-description")}
@@ -167,7 +167,7 @@ export function BackupParameters({ defaults, onContinue, footer }: {
                                     }
                                 }}
                             />
-                        </CardOption>
+                        </OptionCardSection>
                     )}
 
                     {!useStoredPassphrase && (
@@ -183,13 +183,13 @@ export function BackupParameters({ defaults, onContinue, footer }: {
                     )}
 
                     {defaults && (
-                        <CardOption
+                        <OptionCardSection
                             name="backup-compress"
                             label={t("setup.backup-compress")}
                             description={t("setup.backup-compress-description")}
                         >
                             <FormToggle currentValue={compress} onChange={setCompress} />
-                        </CardOption>
+                        </OptionCardSection>
                     )}
                 </Card>
             </form>

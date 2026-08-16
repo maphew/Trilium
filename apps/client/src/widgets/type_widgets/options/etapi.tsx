@@ -1,3 +1,5 @@
+import "./etapi.css";
+
 import { EtapiToken, PostTokensResponse } from "@triliumnext/commons";
 import { useCallback, useEffect, useState } from "preact/hooks";
 
@@ -8,11 +10,10 @@ import toast from "../../../services/toast";
 import { formatDateTime } from "../../../utils/formatters";
 import ActionButton from "../../react/ActionButton";
 import Button from "../../react/Button";
+import { Card, OptionCardSection } from "../../react/Card";
 import { useTriliumEvent } from "../../react/hooks";
 import NoItems from "../../react/NoItems";
 import OptionsPageHeader from "./components/OptionsPageHeader";
-import OptionsRow from "./components/OptionsRow";
-import OptionsSection from "./components/OptionsSection";
 
 type RenameTokenCallback = (tokenId: string, oldName: string) => Promise<void>;
 type DeleteTokenCallback = (tokenId: string, name: string ) => Promise<void>;
@@ -54,21 +55,26 @@ export default function EtapiSettings() {
 
     return (
         <>
-            <OptionsPageHeader helpUrl="pgxEVkzLl1OP" />
-            <OptionsSection
-                description={t("etapi.description")}
-            >
-                <TokenList tokens={tokens} />
+            {/* Both the sentence and the way to add a token belong to the page rather than to the
+                list: with no tokens yet there is no card for either of them to sit in. They share the
+                row below the title, where the button is clear of the dialog's own close button. */}
+            <OptionsPageHeader
+                helpUrl="pgxEVkzLl1OP"
+                below={
+                    <div className="etapi-header-row">
+                        <p className="etapi-description">{t("etapi.description")}</p>
 
-                <OptionsRow name="create-etapi-token" centered>
-                    <Button
-                        name="create-etapi-token-button"
-                        size="micro" icon="bx bx-plus"
-                        text={t("etapi.create_token")}
-                        onClick={createTokenCallback}
-                    />
-                </OptionsRow>
-            </OptionsSection>
+                        <Button
+                            name="create-etapi-token-button"
+                            size="micro" icon="bx-plus"
+                            text={t("etapi.create_token")}
+                            onClick={createTokenCallback}
+                        />
+                    </div>
+                }
+            />
+
+            <TokenList tokens={tokens} />
         </>
     );
 }
@@ -96,21 +102,24 @@ function TokenList({ tokens }: { tokens: EtapiToken[] }) {
         await server.remove(`etapi-tokens/${tokenId}`);
     }, []);
 
+    // Nothing to frame while there is nothing to list: the placeholder stands on the page itself, an
+    // empty card being a statement of its own.
     if (!tokens.length) {
-        return <NoItems icon="bx bx-key" text={t("etapi.no_tokens")} />;
+        return (
+            <NoItems icon="bx bx-key" text={t("etapi.no_tokens")} />
+        );
     }
 
-    return <>
-        {tokens.map(({ etapiTokenId, name, utcDateCreated }) => (
-            <OptionsRow
-                key={etapiTokenId ?? name}
-                name="etapi-token"
-                label={name}
-                description={formatDateTime(utcDateCreated)}
-            >
-                <div>
+    return (
+        <Card>
+            {tokens.map(({ etapiTokenId, name, utcDateCreated }) => (
+                <OptionCardSection
+                    key={etapiTokenId ?? name}
+                    label={name}
+                    description={formatDateTime(utcDateCreated)}
+                >
                     {etapiTokenId && (
-                        <>
+                        <span className="etapi-token-actions">
                             <ActionButton
                                 icon="bx bx-edit-alt"
                                 text={t("etapi.rename_token")}
@@ -118,14 +127,15 @@ function TokenList({ tokens }: { tokens: EtapiToken[] }) {
                             />
 
                             <ActionButton
+                                className="destructive-action-icon"
                                 icon="bx bx-trash"
                                 text={t("etapi.delete_token")}
                                 onClick={() => deleteCallback(etapiTokenId, name)}
                             />
-                        </>
+                        </span>
                     )}
-                </div>
-            </OptionsRow>
-        ))}
-    </>;
+                </OptionCardSection>
+            ))}
+        </Card>
+    );
 }

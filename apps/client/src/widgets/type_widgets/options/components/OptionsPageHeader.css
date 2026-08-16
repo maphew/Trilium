@@ -69,6 +69,11 @@
     justify-content: flex-end;
 }
 
+/* A card option without a card, so it needs the room a segment would have given it. */
+.options-header-switch {
+    padding-block: 4px;
+}
+
 /* A full-width bar that sticks to the top of the scrolling content, so cards scroll cleanly beneath
    it. The background is painted per context (below) so the sticky bar matches its surroundings. */
 .options-page-header {
