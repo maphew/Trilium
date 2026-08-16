@@ -4,6 +4,17 @@ import options from "./options.js";
 import { getThemeStyle } from "./theme.js";
 
 /**
+ * Height of the macOS traffic-light buttons, in device-independent pixels. AppKit draws them at a
+ * fixed physical size regardless of the page zoom, so their height has to take part in the
+ * conversion in {@link applyTitleBarButtons}.
+ *
+ * Electron reports the band it reserves for them — `TRAFFIC_LIGHT_HEIGHT + 2 * yOffset` — as
+ * `env(titlebar-area-height)`, which is how this was measured rather than guessed. Should a future
+ * macOS resize the buttons, the symptom is a constant vertical drift that grows with the zoom.
+ */
+const TRAFFIC_LIGHT_HEIGHT = 14;
+
+/**
  * Pushes the theme-derived part of the native window configuration to Electron: the preferred
  * light/dark mode (which drives the tint of background effects such as Mica on Windows), the
  * window background material and the native title bar colors and button position.
@@ -94,7 +105,13 @@ function applyTitleBarButtons(win: ElectronWindowApi, style: CSSStyleDeclaration
         const yOffset = parseInt(style.getPropertyValue("--native-titlebar-darwin-y-offset"), 10);
         win.setWindowButtonPosition({
             x: toDeviceIndependentPixels(xOffset),
-            y: toDeviceIndependentPixels(yOffset)
+            // The vertical offset is the gap *above* the traffic lights, not their centre line:
+            // Electron reserves a band of `TRAFFIC_LIGHT_HEIGHT + 2 * offset` at the top of the
+            // window and centres the buttons in it. The buttons keep their size whatever the zoom,
+            // so scaling the gap alone would leave them off-centre by half their height for every
+            // 100% of zoom — visibly high when zoomed in. Scale the centre line the theme asked for
+            // and derive the gap that puts the (unscaled) buttons on it.
+            y: Math.max(0, Math.round((yOffset + TRAFFIC_LIGHT_HEIGHT / 2) * zoomFactor - TRAFFIC_LIGHT_HEIGHT / 2))
         });
     }
 }

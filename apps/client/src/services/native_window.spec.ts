@@ -132,7 +132,7 @@ describe("syncNativeWindowWithTheme", () => {
             "--native-titlebar-darwin-y-offset": "14"
         });
         syncNativeWindowWithTheme();
-        expect(win.setWindowButtonPosition).toHaveBeenCalledWith({ x: 10, y: 11 });
+        expect(win.setWindowButtonPosition).toHaveBeenCalledWith({ x: 10, y: 10 });
 
         // The Windows/Linux caption buttons are centred within the overlay, so its height is the
         // same kind of measurement and scales the same way.
@@ -146,6 +146,30 @@ describe("syncNativeWindowWithTheme", () => {
         });
         syncNativeWindowWithTheme();
         expect(win.setTitleBarOverlay).toHaveBeenCalledWith({ color: "#111", symbolColor: "#eee", height: 54 });
+    });
+
+    it("keeps the traffic lights on the centre line the theme asked for, at any zoom", () => {
+        setPlatform("darwin");
+
+        // The buttons are a fixed 14 device-independent pixels tall, so the band Electron reserves
+        // for them — `14 + 2 * y`, with the buttons centred in it — has to come out at a constant
+        // height in CSS pixels for them to stay centred on the (scaling) tab bar. A y that merely
+        // tracked the zoom would give 14 + 2 * 26 = 66 at 200%, dragging the buttons 7 px high.
+        const bandInCssPixels = (zoomFactor: number) => {
+            vi.clearAllMocks();
+            win.getZoomFactor.mockReturnValue(zoomFactor);
+            stubThemeVariables({
+                "--native-titlebar-darwin-x-offset": "12",
+                "--native-titlebar-darwin-y-offset": "13"
+            });
+            syncNativeWindowWithTheme();
+            const [{ y }] = win.setWindowButtonPosition.mock.calls[0];
+            return (14 + 2 * y) / zoomFactor;
+        };
+
+        for (const zoomFactor of [0.5, 0.8, 1, 1.5, 2]) {
+            expect(bandInCssPixels(zoomFactor)).toBe(40);
+        }
     });
 
     it("leaves the title bar alone when the native one is visible, since setting the overlay then throws", () => {
