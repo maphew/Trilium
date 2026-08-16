@@ -124,29 +124,16 @@
     }
 }
 
-/* Bootstrap gives a select the whole width of what holds it, which in a card row leaves the label
-   beside it a word to the line. Sized to what it offers instead, and cut short rather than carried
-   across the row — the bounds the option rows carried before these were card segments. */
-.text-notes-replacements select,
-.text-notes-code-blocks select {
-    width: auto;
-    min-width: 150px;
-    max-width: 260px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* The same for a text box, which is a format string of known length rather than a sentence: `auto`
-   is the browser's own twenty characters, which is what the format written in it needs. */
+/* A format string of known length rather than a sentence: `auto` is the browser's own twenty
+   characters, which is what the format written in it needs. */
 .text-notes-editor input[type="text"] {
     width: auto;
     max-width: 100%;
 }
 
-/* A figure and the unit it is read in, sized to the figure: Bootstrap gives an input group the whole
-   width of what holds it, which in a card row is the row. */
-.text-notes-number .tn-number-unit-pair {
+/* The heading threshold stands in a plain segment rather than a settings row, so the figure sizing a
+   card option gets does not reach it. */
+.text-notes-toc .tn-number-unit-pair {
     width: auto;
 
     input[type="number"] {

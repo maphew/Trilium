@@ -268,15 +268,6 @@ body.desktop .options-section:not(.tn-no-card) {
 .note-detail-content-widget-content:has(.shortcuts-options-section) {
     /* Allow the cards to extend on the full width of the parent */
     --options-card-max-width: 100%;
-
-    /* Remove the top margin of the first item */
-    --options-first-item-top-margin: 0;
-}
-
-/* ETAPI */
-
-.etapi-options-section div {
-    height: auto !important;
 }
 
 /* BACKUP */

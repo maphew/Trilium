@@ -10,16 +10,6 @@
     }
 }
 
-/* A figure and the unit it is read in, sized to the figure: Bootstrap gives an input group the whole
-   width of what holds it, which in a card row is the row. */
-.appearance-number .tn-number-unit-pair {
-    width: auto;
-
-    input[type="number"] {
-        width: 7em;
-    }
-}
-
 /* Font Option Row */
 .font-option {
     cursor: pointer;

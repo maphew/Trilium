@@ -653,8 +653,7 @@ function ElectronIntegration() {
         <>
             <div className="options-section appearance-electron">
                 <Card heading={t("electron_integration.desktop-application")}>
-                    <CardOption
-                        className="appearance-number"
+                    <CardOption
                         name="zoom-factor"
                         label={t("electron_integration.zoom-factor")}
                         description={t("zoom_factor.description")}
@@ -764,8 +763,7 @@ function MaxContentWidth() {
                 description={t("max_content_width.default_description")}
                 actions={<HelpButton helpPage="t596jLvPrqkS" />}
             >
-                <CardOption
-                    className="appearance-number"
+                <CardOption
                     name="max-content-width"
                     label={t("max_content_width.max_width_label")}
                 >

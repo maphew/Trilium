@@ -93,8 +93,7 @@ function NoteErasureTimeout() {
                 heading={t("note_erasure_timeout.note_erasure_timeout_title")}
                 description={t("note_erasure_timeout.description")}
             >
-                <CardOption
-                    className="other-number"
+                <CardOption
                     name="erase-entities-after"
                     label={t("note_erasure_timeout.erase_notes_after")}
                     description={t("note_erasure_timeout.erase_notes_after_description")}
@@ -132,8 +131,7 @@ function AttachmentErasureTimeout() {
                 heading={t("attachment_erasure_timeout.attachment_erasure_timeout")}
                 description={t("attachment_erasure_timeout.description")}
             >
-                <CardOption
-                    className="other-number"
+                <CardOption
                     name="erase-unused-attachments-after"
                     label={t("attachment_erasure_timeout.erase_attachments_after")}
                     description={t("attachment_erasure_timeout.erase_attachments_after_description")}
@@ -171,8 +169,7 @@ function RevisionSettings() {
     return (
         <div className="options-section">
             <Card heading={t("revisions_snapshot.title")}>
-                <CardOption
-                    className="other-number"
+                <CardOption
                     name="revision-snapshot-time-interval"
                     label={t("revisions_snapshot_interval.snapshot_time_interval_label")}
                     description={t("revisions_snapshot_interval.note_revisions_snapshot_description_short")}
@@ -184,8 +181,7 @@ function RevisionSettings() {
                     />
                 </CardOption>
 
-                <CardOption
-                    className="other-number"
+                <CardOption
                     name="revision-snapshot-number-limit"
                     label={t("revisions_snapshot_limit.snapshot_number_limit_label")}
                     description={t("revisions_snapshot_limit.note_revisions_snapshot_limit_description_short")}

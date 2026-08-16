@@ -1,13 +1,3 @@
-/* A figure and the unit or scale it is read in, sized to the figure: Bootstrap gives an input group
-   the whole width of what holds it, which in a card row is the row. */
-.other-number .tn-number-unit-pair {
-    width: auto;
-}
-
-.other-number input[type="number"] {
-    width: 7em;
-}
-
 .other-html-tags {
     display: flex;
     flex-direction: column;

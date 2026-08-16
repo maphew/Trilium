@@ -107,7 +107,7 @@ function DateSettings() {
     const [ minDaysInFirstWeek, setMinDaysInFirstWeek ] = useTriliumOption("minDaysInFirstWeek");
 
     return (
-        <div className="options-section i18n-dates">
+        <div className="options-section">
             <Card heading={t("i18n.dates-title")}>
                 <CardOption name="first-day-of-week" label={t("i18n.first-day-of-the-week")}>
                     <FormSelect

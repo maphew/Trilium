@@ -1,5 +1,3 @@
-import "./sync.css";
-
 import { SyncTestResponse } from "@triliumnext/commons";
 import { useEffect, useState } from "preact/hooks";
 
@@ -85,7 +83,6 @@ export function SyncConfiguration() {
                     </CardOption>
 
                     <CardOption
-                        className="sync-timeout"
                         name="sync-server-timeout"
                         label={t("sync_2.timeout")}
                         description={t("sync_2.timeout_description")}

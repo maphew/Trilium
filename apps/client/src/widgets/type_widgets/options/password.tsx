@@ -175,8 +175,7 @@ function ProtectedSessionTimeout() {
     return (
         <div className="options-section">
             <Card heading={t("password.protected_session_timeout")}>
-                <CardOption
-                    className="password-number"
+                <CardOption
                     name="protected-session-timeout"
                     label={t("password.protected_session_timeout_label")}
                     description={<>{t("password.protected_session_timeout_description")} <a class="tn-link" href="https://triliumnext.github.io/Docs/Wiki/protected-notes.html">{t("password.wiki")}</a> {t("password.for_more_info")}</>}

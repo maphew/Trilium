@@ -1,5 +1,0 @@
-/* The width a duration box was given while the page framed its own cards (`.options-section-card` in
-   style.css), which a Card does not carry. */
-.sync-timeout input[type="number"] {
-    width: 7em;
-}

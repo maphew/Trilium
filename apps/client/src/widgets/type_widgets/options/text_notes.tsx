@@ -435,7 +435,6 @@ function Editor() {
                 </CardOption>
 
                 <CardOption
-                    className="text-notes-number"
                     name="auto-readonly-size-text"
                     label={t("text_auto_read_only_size.label")}
                     description={t("text_auto_read_only_size.description")}
@@ -598,7 +597,7 @@ function CodeBlockStyle() {
                 </CardOption>
 
                 {/* Avoid using "code" in the name of numeric inputs to prevent KeepassXC from triggering. */}
-                <CardOption className="text-notes-number" name="block-tab-width" label={t("code_block.tab_width")}>
+                <CardOption name="block-tab-width" label={t("code_block.tab_width")}>
                     <FormTextBoxWithUnit
                         type="number" min={1} max={16} step={1}
                         unit={t("code_block.tab_width_unit")}
@@ -682,7 +681,7 @@ function TableOfContent() {
                 heading={t("table_of_contents.title")}
                 description={t("table_of_contents.description")}
             >
-                <CardSection className="text-notes-number">
+                <CardSection>
                     <FormGroup name="min-toc-headings">
                         <FormTextBoxWithUnit
                             type="number"

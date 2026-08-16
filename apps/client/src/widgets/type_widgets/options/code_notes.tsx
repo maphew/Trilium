@@ -49,8 +49,7 @@ function Editor({ wordWrapping, setWordWrapping }: EditorProps) {
                 </CardOption>
 
                 {/* Avoid using "code" in the name of numeric inputs to prevent KeepassXC from triggering. */}
-                <CardOption
-                    className="code-notes-number"
+                <CardOption
                     name="editor-tab-width"
                     label={t("code-editor-options.tab_width")}
                 >
@@ -63,8 +62,7 @@ function Editor({ wordWrapping, setWordWrapping }: EditorProps) {
                     />
                 </CardOption>
 
-                <CardOption
-                    className="code-notes-number"
+                <CardOption
                     name="source-readonly-threshold"
                     label={t("code_auto_read_only_size.label")}
                     description={t("text_auto_read_only_size.description")}
@@ -121,7 +119,7 @@ function Appearance({ wordWrapping, indentSize }: AppearanceProps) {
         : codeNoteTheme;
 
     return (
-        <div className="options-section code-notes-appearance">
+        <div className="options-section">
             <Card heading={t("code_theme.title")}>
                 <ThemeModeSelector matchesApp={matchesApp} onMatchesAppChange={setMatchesApp} />
 

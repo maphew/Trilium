@@ -108,6 +108,37 @@
     font-size: 1.3em;
 }
 
+/*
+ * Bootstrap sizes a form control to whatever holds it, and a card option's controls do not shrink —
+ * so left alone, a select or a figure takes the whole row and leaves the label a word to the line.
+ * Each is sized to what it actually holds instead.
+ *
+ * Only a control the option holds directly: a select nested inside one (the scale beside a duration)
+ * is sized by whatever built it.
+ */
+.tn-card-option {
+    > select {
+        width: auto;
+        min-width: 150px;
+        /* A choice too long to show is cut short rather than carried off the card. The arrow is a
+           background image with padding reserved for it (forms.css), so it keeps its place. */
+        max-width: min(260px, 100%);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* A figure is a few characters wherever it appears — a duration, a count, a percentage — and
+       where a unit sits beside it, the pair belongs to the figure rather than to the row. */
+    input[type="number"] {
+        width: 7em;
+    }
+
+    > .tn-number-unit-pair {
+        width: auto;
+    }
+}
+
 .tn-card-option-stacked {
     flex-direction: column;
     align-items: stretch;
