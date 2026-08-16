@@ -1,0 +1,35 @@
+/* The engines offered ready-made, as a set of chips rather than a list. A card option holds its
+   controls at their natural width; this one is a set that wraps, so it gives way to the label. */
+.tn-card-option > .search-engine-templates {
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.search-engine-templates {
+    --badge-radius: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: end;
+    align-items: center;
+    gap: 8px;
+}
+
+.search-engine-templates .ext-badge {
+    --color: var(--input-background-color);
+    color: var(--main-text-color);
+    font-size: 0.85em;
+}
+
+.search-engine-templates .ext-badge.selected {
+    --color: var(--accented-background-color);
+    outline: 2px solid var(--accent-color);
+    outline-offset: -2px;
+}
+
+/* A name is a word or two, so the box is sized to what is typed in it rather than to the row:
+   Bootstrap would otherwise give it the whole width of what holds it. Not said of the URL below it,
+   which is stacked and wants the line it was given. */
+.desktop-search-name input {
+    width: auto;
+    max-width: 100%;
+}

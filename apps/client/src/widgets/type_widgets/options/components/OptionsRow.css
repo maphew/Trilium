@@ -112,23 +112,3 @@ button.option-row-link:disabled {
     opacity: 0.6;
     pointer-events: none;
 }
-
-.search-engine-templates {
-    --badge-radius: 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.search-engine-templates .ext-badge {
-    --color: var(--input-background-color);
-    color: var(--main-text-color);
-    font-size: 0.85em;
-}
-
-.search-engine-templates .ext-badge.selected {
-    --color: var(--accented-background-color);
-    outline: 2px solid var(--accent-color);
-    outline-offset: -2px;
-}
