@@ -5,8 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // The bootstrap tooltip needs real layout; capture what it would have been given instead.
 const { staticTooltipSpy } = vi.hoisted(() => ({ staticTooltipSpy: vi.fn() }));
 vi.mock("./hooks", () => ({ useStaticTooltip: staticTooltipSpy }));
+vi.mock("../../services/i18n", () => ({ t: (key: string) => key }));
 
-import OverlayControlGroup, { OverlayControlButton } from "./OverlayControlGroup";
+import OverlayControlGroup, { OverlayControlButton, OverlayFullscreenButton } from "./OverlayControlGroup";
 
 let container: HTMLDivElement;
 
@@ -196,5 +197,31 @@ describe("OverlayControlGroup", () => {
 
         expect(container.querySelector("button")?.textContent).toBe("250%");
         expect(staticTooltipSpy.mock.calls.at(-1)?.[1]).toBe(first);
+    });
+});
+
+describe("OverlayFullscreenButton", () => {
+    it("offers the screen, and once in it offers the way back — in its mark and in its name alike", () => {
+        mount(<OverlayFullscreenButton isFullscreen={false} onToggle={vi.fn()} />);
+        const offered = container.querySelector("button");
+        expect(offered?.className).toContain("bx-fullscreen");
+        expect(offered?.className).not.toContain("bx-exit-fullscreen");
+        expect(offered?.getAttribute("aria-label")).toBe("common.fullscreen");
+
+        act(() => render(<OverlayFullscreenButton isFullscreen onToggle={vi.fn()} />, container));
+        const held = container.querySelector("button");
+        expect(held?.className).toContain("bx-exit-fullscreen");
+        expect(held?.getAttribute("aria-label")).toBe("common.exit_fullscreen");
+    });
+
+    it("asks the caller to make the change, which is the one thing it does not do itself", () => {
+        const onToggle = vi.fn();
+        mount(<OverlayFullscreenButton isFullscreen={false} onToggle={onToggle} />);
+
+        act(() => container.querySelector("button")?.click());
+
+        // Called with nothing: the press is the caller's cue, not something to hand on.
+        expect(onToggle).toHaveBeenCalledTimes(1);
+        expect(onToggle).toHaveBeenCalledWith();
     });
 });

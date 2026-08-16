@@ -6,7 +6,7 @@ import { useContext, useEffect, useState } from "preact/hooks";
 import { t } from "../../../services/i18n";
 import { isMobile } from "../../../services/utils";
 import { useFullscreen } from "../../react/hooks";
-import OverlayControlGroup, { OverlayControlButton } from "../../react/OverlayControlGroup";
+import OverlayControlGroup, { OverlayControlButton, OverlayFullscreenButton } from "../../react/OverlayControlGroup";
 import { ParentMap, useMapPitch } from "./map";
 
 /**
@@ -75,14 +75,10 @@ export default function MapToolbar() {
                     onClick={() => map.zoomIn()}
                 />
             </>}
-            <OverlayControlButton
-                title={isFullscreen ? t("geo-map.exit-fullscreen") : t("geo-map.fullscreen")}
-                icon={isFullscreen ? "bx-exit-fullscreen" : "bx-fullscreen"}
-                // Nothing here is measured across the change: the map keeps the middle of its view
-                // through a resize of its own accord, and it is told of the new size by the view
-                // itself (see `useElementSize` in map.tsx).
-                onClick={() => void toggleFullscreen()}
-            />
+            {/* Nothing is measured across the change: the map keeps the middle of its view through
+                a resize of its own accord, and it is told of the new size by the view itself (see
+                `useElementSize` in map.tsx). */}
+            <OverlayFullscreenButton isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
         </OverlayControlGroup>
     );
 }

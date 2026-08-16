@@ -2945,8 +2945,6 @@
     "zoom-out": "Zoom out",
     "enter-3d": "Tilt into a 3D view\nHold Ctrl and drag to tilt the map freely",
     "exit-3d": "Lay the map flat again",
-    "fullscreen": "Fullscreen",
-    "exit-fullscreen": "Exit fullscreen",
     "close-details": "Close",
     "marker-color": "Marker color",
     "copy-coordinates": "Copy coordinates"
@@ -3745,8 +3743,6 @@
     "zoom-out": "Zoom out",
     "reset-zoom": "Reset zoom",
     "center-map": "Center the map",
-    "fullscreen": "Fullscreen",
-    "exit-fullscreen": "Exit fullscreen",
     "direction-left": "Branches to the left",
     "direction-right": "Branches to the right",
     "direction-side": "Branches to both sides",
@@ -3852,7 +3848,9 @@
   },
   "common": {
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "fullscreen": "Fullscreen",
+    "exit_fullscreen": "Exit fullscreen"
   },
   "spreadsheet": {
     "read-only": "This note is read-only.",

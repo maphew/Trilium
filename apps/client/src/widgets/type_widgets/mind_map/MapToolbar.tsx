@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { t } from "../../../services/i18n";
 import { isMobile } from "../../../services/utils";
 import { useFullscreen } from "../../react/hooks";
-import OverlayControlGroup, { OverlayControlButton } from "../../react/OverlayControlGroup";
+import OverlayControlGroup, { OverlayControlButton, OverlayFullscreenButton } from "../../react/OverlayControlGroup";
 import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
 import { centerMapOn, type MapPoint, readMapCenter, stepZoom } from "./viewport";
 
@@ -79,11 +79,7 @@ export default function MapToolbar({ mind }: MapToolbarProps) {
                 icon="bx-current-location"
                 onClick={() => mind.toCenter()}
             />
-            <OverlayControlButton
-                title={isFullscreen ? t("mind-map.exit-fullscreen") : t("mind-map.fullscreen")}
-                icon={isFullscreen ? "bx-exit-fullscreen" : "bx-fullscreen"}
-                onClick={toggleFullscreen}
-            />
+            <OverlayFullscreenButton isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
         </OverlayControlGroup>
     );
 }

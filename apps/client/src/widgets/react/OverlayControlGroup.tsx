@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { type ComponentChildren, createContext, type HTMLAttributes } from "preact";
 import { useContext, useMemo, useRef } from "preact/hooks";
 
+import { t } from "../../services/i18n";
 import type { ActionButtonProps } from "./ActionButton";
 import { useStaticTooltip } from "./hooks";
 
@@ -100,6 +101,32 @@ export function OverlayControlButton(props: OverlayControlButtonProps) {
             {hasText && icon && <span className={clsx("bx", icon)} aria-hidden="true" />}
             {text}
         </button>
+    );
+}
+
+interface OverlayFullscreenButtonProps {
+    /** Whether what the button stands over has the screen to itself. */
+    isFullscreen: boolean;
+    /** Gives it the screen, or takes it back. */
+    onToggle: () => void;
+}
+
+/**
+ * The button that gives what the group stands over the whole screen, and takes it back again — its
+ * mark and what it is called both naming the way out once it is in. Every such button in the app says
+ * the same two things, so it says them here rather than once per map.
+ *
+ * The state is handed to it rather than read: {@link useFullscreen} is what follows the browser, and
+ * a caller may have to wrap it — the mind map takes the middle of its view before the change so as to
+ * put it back after (see `useMapFullscreen`), which no button could do on its behalf.
+ */
+export function OverlayFullscreenButton({ isFullscreen, onToggle }: OverlayFullscreenButtonProps) {
+    return (
+        <OverlayControlButton
+            title={isFullscreen ? t("common.exit_fullscreen") : t("common.fullscreen")}
+            icon={isFullscreen ? "bx-exit-fullscreen" : "bx-fullscreen"}
+            onClick={() => onToggle()}
+        />
     );
 }
 
