@@ -10,9 +10,8 @@ import zoomService from "../../../components/zoom";
 import { ColorScheme, resolveColorScheme, THEME_FAMILY_SCHEMES } from "../../../services/color_scheme";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
-import { isElectron, isMobile, reloadFrontendApp, restartDesktopApp } from "../../../services/utils";
+import { isElectron, isMobile, reloadFrontendApp } from "../../../services/utils";
 import { VerticalLayoutIcon } from "../../buttons/global_menu";
-import Button from "../../react/Button";
 import { Card, CardOption, CardSection } from "../../react/Card";
 import Dropdown from "../../react/Dropdown";
 import FormList, { FormListHeader, FormListItem } from "../../react/FormList";
@@ -28,6 +27,7 @@ import OptionsPageHeader from "./components/OptionsPageHeader";
 import PlatformIndicator from "./components/PlatformIndicator";
 import RadioWithIllustration from "./components/RadioWithIllustration";
 import RelatedSettings from "./components/RelatedSettings";
+import RestartAction from "./components/RestartAction";
 
 const MIN_CONTENT_WIDTH = 640;
 
@@ -690,16 +690,7 @@ function ElectronIntegration() {
                 </Card>
             </div>
 
-            {/* No card of its own — an action the card above calls for rather than a setting it
-                holds — but kept to the cards' width, so it ends where their controls do. */}
-            <div className="options-section appearance-restart">
-                <Button
-                    name="restart-app-button"
-                    text={t("electron_integration.restart-app-button")}
-                    icon="bx-refresh"
-                    onClick={restartDesktopApp}
-                />
-            </div>
+            <RestartAction text={t("electron_integration.restart-app-button")} icon="bx-refresh" />
         </>
     );
 }

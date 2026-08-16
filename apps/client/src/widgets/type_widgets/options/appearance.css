@@ -20,11 +20,6 @@
     }
 }
 
-/* No card of its own, so it keeps the width of the one above and ends where its controls do. */
-.appearance-restart {
-    text-align: end;
-}
-
 /* Font Option Row */
 .font-option {
     cursor: pointer;

@@ -15,8 +15,3 @@
 .i18n-content-languages ul {
     margin-block: 1em !important;
 }
-
-/* No card of its own, so it keeps the width of the ones above and ends where their controls do. */
-.i18n-restart {
-    text-align: end;
-}

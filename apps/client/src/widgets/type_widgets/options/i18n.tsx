@@ -4,8 +4,7 @@ import type { Locale } from "@triliumnext/commons";
 import { useMemo } from "preact/hooks";
 
 import { getAvailableLocales, t } from "../../../services/i18n";
-import { isElectron, restartDesktopApp } from "../../../services/utils";
-import Button from "../../react/Button";
+import { isElectron } from "../../../services/utils";
 import { Card, CardOption, CardSection } from "../../react/Card";
 import FormSelect from "../../react/FormSelect";
 import { useTriliumOption, useTriliumOptionJson } from "../../react/hooks";
@@ -13,6 +12,7 @@ import CheckboxList from "./components/CheckboxList";
 import { LocaleSelector } from "./components/LocaleSelector";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import RelatedSettings from "./components/RelatedSettings";
+import RestartAction from "./components/RestartAction";
 
 export default function InternationalizationOptions() {
     return (
@@ -21,7 +21,8 @@ export default function InternationalizationOptions() {
             <LocalizationOptions />
             <DateSettings />
             <ContentLanguages />
-            <RestartAction />
+            {/* Both cards above only take effect once the app has started again. */}
+            <RestartAction text={t("electron_integration.restart-app-button")} />
             {isElectron() && (
                 <RelatedSettings items={[
                     {
@@ -190,20 +191,3 @@ export function ContentLanguagesList() {
     );
 }
 
-/**
- * Both cards above only take effect once the app has started again. The way to do that carries no
- * card of its own — it is an action the page offers rather than anything it holds — but keeps the
- * cards' width, so it ends where they do.
- */
-function RestartAction() {
-    return (
-        <div className="options-section i18n-restart">
-            <Button
-                name="restart-app-button"
-                text={t("electron_integration.restart-app-button")}
-                size="micro"
-                onClick={restartDesktopApp}
-            />
-        </div>
-    );
-}
