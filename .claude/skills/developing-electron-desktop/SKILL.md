@@ -1,0 +1,85 @@
+---
+name: developing-electron-desktop
+description: Use when working on the Trilium Electron desktop app (`apps/desktop`) — adding or changing an `electronApi` method / IPC channel, touching `preload.ts`, `main.ts`, `services/window.ts` or any main-process service (tray, printing, dialogs, import/export, spellcheck, autostart, security settings), the `trilium-app://` protocol, launching or debugging the desktop build, or writing tests for desktop code. Covers the process/security model, the four-file recipe for a new Electron API, running (`pnpm desktop:start`) and the known launch errors, and how desktop specs mock `electron`.
+---
+
+# Developing the Electron desktop app
+
+`apps/desktop` runs the **server and the client in one Electron process**: the main process boots `@triliumnext/core` + the Express app from `@triliumnext/server`, and the renderer is the ordinary `apps/client` bundle. There is no HTTP between them — see "How the renderer reaches the server" below. `apps/desktop/src/main.ts` is the entry point; `services/window.ts` creates windows and owns the window/spellcheck IPC.
+
+## Layout
+
+```
+apps/desktop/
+  src/main.ts                    # startup: platform provider, core init, Express app, windows, tray, IPC setup
+  src/preload.ts                 # the ONLY bridge renderer ↔ main (contextBridge → window.electronApi)
+  src/protocol.ts                # trilium-app:// scheme → dispatch into Express in-process
+  src/ipc_messaging_provider.ts  # replaces the WebSocket with ipcMain/webContents.send
+  src/platform_provider.ts       # DesktopPlatformProvider (isElectron, getEnv, crash)
+  src/services/window.ts         # BrowserWindow creation, webPreferences, window/spellcheck/nav IPC
+  src/services/*.ts              # one module per concern: tray, printing, dialog, import, export,
+                                 #   restore, shell, auto_launch, backup_passphrase, security_settings,
+                                 #   custom_dictionary, onenote (+ loopback_oauth), referer, request,
+                                 #   startup_metrics, web_contents_security
+  src/*.spec.ts, services/*.spec.ts   # vitest, `pnpm --filter desktop test`
+  spec/build-checks/artifacts.spec.ts # verifies the built dist
+  e2e/                           # Playwright against the built app (`pnpm --filter desktop e2e`)
+  scripts/build.ts               # esbuild bundle + asset copy into dist/
+  electron-forge/                # packaging (forge.config.ts, icons, dmg, portable/safe-mode launchers)
+```
+
+## Process and security model
+
+- **`nodeIntegration: false`, `contextIsolation: true`, `webviewTag: true`** on every window (`services/window.ts`). The renderer has no Node, no `require("electron")`, no `@electron/remote` (removed — never reintroduce it). Everything crosses through the preload bridge.
+- **`web_contents_security.ts`** vets every `<webview>` in `will-attach-webview` and denies `window.open`, routing allow-listed URLs to the OS. If a new feature needs a popup or a webview privilege, change it there — never relax `webPreferences` at the call site.
+- **Main-process handlers validate their input** and never trust a path from the renderer: OS pickers run in the main process (`dialog.ts`, `import.ts`, `restore.ts`) and hand back a location the *user* chose; `import.ts` mints single-use access grants rather than accepting a path; `shell.ts` gates every channel with a validator that throws. Follow the same shape for anything that touches the filesystem or the OS.
+- **Secrets stay out of the DB where they must**: `security_settings.ts` reads `data_dir/security.json`, `backup_passphrase.ts` uses the OS keyring — the passphrase must not travel inside the backup it protects.
+- **`services/request.ts`** (`ElectronRequestProvider`) uses Electron's `net` so sync honours the system proxy; `referer.ts` keeps hosts that require an http(s) `Referer` working from the `trilium-app://` origin.
+
+## How the renderer reaches the server
+
+- The UI loads from **`trilium-app://app/`**, a privileged custom scheme (`protocol.ts`). `registerTriliumAppScheme()` **must run before `app.ready`** (Electron ignores `registerSchemesAsPrivileged` afterwards and navigation aborts with `(blocked:origin)`); `setupTriliumAppProtocol(expressAppPromise)` installs the handler that synthesises a Node request/response and dispatches through the real Express app — session, CSRF, multer and error middleware all run. Requests arriving before the server is built simply wait on the promise. `apps/server/src/services/electron_request.ts` tags them so auth/CSRF middleware can tell them from external TCP traffic. The same two functions are reused by `apps/edit-docs`.
+- **WebSocket is replaced by IPC**: `ipc_messaging_provider.ts` implements `MessagingProvider` over `webContents.send` / `ipcMain.on`, one client per `webContents.id`; the client side picks it up through `window.electronApi.ws` (`apps/client/src/services/ws.ts`). Don't open a TCP WebSocket from desktop code.
+- Window creation is gated on core init, not full server startup, so the renderer spins up while Express is still building (`coreInitializedPromise` / `expressAppPromise` in `main.ts`).
+
+## Adding an Electron API (renderer → main)
+
+Four files, always together:
+
+1. **Interface** — add the method to the right group interface in `packages/commons/src/lib/electron_api_interface.ts` (`ElectronWindowApi`, `ElectronShellApi`, `ElectronPrintingApi`, …; the groups are listed on `ElectronApi` at the bottom of the file, each with a one-line purpose). New concern → new `ElectronXxxApi` interface and a new key on `ElectronApi`. Doc-comment the method: the client only sees this file.
+2. **Preload** — implement it in `apps/desktop/src/preload.ts` inside the matching group of the `contextBridge.exposeInMainWorld("electronApi", { … } satisfies ElectronApi)` literal. `satisfies` makes the typecheck fail until preload matches the interface. Keep the preload thin: marshal arguments to `ipcRenderer.send` / `invoke` / `sendSync`; no logic.
+3. **Handler** — register the `ipcMain` handler in the service module that owns the concern (`services/shell.ts`, `services/printing.ts`, …, each with a `setupXxxHandlers()` called from `main.ts`), or in `setupWindowing()` in `services/window.ts` for window/spellcheck/navigation. Channel names are kebab-case verbs (`open-external`, `set-full-screen`, `backup-passphrase-set`). Pick the IPC style by shape:
+   - `ipcMain.on(channel, handler)` — fire-and-forget (`ipcRenderer.send`);
+   - `ipcMain.handle(channel, handler)` — async request/response (`ipcRenderer.invoke`);
+   - `ipcMain.on` + `event.returnValue = …` — synchronous query (`ipcRenderer.sendSync`); use sparingly, it blocks the renderer.
+   Main → renderer events go the other way: `webContents.send(channel, …)` in main, an `ipcRenderer.on` subscription exposed as `onXxx(callback)` in preload.
+4. **Tests** — `apps/desktop/src/preload.spec.ts` (asserts the exposed API shape and that each method sends/invokes the right channel; extend the `exposedApi` assertions) and the owning service's `*.spec.ts` for the handler.
+
+Then call it from the client as `window.electronApi?.group.method()` — always optional-chained, since the same client runs in the browser. `window.electronApi` is declared in `apps/client/src/types.d.ts`; gate desktop-only UI on `isElectron()` from `apps/client/src/services/utils.ts` (server side: `utils.isElectron`).
+
+## Strings and platform code
+
+- Main-process user-facing text (tray menu, dialogs, error boxes) goes through `import { t } from "i18next"` with keys in `apps/server/src/assets/translations/en/server.json`. Never hardcode.
+- Platform checks in main use `process.platform`; code shared with core uses `isElectron()`/`isMac()`/`isWindows()` from `@triliumnext/core` utils (functions, only after `initializeCore()`).
+- The preload is compiled to **CJS** (`src/preload.compiled.cjs`, gitignored) — dev by `scripts/electron-start.mts`, prod by `apps/desktop/scripts/build.ts` — because Electron's sandboxed renderer can only load CJS preloads. Don't import ESM-only things into `preload.ts`.
+
+## Running
+
+| Command | What it does |
+|---|---|
+| `pnpm desktop:start` | dev app on port 37743, data in `apps/desktop/data`, Electron profile in `data-electron-37742`; HTTP cache disabled in dev so stale prod assets don't shadow fresh output |
+| `pnpm desktop:start-prod` | `build` + run `dist/` like a release (port 37841, separate data dirs) |
+| `pnpm --filter desktop electron-forge:make` / `:package` | full installers / unpacked app |
+| `pnpm --filter desktop e2e` | Playwright against `dist/main.cjs` (builds first) |
+
+Known launch-time noise and failures — do not "fix" these in app code:
+
+- **`TypeError: Cannot read properties of undefined (reading 'commandLine')`** from `main.ts` (`app.commandLine.appendSwitch(...)`) can appear in the console of Electron-based launches (`desktop:start`, `edit-docs:edit-docs`). The app runs correctly; ignore it unless the user raises it as a bug.
+- **`TypeError: Not running in an Electron environment!`** (from `electron-is-dev`) at startup means the shell inherited **`ELECTRON_RUN_AS_NODE=1`** — common inside VS Code's extension host and AI coding agents. `require("electron")` then resolves to the npm stub's path string. Unset it before launching: `unset ELECTRON_RUN_AS_NODE` (bash/zsh) or `Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue` (PowerShell).
+- **Linux**: `gtk-version=3` and `GlobalShortcutsPortal` switches in `main.ts` are deliberate workarounds (Electron GTK 4 crash; Flatpak/Wayland global shortcuts).
+
+## Testing desktop code
+
+- `pnpm --filter desktop test [pattern]` — Vitest, node environment, `src/**/*.spec.ts`. Specs `vi.mock("electron", …)` and assert on the recorded `ipcMain`/`ipcRenderer` calls (see `preload.spec.ts`, `services/shell.spec.ts` for the pattern). `vitest.config.mts` sets `ELECTRON_OVERRIDE_DIST_PATH` so a dynamic `import("electron")` doesn't blow up where the binary isn't installed — don't remove it.
+- The desktop suite also boots server pieces (`TRILIUM_INTEGRATION_TEST: "memory"`), so it is slower than a client spec; keep the pattern narrow.
+- `spec/build-checks/artifacts.spec.ts` asserts the contents of a built `dist/` (client, assets, `better-sqlite3`, …). It is outside the default `include`, so run it explicitly after `pnpm desktop:build` when touching `scripts/build.ts` or the asset copies (`schema.sql`, `llm/skills`, `share-theme/templates`).

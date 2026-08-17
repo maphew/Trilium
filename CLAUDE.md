@@ -168,13 +168,8 @@ Shared components live in `apps/client/src/widgets/react/` — **always** reuse 
 - **Barrel import caution** — `import { x } from "@triliumnext/core"` loads ALL core exports. Early-loading modules like `config.ts` should import specific subpaths (e.g. `@triliumnext/core/src/services/utils/index`) to avoid circular dependencies or initialization ordering issues
 - **Electron custom protocol** — In desktop mode, the renderer loads the UI and makes API calls via the `trilium-app://` custom protocol (not HTTP). `apps/desktop/src/protocol.ts` dispatches these requests into the Express app running in the main process; the dispatcher tags them via `apps/server/src/services/electron_request.ts` so auth/CSRF middleware can distinguish them from external TCP traffic
 
-### Mobile (Capacitor) request routing — Android vs iOS
-
-The mobile app (`apps/mobile/`) wraps the standalone WASM stack in a Capacitor WebView. There is no network backend; the client's API/sync calls (`/api`, `/sync`, `/bootstrap`, `/search`) reach the in-process worker via **two platform-specific request paths**:
-- **Android**: `androidScheme: "https"` works → the app runs at `https://localhost` → the **service worker** (`apps/standalone/src/sw.ts`) routes those requests to the worker.
-- **iOS**: the app runs at **`capacitor://localhost`**, where service workers cannot register, so `apps/standalone/src/main.ts` installs **fetch/XHR/image interceptors** (gated on `location.protocol === "capacitor:"`) instead.
-
-**`iosScheme: "https"` is a no-op on iOS and must not be re-added.** Capacitor rejects it — `CAPInstanceDescriptor.normalize()` checks `WKWebView.handlesURLScheme(scheme) == false`, and WKWebView reserves `http`/`https`, so the scheme is reset to the default `capacitor`. The config line only misleads (it implies an https origin that never exists on iOS). **Do not delete the iOS interceptor path as "dead code"** — it is the only working request path on iOS; a code reviewer assuming `iosScheme:https` ⇒ https origin will wrongly flag it.
+### Mobile (Capacitor) app
+`apps/mobile` wraps the standalone WASM build in a Capacitor WebView — no network backend. Android runs at `https://localhost` and routes API calls through the service worker; iOS runs at `capacitor://localhost`, where no service worker can register, so `apps/standalone/src/ios-interceptors.ts` stands in. **`iosScheme: "https"` is a no-op and must not be re-added, and the iOS interceptor path is not dead code.** Load the **`developing-capacitor-mobile` skill** before touching `apps/mobile`, `ios-interceptors.ts`, `capacitor_http_handler.ts` or the `capacitor:` branches of `sw.ts`/`main.ts`.
 
 ### Binary Utilities
 
@@ -240,17 +235,7 @@ Rules specific to this mechanism:
 - There is no `config.translate` bridge and no `lang/*.po` catalogs any more — both were removed. Any doc or plugin still describing them is stale.
 
 ### Electron Desktop App
-- Desktop entry point: `apps/desktop/src/main.ts`, window management: `apps/desktop/src/services/window.ts`
-- **Security**: `nodeIntegration` is **disabled** and `contextIsolation` is **enabled**. The renderer has no access to Node.js APIs or Electron internals.
-- **Preload script** (`apps/desktop/src/preload.ts`): Uses `contextBridge.exposeInMainWorld("electronApi", ...)` to expose a whitelisted API to the renderer. Compiled to CJS via esbuild (dev: `scripts/electron-start.mts`, prod: `apps/desktop/scripts/build.ts`).
-- **ElectronApi interface** (`packages/commons/src/lib/electron_api_interface.ts`): Shared type definition used by both the preload script (`satisfies ElectronApi`) and the client (`window.electronApi`). Grouped into sub-objects: `window`, `clipboard`, `shell`, `contextMenu`, `spellcheck`, `tray`, `printing`, `navigation`.
-- **Client-side access**: Use `window.electronApi?.group.method()` — never use `require("electron")` or `dynamicRequire()` in client code.
-- **Adding new Electron APIs**: Add the method to the interface in commons, implement it in `preload.ts`, add the IPC handler in `apps/desktop/src/services/window.ts`, and add a test in `apps/desktop/spec/preload.spec.ts`.
-- **IPC handlers**: Use `electron.ipcMain.on(channel, handler)` for fire-and-forget, `electron.ipcMain.handle(channel, handler)` for async request/response, `ipcMain.on` + `event.returnValue` for synchronous queries.
-- Electron-only features should check `isElectron()` from `apps/client/src/services/utils.ts` (client) or `utils.isElectron` (server)
-- **`@electron/remote` is removed** — do not use it. All renderer↔main communication goes through the preload bridge.
-- **Spurious `electron.app is undefined` error** — when running Electron-based apps (`pnpm desktop:start`, `pnpm edit-docs:edit-docs`, etc.), the console may print `TypeError: Cannot read properties of undefined (reading 'commandLine')` from `apps/desktop/src/main.ts` (the `app.commandLine.appendSwitch("disable-http-cache")` line). This is **not a real failure** — the app runs correctly. Do not try to fix it, guard it, or investigate electron initialization order unless the user explicitly raises it as a bug.
-- **`ELECTRON_RUN_AS_NODE` leak crashes Electron launches** — shells spawned by Electron-based tools (the VS Code extension host, AI coding agents running inside it) often inherit `ELECTRON_RUN_AS_NODE=1`. With it set, launching the desktop app (`pnpm desktop:start`, `pnpm --filter desktop start-prod`, `electron dist`) crashes at startup with `TypeError: Not running in an Electron environment!` (thrown by `electron-is-dev`, because `require("electron")` resolves to the npm stub's path string instead of the built-in module). This is an environment problem, not an app bug — unset the variable before launching: `Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue` (PowerShell) or `unset ELECTRON_RUN_AS_NODE` (bash).
+`apps/desktop` runs server + client in one Electron process; the renderer loads over the `trilium-app://` custom protocol and talks to main only through the preload bridge (`window.electronApi`, typed by `packages/commons/src/lib/electron_api_interface.ts`). `nodeIntegration` is off, `contextIsolation` is on, `@electron/remote` is gone — never `require("electron")` in client code. Adding an API means interface + `preload.ts` + an `ipcMain` handler in the owning service + a spec. Load the **`developing-electron-desktop` skill** for the recipe, the security model, running/launch errors and testing.
 
 ### Attribute Inheritance
 
