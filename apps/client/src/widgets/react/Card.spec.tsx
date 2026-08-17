@@ -202,12 +202,23 @@ describe("under a filter", () => {
 
         const setting = renderInto(
             <FilterProvider query="passphrase">
-                <OptionCardSection className="secret" label="Password" filterExtraKeywords="passphrase" />
+                <OptionCardSection
+                    className="secret" label="Password" filterExtraKeywords="passphrase"
+                />
             </FilterProvider>
         );
 
         expect(setting.querySelector(".secret")).not.toBeNull();
         expect(setting.textContent).toBe("Password");
+    });
+
+    it("holds back a card that is there to be found rather than read", () => {
+        const actions = <Card filterOnly heading="Related actions">{settings}</Card>;
+
+        expect(renderInto(actions).querySelector(".tn-card")).toBeNull();
+        expect(renderInto(
+            <FilterProvider query="theme">{actions}</FilterProvider>
+        ).querySelector(".tn-card")).not.toBeNull();
     });
 
     it("keeps a section that accompanies the settings instead of being one", () => {

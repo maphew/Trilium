@@ -51,6 +51,12 @@ export interface CardProps {
      * than inventing words for it: every word in it becomes one the card can be found by.
      */
     filterExtraKeywords?: string;
+    /**
+     * Shows the card only while a filter is running, for content that is there to be found rather
+     * than read: a page's own actions, which a search cannot otherwise reach, named and pointing at
+     * the page they are carried out on.
+     */
+    filterOnly?: boolean;
 }
 
 /**
@@ -64,6 +70,8 @@ export interface CardProps {
 export function Card(props: {children: ComponentChildren} & CardProps) {
     const matched = useFilterMatch(props.heading, props.description, props.filterExtraKeywords);
     const filtering = useIsFiltering();
+
+    if (props.filterOnly && !filtering) return null;
 
     return <div className={clsx("tn-card", props.className,
                     filterRoleClass(filtering && (matched ? "match" : "scope")))}>
