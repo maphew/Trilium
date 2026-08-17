@@ -134,62 +134,16 @@ Frontend widgets in `apps/client/src/widgets/`:
 - `RightPanelWidget` — Sidebar widgets with position ordering
 - Type-specific widgets in `type_widgets/` directory
 
-**Widget lifecycle**: `doRenderBody()` for initial render, `refreshWithNote()` for note changes, `entitiesReloadedEvent({loadResults})` for entity updates. Uses jQuery — don't mix React patterns.
+**Widget lifecycle**: `doRenderBody()` for initial render, `refreshWithNote()` for note changes, `entitiesReloadedEvent({loadResults})` for entity updates. Fluent builder pattern: `.child()`, `.class()`, `.css()` chaining with position-based ordering. Uses jQuery — don't mix React patterns.
 
 #### Reusable Preact Components
-Common UI components are available in `apps/client/src/widgets/react/` — **always** reuse these instead of writing raw HTML elements or custom implementations:
-- `NoItems` - Empty state placeholder with icon and message (use for "no results", "too many items", error states)
-- `ActionButton` - Consistent button styling with icon support
-- `FormTextBox` - Text input with validation and controlled input handling; `FormTextBoxWithUnit` for inputs with a unit suffix (e.g. "mm", "px")
-- `FormSelect` - Dropdown/combobox taking an object array as data
-- `Slider` - Range slider with label
-- `Checkbox`, `RadioButton` - Form controls
-- `Collapsible` - Expandable content section (animated, theme-styled); `ExternallyControlledCollapsible` is the controlled variant (caller owns `expanded`/`setExpanded`) vs. `Collapsible`'s self-managed `initiallyExpanded`
-- `ColorPicker` - Color picker combining preset swatches with the browser's native `<input type="color">`; value is a CSS color string (`onChange(null)` clears). A controlled, flat swatch row — wrap it in a `Dropdown` to get a popover, or use it inline; don't hand-roll a color palette from scratch. `NoteColorPicker` is the note-bound variant that reads/writes the note's `color` label
-- `Badge` - Colored pill/label with optional icon, tooltip, and `onClick` (for counts, status flags). Set its color via the `--color` CSS variable on a wrapper class (not inline styles); pass `outline` for a colored-border/transparent-fill variant instead of a solid background. `BadgeWithDropdown` pairs a badge with a dropdown menu. Don't hand-roll pill/badge markup — reuse it
-- `Table` - Generic [Tabulator](https://tabulator.info/)-based data grid (`columns`, `data`, `events`, `modules`, `tabulatorRef`; props typed via `TableProps<T>`). Decoupled from the note/collection model — deals purely in columns/data/events, so use it for any grid (e.g. the SQL console results, the note collection table view). Prefer it over instantiating `tabulator-tables` directly
-- `Calendar` - Generic [FullCalendar](https://fullcalendar.io/) wrapper (accepts any `CalendarOptions` plus a `calendarRef`; props typed via `CalendarProps`). Decoupled from the note/collection model — deals purely in FullCalendar options, so use it for any calendar rather than instantiating `@fullcalendar/core` directly
-- `Dropdown` - Bootstrap dropdown wrapper (toggle button + menu, with `FormListItem`/`FormDropdownDivider` as the items). **Pass `noDropdownListStyle` unless the menu actually scrolls** — see "Dropdown menus and the backdrop blur" below
-- `OverlayControlGroup` / `OverlayToolbar` - the two ways to float controls over a note's content. **Never hand-roll a `<button>` over a canvas** — see "Controls floating over a note's content" below
-
-Fluent builder pattern: `.child()`, `.class()`, `.css()` chaining with position-based ordering.
-
-**Do not use Bootstrap utility classes** (e.g. `form-control-sm`, `form-select-sm`, `input-group`) on these components — they manage their own styling internally. If you need to adjust sizing or layout, use props provided by the component or CSS custom properties, not Bootstrap overrides.
+Shared components live in `apps/client/src/widgets/react/` — **always** reuse them (`FormTextBox`, `FormSelect`, `Button`, `Badge`, `NoItems`, `Dropdown`, `Table`, `Calendar`, …) instead of writing raw HTML elements or a custom implementation, and never put Bootstrap utility classes (`form-control-sm`, `input-group`, …) on them. Any control floating **over** a note's content (map, mind map, image, diagram) goes on `OverlayControlGroup` / `OverlayToolbar` — never a hand-rolled `<button>`. The full catalogue, the `Dropdown` backdrop-blur rules (`noDropdownListStyle` / `portalToBody`) and the overlay-control contract are in the **`building-client-ui` skill** — load it before building client UI.
 
 #### Component Styling
 - **Avoid inline styles** — do not use the `style` attribute/prop on JSX elements unless absolutely necessary (e.g. a truly dynamic, computed value that cannot be expressed in CSS). Static layout, sizing, spacing, and visual properties must go in CSS.
 - **Per-component CSS files**: each component should have a matching `.css` file (e.g. `my_dialog.tsx` → `my_dialog.css`), imported at the top of the component file.
 - **CSS nesting for scoping**: since CSS modules are not available, scope styles using a root class and native CSS nesting. For example, a dialog with `className="my-dialog"` should have its styles nested under `.modal.my-dialog { … }`.
 - **Reuse existing components** instead of building custom markup — prefer `FormTextBox`, `FormTextBoxWithUnit`, `FormSelect`, `Slider`, `Button`, etc. over hand-rolled `<input>`, `<select>`, or `<button>` elements.
-
-#### Controls floating over a note's content
-
-Any control laid **over** a note's own content — a geo map, a mind map, an image, a video, a diagram, a presentation, and whatever comes next — goes on one of two shared components in `apps/client/src/widgets/react/`. **Never hand-roll a `<button>` with `tn-overlay-*` classes**: those classes are the components' business, and a site that writes them itself also has to write the ref, the tooltip, the `aria-label` and the `type="button"` that the component already owns.
-
-- **`OverlayControlGroup`** (`OverlayControlGroup.tsx`) — a run of buttons joined edge to edge into one segmented chip. **This is the default**, and specifically what zoom steps, a zoom/scale readout, next/previous navigation, fullscreen and "add a thing to this view" buttons are built from. Its buttons are `OverlayControlButton`; `OverlayFullscreenButton` is the ready-made fullscreen toggle (pass it `isFullscreen` + `onToggle` from `useFullscreen`).
-- **`OverlayToolbar`** (`OverlayToolbar.tsx`) — separate buttons spaced out on their own pane of frosted glass. Use it only where the controls are *not* one run of related steps (e.g. the mind map's four layout-direction choices).
-
-Rules for `OverlayControlButton`, which cover every case seen so far:
-
-- **`title` is the tooltip.** A button wearing no words is also named by it; one that wears words is named by them. Do not add an `aria-label` — the component decides, and a title that says more at length would otherwise speak over the visible words. The one exception is a face that is neither words nor a mark (a keycap, a glyph standing for itself), which passes a plain `aria-label` of its own.
-- **`icon` is a boxicons name** (`bx-plus-circle`), **`text` is what stands inside**. Given both, the component renders the mark as a child span itself — never put a `bx` class on a button that also wears words, since the icon font would fall on the words too.
-- **`active`/`disabled` are props**, not classes concatenated into `className`.
-- **Pass `overCanvas`** when the group stands over something that is dragged (a map), so a press on a button is not taken for the start of a drag.
-- **Where the group stands is the group's own**, via `placement` (`top`/`bottom` × `start`/`center`/`end`): it pins itself over the nearest positioned ancestor, and its tooltips open away from that edge. **Never write `position: absolute` plus insets at the call site.** What the caller does hand over, in that widget's CSS, is the room to keep from the edges (`--overlay-group-inset`, or the per-edge `--overlay-group-inset-top`/`-bottom`/`-start`/`-end` where one edge differs — a fullscreen map clearing a notch) and the `z-index`. `titlePosition` overrides the tooltip direction and is rarely right; only add a class to a *button* if a rule actually uses it.
-- **Overlay controls exist in every layout.** Never gate a group on `isExperimentalFeatureEnabled("new-layout")`, and when an action moves onto a group, **delete its twin in `FloatingButtonsDefinitions.tsx`** rather than keeping both: that bar only renders in the old layout (`desktop_layout.tsx` mounts it with `!isNewLayout`), so a layout-gated group plus a floating fallback means two implementations of one button that drift. Keep the underlying app commands (e.g. `relationMapResetZoomIn`) even once the group is their only caller — note scripts can fire them via `api.triggerCommand`.
-- Reuse shared labels from the `common` translation namespace (e.g. `common.fullscreen`) rather than adding a per-widget copy of a string the app already has.
-
-#### Dropdown menus and the backdrop blur
-The Next theme frosts every `.dropdown-menu` with `backdrop-filter`, but it does so along **two different paths**, and only one of them is reliable:
-
-- **`::before` layer** (default for a menu *without* `tn-dropdown-list`) — the blur lives on a background-less pseudo-element at `z-index: -1`. This one works everywhere.
-- **Element-level filter** (what the `tn-dropdown-list` class switches to) — the blur is put on the menu element itself, which also paints a translucent background. This exists only because a **scrollable** menu can't use the pseudo: it would scroll away with the content. Opened inside the note's scrolling content area, this filter silently does nothing, and the menu degrades to its bare ~85 %-alpha background — i.e. it reads as see-through over anything dark. `body.background-effects` already forces such menus to an opaque fallback for the same underlying reason (see the comment in `theme-next/base.css`).
-
-`Dropdown` adds `tn-dropdown-list` **by default**, so a new menu opts into the fragile path unless you say otherwise:
-
-- Pass **`noDropdownListStyle`** on any menu that doesn't scroll — that is nearly every action/`[…]` menu. `NoteActions`, the global menu, the note-icon picker and `HelpDropdown` all do.
-- Pass **`portalToBody`** instead when the menu is fine but an *ancestor* establishes a containment/backdrop root (`container-type`, `transform`, `filter` — e.g. the peeked right pane), which flattens the blur into a flat tint.
-- If a menu looks transparent rather than frosted, check these two before reaching for CSS overrides.
 
 ### API Architecture
 
