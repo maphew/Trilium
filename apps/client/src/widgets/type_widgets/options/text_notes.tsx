@@ -596,7 +596,7 @@ function CodeBlockStyle() {
                 />
             </OptionCardSection>
 
-            <CardSection className="code-block-preview">
+            <CardSection className="code-block-preview" filterRole="companion">
                 <CodeBlockPreview theme={effectiveTheme} wordWrap={codeBlockWordWrap} tabWidth={codeBlockTabWidth} />
             </CardSection>
         </Card>

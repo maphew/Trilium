@@ -1,12 +1,13 @@
 import "./search_page.css";
 
+import clsx from "clsx";
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 
 import type FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import { useOptionPages } from "../../dialogs/OptionsDialog";
-import { FilterProvider } from "../../react/filter";
+import { FilterProvider, filterRoleClass, useIsFiltering } from "../../react/filter";
 import { useDebouncedValue, useNoteContext } from "../../react/hooks";
 import LoadingSpinner from "../../react/LoadingSpinner";
 import NoItems from "../../react/NoItems";
@@ -100,10 +101,12 @@ function SearchedPages() {
 /** One page's cards, under the name of the page they belong to, so a result says where it lives. */
 function SearchedPage({ page, ...pageProps }: { page: FNote } & Omit<TypeWidgetProps, "note">) {
     const Page = CONTENT_WIDGETS[page.noteId];
+    const filtering = useIsFiltering();
     if (!Page) return null;
 
+    // A page with nothing left in it is not worth naming, which the filter's own rule sees to.
     return (
-        <section className="options-search-page">
+        <section className={clsx("options-search-page", filterRoleClass(filtering && "scope"))}>
             <h3 className="options-search-page-title">
                 <span className={page.getIcon()} aria-hidden="true" />
                 {page.title}

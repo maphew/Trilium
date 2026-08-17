@@ -38,18 +38,18 @@ body.mobile .options-search .options-page-header {
 }
 
 /*
- * A page brings its whole self along, of which the search wants only the cards: its header names
+ * A page brings its whole self along, of which the search wants only what matched: its header names
  * the page it thinks it is showing, and its tables and listings are not settings anyone can search
  * for. A page is free to keep its cards inside a block of its own (the shortcuts page does), so
- * what is kept is anything with a card still left in it rather than the cards alone.
+ * what is kept is any block with something left in it rather than the cards alone.
  *
- * Something is left when a card matched by name, or when a single setting inside one did — the
- * same test decides whether a block is worth keeping, whether a page is worth naming, and whether
- * the search came back with anything at all. A setting kept only for the details under it does not
- * count, since it is shown for their sake and goes with them (see `Card.css`).
+ * The page itself is a filter scope, and goes when empty by the rule in filter.css.
  */
-.options-search-page > :not(.tn-card, .options-search-page-title):not(:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option:not(.tn-card-option-filter-unmatched))),
-.options-search-page:not(:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option:not(.tn-card-option-filter-unmatched))),
-.options-search-results:has(.tn-card:not(.tn-card-filter-unmatched), .tn-card-option:not(.tn-card-option-filter-unmatched)) .options-search-empty {
+.options-search-page > :not(.options-search-page-title, .tn-filter-match):not(:has(.tn-filter-match)) {
+    display: none;
+}
+
+/* Nothing to stand in for once the search has something to show. */
+.options-search-results:has(.tn-filter-match) .options-search-empty {
     display: none;
 }
