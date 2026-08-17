@@ -46,7 +46,7 @@ This is a list of labels that Trilium natively supports.
 | `calendarRoot` | Marks the note which should be used as root for <a class="reference-link" href="../Advanced%20Showcases/Day%20Notes.md">Day Notes</a>. Only one should be marked as such. |
 | `archived` | Hides notes from default search results and dialogs. Archived notes can optionally be hidden in the <a class="reference-link" href="../../Basic%20Concepts%20and%20Features/UI%20Elements/Note%20Tree.md">Note Tree</a>. |
 | `excludeFromExport` | Excludes this note and its children when exporting. |
-| `run`, `runOnInstance`, `runAtHour` | See <a class="reference-link" href="../../Scripting/Backend%20scripts/Events.md">Events</a>. |
+| `run`, `runOnInstance`, `runAtHour` | See <a class="reference-link" href="../../Scripting/Backend%20scripts/Backend%20Events.md">Events</a>. |
 | `disableInclusion` | Scripts with this label won't be included into parent script execution. |
 | `sorted`, `sortDirection`, `sortFoldersFirst`, `sortNatural`, `sortLocale`, `top`, `bottom` | Manages automatic/permanent sorting. See <a class="reference-link" href="../../Basic%20Concepts%20and%20Features/Notes/Sorting%20Notes.md">Sorting Notes</a>. |
 | `hidePromotedAttributes` | Hide <a class="reference-link" href="Promoted%20Attributes.md">Promoted Attributes</a> on this note. Generally useful when defining inherited attributes, but the parent note doesn't need them. |

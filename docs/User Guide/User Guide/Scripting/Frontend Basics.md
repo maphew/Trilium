@@ -14,7 +14,7 @@ For more advanced behaviors that do not require a user interface (e.g. batch mod
 
 ## Scripts
 
-Scripts don't have any special requirements. They can be run manually using the _Execute_ button on the code note or they can be run automatically, see <a class="reference-link" href="Frontend%20Basics/Events.md">Events</a>.
+Scripts don't have any special requirements. They can be run manually using the _Execute_ button on the code note or they can be run automatically, see <a class="reference-link" href="Frontend%20Basics/Frontend%20Events.md">Events</a>.
 
 ## Widgets
 
