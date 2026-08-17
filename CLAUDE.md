@@ -50,7 +50,7 @@ pnpm typecheck                 # TypeScript type check across all projects
 
 - **Committing directly on `main` is allowed and expected** for small fixes and self-contained features — do **not** create a branch first for those. The default "branch before committing on the default branch" rule does not apply to this repository.
 - **Large or risky work goes on a branch**: multi-commit features, migrations, refactors spanning many packages, anything that needs review or a PR before landing.
-- Only commit when explicitly asked to in that message; leave changes staged/unstaged for review otherwise.
+- Only commit when explicitly asked to **in that message**, and the ask covers only the step it accompanies — a later step is left uncommitted until asked again. A remark like "commits go on main" is about branch choice, not standing permission to commit. Otherwise leave changes staged/unstaged for review.
 
 ## Main Applications
 
