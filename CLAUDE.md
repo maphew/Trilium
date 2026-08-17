@@ -191,11 +191,6 @@ The Next theme frosts every `.dropdown-menu` with `backdrop-filter`, but it does
 - Pass **`portalToBody`** instead when the menu is fine but an *ancestor* establishes a containment/backdrop root (`container-type`, `transform`, `filter` — e.g. the peeked right pane), which flattens the blur into a flat tint.
 - If a menu looks transparent rather than frosted, check these two before reaching for CSS overrides.
 
-#### API Architecture
-- **Internal API**: REST endpoints in `packages/trilium-core/src/routes/api/` (Node-only routes stay in `apps/server/src/routes/api/`)
-- **ETAPI**: External API for third-party integrations (`apps/server/src/etapi/`)
-- **WebSocket**: Real-time synchronization (`packages/trilium-core/src/services/ws.ts`)
-
 ### API Architecture
 
 - **Internal API** (`packages/trilium-core/src/routes/api/`, plus Node-only routes in `apps/server/src/routes/api/`): REST endpoints, trusts frontend
@@ -244,15 +239,6 @@ SQLite via `better-sqlite3`. SQL abstraction in `packages/trilium-core/src/servi
 
 - Schema: `packages/trilium-core/src/assets/schema.sql`
 - Migrations: `packages/trilium-core/src/migrations/` — registered in `migrations.ts` (`MIGRATIONS` array, newest first); either inline SQL or a `NNNN__description.ts` module
-
-### Testing Strategy
-- Server tests run sequentially due to shared database
-- Client tests can run in parallel
-- E2E tests use Playwright for both server and desktop apps
-- Build validation tests check artifact integrity
-- **Browser-mode tests** (`packages/ckeditor5`) drive a real headless Chrome via `@vitest/browser-webdriverio`, which downloads its own Chrome and chromedriver. Where those cannot run (NixOS: they die on a missing `libxcb.so.1`), set `CHROME_BIN` and `CHROMEDRIVER_PATH` to a system pair of matching versions — `nix develop` exports both. Never start a chromedriver by hand or add a local override config; see `docs/Developer Guide/Developer Guide/Testing.md`
-- **Write concise tests**: Group related assertions together in a single test case rather than creating many one-shot tests
-- **Extract and test business logic**: When adding pure business logic (e.g., data transformations, migrations, validations), extract it as a separate function and always write unit tests for it
 
 ### Internationalization
 - Translation files in `apps/client/src/translations/`
@@ -312,14 +298,15 @@ Rules specific to this mechanism:
 - **Spurious `electron.app is undefined` error** — when running Electron-based apps (`pnpm desktop:start`, `pnpm edit-docs:edit-docs`, etc.), the console may print `TypeError: Cannot read properties of undefined (reading 'commandLine')` from `apps/desktop/src/main.ts` (the `app.commandLine.appendSwitch("disable-http-cache")` line). This is **not a real failure** — the app runs correctly. Do not try to fix it, guard it, or investigate electron initialization order unless the user explicitly raises it as a bug.
 - **`ELECTRON_RUN_AS_NODE` leak crashes Electron launches** — shells spawned by Electron-based tools (the VS Code extension host, AI coding agents running inside it) often inherit `ELECTRON_RUN_AS_NODE=1`. With it set, launching the desktop app (`pnpm desktop:start`, `pnpm --filter desktop start-prod`, `electron dist`) crashes at startup with `TypeError: Not running in an Electron environment!` (thrown by `electron-is-dev`, because `require("electron")` resolves to the npm stub's path string instead of the built-in module). This is an environment problem, not an app bug — unset the variable before launching: `Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue` (PowerShell) or `unset ELECTRON_RUN_AS_NODE` (bash).
 
+### Attribute Inheritance
+
 Three inheritance mechanisms:
 1. **Standard**: `note.getInheritableAttributes()` walks parent tree
 2. **Child prefix**: `child:label` on parent copies to children
 3. **Template relation**: `#template=noteNoteId` includes template's inheritable attributes
 
-### Attribute Inheritance
-
 Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
+
 ### Client-Side API Restrictions
 - **Do not use `crypto.randomUUID()`** or other Web Crypto APIs that require secure contexts - Trilium can run over HTTP, not just HTTPS
 - Use `randomString()` from `apps/client/src/services/utils.ts` for generating IDs instead
@@ -366,6 +353,10 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 - **Core tests** (`packages/trilium-core/src/**/*.spec.ts`): `trilium-core` has no runner of its own — the **server and standalone suites both include** its specs (`apps/server/vite.config.mts`, `apps/standalone/vite.config.mts`) and run them against different platform providers (node + better-sqlite3 vs. happy-dom + sql.js WASM). Green under `pnpm --filter server test` is **not** proof; run `pnpm --filter standalone test` as well. See the `writing-unit-tests` skill for the cross-runtime traps
 - **E2E tests** (`packages/trilium-e2e/`): Shared Playwright tests, run via `pnpm --filter server e2e` or `pnpm --filter standalone e2e`
 - **ETAPI tests** (`apps/server/spec/etapi/`): External API contract tests
+- **Browser-mode tests** (`packages/ckeditor5`) drive a real headless Chrome via `@vitest/browser-webdriverio`, which downloads its own Chrome and chromedriver. Where those cannot run (NixOS: they die on a missing `libxcb.so.1`), set `CHROME_BIN` and `CHROMEDRIVER_PATH` to a system pair of matching versions — `nix develop` exports both. Never start a chromedriver by hand or add a local override config; see `docs/Developer Guide/Developer Guide/Testing.md`
+- **Build validation tests** check artifact integrity
+- **Write concise tests**: Group related assertions together in a single test case rather than creating many one-shot tests
+- **Extract and test business logic**: When adding pure business logic (e.g., data transformations, migrations, validations), extract it as a separate function and always write unit tests for it
 
 ## Documentation
 
@@ -415,10 +406,6 @@ The viewer under `packages/pdfjs-viewer/viewer/` is vendored from the pdf.js Git
 4. Commit all changes including the updated viewer files
 
 `update-viewer.ts` re-applies our patches to `viewer.html` (custom stylesheet/script, relaxed `style-src-elem` CSP) and throws if an upstream markup change means it can no longer find them.
-
-### Database Migrations
-- Add migration scripts in `packages/trilium-core/src/migrations/` and register them in `migrations.ts`
-- Update schema in `packages/trilium-core/src/assets/schema.sql`
 
 ### Server-Side Static Assets
 - Static assets (templates, SQL, translations, etc.) go in `apps/server/src/assets/`
