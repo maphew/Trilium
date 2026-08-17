@@ -48,8 +48,7 @@
     "scripting-error": "腳本筆記執行失敗",
     "unhandled-error": {
       "title": "背景任務執行失敗",
-      "details-button": "查看詳情…",
-      "details-intro": ""
+      "details-button": "查看詳情…"
     }
   },
   "add_link": {
