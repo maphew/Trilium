@@ -12,10 +12,13 @@ documentation, see the
 
 - Search existing issues and pull requests first, so the work is not done
   twice.
-- For a small bug fix, you can open a pull request directly.
-- For a feature, link an existing feature request if one exists. For a
-  large feature or an architectural change, open or find an issue and wait
-  for maintainer feedback before you start coding.
+- For a bug fix or a documentation change, you can open a pull request
+  directly.
+- For a feature of any size, first open or find a feature request or idea
+  and wait for maintainer feedback before you start coding. Some well-made
+  pull requests must be declined only because they do not fit the
+  philosophy of Trilium; discussing first avoids that risk and saves
+  effort on both sides.
 - To set up a build, see
   [Environment Setup](./docs/Developer%20Guide/Developer%20Guide/Environment%20Setup.md)
   and
@@ -27,10 +30,15 @@ Trilium is a hierarchical note-taking application for building large
 *personal* knowledge bases. Keep these constraints in mind:
 
 1. **Everything must work offline.** Features that need an online service
-   cannot go into the core.
-2. **User data must stay usable for decades.** We avoid dependencies with
-   proprietary formats or very large bundles.
-3. **Protect existing user data.** Discuss changes to storage, sync, or
+   cannot go into the core. A few features fetch external data, such as
+   map tiles for geo maps or OCR data, but libraries must always be
+   embedded in the application, never loaded from a CDN.
+2. **Bundle size is very important.** A new dependency cannot be added
+   without checking that it does not negatively impact the bundle size.
+3. **User data must stay usable for decades.** We avoid dependencies with
+   proprietary formats, unless the data can be fully imported or
+   exported, as with the XLSX and CSV interoperability of spreadsheets.
+4. **Protect existing user data.** Discuss changes to storage, sync, or
    encryption with maintainers before coding, because these changes can put
    existing databases at risk.
 
@@ -63,8 +71,9 @@ A feature idea will likely be declined when it:
 - is better handled outside Trilium, for example HTTP Basic Authentication
   at a reverse proxy, or packaging-only concerns.
 
-Discuss changes to default behavior, visible UI defaults, or new settings
-before implementation.
+Discuss every feature in a feature request or idea before implementation,
+especially changes to default behavior, visible UI defaults, or new
+settings.
 
 Some areas are maintainer-led because they involve many architectural
 decisions: the mobile apps, sync and encryption architecture, the
@@ -97,10 +106,9 @@ users.
 You are responsible for everything you submit, whether or not you used AI
 tools. Review and test generated changes, and be ready to explain them.
 
-We do not accept AI-generated contributions submitted mainly to collect a
-bounty. Bulk or unverified submissions may be closed without detailed
-review. For architecture-scale work, agree with a maintainer on the design
-and on expectations for AI use before coding.
+Bulk or unverified submissions may be closed without detailed review. For
+architecture-scale work, agree with a maintainer on the design and on
+expectations for AI use before coding.
 
 ## Conduct
 
