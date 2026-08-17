@@ -10,10 +10,12 @@ import { t } from "../../services/i18n";
 import utils, { isElectron, isStandalone } from "../../services/utils";
 import NoteDetail from "../NoteDetail";
 import FormList, { FormListItem } from "../react/FormList";
+import HelpButton from "../react/HelpButton";
 import { useChildNotes, useContainedLinkNavigation, useNoteContext, useTriliumEvent } from "../react/hooks";
 import { DetailPane, MasterDetailHeader, MasterPane, useMobileMasterDetail } from "../react/master_detail";
 import Modal from "../react/Modal";
 import { NoteContextContext, ParentComponent } from "../react/react_utils";
+import { PageHelpSlot } from "../type_widgets/options/components/OptionsPageHeader";
 import SettingsNavigation from "../type_widgets/options/components/SettingsNavigation";
 import SettingsSearch from "../type_widgets/options/components/SettingsSearch";
 import OptionsSearchPage, { hasSearchTerms } from "../type_widgets/options/search_page";
@@ -41,6 +43,8 @@ export default function OptionsDialog() {
     // typed, and picking a page closes it again without emptying the field.
     const [ searchQuery, setSearchQuery ] = useState("");
     const [ searching, setSearching ] = useState(false);
+    // Where the page on show keeps its help mark while the master-detail header carries its name.
+    const [ pageHelpUrl, setPageHelpUrl ] = useState<string>();
     const modalRef = useRef<HTMLDivElement>(null);
     const isMobile = utils.isMobile();
     const { isMasterDetail, mobileView, switchMobileView, resetMobileView } = useMobileMasterDetail(modalRef);
@@ -87,6 +91,7 @@ export default function OptionsDialog() {
                         pageTitle={<ActivePageTitle />}
                         listTitle={t("options.title")}
                         listIcon="bx bx-cog"
+                        pageActions={pageHelpUrl && <HelpButton helpPage={pageHelpUrl} />}
                     />
                 )}
                 sidebar={isMasterDetail ? undefined : (
@@ -148,7 +153,13 @@ export default function OptionsDialog() {
                     there is a flow for it to be half of: the sidebar layout expects it as the body's own
                     child. */}
                 {isMasterDetail
-                    ? <DetailPane><NoteDetail /></DetailPane>
+                    ? (
+                        // Offered only here: elsewhere the page's banner keeps its own name, and so
+                        // has somewhere for the mark to sit.
+                        <PageHelpSlot.Provider value={setPageHelpUrl}>
+                            <DetailPane><NoteDetail /></DetailPane>
+                        </PageHelpSlot.Provider>
+                    )
                     : (searching ? <OptionsSearchPage query={searchQuery} /> : <NoteDetail />)}
             </Modal>
         </NoteContextContext.Provider>

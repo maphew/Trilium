@@ -181,9 +181,60 @@ describe("under a filter", () => {
             </FilterProvider>
         );
 
-        expect(classesOf(container, ".tn-card")).not.toContain("tn-card-filter-unmatched");
+        expect(classesOf(container, ".tn-card")).toContain("tn-filter-match");
         expect(container.querySelectorAll(".tn-card-option")).toHaveLength(2);
         expect(container.querySelector(".picture")).not.toBeNull();
+    });
+
+    it("finds a card and a setting by words that are not written on either", () => {
+        const card = renderInto(
+            <FilterProvider query="rest api">
+                <Card filterExtraKeywords="ETAPI is a REST API">
+                    <OptionCardSection className="token" label="my token" />
+                </Card>
+            </FilterProvider>
+        );
+
+        // The card matched, so what it holds comes with it, and the words are never written out.
+        expect(classesOf(card, ".tn-card")).toContain("tn-filter-match");
+        expect(card.querySelector(".token")).not.toBeNull();
+        expect(card.textContent).not.toContain("REST");
+
+        const setting = renderInto(
+            <FilterProvider query="passphrase">
+                <OptionCardSection
+                    className="secret" label="Password" filterExtraKeywords="passphrase"
+                />
+            </FilterProvider>
+        );
+
+        expect(setting.querySelector(".secret")).not.toBeNull();
+        expect(setting.textContent).toBe("Password");
+    });
+
+    it("holds back a card that is there to be found rather than read", () => {
+        const actions = <Card filterOnly heading="Related actions">{settings}</Card>;
+
+        expect(renderInto(actions).querySelector(".tn-card")).toBeNull();
+        expect(renderInto(
+            <FilterProvider query="theme">{actions}</FilterProvider>
+        ).querySelector(".tn-card")).not.toBeNull();
+    });
+
+    it("keeps a section that accompanies the settings instead of being one", () => {
+        const card = (query: string) => renderInto(
+            <FilterProvider query={query}>
+                <Card heading="Appearance">
+                    {settings}
+                    <CardSection className="preview" filterRole="companion">a preview</CardSection>
+                </Card>
+            </FilterProvider>
+        );
+
+        // Stands beside the setting that matched, where a plain section would have been taken down.
+        expect(classesOf(card("theme"), ".preview")).toContain("tn-filter-companion");
+        // And is never a result of its own, so it cannot keep an emptied card alive.
+        expect(card("nothing at all").querySelector(".tn-filter-match")).toBeNull();
     });
 
     it("marks a card that did not match, so CSS can take it down to the settings that did", () => {
@@ -196,7 +247,7 @@ describe("under a filter", () => {
             </FilterProvider>
         );
 
-        expect(classesOf(container, ".tn-card")).toContain("tn-card-filter-unmatched");
+        expect(classesOf(container, ".tn-card")).toContain("tn-filter-scope");
         expect(container.querySelector(".wrapping")).toBeNull();
         expect(container.querySelector(".theme")).not.toBeNull();
         // Still rendered: hiding it is the CSS rule's job, which happy-dom does not apply.
@@ -206,7 +257,7 @@ describe("under a filter", () => {
     it("leaves a card unmarked while nothing is being filtered", () => {
         const container = renderInto(<Card heading="Appearance">{settings}</Card>);
 
-        expect(classesOf(container, ".tn-card")).not.toContain("tn-card-filter-unmatched");
+        expect(classesOf(container, ".tn-card")).not.toContain("tn-filter-scope");
     });
 
     it("brings a setting's sub-sections along when the setting itself matched", () => {
@@ -215,7 +266,7 @@ describe("under a filter", () => {
         expect(container.querySelector(".size")).not.toBeNull();
         // The filter sits between the section and what it nests, so the indent must survive it.
         expect(container.querySelector(".size")?.className).toContain("tn-card-section-nested");
-        expect(container.querySelector(".tn-card-option-filter-unmatched")).toBeNull();
+        expect(container.querySelector(".tn-filter-companion")).toBeNull();
     });
 
     it("keeps a setting whose sub-section matched, so the detail is read under it", () => {
@@ -224,14 +275,14 @@ describe("under a filter", () => {
         expect(container.querySelector(".size")).not.toBeNull();
         // Kept for the sub-section's sake rather than its own, which is what the mark says: CSS
         // takes it down again once nothing is left beside it, and happy-dom applies no CSS.
-        expect(classesOf(container, ".fonts")).toContain("tn-card-option-filter-unmatched");
+        expect(classesOf(container, ".fonts")).toContain("tn-filter-companion");
     });
 
     it("leaves a setting nothing to stand on once none of its sub-sections matched", () => {
         const container = fontsCard("nothing at all");
 
         expect(container.querySelector(".size")).toBeNull();
-        expect(classesOf(container, ".fonts")).toContain("tn-card-option-filter-unmatched");
+        expect(classesOf(container, ".fonts")).toContain("tn-filter-companion");
     });
 
     /** A setting with a single detail under it, the pairing the filter has to tell apart. */
