@@ -186,6 +186,30 @@ describe("under a filter", () => {
         expect(container.querySelector(".picture")).not.toBeNull();
     });
 
+    it("finds a card and a setting by words that are not written on either", () => {
+        const card = renderInto(
+            <FilterProvider query="rest api">
+                <Card filterExtraKeywords="ETAPI is a REST API">
+                    <OptionCardSection className="token" label="my token" />
+                </Card>
+            </FilterProvider>
+        );
+
+        // The card matched, so what it holds comes with it, and the words are never written out.
+        expect(classesOf(card, ".tn-card")).toContain("tn-filter-match");
+        expect(card.querySelector(".token")).not.toBeNull();
+        expect(card.textContent).not.toContain("REST");
+
+        const setting = renderInto(
+            <FilterProvider query="passphrase">
+                <OptionCardSection className="secret" label="Password" filterExtraKeywords="passphrase" />
+            </FilterProvider>
+        );
+
+        expect(setting.querySelector(".secret")).not.toBeNull();
+        expect(setting.textContent).toBe("Password");
+    });
+
     it("keeps a section that accompanies the settings instead of being one", () => {
         const card = (query: string) => renderInto(
             <FilterProvider query={query}>

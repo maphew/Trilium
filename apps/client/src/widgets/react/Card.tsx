@@ -4,7 +4,9 @@ import { JSX, HTMLAttributes } from "preact";
 import { useContext } from "preact/hooks";
 import clsx from "clsx";
 
-import { type FilterRole, FilterPassthrough, filterRoleClass, useFilterMatch, useIsFiltering } from "./filter";
+import {
+    type FilterRole, FilterPassthrough, filterRoleClass, useFilterMatch, useIsFiltering
+} from "./filter";
 import { useUniqueName } from "./hooks";
 
 // #region Card Frame
@@ -43,6 +45,12 @@ export interface CardProps {
      * a help mark would reach for.
      */
     actions?: ComponentChildren;
+    /**
+     * Words the card is found by that are not written on it, for a card with no name of its own or
+     * one whose name says less than what it holds. Reuse a sentence the page already has rather
+     * than inventing words for it: every word in it becomes one the card can be found by.
+     */
+    filterExtraKeywords?: string;
 }
 
 /**
@@ -54,7 +62,7 @@ export interface CardProps {
  * nothing is torn down and rebuilt as the query changes).
  */
 export function Card(props: {children: ComponentChildren} & CardProps) {
-    const matched = useFilterMatch(props.heading, props.description);
+    const matched = useFilterMatch(props.heading, props.description, props.filterExtraKeywords);
     const filtering = useIsFiltering();
 
     return <div className={clsx("tn-card", props.className,
@@ -163,6 +171,11 @@ export interface OptionCardSectionProps extends CardSectionProps {
     stacked?: boolean;
     /** The controls the option is operated with, placed on the trailing edge. */
     children?: ComponentChildren;
+    /**
+     * Words the setting is found by that are not written on it.
+     * See {@link CardProps.filterExtraKeywords}.
+     */
+    filterExtraKeywords?: string;
 }
 
 /**
@@ -176,8 +189,11 @@ export interface OptionCardSectionProps extends CardSectionProps {
  * That last part is settled in CSS, from whether any sub-section is still there.
  */
 export function OptionCardSection(props: OptionCardSectionProps) {
-    const {label, description, name, stacked, children, className, subSections, ...rest} = props;
-    const matched = useFilterMatch(label, description);
+    const {
+        label, description, name, stacked, children, className, subSections,
+        filterExtraKeywords, ...rest
+    } = props;
+    const matched = useFilterMatch(label, description, filterExtraKeywords);
     const filtering = useIsFiltering();
     const id = useUniqueName(name);
     const bound = !!name && isValidElement(children);
@@ -187,7 +203,7 @@ export function OptionCardSection(props: OptionCardSectionProps) {
     return <CardSection className={clsx("tn-card-option", className, {
                             "tn-card-option-stacked": stacked
                         })}
-                        // Kept for its details rather than for itself, which is what a companion is.
+                        // Kept for its details rather than itself, which is what a companion is.
                         filterRole={filtering ? (matched ? "match" : "companion") : undefined}
                         subSections={subSections && (
                             <FilterPassthrough when={matched}>{subSections}</FilterPassthrough>

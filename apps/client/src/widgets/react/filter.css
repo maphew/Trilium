@@ -6,6 +6,9 @@
  * the marks alone, which is why only one rule is needed here: what a group considers its own chrome
  * is the group's business, and stays with the component that knows its shape.
  */
+/* Said over whatever layout the group is given: a group's own `display` carries the same weight as
+   this rule, which would leave an empty group standing or not by nothing more than the order the
+   stylesheets happen to land in. */
 .tn-filter-scope:not(:has(.tn-filter-match)) {
-    display: none;
+    display: none !important;
 }
