@@ -352,17 +352,6 @@ Tools are defined using `defineTools()` in `packages/trilium-core/src/services/l
 4. Add a client-side friendly name in `apps/client/src/translations/en/translation.json` under `llm.tools.<tool_name>` — use **imperative tense** (e.g. "Search notes", "Create note", "Get attributes"), not present continuous
 5. Use ETAPI (`apps/server/src/etapi/`) as inspiration for what fields to expose, but **do not import ETAPI mappers** — inline the field mappings directly in the tool so the LLM layer stays decoupled from the API layer
 
-### Updating PDF.js
-The viewer under `packages/pdfjs-viewer/viewer/` is vendored from the pdf.js GitHub release matching the `pdfjs-dist` dependency, and pdf.js refuses to start when the two versions disagree — so a bump must always be followed by a re-vendor. `src/vendored_viewer.spec.ts` fails when they drift.
-
-**This is automated**: the weekly `update-pdfjs-viewer` workflow bumps `pdfjs-dist`, re-vendors, verifies, and opens a single PR carrying both. Renovate is deliberately disabled for `pdfjs-dist` (see `renovate.json`) because a bare version bump is never usable on its own. To do it by hand:
-1. Update the `pdfjs-dist` version in `packages/pdfjs-viewer/package.json`
-2. Run `pnpm --filter pdfjs-viewer update-viewer`
-3. Run `pnpm --filter pdfjs-viewer test` and `pnpm --filter pdfjs-viewer e2e` to verify
-4. Commit all changes including the updated viewer files
-
-`update-viewer.ts` re-applies our patches to `viewer.html` (custom stylesheet/script, relaxed `style-src-elem` CSP) and throws if an upstream markup change means it can no longer find them.
-
 ### Server-Side Static Assets
 - Static assets (templates, SQL, translations, etc.) go in `apps/server/src/assets/`
 - Access them at runtime via `RESOURCE_DIR` from `apps/server/src/services/resource_dir.ts` (e.g. `path.join(RESOURCE_DIR, "llm", "prompts", "base_system_prompt.md")`). Assets that core itself reads (LLM skills, `schema.sql`) live in `packages/trilium-core/src/assets/` instead
