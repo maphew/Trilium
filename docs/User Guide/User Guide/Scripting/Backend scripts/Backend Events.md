@@ -1,9 +1,9 @@
-# Events
+# Backend Events
 [Script](../../Scripting.md) notes can be triggered by events. Note that these are backend events and thus relation need to point to the "JavaScript (Trilium backend)" code note.
 
 ## Global events
 
-Global events are attached to the script note via label. Simply create e.g. "run" label with some of these values and script note will be executed once the event occurs.
+Global events are attached to the script note via label. Simply create a `run` label with some of these values and script note will be executed once the event occurs.
 
 <table>
     <thead>
@@ -27,6 +27,11 @@ Global events are attached to the script note via label. Simply create e.g. "run
         </tr>
     </tbody>
 </table>
+
+Frontend scripts also have similar <a class="reference-link" href="../Frontend%20Basics/Frontend%20Events.md">Events</a>, such as when the application starts.
+
+> [!NOTE]
+> One script can be triggered on multiple events, this can be done by adding multiple `run` labels. Separating multiple values by commas **is not** supported.
 
 ## Entity events
 
@@ -62,3 +67,7 @@ if (attr.value === "Health") {
     note.removeLabel("color");
 }
 ```
+
+## Safe mode
+
+While [safe mode](../../Advanced%20Usage/Safe%20mode.md) is active, scripts with events won't trigger.
