@@ -73,7 +73,7 @@ CI: `mobile.yml` (pull requests) builds a debug APK via `.github/actions/build-m
 
 ## Testing
 
-Everything JS-side is under the standalone Vitest suite (happy-dom + sql.js):
+Everything JS-side is under the standalone Vitest suite (happy-dom + real sqlite-wasm):
 
 ```bash
 pnpm --filter standalone test ios-interceptors        # iOS interceptors

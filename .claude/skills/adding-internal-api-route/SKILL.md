@@ -1,6 +1,6 @@
 ---
 name: adding-internal-api-route
-description: Use when adding, moving, or wiring an internal REST endpoint in Trilium (a new `/api/*` route) — choosing between a core-shared handler (`packages/trilium-core/src/routes/index.ts` `buildSharedApiRoutes`, ~140 routes that ALSO run in the standalone sql.js WASM build) and a server-only one (`apps/server/src/routes/routes.ts`), picking the `apiRoute` vs `asyncApiRoute` vs `route`/`asyncRoute` wrapper, and getting the implicit return conventions (object→200, `undefined`→204, `[status, body]` tuple→that status) and `convertEntitiesToPojo`'s narrow entity-unwrapping right. Most routes are core-shared (and run under WASM); `apps/server/src/routes/api/` is the minority case. Pairs with writing-unit-tests for the cross-runtime CoreApiTester spec.
+description: Use when adding, moving, or wiring an internal REST endpoint in Trilium (a new `/api/*` route) — choosing between a core-shared handler (`packages/trilium-core/src/routes/index.ts` `buildSharedApiRoutes`, ~140 routes that ALSO run in the standalone sqlite-wasm build) and a server-only one (`apps/server/src/routes/routes.ts`), picking the `apiRoute` vs `asyncApiRoute` vs `route`/`asyncRoute` wrapper, and getting the implicit return conventions (object→200, `undefined`→204, `[status, body]` tuple→that status) and `convertEntitiesToPojo`'s narrow entity-unwrapping right. Most routes are core-shared (and run under WASM); `apps/server/src/routes/api/` is the minority case. Pairs with writing-unit-tests for the cross-runtime CoreApiTester spec.
 ---
 
 # Adding an internal API route in Trilium
@@ -33,7 +33,7 @@ A route you add only in `routes.ts` is **invisible to the standalone build and c
 
 The server-only set is small and specific — clipper, database, llm_chat, ocr, metrics, sender, totp, fonts, link_embed, recovery_codes, system_info, etapi_tokens, plus a few `files` extras. See the `register()` body in `routes.ts` (the shared set is wired by `buildSharedApiRoutes` at `routes.ts:97`). Everything else is core.
 
-**Browser-safe rule for core handlers:** no `process.env`, no `node:path`/`import path`, no Node built-ins — they run in the sql.js WASM standalone build. (`script.ts:75,86` reads `process.env.TRILIUM_SAFE_MODE` directly — that is a **latent violation**, not a pattern to copy.)
+**Browser-safe rule for core handlers:** no `process.env`, no `node:path`/`import path`, no Node built-ins — they run in the sqlite-wasm standalone build. (`script.ts:75,86` reads `process.env.TRILIUM_SAFE_MODE` directly — that is a **latent violation**, not a pattern to copy.)
 
 ## Step 2 — Pick the wrapper
 

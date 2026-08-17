@@ -38,10 +38,9 @@ apps/
   client/               # Preact frontend (+ legacy jQuery widgets); shared by server, desktop, standalone
   server/               # Node.js backend (Express, better-sqlite3); serves the client, REST/WebSocket
   desktop/              # Electron: server + client in one process (see developing-electron-desktop skill)
-  standalone/           # whole stack in the browser: core compiled to WASM (sql.js) in a worker, no Node
-  standalone-desktop/   # standalone desktop variant
+  standalone/           # whole stack in the browser: core in a Web Worker on SQLite WASM + OPFS, no Node (see developing-standalone skill)
   mobile/               # Capacitor shell around standalone (see developing-capacitor-mobile skill)
-  web-clipper/, website/, db-compare/, dump-db/, edit-docs/, build-docs/, icon-pack-builder/
+  web-clipper/, website/, db-compare/, dump-db/, edit-docs/, build-docs/, icon-pack-builder/, script-deployer/
 packages/
   trilium-core/         # entities, services, SQL, sync, most API routes — shared by server, desktop, standalone
   commons/              # types + utilities shared with the client
@@ -125,12 +124,15 @@ Shared components live in `apps/client/src/widgets/react/` — **always** reuse 
 ### Electron Desktop App
 `apps/desktop` runs server + client in one Electron process; the renderer loads over the `trilium-app://` custom protocol and talks to main only through the preload bridge (`window.electronApi`, typed by `packages/commons/src/lib/electron_api_interface.ts`). `nodeIntegration` is off, `contextIsolation` is on, `@electron/remote` is gone — never `require("electron")` in client code. Adding an API means interface + `preload.ts` + an `ipcMain` handler in the owning service + a spec. Load the **`developing-electron-desktop` skill** for the recipe, the security model, running/launch errors and testing.
 
+### Standalone (in-browser) app
+`apps/standalone` runs the client on the page and `@triliumnext/core` — plain JS — in a dedicated Web Worker over `@sqlite.org/sqlite-wasm` persisted in OPFS; a Web Lock elects the one tab that owns the database and the service worker forwards other tabs' API calls to it. Every core provider has a browser twin in `apps/standalone/src/lightweight/` — **a new provider or Node import in core breaks this build first.** Load the **`developing-standalone` skill** before touching `sw.ts`, `main.ts`, `local-server-worker.ts`, `lightweight/*` or `vite.config.mts`.
+
 ### Mobile (Capacitor) app
 `apps/mobile` wraps the standalone WASM build in a Capacitor WebView — no network backend. Android runs at `https://localhost` and routes API calls through the service worker; iOS runs at `capacitor://localhost`, where no service worker can register, so `apps/standalone/src/ios-interceptors.ts` stands in. **`iosScheme: "https"` is a no-op and must not be re-added, and the iOS interceptor path is not dead code.** Load the **`developing-capacitor-mobile` skill** before touching `apps/mobile`, `ios-interceptors.ts`, `capacitor_http_handler.ts` or the `capacitor:` branches of `sw.ts`/`main.ts`.
 
 ### Database
 
-SQLite (`better-sqlite3` on Node, sql.js in standalone) behind `packages/trilium-core/src/services/sql/` (`DatabaseProvider`, prepared-statement cache, transactions). Schema: `packages/trilium-core/src/assets/schema.sql`; migrations: integer-versioned entries in the descending `MIGRATIONS` array in `packages/trilium-core/src/migrations/migrations.ts` (inline SQL or a `NNNN__description.ts` module) — load the **`evolving-the-data-model` skill** before adding a column or migration.
+SQLite (`better-sqlite3` on Node, `@sqlite.org/sqlite-wasm` on OPFS in standalone) behind `packages/trilium-core/src/services/sql/` (`DatabaseProvider`, prepared-statement cache, transactions). Schema: `packages/trilium-core/src/assets/schema.sql`; migrations: integer-versioned entries in the descending `MIGRATIONS` array in `packages/trilium-core/src/migrations/migrations.ts` (inline SQL or a `NNNN__description.ts` module) — load the **`evolving-the-data-model` skill** before adding a column or migration.
 
 ### Internationalization
 
@@ -180,7 +182,7 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 
 - **Server tests** (`apps/server/spec/`): Vitest, must run sequentially (shared DB), forks pool, max 6 workers
 - **Client tests** (`apps/client/src/`): Vitest with happy-dom environment, can run in parallel
-- **Core tests** (`packages/trilium-core/src/**/*.spec.ts`): `trilium-core` has no runner of its own — the **server and standalone suites both include** its specs (`apps/server/vite.config.mts`, `apps/standalone/vite.config.mts`) and run them against different platform providers (node + better-sqlite3 vs. happy-dom + sql.js WASM). Green under `pnpm --filter server test` is **not** proof; run `pnpm --filter standalone test` as well. See the `writing-unit-tests` skill for the cross-runtime traps
+- **Core tests** (`packages/trilium-core/src/**/*.spec.ts`): `trilium-core` has no runner of its own — the **server and standalone suites both include** its specs (`apps/server/vite.config.mts`, `apps/standalone/vite.config.mts`) and run them against different platform providers (node + better-sqlite3 vs. happy-dom + sqlite-wasm). Green under `pnpm --filter server test` is **not** proof; run `pnpm --filter standalone test` as well. See the `writing-unit-tests` skill for the cross-runtime traps
 - **E2E tests** (`packages/trilium-e2e/`): Shared Playwright tests, run via `pnpm --filter server e2e` or `pnpm --filter standalone e2e`
 - **ETAPI tests** (`apps/server/spec/etapi/`): External API contract tests
 - **Browser-mode tests** (`packages/ckeditor5`) drive a real headless Chrome via `@vitest/browser-webdriverio`; where its downloaded Chrome cannot run (NixOS), point `CHROME_BIN`/`CHROMEDRIVER_PATH` at a matching system pair — never start a chromedriver by hand or add a local override config. See the `ckeditor5-testing` skill
