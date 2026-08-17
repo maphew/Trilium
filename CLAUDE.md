@@ -9,42 +9,21 @@ Trilium Notes is a hierarchical note-taking application with synchronization, sc
 ## Development Commands
 
 ```bash
-# Setup
-corepack enable && pnpm install
-
-# Run
-pnpm server:start              # Dev server at http://localhost:8080
-pnpm desktop:start             # Electron dev app
-pnpm standalone:start          # Standalone client dev
-
-# Build
-pnpm client:build              # Frontend
-pnpm server:build              # Backend
-pnpm desktop:build             # Electron
-
-# Test — run the narrowest thing that covers your change (see below)
-pnpm --filter server test <path-or-pattern>    # One package, filtered
-pnpm test:all                  # All tests (parallel + sequential) — CI's job, not yours
-pnpm test:parallel             # Client + most package tests
-pnpm test:sequential           # Server (shared DB) + browser-mode tests (ckeditor5)
-pnpm coverage                  # Coverage reports
-
-# Lint & Format
-pnpm dev:format-check          # Format check (stricter stylistic rules)
-pnpm dev:format-fix            # Format fix
-pnpm typecheck                 # TypeScript type check across all projects
+corepack enable && pnpm install         # setup
+pnpm server:start                        # dev server at http://localhost:8080
+pnpm desktop:start                       # Electron dev app
+pnpm standalone:start                    # standalone (in-browser) client
+pnpm client:build | server:build | desktop:build
+pnpm --filter <pkg> test <pattern>      # e.g. pnpm --filter server test spec/etapi/search.spec.ts
+pnpm --filter <pkg> coverage             # per-package coverage (client, server, standalone)
+pnpm typecheck                           # all projects, native compiler, a few seconds
+pnpm dev:format-check | dev:format-fix   # stylistic formatting
 ```
 
-**Running a single test file**: `pnpm --filter server test spec/etapi/search.spec.ts`
-
-### Do not run full suites or ESLint
-
-- **Never run ESLint** — `pnpm dev:linter-check`, `dev:linter-fix`, or `npx eslint` on any path. It currently dies with an out-of-memory error, so a run tells you nothing and costs minutes. CI lints. (Note `packages/*` is globally ignored by the ESLint config anyway, so most of `trilium-core` was never linted locally to begin with.)
-- **Never run `pnpm test:all`, `test:parallel`, `test:sequential`, or `pnpm coverage`** during development. They take a long time, and CI runs them on every push.
-- **Run the narrowest suite that covers what you touched**, and iterate on that: `pnpm --filter <pkg> test <path-or-pattern>`. Vitest treats the trailing argument as a substring filter over test file paths, so `pnpm --filter server test special_notes` runs every matching spec.
-- **Typecheck with `pnpm typecheck`, not a raw `tsc` invocation.** It resolves the project references and per-project configs that a hand-written `tsc --noEmit -p …` or `tsc -b …` gets wrong. It drives the native compiler, so even a full check of every project is a few seconds — cheap enough to run whenever you finish a change.
-- Core specs are the one case where "narrowest" means **two** commands: they run under both the server and standalone suites (see Testing below), so a targeted run against each is still the right scope.
-- Only reach for a full suite if the user asks, or when the work is finished and they want a final check.
+- **Never run ESLint** (`dev:linter-check`, `dev:linter-fix`, `npx eslint`) — it dies with an out-of-memory error, so a run tells you nothing. CI lints. (`packages/*` is ignored by the ESLint config anyway.)
+- **Never run `pnpm test:all`, `test:parallel`, `test:sequential`, or a whole-package `coverage`** during development — CI runs them on every push. Run the **narrowest** suite that covers what you touched: `pnpm --filter <pkg> test <pattern>` (Vitest treats the trailing argument as a substring filter over spec paths). Core specs need **two** runs, server and standalone (see Testing). Only reach for a full suite if the user asks or wants a final check.
+- **Typecheck with `pnpm typecheck`, not a raw `tsc`** — it resolves the project references a hand-written `tsc -p …` gets wrong, and is cheap enough to run after every change.
+- **Two TypeScript versions, on purpose**: root `package.json` has `typescript` 6.x (the JS compiler API that TypeDoc, typescript-eslint and the browser-bundled language service in `packages/codemirror` load) and `@typescript/native` (7, drives `pnpm typecheck` and owns the `tsc` bin). Do **not** bump `typescript` to 7, dedupe them, or switch to the `@typescript/typescript6` shim (no `lib.*.d.ts` → client build breaks). Reasoning: `docs/Developer Guide/Developer Guide/Environment Setup.md`, "TypeScript".
 
 ## Git Workflow
 
@@ -52,45 +31,27 @@ pnpm typecheck                 # TypeScript type check across all projects
 - **Large or risky work goes on a branch**: multi-commit features, migrations, refactors spanning many packages, anything that needs review or a PR before landing.
 - Only commit when explicitly asked to **in that message**, and the ask covers only the step it accompanies — a later step is left uncommitted until asked again. A remark like "commits go on main" is about branch choice, not standing permission to commit. Otherwise leave changes staged/unstaged for review.
 
-## Main Applications
-
-- **client** (`apps/client/`): Preact frontend with jQuery widget system. Shared UI layer used by both server and desktop.
-- **server** (`apps/server/`): Node.js backend (Express, better-sqlite3). Serves the client and provides REST/WebSocket APIs.
-- **desktop** (`apps/desktop/`): Electron wrapper around server + client, running both in a single process.
-- **standalone** (`apps/standalone/` + `apps/standalone-desktop/`): Runs the entire stack in the browser — server logic compiled to WASM via sql.js, executed in a service worker. No Node.js dependency at runtime.
-
-**`packages/trilium-core/` is shared by server, desktop and standalone — *not* by the client.** `apps/client` neither depends on it nor imports it (zero `@triliumnext/core` imports); it reaches the backend over REST/WebSocket and shares only **types**, via `@triliumnext/commons`. The split that matters is backend-vs-frontend, not Node-vs-browser: standalone runs core in a browser worker, which is why core carries the no-Node-built-ins rules below.
-
-Practical consequences:
-- A dependency added to core lands in the **server, desktop and standalone** bundles. It does **not** reach the client, so "the client would pay for it" is never an argument for or against putting something in core — the argument is standalone's worker, which imports core at startup.
-- Frontend code cannot call a core function. Anything the client needs is either an API route or a type in `@triliumnext/commons`.
-
 ## Monorepo Structure
 
 ```
 apps/
-  client/               # Preact frontend (shared by server, desktop, standalone)
-  server/               # Node.js backend (Express, better-sqlite3)
-  desktop/              # Electron (bundles server + client)
-  standalone/           # Standalone client (WASM + service workers, no Node.js)
-  standalone-desktop/   # Standalone desktop variant
-  web-clipper/          # Browser extension
-  website/              # Project website
-  db-compare/, dump-db/, edit-docs/, build-docs/, icon-pack-builder/
-
+  client/               # Preact frontend (+ legacy jQuery widgets); shared by server, desktop, standalone
+  server/               # Node.js backend (Express, better-sqlite3); serves the client, REST/WebSocket
+  desktop/              # Electron: server + client in one process (see developing-electron-desktop skill)
+  standalone/           # whole stack in the browser: core compiled to WASM (sql.js) in a worker, no Node
+  standalone-desktop/   # standalone desktop variant
+  mobile/               # Capacitor shell around standalone (see developing-capacitor-mobile skill)
+  web-clipper/, website/, db-compare/, dump-db/, edit-docs/, build-docs/, icon-pack-builder/
 packages/
-  trilium-core/         # Core business logic: entities, services, SQL, sync
-  commons/              # Shared interfaces and utilities
-  trilium-e2e/          # Shared Playwright E2E tests
-  ckeditor5/            # Custom rich text editor bundle
-  codemirror/           # Code editor integration
-  highlightjs/          # Syntax highlighting
-  share-theme/          # Theme for shared/published notes
-  pdfjs-viewer/, splitjs/
-  turndown-plugin-gfm/
+  trilium-core/         # entities, services, SQL, sync, most API routes — shared by server, desktop, standalone
+  commons/              # types + utilities shared with the client
+  trilium-e2e/          # shared Playwright tests
+  ckeditor5/, codemirror/, highlightjs/, share-theme/, pdfjs-viewer/, splitjs/, turndown-plugin-gfm/
 ```
 
-Use `pnpm --filter <package-name> <command>` to run commands in specific packages.
+`pnpm --filter <package> <command>` runs a command in one package.
+
+**`packages/trilium-core` is shared by server, desktop and standalone — *not* by the client.** `apps/client` has zero `@triliumnext/core` imports; it reaches the backend over REST/WebSocket and shares only **types** via `@triliumnext/commons`. So: a dependency added to core lands in server, desktop and standalone bundles (standalone's worker imports core at startup — that is the cost to weigh, never "the client would pay for it"), and frontend code can never call a core function — it needs an API route or a type in commons. The split is backend-vs-frontend, not Node-vs-browser: standalone runs core in a browser worker, which is why core carries the no-Node-built-ins rules below.
 
 ## Core Architecture
 
@@ -134,7 +95,7 @@ Frontend widgets in `apps/client/src/widgets/`:
 - `RightPanelWidget` — Sidebar widgets with position ordering
 - Type-specific widgets in `type_widgets/` directory
 
-**Widget lifecycle**: `doRenderBody()` for initial render, `refreshWithNote()` for note changes, `entitiesReloadedEvent({loadResults})` for entity updates. Fluent builder pattern: `.child()`, `.class()`, `.css()` chaining with position-based ordering. Uses jQuery — don't mix React patterns.
+**Widget lifecycle**: `doRenderBody()` for initial render, `refreshWithNote()` for note changes, `entitiesReloadedEvent({loadResults})` for entity updates. Fluent builder pattern: `.child()`, `.class()`, `.css()` chaining with position-based ordering. These legacy widgets are jQuery; new UI is Preact under `widgets/react/` — don't mix the two inside one component.
 
 #### Reusable Preact Components
 Shared components live in `apps/client/src/widgets/react/` — **always** reuse them (`FormTextBox`, `FormSelect`, `Button`, `Badge`, `NoItems`, `Dropdown`, `Table`, `Calendar`, …) instead of writing raw HTML elements or a custom implementation, and never put Bootstrap utility classes (`form-control-sm`, `input-group`, …) on them. Any control floating **over** a note's content (map, mind map, image, diagram) goes on `OverlayControlGroup` / `OverlayToolbar` — never a hand-rolled `<button>`. The full catalogue, the `Dropdown` backdrop-blur rules (`noDropdownListStyle` / `portalToBody`) and the overlay-control contract are in the **`building-client-ui` skill** — load it before building client UI.
@@ -147,95 +108,38 @@ Shared components live in `apps/client/src/widgets/react/` — **always** reuse 
 
 ### API Architecture
 
-- **Internal API** (`packages/trilium-core/src/routes/api/`, plus Node-only routes in `apps/server/src/routes/api/`): REST endpoints, trusts frontend
-- **ETAPI** (`apps/server/src/etapi/`): External API with basic auth tokens — maintain backwards compatibility
-- **WebSocket** (`packages/trilium-core/src/services/ws.ts`): Real-time sync
+- **Internal API** — REST, trusts the frontend. Most routes are core-shared and also run under WASM (`packages/trilium-core/src/routes/`); Node-only ones live in `apps/server/src/routes/api/`. Load the **`adding-internal-api-route` skill** for the wrapper/return conventions before adding one.
+- **ETAPI** (`apps/server/src/etapi/`) — external API with token auth; keep it backwards compatible.
+- **WebSocket** (`packages/trilium-core/src/services/ws.ts`) — real-time sync to the client (IPC-backed on desktop).
 
-### Platform Abstraction
+### Platform Abstraction and core rules
 
-`packages/trilium-core/src/services/platform.ts` defines `PlatformProvider` interface with implementations in `apps/desktop/`, `apps/server/`, and `apps/standalone/`. Singleton via `initPlatform()`/`getPlatform()`.
+`packages/trilium-core/src/services/platform.ts` defines `PlatformProvider` (`crash()`, `getEnv()`, `isElectron`/`isMac`/`isWindows`), implemented per app in `apps/desktop`, `apps/server`, `apps/standalone`; singleton via `initPlatform()`/`getPlatform()`. Because core also runs in standalone's browser worker:
 
-**PlatformProvider** provides:
-- `crash(message)` — Platform-specific fatal error handling
-- `getEnv(key)` — Environment variable access (server/desktop use `process.env`, standalone maps URL query params like `?safeMode` → `TRILIUM_SAFE_MODE`)
-- `isElectron`, `isMac`, `isWindows` — Platform detection flags
+- **No `process.env`** — `getPlatform().getEnv(key)` (standalone maps URL params like `?safeMode` → `TRILIUM_SAFE_MODE`).
+- **No Node built-ins** in core, including `path` — use `packages/trilium-core/src/services/utils/path.ts` (`extname()`/`basename()`) and the platform providers.
+- **Platform checks are functions** — `isElectron()`, `isMac()`, `isWindows()` from `utils/index.ts` call `getPlatform()` and only work after `initializeCore()`; in static definitions wrap them in a closure (`value: () => isWindows() ? "0.9" : "1.0"`).
+- **Avoid the barrel** in early-loading modules — `import { x } from "@triliumnext/core"` loads every export; `config.ts`-like modules import subpaths (`@triliumnext/core/src/services/utils/index`) to dodge init-order cycles.
+- **Binary conversions** go through `packages/trilium-core/src/services/utils/binary.ts` (`wrapStringOrBuffer`/`unwrapStringOrBuffer` for `string | Uint8Array`, `encodeBase64`/`decodeBase64`, `encodeUtf8`/`decodeUtf8`; also exported as `binary_utils`), not hand-rolled `TextEncoder`/`Buffer.from()`.
 
-**Critical rules for `trilium-core`**:
-- **No `process.env` in core** — use `getPlatform().getEnv()` instead (not available in standalone/browser)
-- **No `import path from "path"` in core** — Node's `path` module is externalized in browser builds. Use `packages/trilium-core/src/services/utils/path.ts` for `extname()`/`basename()` equivalents
-- **No Node.js built-in modules in core** — core runs in both Node.js and the browser (standalone). Use platform-agnostic alternatives or platform providers
-- **Platform detection via functions** — `isElectron()`, `isMac()`, `isWindows()` from `utils/index.ts` are functions (not constants) that call `getPlatform()`. They can only be called after `initializeCore()`, not at module top-level. If used in static definitions, wrap in a closure: `value: () => isWindows() ? "0.9" : "1.0"`
-- **Barrel import caution** — `import { x } from "@triliumnext/core"` loads ALL core exports. Early-loading modules like `config.ts` should import specific subpaths (e.g. `@triliumnext/core/src/services/utils/index`) to avoid circular dependencies or initialization ordering issues
-- **Electron custom protocol** — In desktop mode, the renderer loads the UI and makes API calls via the `trilium-app://` custom protocol (not HTTP). `apps/desktop/src/protocol.ts` dispatches these requests into the Express app running in the main process; the dispatcher tags them via `apps/server/src/services/electron_request.ts` so auth/CSRF middleware can distinguish them from external TCP traffic
+### Electron Desktop App
+`apps/desktop` runs server + client in one Electron process; the renderer loads over the `trilium-app://` custom protocol and talks to main only through the preload bridge (`window.electronApi`, typed by `packages/commons/src/lib/electron_api_interface.ts`). `nodeIntegration` is off, `contextIsolation` is on, `@electron/remote` is gone — never `require("electron")` in client code. Adding an API means interface + `preload.ts` + an `ipcMain` handler in the owning service + a spec. Load the **`developing-electron-desktop` skill** for the recipe, the security model, running/launch errors and testing.
 
 ### Mobile (Capacitor) app
 `apps/mobile` wraps the standalone WASM build in a Capacitor WebView — no network backend. Android runs at `https://localhost` and routes API calls through the service worker; iOS runs at `capacitor://localhost`, where no service worker can register, so `apps/standalone/src/ios-interceptors.ts` stands in. **`iosScheme: "https"` is a no-op and must not be re-added, and the iOS interceptor path is not dead code.** Load the **`developing-capacitor-mobile` skill** before touching `apps/mobile`, `ios-interceptors.ts`, `capacitor_http_handler.ts` or the `capacitor:` branches of `sw.ts`/`main.ts`.
 
-### Binary Utilities
-
-Use utilities from `packages/trilium-core/src/services/utils/binary.ts` for string/buffer conversions instead of manual `TextEncoder`/`TextDecoder` or `Buffer.from()` calls:
-
-- **`wrapStringOrBuffer(input)`** — Converts `string` to `Uint8Array`, returns `Uint8Array` unchanged. Use when a function expects `Uint8Array` but receives `string | Uint8Array`.
-- **`unwrapStringOrBuffer(input)`** — Converts `Uint8Array` to `string`, returns `string` unchanged. Use when a function expects `string` but receives `string | Uint8Array`.
-- **`encodeBase64(input)`** / **`decodeBase64(input)`** — Base64 encoding/decoding that works in both Node.js and browser.
-- **`encodeUtf8(string)`** / **`decodeUtf8(buffer)`** — UTF-8 encoding/decoding.
-
-Import via `import { binary_utils } from "@triliumnext/core"` or directly from the module.
-
 ### Database
 
-SQLite via `better-sqlite3`. SQL abstraction in `packages/trilium-core/src/services/sql/` with `DatabaseProvider` interface, prepared statement caching, and transaction support.
-
-- Schema: `packages/trilium-core/src/assets/schema.sql`
-- Migrations: `packages/trilium-core/src/migrations/` — registered in `migrations.ts` (`MIGRATIONS` array, newest first); either inline SQL or a `NNNN__description.ts` module
+SQLite (`better-sqlite3` on Node, sql.js in standalone) behind `packages/trilium-core/src/services/sql/` (`DatabaseProvider`, prepared-statement cache, transactions). Schema: `packages/trilium-core/src/assets/schema.sql`; migrations: integer-versioned entries in the descending `MIGRATIONS` array in `packages/trilium-core/src/migrations/migrations.ts` (inline SQL or a `NNNN__description.ts` module) — load the **`evolving-the-data-model` skill** before adding a column or migration.
 
 ### Internationalization
-- Translation files in `apps/client/src/translations/`
-- Supported languages: English, German, Spanish, French, Romanian, Chinese
-- **Only add new translation keys to the English catalogue** — translations for other languages are managed via Weblate and will be contributed by the community
-- **Two client catalogues, split by which one the page loads.** `en/entry.json` holds `setup.*`, `login.*` and `set_password.*` — everything the setup wizard, login page and password reset need; `en/translation.json` holds the rest. The three entry pages call `initLocale(locale, "entry")` and read ~11 KB instead of the app's 200-300 KB, which matters because the wizard re-loads the catalogue every time the user picks a language. The app itself loads both (`fallbackNS: "entry"`), so a call site writes `t("login.password")` without caring which file holds it — but a **new** key must go in the file matching its section, or the entry pages will not find it
-- Third-party components (e.g., mind-map context menu) should use i18next `t()` for their labels, with the English strings added to `en/translation.json` under a dedicated namespace (e.g., `"mind-map"`)
-- When a translated string contains **interpolated components** (e.g. links, note references) whose order may vary across languages, use `<Trans>` from `react-i18next` instead of `t()`. This lets translators reorder components freely (e.g. `"<Note/> in <Parent/>"` vs `"in <Parent/>, <Note/>"`)
-- When adding a new locale, follow the step-by-step guide in `docs/Developer Guide/Developer Guide/Concepts/Internationalisation  Translations/Adding a new locale.md`
-- **Server-side translations** (e.g. hidden subtree titles) go in `apps/server/src/assets/translations/en/server.json`, not in the client `translation.json`
 
-#### Client vs Server Translation Usage
-- **Client-side**: `import { t } from "../services/i18n"` with keys in `apps/client/src/translations/en/translation.json`
-- **Server-side**: `import { t } from "i18next"` with keys in `apps/server/src/assets/translations/en/server.json`
-- **Electron main process** (e.g. `apps/desktop/src/`): `import { t } from "i18next"` — uses server-side keys from `apps/server/src/assets/translations/en/server.json` (same as server-side). **Never hardcode user-facing strings** in Electron dialogs, tray menus, or IPC handlers — always use `t()`.
-- **`packages/trilium-core`**: `import { t } from "i18next"` — also the server catalog. Despite the name, `server.json` is the catalog for **every** non-browser-UI runtime, standalone included: `apps/standalone/src/lightweight/translation_provider.ts` initialises i18next in the worker with `ns: "server"` and fetches `server-assets/translations/{{lng}}/server.json`, which `apps/standalone/vite.config.mts` populates by copying `apps/server/src/assets/**/*`. So a `t()` call added to core resolves in server, desktop **and** standalone with no extra work — don't assume a core string needs relocating or a fallback to run in the browser build. (That copy excludes `doc_notes/en/User Guide/**`, so the in-app User Guide itself is *not* in the standalone build.)
-- **Interpolation**: Use `{{variable}}` for normal interpolation; use `{{- variable}}` (with hyphen) for **unescaped** interpolation when the value contains special characters like quotes that shouldn't be HTML-escaped
-
-#### Text Editor (`packages/ckeditor5`) Translation Usage
-The rich-text editor does **not** use i18next keys in plugin code. A plugin passes the **English text itself** to CKEditor's own translation function, and that text *is* the message id:
-
-```ts
-const t = editor.t;                 // or locale.t, or this.t inside a View
-t("Insert a table.");
-t("Insert footnote %0", index);     // %0/%1 placeholders — never a template literal
-```
-
-With no dictionary configured (a test, a standalone editor) the message id renders, so the UI is always correct English rather than a raw key. To translate it, add the English entry under `text-editor.ck` in `apps/client/src/translations/en/translation.json`, keyed by the **slug of the English text** (lowercase, every run of non-alphanumerics collapsed to `-`):
-
-```jsonc
-"text-editor": { "ck": { "insert-a-table": "Insert a table." } }
-```
-
-That is the whole procedure — call site plus English entry. `apps/client/src/services/i18n.spec.ts` enforces it in **both** directions by scanning the editor package's source, so a missing entry and a stale one both fail.
-
-Rules specific to this mechanism:
-
-- **The function must be named `t`.** The scan matches `\bt\(` followed by a quoted literal, so `translate("Save")` or `_t("Save")` is invisible and the string silently stays English in every locale. Name the local or parameter `t` (`.t(` matches too, e.g. `editor.t(…)`).
-- **The first argument must be a literal.** `t(definition.title)` is invisible for the same reason. Where labels would otherwise live in a table, use a switch with a literal at each call — see `getAdmonitionTitle()`, `getLinkDisplayModeLabel()`, `getBoxSizeLabel()`.
-- **Never add an entry for a string CKEditor already translates.** Our dictionary is merged *after* the core one, so an entry overrides upstream in every locale. Still call `t()` — CKEditor's own catalog resolves it. Check before adding:
-  `node --input-type=module -e "const c=(await import('ckeditor5/translations/de.js')).default; console.log(new Set(Object.keys(c.de.dictionary)).has('Save'))"`
-- **Renaming an upstream string** (Trilium calls CKEditor's bookmarks "anchors") is the one case where id and text differ: add the pair to `MESSAGE_OVERRIDES` in `packages/ckeditor5/src/messages.ts` and give the replacement its own English entry.
-- **Code that runs before an editor exists** (the slash-command definitions) uses `translateMessage(hostTranslate, message, values)` from `messages.ts` — same lookup and same `%0` substitution, minus the editor.
-- **A keystroke inside a message** comes from `renderShortcut(editor, SHORTCUT)` (`packages/ckeditor5/src/shortcut.ts`). Key names live in the app-wide `keyboard_shortcut_keys` catalog, which the command palette and help dialog share; don't resolve them inside the package.
-- There is no `config.translate` bridge and no `lang/*.po` catalogs any more — both were removed. Any doc or plugin still describing them is stale.
-
-### Electron Desktop App
-`apps/desktop` runs server + client in one Electron process; the renderer loads over the `trilium-app://` custom protocol and talks to main only through the preload bridge (`window.electronApi`, typed by `packages/commons/src/lib/electron_api_interface.ts`). `nodeIntegration` is off, `contextIsolation` is on, `@electron/remote` is gone — never `require("electron")` in client code. Adding an API means interface + `preload.ts` + an `ipcMain` handler in the owning service + a spec. Load the **`developing-electron-desktop` skill** for the recipe, the security model, running/launch errors and testing.
+- English is the only catalogue you edit; 40+ other locales come from Weblate. Three English catalogues, chosen by who loads the string: `apps/client/src/translations/en/translation.json` (the app), `en/entry.json` (`setup.*`, `login.*`, `set_password.*` — the setup/login/password pages load only this ~11 KB file), and `apps/server/src/assets/translations/en/server.json` (server, `trilium-core`, the Electron main process **and** standalone's worker — it is the catalogue for every non-browser-UI runtime, so a `t()` in core needs no fallback). Load the **`working-with-translations` skill** to find, add or audit keys without reading the 226 KB file.
+- Client: `import { t } from "../services/i18n"`; everywhere else: `import { t } from "i18next"`. Never hardcode user-facing text, including in Electron dialogs/tray/IPC.
+- `{{var}}` interpolates escaped; `{{- var}}` unescaped (values with quotes etc.). Interpolated **components** whose order can vary by language (links, note references) use `<Trans>` from `react-i18next`, not `t()`.
+- Third-party components (mind-map context menu, …) still go through `t()` with their strings under a dedicated namespace (e.g. `"mind-map"`).
+- **Text editor (`packages/ckeditor5`)**: plugins call `editor.t("English text")` — the English text *is* the message id, the entry lives under `text-editor.ck` keyed by its slug, and `apps/client/src/services/i18n.spec.ts` fails on a missing or stale one. Rules (name it `t`, literal argument, don't shadow upstream strings, `MESSAGE_OVERRIDES`, `renderShortcut`): **`ckeditor5-plugin-development` skill**.
+- New locale: `docs/Developer Guide/Developer Guide/Concepts/Internationalisation  Translations/Adding a new locale.md`.
 
 ### Attribute Inheritance
 
@@ -249,17 +153,6 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 ### Client-Side API Restrictions
 - **Do not use `crypto.randomUUID()`** or other Web Crypto APIs that require secure contexts - Trilium can run over HTTP, not just HTTPS
 - Use `randomString()` from `apps/client/src/services/utils.ts` for generating IDs instead
-
-### Storing User Preferences
-- **Do not use `localStorage`** for user preferences — Trilium has a synced options system that persists across devices
-- To add a new user preference:
-  1. Add the option type to `OptionDefinitions` in `packages/commons/src/lib/options_interface.ts`
-  2. Add a default value in `packages/trilium-core/src/services/options_init.ts` in the `defaultOptions` array
-  3. **Whitelist the option** in `packages/trilium-core/src/routes/api/options.ts` by adding it to the `ALLOWED_OPTIONS` array — **without this, the API will reject changes with "Option 'X' is not allowed to be changed"**
-  4. If the option should be user-editable in the UI, add a control in the appropriate settings component (e.g., `apps/client/src/widgets/type_widgets/options/other.tsx`) and a translation key in `apps/client/src/translations/en/translation.json`
-  5. Use `useTriliumOption("optionName")` hook in React components to read/write the option
-- Available hooks: `useTriliumOption` (string), `useTriliumOptionBool`, `useTriliumOptionInt`, `useTriliumOptionJson`
-- See `docs/Developer Guide/Developer Guide/Concepts/Options/Creating a new option.md` for detailed documentation
 
 ### Shared Types Policy
 - Types shared between client and server belong in `@triliumnext/commons` (`packages/commons/src/lib/`)
@@ -276,16 +169,12 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 
 ## Code Style
 
-- 4-space indentation, semicolons always required
-- Double quotes (enforced by format config)
-- Max line length: 100 characters
-- Unix line endings
-- Import sorting via `eslint-plugin-simple-import-sort`
-- **Never use the TypeScript non-null assertion operator (postfix `!`)** — including in tests. Narrow instead: optional chaining (`?.`), a `?? fallback`, an explicit null check before use, or an `*OrThrow` accessor (e.g. `becca.getNoteOrThrow(id)` rather than `becca.getNote(id)!`).
-- **Helper placement** — when extracting a standalone helper function from a component, widget, hook, or route, place it **below** the primary export it supports (or in a separate module), not wedged between the imports and the main definition. Keep the file's primary export near the top so the entry point reads first; supporting helpers follow it.
-- **Comments** — Google developer documentation style: plain English, present tense, active voice, naming the real identifiers involved (`froca.getNote()`, not "the cache lookup"). Use *can* (ability), *might* (possibility) and *must* (requirement) precisely; never *may*, which is ambiguous between the two. Say what the code does or why it is shaped that way — not what it used to do or what changed.
-- **CSS comments** — do not narrate the change in a comment (`/* moved from the toolbar */`, `/* was 8px, bumped for the new layout */`). That belongs in the commit message. A CSS comment earns its place only when the rule is non-obvious on its own — a workaround for a browser bug, a value that must match one defined elsewhere, a `z-index` in a stacking contract.
-- **No ~10-SLOC modules** — do not give a component, hook, or helper a file of its own when it amounts to about ten lines of substance. A file that exists to hold one small thing costs a module boundary, an import at every call site, and a second place to look, and buys nothing. Add it to an existing module instead — preferably one it is already built from, or that owns the same concept, so the group of related things stays discoverable from a single import. Example: `OverlayFullscreenButton` is a preset `OverlayControlButton`, so it lives in `apps/client/src/widgets/react/OverlayControlGroup.tsx` beside the group and button it composes, not in a file of its own — and its tests live in that module's spec for the same reason. Split a module out once it has grown enough substance to stand alone.
+- 4-space indent, semicolons, double quotes, max line 100, Unix line endings (the format config enforces these). Imports sorted per `eslint-plugin-simple-import-sort` (packages before relative, alphabetical within a group) — only ESLint checks that and it isn't run locally, so sort by hand.
+- **Never use the non-null assertion `!`**, tests included. Narrow instead: `?.`, `?? fallback`, an explicit check, or an `*OrThrow` accessor (`becca.getNoteOrThrow(id)`).
+- **Helpers go below the primary export** they support (or in another module), never between the imports and the main definition — the entry point reads first.
+- **No ~10-SLOC modules.** A component, hook or helper of about ten lines of substance joins an existing module that owns the same concept (e.g. `OverlayFullscreenButton` lives in `OverlayControlGroup.tsx`, its tests in that spec); a file of its own costs a module boundary and an import per call site and buys nothing. Split out once it has grown.
+- **Comments** — Google developer-documentation style: plain English, present tense, active voice, real identifiers (`froca.getNote()`, not "the cache lookup"); *can*/*might*/*must* used precisely, never *may*. Say what the code does or why it is shaped so, not what changed.
+- **CSS comments** never narrate a change (`/* was 8px */`, `/* moved from the toolbar */`) — that is the commit message. Comment only what is non-obvious in place: a browser workaround, a value that must match one elsewhere, a `z-index` in a stacking contract.
 
 ## Testing
 
@@ -294,7 +183,7 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 - **Core tests** (`packages/trilium-core/src/**/*.spec.ts`): `trilium-core` has no runner of its own — the **server and standalone suites both include** its specs (`apps/server/vite.config.mts`, `apps/standalone/vite.config.mts`) and run them against different platform providers (node + better-sqlite3 vs. happy-dom + sql.js WASM). Green under `pnpm --filter server test` is **not** proof; run `pnpm --filter standalone test` as well. See the `writing-unit-tests` skill for the cross-runtime traps
 - **E2E tests** (`packages/trilium-e2e/`): Shared Playwright tests, run via `pnpm --filter server e2e` or `pnpm --filter standalone e2e`
 - **ETAPI tests** (`apps/server/spec/etapi/`): External API contract tests
-- **Browser-mode tests** (`packages/ckeditor5`) drive a real headless Chrome via `@vitest/browser-webdriverio`, which downloads its own Chrome and chromedriver. Where those cannot run (NixOS: they die on a missing `libxcb.so.1`), set `CHROME_BIN` and `CHROMEDRIVER_PATH` to a system pair of matching versions — `nix develop` exports both. Never start a chromedriver by hand or add a local override config; see `docs/Developer Guide/Developer Guide/Testing.md`
+- **Browser-mode tests** (`packages/ckeditor5`) drive a real headless Chrome via `@vitest/browser-webdriverio`; where its downloaded Chrome cannot run (NixOS), point `CHROME_BIN`/`CHROMEDRIVER_PATH` at a matching system pair — never start a chromedriver by hand or add a local override config. See the `ckeditor5-testing` skill
 - **Build validation tests** check artifact integrity
 - **Write concise tests**: Group related assertions together in a single test case rather than creating many one-shot tests
 - **Extract and test business logic**: When adding pure business logic (e.g., data transformations, migrations, validations), extract it as a separate function and always write unit tests for it
@@ -305,68 +194,24 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 - `docs/User Guide/` — Edit via `pnpm edit-docs:edit-docs`, not manually
 - `docs/Developer Guide/` and `docs/Release Notes/` — Safe for direct Markdown editing
 
-## Key Entry Points
+## Recipes
 
-- `apps/server/src/main.ts` — Server startup
-- `apps/client/src/desktop.ts` — Client initialization
-- `packages/trilium-core/src/becca/becca.ts` — Backend data management
-- `apps/client/src/services/froca.ts` — Frontend cache
-- `apps/server/src/routes/routes.ts` — API route registration
-- `packages/trilium-core/src/services/sql/sql.ts` — Database abstraction
+### Storing User Preferences
+**No `localStorage`** — preferences are synced options. To add one: (1) type in `OptionDefinitions`, `packages/commons/src/lib/options_interface.ts`; (2) default in `defaultOptions`, `packages/trilium-core/src/services/options_init.ts`; (3) **whitelist it in `ALLOWED_OPTIONS`**, `packages/trilium-core/src/routes/api/options.ts` — otherwise the API rejects writes with "Option 'X' is not allowed to be changed"; (4) a control in the matching settings pane (`apps/client/src/widgets/type_widgets/options/*.tsx`) plus its English key; (5) read/write via `useTriliumOption` / `useTriliumOptionBool` / `useTriliumOptionInt` / `useTriliumOptionJson`. Details: `docs/Developer Guide/Developer Guide/Concepts/Options/Creating a new option.md`.
 
 ### Adding Hidden System Notes
-The hidden subtree (`_hidden`) contains system notes with predictable IDs (prefixed with `_`). Defined in `packages/trilium-core/src/services/hidden_subtree.ts` via the `HiddenSubtreeItem` interface from `@triliumnext/commons`.
-
-1. Add the note definition to `buildHiddenSubtreeDefinition()` in `packages/trilium-core/src/services/hidden_subtree.ts`
-2. Add a translation key for the title in `apps/server/src/assets/translations/en/server.json` under `"hidden-subtree"`
-3. The note is auto-created on startup by `checkHiddenSubtree()` — uses deterministic IDs so all sync cluster instances generate the same structure
-4. Key properties: `id` (must start with `_`), `title`, `type`, `icon` (format: `bx-icon-name` without `bx ` prefix), `attributes`, `children`, `content`
-5. Use `enforceAttributes: true` to keep attributes in sync, `enforceBranches: true` for correct placement, `enforceDeleted: true` to remove deprecated notes
-6. For launcher bar entries, see `hidden_subtree_launcherbar.ts`; for templates, see `hidden_subtree_templates.ts`
+The `_hidden` subtree holds system notes with deterministic `_`-prefixed IDs so every sync instance builds the same tree; `checkHiddenSubtree()` creates them at startup. Add the `HiddenSubtreeItem` (from `@triliumnext/commons`) to `buildHiddenSubtreeDefinition()` in `packages/trilium-core/src/services/hidden_subtree.ts` — `id` (starts with `_`), `title` (key under `"hidden-subtree"` in `server.json`), `type`, `icon` (`bx-name`, no `bx ` prefix), `attributes`, `children`, `content`; `enforceAttributes` / `enforceBranches` / `enforceDeleted: true` keep attributes, placement and removals in sync. Launcher-bar entries: `hidden_subtree_launcherbar.ts`; templates: `hidden_subtree_templates.ts`.
 
 ### Writing to Notes from Server Services
 - `note.setContent()` requires a CLS (Continuation Local Storage) context — wrap calls in `cls.init(() => { ... })` (from `packages/trilium-core/src/services/context.ts`)
 - Operations called from Express routes already have CLS context; standalone services (schedulers, Electron IPC handlers) do not
 
 ### Adding New LLM Tools
-Tools are defined using `defineTools()` in `packages/trilium-core/src/services/llm/tools/` and automatically registered for both the LLM chat and MCP server.
-
-1. Add the tool definition in the appropriate module (`note_tools.ts`, `attribute_tools.ts`, `attachment_tools.ts`, `hierarchy_tools.ts`) or create a new module
-2. Each tool needs: `description`, `inputSchema` (Zod), `execute` function, and optionally `mutates: true` for write operations
-3. If creating a new module, wrap tools in `defineTools({...})` and add the registry to `allToolRegistries` in `tools/index.ts`. Tools that need Node-only services (e.g. the in-app docs) live in `apps/server/src/services/llm/tools/` and are added via `registerToolRegistry()` from `apps/server/src/services/llm/index.ts` instead
-4. Add a client-side friendly name in `apps/client/src/translations/en/translation.json` under `llm.tools.<tool_name>` — use **imperative tense** (e.g. "Search notes", "Create note", "Get attributes"), not present continuous
-5. Use ETAPI (`apps/server/src/etapi/`) as inspiration for what fields to expose, but **do not import ETAPI mappers** — inline the field mappings directly in the tool so the LLM layer stays decoupled from the API layer
+Tools are `defineTools({...})` registries in `packages/trilium-core/src/services/llm/tools/` (`note_tools`, `attribute_tools`, `attachment_tools`, `hierarchy_tools`, …), served to both the LLM chat and the MCP server. Each tool: `description`, Zod `inputSchema`, `execute`, `mutates: true` for writes. A new module goes into `allToolRegistries` in `tools/index.ts`; Node-only tools (in-app docs) live in `apps/server/src/services/llm/tools/` and use `registerToolRegistry()` from `apps/server/src/services/llm/index.ts`. Add the client label under `llm.tools.<tool_name>` in imperative tense ("Search notes"). Mirror ETAPI's field choices but **don't import ETAPI mappers** — inline them so the LLM layer stays decoupled.
 
 ### Server-Side Static Assets
-- Static assets (templates, SQL, translations, etc.) go in `apps/server/src/assets/`
-- Access them at runtime via `RESOURCE_DIR` from `apps/server/src/services/resource_dir.ts` (e.g. `path.join(RESOURCE_DIR, "llm", "prompts", "base_system_prompt.md")`). Assets that core itself reads (LLM skills, `schema.sql`) live in `packages/trilium-core/src/assets/` instead
-- **Do not use `import.meta.url`/`fileURLToPath`** to resolve file paths — the server is bundled into CJS for production, so `import.meta.url` will not point to the source directory
-- **Do not use `__dirname` with relative paths** from source files — after bundling, `__dirname` points to the bundle output, not the original source tree
+Node-side assets (templates, translations, prompts) live in `apps/server/src/assets/` and are read via `RESOURCE_DIR` from `apps/server/src/services/resource_dir.ts` (`path.join(RESOURCE_DIR, "llm", "prompts", …)`); assets core itself reads (`schema.sql`, LLM skills) live in `packages/trilium-core/src/assets/`. **Never resolve paths with `import.meta.url`/`fileURLToPath` or `__dirname` + relative path** — the server is bundled to CJS and both point at the bundle, not the source tree.
 
 ## MCP Server
-- Trilium exposes an MCP (Model Context Protocol) server at `http://localhost:8080/mcp`, configured in `.mcp.json`
-- The MCP server is **only available when the Trilium server is running** (`pnpm run server:start`)
-- It requires an ETAPI token on every request — create one in Options → ETAPI and export it as `TRILIUM_ETAPI_TOKEN` before starting Claude Code (`.mcp.json` reads that variable). Without it the endpoint answers `401`
-- It provides tools for reading, searching, and modifying notes directly from the AI assistant
-- Use it to interact with actual note data when developing or debugging note-related features
 
-## Build System Notes
-- Uses pnpm for monorepo management
-- Vite for fast development builds
-- ESBuild for production optimization
-- pnpm workspaces for dependency management
-- Docker support with multi-stage builds
-
-### Two TypeScript versions, on purpose
-The root `package.json` declares **both** `typescript` (6.x) and `@typescript/native` (an alias of `typescript@7`). Do not "deduplicate" them by bumping `typescript` to 7:
-
-- **`typescript` 6.x is the library.** TypeScript 7 is the native Go port and its package no longer exports the JS compiler API (`exports["."]` is just a version stub). Everything that does `require("typescript")` needs 6.x: TypeDoc, typescript-eslint, and — the one that also ships to users — `packages/codemirror`, which runs the real language service in the browser for script-note IntelliSense.
-- **`@typescript/native` is the compiler binary**, used only by `scripts/filter-tsc-output.mts` behind `pnpm typecheck`. It builds the whole project graph in roughly a seventh of the time 6.x takes.
-- pnpm gives `node_modules/.bin/tsc` to the alias, so a bare `tsc` on the command line is **7**, not the 6.x that tooling loads. That is also what keeps `.tsbuildinfo` in one format — the two majors cannot read each other's, and mixing them forces a full rebuild every time.
-
-**Do not switch to `@typescript/typescript6`.** Microsoft's documented side-by-side layout aliases `typescript` to that compatibility shim so the native compiler can own the `tsc` bin name. It does not fit here, for two reasons that only show up at build time:
-
-- The shim ships five files and **no `lib.*.d.ts`**, so the 96 `typescript/lib/lib.*.d.ts?raw` imports in `packages/codemirror/src/type_completion/ts_lib_files.ts` fail to resolve and the client build dies.
-- Working around that by keeping a real `typescript` under `packages/codemirror` splits resolution: `@typescript/vfs` and `@valtown/codemirror-ts` are hoisted to the root and follow the shim, while codemirror's own source follows its nested copy. Two physical paths means the 3.3 MB compiler is bundled **twice** into the lazy script-note chunk (measured: client `dist` 69 M → 72 M).
-
-The official layout assumes the only consumer of the `typescript` name is tooling. This repo also bundles it into a browser app, so the plain package has to stay.
+Trilium exposes an MCP server at `http://localhost:8080/mcp` (`.mcp.json`) — only while `pnpm server:start` is running, and only with an ETAPI token exported as `TRILIUM_ETAPI_TOKEN` before starting Claude Code (otherwise `401`; create one in Options → ETAPI). Use it to read/search/modify real note data when developing note-related features.
