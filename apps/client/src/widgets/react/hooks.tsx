@@ -1177,7 +1177,61 @@ export function useStaticTooltip(elRef: RefObject<Element>, config?: Partial<Too
         };
         element.addEventListener("click", dismissOnPress);
 
+        // For delegated (`selector:`) configs, a hovered child gets its own per-target Tooltip
+        // instance (see the sweep at the end of the cleanup below) that only ever hides on its
+        // own mouseleave. If that child leaves the DOM while its popup is still shown — the note
+        // icon picker's virtualized grid re-keys its cells on every keystroke in the search box,
+        // and does the same on scroll — no mouseleave ever fires, so the instance never hides and
+        // its popup is orphaned in `document.body` until reload (#10680). Track which delegate
+        // elements currently have a popup shown, via the container-level events Bootstrap's own
+        // component events bubble to.
+        let disposeDelegateTracking = () => {};
+        if (config?.selector) {
+            const shownDelegates = new Set<Element>();
+            const onDelegateShown = (event: Event) => {
+                if (event.target instanceof Element && event.target !== element) {
+                    shownDelegates.add(event.target);
+                }
+            };
+            const onDelegateHidden = (event: Event) => {
+                if (event.target instanceof Element) {
+                    shownDelegates.delete(event.target);
+                }
+            };
+            element.addEventListener("inserted.bs.tooltip", onDelegateShown);
+            element.addEventListener("hidden.bs.tooltip", onDelegateHidden);
+
+            // A MutationObserver catches the removal the moment it happens, rather than
+            // depending on this hook's own cleanup running again — which a grid re-render
+            // triggered by its own state, not by `elRef`/`config` changing, never causes.
+            const delegateObserver = new MutationObserver(() => {
+                for (const target of shownDelegates) {
+                    if (target.isConnected) continue;
+                    const instance = Tooltip.getInstance(target);
+                    if (instance) {
+                        // Reuses the bootstrap#37474 guard the patched dispose() above installs.
+                        instance.dispose();
+                    } else {
+                        // Belt-and-braces: the instance may already be gone on its own.
+                        const popupId = target.getAttribute("aria-describedby");
+                        if (popupId) {
+                            document.getElementById(popupId)?.remove();
+                        }
+                    }
+                    shownDelegates.delete(target);
+                }
+            });
+            delegateObserver.observe(element, { childList: true, subtree: true });
+
+            disposeDelegateTracking = () => {
+                delegateObserver.disconnect();
+                element.removeEventListener("inserted.bs.tooltip", onDelegateShown);
+                element.removeEventListener("hidden.bs.tooltip", onDelegateHidden);
+            };
+        }
+
         return () => {
+            disposeDelegateTracking();
             element.removeEventListener("click", dismissOnPress);
             tooltips.delete(tooltip);
             // Dispose even when the trigger element is already detached (e.g. a keyed remount

@@ -170,6 +170,60 @@ describe("useStaticTooltip", () => {
         await act(async () => { trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
         expect(document.querySelector(".tooltip"), "gone with the press").toBeNull();
     });
+
+    // Module-level (not recreated per render) on purpose: the icon picker's own container effect
+    // never re-runs when its virtualized grid re-keys a cell, so the MutationObserver #10680's fix
+    // installs has to survive across that re-render on its own — a config recreated inline, like
+    // TooltipHarness above, would re-run the effect and mask exactly what this test checks.
+    const DELEGATED_CONFIG = {
+        selector: "span",
+        animation: false,
+        title() {
+            return this.getAttribute("title") || "";
+        }
+    } satisfies Partial<Tooltip.Options>;
+
+    function DelegatedTooltipHarness({ generation }: { generation: number }) {
+        const ref = useRef<HTMLDivElement>(null);
+        useStaticTooltip(ref, DELEGATED_CONFIG);
+        return (
+            <div ref={ref}>
+                <span key={generation} title="smile" />
+            </div>
+        );
+    }
+
+    it("removes an orphaned popup when a delegated tooltip's hovered child is removed without a mouseleave (#10680)", async () => {
+        await act(async () => render(<DelegatedTooltipHarness generation={1} />, container));
+
+        const span = container.querySelector("span");
+        expect(span).not.toBeNull();
+
+        // A synthetic mouseenter does not reliably reach Bootstrap's own delegated listener under
+        // happy-dom, so the per-span instance is created directly instead — the fix only depends on
+        // showing it firing `inserted.bs.tooltip` on the span, which then bubbles to the container
+        // exactly as it would from Bootstrap's own delegated hover handling.
+        act(() => {
+            if (span) {
+                Tooltip.getOrCreateInstance(span, {
+                    animation: false,
+                    title() {
+                        return this.getAttribute("title") || "";
+                    }
+                }).show();
+            }
+        });
+        expect(document.querySelector(".tooltip"), "shown before the remount").not.toBeNull();
+
+        // Replace the hovered span with a fresh one — a keyed remount, like the icon picker's grid
+        // re-keying its cells on every keystroke in its search box — without ever firing mouseleave.
+        await act(async () => render(<DelegatedTooltipHarness generation={2} />, container));
+
+        // The MutationObserver callback runs as a microtask; give it a turn to fire.
+        await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+        expect(document.querySelector(".tooltip"), "gone once the observer sees the removal").toBeNull();
+    });
 });
 
 describe("useTooltip", () => {
