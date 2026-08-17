@@ -1,6 +1,6 @@
 ---
 name: building-client-ui
-description: Use when building or changing any UI in the Trilium client (`apps/client`) — a dialog, a settings pane, a form, a toolbar, a badge, a dropdown menu, a type widget, a control floating over a note's content (map, mind map, image, diagram, presentation). Catalogues the reusable Preact components under `apps/client/src/widgets/react/` (which one to reach for instead of a hand-rolled `<input>`/`<button>`/pill), the `Dropdown` backdrop-blur rules (`noDropdownListStyle` / `portalToBody`), and the `OverlayControlGroup` / `OverlayToolbar` contract for controls over a canvas. The home for client UI guidance that outgrows CLAUDE.md.
+description: Use when building or changing any UI in the Trilium client (`apps/client`) — a dialog, a settings pane, a form, a toolbar, a badge, a dropdown menu, a type widget, a control floating over a note's content (map, mind map, image, diagram, presentation), or any component that reads/writes a note's title, label, relation, blob or option. Catalogues the froca-reactive hooks (useNoteProperty / useNoteLabel / useNoteBlob / useChildNotes / useTriliumOption / useNoteContext) and which `loadResults` filter each already wires, the reusable Preact components under `apps/client/src/widgets/react/` (which one to reach for instead of a hand-rolled `<input>`/`<button>`/pill), the `Dropdown` backdrop-blur rules (`noDropdownListStyle` / `portalToBody`), the `OverlayControlGroup` / `OverlayToolbar` contract for controls over a canvas, and the event-summoned Modal/LazyDialog wiring. The home for client UI guidance that outgrows CLAUDE.md.
 ---
 
 # Building client UI
@@ -8,6 +8,50 @@ description: Use when building or changing any UI in the Trilium client (`apps/c
 The client is a Preact app (legacy widgets are jQuery `BasicWidget`s; new UI is Preact). Shared components live in `apps/client/src/widgets/react/`. **Always reuse them instead of writing raw HTML elements or a custom implementation** — every hand-rolled `<input>`, `<select>`, `<button>`, pill or overlay button is a second copy of styling, focus handling and accessibility that drifts.
 
 The general styling rules (no inline styles, one `.css` file per component imported at the top, scope by root class + native CSS nesting) are in the repo `CLAUDE.md`; this skill is about *which component* and *how to drive it*.
+
+> **CLAUDE.md still foregrounds the jQuery widget lifecycle** (`doRenderBody` / `refreshWithNote` / `this.$widget`). That is for maintaining existing widgets. New UI is a `.tsx` component using the hooks below; reach for `useLegacyWidget` only to embed an existing jQuery widget into a Preact tree.
+
+## Don't reinvent froca-reactive state
+
+The most common mistake on this surface is writing `useState` + `server.get`/`froca` + a hand-rolled `entitiesReloaded` listener for something a **one-line hook already does** — with the right reload filter, the right echo-suppression, and the stale-request guard. `apps/client/src/widgets/react/hooks.tsx` exports 60 `use*` hooks. Check the catalogue first: [references/hooks-catalog.md](references/hooks-catalog.md).
+
+| You need… | Use | It already wires |
+|---|---|---|
+| a scalar `FNote` field (title, isProtected, type, mime) | `useNoteProperty(note, "title", componentId)` | `loadResults.isNoteReloaded(noteId, componentId)` |
+| a label value (read/write) | `useNoteLabel` / `…Boolean` / `…Int` / `…WithDefault` / `…OptionalBool` | `getAttributeRows()` + `attributes.isAffecting(attr, note)` — handles inheritance and templates |
+| a label the user named themselves | `useNoteLabelByName` | same; `useNoteLabel` delegates to it but types the name to the declared vocabulary |
+| a relation (read/write, or resolve the target) | `useNoteRelation` / `useNoteRelationTarget` | the same attribute filter |
+| note binary content / blob | `useNoteBlob(note, componentId, { reportLoadStateTo })` | `isNoteContentReloaded` + an explicit delete check + a requestId stale-guard |
+| child notes / subtree | `useChildNotes(parentNoteId)` | `getBranchRows()` parent match + `frocaReloaded` |
+| an `FNote` by id | `useNote` / `useNoteTitle` / `useNoteIcon` / `useNoteColorClass` | cache-first + the matching reload filter |
+| a synced option (read/write) | `useTriliumOption` / `…Bool` / `…Int` / `…Json` / `useTriliumOptions` | `getOptionNames()` |
+| the split's note context | `useNoteContext()` | setNoteContext / noteSwitched / frocaReloaded / hoisted / readOnly |
+| the *active* (focused) context | `useActiveNoteContext()` | same, plus re-resolving notePath when the note is moved |
+| read-only / temporarily-editable state | `useIsNoteReadOnly` / `useEffectiveReadOnly` | the `readOnly` label + `readOnlyTemporarilyDisabled` |
+| editor autosave plumbing | `useEditorSpacedUpdate` / `useBlobEditorSpacedUpdate` | spaced-update + the provenance guard for #9614 |
+| fullscreen state for an overlay button | `useFullscreen(element)` | the Fullscreen API + `fullscreenchange` |
+| publish/consume cross-widget data | `useSetContextData` / `useGetContextData` | `contextDataChanged` |
+| a raw Trilium event | `useTriliumEvent` / `useTriliumEvents` | registerHandler/removeHandler on `ParentComponent` |
+| embed a legacy jQuery widget | `useLegacyWidget` | the `child()` / `render()` / `activeContextChanged` bridge |
+
+## The `entitiesReloaded` filter taxonomy
+
+If you genuinely must hand-write `useTriliumEvent("entitiesReloaded", ({ loadResults }) => …)`, pick the **right predicate** — the wrong one silently never fires:
+
+| Changed | Predicate |
+|---|---|
+| note row or its attributes | `loadResults.isNoteReloaded(noteId, componentId)` |
+| blob / content (**not** the note row) | `loadResults.isNoteContentReloaded(noteId, componentId)` |
+| a label or relation | iterate `loadResults.getAttributeRows()`, keep `attributes.isAffecting(attr, note)` |
+| children added/removed/moved | `loadResults.getBranchRows()` (match `parentNoteId`) |
+| options | `loadResults.getOptionNames()` |
+| the whole cache was swapped (e.g. protected session) | the separate `frocaReloaded` event — re-read `FNote` refs, the old ones are orphaned |
+
+Three things people get wrong:
+
+- **`isNoteReloaded` ≠ `isNoteContentReloaded`.** The note row/attributes and the blob are tracked in *separate* maps. Using one to refresh the other compiles, runs, and never updates.
+- **Attribute ownership is not `attr.noteId === note.noteId`.** `attributes.isAffecting()` walks `getNotesToInheritAttributesFrom()` and, for inheritable attributes, `hasAncestor()` — so a naive id check misses inherited and templated attributes.
+- **Pass `componentId`** when the same component both saves and listens. `isNoteReloaded`/`isNoteContentReloaded` skip the originating component, so without it the widget gets its own save echoed back and clobbers fresher user-typed input.
 
 ## Reusable component catalogue
 
@@ -83,3 +127,55 @@ Rules for `OverlayControlButton`, which cover every case seen so far:
 - Reuse shared labels from the `common` translation namespace (e.g. `common.fullscreen`) rather than adding a per-widget copy of a string the app already has.
 
 Worked examples to read before adding a new one: `apps/client/src/widgets/type_widgets/mind_map/MapToolbar.tsx` (group + toolbar + fullscreen), `type_widgets/relation_map/MapToolbar.tsx`, `collections/geomap/MapToolbar.tsx`, `type_widgets/helpers/SvgSplitEditor.tsx`.
+
+## Dialogs
+
+Dialogs are **event-summoned** and **lazy-mounted**. Worked example: `apps/client/src/widgets/dialogs/sort_child_notes.tsx`.
+
+1. **State:** `const [ shown, setShown ] = useState(false);`
+2. **Summon:** `useTriliumEvent("yourEvent", (data) => { …; setShown(true); });`
+3. **Render** a controlled `<Modal>`:
+   ```tsx
+   <Modal
+       className="your-dialog"          // static literal — Bootstrap mutates classList (fade/show)
+       show={shown}
+       onHidden={() => setShown(false)} // MANDATORY — see below
+       onSubmit={onSubmit}              // optional: wraps the body in a form, Enter submits
+       title={t("…")} size="lg"
+   >…</Modal>
+   ```
+4. **Register it** in `applyModals()` in `apps/client/src/layouts/layout_commons.tsx`:
+   ```tsx
+   .child(<LazyDialog triggerEvents={["yourEvent"]} loader={() => import("../widgets/dialogs/your.js")} />)
+   ```
+   Skip this and **nothing summons the dialog** — the event has no listener and the modal never mounts.
+5. **Eager (un-lazy) registration is only for the four documented exceptions** at the end of `applyModals()` — see the reference.
+
+Two `Modal` footguns:
+
+- **`onHidden` is required and must `setShown(false)`.** Bootstrap closing the modal (backdrop, close button, submit) does **not** touch React state; if `show` stays `true`, the next `show=true` is a no-op and the dialog can't reopen.
+- **Keep `className` a static string.** It is rendered as `` `modal fade mx-auto ${className}` `` and Bootstrap toggles `fade`/`show` on that same element, so a dynamic className fights it.
+
+Full prop reference, `LazyDialog` mechanics and the eager exceptions: [references/dialogs.md](references/dialogs.md).
+
+## Footgun checklist
+
+- **Reinventing a hook** — `useState` + `server.get` + a manual `entitiesReloaded` listener that a hook already provides. Check the catalogue.
+- **Wrong reload predicate** — `isNoteReloaded` (row/attrs) vs `isNoteContentReloaded` (blob) vs `getAttributeRows()` + `isAffecting` (labels/relations, including inherited) vs `getBranchRows()` (children) vs `getOptionNames()`.
+- **Omitting `componentId`** — the saving widget echoes its own change back and overwrites fresher input.
+- **Dialog registered but not wired** — no `<LazyDialog triggerEvents={…}>` in `applyModals()`, so the summon event has no listener and nothing happens.
+- **Modal can't reopen** — a missing/empty `onHidden`, or a dynamic `className` fighting Bootstrap's `fade`/`show`.
+- **Bootstrap utility classes or inline static styles on `Form*` components** — use the sibling per-component `.css` scoped under a root class.
+- **Hand-rolled overlay buttons** — `tn-overlay-*` classes at a call site instead of `OverlayControlGroup` / `OverlayControlButton`.
+- **Copying the jQuery lifecycle** (`doRenderBody` / `refreshWithNote` / `this.$widget`) into new `.tsx` — use `useLegacyWidget` only to embed an existing widget.
+
+> Not a footgun here: `isElectron()` / `isMac()` from `apps/client/src/services/utils.ts` are runtime checks safe at module load. The "call only after init" trap is a **trilium-core** concern (`utils/index.ts` → `getPlatform()`), not client UI.
+
+## Reference map
+
+| File | Read it for |
+|---|---|
+| [references/hooks-catalog.md](references/hooks-catalog.md) | All 60 `use*` hooks grouped by purpose, one line each with the `loadResults` filter it wires — the anti-re-derivation asset. |
+| [references/dialogs.md](references/dialogs.md) | Full `Modal` prop reference, the 5-step summon→register recipe, `LazyDialog` mechanics, the four eager exceptions, the `sort_child_notes.tsx` walkthrough. |
+
+Related skills: **writing-unit-tests** (rendering these components and testing hooks with the easy-froca fixtures), **analyzing-coverage** (measuring client coverage), **working-with-translations** (adding the English strings these components display).
