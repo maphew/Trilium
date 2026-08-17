@@ -40,6 +40,16 @@
       "output": 5,
       "ctx": 200000
     },
+    "claude-mythos-5": {
+      "input": 10,
+      "output": 50,
+      "ctx": 1000000
+    },
+    "claude-mythos-preview": {
+      "input": 10,
+      "output": 50,
+      "ctx": 1000000
+    },
     "claude-opus-4-1": {
       "input": 15,
       "output": 75,
@@ -267,6 +277,11 @@
     "gemini-3.6-flash": {
       "input": 1.5,
       "output": 7.5,
+      "ctx": 1048576
+    },
+    "gemini-3.7-flash": {
+      "input": 0.75,
+      "output": 3.75,
       "ctx": 1048576
     },
     "gemini-exp-1206": {
