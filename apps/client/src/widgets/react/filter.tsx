@@ -1,3 +1,5 @@
+import "./filter.css";
+
 import { type ComponentChildren, createContext, isValidElement } from "preact";
 import { useContext, useMemo } from "preact/hooks";
 
@@ -114,6 +116,25 @@ export function useFilterState(): FilterState | null {
  */
 export function useIsFiltering(): boolean {
     return useContext(FilterContext) !== null;
+}
+
+/**
+ * What a piece of content is worth to the filter around it, marked on the element for CSS to act on
+ * (see filter.css). A component states the part its content plays and is spared the rules:
+ *
+ * - `match`: content that matched, and so is a result in its own right.
+ * - `scope`: a group of content, which goes as soon as it holds no match.
+ * - `companion`: content that is no result of its own but belongs beside those that are, such as a
+ *   preview of what the settings around it do. It is shown for as long as its group is, and never
+ *   keeps that group alive by itself.
+ *
+ * The marks do nothing outside a filter, so a component may leave them on.
+ */
+export type FilterRole = "match" | "scope" | "companion";
+
+/** The class standing for a {@link FilterRole}, or nothing for content playing no part. */
+export function filterRoleClass(role: FilterRole | undefined | false) {
+    return role ? `tn-filter-${role}` : undefined;
 }
 
 /**

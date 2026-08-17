@@ -4,7 +4,7 @@ import { JSX, HTMLAttributes } from "preact";
 import { useContext } from "preact/hooks";
 import clsx from "clsx";
 
-import { FilterPassthrough, useFilterMatch, useIsFiltering } from "./filter";
+import { type FilterRole, FilterPassthrough, filterRoleClass, useFilterMatch, useIsFiltering } from "./filter";
 import { useUniqueName } from "./hooks";
 
 // #region Card Frame
@@ -57,9 +57,8 @@ export function Card(props: {children: ComponentChildren} & CardProps) {
     const matched = useFilterMatch(props.heading, props.description);
     const filtering = useIsFiltering();
 
-    return <div className={clsx("tn-card", props.className, {
-                    "tn-card-filter-unmatched": filtering && !matched
-                })}>
+    return <div className={clsx("tn-card", props.className,
+                    filterRoleClass(filtering && (matched ? "match" : "scope")))}>
         {(props.heading || props.actions) && <h5 class="tn-card-heading">
             {props.heading}
             {props.actions && <span className="tn-card-heading-actions">{props.actions}</span>}
@@ -96,6 +95,12 @@ export interface CardSectionProps {
      * the click before {@link CardSectionProps.onAction} ever saw it. Ignored without an `href`.
      */
     noContainedNavigation?: boolean;
+    /**
+     * What this section is worth to a filter over the card, for a section that is not a setting.
+     * `companion` is the usual one: a preview of what the settings around it do, shown for as long
+     * as any of them is (see {@link FilterRole}).
+     */
+    filterRole?: FilterRole;
 }
 
 interface CardSectionContextType {
@@ -108,7 +113,7 @@ export function CardSection(props: {children: ComponentChildren} & CardSectionPr
     const parentContext = useContext(CardSectionContext);
     const nestingLevel = (parentContext && parentContext.nestingLevel + 1) ?? 0;
 
-    const className = clsx("tn-card-section", props.className, {
+    const className = clsx("tn-card-section", props.className, filterRoleClass(props.filterRole), {
         "tn-card-section-nested": nestingLevel > 0,
         "tn-card-highlight-on-hover": props.highlightOnHover || props.onAction || props.href,
         "tn-no-padding": props.noPadding
@@ -173,15 +178,17 @@ export interface OptionCardSectionProps extends CardSectionProps {
 export function OptionCardSection(props: OptionCardSectionProps) {
     const {label, description, name, stacked, children, className, subSections, ...rest} = props;
     const matched = useFilterMatch(label, description);
+    const filtering = useIsFiltering();
     const id = useUniqueName(name);
     const bound = !!name && isValidElement(children);
 
     if (!matched && !subSections) return null;
 
     return <CardSection className={clsx("tn-card-option", className, {
-                            "tn-card-option-stacked": stacked,
-                            "tn-card-option-filter-unmatched": !matched
+                            "tn-card-option-stacked": stacked
                         })}
+                        // Kept for its details rather than for itself, which is what a companion is.
+                        filterRole={filtering ? (matched ? "match" : "companion") : undefined}
                         subSections={subSections && (
                             <FilterPassthrough when={matched}>{subSections}</FilterPassthrough>
                         )}

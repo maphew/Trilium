@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 
 import { renderInto } from "../../test/render";
 import {
-    FilterPassthrough, FilterProvider, filterText, filterTokens, matchesFilter, useFilterMatch,
-    useFilterState, useIsFiltering
+    FilterPassthrough, FilterProvider, filterRoleClass, filterText, filterTokens, matchesFilter,
+    useFilterMatch, useFilterState, useIsFiltering
 } from "./filter";
 
 describe("filterText", () => {
@@ -64,6 +64,17 @@ describe("matchesFilter", () => {
     it("passes anything when there are no terms to match", () => {
         expect(matchesFilter([], "Backup")).toBe(true);
         expect(matchesFilter([], null)).toBe(true);
+    });
+});
+
+describe("filterRoleClass", () => {
+    it("names the part content plays, and says nothing where it plays none", () => {
+        expect(filterRoleClass("match")).toBe("tn-filter-match");
+        expect(filterRoleClass("scope")).toBe("tn-filter-scope");
+        expect(filterRoleClass("companion")).toBe("tn-filter-companion");
+
+        expect(filterRoleClass(undefined)).toBeUndefined();
+        expect(filterRoleClass(false)).toBeUndefined();
     });
 });
 
