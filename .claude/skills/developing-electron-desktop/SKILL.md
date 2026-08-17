@@ -1,6 +1,6 @@
 ---
 name: developing-electron-desktop
-description: Use when working on the Trilium Electron desktop app (`apps/desktop`) — adding or changing an `electronApi` method / IPC channel, touching `preload.ts`, `main.ts`, `services/window.ts` or any main-process service (tray, printing, dialogs, import/export, spellcheck, autostart, security settings), the `trilium-app://` protocol, launching or debugging the desktop build, or writing tests for desktop code. Covers the process/security model, the four-file recipe for a new Electron API, running (`pnpm desktop:start`) and the known launch errors, and how desktop specs mock `electron`.
+description: Use when working on the Trilium Electron desktop app (`apps/desktop`) — adding or changing an `electronApi` method / IPC channel, touching `preload.ts`, `main.ts`, `services/window.ts` or any main-process service (tray, printing, dialogs, import/export, spellcheck, autostart, security settings), the `trilium-app://` protocol, launching or debugging the desktop build, or writing tests for desktop code. Covers the process/security model, the four-file recipe for a new Electron API (plus the handler-module map, the send/sendSync/invoke transport table, ipcMain crash-safety and the shell input validators), a runnable ipc-parity checker, triage for `trilium-app://` protocol and WebContents failures (STATUS_BREAKPOINT, (blocked:origin), non-streaming SSE, blocked webview/permission), running (`pnpm desktop:start`) and the known launch errors, and how desktop specs mock `electron`.
 ---
 
 # Developing the Electron desktop app
@@ -57,6 +57,77 @@ Four files, always together:
 
 Then call it from the client as `window.electronApi?.group.method()` — always optional-chained, since the same client runs in the browser. `window.electronApi` is declared in `apps/client/src/types.d.ts`; gate desktop-only UI on `isElectron()` from `apps/client/src/services/utils.ts` (server side: `utils.isElectron`).
 
+### A new handler module is dead until `main.ts` calls its `setupX()`
+
+`ipcMain.on`/`handle` only registers when the module's setup function actually runs, and there is **no startup error** if you forget. The symptom is silent at the source: a `send` channel no-ops, and a `sendSync` channel **hangs the renderer forever**, because synchronous IPC blocks the whole renderer process waiting for a reply that never comes. The setup calls live in one block in `main.ts` (plus `ipcMessaging.init()` further down). Adding a module means adding the call there.
+
+### Which module owns my channel?
+
+The preload API *group* name does not map 1:1 to a handler module — infer from this table, not from the group:
+
+| setup fn (called in `main.ts`) | module | channels it owns |
+|---|---|---|
+| `setupWindowing()` | `services/window.ts` | the bulk (~31): window lifecycle, zoom, theme, title bar, full-screen, min/max, dev tools, background material, `navigation-history*`, **clipboard** (`copy-image-to-clipboard`, `read-clipboard-text`), **spellchecker language** channels, `web-contents-action` |
+| `setupShellHandlers()` | `services/shell.ts` | `open-external`, `open-path`, `show-item-in-folder`, `open-file-url`, `download-url`, `open-custom` |
+| `setupPrintingHandlers()` | `services/printing.ts` | `print-note`, `export-as-pdf`, `export-as-pdf-preview`, `save-pdf`, `get-printers`, `print-from-preview`, `print-progress` |
+| `registerSecurityIpcHandlers()` | `services/security_settings.ts` | `security-set-backend-scripting`, `security-set-sql-console`, `security-set-lan-access` (all three via `registerToggleHandler`) |
+| `setupStartupMetricsIpc()` | `services/startup_metrics.ts` | `report-startup-metric` |
+| `setupSystemTray()` | `services/tray.ts` | `reload-tray` |
+| `setupCustomDictionary()` | `services/custom_dictionary.ts` | `add-word-to-dictionary` |
+| `ipcMessaging.init()` | `ipc_messaging_provider.ts` | `trilium-ws-from-renderer` (the ws bridge; the channel names are the `IPC_FROM_RENDERER`/`IPC_TO_RENDERER` constants) |
+
+Note the splits that defeat guessing by group: spellcheck's `add-word-to-dictionary` is in **custom_dictionary.ts** while the spellchecker-language channels are in **window.ts**, and the **clipboard** handlers live in **window.ts**, not a clipboard module.
+
+### Transport must match the handler kind
+
+Mismatch it and the failure is silent or fatal, never a clear error:
+
+| Renderer need | preload call | main side | if mismatched |
+|---|---|---|---|
+| fire-and-forget, no return | `ipcRenderer.send(ch, …)` | `ipcMain.on(ch, (event, …) => {})` | sending to a `handle`-only channel is a **silent no-op** |
+| synchronous value (**blocks renderer**) | `ipcRenderer.sendSync(ch, arg)` | `ipcMain.on(ch, (event) => { event.returnValue = x })` | forgetting `event.returnValue` **hangs the renderer** |
+| async value (Promise) | `ipcRenderer.invoke(ch, …)` | `ipcMain.handle(ch, async (event, …) => x)` | no `handle` registered ⇒ the promise rejects `"No handler registered for '<ch>'"` |
+| main → renderer push | `ipcRenderer.on(ch, cb)` + an unsubscribe | `webContents.send(ch, data)` (**not** `ipcMain`) | push channels have **no** `ipcMain` handler — don't "fix" their absence |
+
+**Multiplexed channel:** `navigation-history` is one channel serving several preload methods via a method-name first argument and an `event.returnValue` switch.
+
+### Crash-safety
+
+An unhandled throw inside an `ipcMain.on` listener crashes the **entire main process** — there is no renderer-side rejection to catch it. `shell.ts` carries this warning verbatim next to `open-custom`. Wrap every handler body:
+
+```ts
+electron.ipcMain.on("my-channel", (_event, arg: string) => {
+    try {
+        doThing(validateArg(arg));
+    } catch (e) {
+        getLog().error(`my-channel failed: ${coreUtils.safeExtractMessageAndStackFromError(e)}`);
+    }
+});
+```
+
+For an `ipcMain.handle` whose contract is `Promise<string>`, the catch should also **return** the error string, since the renderer awaits it — that is what `open-path`/`open-file-url` do.
+
+### Check the wiring with `ipc-parity.mjs`
+
+A direction-aware parity diff across interface ↔ preload ↔ `ipcMain` handlers ↔ spec. Run it after wiring a channel, or to audit drift:
+
+```bash
+node .claude/skills/developing-electron-desktop/scripts/ipc-parity.mjs
+```
+
+It reports renderer→main channels with no handler (these hang or no-op), transport/handler-kind mismatches, handler modules whose `setupX()` is never called, handlers with no preload caller (`print-note`/`export-as-pdf` are known legacy orphans), and preload channels with no `preload.spec.ts` assertion. It whitelists push-only channels and is channel-granular, so the multiplexed `navigation-history` doesn't false-positive. Exit code 1 on a fatal finding.
+
+## Validating untrusted renderer input
+
+The renderer is XSS-reachable, so it is **untrusted**. Every fs/shell/url channel validates in the main process and throws on violation. The five validators in `apps/desktop/src/services/shell.ts` are exported and unit-tested:
+
+- `validateOpenExternalUrl` — scheme allowlist from `SHELL_OPEN_EXTERNAL_PROTOCOLS` (commons); blocks Follina (`ms-msdt:`/`search-ms:`), the `smb:`/`ldap:` NTLM leak, and `file:`/`data:`/`jar:`.
+- `validateOpenPath` / `validateOpenCustomPath` — canonicalize and sandbox to the data dir / tmp dir; implicitly blocks UNC paths and traversal; reject null bytes and nonexistent files.
+- `validateOpenFileUrl` — require `file:` with an empty hostname (blocks the `file://attacker/share` UNC NTLM leak); normalize `file://C:/` → `file:///C:/`.
+- `validateDownloadUrl` — same-origin lock by scheme + hostname + port. It cannot use `URL.origin`, because the custom scheme is opaque-origin (`"null"`).
+
+Add a validator for any new channel that takes a path, a URL, or anything else the main process will act on.
+
 ## Strings and platform code
 
 - Main-process user-facing text (tray menu, dialogs, error boxes) goes through `import { t } from "i18next"` with keys in `apps/server/src/assets/translations/en/server.json`. Never hardcode.
@@ -83,3 +154,16 @@ Known launch-time noise and failures — do not "fix" these in app code:
 - `pnpm --filter desktop test [pattern]` — Vitest, node environment, `src/**/*.spec.ts`. Specs `vi.mock("electron", …)` and assert on the recorded `ipcMain`/`ipcRenderer` calls (see `preload.spec.ts`, `services/shell.spec.ts` for the pattern). `vitest.config.mts` sets `ELECTRON_OVERRIDE_DIST_PATH` so a dynamic `import("electron")` doesn't blow up where the binary isn't installed — don't remove it.
 - The desktop suite also boots server pieces (`TRILIUM_INTEGRATION_TEST: "memory"`), so it is slower than a client spec; keep the pattern narrow.
 - `spec/build-checks/artifacts.spec.ts` asserts the contents of a built `dist/` (client, assets, `better-sqlite3`, …). It is outside the default `include`, so run it explicitly after `pnpm desktop:build` when touching `scripts/build.ts` or the asset copies (`schema.sql`, `llm/skills`, `share-theme/templates`).
+
+## Debugging the protocol / WebContents boundary
+
+When the symptom isn't a missing channel but the renderer page itself failing — white screen, `STATUS_BREAKPOINT`, `(blocked:origin)`, SSE that never streams, a blocked `<webview>`, a denied permission — the cause is `protocol.ts` or `web_contents_security.ts`, not the IPC bridge. Symptom → cause → fix table: [references/protocol-and-security-triage.md](references/protocol-and-security-triage.md).
+
+## Reference map
+
+| File | What it covers |
+|---|---|
+| [references/protocol-and-security-triage.md](references/protocol-and-security-triage.md) | `trilium-app://` and the WebContents boundary: `STRIPPED_HEADERS`/STATUS_BREAKPOINT, the privileged-scheme registration ordering, the SSE streaming bridge, the frame-origin guard and its trust model, `<webview>` attach hardening, the permission allowlist, window-open and navigation policy, the YouTube embed referer. |
+| [scripts/ipc-parity.mjs](scripts/ipc-parity.mjs) | Runnable parity check across interface ↔ preload ↔ handlers ↔ spec (see above). |
+
+Related skills: **writing-unit-tests** (the `vi.mock("electron")` pattern these specs use), **building-client-ui** (the renderer side that calls `window.electronApi`), **developing-capacitor-mobile** (the other non-browser runtime).
