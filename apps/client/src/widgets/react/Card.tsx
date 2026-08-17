@@ -144,7 +144,7 @@ export function CardSection(props: {children: ComponentChildren} & CardSectionPr
                  data-no-contained-navigation={props.noContainedNavigation ? "" : undefined}
                  onClick={props.onAction}>
                 {props.children}
-                <span className="tn-card-section-chevron bx bx-chevron-right" />
+                <span className="tn-card-section-chevron" />
             </a>
             : <section className={className}
                        style={style}

@@ -16,7 +16,12 @@ export function LocaleSelector({ id, locales, currentValue, onChange, defaultLoc
     const currentValueWithDefault = currentValue ?? defaultLocale?.id ?? "";
     const { activeLocale, processedLocales } = useProcessedLocales(locales, defaultLocale, currentValueWithDefault);
     return (
-        <Dropdown id={id} text={activeLocale?.name} mobileBottomSheet>
+        <Dropdown
+            id={id} text={activeLocale?.name} mobileBottomSheet
+            // The options card is a container, and so a backdrop root: left inside it the menu
+            // loses its blur and reads as a flat tint.
+            portalToBody
+        >
             {processedLocales.map((locale, index) => (
                 (typeof locale === "object") ? (
                     <FormListItem

@@ -109,7 +109,7 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
     return (
         <Card className="database-info" heading={t("database.info")}>
             <OptionCardSection label={t("database.info_location")}>
-                <span className="database-info-value">
+                <span className="tn-card-option-value">
                     {/* Revealed rather than opened: a file manager is what a path is useful in,
                         and the database's own reader is Trilium. Where there is no path, the
                         storage holding it is named instead — nothing there can be pointed at. */}
@@ -120,7 +120,7 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
             </OptionCardSection>
 
             <OptionCardSection label={t("database.info_content")}>
-                <span className="database-info-value">
+                <span className="tn-card-option-value">
                     {t("database.info_notes", { count: info.noteCount })}
                     {", "}
                     {t("database.info_attachments", { count: info.attachmentCount })}
@@ -128,13 +128,13 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
             </OptionCardSection>
 
             <OptionCardSection label={t("database.info_created")}>
-                <span className="database-info-value">
+                <span className="tn-card-option-value">
                     {formatDateTime(info.utcDateCreated, "long", "none")}
                 </span>
             </OptionCardSection>
 
             <OptionCardSection label={t("database.info_size")}>
-                <span className="database-info-value">{formatSize(info.sizeBytes)}</span>
+                <span className="tn-card-option-value">{formatSize(info.sizeBytes)}</span>
             </OptionCardSection>
 
             {/* Absent where backups are not kept at all: the browser build's one backup is a
@@ -161,7 +161,7 @@ function BackupStanding({ refreshToken }: { refreshToken: number }) {
         <OptionCardSection label={t("database.info_backup")}>
             {/* The whole value is the way to the page that acts on it: this row states how the
                 backups stand, and everything else about them is done there. */}
-            <span className="database-info-value">
+            <span className="tn-card-option-value">
                 <a className="tn-link" href={BACKUP_PAGE_LINK}>
                     {summarizeBackups(backups.backups) ?? t("database.info_no_backup")}
                 </a>

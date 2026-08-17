@@ -1,10 +1,18 @@
 import "./OptionsPageHeader.css";
 
 import clsx from "clsx";
-import { ComponentChildren } from "preact";
+import { ComponentChildren, createContext } from "preact";
+import { useContext, useEffect } from "preact/hooks";
 
 import HelpButton from "../../../react/HelpButton";
 import { useNoteContext } from "../../../react/hooks";
+
+/**
+ * Where a page's help mark goes when the banner is no place for it: the phone's master-detail flow,
+ * whose own header carries the page name and so is where a mark explaining that page belongs. A
+ * host that offers this takes the mark; one that does not leaves the banner to draw it.
+ */
+export const PageHelpSlot = createContext<((helpUrl: string | undefined) => void) | undefined>(undefined);
 
 interface OptionsPageHeaderProps {
     /**
@@ -44,6 +52,15 @@ export default function OptionsPageHeader({
     const { note } = useNoteContext();
     const shownTitle = title ?? note?.title;
     const shownIcon = icon ?? note?.getIcon();
+    const liftHelp = useContext(PageHelpSlot);
+
+    // Handed over for as long as this page is the one on show, and taken back when it is not.
+    useEffect(() => {
+        if (!liftHelp) return;
+
+        liftHelp(helpUrl);
+        return () => liftHelp(undefined);
+    }, [ liftHelp, helpUrl ]);
 
     // Nothing to render: the note isn't available yet and the page provided no content.
     if (!shownTitle && !actions && !below) return null;
@@ -59,9 +76,8 @@ export default function OptionsPageHeader({
                             <div className="options-page-header-titles">
                                 <span className={`options-page-header-icon ${shownIcon}`} aria-hidden="true" />
                                 <h2 className="options-page-header-title">{shownTitle}</h2>
-                                {/* Classed so it can be told from the name it stands beside: on a
-                                    phone the name moves into the dialog's header and this stays. */}
-                                {helpUrl && <HelpButton className="options-page-header-help" helpPage={helpUrl} />}
+                                {helpUrl && !liftHelp &&
+                                    <HelpButton className="options-page-header-help" helpPage={helpUrl} />}
                             </div>
                         )}
                         {actions && <div className="options-page-header-actions">{actions}</div>}

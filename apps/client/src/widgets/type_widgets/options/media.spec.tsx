@@ -128,16 +128,12 @@ function titleOf(row: Element): string | undefined {
 
     return label
         ? label.childNodes[0]?.textContent ?? undefined
-        : row.querySelector(".image-compression-section-title")?.textContent ?? undefined;
+        : row.querySelector(".tn-card-option-title")?.textContent ?? undefined;
 }
 
-/** The sentence beneath a row's title, from whichever of the two kinds of row it is. */
+/** The sentence beneath a row's title. Both kinds of row are built on the same option row now. */
 function describes(title: string): string | undefined {
-    const row = rowOrFail(title);
-
-    return row.querySelector(".tn-card-option-description")?.textContent
-        ?? row.querySelector(".image-compression-section-description")?.textContent
-        ?? undefined;
+    return rowOrFail(title).querySelector(".tn-card-option-description")?.textContent ?? undefined;
 }
 
 function rowOrFail(title: string): HTMLElement {

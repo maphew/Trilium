@@ -140,6 +140,9 @@ export default function ShortcutSettings() {
                             title={t("shortcuts.filter")}
                             dropdownRef={filterDropdownRef}
                             dropdownContainerClassName={isMobile() ? "mobile-bottom-menu" : undefined}
+                            // The row is a container, and so a backdrop root: left inside it the
+                            // menu loses its blur and reads as a flat tint.
+                            portalToBody
                         >
                             <FilterContent
                                 activeFilter={activeFilter}
@@ -150,19 +153,23 @@ export default function ShortcutSettings() {
                             />
                         </Dropdown>
 
-                        <Button
-                            text={t("shortcuts.reload_app")}
-                            // Called rather than handed over: its one argument is the reason to be
-                            // logged for the reload, and passed straight to the button that would
-                            // have been the click event.
-                            onClick={() => reloadFrontendApp()}
-                            size="micro"
-                        />
-                        <Button
-                            text={t("shortcuts.set_all_to_default")}
-                            onClick={resetShortcuts}
-                            size="micro"
-                        />
+                        {/* Held together, so that a narrow page can put the pair on a line of
+                            their own under the filter rather than breaking them apart. */}
+                        <div className="shortcut-header-actions">
+                            <Button
+                                text={t("shortcuts.reload_app")}
+                                // Called rather than handed over: its one argument is the reason to
+                                // be logged for the reload, and passed straight to the button that
+                                // would have been the click event.
+                                onClick={() => reloadFrontendApp()}
+                                size="micro"
+                            />
+                            <Button
+                                text={t("shortcuts.set_all_to_default")}
+                                onClick={resetShortcuts}
+                                size="micro"
+                            />
+                        </div>
                     </div>
                 }
             />

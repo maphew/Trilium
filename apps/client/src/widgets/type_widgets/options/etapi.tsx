@@ -132,7 +132,7 @@ function TokenList({ tokens }: { tokens: EtapiToken[] }) {
                     description={formatDateTime(utcDateCreated)}
                 >
                     {etapiTokenId && (
-                        <span className="etapi-token-actions">
+                        <span className="tn-card-option-actions">
                             <ActionButton
                                 icon="bx bx-edit-alt"
                                 text={t("etapi.rename_token")}

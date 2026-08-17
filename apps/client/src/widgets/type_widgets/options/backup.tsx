@@ -420,7 +420,7 @@ export function BackupOptions() {
                         : t("backup.no_keyring")}
                 >
                     {passphrase.set ? (
-                        <>
+                        <span className="tn-card-option-actions">
                             <Button
                                 name="change-backup-password-button"
                                 text={t("backup.change_password")}
@@ -431,7 +431,7 @@ export function BackupOptions() {
                                 currentValue={encryptionEnabled}
                                 onChange={(enabled) => enabled ? setEncryptionEnabled(true) : disableEncryption()}
                             />
-                        </>
+                        </span>
                     ) : (
                         <Button
                             name="turn-on-backup-encryption-button"

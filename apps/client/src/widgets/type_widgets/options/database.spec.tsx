@@ -168,7 +168,7 @@ afterEach(() => {
 describe("what the database is", () => {
     /** The facts of the info card, in the order the card states them. */
     function infoValues() {
-        return [ ...container.querySelectorAll(".database-info .database-info-value") ]
+        return [ ...container.querySelectorAll(".database-info .tn-card-option-value") ]
             .map((value) => value.textContent);
     }
 
