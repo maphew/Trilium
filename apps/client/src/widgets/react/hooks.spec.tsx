@@ -224,6 +224,89 @@ describe("useStaticTooltip", () => {
 
         expect(document.querySelector(".tooltip"), "gone once the observer sees the removal").toBeNull();
     });
+
+    it("stops tracking a delegated tooltip that was put away normally, and leaves its instance alone", async () => {
+        await act(async () => render(<DelegatedTooltipHarness generation={1} />, container));
+
+        const span = container.querySelector("span");
+        expect(span).not.toBeNull();
+
+        let instance: Tooltip | undefined;
+        act(() => {
+            if (span) {
+                instance = Tooltip.getOrCreateInstance(span, {
+                    animation: false,
+                    title() {
+                        return this.getAttribute("title") || "";
+                    }
+                });
+                instance.show();
+            }
+        });
+        expect(document.querySelector(".tooltip"), "shown").not.toBeNull();
+
+        // An ordinary mouseleave-driven hide fires `hidden.bs.tooltip`, which must untrack the
+        // span — otherwise the observer below would dispose an instance Bootstrap still owns.
+        act(() => instance?.hide());
+        expect(document.querySelector(".tooltip"), "hidden the normal way").toBeNull();
+
+        await act(async () => render(<DelegatedTooltipHarness generation={2} />, container));
+        await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+        expect(span && Tooltip.getInstance(span), "instance untouched by the observer").not.toBeNull();
+    });
+
+    it("leaves a shown delegated tooltip standing when the mutation removed something else", async () => {
+        await act(async () => render(<DelegatedTooltipHarness generation={1} />, container));
+
+        const span = container.querySelector("span");
+        expect(span).not.toBeNull();
+        act(() => {
+            if (span) {
+                Tooltip.getOrCreateInstance(span, {
+                    animation: false,
+                    title() {
+                        return this.getAttribute("title") || "";
+                    }
+                }).show();
+            }
+        });
+        expect(document.querySelector(".tooltip"), "shown").not.toBeNull();
+
+        // Add and remove an unrelated sibling — the observer fires, but the hovered span is
+        // still connected, so its tooltip must stay up.
+        await act(async () => {
+            const bystander = document.createElement("i");
+            span?.parentElement?.appendChild(bystander);
+            bystander.remove();
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+
+        expect(document.querySelector(".tooltip"), "still shown after an unrelated mutation").not.toBeNull();
+    });
+
+    it("removes the popup by its aria-describedby link when the instance is already gone", async () => {
+        await act(async () => render(<DelegatedTooltipHarness generation={1} />, container));
+
+        const span = container.querySelector("span");
+        expect(span).not.toBeNull();
+
+        // Simulate a popup whose Tooltip instance has already been torn down on its own: no
+        // instance on the span, just the shown-state markers Bootstrap leaves while a popup is up.
+        const strayPopup = document.createElement("div");
+        strayPopup.id = "stray-popup-10680";
+        strayPopup.className = "tooltip";
+        document.body.appendChild(strayPopup);
+        act(() => {
+            span?.setAttribute("aria-describedby", strayPopup.id);
+            span?.dispatchEvent(new Event("inserted.bs.tooltip", { bubbles: true }));
+        });
+
+        await act(async () => render(<DelegatedTooltipHarness generation={2} />, container));
+        await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+        expect(document.getElementById(strayPopup.id), "stray popup swept by its id").toBeNull();
+    });
 });
 
 describe("useTooltip", () => {
