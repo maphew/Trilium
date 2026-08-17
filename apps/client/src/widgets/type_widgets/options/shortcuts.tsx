@@ -197,6 +197,16 @@ export default function ShortcutSettings() {
                                 />
                             )}
             </div>
+
+            {/* "Reset all" says little once it is read away from the page it belongs to, so the
+                words it is found by come from what the action asks before it runs. */}
+            <Card filterOnly
+                  heading={t("settings.related_actions")}
+                  filterExtraKeywords={t("shortcuts.confirm_reset")}>
+                <OptionCardSection label={t("shortcuts.set_all_to_default")}>
+                    <Button text={t("shortcuts.set_all_to_default")} onClick={resetShortcuts} />
+                </OptionCardSection>
+            </Card>
         </>
     );
 }

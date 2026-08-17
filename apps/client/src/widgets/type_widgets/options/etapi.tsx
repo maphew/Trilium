@@ -75,6 +75,17 @@ export default function EtapiSettings() {
             />
 
             <TokenList tokens={tokens} />
+
+            {/* The page's one command lives in its header, out of the search's reach. Offered
+                here as the settings on other pages are: named, and operated where it is found. */}
+            <Card filterOnly heading={t("settings.related_actions")}>
+                <OptionCardSection
+                    label={t("etapi.create_token")}
+                    description={t("etapi.description")}
+                >
+                    <Button text={t("etapi.create_token")} onClick={createTokenCallback} />
+                </OptionCardSection>
+            </Card>
         </>
     );
 }
