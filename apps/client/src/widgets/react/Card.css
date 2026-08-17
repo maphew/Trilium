@@ -136,6 +136,15 @@
     margin-inline-start: auto;
 }
 
+/* The mark points the way the text runs, so it turns round where the text does. The combo box's is
+   drawn by a pseudo-element, which cannot be named inside `:is()`; outside the narrow layout it has
+   no `content` and so no box for this to turn. */
+body[dir=rtl] .tn-card-chevron,
+body[dir=rtl] .tn-card-section-chevron,
+body[dir=rtl] .tn-card-option::after {
+    transform: scaleX(-1);
+}
+
 /* Bootstrap sizes a form control to whatever holds it, so left alone a select or a figure takes the
    whole row. Direct children only: a select nested in one (the scale beside a duration) is not ours. */
 .tn-card-option {
