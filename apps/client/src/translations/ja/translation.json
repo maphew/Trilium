@@ -265,7 +265,8 @@
     "saturday": "土曜日",
     "default-content-language": "デフォルトのコンテンツ言語",
     "default-content-language-description": "基本プロパティ セクションでノート自体に言語が設定されていない場合、ノートは指定された言語で記述されます。これは、右から左への配置や、入力時に表示される引用符の種類などの機能に影響します。",
-    "default-content-language-auto": "アプリケーションの言語に基づく"
+    "default-content-language-auto": "アプリケーションの言語に基づく",
+    "dates-title": "日付とカレンダー"
   },
   "tab_row": {
     "close_tab": "タブを閉じる",
@@ -538,7 +539,8 @@
     "zoom_out_title": "ズームアウト",
     "zoom_in_title": "ズームイン",
     "create_child_note_title": "子ノートを作成し、マップに追加",
-    "reset_pan_zoom_title": "パンとズームを初期座標と倍率にリセット"
+    "reset_pan_zoom_title": "パンとズームを初期座標と倍率にリセット",
+    "create_child_note_text": "ノートを追加"
   },
   "tree-context-menu": {
     "advanced": "高度",
@@ -1763,7 +1765,10 @@
   },
   "svg": {
     "export_to_png": "図をPNG形式でエクスポートできませんでした。",
-    "export_to_svg": "図をSVG形式でエクスポートできませんでした。"
+    "export_to_svg": "図をSVG形式でエクスポートできませんでした。",
+    "zoom_in": "拡大",
+    "zoom_out": "縮小",
+    "reset_zoom": "ズームをリセット"
   },
   "code_theme": {
     "title": "外観",
@@ -3199,7 +3204,9 @@
   },
   "common": {
     "save": "保存",
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "fullscreen": "全画面表示",
+    "exit_fullscreen": "全画面表示を終了"
   },
   "spreadsheet": {
     "read-only": "このノートは読み取り専用です。",
@@ -3458,7 +3465,12 @@
   },
   "options": {
     "title": "オプション",
-    "back": "すべてのオプションに戻る"
+    "back": "すべてのオプションに戻る",
+    "search_placeholder": "設定を検索",
+    "search_clear": "検索をクリア",
+    "search_title": "検索オプション",
+    "search_hint": "キーワードを入力して、すべての設定ページを検索します。",
+    "search_no_results": "該当する設定は見つかりませんでした。"
   },
   "dashboard_view": {
     "refresh-widget": "更新",
