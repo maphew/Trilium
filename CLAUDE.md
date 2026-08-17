@@ -192,15 +192,15 @@ The Next theme frosts every `.dropdown-menu` with `backdrop-filter`, but it does
 - If a menu looks transparent rather than frosted, check these two before reaching for CSS overrides.
 
 #### API Architecture
-- **Internal API**: REST endpoints in `apps/server/src/routes/api/`
+- **Internal API**: REST endpoints in `packages/trilium-core/src/routes/api/` (Node-only routes stay in `apps/server/src/routes/api/`)
 - **ETAPI**: External API for third-party integrations (`apps/server/src/etapi/`)
-- **WebSocket**: Real-time synchronization (`apps/server/src/services/ws.ts`)
+- **WebSocket**: Real-time synchronization (`packages/trilium-core/src/services/ws.ts`)
 
 ### API Architecture
 
-- **Internal API** (`apps/server/src/routes/api/`): REST endpoints, trusts frontend
+- **Internal API** (`packages/trilium-core/src/routes/api/`, plus Node-only routes in `apps/server/src/routes/api/`): REST endpoints, trusts frontend
 - **ETAPI** (`apps/server/src/etapi/`): External API with basic auth tokens — maintain backwards compatibility
-- **WebSocket** (`apps/server/src/services/ws.ts`): Real-time sync
+- **WebSocket** (`packages/trilium-core/src/services/ws.ts`): Real-time sync
 
 ### Platform Abstraction
 
@@ -242,8 +242,8 @@ Import via `import { binary_utils } from "@triliumnext/core"` or directly from t
 
 SQLite via `better-sqlite3`. SQL abstraction in `packages/trilium-core/src/services/sql/` with `DatabaseProvider` interface, prepared statement caching, and transaction support.
 
-- Schema: `apps/server/src/assets/db/schema.sql`
-- Migrations: `apps/server/src/migrations/YYMMDD_HHMM__description.sql`
+- Schema: `packages/trilium-core/src/assets/schema.sql`
+- Migrations: `packages/trilium-core/src/migrations/` — registered in `migrations.ts` (`MIGRATIONS` array, newest first); either inline SQL or a `NNNN__description.ts` module
 
 ### Testing Strategy
 - Server tests run sequentially due to shared database
@@ -328,8 +328,8 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 - **Do not use `localStorage`** for user preferences — Trilium has a synced options system that persists across devices
 - To add a new user preference:
   1. Add the option type to `OptionDefinitions` in `packages/commons/src/lib/options_interface.ts`
-  2. Add a default value in `apps/server/src/services/options_init.ts` in the `defaultOptions` array
-  3. **Whitelist the option** in `apps/server/src/routes/api/options.ts` by adding it to the `ALLOWED_OPTIONS` array — **without this, the API will reject changes with "Option 'X' is not allowed to be changed"**
+  2. Add a default value in `packages/trilium-core/src/services/options_init.ts` in the `defaultOptions` array
+  3. **Whitelist the option** in `packages/trilium-core/src/routes/api/options.ts` by adding it to the `ALLOWED_OPTIONS` array — **without this, the API will reject changes with "Option 'X' is not allowed to be changed"**
   4. If the option should be user-editable in the UI, add a control in the appropriate settings component (e.g., `apps/client/src/widgets/type_widgets/options/other.tsx`) and a translation key in `apps/client/src/translations/en/translation.json`
   5. Use `useTriliumOption("optionName")` hook in React components to read/write the option
 - Available hooks: `useTriliumOption` (string), `useTriliumOptionBool`, `useTriliumOptionInt`, `useTriliumOptionJson`
@@ -383,9 +383,9 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 - `packages/trilium-core/src/services/sql/sql.ts` — Database abstraction
 
 ### Adding Hidden System Notes
-The hidden subtree (`_hidden`) contains system notes with predictable IDs (prefixed with `_`). Defined in `apps/server/src/services/hidden_subtree.ts` via the `HiddenSubtreeItem` interface from `@triliumnext/commons`.
+The hidden subtree (`_hidden`) contains system notes with predictable IDs (prefixed with `_`). Defined in `packages/trilium-core/src/services/hidden_subtree.ts` via the `HiddenSubtreeItem` interface from `@triliumnext/commons`.
 
-1. Add the note definition to `buildHiddenSubtreeDefinition()` in `apps/server/src/services/hidden_subtree.ts`
+1. Add the note definition to `buildHiddenSubtreeDefinition()` in `packages/trilium-core/src/services/hidden_subtree.ts`
 2. Add a translation key for the title in `apps/server/src/assets/translations/en/server.json` under `"hidden-subtree"`
 3. The note is auto-created on startup by `checkHiddenSubtree()` — uses deterministic IDs so all sync cluster instances generate the same structure
 4. Key properties: `id` (must start with `_`), `title`, `type`, `icon` (format: `bx-icon-name` without `bx ` prefix), `attributes`, `children`, `content`
@@ -393,15 +393,15 @@ The hidden subtree (`_hidden`) contains system notes with predictable IDs (prefi
 6. For launcher bar entries, see `hidden_subtree_launcherbar.ts`; for templates, see `hidden_subtree_templates.ts`
 
 ### Writing to Notes from Server Services
-- `note.setContent()` requires a CLS (Continuation Local Storage) context — wrap calls in `cls.init(() => { ... })` (from `apps/server/src/services/cls.ts`)
+- `note.setContent()` requires a CLS (Continuation Local Storage) context — wrap calls in `cls.init(() => { ... })` (from `packages/trilium-core/src/services/context.ts`)
 - Operations called from Express routes already have CLS context; standalone services (schedulers, Electron IPC handlers) do not
 
 ### Adding New LLM Tools
-Tools are defined using `defineTools()` in `apps/server/src/services/llm/tools/` and automatically registered for both the LLM chat and MCP server.
+Tools are defined using `defineTools()` in `packages/trilium-core/src/services/llm/tools/` and automatically registered for both the LLM chat and MCP server.
 
 1. Add the tool definition in the appropriate module (`note_tools.ts`, `attribute_tools.ts`, `attachment_tools.ts`, `hierarchy_tools.ts`) or create a new module
 2. Each tool needs: `description`, `inputSchema` (Zod), `execute` function, and optionally `mutates: true` for write operations
-3. If creating a new module, wrap tools in `defineTools({...})` and add the registry to `allToolRegistries` in `tools/index.ts`
+3. If creating a new module, wrap tools in `defineTools({...})` and add the registry to `allToolRegistries` in `tools/index.ts`. Tools that need Node-only services (e.g. the in-app docs) live in `apps/server/src/services/llm/tools/` and are added via `registerToolRegistry()` from `apps/server/src/services/llm/index.ts` instead
 4. Add a client-side friendly name in `apps/client/src/translations/en/translation.json` under `llm.tools.<tool_name>` — use **imperative tense** (e.g. "Search notes", "Create note", "Get attributes"), not present continuous
 5. Use ETAPI (`apps/server/src/etapi/`) as inspiration for what fields to expose, but **do not import ETAPI mappers** — inline the field mappings directly in the tool so the LLM layer stays decoupled from the API layer
 
@@ -417,12 +417,12 @@ The viewer under `packages/pdfjs-viewer/viewer/` is vendored from the pdf.js Git
 `update-viewer.ts` re-applies our patches to `viewer.html` (custom stylesheet/script, relaxed `style-src-elem` CSP) and throws if an upstream markup change means it can no longer find them.
 
 ### Database Migrations
-- Add migration scripts in `apps/server/src/migrations/`
-- Update schema in `apps/server/src/assets/db/schema.sql`
+- Add migration scripts in `packages/trilium-core/src/migrations/` and register them in `migrations.ts`
+- Update schema in `packages/trilium-core/src/assets/schema.sql`
 
 ### Server-Side Static Assets
 - Static assets (templates, SQL, translations, etc.) go in `apps/server/src/assets/`
-- Access them at runtime via `RESOURCE_DIR` from `apps/server/src/services/resource_dir.ts` (e.g. `path.join(RESOURCE_DIR, "llm", "skills", "file.md")`)
+- Access them at runtime via `RESOURCE_DIR` from `apps/server/src/services/resource_dir.ts` (e.g. `path.join(RESOURCE_DIR, "llm", "prompts", "base_system_prompt.md")`). Assets that core itself reads (LLM skills, `schema.sql`) live in `packages/trilium-core/src/assets/` instead
 - **Do not use `import.meta.url`/`fileURLToPath`** to resolve file paths — the server is bundled into CJS for production, so `import.meta.url` will not point to the source directory
 - **Do not use `__dirname` with relative paths** from source files — after bundling, `__dirname` points to the bundle output, not the original source tree
 
