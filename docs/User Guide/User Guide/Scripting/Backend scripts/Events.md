@@ -3,7 +3,7 @@
 
 ## Global events
 
-Global events are attached to the script note via label. Simply create e.g. "run" label with some of these values and script note will be executed once the event occurs.
+Global events are attached to the script note via label. Simply create a `run` label with some of these values and script note will be executed once the event occurs.
 
 <table>
     <thead>
@@ -27,6 +27,11 @@ Global events are attached to the script note via label. Simply create e.g. "run
         </tr>
     </tbody>
 </table>
+
+Frontend scripts also have similar <a class="reference-link" href="../Frontend%20Basics/Events.md">Events</a>, such as when the application starts.
+
+> [!NOTE]
+> One script can be triggered on multiple events, this can be done by adding multiple `run` labels. Separating multiple values by commas **is not** supported.
 
 ## Entity events
 
