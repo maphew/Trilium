@@ -111,7 +111,9 @@ function TokenList({ tokens }: { tokens: EtapiToken[] }) {
     }
 
     return (
-        <Card>
+        // A card of tokens the user named themselves, with no name of its own to be found by: the
+        // page's own sentence about what ETAPI is stands in for one.
+        <Card filterExtraKeywords={`${t("etapi.description")} ${t("etapi.token_name")}`}>
             {tokens.map(({ etapiTokenId, name, utcDateCreated }) => (
                 <OptionCardSection
                     key={etapiTokenId ?? name}
