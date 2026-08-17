@@ -26,6 +26,16 @@ Also follow `CLAUDE.md`: write **concise** tests (group related assertions in on
 | An ETAPI endpoint | `supertest` + basic-auth via `spec/etapi/utils.ts` | [server-and-core.md](server-and-core.md) |
 | Pure logic (parsers, formatters, math, data maps) | Plain Vitest, no harness | any reference |
 
+### Specialized harnesses (owned by sibling skills)
+
+Some layers have a purpose-built spec harness documented in the skill that owns the feature — route there instead of re-deriving it:
+
+| You're testing… | Harness shape | Skill |
+|---|---|---|
+| A DB migration (`packages/trilium-core/src/migrations/*`) | `getSql()` captured **in `beforeEach`** (not at describe time — core isn't initialized yet) + `sql.rebuildFromBuffer(fixtureDb)` per test, mutated inside `cls.getContext().init` | **evolving-the-data-model** |
+| An Electron preload bridge method (`apps/desktop/src/preload.ts`) | `vi.mock("electron", …)` mirroring the IPC channels into in-memory maps; assert the exposed `window.electronApi` shape (`apps/desktop/src/preload.spec.ts`) | **developing-electron-desktop** |
+| A CKEditor 5 plugin in Trilium's own bundle (`packages/ckeditor5`) | Browser-mode headless Chrome: `ClassicEditor.create` + `licenseKey: "GPL"` + `_setModelData`, co-located `src/**/*.spec.ts` | **ckeditor5-testing** |
+
 ## Running tests
 
 > **Run the narrowest thing that covers the change, and never the full suite.** `pnpm test:all`,
@@ -70,4 +80,11 @@ coverage: {
 - **`vi.mock` is hoisted** above imports. Put component/module imports *after* the `vi.mock(...)` calls; mock factories can't reference outer non-hoisted variables. Partial-mock with `async (importOriginal) => ({ ...(await importOriginal()), onlyThis: vi.fn() })`.
 - **Don't assert on translated (i18n) strings** — assert structure/keys/behavior (classes, counts, ids), not human-readable English.
 - **happy-dom is not a browser:** `getBoundingClientRect()` returns zeros, `ResizeObserver`/layout/visibility are stubs. Anything pixel/size/scroll-based needs `@vitest/browser`, not happy-dom.
-- Reserve `@vitest/browser` (already a dependency, currently unconfigured) for real-layout/integration needs (CKEditor, Excalidraw, Modal transitions, size measurement) — not for normal unit tests.
+- **`@vitest/browser` real-browser mode IS configured** — the `packages/ckeditor5`, `-mermaid` and `-math` bundles run their co-located `src/**/*.spec.ts` in headless Chrome (`@vitest/browser-webdriverio`; see `packages/ckeditor5/vitest.config.ts`). These are the browser-mode `test:sequential` suites. Reserve real-browser mode for genuine layout/integration needs (CKEditor, Excalidraw, Modal transitions, size measurement); normal unit tests stay on happy-dom.
+- **WASM scrypt is ~10× slower** under the standalone suite (pure-JS `scrypt-js` under V8 coverage instrumentation, vs Node's native `scryptSync`) — enough to blow the 5s default. A core spec that hashes a password bumps the timeout for the standalone runtime only; copy the guard from `packages/trilium-core/src/routes/api/login.spec.ts:13`:
+    ```ts
+    const isBrowserRuntime = typeof window !== "undefined";
+    if (isBrowserRuntime) {
+        vi.setConfig({ testTimeout: 60000, hookTimeout: 60000 });
+    }
+    ```
