@@ -66,6 +66,69 @@
     }
 }
 
+/*
+ * A phone has no width for the map to spread sideways, so it is given length instead: the page scrolls
+ * and the map is drawn a few screens tall. Keyed on `body.mobile`, as the rest of the app's phone
+ * layout is.
+ */
+body.mobile {
+    /* The viewport is already taller than the map area left over once the note's title, the toolbar,
+       the totals and the bottom bar have taken theirs, so this is around three of that area's own
+       heights of scrolling: enough for a note that would be a hairline across a narrow pane to hold
+       an area worth reading. */
+    --space-usage-mobile-map-height: 200dvh;
+
+    /* The page is the scroller, so everything in it travels: the totals lead the map rather than
+       trailing it, and leave the screen along with it as the map is walked down. A line held still
+       against moving cells reads as a bar stuck to the screen, which is what this is not. */
+    .space-usage-page {
+        overflow-y: auto;
+
+        /* The one exception: the view choice, the cleanup and the refresh stay put, so switching
+           views or asking for a fresh reading never means scrolling back up for the button. Sticks
+           the way the options pages' own header bar does. */
+        .space-usage-toolbar {
+            order: 1;
+            position: sticky;
+            top: 0;
+            /* Above the 1-5 Bootstrap gives a control to lift it over its neighbours, below a
+               dropdown menu (999), which is meant to open over the bar. */
+            z-index: 10;
+            /* Opaque, or the cells would show through the bar on their way past it. */
+            background: var(--main-background-color);
+        }
+
+        /* A figure to a line, rather than two sentences wrapping into each other wherever the width
+           happens to run out. The gap is between lines now, so it is tightened from the one a row
+           wanted. */
+        .space-usage-status {
+            order: 2;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.15em;
+            text-align: center;
+        }
+
+        /* Nothing left to part once the figures are stacked. */
+        .space-usage-status-separator {
+            display: none;
+        }
+
+        /* Sized by the map it holds rather than by what is left of the screen: the page scrolls, so
+           there is no height here to fill. */
+        .space-usage-overview {
+            order: 3;
+            flex: 0 0 auto;
+        }
+    }
+
+    /* Outranks the primitive's own `height: 100%`, which is the whole point: the map is no longer
+       what fits on screen. */
+    .space-usage-overview .treemap {
+        height: var(--space-usage-mobile-map-height);
+    }
+}
+
 /* The bucket cells stand for no single note but for a crowd of them: the diagonal stripes set them
    apart from the solid note cells without spending a hue (user themes make any fixed palette
    unreliable), their hover tooltip says which crowd, and they respond to nothing.
