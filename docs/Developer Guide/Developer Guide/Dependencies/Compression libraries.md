@@ -2,7 +2,7 @@
 The repository ships **three** independent ZIP implementations. This looks like an obvious consolidation target and is not one — each is anchored by a constraint the others cannot satisfy. This page exists so the analysis is not repeated.
 
 | Library | Declared by | Used for |
-|---|---|---|
+| --- | --- | --- |
 | `jszip` | `packages/commons` | The XLSX container, via `exceljs`; also `renderSpreadsheetToCsvZip` |
 | `fflate` | `apps/standalone` | The browser note `ZipProvider` (`lightweight/zip_provider.ts`) |
 | `archiver` + `yauzl` | `apps/server` | The Node `ZipProvider` used by server and desktop |
