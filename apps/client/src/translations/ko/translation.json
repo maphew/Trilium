@@ -2926,9 +2926,7 @@
     "sort_by_title": "제목",
     "sort_by_date_created": "생성일",
     "no_items": "활성 콘텐츠는 발견되지 않았습니다.",
-    "no_items_hint": "스크립트, 테마, 템플릿, 스니펫이 여기에 나열됩니다.",
-    "section_active_content": "활성 콘텐츠 및 템플릿",
-    "section_space_usage": "공간 사용량"
+    "no_items_hint": "스크립트, 테마, 템플릿, 스니펫이 여기에 나열됩니다."
   },
   "space_usage": {
     "loading": "공간 사용량 측정...",

@@ -309,9 +309,9 @@ async function renderFile(entity: FNote | FAttachment, type: string, $renderedCo
     let mediaOwnsFileActions = false;
 
     if (type === "pdf") {
-        const url = `../../api/${entityType}/${entityId}/open`;
         const $viewer = $(`<div style="height: 100%">`);
-        const PdfViewer = (await import("../widgets/type_widgets/file/PdfViewer")).default;
+        const { default: PdfViewer, getPdfUrl } = await import("../widgets/type_widgets/file/PdfViewer");
+        const url = getPdfUrl(`${entityType}/${entityId}/open`);
         render(h(PdfViewer, {pdfUrl: url, editable: false, toolbar: options.pdfToolbar ?? false}), $viewer.get(0)!);
 
         $content.append($viewer);

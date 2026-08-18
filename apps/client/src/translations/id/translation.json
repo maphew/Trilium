@@ -3717,9 +3717,7 @@
     "sort_by_title": "Judul",
     "sort_by_date_created": "Tanggal pembuatan",
     "no_items": "Tidak ada konten aktif yang ditemukan.",
-    "no_items_hint": "Skrip, tema, templat, dan cuplikan yang Anda buat akan ditampilkan di sini.",
-    "section_active_content": "Konten Aktif & Templat",
-    "section_space_usage": "Penggunaan Ruang"
+    "no_items_hint": "Skrip, tema, templat, dan cuplikan yang Anda buat akan ditampilkan di sini."
   },
   "space_usage": {
     "loading": "Mengukur penggunaan ruang...",

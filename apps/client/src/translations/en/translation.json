@@ -2751,6 +2751,7 @@
   "clipboard": {
     "cut": "Note(s) have been cut into clipboard.",
     "copied": "Note(s) have been copied into clipboard.",
+    "copied_without_links": "Note(s) have been copied into clipboard, but the note links could not be placed on the system clipboard.",
     "copy_failed": "Cannot copy to clipboard due to permission issues.",
     "copy_success": "Copied to clipboard."
   },
@@ -3617,7 +3618,11 @@
     "pages_alt": "Page {{pageNumber}}",
     "pages_loading": "Loading...",
     "annotations_one": "{{count}} annotation",
-    "annotations_other": "{{count}} annotations"
+    "annotations_other": "{{count}} annotations",
+    "annotation_drawing": "Drawing on page {{pageNumber}}",
+    "annotation_highlight": "Highlight on page {{pageNumber}}",
+    "annotation_note": "Note on page {{pageNumber}}",
+    "annotation_text_box": "Text box on page {{pageNumber}}"
   },
   "platform_indicator": {
     "available_on": "Available on {{platform}}"

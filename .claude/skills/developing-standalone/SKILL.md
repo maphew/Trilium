@@ -67,6 +67,16 @@ The worker's top-level imports **are** its startup cost — prefer dynamic impor
 - The service worker keeps a stable `sw.js` URL (registering a hashed one would orphan the old worker); everything else under `src/` is content-hashed. `public/_headers` matches: `immutable` for `/src/*`, `must-revalidate` for `/sw.js`, plus `Cross-Origin-Opener-Policy: same-origin`.
 - Vite `root` is `src/`, `base` is `""` — paths in config and coverage globs resolve relative to `src/`.
 
+### Where a dynamic import actually splits — and where it does nothing
+
+Core is not code-split the way its module layout suggests. Rollup folds the `packages/trilium-core` modules into a **single ~2 MB chunk** (named after an arbitrary constituent, e.g. `abstract_provider-<hash>.js`) that ~33 core modules — `becca_loader`, `browser_routes`, `crypto_provider`, the migrations — import statically, and the worker pulls in at startup. Anything reachable from that graph lands in the eager chunk no matter how the leaf that uses it imports it.
+
+So converting a static `import` to `await import()` **inside a core module** often defers nothing. Lazy-loading `sax` in `enex.ts` produced a **byte-for-byte identical** standalone bundle — same chunk content hash, same total — because `sax` was reachable statically elsewhere in the eager graph. The prediction that it would save ~12–15 KB came from reasoning by analogy to another module; it did not survive an A/B build, and was reverted.
+
+It is not a universal no-op, though. `await import("officeparser")` inside `services/office_preview.ts` **did** split out (`officeparser.browser-<hash>.js`, ~2.6 MB, fetched lazily), because nothing else in the eager graph imported officeparser — that one dynamic import was the dep's only path in.
+
+The rule: a dynamic import inside core splits a dep out **only if the dep has no other static importer in the core graph**. Deferring at the route or service boundary (the `import.ts` route that statically imports `enex.js`) is the reliable lever. Either way, confirm with an A/B build — compare chunk hashes and `grep` the built output for a real `import(` — and don't bother at all for a ~40 KB dep inside a chunk that always loads.
+
 ## Running
 
 ```bash

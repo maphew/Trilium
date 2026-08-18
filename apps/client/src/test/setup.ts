@@ -14,7 +14,8 @@ function injectGlobals() {
     uncheckedWindow.jQuery = $;
     uncheckedWindow.WebSocket = () => {};
     uncheckedWindow.glob = {
-        isMainWindow: true
+        isMainWindow: true,
+        baseApiUrl: "api/"
     };
 }
 

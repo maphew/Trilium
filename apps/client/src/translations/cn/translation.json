@@ -3686,9 +3686,7 @@
     "sort_by_title": "标题",
     "sort_by_date_created": "创建日期",
     "no_items": "未找到活动内容。",
-    "no_items_hint": "你创建的脚本、主题、模板和代码片段将在此处列出。",
-    "section_active_content": "活动内容与模板",
-    "section_space_usage": "空间使用情况"
+    "no_items_hint": "你创建的脚本、主题、模板和代码片段将在此处列出。"
   },
   "attribute_list_panel": {
     "no_attributes": "无属性",
