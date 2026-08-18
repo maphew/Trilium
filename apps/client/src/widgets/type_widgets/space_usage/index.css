@@ -86,9 +86,12 @@ body.mobile {
 
         /* The one exception: the view choice, the cleanup and the refresh stay put, so switching
            views or asking for a fresh reading never means scrolling back up for the button. Sticks
-           the way the options pages' own header bar does. */
+           the way the options pages' own header bar does.
+
+           Deliberately left at the default order, which is what keeps it first: only the overview's
+           own parts are reordered below, so whatever else a view puts on the page (Browse's chart,
+           either placeholder) still follows the bar as it does in the markup. */
         .space-usage-toolbar {
-            order: 1;
             position: sticky;
             top: 0;
             /* Above the 1-5 Bootstrap gives a control to lift it over its neighbours, below a
@@ -102,7 +105,7 @@ body.mobile {
            happens to run out. The gap is between lines now, so it is tightened from the one a row
            wanted. */
         .space-usage-status {
-            order: 2;
+            order: 1;
             flex-direction: column;
             align-items: center;
             gap: 0.15em;
@@ -117,7 +120,7 @@ body.mobile {
         /* Sized by the map it holds rather than by what is left of the screen: the page scrolls, so
            there is no height here to fill. */
         .space-usage-overview {
-            order: 3;
+            order: 2;
             flex: 0 0 auto;
         }
     }
