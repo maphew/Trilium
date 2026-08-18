@@ -1,24 +1,27 @@
 // PDF annotation type constants (from PDF spec / pdfjs-dist AnnotationType)
 export const AnnotationType = {
     TEXT: 1,
+    FREETEXT: 3,
     HIGHLIGHT: 9,
     INK: 15,
 } as const;
 
 /**
- * Annotation types we display in the sidebar. Ink is here because pdf.js writes a free-hand
- * highlight — one drawn with the highlight tool instead of over selected text — as an Ink
- * annotation, not a Highlight one, so leaving it out hid every highlight not made by selecting
- * text. It also covers the pen tool, whose drawings belong in the list just as much.
+ * Annotation types we display in the sidebar — one per tool the viewer's editing toolbar offers,
+ * plus the sticky notes other editors leave behind. The mapping from tool to type is not the
+ * obvious one: a highlight drawn free-hand rather than over selected text is written as Ink, and
+ * the text tool produces FreeText, so covering only Highlight hid most of what users draw.
  */
 const COMMENT_TYPES = new Set<number>([
     AnnotationType.TEXT,
+    AnnotationType.FREETEXT,
     AnnotationType.HIGHLIGHT,
     AnnotationType.INK,
 ]);
 
 const TYPE_NAMES: Record<number, string> = {
     [AnnotationType.TEXT]: "text",
+    [AnnotationType.FREETEXT]: "freetext",
     [AnnotationType.HIGHLIGHT]: "highlight",
     [AnnotationType.INK]: "ink",
 };

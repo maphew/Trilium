@@ -9,6 +9,7 @@ import RightPanelWidget from "../RightPanelWidget";
 
 const TYPE_ICONS: Record<string, string> = {
     text: "bx bxs-comment-detail",
+    freetext: "bx bx-text",
     highlight: "bx bx-highlight",
     ink: "bx bx-pen",
 };
@@ -49,7 +50,9 @@ function PdfAnnotationItem({
     annotation: PdfAnnotationInfo;
     onNavigate: (annotationId: string, pageNumber: number) => void;
 }) {
-    const icon = annotation.contents
+    // Contents on a highlight or a drawing is a remark somebody attached to it, so the row reads
+    // as a comment. A free-text box's contents are the box itself, so it keeps its own icon.
+    const icon = annotation.contents && annotation.type !== "freetext"
         ? "bx bxs-comment-detail"
         : TYPE_ICONS[annotation.type] ?? "bx bx-comment";
     // A drawing has no text of its own, and a highlight only gets one where the page has
@@ -99,6 +102,8 @@ function describeUntitled({ type, pageNumber }: PdfAnnotationInfo) {
     switch (type) {
         case "ink":
             return t("pdf.annotation_drawing", { pageNumber });
+        case "freetext":
+            return t("pdf.annotation_text_box", { pageNumber });
         case "highlight":
             return t("pdf.annotation_highlight", { pageNumber });
         default:

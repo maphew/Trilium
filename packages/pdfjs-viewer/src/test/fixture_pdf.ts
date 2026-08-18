@@ -38,8 +38,9 @@ export function buildPdf(objects: string[]): Uint8Array {
 export const ATTACHMENT_TEXT = "hello attachment payload";
 
 /**
- * The all-features fixture: two pages, a two-level outline, a highlight plus a text, an ink
- * and a link annotation, an embedded attachment, and two optional-content groups (one hidden).
+ * The all-features fixture: two pages, a two-level outline, a highlight plus a text, an ink, a
+ * free-text and a link annotation, an embedded attachment, and two optional-content groups (one
+ * hidden).
  *
  * Kept as a single document so one `getDocument()` call serves every contract test; the
  * per-feature expectations live in the specs.
@@ -56,8 +57,8 @@ export function allFeaturesPdf(): Uint8Array {
         // 3 — page 1, carrying both annotations.
         "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [5 0 R 14 0 R] >>",
         // 4 — page 2, target of the second outline entry, carrying a link (the one type the
-        //     sidebar filters out) alongside the two textless annotations it still lists.
-        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [16 0 R 17 0 R 18 0 R] >>",
+        //     sidebar filters out) alongside the annotations it lists without a comment.
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [16 0 R 17 0 R 18 0 R 19 0 R] >>",
         // 5 — highlight annotation with a comment, author and colour.
         "<< /Type /Annot /Subtype /Highlight /Rect [100 700 200 720] "
             + "/Contents (A remark) /T (Alice) /C [1 0 0] "
@@ -93,7 +94,11 @@ export function allFeaturesPdf(): Uint8Array {
             + "/QuadPoints [200 220 300 220 200 200 300 200] >>",
         // 18 — an ink annotation, which is what pdf.js writes for a free-hand highlight.
         "<< /Type /Annot /Subtype /Ink /Rect [400 400 500 450] /C [0 0 0] "
-            + "/InkList [[400 400 450 450 500 400]] >>"
+            + "/InkList [[400 400 450 450 500 400]] >>",
+        // 19 — a free-text box, what the toolbar's text tool writes. Its own words are its
+        //      contents, so unlike ink it reaches the sidebar with something to show.
+        "<< /Type /Annot /Subtype /FreeText /Rect [100 300 300 340] "
+            + "/Contents (Typed in the box) /DA (/Helv 12 Tf 0 g) >>"
     ]);
 }
 

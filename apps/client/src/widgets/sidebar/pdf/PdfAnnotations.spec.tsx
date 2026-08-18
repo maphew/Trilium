@@ -70,19 +70,36 @@ describe("PdfAnnotations", () => {
         const container = renderPanel([
             annotation({ id: "18R", type: "ink", pageNumber: 4 }),
             annotation({ id: "17R", type: "highlight", pageNumber: 2 }),
+            annotation({ id: "19R", type: "freetext", pageNumber: 3 }),
             annotation({ id: "5R", highlightedText: "quoted words", contents: "A remark" })
         ]);
 
         const rows = [ ...container.querySelectorAll(".pdf-annotation-item") ];
-        expect(rows).toHaveLength(3);
+        expect(rows).toHaveLength(4);
         expect(rows[0].querySelector(".pdf-annotation-untitled")?.textContent)
             .toBe(`pdf.annotation_drawing({"pageNumber":4})`);
         expect(rows[1].querySelector(".pdf-annotation-untitled")?.textContent)
             .toBe(`pdf.annotation_highlight({"pageNumber":2})`);
+        expect(rows[2].querySelector(".pdf-annotation-untitled")?.textContent)
+            .toBe(`pdf.annotation_text_box({"pageNumber":3})`);
         // An annotation with text of its own is described by that text, not by its kind.
-        expect(rows[2].textContent).toContain("quoted words");
-        expect(rows[2].textContent).toContain("A remark");
-        expect(rows[2].querySelector(".pdf-annotation-untitled")).toBeNull();
+        expect(rows[3].textContent).toContain("quoted words");
+        expect(rows[3].textContent).toContain("A remark");
+        expect(rows[3].querySelector(".pdf-annotation-untitled")).toBeNull();
+    });
+
+    it("shows a free-text box under its own icon rather than as a comment", () => {
+        // The comment icon marks a remark somebody attached to another annotation; a text box's
+        // words are the annotation itself, so it keeps the text icon.
+        const container = renderPanel([
+            annotation({ id: "19R", type: "freetext", contents: "Typed in the box" }),
+            annotation({ id: "5R", type: "highlight", contents: "A remark" })
+        ]);
+
+        const rows = [ ...container.querySelectorAll(".pdf-annotation-item") ];
+        expect(rows[0].textContent).toContain("Typed in the box");
+        expect(rows[0].querySelector(".tn-icon")?.className).toContain("bx-text");
+        expect(rows[1].querySelector(".tn-icon")?.className).toContain("bxs-comment-detail");
     });
 
     it("flips the row's text to light on a dark annotation colour", () => {

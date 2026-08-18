@@ -43,6 +43,7 @@ describe("annotation type constants", () => {
         // annotations.ts re-declares these rather than importing them, because the viewer
         // bundle owns pdf.js at runtime; that copy has to be kept honest from here.
         expect(AnnotationType.TEXT).toBe(UpstreamAnnotationType.TEXT);
+        expect(AnnotationType.FREETEXT).toBe(UpstreamAnnotationType.FREETEXT);
         expect(AnnotationType.HIGHLIGHT).toBe(UpstreamAnnotationType.HIGHLIGHT);
         expect(AnnotationType.INK).toBe(UpstreamAnnotationType.INK);
 

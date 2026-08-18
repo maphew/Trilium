@@ -63,8 +63,22 @@ describe("processAnnotation", () => {
         const link = { ...SAMPLE_HIGHLIGHT, annotationType: 2 }; // LINK
         expect(processAnnotation(link, 1)).toBeNull();
 
-        const freeText = { ...SAMPLE_HIGHLIGHT, annotationType: 3 }; // FREETEXT
-        expect(processAnnotation(freeText, 1)).toBeNull();
+        const widget = { ...SAMPLE_HIGHLIGHT, annotationType: 20 }; // WIDGET (a form field)
+        expect(processAnnotation(widget, 1)).toBeNull();
+    });
+
+    it("reads a free-text box's own words as its contents", () => {
+        const freeText = {
+            ...SAMPLE_HIGHLIGHT,
+            annotationType: AnnotationType.FREETEXT,
+            contentsObj: { str: "Typed in the box", dir: "ltr" },
+            overlaidText: undefined
+        };
+
+        const result = processAnnotation(freeText, 2)!;
+        expect(result.type).toBe("freetext");
+        expect(result.contents).toBe("Typed in the box");
+        expect(result.highlightedText).toBe("");
     });
 
     it("keeps an annotation carrying no text at all", () => {
@@ -151,6 +165,12 @@ describe("extraction from a real document", () => {
             highlightedText: "",
             pageNumber: 2,
             color: "#000000"
+        }),
+        expect.objectContaining({
+            id: "19R",
+            type: "freetext",
+            contents: "Typed in the box",
+            pageNumber: 2
         })
     ];
 
@@ -160,7 +180,7 @@ describe("extraction from a real document", () => {
         await setupPdfAnnotations();
 
         // Page 2's link is the only annotation filtered out — the highlight with nothing to
-        // show and the ink drawing both belong in the sidebar, named by kind (#11059).
+        // show, the ink drawing and the free-text box all belong in the sidebar (#11059).
         expect(viewer.lastMessageOfType("pdfjs-viewer-annotations").annotations).toEqual(EXPECTED);
     });
 
@@ -198,7 +218,7 @@ describe("extraction from a real document", () => {
         await setupPdfAnnotations();
 
         const { annotations } = viewer.lastMessageOfType("pdfjs-viewer-annotations");
-        expect(annotations.map((annotation: any) => annotation.id)).toEqual([ "14R", "17R", "18R" ]);
+        expect(annotations.map((annotation: any) => annotation.id)).toEqual([ "14R", "17R", "18R", "19R" ]);
     });
 
     it("reports an empty list when extraction fails", async () => {
@@ -250,7 +270,8 @@ describe("re-extraction from saved bytes", () => {
                 expect.objectContaining({ contents: "A remark" }),
                 expect.objectContaining({ contents: "A sticky note" }),
                 expect.objectContaining({ id: "17R", type: "highlight" }),
-                expect.objectContaining({ id: "18R", type: "ink" })
+                expect.objectContaining({ id: "18R", type: "ink" }),
+                expect.objectContaining({ id: "19R", type: "freetext", contents: "Typed in the box" })
             ]);
         // The temporary document owns a worker, so failing to destroy it leaks one per save.
         expect(destroy).toHaveBeenCalledTimes(1);
