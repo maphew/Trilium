@@ -2750,6 +2750,7 @@
   "clipboard": {
     "cut": "Note(s) have been cut into clipboard.",
     "copied": "Note(s) have been copied into clipboard.",
+    "copied_without_links": "Note(s) have been copied into clipboard, but the note links could not be placed on the system clipboard.",
     "copy_failed": "Cannot copy to clipboard due to permission issues.",
     "copy_success": "Copied to clipboard."
   },
