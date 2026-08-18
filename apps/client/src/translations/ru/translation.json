@@ -45,7 +45,11 @@
     },
     "widget-missing-parent": "В пользовательском виджете не определено обязательное свойство '{{property}}'.\n\nЕсли этот скрипт предназначен для запуска без элемента пользовательского интерфейса, используйте '#run=frontendStartup'.",
     "open-script-note": "Открыть заметку со скриптом",
-    "scripting-error": "Ошибка пользовательского скрипта: {{title}}"
+    "scripting-error": "Ошибка пользовательского скрипта: {{title}}",
+    "unhandled-error": {
+      "details-button": "Подробнее...",
+      "details-title": "Техническая информация"
+    }
   },
   "add_link": {
     "add_link": "Добавить ссылку",
@@ -57,7 +61,9 @@
     "search_note": "поиск заметки по ее названию",
     "link_title_mirrors": "название ссылки отражает текущий заголовок заметки",
     "anchor": "Якорь (необязательно)",
-    "anchor_none": "Нет (ссылка на заметку)"
+    "anchor_none": "Нет (ссылка на заметку)",
+    "edit_link": "Редактировать",
+    "button_edit_link": "Сохранить"
   },
   "branch_prefix": {
     "save": "Сохранить",
@@ -282,7 +288,8 @@
     "export": "Экспорт",
     "choose_export_type": "Сначала выберите тип экспорта",
     "export_finished_successfully": "Экспорт завершился успешно.",
-    "format_pdf": "PDF - для печати или обмена."
+    "format_pdf": "PDF - для печати или обмена.",
+    "what_to_export": "Что экспортировать"
   },
   "help": {
     "noteNavigation": "Навигация по заметке",
@@ -548,7 +555,8 @@
     "other_notes_with_name": "Другие заметки с {{attributeType}} названием \"{{attributeName}}\"",
     "textarea": "Многострочный текст",
     "print_scale": "При экспорте в PDF меняет масштаб содержимого. Значения от 0.1 (10%) до 2 (200%), по умолчанию 1 (100%).",
-    "print_margins": "При экспорте в PDF задаёт поля страницы. Используйте <code>default</code>, <code>none</code>, <code>minimum</code> или собственные значения в формате <code>top,right,bottom,left</code> в миллиметрах."
+    "print_margins": "При экспорте в PDF задаёт поля страницы. Используйте <code>default</code>, <code>none</code>, <code>minimum</code> или собственные значения в формате <code>top,right,bottom,left</code> в миллиметрах.",
+    "no_other_notes": "Только эта заметка"
   },
   "command_palette": {
     "configure_launch_bar_description": "Откройте конфигурацию панели запуска, чтобы добавить или удалить элементы.",
@@ -2414,7 +2422,13 @@
     "math": "Вставить блок с математической формулой",
     "footnote": "Вставить сноску",
     "mermaid": "Вставить диаграмму Mermaid",
-    "admonition": "Вставить блок-выноску ({{type}})"
+    "admonition": "Вставить блок-выноску ({{type}})",
+    "placeholders": {
+      "math": "уравнение",
+      "collapsible_summary": "Содержание",
+      "collapsible_details": "Детали",
+      "table_column": "Столбец {{number}}"
+    }
   },
   "revisions": {
     "note_revisions": "Версии заметки",
@@ -2578,5 +2592,33 @@
       "right-click-or-press-0-to-change-state": "Щелкните правой кнопкой мыши, чтобы просмотреть другие состояния задачи.\nНажмите %0 для переключения между состояниями.",
       "undefined-custom-task-state": "Неопределеннре пользовательское состояние задачи"
     }
+  },
+  "onenote_import": {
+    "import_count_one": "Импортировать {{count}} раздел",
+    "import_count_few": "Импортировать {{count}} раздела",
+    "import_count_many": "Импортировать {{count}} разделов",
+    "attach_source": "Добавить оригинальный HTML (отладка)"
+  },
+  "notion_import": {
+    "import": "Импорт"
+  },
+  "keep_import": {
+    "import": "Импорт"
+  },
+  "anytype_import": {
+    "import": "Импорт"
+  },
+  "obsidian_import": {
+    "import": "Импорт"
+  },
+  "evernote_import": {
+    "import": "Импорт"
+  },
+  "attribute_list_panel": {
+    "delete_confirm": "Удалить атрибут \"{{name}}\"?",
+    "no_value": "Нет значения"
+  },
+  "convert_note": {
+    "choose_conversion": "(выбрать конвертацию)"
   }
 }
