@@ -29,7 +29,7 @@
     "docker-start-rootless-alpine": "pnpm docker-build-rootless-alpine && docker run -p 8081:8080 triliumnext-rootless-alpine",
     "generate-document": "cross-env TRILIUM_ENV=dev TRILIUM_DATA_DIR=data TRILIUM_RESOURCE_DIR=src tsx ./scripts/generate_document.ts",
     "proxy-traefik": "docker run --name trilium-traefik --rm --network=host -v ./docker/traefik/traefik.yml:/etc/traefik/traefik.yml:ro -v ./docker/traefik/dynamic:/etc/traefik/dynamic traefik:latest",
-    "proxy-nginx-subdir": "docker run --name trilium-nginx-subdir --rm --network=host -v ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro nginx:latest"
+    "proxy-nginx-subdir": "docker run --name trilium-nginx-subdir --rm -p 8095:8095 --add-host=host.docker.internal:host-gateway -v ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro nginx:latest"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.39",
