@@ -127,15 +127,25 @@ export function manageSave() {
 
     // What the document held when the parent was last told about it. Compared against, rather
     // than trusted, because pdf.js reports far more than actual changes — see reportIfChanged.
-    let reportedHash = serializedHash();
+    let reportedHash = serializedHash() ?? "";
 
     /**
-     * A digest of everything `saveDocument()` would write out. pdf.js serializes an annotation it
-     * has not modified to nothing at all, so this stays put while the ones already stored in the
-     * document are registered, and moves as soon as one is genuinely edited.
+     * A digest of everything `saveDocument()` would write out, or `null` while the document
+     * cannot be serialized at all. pdf.js serializes an annotation it has not modified to nothing
+     * at all, so this stays put while the ones already stored in the document are registered, and
+     * moves as soon as one is genuinely edited.
+     *
+     * Unserializable is a state pdf.js passes through rather than an error: it stores an editor
+     * before finishing it, so pressing "Add signature" leaves one with no outlines in
+     * `annotationStorage` until the signature dialog resolves. Callers substitute the hash they
+     * already hold, which counts the document as unchanged until the editor is complete.
      */
-    function serializedHash(): string {
-        return (storage as any)?.serializable?.hash ?? "";
+    function serializedHash(): string | null {
+        try {
+            return (storage as any)?.serializable?.hash ?? "";
+        } catch {
+            return null;
+        }
     }
 
     /**
@@ -146,7 +156,7 @@ export function manageSave() {
      */
     function onChange() {
         if (!storage) return;
-        reportedHash = serializedHash();
+        reportedHash = serializedHash() ?? reportedHash;
         storage.resetModified();
         announceModified();
     }
@@ -171,7 +181,7 @@ export function manageSave() {
         // once per dirtying, so a flag left set would swallow the next real change.
         storage.resetModified();
 
-        const hash = serializedHash();
+        const hash = serializedHash() ?? reportedHash;
         if (hash === reportedHash) return;
         reportedHash = hash;
         announceModified();

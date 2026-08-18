@@ -253,6 +253,31 @@ describe("reporting the document as modified", () => {
         expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(1);
     });
 
+    it("survives an editor pdf.js has stored before finishing it", async () => {
+        viewer = await installViewerApp(allFeaturesPdf());
+        const storage = viewer.pdfDocument.annotationStorage as any;
+        manageSave();
+
+        // Pressing "Add signature" adds a SignatureEditor to annotationStorage — its own
+        // isEmpty() returns false unconditionally — while its outlines are still null, and only
+        // fills them in when the signature dialog resolves. Serializing the document in between
+        // throws out of the storage hook, from where it reaches the console uncaught.
+        Object.defineProperty(storage, "serializable", {
+            configurable: true,
+            get() {
+                throw new TypeError("can't access property \"serialize\", this[#drawOutlines] is null");
+            }
+        });
+        expect(() => storage.onSetModified()).not.toThrow();
+        expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(0);
+
+        // The hash the failed read fell back to has to be the one from before, or the finished
+        // signature would look unchanged and never be saved.
+        delete storage.serializable;
+        storage.setValue("field-1", { value: "typed" });
+        expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(1);
+    });
+
     it("stays quiet when the editing state changes with nothing to undo", async () => {
         viewer = await installViewerApp(allFeaturesPdf());
         manageSave();
