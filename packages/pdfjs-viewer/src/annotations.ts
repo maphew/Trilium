@@ -191,7 +191,9 @@ function applyEditorOverrides(annotations: PdfAnnotationInfo[], storage: any): P
 function sendAnnotations(annotations: PdfAnnotationInfo[]) {
     window.parent.postMessage({
         type: "pdfjs-viewer-annotations",
-        annotations
+        annotations,
+        ntxId: window.TRILIUM_NTX_ID,
+        noteId: window.TRILIUM_NOTE_ID
     } satisfies PdfViewerAnnotationsMessage, window.location.origin);
 }
 

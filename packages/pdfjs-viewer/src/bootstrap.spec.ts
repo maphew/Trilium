@@ -103,6 +103,28 @@ describe("boot sequence", () => {
         expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(1);
     });
 
+    it("addresses every message to the viewer that sent it", async () => {
+        viewer = await installViewerApp(allFeaturesPdf());
+        await bootWith("editable=1");
+
+        viewer.eventBus.dispatch("documentloaded", { source: null });
+        await vi.waitFor(() => expect(viewer.messagesOfType("pdfjs-viewer-annotations").length).toBeGreaterThan(0));
+
+        // Drive the senders that boot alone does not reach.
+        viewer.eventBus.dispatch("pagechanging", { source: null, pageNumber: 2 });
+        viewer.sendFromParent({ type: "trilium-request-thumbnail", pageNumber: 1 });
+        (viewer.pdfDocument.annotationStorage as any).setValue("field-1", { value: "typed" });
+        await vi.waitFor(() => expect(viewer.messagesOfType("pdfjs-viewer-current-page").length).toBeGreaterThan(0));
+
+        // A second open PDF posts onto the same parent window, so what each message carries is the
+        // only thing telling the two apart. One that says nothing is applied by whichever viewer
+        // happens to receive it — listing one document's annotations against another's pages.
+        expect(viewer.messages.length).toBeGreaterThan(0);
+        for (const message of viewer.messages) {
+            expect(message).toMatchObject({ type: expect.any(String), noteId: "note-1", ntxId: "ntx-1" });
+        }
+    });
+
     it("applies the toolbar and sidebar switches from the URL", async () => {
         document.body.innerHTML = `
             <div id="viewsManagerToggleButton"></div>

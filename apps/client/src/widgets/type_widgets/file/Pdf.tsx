@@ -65,25 +65,26 @@ export default function PdfPreview({ note, blob, componentId, noteContext }: {
 
     useEffect(() => {
         function handleMessage(event: PdfMessageEvent) {
-            if (event.data?.type === "pdfjs-viewer-document-modified") {
-                if (!isReadOnly && event.data.noteId === note.noteId && event.data.ntxId === noteContext.ntxId) {
-                    spacedUpdate.resetUpdateTimer();
-                    spacedUpdate.scheduleUpdate();
-                }
+            // Every viewer posts to the shared parent window, so a second one — a split, or
+            // another tab that has been opened — delivers its messages here as well.
+            // Everything below writes this note context's data or talks to this iframe, so
+            // a message addressed to a different viewer would show one document's
+            // annotations while navigating another's.
+            if (event.data?.noteId !== note.noteId || event.data?.ntxId !== noteContext.ntxId) return;
+
+            if (event.data?.type === "pdfjs-viewer-document-modified" && !isReadOnly) {
+                spacedUpdate.resetUpdateTimer();
+                spacedUpdate.scheduleUpdate();
             }
 
             if (event.data.type === "pdfjs-viewer-save-view-history" && event.data?.data) {
-                if (event.data.noteId === note.noteId && event.data.ntxId === noteContext.ntxId) {
-                    historyConfig?.storeFn(JSON.parse(event.data.data));
-                }
+                historyConfig?.storeFn(JSON.parse(event.data.data));
             }
 
             if (event.data?.type === "pdfjs-viewer-save-signatures" && event.data?.data) {
-                // The signature library is global (not per-note), but scope the write to this
-                // viewer instance so multiple open PDFs don't each re-save the same payload.
-                if (event.data.noteId === note.noteId && event.data.ntxId === noteContext.ntxId) {
-                    options.save("pdfSignatures", event.data.data);
-                }
+                // The library is global rather than per-note; the guard above keeps every open
+                // PDF from re-saving the same payload.
+                options.save("pdfSignatures", event.data.data);
             }
 
             if (event.data.type === "pdfjs-viewer-toc") {
@@ -150,9 +151,12 @@ export default function PdfPreview({ note, blob, componentId, noteContext }: {
             }
 
             if (event.data.type === "pdfjs-viewer-thumbnail") {
-                // Forward thumbnail to any listeners
+                // Relayed on the window rather than through context data because thumbnails
+                // arrive one at a time; the page list keys them itself. It carries the context it
+                // was rendered for, since a second viewer relays onto the same window.
                 window.dispatchEvent(new CustomEvent("pdf-thumbnail", {
                     detail: {
+                        ntxId: noteContext.ntxId,
                         pageNumber: event.data.pageNumber,
                         dataUrl: event.data.dataUrl
                     }
