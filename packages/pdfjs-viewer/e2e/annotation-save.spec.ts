@@ -115,6 +115,36 @@ test("leaves an annotation the user has selected selected", async ({ page }) => 
     expect(await selectedEditorCount(page)).toBe(1);
 });
 
+test("picking a tool on an already-annotated document schedules nothing", async ({ page, context }) => {
+    // Produce a document that carries a stored annotation, the way any previously annotated
+    // PDF does.
+    const first = await openHarness(page);
+    await enterInkMode(first);
+    await drawStroke(page, await pageBox(first), [[200, 200], [320, 260]]);
+    await page.waitForTimeout(500);
+    const bytes = await requestBlob(page, 1);
+
+    await context.route("**/sample.pdf", (route) => route.fulfill({
+        body: Buffer.from(bytes),
+        contentType: "application/pdf"
+    }));
+    const reopened = await context.newPage();
+    const viewer = await openHarness(reopened);
+    expect(await modifiedCount(reopened)).toBe(0);
+
+    // Entering an editing mode registers that stored annotation as an editor, which dirties
+    // annotationStorage without changing the document. Reporting it would have the parent
+    // re-serialise and re-upload the whole PDF for a button press (#11059).
+    await enterHighlightMode(viewer);
+    await reopened.waitForTimeout(1200);
+    expect(await modifiedCount(reopened)).toBe(0);
+
+    // The document is still saveable: drawing on it reports as usual.
+    await drawStroke(reopened, await pageBox(viewer), [[200, 400], [320, 440]]);
+    await reopened.waitForTimeout(500);
+    expect(await modifiedCount(reopened)).toBeGreaterThan(0);
+});
+
 test("annotations survive reopening the saved document", async ({ page, context }) => {
     const viewer = await openHarness(page);
     await enterInkMode(viewer);

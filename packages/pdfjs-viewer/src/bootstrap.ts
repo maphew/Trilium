@@ -125,14 +125,57 @@ export function manageSave() {
     let pointerDown = false;
     let pointerDownOnPage = false;
 
+    // What the document held when the parent was last told about it. Compared against, rather
+    // than trusted, because pdf.js reports far more than actual changes — see onStorageModified.
+    let reportedHash = serializedHash();
+
+    /**
+     * A digest of everything `saveDocument()` would write out. pdf.js serializes an annotation it
+     * has not modified to nothing at all, so this stays put while the ones already stored in the
+     * document are registered, and moves as soon as one is genuinely edited.
+     */
+    function serializedHash(): string {
+        return (storage as any)?.serializable?.hash ?? "";
+    }
+
+    /**
+     * Reports a possible modification, without asking whether the document really changed —
+     * for signals that can be raised by an edit `annotationStorage` cannot see yet. An ink
+     * drawing session lives outside it until committed, so an interaction that might have
+     * extended one has to be passed on blind.
+     */
     function onChange() {
         if (!storage) return;
+        reportedHash = serializedHash();
+        storage.resetModified();
+        announceModified();
+    }
+
+    /**
+     * pdf.js dirtied `annotationStorage`. That covers real edits, but also every time an editing
+     * mode turns the annotations already stored on a rendered page into editors — one signal per
+     * annotation, raised again for each page that scrolls into view. Passing those on had the
+     * parent re-serialise and re-upload the whole PDF because a toolbar button was pressed
+     * (#11059), so the content is compared before anything is announced.
+     */
+    function onStorageModified() {
+        if (!storage) return;
+        // Cleared whether or not this turns into an announcement: pdf.js raises the hook once per
+        // dirtying, so a flag left set would swallow the next real change.
+        storage.resetModified();
+
+        const hash = serializedHash();
+        if (hash === reportedHash) return;
+        reportedHash = hash;
+        announceModified();
+    }
+
+    function announceModified() {
         window.parent.postMessage({
             type: "pdfjs-viewer-document-modified",
             ntxId: window.TRILIUM_NTX_ID,
             noteId: window.TRILIUM_NOTE_ID
         } satisfies PdfDocumentModifiedMessage, window.location.origin);
-        storage.resetModified();
     }
 
     window.addEventListener("message", async (event) => {
@@ -157,7 +200,7 @@ export function manageSave() {
     });
 
     (app.pdfDocument.annotationStorage as any).onSetModified = () => {
-        onChange();
+        onStorageModified();
     };  // works great for most cases, including forms.
     app.eventBus.on("switchannotationeditorparams", () => {
         onChange();

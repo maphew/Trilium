@@ -98,8 +98,8 @@ describe("boot sequence", () => {
             await vi.waitFor(() => expect(viewer.messagesOfType(type).length).toBeGreaterThan(0));
         }
 
-        // And the save plumbing is live.
-        (viewer.pdfDocument.annotationStorage as any).onSetModified?.();
+        // And the save plumbing is live: dirtying the storage reaches the parent.
+        (viewer.pdfDocument.annotationStorage as any).setValue("field-1", { value: "typed" });
         expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(1);
     });
 
@@ -164,8 +164,8 @@ describe("reporting the document as modified", () => {
         const resetModified = vi.spyOn(storage, "resetModified");
         manageSave();
 
-        // The primary hook: pdf.js calls this whenever annotationStorage is dirtied.
-        storage.onSetModified();
+        // The primary hook: pdf.js dirties annotationStorage, as filling in a form field does.
+        storage.setValue("field-1", { value: "typed" });
         // A tool's parameters changing (colour, thickness) also mutates the document.
         viewer.eventBus.dispatch("switchannotationeditorparams", { source: null });
         // Deletions and undo/redo only surface here, and only when there is something to undo.
@@ -176,6 +176,29 @@ describe("reporting the document as modified", () => {
             .toEqual({ type: "pdfjs-viewer-document-modified", noteId: "note-1", ntxId: "ntx-1" });
         // Without the reset pdf.js keeps reporting the same change on every later edit.
         expect(resetModified).toHaveBeenCalledTimes(3);
+    });
+
+    it("stays quiet while pdf.js registers the annotations already in the document", async () => {
+        viewer = await installViewerApp(allFeaturesPdf());
+        const storage = viewer.pdfDocument.annotationStorage as any;
+        const resetModified = vi.spyOn(storage, "resetModified");
+        manageSave();
+
+        // Entering an editing mode turns every stored annotation on a rendered page into an
+        // editor, and registering each one dirties annotationStorage. Nothing about the document
+        // changed, so pressing a toolbar button — or scrolling another annotated page into view —
+        // must not schedule a save, let alone one per annotation (#11059).
+        storage.onSetModified();
+        storage.onSetModified();
+
+        expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(0);
+        // The flag still has to be cleared, or pdf.js' one-shot would never raise the next
+        // real change.
+        expect(resetModified).toHaveBeenCalledTimes(2);
+
+        // Which it does: an actual edit is still reported.
+        storage.setValue("field-1", { value: "typed" });
+        expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(1);
     });
 
     it("stays quiet when the editing state changes with nothing to undo", async () => {
