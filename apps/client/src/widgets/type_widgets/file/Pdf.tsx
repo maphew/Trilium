@@ -10,6 +10,12 @@ import { useViewModeConfig } from "../../collections/NoteList";
 import { useBlobEditorSpacedUpdate, useEffectiveReadOnly, useTriliumEvent } from "../../react/hooks";
 import PdfViewer from "./PdfViewer";
 
+/**
+ * How long annotating is left to settle before a save. Longer than the second an editor of text
+ * takes, because every save re-uploads and re-syncs the whole PDF however small the edit was.
+ */
+const SAVE_INTERVAL = 5_000;
+
 export default function PdfPreview({ note, blob, componentId, noteContext }: {
     note: FNote;
     noteContext: NoteContext;
@@ -24,6 +30,7 @@ export default function PdfPreview({ note, blob, componentId, noteContext }: {
         note,
         noteType: "file",
         noteContext,
+        updateInterval: SAVE_INTERVAL,
         getData() {
             if (!iframeRef.current?.contentWindow) return undefined;
 
