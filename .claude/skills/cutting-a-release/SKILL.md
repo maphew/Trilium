@@ -1,6 +1,6 @@
 ---
 name: cutting-a-release
-description: Use when cutting, preparing, or debugging a Trilium release — bumping the monorepo version, tagging, or diagnosing a failed "Release" workflow run. Covers the ordered bump recipe (edit root package.json → chore:update-version → commit → v-prefixed tag → push), which of the TWO divergent version scripts to use (update-version for releases vs update-nightly-version for CI nightlies), why the CI version-consistency gate validates only 5 of the 8 files update-version writes, the exact `docs/Release Notes/Release Notes/<tag>.md` path the publish step hard-requires, the substring-based rc/beta "latest" labeling, and the RELEASE_PAT (not GITHUB_TOKEN) dependency. Bundles a pre-flight verifier that catches what the CI gate misses before you push the tag.
+description: Use when cutting, preparing, or debugging a Trilium release — bumping the monorepo version, tagging, or diagnosing a failed "Release" workflow run. Covers the ordered bump recipe (edit root package.json → chore:update-version → commit → v-prefixed tag → push), which of the TWO divergent version scripts to use (update-version for releases vs update-nightly-version for CI nightlies), why the CI version-consistency gate validates only 5 of the 8 files update-version writes, the exact `docs/Release Notes/Release Notes/<tag>.md` path the publish step hard-requires, the substring-based rc/beta "latest" labeling, and the RELEASE_PAT (not GITHUB_TOKEN) dependency. Also covers dispatching `nightly.yml` on a branch to test packaging on real CI runners (publish is gated on `main`; other refs upload artifacts). Bundles a pre-flight verifier that catches what the CI gate misses before you push the tag.
 ---
 
 # Cutting a Trilium release
@@ -86,6 +86,28 @@ This isn't theoretical — real release-prep commits touched *different* file su
 - **`RELEASE_PAT`, not `GITHUB_TOKEN`** — `release.yml:161`. Confirmed the only PAT in the release flow; winget (downstream) uses a separate `WINGET_PAT` (`release-winget.yml:19`).
 - **Don't hand-edit child package.jsons** — let `update-version` propagate from root, or they desync silently past the 5-file gate.
 - **`update-version` is idempotent but partial in the diff** — it rewrites all 8 unconditionally; only the previously-stale ones show up in `git status`. "Only 6 files changed" is normal and not a sign you missed one.
+
+## Testing packaging on CI: dispatching `nightly.yml` on a branch
+
+Dispatching the nightly workflow on a branch (`gh workflow run "Nightly Release" --ref <branch>`)
+is the only way to exercise real packaging on CI runners without merging. That is safe now: every
+publish step is gated on `github.ref == 'refs/heads/main'` (`nightly.yml:103` desktop,
+`nightly.yml:144` mobile), and any other ref — a `workflow_dispatch` on a branch, a
+`renovate/electron-forge*` push, a PR — uploads its desktop, mobile APK and server outputs as
+**workflow artifacts** instead (`nightly.yml:115,154`).
+
+The main ref is written as a literal string on purpose: the `schedule` event payload is minimal,
+so deriving the default branch from it is unreliable.
+
+Before this landed (PR #10614), a branch dispatch sprayed branch-named assets onto the public
+`nightly` release. On a checkout predating it, clean up with:
+
+```bash
+gh release view nightly --repo TriliumNext/Trilium --json assets --jq '.assets[].name'
+gh release delete-asset nightly "<name>" --yes
+```
+
+Filter on the branch slug — the real nightly assets come from `main`.
 
 ## Hotfix variant
 

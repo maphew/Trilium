@@ -1,6 +1,6 @@
 ---
 name: building-client-ui
-description: Use when building or changing any UI in the Trilium client (`apps/client`) — a dialog, a settings pane, a form, a toolbar, a badge, a dropdown menu, a type widget, a control floating over a note's content (map, mind map, image, diagram, presentation), or any component that reads/writes a note's title, label, relation, blob or option. Catalogues the froca-reactive hooks (useNoteProperty / useNoteLabel / useNoteBlob / useChildNotes / useTriliumOption / useNoteContext) and which `loadResults` filter each already wires, the reusable Preact components under `apps/client/src/widgets/react/` (which one to reach for instead of a hand-rolled `<input>`/`<button>`/pill), the `Dropdown` backdrop-blur rules (`noDropdownListStyle` / `portalToBody`), the `OverlayControlGroup` / `OverlayToolbar` contract for controls over a canvas, and the event-summoned Modal/LazyDialog wiring. The home for client UI guidance that outgrows CLAUDE.md.
+description: Use when building or changing any UI in the Trilium client (`apps/client`) — a dialog, a settings pane, a form, a toolbar, a badge, a dropdown menu, a type widget, a control floating over a note's content (map, mind map, image, diagram, presentation), or any component that reads/writes a note's title, label, relation, blob or option. Catalogues the froca-reactive hooks (useNoteProperty / useNoteLabel / useNoteBlob / useChildNotes / useTriliumOption / useNoteContext) and which `loadResults` filter each already wires, the reusable Preact components under `apps/client/src/widgets/react/` (which one to reach for instead of a hand-rolled `<input>`/`<button>`/pill), the `Dropdown` backdrop-blur rules (`noDropdownListStyle` / `portalToBody`), the `OverlayControlGroup` / `OverlayToolbar` contract for controls over a canvas, the event-summoned Modal/LazyDialog wiring, and how to boot a login-free fixture instance to inspect real computed styles when a style, placement or stacking bug cannot be read off the stylesheets. The home for client UI guidance that outgrows CLAUDE.md.
 ---
 
 # Building client UI
@@ -108,6 +108,15 @@ Two rules that apply to all of them:
 - Pass **`portalToBody`** instead when the menu is fine but an *ancestor* establishes a containment/backdrop root (`container-type`, `transform`, `filter` — e.g. the peeked right pane), which flattens the blur into a flat tint.
 - If a menu looks transparent rather than frosted, check these two before reaching for CSS overrides.
 
+### A transformed ancestor also breaks placement and stacking
+
+`portalToBody` has a second, unrelated reason to exist. `body.mobile .dropdown-menu` forces `position: fixed`, and the settings dialog's `.modal-dialog` carries a `transform` (the mobile master-detail slide between the page list and the page). A transformed ancestor is both:
+
+1. the **containing block** for `position: fixed`, so a menu left to place itself lands adrift — measured at 160×160 at x=209, mid-page, on a Pixel 7 viewport; and
+2. a **stacking context**, so the menu's `z-index: 3000` is confined inside the modal's own `z-index: 1055`. `#context-menu-cover` (the `mobileBackdrop`) is a `<body>` child at `z-index: 2500`, so it paints above the *whole* modal — dimming the menu along with the page behind it.
+
+Both symptoms read as CSS bugs rather than containing-block ones. A mobile menu inside a modal wants `portalToBody` **plus** `dropdownContainerClassName="mobile-bottom-menu"` — see `CollapsedChoice` in `apps/client/src/widgets/react/SegmentedChoice.tsx`. Diagnose by walking the menu's ancestors for `transform` / `filter` / `container-type` in the running app rather than reasoning about the stylesheets.
+
 ## Controls floating over a note's content
 
 Any control laid **over** a note's own content — a geo map, a mind map, an image, a video, a diagram, a presentation, and whatever comes next — goes on one of two shared components. **Never hand-roll a `<button>` with `tn-overlay-*` classes**: those classes are the components' business, and a site that writes them itself also has to write the ref, the tooltip, the `aria-label` and the `type="button"` that the component already owns.
@@ -168,6 +177,7 @@ Full prop reference, `LazyDialog` mechanics and the eager exceptions: [reference
 - **Bootstrap utility classes or inline static styles on `Form*` components** — use the sibling per-component `.css` scoped under a root class.
 - **Hand-rolled overlay buttons** — `tn-overlay-*` classes at a call site instead of `OverlayControlGroup` / `OverlayControlButton`.
 - **Copying the jQuery lifecycle** (`doRenderBody` / `refreshWithNote` / `this.$widget`) into new `.tsx` — use `useLegacyWidget` only to embed an existing widget.
+- **Diagnosing a style or placement bug from the stylesheets** — the load order in a hand-built test page does not match the app's, so the bug can fail to reproduce and send you after the wrong cause. Measure computed styles in a running instance: [references/inspecting-the-running-app.md](references/inspecting-the-running-app.md).
 
 > Not a footgun here: `isElectron()` / `isMac()` from `apps/client/src/services/utils.ts` are runtime checks safe at module load. The "call only after init" trap is a **trilium-core** concern (`utils/index.ts` → `getPlatform()`), not client UI.
 
@@ -177,5 +187,6 @@ Full prop reference, `LazyDialog` mechanics and the eager exceptions: [reference
 |---|---|
 | [references/hooks-catalog.md](references/hooks-catalog.md) | All 60 `use*` hooks grouped by purpose, one line each with the `loadResults` filter it wires — the anti-re-derivation asset. |
 | [references/dialogs.md](references/dialogs.md) | Full `Modal` prop reference, the 5-step summon→register recipe, `LazyDialog` mechanics, the four eager exceptions, the `sort_child_notes.tsx` walkthrough. |
+| [references/inspecting-the-running-app.md](references/inspecting-the-running-app.md) | Booting a login-free instance on the e2e fixture document (in memory, no build, no password) to measure real computed styles, plus how to read a cascade or stacking problem in the running app. Reach for it whenever the answer depends on what actually won, not on what the stylesheets say. |
 
 Related skills: **writing-unit-tests** (rendering these components and testing hooks with the easy-froca fixtures), **analyzing-coverage** (measuring client coverage), **working-with-translations** (adding the English strings these components display).
