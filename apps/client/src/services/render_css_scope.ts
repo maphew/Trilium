@@ -5,6 +5,39 @@
 export const RENDER_SCOPE_CLASS = "render-note-scope";
 
 /**
+ * Scopes every stylesheet the note has in `container`, and keeps scoping the ones it adds later.
+ *
+ * A render note's script can build its markup after the bundle's HTML is inserted, so the sheet
+ * that has to be confined does not necessarily exist yet. Assigning to a style element's
+ * `textContent` swaps its child text node, so watching `childList` over the subtree catches a
+ * rewritten stylesheet as well as a newly appended one.
+ *
+ * Rules a script adds through `CSSStyleSheet.insertRule()` never touch the DOM and so cannot be
+ * caught here, and neither can a stylesheet it appends to `document.head` instead.
+ */
+export function keepStylesScoped(container: HTMLElement) {
+    scopeStyleElements(container.querySelectorAll("style"));
+
+    const observer = new MutationObserver((records) => {
+        for (const record of records) {
+            if (record.target instanceof HTMLStyleElement) {
+                scopeStyleElements([ record.target ]);
+            }
+
+            for (const node of record.addedNodes) {
+                if (node instanceof HTMLStyleElement) {
+                    scopeStyleElements([ node ]);
+                } else if (node instanceof Element) {
+                    scopeStyleElements(node.querySelectorAll("style"));
+                }
+            }
+        }
+    });
+
+    observer.observe(container, { childList: true, subtree: true });
+}
+
+/**
  * Confines a render note's stylesheet to the note's own container.
  *
  * A `<style>` element applies to the whole document however deeply it is nested, so a standalone
@@ -33,6 +66,25 @@ export function scopeRenderNoteCss(css: string): string {
     }
 
     return `${prefix}@scope (.${RENDER_SCOPE_CLASS}) {\n${scoped.join("\n")}\n}`;
+}
+
+/**
+ * The CSS this module last wrote into a style element. Rewriting `textContent` is itself a
+ * mutation, so without this the observer would see its own work and wrap the rules a second time.
+ */
+const scopedOutput = new WeakMap<HTMLStyleElement, string>();
+
+function scopeStyleElements(styles: Iterable<HTMLStyleElement>) {
+    for (const style of styles) {
+        const css = style.textContent ?? "";
+        if (scopedOutput.get(style) === css) {
+            continue;
+        }
+
+        const scoped = scopeRenderNoteCss(css);
+        scopedOutput.set(style, scoped);
+        style.textContent = scoped;
+    }
 }
 
 /** At-rules defining document-global named resources, or that are only valid at the top level. */

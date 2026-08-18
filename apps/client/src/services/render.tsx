@@ -4,7 +4,7 @@ import type FNote from "../entities/fnote.js";
 import { renderReactWidgetAtElement } from "../widgets/react/react_utils.jsx";
 import { type Bundle, executeBundleWithoutErrorHandling } from "./bundle.js";
 import froca from "./froca.js";
-import { RENDER_SCOPE_CLASS, scopeRenderNoteCss } from "./render_css_scope.js";
+import { keepStylesScoped, RENDER_SCOPE_CLASS } from "./render_css_scope.js";
 import server from "./server.js";
 
 /**
@@ -32,7 +32,7 @@ export async function render(note: FNote, $el: JQuery<HTMLElement>, onError?: Er
             $el.append($scriptContainer);
 
             $scriptContainer.append(bundle.html);
-            scopeOwnStyles($scriptContainer);
+            keepStylesScoped($scriptContainer[0]);
 
             // async so that scripts cannot block trilium execution
             executeBundleWithoutErrorHandling(bundle, note, $scriptContainer)
@@ -90,16 +90,6 @@ export async function renderIfJsx(bundle: Bundle, result: unknown, $el: JQuery<H
     };
     const el = h(UserErrorBoundary, {}, h(result as () => VNode, {}));
     renderReactWidgetAtElement(closestComponent, el, $el[0]);
-}
-
-/**
- * Confines the note's own stylesheets to its container, so that a document-level rule such as
- * `body { max-width: … }` cannot restyle the application around it.
- */
-function scopeOwnStyles($container: JQuery<HTMLElement>) {
-    for (const style of $container.find("style")) {
-        style.textContent = scopeRenderNoteCss(style.textContent ?? "");
-    }
 }
 
 export default {

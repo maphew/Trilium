@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { RENDER_SCOPE_CLASS, scopeRenderNoteCss } from "./render_css_scope.js";
+import { keepStylesScoped, RENDER_SCOPE_CLASS, scopeRenderNoteCss } from "./render_css_scope.js";
 
 /** Collapses whitespace, so assertions read as CSS rather than as the serializer's exact layout. */
 function scope(css: string) {
@@ -84,5 +84,76 @@ describe("scopeRenderNoteCss", () => {
         expect(computed("#inside").color).toBe("rgb(255, 0, 0)");
         expect(getComputedStyle(document.body).maxWidth).not.toBe("980px");
         expect(computed("#outside").color).not.toBe("rgb(255, 0, 0)");
+    });
+});
+
+describe("keepStylesScoped", () => {
+    /** Mutation records are delivered on a microtask, so give the observer a turn to run. */
+    const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    function mount(html = "") {
+        document.body.innerHTML = `<div class="${RENDER_SCOPE_CLASS}">${html}</div>`;
+        const container = document.querySelector<HTMLElement>(`.${RENDER_SCOPE_CLASS}`);
+        if (!container) {
+            throw new Error("container was not mounted");
+        }
+        keepStylesScoped(container);
+        return container;
+    }
+
+    function addStyle(parent: Element, css: string) {
+        const style = document.createElement("style");
+        style.textContent = css;
+        parent.appendChild(style);
+        return style;
+    }
+
+    it("scopes the stylesheets already present", () => {
+        const container = mount("<style>body { color: red }</style>");
+
+        expect(container.querySelector("style")?.textContent).toContain(`@scope (.${RENDER_SCOPE_CLASS})`);
+    });
+
+    it("scopes a stylesheet a script appends after mount, however deeply", async () => {
+        const container = mount("<div class=\"panel\"></div>");
+        const direct = addStyle(container, "body { color: red }");
+        const nested = addStyle(container.querySelector(".panel") as Element, "body { color: blue }");
+
+        await flush();
+
+        expect(direct.textContent).toContain(`@scope (.${RENDER_SCOPE_CLASS})`);
+        expect(nested.textContent).toContain(`@scope (.${RENDER_SCOPE_CLASS})`);
+    });
+
+    it("scopes a subtree that arrives with a stylesheet inside it", async () => {
+        const container = mount();
+        const panel = document.createElement("div");
+        panel.innerHTML = "<style>body { color: red }</style><p>hi</p>";
+        container.appendChild(panel);
+
+        await flush();
+
+        expect(panel.querySelector("style")?.textContent).toContain(`@scope (.${RENDER_SCOPE_CLASS})`);
+    });
+
+    it("re-scopes a stylesheet whose contents are replaced", async () => {
+        const container = mount("<style>body { color: red }</style>");
+        const style = container.querySelector("style") as HTMLStyleElement;
+
+        style.textContent = "body { color: blue }";
+        await flush();
+
+        expect(style.textContent).toContain(":scope { color: blue }");
+        expect(style.textContent).not.toContain("color: red");
+    });
+
+    it("does not wrap its own output again", async () => {
+        const container = mount("<style>body { color: red }</style>");
+        const style = container.querySelector("style") as HTMLStyleElement;
+
+        await flush();
+        await flush();
+
+        expect(style.textContent?.match(/@scope/g)).toHaveLength(1);
     });
 });
