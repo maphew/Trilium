@@ -6,7 +6,9 @@ import { t } from "../../../services/i18n";
 import { formatSize } from "../../../services/utils";
 
 const mocks = vi.hoisted(() => ({
-    triggerCommand: vi.fn()
+    triggerCommand: vi.fn(),
+    select: vi.fn(),
+    titleContextMenu: vi.fn()
 }));
 
 vi.mock("../../../components/app_context", () => ({
@@ -31,6 +33,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 import NoteUsageDonut, { segmentTooltip } from "./note_usage_donut";
+import type { SpaceUsageSelection } from "./selection";
 
 const USAGE: SpaceUsageNoteResponse = {
     noteId: "n1",
@@ -65,6 +68,27 @@ function renderDonut() {
     return container;
 }
 
+/** How Browse renders it on a phone: a tap names the segment rather than opening what it stands for. */
+function renderSelectableDonut(selectedSegmentId?: string) {
+    container = document.body.appendChild(document.createElement("div"));
+    render(
+        <NoteUsageDonut
+            usage={USAGE}
+            title="My note"
+            notePath={[ "root", "n1" ]}
+            selectedSegmentId={selectedSegmentId}
+            onSelectSegment={mocks.select}
+            onTitleContextMenu={mocks.titleContextMenu}
+        />,
+        container
+    );
+    return container;
+}
+
+function lastSelection(): SpaceUsageSelection {
+    return mocks.select.mock.calls[mocks.select.mock.calls.length - 1]?.[0] as SpaceUsageSelection;
+}
+
 afterEach(() => {
     if (container) {
         render(null, container);
@@ -72,6 +96,8 @@ afterEach(() => {
         container = undefined;
     }
     mocks.triggerCommand.mockClear();
+    mocks.select.mockClear();
+    mocks.titleContextMenu.mockClear();
 });
 
 describe("NoteUsageDonut", () => {
@@ -152,6 +178,42 @@ describe("NoteUsageDonut", () => {
         mocks.triggerCommand.mockClear();
         click("circle.space-usage-segment-others");
         expect(mocks.triggerCommand).not.toHaveBeenCalled();
+    });
+
+    it("names a tapped composition segment for the strip, opening nothing itself", () => {
+        const probe = renderSelectableDonut();
+        const tap = (selector: string) => probe.querySelector(selector)
+            ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+        tap("circle.space-usage-segment-body");
+        expect(lastSelection()).toMatchObject({ markId: "body", notePath: [ "root", "n1" ], size: 10000 });
+        // The body stands for the note, so the strip raises what the centre title raises.
+        lastSelection().onActivate?.(new MouseEvent("click"));
+        expect(mocks.titleContextMenu).toHaveBeenCalled();
+
+        tap("circle.space-usage-segment-attachment");
+        expect(lastSelection()).toMatchObject({ markId: "attachment/a1", label: "Attachment one", size: 5000 });
+        lastSelection().onActivate?.(new MouseEvent("click"));
+        expect(mocks.triggerCommand).toHaveBeenCalledWith("openInPopup", {
+            noteIdOrPath: "root/n1",
+            viewScope: { viewMode: "attachments", attachmentId: "a1" }
+        });
+
+        // A ring tap opens nothing on its own, whichever segment it lands on.
+        expect(lastSelection().onOpen).toBeUndefined();
+
+        // The bucket stands for several attachments at once, so it names nothing.
+        mocks.select.mockClear();
+        tap("circle.space-usage-segment-others");
+        expect(mocks.select).not.toHaveBeenCalled();
+    });
+
+    it("draws the chosen segment as chosen", () => {
+        const probe = renderSelectableDonut("body");
+
+        expect(probe.querySelector("circle.space-usage-segment-body")?.classList
+            .contains("donut-segment-selected")).toBe(true);
+        expect(probe.querySelectorAll(".donut-segment-selected")).toHaveLength(1);
     });
 
     it("totals each ring in the hole, with the actions above the title", () => {

@@ -8,7 +8,8 @@ const mocks = vi.hoisted(() => ({
     openDeletedNotesMenu: vi.fn(),
     openRevisionsMenu: vi.fn(),
     showDetails: vi.fn(),
-    contentChanged: vi.fn()
+    contentChanged: vi.fn(),
+    select: vi.fn()
 }));
 
 vi.mock("../../../components/app_context", () => ({
@@ -41,6 +42,7 @@ vi.mock("../../../services/froca", () => ({
 }));
 
 import Overview from "./overview";
+import type { SpaceUsageSelection } from "./selection";
 
 const OVERVIEW: SpaceUsageOverviewResponse = {
     content: { size: 400, noteCount: 3, attachmentsSize: 0, revisionsSize: 60 },
@@ -67,6 +69,26 @@ function renderOverview() {
     return container;
 }
 
+/** The page renders the map this way on a phone: a tap names the cell instead of opening it. */
+function renderSelectableOverview(selectedMarkId?: string) {
+    container = document.body.appendChild(document.createElement("div"));
+    render(
+        <Overview
+            overview={OVERVIEW}
+            selectedMarkId={selectedMarkId}
+            onSelect={mocks.select}
+            onShowDetails={mocks.showDetails}
+            onContentChanged={mocks.contentChanged}
+        />,
+        container
+    );
+    return container;
+}
+
+function lastSelection(): SpaceUsageSelection {
+    return mocks.select.mock.calls[mocks.select.mock.calls.length - 1]?.[0] as SpaceUsageSelection;
+}
+
 afterEach(() => {
     if (container) {
         render(null, container);
@@ -74,6 +96,7 @@ afterEach(() => {
         container = undefined;
     }
     mocks.triggerCommand.mockClear();
+    mocks.select.mockClear();
     mocks.openContextMenu.mockClear();
     mocks.openDeletedNotesMenu.mockClear();
     mocks.openRevisionsMenu.mockClear();
@@ -162,6 +185,58 @@ describe("Overview", () => {
         // Clicking it stays inert, like the other buckets.
         deleted?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         expect(mocks.triggerCommand).not.toHaveBeenCalled();
+    });
+
+    it("names a tapped cell for the strip instead of opening it, offering the note's own actions", () => {
+        const probe = renderSelectableOverview();
+
+        probe.querySelector('[data-href="#root/n1"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+        const selection = lastSelection();
+
+        expect(selection).toMatchObject({ markId: "n1", notePath: [ "root", "n1" ], size: 200 });
+        expect(mocks.triggerCommand).not.toHaveBeenCalled();
+
+        // The strip raises the note menu; a second tap on the cell opens the note.
+        selection.onActivate?.(new MouseEvent("click"));
+        expect(mocks.openContextMenu).toHaveBeenCalledWith(
+            expect.anything(), [ "root", "n1" ], mocks.showDetails, mocks.contentChanged);
+
+        selection.onOpen?.();
+        expect(mocks.triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/n1" });
+    });
+
+    it("names a tapped bucket by the crowd it stands for, with nothing to open", () => {
+        const probe = renderSelectableOverview();
+        const tap = (selector: string) =>
+            probe.querySelector(selector)?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+        tap(".treemap-cell-deleted");
+        expect(lastSelection()).toMatchObject({ markId: "/deleted-notes", size: 70 });
+        // It names a crowd rather than a note, so it carries a label instead of a path and has
+        // nothing to open. What that label says is the labels spec's business; `t` answers nothing
+        // here, the catalogue being uninitialized under test.
+        expect(lastSelection().notePath).toBeUndefined();
+        expect(lastSelection().onOpen).toBeUndefined();
+
+        // The buckets that can be acted on answer with their own menu, the others with none.
+        lastSelection().onActivate?.(new MouseEvent("click"));
+        expect(mocks.openDeletedNotesMenu).toHaveBeenCalledWith(expect.anything(), mocks.contentChanged);
+
+        tap(".treemap-cell-revisions");
+        lastSelection().onActivate?.(new MouseEvent("click"));
+        expect(mocks.openRevisionsMenu).toHaveBeenCalledWith(expect.anything(), mocks.contentChanged);
+
+        tap(".treemap-cell-other");
+        expect(lastSelection().onActivate).toBeUndefined();
+    });
+
+    it("draws the chosen cell as chosen, and only that one", () => {
+        const probe = renderSelectableOverview("n1");
+
+        expect(probe.querySelector('[data-href="#root/n1"]')?.classList.contains("treemap-cell-selected"))
+            .toBe(true);
+        expect(probe.querySelectorAll(".treemap-cell-selected")).toHaveLength(1);
     });
 
     it("answers the revisions bucket with its own menu, never the note one", () => {

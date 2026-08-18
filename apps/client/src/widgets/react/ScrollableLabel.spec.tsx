@@ -138,6 +138,24 @@ describe("ScrollableLabel", () => {
         }
     });
 
+    it("does not walk a label at all where motion has been asked against", () => {
+        const reduced = vi.spyOn(window, "matchMedia").mockReturnValue(
+            { matches: true } as unknown as MediaQueryList);
+
+        vi.useFakeTimers();
+
+        try {
+            const label = renderLabel("a name that would otherwise read itself out", 300, 100, true);
+
+            vi.advanceTimersByTime(5000);
+
+            expect(label.scrollLeft).toBe(0);
+        } finally {
+            vi.useRealTimers();
+            reduced.mockRestore();
+        }
+    });
+
     it("leaves a label that fits alone, fading nothing", async () => {
         const label = renderLabel("short", 100);
 
