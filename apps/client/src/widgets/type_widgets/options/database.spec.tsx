@@ -222,7 +222,12 @@ describe("what the database is", () => {
         renderPage();
         await settle();
 
-        expect(container.querySelector(".database-info a[href]")?.textContent).toBe("database.info_no_backup");
+        const link = container.querySelector(".database-info a[href]");
+        expect(link?.textContent).toBe("database.info_no_backup");
+        // The row is the way to the backup page, and says on its own what is there: a preview of a
+        // page of settings would tell the reader nothing.
+        expect(link?.getAttribute("href")).toBe("#root/_hidden/_options/_optionsBackup");
+        expect(link?.classList.contains("no-tooltip-preview")).toBe(true);
     });
 
     it("reads the figures again once the database has been compacted", async () => {

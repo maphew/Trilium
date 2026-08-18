@@ -1,11 +1,11 @@
 ---
 name: building-client-ui
-description: Use when building or changing any UI in the Trilium client (`apps/client`) — a dialog, a settings pane, a form, a toolbar, a badge, a dropdown menu, a type widget, a control floating over a note's content (map, mind map, image, diagram, presentation), or any component that reads/writes a note's title, label, relation, blob or option. Catalogues the froca-reactive hooks (useNoteProperty / useNoteLabel / useNoteBlob / useChildNotes / useTriliumOption / useNoteContext) and which `loadResults` filter each already wires, the reusable Preact components under `apps/client/src/widgets/react/` (which one to reach for instead of a hand-rolled `<input>`/`<button>`/pill), the `Dropdown` backdrop-blur rules (`noDropdownListStyle` / `portalToBody`), the `OverlayControlGroup` / `OverlayToolbar` contract for controls over a canvas, the event-summoned Modal/LazyDialog wiring, and how to boot a login-free fixture instance to inspect real computed styles when a style, placement or stacking bug cannot be read off the stylesheets. The home for client UI guidance that outgrows CLAUDE.md.
+description: Use when building or changing any UI in the Trilium client (`apps/client`) — a dialog, a settings pane, a form, a toolbar, a badge, a link, a dropdown menu, a type widget, a control floating over a note's content (map, mind map, image, diagram, presentation), or any component that reads/writes a note's title, label, relation, blob or option. Catalogues the froca-reactive hooks (useNoteProperty / useNoteLabel / useNoteBlob / useChildNotes / useTriliumOption / useNoteContext) and which `loadResults` filter each already wires, the reusable Preact components under `apps/client/src/widgets/react/` (which one to reach for instead of a hand-rolled `<input>`/`<button>`/`<a>`/pill), the `Dropdown` backdrop-blur rules (`noDropdownListStyle` / `portalToBody`), the `OverlayControlGroup` / `OverlayToolbar` contract for controls over a canvas, the event-summoned Modal/LazyDialog wiring, and how to boot a login-free fixture instance to inspect real computed styles when a style, placement or stacking bug cannot be read off the stylesheets. The home for client UI guidance that outgrows CLAUDE.md.
 ---
 
 # Building client UI
 
-The client is a Preact app (legacy widgets are jQuery `BasicWidget`s; new UI is Preact). Shared components live in `apps/client/src/widgets/react/`. **Always reuse them instead of writing raw HTML elements or a custom implementation** — every hand-rolled `<input>`, `<select>`, `<button>`, pill or overlay button is a second copy of styling, focus handling and accessibility that drifts.
+The client is a Preact app (legacy widgets are jQuery `BasicWidget`s; new UI is Preact). Shared components live in `apps/client/src/widgets/react/`. **Always reuse them instead of writing raw HTML elements or a custom implementation** — every hand-rolled `<input>`, `<select>`, `<button>`, `<a>`, pill or overlay button is a second copy of styling, focus handling and accessibility that drifts.
 
 The general styling rules (no inline styles, one `.css` file per component imported at the top, scope by root class + native CSS nesting) are in the repo `CLAUDE.md`; this skill is about *which component* and *how to drive it*.
 
@@ -68,9 +68,22 @@ Form controls:
 
 Buttons and links:
 
-- `Button` — the general button (also carries the tooltip for a *disabled* control via a wrapper, since a disabled `<button>` emits no pointer events). `ActionButton` — icon button with consistent styling; `LinkButton` — a link that acts as a button.
+- `Button` — the general button (also carries the tooltip for a *disabled* control via a wrapper, since a disabled `<button>` emits no pointer events). `ActionButton` — icon button with consistent styling.
 - `HelpButton`, `HelpTooltipButton`, `HelpDropdown` — open in-app help pages; don't invent a new "?" affordance.
 - `KeyboardShortcut` — renders a shortcut as keycaps.
+
+**Never hand-roll `<a className="tn-link">`.** Which link component to reach for depends on what the link *is*:
+
+| What the link does | Component |
+| --- | --- |
+| Runs an action, worded as a link rather than a button | `LinkButton` (`href="#"`, `onClick` or `triggerCommand`; already `role="button"` and Space-activated) |
+| Goes to a note path with wording of your own — a summary sentence, "see the backup page" | `PageLink` (in `LinkButton.tsx`; suppresses the note preview, since text that already says what is there gains nothing from one) |
+| Goes to a note, named by the note's own title | `NoteLink` (icon, color class, note path, hover preview) or `NewNoteLink` for the Preact-native variant |
+| Opens a filesystem location in the OS file manager | `DirectoryLink` / `FileLink` (degrade to plain selectable text off Electron) |
+
+A raw `<a>` is right only for an **external** URL, which no component covers: write it as `<a className="tn-link external" target="_blank" rel="noopener noreferrer">` (the theme appends the ↗ arrow from the `external` class or an `http(s)` href; `no-arrow` opts out). For a block of prose whose links come from elsewhere — rendered note content, a help page — put `use-tn-links` on the container instead of classing each anchor.
+
+`no-tooltip-preview` is the class that keeps the note-hover preview away from a link into the note tree; `PageLink` and `NoteLink`'s `noPreview` set it for you, so it should rarely be written by hand.
 
 Display and layout:
 
@@ -81,7 +94,7 @@ Display and layout:
 - `Card` — a titled group of sections (filter-aware under `FilterProvider`). `Collapsible` — animated, theme-styled expandable section with self-managed `initiallyExpanded`; `ExternallyControlledCollapsible` is the controlled variant (caller owns `expanded`/`setExpanded`).
 - `TabStrip` — a row of icon-only tabs named by tooltips, heading a panel divided into groups.
 - `Modal`, `WizardModal` — dialogs; `Popover` — a small surface anchored beside something (portaled to the body, so no scroll container clips it).
-- `LoadingSpinner`, `LazyComponent`, `Icon`, `MaskedIcon`, `NoteLink`, `NoteList`, `SiblingNavigator`, `ImageViewer`, `CodeBlock`, `charts/DonutChart`, `charts/Treemap`.
+- `LoadingSpinner`, `LazyComponent`, `Icon`, `MaskedIcon`, `NoteList`, `SiblingNavigator`, `ImageViewer`, `CodeBlock`, `charts/DonutChart`, `charts/Treemap`.
 
 Data grids and calendars (outside `widgets/react/`, but equally generic):
 

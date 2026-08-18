@@ -31,6 +31,7 @@ import Admonition from "../../react/Admonition";
 import Button from "../../react/Button";
 import { Card, OptionCardSection } from "../../react/Card";
 import DirectoryLink, { FileLink } from "../../react/DirectoryLink";
+import { PageLink } from "../../react/LinkButton";
 import { useFetch } from "../../react/use_fetch";
 import { showCleanupDialog } from "../space_usage/cleanup_dialog";
 import DatabaseFileList from "./components/DatabaseFileList";
@@ -161,9 +162,10 @@ function BackupStanding({ refreshToken }: { refreshToken: number }) {
             {/* The whole value is the way to the page that acts on it: this row states how the
                 backups stand, and everything else about them is done there. */}
             <span className="tn-card-option-value">
-                <a className="tn-link no-tooltip-preview" href={BACKUP_PAGE_LINK}>
-                    {summarizeBackups(backups.backups) ?? t("database.info_no_backup")}
-                </a>
+                <PageLink
+                    href={BACKUP_PAGE_LINK}
+                    text={summarizeBackups(backups.backups) ?? t("database.info_no_backup")}
+                />
             </span>
         </OptionCardSection>
     );
