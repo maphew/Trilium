@@ -109,6 +109,30 @@ body.mobile .modal.options-dialog.mobile-master-detail {
         .dropdown-menu.static {
             padding-block: 0;
         }
+
+        /* A page in this list is somewhere to go rather than a line of a menu: it is given a
+           thumb's worth of height and its name carries a little more weight. The padding is a
+           floor under a name that wraps, held in `em` so it keeps up with the reading size; the
+           row itself is centred, so on one line the height is all that is felt. */
+        .dropdown-item {
+            min-height: 40px;
+            --menu-item-vertical-padding: 0.35em;
+            font-weight: 500;
+        }
+
+        /* The row centres what it holds, so the mark wants no nudge of its own: the -2px the theme
+           gives a menu item is undone here, `FormList` carrying no `tn-dropdown-menu` class to take
+           the theme's own zero. `line-height` boxes the glyph so the centring lands on the mark
+           rather than on the leading around it. */
+        .dropdown-item .tn-icon {
+            --menu-item-icon-vert-offset: 0;
+            /* Half of the 8px wanted between the mark and the name: `FormListItem` writes an
+               `&nbsp;` after the icon, which merges into the name's own text run and so can be
+               neither selected nor removed from here. It stands for the other half. */
+            margin-inline-end: 4px;
+            font-size: 1.4em;
+            line-height: 1;
+        }
     }
 
     /* Held to the same margin whatever the page: its own is a desktop measure, and in the old

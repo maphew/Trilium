@@ -185,7 +185,7 @@ body[dir=rtl] .tn-card-option::after {
     /* On a narrow card the name reads as a field label, set apart by weight rather than by size.
        Every row gets it, or a card would mix two kinds of label between its rows. */
     .tn-card-option-title {
-        font-weight: 600;
+        font-weight: 500;
     }
 
     /* Set here rather than on the card, which a query cannot reach from inside itself. Half the
