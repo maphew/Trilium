@@ -142,6 +142,7 @@ export default class CollapsibleEditing extends Plugin {
         this.registerBodyPlaceholder();
         this.registerKeyHandlers();
         this.registerMergeGuard();
+        this.registerHiddenMergeReveal();
         this.registerClickHandler();
         this.registerDomListeners();
         this.registerPostFixers();
@@ -856,6 +857,46 @@ export default class CollapsibleEditing extends Plugin {
             const details = range.end.findAncestor("details");
             if (!details || range.start.getAncestors().includes(details)) return;
             args[1] = { ...options, leaveUnmerged: true };
+        }, { priority: "high" });
+    }
+
+    /**
+     * Expand a collapsed collapsible that a deletion is about to merge content into.
+     *
+     * Backspace at the start of the line below a closed block merges that line into the
+     * last body block, which is hidden: the text leaves the screen with no sign of where
+     * it went. Opening the block first keeps the result in view. The expansion runs on the
+     * deletion's own batch, so a single Ctrl+Z takes back both the merge and the reveal —
+     * the same reasoning as the mid-title split in
+     * {@link CollapsibleEditing#onEnterInSummary}.
+     *
+     * Scoped to deletions that actually carry something in. A blank line below the block
+     * merges nothing, so it is removed with the block left closed, and Backspace on a blank
+     * line keeps meaning "drop this line" rather than "open the block below".
+     *
+     * Registered after {@link CollapsibleEditing#registerMergeGuard} so it sees the options
+     * that guard rewrites: `leaveUnmerged` means nothing is folded in and nothing needs
+     * revealing.
+     */
+    private registerHiddenMergeReveal() {
+        this.listenTo(this.editor.model, "deleteContent", (_evt, args: any[]) => {
+            const [selection, options] = args;
+            if (options?.leaveUnmerged) return;
+            const range = selection.getFirstRange();
+            /* v8 ignore next -- deleteContent bails on a collapsed selection before this fires */
+            if (!range) return;
+            // Content is folded in only when the range starts inside a collapsible and ends
+            // outside it — the direction CKEditor merges left.
+            const details = range.start.findAncestor("details");
+            if (!details || this.isDetailsOpen(details)) return;
+            if (range.end.getAncestors().includes(details)) return;
+            // Whatever trails the range's end is what gets carried across. Nothing trailing,
+            // nothing to see.
+            if (range.end.isAtEnd) return;
+
+            // A nested change joins the batch already open around `deleteContent`, keeping
+            // the reveal on the same undo step as the merge.
+            this.editor.model.change(writer => writer.setAttribute(OPEN_ATTRIBUTE, true, details));
         }, { priority: "high" });
     }
 

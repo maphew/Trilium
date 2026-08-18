@@ -283,16 +283,69 @@ describe("collapsible: deleting across the boundary", () => {
             expect(renderedCollapsible()).toEqual({ title: "Title", body: "onetwo" });
         });
 
-        it("merges a line that has content instead of dropping the body", async () => {
+        it("expands the block when the line below it has content to merge in", async () => {
             setModelData(editor.model, `${CLOSED}<paragraph>[]after</paragraph>`);
             editor.editing.view.focus();
 
             await userEvent.keyboard("{Backspace}");
 
+            // Merging "after" into a hidden block would take it off screen with no sign of
+            // where it went, so the collapsible opens and the result stays in view.
             expect(getModelData(editor.model)).toBe(
-                "<details><summary>Title[]</summary>" +
-                    "<paragraph>one</paragraph><paragraph>twoafter</paragraph>" +
+                "<details open=\"true\"><summary>Title</summary>" +
+                    "<paragraph>one</paragraph><paragraph>two[]after</paragraph>" +
                 "</details>"
+            );
+            expect(renderedCollapsible()).toEqual({ title: "Title", body: "onetwoafter" });
+        });
+
+        it("takes back the merge and the reveal on one undo", async () => {
+            setModelData(editor.model, `${CLOSED}<paragraph>[]after</paragraph>`);
+            editor.editing.view.focus();
+
+            await userEvent.keyboard("{Backspace}");
+            editor.execute("undo");
+
+            // The reveal rides the deletion's batch, so the block is collapsed again rather
+            // than left open over restored content.
+            expect(getModelData(editor.model)).toBe(
+                `<details><summary>Title[]</summary>${BODY}</details><paragraph>after</paragraph>`
+            );
+        });
+
+        it("expands a nested collapsed block that content merges into", async () => {
+            setModelData(editor.model,
+                "<details open=\"true\"><summary>Outer</summary>" +
+                    `<details><summary>Inner</summary>${BODY}</details>` +
+                    "<paragraph>[]x</paragraph>" +
+                "</details>");
+            editor.editing.view.focus();
+
+            await userEvent.keyboard("{Backspace}");
+
+            expect(getModelData(editor.model)).toBe(
+                "<details open=\"true\"><summary>Outer</summary>" +
+                    "<details open=\"true\"><summary>Inner</summary>" +
+                        "<paragraph>one</paragraph><paragraph>two[]x</paragraph>" +
+                    "</details>" +
+                "</details>"
+            );
+        });
+
+        it("leaves the block closed when the merge guard cancels the merge", () => {
+            // The range runs out of one collapsed block and into the next, so the guard sets
+            // `leaveUnmerged` and nothing is folded into the first — there is nothing to reveal.
+            setModelData(editor.model,
+                "<details><summary>A</summary><paragraph>[x</paragraph></details>" +
+                "<details><summary>B</summary><paragraph>y]z</paragraph></details>");
+
+            fireDeleteSelection(editor.model.document.selection.getFirstRange());
+
+            // A keeps its collapsed state; the caret lands in its title because the emptied
+            // body is hidden. B's title went with the selected range, as it always has.
+            expect(getModelData(editor.model)).toBe(
+                "<details><summary>A[]</summary><paragraph></paragraph></details>" +
+                "<details><summary></summary><paragraph>z</paragraph></details>"
             );
         });
 
