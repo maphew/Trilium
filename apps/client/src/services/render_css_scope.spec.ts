@@ -67,4 +67,22 @@ describe("scopeRenderNoteCss", () => {
         expect(scope(".a { color: red")).toBe(`${OPEN} .a { color: red} }`);
         expect(scope("body { color: red } .b {")).toBe(`${OPEN} :scope { color: red } .b {} }`);
     });
+
+    // The regression this exists to prevent: the note's rules must reach its own container and
+    // nothing else, even though the <style> lives in the application's document.
+    it("applies to the note's container and leaves the surrounding document alone", () => {
+        document.body.innerHTML = `
+            <p id="outside">outside</p>
+            <div class="${RENDER_SCOPE_CLASS}"><p id="inside">inside</p></div>
+        `;
+        const style = document.createElement("style");
+        style.textContent = scopeRenderNoteCss("body { max-width: 980px } p { color: rgb(255, 0, 0) }");
+        document.querySelector(`.${RENDER_SCOPE_CLASS}`)?.appendChild(style);
+
+        const computed = (selector: string) => getComputedStyle(document.querySelector(selector) as Element);
+        expect(computed(`.${RENDER_SCOPE_CLASS}`).maxWidth).toBe("980px");
+        expect(computed("#inside").color).toBe("rgb(255, 0, 0)");
+        expect(getComputedStyle(document.body).maxWidth).not.toBe("980px");
+        expect(computed("#outside").color).not.toBe("rgb(255, 0, 0)");
+    });
 });
