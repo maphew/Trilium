@@ -4,12 +4,12 @@ import type { SpaceUsageNoteResponse } from "@triliumnext/commons";
 import { Fragment } from "preact";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 
-import froca from "../../../../../services/froca";
-import { t } from "../../../../../services/i18n";
-import { formatSize } from "../../../../../services/utils";
-import ActionButton from "../../../../react/ActionButton";
-import type { DonutRing } from "../../../../react/charts/DonutChart";
-import { useFetch } from "../../../../react/use_fetch";
+import froca from "../../../services/froca";
+import { t } from "../../../services/i18n";
+import { formatSize } from "../../../services/utils";
+import ActionButton from "../../react/ActionButton";
+import type { DonutRing } from "../../react/charts/DonutChart";
+import { useFetch } from "../../react/use_fetch";
 import { type ContentChangedHandler, openSpaceUsageContextMenu } from "./context_menu";
 import { buildChildrenSegments, type UsageSegmentData } from "./donut_segments";
 import { deletedEntitiesLabel } from "./labels";

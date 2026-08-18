@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
     t: vi.fn((key: string) => key)
 }));
 
-vi.mock("../../../../../services/i18n", () => ({ t: mocks.t }));
+vi.mock("../../../services/i18n", () => ({ t: mocks.t }));
 
 import { deletedEntitiesLabel } from "./labels";
 

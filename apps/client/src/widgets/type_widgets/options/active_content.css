@@ -1,3 +1,15 @@
+/* One scrolling list of every category rather than a stack of cards: the page spans the pane, and
+   its single block needs no space after it. Full width: the split resolves the cap for tabs, the
+   header inner for the settings dialog. */
+.note-split.options:has(.active-content-toolbar),
+.note-detail-content-widget-content:has(.active-content-toolbar) {
+    --options-card-max-width: 100%;
+}
+
+.note-detail-content-widget-content.options:has(.active-content-toolbar) > *:not(.options-page-header) {
+    margin-bottom: 0;
+}
+
 /* Lives in the sticky page header, which supplies its own spacing. */
 .active-content-toolbar {
     display: flex;
@@ -70,3 +82,8 @@
     opacity: 0.7;
 }
 
+/* Reads as secondary to the page title above it. Set on the buttons, which carry their own font
+   size and so would not inherit one from the group. */
+.active-content-view-choice button {
+    font-size: 0.85em;
+}

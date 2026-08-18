@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
     saved: [] as [ string, string ][]
 }));
 
-vi.mock("../../../../services/i18n", () => ({ t: (key: string) => key }));
+vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
 
 /*
  * The data layer is stubbed out: what each category holds, and whether a note counts as enabled, is
@@ -22,7 +22,7 @@ vi.mock("../../../../services/i18n", () => ({ t: (key: string) => key }));
  * covers. What is left here — and what these cases are about — is which of the page's states is
  * shown for a given answer.
  */
-vi.mock("../../../../services/active_content", () => ({
+vi.mock("../../../services/active_content", () => ({
     CONTENT_CATEGORIES: [
         { id: "templates", titleKey: "content_manager.category_templates", filter: "#template" },
         { id: "scripts", titleKey: "content_manager.category_scripts", filter: "#run" }
@@ -46,7 +46,7 @@ vi.mock("../../../../services/active_content", () => ({
  * hooks that draw each row's detail and its menu, so the stub calls them the way the real list does.
  * A row's note is only ever read for its id here, the rest being this page's own business.
  */
-vi.mock("../../../collections/legacy/ListOrGridView", () => {
+vi.mock("../../collections/legacy/ListOrGridView", () => {
     // One object per id, kept: a row re-reads its setting whenever the note it was handed changes,
     // and a fresh object each render would look like a different note every time.
     const notes = new Map<string, { noteId: string }>();
@@ -77,7 +77,7 @@ vi.mock("../../../collections/legacy/ListOrGridView", () => {
 });
 
 // The row menu reaches for the tab manager as it opens a note; nothing here presses it.
-vi.mock("../../../../components/app_context", () => ({
+vi.mock("../../../components/app_context", () => ({
     default: {
         tabManager: {
             openContextWithNote: vi.fn(),
@@ -87,12 +87,12 @@ vi.mock("../../../../components/app_context", () => ({
     }
 }));
 
-vi.mock("../components/OptionsPageHeader", () => ({
+vi.mock("./components/OptionsPageHeader", () => ({
     default: ({ below }: { below?: preact.ComponentChildren }) => <div className="header-stub">{below}</div>
 }));
 
-vi.mock("../../../react/hooks", async (importOriginal) => ({
-    ...(await importOriginal<typeof import("../../../react/hooks")>()),
+vi.mock("../../react/hooks", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../react/hooks")>()),
     useTriliumOption: (name: string) => [
         mocks.stored[name] ?? "",
         (value: string) => void mocks.saved.push([ name, value ])
@@ -102,7 +102,7 @@ vi.mock("../../../react/hooks", async (importOriginal) => ({
 import ActiveContent from "./active_content";
 
 /** Only the fields the page itself reads; the rest of a type widget's props are the host's business. */
-const PAGE_PROPS = { note: { noteId: "_optionsContentManager" }, sectionSwitcher: null } as unknown as ComponentProps<typeof ActiveContent>;
+const PAGE_PROPS = { note: { noteId: "_optionsContentManager" } } as unknown as ComponentProps<typeof ActiveContent>;
 
 let host: HTMLElement;
 
@@ -239,7 +239,7 @@ describe("arranging the same items another way", () => {
     it("writes the chosen arrangement back, so the page opens the same way next time", async () => {
         await open();
 
-        const [ , location ] = [ ...host.querySelectorAll<HTMLElement>(".content-manager-view-choice button") ];
+        const [ , location ] = [ ...host.querySelectorAll<HTMLElement>(".active-content-view-choice button") ];
         await act(async () => location?.click());
 
         expect(mocks.saved).toContainEqual([ "contentManagerViewMode", "location" ]);

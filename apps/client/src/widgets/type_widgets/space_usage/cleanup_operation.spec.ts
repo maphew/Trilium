@@ -28,11 +28,11 @@ const mocks = vi.hoisted(() => ({
     get: vi.fn()
 }));
 
-vi.mock("../../../../../services/options", () => ({ default: { getInt: mocks.getInt, is: mocks.is } }));
+vi.mock("../../../services/options", () => ({ default: { getInt: mocks.getInt, is: mocks.is } }));
 // The run reaches for the long-timeout variants throughout: every request it makes is a
 // whole-database operation. The timeout itself is dropped here, leaving (url, data) as the calls
 // under test.
-vi.mock("../../../../../services/server", () => ({
+vi.mock("../../../services/server", () => ({
     default: {
         // The whole-database operations reach for the long-timeout variants; recording the outcome
         // is an ordinary write and keeps the default. Both funnel here, so the assertions below read
@@ -49,13 +49,13 @@ vi.mock("../../../../../services/server", () => ({
 
 // The compression step is followed over the websocket rather than answered by the request, so the
 // socket is where its counting has to be driven from.
-vi.mock("../../../../../services/ws", () => ({
+vi.mock("../../../services/ws", () => ({
     subscribeToMessages: (listener: (message: unknown) => void) => void mocks.listeners.push(listener),
     unsubscribeToMessage: (listener: (message: unknown) => void) =>
         void mocks.listeners.splice(mocks.listeners.indexOf(listener), 1)
 }));
 
-import type { ImageCompressionToolOptions } from "../../../../dialogs/image_compression/image_compression_options";
+import type { ImageCompressionToolOptions } from "../../dialogs/image_compression/image_compression_options";
 import {
     type CleanupPhase,
     type CleanupProgress,

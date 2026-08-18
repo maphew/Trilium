@@ -1,18 +1,18 @@
-import appContext from "../../../../../components/app_context";
-import type FNote from "../../../../../entities/fnote";
+import appContext from "../../../components/app_context";
+import type FNote from "../../../entities/fnote";
 import contextMenu, {
     type ContextMenuEvent,
     type MenuItem
-} from "../../../../../menus/context_menu";
-import branches from "../../../../../services/branches";
-import dialog from "../../../../../services/dialog";
-import froca from "../../../../../services/froca";
-import { t } from "../../../../../services/i18n";
-import { downloadFileNote } from "../../../../../services/open";
-import options from "../../../../../services/options";
-import server from "../../../../../services/server";
-import toast from "../../../../../services/toast";
-import { showImageCompressionDialog } from "../../../../dialogs/image_compression/image_compression_dialog";
+} from "../../../menus/context_menu";
+import branches from "../../../services/branches";
+import dialog from "../../../services/dialog";
+import froca from "../../../services/froca";
+import { t } from "../../../services/i18n";
+import { downloadFileNote } from "../../../services/open";
+import options from "../../../services/options";
+import server from "../../../services/server";
+import toast from "../../../services/toast";
+import { showImageCompressionDialog } from "../../dialogs/image_compression/image_compression_dialog";
 
 const ROOT_NOTE_ID = "root";
 

@@ -1,6 +1,6 @@
 import type { SpaceUsageDeletedNotes } from "@triliumnext/commons";
 
-import { t } from "../../../../../services/i18n";
+import { t } from "../../../services/i18n";
 
 /**
  * "0 deleted notes, 2 deleted attachments" — what the deleted bucket's size is actually spread over.

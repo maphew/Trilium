@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
     contentChanged: vi.fn()
 }));
 
-vi.mock("../../../../../components/app_context", () => ({
+vi.mock("../../../components/app_context", () => ({
     default: {
         triggerCommand: mocks.triggerCommand,
         tabManager: { getActiveContext: () => null }
@@ -28,12 +28,12 @@ vi.mock("./context_menu", async (importOriginal) => ({
 
 // The treemap container never gets a real layout under happy-dom; the rest of the hooks are the
 // real ones.
-vi.mock("../../../../react/hooks", async (importOriginal) => ({
-    ...await importOriginal<typeof import("../../../../react/hooks")>(),
+vi.mock("../../react/hooks", async (importOriginal) => ({
+    ...await importOriginal<typeof import("../../react/hooks")>(),
     useElementSize: () => ({ width: 400, height: 300 })
 }));
 
-vi.mock("../../../../../services/froca", () => ({
+vi.mock("../../../services/froca", () => ({
     default: {
         getNotes: async (noteIds: string[]) =>
             noteIds.map((noteId) => ({ noteId, getIcon: () => `tn-icon bx bx-${noteId}` }))

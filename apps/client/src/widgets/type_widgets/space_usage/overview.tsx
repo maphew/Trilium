@@ -1,10 +1,10 @@
 import type { SpaceUsageOverviewResponse } from "@triliumnext/commons";
 import { useEffect, useMemo, useState } from "preact/hooks";
 
-import froca from "../../../../../services/froca";
-import { t } from "../../../../../services/i18n";
-import { formatSize } from "../../../../../services/utils";
-import Treemap, { type TreemapItem } from "../../../../react/charts/Treemap";
+import froca from "../../../services/froca";
+import { t } from "../../../services/i18n";
+import { formatSize } from "../../../services/utils";
+import Treemap, { type TreemapItem } from "../../react/charts/Treemap";
 import {
     type ContentChangedHandler,
     openDeletedNotesContextMenu,

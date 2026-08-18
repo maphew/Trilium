@@ -7,10 +7,10 @@ import { useMemo } from "preact/hooks";
 import type React from "react";
 import { Trans } from "react-i18next";
 
-import { t } from "../../../../../services/i18n";
-import { formatSize } from "../../../../../services/utils";
-import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart";
-import ContextualHelp from "../../../../react/ContextualHelp";
+import { t } from "../../../services/i18n";
+import { formatSize } from "../../../services/utils";
+import DonutChart, { type DonutRing } from "../../react/charts/DonutChart";
+import ContextualHelp from "../../react/ContextualHelp";
 import { quickEditAttachment, quickEditNote } from "./context_menu";
 import {
     buildCompositionSegments,

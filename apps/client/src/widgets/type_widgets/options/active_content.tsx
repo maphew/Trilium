@@ -2,8 +2,8 @@ import "./active_content.css";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import appContext from "../../../../components/app_context";
-import type FNote from "../../../../entities/fnote";
+import appContext from "../../../components/app_context";
+import type FNote from "../../../entities/fnote";
 import {
     buildLocationTree,
     CONTENT_CATEGORIES,
@@ -15,23 +15,23 @@ import {
     type LocationNode,
     resolveProperties,
     setCategoryEnabled
-} from "../../../../services/active_content";
-import attributeService from "../../../../services/attributes";
-import branches from "../../../../services/branches";
-import debounce from "../../../../services/debounce";
-import { t } from "../../../../services/i18n";
-import { isMobile } from "../../../../services/utils";
-import { ListView, type ListViewOptions } from "../../../collections/legacy/ListOrGridView";
-import { Badge } from "../../../react/Badge";
-import Dropdown from "../../../react/Dropdown";
-import { FormListItem } from "../../../react/FormList";
-import FormTextBox from "../../../react/FormTextBox";
-import FormToggle from "../../../react/FormToggle";
-import { useTriliumEvent, useTriliumOption } from "../../../react/hooks";
-import NoItems from "../../../react/NoItems";
-import SegmentedChoice from "../../../react/SegmentedChoice";
-import OptionsPageHeader from "../components/OptionsPageHeader";
-import type { ContentManagerSectionProps } from "./index";
+} from "../../../services/active_content";
+import attributeService from "../../../services/attributes";
+import branches from "../../../services/branches";
+import debounce from "../../../services/debounce";
+import { t } from "../../../services/i18n";
+import { isMobile } from "../../../services/utils";
+import { ListView, type ListViewOptions } from "../../collections/legacy/ListOrGridView";
+import { Badge } from "../../react/Badge";
+import Dropdown from "../../react/Dropdown";
+import { FormListItem } from "../../react/FormList";
+import FormTextBox from "../../react/FormTextBox";
+import FormToggle from "../../react/FormToggle";
+import { useTriliumEvent, useTriliumOption } from "../../react/hooks";
+import NoItems from "../../react/NoItems";
+import SegmentedChoice from "../../react/SegmentedChoice";
+import type { TypeWidgetProps } from "../type_widget";
+import OptionsPageHeader from "./components/OptionsPageHeader";
 
 const NOOP = () => {};
 
@@ -182,7 +182,7 @@ const LIST_OPTIONS: ListViewOptions = {
     pageSize: 50
 };
 
-export default function ActiveContent({ note, sectionSwitcher }: ContentManagerSectionProps) {
+export default function ActiveContent({ note }: TypeWidgetProps) {
     const [ sortOrder, setSortOrder ] = useTriliumOption("contentManagerSortOrder");
     const [ viewMode, setViewMode ] = useTriliumOption("contentManagerViewMode");
     const [ typedFilter, setTypedFilter ] = useState("");
@@ -214,7 +214,7 @@ export default function ActiveContent({ note, sectionSwitcher }: ContentManagerS
         <>
             {/* In the header's own row rather than the page body, so the controls stay put as the
                 list scrolls beneath them. */}
-            <OptionsPageHeader actions={sectionSwitcher} below={
+            <OptionsPageHeader below={
                 <div className="active-content-toolbar">
                     <div className="input-group active-content-filter">
                         <FormTextBox
@@ -235,7 +235,7 @@ export default function ActiveContent({ note, sectionSwitcher }: ContentManagerS
                     </div>
                     <span className="active-content-toolbar-label">{t("content_manager.view_mode")}</span>
                     <SegmentedChoice
-                        className="content-manager-view-choice"
+                        className="active-content-view-choice"
                         options={VIEW_MODES}
                         currentValue={viewMode}
                         onChange={(newValue) => void setViewMode(newValue)}

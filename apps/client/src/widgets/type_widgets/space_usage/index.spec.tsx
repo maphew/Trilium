@@ -1,21 +1,21 @@
 import type { SpaceUsageOverviewResponse } from "@triliumnext/commons";
-import { type ComponentChildren, render } from "preact";
+import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { t } from "../../../../../services/i18n";
-import { formatSize } from "../../../../../services/utils";
+import { t } from "../../../services/i18n";
+import { formatSize } from "../../../services/utils";
 
 const mocks = vi.hoisted(() => ({
     overview: undefined as unknown,
     failed: false,
     loading: false,
-    /** The token the section last asked each view to measure at. */
+    /** The token the page last asked each view to measure at. */
     overviewToken: undefined as number | undefined,
     browseToken: undefined as number | undefined,
     reportBrowseLoading: undefined as ((loading: boolean) => void) | undefined
 }));
 
-vi.mock("../../../../react/use_fetch", () => ({
+vi.mock("../../react/use_fetch", () => ({
     useFetch: (_url: string, refreshToken: number) => {
         mocks.overviewToken = refreshToken;
         return { data: mocks.overview, failed: mocks.failed, loading: mocks.loading };
@@ -41,20 +41,7 @@ vi.mock("./overview", () => ({
     )
 }));
 
-vi.mock("../../components/OptionsPageHeader", () => ({
-    default: ({ actions, below }: { actions?: ComponentChildren, below?: ComponentChildren }) => (
-        <div className="header-stub">{actions}{below}</div>
-    )
-}));
-
-import type { ContentManagerSectionProps } from "../index";
 import SpaceUsage from "./index";
-
-// Only the switcher matters to this section; the note-context plumbing of TypeWidgetProps is the
-// shell's business and stays unused here.
-const SECTION_PROPS = {
-    sectionSwitcher: <span className="switcher-stub" />
-} as unknown as ContentManagerSectionProps;
 
 const OVERVIEW: SpaceUsageOverviewResponse = {
     content: { size: 4000, noteCount: 12, attachmentsSize: 300, revisionsSize: 200 },
@@ -68,9 +55,9 @@ const OVERVIEW: SpaceUsageOverviewResponse = {
 
 let container: HTMLDivElement | undefined;
 
-function renderSection() {
+function renderPage() {
     container = document.body.appendChild(document.createElement("div"));
-    render(<SpaceUsage {...SECTION_PROPS} />, container);
+    render(<SpaceUsage />, container);
     return container;
 }
 
@@ -92,20 +79,19 @@ afterEach(() => {
     mocks.reportBrowseLoading = undefined;
 });
 
-describe("SpaceUsage section", () => {
+describe("SpaceUsage page", () => {
     it("shows the loading state without a status line until the overview arrives", () => {
         mocks.overview = undefined;
-        const probe = renderSection();
+        const probe = renderPage();
 
         expect(probe.querySelector(".space-usage-loading")).not.toBeNull();
         expect(probe.querySelector(".space-usage-status")).toBeNull();
-        expect(probe.querySelector(".switcher-stub")).not.toBeNull();
     });
 
     it("says so when the overview could not be measured, rather than measuring on", () => {
         mocks.overview = undefined;
         mocks.failed = true;
-        const probe = renderSection();
+        const probe = renderPage();
 
         expect(probe.querySelector(".space-usage-loading")).toBeNull();
         expect(probe.querySelector(".no-items")).not.toBeNull();
@@ -113,7 +99,7 @@ describe("SpaceUsage section", () => {
 
     it("renders the overview with the two-part status line", () => {
         mocks.overview = OVERVIEW;
-        const probe = renderSection();
+        const probe = renderPage();
 
         expect(probe.querySelector(".overview-stub")).not.toBeNull();
         expect(probe.querySelector(".browse-stub")).toBeNull();
@@ -134,12 +120,12 @@ describe("SpaceUsage section", () => {
 
     it("switches to Browse and back, leaving the whole-database totals behind", async () => {
         mocks.overview = OVERVIEW;
-        const probe = renderSection();
+        const probe = renderPage();
 
         // Labels depend on the (uninitialized) test i18n; the inactive button is the other view.
         // Scoped to the view group so the refresh button beside it is never mistaken for one.
         const inactiveViewButton = () =>
-            [ ...probe.querySelectorAll<HTMLButtonElement>(".content-manager-view-choice button") ]
+            [ ...probe.querySelectorAll<HTMLButtonElement>(".space-usage-view-choice button") ]
                 .find((button) => !button.classList.contains("active"));
 
         inactiveViewButton()?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -158,7 +144,7 @@ describe("SpaceUsage section", () => {
 
     it("lands Browse on the note the map asked details for, rather than back at the root", async () => {
         mocks.overview = OVERVIEW;
-        const probe = renderSection();
+        const probe = renderPage();
 
         probe.querySelector(".overview-stub")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         await flushRender();
@@ -170,14 +156,14 @@ describe("SpaceUsage section", () => {
 
     it("asks both views for a fresh reading when refresh is pressed, and only then", async () => {
         mocks.overview = OVERVIEW;
-        const probe = renderSection();
+        const probe = renderPage();
         const refresh = () => probe.querySelector<HTMLButtonElement>(".space-usage-refresh");
 
         const initialToken = mocks.overviewToken ?? 0;
 
         // Switching views re-renders everything below; measuring must not restart because of it —
         // it is far too expensive to repeat whenever something on the page happens to change.
-        [ ...probe.querySelectorAll<HTMLButtonElement>(".content-manager-view-choice button") ][1]
+        [ ...probe.querySelectorAll<HTMLButtonElement>(".space-usage-view-choice button") ][1]
             ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         await flushRender();
         expect(mocks.overviewToken).toBe(initialToken);
@@ -195,15 +181,15 @@ describe("SpaceUsage section", () => {
         mocks.overview = OVERVIEW;
         mocks.loading = true;
 
-        expect(renderSection().querySelector<HTMLButtonElement>(".space-usage-refresh")?.disabled).toBe(true);
+        expect(renderPage().querySelector<HTMLButtonElement>(".space-usage-refresh")?.disabled).toBe(true);
     });
 
     it("keeps it out for Browse's own reading too, which it cannot see otherwise", async () => {
         mocks.overview = OVERVIEW;
-        const probe = renderSection();
+        const probe = renderPage();
         const refresh = () => probe.querySelector<HTMLButtonElement>(".space-usage-refresh");
 
-        [ ...probe.querySelectorAll<HTMLButtonElement>(".content-manager-view-choice button") ][1]
+        [ ...probe.querySelectorAll<HTMLButtonElement>(".space-usage-view-choice button") ][1]
             ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         await flushRender();
         expect(refresh()?.disabled).toBe(false);

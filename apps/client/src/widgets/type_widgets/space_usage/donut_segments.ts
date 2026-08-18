@@ -1,6 +1,6 @@
 import type { SpaceUsageNoteResponse } from "@triliumnext/commons";
 
-import type { DonutSegment } from "../../../../react/charts/DonutChart";
+import type { DonutSegment } from "../../react/charts/DonutChart";
 import { hueOf } from "./overview_model";
 
 /** What a donut segment stands for; the bucket segments ("others", "deleted") name neither. */

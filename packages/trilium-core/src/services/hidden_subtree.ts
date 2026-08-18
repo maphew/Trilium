@@ -131,6 +131,16 @@ function buildHiddenSubtreeDefinition(helpSubtree: HiddenSubtreeItem[]): HiddenS
                 ]
             },
             {
+                id: "_spaceUsage",
+                title: t("hidden-subtree.space-usage-title"),
+                type: "contentWidget",
+                icon: "bx-pie-chart-alt-2",
+                attributes: [
+                    { type: "label", name: "keepCurrentHoisting" },
+                    { type: "label", name: "fullContentWidth" }
+                ]
+            },
+            {
                 id: "_backendLog",
                 title: t("hidden-subtree.backend-log-title"),
                 type: "contentWidget",

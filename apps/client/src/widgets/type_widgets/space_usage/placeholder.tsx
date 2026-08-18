@@ -1,5 +1,5 @@
-import { t } from "../../../../../services/i18n";
-import NoItems from "../../../../react/NoItems";
+import { t } from "../../../services/i18n";
+import NoItems from "../../react/NoItems";
 
 /**
  * What a view stands in with before it has anything to draw. Measuring is the usual case; a failure

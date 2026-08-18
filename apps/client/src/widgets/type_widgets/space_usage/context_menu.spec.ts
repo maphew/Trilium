@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type FNote from "../../../../../entities/fnote";
+import type FNote from "../../../entities/fnote";
 import type {
     ContextMenuEvent,
     MenuCommandItem,
     MenuItem
-} from "../../../../../menus/context_menu";
+} from "../../../menus/context_menu";
 
 const mocks = vi.hoisted(() => ({
     shown: undefined as { items: MenuItem<never>[] } | undefined,
@@ -28,7 +28,7 @@ const mocks = vi.hoisted(() => ({
     confirm: vi.fn(async (..._args: unknown[]) => true)
 }));
 
-vi.mock("../../../../../menus/context_menu", () => ({
+vi.mock("../../../menus/context_menu", () => ({
     default: {
         show: async (options: { items: MenuItem<never>[] }) => {
             mocks.shown = options;
@@ -36,7 +36,7 @@ vi.mock("../../../../../menus/context_menu", () => ({
     }
 }));
 
-vi.mock("../../../../../services/froca", () => ({
+vi.mock("../../../services/froca", () => ({
     default: {
         getNote: async (noteId: string) => mocks.notes.get(noteId) ?? null,
         getBranchId: async (parentNoteId: string, noteId: string) =>
@@ -44,37 +44,37 @@ vi.mock("../../../../../services/froca", () => ({
     }
 }));
 
-vi.mock("../../../../../services/branches", () => ({
+vi.mock("../../../services/branches", () => ({
     default: { deleteNotes: (...args: unknown[]) => mocks.deleteNotes(...args) }
 }));
 
-vi.mock("../../../../../services/open", () => ({
+vi.mock("../../../services/open", () => ({
     downloadFileNote: (...args: unknown[]) => mocks.downloadFileNote(...args)
 }));
 
-vi.mock("../../../../../services/server", () => ({
+vi.mock("../../../services/server", () => ({
     default: { post: (...args: unknown[]) => mocks.post(...args) }
 }));
 
 // Stubbed rather than rendered: what belongs here is that the menu opens it, and the dialog's own
 // spec covers what it then does.
-vi.mock("../../../../dialogs/image_compression/image_compression_dialog", () => ({
+vi.mock("../../dialogs/image_compression/image_compression_dialog", () => ({
     showImageCompressionDialog: (...args: unknown[]) => mocks.showCompressionDialog(...args)
 }));
 
-vi.mock("../../../../../services/toast", () => ({
+vi.mock("../../../services/toast", () => ({
     default: { showMessage: (...args: unknown[]) => mocks.showMessage(...args) }
 }));
 
-vi.mock("../../../../../services/options", () => ({
+vi.mock("../../../services/options", () => ({
     default: { getInt: () => mocks.revisionLimit }
 }));
 
-vi.mock("../../../../../services/dialog", () => ({
+vi.mock("../../../services/dialog", () => ({
     default: { confirm: (...args: unknown[]) => mocks.confirm(...args) }
 }));
 
-vi.mock("../../../../../components/app_context", () => ({
+vi.mock("../../../components/app_context", () => ({
     default: {
         triggerCommand: mocks.triggerCommand,
         tabManager: {

@@ -12,9 +12,10 @@ import { useCallback, useEffect, useState } from "preact/hooks";
 import type React from "react";
 import { Trans } from "react-i18next";
 
+import appContext from "../../../components/app_context";
 import { isBackupDownloadSupported } from "../../../services/backup_download";
 import { summarizeBackups } from "../../../services/database_files";
-import dialogService from "../../../services/dialog";
+import dialogService, { closeActiveDialog } from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import {
@@ -30,13 +31,11 @@ import Admonition from "../../react/Admonition";
 import Button from "../../react/Button";
 import { Card, OptionCardSection } from "../../react/Card";
 import DirectoryLink, { FileLink } from "../../react/DirectoryLink";
-import { useNoteContext } from "../../react/hooks";
 import { useFetch } from "../../react/use_fetch";
+import { showCleanupDialog } from "../space_usage/cleanup_dialog";
 import DatabaseFileList from "./components/DatabaseFileList";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import RelatedSettings from "./components/RelatedSettings";
-import { requestContentManagerSection } from "./content_manager";
-import { showCleanupDialog } from "./content_manager/space_usage/cleanup_dialog";
 
 /**
  * What can be done to the knowledge base as a whole, rather than to anything inside it: keeping the
@@ -177,12 +176,10 @@ const BACKUP_PAGE_LINK = "#root/_hidden/_options/_optionsBackup";
  * Keeping the database in good order: finding out what it is spent on, taking back what is no longer
  * needed, and the checks and repairs that act on the file itself rather than on what is kept in it.
  *
- * The first two hand over to the tools that do the work — the Content Manager's space usage section
- * and its cleanup dialog — which is why they are named here rather than duplicated.
+ * The first two hand over to the tools that do the work, the Space Usage page and the cleanup
+ * dialog, which is why they are named here rather than duplicated.
  */
 function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => void }) {
-    const { noteContext } = useNoteContext();
-
     return (
         <Card heading={t("database.maintenance")}>
             <OptionCardSection
@@ -214,12 +211,10 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
                     text={t("database.analyze_space_usage_button")}
                     size="micro"
                     onClick={() => {
-                        // The Content Manager opens on Active Content unless asked otherwise,
-                        // and navigating by hand rather than by link is what lets us ask first.
-                        requestContentManagerSection("spaceUsage");
-                        // Kept in whichever context this page is shown in — the settings dialog
-                        // holds a note context of its own, outside the tab manager.
-                        void noteContext?.setNote("_optionsContentManager", { keepActiveDialog: true });
+                        // A tab of its own rather than this page's context: the tool outlives the
+                        // settings that sent the user to it, so the dialog stands down first.
+                        closeActiveDialog();
+                        void appContext.triggerCommand("showSpaceUsage");
                     }}
                 />
             </OptionCardSection>
