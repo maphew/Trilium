@@ -1182,28 +1182,14 @@ export function useStaticTooltip(elRef: RefObject<Element>, config?: Partial<Too
         // own mouseleave. If that child leaves the DOM while its popup is still shown — the note
         // icon picker's virtualized grid re-keys its cells on every keystroke in the search box,
         // and does the same on scroll — no mouseleave ever fires, so the instance never hides and
-        // its popup is orphaned in `document.body` until reload (#10680). Track which delegate
-        // elements currently have a popup shown, via the container-level events Bootstrap's own
-        // component events bubble to.
+        // its popup is orphaned in `document.body` until reload (#10680). While a delegate has its
+        // popup up, watch the container for removals and put the popup away the moment its trigger
+        // is gone — the hook's own cleanup cannot be relied on, since a grid re-render driven by the
+        // grid's own state never re-runs this effect. The observer is connected only for as long
+        // as a popup is shown, so it costs nothing while the grid is merely typed into or scrolled.
         let disposeDelegateTracking = () => {};
         if (config?.selector) {
             const shownDelegates = new Set<Element>();
-            const onDelegateShown = (event: Event) => {
-                if (event.target instanceof Element && event.target !== element) {
-                    shownDelegates.add(event.target);
-                }
-            };
-            const onDelegateHidden = (event: Event) => {
-                if (event.target instanceof Element) {
-                    shownDelegates.delete(event.target);
-                }
-            };
-            element.addEventListener("inserted.bs.tooltip", onDelegateShown);
-            element.addEventListener("hidden.bs.tooltip", onDelegateHidden);
-
-            // A MutationObserver catches the removal the moment it happens, rather than
-            // depending on this hook's own cleanup running again — which a grid re-render
-            // triggered by its own state, not by `elRef`/`config` changing, never causes.
             const delegateObserver = new MutationObserver(() => {
                 for (const target of shownDelegates) {
                     if (target.isConnected) continue;
@@ -1220,8 +1206,23 @@ export function useStaticTooltip(elRef: RefObject<Element>, config?: Partial<Too
                     }
                     shownDelegates.delete(target);
                 }
+                if (!shownDelegates.size) delegateObserver.disconnect();
             });
-            delegateObserver.observe(element, { childList: true, subtree: true });
+            // Bootstrap's component events bubble from the delegate up to the container.
+            const onDelegateShown = (event: Event) => {
+                if (!(event.target instanceof Element) || event.target === element) return;
+                if (!shownDelegates.size) {
+                    delegateObserver.observe(element, { childList: true, subtree: true });
+                }
+                shownDelegates.add(event.target);
+            };
+            const onDelegateHidden = (event: Event) => {
+                if (!(event.target instanceof Element)) return;
+                shownDelegates.delete(event.target);
+                if (!shownDelegates.size) delegateObserver.disconnect();
+            };
+            element.addEventListener("inserted.bs.tooltip", onDelegateShown);
+            element.addEventListener("hidden.bs.tooltip", onDelegateHidden);
 
             disposeDelegateTracking = () => {
                 delegateObserver.disconnect();

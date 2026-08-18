@@ -171,10 +171,11 @@ describe("useStaticTooltip", () => {
         expect(document.querySelector(".tooltip"), "gone with the press").toBeNull();
     });
 
-    // Module-level (not recreated per render) on purpose: the icon picker's own container effect
-    // never re-runs when its virtualized grid re-keys a cell, so the MutationObserver #10680's fix
-    // installs has to survive across that re-render on its own — a config recreated inline, like
-    // TooltipHarness above, would re-run the effect and mask exactly what this test checks.
+    // Module-level (not recreated per render) on purpose, as the icon picker's `ICON_TOOLTIP_CONFIG`
+    // is: the container effect never re-runs when the virtualized grid re-keys a cell, so the
+    // MutationObserver #10680's fix installs has to survive across that re-render on its own — a
+    // config recreated inline, like TooltipHarness above, would re-run the effect and mask exactly
+    // what this test checks.
     const DELEGATED_CONFIG = {
         selector: "span",
         animation: false,
@@ -226,10 +227,14 @@ describe("useStaticTooltip", () => {
     });
 
     it("stops tracking a delegated tooltip that was put away normally, and leaves its instance alone", async () => {
+        const observe = vi.spyOn(MutationObserver.prototype, "observe");
+        const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
         await act(async () => render(<DelegatedTooltipHarness generation={1} />, container));
 
         const span = container.querySelector("span");
         expect(span).not.toBeNull();
+        // The container is watched only while a popup is up, not from the moment it mounts.
+        expect(observe, "not observing before anything is shown").not.toHaveBeenCalled();
 
         let instance: Tooltip | undefined;
         act(() => {
@@ -244,11 +249,16 @@ describe("useStaticTooltip", () => {
             }
         });
         expect(document.querySelector(".tooltip"), "shown").not.toBeNull();
+        expect(observe, "observing once a popup is shown").toHaveBeenCalledTimes(1);
 
         // An ordinary mouseleave-driven hide fires `hidden.bs.tooltip`, which must untrack the
         // span — otherwise the observer below would dispose an instance Bootstrap still owns.
+        disconnect.mockClear();
         act(() => instance?.hide());
         expect(document.querySelector(".tooltip"), "hidden the normal way").toBeNull();
+        expect(disconnect, "observer let go once nothing is shown").toHaveBeenCalled();
+        observe.mockRestore();
+        disconnect.mockRestore();
 
         await act(async () => render(<DelegatedTooltipHarness generation={2} />, container));
         await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
