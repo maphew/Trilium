@@ -1543,6 +1543,33 @@
                                     ]
                                 }
                             ]
+                        },
+                        {
+                            "isClone": false,
+                            "noteId": "dEpZ1pLibs4Z",
+                            "notePath": [
+                                "jdjRLhLV3TtI",
+                                "qalhAaJoQ7AN",
+                                "dEpZ1pLibs4Z"
+                            ],
+                            "title": "Compression libraries",
+                            "notePosition": 30,
+                            "prefix": null,
+                            "isExpanded": false,
+                            "type": "text",
+                            "mime": "text/html",
+                            "attributes": [
+                                {
+                                    "type": "label",
+                                    "name": "shareAlias",
+                                    "value": "compression-libraries",
+                                    "isInheritable": false,
+                                    "position": 20
+                                }
+                            ],
+                            "format": "markdown",
+                            "dataFileName": "Compression libraries.md",
+                            "attachments": []
                         }
                     ]
                 },
@@ -2769,6 +2796,34 @@
                                     "format": "markdown",
                                     "dataFileName": "Content hashing.md",
                                     "attachments": []
+                                },
+                                {
+                                    "isClone": false,
+                                    "noteId": "sYnCT0mbst1E",
+                                    "notePath": [
+                                        "jdjRLhLV3TtI",
+                                        "yeqU0zo0ZQ83",
+                                        "n9wYW9nUTynV",
+                                        "sYnCT0mbst1E"
+                                    ],
+                                    "title": "Entity change tombstones",
+                                    "notePosition": 20,
+                                    "prefix": null,
+                                    "isExpanded": false,
+                                    "type": "text",
+                                    "mime": "text/html",
+                                    "attributes": [
+                                        {
+                                            "type": "label",
+                                            "name": "shareAlias",
+                                            "value": "entity-change-tombstones",
+                                            "isInheritable": false,
+                                            "position": 20
+                                        }
+                                    ],
+                                    "format": "markdown",
+                                    "dataFileName": "Entity change tombstones.md",
+                                    "attachments": []
                                 }
                             ]
                         },
@@ -2961,6 +3016,33 @@
                             ],
                             "format": "markdown",
                             "dataFileName": "Error [TransformError] The package @esbuildlinux-x64 could not be found, and is needed by esbuild.md",
+                            "attachments": []
+                        },
+                        {
+                            "isClone": false,
+                            "noteId": "trBshtRcNt5X",
+                            "notePath": [
+                                "jdjRLhLV3TtI",
+                                "YjerxU7Aii8X",
+                                "trBshtRcNt5X"
+                            ],
+                            "title": "A note is listed in Recent Changes but missing from the tree",
+                            "notePosition": 30,
+                            "prefix": null,
+                            "isExpanded": false,
+                            "type": "text",
+                            "mime": "text/html",
+                            "attributes": [
+                                {
+                                    "type": "label",
+                                    "name": "shareAlias",
+                                    "value": "recent-changes-missing-note",
+                                    "isInheritable": false,
+                                    "position": 20
+                                }
+                            ],
+                            "format": "markdown",
+                            "dataFileName": "A note is listed in Recent Changes but missing from the tree.md",
                             "attachments": []
                         }
                     ]
