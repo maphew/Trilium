@@ -1770,7 +1770,7 @@
     "analyze_space_usage": "Analyze space usage",
     "analyze_space_usage_description": "Identify which notes take up the most space, and get a clearer picture of how large your notes are.",
     "analyze_space_usage_button": "Analyze",
-    "cleanup": "Perform a cleanup",
+    "cleanup": "Clean up the database",
     "cleanup_description": "Erase deleted notes and attachments, trim revision snapshots and compress images to keep the database slim.",
     "start_over_description": "Switch to a new blank database, start again syncing with a new server or restore a backup. You will be prompted to backup your data before discarding the existing data.",
     "start_over": "Start over",
@@ -3436,9 +3436,7 @@
   },
   "settings": {
     "related_settings": "Related settings",
-    "related_actions": "Related actions",
-    "related_space_usage": "Analyze the space usage within the database",
-    "related_space_usage_description": "See which notes, revisions and attachments take up the most space, and reclaim it."
+    "related_actions": "Related actions"
   },
   "settings_appearance": {
     "related_code_blocks": "Color scheme for code blocks in text notes",

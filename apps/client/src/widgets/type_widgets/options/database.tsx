@@ -48,8 +48,8 @@ import RelatedSettings from "./components/RelatedSettings";
  */
 export default function DatabaseSettings() {
     const startOverState = useStartOver();
-    // Maintenance is what changes the figures the card above it states — a rebuild its size, a
-    // cleanup what it holds — so they are read again afterwards rather than left as they were.
+    // The space and maintenance actions change what `DatabaseInfo` states, so bumping this token
+    // makes it read the figures again.
     const [ infoToken, setInfoToken ] = useState(0);
     const refreshInfo = useCallback(() => setInfoToken((token) => token + 1), []);
 
@@ -75,6 +75,7 @@ export default function DatabaseSettings() {
             )}
 
             <DatabaseInfo refreshToken={infoToken} />
+            <SpaceOptions onDatabaseChanged={refreshInfo} />
             <MaintenanceOptions onDatabaseChanged={refreshInfo} />
             <StartOverOption state={startOverState} />
             {/* An anonymized copy is a file written beside the database and handed to someone else.
@@ -175,35 +176,16 @@ function BackupStanding({ refreshToken }: { refreshToken: number }) {
 const BACKUP_PAGE_LINK = "#root/_hidden/_options/_optionsBackup";
 
 /**
- * Keeping the database in good order: finding out what it is spent on, taking back what is no longer
- * needed, and the checks and repairs that act on the file itself rather than on what is kept in it.
+ * Entry points to the two space tools: the Space Usage page reports where the space went, and
+ * `showCleanupDialog()` reclaims it. Analysis comes first because it informs the cleanup.
  *
- * The first two hand over to the tools that do the work, the Space Usage page and the cleanup
- * dialog, which is why they are named here rather than duplicated.
+ * Headingless, since it continues the figures in `DatabaseInfo`. It is a separate card because
+ * `DatabaseInfo` renders nothing until `database/info` resolves, and these actions must stay
+ * available when that request is slow or fails.
  */
-function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => void }) {
+function SpaceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => void }) {
     return (
-        <Card heading={t("database.maintenance")}>
-            <OptionCardSection
-                label={t("database.cleanup")}
-                description={t("database.cleanup_description")}
-            >
-                {/* Named after the tool it opens, so the button and the dialog's own heading
-                    cannot come to say different things. */}
-                <Button
-                    name="cleanup-button"
-                    text={t("space_usage.cleanup_title")}
-                    size="micro"
-                    onClick={() => void showCleanupDialog().then((reclaimed) => {
-                        // Erasing frees pages inside the file rather than shrinking it, so what
-                        // the card above has to re-read is what the database holds.
-                        if (reclaimed !== null) {
-                            onDatabaseChanged();
-                        }
-                    })}
-                />
-            </OptionCardSection>
-
+        <Card className="database-space">
             <OptionCardSection
                 label={t("database.analyze_space_usage")}
                 description={t("database.analyze_space_usage_description")}
@@ -213,14 +195,46 @@ function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => vo
                     text={t("database.analyze_space_usage_button")}
                     size="micro"
                     onClick={() => {
-                        // A tab of its own rather than this page's context: the tool outlives the
-                        // settings that sent the user to it, so the dialog stands down first.
+                        // Space Usage opens in its own tab, so close the options dialog first;
+                        // it would otherwise cover the tab.
                         closeActiveDialog();
                         void appContext.triggerCommand("showSpaceUsage");
                     }}
                 />
             </OptionCardSection>
 
+            <OptionCardSection
+                label={t("database.cleanup")}
+                description={t("database.cleanup_description")}
+            >
+                {/* Reuses the dialog's own title so the two cannot disagree. */}
+                <Button
+                    name="cleanup-button"
+                    text={t("space_usage.cleanup_title")}
+                    size="micro"
+                    onClick={() => void showCleanupDialog().then((reclaimed) => {
+                        // Erasing changes the note and attachment counts, so `DatabaseInfo`
+                        // reads them again.
+                        if (reclaimed !== null) {
+                            onDatabaseChanged();
+                        }
+                    })}
+                />
+            </OptionCardSection>
+        </Card>
+    );
+}
+
+/**
+ * Repairs that act on the database file rather than on its contents: consistency checks, SQLite's
+ * `integrity_check`, and `VACUUM`.
+ *
+ * These are troubleshooting tools, so they sit below `SpaceOptions`, which holds the actions most
+ * users come to this page for.
+ */
+function MaintenanceOptions({ onDatabaseChanged }: { onDatabaseChanged: () => void }) {
+    return (
+        <Card heading={t("database.maintenance")}>
             <OptionCardSection
                 label={t("consistency_checks.find_and_fix_label")}
                 description={t("consistency_checks.find_and_fix_description")}
