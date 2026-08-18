@@ -223,6 +223,34 @@ describe("reporting the document as modified", () => {
         expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(1);
     });
 
+    it("treats a document that cannot be serialized as unchanged, then catches up", async () => {
+        viewer = await installViewerApp(allFeaturesPdf());
+        const storage = viewer.pdfDocument.annotationStorage as any;
+        // pdf.js stores an editor before it is finished: "Add signature" leaves one with no
+        // outlines in annotationStorage until the dialog resolves, and serializing it throws.
+        // That is a state pdf.js passes through, not a change to report — and not a reason to
+        // let the throw out of the storage hook, or out of the setup, either.
+        const serializable = vi.spyOn(storage, "serializable", "get").mockImplementation(() => {
+            throw new Error("outlines are not set yet");
+        });
+        expect(() => manageSave()).not.toThrow();
+
+        expect(() => storage.setValue("sig-1", { value: "pending" })).not.toThrow();
+        viewer.eventBus.dispatch("switchannotationeditorparams", { source: null });
+        expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(0);
+
+        // The interaction nudges still report blind, and cope with the same state.
+        startEditing();
+        renderPage().dispatchEvent(new Event("keyup", { bubbles: true }));
+        expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(1);
+
+        // Once the editor is complete the document serializes again, and the change it made is
+        // reported against the last hash that could be read — not swallowed.
+        serializable.mockRestore();
+        storage.setValue("sig-1", { value: "signed" });
+        expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(2);
+    });
+
     it("stays quiet when a tool's parameters leave the document alone", async () => {
         viewer = await installViewerApp(allFeaturesPdf());
         manageSave();

@@ -142,7 +142,7 @@ export function manageSave() {
      */
     function serializedHash(): string | null {
         try {
-            return (storage as any)?.serializable?.hash ?? "";
+            return (storage as any).serializable.hash;
         } catch {
             return null;
         }
@@ -155,7 +155,6 @@ export function manageSave() {
      * extended one has to be passed on blind.
      */
     function onChange() {
-        if (!storage) return;
         reportedHash = serializedHash() ?? reportedHash;
         storage.resetModified();
         announceModified();
@@ -176,7 +175,6 @@ export function manageSave() {
      * registration order.
      */
     function reportIfChanged() {
-        if (!storage) return;
         // Cleared whether or not this turns into an announcement: pdf.js raises the storage hook
         // once per dirtying, so a flag left set would swallow the next real change.
         storage.resetModified();

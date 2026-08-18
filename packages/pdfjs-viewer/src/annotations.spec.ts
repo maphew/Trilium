@@ -243,7 +243,9 @@ describe("extraction from a real document", () => {
                 [ "pdfjs_internal_editor_0", { annotationType: 9, id: null, pageIndex: 2, color: [ 255, 255, 152 ] } ],
                 [ "pdfjs_internal_editor_1", { annotationType: 3, id: null, pageIndex: 0, color: [ 0, 0, 0 ], value: "typed words" } ],
                 // An existing annotation being edited: already listed from the document.
-                [ "pdfjs_internal_editor_2", { annotationType: 9, id: "5R", pageIndex: 0, color: [ 0, 255, 0 ] } ]
+                [ "pdfjs_internal_editor_2", { annotationType: 9, id: "5R", pageIndex: 0, color: [ 0, 255, 0 ] } ],
+                // A signature: a kind the sidebar does not list, so it stays out here as well.
+                [ "pdfjs_internal_editor_3", { annotationType: 13, id: null, pageIndex: 0, isSignature: true } ]
             ]),
             hash: "x",
             transfer: []
@@ -260,6 +262,7 @@ describe("extraction from a real document", () => {
         ]);
         // The document's own annotations are still there, and the edited one is not duplicated.
         expect(annotations.filter((annotation: any) => annotation.id === "5R")).toHaveLength(1);
+        expect(annotations.some((annotation: any) => annotation.id === "pdfjs_internal_editor_3")).toBe(false);
     });
 
     it("removes deleted annotations even when they are adjacent", async () => {
@@ -368,6 +371,20 @@ describe("scrolling to an annotation", () => {
         expect(viewer.scrollRequests).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
     });
 
+    it("ignores a scroll request from another origin", async () => {
+        viewer = await installViewerApp(allFeaturesPdf());
+        await setupPdfAnnotations();
+        renderAnnotation("5R");
+
+        window.dispatchEvent(new MessageEvent("message", {
+            data: { type: "trilium-scroll-to-annotation", annotationId: "5R", pageNumber: 1 },
+            origin: "https://evil.example"
+        }));
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        expect(viewer.scrollRequests).not.toHaveBeenCalled();
+    });
+
     it("scrolls to an annotation that only exists in the editor", async () => {
         viewer = await installViewerApp(allFeaturesPdf());
         await setupPdfAnnotations();
@@ -394,6 +411,10 @@ describe("scrolling to an annotation", () => {
         await vi.waitFor(() => expect(window.PDFViewerApplication?.pdfViewer.currentPageNumber).toBe(2));
         expect(viewer.scrollRequests).not.toHaveBeenCalled();
 
+        // Other things render meanwhile; only the annotation itself ends the wait.
+        viewer.viewerEl.append(document.createElement("div"));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(viewer.scrollRequests).not.toHaveBeenCalled();
         // Once pdf.js renders the annotation, the observer picks it up.
         renderAnnotation("14R");
         await vi.waitFor(() => expect(viewer.scrollRequests).toHaveBeenCalled());

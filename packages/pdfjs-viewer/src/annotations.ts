@@ -64,7 +64,7 @@ function resolveTypeName(ann: Record<string, any>): string {
         return TYPE_NAMES[AnnotationType.HIGHLIGHT];
     }
 
-    return TYPE_NAMES[ann.annotationType] ?? "unknown";
+    return TYPE_NAMES[ann.annotationType];
 }
 
 export async function setupPdfAnnotations() {
@@ -201,7 +201,7 @@ function unsavedAnnotations(storage: any): PdfAnnotationInfo[] {
             contents: typeof serialized.value === "string" ? serialized.value : "",
             highlightedText: "",
             author: "",
-            pageNumber: (serialized.pageIndex ?? 0) + 1,
+            pageNumber: serialized.pageIndex + 1,
             // As in applyEditorOverrides: a text box's colour is that of its text, not a tint.
             color: serialized.color && type !== "freetext" ? rgbToHex(serialized.color) : null,
             creationDate: null,

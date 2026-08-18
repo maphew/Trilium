@@ -9,7 +9,7 @@ import PdfAnnotations, { isDark } from "./PdfAnnotations";
 // arrive through hooks that need the whole app context, so they are handed over directly here.
 const shown = vi.hoisted(() => ({
     note: null as FNote | null,
-    annotations: null as { annotations: PdfAnnotationInfo[]; scrollToAnnotation: () => void } | null
+    annotations: null as { annotations: PdfAnnotationInfo[]; scrollToAnnotation: (id: string, page: number) => void } | null
 }));
 // i18next is not initialised for client specs, so t() would render every label as an empty
 // string. Echoing the key and its interpolations instead keeps the assertions about which
@@ -45,14 +45,14 @@ function annotation(overrides: Partial<PdfAnnotationInfo>): PdfAnnotationInfo {
     };
 }
 
-function renderPanel(annotations: PdfAnnotationInfo[]) {
+function renderPanel(annotations: PdfAnnotationInfo[], scrollToAnnotation: (id: string, page: number) => void = () => {}) {
     // The surrounding RightPanelWidget reads which panels the user collapsed from the options.
     options.set("rightPaneCollapsedItems", JSON.stringify([]));
 
     const container = document.createElement("div");
     document.body.append(container);
     shown.note = pdfNote();
-    shown.annotations = { annotations, scrollToAnnotation: () => {} };
+    shown.annotations = { annotations, scrollToAnnotation };
     render(<PdfAnnotations />, container);
     return container;
 }
@@ -62,6 +62,44 @@ describe("PdfAnnotations", () => {
         document.body.innerHTML = "";
         shown.note = null;
         shown.annotations = null;
+    });
+
+    it("renders nothing for a note that is not a PDF, or one with no annotations", () => {
+        // The panel hides itself rather than showing an empty section: nothing to list means no
+        // Annotations heading in the sidebar.
+        const empty = renderPanel([]);
+        expect(empty.querySelector("#pdf-annotations, .pdf-annotations-list")).toBeNull();
+
+        options.set("rightPaneCollapsedItems", JSON.stringify([]));
+        shown.note = { type: "text", mime: "text/html" } as unknown as FNote;
+        shown.annotations = { annotations: [ annotation({}) ], scrollToAnnotation: () => {} };
+        const notPdf = document.createElement("div");
+        document.body.append(notPdf);
+        render(<PdfAnnotations />, notPdf);
+        expect(notPdf.querySelector(".pdf-annotations-list")).toBeNull();
+    });
+
+    it("navigates to an annotation when its row is clicked", () => {
+        const scrollTo = vi.fn();
+        const container = renderPanel([ annotation({ id: "5R", pageNumber: 3, contents: "A remark", author: "Alice" }) ], scrollTo);
+
+        const row = container.querySelector(".pdf-annotation-item") as HTMLElement;
+        expect(row.querySelector(".pdf-annotation-author")?.textContent).toBe("Alice");
+        row.click();
+        expect(scrollTo).toHaveBeenCalledWith("5R", 3);
+    });
+
+    it("falls back to a generic label and icon for a kind it has no specific ones for", () => {
+        // A sticky note with no text is named a note; a kind the sidebar has no icon for gets the
+        // generic comment icon rather than none.
+        const container = renderPanel([
+            annotation({ id: "14R", type: "text", pageNumber: 2 }),
+            annotation({ id: "99R", type: "unknown", pageNumber: 5 })
+        ]);
+
+        const rows = [ ...container.querySelectorAll(".pdf-annotation-item") ];
+        expect(rows[0].querySelector(".pdf-annotation-untitled")?.textContent).toBe(`pdf.annotation_note({"pageNumber":2})`);
+        expect(rows[1].querySelector(".tn-icon")?.className).toContain("bx-comment");
     });
 
     it("names annotations that carry no text of their own by kind and page", () => {
