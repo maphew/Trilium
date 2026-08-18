@@ -102,17 +102,24 @@ describe("PdfAnnotations", () => {
         expect(rows[1].querySelector(".tn-icon")?.className).toContain("bxs-comment-detail");
     });
 
-    it("flips the row's text to light on a dark annotation colour", () => {
-        // The pen draws in black by default, and the row is tinted with the annotation's own
-        // colour — the default dark text would be unreadable on it.
+    it("colours a row's text for the tint behind it, and leaves an untinted row to the theme", () => {
+        // A row is tinted with its annotation's own colour, so its text cannot follow the theme:
+        // dark text for a pale highlight, light for the pen's default black. A text box has no
+        // colour, so its row sits on the panel itself and takes the theme's text colour — the
+        // fixed dark text would vanish on a dark theme's panel.
         const container = renderPanel([
+            annotation({ id: "5R", color: "#ffff98" }),
             annotation({ id: "18R", type: "ink", color: "#000000" }),
-            annotation({ id: "5R", color: "#ffff98" })
+            annotation({ id: "19R", type: "freetext", color: null })
         ]);
 
-        const rows = [ ...container.querySelectorAll(".pdf-annotation-item") ];
-        expect(rows[0].classList.contains("on-dark")).toBe(true);
-        expect(rows[1].classList.contains("on-dark")).toBe(false);
+        const classes = [ ...container.querySelectorAll(".pdf-annotation-item") ]
+            .map((row) => [ ...row.classList ].filter((cls) => cls !== "pdf-annotation-item"));
+        expect(classes).toEqual([
+            [ "tinted" ],
+            [ "tinted", "tinted-dark" ],
+            []
+        ]);
     });
 });
 

@@ -61,7 +61,11 @@ function PdfAnnotationItem({
 
     return (
         <div
-            className={clsx("pdf-annotation-item", isDark(annotation.color) && "on-dark")}
+            className={clsx(
+                "pdf-annotation-item",
+                annotation.color && "tinted",
+                isDark(annotation.color) && "tinted-dark"
+            )}
             onClick={() => onNavigate(annotation.id, annotation.pageNumber)}
             style={annotation.color ? { backgroundColor: annotation.color } : undefined}
         >
@@ -86,7 +90,8 @@ function PdfAnnotationItem({
 
 /**
  * Whether a row tinted with this annotation colour needs light text. Highlights are pastel, but
- * the pen draws in black by default, and the row's dark default text would vanish on it.
+ * the pen draws in black by default, and the dark text a tinted row otherwise gets would vanish
+ * on it.
  */
 export function isDark(color: string | null) {
     const rgb = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(color ?? "");
