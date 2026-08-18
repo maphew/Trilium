@@ -3811,9 +3811,7 @@
     "sort_by_title": "Titlu",
     "sort_by_date_created": "Data creării",
     "no_items": "Nu a fost găsit niciun conținut activ.",
-    "no_items_hint": "Scripturile, temele, șabloanele și fragmentele pe care le creați vor fi listate aici.",
-    "section_active_content": "Conținut activ și șabloane",
-    "section_space_usage": "Spațiu ocupat"
+    "no_items_hint": "Scripturile, temele, șabloanele și fragmentele pe care le creați vor fi listate aici."
   },
   "space_usage": {
     "loading": "Se măsoară spațiul ocupat...",

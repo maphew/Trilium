@@ -3644,9 +3644,7 @@
     "sort_by_title": "Título",
     "sort_by_date_created": "Data de criação",
     "no_items": "Nenhum conteúdo ativo encontrado.",
-    "no_items_hint": "Scripts, temas, modelos e trechos que você criar serão listados aqui.",
-    "section_active_content": "Conteúdo ativo e modelos",
-    "section_space_usage": "Uso de espaço"
+    "no_items_hint": "Scripts, temas, modelos e trechos que você criar serão listados aqui."
   },
   "space_usage": {
     "loading": "Medindo o uso de espaço...",

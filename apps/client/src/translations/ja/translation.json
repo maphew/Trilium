@@ -3685,9 +3685,7 @@
     "item_count_other": "{{count}} アイテム",
     "view_mode": "表示:",
     "view_by_category": "カテゴリ別",
-    "view_by_location": "場所別",
-    "section_active_content": "アクティブコンテンツとテンプレート",
-    "section_space_usage": "容量使用状況"
+    "view_by_location": "場所別"
   },
   "show-help": "ヘルプを表示",
   "attribute_list_panel": {
