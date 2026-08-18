@@ -105,12 +105,6 @@ body.mobile {
         flex-basis: 100%;
         max-width: none;
     }
-
-    /* A row here is a line of a list rather than a setting in a card, so it keeps less from the
-       edge than a card section does: the width goes to the names, which are what is read. */
-    .active-content-list .nested-note-list {
-        --card-padding-inline: 12px;
-    }
 }
 
 /* The row's detail, moved into the item's menu where a phone has room to read it. Stacked rather
