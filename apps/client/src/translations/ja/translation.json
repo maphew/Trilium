@@ -2369,9 +2369,7 @@
   },
   "settings": {
     "related_settings": "関連設定",
-    "related_actions": "関連アクション",
-    "related_space_usage": "データベース内の容量使用状況を分析",
-    "related_space_usage_description": "容量を最も多く消費しているノート、変更履歴、添付ファイルを確認し、容量を解放します。"
+    "related_actions": "関連アクション"
   },
   "settings_appearance": {
     "related_code_blocks": "テキストノート内のコードブロックの配色",

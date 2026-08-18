@@ -10,8 +10,7 @@ import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
 import CollectionProperties from "../../note_bars/CollectionProperties";
-import ActionButton from "../../react/ActionButton";
-import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate } from "../../react/hooks";
+import { useCollectionTreeDrag, useEffectiveReadOnly, useNoteBlob, useNoteContext, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate } from "../../react/hooks";
 import { ViewModeProps } from "../interface";
 import { createNewNote, importGpxTrack, moveMarker } from "./api";
 import Buildings from "./Buildings";
@@ -57,6 +56,7 @@ type Placement =
     | { mode: "move"; noteId: string };
 
 export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewModeProps<MapData>) {
+    const { noteContext } = useNoteContext();
     const [ placement, setPlacement ] = useState<Placement>();
     // Which marker the detail pane stands for. Held here rather than in the pane so that creating a
     // note can open the pane on it (see createNoteAt below).
@@ -69,7 +69,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     const [ hasScale ] = useNoteLabelBoolean(note, "map:scale");
     const [ hideLabels ] = useNoteLabelBoolean(note, "map:hideLabels");
     const [ clustered ] = useNoteLabelBoolean(note, "map:cluster");
-    const [ isReadOnly ] = useNoteLabelBoolean(note, "readOnly");
+    const isReadOnly = useEffectiveReadOnly(note, noteContext);
     const [ includeArchived ] = useNoteLabelBoolean(note, "includeArchived");
     const [ notes, setNotes ] = useState<FNote[]>([]);
     const layerData = useLayerData(note);
@@ -226,12 +226,10 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
 
     return (
         <div className={`geo-view ${placement ? "placing-note" : ""}`}>
-            {/* Only the lock at its end: adding a note lives on the map itself now (see
-                EditToolbar), where it survives the map going fullscreen without this bar. */}
-            <CollectionProperties
-                note={note}
-                rightChildren={<ToggleReadOnlyButton note={note} />}
-            />
+            {/* Nothing of its own at the end: locking is the read-only badge's, and adding a note
+                lives on the map itself (see EditToolbar), where it survives the map going
+                fullscreen without this bar. */}
+            <CollectionProperties note={note} />
             { coordinates !== undefined && zoom !== undefined && <Map
                 apiRef={apiRef} containerRef={containerRef}
                 coordinates={coordinates}
@@ -323,16 +321,6 @@ function useLayerData(note: FNote) {
     }, [ layerName, isDarkStyle ]);
 
     return layerData;
-}
-
-function ToggleReadOnlyButton({ note }: { note: FNote }) {
-    const [ isReadOnly, setReadOnly ] = useNoteLabelBoolean(note, "readOnly");
-
-    return <ActionButton
-        text={isReadOnly ? t("toggle_read_only_button.unlock-editing") : t("toggle_read_only_button.lock-editing")}
-        icon={isReadOnly ? "bx bx-lock-open-alt" : "bx bx-lock-alt"}
-        onClick={() => setReadOnly(!isReadOnly)}
-    />;
 }
 
 /**

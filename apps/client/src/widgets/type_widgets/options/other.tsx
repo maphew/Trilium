@@ -2,8 +2,6 @@ import "./other.css";
 
 import { SANITIZER_DEFAULT_ALLOWED_TAGS } from "@triliumnext/commons";
 
-import appContext from "../../../components/app_context";
-import { closeActiveDialog } from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import search from "../../../services/search";
 import server from "../../../services/server";
@@ -14,7 +12,6 @@ import { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
 import { useTriliumOption, useTriliumOptionBool, useTriliumOptionJson } from "../../react/hooks";
 import OptionsPageHeader from "./components/OptionsPageHeader";
-import RelatedSettings from "./components/RelatedSettings";
 import TimeSelector from "./components/TimeSelector";
 
 export default function OtherSettings() {
@@ -28,33 +25,7 @@ export default function OtherSettings() {
             <HtmlImportTags />
             <ShareSettings />
             <NetworkSettings />
-            <RelatedActions />
         </>
-    );
-}
-
-function RelatedActions() {
-    return (
-        <RelatedSettings
-            title={t("settings.related_actions")}
-            items={[
-                {
-                    title: t("settings.related_space_usage"),
-                    description: t("settings.related_space_usage_description"),
-                    targetNoteId: "_spaceUsage",
-                    onClick: (e) => {
-                        // Opened as the tool it is, in a tab of its own, rather than followed as a
-                        // link into the hidden subtree; stopping the event keeps the global link
-                        // handler (link.ts goToLink) from navigating by the href instead.
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // The tool outlives the settings that sent the user to it.
-                        closeActiveDialog();
-                        void appContext.triggerCommand("showSpaceUsage");
-                    }
-                }
-            ]}
-        />
     );
 }
 
