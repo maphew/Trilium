@@ -39,39 +39,25 @@
     cursor: pointer;
 }
 
-/*
- * Where the note sits, as its ancestors' names. Scrolled by dragging it: a path is as long as it is,
- * and cutting it short would take off the end that says which of several like-named notes this is.
- * The bar itself is hidden, having no room of its own to take on a line this size.
- */
+/* Where the note sits, as its ancestors' names: the end of it is what says which of several
+   like-named notes this is, so it is swiped to rather than cut off (see ScrollableLabel). */
 .space-usage-selection-path {
     grid-row: 1;
     grid-column: 1;
-    overflow-x: auto;
     color: var(--muted-text-color);
     font-size: 0.75em;
     line-height: 1.2;
-    white-space: nowrap;
     text-transform: uppercase;
-    scrollbar-width: none;
 }
 
-.space-usage-selection-path::-webkit-scrollbar {
-    display: none;
-}
-
-/* The note itself, so it is the line the eye lands on. Cut short rather than scrolled: this is one
-   name, and its beginning is the part that identifies it. */
+/* The note itself, so it is the line the eye lands on. */
 .space-usage-selection-name {
     grid-row: 2;
     grid-column: 1;
     margin-block-start: 4px;
-    overflow: hidden;
     font-size: 1.2em;
     font-weight: 500;
     line-height: 1.2;
-    white-space: nowrap;
-    text-overflow: ellipsis;
 }
 
 /* Set against both rows, being what the whole strip is about. */

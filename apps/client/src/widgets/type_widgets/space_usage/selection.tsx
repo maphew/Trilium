@@ -7,6 +7,7 @@ import { useEffect, useState } from "preact/hooks";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { formatSize } from "../../../services/utils";
+import ScrollableLabel from "../../react/ScrollableLabel";
 
 /**
  * A mark the user picked out of a chart: which one it is, what it stands for, and what can be done
@@ -57,8 +58,28 @@ export default function SelectionStrip({ selection, containerRef }: {
         >
             {selection ? (
                 <>
-                    <span className="space-usage-selection-path">{path.join(" › ")}</span>
-                    <span className="space-usage-selection-name">{name}</span>
+                    {/* Both lines are as long as what they name, and neither is worth cutting short:
+                        swiped along instead, with the fades saying where they carry on.
+
+                        The path walks itself: it is the line the reader did not ask for, and its own
+                        end — the note's parent — is the part that says which of several like-named
+                        notes this is. The name is left to be swiped, being what was tapped.
+
+                        Keyed on the mark, so a new one gets new labels rather than the last one's:
+                        each starts back at its beginning, with its walk to take and its swipe to be
+                        handed over by. Two marks can read exactly alike — siblings share a path — so
+                        the text is no sign that the item is still the same one. */}
+                    <ScrollableLabel
+                        key={`${selection.markId}/path`}
+                        className="space-usage-selection-path"
+                        autoScroll
+                    >
+                        {path.join(" › ")}
+                    </ScrollableLabel>
+                    <ScrollableLabel
+                        key={`${selection.markId}/name`}
+                        className="space-usage-selection-name"
+                    >{name}</ScrollableLabel>
                     <span className="space-usage-selection-size">{formatSize(selection.size)}</span>
                 </>
             ) : (
