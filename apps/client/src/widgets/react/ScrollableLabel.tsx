@@ -41,8 +41,9 @@ export default function ScrollableLabel({ children, className, autoScroll }: Scr
     // titles — without asking the caller to say so, and without restarting on a render that changed
     // nothing (children given as elements rather than as text are a new value every time).
     const [ overflow, setOverflow ] = useState(0);
-    // Set by the reader's own first scroll, and cleared only by a new label: a walk they interrupted
-    // must not start again while the same line is still on screen.
+    // Set by the reader's own first scroll, and cleared only by a remount, which is what a new label
+    // is: a walk they interrupted must not start again while the same line is still on screen. A
+    // consumer whose label changes what it names keys it, so the new one arrives with a fresh walk.
     const handedOver = useRef(false);
     const handOver = useCallback(() => {
         handedOver.current = true;
@@ -94,12 +95,13 @@ export default function ScrollableLabel({ children, className, autoScroll }: Scr
     useEffect(() => {
         const element = ref.current;
 
-        if (!autoScroll || !element || prefersReducedMotion()) {
+        // Handed over stays handed over: this effect runs again whenever the line's length changes,
+        // and a box resized under the reader — a rotation, a keyboard opening, a pane dragged — must
+        // not take the line back off them, which restarting from the beginning would.
+        if (!autoScroll || !element || handedOver.current || prefersReducedMotion()) {
             return;
         }
 
-        // A new label is a new walk, from its own beginning, whatever became of the last one.
-        handedOver.current = false;
         element.scrollLeft = 0;
 
         // Read once rather than per frame: a right-to-left line travels towards negative offsets, so

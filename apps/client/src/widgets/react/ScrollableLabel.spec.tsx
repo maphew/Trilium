@@ -115,6 +115,29 @@ describe("ScrollableLabel", () => {
         }
     });
 
+    it("keeps the line where the reader left it when the box is resized under them", async () => {
+        vi.useFakeTimers();
+
+        try {
+            const label = renderLabel("a name the reader takes over", 300, 100, true);
+
+            vi.advanceTimersByTime(1000);
+            label.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+
+            const handedOverAt = label.scrollLeft;
+
+            // The box narrows, as it does on a rotation or when a keyboard opens: the line is longer
+            // against it than it was, which is what the walk watches for. It must not take it back.
+            Object.defineProperty(label, "clientWidth", { value: 60, configurable: true });
+            label.dispatchEvent(new Event("scroll"));
+            await vi.advanceTimersByTimeAsync(1000);
+
+            expect(label.scrollLeft).toBe(handedOverAt);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("leaves a label that fits alone, fading nothing", async () => {
         const label = renderLabel("short", 100);
 

@@ -8,6 +8,7 @@ import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { formatSize } from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
+import Button from "../../react/Button";
 import type { DonutRing, DonutSegment } from "../../react/charts/DonutChart";
 import { useFetch } from "../../react/use_fetch";
 import { type ContentChangedHandler, openSpaceUsageContextMenu } from "./context_menu";
@@ -120,7 +121,13 @@ export default function Browse({
                     — so it is swiped rather than cut off, and fades at whichever end it carries on
                     past. A deep path is otherwise clipped at both ends by a row that centres itself,
                     and the end it loses is the note being looked at. */}
-                <ScrollableLabel className="space-usage-breadcrumb-track" autoScroll>
+                <ScrollableLabel
+                    // A new path is a new line to read out: keyed so it arrives with its own walk,
+                    // rather than inheriting one the reader stopped at the level above.
+                    key={path.join("/")}
+                    className="space-usage-breadcrumb-track"
+                    autoScroll
+                >
                     <span className="space-usage-crumb-label">{t("space_usage.current_note")}</span>
                     {path.map((id, index) => (
                         <Fragment key={`${index}/${id}`}>
@@ -176,11 +183,13 @@ export default function Browse({
             {onSelect && (
                 <div className="space-usage-browse-details">
                     {selection?.onOpen && (
-                        <button
-                            type="button"
+                        <Button
                             className="space-usage-details-link"
+                            kind="lowProfile"
+                            size="small"
+                            text={t("space_usage.show_selection_details")}
                             onClick={selection.onOpen}
-                        >{t("space_usage.show_selection_details")}</button>
+                        />
                     )}
                 </div>
             )}

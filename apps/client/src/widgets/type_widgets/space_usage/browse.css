@@ -83,16 +83,14 @@
         white-space: nowrap;
     }
 
-    /* Reads as the link it is, like the note's name in the middle of the chart. */
+    /* The app's own quiet button, coloured to read as the link it stands for — the same colour the
+       note's name wears in the middle of the chart. Everything else about it (its press, its focus,
+       its theming) is the shared control's. */
     .space-usage-details-link {
         overflow: hidden;
-        border: none;
-        background: none;
-        padding: 0;
         color: var(--link-color);
         text-overflow: ellipsis;
         white-space: nowrap;
-        cursor: pointer;
     }
 
     .space-usage-details-link:hover {
