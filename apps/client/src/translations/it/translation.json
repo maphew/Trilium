@@ -3804,9 +3804,7 @@
     "sort_by_title": "Titolo",
     "sort_by_date_created": "Data di creazione",
     "no_items": "Nessun contenuto attivo trovato.",
-    "no_items_hint": "Qui verranno elencati gli script, i temi, i modelli e gli snippet che creerai.",
-    "section_active_content": "Contenuti interattivi e modelli",
-    "section_space_usage": "Utilizzo dello spazio"
+    "no_items_hint": "Qui verranno elencati gli script, i temi, i modelli e gli snippet che creerai."
   },
   "space_usage": {
     "loading": "Misurare l'utilizzo dello spazio...",

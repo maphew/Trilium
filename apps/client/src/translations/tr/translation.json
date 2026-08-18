@@ -3218,9 +3218,7 @@
     "sort_by_title": "Başlık",
     "sort_by_date_created": "Oluşturulma tarihi",
     "no_items": "Etkin içerik bulunamadı.",
-    "no_items_hint": "Oluşturduğunuz betikler, temalar, şablonlar ve parçacıklar burada listelenecektir.",
-    "section_active_content": "Etkin İçerik ve Şablonlar",
-    "section_space_usage": "Alan Kullanımı"
+    "no_items_hint": "Oluşturduğunuz betikler, temalar, şablonlar ve parçacıklar burada listelenecektir."
   },
   "space_usage": {
     "loading": "Alan kullanımı ölçülüyor...",

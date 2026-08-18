@@ -3963,9 +3963,7 @@
     "sort_by_title": "Teideal",
     "sort_by_date_created": "Dáta cruthaithe",
     "no_items": "Níor aimsíodh aon ábhar gníomhach.",
-    "no_items_hint": "Liostálfar scripteanna, téamaí, teimpléid agus sleachta a chruthaíonn tú anseo.",
-    "section_active_content": "Ábhar Gníomhach & Teimpléid",
-    "section_space_usage": "Úsáid Spáis"
+    "no_items_hint": "Liostálfar scripteanna, téamaí, teimpléid agus sleachta a chruthaíonn tú anseo."
   },
   "space_usage": {
     "loading": "Úsáid spáis a thomhas...",
