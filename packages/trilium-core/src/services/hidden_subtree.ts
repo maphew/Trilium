@@ -295,30 +295,44 @@ function buildHiddenSubtreeDefinition(helpSubtree: HiddenSubtreeItem[]): HiddenS
                 type: "book",
                 icon: "bx-cog",
                 children: [
+                    // The order below is the order the pages are listed in. A database being
+                    // set up meets them here and gives each the next position as it is created;
+                    // one that already exists keeps the order it has, no position being enforced.
+                    // A page since withdrawn is left standing beside the one that replaced it.
+
+                    // Personalization
                     { id: "_optionsAppearance", title: t("hidden-subtree.appearance-title"), type: "contentWidget", icon: "bx-layout" },
+                    { id: "_optionsLocalization", title: t("hidden-subtree.localization"), type: "contentWidget", icon: "bx-world" },
                     { id: "_optionsShortcuts", title: t("hidden-subtree.shortcuts-title"), type: "contentWidget", icon: "bxs-keyboard" },
+                    { id: "_optionsDesktop", title: t("hidden-subtree.desktop-title"), type: "contentWidget", icon: "bx-desktop", attributes: [{ type: "label", name: "electronOnly" }] },
+                    
+                    // Content & editing
                     { id: "_optionsTextNotes", title: t("hidden-subtree.text-notes"), type: "contentWidget", icon: "bx-text" },
                     { id: "_optionsCodeNotes", title: t("hidden-subtree.code-notes-title"), type: "contentWidget", icon: "bx-code" },
-                    { id: "_optionsContentManager", title: t("hidden-subtree.content-manager-title"), type: "contentWidget", icon: "bx-package" },
                     { id: "_optionsImages", title: "Images", type: "contentWidget", enforceDeleted: true },
                     { id: "_optionsMedia", title: t("hidden-subtree.images-title"), type: "contentWidget", icon: "bx-image" },
+                    { id: "_optionsContentManager", title: t("hidden-subtree.content-manager-title"), type: "contentWidget", icon: "bx-package" },
                     { id: "_optionsSpellcheck", title: t("hidden-subtree.spellcheck-title"), type: "contentWidget", icon: "bx-check-double", attributes: [{ type: "label", name: "electronOnly" }] },
-                    { id: "_optionsDesktop", title: t("hidden-subtree.desktop-title"), type: "contentWidget", icon: "bx-desktop", attributes: [{ type: "label", name: "electronOnly" }] },
-                    { id: "_optionsSecurity", title: t("hidden-subtree.security-title"), type: "contentWidget", icon: "bx-shield" },
-                    // Password and ETAPI both answer to something reaching the instance over HTTP —
-                    // a login to hold a session for, a token for another program to call with. The
-                    // standalone build is the only reader of its own database and is served by no
-                    // one, so neither page has anything to set there.
-                    { id: "_optionsPassword", title: t("hidden-subtree.password-title"), type: "contentWidget", icon: "bx-lock", attributes: [{ type: "label", name: "notInStandalone" }] },
-                    { id: "_optionsMFA", title: t("hidden-subtree.multi-factor-authentication-title"), type: "contentWidget", enforceDeleted: true },
+                    
+                    // Integrations
+                    { id: "_optionsAi", title: "AI Chat", type: "contentWidget", enforceDeleted: true },
+                    { id: "_optionsLlm", title: t("hidden-subtree.llm-title"), type: "contentWidget", icon: "bx-bot" },
+                    
+                    // Infrastructure, security
+                    { id: "_optionsSync", title: t("hidden-subtree.sync-title"), type: "contentWidget", icon: "bx-wifi" },
+                    // Password and ETAPI both answer to something reaching the instance over
+                    // HTTP: a login to hold a session for, a token for another program to call
+                    // with. The standalone build is the only reader of its own database and is
+                    // served by no one, so neither page has anything to set there.
                     { id: "_optionsEtapi", title: t("hidden-subtree.etapi-title"), type: "contentWidget", icon: "bx-extension", attributes: [{ type: "label", name: "notInStandalone" }] },
                     { id: "_optionsBackup", title: t("hidden-subtree.backup-title"), type: "contentWidget", icon: "bx-data" },
                     { id: "_optionsDatabase", title: t("hidden-subtree.database-title"), type: "contentWidget", icon: "bx-hdd" },
-                    { id: "_optionsSync", title: t("hidden-subtree.sync-title"), type: "contentWidget", icon: "bx-wifi" },
-                    { id: "_optionsLlm", title: t("hidden-subtree.llm-title"), type: "contentWidget", icon: "bx-bot" },
-                    { id: "_optionsAi", title: "AI Chat", type: "contentWidget", enforceDeleted: true },
+                    { id: "_optionsSecurity", title: t("hidden-subtree.security-title"), type: "contentWidget", icon: "bx-shield" },
+                    { id: "_optionsMFA", title: t("hidden-subtree.multi-factor-authentication-title"), type: "contentWidget", enforceDeleted: true },
+                    { id: "_optionsPassword", title: t("hidden-subtree.password-title"), type: "contentWidget", icon: "bx-lock", attributes: [{ type: "label", name: "notInStandalone" }] },
+                    
+                    // Miscellaneous
                     { id: "_optionsOther", title: t("hidden-subtree.other"), type: "contentWidget", icon: "bx-dots-horizontal" },
-                    { id: "_optionsLocalization", title: t("hidden-subtree.localization"), type: "contentWidget", icon: "bx-world" },
                     { id: "_optionsAdvanced", title: t("hidden-subtree.advanced-title"), type: "contentWidget" }
                 ]
             },
