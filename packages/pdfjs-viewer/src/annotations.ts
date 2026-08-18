@@ -176,7 +176,7 @@ function applyEditorOverrides(annotations: PdfAnnotationInfo[], storage: any): P
         if (editor?.deleted) {
             continue;
         }
-        if (editor?.color) {
+        if (editor?.color && ann.type !== "freetext") {
             ann.color = editor.color;
         }
         if (editor?.comment?.text) {

@@ -218,6 +218,21 @@ describe("extraction from a real document", () => {
         expect(highlight).toMatchObject({ id: "5R", color: "#00ff00", contents: "Edited in the viewer" });
     });
 
+    it("keeps a text box's font colour out of the sidebar's tint", async () => {
+        viewer = await installViewerApp(allFeaturesPdf());
+        // Every stored annotation becomes an editor once a tool is active, so this state is
+        // reached just by pressing a toolbar button. A FreeTextEditor's `color` is the colour of
+        // its *text*, not a fill — taking it would paint the row in the text's colour, and only
+        // while a tool happened to be selected.
+        vi.spyOn(viewer.pdfDocument.annotationStorage, "getEditor").mockImplementation((id: string) =>
+            (id === "19R" ? { color: "#000000" } : null));
+
+        await setupPdfAnnotations();
+
+        const { annotations } = viewer.lastMessageOfType("pdfjs-viewer-annotations");
+        expect(annotations.find((annotation: any) => annotation.id === "19R").color).toBeNull();
+    });
+
     it("removes deleted annotations even when they are adjacent", async () => {
         viewer = await installViewerApp(allFeaturesPdf());
         vi.spyOn(viewer.pdfDocument.annotationStorage, "getEditor").mockReturnValue({ deleted: true });
