@@ -2494,9 +2494,7 @@
   },
   "settings": {
     "related_settings": "相关设置",
-    "related_actions": "相关操作",
-    "related_space_usage": "分析数据库内的空间占用",
-    "related_space_usage_description": "查看哪些笔记、修订和附件占用空间最多，并回收这些空间。"
+    "related_actions": "相关操作"
   },
   "settings_appearance": {
     "related_code_blocks": "文本笔记中代码块的色彩方案",

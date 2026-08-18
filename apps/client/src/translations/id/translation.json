@@ -2861,9 +2861,7 @@
   },
   "settings": {
     "related_settings": "Pengaturan terkait",
-    "related_actions": "Tindakan terkait",
-    "related_space_usage": "Analisis penggunaan ruang dalam basis data",
-    "related_space_usage_description": "Lihat catatan, revisi, dan lampiran yang paling banyak menggunakan ruang, lalu bebaskan ruang tersebut."
+    "related_actions": "Tindakan terkait"
   },
   "settings_appearance": {
     "related_code_blocks": "Skema warna untuk blok kode di catatan teks",

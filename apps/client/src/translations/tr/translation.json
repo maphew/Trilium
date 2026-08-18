@@ -3575,9 +3575,7 @@
   },
   "settings": {
     "related_settings": "İlgili ayarlar",
-    "related_actions": "İlgili eylemler",
-    "related_space_usage": "Veritabanı içindeki alan kullanımını analiz et",
-    "related_space_usage_description": "Hangi notların, revizyonların ve eklerin en fazla alan kapladığını görün ve alanı geri kazanın."
+    "related_actions": "İlgili eylemler"
   },
   "settings_appearance": {
     "related_code_blocks": "Metin notlarındaki kod blokları için renk düzeni",
