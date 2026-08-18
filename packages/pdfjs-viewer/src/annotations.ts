@@ -112,32 +112,12 @@ export function setupAnnotationLiveUpdates() {
 async function extractAndSendAnnotations() {
     const app = window.PDFViewerApplication;
     try {
+        const storage = app.pdfDocument.annotationStorage;
         const annotations = await extractFromDocument(app.pdfDocument);
-        sendAnnotations(applyEditorOverrides(annotations, app.pdfDocument.annotationStorage));
+        sendAnnotations([ ...applyEditorOverrides(annotations, storage), ...unsavedAnnotations(storage) ]);
     } catch (error) {
         console.error("Error extracting annotations:", error);
         sendAnnotations([]);
-    }
-}
-
-/**
- * Re-extract annotations from freshly saved PDF bytes.
- * Opens a temporary document to read the latest data (including
- * newly created highlights with their overlaidText), then closes it.
- */
-export async function extractFromSavedData(data: ArrayBuffer | Uint8Array) {
-    let loadingTask: any;
-    try {
-        loadingTask = (globalThis as any).pdfjsLib.getDocument({ data });
-        const tempDoc = await loadingTask.promise;
-        const annotations = await extractFromDocument(tempDoc);
-        sendAnnotations(annotations);
-    } catch (error) {
-        console.error("Error extracting annotations from saved data:", error);
-    } finally {
-        // PDFDocumentProxy.destroy() was removed in pdf.js v6; tear the temporary
-        // document (and its worker) down via the loading task instead.
-        await loadingTask?.destroy();
     }
 }
 
@@ -188,6 +168,49 @@ function applyEditorOverrides(annotations: PdfAnnotationInfo[], storage: any): P
     return remaining;
 }
 
+/**
+ * Sidebar entries for annotations that exist only in the editor so far.
+ *
+ * pdf.js keeps what the reader draws out of the loaded document until the file is written back,
+ * and {@link applyEditorOverrides} can only amend what the document already holds — so a sidebar
+ * built from the document alone stays empty however much is annotated, until the note is reopened
+ * (#11059). `annotationStorage.serializable` is the same view `saveDocument()` writes from: keyed
+ * by the editor's own id, which is also the id of the element it renders, so an entry built here
+ * is one {@link scrollToAnnotation} can navigate to.
+ */
+function unsavedAnnotations(storage: any): PdfAnnotationInfo[] {
+    const unsaved: PdfAnnotationInfo[] = [];
+
+    for (const [ id, serialized ] of storage?.serializable?.map ?? []) {
+        // `id` names the document annotation an editor was built from; the entry for one of those
+        // is already in the list, carrying the text and author only the document knows.
+        if (serialized.id || serialized.deleted) {
+            continue;
+        }
+        const type = TYPE_NAMES[serialized.annotationType];
+        if (!type) {
+            continue;
+        }
+
+        unsaved.push({
+            id,
+            type,
+            // A free-text box serializes the words it was given; nothing else carries text. A
+            // highlight's overlaidText is derived from the file's glyphs, so it only appears once
+            // the document has been written back.
+            contents: typeof serialized.value === "string" ? serialized.value : "",
+            highlightedText: "",
+            author: "",
+            pageNumber: (serialized.pageIndex ?? 0) + 1,
+            color: serialized.color ? rgbToHex(serialized.color) : null,
+            creationDate: null,
+            modificationDate: null
+        });
+    }
+
+    return unsaved;
+}
+
 function sendAnnotations(annotations: PdfAnnotationInfo[]) {
     window.parent.postMessage({
         type: "pdfjs-viewer-annotations",
@@ -211,8 +234,15 @@ function scrollToAnnotation(annotationId: string, pageNumber: number) {
         });
     }
 
+    // An annotation the document holds renders with its id in an attribute; one that so far
+    // exists only in the editor renders as an element carrying the editor id directly.
+    function findRendered() {
+        return document.querySelector(`[data-annotation-id="${CSS.escape(annotationId)}"]`)
+            ?? document.getElementById(annotationId);
+    }
+
     // Try to find the element directly (nearby pages are pre-rendered)
-    const el = document.querySelector(`[data-annotation-id="${CSS.escape(annotationId)}"]`);
+    const el = findRendered();
     if (el) {
         scrollToEl(el);
         return;
@@ -221,7 +251,7 @@ function scrollToAnnotation(annotationId: string, pageNumber: number) {
     // Element not in DOM yet — jump to the page and wait for it to render
     app.pdfViewer.currentPageNumber = pageNumber;
     const observer = new MutationObserver(() => {
-        const el = document.querySelector(`[data-annotation-id="${CSS.escape(annotationId)}"]`);
+        const el = findRendered();
         if (el) {
             observer.disconnect();
             scrollToEl(el);

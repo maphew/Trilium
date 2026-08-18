@@ -366,10 +366,6 @@ describe("producing the saved document", () => {
         expect(blob.data.length).toBeGreaterThan(0);
         // The bytes must be a real PDF the viewer can reopen, not a partial write.
         await expect(getDocument({ data: blob.data }).promise).resolves.toBeTruthy();
-
-        // Newly created highlights only get their overlaidText once written out, so the
-        // sidebar is refreshed from the saved bytes.
-        await vi.waitFor(() => expect(viewer.messagesOfType("pdfjs-viewer-annotations")).toHaveLength(1));
     });
 
     it("does not save on a request from another origin", async () => {

@@ -3,7 +3,7 @@ import { extractAndSendToc, setupScrollToHeading, setupActiveHeadingTracking } f
 import { setupPdfPages } from "./pages";
 import { setupPdfAttachments } from "./attachments";
 import { setupPdfLayers } from "./layers";
-import { setupPdfAnnotations, setupAnnotationLiveUpdates, extractFromSavedData } from "./annotations";
+import { setupPdfAnnotations, setupAnnotationLiveUpdates } from "./annotations";
 import { commitPendingAnnotationEdits, isAnnotationEditingActive, setAnnotationEditorUIManager, suppressViewerUnloadPrompt } from "./editing";
 
 export async function main() {
@@ -210,9 +210,6 @@ export function manageSave() {
                 ntxId: window.TRILIUM_NTX_ID,
                 noteId: window.TRILIUM_NOTE_ID
             } satisfies PdfDocumentBlobResultMessage, window.location.origin);
-            // Re-extract annotations from the saved data so new
-            // highlights get their overlaidText populated.
-            extractFromSavedData(data);
         }
     });
 
