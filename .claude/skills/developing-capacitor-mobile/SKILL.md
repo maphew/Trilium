@@ -71,6 +71,12 @@ pnpm --filter @triliumnext/mobile run:ios | open:ios   # Xcode (macOS)
 
 CI: `mobile.yml` (pull requests) builds a debug APK via `.github/actions/build-mobile` and an unsigned iOS **Simulator** `.app` on macOS; `nightly.yml` calls the same action with `nightly: "true"` for the signed `assembleRelease` build under the `.nightly` app id. Neither runs unit tests — those live in the standalone suite.
 
+**Debugging on a device:** a *release*-type build (what `nightly.yml` produces) suppresses WebView
+console→logcat forwarding, so anything logged from JS is invisible to `adb logcat` and log-based
+detection of what the app is doing goes blind. `android.util.Log` calls from the native side still
+come through, so instrument the Java layer — or install a debug build — when you need to see what
+is happening.
+
 ## Testing
 
 Everything JS-side is under the standalone Vitest suite (happy-dom + real sqlite-wasm):

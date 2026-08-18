@@ -20,9 +20,9 @@ pnpm typecheck                           # all projects, native compiler, a few 
 pnpm dev:format-check | dev:format-fix   # stylistic formatting
 ```
 
-- **Never run ESLint** (`dev:linter-check`, `dev:linter-fix`, `npx eslint`) — it dies with an out-of-memory error, so a run tells you nothing. CI lints. (`packages/*` is ignored by the ESLint config anyway.)
+- **Never run ESLint** (`dev:linter-check`, `dev:linter-fix`, `npx eslint`) — it dies with an out-of-memory error, so a run tells you nothing. CI does not lint either — there is no `eslint`/`linter-check` step anywhere in `.github/workflows/`, so lint findings never block a merge; the gates are `pnpm typecheck` and the per-package `test --coverage` runs. (`packages/*` is ignored by the ESLint config anyway.)
 - **Never run `pnpm test:all`, `test:parallel`, `test:sequential`, or a whole-package `coverage`** during development — CI runs them on every push. Run the **narrowest** suite that covers what you touched: `pnpm --filter <pkg> test <pattern>` (Vitest treats the trailing argument as a substring filter over spec paths). Core specs need **two** runs, server and standalone (see Testing). Only reach for a full suite if the user asks or wants a final check.
-- **Typecheck with `pnpm typecheck`, not a raw `tsc`** — it resolves the project references a hand-written `tsc -p …` gets wrong, and is cheap enough to run after every change.
+- **Typecheck with `pnpm typecheck`, not a raw `tsc`** — it resolves the project references a hand-written `tsc -p …` gets wrong, and is far cheaper than a test suite. Still, run it **once, after a piece of work is finished** — not after every edit: it builds the project references, and repeating it is a common way to lose minutes across a session.
 - **Two TypeScript versions, on purpose**: root `package.json` has `typescript` 6.x (the JS compiler API that TypeDoc, typescript-eslint and the browser-bundled language service in `packages/codemirror` load) and `@typescript/native` (7, drives `pnpm typecheck` and owns the `tsc` bin). Do **not** bump `typescript` to 7, dedupe them, or switch to the `@typescript/typescript6` shim (no `lib.*.d.ts` → client build breaks). Reasoning: `docs/Developer Guide/Developer Guide/Environment Setup.md`, "TypeScript".
 
 ## Git Workflow
@@ -30,6 +30,8 @@ pnpm dev:format-check | dev:format-fix   # stylistic formatting
 - **Committing directly on `main` is allowed and expected** for small fixes and self-contained features — do **not** create a branch first for those. The default "branch before committing on the default branch" rule does not apply to this repository.
 - **Large or risky work goes on a branch**: multi-commit features, migrations, refactors spanning many packages, anything that needs review or a PR before landing.
 - Only commit when explicitly asked to **in that message**, and the ask covers only the step it accompanies — a later step is left uncommitted until asked again. A remark like "commits go on main" is about branch choice, not standing permission to commit. Otherwise leave changes staged/unstaged for review.
+- **The issue-closing keyword goes in the commit/PR subject**, not the body — `fix(markdown): wrap imported tables (closes #10270)`.
+- **`git rm` is not a neutral delete.** It leaves the deletion staged, so a commit made before the matching reference updates are staged lands a `HEAD` pointing at a module that no longer exists. When removing a file whose references are edited in the same pass, delete it from the filesystem instead, or land the deletion and the reference updates together — never leave the index in a state that is broken on its own.
 
 ## Monorepo Structure
 
@@ -173,9 +175,10 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 
 - 4-space indent, semicolons, double quotes, max line 100, Unix line endings (the format config enforces these). Imports sorted per `eslint-plugin-simple-import-sort` (packages before relative, alphabetical within a group) — only ESLint checks that and it isn't run locally, so sort by hand.
 - **Never use the non-null assertion `!`**, tests included. Narrow instead: `?.`, `?? fallback`, an explicit check, or an `*OrThrow` accessor (`becca.getNoteOrThrow(id)`).
+- **Never use `Array.prototype.forEach`** — write a `for...of` loop instead, and iterate `array.entries()` when the index is needed (`for (const [index, item] of arr.entries())`). It reads better and allows `break`/`continue`/`await`.
 - **Helpers go below the primary export** they support (or in another module), never between the imports and the main definition — the entry point reads first.
 - **No ~10-SLOC modules.** A component, hook or helper of about ten lines of substance joins an existing module that owns the same concept (e.g. `OverlayFullscreenButton` lives in `OverlayControlGroup.tsx`, its tests in that spec); a file of its own costs a module boundary and an import per call site and buys nothing. Split out once it has grown.
-- **Comments** — Google developer-documentation style: plain English, present tense, active voice, real identifiers (`froca.getNote()`, not "the cache lookup"); *can*/*might*/*must* used precisely, never *may*. Say what the code does or why it is shaped so, not what changed.
+- **Comments** — Google developer-documentation style: plain English, present tense, active voice, real identifiers (`froca.getNote()`, not "the cache lookup"); *can*/*might*/*must* used precisely, never *may*. Say what the code does or why it is shaped so, not what changed. Keep it to a line or two — the reproduction, the measurements and the before/after belong in the commit body, which is the place to be thorough. A comment narrating a defect ("at 375px those ran 28px past the card") ages the moment the layout moves, and the next reader needs only the constraint that still binds, not the investigation.
 - **CSS comments** never narrate a change (`/* was 8px */`, `/* moved from the toolbar */`) — that is the commit message. Comment only what is non-obvious in place: a browser workaround, a value that must match one elsewhere, a `z-index` in a stacking contract.
 
 ## Testing

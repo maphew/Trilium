@@ -15,7 +15,7 @@ const FONTS: FontDefinition[] = [
 
 interface PdfViewerProps extends Pick<HTMLAttributes<HTMLIFrameElement>, "tabIndex"> {
     iframeRef?: RefObject<HTMLIFrameElement>;
-    /** Note: URLs are relative to /pdfjs/web, ideally use absolute paths (but without domain name) to avoid issues with some proxies. */
+    /** Relative URLs resolve against /pdfjs/web; build API paths with {@link getPdfUrl} instead. */
     pdfUrl: string;
     onLoad?(): void;
     /**
@@ -116,6 +116,16 @@ function cssVarsToString(vars: Record<string, string>) {
     return `:root {\n${Object.entries(vars)
         .map(([k, v]) => `  ${k}: ${v};`)
         .join('\n')}\n}`;
+}
+
+/**
+ * Resolves an API path such as `attachments/<id>/open` to a root-relative URL for
+ * {@link PdfViewerProps.pdfUrl}. A URL relative to the viewer needs `../../` to climb out of
+ * /pdfjs/web, which proxies that filter path traversal reject before the request reaches
+ * Trilium (Nginx Proxy Manager's "Block Common Exploits" answers 403). See #8877.
+ */
+export function getPdfUrl(apiPath: string) {
+    return new URL(`${window.glob.baseApiUrl}${apiPath}`, window.location.href).pathname;
 }
 
 function injectFont(font: FontDefinition) {
