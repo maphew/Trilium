@@ -673,6 +673,8 @@ export class AppContext extends Component {
         if (utils.isElectron()) {
             this.child(zoomComponent);
         }
+
+        void keyboardActionsService.setupWindowShortcuts();
     }
 
     renderWidgets() {
