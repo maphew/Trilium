@@ -8,7 +8,7 @@ import open from "../../../services/open";
 import options from "../../../services/options";
 import { useViewModeConfig } from "../../collections/NoteList";
 import { useBlobEditorSpacedUpdate, useEffectiveReadOnly, useTriliumEvent } from "../../react/hooks";
-import PdfViewer from "./PdfViewer";
+import PdfViewer, { getPdfUrl } from "./PdfViewer";
 
 /**
  * How long annotating is left to settle before a save. Longer than the second an editor of text
@@ -234,7 +234,7 @@ export default function PdfPreview({ note, blob, componentId, noteContext }: {
         <PdfViewer
             iframeRef={iframeRef}
             tabIndex={300}
-            pdfUrl={new URL(`${window.glob.baseApiUrl}notes/${note.noteId}/open`, window.location.href).pathname}
+            pdfUrl={getPdfUrl(`notes/${note.noteId}/open`)}
             onLoad={() => {
                 const win = iframeRef.current?.contentWindow;
                 if (win) {
