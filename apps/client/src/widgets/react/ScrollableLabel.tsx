@@ -36,6 +36,11 @@ interface ScrollableLabelProps {
 export default function ScrollableLabel({ children, className, autoScroll }: ScrollableLabelProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [ fades, setFades ] = useState({ start: false, end: false });
+    // How much of the line lies outside the box. Kept because the walk below starts over whenever it
+    // changes, which is what walks a label whose words arrived after it did — a path waiting on its
+    // titles — without asking the caller to say so, and without restarting on a render that changed
+    // nothing (children given as elements rather than as text are a new value every time).
+    const [ overflow, setOverflow ] = useState(0);
     // Set by the reader's own first scroll, and cleared only by a new label: a walk they interrupted
     // must not start again while the same line is still on screen.
     const handedOver = useRef(false);
@@ -54,6 +59,9 @@ export default function ScrollableLabel({ children, className, autoScroll }: Scr
         // same line towards negative offsets, and both ends are the same question either way.
         const travelled = Math.abs(element.scrollLeft);
         const total = element.scrollWidth - element.clientWidth;
+
+        setOverflow(total);
+
         const next = {
             start: travelled > EDGE_EPSILON,
             end: travelled < total - EDGE_EPSILON
@@ -130,9 +138,9 @@ export default function ScrollableLabel({ children, className, autoScroll }: Scr
         frame = requestAnimationFrame(step);
 
         return () => cancelAnimationFrame(frame);
-        // Restarted per label, which is also how a path that arrived after its own strip did gets
-        // walked: the titles land as a second render.
-    }, [ autoScroll, children ]);
+        // Restarted when the line's length changes rather than when its markup does, so a label
+        // rendered again with the same words is left walking where it was.
+    }, [ autoScroll, overflow ]);
 
     return (
         <div

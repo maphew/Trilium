@@ -46,10 +46,18 @@ export default function SpaceUsage() {
     // The chosen mark, of whichever chart is on show: the strip naming it belongs to the page, and
     // both views fill the same one.
     const [ selection, setSelection ] = useState<SpaceUsageSelection | null>(null);
-    // Tapping the chosen mark again lets it go, which is what puts the strip back to its hint
-    // without something else having to be picked.
-    const select = useCallback((next: SpaceUsageSelection) =>
-        setSelection((current) => current?.markId === next.markId ? null : next), []);
+    // The first tap names the mark; a second on the same one opens it, which is how a touch screen
+    // gets both without a gesture to guess at. A mark with nothing to open lets go instead, which is
+    // also what puts the strip back to its hint without something else having to be picked.
+    const select = useCallback((next: SpaceUsageSelection) => setSelection((current) => {
+        if (current?.markId !== next.markId) {
+            return next;
+        }
+
+        next.onOpen?.();
+
+        return next.onOpen ? current : null;
+    }), []);
     // A selection stands for a mark on the chart in front of the user: switching views, walking to
     // another note, or taking a fresh reading each leave it naming something that is no longer drawn.
     useEffect(() => setSelection(null), [ view, browsePath, refreshToken ]);
@@ -112,7 +120,7 @@ export default function SpaceUsage() {
                     onPathChange={setBrowsePath}
                     refreshToken={refreshToken}
                     onContentChanged={refresh}
-                    selectedMarkId={selection?.markId}
+                    selection={selection}
                     onSelect={IS_MOBILE ? select : undefined}
                     onLoadingChange={setBrowseLoading}
                 />

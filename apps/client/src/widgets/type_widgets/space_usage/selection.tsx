@@ -28,6 +28,13 @@ export interface SpaceUsageSelection {
     size: number;
     /** What a tap on the strip raises. Absent for a mark with nothing to offer, such as a crowd. */
     onActivate?: (event: MouseEvent) => void;
+    /**
+     * What a second tap on the mark itself does, once it is the chosen one: walking into a child in
+     * Browse, opening the note in Overview. This is what keeps a touch screen's first tap free to
+     * name the mark rather than act on it — naming it would otherwise cost the reader the action.
+     * Absent for a mark that stands for a crowd, which has nothing to be opened.
+     */
+    onOpen?: () => void;
 }
 
 /**

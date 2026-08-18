@@ -148,7 +148,9 @@ function selectionOf(
         ...(bucket ? { label: bucketNames[bucket] } : { notePath }),
         // The weight the cell was laid out with, which is what its area stands for.
         size: item.value ?? 0,
-        onActivate
+        onActivate,
+        // The same the note answers a click with on a desktop, where no tap had to name it first.
+        ...(notePath?.length && !bucket ? { onOpen: () => quickEditNote(notePath) } : {})
     };
 }
 

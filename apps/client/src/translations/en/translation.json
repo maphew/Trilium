@@ -3121,6 +3121,7 @@
     "status_attachments": "Attachments",
     "status_deleted_items": "Deleted items",
     "selection_hint": "Tap an item for details",
+    "show_selection_details": "Show selection details",
     "menu_show_details": "Show details",
     "menu_erase_deleted": "Erase deleted data",
     "erase_deleted_message": "Deleted data has been erased.",

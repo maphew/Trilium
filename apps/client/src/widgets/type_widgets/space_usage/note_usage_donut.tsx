@@ -143,6 +143,11 @@ export default function NoteUsageDonut({
  * What the strip says about a composition segment: the note itself for its body, which answers the
  * same menu as the center title standing for it, and the attachment for one of its own, which the
  * popup can show. "Others" stands for several attachments at once and answers nothing.
+ *
+ * None of them carries an {@link SpaceUsageSelection.onOpen}: this ring is only ever selected from
+ * where a tap has to stand in for a hover, and a mark there opens something only where the opening is
+ * a move within the chart. Walking into a child is that; throwing a popup over the chart from a
+ * second tap on a segment is not, so the segments name themselves and leave it at that.
  */
 function selectionOf(
     segment: DonutSegment<UsageSegmentData>,

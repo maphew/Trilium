@@ -13,6 +13,7 @@ import { useFetch } from "../../react/use_fetch";
 import { type ContentChangedHandler, openSpaceUsageContextMenu } from "./context_menu";
 import { buildChildrenSegments, type UsageSegmentData } from "./donut_segments";
 import { deletedEntitiesLabel } from "./labels";
+import ScrollableLabel from "../../react/ScrollableLabel";
 import NoteUsageDonut, { segmentTooltip } from "./note_usage_donut";
 import SpaceUsagePlaceholder from "./placeholder";
 import type { SpaceUsageSelection } from "./selection";
@@ -28,8 +29,11 @@ interface BrowseProps {
     refreshToken: number;
     /** Called once the menu deleted something, so the donut stops drawing what is no longer there. */
     onContentChanged: ContentChangedHandler;
-    /** The segment drawn as chosen, where the page keeps a selection. See {@link onSelect}. */
-    selectedMarkId?: string;
+    /**
+     * The mark the page is holding as chosen, drawn as such and offered by the link under the chart.
+     * See {@link onSelect}.
+     */
+    selection?: SpaceUsageSelection | null;
     /**
      * Where given, a click names the segment in the page's strip instead of descending into it: a
      * touch screen cannot hover a segment to find out what it is, so a tap has to say. Walking into
@@ -52,7 +56,7 @@ interface BrowseProps {
  * Usage can drop the user straight onto a note here.
  */
 export default function Browse({
-    path, onPathChange, refreshToken, onContentChanged, selectedMarkId, onSelect, onLoadingChange
+    path, onPathChange, refreshToken, onContentChanged, selection, onSelect, onLoadingChange
 }: BrowseProps) {
     const noteId = path[path.length - 1];
     const { data: usage, failed, loading } = useFetch<SpaceUsageNoteResponse>(
@@ -85,7 +89,8 @@ export default function Browse({
             const childId = segment.data?.noteId;
 
             if (onSelect) {
-                const selection = selectionOf(segment, path, menuFor);
+                const selection = selectionOf(segment, path, menuFor,
+                    (id) => onPathChange([ ...path, id ]));
 
                 if (selection) {
                     onSelect(selection);
@@ -111,21 +116,27 @@ export default function Browse({
     return (
         <div className="space-usage-browse">
             <nav className="space-usage-breadcrumb">
-                <span className="space-usage-crumb-label">{t("space_usage.current_note")}</span>
-                {path.map((id, index) => (
-                    <Fragment key={`${index}/${id}`}>
-                        {index > 0 && <span className="space-usage-crumb-separator" aria-hidden="true">›</span>}
-                        {index < path.length - 1 ? (
-                            <button
-                                type="button"
-                                className="space-usage-crumb"
-                                onClick={() => onPathChange(path.slice(0, index + 1))}
-                            >{getTitle(id)}</button>
-                        ) : (
-                            <span className="space-usage-crumb space-usage-crumb-current">{getTitle(id)}</span>
-                        )}
-                    </Fragment>
-                ))}
+                {/* The whole line travels together — what it says and where it leads are one sentence
+                    — so it is swiped rather than cut off, and fades at whichever end it carries on
+                    past. A deep path is otherwise clipped at both ends by a row that centres itself,
+                    and the end it loses is the note being looked at. */}
+                <ScrollableLabel className="space-usage-breadcrumb-track" autoScroll>
+                    <span className="space-usage-crumb-label">{t("space_usage.current_note")}</span>
+                    {path.map((id, index) => (
+                        <Fragment key={`${index}/${id}`}>
+                            {index > 0 && <span className="space-usage-crumb-separator" aria-hidden="true">›</span>}
+                            {index < path.length - 1 ? (
+                                <button
+                                    type="button"
+                                    className="space-usage-crumb"
+                                    onClick={() => onPathChange(path.slice(0, index + 1))}
+                                >{getTitle(id)}</button>
+                            ) : (
+                                <span className="space-usage-crumb space-usage-crumb-current">{getTitle(id)}</span>
+                            )}
+                        </Fragment>
+                    ))}
+                </ScrollableLabel>
             </nav>
 
             {usage ? (
@@ -135,7 +146,7 @@ export default function Browse({
                         title={getTitle(usage.noteId)}
                         notePath={path}
                         outerRings={[ childrenRing ]}
-                        selectedSegmentId={selectedMarkId}
+                        selectedSegmentId={selection?.markId}
                         onSelectSegment={onSelect}
                         onTitleContextMenu={(event) =>
                             void openSpaceUsageContextMenu(event, path, onPathChange, onContentChanged)}
@@ -144,6 +155,10 @@ export default function Browse({
                                 className="space-usage-back"
                                 icon="bx bx-arrow-back"
                                 text={t("space_usage.back")}
+                                // An arrow in the middle of the chart it walks back up: there is
+                                // nothing a tooltip could add, and on a touch screen the tap that
+                                // presses it would leave one standing over the donut.
+                                noTooltipOnTouch
                                 disabled={path.length === 1}
                                 onClick={() => path.length > 1 && onPathChange(path.slice(0, -1))}
                             />
@@ -152,6 +167,22 @@ export default function Browse({
                 </div>
             ) : (
                 <SpaceUsagePlaceholder failed={failed} />
+            )}
+
+            {/* What the second tap on a chosen child does, said in words: the tap is quick once it is
+                known about, and nothing on the ring says it is there. Offered only where a selection
+                is being kept at all, and kept in the layout whether or not one is — a line arriving
+                and leaving would resize the chart above it at every tap. */}
+            {onSelect && (
+                <div className="space-usage-browse-details">
+                    {selection?.onOpen && (
+                        <button
+                            type="button"
+                            className="space-usage-details-link"
+                            onClick={selection.onOpen}
+                        >{t("space_usage.show_selection_details")}</button>
+                    )}
+                </div>
             )}
         </div>
     );
@@ -166,7 +197,8 @@ export default function Browse({
 function selectionOf(
     segment: DonutSegment<UsageSegmentData>,
     path: string[],
-    menuFor: (childId: string) => (event: MouseEvent) => void
+    menuFor: (childId: string) => (event: MouseEvent) => void,
+    onDescend: (childId: string) => void
 ): SpaceUsageSelection | null {
     const childId = segment.data?.noteId;
 
@@ -175,7 +207,10 @@ function selectionOf(
             markId: segment.id,
             notePath: [ ...path, childId ],
             size: segment.value,
-            onActivate: menuFor(childId)
+            onActivate: menuFor(childId),
+            // Walking in is what a click does here on a desktop, and a second tap is what a touch
+            // screen has left once the first has been spent naming the child.
+            onOpen: () => onDescend(childId)
         };
     }
 
