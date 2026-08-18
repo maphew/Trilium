@@ -44,6 +44,7 @@ describe("annotation type constants", () => {
         // bundle owns pdf.js at runtime; that copy has to be kept honest from here.
         expect(AnnotationType.TEXT).toBe(UpstreamAnnotationType.TEXT);
         expect(AnnotationType.HIGHLIGHT).toBe(UpstreamAnnotationType.HIGHLIGHT);
+        expect(AnnotationType.INK).toBe(UpstreamAnnotationType.INK);
 
         // editing.ts documents this as "Matches AnnotationEditorType.NONE in pdf.js".
         expect(ANNOTATION_EDITOR_MODE_NONE).toBe(AnnotationEditorType.NONE);

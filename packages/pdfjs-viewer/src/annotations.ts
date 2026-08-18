@@ -2,17 +2,25 @@
 export const AnnotationType = {
     TEXT: 1,
     HIGHLIGHT: 9,
+    INK: 15,
 } as const;
 
-/** Annotation types we display in the sidebar. */
-const COMMENT_TYPES = new Set([
+/**
+ * Annotation types we display in the sidebar. Ink is here because pdf.js writes a free-hand
+ * highlight — one drawn with the highlight tool instead of over selected text — as an Ink
+ * annotation, not a Highlight one, so leaving it out hid every highlight not made by selecting
+ * text. It also covers the pen tool, whose drawings belong in the list just as much.
+ */
+const COMMENT_TYPES = new Set<number>([
     AnnotationType.TEXT,
     AnnotationType.HIGHLIGHT,
+    AnnotationType.INK,
 ]);
 
 const TYPE_NAMES: Record<number, string> = {
     [AnnotationType.TEXT]: "text",
     [AnnotationType.HIGHLIGHT]: "highlight",
+    [AnnotationType.INK]: "ink",
 };
 
 /**
@@ -24,13 +32,11 @@ export function processAnnotation(ann: Record<string, any>, pageNumber: number):
         return null;
     }
 
+    // Both can be empty: a drawing carries no text at all, and pdf.js only fills overlaidText
+    // for a highlight whose quadpoints cover extractable glyphs — never on a scanned page. The
+    // sidebar labels such an entry by its type, so the annotation is still reachable.
     const contents = ann.contentsObj?.str || "";
     const highlightedText = ann.overlaidText || "";
-
-    // Skip annotations that have no meaningful content
-    if (!contents && !highlightedText) {
-        return null;
-    }
 
     return {
         id: ann.id,

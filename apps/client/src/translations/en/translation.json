@@ -3612,7 +3612,10 @@
     "pages_alt": "Page {{pageNumber}}",
     "pages_loading": "Loading...",
     "annotations_one": "{{count}} annotation",
-    "annotations_other": "{{count}} annotations"
+    "annotations_other": "{{count}} annotations",
+    "annotation_drawing": "Drawing on page {{pageNumber}}",
+    "annotation_highlight": "Highlight on page {{pageNumber}}",
+    "annotation_note": "Note on page {{pageNumber}}"
   },
   "platform_indicator": {
     "available_on": "Available on {{platform}}"

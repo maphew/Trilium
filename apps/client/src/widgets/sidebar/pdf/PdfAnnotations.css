@@ -28,9 +28,24 @@
     font-size: 18px;
 }
 
+/* Rows tinted with a dark annotation colour (the pen defaults to black) invert their text. */
+.pdf-annotation-item.on-dark,
+.pdf-annotation-item.on-dark .tn-icon,
+.pdf-annotation-item.on-dark .pdf-annotation-untitled,
+.pdf-annotation-item.on-dark .pdf-annotation-highlighted-text,
+.pdf-annotation-item.on-dark .pdf-annotation-contents,
+.pdf-annotation-item.on-dark .pdf-annotation-author {
+    color: #f0f0f0;
+}
+
 .pdf-annotation-info {
     flex: 1;
     min-width: 0;
+}
+
+.pdf-annotation-untitled {
+    font-size: 13px;
+    color: #555;
 }
 
 .pdf-annotation-highlighted-text {

@@ -59,12 +59,30 @@ describe("processAnnotation", () => {
         expect(processAnnotation(withAuthor, 1)!.author).toBe("John Doe");
     });
 
-    it("skips non-comment types and empty annotations", () => {
+    it("skips types the sidebar does not list", () => {
         const link = { ...SAMPLE_HIGHLIGHT, annotationType: 2 }; // LINK
         expect(processAnnotation(link, 1)).toBeNull();
 
-        const empty = { ...SAMPLE_HIGHLIGHT, contentsObj: { str: "", dir: "ltr" }, overlaidText: "" };
-        expect(processAnnotation(empty, 1)).toBeNull();
+        const freeText = { ...SAMPLE_HIGHLIGHT, annotationType: 3 }; // FREETEXT
+        expect(processAnnotation(freeText, 1)).toBeNull();
+    });
+
+    it("keeps an annotation carrying no text at all", () => {
+        // pdf.js writes a free-hand highlight as Ink, which never has contents or overlaidText;
+        // dropping those hid every highlight not drawn over selected text (#11059).
+        const drawing = {
+            ...SAMPLE_HIGHLIGHT,
+            annotationType: AnnotationType.INK,
+            contentsObj: { str: "", dir: "ltr" },
+            overlaidText: null
+        };
+
+        const result = processAnnotation(drawing, 4)!;
+        expect(result).not.toBeNull();
+        expect(result.type).toBe("ink");
+        expect(result.contents).toBe("");
+        expect(result.highlightedText).toBe("");
+        expect(result.pageNumber).toBe(4);
     });
 
     it("keeps annotations with only one of contents or highlightedText", () => {
@@ -101,7 +119,7 @@ describe("extraction from a real document", () => {
 
     afterEach(() => uninstallViewerApp());
 
-    /** The two annotations the fixture expects to surface, in page order. */
+    /** The annotations the fixture expects to surface, in page order. */
     const EXPECTED = [
         expect.objectContaining({
             id: "5R",
@@ -118,16 +136,31 @@ describe("extraction from a real document", () => {
             author: "Bob",
             pageNumber: 1,
             color: "#0000ff"
+        }),
+        expect.objectContaining({
+            id: "17R",
+            type: "highlight",
+            contents: "",
+            highlightedText: "",
+            pageNumber: 2
+        }),
+        expect.objectContaining({
+            id: "18R",
+            type: "ink",
+            contents: "",
+            highlightedText: "",
+            pageNumber: 2,
+            color: "#000000"
         })
     ];
 
-    it("walks every page and keeps only the annotations worth showing", async () => {
+    it("walks every page and lists every annotation kind the sidebar shows", async () => {
         viewer = await installViewerApp(allFeaturesPdf());
 
         await setupPdfAnnotations();
 
-        // Page 2 holds a link (wrong type) and a highlight with no comment or highlighted
-        // text; neither should reach the sidebar, and the page loop still has to visit it.
+        // Page 2's link is the only annotation filtered out — the highlight with nothing to
+        // show and the ink drawing both belong in the sidebar, named by kind (#11059).
         expect(viewer.lastMessageOfType("pdfjs-viewer-annotations").annotations).toEqual(EXPECTED);
     });
 
@@ -165,7 +198,7 @@ describe("extraction from a real document", () => {
         await setupPdfAnnotations();
 
         const { annotations } = viewer.lastMessageOfType("pdfjs-viewer-annotations");
-        expect(annotations.map((annotation: any) => annotation.id)).toEqual([ "14R" ]);
+        expect(annotations.map((annotation: any) => annotation.id)).toEqual([ "14R", "17R", "18R" ]);
     });
 
     it("reports an empty list when extraction fails", async () => {
@@ -213,7 +246,12 @@ describe("re-extraction from saved bytes", () => {
 
         // Saving and reopening must not lose the annotations the sidebar is showing.
         expect(viewer.lastMessageOfType("pdfjs-viewer-annotations").annotations)
-            .toEqual([ expect.objectContaining({ contents: "A remark" }), expect.objectContaining({ contents: "A sticky note" }) ]);
+            .toEqual([
+                expect.objectContaining({ contents: "A remark" }),
+                expect.objectContaining({ contents: "A sticky note" }),
+                expect.objectContaining({ id: "17R", type: "highlight" }),
+                expect.objectContaining({ id: "18R", type: "ink" })
+            ]);
         // The temporary document owns a worker, so failing to destroy it leaks one per save.
         expect(destroy).toHaveBeenCalledTimes(1);
     });
