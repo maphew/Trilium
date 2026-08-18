@@ -126,7 +126,7 @@ export function manageSave() {
     let pointerDownOnPage = false;
 
     // What the document held when the parent was last told about it. Compared against, rather
-    // than trusted, because pdf.js reports far more than actual changes — see onStorageModified.
+    // than trusted, because pdf.js reports far more than actual changes — see reportIfChanged.
     let reportedHash = serializedHash();
 
     /**
@@ -152,16 +152,23 @@ export function manageSave() {
     }
 
     /**
-     * pdf.js dirtied `annotationStorage`. That covers real edits, but also every time an editing
-     * mode turns the annotations already stored on a rendered page into editors — one signal per
-     * annotation, raised again for each page that scrolls into view. Passing those on had the
-     * parent re-serialise and re-upload the whole PDF because a toolbar button was pressed
-     * (#11059), so the content is compared before anything is announced.
+     * Reports a modification only when the document really did change.
+     *
+     * Both signals routed here fire freely on their own: registering the annotations already
+     * stored on a page raises the storage hook once per annotation, on every toolbar press and
+     * as each annotated page scrolls into view, and a tool's colour picker announces a parameter
+     * change even with nothing selected, where it only sets what the *next* annotation will look
+     * like. Either one had the parent re-serialise and re-upload the whole PDF for nothing
+     * (#11059).
+     *
+     * Safe for the parameter change because pdf.js applies it before this runs: its own listener
+     * was registered at start-up, ours during `documentloaded`, and the event bus calls them in
+     * registration order.
      */
-    function onStorageModified() {
+    function reportIfChanged() {
         if (!storage) return;
-        // Cleared whether or not this turns into an announcement: pdf.js raises the hook once per
-        // dirtying, so a flag left set would swallow the next real change.
+        // Cleared whether or not this turns into an announcement: pdf.js raises the storage hook
+        // once per dirtying, so a flag left set would swallow the next real change.
         storage.resetModified();
 
         const hash = serializedHash();
@@ -200,10 +207,10 @@ export function manageSave() {
     });
 
     (app.pdfDocument.annotationStorage as any).onSetModified = () => {
-        onStorageModified();
+        reportIfChanged();
     };  // works great for most cases, including forms.
     app.eventBus.on("switchannotationeditorparams", () => {
-        onChange();
+        reportIfChanged();
     });
     // Catches deletions of existing annotations, undo/redo, and comment deletion
     // which don't trigger onSetModified or switchannotationeditorparams.

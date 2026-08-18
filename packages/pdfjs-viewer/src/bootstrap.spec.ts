@@ -158,7 +158,7 @@ describe("boot sequence", () => {
 });
 
 describe("reporting the document as modified", () => {
-    it("tells the parent on every signal pdf.js gives for a real change", async () => {
+    it("tells the parent on the signals pdf.js gives for a real change", async () => {
         viewer = await installViewerApp(allFeaturesPdf());
         const storage = viewer.pdfDocument.annotationStorage as any;
         const resetModified = vi.spyOn(storage, "resetModified");
@@ -166,16 +166,16 @@ describe("reporting the document as modified", () => {
 
         // The primary hook: pdf.js dirties annotationStorage, as filling in a form field does.
         storage.setValue("field-1", { value: "typed" });
-        // A tool's parameters changing (colour, thickness) also mutates the document.
-        viewer.eventBus.dispatch("switchannotationeditorparams", { source: null });
         // Deletions and undo/redo only surface here, and only when there is something to undo.
+        // Left unconditional: the first stroke of an ink session flips hasSomethingToUndo while
+        // the drawing is still outside annotationStorage, so there is nothing to compare against.
         viewer.eventBus.dispatch("editingstateschanged", { source: null, details: { hasSomethingToUndo: true } });
 
-        expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(3);
+        expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(2);
         expect(viewer.lastMessageOfType("pdfjs-viewer-document-modified"))
             .toEqual({ type: "pdfjs-viewer-document-modified", noteId: "note-1", ntxId: "ntx-1" });
         // Without the reset pdf.js keeps reporting the same change on every later edit.
-        expect(resetModified).toHaveBeenCalledTimes(3);
+        expect(resetModified).toHaveBeenCalledTimes(2);
     });
 
     it("stays quiet while pdf.js registers the annotations already in the document", async () => {
@@ -198,6 +198,36 @@ describe("reporting the document as modified", () => {
 
         // Which it does: an actual edit is still reported.
         storage.setValue("field-1", { value: "typed" });
+        expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(1);
+    });
+
+    it("stays quiet when a tool's parameters leave the document alone", async () => {
+        viewer = await installViewerApp(allFeaturesPdf());
+        manageSave();
+
+        // With nothing selected, the colour picker in a tool's parameter toolbar only sets what
+        // the next annotation will be drawn in.
+        viewer.eventBus.dispatch("switchannotationeditorparams", { source: null });
+
+        expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(0);
+    });
+
+    it("reports a parameter change that does alter an annotation", async () => {
+        viewer = await installViewerApp(allFeaturesPdf());
+        const storage = viewer.pdfDocument.annotationStorage as any;
+        manageSave();
+
+        // Recolouring a selected annotation rewrites what the document serializes to, and this
+        // event is the only notice of it — pdf.js updates the editor in place rather than going
+        // back through onSetModified. Detaching the hook reproduces that: the content changes,
+        // nothing else reports it.
+        const hook = storage.onSetModified;
+        storage.onSetModified = null;
+        storage.setValue("18R", { value: "recoloured" });
+        storage.onSetModified = hook;
+
+        viewer.eventBus.dispatch("switchannotationeditorparams", { source: null });
+
         expect(viewer.messagesOfType("pdfjs-viewer-document-modified")).toHaveLength(1);
     });
 

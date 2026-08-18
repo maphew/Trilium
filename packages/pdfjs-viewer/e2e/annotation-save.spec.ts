@@ -145,6 +145,26 @@ test("picking a tool on an already-annotated document schedules nothing", async 
     expect(await modifiedCount(reopened)).toBeGreaterThan(0);
 });
 
+test("changing a tool's colour with nothing selected schedules nothing", async ({ page }) => {
+    const viewer = await openHarness(page);
+    await enterHighlightMode(viewer);
+
+    // The highlight tool's parameter toolbar opens with the mode. Its picker sets the colour the
+    // *next* highlight is drawn in — nothing already in the document changes, so there is nothing
+    // to save (#11059).
+    const picker = viewer.locator("#editorHighlightColorPicker");
+    await picker.locator("button").first().click();
+    await picker.locator(".dropdown button").nth(2).click();
+    await page.waitForTimeout(1000);
+
+    expect(await modifiedCount(page)).toBe(0);
+
+    // The new colour still applies, and drawing in it is a change like any other.
+    await drawStroke(page, await pageBox(viewer), [[200, 300], [330, 340]]);
+    await page.waitForTimeout(500);
+    expect(await modifiedCount(page)).toBeGreaterThan(0);
+});
+
 test("annotations survive reopening the saved document", async ({ page, context }) => {
     const viewer = await openHarness(page);
     await enterInkMode(viewer);
