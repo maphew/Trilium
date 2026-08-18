@@ -15,8 +15,11 @@ import { CONTENT_WIDGETS } from "../ContentWidget";
 import type { TypeWidgetProps } from "../type_widget";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 
-/** How much has to be typed before there is enough of a word to look for. */
-export const MIN_QUERY_LENGTH = 3;
+/**
+ * How much has to be typed before there is enough of a word to look for. Two rather than three, so
+ * that a setting named by a pair of letters (AI) can be reached by typing it.
+ */
+export const MIN_QUERY_LENGTH = 2;
 
 const DEBOUNCE_MS = 250;
 
