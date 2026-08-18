@@ -179,6 +179,20 @@ describe("PDFDocumentProxy shape", () => {
         expect(order.some((item: any) => Array.isArray(item))).toBe(false);
     });
 
+    it("still lets the editing manager report a selection apart from an active editor", async () => {
+        // commitPendingAnnotationEdits() reads `hasSelection` to know a save has nothing to
+        // commit. Were it renamed, the read would be `undefined` — falsy, so the guard would
+        // quietly stop guarding and every save would again drop the user's selection (#11059).
+        // `getActive()` is not a substitute: pdf.js sets it only once an editor is being edited.
+        const { AnnotationEditorUIManager } = await import("pdfjs-dist/legacy/build/pdf.mjs") as any;
+        expect(AnnotationEditorUIManager).toBeDefined();
+
+        const prototype = AnnotationEditorUIManager.prototype;
+        expect(Object.getOwnPropertyDescriptor(prototype, "hasSelection")?.get).toEqual(expect.any(Function));
+        expect(prototype.getActive).toEqual(expect.any(Function));
+        expect(prototype.unselectAll).toEqual(expect.any(Function));
+    });
+
     it("keeps annotationStorage's modification hooks reachable", () => {
         // `onSetModified` is a private monkey-patch point (custom.ts, annotations.ts) with no
         // public type. We cannot bind its contract, but we can catch it disappearing.

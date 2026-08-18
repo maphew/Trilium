@@ -30,7 +30,7 @@ afterEach(() => {
 
 /** Marks an annotation-editing tool as active, as pdf.js does while a tool is selected. */
 function startEditing(mode = 15) {
-    setAnnotationEditorUIManager({ getMode: () => mode, getActive: () => null, unselectAll: vi.fn() });
+    setAnnotationEditorUIManager({ getMode: () => mode, getActive: () => null, hasSelection: false, unselectAll: vi.fn() });
 }
 
 /** Adds the `.page` element pdf.js renders each page into, and returns a child of it. */
@@ -251,7 +251,7 @@ describe("producing the saved document", () => {
         viewer = await installViewerApp(allFeaturesPdf());
         (globalThis as any).pdfjsLib = { getDocument };
         const unselectAll = vi.fn();
-        setAnnotationEditorUIManager({ getMode: () => 15, getActive: () => null, unselectAll });
+        setAnnotationEditorUIManager({ getMode: () => 15, getActive: () => null, hasSelection: false, unselectAll });
         manageSave();
 
         viewer.sendFromParent({ type: "trilium-request-blob" });

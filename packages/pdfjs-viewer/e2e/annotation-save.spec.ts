@@ -94,6 +94,27 @@ test("does not ask to confirm leaving after the annotation was saved", async ({ 
     expect(prompted).toBe(false);
 });
 
+test("leaves an annotation the user has selected selected", async ({ page }) => {
+    const viewer = await openHarness(page);
+    await enterHighlightMode(viewer);
+    const box = await pageBox(viewer);
+
+    // Drawing a highlight leaves it selected, which is also the state reached by clicking an
+    // existing one: its floating toolbar — where the colour picker lives — is shown for as
+    // long as it stays selected.
+    await drawStroke(page, box, [[200, 200], [320, 240], [420, 210]]);
+    await viewer.locator(".annotationEditorLayer .highlightEditor").first().waitFor({ state: "visible" });
+    expect(await selectedEditorCount(page)).toBe(1);
+
+    // A save fires a second after the last interaction, which is exactly the gap in which the
+    // user is choosing a colour. Committing pending edits must not take the selection with it
+    // (#11059): a selected annotation is already in annotationStorage, so there is nothing to
+    // commit, and unselecting it tears down the toolbar the user is reaching for.
+    await requestBlob(page, 1);
+    await page.waitForTimeout(300);
+    expect(await selectedEditorCount(page)).toBe(1);
+});
+
 test("annotations survive reopening the saved document", async ({ page, context }) => {
     const viewer = await openHarness(page);
     await enterInkMode(viewer);
@@ -133,6 +154,22 @@ async function openHarness(page: Page): Promise<FrameLocator> {
 async function enterInkMode(viewer: FrameLocator) {
     await viewer.locator("#editorInkButton").click();
     await viewer.locator(".annotationEditorLayer").first().waitFor({ state: "attached" });
+}
+
+async function enterHighlightMode(viewer: FrameLocator) {
+    await viewer.locator("#editorHighlightButton").click();
+    await viewer.locator(".annotationEditorLayer").first().waitFor({ state: "attached" });
+}
+
+/**
+ * How many editors pdf.js currently shows as selected. `selectedEditor` is the class that
+ * carries the floating toolbar, so it stands in for "the user's selection is still there".
+ */
+function selectedEditorCount(page: Page): Promise<number> {
+    const frame = page.frame({ url: /viewer\.html/ });
+    if (!frame) throw new Error("Viewer frame not found");
+
+    return frame.evaluate(() => document.querySelectorAll(".annotationEditorLayer .selectedEditor").length);
 }
 
 async function pageBox(viewer: FrameLocator) {
