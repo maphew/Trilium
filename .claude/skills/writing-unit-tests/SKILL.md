@@ -89,3 +89,10 @@ coverage: {
         vi.setConfig({ testTimeout: 60000, hookTimeout: 60000 });
     }
     ```
+- **A spec that hangs at *exit* takes the whole suite down with it.** An unclosed timer, `ResizeObserver`, event listener or in-flight `fetch` can let every test pass and then stop Vitest from exiting — which hangs the full `pnpm test` run, and CI with it. Because the failure is at teardown, the spec looks green in isolation. Diagnose by sweeping the specs one at a time under a hard timeout and looking for exit code 124:
+
+    ```bash
+    find <dir> -name '*.spec.tsx' | xargs -P6 -I{} timeout 70 <vitest> run {}
+    ```
+
+    Use **absolute paths** in that command — a background shell starts at the repo root, not wherever you last `cd`'d. Clean up the handle in the spec rather than raising the timeout.
