@@ -294,6 +294,7 @@ function buildHiddenSubtreeDefinition(helpSubtree: HiddenSubtreeItem[]): HiddenS
                 title: t("hidden-subtree.options-title"),
                 type: "book",
                 icon: "bx-cog",
+                enforceChildOrder: true,
                 children: [
                     // The order below is the order the pages are listed in. A database being
                     // set up meets them here and gives each the next position as it is created;
@@ -426,7 +427,11 @@ function isWithinHiddenSubtree(noteId: string): boolean {
     return noteId.startsWith("_") || noteId === "root";
 }
 
-function checkHiddenSubtreeRecursively(parentNoteId: string, item: HiddenSubtreeItem, extraOpts: CheckHiddenExtraOpts = {}) {
+function checkHiddenSubtreeRecursively(
+    parentNoteId: string, item: HiddenSubtreeItem, extraOpts: CheckHiddenExtraOpts = {},
+    /** Where the parent's own ordering puts this item, for a parent that holds its children in order. */
+    orderedPosition?: number
+) {
     if (!item.id || !item.type || !item.title) {
         throw new Error(`Item does not contain mandatory properties: ${JSON.stringify(item)}`);
     }
@@ -558,8 +563,11 @@ function checkHiddenSubtreeRecursively(parentNoteId: string, item: HiddenSubtree
     if (branch) {
         // in case of launchers the branch ID is not preserved and should not be relied upon - launchers which move between
         // visible and available will change branch since the branch's parent-child relationship is immutable
-        if (item.notePosition !== undefined && branch.notePosition !== item.notePosition) {
-            branch.notePosition = item.notePosition;
+        // What the definition asks for: the item's own position, or the one its place in an ordered
+        // parent implies. Written only where it differs, so a database already in order is untouched.
+        const wantedPosition = item.notePosition ?? orderedPosition;
+        if (wantedPosition !== undefined && branch.notePosition !== wantedPosition) {
+            branch.notePosition = wantedPosition;
             branch.save();
         }
 
@@ -616,8 +624,10 @@ function checkHiddenSubtreeRecursively(parentNoteId: string, item: HiddenSubtree
         }
     }
 
-    for (const child of item.children || []) {
-        checkHiddenSubtreeRecursively(item.id, child, extraOpts);
+    for (const [ index, child ] of (item.children ?? []).entries()) {
+        // Ten apart, as Trilium spaces positions, so there is room to drop something between two.
+        const position = item.enforceChildOrder ? (index + 1) * 10 : undefined;
+        checkHiddenSubtreeRecursively(item.id, child, extraOpts, position);
     }
 }
 
