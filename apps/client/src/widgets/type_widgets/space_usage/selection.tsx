@@ -1,0 +1,102 @@
+import "./selection.css";
+
+import clsx from "clsx";
+import type { RefObject } from "preact";
+import { useEffect, useState } from "preact/hooks";
+
+import froca from "../../../services/froca";
+import { t } from "../../../services/i18n";
+import { formatSize } from "../../../services/utils";
+
+/**
+ * A mark the user picked out of a chart: which one it is, what it stands for, and what can be done
+ * with it. Held by the page rather than by either view, since the strip naming it belongs to the
+ * page and both views fill it.
+ */
+export interface SpaceUsageSelection {
+    /** The mark's own id, which is how the chart knows to draw it as chosen. */
+    markId: string;
+    /**
+     * Note IDs from the root (inclusive) down to the note, where the mark stands for one — the strip
+     * reads the name and the path it shows out of this.
+     */
+    notePath?: string[];
+    /** What to call a mark that stands for no note: a bucket, or one of a note's attachments. */
+    label?: string;
+    /** The size the mark's area encodes, in bytes. */
+    size: number;
+    /** What a tap on the strip raises. Absent for a mark with nothing to offer, such as a crowd. */
+    onActivate?: (event: MouseEvent) => void;
+}
+
+/**
+ * What the chosen mark is, along the foot of the screen: where the mark is, what it is called, and
+ * how much it takes. This is how a chart identifies itself where there is no hover to do it, a phone,
+ * so it says what the tooltip would have said, and a tap on it raises the same menu a right-click
+ * raises on a desktop.
+ *
+ * It stands there with nothing chosen too, saying what to do instead: the strip is the map's legend
+ * on a touch screen, and a legend that appears only once you have guessed the gesture is no legend.
+ */
+export default function SelectionStrip({ selection, containerRef }: {
+    selection: SpaceUsageSelection | null,
+    /** Held by the page, which measures the strip to leave the map room to scroll clear of it. */
+    containerRef?: RefObject<HTMLDivElement>
+}) {
+    const titles = usePathTitles(selection?.notePath);
+    // The note's own title is the last of them; anything above it is where the note sits. A mark
+    // standing for no note carries its name instead, and has no location to show.
+    const name = selection?.notePath ? titles[titles.length - 1] ?? "" : selection?.label ?? "";
+    const path = titles.slice(0, -1);
+
+    return (
+        <div
+            ref={containerRef}
+            className={clsx("space-usage-selection", selection?.onActivate && "space-usage-selection-actionable")}
+            onClick={(event) => selection?.onActivate?.(event)}
+        >
+            {selection ? (
+                <>
+                    <span className="space-usage-selection-path">{path.join(" › ")}</span>
+                    <span className="space-usage-selection-name">{name}</span>
+                    <span className="space-usage-selection-size">{formatSize(selection.size)}</span>
+                </>
+            ) : (
+                <span className="space-usage-selection-hint">{t("space_usage.selection_hint")}</span>
+            )}
+        </div>
+    );
+}
+
+/**
+ * The titles along the selected path, in path order, standing in with the note IDs until they
+ * arrive. One froca call for the whole chain, and one selection is ever shown at a time, so the
+ * strip asks again only when a different mark is picked.
+ */
+function usePathTitles(notePath: string[] | undefined) {
+    const [ titles, setTitles ] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (!notePath) {
+            setTitles([]);
+            return;
+        }
+
+        let cancelled = false;
+
+        // Silent: the reading the mark came from predates the tap, so the note may already be gone.
+        void froca.getNotes(notePath, true).then((notes) => {
+            if (!cancelled) {
+                const byNoteId = new Map(notes.map((note) => [ note.noteId, note.title ]));
+
+                setTitles(notePath.map((noteId) => byNoteId.get(noteId) ?? noteId));
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [ notePath ]);
+
+    return titles;
+}

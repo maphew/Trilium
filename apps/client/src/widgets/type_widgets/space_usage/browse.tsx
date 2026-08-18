@@ -8,13 +8,14 @@ import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { formatSize } from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
-import type { DonutRing } from "../../react/charts/DonutChart";
+import type { DonutRing, DonutSegment } from "../../react/charts/DonutChart";
 import { useFetch } from "../../react/use_fetch";
 import { type ContentChangedHandler, openSpaceUsageContextMenu } from "./context_menu";
 import { buildChildrenSegments, type UsageSegmentData } from "./donut_segments";
 import { deletedEntitiesLabel } from "./labels";
 import NoteUsageDonut, { segmentTooltip } from "./note_usage_donut";
 import SpaceUsagePlaceholder from "./placeholder";
+import type { SpaceUsageSelection } from "./selection";
 
 const CHILDREN_RING_RADIUS = 180;
 const CHILDREN_RING_THICKNESS = 46;
@@ -27,6 +28,14 @@ interface BrowseProps {
     refreshToken: number;
     /** Called once the menu deleted something, so the donut stops drawing what is no longer there. */
     onContentChanged: ContentChangedHandler;
+    /** The segment drawn as chosen, where the page keeps a selection. See {@link onSelect}. */
+    selectedMarkId?: string;
+    /**
+     * Where given, a click names the segment in the page's strip instead of descending into it: a
+     * touch screen cannot hover a segment to find out what it is, so a tap has to say. Walking into
+     * the child is then what "Show details" does in the menu the strip raises.
+     */
+    onSelect?: (selection: SpaceUsageSelection) => void;
     /**
      * Reports whether this view is measuring, so the section can keep its refresh button out while
      * it is — this view's reading is its own request, which the section cannot otherwise see.
@@ -43,7 +52,7 @@ interface BrowseProps {
  * Usage can drop the user straight onto a note here.
  */
 export default function Browse({
-    path, onPathChange, refreshToken, onContentChanged, onLoadingChange
+    path, onPathChange, refreshToken, onContentChanged, selectedMarkId, onSelect, onLoadingChange
 }: BrowseProps) {
     const noteId = path[path.length - 1];
     const { data: usage, failed, loading } = useFetch<SpaceUsageNoteResponse>(
@@ -55,6 +64,10 @@ export default function Browse({
     useEffect(() => () => onLoadingChange(false), [ onLoadingChange ]);
     const titles = useNoteTitles(path, usage);
     const getTitle = useCallback((id: string) => titles.get(id) ?? id, [ titles ]);
+
+    const menuFor = useCallback((childId: string) => (event: MouseEvent) =>
+        void openSpaceUsageContextMenu(event, [ ...path, childId ], onPathChange, onContentChanged),
+        [ path, onPathChange, onContentChanged ]);
 
     const childrenRing: DonutRing<UsageSegmentData> = useMemo(() => ({
         id: "children",
@@ -71,6 +84,16 @@ export default function Browse({
         onSegmentClick: (segment) => {
             const childId = segment.data?.noteId;
 
+            if (onSelect) {
+                const selection = selectionOf(segment, path, menuFor);
+
+                if (selection) {
+                    onSelect(selection);
+                }
+
+                return;
+            }
+
             if (childId) {
                 onPathChange([ ...path, childId ]);
             }
@@ -83,7 +106,7 @@ export default function Browse({
                 void openSpaceUsageContextMenu(event, [ ...path, childId ], onPathChange, onContentChanged);
             }
         }
-    }), [ usage, getTitle, path, onPathChange, onContentChanged ]);
+    }), [ usage, getTitle, path, onPathChange, onContentChanged, onSelect, menuFor ]);
 
     return (
         <div className="space-usage-browse">
@@ -112,6 +135,8 @@ export default function Browse({
                         title={getTitle(usage.noteId)}
                         notePath={path}
                         outerRings={[ childrenRing ]}
+                        selectedSegmentId={selectedMarkId}
+                        onSelectSegment={onSelect}
                         onTitleContextMenu={(event) =>
                             void openSpaceUsageContextMenu(event, path, onPathChange, onContentChanged)}
                         centerActions={
@@ -130,6 +155,33 @@ export default function Browse({
             )}
         </div>
     );
+}
+
+/**
+ * What the strip says about a segment of the children ring: the child note, with the path that
+ * identifies its placement and the menu that acts on it, or one of the two figures closing the ring,
+ * named by what the segment calls itself. "Others" stands for several children at once and answers
+ * nothing, in the strip as in the chart.
+ */
+function selectionOf(
+    segment: DonutSegment<UsageSegmentData>,
+    path: string[],
+    menuFor: (childId: string) => (event: MouseEvent) => void
+): SpaceUsageSelection | null {
+    const childId = segment.data?.noteId;
+
+    if (childId) {
+        return {
+            markId: segment.id,
+            notePath: [ ...path, childId ],
+            size: segment.value,
+            onActivate: menuFor(childId)
+        };
+    }
+
+    return segment.label
+        ? { markId: segment.id, label: segment.label, size: segment.value }
+        : null;
 }
 
 /**

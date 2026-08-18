@@ -118,10 +118,17 @@ body.mobile {
         }
 
         /* Sized by the map it holds rather than by what is left of the screen: the page scrolls, so
-           there is no height here to fill. */
+           there is no height here to fill. The room below is the strip's own height, measured by the
+           page: the strip stands over the map until the end of the scroll, and every cell has to be
+           reachable clear of it. */
         .space-usage-overview {
             order: 2;
             flex: 0 0 auto;
+            padding-bottom: calc(8px + var(--space-usage-strip-height, 0px));
+        }
+
+        .space-usage-selection {
+            order: 3;
         }
     }
 

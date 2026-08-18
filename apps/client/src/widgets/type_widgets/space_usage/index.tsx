@@ -1,21 +1,30 @@
 import "./index.css";
 
 import type { SpaceUsageOverviewResponse } from "@triliumnext/commons";
-import { useCallback, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
-import { formatSize } from "../../../services/utils";
+import { formatSize, isMobile } from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
-import { useStaticTooltip } from "../../react/hooks";
+import { useElementSize, useStaticTooltip } from "../../react/hooks";
 import SegmentedChoice from "../../react/SegmentedChoice";
 import { useFetch } from "../../react/use_fetch";
 import Browse from "./browse";
 import { showCleanupDialog } from "./cleanup_dialog";
 import Overview from "./overview";
 import SpaceUsagePlaceholder from "./placeholder";
+import SelectionStrip, { type SpaceUsageSelection } from "./selection";
 
 /** Matches the server default; the treemap could not label more cells anyway. */
 const OVERVIEW_LIMIT = 500;
+
+/**
+ * Whether a tap on a mark names it rather than acting on it. A touch screen has no hover to identify
+ * a cell or a segment with, so there the charts keep a selection and the strip along the foot of the
+ * page says what is chosen; a pointer needs none of that and keeps its hover and its right-click.
+ * Read once, as the app's other phone branches do.
+ */
+const TAP_SELECTS = isMobile();
 
 type SpaceUsageView = "overview" | "browse";
 
@@ -33,6 +42,20 @@ export default function SpaceUsage() {
     // Browse's position lives here so that "Show details", offered on any note either view draws,
     // can land the user on that note — switching the view along the way when it comes from Overview.
     const [ browsePath, setBrowsePath ] = useState([ "root" ]);
+    // The chosen mark, of whichever chart is on show: the strip naming it belongs to the page, and
+    // both views fill the same one.
+    const [ selection, setSelection ] = useState<SpaceUsageSelection | null>(null);
+    // Tapping the chosen mark again lets it go, which is what puts the strip back to its hint
+    // without something else having to be picked.
+    const select = useCallback((next: SpaceUsageSelection) =>
+        setSelection((current) => current?.markId === next.markId ? null : next), []);
+    // A selection stands for a mark on the chart in front of the user: switching views, walking to
+    // another note, or taking a fresh reading each leave it naming something that is no longer drawn.
+    useEffect(() => setSelection(null), [ view, browsePath, refreshToken ]);
+    // The strip is measured rather than guessed at: the map is given exactly its height as room to
+    // scroll clear of it, and how tall it stands depends on the theme's own text size.
+    const stripRef = useRef<HTMLDivElement>(null);
+    const stripSize = useElementSize(stripRef);
     const showDetails = useCallback((notePath: string[]) => {
         setBrowsePath(notePath);
         setView("browse");
@@ -44,7 +67,12 @@ export default function SpaceUsage() {
         `space-usage/overview?limit=${OVERVIEW_LIMIT}`, refreshToken);
 
     return (
-        <div className="space-usage-page">
+        <div
+            className="space-usage-page"
+            // Measured at runtime, so it cannot be a stylesheet value; the map reads it as the room
+            // it leaves below itself (see the stylesheet).
+            style={stripSize ? { "--space-usage-strip-height": `${stripSize.height}px` } : undefined}
+        >
             {/* Above the views rather than in the note's own title row, so the controls stay put as
                 whichever view is on show is redrawn beneath them. */}
             <div className="space-usage-toolbar">
@@ -83,11 +111,19 @@ export default function SpaceUsage() {
                     onPathChange={setBrowsePath}
                     refreshToken={refreshToken}
                     onContentChanged={refresh}
+                    selectedMarkId={selection?.markId}
+                    onSelect={TAP_SELECTS ? select : undefined}
                     onLoadingChange={setBrowseLoading}
                 />
             )}
             {view === "overview" && (overview
-                ? <Overview overview={overview} onShowDetails={showDetails} onContentChanged={refresh} />
+                ? <Overview
+                    overview={overview}
+                    selectedMarkId={selection?.markId}
+                    onSelect={TAP_SELECTS ? select : undefined}
+                    onShowDetails={showDetails}
+                    onContentChanged={refresh}
+                />
                 : <SpaceUsagePlaceholder failed={failed} />)}
 
             {/* Overview only: these are whole-database totals, and beside a single note's donut
@@ -115,6 +151,10 @@ export default function SpaceUsage() {
                     />
                 </footer>
             )}
+
+            {/* Kept on show with nothing chosen as well, so the map is laid out with room for it
+                from the start and a tap always has somewhere to report to. */}
+            {TAP_SELECTS && <SelectionStrip selection={selection} containerRef={stripRef} />}
         </div>
     );
 }

@@ -3116,6 +3116,7 @@
     "status_content_hint": "Space held by all notes (hidden ones included), their attachments and their revisions, with duplicated content counted once",
     "status_deleted": "{{size}} in deleted notes and attachments",
     "status_deleted_hint": "Space still held by deleted notes and by deleted attachments (whose note may still exist); erasing them reclaims it",
+    "selection_hint": "Tap an item for details",
     "menu_show_details": "Show details",
     "menu_erase_deleted": "Erase deleted data",
     "erase_deleted_message": "Deleted data has been erased.",

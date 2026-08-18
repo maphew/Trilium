@@ -51,6 +51,7 @@ export function buildCompositionSegments(
             id: "body",
             value: usage.ownSize,
             className: "space-usage-segment-body",
+            label: bodyLabel,
             tooltip: makeTooltip("plain", bodyLabel, usage.ownSize),
             data: { noteId: usage.noteId }
         });
@@ -65,6 +66,7 @@ export function buildCompositionSegments(
             id: `attachment/${attachment.attachmentId}`,
             value: attachment.size,
             className: "space-usage-segment-attachment",
+            label: attachment.title,
             tooltip: makeTooltip("attachment", attachment.title, attachment.size),
             data: { attachmentId: attachment.attachmentId }
         });
@@ -101,6 +103,7 @@ export function buildChildrenSegments(
             id: `child/${child.noteId}`,
             value: child.subtreeSize,
             hue: hueOf(child.noteId),
+            label: getTitle(child.noteId),
             tooltip: makeTooltip("child", getTitle(child.noteId), child.subtreeSize),
             data: { noteId: child.noteId }
         }));
@@ -113,6 +116,7 @@ export function buildChildrenSegments(
             id: "revisions",
             value: revisionsSize,
             className: "space-usage-segment-revisions",
+            label: revisionsLabel,
             tooltip: makeTooltip("revisions", revisionsLabel, revisionsSize)
         });
     }
@@ -122,6 +126,7 @@ export function buildChildrenSegments(
             id: "/deleted-notes",
             value: usage.deletedNotes.size,
             className: "space-usage-segment-deleted",
+            label: deletedNotesLabel,
             tooltip: makeTooltip("plain", deletedNotesLabel, usage.deletedNotes.size),
             data: {}
         });

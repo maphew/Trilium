@@ -9,12 +9,19 @@
        ring thickness without becoming a second color. */
     --space-usage-revisions-stripe-color: color-mix(in srgb, var(--accented-background-color) 40%, #8f959c 60%);
 
+    /* These two are painted from a semantic colour rather than from a hue, so they name the hue that
+       colour is built on for the chosen trace to be struck from: the fills above are that hue mixed
+       most of the way into the theme's surface, and this is the same hue at full strength. The
+       revisions gray stands for a tier rather than a thing and has no hue to give, so its trace
+       keeps the primitive's plain default. */
     .space-usage-segment-body {
         --donut-segment-color: var(--space-usage-body-color);
+        --donut-segment-selected-color: hsl(217 100% 50%);
     }
 
     .space-usage-segment-attachment {
         --donut-segment-color: var(--space-usage-attachments-color);
+        --donut-segment-selected-color: hsl(42 100% 50%);
     }
 
     /* Stroked with the hatch rather than a flat fill: history is not content the user put there,
