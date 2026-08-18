@@ -254,7 +254,9 @@ describe("extraction from a real document", () => {
         const { annotations } = viewer.lastMessageOfType("pdfjs-viewer-annotations");
         expect(annotations.filter((annotation: any) => annotation.id.startsWith("pdfjs_internal_editor"))).toEqual([
             expect.objectContaining({ id: "pdfjs_internal_editor_0", type: "highlight", pageNumber: 3, color: "#ffff98" }),
-            expect.objectContaining({ id: "pdfjs_internal_editor_1", type: "freetext", contents: "typed words", pageNumber: 1 })
+            // pdf.js serializes a text box's *font* colour under `color`; the sidebar tints a row with
+            // this field, and a black tint behind a note is not what anyone drew.
+            expect.objectContaining({ id: "pdfjs_internal_editor_1", type: "freetext", contents: "typed words", pageNumber: 1, color: null })
         ]);
         // The document's own annotations are still there, and the edited one is not duplicated.
         expect(annotations.filter((annotation: any) => annotation.id === "5R")).toHaveLength(1);

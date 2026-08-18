@@ -202,7 +202,8 @@ function unsavedAnnotations(storage: any): PdfAnnotationInfo[] {
             highlightedText: "",
             author: "",
             pageNumber: (serialized.pageIndex ?? 0) + 1,
-            color: serialized.color ? rgbToHex(serialized.color) : null,
+            // As in applyEditorOverrides: a text box's colour is that of its text, not a tint.
+            color: serialized.color && type !== "freetext" ? rgbToHex(serialized.color) : null,
             creationDate: null,
             modificationDate: null
         });
