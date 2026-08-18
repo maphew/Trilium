@@ -161,7 +161,7 @@ function BackupStanding({ refreshToken }: { refreshToken: number }) {
             {/* The whole value is the way to the page that acts on it: this row states how the
                 backups stand, and everything else about them is done there. */}
             <span className="tn-card-option-value">
-                <a className="tn-link" href={BACKUP_PAGE_LINK}>
+                <a className="tn-link no-tooltip-preview" href={BACKUP_PAGE_LINK}>
                     {summarizeBackups(backups.backups) ?? t("database.info_no_backup")}
                 </a>
             </span>
