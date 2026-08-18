@@ -25,7 +25,7 @@ import { isMobile } from "../../../services/utils";
 import { ListView, type ListViewOptions } from "../../collections/legacy/ListOrGridView";
 import { Badge } from "../../react/Badge";
 import Dropdown from "../../react/Dropdown";
-import { FormListHeader, FormListItem } from "../../react/FormList";
+import { FormListHeader, FormListItem, FormListToggleableItem } from "../../react/FormList";
 import FormTextBox from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
 import { useTriliumEvent, useTriliumOption } from "../../react/hooks";
@@ -58,6 +58,13 @@ function ContentItemMenu({ note, categories }: { note: FNote, categories: Conten
             {isMobile() && (
                 <FormListHeader text={<ItemSummary note={note} categories={categories} />} />
             )}
+
+            {/* Only where the row's single switch has more than one thing to say: with one category
+                the switch beside the name already is this, and repeating it would only ask which of
+                the two is the real one. */}
+            {isMobile() && categories.length > 1 && categories.map((category) => (
+                <CategoryToggleItem key={category.id} note={note} category={category} />
+            ))}
 
             <FormListItem
                 icon="bx bx-link-external"
@@ -105,6 +112,34 @@ function ItemDetail({ note, category, showCategory }: {
             )}
             <ContentProperties note={note} category={category} />
         </span>
+    );
+}
+
+/**
+ * One category of a note that is active content in several, offered in its menu because the row's
+ * own switch speaks for all of them at once and so cannot turn just one off.
+ */
+function CategoryToggleItem({ note, category }: { note: FNote, category: ContentCategory }) {
+    const [ enabled, setEnabled ] = useState(() => isCategoryEnabled(note, category));
+
+    useEffect(() => setEnabled(isCategoryEnabled(note, category)), [ note, category ]);
+
+    useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
+        const rows = loadResults.getAttributeRows();
+        if (rows.some((attr) => attributeService.isAffecting(attr, note))) {
+            setEnabled(isCategoryEnabled(note, category));
+        }
+    });
+
+    return (
+        <FormListToggleableItem
+            title={t(category.titleKey)}
+            currentValue={enabled}
+            onChange={(willEnable) => {
+                setEnabled(willEnable);
+                return setCategoryEnabled(note, category, willEnable);
+            }}
+        />
     );
 }
 
@@ -171,18 +206,29 @@ function ContentProperties({ note, category }: { note: FNote, category: ContentC
  * Always one category, never a note's categories merged: a note can be active content in several
  * ways at once, and one switch over all of them would overwrite the states the user didn't touch.
  */
-function ContentToggle({ note, category }: { note: FNote, category: ContentCategory }) {
-    const [ enabled, setEnabled ] = useState(() => isCategoryEnabled(note, category));
+/**
+ * The switch a note is turned on and off by, for one of its categories or for every one at once.
+ *
+ * Handed several, it reads as on while any of them is and writes the same state to all: a phone's
+ * row has width for one switch, not for a column of them. What that cannot say, a switch per
+ * category in the item's own menu can (see {@link ContentItemMenu}).
+ */
+function ContentToggle({ note, categories }: { note: FNote, categories: ContentCategory[] }) {
+    const isOn = useCallback(
+        () => categories.some((category) => isCategoryEnabled(note, category)),
+        [ note, categories ]
+    );
+    const [ enabled, setEnabled ] = useState(isOn);
 
     // Re-sync when the row is reused for another note.
-    useEffect(() => setEnabled(isCategoryEnabled(note, category)), [ note, category ]);
+    useEffect(() => setEnabled(isOn()), [ isOn ]);
 
     // ...and when the attributes change under it. The switch holds its own optimistic state, so
     // without this it goes stale on any change it did not make itself — another row, the attribute
     // bar, or a sync.
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         if (loadResults.getAttributeRows().some((attribute) => attributeService.isAffecting(attribute, note))) {
-            setEnabled(isCategoryEnabled(note, category));
+            setEnabled(isOn());
         }
     });
 
@@ -195,7 +241,9 @@ function ContentToggle({ note, category }: { note: FNote, category: ContentCateg
             onChange={(willEnable) => {
                 // Applied straight away so the switch responds before the lists are rebuilt.
                 setEnabled(willEnable);
-                void setCategoryEnabled(note, category, willEnable);
+                for (const category of categories) {
+                    void setCategoryEnabled(note, category, willEnable);
+                }
             }}
         />
     );
@@ -350,17 +398,22 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
                         );
                     }
 
-                    // One strip per category, each with its own switch: a note can be active content
-                    // in several ways, and merging them into one switch would overwrite the states
-                    // the user did not touch. The category is named here because the headings that
-                    // would otherwise say it are gone.
-                    return item.categories.map((category) => (
-                        <span key={category.id} className="active-content-item-strip">
-                            {!isMobile() &&
-                                <ItemDetail note={note} category={category} showCategory />}
-                            <ContentToggle note={note} category={category} />
-                        </span>
-                    ));
+                    // A strip per category, each with its own switch: a note can be active content
+                    // in several ways, and one switch for the lot cannot say which of them is on.
+                    // The category is named here because the headings that would otherwise say it
+                    // are gone.
+                    if (!isMobile()) {
+                        return item.categories.map((category) => (
+                            <span key={category.id} className="active-content-item-strip">
+                                <ItemDetail note={note} category={category} showCategory />
+                                <ContentToggle note={note} categories={[ category ]} />
+                            </span>
+                        ));
+                    }
+
+                    // A phone's row has width for one switch, which turns the whole note off. Which
+                    // categories it is on under is said in its menu, a switch each.
+                    return <ContentToggle note={note} categories={item.categories} />;
                 },
                 renderItemMenu: (note) => {
                     const item = itemsByNoteId.get(note.noteId);
@@ -460,7 +513,7 @@ function CategoryList({ pageNote, categories, highlightedTokens }: CategoryListP
                         renderItemActions: (note) => (
                             <>
                                 {!isMobile() && <ItemDetail note={note} category={category} />}
-                                <ContentToggle note={note} category={category} />
+                                <ContentToggle note={note} categories={[ category ]} />
                             </>
                         ),
                         renderItemMenu: (note) => (
