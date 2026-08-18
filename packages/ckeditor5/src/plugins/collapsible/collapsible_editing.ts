@@ -539,6 +539,8 @@ export default class CollapsibleEditing extends Plugin {
         this.listenTo<ViewDocumentArrowKeyEvent>(viewDocument, "arrowKey",
             (evt, data) => this.onUpArrow(evt, data));
         this.listenTo<ViewDocumentDeleteEvent>(viewDocument, "delete",
+            (evt, data) => this.onDeleteThroughHiddenBody(evt, data), { priority: "high" });
+        this.listenTo<ViewDocumentDeleteEvent>(viewDocument, "delete",
             (evt, data) => this.onDeleteAdjacentDetails(evt, data));
         this.listenTo<ViewDocumentDeleteEvent>(viewDocument, "delete",
             (evt, data) => this.onForwardDeleteBeforeDetails(evt, data));
@@ -702,6 +704,46 @@ export default class CollapsibleEditing extends Plugin {
         this.editor.model.change(writer => writer.setSelection(target, offset));
         data.preventDefault();
         evt.stop();
+    }
+
+    /**
+     * Drop a browser-supplied delete range that reaches through a collapsed body.
+     *
+     * Chrome derives the target range of `deleteContentBackward` from the rendered
+     * layout, where a closed <details> shows nothing but its title. Backspace at the
+     * start of the line below one therefore arrives as a range running from the end of
+     * the <summary> to the caret, and CKEditor's `Delete` removes every hidden block in
+     * between — the collapsible stays closed, so the loss is invisible. Clearing the
+     * range falls back to the model-driven `modifySelection` path, which walks the model
+     * rather than the layout: it merges into the last body block, and
+     * {@link CollapsibleEditing#hiddenBodyPostFixer} then parks the caret in the summary.
+     *
+     * Only a collapsed model selection is corrected. A range the user selected by hand
+     * can legitimately span a collapsed block (dragging from before it to after it), and
+     * deleting that is what they asked for.
+     */
+    private onDeleteThroughHiddenBody(_evt: any, data: any) {
+        if (data.unit !== "selection") return;
+        if (!this.editor.model.document.selection.isCollapsed) return;
+
+        const mapper = this.editor.editing.mapper;
+        for (const viewRange of data.selectionToRemove.getRanges()) {
+            if (!this.crossesCollapsedBoundary(mapper.toModelRange(viewRange))) continue;
+            data.unit = "codePoint";
+            data.selectionToRemove = undefined;
+            return;
+        }
+    }
+
+    /** True when a collapsed <details> holds one end of the range but not the other. */
+    private crossesCollapsedBoundary(range: any): boolean {
+        const startAncestors = range.start.getAncestors();
+        const endAncestors = range.end.getAncestors();
+        for (const node of [...startAncestors, ...endAncestors]) {
+            if (!node.is("element", "details") || this.isDetailsOpen(node)) continue;
+            if (startAncestors.includes(node) !== endAncestors.includes(node)) return true;
+        }
+        return false;
     }
 
     /**
