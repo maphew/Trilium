@@ -2314,9 +2314,7 @@
   },
   "settings": {
     "related_settings": "Configurações relacionadas",
-    "related_actions": "Ações relacionadas",
-    "related_space_usage": "Analisar o uso de espaço dentro do banco de dados",
-    "related_space_usage_description": "Veja quais notas, revisões e anexos ocupam mais espaço e recupere-o."
+    "related_actions": "Ações relacionadas"
   },
   "settings_appearance": {
     "related_code_blocks": "Esquema de cores para blocos de código em notas de texto",

@@ -2526,9 +2526,7 @@
   },
   "settings": {
     "related_settings": "Setări similare",
-    "related_actions": "Acțiuni asociate",
-    "related_space_usage": "Analizați spațiul ocupat în baza de date",
-    "related_space_usage_description": "Vedeți ce notițe, revizii și atașamente ocupă cel mai mult spațiu și recuperați-l."
+    "related_actions": "Acțiuni asociate"
   },
   "settings_appearance": {
     "related_code_blocks": "Tema de culori pentru blocuri de cod în notițe de tip text",
