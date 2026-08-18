@@ -199,6 +199,23 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 - `docs/User Guide/` — Edit via `pnpm edit-docs:edit-docs`, not manually
 - `docs/Developer Guide/` and `docs/Release Notes/` — Safe for direct Markdown editing
 
+### Always check the docs against a user-visible change
+
+Any change to what the user sees or does — a button moved or removed, a keyboard shortcut, a label, an
+option, a default, where a feature is configured — **can leave the User Guide describing an affordance
+that no longer exists**. Before reporting the work done, grep `docs/User Guide/` for the feature and for
+the control you touched (its name, its icon, the panel it lived in) and read every hit. Report what needs
+updating as part of the change, without waiting to be asked; the docs are a deliverable, not a follow-up.
+
+Two traps this catches:
+
+- **The doc named the wrong place to begin with.** Verify where a control actually mounts by grepping for
+  the component, not by inferring it from an i18n namespace or from another doc page — `NoteBadges` is
+  keyed `breadcrumb_badges.*` and renders in the title row.
+- **A capability gate has a blast radius.** Widening one (a note type added to a list a widget switches
+  on) can surface panels, bars and menu entries the change never mentioned. Grep the gate's other readers
+  and say what else now appears.
+
 ## Recipes
 
 ### Storing User Preferences
