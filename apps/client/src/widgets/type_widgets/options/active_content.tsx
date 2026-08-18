@@ -52,8 +52,10 @@ function ContentItemMenu({ note, categories }: { note: FNote, categories: Conten
             // Out of the row and into the body: nested, the open menu would still count as hovering
             // the row, leaving it highlighted while the cursor is over the menu.
             portalToBody
+            // Asked for as a sheet rather than dressed as one: the prop brings the cover over the
+            // rest of the screen with it, which the class alone does not.
+            mobileBottomSheet
             title={t("content_manager.item_menu")}
-            dropdownContainerClassName={isMobile() ? "mobile-bottom-menu" : undefined}
         >
             {isMobile() && (
                 <FormListHeader text={<ItemSummary note={note} categories={categories} />} />
@@ -161,6 +163,9 @@ function ItemSummary({ note, categories }: { note: FNote, categories: ContentCat
     return (
         <span className="active-content-item-summary">
             {location && <span className="active-content-item-location">{location}</span>}
+            {/* Under the path rather than over it: the path reads as the heading of the menu, and
+                the name says which of the notes in it this menu belongs to. */}
+            <span className="active-content-item-name">{note.title}</span>
             {categories.map((category) => (
                 <ItemDetail key={category.id} note={note} category={category} showCategory />
             ))}
@@ -533,7 +538,7 @@ function SortOrderMenu({ currentValue, onChange }: { currentValue: string, onCha
             buttonClassName="bx bx-sort"
             hideToggleArrow noSelectButtonStyle noDropdownListStyle iconAction
             title={t("content_manager.sort_order")}
-            dropdownContainerClassName={isMobile() ? "mobile-bottom-menu" : undefined}
+            mobileBottomSheet
         >
             {SORT_ORDERS.map(({ value, label }) => (
                 <FormListItem key={value} checked={currentValue === value} onClick={() => onChange(value)}>

@@ -121,7 +121,20 @@ body.mobile {
     }
 }
 
-/* Broken where it must be: a path is one long run, and the menu is no wider than the screen. */
-.active-content-item-location {
+/* Broken where they must be: a path is one long run, a title may be, and the menu is no wider than
+   the screen. */
+.active-content-item-location,
+.active-content-item-name {
     overflow-wrap: anywhere;
+}
+
+/* The one thing in the summary that is the item itself rather than something about it, so it is
+   read as the note was named. The heading it sits in is set in small uppercase, which suits the
+   word introducing a group but not a title someone typed. */
+.active-content-item-name {
+    color: var(--main-text-color);
+    font-size: 1.25em;
+    font-weight: 500;
+    letter-spacing: normal;
+    text-transform: none;
 }
