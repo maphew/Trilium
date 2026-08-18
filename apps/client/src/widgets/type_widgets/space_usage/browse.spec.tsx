@@ -3,7 +3,7 @@ import { type ComponentChildren, render } from "preact";
 import { useState } from "preact/hooks";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { DonutRing } from "../../../../react/charts/DonutChart";
+import type { DonutRing } from "../../react/charts/DonutChart";
 import type { UsageSegmentData } from "./donut_segments";
 
 interface CapturedDonutProps {
@@ -30,7 +30,7 @@ vi.mock("./context_menu", () => ({
     openSpaceUsageContextMenu: (...args: unknown[]) => mocks.openContextMenu(...args)
 }));
 
-vi.mock("../../../../react/use_fetch", () => ({
+vi.mock("../../react/use_fetch", () => ({
     useFetch: (url: string) => {
         mocks.fetchedUrls.push(url);
         return { data: mocks.usage, failed: mocks.failed, loading: mocks.loading };
@@ -47,13 +47,13 @@ vi.mock("./note_usage_donut", () => ({
     segmentTooltip: (kind: string, title: string, size: number) => `${kind}:${title}:${size}`
 }));
 
-vi.mock("../../../../react/ActionButton", () => ({
+vi.mock("../../react/ActionButton", () => ({
     default: ({ className, disabled, onClick }: { className?: string, disabled?: boolean, onClick?: () => void }) => (
         <button type="button" className={`back-stub ${className ?? ""}`} disabled={disabled} onClick={onClick} />
     )
 }));
 
-vi.mock("../../../../../services/froca", () => ({
+vi.mock("../../../services/froca", () => ({
     default: {
         getNotes: async (noteIds: string[]) => noteIds.map((noteId) => ({ noteId, title: `title:${noteId}` }))
     }

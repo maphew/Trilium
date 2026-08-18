@@ -3,8 +3,8 @@ import { useEffect } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { t } from "../../../../../services/i18n";
-import { formatSize } from "../../../../../services/utils";
+import { t } from "../../../services/i18n";
+import { formatSize } from "../../../services/utils";
 
 // Hoisted with the mocks that read them: a `vi.mock` factory runs before any plain module constant.
 const {
@@ -62,7 +62,7 @@ const mocks = vi.hoisted(() => ({
     closePersistent: vi.fn()
 }));
 
-vi.mock("../../../../../services/options", () => ({
+vi.mock("../../../services/options", () => ({
     default: {
         get: () => mocks.storedOption,
         getInt: mocks.getInt,
@@ -71,7 +71,7 @@ vi.mock("../../../../../services/options", () => ({
     }
 }));
 
-vi.mock("../../../../../services/server", () => {
+vi.mock("../../../services/server", () => {
     // The aggressive reading and the trimmed one differ only in the retention they were asked for,
     // which is what the URL carries. Everything else the client loads on the way past is answered
     // emptily rather than with a usage payload it would choke on.
@@ -116,7 +116,7 @@ vi.mock("../../../../../services/server", () => {
 // i18next is never initialised for these tests, and answers `undefined` to everything until it is —
 // which would make every comparison against a t() call below true of any two messages at all. Keys
 // and their interpolations stand in for the sentences, so that a wrong one reads as wrong.
-vi.mock("../../../../../services/i18n", () => ({
+vi.mock("../../../services/i18n", () => ({
     t: (key: string, params?: Record<string, unknown>) => (params ? `${key} ${JSON.stringify(params)}` : key),
     translationsInitializedPromise: Promise.resolve(),
     initLocale: async () => {},
@@ -127,7 +127,7 @@ vi.mock("../../../../../services/i18n", () => ({
 
 // The compression step is followed over the websocket rather than answered by the request, so the
 // socket is where its counting has to be driven from.
-vi.mock("../../../../../services/ws", () => {
+vi.mock("../../../services/ws", () => {
     const subscribeToMessages = (listener: (message: unknown) => void) => void mocks.listeners.push(listener);
     const unsubscribeToMessage = (listener: (message: unknown) => void) =>
         void mocks.listeners.splice(mocks.listeners.indexOf(listener), 1);
@@ -137,8 +137,8 @@ vi.mock("../../../../../services/ws", () => {
     return { subscribeToMessages, unsubscribeToMessage, default: { subscribeToMessages, unsubscribeToMessage } };
 });
 
-vi.mock("../../../../../services/dialog", () => ({ default: { confirm: mocks.confirm } }));
-vi.mock("../../../../../services/toast", () => ({
+vi.mock("../../../services/dialog", () => ({ default: { confirm: mocks.confirm } }));
+vi.mock("../../../services/toast", () => ({
     default: {
         showMessage: mocks.showMessage,
         showPersistent: mocks.showPersistent,
@@ -148,7 +148,7 @@ vi.mock("../../../../../services/toast", () => ({
 
 // The real modal reports its close once the animation is done; the stub reports it as soon as it is
 // told to hide, which is the signal the dialog's own flow keys off.
-vi.mock("../../../../react/Modal", () => ({
+vi.mock("../../react/Modal", () => ({
     default: function ModalStub({ children, footer, show, onHidden }: {
         children: ComponentChildren, footer: ComponentChildren, show: boolean, onHidden: () => void
     }) {

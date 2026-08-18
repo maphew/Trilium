@@ -344,6 +344,7 @@ export type CommandMappings = {
     };
     showSQLConsole: CommandData;
     showBackendLog: CommandData;
+    showSpaceUsage: CommandData;
     showCheatsheet: CommandData;
     showShortcutHints: CommandData;
     showHelp: CommandData;

@@ -1083,6 +1083,7 @@
     "configure_launchbar": "Configure Launchbar",
     "show_shared_notes_subtree": "Show Shared Notes Subtree",
     "show_deleted_notes": "Show Deleted Notes",
+    "show_space_usage": "Show Space Usage",
     "advanced": "Advanced",
     "open_dev_tools": "Open Dev Tools",
     "open_sql_console": "Open SQL Console",
@@ -3072,9 +3073,7 @@
     "sort_by_title": "Title",
     "sort_by_date_created": "Creation date",
     "no_items": "No active content found.",
-    "no_items_hint": "Scripts, themes, templates and snippets you create will be listed here.",
-    "section_active_content": "Active Content & Templates",
-    "section_space_usage": "Space Usage"
+    "no_items_hint": "Scripts, themes, templates and snippets you create will be listed here."
   },
   "space_usage": {
     "loading": "Measuring space usage...",

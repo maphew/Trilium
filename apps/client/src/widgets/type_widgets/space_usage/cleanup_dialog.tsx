@@ -5,26 +5,26 @@ import clsx from "clsx";
 import { render } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import dialogService from "../../../../../services/dialog";
-import { t } from "../../../../../services/i18n";
-import toast from "../../../../../services/toast";
-import { formatSize, isStandalone } from "../../../../../services/utils";
-import type { ImageCompressionToolOptions } from "../../../../dialogs/image_compression/image_compression_options";
+import dialogService from "../../../services/dialog";
+import { t } from "../../../services/i18n";
+import toast from "../../../services/toast";
+import { formatSize, isStandalone } from "../../../services/utils";
+import type { ImageCompressionToolOptions } from "../../dialogs/image_compression/image_compression_options";
 import {
     JpegHandlingSection,
     PngHandlingSection,
     ResizeImageSection
-} from "../../../../dialogs/image_compression/image_compression_sections";
-import { ExtendedAdmonition } from "../../../../react/Admonition";
-import Button from "../../../../react/Button";
-import { Card, CardSection } from "../../../../react/Card";
-import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart";
-import ContextualHelp from "../../../../react/ContextualHelp";
-import FormTextBox from "../../../../react/FormTextBox";
-import FormToggle from "../../../../react/FormToggle";
-import { useDebouncedValue, useTriliumOptionJson } from "../../../../react/hooks";
-import Modal from "../../../../react/Modal";
-import { useFetch } from "../../../../react/use_fetch";
+} from "../../dialogs/image_compression/image_compression_sections";
+import { ExtendedAdmonition } from "../../react/Admonition";
+import Button from "../../react/Button";
+import { Card, CardSection } from "../../react/Card";
+import DonutChart, { type DonutRing } from "../../react/charts/DonutChart";
+import ContextualHelp from "../../react/ContextualHelp";
+import FormTextBox from "../../react/FormTextBox";
+import FormToggle from "../../react/FormToggle";
+import { useDebouncedValue, useTriliumOptionJson } from "../../react/hooks";
+import Modal from "../../react/Modal";
+import { useFetch } from "../../react/use_fetch";
 import {
     CLEANUP_ITEMS,
     type CleanupPhase,

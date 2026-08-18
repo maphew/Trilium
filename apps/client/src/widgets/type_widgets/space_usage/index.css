@@ -1,39 +1,39 @@
-/* The section replaces the page's scrolling with a viewport-filling layout: flex chains from the
-   scroll container down to the section, in a tab (.scrolling-container) and in the settings dialog
-   (.modal-body) alike. Active Content keeps the default scrolling page — these rules only bite
-   while the Space Usage section is mounted. */
-.scrolling-container:has(.space-usage-section),
-.options-dialog .modal-body:has(.space-usage-section) {
+/* The page replaces the note's scrolling with a viewport-filling layout: the flex chain runs from
+   the scroll container down to the section, so the charts get the pane's full height. */
+.scrolling-container:has(.space-usage-page) {
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-.note-detail:has(.space-usage-section),
-.note-detail:has(.space-usage-section) .note-detail-content-widget,
-.note-detail:has(.space-usage-section) .note-detail-content-widget-content {
+.note-detail:has(.space-usage-page),
+.note-detail:has(.space-usage-page) .note-detail-content-widget,
+.note-detail:has(.space-usage-page) .note-detail-content-widget-content {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
     min-height: 0;
 }
 
-/* Lives in the sticky page header, which supplies its own spacing. The view choice sits at the
-   trailing edge, opposite the section switch that leads the row above it. */
+/* The page itself does not scroll (whichever view is on show scrolls inside itself), so the bar
+   holds its place as a fixed-size flex item. The rule under it separates it from that view. */
 .space-usage-toolbar {
     display: flex;
+    flex: 0 0 auto;
     justify-content: flex-end;
     align-items: center;
     gap: 0.5em;
+    border-bottom: 1px solid var(--main-border-color);
+    padding-bottom: 10px;
 }
 
-/* Second selector only to outweigh the dialog's own 2em (OptionsDialog.css). */
-.space-usage-section:has(.space-usage-overview) .options-page-header,
-.modal.options-dialog .space-usage-section:has(.space-usage-overview) .options-page-header {
-    margin-bottom: 0;
+/* Reads as secondary to the note's own title above it. Set on the buttons, which carry their own
+   font size and so would not inherit one from the group. */
+.space-usage-view-choice button {
+    font-size: 0.85em;
 }
 
-.space-usage-section {
+.space-usage-page {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;

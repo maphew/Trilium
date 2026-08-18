@@ -1,6 +1,6 @@
 import type { SpaceUsageBucket, SpaceUsageOverviewNote, SpaceUsageOverviewResponse } from "@triliumnext/commons";
 
-import type { TreemapItem } from "../../../../react/charts/Treemap";
+import type { TreemapItem } from "../../react/charts/Treemap";
 
 const ROOT_NOTE_ID = "root";
 

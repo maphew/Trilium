@@ -2,8 +2,8 @@ import "./active_content.css";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import appContext from "../../../../components/app_context";
-import type FNote from "../../../../entities/fnote";
+import appContext from "../../../components/app_context";
+import type FNote from "../../../entities/fnote";
 import {
     buildLocationTree,
     CONTENT_CATEGORIES,
@@ -15,23 +15,24 @@ import {
     type LocationNode,
     resolveProperties,
     setCategoryEnabled
-} from "../../../../services/active_content";
-import attributeService from "../../../../services/attributes";
-import branches from "../../../../services/branches";
-import debounce from "../../../../services/debounce";
-import { t } from "../../../../services/i18n";
-import { isMobile } from "../../../../services/utils";
-import { ListView, type ListViewOptions } from "../../../collections/legacy/ListOrGridView";
-import { Badge } from "../../../react/Badge";
-import Dropdown from "../../../react/Dropdown";
-import { FormListItem } from "../../../react/FormList";
-import FormTextBox from "../../../react/FormTextBox";
-import FormToggle from "../../../react/FormToggle";
-import { useTriliumEvent, useTriliumOption } from "../../../react/hooks";
-import NoItems from "../../../react/NoItems";
-import SegmentedChoice from "../../../react/SegmentedChoice";
-import OptionsPageHeader from "../components/OptionsPageHeader";
-import type { ContentManagerSectionProps } from "./index";
+} from "../../../services/active_content";
+import attributeService from "../../../services/attributes";
+import branches from "../../../services/branches";
+import debounce from "../../../services/debounce";
+import { t } from "../../../services/i18n";
+import treeService from "../../../services/tree";
+import { isMobile } from "../../../services/utils";
+import { ListView, type ListViewOptions } from "../../collections/legacy/ListOrGridView";
+import { Badge } from "../../react/Badge";
+import Dropdown from "../../react/Dropdown";
+import { FormListHeader, FormListItem, FormListToggleableItem } from "../../react/FormList";
+import FormTextBox from "../../react/FormTextBox";
+import FormToggle from "../../react/FormToggle";
+import { useTriliumEvent, useTriliumOption } from "../../react/hooks";
+import NoItems from "../../react/NoItems";
+import SegmentedChoice from "../../react/SegmentedChoice";
+import type { TypeWidgetProps } from "../type_widget";
+import OptionsPageHeader from "./components/OptionsPageHeader";
 
 const NOOP = () => {};
 
@@ -42,7 +43,7 @@ const FILTER_DEBOUNCE_MS = 300;
  * The item's "..." menu. The collection menu is replaced here because most of its entries act on a
  * note in the context of its parent, which this list is not: these notes live all over the tree.
  */
-function ContentItemMenu({ note }: { note: FNote }) {
+function ContentItemMenu({ note, categories }: { note: FNote, categories: ContentCategory[] }) {
     return (
         <Dropdown
             className="active-content-item-menu"
@@ -51,9 +52,22 @@ function ContentItemMenu({ note }: { note: FNote }) {
             // Out of the row and into the body: nested, the open menu would still count as hovering
             // the row, leaving it highlighted while the cursor is over the menu.
             portalToBody
+            // Asked for as a sheet rather than dressed as one: the prop brings the cover over the
+            // rest of the screen with it, which the class alone does not.
+            mobileBottomSheet
             title={t("content_manager.item_menu")}
-            dropdownContainerClassName={isMobile() ? "mobile-bottom-menu" : undefined}
         >
+            {isMobile() && (
+                <FormListHeader text={<ItemSummary note={note} categories={categories} />} />
+            )}
+
+            {/* Only where the row's single switch has more than one thing to say: with one category
+                the switch beside the name already is this, and repeating it would only ask which of
+                the two is the real one. */}
+            {isMobile() && categories.length > 1 && categories.map((category) => (
+                <CategoryToggleItem key={category.id} note={note} category={category} />
+            ))}
+
             <FormListItem
                 icon="bx bx-link-external"
                 onClick={() => void appContext.tabManager.openContextWithNote(note.noteId, {
@@ -104,6 +118,62 @@ function ItemDetail({ note, category, showCategory }: {
 }
 
 /**
+ * One category of a note that is active content in several, offered in its menu because the row's
+ * own switch speaks for all of them at once and so cannot turn just one off.
+ */
+function CategoryToggleItem({ note, category }: { note: FNote, category: ContentCategory }) {
+    const [ enabled, setEnabled ] = useState(() => isCategoryEnabled(note, category));
+
+    useEffect(() => setEnabled(isCategoryEnabled(note, category)), [ note, category ]);
+
+    useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
+        const rows = loadResults.getAttributeRows();
+        if (rows.some((attr) => attributeService.isAffecting(attr, note))) {
+            setEnabled(isCategoryEnabled(note, category));
+        }
+    });
+
+    return (
+        <FormListToggleableItem
+            title={t(category.titleKey)}
+            currentValue={enabled}
+            onChange={(willEnable) => {
+                setEnabled(willEnable);
+                return setCategoryEnabled(note, category, willEnable);
+            }}
+        />
+    );
+}
+
+/**
+ * What the row has no width for on a phone: where the note lives, and what makes it active content.
+ * Shown at the head of the item's own menu, which is one tap away either way.
+ */
+function ItemSummary({ note, categories }: { note: FNote, categories: ContentCategory[] }) {
+    const [ location, setLocation ] = useState<string>();
+
+    // Resolved rather than read: a path is a chain of ids, and the titles behind them may not be
+    // loaded. Only runs once the menu is opened, its contents being built no sooner.
+    useEffect(() => {
+        const segments = note.getBestNotePath();
+        segments.pop();
+        void treeService.getNotePathTitle(segments.join("/")).then(setLocation);
+    }, [ note ]);
+
+    return (
+        <span className="active-content-item-summary">
+            {location && <span className="active-content-item-location">{location}</span>}
+            {/* Under the path rather than over it: the path reads as the heading of the menu, and
+                the name says which of the notes in it this menu belongs to. */}
+            <span className="active-content-item-name">{note.title}</span>
+            {categories.map((category) => (
+                <ItemDetail key={category.id} note={note} category={category} showCategory />
+            ))}
+        </span>
+    );
+}
+
+/**
  * A note's extra detail as badges — `Hourly`, `main` — one per value.
  *
  * The value is shown rather than the property name so a row stays scannable at a glance; the name
@@ -141,18 +211,29 @@ function ContentProperties({ note, category }: { note: FNote, category: ContentC
  * Always one category, never a note's categories merged: a note can be active content in several
  * ways at once, and one switch over all of them would overwrite the states the user didn't touch.
  */
-function ContentToggle({ note, category }: { note: FNote, category: ContentCategory }) {
-    const [ enabled, setEnabled ] = useState(() => isCategoryEnabled(note, category));
+/**
+ * The switch a note is turned on and off by, for one of its categories or for every one at once.
+ *
+ * Handed several, it reads as on while any of them is and writes the same state to all: a phone's
+ * row has width for one switch, not for a column of them. What that cannot say, a switch per
+ * category in the item's own menu can (see {@link ContentItemMenu}).
+ */
+function ContentToggle({ note, categories }: { note: FNote, categories: ContentCategory[] }) {
+    const isOn = useCallback(
+        () => categories.some((category) => isCategoryEnabled(note, category)),
+        [ note, categories ]
+    );
+    const [ enabled, setEnabled ] = useState(isOn);
 
     // Re-sync when the row is reused for another note.
-    useEffect(() => setEnabled(isCategoryEnabled(note, category)), [ note, category ]);
+    useEffect(() => setEnabled(isOn()), [ isOn ]);
 
     // ...and when the attributes change under it. The switch holds its own optimistic state, so
     // without this it goes stale on any change it did not make itself — another row, the attribute
     // bar, or a sync.
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         if (loadResults.getAttributeRows().some((attribute) => attributeService.isAffecting(attribute, note))) {
-            setEnabled(isCategoryEnabled(note, category));
+            setEnabled(isOn());
         }
     });
 
@@ -165,7 +246,9 @@ function ContentToggle({ note, category }: { note: FNote, category: ContentCateg
             onChange={(willEnable) => {
                 // Applied straight away so the switch responds before the lists are rebuilt.
                 setEnabled(willEnable);
-                void setCategoryEnabled(note, category, willEnable);
+                for (const category of categories) {
+                    void setCategoryEnabled(note, category, willEnable);
+                }
             }}
         />
     );
@@ -175,6 +258,9 @@ const LIST_OPTIONS: ListViewOptions = {
     // These notes are scattered across the tree rather than being children of this page, so they are
     // listed flat with their real location shown underneath, the way search results are.
     searchResultsLayout: true,
+    // On a phone the row has width for the name and the switch and nothing else, so where the note
+    // lives moves into its menu (see `ItemSummary`) rather than being cut short under the title.
+    showNotePath: () => !isMobile(),
     hideSubNotes: true,
     // Collapsed by default: the list is meant to be scanned, and expanding reveals the note's own
     // preview rather than a subtree.
@@ -182,7 +268,7 @@ const LIST_OPTIONS: ListViewOptions = {
     pageSize: 50
 };
 
-export default function ActiveContent({ note, sectionSwitcher }: ContentManagerSectionProps) {
+export default function ActiveContent({ note }: TypeWidgetProps) {
     const [ sortOrder, setSortOrder ] = useTriliumOption("contentManagerSortOrder");
     const [ viewMode, setViewMode ] = useTriliumOption("contentManagerViewMode");
     const [ typedFilter, setTypedFilter ] = useState("");
@@ -214,7 +300,7 @@ export default function ActiveContent({ note, sectionSwitcher }: ContentManagerS
         <>
             {/* In the header's own row rather than the page body, so the controls stay put as the
                 list scrolls beneath them. */}
-            <OptionsPageHeader actions={sectionSwitcher} below={
+            <OptionsPageHeader below={
                 <div className="active-content-toolbar">
                     <div className="input-group active-content-filter">
                         <FormTextBox
@@ -235,10 +321,13 @@ export default function ActiveContent({ note, sectionSwitcher }: ContentManagerS
                     </div>
                     <span className="active-content-toolbar-label">{t("content_manager.view_mode")}</span>
                     <SegmentedChoice
-                        className="content-manager-view-choice"
+                        className="active-content-view-choice"
                         options={VIEW_MODES}
                         currentValue={viewMode}
                         onChange={(newValue) => void setViewMode(newValue)}
+                        // Two named choices are wider than the row a phone has for them, and they
+                        // sit beside a filter box that needs what is left.
+                        collapseOnMobile
                     />
                     <SortOrderMenu currentValue={sortOrder} onChange={(newValue) => void setSortOrder(newValue)} />
                 </div>
@@ -298,7 +387,8 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
                 // content instead, `ListView` offering the tooltip wherever the preview is absent.
                 showPreview: () => false,
                 // Only the grouping folders state where they sit; repeating it on each item beneath
-                // would undo the grouping. An item's own path is in its hover tooltip.
+                // would undo the grouping. An item's own path is in its hover tooltip, and on a
+                // phone in its menu. A folder has neither, so it keeps its path at every width.
                 showNotePath: (note) => !itemsByNoteId.has(note.noteId),
                 // Grouping folders are not active content, so they carry neither toggle nor menu —
                 // just how much they hold, which is the only reason they are on screen.
@@ -313,18 +403,28 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
                         );
                     }
 
-                    // One strip per category, each with its own switch: a note can be active content
-                    // in several ways, and merging them into one switch would overwrite the states
-                    // the user did not touch. The category is named here because the headings that
-                    // would otherwise say it are gone.
-                    return item.categories.map((category) => (
-                        <span key={category.id} className="active-content-item-strip">
-                            <ItemDetail note={note} category={category} showCategory />
-                            <ContentToggle note={note} category={category} />
-                        </span>
-                    ));
+                    // A strip per category, each with its own switch: a note can be active content
+                    // in several ways, and one switch for the lot cannot say which of them is on.
+                    // The category is named here because the headings that would otherwise say it
+                    // are gone.
+                    if (!isMobile()) {
+                        return item.categories.map((category) => (
+                            <span key={category.id} className="active-content-item-strip">
+                                <ItemDetail note={note} category={category} showCategory />
+                                <ContentToggle note={note} categories={[ category ]} />
+                            </span>
+                        ));
+                    }
+
+                    // A phone's row has width for one switch, which turns the whole note off. Which
+                    // categories it is on under is said in its menu, a switch each.
+                    return <ContentToggle note={note} categories={item.categories} />;
                 },
-                renderItemMenu: (note) => itemsByNoteId.has(note.noteId) ? <ContentItemMenu note={note} /> : null
+                renderItemMenu: (note) => {
+                    const item = itemsByNoteId.get(note.noteId);
+                    if (!item) return null;
+                    return <ContentItemMenu note={note} categories={item.categories} />;
+                }
             }}
         />
     );
@@ -417,11 +517,13 @@ function CategoryList({ pageNote, categories, highlightedTokens }: CategoryListP
                         title: t(category.titleKey),
                         renderItemActions: (note) => (
                             <>
-                                <ItemDetail note={note} category={category} />
-                                <ContentToggle note={note} category={category} />
+                                {!isMobile() && <ItemDetail note={note} category={category} />}
+                                <ContentToggle note={note} categories={[ category ]} />
                             </>
                         ),
-                        renderItemMenu: (note) => <ContentItemMenu note={note} />
+                        renderItemMenu: (note) => (
+                            <ContentItemMenu note={note} categories={[ category ]} />
+                        )
                     }}
                 />
             ))}
@@ -436,7 +538,7 @@ function SortOrderMenu({ currentValue, onChange }: { currentValue: string, onCha
             buttonClassName="bx bx-sort"
             hideToggleArrow noSelectButtonStyle noDropdownListStyle iconAction
             title={t("content_manager.sort_order")}
-            dropdownContainerClassName={isMobile() ? "mobile-bottom-menu" : undefined}
+            mobileBottomSheet
         >
             {SORT_ORDERS.map(({ value, label }) => (
                 <FormListItem key={value} checked={currentValue === value} onClick={() => onChange(value)}>

@@ -473,6 +473,14 @@ function getDefaultKeyboardActions() {
             scope: "window"
         },
         {
+            friendlyName: t("keyboard_action_names.show-space-usage"),
+            actionName: "showSpaceUsage",
+            iconClass: "bx bx-pie-chart-alt-2",
+            defaultShortcuts: [],
+            description: t("keyboard_actions.show-space-usage"),
+            scope: "window"
+        },
+        {
             friendlyName: t("keyboard_action_names.show-help"),
             actionName: "showHelp",
             iconClass: "bx bx-help-circle",

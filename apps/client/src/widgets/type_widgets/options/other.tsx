@@ -2,6 +2,8 @@ import "./other.css";
 
 import { SANITIZER_DEFAULT_ALLOWED_TAGS } from "@triliumnext/commons";
 
+import appContext from "../../../components/app_context";
+import { closeActiveDialog } from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import search from "../../../services/search";
 import server from "../../../services/server";
@@ -10,11 +12,10 @@ import Button from "../../react/Button";
 import { Card, CardSection, OptionCardSection } from "../../react/Card";
 import { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
-import { useNoteContext, useTriliumOption, useTriliumOptionBool, useTriliumOptionJson } from "../../react/hooks";
+import { useTriliumOption, useTriliumOptionBool, useTriliumOptionJson } from "../../react/hooks";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import RelatedSettings from "./components/RelatedSettings";
 import TimeSelector from "./components/TimeSelector";
-import { requestContentManagerSection } from "./content_manager";
 
 export default function OtherSettings() {
     return (
@@ -33,8 +34,6 @@ export default function OtherSettings() {
 }
 
 function RelatedActions() {
-    const { noteContext } = useNoteContext();
-
     return (
         <RelatedSettings
             title={t("settings.related_actions")}
@@ -42,16 +41,16 @@ function RelatedActions() {
                 {
                     title: t("settings.related_space_usage"),
                     description: t("settings.related_space_usage_description"),
-                    targetPage: "_optionsContentManager",
+                    targetNoteId: "_spaceUsage",
                     onClick: (e) => {
-                        // The Content Manager opens on Active Content unless asked otherwise, and
-                        // navigating here rather than by the href is what lets us ask first.
+                        // Opened as the tool it is, in a tab of its own, rather than followed as a
+                        // link into the hidden subtree; stopping the event keeps the global link
+                        // handler (link.ts goToLink) from navigating by the href instead.
                         e.preventDefault();
                         e.stopPropagation();
-                        requestContentManagerSection("spaceUsage");
-                        // Kept in whichever context this page is shown in — the settings dialog
-                        // holds a note context of its own, outside the tab manager.
-                        void noteContext?.setNote("_optionsContentManager", { keepActiveDialog: true });
+                        // The tool outlives the settings that sent the user to it.
+                        closeActiveDialog();
+                        void appContext.triggerCommand("showSpaceUsage");
                     }
                 }
             ]}
@@ -90,7 +89,8 @@ function NoteErasureTimeout() {
             heading={t("note_erasure_timeout.note_erasure_timeout_title")}
             description={t("note_erasure_timeout.description")}
         >
-            <OptionCardSection
+            <OptionCardSection
+
                 name="erase-entities-after"
                 label={t("note_erasure_timeout.erase_notes_after")}
                 description={t("note_erasure_timeout.erase_notes_after_description")}
@@ -126,7 +126,8 @@ function AttachmentErasureTimeout() {
             heading={t("attachment_erasure_timeout.attachment_erasure_timeout")}
             description={t("attachment_erasure_timeout.description")}
         >
-            <OptionCardSection
+            <OptionCardSection
+
                 name="erase-unused-attachments-after"
                 label={t("attachment_erasure_timeout.erase_attachments_after")}
                 description={t("attachment_erasure_timeout.erase_attachments_after_description")}
@@ -162,7 +163,8 @@ function RevisionSettings() {
 
     return (
         <Card heading={t("revisions_snapshot.title")}>
-            <OptionCardSection
+            <OptionCardSection
+
                 name="revision-snapshot-time-interval"
                 label={t("revisions_snapshot_interval.snapshot_time_interval_label")}
                 description={t("revisions_snapshot_interval.note_revisions_snapshot_description_short")}
@@ -174,7 +176,8 @@ function RevisionSettings() {
                 />
             </OptionCardSection>
 
-            <OptionCardSection
+            <OptionCardSection
+
                 name="revision-snapshot-number-limit"
                 label={t("revisions_snapshot_limit.snapshot_number_limit_label")}
                 description={t("revisions_snapshot_limit.note_revisions_snapshot_limit_description_short")}

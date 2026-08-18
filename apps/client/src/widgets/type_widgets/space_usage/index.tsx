@@ -3,14 +3,12 @@ import "./index.css";
 import type { SpaceUsageOverviewResponse } from "@triliumnext/commons";
 import { useCallback, useMemo, useRef, useState } from "preact/hooks";
 
-import { t } from "../../../../../services/i18n";
-import { formatSize } from "../../../../../services/utils";
-import ActionButton from "../../../../react/ActionButton";
-import { useStaticTooltip } from "../../../../react/hooks";
-import SegmentedChoice from "../../../../react/SegmentedChoice";
-import { useFetch } from "../../../../react/use_fetch";
-import OptionsPageHeader from "../../components/OptionsPageHeader";
-import type { ContentManagerSectionProps } from "../index";
+import { t } from "../../../services/i18n";
+import { formatSize } from "../../../services/utils";
+import ActionButton from "../../react/ActionButton";
+import { useStaticTooltip } from "../../react/hooks";
+import SegmentedChoice from "../../react/SegmentedChoice";
+import { useFetch } from "../../react/use_fetch";
 import Browse from "./browse";
 import { showCleanupDialog } from "./cleanup_dialog";
 import Overview from "./overview";
@@ -21,7 +19,7 @@ const OVERVIEW_LIMIT = 500;
 
 type SpaceUsageView = "overview" | "browse";
 
-export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionProps) {
+export default function SpaceUsage() {
     const [ view, setView ] = useState<SpaceUsageView>("overview");
     // Bumped by the refresh button. Both views read it, so one press re-measures whatever is on
     // screen; a number rather than a callback, which would change identity on every render here and
@@ -46,38 +44,38 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
         `space-usage/overview?limit=${OVERVIEW_LIMIT}`, refreshToken);
 
     return (
-        <div className="space-usage-section">
-            <OptionsPageHeader actions={sectionSwitcher} below={
-                <div className="space-usage-toolbar">
-                    <SegmentedChoice
-                        className="content-manager-view-choice"
-                        options={VIEWS}
-                        currentValue={view}
-                        onChange={setView}
-                    />
-                    {/* Boxicons ships no broom; the brush is the nearest thing it has. The charts
-                        re-measure once the dialog is done, having just been made wrong by it. */}
-                    <ActionButton
-                        className="space-usage-cleanup"
-                        icon="bx bx-brush-alt"
-                        text={t("space_usage.cleanup_title")}
-                        onClick={() => void showCleanupDialog().then((reclaimed) => {
-                            if (reclaimed !== null) {
-                                refresh();
-                            }
-                        })}
-                    />
-                    {/* Measuring is expensive, so a reading is taken when asked for rather than
-                        kept live — and the button stays out while one is being taken. */}
-                    <ActionButton
-                        className="space-usage-refresh"
-                        icon="bx bx-refresh"
-                        text={t("space_usage.refresh")}
-                        disabled={loading || browseLoading}
-                        onClick={refresh}
-                    />
-                </div>
-            } />
+        <div className="space-usage-page">
+            {/* Above the views rather than in the note's own title row, so the controls stay put as
+                whichever view is on show is redrawn beneath them. */}
+            <div className="space-usage-toolbar">
+                <SegmentedChoice
+                    className="space-usage-view-choice"
+                    options={VIEWS}
+                    currentValue={view}
+                    onChange={setView}
+                />
+                {/* Boxicons ships no broom; the brush is the nearest thing it has. The charts
+                    re-measure once the dialog is done, having just been made wrong by it. */}
+                <ActionButton
+                    className="space-usage-cleanup"
+                    icon="bx bx-brush-alt"
+                    text={t("space_usage.cleanup_title")}
+                    onClick={() => void showCleanupDialog().then((reclaimed) => {
+                        if (reclaimed !== null) {
+                            refresh();
+                        }
+                    })}
+                />
+                {/* Measuring is expensive, so a reading is taken when asked for rather than kept
+                    live — and the button stays out while one is being taken. */}
+                <ActionButton
+                    className="space-usage-refresh"
+                    icon="bx bx-refresh"
+                    text={t("space_usage.refresh")}
+                    disabled={loading || browseLoading}
+                    onClick={refresh}
+                />
+            </div>
 
             {view === "browse" && (
                 <Browse
@@ -128,8 +126,8 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
  */
 function StatusEntry({ text, hint }: { text: string, hint: string }) {
     const ref = useRef<HTMLSpanElement>(null);
-    // `tooltip-top` is the app's "above everything" layer, which the status line needs: the content
-    // manager's own active-content overlay stands above the base tooltip layer.
+    // The page's own chart tooltips ride the app's "above everything" layer (see chart_tooltip);
+    // the line joins them, so a hint opened here is not covered by one drifting down from the map.
     useStaticTooltip(ref, useMemo(
         () => ({ title: hint, placement: "top", customClass: "tooltip-top" }),
         [ hint ]

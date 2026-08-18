@@ -5,14 +5,14 @@ import type {
     VacuumDatabaseResponse
 } from "@triliumnext/commons";
 
-import optionService from "../../../../../services/options";
-import server from "../../../../../services/server";
-import { newCompressionTaskId, runImageCompression } from "../../../../dialogs/image_compression/image_compression_operation";
+import optionService from "../../../services/options";
+import server from "../../../services/server";
+import { newCompressionTaskId, runImageCompression } from "../../dialogs/image_compression/image_compression_operation";
 import {
     CONSERVATIVE_IMAGE_COMPRESSION_DEFAULTS,
     type ImageCompressionToolOptions,
     readImageCompressionOptions
-} from "../../../../dialogs/image_compression/image_compression_options";
+} from "../../dialogs/image_compression/image_compression_options";
 
 /** The cleanup's items, in the order they are both listed and drawn. */
 export const CLEANUP_ITEMS = [

@@ -1,7 +1,7 @@
 import type { SpaceUsageOverviewNote, SpaceUsageOverviewResponse } from "@triliumnext/commons";
 import { describe, expect, it } from "vitest";
 
-import type { TreemapItem } from "../../../../react/charts/Treemap";
+import type { TreemapItem } from "../../react/charts/Treemap";
 import { buildOverviewModel, hueOf, type OverviewCell } from "./overview_model";
 
 function entry(noteId: string, notePath: string[], sizes: Partial<SpaceUsageOverviewNote> = {}): SpaceUsageOverviewNote {

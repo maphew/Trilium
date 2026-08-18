@@ -139,7 +139,7 @@ export default function ShortcutSettings() {
                             iconAction
                             title={t("shortcuts.filter")}
                             dropdownRef={filterDropdownRef}
-                            dropdownContainerClassName={isMobile() ? "mobile-bottom-menu" : undefined}
+                            mobileBottomSheet
                             // The row is a container, and so a backdrop root: left inside it the
                             // menu loses its blur and reads as a flat tint.
                             portalToBody

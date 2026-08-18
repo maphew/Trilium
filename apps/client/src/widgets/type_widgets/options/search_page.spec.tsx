@@ -47,10 +47,11 @@ describe("hasSearchTerms", () => {
     it("waits for a word worth looking for, whatever space is typed around it", () => {
         expect(hasSearchTerms("")).toBe(false);
         expect(hasSearchTerms("   ")).toBe(false);
-        expect(hasSearchTerms("th")).toBe(false);
-        expect(hasSearchTerms("  th  ")).toBe(false);
+        expect(hasSearchTerms("t")).toBe(false);
+        expect(hasSearchTerms("  t  ")).toBe(false);
 
-        expect(hasSearchTerms("the")).toBe(true);
+        // Two letters is a name in its own right, which is what the AI page is found by.
+        expect(hasSearchTerms("ai")).toBe(true);
         expect(hasSearchTerms("  theme  ")).toBe(true);
     });
 });

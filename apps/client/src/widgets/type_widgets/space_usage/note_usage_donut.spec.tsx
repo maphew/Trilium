@@ -2,14 +2,14 @@ import type { SpaceUsageNoteResponse } from "@triliumnext/commons";
 import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { t } from "../../../../../services/i18n";
-import { formatSize } from "../../../../../services/utils";
+import { t } from "../../../services/i18n";
+import { formatSize } from "../../../services/utils";
 
 const mocks = vi.hoisted(() => ({
     triggerCommand: vi.fn()
 }));
 
-vi.mock("../../../../../components/app_context", () => ({
+vi.mock("../../../components/app_context", () => ({
     default: {
         triggerCommand: mocks.triggerCommand,
         tabManager: { getActiveContext: () => ({ hoistedNoteId: "hoistedNote" }) }
@@ -18,7 +18,7 @@ vi.mock("../../../../../components/app_context", () => ({
 
 // Uninitialized, the real `t` answers undefined for every key — which would silently drop anything
 // the component only renders when its wording resolves, the contextual-help icon included.
-vi.mock("../../../../../services/i18n", () => ({
+vi.mock("../../../services/i18n", () => ({
     t: (key: string) => key
 }));
 
