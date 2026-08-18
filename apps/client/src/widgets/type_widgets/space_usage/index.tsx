@@ -19,12 +19,13 @@ import SelectionStrip, { type SpaceUsageSelection } from "./selection";
 const OVERVIEW_LIMIT = 500;
 
 /**
- * Whether a tap on a mark names it rather than acting on it. A touch screen has no hover to identify
- * a cell or a segment with, so there the charts keep a selection and the strip along the foot of the
- * page says what is chosen; a pointer needs none of that and keeps its hover and its right-click.
- * Read once, as the app's other phone branches do.
+ * What a phone gets instead: the charts keep a selection, named by the strip along the foot of the
+ * page, since a touch screen has no way to ask what a cell or a segment is; and the totals are a grid
+ * of figures rather than the line of sentences there is no width for. A pointer needs neither and
+ * keeps its hover, its right-click and its status line. Read once, as the app's other phone branches
+ * do.
  */
-const TAP_SELECTS = isMobile();
+const IS_MOBILE = isMobile();
 
 type SpaceUsageView = "overview" | "browse";
 
@@ -112,7 +113,7 @@ export default function SpaceUsage() {
                     refreshToken={refreshToken}
                     onContentChanged={refresh}
                     selectedMarkId={selection?.markId}
-                    onSelect={TAP_SELECTS ? select : undefined}
+                    onSelect={IS_MOBILE ? select : undefined}
                     onLoadingChange={setBrowseLoading}
                 />
             )}
@@ -120,7 +121,7 @@ export default function SpaceUsage() {
                 ? <Overview
                     overview={overview}
                     selectedMarkId={selection?.markId}
-                    onSelect={TAP_SELECTS ? select : undefined}
+                    onSelect={IS_MOBILE ? select : undefined}
                     onShowDetails={showDetails}
                     onContentChanged={refresh}
                 />
@@ -128,8 +129,9 @@ export default function SpaceUsage() {
 
             {/* Overview only: these are whole-database totals, and beside a single note's donut
                 they would read as being about that note. */}
-            {view === "overview" && overview && (
-                <footer className="space-usage-status">
+            {view === "overview" && overview && (IS_MOBILE
+                ? <StatusGrid overview={overview} />
+                : <footer className="space-usage-status">
                     <StatusEntry
                         // Revisions are left out: they carry their own cell on the map, which names
                         // their size, so repeating it here would only lengthen the line.
@@ -149,12 +151,11 @@ export default function SpaceUsage() {
                         })}
                         hint={t("space_usage.status_deleted_hint")}
                     />
-                </footer>
-            )}
+                </footer>)}
 
             {/* Kept on show with nothing chosen as well, so the map is laid out with room for it
                 from the start and a tap always has somewhere to report to. */}
-            {TAP_SELECTS && <SelectionStrip selection={selection} containerRef={stripRef} />}
+            {IS_MOBILE && <SelectionStrip selection={selection} containerRef={stripRef} />}
         </div>
     );
 }
@@ -174,6 +175,53 @@ function StatusEntry({ text, hint }: { text: string, hint: string }) {
     ));
 
     return <span ref={ref}>{text}</span>;
+}
+
+/**
+ * The whole-database totals as a grid of figures: the same numbers the status line carries as
+ * sentences, in the shape a phone has the width for. Every figure is at rest, so each is formatted to
+ * read rather than to hold still under a counter.
+ */
+function StatusGrid({ overview }: { overview: SpaceUsageOverviewResponse }) {
+    const { content, deletedNotes } = overview;
+
+    return (
+        // The outer element is nothing but the container the row measures itself against: an element
+        // cannot answer its own container query, so what changes shape has to sit inside what is
+        // being measured.
+        <div className="space-usage-status-figures">
+            <div className="space-usage-status-grid">
+                <StatusFigure
+                    label={t("space_usage.status_notes")}
+                    value={content.noteCount.toLocaleString()}
+                />
+                <StatusFigure
+                    label={t("space_usage.status_total")}
+                    value={formatSize(content.size)}
+                />
+                {/* Part of the total beside it rather than another slice of the database: what the
+                    notes counted above carry along with their own bodies. */}
+                <StatusFigure
+                    label={t("space_usage.status_attachments")}
+                    value={formatSize(content.attachmentsSize)}
+                />
+                <StatusFigure
+                    label={t("space_usage.status_deleted_items")}
+                    value={formatSize(deletedNotes.size)}
+                />
+            </div>
+        </div>
+    );
+}
+
+/** One cell of it: what is being counted, small and quiet, over the figure that is the point of it. */
+function StatusFigure({ label, value }: { label: string, value: string }) {
+    return (
+        <div className="space-usage-status-cell">
+            <span className="space-usage-status-label">{label}</span>
+            <span className="space-usage-status-value">{value}</span>
+        </div>
+    );
 }
 
 const VIEWS: { value: SpaceUsageView, label: string }[] = [
