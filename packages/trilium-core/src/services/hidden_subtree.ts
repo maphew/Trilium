@@ -306,9 +306,10 @@ function buildHiddenSubtreeDefinition(helpSubtree: HiddenSubtreeItem[]): HiddenS
                 icon: "bx-cog",
                 enforceChildOrder: true,
                 children: [
-                    // The order below is the order the pages are listed in. A database being
-                    // set up meets them here and gives each the next position as it is created;
-                    // one that already exists keeps the order it has, no position being enforced.
+                    // The order below is the order the pages are listed in, held to on every
+                    // database rather than only on one being set up: `enforceChildOrder` above
+                    // gives each page the position its place here implies, so one moved since is
+                    // put back at the next start. Reordering them is therefore this list alone.
                     // A page since withdrawn is left standing beside the one that replaced it.
 
                     // Personalization
