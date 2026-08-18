@@ -43,7 +43,7 @@ export function processAnnotation(ann: Record<string, any>, pageNumber: number):
 
     return {
         id: ann.id,
-        type: TYPE_NAMES[ann.annotationType] ?? "unknown",
+        type: resolveTypeName(ann),
         contents,
         highlightedText,
         author: ann.titleObj?.str || "",
@@ -52,6 +52,19 @@ export function processAnnotation(ann: Record<string, any>, pageNumber: number):
         creationDate: ann.creationDate || null,
         modificationDate: ann.modificationDate || null
     };
+}
+
+/**
+ * The kind the sidebar names an annotation by. A highlight drawn free-hand is stored as an Ink
+ * annotation tagged `/IT /InkHighlight` — a storage detail of pdf.js, not something the reader
+ * chose, so it is reported as the highlight it is rather than as a drawing.
+ */
+function resolveTypeName(ann: Record<string, any>): string {
+    if (ann.annotationType === AnnotationType.INK && ann.it === "InkHighlight") {
+        return TYPE_NAMES[AnnotationType.HIGHLIGHT];
+    }
+
+    return TYPE_NAMES[ann.annotationType] ?? "unknown";
 }
 
 export async function setupPdfAnnotations() {

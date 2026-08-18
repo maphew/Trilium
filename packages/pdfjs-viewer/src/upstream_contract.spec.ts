@@ -125,6 +125,15 @@ describe("PDFDocumentProxy shape", () => {
         expect(sticky?.contentsObj?.str).toBe("A sticky note");
     });
 
+    it("still reports /IT, the only thing separating a free-hand highlight from a pen stroke", async () => {
+        const page = await viewer.pdfDocument.getPage(2);
+        const inks = (await page.getAnnotations({ intent: "display" }))
+            .filter((annotation: any) => annotation.annotationType === UpstreamAnnotationType.INK);
+
+        // Both are Ink; dropping `it` would relabel every highlight drawn free-hand as a drawing.
+        expect(inks.map((ink: any) => ink.it)).toEqual([ undefined, "InkHighlight" ]);
+    });
+
     it("exposes optional-content groups with the name/usage/visible fields we filter on", async () => {
         const config = await viewer.pdfDocument.getOptionalContentConfig();
         expect(config).not.toBeNull();

@@ -81,6 +81,19 @@ describe("processAnnotation", () => {
         expect(result.highlightedText).toBe("");
     });
 
+    it("reports a free-hand highlight as a highlight, not as a drawing", () => {
+        // pdf.js stores it as Ink and marks it with /IT; only the pen's own strokes are drawings.
+        const inkHighlight = { ...SAMPLE_HIGHLIGHT, annotationType: AnnotationType.INK, it: "InkHighlight" };
+        expect(processAnnotation(inkHighlight, 1)!.type).toBe("highlight");
+
+        const penStroke = { ...SAMPLE_HIGHLIGHT, annotationType: AnnotationType.INK, it: undefined };
+        expect(processAnnotation(penStroke, 1)!.type).toBe("ink");
+
+        // /IT is shared with other types, where it says nothing about the tool used.
+        const stampedHighlight = { ...SAMPLE_HIGHLIGHT, it: "InkHighlight" };
+        expect(processAnnotation(stampedHighlight, 1)!.type).toBe("highlight");
+    });
+
     it("keeps an annotation carrying no text at all", () => {
         // pdf.js writes a free-hand highlight as Ink, which never has contents or overlaidText;
         // dropping those hid every highlight not drawn over selected text (#11059).
@@ -171,6 +184,14 @@ describe("extraction from a real document", () => {
             type: "freetext",
             contents: "Typed in the box",
             pageNumber: 2
+        }),
+        expect.objectContaining({
+            id: "20R",
+            type: "highlight",
+            contents: "",
+            highlightedText: "",
+            pageNumber: 2,
+            color: "#ffff00"
         })
     ];
 
@@ -218,7 +239,7 @@ describe("extraction from a real document", () => {
         await setupPdfAnnotations();
 
         const { annotations } = viewer.lastMessageOfType("pdfjs-viewer-annotations");
-        expect(annotations.map((annotation: any) => annotation.id)).toEqual([ "14R", "17R", "18R", "19R" ]);
+        expect(annotations.map((annotation: any) => annotation.id)).toEqual([ "14R", "17R", "18R", "19R", "20R" ]);
     });
 
     it("reports an empty list when extraction fails", async () => {
@@ -271,7 +292,8 @@ describe("re-extraction from saved bytes", () => {
                 expect.objectContaining({ contents: "A sticky note" }),
                 expect.objectContaining({ id: "17R", type: "highlight" }),
                 expect.objectContaining({ id: "18R", type: "ink" }),
-                expect.objectContaining({ id: "19R", type: "freetext", contents: "Typed in the box" })
+                expect.objectContaining({ id: "19R", type: "freetext", contents: "Typed in the box" }),
+                expect.objectContaining({ id: "20R", type: "highlight" })
             ]);
         // The temporary document owns a worker, so failing to destroy it leaks one per save.
         expect(destroy).toHaveBeenCalledTimes(1);

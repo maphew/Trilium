@@ -58,7 +58,7 @@ export function allFeaturesPdf(): Uint8Array {
         "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [5 0 R 14 0 R] >>",
         // 4 — page 2, target of the second outline entry, carrying a link (the one type the
         //     sidebar filters out) alongside the annotations it lists without a comment.
-        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [16 0 R 17 0 R 18 0 R 19 0 R] >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [16 0 R 17 0 R 18 0 R 19 0 R 20 0 R] >>",
         // 5 — highlight annotation with a comment, author and colour.
         "<< /Type /Annot /Subtype /Highlight /Rect [100 700 200 720] "
             + "/Contents (A remark) /T (Alice) /C [1 0 0] "
@@ -98,7 +98,11 @@ export function allFeaturesPdf(): Uint8Array {
         // 19 — a free-text box, what the toolbar's text tool writes. Its own words are its
         //      contents, so unlike ink it reaches the sidebar with something to show.
         "<< /Type /Annot /Subtype /FreeText /Rect [100 300 300 340] "
-            + "/Contents (Typed in the box) /DA (/Helv 12 Tf 0 g) >>"
+            + "/Contents (Typed in the box) /DA (/Helv 12 Tf 0 g) >>",
+        // 20 — the other ink: a highlight drawn free-hand, which pdf.js marks with /IT so it
+        //      can be told apart from object 18's pen stroke.
+        "<< /Type /Annot /Subtype /Ink /IT /InkHighlight /Rect [400 100 500 150] /C [1 1 0] "
+            + "/InkList [[400 100 450 150 500 100]] >>"
     ]);
 }
 
