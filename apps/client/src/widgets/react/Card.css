@@ -1,9 +1,9 @@
 :where(.tn-card, .tn-card-frame) {
     --card-border-radius: 8px;
     --card-padding-block: 8px;
-    --card-padding-inline: 16px;
+    --card-padding-inline: 12px;
     --card-section-gap: 3px;
-    --card-nested-section-indent: 30px;
+    --card-nested-section-indent: 12px;
     /* Worn as a mask rather than drawn, so whatever carries it sets the colour. */
     --card-chevron: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m5 2 6 6-6 6'/></svg>");
 }
@@ -188,11 +188,9 @@ body[dir=rtl] .tn-card-option::after {
         font-weight: 500;
     }
 
-    /* Set here rather than on the card, which a query cannot reach from inside itself. Half the
-       nesting step, a narrow card having less width to spend on showing how deep a section sits;
-       and taller rows, since here a row is reached by finger rather than by pointer. */
+    /* Taller rows, a row here being reached by finger rather than by pointer. Set on the body
+       rather than on the card, which a query cannot reach from inside itself. */
     .tn-card-body {
-        --card-nested-section-indent: 15px;
         --card-padding-block: 12px;
     }
 
