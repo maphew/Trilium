@@ -2604,9 +2604,7 @@
   },
   "settings": {
     "related_settings": "Socruithe gaolmhara",
-    "related_actions": "Gníomhartha gaolmhara",
-    "related_space_usage": "Anailís a dhéanamh ar úsáid spáis laistigh den bhunachar sonraí",
-    "related_space_usage_description": "Féach cé na nótaí, na hathbhreithnithe agus na ceangaltáin a thógann an spás is mó, agus faigh ar ais é."
+    "related_actions": "Gníomhartha gaolmhara"
   },
   "settings_appearance": {
     "related_code_blocks": "Scéim dathanna do bhloic chóid i nótaí téacs",

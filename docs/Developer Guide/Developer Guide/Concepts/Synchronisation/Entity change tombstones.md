@@ -16,7 +16,7 @@ A real database observed in 2026 held ~165 000 entity changes against only ~12 0
 
 `content_hash#getEntityHashes` folds the flag into the per-sector hash:
 
-```js
+```
 entityHashMap[sector] = (entityHashMap[sector] || "") + hash + isErased;
 ```
 
@@ -33,7 +33,7 @@ A manual `DELETE FROM entity_changes WHERE isErased = 1` only sticks if it is do
 
 The same wall was already hit for blobs and special-cased in `erase#eraseUnusedBlobs`, which purges their change rows outright instead of tombstoning them:
 
-```js
+```
 // blobs are not marked as erased in entity_changes, they are just purged completely
 // this is because technically every keystroke can create a new blob and there would be just too many
 sql.executeMany(`DELETE FROM entity_changes WHERE entityName = 'blobs' AND entityId IN (???)`, unusedBlobIds);

@@ -3245,9 +3245,7 @@
   },
   "settings": {
     "related_settings": "관련 설정",
-    "related_actions": "관련 작업",
-    "related_space_usage": "데이터베이스의 공간 사용량 분석",
-    "related_space_usage_description": "어떤 노트, 수정본, 첨부 파일이 공간을 가장 많이 차지하는지 확인하고 정리하세요."
+    "related_actions": "관련 작업"
   },
   "settings_appearance": {
     "related_code_blocks": "텍스트 노트 내 코드 블록의 색상 체계",

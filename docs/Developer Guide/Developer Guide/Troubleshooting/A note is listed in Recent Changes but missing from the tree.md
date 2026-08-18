@@ -19,7 +19,7 @@ The two views then disagree, in a way that produces exactly the symptom above:
 
 *   **Recent Changes reads the database directly.** `routes/api/recent_changes.ts` queries `notes` by raw SQL, so it sees the new row.
 *   **The tree and `tree/load` read Becca**, which in process B has no such note. The client renders any entry it cannot resolve through Froca as a deleted-note link.
-*   **Hovering that link calls `/api/deleted-notes/:noteId/metadata`**, which selects `... WHERE noteId = ? AND isDeleted = 1` and throws `NotFoundError` when it finds nothing — and it finds nothing precisely because the note is *alive*.
+*   **Hovering that link calls `/api/deleted-notes/:noteId/metadata`**, which selects `... WHERE noteId = ? AND isDeleted = 1` and throws `NotFoundError` when it finds nothing — and it finds nothing precisely because the note is _alive_.
 
 Restarting the second instance reloads Becca from disk, which is why the note then appears.
 

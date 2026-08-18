@@ -222,7 +222,12 @@ describe("what the database is", () => {
         renderPage();
         await settle();
 
-        expect(container.querySelector(".database-info a[href]")?.textContent).toBe("database.info_no_backup");
+        const link = container.querySelector(".database-info a[href]");
+        expect(link?.textContent).toBe("database.info_no_backup");
+        // The row is the way to the backup page, and says on its own what is there: a preview of a
+        // page of settings would tell the reader nothing.
+        expect(link?.getAttribute("href")).toBe("#root/_hidden/_options/_optionsBackup");
+        expect(link?.classList.contains("no-tooltip-preview")).toBe(true);
     });
 
     it("reads the figures again once the database has been compacted", async () => {
@@ -242,15 +247,18 @@ describe("what the database is", () => {
         renderPage();
         await settle();
 
-        // A card of empty rows would state no less, and rather less clearly. The rest of the page
-        // stands: each card answers for itself.
+        // Only `DatabaseInfo` depends on the figures; the other cards render regardless. That
+        // matters most for `SpaceOptions`: a database too large to measure quickly is exactly the
+        // one that needs analyzing and cleaning up.
         expect(container.querySelector(".database-info")).toBeNull();
+        expect(button("analyze-space-usage-button")).not.toBeNull();
+        expect(button("cleanup-button")).not.toBeNull();
         expect(button("check-integrity-button")).not.toBeNull();
     });
 });
 
-describe("database maintenance", () => {
-    it("hands the two tools over to Space Usage rather than repeating them", async () => {
+describe("space usage and cleanup", () => {
+    it("hands both tools over to Space Usage rather than repeating them", async () => {
         renderPage();
         await settle();
 
@@ -280,7 +288,9 @@ describe("database maintenance", () => {
 
         expect(server.get.mock.calls.filter(([ url ]) => url === "database/info")).toHaveLength(1);
     });
+});
 
+describe("database maintenance", () => {
     it("runs each check against its own endpoint, and says how it went", async () => {
         renderPage();
         await settle();
