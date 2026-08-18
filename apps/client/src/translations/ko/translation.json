@@ -115,7 +115,8 @@
     "formatting-locale-auto": "애플리케이션 언어 기준",
     "default-content-language": "기본 콘텐츠 언어",
     "default-content-language-description": "노트의 기본 속성에서 별도로 언어를 지정하지 않은 경우, 노트 작성에 사용할 언어입니다. 오른쪽에서 왼쪽으로 쓰는 언어의 정렬 방식과 입력 시 사용되는 따옴표 종류 등에 영향을 줍니다.",
-    "default-content-language-auto": "애플리케이션 언어에 따라 설정"
+    "default-content-language-auto": "애플리케이션 언어에 따라 설정",
+    "dates-title": "날짜 및 캘린더"
   },
   "clone_to": {
     "clone_notes_to": "노트를 복제할 위치...",
@@ -1077,7 +1078,12 @@
   },
   "options": {
     "title": "옵션",
-    "back": "모든 옵션으로 돌아가기"
+    "back": "모든 옵션으로 돌아가기",
+    "search_placeholder": "검색 설정",
+    "search_clear": "검색 지우기",
+    "search_title": "옵션 검색",
+    "search_hint": "모든 설정 페이지에서 검색할 키워드를 입력하세요.",
+    "search_no_results": "찾으시는 설정과 일치하는 항목이 없습니다."
   },
   "global_menu": {
     "menu": "메뉴",
@@ -1211,7 +1217,8 @@
     "create_child_note_title": "하위 노트를 만들어 맵에 추가",
     "reset_pan_zoom_title": "팬과 확대/축소를 초기 좌표와 배율로 재설정",
     "zoom_in_title": "확대",
-    "zoom_out_title": "축소"
+    "zoom_out_title": "축소",
+    "create_child_note_text": "노트 추가"
   },
   "image_buttons": {
     "zoom_in": "확대",
@@ -3053,7 +3060,10 @@
   },
   "svg": {
     "export_to_png": "이 다이어그램은 PNG로 내보낼 수 없었습니다.",
-    "export_to_svg": "다이어그램을 SVG로 내보낼 수 없습니다."
+    "export_to_svg": "다이어그램을 SVG로 내보낼 수 없습니다.",
+    "zoom_in": "확대",
+    "zoom_out": "축소",
+    "reset_zoom": "확대/축소 초기화"
   },
   "code_theme": {
     "title": "외형",
@@ -3638,7 +3648,9 @@
   },
   "common": {
     "save": "저장",
-    "cancel": "취소"
+    "cancel": "취소",
+    "fullscreen": "전체 화면",
+    "exit_fullscreen": "전체 화면 종료"
   },
   "spreadsheet": {
     "read-only": "이 노트는 읽기 전용입니다.",

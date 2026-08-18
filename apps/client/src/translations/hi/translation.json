@@ -45,7 +45,11 @@
       "title": "कस्टम React विजेट रेंडर नहीं हो पाया"
     },
     "widget-missing-parent": "कस्टम विजेट में ज़रूरी '{{property}}' प्रॉपर्टी नहीं मिली।\n\nअगर इस स्क्रिप्ट को बिना UI एलिमेंट के चलाना है, तो इसकी जगह '#run=frontendStartup' इस्तेमाल करें।",
-    "scripting-error": "कस्टम स्क्रिप्ट एरर: {{title}}"
+    "scripting-error": "स्क्रिप्ट नोट निष्पादित होने में विफल रहा",
+    "unhandled-error": {
+      "title": "एक बैकग्राउंड टास्क फ़ेल हो गया",
+      "details-button": "और विवरण देखें…"
+    }
   },
   "update_available": {
     "update_available": "उपलब्ध अद्यतन"
