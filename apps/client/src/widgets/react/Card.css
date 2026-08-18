@@ -262,7 +262,8 @@ body[dir=rtl] .tn-card-option::after {
     .tn-card .tn-card-option > select,
     .tn-card .tn-card-option > .dropdown > .btn {
         max-width: none;
-        padding-inline: 0;
+        /* Room at the end for the mark standing over it, so the value stops short of it. */
+        padding-inline: 0 calc(var(--card-option-mark-size) + 8px);
         background: none;
         color: var(--muted-text-color);
         overflow: hidden;
@@ -291,9 +292,8 @@ body[dir=rtl] .tn-card-option::after {
        of its own. Same mark as `.tn-card-chevron`, which a pseudo-element cannot be given. */
     .tn-card .tn-card-option:has(> :is(select, .dropdown))::after {
         content: "";
-        flex-shrink: 0;
-        width: .9em;
-        height: .9em;
+        width: var(--card-option-mark-size);
+        height: var(--card-option-mark-size);
         background-color: var(--muted-text-color);
         -webkit-mask: var(--card-chevron) center / contain no-repeat;
         mask: var(--card-chevron) center / contain no-repeat;
@@ -303,9 +303,11 @@ body[dir=rtl] .tn-card-option::after {
        what is left. Flexed, the two gave way together and the name wrapped while the value, which
        has an ellipsis to fall back on, kept its full width. */
     .tn-card .tn-card-option:has(> :is(select, .dropdown)) {
+        --card-option-mark-size: .9em;
+
         display: grid;
-        grid-template-columns: auto minmax(0, 1fr) auto;
-        grid-template-areas: "title value chevron";
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas: "title value";
         align-items: center;
         column-gap: 8px;
 
@@ -329,8 +331,12 @@ body[dir=rtl] .tn-card-option::after {
             flex: 1;
         }
 
+        /* Over the control's own trailing end rather than beside it, and deaf to the pointer, so
+           that a tap meant for the mark reaches the control underneath and opens the picker. */
         &::after {
-            grid-area: chevron;
+            grid-area: value;
+            justify-self: end;
+            pointer-events: none;
         }
     }
 
@@ -338,8 +344,8 @@ body[dir=rtl] .tn-card-option::after {
        down whatever that wrapping makes. Given a row of its own it runs the full width instead. */
     .tn-card .tn-card-option:has(> :is(select, .dropdown)):has(.tn-card-option-description) {
         grid-template-areas:
-            "title value chevron"
-            "description description description";
+            "title value"
+            "description description";
         /* The sentence stands off the row above by as much as the row stands off its edge. */
         row-gap: var(--card-padding-block);
 
