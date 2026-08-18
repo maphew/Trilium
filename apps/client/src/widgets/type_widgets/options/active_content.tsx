@@ -20,11 +20,12 @@ import attributeService from "../../../services/attributes";
 import branches from "../../../services/branches";
 import debounce from "../../../services/debounce";
 import { t } from "../../../services/i18n";
+import treeService from "../../../services/tree";
 import { isMobile } from "../../../services/utils";
 import { ListView, type ListViewOptions } from "../../collections/legacy/ListOrGridView";
 import { Badge } from "../../react/Badge";
 import Dropdown from "../../react/Dropdown";
-import { FormListItem } from "../../react/FormList";
+import { FormListHeader, FormListItem } from "../../react/FormList";
 import FormTextBox from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
 import { useTriliumEvent, useTriliumOption } from "../../react/hooks";
@@ -42,7 +43,7 @@ const FILTER_DEBOUNCE_MS = 300;
  * The item's "..." menu. The collection menu is replaced here because most of its entries act on a
  * note in the context of its parent, which this list is not: these notes live all over the tree.
  */
-function ContentItemMenu({ note }: { note: FNote }) {
+function ContentItemMenu({ note, categories }: { note: FNote, categories: ContentCategory[] }) {
     return (
         <Dropdown
             className="active-content-item-menu"
@@ -54,6 +55,10 @@ function ContentItemMenu({ note }: { note: FNote }) {
             title={t("content_manager.item_menu")}
             dropdownContainerClassName={isMobile() ? "mobile-bottom-menu" : undefined}
         >
+            {isMobile() && (
+                <FormListHeader text={<ItemSummary note={note} categories={categories} />} />
+            )}
+
             <FormListItem
                 icon="bx bx-link-external"
                 onClick={() => void appContext.tabManager.openContextWithNote(note.noteId, {
@@ -99,6 +104,31 @@ function ItemDetail({ note, category, showCategory }: {
                 />
             )}
             <ContentProperties note={note} category={category} />
+        </span>
+    );
+}
+
+/**
+ * What the row has no width for on a phone: where the note lives, and what makes it active content.
+ * Shown at the head of the item's own menu, which is one tap away either way.
+ */
+function ItemSummary({ note, categories }: { note: FNote, categories: ContentCategory[] }) {
+    const [ location, setLocation ] = useState<string>();
+
+    // Resolved rather than read: a path is a chain of ids, and the titles behind them may not be
+    // loaded. Only runs once the menu is opened, its contents being built no sooner.
+    useEffect(() => {
+        const segments = note.getBestNotePath();
+        segments.pop();
+        void treeService.getNotePathTitle(segments.join("/")).then(setLocation);
+    }, [ note ]);
+
+    return (
+        <span className="active-content-item-summary">
+            {location && <span className="active-content-item-location">{location}</span>}
+            {categories.map((category) => (
+                <ItemDetail key={category.id} note={note} category={category} showCategory />
+            ))}
         </span>
     );
 }
@@ -175,6 +205,9 @@ const LIST_OPTIONS: ListViewOptions = {
     // These notes are scattered across the tree rather than being children of this page, so they are
     // listed flat with their real location shown underneath, the way search results are.
     searchResultsLayout: true,
+    // On a phone the row has width for the name and the switch and nothing else, so where the note
+    // lives moves into its menu (see `ItemSummary`) rather than being cut short under the title.
+    showNotePath: () => !isMobile(),
     hideSubNotes: true,
     // Collapsed by default: the list is meant to be scanned, and expanding reveals the note's own
     // preview rather than a subtree.
@@ -239,6 +272,9 @@ export default function ActiveContent({ note }: TypeWidgetProps) {
                         options={VIEW_MODES}
                         currentValue={viewMode}
                         onChange={(newValue) => void setViewMode(newValue)}
+                        // Two named choices are wider than the row a phone has for them, and they
+                        // sit beside a filter box that needs what is left.
+                        collapseOnMobile
                     />
                     <SortOrderMenu currentValue={sortOrder} onChange={(newValue) => void setSortOrder(newValue)} />
                 </div>
@@ -298,7 +334,8 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
                 // content instead, `ListView` offering the tooltip wherever the preview is absent.
                 showPreview: () => false,
                 // Only the grouping folders state where they sit; repeating it on each item beneath
-                // would undo the grouping. An item's own path is in its hover tooltip.
+                // would undo the grouping. An item's own path is in its hover tooltip, and on a
+                // phone in its menu. A folder has neither, so it keeps its path at every width.
                 showNotePath: (note) => !itemsByNoteId.has(note.noteId),
                 // Grouping folders are not active content, so they carry neither toggle nor menu —
                 // just how much they hold, which is the only reason they are on screen.
@@ -319,12 +356,17 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
                     // would otherwise say it are gone.
                     return item.categories.map((category) => (
                         <span key={category.id} className="active-content-item-strip">
-                            <ItemDetail note={note} category={category} showCategory />
+                            {!isMobile() &&
+                                <ItemDetail note={note} category={category} showCategory />}
                             <ContentToggle note={note} category={category} />
                         </span>
                     ));
                 },
-                renderItemMenu: (note) => itemsByNoteId.has(note.noteId) ? <ContentItemMenu note={note} /> : null
+                renderItemMenu: (note) => {
+                    const item = itemsByNoteId.get(note.noteId);
+                    if (!item) return null;
+                    return <ContentItemMenu note={note} categories={item.categories} />;
+                }
             }}
         />
     );
@@ -417,11 +459,13 @@ function CategoryList({ pageNote, categories, highlightedTokens }: CategoryListP
                         title: t(category.titleKey),
                         renderItemActions: (note) => (
                             <>
-                                <ItemDetail note={note} category={category} />
+                                {!isMobile() && <ItemDetail note={note} category={category} />}
                                 <ContentToggle note={note} category={category} />
                             </>
                         ),
-                        renderItemMenu: (note) => <ContentItemMenu note={note} />
+                        renderItemMenu: (note) => (
+                            <ContentItemMenu note={note} categories={[ category ]} />
+                        )
                     }}
                 />
             ))}

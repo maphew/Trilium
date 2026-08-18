@@ -87,3 +87,47 @@
 .active-content-view-choice button {
     font-size: 0.85em;
 }
+
+/*
+ * The toolbar is one row of controls that a phone has no width for: the filter alone wants most of
+ * it. Keyed on `body.mobile` rather than on the width, to agree with `collapseOnMobile` on the view
+ * choice, which is a JS check on the same thing.
+ */
+body.mobile {
+    /* The filter takes the first line, the view controls the second, so neither is crushed. The
+       label keeps the `margin-inline-start: auto` it has across the toolbar, which on the line it
+       now leads takes up that line's slack instead, holding the controls at the trailing edge. */
+    .active-content-toolbar {
+        flex-wrap: wrap;
+    }
+
+    .active-content-filter {
+        flex-basis: 100%;
+        max-width: none;
+    }
+
+    /* A row here is a line of a list rather than a setting in a card, so it keeps less from the
+       edge than a card section does: the width goes to the names, which are what is read. */
+    .active-content-list .nested-note-list {
+        --card-padding-inline: 12px;
+    }
+}
+
+/* The row's detail, moved into the item's menu where a phone has room to read it. Stacked rather
+   than run together: the location is a sentence's worth on its own. */
+.active-content-item-summary {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35em;
+    white-space: normal;
+
+    .active-content-properties {
+        justify-content: flex-start;
+    }
+}
+
+/* Broken where it must be: a path is one long run, and the menu is no wider than the screen. */
+.active-content-item-location {
+    overflow-wrap: anywhere;
+}
