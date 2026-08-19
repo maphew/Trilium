@@ -437,6 +437,7 @@ function getDefaultKeyboardActions() {
             friendlyName: t("keyboard_action_names.move-split-left"),
             iconClass: "bx bx-chevron-left",
             defaultShortcuts: [],
+            description: t("keyboard_actions.move-split-left"),
             scope: "window"
         },
         {
@@ -444,6 +445,7 @@ function getDefaultKeyboardActions() {
             friendlyName: t("keyboard_action_names.move-split-right"),
             iconClass: "bx bx-chevron-right",
             defaultShortcuts: [],
+            description: t("keyboard_actions.move-split-right"),
             scope: "window"
         },
         {
