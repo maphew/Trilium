@@ -354,12 +354,17 @@ describe("Browse", () => {
         probe.querySelector<HTMLElement>(".space-usage-details-link")?.click();
         expect(open).toHaveBeenCalledTimes(1);
 
-        // The line itself stays, holding the chart's layout still; only its label goes.
+        // With nothing to open it stands there hidden rather than leaving, so the chart above keeps
+        // the height it was laid out with.
         render(null, probe);
         const empty = renderSelectableBrowse({ markId: "revisions", label: "Revisions", size: 10 });
+        const idle = empty.querySelector(".space-usage-details-link");
 
-        expect(empty.querySelector(".space-usage-browse-details")).not.toBeNull();
-        expect(empty.querySelector(".space-usage-details-link")).toBeNull();
+        expect(idle).not.toBeNull();
+        expect(idle?.classList.contains("space-usage-details-link-idle")).toBe(true);
+
+        idle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        expect(open).toHaveBeenCalledTimes(1);
     });
 
     it("hands the chosen mark to the donut, so the ring can draw it", () => {

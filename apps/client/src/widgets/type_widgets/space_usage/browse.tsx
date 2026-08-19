@@ -1,6 +1,7 @@
 import "./browse.css";
 
 import type { SpaceUsageNoteResponse } from "@triliumnext/commons";
+import clsx from "clsx";
 import { Fragment } from "preact";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 
@@ -8,7 +9,6 @@ import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { formatSize } from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
-import Button from "../../react/Button";
 import type { DonutRing, DonutSegment } from "../../react/charts/DonutChart";
 import { useFetch } from "../../react/use_fetch";
 import { type ContentChangedHandler, openSpaceUsageContextMenu } from "./context_menu";
@@ -182,15 +182,19 @@ export default function Browse({
                 and leaving would resize the chart above it at every tap. */}
             {onSelect && (
                 <div className="space-usage-browse-details">
-                    {selection?.onOpen && (
-                        <Button
-                            className="space-usage-details-link"
-                            kind="lowProfile"
-                            size="small"
-                            text={t("space_usage.show_selection_details")}
-                            onClick={selection.onOpen}
-                        />
-                    )}
+                    {/* Drawn whatever is chosen and merely hidden where there is nothing to open, so
+                        the line it stands on is the height of the control itself rather than a
+                        guess at it. Hidden this way it is also out of reach of the keyboard and of
+                        assistive technology, which `display: none` and a bare gap both cost.
+
+                        A plain button, as the breadcrumb's own crumbs are: the shared control's
+                        low-profile look loses to the app's global `.btn` surface, and this reads as
+                        a link rather than as a control anyway. */}
+                    <button
+                        type="button"
+                        className={clsx("space-usage-details-link", !selection?.onOpen && "space-usage-details-link-idle")}
+                        onClick={() => selection?.onOpen?.()}
+                    >{t("space_usage.show_selection_details")}</button>
                 </div>
             )}
         </div>
