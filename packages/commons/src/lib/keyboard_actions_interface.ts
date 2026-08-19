@@ -53,6 +53,8 @@ const enum KeyboardActionNamesEnum {
     closeActiveNoteSplit,
     moveActiveNoteSplitLeft,
     moveActiveNoteSplitRight,
+    focusNoteSplitLeft,
+    focusNoteSplitRight,
     showNoteSource,
     showOptions,
     showRevisions,

@@ -54,7 +54,12 @@ describe("keyboard_actions service", () => {
     it("ships the split actions unbound, so no layout is left unable to press them", () => {
         const actions = keyboardActions.getDefaultKeyboardActions();
 
-        for (const actionName of [ "openNewNoteSplit", "closeActiveNoteSplit", "moveActiveNoteSplitLeft", "moveActiveNoteSplitRight" ]) {
+        const splitActions = [
+            "openNewNoteSplit", "closeActiveNoteSplit", "moveActiveNoteSplitLeft", "moveActiveNoteSplitRight",
+            "focusNoteSplitLeft", "focusNoteSplitRight"
+        ];
+
+        for (const actionName of splitActions) {
             const action = actions.find((a) => "actionName" in a && a.actionName === actionName);
             expect(action, actionName).toBeDefined();
             expect(action && "defaultShortcuts" in action && action.defaultShortcuts, actionName).toEqual([]);

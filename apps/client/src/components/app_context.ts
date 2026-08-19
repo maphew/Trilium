@@ -313,6 +313,8 @@ export type CommandMappings = {
     closeActiveNoteSplit: CommandData;
     moveActiveNoteSplitLeft: CommandData;
     moveActiveNoteSplitRight: CommandData;
+    focusNoteSplitLeft: CommandData;
+    focusNoteSplitRight: CommandData;
     jumpToNote: CommandData;
     openTodayNote: CommandData;
     commandPalette: CommandData;

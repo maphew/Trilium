@@ -72,7 +72,9 @@
     "toggle-classic-editor-toolbar": "Toggle the Formatting tab for the editor with fixed toolbar",
     "toggle-zen-mode": "Enables/disables the zen mode (minimal UI for more focused editing)",
     "create-new-split": "Open a new empty split to the right of the active one",
-    "close-active-split": "Close the active split, keeping the other splits of the tab open"
+    "close-active-split": "Close the active split, keeping the other splits of the tab open",
+    "focus-split-left": "Move the focus to the split on the left of the active one",
+    "focus-split-right": "Move the focus to the split on the right of the active one"
   },
   "keyboard_action_names": {
     "back-in-note-history": "Back in Note History",
@@ -179,7 +181,9 @@
     "create-new-split": "Create New Split",
     "close-active-split": "Close Active Split",
     "move-split-left": "Move Split Left",
-    "move-split-right": "Move Split Right"
+    "move-split-right": "Move Split Right",
+    "focus-split-left": "Focus Split to the Left",
+    "focus-split-right": "Focus Split to the Right"
   },
   "login": {
     "title": "Login",

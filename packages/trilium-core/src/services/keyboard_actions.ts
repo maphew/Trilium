@@ -442,6 +442,22 @@ function getDefaultKeyboardActions() {
             defaultShortcuts: [],
             scope: "window"
         },
+        {
+            actionName: "focusNoteSplitLeft",
+            friendlyName: t("keyboard_action_names.focus-split-left"),
+            iconClass: "bx bx-left-arrow-alt",
+            defaultShortcuts: [],
+            description: t("keyboard_actions.focus-split-left"),
+            scope: "window"
+        },
+        {
+            actionName: "focusNoteSplitRight",
+            friendlyName: t("keyboard_action_names.focus-split-right"),
+            iconClass: "bx bx-right-arrow-alt",
+            defaultShortcuts: [],
+            description: t("keyboard_actions.focus-split-right"),
+            scope: "window"
+        },
 
         {
             separator: t("keyboard_actions.dialogs")
