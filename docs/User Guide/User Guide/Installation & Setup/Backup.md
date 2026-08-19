@@ -44,7 +44,7 @@ If your database is encrypted, you will be prompted to enter the password used f
 
 Restoring a backup may take some time, depending on its size. Once it completes, Trilium will open the freshly restored database.
 
-### The alternative way for restoring a backup 
+### The alternative way for restoring a backup
 
 Let's assume you want to restore the weekly backup (only in .db format, .tnbackup files are not supported by this method), here's how to do it:
 

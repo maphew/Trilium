@@ -18,26 +18,26 @@ See the corresponding section: <a class="reference-link" href="UI%20Elements/No
 
 ### Note navigation
 
-*   <kbd spellcheck="false">Alt</kbd>+<kbd spellcheck="false">←</kbd>, <kbd spellcheck="false">Alt</kbd>+<kbd spellcheck="false">→</kbd> – go back / forwards in the history
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">J</kbd> – show ["Jump to" dialog](Navigation/Note%20Navigation.md)
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">.</kbd> – scroll to current note (useful when you scroll away from your note or your focus is currently in the editor)
-*   <kbd spellcheck="false">Backspace</kbd> – jumps to parent note
-*   <kbd spellcheck="false">Alt</kbd>+<kbd spellcheck="false">C</kbd> – collapse whole note tree
-*   <kbd spellcheck="false">Alt</kbd>+<kbd spellcheck="false">-</kbd> (alt with minus sign) – collapse subtree (if some subtree takes too much space on tree pane you can collapse it)
-*   you can define a [label](../Advanced%20Usage/Attributes.md) `#keyboardShortcut` with e.g. value `Ctrl + I` . Pressing this keyboard combination will then bring you to the note on which it is defined. Note that Trilium must be reloaded/restarted (<kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">R</kbd> ) for changes to be in effect.
+*   <kbd>Alt</kbd>+<kbd>←</kbd>, <kbd>Alt</kbd>+<kbd>→</kbd> – go back / forwards in the history
+*   <kbd>Ctrl</kbd>+<kbd>J</kbd> – show ["Jump to" dialog](Navigation/Note%20Navigation.md)
+*   <kbd>Ctrl</kbd>+<kbd>.</kbd> – scroll to current note (useful when you scroll away from your note or your focus is currently in the editor)
+*   <kbd>Backspace</kbd> – jumps to parent note
+*   <kbd>Alt</kbd>+<kbd>C</kbd> – collapse whole note tree
+*   <kbd>Alt</kbd>+<kbd>-</kbd> (alt with minus sign) – collapse subtree (if some subtree takes too much space on tree pane you can collapse it)
+*   you can define a [label](../Advanced%20Usage/Attributes.md) `#keyboardShortcut` with e.g. value `Ctrl + I` . Pressing this keyboard combination will then bring you to the note on which it is defined. Note that Trilium must be reloaded/restarted (<kbd>Ctrl</kbd>+<kbd>R</kbd> ) for changes to be in effect.
 
 See demo of some of these features in [note navigation](Navigation/Note%20Navigation.md).
 
 ### Tabs
 
-*   <kbd spellcheck="false">Ctrl</kbd> + <kbd spellcheck="false">🖱 Left click</kbd> – (or middle mouse click) on note link opens note in a new tab
+*   <kbd>Ctrl</kbd> + <kbd>🖱 Left click</kbd> – (or middle mouse click) on note link opens note in a new tab
 
 Only in desktop (electron build):
 
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">T</kbd> – opens empty tab
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">W</kbd> – closes active tab
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">Tab</kbd> – activates next tab
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">Shift</kbd>+<kbd spellcheck="false">Tab</kbd> – activates previous tab
+*   <kbd>Ctrl</kbd>+<kbd>T</kbd> – opens empty tab
+*   <kbd>Ctrl</kbd>+<kbd>W</kbd> – closes active tab
+*   <kbd>Ctrl</kbd>+<kbd>Tab</kbd> – activates next tab
+*   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> – activates previous tab
 
 ### Splits
 
@@ -52,32 +52,32 @@ All these keyboard shortcuts do not have a default set, go to <a class="referen
 
 ### Creating notes
 
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">O</kbd> – creates new note after the current note
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">P</kbd> – creates new sub-note into current note
-*   <kbd spellcheck="false">F2</kbd> – edit the <a class="reference-link" href="Notes/Cloning%20Notes/Branch%20prefix.md">Branch prefix</a> of current note clone
+*   <kbd>Ctrl</kbd>+<kbd>O</kbd> – creates new note after the current note
+*   <kbd>Ctrl</kbd>+<kbd>P</kbd> – creates new sub-note into current note
+*   <kbd>F2</kbd> – edit the <a class="reference-link" href="Notes/Cloning%20Notes/Branch%20prefix.md">Branch prefix</a> of current note clone
 
 ### Editing notes
 
 > [!NOTE]
 > For keyboard shortcuts specific to <a class="reference-link" href="../Note%20Types/Text.md">Text</a> notes, refer to <a class="reference-link" href="../Note%20Types/Text/Keyboard%20shortcuts.md">Keyboard shortcuts</a> and <a class="reference-link" href="../Note%20Types/Text/Markdown-like%20formatting.md">Markdown-like formatting</a>.
 
-*   Enter in tree pane switches from tree pane into note title. Enter from note title switches focus to text editor. <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">.</kbd> switches back from editor to tree pane.
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">.</kbd> – jump away from the editor to tree pane and scroll to current note
+*   Enter in tree pane switches from tree pane into note title. Enter from note title switches focus to text editor. <kbd>Ctrl</kbd>+<kbd>.</kbd> switches back from editor to tree pane.
+*   <kbd>Ctrl</kbd>+<kbd>.</kbd> – jump away from the editor to tree pane and scroll to current note
 
 ### Runtime shortcuts
 
 These are hooked in Electron to be similar to native browser keyboard shortcuts.
 
-*   <kbd spellcheck="false">F5</kbd>, <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">R</kbd> – reloads Trilium front-end
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">Shift</kbd>+<kbd spellcheck="false">I</kbd> – show developer tools
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">F</kbd> – show search dialog
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">-</kbd> – zoom out
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">=</kbd> – zoom in
+*   <kbd>F5</kbd>, <kbd>Ctrl</kbd>+<kbd>R</kbd> – reloads Trilium front-end
+*   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> – show developer tools
+*   <kbd>Ctrl</kbd>+<kbd>F</kbd> – show search dialog
+*   <kbd>Ctrl</kbd>+<kbd>-</kbd> – zoom out
+*   <kbd>Ctrl</kbd>+<kbd>=</kbd> – zoom in
 
 ### Other
 
-*   <kbd spellcheck="false">Alt</kbd>+<kbd spellcheck="false">O</kbd> – show SQL console (use only if you know what you're doing)
-*   <kbd spellcheck="false">Alt</kbd>+<kbd spellcheck="false">M</kbd> – distraction-free mode - display only note editor, everything else is hidden
-*   <kbd spellcheck="false">F11 </kbd> – toggle full screen
-*   <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">S</kbd> – toggle [search](Navigation/Search.md) form in tree pane
-*   <kbd spellcheck="false">Alt</kbd>+<kbd spellcheck="false">A</kbd> – show note [attributes](../Advanced%20Usage/Attributes.md) dialog
+*   <kbd>Alt</kbd>+<kbd>O</kbd> – show SQL console (use only if you know what you're doing)
+*   <kbd>Alt</kbd>+<kbd>M</kbd> – distraction-free mode - display only note editor, everything else is hidden
+*   <kbd>F11 </kbd> – toggle full screen
+*   <kbd>Ctrl</kbd>+<kbd>S</kbd> – toggle [search](Navigation/Search.md) form in tree pane
+*   <kbd>Alt</kbd>+<kbd>A</kbd> – show note [attributes](../Advanced%20Usage/Attributes.md) dialog
