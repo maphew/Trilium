@@ -171,10 +171,12 @@ async function createNoteWithTypePrompt(parentNotePath: string, options: CreateN
  * template overrides an inheritable default on an ancestor instead of adding to it. Undefined when
  * no target resolves to a note with a visible path.
  *
- * Inherited relations count only when marked inheritable. Attributes also flow through `~template`
- * regardless of that flag, and every note created from a template carries `~template` — without the
- * check, a note created from a template and later marked `#template` itself would silently adopt
- * the original template's destination.
+ * Inherited relations count only when owned by an ancestor of the template, i.e. inherited through
+ * the tree. Attributes also flow through `~template` — with their inheritable flag intact — and
+ * every note created from a template carries `~template`, so neither the flag nor mere presence in
+ * `getRelations()` proves tree inheritance; without the ancestry check, a note created from a
+ * template and later marked `#template` itself would silently adopt the original template's
+ * destination.
  */
 async function getTemplateDefaultParents(templateNoteId: string) {
     const templateNote = await froca.getNote(templateNoteId);
@@ -183,9 +185,12 @@ async function getTemplateDefaultParents(templateNoteId: string) {
     }
 
     const ownedRelations = templateNote.getOwnedRelations("template:newNoteDefaultParent");
+    const ancestorNoteIds = new Set(templateNote.getAllNotePaths().flat());
+    ancestorNoteIds.delete(templateNote.noteId);
     const relations = ownedRelations.length
         ? ownedRelations
-        : templateNote.getRelations("template:newNoteDefaultParent").filter((attr) => attr.isInheritable);
+        : templateNote.getRelations("template:newNoteDefaultParent")
+            .filter((attr) => attr.isInheritable && ancestorNoteIds.has(attr.noteId));
     const targetNoteIds = [...new Set(relations.map((relation) => relation.value).filter(Boolean))];
     const targetNotes = await froca.getNotes(targetNoteIds, true);
     const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;

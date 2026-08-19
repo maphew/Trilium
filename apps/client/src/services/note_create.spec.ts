@@ -346,6 +346,7 @@ describe("chooseNoteType", () => {
                     { id: "overriding-tpl", title: "Overriding", "#template": "", "~template:newNoteDefaultParent": "people" }
                 ] },
                 { id: "derived-tpl", title: "Derived", "#template": "", "~template": "person-tpl" },
+                { id: "derived2-tpl", title: "Derived from folder", "#template": "", "~template": "inheriting-tpl" },
                 { id: "plain-tpl", title: "Plain", "#template": "" }
             ]
         });
@@ -369,12 +370,18 @@ describe("chooseNoteType", () => {
                 .resolves.toMatchObject({ notePath: "root/people", cloneToNoteIds: ["advisors"] });
         });
 
-        it("ignores a non-inheritable destination flowing through ~template from the base template", async () => {
+        it("ignores a destination flowing through ~template, whatever its inheritable flag", async () => {
             // easy-froca seeds owned attributes into the attribute cache, which would mask template
             // inheritance; recomputing resolves it the way the application does.
             noteAttributeCache.invalidate();
+
+            // derived-tpl's base owns the relation without the flag; derived2-tpl's base sits in a
+            // folder whose relation is inheritable, so the flag arrives intact and only the
+            // owner-is-an-ancestor check tells the two inheritance paths apart.
             await expect(choose({ success: true, noteType: "text", templateNoteId: "derived-tpl" }))
                 .resolves.toEqual({ success: true, noteType: "text", templateNoteId: "derived-tpl" });
+            await expect(choose({ success: true, noteType: "text", templateNoteId: "derived2-tpl" }))
+                .resolves.toEqual({ success: true, noteType: "text", templateNoteId: "derived2-tpl" });
         });
 
         it("uses an inherited default parent, unless the template owns one, which replaces it", async () => {

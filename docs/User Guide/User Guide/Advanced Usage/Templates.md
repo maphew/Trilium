@@ -37,7 +37,7 @@ To specify a template for child notes, you can use a `~child:template` relation 
 
 A template can gather the notes created from it in one place, instead of having them land wherever they happen to be created. To do so, add a `~template:newNoteDefaultParent` relation to the template note, pointing at the note that should hold the instances, for example a _Person_ template pointing to a _People_ note.
 
-Adding the relation several times places the new note in every target, as <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Notes/Cloning%20Notes.md">Cloning Notes</a>. The relation can also be inherited (e.g. from a folder holding several templates), in which case a relation owned by the template itself replaces the inherited one. Inheritance requires the relation to be marked as inheritable: a template created from another template does not adopt that template's default parent.
+Adding the relation several times places the new note in every target, as <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Notes/Cloning%20Notes.md">Cloning Notes</a>. The relation can also be inherited (e.g. from a folder holding several templates), in which case a relation owned by the template itself replaces the inherited one. The default parent is only inherited from the template's ancestors in the tree: a template created from another template does not adopt that template's default parent.
 
 The default parent is used whenever a note is created from the template through the _Choose note type_ dialog:
 
