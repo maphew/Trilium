@@ -1,3 +1,6 @@
+import type { TemplatesResponse } from "@triliumnext/commons";
+
+import type FNote from "../entities/fnote.js";
 import type { NoteType } from "../entities/fnote.js";
 import type { MenuCommandItem, MenuItem, MenuItemBadge, MenuSeparatorItem } from "../menus/context_menu.js";
 import type { TreeCommandNames } from "../menus/tree_context_menu.js";
@@ -59,12 +62,6 @@ export const NOTE_TYPES: NoteTypeMapping[] = [
     { type: "launcher", mime: "", title: t("note_types.launcher"), reserved: true },
 ];
 
-/** The maximum age in days for a template to be marked with the "New" badge */
-const NEW_TEMPLATE_MAX_AGE = 3;
-
-/** The length of a day in milliseconds. */
-const DAY_LENGTH = 1000 * 60 * 60 * 24;
-
 /** The menu item badge used to mark new note types and templates */
 const NEW_BADGE: MenuItemBadge = {
     title: t("note_types.new-feature"),
@@ -78,18 +75,50 @@ const BETA_BADGE = {
 
 const SEPARATOR: MenuSeparatorItem = { kind: "separator" };
 
-const creationDateCache = new Map<string, Date>();
-let rootCreationDate: Date | undefined;
+/**
+ * The templates the note type menus are built from. Kept separate from the menu items so that a
+ * caller building several menus at once (e.g. the tree context menu, which has both an "insert
+ * note after" and an "insert child note" submenu) pays for the requests only once.
+ */
+export interface NoteTypeData {
+    builtInTemplateNotes: FNote[];
+    userTemplateNotes: FNote[];
+    /** The IDs of the templates to mark with the "New" badge. */
+    newTemplates: Set<string>;
+}
 
-async function getNoteTypeItems(command?: TreeCommandNames) {
+async function loadNoteTypeData(): Promise<NoteTypeData> {
+    // A single request reports both the user templates and which templates are new, so that the
+    // menus can be assembled without a round trip per template.
+    const { templateNoteIds, newTemplateNoteIds } =
+        await server.get<TemplatesResponse>("search-templates");
+
+    const [ builtInTemplateNotes, userTemplateNotes ] = await Promise.all([
+        getBuiltInTemplateNotes(),
+        froca.getNotes(templateNoteIds)
+    ]);
+
+    return { builtInTemplateNotes, userTemplateNotes, newTemplates: new Set(newTemplateNoteIds) };
+}
+
+function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames) {
+    const { builtInTemplateNotes, userTemplateNotes, newTemplates } = data;
+
     const items: MenuItem<TreeCommandNames>[] = [
         ...getBlankNoteTypes(command),
-        ...await getBuiltInTemplates(null, command, false),
-        ...await getBuiltInTemplates(t("note_types.collections"), command, true),
-        ...await getUserTemplates(command)
+        ...getBuiltInTemplates(null, command, builtInTemplateNotes, false, newTemplates),
+        ...getBuiltInTemplates(
+            t("note_types.collections"), command, builtInTemplateNotes, true, newTemplates
+        ),
+        ...getUserTemplates(command, userTemplateNotes, newTemplates)
     ];
 
     return items;
+}
+
+/** Builds a single note type menu. Use {@link loadNoteTypeData} directly to build several. */
+async function getNoteTypeItems(command?: TreeCommandNames) {
+    return buildNoteTypeItems(await loadNoteTypeData(), command);
 }
 
 function getBlankNoteTypes(command?: TreeCommandNames): MenuItem<TreeCommandNames>[] {
@@ -118,9 +147,7 @@ function getBlankNoteTypes(command?: TreeCommandNames): MenuItem<TreeCommandName
         });
 }
 
-async function getUserTemplates(command?: TreeCommandNames) {
-    const templateNoteIds = await server.get<string[]>("search-templates");
-    const templateNotes = await froca.getNotes(templateNoteIds);
+function getUserTemplates(command: TreeCommandNames | undefined, templateNotes: FNote[], newTemplates: Set<string>) {
     if (templateNotes.length === 0) {
         return [];
     }
@@ -141,7 +168,7 @@ async function getUserTemplates(command?: TreeCommandNames) {
             templateNoteId: templateNote.noteId
         };
 
-        if (await isNewTemplate(templateNote.noteId)) {
+        if (newTemplates.has(templateNote.noteId)) {
             item.badges = [NEW_BADGE];
         }
 
@@ -150,14 +177,17 @@ async function getUserTemplates(command?: TreeCommandNames) {
     return items;
 }
 
-async function getBuiltInTemplates(title: string | null, command: TreeCommandNames | undefined, filterCollections: boolean) {
+async function getBuiltInTemplateNotes() {
     const templatesRoot = await froca.getNote("_templates");
     if (!templatesRoot) {
         console.warn("Unable to find template root.");
         return [];
     }
 
-    const childNotes = await templatesRoot.getChildNotes();
+    return await templatesRoot.getChildNotes();
+}
+
+function getBuiltInTemplates(title: string | null, command: TreeCommandNames | undefined, childNotes: FNote[], filterCollections: boolean, newTemplates: Set<string>) {
     if (childNotes.length === 0) {
         return [];
     }
@@ -187,7 +217,7 @@ async function getBuiltInTemplates(title: string | null, command: TreeCommandNam
         };
 
         const badges: MenuItemBadge[] = [];
-        if (await isNewTemplate(templateNote.noteId)) {
+        if (newTemplates.has(templateNote.noteId)) {
             badges.push(NEW_BADGE);
         }
         if (templateNote.hasLabel("beta")) {
@@ -202,51 +232,8 @@ async function getBuiltInTemplates(title: string | null, command: TreeCommandNam
     return items;
 }
 
-async function isNewTemplate(templateNoteId) {
-    if (rootCreationDate === undefined) {
-        // Retrieve the root note creation date
-        try {
-            const rootNoteInfo: any = await server.get("notes/root");
-            if ("dateCreated" in rootNoteInfo) {
-                rootCreationDate = new Date(rootNoteInfo.dateCreated);
-            }
-        } catch (ex) {
-            console.error(ex);
-        }
-    }
-
-    // Try to retrieve the template's creation date from the cache
-    let creationDate: Date | undefined = creationDateCache.get(templateNoteId);
-
-    if (creationDate === undefined) {
-        // The creation date isn't available in the cache, try to retrieve it from the server
-        try {
-            const noteInfo: any = await server.get(`notes/${templateNoteId}`);
-            if ("dateCreated" in noteInfo) {
-                creationDate = new Date(noteInfo.dateCreated);
-                creationDateCache.set(templateNoteId, creationDate);
-            }
-        } catch (ex) {
-            console.error(ex);
-        }
-    }
-
-    if (creationDate) {
-        if (rootCreationDate && creationDate.getTime() - rootCreationDate.getTime() < 30000) {
-            // Ignore templates created within 30 seconds after the root note is created.
-            // This is useful to prevent predefined templates from being marked
-            // as 'New' after setting up a new database.
-            return false;
-        }
-
-        // Determine the difference in days between now and the template's creation date
-        const age = (new Date().getTime() - creationDate.getTime()) / DAY_LENGTH;
-        // Return true if the template is at most NEW_TEMPLATE_MAX_AGE days old
-        return (age <= NEW_TEMPLATE_MAX_AGE);
-    }
-    return false;
-}
-
 export default {
+    loadNoteTypeData,
+    buildNoteTypeItems,
     getNoteTypeItems
 };

@@ -1,4 +1,12 @@
-import type { ElectronApi, ElectronContextMenuParams, NativeImportOptions, OneNoteLoginResult, RendererStartupMetric } from "@triliumnext/commons";
+import type {
+    BackupPassphraseChange,
+    BackupPassphraseStatus,
+    ElectronApi,
+    ElectronContextMenuParams,
+    NativeImportOptions,
+    OneNoteLoginResult,
+    RendererStartupMetric
+} from "@triliumnext/commons";
 import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 
 contextBridge.exposeInMainWorld("electronApi", {
@@ -17,7 +25,7 @@ contextBridge.exposeInMainWorld("electronApi", {
         },
 
         // Title bar
-        setTitleBarOverlay(options: { color: string; symbolColor: string }) {
+        setTitleBarOverlay(options: { color: string; symbolColor: string; height?: number }) {
             ipcRenderer.send("set-title-bar-overlay", options);
         },
         setWindowButtonPosition(position: { x: number; y: number }) {
@@ -126,6 +134,9 @@ contextBridge.exposeInMainWorld("electronApi", {
         openPath(path: string): Promise<string> {
             return ipcRenderer.invoke("open-path", path);
         },
+        showItemInFolder(path: string) {
+            ipcRenderer.send("show-item-in-folder", path);
+        },
         openFileUrl(fileUrl: string): Promise<string> {
             return ipcRenderer.invoke("open-file-url", fileUrl);
         },
@@ -227,6 +238,21 @@ contextBridge.exposeInMainWorld("electronApi", {
         }
     },
 
+    dialog: {
+        pickDirectory(opts?: { defaultPath?: string }) {
+            return ipcRenderer.invoke("dialog-pick-directory", opts);
+        },
+        confirmStartOver(): Promise<boolean> {
+            return ipcRenderer.invoke("dialog-confirm-start-over");
+        }
+    },
+
+    restore: {
+        pickBackup() {
+            return ipcRenderer.invoke("restore-pick-backup");
+        }
+    },
+
     ws: {
         // Renderer → main process. Mirror channel name with the server-side
         // IpcMessagingProvider constants.
@@ -283,6 +309,19 @@ contextBridge.exposeInMainWorld("electronApi", {
         },
         setLanAccessEnabled(enabled: boolean): Promise<boolean> {
             return ipcRenderer.invoke("security-set-lan-access", enabled);
+        }
+    },
+
+    backupPassphrase: {
+        getStatus(): Promise<BackupPassphraseStatus> {
+            return ipcRenderer.invoke("backup-passphrase-status");
+        },
+        // No getter by design: the plaintext passphrase never comes back to the renderer.
+        set(passphrase: string): Promise<BackupPassphraseChange> {
+            return ipcRenderer.invoke("backup-passphrase-set", passphrase);
+        },
+        clear(): Promise<BackupPassphraseChange> {
+            return ipcRenderer.invoke("backup-passphrase-clear");
         }
     },
 

@@ -425,7 +425,7 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
         }
 
         if (suggestion.action === "create-note") {
-            const { success, noteType, templateNoteId, notePath } = await noteCreateService.chooseNoteType();
+            const { success, noteType, templateNoteId, notePath, cloneToNoteIds } = await noteCreateService.chooseNoteType();
             if (!success) {
                 return;
             }
@@ -433,7 +433,8 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
                 title: suggestion.noteTitle,
                 activate: false,
                 type: noteType,
-                templateNoteId
+                templateNoteId,
+                cloneToNoteIds
             });
 
             const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;

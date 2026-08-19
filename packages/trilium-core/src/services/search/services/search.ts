@@ -5,12 +5,12 @@ import striptags from "striptags";
 import becca from "../../../becca/becca.js";
 import becca_service from "../../../becca/becca_service.js";
 import type BNote from "../../../becca/entities/bnote.js";
+import blobService from "../../blob.js";
 import hoistedNoteService from "../../hoisted_note.js";
 import { getLog } from "../../log.js";
-import protectedSessionService from "../../protected_session.js";
 import scriptService from "../../script.js";
 import { isScriptingEnabled } from "../../scripting_guard.js";
-import { escapeHtml, escapeRegExp, normalizePreservingLength } from "../../utils/index.js";
+import { escapeHtml, escapeRegExp, normalizePreservingLength, unescapeHtml } from "../../utils/index.js";
 import type Expression from "../expressions/expression.js";
 import SearchContext from "../search_context.js";
 import SearchResult from "../search_result.js";
@@ -504,28 +504,20 @@ function extractContentSnippet(noteId: string, searchTokens: HighlightedTokenInf
         let content: string | undefined;
 
         if (["text", "code", "mermaid", "canvas", "mindMap", "llmChat"].includes(note.type)) {
+            // Protection is already accounted for: a note hands back its content decrypted, and hands
+            // back nothing at all when there is no session to decrypt it with.
             const raw = note.getContent();
             if (raw && typeof raw === "string") {
                 content = raw;
             }
         } else {
-            // For non-text notes (image, file), use OCR text representation
-            content = getTextRepresentationForNote(note) || undefined;
+            // For non-text notes (image, file), use OCR text representation. That one is stored as it
+            // sits on the blob, so it is the reader's job to decrypt it — or to withhold it.
+            content = blobService.decryptTextRepresentation(getTextRepresentationForNote(note), !!note.isProtected) || undefined;
         }
 
         if (!content) {
             return "";
-        }
-
-        // Handle protected notes
-        if (note.isProtected && protectedSessionService.isProtectedSessionAvailable()) {
-            try {
-                content = protectedSessionService.decryptString(content) || "";
-            } catch (e) {
-                return ""; // Can't decrypt, don't show content
-            }
-        } else if (note.isProtected) {
-            return ""; // Protected but no session available
         }
 
         // Strip HTML tags for text notes
@@ -536,7 +528,18 @@ function extractContentSnippet(noteId: string, searchTokens: HighlightedTokenInf
             content = content
                 .replace(/<\/summary>/gi, "</summary>\n")
                 .replace(/<\/details>/gi, "</details>\n");
+            // Link previews (link-embed / link-mention) keep their url/title/description in data
+            // attributes that striptags would drop; surface them as separate lines instead.
+            content = content.replace(/<(section|span)\b[^>]*\bclass="[^"]*\blink-(?:embed|mention)\b[^"]*"[^>]*>[\s\S]*?<\/\1>/gi, (element) => {
+                const url = element.match(/\bdata-url="([^"]*)"/i)?.[1] ?? "";
+                const title = element.match(/\bdata-title="([^"]*)"/i)?.[1] ?? "";
+                const description = element.match(/\bdata-description="([^"]*)"/i)?.[1] ?? "";
+                return `\n${[url, title, description].filter(Boolean).join("\n")}\n`;
+            });
             content = striptags(content);
+            // Decode HTML entities so the snippet shows real characters instead of escape codes
+            // (e.g. "&lt;", "&amp;", "&nbsp;") — attribute-sourced text above is entity-encoded too.
+            content = unescapeHtml(content).replace(/&nbsp;/g, " ");
         } else if (note.type === "llmChat") {
             // The note stores the whole conversation as a JSON blob; show the readable prose only.
             content = extractLlmChatText(content);
@@ -777,23 +780,22 @@ function buildSearchResultDetails(results: SearchResult[], searchContext: Search
 function highlightSearchResults(searchResults: SearchResult[], tokens: HighlightedTokenInfo[] | string[], ignoreInternalAttributes = false) {
     const tokenInfos = normalizeHighlightTokens(tokens);
 
+    // Highlighting runs on the text as written, and the result is escaped afterwards. Escaping
+    // first would let a token match inside an entity (searching for "lt" would cut &lt; in half),
+    // and stripping the offending characters instead would silently mangle the text - a title
+    // like "Issues caused by <div>" would lose its opening bracket.
+    // The only characters that have to go are the { } markers themselves.
     for (const result of searchResults) {
-        result.highlightedNotePathTitle = result.notePathTitle.replace(/[<{}]/g, "");
+        result.highlightedNotePathTitle = result.notePathTitle.replace(/[{}]/g, "");
 
-        // Initialize highlighted content snippet
+        // Initialize highlighted content snippet, preserving newlines for later conversion to <br>
         if (result.contentSnippet) {
-            // Escape HTML but preserve newlines for later conversion to <br>
-            result.highlightedContentSnippet = escapeHtml(result.contentSnippet);
-            // Remove any stray < { } that might interfere with our highlighting markers
-            result.highlightedContentSnippet = result.highlightedContentSnippet.replace(/[<{}]/g, "");
+            result.highlightedContentSnippet = result.contentSnippet.replace(/[{}]/g, "");
         }
 
         // Initialize highlighted attribute snippet
         if (result.attributeSnippet) {
-            // Escape HTML but preserve newlines for later conversion to <br>
-            result.highlightedAttributeSnippet = escapeHtml(result.attributeSnippet);
-            // Remove any stray < { } that might interfere with our highlighting markers
-            result.highlightedAttributeSnippet = result.highlightedAttributeSnippet.replace(/[<{}]/g, "");
+            result.highlightedAttributeSnippet = result.attributeSnippet.replace(/[{}]/g, "");
         }
     }
 
@@ -807,21 +809,19 @@ function highlightSearchResults(searchResults: SearchResult[], tokens: Highlight
 
     for (const result of searchResults) {
         if (result.highlightedNotePathTitle) {
-            result.highlightedNotePathTitle = result.highlightedNotePathTitle.replace(/{/g, "<b>").replace(/}/g, "</b>");
+            result.highlightedNotePathTitle = renderHighlights(result.highlightedNotePathTitle);
         }
 
         if (result.highlightedContentSnippet) {
-            // Replace highlighting markers with HTML tags
-            result.highlightedContentSnippet = result.highlightedContentSnippet.replace(/{/g, "<b>").replace(/}/g, "</b>");
-            // Convert newlines to <br> tags for HTML display
-            result.highlightedContentSnippet = result.highlightedContentSnippet.replace(/\n/g, "<br>");
+            result.highlightedContentSnippet = renderHighlights(result.highlightedContentSnippet)
+                // Convert newlines to <br> tags for HTML display
+                .replace(/\n/g, "<br>");
         }
 
         if (result.highlightedAttributeSnippet) {
-            // Replace highlighting markers with HTML tags
-            result.highlightedAttributeSnippet = result.highlightedAttributeSnippet.replace(/{/g, "<b>").replace(/}/g, "</b>");
-            // Convert newlines to <br> tags for HTML display
-            result.highlightedAttributeSnippet = result.highlightedAttributeSnippet.replace(/\n/g, "<br>");
+            result.highlightedAttributeSnippet = renderHighlights(result.highlightedAttributeSnippet)
+                // Convert newlines to <br> tags for HTML display
+                .replace(/\n/g, "<br>");
         }
     }
 }
@@ -943,4 +943,9 @@ function highlightField(field: string | undefined, info: HighlightedTokenInfo): 
 
 function wrapText(text: string, start: number, length: number, prefix: string, suffix: string) {
     return text.substring(0, start) + prefix + text.substr(start, length) + suffix + text.substring(start + length);
+}
+
+/** Escapes the text for display, then turns the { } markers into the <b> tags they stand for. */
+function renderHighlights(text: string) {
+    return escapeHtml(text).replace(/{/g, "<b>").replace(/}/g, "</b>");
 }

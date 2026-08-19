@@ -1,7 +1,8 @@
-import { attributes, options, password as passwordService, password_encryption as passwordEncryptionService } from "@triliumnext/core";
+import { attributes, authenticateSetup, enterSetupMode, leaveSetupMode, options, password as passwordService, password_encryption as passwordEncryptionService, resetSetupAuth } from "@triliumnext/core";
+import type { NextFunction, Request, Response } from "express";
 import { Application } from "express";
 import supertest from "supertest";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import auth, { refreshAuth, verifyLoginCredentials } from "./auth";
 import { cls } from "@triliumnext/core";
@@ -545,3 +546,138 @@ describe("Auth", () => {
         });
     });
 }, 60_000);
+
+/**
+ * The gate that stands in for everything else while an instance is in setup mode with a knowledge
+ * base still behind it.
+ *
+ * Driven directly rather than over HTTP: setup mode makes the whole application report itself
+ * uninitialized, which is not a state the shared test fixture can be put into and taken back out of
+ * around a supertest call.
+ */
+describe("the setup wizard's gate", () => {
+    type GateOpts = {
+        token?: string;
+        internalElectron?: boolean;
+        /** Which guard to drive; `checkSetupAuth` by default. */
+        middleware?: "checkSetupAuth" | "checkApiAuth" | "checkApiAuthOrElectron";
+    };
+
+    /** A request carrying the token, or nothing, plus what the middleware did with it. */
+    function callGate({ token, internalElectron = false, middleware = "checkSetupAuth" }: GateOpts = {}) {
+        const req = {
+            headers: token ? { "trilium-setup-auth": token } : {},
+            method: "POST",
+            path: "/api/database/backup-database",
+            session: {}
+        } as unknown as Request;
+        if (internalElectron) {
+            markAsInternalElectronRequest(req);
+        }
+
+        const outcome = { passed: false, status: 0 };
+        const res = {
+            setHeader: () => res,
+            status: (code: number) => {
+                outcome.status = code;
+                return res;
+            },
+            send: () => res
+        } as unknown as Response & { setHeader: () => unknown };
+        const next: NextFunction = () => {
+            outcome.passed = true;
+        };
+
+        auth[middleware](req, res as unknown as Response, next);
+
+        return outcome;
+    }
+
+    beforeAll(() => {
+        config.General.noAuthentication = false;
+        refreshAuth();
+    });
+
+    beforeEach(() => {
+        resetSetupAuth();
+        // An instance the app sent back to setup, with the fixture's knowledge base behind it.
+        enterSetupMode({ lang: "en" });
+    });
+
+    afterEach(() => {
+        leaveSetupMode();
+        resetSetupAuth();
+    });
+
+    it("refuses a request that has not unlocked the knowledge base", () => {
+        // Nothing else in this file covers it: every other check here gives way while the database
+        // reports itself uninitialized, which is exactly what setup mode makes it report.
+        expect(callGate()).toEqual({ passed: false, status: 401 });
+        expect(callGate({ token: "not a token" })).toEqual({ passed: false, status: 401 });
+    });
+
+    it("lets through a request carrying the token the password bought", async () => {
+        vi.spyOn(passwordEncryptionService, "verifyPassword").mockResolvedValue(true as never);
+        const token = await authenticateSetup("whatever the fixture's is");
+
+        expect(callGate({ token: token ?? "" })).toMatchObject({ passed: true });
+
+        vi.restoreAllMocks();
+    });
+
+    it("lets the desktop's own renderer through, since nobody else can be it", () => {
+        expect(callGate({ internalElectron: true })).toMatchObject({ passed: true });
+    });
+
+    it("asks nothing of an instance that has already said it trusts whoever can reach it", () => {
+        config.General.noAuthentication = true;
+        refreshAuth();
+        try {
+            expect(callGate()).toMatchObject({ passed: true });
+        } finally {
+            config.General.noAuthentication = false;
+            refreshAuth();
+        }
+    });
+
+    it("stands down once the knowledge base is gone, which is where a first run begins", () => {
+        leaveSetupMode();
+
+        expect(callGate()).toMatchObject({ passed: true });
+    });
+
+    describe("and the rest of the API, which stands down for the same reason", () => {
+        // The wizard's own routes are not the only ones reachable while it is open. Every ordinary
+        // API guard gives way on an instance that reports itself uninitialized — which setup mode
+        // makes it report — and the database is attached the whole time, so anything reaching it
+        // through SQL rather than through becca works. Backing the knowledge base up and then
+        // downloading that backup is two such requests, and would have been the whole of it.
+        for (const middleware of [ "checkApiAuth", "checkApiAuthOrElectron" ] as const) {
+            it(`refuses an unauthenticated request through ${middleware} while the wizard is locked`, () => {
+                expect(callGate({ middleware })).toEqual({ passed: false, status: 401 });
+            });
+
+            it(`lets ${middleware} through once the wizard has been unlocked`, async () => {
+                vi.spyOn(passwordEncryptionService, "verifyPassword").mockResolvedValue(true as never);
+                const token = await authenticateSetup("whatever the fixture's is");
+
+                // The client sends the token on every request once it holds one, so the rest of the
+                // wizard's own needs — keyboard actions, options, network addresses — keep working.
+                expect(callGate({ middleware, token: token ?? "" })).toMatchObject({ passed: true });
+
+                vi.restoreAllMocks();
+            });
+
+            it(`lets ${middleware} through on a first run, which has nothing to protect`, () => {
+                // No marker, so nothing behind the wizard, and no database open either: the state
+                // the bypass was written for, and the one it has to go on allowing.
+                leaveSetupMode();
+                vi.spyOn(sqlInit, "isDbInitialized").mockReturnValue(false);
+
+                expect(callGate({ middleware })).toMatchObject({ passed: true });
+
+                vi.restoreAllMocks();
+            });
+        }
+    });
+});

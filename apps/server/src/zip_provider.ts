@@ -4,6 +4,8 @@ import fs from "fs";
 import type { Stream } from "stream";
 import * as yauzl from "yauzl";
 
+import { asBuffer } from "./services/binary.js";
+
 class NodejsZipArchive implements ZipArchive {
     readonly #archive: ArchiverZip;
     // Byte sizes of appended entries not yet written out, in FIFO order.
@@ -55,11 +57,8 @@ class NodejsZipArchive implements ZipArchive {
         if (this.#error) {
             throw this.#error;
         }
-        // Wrap the Uint8Array in a Buffer view sharing the same memory rather
-        // than copying it (Buffer.from(uint8array) would allocate a full copy).
-        // byteOffset/byteLength keep the view scoped to this slice, never the
-        // surrounding backing buffer. archiver only reads, so sharing is safe.
-        const payload = typeof content === "string" ? content : Buffer.from(content.buffer, content.byteOffset, content.byteLength);
+        // A Buffer view over the same memory rather than a copy; archiver only reads, so sharing is safe.
+        const payload = typeof content === "string" ? content : asBuffer(content);
         const size = typeof content === "string" ? Buffer.byteLength(content) : content.byteLength;
         this.#pendingSizes.push(size);
         this.#queuedBytes += size;
@@ -103,8 +102,7 @@ async function openZip(source: ZipSource) {
         // Wrap the bytes in a Buffer *view* (no copy); fall through to fromBuffer. A `path` source is
         // opened straight from disk so a multi-GB zip is never held in memory (and dodges fs.readFile's
         // ~2 GiB ceiling) — yauzl reads the central directory and each entry on demand from the fd.
-        const buf = Buffer.isBuffer(source) ? source : Buffer.from(source.buffer, source.byteOffset, source.byteLength);
-        return yauzl.fromBufferPromise(buf, options);
+        return yauzl.fromBufferPromise(asBuffer(source), options);
     }
     return yauzl.openPromise(source.path, options);
 }

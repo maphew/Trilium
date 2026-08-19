@@ -8,7 +8,10 @@ const state = vi.hoisted(() => ({
     isDev: true,
     isMac: false,
     isWindows: false,
+    isLinux: false,
     supportsBackgroundMaterial: false,
+    /** Whether a `setup.json` marker sent this start to the wizard, rather than a first run. */
+    isSetupRequested: false,
     appVersion: "1.0.0",
     options: {} as Record<string, string>,
     optionBools: {} as Record<string, boolean>,
@@ -222,7 +225,8 @@ vi.mock("@triliumnext/core", async (importOriginal) => {
             ...actual.utils,
             isDev: () => state.isDev,
             isMac: () => state.isMac,
-            isWindows: () => state.isWindows
+            isWindows: () => state.isWindows,
+            isLinux: () => state.isLinux
         },
         options: {
             ...actual.options,
@@ -230,6 +234,7 @@ vi.mock("@triliumnext/core", async (importOriginal) => {
             getOptionBool: (name: string) => state.optionBools[name] ?? false
         },
         sql_init: { ...actual.sql_init, dbReady: Promise.resolve() },
+        isSetupRequested: () => state.isSetupRequested,
         keyboard_actions: { ...actual.keyboard_actions, getKeyboardActions: () => state.keyboardActions },
         cls: { ...actual.cls, wrap: (fn: Handler) => fn },
         events: {
@@ -281,7 +286,9 @@ beforeEach(() => {
     state.isDev = true;
     state.isMac = false;
     state.isWindows = false;
+    state.isLinux = false;
     state.supportsBackgroundMaterial = false;
+    state.isSetupRequested = false;
     state.appVersion = "1.0.0";
     state.options = { spellCheckLanguageCode: "en-US, de , " };
     state.optionBools = {};
@@ -352,12 +359,20 @@ describe("window service", () => {
             expect(opts.backgroundMaterial).toBeUndefined();
         });
 
-        it("does not apply Linux transparent effect when background effects enabled", async () => {
+        it("applies the Linux window controls overlay without a transparent effect", async () => {
+            state.isLinux = true;
             state.optionBools = { backgroundEffects: true };
             await windowService.createMainWindow();
             const opts = state.windows[state.windows.length - 1].opts as Record<string, unknown>;
-            expect(opts.frame).toBe(false);
+            expect(opts.titleBarStyle).toBe("hidden");
+            expect(opts.titleBarOverlay).toBe(true);
             expect(opts.transparent).toBe(undefined);
+        });
+
+        it("falls back to a frameless window on platforms without a controls overlay", async () => {
+            await windowService.createMainWindow();
+            const opts = state.windows[state.windows.length - 1].opts as Record<string, unknown>;
+            expect(opts.frame).toBe(false);
         });
 
         it("keeps native title bar when option enabled", async () => {
@@ -430,6 +445,28 @@ describe("window service", () => {
             await windowService.createSetupWindow();
             const opts = state.windows[state.windows.length - 1].opts as Record<string, unknown>;
             expect(opts.vibrancy).toBe("under-window");
+        });
+
+        it("names the window for what it is: getting started, or starting over", async () => {
+            // Asserted as the resolved English rather than as the key, which also proves both
+            // entries are really in the catalog the Electron main process reads.
+            await windowService.createSetupWindow();
+            expect((state.windows[state.windows.length - 1].opts as Record<string, unknown>).title)
+                .toBe("Getting Started - Trilium Notes");
+
+            state.isSetupRequested = true;
+            await windowService.createSetupWindow();
+            expect((state.windows[state.windows.length - 1].opts as Record<string, unknown>).title)
+                .toBe("Start Over - Trilium Notes");
+        });
+
+        it("keeps that title, which the page it loads would otherwise replace with the app name", async () => {
+            await windowService.createSetupWindow();
+            const preventDefault = vi.fn();
+
+            state.windows[state.windows.length - 1].fire("page-title-updated", { preventDefault });
+
+            expect(preventDefault).toHaveBeenCalled();
         });
     });
 

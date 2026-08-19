@@ -45,7 +45,11 @@
     },
     "widget-missing-parent": "В пользовательском виджете не определено обязательное свойство '{{property}}'.\n\nЕсли этот скрипт предназначен для запуска без элемента пользовательского интерфейса, используйте '#run=frontendStartup'.",
     "open-script-note": "Открыть заметку со скриптом",
-    "scripting-error": "Ошибка пользовательского скрипта: {{title}}"
+    "scripting-error": "Ошибка пользовательского скрипта: {{title}}",
+    "unhandled-error": {
+      "details-button": "Подробнее...",
+      "details-title": "Техническая информация"
+    }
   },
   "add_link": {
     "add_link": "Добавить ссылку",
@@ -57,7 +61,9 @@
     "search_note": "поиск заметки по ее названию",
     "link_title_mirrors": "название ссылки отражает текущий заголовок заметки",
     "anchor": "Якорь (необязательно)",
-    "anchor_none": "Нет (ссылка на заметку)"
+    "anchor_none": "Нет (ссылка на заметку)",
+    "edit_link": "Редактировать",
+    "button_edit_link": "Сохранить"
   },
   "branch_prefix": {
     "save": "Сохранить",
@@ -282,7 +288,8 @@
     "export": "Экспорт",
     "choose_export_type": "Сначала выберите тип экспорта",
     "export_finished_successfully": "Экспорт завершился успешно.",
-    "format_pdf": "PDF - для печати или обмена."
+    "format_pdf": "PDF - для печати или обмена.",
+    "what_to_export": "Что экспортировать"
   },
   "help": {
     "noteNavigation": "Навигация по заметке",
@@ -455,24 +462,16 @@
     "inverse_relation": "Обратное отношение",
     "more_notes": "Больше заметок",
     "date_time": "Дата и время",
-    "attr_detail_title": "Название атрибута",
-    "attr_is_owned_by": "Атрибут принадлежит",
-    "attr_name_title": "Имя атрибута может состоять только из букв, цифр, двоеточия и подчеркивания",
     "target_note_title": "Отношение — это именованная связь между исходной и целевой заметками.",
     "promoted_title": "Закреплённый атрибут отображается в заметке явно.",
     "promoted": "Закреплённый",
-    "promoted_alias_title": "Название, которое будет отображаться в интерфейсе закреплённых атрибутов.",
     "multiplicity_title": "Множественность определяет, сколько атрибутов с одним и тем же именем можно создать — максимум 1 или более 1.",
-    "label_type_title": "Тип метки поможет Trilium выбрать подходящий интерфейс для ввода значения метки.",
     "precision_title": "Какое количество цифр после плавающей запятой должно быть доступно в интерфейсе настройки значения.",
     "inverse_relation_title": "Необязательный параметр, определяющий, к какому отношению является противоположным данное отношение. Пример: отношения «Отец» и «Сын» являются обратными друг другу отношениями.",
     "inheritable_title": "Наследуемый атрибут будет унаследован всеми потомками в этом дереве.",
-    "save_and_close": "Сохранить и закрыть <kbd>Ctrl+Enter</kbd>",
     "related_notes_title": "Другие заметки с этой меткой",
     "label": "Метка",
-    "label_definition": "Определение метки",
     "relation": "Детали отношения",
-    "relation_definition": "Определение отношения",
     "disable_versioning": "отключает автоматическое версионирование. Полезно, например, для больших, но неважных заметок, например, для больших JS-библиотек, используемых для написания скриптов",
     "calendar_root": "отмечает заметку, которая должна использоваться в качестве корневой для заметок дня. Только одна должна быть отмечена как таковая.",
     "archived": "заметки с этой меткой не будут отображаться в результатах поиска по умолчанию (а также в диалоговых окнах «Перейти к», «Добавить ссылку» и т. д.).",
@@ -499,7 +498,6 @@
     "workspace_calendar_root": "Определяет корень календаря для каждого рабочего пространства",
     "hide_highlight_widget": "Скрыть виджет «Акценты»",
     "is_owned_by_note": "принадлежит заметке",
-    "and_more": "... и ещё {{count}}.",
     "app_theme": "отмечает заметки CSS, которые являются полноценными темами Trilium и, таким образом, доступны в опциях Trilium.",
     "title_template": "заголовок по умолчанию для заметок, создаваемых как дочерние элементы текущей. Значение вычисляется как строка JavaScript \n                        и может быть дополнено динамическим контентом с помощью внедренных переменных <code>now</code> и <code>parentNote</code>. Например:\n                        \n                        <ul>\n                            <li><code>Литературные произведения ${parentNote.getLabelValue('authorName')}</code></li>\n                            <li><code>Лог для ${now.format('YYYY-MM-DD HH:mm:ss')}</code></li>\n                        </ul>\n                        \n                        Подробности см. в <a href=\"https://triliumnext.github.io/Docs/Wiki/default-note-title.html\">вики</a>, документации API для <a href=\"https://zadam.github.io/trilium/backend_api/Note.html\">parentNote</a> и <a href=\"https://day.js.org/docs/en/display/format\">now</a>.",
     "icon_class": "значение этой метки добавляется в виде CSS-класса к значку в дереве, что помогает визуально различать заметки в дереве. Примером может служить bx bx-home — значки берутся из boxicons. Может использоваться в шаблонах заметок.",
@@ -557,7 +555,8 @@
     "other_notes_with_name": "Другие заметки с {{attributeType}} названием \"{{attributeName}}\"",
     "textarea": "Многострочный текст",
     "print_scale": "При экспорте в PDF меняет масштаб содержимого. Значения от 0.1 (10%) до 2 (200%), по умолчанию 1 (100%).",
-    "print_margins": "При экспорте в PDF задаёт поля страницы. Используйте <code>default</code>, <code>none</code>, <code>minimum</code> или собственные значения в формате <code>top,right,bottom,left</code> в миллиметрах."
+    "print_margins": "При экспорте в PDF задаёт поля страницы. Используйте <code>default</code>, <code>none</code>, <code>minimum</code> или собственные значения в формате <code>top,right,bottom,left</code> в миллиметрах.",
+    "no_other_notes": "Только эта заметка"
   },
   "command_palette": {
     "configure_launch_bar_description": "Откройте конфигурацию панели запуска, чтобы добавить или удалить элементы.",
@@ -683,8 +682,7 @@
   "geo-map": {
     "unable-to-load-map": "Не удалось загрузить карту.",
     "create-child-note-instruction": "Щелкните по карте, чтобы создать новую заметку в этом месте, или нажмите Escape, чтобы закрыть ее.",
-    "create-child-note-title": "Создать новую дочернюю заметку и добавить ее на карту",
-    "create-child-note-text": "Добавить маркер"
+    "create-child-note-title": "Создать новую дочернюю заметку и добавить ее на карту"
   },
   "note_tooltip": {
     "quick-edit": "Быстрое редактирование",
@@ -1094,9 +1092,7 @@
     "open_all_confirm_one": "Это откроет заметки ({{count}}) в новых вкладках. Продолжить?",
     "open_all_confirm_few": "",
     "open_all_confirm_many": "",
-    "open_all_too_one": "Слишком много результатов ({{count}}). Максимум — {{max}}.",
-    "open_all_too_few": "Слишком много результатов ({{count}}). Максимум — {{max}}.",
-    "open_all_too_many": "Слишком много результатов ({{count}}). Максимум — {{max}}."
+    "open_all_limit_exceeded": "Слишком много результатов ({{count}}). Максимум — {{max}}."
   },
   "edited_notes": {
     "deleted": "(удалено)",
@@ -1315,7 +1311,6 @@
     "max_image_dimensions_unit": "пикс.",
     "download_images_automatically": "Автоматическая загрузка изображений",
     "download_images_description": "Скачивать изображения, указанные во вставленном HTML-коде, чтобы они были доступны офлайн.",
-    "enable_image_compression": "Сжатие изображений",
     "max_image_dimensions": "Максимальные размеры изображения",
     "jpeg_quality_description": "Рекомендуемый диапазон — 50–85. Меньшие значения уменьшают размер файла, бо́льшие — сохраняют детализацию.",
     "enable_image_compression_description": "Сжимать и изменять размер изображений при их загрузке или вставке.",
@@ -1399,7 +1394,6 @@
     "enable_daily_backup": "Включить ежедневное резервное копирование",
     "enable_weekly_backup": "Включить еженедельное резервное копирование",
     "enable_monthly_backup": "Включить ежемесячное резервное копирование",
-    "backup_database_now": "Создать резервную копию",
     "date-and-time": "Дата и время",
     "no_backup_yet": "нет резервных копий",
     "database_backed_up_to": "Резервная копия базы данных создана в {{- backupFilePath}}",
@@ -1488,7 +1482,6 @@
   "highlights_list_2": {
     "options": "Параметры",
     "title": "Акценты",
-    "modal_title": "Настроить акценты",
     "menu_configure": "Настроить акценты...",
     "no_highlights": "Акценты в тексте не найдены.",
     "title_with_count_one": "{{count}} акцент",
@@ -1953,19 +1946,14 @@
     "cut": "Заметки вырезаны в буфер обмена."
   },
   "ws": {
-    "sync-check-failed": "Проверка синхронизации не удалась!",
     "encountered-error": "Обнаружена ошибка \"{{message}}\", проверьте консоль.",
     "consistency-checks-failed": "Проверка целостности не пройдена! Подробности смотрите в логах.",
     "lost-websocket-connection-title": "Потеряно соединение с сервером",
     "lost-websocket-connection-message": "Проверьте конфигурацию обратного прокси (например, nginx или Apache), чтобы убедиться, что соединения WebSocket должным образом разрешены и не заблокированы."
   },
   "attachment_detail_2": {
-    "role_and_size": "Роль: {{role}}, размер: {{size}}, MIME: {{- mimeType}}",
     "unrecognized_role": "Нераспознанная роль вложения '{{role}}'.",
-    "link_copied": "Ссылка на вложение скопирована в буфер обмена.",
-    "will_be_deleted_soon": "Это вложение скоро будет автоматически удалено",
-    "will_be_deleted_in": "Это вложение будет автоматически удалено через {{time}}",
-    "deletion_reason": ", поскольку вложение не связано с содержимым заметки. Чтобы предотвратить удаление, добавьте ссылку на вложение обратно в содержимое или преобразуйте вложение в заметку."
+    "link_copied": "Ссылка на вложение скопирована в буфер обмена."
   },
   "note_title": {
     "placeholder": "введите здесь название заметки...",
@@ -2285,8 +2273,6 @@
     "rotate": "Повернуть",
     "picture-in-picture": "Картинка в картинке",
     "exit-picture-in-picture": "Выйти из «картинки в картинке»",
-    "fullscreen": "Полноэкранный режим (F)",
-    "exit-fullscreen": "Выйти из полноэкранного режима",
     "unsupported-format": "Предпросмотр недоступен для этого формата файлов:\n{{mime}}",
     "zoom-to-fit": "Растянуть на весь экран",
     "zoom-reset": "Сбросить масштаб"
@@ -2301,7 +2287,6 @@
     "note_tools": "Доступ к заметке",
     "sources": "Источники",
     "extended_thinking": "Расширенное мышление",
-    "legacy_models": "Устаревшие модели",
     "thinking": "Обработка...",
     "thought_process": "Процесс обработки",
     "tool_calls": "{{count}} вызов(а/ов) инструмента",
@@ -2311,7 +2296,6 @@
     "tool_error": "ошибка",
     "total_tokens": "{{total}} токен(а/ов)",
     "tokens": "токены",
-    "context_used": "{{percentage}}% использовано",
     "note_context_enabled": "Нажмите, чтобы отключить контекст заметки: {{title}}",
     "note_context_disabled": "Нажмите, чтобы включить текущую заметку в контекст",
     "no_provider_message": "Не выбран провайдер ИИ. Добавьте его для начала общения.",
@@ -2375,8 +2359,6 @@
     "cancelFocus": "Отключить режим фокусировки",
     "moveUp": "Передвинуть выше",
     "moveDown": "Передвинуть ниже",
-    "link": "Связь",
-    "linkBidirectional": "Двусторонняя связь",
     "clickTips": "Пожалуйста, нажмите на целевой узел",
     "summary": "Сводка"
   },
@@ -2386,13 +2368,11 @@
     "configured_providers": "Настроенные провайдеры",
     "no_providers_configured": "Провайдеры пока не настроены.",
     "provider_name": "Название",
-    "provider_type": "Провайдер",
     "actions": "Действия",
     "delete_provider": "Удалить",
     "delete_provider_confirmation": "Удалить провайдера «{{name}}»?",
     "api_key": "Ключ API",
     "api_key_placeholder": "Введите свой ключ API",
-    "cancel": "Отмена",
     "tools": {
       "clone_note": "Клонировать заметку",
       "move_note": "Переместить заметку",
@@ -2442,7 +2422,13 @@
     "math": "Вставить блок с математической формулой",
     "footnote": "Вставить сноску",
     "mermaid": "Вставить диаграмму Mermaid",
-    "admonition": "Вставить блок-выноску ({{type}})"
+    "admonition": "Вставить блок-выноску ({{type}})",
+    "placeholders": {
+      "math": "уравнение",
+      "collapsible_summary": "Содержание",
+      "collapsible_details": "Детали",
+      "table_column": "Столбец {{number}}"
+    }
   },
   "revisions": {
     "note_revisions": "Версии заметки",
@@ -2500,9 +2486,6 @@
     "source_description_restore": "Сохранено перед восстановлением предыдущей версии",
     "source_description_unknown": "Источник недоступен",
     "diff_identical": "Эта версия идентична текущему содержанию заметки."
-  },
-  "auto_link_attribute_list": {
-    "title": "Системные атрибуты"
   },
   "revisions_snapshot": {
     "title": "Версии заметки"
@@ -2587,58 +2570,6 @@
     "page_ranges_invalid": "Неверный формат. Используйте, например, 1-5, 8, 11-13.",
     "page_ranges_placeholder": "например, 1-5, 8, 11-13"
   },
-  "setup": {
-    "heading": "Знакомство с Trilium",
-    "new-document": "Новая база знаний",
-    "new-document-description": "Создайте чистую базу знаний и сразу приступайте к работе.",
-    "sync-from-desktop": "Подключить настольное приложение",
-    "sync-from-desktop-description": "У вас есть только настольное приложение Trilium на другом устройстве. Это устройство будет синхронизировать данные с него.",
-    "sync-from-server": "Подключиться к существующему серверу",
-    "sync-from-server-description": "У вас где-то запущен сервер Trilium (на своём хосте или в облаке). Это устройство будет синхронизировать данные с него.",
-    "next": "Далее",
-    "init-in-progress": "Идёт инициализация базы знаний",
-    "redirecting": "Сейчас вы будете перенаправлены в приложение.",
-    "title": "Настройка",
-    "sync-from-server-page-description": "Введите данные вашего сервера, чтобы подключиться к существующему рабочему пространству.",
-    "sync-in-progress-title": "Идёт синхронизация",
-    "sync-in-progress-description": "Устройство подключено, идёт синхронизация данных.",
-    "sync-in-progress-banner": "Это может занять время, в зависимости от объёма заметок. Не переключайтесь на другие приложения, пока синхронизация не завершится.",
-    "button-back": "Назад",
-    "button-finish-setup": "Завершить настройку",
-    "sync-step-connecting": "Подключение к серверу",
-    "sync-step-syncing": "Синхронизация данных",
-    "sync-step-finalizing": "Применение настроек",
-    "create-new-document-options-title": "С чего хотите начать?",
-    "create-new-document-options-with-demo": "С демо-содержимым",
-    "create-new-document-options-with-demo-description": "Изучите возможности Trilium на демонстрационных заметках.",
-    "create-new-document-options-empty": "Пустая база",
-    "create-new-document-options-empty-description": "Начать с чистой базы знаний. Демо-заметки можно импортировать позже.",
-    "create-new-document-title": "Подготовка вашей базы знаний",
-    "create-new-document-description": "Это займёт всего минуту.",
-    "sync-illustration-this-device": "Это устройство",
-    "sync-illustration-desktop-app": "Ваше настольное приложение",
-    "sync-illustration-server": "Ваш сервер",
-    "sync-from-desktop-step1": "Откройте настольный экземпляр Trilium Notes.",
-    "sync-from-desktop-step2": "В меню Trilium выберите «Параметры».",
-    "sync-from-desktop-step3": "В дереве заметок откройте раздел «Синхронизация».",
-    "sync-from-desktop-step4": "Укажите адрес сервера, выбрав один из адресов справа, и нажмите «Сохранить».",
-    "sync-from-desktop-step5": "Нажмите «Проверить синхронизацию», чтобы убедиться, что соединение работает.",
-    "sync-from-desktop-warning": "Убедитесь, что оба устройства находятся в одной сети.",
-    "sync-from-desktop-waiting": "Ожидание подключения...",
-    "advanced-options": "Расширенные параметры",
-    "sync-failed": "Не удалось синхронизировать: {{message}}",
-    "server-host": "Адрес сервера Trilium",
-    "server-host-placeholder": "https://<hostname>:<port>",
-    "server-password": "Пароль",
-    "proxy-server": "Прокси-сервер (необязательно)",
-    "proxy-server-placeholder": "https://<hostname>:<port>",
-    "proxy-instruction": "Если оставить параметр прокси пустым, будет использован системный прокси.",
-    "dismiss-error": "Скрыть ошибку",
-    "wrong-password": "Неверный пароль. Попробуйте ещё раз.",
-    "language": "Язык",
-    "continue": "Продолжить",
-    "your-ip-addresses": "Сетевые адреса этого устройства"
-  },
   "common": {
     "save": "Сохранить",
     "cancel": "Отмена"
@@ -2656,9 +2587,38 @@
       "invalid-name": "некорректный идентификатор",
       "undefined-name": "идентификатор не определен"
     },
-    "unknown-task-state": "Неопределеннре пользовательское состояние задачи",
-    "edit-states-tooltip": "Управление состояниями",
-    "checkbox-tooltip": "Щелкните правой кнопкой мыши, чтобы просмотреть другие состояния задачи.\nНажмите {{shortcut}} для переключения между состояниями.",
-    "task-state-dropped": "Удалено определение пользовательского состояния задачи \"{{title}}\" ({{id}}) по причине: {{reason}}"
+    "ck": {
+      "edit-task-states": "Управление состояниями",
+      "right-click-or-press-0-to-change-state": "Щелкните правой кнопкой мыши, чтобы просмотреть другие состояния задачи.\nНажмите %0 для переключения между состояниями.",
+      "undefined-custom-task-state": "Неопределеннре пользовательское состояние задачи"
+    }
+  },
+  "onenote_import": {
+    "import_count_one": "Импортировать {{count}} раздел",
+    "import_count_few": "Импортировать {{count}} раздела",
+    "import_count_many": "Импортировать {{count}} разделов",
+    "attach_source": "Добавить оригинальный HTML (отладка)"
+  },
+  "notion_import": {
+    "import": "Импорт"
+  },
+  "keep_import": {
+    "import": "Импорт"
+  },
+  "anytype_import": {
+    "import": "Импорт"
+  },
+  "obsidian_import": {
+    "import": "Импорт"
+  },
+  "evernote_import": {
+    "import": "Импорт"
+  },
+  "attribute_list_panel": {
+    "delete_confirm": "Удалить атрибут \"{{name}}\"?",
+    "no_value": "Нет значения"
+  },
+  "convert_note": {
+    "choose_conversion": "(выбрать конвертацию)"
   }
 }

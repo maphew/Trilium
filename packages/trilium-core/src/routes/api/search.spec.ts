@@ -1,8 +1,9 @@
-import type { SearchResultDetailsResponse } from "@triliumnext/commons";
+import { dayjs, type SearchResultDetailsResponse, type TemplatesResponse } from "@triliumnext/commons";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { createTextNote } from "../../test/api_fixtures";
 import { CoreApiTester } from "../../test/api_tester";
+import { isNewTemplate } from "./search";
 
 let api: CoreApiTester;
 const UNIQUE_TOKEN = "ZzUniqueSearchTokenQwerty";
@@ -60,10 +61,10 @@ describe("Search API (core)", () => {
             body: { type: "label", name: "template", value: "" }
         });
 
-        const res = await api.get<string[]>("/api/search-templates");
+        const res = await api.get<TemplatesResponse>("/api/search-templates");
         expect(res.status).toBe(200);
-        expect(Array.isArray(res.body)).toBe(true);
-        expect(res.body).toContain(noteId);
+        expect(res.body.templateNoteIds).toContain(noteId);
+        expect(Array.isArray(res.body.newTemplateNoteIds)).toBe(true);
     });
 
     it("400s when searching from a note that is not a search note", async () => {
@@ -228,5 +229,30 @@ describe("Search API (core)", () => {
             // Match-centered: the padding-heavy head is trimmed to an ellipsis, not shown from index 0.
             expect(detail?.contentSnippet?.startsWith("padding words padding")).toBe(false);
         });
+    });
+});
+
+describe("isNewTemplate", () => {
+    const ROOT_CREATED = "2026-01-01 00:00:00.000Z";
+    const utc = (date: dayjs.Dayjs) => date.format("YYYY-MM-DD HH:mm:ss.SSS[Z]");
+
+    it("marks recent templates as new and leaves older ones alone", () => {
+        expect(isNewTemplate(utc(dayjs.utc().subtract(1, "day")), ROOT_CREATED)).toBe(true);
+        expect(isNewTemplate(utc(dayjs.utc().subtract(4, "day")), ROOT_CREATED)).toBe(false);
+        expect(isNewTemplate(null, ROOT_CREATED)).toBe(false);
+    });
+
+    it("never marks the predefined templates set up alongside the root note", () => {
+        const root = dayjs.utc().subtract(1, "hour");
+        // Created together with the database: within the grace period, so not new
+        // despite being only an hour old.
+        expect(isNewTemplate(utc(root.add(10, "second")), utc(root))).toBe(false);
+        // Added later on, e.g. by an upgrade.
+        expect(isNewTemplate(utc(root.add(1, "minute")), utc(root))).toBe(true);
+    });
+
+    it("falls back to the age check when the root creation date is unknown", () => {
+        expect(isNewTemplate(utc(dayjs.utc()), null)).toBe(true);
+        expect(isNewTemplate(utc(dayjs.utc().subtract(4, "day")), undefined)).toBe(false);
     });
 });

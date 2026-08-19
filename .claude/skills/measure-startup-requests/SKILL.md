@@ -22,7 +22,11 @@ node .claude/skills/measure-startup-requests/analyze-requests.mjs diff <before.j
 - The dev server must already be running (`pnpm server:start`, http://localhost:8080 by default).
   Note which checkout it serves: the capture reflects the tree the *server* runs from, not your cwd
   (verify with `curl` on a file that only exists in one tree if unsure).
-- `TRILIUM_PASSWORD` env var if the instance has a password.
+- `TRILIUM_PASSWORD` env var if the instance has a password. **Without it the capture still
+  "succeeds"** — it just never gets past the login page, yielding a plausible-looking ~178-request
+  file that measures nothing. Validate every capture before drawing conclusions: a real one
+  contains `/api/` requests (`/api/tree`, `/api/options`, ...). Zero `/api/` hits means you
+  captured the login screen.
 - Playwright is resolved from `packages/trilium-e2e`; the script prefers system Edge/Chrome, so no
   `playwright install` is needed.
 
@@ -49,7 +53,8 @@ node .claude/skills/measure-startup-requests/analyze-requests.mjs diff <before.j
   paths (strips host, `?v=`/`?t=` params, `/assets/vX.Y.Z`, and the `/@fs/<checkout>` prefix) —
   rely on that.
 - Vite's hash-named shared chunks (`dist-XXXX.js`) are identified by their `.js.map` in
-  `.cache/vite/deps/`: `grep -o '"[^"]*node_modules/[^"]*"' <chunk>.js.map | ...` and count by
+  `.cache/vite-<port>/deps/` (each dev instance has its own): `grep -o '"[^"]*node_modules/[^"]*"'
+  <chunk>.js.map | ...` and count by
   package. (The 800 KB `es-toolkit`+`mdast`/`hast` chunk is CKEditor's internals, for example.)
 
 ## Reference
@@ -60,6 +65,8 @@ them reports `LOADED` on a plain board/empty note startup, a regression sneaked 
 2026-06 lazy-loading work the new-layout baseline was ~557 requests / 3.75 MB / 500 scripts
 (down from 810 / 8.02 MB / 745).
 
-Known remaining eager-load offenders (candidates for future work): `applyModals` in
-`layout_commons.tsx` statically mounts ~30 dialogs and their graphs at boot; the Inter font ships
-as a 433 KB TTF instead of woff2.
+Both eager-load offenders this file used to list have since been fixed (re-verified 2026-08):
+`applyModals` in `layout_commons.tsx` now wraps every dialog in `LazyDialog` (a dynamic `import()`
+on first summons), keeping only `PopupEditor`, `CallToAction`, `Toast` and `ShortcutHintsPanel`
+eager — each with a comment saying why. The Inter font is served as woff2. Don't re-report either
+as a finding; measure first.

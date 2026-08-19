@@ -118,7 +118,7 @@ Tài liệu của chúng tôi có sẵn ở nhiều định dạng:
   tối](https://docs.triliumnotes.org/user-guide/concepts/themes), hỗ trợ giao
   diện do người dùng tùy chỉnh
 * Hỗ trợ nhập, xuất cho
-  [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/evernote)
+  [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/import-from-apps/evernote.html)
   và
   [Markdown](https://docs.triliumnotes.org/user-guide/concepts/import-export/markdown)
 * [Web Clipper](https://docs.triliumnotes.org/user-guide/setup/web-clipper) để
@@ -345,6 +345,12 @@ described in the "Discuss with us" section above.
 * [antoniotejada](https://github.com/nriver) for the original syntax highlight
   widget.
 * [Tabler Icons](https://tabler.io/icons) for the system tray icons.
+*   The application icons in the import dialog are from:
+    *   [Material Design Icons](https://pictogrammers.com/library/mdi/) for
+        OneNote, Google Keep, Evernote.
+    *   [Font Awesome](https://fontawesome.com/) for Notion, Obsidian.
+    *   [SVGicons.com](https://svgicons.com/icon/187676/anytype) for Anytype.
+*  The LLM provider icons are from [Lobe Icons](https://lobehub.com/icons).
 
 Trilium would not be possible without the technologies behind it:
 

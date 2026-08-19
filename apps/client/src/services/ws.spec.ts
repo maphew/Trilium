@@ -7,10 +7,12 @@ import { buildNote } from "../test/easy-froca";
 // and swap behaviour per test without re-mocking.
 const toast = vi.hoisted(() => ({
     showError: vi.fn(),
+    showErrorTitleAndMessage: vi.fn(),
     showMessage: vi.fn(),
     showPersistent: vi.fn(),
     closePersistent: vi.fn()
 }));
+const showUnhandledError = vi.hoisted(() => vi.fn());
 const bundle = vi.hoisted(() => ({ getAndExecuteBundle: vi.fn() }));
 const appCtx = vi.hoisted(() => ({ triggerEvent: vi.fn() }));
 const frocaUpdater = vi.hoisted(() => ({ processEntityChanges: vi.fn(async () => {}) }));
@@ -20,7 +22,7 @@ const utilsCtrl = vi.hoisted(() => ({
 }));
 const optionsCtrl = vi.hoisted(() => ({ is: vi.fn(() => false) }));
 
-vi.mock("./toast.js", () => ({ default: toast }));
+vi.mock("./toast.js", () => ({ default: toast, showUnhandledError }));
 vi.mock("./bundle.js", () => ({ default: bundle }));
 vi.mock("../components/app_context.js", () => ({ default: appCtx }));
 vi.mock("./froca_updater.js", () => ({ default: frocaUpdater }));
@@ -83,15 +85,20 @@ describe("dispatchMessage", () => {
         await ws.dispatchMessage({ type: "reload-frontend", reason: "x" } as WebSocketMessage);
         expect(utilsCtrl.reloadFrontendApp).toHaveBeenCalledWith(expect.stringContaining("reload"));
 
-        await ws.dispatchMessage({ type: "sync-hash-check-failed" } as any);
+        await ws.dispatchMessage({ type: "sync-hash-check-failed", sectors: ["blobs/9"] } as any);
+        expect(toast.showErrorTitleAndMessage).toHaveBeenCalledTimes(1);
+
         await ws.dispatchMessage({ type: "consistency-checks-failed" } as any);
-        expect(toast.showError).toHaveBeenCalledTimes(2);
+        expect(toast.showError).toHaveBeenCalledTimes(1);
 
         await ws.dispatchMessage({ type: "api-log-messages", noteId: "n1", messages: ["a"] } as any);
         expect(appCtx.triggerEvent).toHaveBeenCalledWith("apiLogMessages", { noteId: "n1", messages: ["a"] });
 
         await ws.dispatchMessage({ type: "toast", message: "hi", timeout: 5 } as any);
         expect(toast.showMessage).toHaveBeenCalledWith("hi", 5);
+
+        await ws.dispatchMessage({ type: "unhandled-error", message: "Note 'abc' doesn't exist.", stack: "at getNoteOrThrow" } as any);
+        expect(showUnhandledError).toHaveBeenCalledWith("Note 'abc' doesn't exist.", "at getNoteOrThrow");
     });
 
     it("execute-script resolves the origin entity from froca when an id is present", async () => {

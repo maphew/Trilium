@@ -122,17 +122,32 @@ function createSegment(start: number, length: number, currentPage: number, setPa
     return children;
 }
 
-export function usePagination(note: FNote, noteIds: string[], defaultPageSize = 20): PaginationContext {
+interface PaginationOptions {
+    /**
+     * Page size to use *instead of* the note's `#pageSize` label, for callers that list notes which
+     * aren't the children of a collection the user can label.
+     */
+    pageSizeOverride?: number;
+    /**
+     * Page size to fall back to when the note carries no `#pageSize` label (e.g. the synced
+     * `searchResultsPageSize` option). An explicit label always wins over this.
+     */
+    defaultPageSize?: number;
+}
+
+export function usePagination(
+    note: FNote,
+    noteIds: string[],
+    { pageSizeOverride, defaultPageSize = 20 }: PaginationOptions = {}
+): PaginationContext {
     const [ page, setPage ] = useState(1);
     const [ pageNotes, setPageNotes ] = useState<FNote[]>();
 
-    // Parse page size. An explicit `#pageSize` label always wins; otherwise fall back to the
-    // caller-supplied default (e.g. the synced `searchResultsPageSize` option), and finally to 20
-    // when neither yields a usable positive size.
+    // Parse page size. An explicit override wins outright; otherwise a `#pageSize` label wins over
+    // the caller-supplied default, and 20 stands in when none of them yields a usable positive size.
     const [ labelPageSize ] = useNoteLabelInt(note, "pageSize");
-    const normalizedPageSize = (labelPageSize && labelPageSize > 0)
-        ? labelPageSize
-        : (defaultPageSize > 0 ? defaultPageSize : 20);
+    const pageSize = pageSizeOverride ?? (labelPageSize && labelPageSize > 0 ? labelPageSize : defaultPageSize);
+    const normalizedPageSize = (pageSize && pageSize > 0 ? pageSize : 20);
 
     // Calculate start/end index.
     const startIdx = (page - 1) * normalizedPageSize;

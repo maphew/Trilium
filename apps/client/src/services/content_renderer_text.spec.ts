@@ -462,14 +462,14 @@ describe("rewriteMermaidDiagramsInContainer", () => {
         await rewriteMermaidDiagramsInContainer(container);
         const div = container.querySelector("div.mermaid-diagram");
         expect(div).not.toBeNull();
-        expect(div?.innerHTML).toContain("graph TD;");
+        expect(div?.textContent).toContain("graph TD;");
         expect(container.querySelector("pre")).toBeNull();
     });
 
     it("uses an empty body when the code element is missing", async () => {
         const container = document.createElement("div");
-        // A <pre> matched by :has(code[...]) but where querySelector("code") returns
-        // the matched code (with no inner content) -> innerHTML falls back to "".
+        // A <pre> matched by :has(code) whose <code> has no inner content, so the
+        // rewritten div ends up with an empty body.
         container.innerHTML = `<pre><code class="language-mermaid"></code></pre>`;
         await rewriteMermaidDiagramsInContainer(container);
         const div = container.querySelector("div.mermaid-diagram");

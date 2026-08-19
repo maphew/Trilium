@@ -80,7 +80,7 @@ Trilium Notes 是一款免費且開源、跨平台的階層式筆記應用程式
 * 為手機與平板最佳化的[行動前端](https://docs.triliumnotes.org/user-guide/setup/mobile-frontend)
 * 內建[深色主題](https://docs.triliumnotes.org/user-guide/concepts/themes)，並支援自訂主題
 * [Evernote
-  匯入](https://docs.triliumnotes.org/user-guide/concepts/import-export/evernote)與
+  匯入](https://docs.triliumnotes.org/user-guide/concepts/import-export/import-from-apps/evernote.html)與
   [Markdown
   匯入與匯出](https://docs.triliumnotes.org/user-guide/concepts/import-export/markdown)
 * 用於快速保存網頁內容的 [Web
@@ -275,6 +275,12 @@ pnpm run --filter desktop electron-forge:make --arch=x64 --platform=win32
 * [Thomas Frei](https://github.com/thfrei) 對 Canvas 原始作品的貢獻。
 * [antoniotejada](https://github.com/nriver) 為原始語法高亮小工具的貢獻。
 * [Tabler Icons](https://tabler.io/icons) 用於系統匣圖示。
+*   The application icons in the import dialog are from:
+    *   [Material Design Icons](https://pictogrammers.com/library/mdi/) for
+        OneNote, Google Keep, Evernote.
+    *   [Font Awesome](https://fontawesome.com/) for Notion, Obsidian.
+    *   [SVGicons.com](https://svgicons.com/icon/187676/anytype) for Anytype.
+*  The LLM provider icons are from [Lobe Icons](https://lobehub.com/icons).
 
 若無其背後的技術支撐，Trilium 便無法開發完成：
 

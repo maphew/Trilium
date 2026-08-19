@@ -13,6 +13,7 @@ import { downloadFileNote, openNoteExternally } from "../../services/open";
 import { createImageSrcUrl, isMobile, openInAppHelpFromUrl } from "../../services/utils";
 import { ViewTypeOptions } from "../collections/interface";
 import { buildSaveSqlToNoteHandler } from "../FloatingButtonsDefinitions";
+import { showImageCompressionDialog } from "../dialogs/image_compression/image_compression_dialog";
 import ActionButton, { ActionButtonProps } from "../react/ActionButton";
 import { ButtonGroup } from "../react/Button";
 import { FormFileUploadActionButton, FormFileUploadFormListItem, FormFileUploadProps } from "../react/FormFileUpload";
@@ -71,7 +72,6 @@ export default function NoteActionsCustom(props: NoteActionsCustomProps) {
             ref={containerRef}
             className="note-actions-custom"
         >
-            <AddChildButton {...innerProps} />
             <RunActiveNoteButton {...innerProps } />
             <SwitchSplitOrientationButton {...innerProps} />
             <DisplayModeSwitcher {...innerProps} />
@@ -113,6 +113,7 @@ function ImageActions(props: NoteActionsCustomInnerProps) {
             <UploadNewRevisionButton {...props} onChange={buildUploadNewImageRevisionListener(props.note)} />
             <OpenExternallyButton {...props} />
             <DownloadFileButton {...props} />
+            <CompressImageButton {...props} />
         </>
     );
 }
@@ -139,6 +140,21 @@ function OpenExternallyButton({ note, noteMime }: NoteActionsCustomInnerProps) {
             text={t("file_properties.open")}
             disabled={note.isProtected}
             onClick={() => openNoteExternally(note.noteId, noteMime)}
+        />
+    );
+}
+
+/**
+ * Shrinks the picture being looked at, and only it — the mime is what tells the dialog it is aimed
+ * at one image rather than at everything a note holds.
+ */
+function CompressImageButton({ note, noteMime }: NoteActionsCustomInnerProps) {
+    return (
+        <NoteAction
+            icon="bx bx-collapse-alt"
+            text={t("compress-image")}
+            disabled={!note.isContentAvailable()}
+            onClick={() => void showImageCompressionDialog({ type: "note", noteId: note.noteId, mime: noteMime })}
         />
     );
 }
@@ -299,16 +315,6 @@ function InAppHelpButton({ note }: NoteActionsCustomInnerProps) {
     );
 }
 
-function AddChildButton({ parentComponent, noteType, ntxId, isReadOnly }: NoteActionsCustomInnerProps) {
-    if (noteType === "relationMap") {
-        return <NoteAction
-            icon="bx bx-folder-plus"
-            text={t("relation_map_buttons.create_child_note_title")}
-            onClick={() => parentComponent.triggerEvent("relationMapCreateChildNote", { ntxId })}
-            disabled={isReadOnly}
-        />;
-    }
-}
 //#endregion
 
 function NoteAction({ text, active, ...props }: Pick<ActionButtonProps, "text" | "icon" | "disabled" | "triggerCommand" | "active"> & {

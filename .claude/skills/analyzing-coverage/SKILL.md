@@ -7,6 +7,11 @@ description: Use when measuring or chasing Vitest/v8 code coverage in the Triliu
 
 There is **one** coverage analyzer — `coverage.mjs` in this skill folder. Don't write a new throwaway parser; every past session that did (`cov-analyze.mjs`, `cov-parse.mjs`, `cov-lines.mjs`, `cov-gaps.cjs`) reinvented the same two operations. Use this instead.
 
+> **Analyzing existing coverage data is free; producing it is not.** A coverage run is a full suite run
+> plus instrumentation — minutes, and normally CI's job. Prefer whatever `lcov.info` is already on
+> disk, and when you do need fresh numbers, scope the run to the package or path in question rather
+> than running `pnpm coverage`. Generating repo-wide coverage is an explicit-request activity.
+
 ```
 node .claude/skills/analyzing-coverage/coverage.mjs <coverage-file> [summary|gaps] [options]
 ```
@@ -49,6 +54,9 @@ trilium-core has **no runner of its own** — its coverage is measured *through*
 |---|---|---|
 | `apps/client/src/**` | client | `apps/client/test-output/vitest/coverage/lcov.info` |
 | `apps/server/src/**`, `packages/trilium-core/src/**` | server | `apps/server/test-output/vitest/coverage/lcov.info` |
+| `apps/standalone/src/**`, or `packages/trilium-core/src/**` under the sqlite-wasm runtime | standalone | `apps/standalone/test-output/vitest/coverage/lcov.info` |
+
+`packages/trilium-core/src/**` is covered by **both** the server and standalone suites (its specs are pulled into each via the core `include` glob), so a core file shows two separate lcov entries. They aren't identical: the standalone suite runs core through happy-dom + sqlite-wasm, so a line uncovered there but covered under server (or vice-versa) is a real runtime-specific gap, not noise. Pick the suite matching the runtime you care about; to chase core to 100% everywhere, check both.
 
 Run the suite (or a scoped subset) with coverage, then analyze the lcov:
 
@@ -56,6 +64,7 @@ Run the suite (or a scoped subset) with coverage, then analyze the lcov:
 # Whole package (slow but complete):
 pnpm --filter @triliumnext/client test --coverage
 pnpm --filter server test --coverage
+pnpm --filter @triliumnext/standalone coverage   # core under sqlite-wasm; lcov anchored to apps/standalone/test-output
 
 # Scoped to specific specs (fast iteration). On Windows/sandbox, pnpm exec can
 # EPERM — call the hoisted binary in the REPO-ROOT node_modules directly:

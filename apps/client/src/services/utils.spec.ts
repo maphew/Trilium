@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import utils, {
+    areWindowControlsOnLeft,
     arrayEqual,
     clearBrowserCache,
     createImageSrcUrl,
@@ -107,6 +108,24 @@ describe("formatSize", () => {
         expect(formatSize(2048)).toBe("2 KiB");
         expect(formatSize(5 * 1024 * 1024)).toBe("5 MiB");
         expect(formatSize(3 * 1024 * 1024 * 1024)).toBe("3 GiB");
+    });
+
+    it("stays in the largest unit it knows rather than running off the end of them", () => {
+        // Past the last unit this used to name it "undefined", since it indexed straight into the
+        // list with whatever power of 1024 the size came to.
+        expect(formatSize(3 * 1024 ** 4)).toBe("3 TiB");
+        expect(formatSize(5 * 1024 ** 5)).toBe("5120 TiB");
+    });
+
+    it("keeps the places it is given, trailing zeros and all", () => {
+        // For a counter that is still climbing: dropping the zero shortens the text on every other
+        // update, and the line shifts about while it is being read.
+        expect(formatSize(1.5 * 1024 ** 3, 2)).toBe("1.50 GiB");
+        expect(formatSize(1.55 * 1024 ** 3, 2)).toBe("1.55 GiB");
+        expect(formatSize(2 * 1024 ** 3, 2)).toBe("2.00 GiB");
+        expect(formatSize(10 * 1024 ** 2, 1)).toBe("10.0 MiB");
+        // Nothing below a byte to show, however many places were asked for.
+        expect(formatSize(512, 2)).toBe("512 B");
     });
 });
 
@@ -240,6 +259,32 @@ describe("platform / device detection", () => {
         expect(isMac()).toBe(true);
         spy.mockReturnValue("Win32");
         expect(isMac()).toBe(false);
+    });
+
+    it("areWindowControlsOnLeft follows the platform and the overlay geometry", () => {
+        const platformSpy = vi.spyOn(navigator, "platform", "get");
+        const overlay = (visible: boolean, x: number) => {
+            navigator.windowControlsOverlay = {
+                visible,
+                getTitlebarAreaRect: () => ({ x }) as DOMRect
+            } as WindowControlsOverlay;
+        };
+
+        // macOS keeps the traffic lights on the left regardless of the overlay.
+        platformSpy.mockReturnValue("MacIntel");
+        expect(areWindowControlsOnLeft()).toBe(true);
+
+        platformSpy.mockReturnValue("Linux x86_64");
+        expect(areWindowControlsOnLeft()).toBe(false); // no overlay at all
+
+        overlay(false, 92); // native title bar: geometry is stale, ignore it
+        expect(areWindowControlsOnLeft()).toBe(false);
+
+        overlay(true, 0); // controls on the right (Windows, and Linux by default)
+        expect(areWindowControlsOnLeft()).toBe(false);
+
+        overlay(true, 92); // controls on the left
+        expect(areWindowControlsOnLeft()).toBe(true);
     });
 
     it("isCtrlKey uses ctrlKey on non-Mac and metaKey on Mac", () => {

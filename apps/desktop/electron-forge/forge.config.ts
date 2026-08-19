@@ -77,9 +77,6 @@ const config: ForgeConfig = {
             }
         ]
     },
-    rebuildConfig: {
-        extraModules: [ "better-sqlite3" ]
-    },
     makers: [
         {
             name: "@electron-forge/maker-deb",
@@ -152,7 +149,12 @@ const config: ForgeConfig = {
         {
             name: "@electron-forge/maker-dmg",
             config: {
-                icon: path.join(APP_ICON_PATH, isNightly ? "icon-dev.icns" : "icon.icns"),
+                // Volume icon of the MOUNTED image (Finder sidebar, desktop mount, DMG
+                // title bar) — a drive body carrying the mark, NOT the app icon, so the
+                // installer reads as media rather than a second copy of the app.
+                // Generated from dmg-icon/volume-icon.html; see that folder's README.
+                icon: path.join(ELECTRON_FORGE_DIR, "dmg-icon",
+                    isNightly ? "volume-dev.icns" : "volume.icns"),
                 // Branded Finder-window background (generated from dmg-background/background.html).
                 // appdmg auto-uses the sibling background@2x.png for Retina.
                 background: path.join(ELECTRON_FORGE_DIR, "dmg-background", isNightly ? "background-dev.png" : "background.png"),
@@ -269,9 +271,13 @@ const config: ForgeConfig = {
             }
 
             // Check that the bettersqlite3 binary has the right architecture.
+            // Since v13, better-sqlite3 ships N-API prebuilds and the Electron
+            // native rebuild was dropped, so no build/Release/ addon is ever
+            // produced. The loadable binary is the shipped prebuild, which
+            // auto-unpack-natives extracts to app.asar.unpacked/.../prebuilds/.
             if (packageResult.platform === "linux" && packageResult.arch === "arm64") {
                 for (const outputPath of packageResult.outputPaths) {
-                    const binaryPath = join(outputPath, "resources/app.asar.unpacked/node_modules/better-sqlite3/build/Release/better_sqlite3.node");
+                    const binaryPath = join(outputPath, "resources/app.asar.unpacked/node_modules/better-sqlite3/prebuilds/linux-arm64.node");
                     if (!existsSync(binaryPath)) {
                         throw new Error(`[better-sqlite3] Unable to find .node file at ${binaryPath}`);
                     }

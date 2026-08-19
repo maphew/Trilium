@@ -112,7 +112,7 @@ Trilium Notes ایک مفت اور اوپن سورس، کراس پلیٹ فار�
   اینڈ](https://docs.triliumnotes.org/user-guide/setup/mobile-frontend)
 * بلٹ ان [ڈارک تھیم](https://docs.triliumnotes.org/user-guide/concepts/themes)،
   یوزر تھیمز کی سپورٹ
-* [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/evernote)
+* [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/import-from-apps/evernote.html)
   اور [Markdown امپورٹ اور
   ایکسپورٹ](https://docs.triliumnotes.org/user-guide/concepts/import-export/markdown)
 * ویب مواد آسانی سے محفوظ کرنے کے لیے [ویب
@@ -339,6 +339,12 @@ pnpm run --filter desktop electron-forge:make --arch=x64 --platform=win32
 * [Thomas Frei](https://github.com/thfrei) Canvas پر اصل کام کرنے کے لیے۔
 * [antoniotejada](https://github.com/nriver) اصل سنٹیکس ہائی لائٹ وجٹ کے لیے۔
 * [Tabler Icons](https://tabler.io/icons) سسٹم ٹرے آئیکنز کے لیے۔
+*   The application icons in the import dialog are from:
+    *   [Material Design Icons](https://pictogrammers.com/library/mdi/) for
+        OneNote, Google Keep, Evernote.
+    *   [Font Awesome](https://fontawesome.com/) for Notion, Obsidian.
+    *   [SVGicons.com](https://svgicons.com/icon/187676/anytype) for Anytype.
+*  The LLM provider icons are from [Lobe Icons](https://lobehub.com/icons).
 
 Trilium اس کے پیچھے موجود ٹیکنالوجیز کے بغیر ممکن نہیں تھا:
 

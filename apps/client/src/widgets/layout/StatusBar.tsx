@@ -7,30 +7,33 @@ import { type ComponentChildren, RefObject } from "preact";
 import { createPortal } from "preact/compat";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import { CommandNames } from "../../components/app_context";
+import appContext, { CommandNames } from "../../components/app_context";
 import NoteContext from "../../components/note_context";
 import FNote from "../../entities/fnote";
 import attributes from "../../services/attributes";
 import { t } from "../../services/i18n";
+import { ATTRIBUTE_HELP_PAGE } from "../../services/in_app_help";
 import { ViewScope } from "../../services/link";
 import { NOTE_TYPES } from "../../services/note_types";
 import server from "../../services/server";
 import { openInAppHelpFromUrl } from "../../services/utils";
 import { formatDateTime } from "../../utils/formatters";
-import { BacklinksList, useBacklinkCount } from "../FloatingButtonsDefinitions";
+import { BacklinksWidget, useBacklinkCount } from "../FloatingButtonsDefinitions";
 import Dropdown, { DropdownProps } from "../react/Dropdown";
 import { FormDropdownDivider, FormListHeader, FormListItem } from "../react/FormList";
+import HelpDropdown from "../react/HelpDropdown";
 import { useActiveNoteContext, useLegacyImperativeHandlers, useNoteLabel, useNoteLabelInt, useNoteLabelOptionalBool, useNoteProperty, useStaticTooltip, useTriliumEvent, useTriliumEvents, useTriliumOptionBool, useTriliumOptionInt } from "../react/hooks";
 import Icon from "../react/Icon";
 import LinkButton from "../react/LinkButton";
 import { ParentComponent } from "../react/react_utils";
-import AutoLinkAttributesTab from "../ribbon/AutoLinkAttributesTab";
 import { ContentLanguagesModal, NoteTypeCodeNoteList, NoteTypeOptionsModal, useLanguageSwitcher, useMimeTypes } from "../ribbon/BasicPropertiesTab";
 import AttributeEditor, { AttributeEditorImperativeHandlers } from "../ribbon/components/AttributeEditor";
+import AttributeHelp from "../ribbon/components/AttributeHelp";
 import InheritedAttributesTab from "../ribbon/InheritedAttributesTab";
 import { NoteSizeWidget, useNoteMetadata } from "../ribbon/NoteInfoTab";
 import { NotePathsWidget, useSortedNotePaths } from "../ribbon/NotePathsTab";
 import SimilarNotesTab from "../ribbon/SimilarNotesTab";
+import type { RightPaneTabId } from "../sidebar/RightPaneTabs";
 import { useAttachments } from "../type_widgets/Attachment";
 import { useProcessedLocales } from "../type_widgets/options/components/LocaleSelector";
 import Breadcrumb from "./Breadcrumb";
@@ -38,16 +41,20 @@ import { convertIndentation } from "./reindentation";
 
 interface StatusBarContext {
     note: FNote;
-    notePath: string | null | undefined;
     noteContext: NoteContext;
     viewScope?: ViewScope;
     hoistedNoteId?: string;
+    notePath?: string | null;
 }
 
 export default function StatusBar() {
-    const { note, notePath, noteContext, viewScope, hoistedNoteId } = useActiveNoteContext();
+    const { note, noteContext, viewScope, hoistedNoteId, notePath } = useActiveNoteContext();
+    // What the status bar shows in a panel rather than a dropdown is what wants the width of the
+    // window: the attributes, which are edited rather than read, and the similar notes, which are set
+    // as a cloud. One at a time — two of them stacked would take the note's place rather than sit
+    // under it.
     const [ activePane, setActivePane ] = useState<"attributes" | "similar-notes" | false>(false);
-    const context: StatusBarContext | undefined | null = note && noteContext && { note, notePath, noteContext, viewScope, hoistedNoteId };
+    const context: StatusBarContext | undefined | null = note && noteContext && { note, noteContext, viewScope, hoistedNoteId, notePath };
     const attributesContext: AttributesProps | undefined | null = context && {
         ...context,
         attributesShown: activePane === "attributes",
@@ -160,19 +167,44 @@ function StatusBarButton({ className, icon, text, title, active, ...restProps }:
     );
 }
 
+/**
+ * The way from a panel of the status bar to the sidebar tab holding the fuller version of the same
+ * thing: the attributes panel edits a note's attributes as a line of text, the sidebar's card as a
+ * list with a control apiece. Worded as what is found there rather than as the pane it opens, and
+ * shown in the panel's title bar beside its `?`.
+ *
+ * A pane the user keeps closed is peeked rather than docked — a glance asked for from the status bar
+ * is no reason to reflow the content the note is read in.
+ */
+function SidebarLink({ text, tabId, onOpened }: { text: string; tabId: RightPaneTabId; onOpened?: () => void }) {
+    return (
+        <LinkButton
+            className="status-bar-sidebar-link"
+            text={<>
+                <Icon icon="bx bx-sidebar" className="bx-flip-horizontal" />
+                <span class="status-bar-sidebar-link-text">{text}</span>
+            </>}
+            onClick={() => {
+                void appContext.triggerEvent("selectRightPaneTab", { tabId, peek: true });
+                onOpened?.();
+            }}
+        />
+    );
+}
+
 //#region Language Switcher
 function LanguageSwitcher({ note }: StatusBarContext) {
     const [ modalShown, setModalShown ] = useState(false);
     const noteType = useNoteProperty(note, "type");
-    const { locales, DEFAULT_LOCALE, currentNoteLanguage, setCurrentNoteLanguage } = useLanguageSwitcher(note);
-    const { activeLocale, processedLocales } = useProcessedLocales(locales, DEFAULT_LOCALE, currentNoteLanguage ?? DEFAULT_LOCALE.id);
+    const { locales, DEFAULT_LOCALE, effectiveLocale, currentNoteLanguage, setCurrentNoteLanguage } = useLanguageSwitcher(note);
+    const { processedLocales } = useProcessedLocales(locales, DEFAULT_LOCALE, currentNoteLanguage ?? DEFAULT_LOCALE.id);
 
     return (
         <>
             {noteType === "text" && <StatusBarDropdown
                 icon="bx bx-globe"
                 title={t("status_bar.language_title")}
-                text={<span dir={activeLocale?.rtl ? "rtl" : "ltr"}>{getLocaleName(activeLocale)}</span>}
+                text={<span dir={effectiveLocale?.rtl ? "rtl" : "ltr"}>{getLocaleName(effectiveLocale)}</span>}
             >
                 {processedLocales.map((locale, index) =>
                     (typeof locale === "object") ? (
@@ -227,9 +259,9 @@ export function NoteInfoBadge(context: NoteInfoContext) {
     const noteType = useNoteProperty(note, "type");
     const enabled = note && noteType;
 
-    // Keyboard shortcut.
+    // Keyboard shortcuts.
     useTriliumEvent("toggleRibbonTabNoteInfo", () => enabled && dropdownRef.current?.show());
-    useTriliumEvent("toggleRibbonTabSimilarNotes", () => setSimilarNotesShown && setSimilarNotesShown(!similarNotesShown));
+    useTriliumEvent("toggleRibbonTabSimilarNotes", () => setSimilarNotesShown?.(!similarNotesShown));
 
     return (enabled &&
         <StatusBarDropdown
@@ -246,7 +278,7 @@ export function NoteInfoBadge(context: NoteInfoContext) {
     );
 }
 
-export function NoteInfoContent({ note, setSimilarNotesShown, noteType, dropdownRef }: Pick<NoteInfoContext, "note" | "setSimilarNotesShown"> & {
+export function NoteInfoContent({ note, noteType, dropdownRef, setSimilarNotesShown }: Pick<NoteInfoContext, "note" | "setSimilarNotesShown"> & {
     dropdownRef?: RefObject<BootstrapDropdown>;
     noteType: NoteType;
 }) {
@@ -300,17 +332,22 @@ function SimilarNotesPane({ note, similarNotesShown, setSimilarNotesShown }: Not
 //#endregion
 
 //#region Backlinks
+/**
+ * What points at the note, in a dropdown of the badge naming them — the same list the sidebar's
+ * connections tab holds, which stays the place to keep it open beside the note.
+ */
 function BacklinksBadge({ note, viewScope }: StatusBarContext) {
     const count = useBacklinkCount(note, viewScope?.viewMode === "default");
+
     return (note && count > 0 &&
         <StatusBarDropdown
-            className="backlinks-badge backlinks-widget tn-backlinks-widget"
+            className="backlinks-badge"
             icon="bx bx-link"
             text={t("status_bar.backlinks", { count })}
             title={t("status_bar.backlinks_title", { count })}
-            dropdownContainerClassName="backlinks-items"
+            dropdownContainerClassName="dropdown-backlinks"
         >
-            <BacklinksList note={note} />
+            <BacklinksWidget note={note} />
         </StatusBarDropdown>
     );
 }
@@ -408,20 +445,23 @@ function AttributesPane({ note, noteContext, attributesShown, setAttributesShown
             className="attribute-list"
             visible={attributesShown}
             setVisible={setAttributesShown}
-            helpPage="zEY4DaJG4YT5">
+            buttons={<SidebarLink
+                text={t("attributes_panel.edit_in_sidebar")}
+                tabId="attributes"
+                onOpened={() => setAttributesShown(false)}
+            />}
+            helpPage={ATTRIBUTE_HELP_PAGE}
+            helpContent={<AttributeHelp />}>
 
             <span class="attributes-panel-label">{t("inherited_attribute_list.title")}</span>
             <InheritedAttributesTab {...context} emptyListString="inherited_attribute_list.none" />
-
-            {glob.isDev && <div>
-                <span class="attributes-panel-label">{t("auto_link_attribute_list.title")}</span>
-                <AutoLinkAttributesTab {...context} />
-            </div>}
 
             {editorMounted && <AttributeEditor
                 {...context}
                 api={api}
                 ntxId={noteContext.ntxId}
+                // The panel's title bar already carries the same help.
+                hideHelpButton
             />}
         </BottomPanel>
     );
@@ -429,27 +469,29 @@ function AttributesPane({ note, noteContext, attributesShown, setAttributesShown
 //#endregion
 
 //#region Note paths
+/**
+ * Where the note sits in the tree, in a dropdown of the badge counting the places — the same list the
+ * sidebar's connections tab holds, which stays the place to keep it open beside the note.
+ */
 function NotePaths({ note, hoistedNoteId, notePath }: StatusBarContext) {
     const dropdownRef = useRef<BootstrapDropdown>(null);
     const sortedNotePaths = useSortedNotePaths(note, hoistedNoteId);
     const count = sortedNotePaths?.length ?? 0;
-    const enabled = true;
 
     // Keyboard shortcut.
-    useTriliumEvent("toggleRibbonTabNotePaths", () => enabled && dropdownRef.current?.show());
+    useTriliumEvent("toggleRibbonTabNotePaths", () => dropdownRef.current?.show());
 
-    return (enabled &&
+    return (
         <StatusBarDropdown
+            className="note-paths-button"
+            icon="bx bx-directions"
             title={t("status_bar.note_paths_title")}
+            text={t("status_bar.note_paths", { count })}
             dropdownRef={dropdownRef}
             dropdownContainerClassName="dropdown-note-paths"
-            icon="bx bx-directions"
-            text={t("status_bar.note_paths", { count })}
+            noDropdownListStyle
         >
-            <NotePathsWidget
-                sortedNotePaths={sortedNotePaths}
-                currentNotePath={notePath}
-            />
+            <NotePathsWidget sortedNotePaths={sortedNotePaths} currentNotePath={notePath} />
         </StatusBarDropdown>
     );
 }
@@ -594,14 +636,24 @@ interface BottomPanelParams {
     visible: boolean;
     setVisible?: (visible: boolean) => void;
     className?: string;
+    /**
+     * What the panel offers besides being read and closed, shown in its title bar ahead of the `?`
+     * and the `×` — the same place, and the same name, as a sidebar card's own (see RightPanelWidget).
+     */
+    buttons?: ComponentChildren;
     helpPage?: string;
+    /** Inline help shown by the title bar's `?`; without it the `?` opens {@link helpPage} directly. */
+    helpContent?: ComponentChildren;
 }
 
-function BottomPanel({ children, title, visible, setVisible, className, helpPage }: BottomPanelParams) {
+function BottomPanel({ children, title, visible, setVisible, className, buttons, helpPage, helpContent }: BottomPanelParams) {
     return <div className={clsx("bottom-panel", className, {"hidden-ext": !visible})}>
         <div className="bottom-panel-title-bar">
             <span className="bottom-panel-title-bar-caption">{title}</span>
-            {helpPage && <button class="icon-action bx bx-question-mark" onClick={() => openInAppHelpFromUrl(helpPage)} title={t("open-help-page")} />}
+            {buttons}
+            {helpContent
+                ? <HelpDropdown helpPage={helpPage}>{helpContent}</HelpDropdown>
+                : helpPage && <button class="icon-action bx bx-help-circle" onClick={() => openInAppHelpFromUrl(helpPage)} title={t("open-help-page")} />}
             <button class="icon-action bx bx-x" onClick={() => setVisible?.(false)} />
         </div>
         <div class={clsx("bottom-panel-content")}>

@@ -61,11 +61,5 @@
             --switch-track-width: 30px;
         }
     }
-
-    .dropdown-badge {
-        &.dropdown-backlinks-badge .dropdown-menu {
-            min-width: 500px;
-        }
-    }
 }
 

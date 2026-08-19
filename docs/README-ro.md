@@ -119,7 +119,7 @@ Documentația este disponibilă în mai multe formate:
 * [Temă întunecată](https://docs.triliumnotes.org/user-guide/concepts/themes)
   predefinită, dar și suport pentru teme personalizate
 * Import și export pentru
-  [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/evernote)
+  [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/import-from-apps/evernote.html)
   și
   [Markdown](https://docs.triliumnotes.org/user-guide/concepts/import-export/markdown)
 * [Web Clipper](https://docs.triliumnotes.org/user-guide/setup/web-clipper)
@@ -347,6 +347,12 @@ legăturile descrise în secțiunea „Discutați cu noi” de mai sus.
 * [antoniotejada](https://github.com/nriver) pentru implementarea originală a
   widget-ului de evidențiere al sintaxei.
 * [Tabler Icons](https://tabler.io/icons) pentru iconițele din bara de sistem.
+*   The application icons in the import dialog are from:
+    *   [Material Design Icons](https://pictogrammers.com/library/mdi/) for
+        OneNote, Google Keep, Evernote.
+    *   [Font Awesome](https://fontawesome.com/) for Notion, Obsidian.
+    *   [SVGicons.com](https://svgicons.com/icon/187676/anytype) for Anytype.
+*  The LLM provider icons are from [Lobe Icons](https://lobehub.com/icons).
 
 Trilium nu ar fi fost posibil fără tehnologiile pe care este bazat:
 

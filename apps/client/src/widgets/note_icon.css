@@ -6,14 +6,6 @@ div.note-icon-widget {
     contain: unset;
 }
 
-/* The menu is portaled to `document.body` (see the Dropdown's `portalToBody`), so it competes with
-   modals in the root stacking context instead of painting inside them. The global dropdown z-index
-   (999) ties with the quick-edit dialog (999, or 1100 when stacked) and loses, hiding the picker.
-   Raise it above any modal it can be opened from. */
-body > div.note-icon-widget > .dropdown-menu {
-    --bs-dropdown-zindex: 1200;
-}
-
 .note-icon-widget button.note-icon {
     --size: calc(var(--note-icon-size) + var(--note-icon-container-padding-size) * 2);
 
@@ -37,55 +29,6 @@ body > div.note-icon-widget > .dropdown-menu {
     border-width: 2px;
     box-shadow: 10px 10px 93px -25px black;
     padding: 10px 15px 10px 15px !important;
-}
-
-.note-icon-widget .filter-row {
-    padding: 10px;
-    display: flex;
-    align-items: center;
-    gap: 1em;
-}
-
-.note-icon-widget .filter-row span {
-    display: block;
-    font-weight: bold;
-}
-
-.note-icon-widget .icon-list {
-    height: 500px;
-    overflow: auto;
-}
-
-.note-icon-widget .icon-list span {
-    display: inline-block;
-    padding: 10px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    font-size: 180%;
-}
-
-.note-icon-widget .icon-list span:hover {
-    border: 1px solid var(--main-border-color);
-}
-
-.note-icon-widget .icon-list span.bx-empty {
-    width: unset;
-}
-
-.note-icon-widget .icon-list span.bx-empty::before {
-    display: inline-block;
-    content: "";
-    border: 1px dashed var(--muted-text-color);
-    width: 1em;
-    height: 1em;
-}
-
-.note-icon-widget {
-    .no-results {
-        padding: 20px;
-        text-align: center;
-        color: var(--muted-text-color);
-    }
 }
 
 body.experimental-feature-new-layout {

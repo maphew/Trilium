@@ -118,7 +118,7 @@ Dokumentasi kami tersedia dalam beberapa format:
 * [Tema gelap](https://docs.triliumnotes.org/user-guide/concepts/themes) bawaan,
   dukungan untuk tema pengguna
 * Impor & ekspor
-  [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/evernote)
+  [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/import-from-apps/evernote.html)
   dan
   [Markdown](https://docs.triliumnotes.org/user-guide/concepts/import-export/markdown)
 * [Web Clipper](https://docs.triliumnotes.org/user-guide/setup/web-clipper)
@@ -347,6 +347,12 @@ melalui tautan yang dijelaskan pada bagian "Diskusi bersama kami" di atas.
 * [antoniotejada](https://github.com/nriver) atas widget syntax highlighting
   asli.
 * [Tabler Icons](https://tabler.io/icons) untuk ikon system tray.
+*   The application icons in the import dialog are from:
+    *   [Material Design Icons](https://pictogrammers.com/library/mdi/) for
+        OneNote, Google Keep, Evernote.
+    *   [Font Awesome](https://fontawesome.com/) for Notion, Obsidian.
+    *   [SVGicons.com](https://svgicons.com/icon/187676/anytype) for Anytype.
+*  The LLM provider icons are from [Lobe Icons](https://lobehub.com/icons).
 
 Trilium tidak akan mungkin ada tanpa teknologi yang mendukungnya:
 

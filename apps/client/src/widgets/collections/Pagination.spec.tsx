@@ -20,7 +20,7 @@ let observed: { pageSize: number; pageCount: number; page: number; pageNotes?: F
 const NOTE_IDS = buildNotes(Array.from({ length: 25 }, (_, i) => ({ id: `pag-${i}`, title: `N${i}` })));
 
 function Harness({ note, noteIds = NOTE_IDS, defaultPageSize }: { note: FNote; noteIds?: string[]; defaultPageSize?: number }) {
-    const { page, setPage, pageNotes, pageSize, pageCount } = usePagination(note, noteIds, defaultPageSize);
+    const { page, setPage, pageNotes, pageSize, pageCount } = usePagination(note, noteIds, { defaultPageSize });
     observed = { pageSize, pageCount, page, pageNotes, setPage };
     return null;
 }

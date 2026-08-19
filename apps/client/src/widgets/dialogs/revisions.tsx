@@ -1,10 +1,10 @@
 import "./revisions.css";
 
-import { dayjs, type RevisionItem, type RevisionPojo } from "@triliumnext/commons";
+import { dayjs, type RevisionItem, type RevisionPojo, safeHostname, safeLinkPreviewHref } from "@triliumnext/commons";
 import clsx from "clsx";
 import { diffWords } from "diff";
 import HtmlDiff from "htmldiff-js";
-import { ComponentChildren, Fragment } from "preact";
+import { Fragment } from "preact";
 import type { CSSProperties } from "preact/compat";
 import { Dispatch, StateUpdater, useEffect, useRef, useState } from "preact/hooks";
 
@@ -13,6 +13,7 @@ import FNote from "../../entities/fnote";
 import dialog from "../../services/dialog";
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
+import { applyLinkEmbeds } from "../../services/link_embed";
 import open from "../../services/open";
 import options from "../../services/options";
 import protected_session_holder from "../../services/protected_session_holder";
@@ -25,11 +26,13 @@ import Button from "../react/Button";
 import Dropdown from "../react/Dropdown";
 import FormList, { FormDropdownDivider, FormListItem } from "../react/FormList";
 import FormToggle from "../react/FormToggle";
-import { useMobileMasterDetail, useTriliumEvent } from "../react/hooks";
+import { useTriliumEvent } from "../react/hooks";
+import { DetailPane, MasterDetailHeader, MasterPane, useMobileMasterDetail } from "../react/master_detail";
 import Modal from "../react/Modal";
 import NoItems from "../react/NoItems";
 import { RawHtmlBlock, SanitizedHtml } from "../react/RawHtml";
-import PdfViewer from "../type_widgets/file/PdfViewer";
+import PdfViewer, { getPdfUrl } from "../type_widgets/file/PdfViewer";
+import { applyReferenceLinks } from "../type_widgets/text/read_only_helper";
 
 const DIFFABLE_TYPES = ["text", "code", "mermaid"];
 
@@ -42,7 +45,7 @@ export default function RevisionsDialog() {
     const [ showDiff, setShowDiff ] = useState(true);
     const [ refreshCounter, setRefreshCounter ] = useState(0);
     const modalRef = useRef<HTMLDivElement>(null);
-    const { isMasterDetail, mobileView, switchMobileView, resetMobileView } = useMobileMasterDetail(modalRef, "revision-slide");
+    const { isMasterDetail, mobileView, switchMobileView, resetMobileView } = useMobileMasterDetail(modalRef);
     const isMobile = utils.isMobile();
 
     useTriliumEvent("showRevisions", async ({ noteId }) => {
@@ -157,11 +160,14 @@ export default function RevisionsDialog() {
             helpPageId="vZWERwf8U3nx"
             header={isMasterDetail
                 ? (
-                    <RevisionsMobileHeader
+                    <MasterDetailHeader
                         inPage={mobileView === "page"}
                         onBack={() => switchMobileView("list")}
-                        revisionItem={currentRevision}
-                        menu={menu}
+                        backTitle={t("revisions.back")}
+                        pageTitle={revisionTitle(currentRevision)}
+                        listTitle={t("revisions.note_revisions")}
+                        listIcon="bx bx-history"
+                        listActions={menu}
                     />
                 )
                 : menu}
@@ -169,12 +175,8 @@ export default function RevisionsDialog() {
             onHidden={onHidden}
             show={shown}
         >
-            {isMasterDetail && (
-                <div className="revision-mobile-nav">
-                    {revisionsList}
-                </div>
-            )}
-            <div className="revision-detail">
+            {isMasterDetail && <MasterPane className="revision-mobile-nav">{revisionsList}</MasterPane>}
+            <DetailPane className="revision-detail">
                 <RevisionToolbar
                     revisionItem={currentRevision}
                     showDiff={showDiff}
@@ -209,37 +211,16 @@ export default function RevisionsDialog() {
                         />
                     </div>
                 )}
-            </div>
+            </DetailPane>
         </Modal>
     );
 }
 
-/**
- * Replaces the static "Note revisions" title on narrow mobile (the master-detail flow). In the list
- * view a decorative history icon precedes the dialog title and the actions menu stays available; in
- * the page view a back button returns to the list, followed by the revision's date.
- */
-function RevisionsMobileHeader({ inPage, onBack, revisionItem, menu }: {
-    inPage: boolean,
-    onBack: () => void,
-    revisionItem?: RevisionItem,
-    menu?: ComponentChildren
-}) {
-    const pageTitle = revisionItem?.dateCreated
+/** How the page showing one revision is headed: the moment it was taken. */
+function revisionTitle(revisionItem?: RevisionItem) {
+    return revisionItem?.dateCreated
         ? dayjs(revisionItem.dateCreated).format("MMM D, YYYY · HH:mm")
         : t("revisions.note_revisions");
-
-    return (
-        <div className="revision-mobile-header">
-            {inPage ? (
-                <ActionButton icon="bx bx-chevron-left" text={t("revisions.back")} onClick={onBack} />
-            ) : (
-                <span className="revision-header-icon icon-action bx bx-history" aria-hidden="true" />
-            )}
-            <h5 className="revision-mobile-title">{inPage ? pageTitle : t("revisions.note_revisions")}</h5>
-            {!inPage && menu}
-        </div>
-    );
 }
 
 function RevisionsMenu({ note, onRevisionSaved, onAllDeleted, hasRevisions }: {
@@ -690,8 +671,22 @@ function RevisionContent({ noteContent, revisionItem, fullRevision, showDiff }: 
     }
 }
 
-function RevisionContentText({ content }: { content: string | Uint8Array | undefined }) {
+export function RevisionContentText({ content }: { content: string | Uint8Array | undefined }) {
     const contentRef = useRef<HTMLDivElement>(null);
+
+    // A revision stores what CKEditor's data downcast produced, and two of those constructs carry
+    // no visible content of their own: a link preview is an empty `<span class="link-mention">` /
+    // `<section class="link-embed">` holding only its metadata as data attributes, and a reference
+    // link stores a bare title that the note view turns into an icon-and-colour span. Without these
+    // passes a link preview is an empty gap in the revision (#10707).
+    useEffect(() => {
+        const container = contentRef.current;
+        if (!container) return;
+
+        applyLinkEmbeds(container);
+        void applyReferenceLinks(container);
+    }, [content]);
+
     useEffect(() => {
         if (contentRef.current?.querySelector("span.math-tex")) {
             // KaTeX is heavy, so the math service is only loaded when there are formulas to render.
@@ -723,7 +718,7 @@ function RevisionContentDiff({ noteContent, itemContent, itemType }: {
     let diffHtml: string;
     if (itemType === "text") {
         // Use proper HTML-aware diff for rich text content
-        diffHtml = HtmlDiff.execute(noteContent, itemContent);
+        diffHtml = HtmlDiff.execute(seedLinkPreviewTitles(noteContent), seedLinkPreviewTitles(itemContent));
     } else {
         // Use word diff for code/mermaid (plain text)
         const diff = diffWords(noteContent ?? "", itemContent);
@@ -746,6 +741,61 @@ function RevisionContentDiff({ noteContent, itemContent, itemType }: {
         className={clsx("revision-diff-content", itemType === "text" ? "ck-content" : "revision-diff-code")}
         html={diffHtml}
     />;
+}
+
+/**
+ * Fills every link preview with a real link carrying the title it displays, so that the differ can
+ * see it and the reader gets something they recognise as a link.
+ *
+ * htmldiff-js diffs words, and a link preview holds none: it is stored as an empty
+ * `<span class="link-mention">` / `<section class="link-embed">` carrying its metadata in data
+ * attributes, which only the note view turns into a card. Left alone the differ emits the element
+ * unmarked whether it was added or removed, so a revision that gained a link and one that lost it
+ * come out identical (#10707).
+ *
+ * What is built here is the anchor a preview without a favicon renders as anyway — same classes,
+ * same href — rather than the whole card: the differ marks up the text it compares, and rendering
+ * the card over the top of that would wipe the markup back out. So a changed link reads as a
+ * changed link, and an unchanged one still looks like the note it came from.
+ *
+ * Parsed with DOMParser rather than through an element's innerHTML: the document it builds is
+ * inert, so nothing a revision happens to contain loads or runs on the way past.
+ */
+export function seedLinkPreviewTitles(html: string | undefined) {
+    // Both sides of the diff are seeded, so the parse-and-serialize round trip would be symmetric
+    // and harmless — but skipping it leaves a diff of notes without previews exactly as it was.
+    if (!html || (!html.includes("link-mention") && !html.includes("link-embed"))) {
+        return html;
+    }
+
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    for (const preview of doc.querySelectorAll<HTMLElement>("span.link-mention, section.link-embed")) {
+        if (preview.textContent?.trim()) {
+            continue;
+        }
+
+        const { title, url } = preview.dataset;
+        // Same fallback the preview itself uses, so the diff names the link the way the note does.
+        const text = title || (url ? safeHostname(url) : "");
+        if (!text) {
+            continue;
+        }
+
+        const anchor = doc.createElement("a");
+        anchor.className = "link-embed-mention";
+        anchor.href = safeLinkPreviewHref(url);
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+
+        const titleEl = doc.createElement("span");
+        titleEl.className = "link-embed-mention-title";
+        titleEl.textContent = text;
+
+        anchor.append(titleEl);
+        preview.replaceChildren(anchor);
+    }
+
+    return doc.body.innerHTML;
 }
 
 
@@ -794,7 +844,7 @@ function FilePreviewInner({ revisionItem, fullRevision }: { revisionItem: Revisi
     if (revisionItem.mime === "application/pdf") {
         return (
             <PdfViewer
-                pdfUrl={`../../api/revisions/${revisionItem.revisionId}/download`}
+                pdfUrl={getPdfUrl(`revisions/${revisionItem.revisionId}/download`)}
             />
         );
     }

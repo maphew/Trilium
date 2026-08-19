@@ -10,7 +10,7 @@ import { getLog } from "@triliumnext/core";
 import { isInternalElectronRequest } from "../services/electron_request.js";
 import port from "../services/port.js";
 import openID from "../services/open_id.js";
-import { isDev, isElectron, isMac, supportsBackgroundMaterial } from "../services/utils.js";
+import { isDev, isMac, supportsBackgroundMaterial } from "../services/utils.js";
 import totp from "../services/totp.js";
 import { generateCsrfToken } from "./csrf_protection.js";
 
@@ -40,8 +40,16 @@ export function bootstrap(req: Request, res: Response) {
     // global flag told every such browser it was already logged in, so it skipped
     // login and then had every API call rejected with "Logged in session not found".
     const isElectronRenderer = isInternalElectronRequest(req);
+    const sharedItems = getSharedBootstrapItems(assetPath, isDbInitialized);
     const commonItems = {
-        ...getSharedBootstrapItems(assetPath, isDbInitialized),
+        ...sharedItems,
+        // The setup wizard's password gate is exempted for exactly what `checkSetupAuth` exempts:
+        // the trusted renderer, which is the application itself, and an instance already configured
+        // to trust whoever can reach it. Asked for anywhere else, the screen would be holding out
+        // for an answer the routes behind it were never going to want. The second factor rides on
+        // the same exemption, since it is only ever asked for alongside the password.
+        setupAuthRequired: sharedItems.setupAuthRequired && !isElectronRenderer && !noAuthentication,
+        setupSecondFactorRequired: sharedItems.setupSecondFactorRequired && !isElectronRenderer && !noAuthentication,
         baseApiUrl: "api/",
         appPath,
         isStandalone: false,
@@ -186,14 +194,18 @@ export function bootstrap(req: Request, res: Response) {
     } satisfies BootstrapDefinition);
 }
 
-function getView(req: Request): View {
+export function getView(req: Request): View {
     // Special override for printing.
     if ("print" in req.query) {
         return "print";
     }
 
-    // Electron always uses the desktop view.
-    if (isElectron) {
+    // The trusted Electron renderer always uses the desktop view. This must key
+    // off the per-request marker, not the process-wide `isElectron` flag: on a
+    // desktop build a plain browser hits the same HTTP listener, and forcing
+    // "desktop" for it ignored the `trilium-device=mobile` cookie set by
+    // "Switch to Mobile Version" (#10720). Same per-request vs. global fix as #10589.
+    if (isInternalElectronRequest(req)) {
         return "desktop";
     }
 

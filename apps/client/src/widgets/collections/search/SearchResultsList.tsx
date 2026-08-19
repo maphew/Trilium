@@ -49,7 +49,7 @@ interface SearchResultsListInnerProps {
 function SearchResultsListInner({ note, ntxId, highlightedTokens }: SearchResultsListInnerProps) {
     const [ pageSize, setPageSize ] = useTriliumOptionInt("searchResultsPageSize");
     const noteIds = useNoteIds(note, "list", ntxId);
-    const pagination = usePagination(note, noteIds, pageSize);
+    const pagination = usePagination(note, noteIds, { defaultPageSize: pageSize });
     const pageNoteIds = useMemo(() => {
         const start = (pagination.page - 1) * pagination.pageSize;
         return noteIds.slice(start, start + pagination.pageSize);

@@ -118,7 +118,7 @@ Notre documentation est disponible sous plusieurs formats :
   optimisée pour le tactile sur smartphones et tablettes
 * [Thème sombre](https://docs.triliumnotes.org/user-guide/concepts/themes)
   intégré, prise en charge des thèmes utilisateur
-* [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/evernote)
+* [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/import-from-apps/evernote.html)
   et [Importation et exportation
   Markdown](https://docs.triliumnotes.org/user-guide/concepts/import-export/markdown)
 * [Web Clipper](https://docs.triliumnotes.org/user-guide/setup/web-clipper) pour
@@ -356,6 +356,12 @@ les liens décrits dans la section "Discuter avec nous" ci-dessus.
   syntaxique original.
 * [Tabler Icons](https://tabler.io/icons) pour les icônes de la barre d'état
   système.
+*   The application icons in the import dialog are from:
+    *   [Material Design Icons](https://pictogrammers.com/library/mdi/) for
+        OneNote, Google Keep, Evernote.
+    *   [Font Awesome](https://fontawesome.com/) for Notion, Obsidian.
+    *   [SVGicons.com](https://svgicons.com/icon/187676/anytype) for Anytype.
+*  The LLM provider icons are from [Lobe Icons](https://lobehub.com/icons).
 
 Trilium ne serait pas possible sans les technologies qui le sous-tendent :
 

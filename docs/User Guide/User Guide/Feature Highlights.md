@@ -1,6 +1,8 @@
 # Feature Highlights
 This section presents the most important changes by version. For a full set of changes, please consult the change log of each release. For purposes of brevity, beta versions are skipped and the features gathered to the nearest stable version.
 
+*   v0.105.0:
+    *   Text notes now have a <a class="reference-link" href="Note%20Types/Text/In-editor%20AI%20assistant.md">In-editor AI assistant</a> for quick proof-reading and other text-based operations that don't require a full chat.
 *   v0.101.0:
     *   A <a class="reference-link" href="Basic%20Concepts%20and%20Features/UI%20Elements/New%20Layout.md">New Layout</a> has been introduced, making significant modifications to the UI/UX such as integrating the ribbon and the floating buttons into other UI elements and introducing new functionality such as the <a class="reference-link" href="Basic%20Concepts%20and%20Features/UI%20Elements/New%20Layout/Breadcrumb.md">Breadcrumb</a>.
 *   v0.97.0:
@@ -9,8 +11,8 @@ This section presents the most important changes by version. For a full set of c
     *   <a class="reference-link" href="Basic%20Concepts%20and%20Features/Navigation/Quick%20edit.md">Quick edit</a> is introduced, adding a new way to edit notes in a popup instead of opening a new tab. It also integrates well with <a class="reference-link" href="Collections.md">Collections</a>.
 *   v0.96.0:
     *   <a class="reference-link" href="Note%20Types/Text.md">Text</a> gain premium features thanks to a collaboration with the CKEditor team:
-        *   <a class="reference-link" href="Note%20Types/Text/Premium%20features/Slash%20Commands.md">Slash Commands</a>
-        *   <a class="reference-link" href="Note%20Types/Text/Premium%20features/Text%20Snippets.md">Text Snippets</a>
+        *   <a class="reference-link" href="Note%20Types/Text/Slash%20Commands.md">Slash Commands</a>
+        *   <a class="reference-link" href="Note%20Types/Text/Text%20Snippets.md">Text Snippets</a>
 *   v0.95.0:
     *   A more friendly theme was introduced for <a class="reference-link" href="Advanced%20Usage/Sharing.md">Sharing</a>, with search, expandable tree, night mode and more.
 *   v0.94.0:

@@ -1,6 +1,23 @@
+.theme-family-icon {
+    margin-inline-end: 8px;
+}
+
+.appearance-layout-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+
+    > .tn-card {
+        flex: 1 1 320px;
+    }
+}
+
 /* Font Option Row */
-.font-option-row {
-    &:disabled {
+.font-option {
+    cursor: pointer;
+
+    /* Shown rather than hidden with custom fonts off, so the settings can still be read. */
+    &.disabled {
         opacity: 0.5;
         pointer-events: none;
     }
@@ -11,6 +28,26 @@
     align-items: center;
     gap: 8px;
     color: var(--muted-text-color);
+}
+
+/* The specimen is drawn at the user's own family and size, so it can outgrow the screen: it takes
+   the line below the name earlier than an ordinary option does. Measured against the card, which
+   `Card.css` makes a container. */
+@container (max-width: 600px) {
+    .font-option {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .font-option .font-option-preview {
+        justify-content: space-between;
+    }
+
+    .font-option .font-option-specimen {
+        /* `anywhere`: a family name is often one word, with no break the browser would take. */
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
 }
 
 /* Font Picker Modal */

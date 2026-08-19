@@ -13,6 +13,7 @@ import { shouldRedirectPinnedNavigation } from "../services/tab_pinning.js";
 import treeService from "../services/tree.js";
 import utils from "../services/utils.js";
 import { ReactWrappedWidget } from "../widgets/basic_widget.js";
+import type { HighlightContext } from "../widgets/sidebar/HighlightsList.js";
 import type { HeadingContext } from "../widgets/sidebar/TableOfContents.js";
 import type { ChatHighlightsContext } from "../widgets/type_widgets/llm_chat/chat_highlights.js";
 import appContext, { type EventData, type EventListener } from "./app_context.js";
@@ -38,8 +39,19 @@ const READ_ONLY_CAPABLE_TYPES: string[] = [
     "spreadsheet"
 ];
 
+/**
+ * Collection view types that honour `#readOnly`, making a `book` note read-only capable.
+ *
+ * Listed by view type rather than by note type because the other views ignore the label: reporting
+ * a table or a board as read-only would put a badge over a collection that can still be edited.
+ */
+const READ_ONLY_CAPABLE_VIEW_TYPES: string[] = [
+    "geoMap"
+];
+
 export interface NoteContextDataMap {
     toc: HeadingContext;
+    highlights: HighlightContext;
     chatHighlights: ChatHighlightsContext;
     pdfPages: {
         totalPages: number;
@@ -49,7 +61,7 @@ export interface NoteContextDataMap {
     };
     pdfAttachments: {
         attachments: PdfAttachment[];
-        downloadAttachment(filename: string): void;
+        downloadAttachment(id: string): void;
     };
     pdfLayers: {
         layers: PdfLayer[];
@@ -356,9 +368,13 @@ class NoteContext extends Component implements EventListener<"entitiesReloaded">
             return false;
         }
 
-        // Note types that support a read-only state (via the #readOnly label, source view, or auto-readonly).
+        // What supports a read-only state at all, via the #readOnly label, the source view or
+        // auto-readonly.
         const isPdf = this.note.type === "file" && this.note.mime === "application/pdf";
-        if (!isPdf && !READ_ONLY_CAPABLE_TYPES.includes(this.note.type)) {
+        const isReadOnlyCapableCollection = this.note.type === "book"
+            && READ_ONLY_CAPABLE_VIEW_TYPES.includes(this.note.getLabelValue("viewType") ?? "");
+        if (!isPdf && !isReadOnlyCapableCollection
+                && !READ_ONLY_CAPABLE_TYPES.includes(this.note.type)) {
             return false;
         }
 

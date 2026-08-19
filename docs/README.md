@@ -58,7 +58,7 @@ Our documentation is available in multiple formats:
 * Scales well in both usability and performance upwards of 100 000 notes
 * Touch optimized [mobile frontend](https://docs.triliumnotes.org/user-guide/setup/mobile-frontend) for smartphones and tablets
 * Built-in [dark theme](https://docs.triliumnotes.org/user-guide/concepts/themes), support for user themes
-* [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/evernote) and [Markdown import & export](https://docs.triliumnotes.org/user-guide/concepts/import-export/markdown)
+* [Evernote](https://docs.triliumnotes.org/user-guide/concepts/import-export/import-from-apps/evernote.html) and [Markdown import & export](https://docs.triliumnotes.org/user-guide/concepts/import-export/markdown)
 * [Web Clipper](https://docs.triliumnotes.org/user-guide/setup/web-clipper) for easy saving of web content
 * Customizable UI (sidebar buttons, user-defined widgets, ...)
 * [Metrics](https://docs.triliumnotes.org/user-guide/advanced-usage/metrics), along with a Grafana Dashboard.
@@ -229,6 +229,11 @@ Please view the [documentation guide](https://github.com/TriliumNext/Trilium/blo
 * [Thomas Frei](https://github.com/thfrei) for his original work on the Canvas.
 * [antoniotejada](https://github.com/nriver) for the original syntax highlight widget.
 * [Tabler Icons](https://tabler.io/icons) for the system tray icons.
+*   The application icons in the import dialog are from:
+    *   [Material Design Icons](https://pictogrammers.com/library/mdi/) for OneNote, Google Keep, Evernote.
+    *   [Font Awesome](https://fontawesome.com/) for Notion, Obsidian.
+    *   [SVGicons.com](https://svgicons.com/icon/187676/anytype) for Anytype.
+*  The LLM provider icons are from [Lobe Icons](https://lobehub.com/icons).
 
 Trilium would not be possible without the technologies behind it:
 
@@ -250,7 +255,6 @@ Consider supporting the main developer ([eliandoran](https://github.com/eliandor
 - [GitHub Sponsors](https://github.com/sponsors/eliandoran)
 - [PayPal](https://paypal.me/eliandoran)
 - [Buy Me a Coffee](https://buymeacoffee.com/eliandoran)
-
 
 ## 🔑 License
 
