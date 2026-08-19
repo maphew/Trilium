@@ -69,7 +69,8 @@
     "toggle-archived-notes": "在笔记树中显示/隐藏已归档笔记",
     "show-deleted-notes": "显示“已删除的笔记”对话框",
     "peek-right-pane": "将右侧面板以浮动面板的形式预览，失去焦点时自动关闭",
-    "show-shortcut-hints": "显示当前聚焦组件的键盘快捷键"
+    "show-shortcut-hints": "显示当前聚焦组件的键盘快捷键",
+    "show-space-usage": "打开「空间占用」页面"
   },
   "login": {
     "title": "登录",
@@ -207,7 +208,8 @@
     "deleted-notes-title": "已删除的笔记",
     "color-scheme-switcher-title": "配色方案切换",
     "content-manager-title": "扩展管理",
-    "database-title": "数据库"
+    "database-title": "数据库",
+    "space-usage-title": "空间占用"
   },
   "notes": {
     "new-note": "新建笔记",
@@ -348,7 +350,8 @@
     "toggle-archived-notes": "显示/隐藏已归档笔记",
     "show-deleted-notes": "显示已删除的笔记",
     "peek-right-pane": "快速查看右侧面板",
-    "show-shortcut-hints": "显示快捷键提示"
+    "show-shortcut-hints": "显示快捷键提示",
+    "show-space-usage": "显示空间占用"
   },
   "share_theme": {
     "site-theme": "网站主题",

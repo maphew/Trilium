@@ -69,7 +69,8 @@
     "peek-right-pane": "오른쪽 창을 콘텐츠 위의 임시 패널로 표시하고 포커스를 잃으면 닫기",
     "show-deleted-notes": "\"삭제된 노트\" 대화 상자 표시",
     "show-shortcut-hints": "포커스된 위젯의 키보드 단축키 표시",
-    "save-named-revision": "활성 노트의 이름 있는 수정본 저장"
+    "save-named-revision": "활성 노트의 이름 있는 수정본 저장",
+    "show-space-usage": "\"공간 사용량\" 페이지 열기"
   },
   "hidden-subtree": {
     "zen-mode": "젠 모드",
@@ -144,7 +145,8 @@
     "inbox-title": "받은 편지함",
     "tab-switcher-title": "탭 스위처",
     "sidebar-chat-title": "AI 채팅",
-    "database-title": "데이터베이스"
+    "database-title": "데이터베이스",
+    "space-usage-title": "공간 사용량"
   },
   "keyboard_action_names": {
     "back-in-note-history": "노트 기록에서 뒤로 이동",
@@ -246,7 +248,8 @@
     "toggle-note-hoisting": "노트 루트 보기 전환",
     "unhoist-note": "노트 루트 보기 해제",
     "toggle-left-pane": "왼쪽 창 전환",
-    "save-named-revision": "이름 있는 수정본 저장"
+    "save-named-revision": "이름 있는 수정본 저장",
+    "show-space-usage": "공간 사용량 표시"
   },
   "login": {
     "title": "로그인",

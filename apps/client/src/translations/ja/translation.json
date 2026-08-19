@@ -110,7 +110,8 @@
     "new-version-available": "新しいアップデートが利用可能",
     "download-update": "{{latestVersion}} をバージョンを入手",
     "search_notes": "検索ノート",
-    "show_deleted_notes": "削除されたノートを表示"
+    "show_deleted_notes": "削除されたノートを表示",
+    "show_space_usage": "スペース使用状況を表示"
   },
   "left_pane_toggle": {
     "show_panel": "パネルを表示",
@@ -1671,7 +1672,8 @@
     "cut": "ノートはクリップボードに切り取りとられました。",
     "copied": "ノートはクリップボードにコピーされました。",
     "copy_failed": "権限の問題で、クリップボードにコピーできません。",
-    "copy_success": "クリップボードにコピーしました。"
+    "copy_success": "クリップボードにコピーしました。",
+    "copied_without_links": "ノートはクリップボードにコピーされましたが、ノートへのリンクはシステムクリップボードに配置できませんでした。"
   },
   "launcher_context_menu": {
     "add-note-launcher": "ノートランチャーを追加",
@@ -2662,7 +2664,11 @@
     "pages_other": "{{count}} ページ",
     "pages_alt": "ページ {{pageNumber}}",
     "pages_loading": "読み込み中...",
-    "annotations_other": "{{count}} 注釈"
+    "annotations_other": "{{count}} 注釈",
+    "annotation_drawing": "{{pageNumber}} ページの描画",
+    "annotation_highlight": "{{pageNumber}} ページのハイライト",
+    "annotation_note": "{{pageNumber}} ページのノート",
+    "annotation_text_box": "{{pageNumber}} のテキストボックス"
   },
   "platform_indicator": {
     "available_on": "{{platform}} で利用可能"
@@ -3078,7 +3084,7 @@
     "analyze_space_usage": "スペース利用状況を分析",
     "analyze_space_usage_description": "どのノートが最もスペースを占めているかを特定し、ノートのサイズをより明確に把握します。",
     "analyze_space_usage_button": "分析",
-    "cleanup": "クリーンアップの実行",
+    "cleanup": "データベースをクリーンアップ",
     "cleanup_description": "削除済みのノートや添付ファイルを消去し、変更履歴スナップショットを整理して画像を圧縮することで、データベースを軽量に保ちます。",
     "related_backup": "バックアップ",
     "related_backup_description": "データベースのバックアップ作成や復元、自動バックアップの管理を行います。"

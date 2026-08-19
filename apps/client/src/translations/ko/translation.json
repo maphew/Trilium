@@ -1115,7 +1115,8 @@
     "toggle-zen-mode": "젠 모드",
     "new-version-available": "새로운 업데이트 제공 가능",
     "download-update": "버전 {{latestVersion}} 받기",
-    "search_notes": "노트 검색"
+    "search_notes": "노트 검색",
+    "show_space_usage": "공간 사용량 표시"
   },
   "zen_mode": {
     "button_exit": "젠 모드 종료"
@@ -1732,7 +1733,7 @@
     "analyze_space_usage": "공간 사용량 분석",
     "analyze_space_usage_description": "어떤 노트가 가장 많은 공간을 차지하는지 확인하고, 노트의 용량을 더 명확하게 파악합니다.",
     "analyze_space_usage_button": "분석",
-    "cleanup": "정리 수행",
+    "cleanup": "데이터베이스 정리",
     "cleanup_description": "삭제된 노트와 첨부 파일을 지우고, 수정본 스냅샷을 정리하고 이미지를 압축하여 데이터베이스 용량을 줄입니다.",
     "related_backup": "백업",
     "related_backup_description": "데이터베이스 백업을 만들거나 복원하고, 자동 백업을 관리합니다.",
@@ -2657,7 +2658,8 @@
     "cut": "노트를 클립보드로 잘라냈습니다.",
     "copied": "노트는 클립보드에 복사되었습니다.",
     "copy_failed": "권한 문제로 인해 클립보드에 복사할 수 없습니다.",
-    "copy_success": "클립보드에 복사했습니다."
+    "copy_success": "클립보드에 복사했습니다.",
+    "copied_without_links": "노트가 클립보드에 복사되었지만, 노트 링크를 시스템 클립보드에 넣을 수 없습니다."
   },
   "entrypoints": {
     "note-revision-created": "노트 수정이 생성되었습니다.",
@@ -3402,7 +3404,11 @@
     "pages_other": "페이지 {{count}}개",
     "pages_alt": "페이지 {{pageNumber}}",
     "pages_loading": "로딩 중...",
-    "annotations_other": "주석 {{count}}개"
+    "annotations_other": "주석 {{count}}개",
+    "annotation_drawing": "{{pageNumber}}페이지에 그리기",
+    "annotation_highlight": "{{pageNumber}}페이지에 강조 표시",
+    "annotation_note": "{{pageNumber}}페이지에 노트",
+    "annotation_text_box": "{{pageNumber}}페이지에 텍스트 상자"
   },
   "platform_indicator": {
     "available_on": "{{platform}}에서 이용 가능"
