@@ -143,6 +143,7 @@ export default class CollapsibleEditing extends Plugin {
         this.registerKeyHandlers();
         this.registerMergeGuard();
         this.registerHiddenMergeReveal();
+        this.registerSummaryInsertGuard();
         this.registerClickHandler();
         this.registerDomListeners();
         this.registerPostFixers();
@@ -931,6 +932,87 @@ export default class CollapsibleEditing extends Plugin {
                 writer.setSelection(p, 0);
                 writer.remove(details);
             }
+        });
+    }
+
+    // -----------------------------------------------------------------
+    // Insertion into a title
+    // -----------------------------------------------------------------
+
+    /**
+     * Keep content pasted into a title inside the title.
+     *
+     * A <summary> takes inline content only, so `insertContent` looks further up for
+     * somewhere a pasted block fits and finds the <details>: it splits the summary and
+     * drops the pasted blocks — along with whatever followed the caret in the title — into
+     * the body, which is hidden while the block is collapsed. Flattening the content to its
+     * inline nodes keeps the paste where the caret is.
+     *
+     * A caption gets this from `isLimit`, which a <summary> cannot have: it would also make
+     * the title a hard boundary for deletions, which
+     * {@link CollapsibleEditing#registerMergeGuard} and
+     * {@link CollapsibleEditing#onBackspaceInEmptySummary} deliberately let cross.
+     */
+    private registerSummaryInsertGuard() {
+        const model = this.editor.model;
+        this.listenTo(model, "insertContent", (_evt, args: any[]) => {
+            const [content, selectable] = args;
+            const selection = selectable ?? model.document.selection;
+            const summary = selection.getFirstPosition()?.findAncestor("summary");
+            if (!summary) return;
+            // A selection running out of the title is left to CKEditor: part of what it
+            // replaces belongs to the body, so part of the insertion can too.
+            if (selection.getLastPosition()?.findAncestor("summary") !== summary) return;
+            args[0] = this.flattenToInlineContent(content);
+        }, { priority: "high" });
+    }
+
+    /**
+     * Copy of `content` holding only its inline nodes, as a document fragment.
+     *
+     * Each source block becomes one run and the runs are joined with a space, so two pasted
+     * paragraphs read as two words rather than one. Block objects (a table, a block image)
+     * hold nothing a title can show and are dropped, matching what `insertContent` does with
+     * an object it cannot place.
+     */
+    private flattenToInlineContent(content: any): any {
+        const schema = this.editor.model.schema;
+        const runs: any[][] = [];
+        let run: any[] = [];
+        const closeRun = () => {
+            if (run.length) {
+                runs.push(run);
+                run = [];
+            }
+        };
+        const walk = (nodes: Iterable<any>) => {
+            for (const node of nodes) {
+                if (schema.isInline(node)) {
+                    run.push(node);
+                } else if (!schema.isObject(node)) {
+                    closeRun();
+                    walk(node.getChildren());
+                    closeRun();
+                }
+            }
+        };
+        walk(content.is("documentFragment") ? content.getChildren() : [content]);
+        closeRun();
+
+        // The nodes are moved out of `content` into a fragment of their own. Both are
+        // detached from the document, so the moves produce no document operations and stay
+        // out of the undo step the insertion itself creates.
+        return this.editor.model.change(writer => {
+            const fragment = writer.createDocumentFragment();
+            for (const [index, nodes] of runs.entries()) {
+                if (index > 0) {
+                    writer.appendText(" ", fragment);
+                }
+                for (const node of nodes) {
+                    writer.append(node, fragment);
+                }
+            }
+            return fragment;
         });
     }
 
