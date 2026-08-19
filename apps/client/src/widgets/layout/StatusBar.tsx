@@ -180,7 +180,10 @@ function SidebarLink({ text, tabId, onOpened }: { text: string; tabId: RightPane
     return (
         <LinkButton
             className="status-bar-sidebar-link"
-            text={<><Icon icon="bx bx-sidebar" className="bx-flip-horizontal" />{text}</>}
+            text={<>
+                <Icon icon="bx bx-sidebar" className="bx-flip-horizontal" />
+                <span class="status-bar-sidebar-link-text">{text}</span>
+            </>}
             onClick={() => {
                 void appContext.triggerEvent("selectRightPaneTab", { tabId, peek: true });
                 onOpened?.();
