@@ -2218,13 +2218,6 @@
                                     "position": 30
                                 },
                                 {
-                                    "type": "relation",
-                                    "name": "internalLink",
-                                    "value": "Gzjqa934BdH4",
-                                    "isInheritable": false,
-                                    "position": 40
-                                },
-                                {
                                     "type": "label",
                                     "name": "shareAlias",
                                     "value": "backup",
@@ -2237,6 +2230,13 @@
                                     "value": "bx bx-hdd",
                                     "isInheritable": false,
                                     "position": 50
+                                },
+                                {
+                                    "type": "relation",
+                                    "name": "internalLink",
+                                    "value": "Gzjqa934BdH4",
+                                    "isInheritable": false,
+                                    "position": 60
                                 }
                             ],
                             "format": "markdown",

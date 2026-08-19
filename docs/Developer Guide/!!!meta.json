@@ -3250,6 +3250,33 @@
                             "format": "markdown",
                             "dataFileName": "Exported content with extended task states.md",
                             "attachments": []
+                        },
+                        {
+                            "isClone": false,
+                            "noteId": "Gntibtjmzi7e",
+                            "notePath": [
+                                "jdjRLhLV3TtI",
+                                "HMrVxa1lJBKv",
+                                "Gntibtjmzi7e"
+                            ],
+                            "title": "Trilium Backup Container (.tnbackup) file format",
+                            "notePosition": 20,
+                            "prefix": null,
+                            "isExpanded": false,
+                            "type": "text",
+                            "mime": "text/html",
+                            "attributes": [
+                                {
+                                    "type": "label",
+                                    "name": "iconClass",
+                                    "value": "bx bx-history",
+                                    "isInheritable": false,
+                                    "position": 20
+                                }
+                            ],
+                            "format": "markdown",
+                            "dataFileName": "Trilium Backup Container (.tnbackup) file format.md",
+                            "attachments": []
                         }
                     ]
                 }
