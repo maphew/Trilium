@@ -6,6 +6,7 @@ import type NoteContext from "../components/note_context.js";
 import type FBranch from "../entities/fbranch.js";
 import type FNote from "../entities/fnote.js";
 import type { ChooseNoteTypeResponse } from "../widgets/dialogs/note_type_chooser.js";
+import branchService from "./branches.js";
 import froca from "./froca.js";
 import { t } from "./i18n.js";
 import protectedSessionHolder from "./protected_session_holder.js";
@@ -27,6 +28,11 @@ export interface CreateNoteOpts {
     target?: string;
     targetBranchId?: string;
     textEditor?: CKTextEditor;
+    /**
+     * Parents the created note is cloned into, in addition to the one it is created under. Set from
+     * a template's `~template:newNoteDefaultParent` relations; all resulting branches are equal.
+     */
+    cloneToNoteIds?: string[];
     /** Attributes to be set on the note. These are set atomically on note creation, so entity changes are not sent for attributes defined here. */
     attributes?: Omit<AttributeRow, "noteId" | "attributeId">[];
     /**
@@ -93,6 +99,10 @@ async function createNote(parentNotePath: string | undefined, options: CreateNot
         options.textEditor?.removeSelection();
     }
 
+    for (const cloneParentNoteId of options.cloneToNoteIds ?? []) {
+        await branchService.cloneNoteToParentNote(note.noteId, cloneParentNoteId);
+    }
+
     await ws.waitForMaxKnownEntityChangeId();
 
     const activeNoteContext = options.noteContext ?? appContext.tabManager.getActiveContext();
@@ -119,8 +129,9 @@ async function createNote(parentNotePath: string | undefined, options: CreateNot
 
 /**
  * Prompts for the type / template of a new note and, optionally, a parent. When the user picks a
- * template without picking a parent, the template's own `~template:newNoteDefaultParent` (if any)
- * is returned as the `notePath` instead, so a template gathers the notes created from it in one place.
+ * template without picking a parent, the note goes to the template's `~template:newNoteDefaultParent`
+ * targets (if any) instead, so a template gathers the notes created from it in one place: one target
+ * is returned as the `notePath` to create under, the rest as `cloneToNoteIds` to clone into.
  */
 async function chooseNoteType() {
     const response = await new Promise<ChooseNoteTypeResponse>((res) => {
@@ -128,14 +139,18 @@ async function chooseNoteType() {
     });
 
     if (response.success && !response.notePath && response.templateNoteId) {
-        response.notePath = await getTemplateDefaultParentNotePath(response.templateNoteId);
+        const defaultParents = await getTemplateDefaultParents(response.templateNoteId);
+        if (defaultParents) {
+            response.notePath = defaultParents.notePath;
+            response.cloneToNoteIds = defaultParents.cloneToNoteIds;
+        }
     }
 
     return response;
 }
 
 async function createNoteWithTypePrompt(parentNotePath: string, options: CreateNoteOpts = {}) {
-    const { success, noteType, templateNoteId, notePath } = await chooseNoteType();
+    const { success, noteType, templateNoteId, notePath, cloneToNoteIds } = await chooseNoteType();
 
     if (!success) {
         return;
@@ -143,21 +158,42 @@ async function createNoteWithTypePrompt(parentNotePath: string, options: CreateN
 
     options.type = noteType;
     options.templateNoteId = templateNoteId;
+    options.cloneToNoteIds = cloneToNoteIds;
 
     return await createNote(notePath || parentNotePath, options);
 }
 
 /**
- * Resolves the path of the note the template's `~template:newNoteDefaultParent` relation points at,
- * relative to the current hoisting. Undefined when the template has no such relation, or its target
- * has no visible path.
+ * Resolves the targets of the template's `~template:newNoteDefaultParent` relations. The note is
+ * placed in every target: created under the first resolvable one (`notePath`, relative to the
+ * current hoisting) and cloned into the rest (`cloneToNoteIds`) — the split is only how the API is
+ * called, since all branches of a note are equal. Owned relations replace inherited ones, so a
+ * template overrides an inheritable default on an ancestor instead of adding to it. Undefined when
+ * no target resolves to a note with a visible path.
  */
-async function getTemplateDefaultParentNotePath(templateNoteId: string) {
+async function getTemplateDefaultParents(templateNoteId: string) {
     const templateNote = await froca.getNote(templateNoteId);
-    const defaultParentNote = await templateNote?.getRelationTarget("template:newNoteDefaultParent");
+    if (!templateNote) {
+        return undefined;
+    }
+
+    const ownedRelations = templateNote.getOwnedRelations("template:newNoteDefaultParent");
+    const relations = ownedRelations.length
+        ? ownedRelations
+        : templateNote.getRelations("template:newNoteDefaultParent");
+    const targetNoteIds = [...new Set(relations.map((relation) => relation.value).filter(Boolean))];
+    const targetNotes = await froca.getNotes(targetNoteIds, true);
     const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
 
-    return defaultParentNote?.getBestNotePathString(hoistedNoteId);
+    const notePath = targetNotes[0]?.getBestNotePathString(hoistedNoteId);
+    if (!notePath) {
+        return undefined;
+    }
+
+    return {
+        notePath,
+        cloneToNoteIds: targetNotes.slice(1).map((targetNote) => targetNote.noteId)
+    };
 }
 
 /* If the first element is heading, parse it out and use it as a new heading. */
