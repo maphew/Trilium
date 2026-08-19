@@ -305,6 +305,16 @@ export type CommandMappings = {
     scrollToEnd: CommandData;
     closeThisNoteSplit: CommandData;
     moveThisNoteSplit: CommandData & { isMovingLeft: boolean };
+    /**
+     * Keyboard-action counterparts of the pane buttons. The buttons bubble `closeThisNoteSplit` /
+     * `moveThisNoteSplit` up from the pane they sit in; these are dispatched from `appContext`,
+     * which has no pane to start from and so distributes them downwards as events instead.
+     */
+    closeActiveNoteSplit: CommandData;
+    moveActiveNoteSplitLeft: CommandData;
+    moveActiveNoteSplitRight: CommandData;
+    focusNoteSplitLeft: CommandData;
+    focusNoteSplitRight: CommandData;
     jumpToNote: CommandData;
     openTodayNote: CommandData;
     commandPalette: CommandData;
