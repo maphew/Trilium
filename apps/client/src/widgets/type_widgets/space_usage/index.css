@@ -197,7 +197,7 @@ body.mobile {
     .treemap-cell.treemap-cell-hidden,
     .treemap-cell.treemap-cell-revisions,
     .treemap-cell.treemap-cell-deleted {
-        --treemap-cell-background: repeating-linear-gradient(
+        --space-usage-treemap-cell-background: repeating-linear-gradient(
             -45deg,
             var(--accented-background-color) 0 5px,
             transparent 5px 10px

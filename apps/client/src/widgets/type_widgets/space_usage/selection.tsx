@@ -102,11 +102,10 @@ export default function SelectionStrip({ selection, containerRef }: {
  * strip asks again only when a different mark is picked.
  */
 function usePathTitles(notePath: string[] | undefined) {
-    const [ titles, setTitles ] = useState<string[]>([]);
+    const [ resolved, setResolved ] = useState<{ notePath: string[], titles: string[] }>();
 
     useEffect(() => {
         if (!notePath) {
-            setTitles([]);
             return;
         }
 
@@ -117,7 +116,7 @@ function usePathTitles(notePath: string[] | undefined) {
             if (!cancelled) {
                 const byNoteId = new Map(notes.map((note) => [ note.noteId, note.title ]));
 
-                setTitles(notePath.map((noteId) => byNoteId.get(noteId) ?? noteId));
+                setResolved({ notePath, titles: notePath.map((noteId) => byNoteId.get(noteId) ?? noteId) });
             }
         });
 
@@ -126,5 +125,10 @@ function usePathTitles(notePath: string[] | undefined) {
         };
     }, [ notePath ]);
 
-    return titles;
+    // Kept with the path they were asked for, and handed back only for that one. Titles arrive a
+    // tick or more after the mark that wanted them, and the rest of the strip is drawn from the mark
+    // itself: without this, the moment between one selection and its titles is drawn with the last
+    // one's, which names the wrong note beside the right size — and a mark that names no note at all
+    // would go on wearing the note's ancestors under its label.
+    return resolved && resolved.notePath === notePath ? resolved.titles : notePath ?? [];
 }
