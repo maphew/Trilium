@@ -11,6 +11,7 @@ interface CapturedDonutProps {
     title: string;
     notePath: string[];
     outerRings: DonutRing<UsageSegmentData>[];
+    selectedSegmentId?: string;
     centerActions: ComponentChildren;
     onTitleContextMenu: (event: MouseEvent) => void;
 }
@@ -23,7 +24,9 @@ const mocks = vi.hoisted(() => ({
     donutProps: undefined as unknown,
     openContextMenu: vi.fn(),
     contentChanged: vi.fn(),
-    loadingChange: vi.fn()
+    loadingChange: vi.fn(),
+    select: vi.fn(),
+    pathChanged: vi.fn()
 }));
 
 vi.mock("./context_menu", () => ({
@@ -53,6 +56,12 @@ vi.mock("../../react/ActionButton", () => ({
     )
 }));
 
+// Uninitialized, the real `t` answers undefined for every key — which would leave the two figures
+// closing the ring unnamed, and a mark with no name is one the strip has nothing to say about.
+vi.mock("../../../services/i18n", () => ({
+    t: (key: string) => key
+}));
+
 vi.mock("../../../services/froca", () => ({
     default: {
         getNotes: async (noteIds: string[]) => noteIds.map((noteId) => ({ noteId, title: `title:${noteId}` }))
@@ -60,6 +69,7 @@ vi.mock("../../../services/froca", () => ({
 }));
 
 import Browse from "./browse";
+import type { SpaceUsageSelection } from "./selection";
 
 function usageOf(noteId: string, children: string[]): SpaceUsageNoteResponse {
     return {
@@ -107,6 +117,40 @@ function donutProps() {
     return mocks.donutProps as CapturedDonutProps;
 }
 
+/** The children ring is the outer one; its segments are what a tap in this view lands on. */
+function childSegment(id: string) {
+    const ring = donutProps().outerRings[0];
+    const segment = ring?.segments.find((candidate) => candidate.id === id);
+
+    if (!ring || !segment) {
+        throw new Error(`no segment ${id} on the children ring`);
+    }
+
+    ring.onSegmentClick?.(segment);
+}
+
+function lastSelection(): SpaceUsageSelection {
+    return mocks.select.mock.calls[mocks.select.mock.calls.length - 1]?.[0] as SpaceUsageSelection;
+}
+
+/** How the page renders this view on a phone: a tap names a segment rather than descending into it. */
+function renderSelectableBrowse(selection?: SpaceUsageSelection) {
+    container = document.body.appendChild(document.createElement("div"));
+    render(
+        <Browse
+            path={[ "root" ]}
+            onPathChange={mocks.pathChanged}
+            refreshToken={0}
+            onContentChanged={mocks.contentChanged}
+            selection={selection ?? null}
+            onSelect={mocks.select}
+            onLoadingChange={mocks.loadingChange}
+        />,
+        container
+    );
+    return container;
+}
+
 /** State set in event handlers and froca's async titles both land on later ticks. */
 function flushRender() {
     return new Promise((resolve) => setTimeout(resolve));
@@ -127,6 +171,8 @@ afterEach(() => {
     mocks.fetchedUrls = [];
     mocks.donutProps = undefined;
     mocks.openContextMenu.mockClear();
+    mocks.select.mockClear();
+    mocks.pathChanged.mockClear();
 });
 
 describe("Browse", () => {
@@ -245,5 +291,81 @@ describe("Browse", () => {
         mocks.openContextMenu.mockClear();
         ring.onSegmentContextMenu?.({ id: "/deleted-notes", value: 5, data: {} }, event);
         expect(mocks.openContextMenu).not.toHaveBeenCalled();
+    });
+    it("names a tapped child for the strip instead of descending, keeping both actions on it", () => {
+        mocks.usage = usageOf("root", [ "child1" ]);
+        renderSelectableBrowse();
+
+        childSegment("child/child1");
+
+        const selection = lastSelection();
+
+        expect(selection).toMatchObject({ markId: "child/child1", notePath: [ "root", "child1" ], size: 40 });
+        expect(mocks.pathChanged).not.toHaveBeenCalled();
+
+        // A second tap on the same segment is what walks in; the strip raises the menu instead.
+        selection.onOpen?.();
+        expect(mocks.pathChanged).toHaveBeenCalledWith([ "root", "child1" ]);
+
+        selection.onActivate?.(new MouseEvent("click"));
+        expect(mocks.openContextMenu).toHaveBeenCalledWith(
+            expect.anything(), [ "root", "child1" ], mocks.pathChanged, mocks.contentChanged);
+    });
+
+    it("names the two figures closing the ring, which stand for no note and open nothing", () => {
+        mocks.usage = {
+            ...usageOf("root", [ "child1" ]),
+            subtreeRevisionsContentSize: 500,
+            deletedNotes: { size: 300, noteCount: 1, attachmentCount: 0 }
+        };
+        renderSelectableBrowse();
+
+        childSegment("revisions");
+        expect(lastSelection()).toMatchObject({ markId: "revisions", size: 500 });
+        expect(lastSelection().notePath).toBeUndefined();
+        expect(lastSelection().onOpen).toBeUndefined();
+        expect(lastSelection().onActivate).toBeUndefined();
+
+        childSegment("/deleted-notes");
+        expect(lastSelection()).toMatchObject({ markId: "/deleted-notes", size: 300 });
+
+    });
+
+    it("names nothing for the bucket standing for several children at once", () => {
+        mocks.usage = {
+            ...usageOf("root", []),
+            children: [
+                { noteId: "big", subtreeSize: 100000, subtreeNoteCount: 1 },
+                { noteId: "sliver", subtreeSize: 1, subtreeNoteCount: 1 }
+            ]
+        };
+        renderSelectableBrowse();
+
+        childSegment("others");
+
+        expect(mocks.select).not.toHaveBeenCalled();
+    });
+
+    it("offers the chosen mark's own action as a line under the chart, and none without one", () => {
+        mocks.usage = usageOf("root", [ "child1" ]);
+        const open = vi.fn();
+        const probe = renderSelectableBrowse({ markId: "child/child1", notePath: [ "root", "child1" ], size: 40, onOpen: open });
+
+        probe.querySelector<HTMLElement>(".space-usage-details-link")?.click();
+        expect(open).toHaveBeenCalledTimes(1);
+
+        // The line itself stays, holding the chart's layout still; only its label goes.
+        render(null, probe);
+        const empty = renderSelectableBrowse({ markId: "revisions", label: "Revisions", size: 10 });
+
+        expect(empty.querySelector(".space-usage-browse-details")).not.toBeNull();
+        expect(empty.querySelector(".space-usage-details-link")).toBeNull();
+    });
+
+    it("hands the chosen mark to the donut, so the ring can draw it", () => {
+        mocks.usage = usageOf("root", [ "child1" ]);
+        renderSelectableBrowse({ markId: "child/child1", notePath: [ "root", "child1" ], size: 40 });
+
+        expect(donutProps().selectedSegmentId).toBe("child/child1");
     });
 });

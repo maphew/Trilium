@@ -9,9 +9,10 @@ import { Trans } from "react-i18next";
 
 import { t } from "../../../services/i18n";
 import { formatSize } from "../../../services/utils";
-import DonutChart, { type DonutRing } from "../../react/charts/DonutChart";
+import DonutChart, { type DonutRing, type DonutSegment } from "../../react/charts/DonutChart";
 import ContextualHelp from "../../react/ContextualHelp";
 import { quickEditAttachment, quickEditNote } from "./context_menu";
+import type { SpaceUsageSelection } from "./selection";
 import {
     buildCompositionSegments,
     noteWeight,
@@ -32,6 +33,13 @@ interface NoteUsageDonutProps {
     notePath: string[];
     /** Extra rings drawn around the composition ring, e.g. Browse's children ring. */
     outerRings?: DonutRing<UsageSegmentData>[];
+    /** The segment drawn as chosen, in any of the rings. See {@link onSelectSegment}. */
+    selectedSegmentId?: string;
+    /**
+     * Where given, a click on a composition segment names it in the page's strip instead of opening
+     * what it stands for: how a touch screen, which cannot hover a segment, reads the ring.
+     */
+    onSelectSegment?: (selection: SpaceUsageSelection) => void;
     /** Rendered centered above the title in the hole — e.g. Browse's back button. */
     centerActions?: ComponentChildren;
     /** Right-clicking the center title, which stands for the note itself. */
@@ -46,7 +54,10 @@ interface NoteUsageDonutProps {
  * user was reading. Reusable wherever one note's usage needs breaking down; Browse wraps it with
  * its children ring via {@link outerRings}, which is also where history is drawn.
  */
-export default function NoteUsageDonut({ usage, title, notePath, outerRings = [], centerActions, onTitleContextMenu, className }: NoteUsageDonutProps) {
+export default function NoteUsageDonut({
+    usage, title, notePath, outerRings = [], selectedSegmentId, onSelectSegment, centerActions,
+    onTitleContextMenu, className
+}: NoteUsageDonutProps) {
     const compositionRing: DonutRing<UsageSegmentData> = useMemo(() => ({
         id: "composition",
         radius: COMPOSITION_RING_RADIUS,
@@ -61,18 +72,29 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
         // each other segment one of its attachments. The consolidated "Others" bucket stands for
         // several at once, so it opens nothing.
         onSegmentClick: (segment) => {
+            if (onSelectSegment) {
+                const selection = selectionOf(segment, notePath, onTitleContextMenu);
+
+                if (selection) {
+                    onSelectSegment(selection);
+                }
+
+                return;
+            }
+
             if (segment.data?.attachmentId) {
                 quickEditAttachment(notePath, segment.data.attachmentId);
             } else if (segment.data?.noteId) {
                 quickEditNote(notePath);
             }
         }
-    }), [ usage, notePath ]);
+    }), [ usage, notePath, onSelectSegment, onTitleContextMenu ]);
 
 
     return (
         <DonutChart<UsageSegmentData>
             rings={[ compositionRing, ...outerRings ]}
+            selectedSegmentId={selectedSegmentId}
             className={clsx("note-usage-donut", className)}
             defs={<RevisionsHatch />}
         >
@@ -115,6 +137,44 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
             </div>
         </DonutChart>
     );
+}
+
+/**
+ * What the strip says about a composition segment: the note itself for its body, which answers the
+ * same menu as the center title standing for it, and the attachment for one of its own, which the
+ * popup can show. "Others" stands for several attachments at once and answers nothing.
+ *
+ * None of them carries an {@link SpaceUsageSelection.onOpen}: this ring is only ever selected from
+ * where a tap has to stand in for a hover, and a mark there opens something only where the opening is
+ * a move within the chart. Walking into a child is that; throwing a popup over the chart from a
+ * second tap on a segment is not, so the segments name themselves and leave it at that.
+ */
+function selectionOf(
+    segment: DonutSegment<UsageSegmentData>,
+    notePath: string[],
+    onTitleContextMenu: ((event: MouseEvent) => void) | undefined
+): SpaceUsageSelection | null {
+    const attachmentId = segment.data?.attachmentId;
+
+    if (attachmentId) {
+        return {
+            markId: segment.id,
+            label: segment.label ?? "",
+            size: segment.value,
+            onActivate: () => quickEditAttachment(notePath, attachmentId)
+        };
+    }
+
+    if (segment.data?.noteId) {
+        return {
+            markId: segment.id,
+            notePath,
+            size: segment.value,
+            onActivate: onTitleContextMenu
+        };
+    }
+
+    return null;
 }
 
 /**

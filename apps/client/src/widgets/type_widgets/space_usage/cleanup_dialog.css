@@ -10,8 +10,9 @@
        than any of the content in it. */
     --cleanup-compact-color: color-mix(in srgb, var(--accented-background-color) 55%, #5b8dd9 45%);
 
-    /* Sized by its content rather than to the floor the component sets: no item title wraps, so a
-       long one has to widen the dialog. Capped at the viewport, past which there is nowhere to grow. */
+    /* Sized by its content rather than to the floor the component sets: a long item title widens the
+       dialog for as long as there is width to give it. Capped at the viewport, past which there is
+       nowhere to grow and the titles wrap instead (see below). */
     .modal-dialog {
         width: fit-content;
         max-width: 100%;
@@ -135,11 +136,13 @@
         background: var(--cleanup-item-color);
     }
 
-    /* Takes the slack, so the size and the switch stay at the trailing edge whatever the title —
-       and never gives any back: an unwrapped title is what widens the dialog. */
+    /* Takes the slack, so the size and the switch stay at the trailing edge whatever the title.
+       It gives it back rather than run past the card: while the dialog can still be widened, a
+       fit-content width means a title is measured unwrapped and gets the room it asks for, and only
+       once the viewport has capped that does it wrap onto a second line and take the row with it. */
     .cleanup-item-title {
-        flex: 1 0 auto;
-        white-space: nowrap;
+        flex: 1 1 auto;
+        min-width: 0;
     }
 
     /* Muted rather than the item's color: the swatch beside it already says which item the figure

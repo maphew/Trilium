@@ -6,6 +6,11 @@
     aspect-ratio: 1 / 1;
     max-width: 100%;
 
+    /* How a chosen segment's trace is struck from its own hue — see the rule below. Knobs for a
+       theme, matching the treemap's, so the two charts mark a choice the same way. */
+    --donut-selected-saturation: 100%;
+    --donut-selected-lightness: 50%;
+
     svg {
         display: block;
         width: 100%;
@@ -40,13 +45,38 @@
     /* An outline that traces the arc rather than its box: `outline` on a dashed circle would frame
        the entire ring, since that is the element's extent. Blur-less shadows in the four directions
        hug the painted shape instead, and stay inside the inter-segment gap. */
-    .donut-segment:hover {
+    /* Only where a pointer can hover: a tapped arc on a touch screen stays hovered, and would wear
+       this ring alongside the chosen segment's. */
+    @media (hover: hover) {
+        .donut-segment:hover {
+            filter:
+                brightness(1.12)
+                drop-shadow(2px 0 0 var(--input-focus-outline-color))
+                drop-shadow(-2px 0 0 var(--input-focus-outline-color))
+                drop-shadow(0 2px 0 var(--input-focus-outline-color))
+                drop-shadow(0 -2px 0 var(--input-focus-outline-color));
+        }
+    }
+
+    /* The chosen segment, traced the same way and for the same reason as the hover ring above: an
+       `outline` would frame the whole ring rather than the arc. The offsets are viewBox units, which
+       the chart scales down to roughly the three device pixels the treemap's chosen cell borders
+       itself with. */
+    .donut-segment.donut-segment-selected {
         filter:
-            brightness(1.12)
-            drop-shadow(2px 0 0 var(--input-focus-outline-color))
-            drop-shadow(-2px 0 0 var(--input-focus-outline-color))
-            drop-shadow(0 2px 0 var(--input-focus-outline-color))
-            drop-shadow(0 -2px 0 var(--input-focus-outline-color));
+            drop-shadow(3px 0 0 var(--donut-segment-selected-color, var(--main-text-color)))
+            drop-shadow(-3px 0 0 var(--donut-segment-selected-color, var(--main-text-color)))
+            drop-shadow(0 3px 0 var(--donut-segment-selected-color, var(--main-text-color)))
+            drop-shadow(0 -3px 0 var(--donut-segment-selected-color, var(--main-text-color)));
+    }
+
+    /* The segment's own hue at full strength, as the treemap strikes a chosen cell's border. A
+       segment painted from a semantic colour rather than a hue sets this variable itself; one with
+       neither keeps the plain default above. */
+    .donut-segment.donut-colored.donut-segment-selected {
+        --donut-segment-selected-color: hsl(
+            var(--donut-hue) var(--donut-selected-saturation) var(--donut-selected-lightness)
+        );
     }
 
     .donut-clickable {

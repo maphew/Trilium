@@ -5,14 +5,18 @@
     min-height: 0;
 
     .space-usage-breadcrumb {
-        display: flex;
         flex: 0 0 auto;
-        justify-content: center;
+        padding-block: 6px;
+    }
+
+    /* The line itself, which is what scrolls: centred while it fits, and left where it starts once it
+       does not — `safe` is what keeps the first crumb reachable, since a centred overflow pushes the
+       beginning out of the scrollport with no way back to it. */
+    .space-usage-breadcrumb-track {
+        display: flex;
+        justify-content: safe center;
         align-items: center;
         gap: 0.35em;
-        padding-block: 6px;
-        overflow: hidden;
-        white-space: nowrap;
     }
 
     /* Names what the path leads to, so a lone root crumb still reads as a location. */
@@ -23,6 +27,7 @@
 
     .space-usage-crumb {
         display: inline-block;
+        flex: 0 0 auto;
         overflow: hidden;
         max-width: 14em;
         border: none;
@@ -57,6 +62,39 @@
         flex: 1 1 auto;
         min-height: 0;
         padding-block: 8px;
+    }
+
+    /* The way into the chosen child, for a reader who has not found the second tap that does the
+       same. Its line is held whether or not anything is chosen, so the chart above is laid out once
+       and a tap on the ring never resizes it; one line always, the label being short enough that a
+       narrow screen should cut it rather than fold the row open. */
+    .space-usage-browse-details {
+        display: flex;
+        flex: 0 0 auto;
+        justify-content: center;
+        align-items: center;
+        /* Clear of the strip below, whose own rule would otherwise sit right under the label. */
+        margin-bottom: 1.5em;
+        /* The line it holds, at the leading stated below, plus the room around it. */
+        min-height: calc(1.2em + 12px);
+        padding-block: 6px;
+        overflow: hidden;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+
+    /* The app's own quiet button, coloured to read as the link it stands for — the same colour the
+       note's name wears in the middle of the chart. Everything else about it (its press, its focus,
+       its theming) is the shared control's. */
+    .space-usage-details-link {
+        overflow: hidden;
+        color: var(--link-color);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .space-usage-details-link:hover {
+        text-decoration: underline;
     }
 
     /* At the root there is nowhere to go back to: the arrow disappears but keeps its box, so the

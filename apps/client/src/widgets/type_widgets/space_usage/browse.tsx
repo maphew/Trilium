@@ -8,13 +8,16 @@ import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { formatSize } from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
-import type { DonutRing } from "../../react/charts/DonutChart";
+import Button from "../../react/Button";
+import type { DonutRing, DonutSegment } from "../../react/charts/DonutChart";
 import { useFetch } from "../../react/use_fetch";
 import { type ContentChangedHandler, openSpaceUsageContextMenu } from "./context_menu";
 import { buildChildrenSegments, type UsageSegmentData } from "./donut_segments";
 import { deletedEntitiesLabel } from "./labels";
+import ScrollableLabel from "../../react/ScrollableLabel";
 import NoteUsageDonut, { segmentTooltip } from "./note_usage_donut";
 import SpaceUsagePlaceholder from "./placeholder";
+import type { SpaceUsageSelection } from "./selection";
 
 const CHILDREN_RING_RADIUS = 180;
 const CHILDREN_RING_THICKNESS = 46;
@@ -27,6 +30,17 @@ interface BrowseProps {
     refreshToken: number;
     /** Called once the menu deleted something, so the donut stops drawing what is no longer there. */
     onContentChanged: ContentChangedHandler;
+    /**
+     * The mark the page is holding as chosen, drawn as such and offered by the link under the chart.
+     * See {@link onSelect}.
+     */
+    selection?: SpaceUsageSelection | null;
+    /**
+     * Where given, a click names the segment in the page's strip instead of descending into it: a
+     * touch screen cannot hover a segment to find out what it is, so a tap has to say. Walking into
+     * the child is then what "Show details" does in the menu the strip raises.
+     */
+    onSelect?: (selection: SpaceUsageSelection) => void;
     /**
      * Reports whether this view is measuring, so the section can keep its refresh button out while
      * it is — this view's reading is its own request, which the section cannot otherwise see.
@@ -43,7 +57,7 @@ interface BrowseProps {
  * Usage can drop the user straight onto a note here.
  */
 export default function Browse({
-    path, onPathChange, refreshToken, onContentChanged, onLoadingChange
+    path, onPathChange, refreshToken, onContentChanged, selection, onSelect, onLoadingChange
 }: BrowseProps) {
     const noteId = path[path.length - 1];
     const { data: usage, failed, loading } = useFetch<SpaceUsageNoteResponse>(
@@ -55,6 +69,10 @@ export default function Browse({
     useEffect(() => () => onLoadingChange(false), [ onLoadingChange ]);
     const titles = useNoteTitles(path, usage);
     const getTitle = useCallback((id: string) => titles.get(id) ?? id, [ titles ]);
+
+    const menuFor = useCallback((childId: string) => (event: MouseEvent) =>
+        void openSpaceUsageContextMenu(event, [ ...path, childId ], onPathChange, onContentChanged),
+        [ path, onPathChange, onContentChanged ]);
 
     const childrenRing: DonutRing<UsageSegmentData> = useMemo(() => ({
         id: "children",
@@ -71,6 +89,17 @@ export default function Browse({
         onSegmentClick: (segment) => {
             const childId = segment.data?.noteId;
 
+            if (onSelect) {
+                const selection = selectionOf(segment, path, menuFor,
+                    (id) => onPathChange([ ...path, id ]));
+
+                if (selection) {
+                    onSelect(selection);
+                }
+
+                return;
+            }
+
             if (childId) {
                 onPathChange([ ...path, childId ]);
             }
@@ -83,26 +112,38 @@ export default function Browse({
                 void openSpaceUsageContextMenu(event, [ ...path, childId ], onPathChange, onContentChanged);
             }
         }
-    }), [ usage, getTitle, path, onPathChange, onContentChanged ]);
+    }), [ usage, getTitle, path, onPathChange, onContentChanged, onSelect, menuFor ]);
 
     return (
         <div className="space-usage-browse">
             <nav className="space-usage-breadcrumb">
-                <span className="space-usage-crumb-label">{t("space_usage.current_note")}</span>
-                {path.map((id, index) => (
-                    <Fragment key={`${index}/${id}`}>
-                        {index > 0 && <span className="space-usage-crumb-separator" aria-hidden="true">›</span>}
-                        {index < path.length - 1 ? (
-                            <button
-                                type="button"
-                                className="space-usage-crumb"
-                                onClick={() => onPathChange(path.slice(0, index + 1))}
-                            >{getTitle(id)}</button>
-                        ) : (
-                            <span className="space-usage-crumb space-usage-crumb-current">{getTitle(id)}</span>
-                        )}
-                    </Fragment>
-                ))}
+                {/* The whole line travels together — what it says and where it leads are one sentence
+                    — so it is swiped rather than cut off, and fades at whichever end it carries on
+                    past. A deep path is otherwise clipped at both ends by a row that centres itself,
+                    and the end it loses is the note being looked at. */}
+                <ScrollableLabel
+                    // A new path is a new line to read out: keyed so it arrives with its own walk,
+                    // rather than inheriting one the reader stopped at the level above.
+                    key={path.join("/")}
+                    className="space-usage-breadcrumb-track"
+                    autoScroll
+                >
+                    <span className="space-usage-crumb-label">{t("space_usage.current_note")}</span>
+                    {path.map((id, index) => (
+                        <Fragment key={`${index}/${id}`}>
+                            {index > 0 && <span className="space-usage-crumb-separator" aria-hidden="true">›</span>}
+                            {index < path.length - 1 ? (
+                                <button
+                                    type="button"
+                                    className="space-usage-crumb"
+                                    onClick={() => onPathChange(path.slice(0, index + 1))}
+                                >{getTitle(id)}</button>
+                            ) : (
+                                <span className="space-usage-crumb space-usage-crumb-current">{getTitle(id)}</span>
+                            )}
+                        </Fragment>
+                    ))}
+                </ScrollableLabel>
             </nav>
 
             {usage ? (
@@ -112,6 +153,8 @@ export default function Browse({
                         title={getTitle(usage.noteId)}
                         notePath={path}
                         outerRings={[ childrenRing ]}
+                        selectedSegmentId={selection?.markId}
+                        onSelectSegment={onSelect}
                         onTitleContextMenu={(event) =>
                             void openSpaceUsageContextMenu(event, path, onPathChange, onContentChanged)}
                         centerActions={
@@ -119,6 +162,10 @@ export default function Browse({
                                 className="space-usage-back"
                                 icon="bx bx-arrow-back"
                                 text={t("space_usage.back")}
+                                // An arrow in the middle of the chart it walks back up: there is
+                                // nothing a tooltip could add, and on a touch screen the tap that
+                                // presses it would leave one standing over the donut.
+                                noTooltipOnTouch
                                 disabled={path.length === 1}
                                 onClick={() => path.length > 1 && onPathChange(path.slice(0, -1))}
                             />
@@ -128,8 +175,57 @@ export default function Browse({
             ) : (
                 <SpaceUsagePlaceholder failed={failed} />
             )}
+
+            {/* What the second tap on a chosen child does, said in words: the tap is quick once it is
+                known about, and nothing on the ring says it is there. Offered only where a selection
+                is being kept at all, and kept in the layout whether or not one is — a line arriving
+                and leaving would resize the chart above it at every tap. */}
+            {onSelect && (
+                <div className="space-usage-browse-details">
+                    {selection?.onOpen && (
+                        <Button
+                            className="space-usage-details-link"
+                            kind="lowProfile"
+                            size="small"
+                            text={t("space_usage.show_selection_details")}
+                            onClick={selection.onOpen}
+                        />
+                    )}
+                </div>
+            )}
         </div>
     );
+}
+
+/**
+ * What the strip says about a segment of the children ring: the child note, with the path that
+ * identifies its placement and the menu that acts on it, or one of the two figures closing the ring,
+ * named by what the segment calls itself. "Others" stands for several children at once and answers
+ * nothing, in the strip as in the chart.
+ */
+function selectionOf(
+    segment: DonutSegment<UsageSegmentData>,
+    path: string[],
+    menuFor: (childId: string) => (event: MouseEvent) => void,
+    onDescend: (childId: string) => void
+): SpaceUsageSelection | null {
+    const childId = segment.data?.noteId;
+
+    if (childId) {
+        return {
+            markId: segment.id,
+            notePath: [ ...path, childId ],
+            size: segment.value,
+            onActivate: menuFor(childId),
+            // Walking in is what a click does here on a desktop, and a second tap is what a touch
+            // screen has left once the first has been spent naming the child.
+            onOpen: () => onDescend(childId)
+        };
+    }
+
+    return segment.label
+        ? { markId: segment.id, label: segment.label, size: segment.value }
+        : null;
 }
 
 /**

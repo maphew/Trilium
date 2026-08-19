@@ -12,6 +12,12 @@
     --treemap-icon-lightness: 30%;
     --treemap-icon-tint: 40%;
 
+    /* How a chosen cell's border is struck from the cell's own hue: that hue at full strength, which
+       reads as belonging to the cell while standing well clear of the tint mixed into the theme's
+       surface. Knobs of the same kind as the icon's above, for a theme to retune. */
+    --treemap-selected-saturation: 100%;
+    --treemap-selected-lightness: 50%;
+
     /* Painted through a variable, not a competing rule: consumers set `--treemap-cell-background`
        and never race this stylesheet's cascade position. */
     /* The corner rounding is per cell — a cell rounds only the corners its block owns — so it is
@@ -54,9 +60,30 @@
         );
     }
 
-    .treemap-cell:hover {
-        outline: 2px solid var(--main-text-color);
-        outline-offset: -1px;
-        z-index: 1;
+    /* Only where a pointer can actually hover: a tap leaves a touch screen's cell "hovered" until
+       the next one is tapped, which would put a second ring on the map beside the chosen cell's. */
+    @media (hover: hover) {
+        .treemap-cell:hover {
+            outline: 2px solid var(--main-text-color);
+            outline-offset: -1px;
+            z-index: 1;
+        }
+    }
+
+    /* The chosen cell, where identity is a selection rather than a hover. A border rather than an
+       outline: it is drawn inside the cell's own rect, which leaves the geometry alone (the cells are
+       border-box) and keeps all four sides on the outermost cells, where the container clips and the
+       map's inset is thinner than this. */
+    .treemap-cell.treemap-cell-selected {
+        z-index: 2;
+        border: 3px solid var(--treemap-cell-selected-color, var(--main-text-color));
+    }
+
+    /* The cell's own hue at full strength. A cell without one — a consumer's bucket, standing for a
+       crowd rather than a thing — has no hue to strike this from and keeps the plain default above. */
+    .treemap-cell.treemap-colored.treemap-cell-selected {
+        --treemap-cell-selected-color: hsl(
+            var(--treemap-hue) var(--treemap-selected-saturation) var(--treemap-selected-lightness)
+        );
     }
 }
