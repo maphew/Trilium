@@ -7,7 +7,7 @@ import { type ComponentChildren, RefObject } from "preact";
 import { createPortal } from "preact/compat";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import { CommandNames } from "../../components/app_context";
+import appContext, { CommandNames } from "../../components/app_context";
 import NoteContext from "../../components/note_context";
 import FNote from "../../entities/fnote";
 import attributes from "../../services/attributes";
@@ -33,6 +33,7 @@ import InheritedAttributesTab from "../ribbon/InheritedAttributesTab";
 import { NoteSizeWidget, useNoteMetadata } from "../ribbon/NoteInfoTab";
 import { NotePathsWidget, useSortedNotePaths } from "../ribbon/NotePathsTab";
 import SimilarNotesTab from "../ribbon/SimilarNotesTab";
+import type { RightPaneTabId } from "../sidebar/RightPaneTabs";
 import { useAttachments } from "../type_widgets/Attachment";
 import { useProcessedLocales } from "../type_widgets/options/components/LocaleSelector";
 import Breadcrumb from "./Breadcrumb";
@@ -163,6 +164,28 @@ function StatusBarButton({ className, icon, text, title, active, ...restProps }:
         >
             <Icon icon={icon} />&nbsp;<span className="text">{text}</span>
         </button>
+    );
+}
+
+/**
+ * The way from a panel of the status bar to the sidebar tab holding the fuller version of the same
+ * thing: the attributes panel edits a note's attributes as a line of text, the sidebar's card as a
+ * list with a control apiece. Worded as what is found there rather than as the pane it opens, and
+ * shown in the panel's title bar beside its `?`.
+ *
+ * A pane the user keeps closed is peeked rather than docked — a glance asked for from the status bar
+ * is no reason to reflow the content the note is read in.
+ */
+function SidebarLink({ text, tabId, onOpened }: { text: string; tabId: RightPaneTabId; onOpened?: () => void }) {
+    return (
+        <LinkButton
+            className="status-bar-sidebar-link"
+            text={<><Icon icon="bx bx-sidebar" className="bx-flip-horizontal" />{text}</>}
+            onClick={() => {
+                void appContext.triggerEvent("selectRightPaneTab", { tabId, peek: true });
+                onOpened?.();
+            }}
+        />
     );
 }
 
@@ -419,6 +442,11 @@ function AttributesPane({ note, noteContext, attributesShown, setAttributesShown
             className="attribute-list"
             visible={attributesShown}
             setVisible={setAttributesShown}
+            buttons={<SidebarLink
+                text={t("attributes_panel.edit_in_sidebar")}
+                tabId="attributes"
+                onOpened={() => setAttributesShown(false)}
+            />}
             helpPage={ATTRIBUTE_HELP_PAGE}
             helpContent={<AttributeHelp />}>
 
@@ -605,15 +633,21 @@ interface BottomPanelParams {
     visible: boolean;
     setVisible?: (visible: boolean) => void;
     className?: string;
+    /**
+     * What the panel offers besides being read and closed, shown in its title bar ahead of the `?`
+     * and the `×` — the same place, and the same name, as a sidebar card's own (see RightPanelWidget).
+     */
+    buttons?: ComponentChildren;
     helpPage?: string;
     /** Inline help shown by the title bar's `?`; without it the `?` opens {@link helpPage} directly. */
     helpContent?: ComponentChildren;
 }
 
-function BottomPanel({ children, title, visible, setVisible, className, helpPage, helpContent }: BottomPanelParams) {
+function BottomPanel({ children, title, visible, setVisible, className, buttons, helpPage, helpContent }: BottomPanelParams) {
     return <div className={clsx("bottom-panel", className, {"hidden-ext": !visible})}>
         <div className="bottom-panel-title-bar">
             <span className="bottom-panel-title-bar-caption">{title}</span>
+            {buttons}
             {helpContent
                 ? <HelpDropdown helpPage={helpPage}>{helpContent}</HelpDropdown>
                 : helpPage && <button class="icon-action bx bx-help-circle" onClick={() => openInAppHelpFromUrl(helpPage)} title={t("open-help-page")} />}

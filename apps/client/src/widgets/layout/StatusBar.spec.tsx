@@ -75,6 +75,20 @@ describe("StatusBar panels", () => {
         expect(isShown(".attribute-list")).toBe(false);
     });
 
+    it("offers the attributes panel a way to the sidebar's own, and steps aside once taken", () => {
+        const triggerEvent = vi.spyOn(appContext, "triggerEvent").mockResolvedValue(undefined);
+        renderBar();
+        fire("toggleRibbonTabOwnedAttributes");
+
+        const sidebarLink = container.querySelector<HTMLElement>(".attribute-list .bottom-panel-title-bar .status-bar-sidebar-link");
+        expect(sidebarLink).not.toBeNull();
+
+        act(() => sidebarLink?.click());
+        expect(triggerEvent).toHaveBeenCalledWith("selectRightPaneTab", { tabId: "attributes", peek: true });
+        // Two attribute editors over the one note is what the way across is for the reader to avoid.
+        expect(isShown(".attribute-list")).toBe(false);
+    });
+
     it("closes the similar notes panel from its own title bar", () => {
         renderBar();
         fire("toggleRibbonTabSimilarNotes");

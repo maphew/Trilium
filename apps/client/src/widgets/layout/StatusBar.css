@@ -181,6 +181,17 @@ body.experimental-feature-new-layout .note-info-content {
             font-size: .85em;
         }
 
+        .status-bar-sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: .85em;
+
+            .tn-icon {
+                font-size: 1.2em;
+            }
+        }
+
         .icon-action {
             --icon-button-size: 24px;
             --icon-button-icon-ratio: 0.8;

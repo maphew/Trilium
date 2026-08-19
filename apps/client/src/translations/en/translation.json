@@ -3555,7 +3555,8 @@
     "tab_width_style_tabs": "Tabs"
   },
   "attributes_panel": {
-    "title": "Note Attributes"
+    "title": "Note Attributes",
+    "edit_in_sidebar": "Edit in the sidebar"
   },
   "right_pane": {
     "empty_message": "Nothing to show for this note",
