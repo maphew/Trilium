@@ -66,7 +66,7 @@ packet-beta
 
 ### Trailer
 
-The last {`TRAILER_BYTES`} = 40 bytes of every container, and the only part of it that could not be written until the payload was complete.
+The last 40 bytes of every container, and the only part of it that could not be written until the payload was complete.
 
 | Offset from EOF | Size | Field | Value |
 | --- | --- | --- | --- |
@@ -129,7 +129,7 @@ A version that appends fields raises the version byte, so an older reader reject
 
 ### Identifying a container
 
-What a container is, it states in the clear. The version, both flags and the plaintext size all sit in the first 32 bytes and none of them are encrypted, so a reader can tell a compressed backup from an encrypted one, and say what a backup was made from, **without the passphrase and without touching the payload**. Listing a directory of backups costs 32 bytes a file, whatever the files weigh.
+What a container is, it states in the clear. The version, the timestamp, both flags and the plaintext size all sit in the first 40 bytes and none of them are encrypted, so a reader can tell a compressed backup from an encrypted one, and date it and size it, **without the passphrase and without touching the payload**. Listing a directory of backups costs 40 bytes a file, whatever the files weigh.
 
 A reader doing only this still applies the same checks as any other: the magic, the version, and the reserved flag bits. What it cannot make sense of it should report as an unidentified file rather than as a failure, so that one damaged container cannot derail a listing.
 
