@@ -886,7 +886,8 @@
     "new-version-available": "新更新可用",
     "download-update": "取得版本 {{latestVersion}}",
     "search_notes": "搜索笔记",
-    "show_deleted_notes": "显示已删除的笔记"
+    "show_deleted_notes": "显示已删除的笔记",
+    "show_space_usage": "显示空间占用"
   },
   "zen_mode": {
     "button_exit": "退出禅模式"
@@ -2125,7 +2126,8 @@
     "cut": "笔记已剪切到剪贴板。",
     "copied": "笔记已复制到剪贴板。",
     "copy_failed": "由于权限问题，无法复制到剪贴板。",
-    "copy_success": "已复制到剪贴板。"
+    "copy_success": "已复制到剪贴板。",
+    "copied_without_links": "笔记已复制到剪贴板，但笔记链接无法放入系统剪贴板。"
   },
   "entrypoints": {
     "note-revision-created": "笔记修订已创建。",
@@ -2662,7 +2664,11 @@
     "pages_alt": "第{{pageNumber}}页",
     "pages_loading": "加载中...",
     "layers_other": "{{count}} 层",
-    "annotations_other": "{{count}} 条注释"
+    "annotations_other": "{{count}} 条注释",
+    "annotation_drawing": "第 {{pageNumber}} 页上的绘图",
+    "annotation_highlight": "第 {{pageNumber}} 页上的高亮",
+    "annotation_note": "第 {{pageNumber}} 页上的注释",
+    "annotation_text_box": "第 {{pageNumber}} 页上的文本框"
   },
   "platform_indicator": {
     "available_on": "在 {{platform}} 上可用"
@@ -3135,7 +3141,7 @@
     "analyze_space_usage": "分析空间占用",
     "analyze_space_usage_description": "识别哪些笔记占用空间最多，更清晰地了解你的笔记有多大。",
     "analyze_space_usage_button": "分析",
-    "cleanup": "执行清理",
+    "cleanup": "清理数据库",
     "cleanup_description": "擦除已删除的笔记和附件，修剪修订快照并压缩图片，以保持数据库精简。",
     "related_backup": "备份",
     "related_backup_description": "创建或恢复数据库备份，管理自动备份。",
