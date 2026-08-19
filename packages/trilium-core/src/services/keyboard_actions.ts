@@ -412,6 +412,36 @@ function getDefaultKeyboardActions() {
             defaultShortcuts: [],
             scope: "window"
         },
+        {
+            actionName: "openNewNoteSplit",
+            friendlyName: t("keyboard_action_names.create-new-split"),
+            iconClass: "bx bx-dock-right",
+            defaultShortcuts: [],
+            description: t("keyboard_actions.create-new-split"),
+            scope: "window"
+        },
+        {
+            actionName: "closeActiveNoteSplit",
+            friendlyName: t("keyboard_action_names.close-active-split"),
+            iconClass: "bx bx-x",
+            defaultShortcuts: [],
+            description: t("keyboard_actions.close-active-split"),
+            scope: "window"
+        },
+        {
+            actionName: "moveActiveNoteSplitLeft",
+            friendlyName: t("keyboard_action_names.move-split-left"),
+            iconClass: "bx bx-chevron-left",
+            defaultShortcuts: [],
+            scope: "window"
+        },
+        {
+            actionName: "moveActiveNoteSplitRight",
+            friendlyName: t("keyboard_action_names.move-split-right"),
+            iconClass: "bx bx-chevron-right",
+            defaultShortcuts: [],
+            scope: "window"
+        },
 
         {
             separator: t("keyboard_actions.dialogs")

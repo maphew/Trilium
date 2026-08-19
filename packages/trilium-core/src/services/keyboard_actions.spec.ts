@@ -51,6 +51,16 @@ describe("keyboard_actions service", () => {
         }
     });
 
+    it("ships the split actions unbound, so no layout is left unable to press them", () => {
+        const actions = keyboardActions.getDefaultKeyboardActions();
+
+        for (const actionName of [ "openNewNoteSplit", "closeActiveNoteSplit", "moveActiveNoteSplitLeft", "moveActiveNoteSplitRight" ]) {
+            const action = actions.find((a) => "actionName" in a && a.actionName === actionName);
+            expect(action, actionName).toBeDefined();
+            expect(action && "defaultShortcuts" in action && action.defaultShortcuts, actionName).toEqual([]);
+        }
+    });
+
     it("throws if loaded before translations are available", async () => {
         // keyboard_actions was already evaluated during the bootstrap (binding the
         // real i18next), so re-import a fresh copy that picks up the mocked module.
