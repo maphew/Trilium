@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import FAttribute from "../entities/fattribute.js";
 import { buildNote } from "../test/easy-froca";
 import froca from "./froca";
-import noteAttributeCache from "./note_attribute_cache.js";
 import server from "./server.js";
 import ws from "./ws.js";
 
@@ -341,16 +339,15 @@ describe("chooseNoteType", () => {
                 { id: "people", title: "People" },
                 { id: "advisors", title: "Advisors" },
                 { id: "person-tpl", title: "Person", "#template": "", "~template:newNoteDefaultParent": "people" },
-                { id: "multi-tpl", title: "Multi", "#template": "", "~template:newNoteDefaultParent": "people" },
-                { id: "inheriting-tpl", title: "Inheriting", "#template": "" },
-                { id: "overriding-tpl", title: "Overriding", "#template": "", "~template:newNoteDefaultParent": "people" },
+                { id: "multi-tpl", title: "Multi", "#template": "", "~template:newNoteDefaultParent": ["people", "advisors"] },
+                { id: "tpl-folder", title: "Templates", "~template:newNoteDefaultParent(inheritable)": "advisors", children: [
+                    { id: "inheriting-tpl", title: "Inheriting", "#template": "" },
+                    { id: "overriding-tpl", title: "Overriding", "#template": "", "~template:newNoteDefaultParent": "people" }
+                ] },
                 { id: "plain-tpl", title: "Plain", "#template": "" }
             ]
         });
         expect(root.noteId).toBe("root");
-        addOwnedRelation("multi-tpl", "template:newNoteDefaultParent", "advisors");
-        addInheritedRelation("inheriting-tpl", "template:newNoteDefaultParent", "advisors");
-        addInheritedRelation("overriding-tpl", "template:newNoteDefaultParent", "advisors");
 
         function choose(response: Record<string, unknown>) {
             triggerCommand.mockImplementation((_name: string, data: any) => data.callback(response));
@@ -428,36 +425,3 @@ describe("duplicateSubtree", () => {
         expect(showMessage).toHaveBeenCalled();
     });
 });
-
-// easy-froca note definitions are object literals, so a repeated or inherited relation cannot be
-// declared there; these append the attribute to an already-built fixture note instead.
-
-function addOwnedRelation(noteId: string, name: string, value: string) {
-    const note = froca.getNoteFromCache(noteId);
-    if (!note) {
-        throw new Error(`Missing fixture note '${noteId}'`);
-    }
-
-    const attr = buildRelation(noteId, name, value);
-    froca.attributes[attr.attributeId] = attr;
-    note.attributes.push(attr.attributeId);
-    (noteAttributeCache.attributes[noteId] ??= []).push(attr);
-}
-
-/** The relation is served by the attribute cache (getRelations) but is owned by another note. */
-function addInheritedRelation(noteId: string, name: string, value: string) {
-    const attr = buildRelation(`ancestor-of-${noteId}`, name, value);
-    (noteAttributeCache.attributes[noteId] ??= []).push(attr);
-}
-
-function buildRelation(ownerNoteId: string, name: string, value: string) {
-    return new FAttribute(froca, {
-        noteId: ownerNoteId,
-        attributeId: `${ownerNoteId}_${name}_${value}`,
-        type: "relation",
-        name,
-        value,
-        position: 100,
-        isInheritable: false
-    });
-}
