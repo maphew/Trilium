@@ -7,7 +7,7 @@ import { type ComponentChildren, RefObject } from "preact";
 import { createPortal } from "preact/compat";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import appContext, { CommandNames } from "../../components/app_context";
+import { CommandNames } from "../../components/app_context";
 import NoteContext from "../../components/note_context";
 import FNote from "../../entities/fnote";
 import attributes from "../../services/attributes";
@@ -32,6 +32,7 @@ import AttributeHelp from "../ribbon/components/AttributeHelp";
 import InheritedAttributesTab from "../ribbon/InheritedAttributesTab";
 import { NoteSizeWidget, useNoteMetadata } from "../ribbon/NoteInfoTab";
 import { NotePathsWidget, useSortedNotePaths } from "../ribbon/NotePathsTab";
+import SimilarNotesTab from "../ribbon/SimilarNotesTab";
 import { useAttachments } from "../type_widgets/Attachment";
 import { useProcessedLocales } from "../type_widgets/options/components/LocaleSelector";
 import Breadcrumb from "./Breadcrumb";
@@ -47,19 +48,31 @@ interface StatusBarContext {
 
 export default function StatusBar() {
     const { note, noteContext, viewScope, hoistedNoteId, notePath } = useActiveNoteContext();
-    // The attributes are the one thing the status bar shows in a panel of its own, being edited rather
-    // than read; the lists the other badges stand for are read at a glance, so they come as dropdowns.
-    const [ attributesShown, setAttributesShown ] = useState(false);
+    // What the status bar shows in a panel rather than a dropdown is what wants the width of the
+    // window: the attributes, which are edited rather than read, and the similar notes, which are set
+    // as a cloud. One at a time — two of them stacked would take the note's place rather than sit
+    // under it.
+    const [ activePane, setActivePane ] = useState<"attributes" | "similar-notes" | false>(false);
     const context: StatusBarContext | undefined | null = note && noteContext && { note, noteContext, viewScope, hoistedNoteId, notePath };
-    const attributesContext: AttributesProps | undefined | null = context && { ...context, attributesShown, setAttributesShown };
+    const attributesContext: AttributesProps | undefined | null = context && {
+        ...context,
+        attributesShown: activePane === "attributes",
+        setAttributesShown: (shown) => setActivePane(shown && "attributes")
+    };
+    const noteInfoContext: NoteInfoContext | undefined | null = context && {
+        ...context,
+        similarNotesShown: activePane === "similar-notes",
+        setSimilarNotesShown: (shown) => setActivePane(shown && "similar-notes")
+    };
     const isHiddenNote = note?.isHiddenCompletely();
 
     return (
-        <div className={clsx("status-bar", {"status-bar-panel-open": attributesShown})}>
+        <div className={clsx("status-bar", {"status-bar-panel-open": !!activePane})}>
             {attributesContext && <AttributesPane {...attributesContext} />}
+            {noteInfoContext && <SimilarNotesPane {...noteInfoContext} />}
 
             <div className="status-bar-main-row">
-                {context && attributesContext && <>
+                {context && attributesContext && noteInfoContext && <>
                     <Breadcrumb />
 
                     <div className="actions-row">
@@ -70,7 +83,7 @@ export default function StatusBar() {
                         <AttributesButton {...attributesContext} />
                         <AttachmentCount {...context} />
                         <BacklinksBadge {...context} />
-                        <NoteInfoBadge {...context} />
+                        <NoteInfoBadge {...noteInfoContext} />
                     </div>
                 </>}
             </div>
@@ -153,24 +166,6 @@ function StatusBarButton({ className, icon, text, title, active, ...restProps }:
     );
 }
 
-/**
- * Opens the sidebar's connections tab at one of its widgets, and closes it again on a second press.
- * The way to the one connection the status bar carries no list of its own for: what a note resembles
- * is computed rather than counted, so no badge stands for it to hang a dropdown off.
- *
- * A pane the user keeps closed is peeked rather than docked: the status bar is no place to reflow the
- * content from.
- */
-function useConnectionsToggle(expandWidgetId: string) {
-    return useCallback(() => {
-        void appContext.triggerEvent("selectRightPaneTab", {
-            tabId: "connections",
-            peek: true,
-            expandWidgetId
-        });
-    }, [ expandWidgetId ]);
-}
-
 //#region Language Switcher
 function LanguageSwitcher({ note }: StatusBarContext) {
     const [ modalShown, setModalShown ] = useState(false);
@@ -225,20 +220,22 @@ export function getLocaleName(locale: Locale | null | undefined) {
 }
 //#endregion
 
-//#region Note info
-export function NoteInfoBadge(context: StatusBarContext) {
+//#region Note info & Similar
+interface NoteInfoContext extends StatusBarContext {
+    similarNotesShown?: boolean;
+    setSimilarNotesShown?: (value: boolean) => void;
+}
+
+export function NoteInfoBadge(context: NoteInfoContext) {
     const dropdownRef = useRef<BootstrapDropdown>(null);
     const [ dropdownShown, setDropdownShown ] = useState(false);
-    const { note } = context;
+    const { note, similarNotesShown, setSimilarNotesShown } = context;
     const noteType = useNoteProperty(note, "type");
     const enabled = note && noteType;
-    // What the note resembles is listed in the sidebar's connections tab, alongside the rest of what
-    // ties it to other notes, rather than in a panel of the status bar's own.
-    const showSimilarNotes = useConnectionsToggle("similarNotes");
 
     // Keyboard shortcuts.
     useTriliumEvent("toggleRibbonTabNoteInfo", () => enabled && dropdownRef.current?.show());
-    useTriliumEvent("toggleRibbonTabSimilarNotes", showSimilarNotes);
+    useTriliumEvent("toggleRibbonTabSimilarNotes", () => setSimilarNotesShown?.(!similarNotesShown));
 
     return (enabled &&
         <StatusBarDropdown
@@ -250,16 +247,14 @@ export function NoteInfoBadge(context: StatusBarContext) {
             onShown={() => setDropdownShown(true)}
             onHidden={() => setDropdownShown(false)}
         >
-            {dropdownShown && <NoteInfoContent {...context} dropdownRef={dropdownRef} noteType={noteType} showSimilarNotes={showSimilarNotes} />}
+            {dropdownShown && <NoteInfoContent {...context} dropdownRef={dropdownRef} noteType={noteType} />}
         </StatusBarDropdown>
     );
 }
 
-export function NoteInfoContent({ note, noteType, dropdownRef, showSimilarNotes }: Pick<StatusBarContext, "note"> & {
+export function NoteInfoContent({ note, noteType, dropdownRef, setSimilarNotesShown }: Pick<NoteInfoContext, "note" | "setSimilarNotesShown"> & {
     dropdownRef?: RefObject<BootstrapDropdown>;
     noteType: NoteType;
-    /** Left out where there is no sidebar to show them in — the mobile note menu carries its own list. */
-    showSimilarNotes?: () => void;
 }) {
     const { metadata, ...sizeProps } = useNoteMetadata(note);
     const [ originalFileName ] = useNoteLabel(note, "originalFileName");
@@ -277,11 +272,11 @@ export function NoteInfoContent({ note, noteType, dropdownRef, showSimilarNotes 
                 <NoteInfoValue text={t("note_info_widget.note_size")} title={t("note_info_widget.note_size_info")} value={<NoteSizeWidget {...sizeProps} />} />
             </ul>
 
-            {showSimilarNotes && <LinkButton
+            {setSimilarNotesShown && <LinkButton
                 text={t("note_info_widget.show_similar_notes")}
                 onClick={() => {
                     dropdownRef?.current?.hide();
-                    showSimilarNotes();
+                    setSimilarNotesShown(true);
                 }}
             />}
         </div>
@@ -294,6 +289,18 @@ function NoteInfoValue({ text, title, value }: { text: string; title?: string, v
             <strong title={title}>{text}{": "}</strong>
             <span>{value}</span>
         </li>
+    );
+}
+
+function SimilarNotesPane({ note, similarNotesShown, setSimilarNotesShown }: NoteInfoContext) {
+    return (similarNotesShown &&
+        <BottomPanel title={t("similar_notes.title")}
+            className="similar-notes-pane"
+            visible={similarNotesShown}
+            setVisible={setSimilarNotesShown}
+        >
+            <SimilarNotesTab note={note} />
+        </BottomPanel>
     );
 }
 //#endregion

@@ -14,8 +14,8 @@ import { ParentComponent } from "../react/react_utils";
 export const CollapsibleWidgets = createContext(true);
 
 /**
- * A request to expand one widget of the pane, raised by an entry point aimed at it (the status bar's
- * similar notes link) so that it doesn't land on a widget the user has collapsed. The counter tells
+ * A request to expand one widget of the pane, raised by an entry point aimed at it (the note map's
+ * keyboard action) so that it doesn't land on a widget the user has collapsed. The counter tells
  * repeated requests apart, so the widget opens again after having been collapsed in between.
  */
 export interface ExpandWidgetRequest {

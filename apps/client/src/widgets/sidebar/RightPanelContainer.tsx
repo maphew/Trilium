@@ -31,7 +31,6 @@ import PdfPages from "./pdf/PdfPages";
 import RightPanelWidget, { CollapsibleWidgets, ExpandWidgetRequest, ExpandWidgetRequests } from "./RightPanelWidget";
 import RightPanePeekButton from "./RightPanePeekButton";
 import RightPaneTabs, { RIGHT_PANE_TABS, RightPaneTabDefinition, RightPaneTabId } from "./RightPaneTabs";
-import SimilarNotes from "./SimilarNotes";
 import TableOfContents from "./TableOfContents";
 
 const MIN_WIDTH_PERCENT = 5;
@@ -75,7 +74,7 @@ export default function RightPanelContainer({ widgetsByParent }: { widgetsByPare
     useTriliumEvent("toggleRightPane", toggleDocked);
     useTriliumEvent("peekRightPane", togglePeek);
 
-    // An entry point aimed at one tab (the chat launcher, the status bar's similar notes link): it opens
+    // An entry point aimed at one tab (the chat launcher, the note map's keyboard action): it opens
     // the pane on that tab, brings it to the front if the pane is already open on another one, and puts
     // it away again when it is the tab on show — see reduceTabSelection for what that amounts to.
     // `peek` opens it as a glance instead of a dock; `expandWidgetId` opens the one widget the entry
@@ -232,11 +231,6 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): 
         },
         {
             el: <Backlinks />,
-            enabled: !!note,
-            tab: "connections"
-        },
-        {
-            el: <SimilarNotes />,
             enabled: !!note,
             tab: "connections"
         },
