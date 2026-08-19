@@ -119,8 +119,8 @@ async function createNote(parentNotePath: string | undefined, options: CreateNot
 
 /**
  * Prompts for the type / template of a new note and, optionally, a parent. When the user picks a
- * template without picking a parent, the template's own `~inbox` (if any) is returned as the
- * `notePath` instead, so a template gathers the notes created from it in one place.
+ * template without picking a parent, the template's own `~template:newNoteDefaultParent` (if any)
+ * is returned as the `notePath` instead, so a template gathers the notes created from it in one place.
  */
 async function chooseNoteType() {
     const response = await new Promise<ChooseNoteTypeResponse>((res) => {
@@ -128,7 +128,7 @@ async function chooseNoteType() {
     });
 
     if (response.success && !response.notePath && response.templateNoteId) {
-        response.notePath = await getTemplateInboxNotePath(response.templateNoteId);
+        response.notePath = await getTemplateDefaultParentNotePath(response.templateNoteId);
     }
 
     return response;
@@ -148,15 +148,16 @@ async function createNoteWithTypePrompt(parentNotePath: string, options: CreateN
 }
 
 /**
- * Resolves the path of the note the template's `~inbox` relation points at, relative to the current
- * hoisting. Undefined when the template has no inbox, or the inbox has no visible path.
+ * Resolves the path of the note the template's `~template:newNoteDefaultParent` relation points at,
+ * relative to the current hoisting. Undefined when the template has no such relation, or its target
+ * has no visible path.
  */
-async function getTemplateInboxNotePath(templateNoteId: string) {
+async function getTemplateDefaultParentNotePath(templateNoteId: string) {
     const templateNote = await froca.getNote(templateNoteId);
-    const inboxNote = await templateNote?.getRelationTarget("inbox");
+    const defaultParentNote = await templateNote?.getRelationTarget("template:newNoteDefaultParent");
     const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
 
-    return inboxNote?.getBestNotePathString(hoistedNoteId);
+    return defaultParentNote?.getBestNotePathString(hoistedNoteId);
 }
 
 /* If the first element is heading, parse it out and use it as a new heading. */

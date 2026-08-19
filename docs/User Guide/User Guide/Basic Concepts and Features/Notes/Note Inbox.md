@@ -26,7 +26,3 @@ When a new note is created while hoisted in a workspace, the location is determi
 *   A note carrying the `#workspaceInbox` label in that workspace.
 *   A note carrying the `#inbox` within that workspace.
 *   The workspace root note itself.
-
-## Template inboxes
-
-A [template](../../Advanced%20Usage/Templates.md) can have an inbox of its own, set via an `~inbox` relation on the template note pointing at the destination. Notes created from that template through the _Choose note type_ dialog (e.g. `@`-completion in a text note) land there instead of under the current note, unless another location is picked in the dialog. See <a class="reference-link" href="../../Advanced%20Usage/Templates.md">Templates</a> for details.

@@ -322,14 +322,15 @@ describe("chooseNoteType", () => {
         await expect(noteCreateService.chooseNoteType()).resolves.toEqual(payload);
     });
 
-    describe("template inbox", () => {
-        // A template whose ~inbox points at a note reachable from root, so that it has a note path.
+    describe("template default parent", () => {
+        // A template whose ~template:newNoteDefaultParent points at a note reachable from root, so
+        // that it has a note path.
         const root = buildNote({
             id: "root",
             title: "root",
             children: [
                 { id: "people", title: "People" },
-                { id: "person-tpl", title: "Person", "#template": "", "~inbox": "people" },
+                { id: "person-tpl", title: "Person", "#template": "", "~template:newNoteDefaultParent": "people" },
                 { id: "plain-tpl", title: "Plain", "#template": "" }
             ]
         });
@@ -340,27 +341,27 @@ describe("chooseNoteType", () => {
             return noteCreateService.chooseNoteType();
         }
 
-        it("routes a template without an explicit parent into the template's inbox", async () => {
+        it("routes a template without an explicit parent into the template's default parent", async () => {
             await expect(choose({ success: true, noteType: "text", templateNoteId: "person-tpl" }))
                 .resolves.toEqual({
                     success: true, noteType: "text", templateNoteId: "person-tpl", notePath: "root/people"
                 });
         });
 
-        it("keeps a parent the user picked over the template's inbox", async () => {
+        it("keeps a parent the user picked over the template's default parent", async () => {
             await expect(choose({
                 success: true, noteType: "text", templateNoteId: "person-tpl", notePath: "root/elsewhere"
             })).resolves.toMatchObject({ notePath: "root/elsewhere" });
         });
 
-        it("leaves the path unset without a template or without an inbox on it", async () => {
+        it("leaves the path unset without a template or without a default parent on it", async () => {
             await expect(choose({ success: true, noteType: "text" }))
                 .resolves.toEqual({ success: true, noteType: "text" });
             await expect(choose({ success: true, noteType: "text", templateNoteId: "plain-tpl" }))
                 .resolves.not.toHaveProperty("notePath", expect.any(String));
         });
 
-        it("creates the note in the inbox when the chooser is used through createNoteWithTypePrompt", async () => {
+        it("creates the note in the default parent when the chooser is used through createNoteWithTypePrompt", async () => {
             setActiveContext(true);
             triggerCommand.mockImplementation((_name: string, data: any) => {
                 data.callback({ success: true, noteType: "text", templateNoteId: "person-tpl" });

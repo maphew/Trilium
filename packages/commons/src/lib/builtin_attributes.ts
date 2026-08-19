@@ -339,7 +339,7 @@ const BUILTIN_ATTRIBUTES = [
     { type: "relation", name: "runOnAttributeChange", isDangerous: true },
     { type: "relation", name: "template" },
     // Set on a template: where a note created from it goes when no parent is picked explicitly.
-    { type: "relation", name: "inbox" },
+    { type: "relation", name: "template:newNoteDefaultParent" },
     { type: "relation", name: "inherit" },
     // Set on a journal root, to be applied as `~template` on each note the period generates.
     { type: "relation", name: "dateTemplate" },

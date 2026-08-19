@@ -33,13 +33,13 @@ To specify a template for child notes, you can use a `~child:template` relation 
 > Changing the template hierarchy after the parent note is created will not retroactively apply to newly created child notes.  
 > For example, if you initially use `~child:template` and later switch to `~child:child:template`, it will not automatically apply the new template to the grandchild notes. Only the structure present at the time of note creation is considered.
 
-## Template inbox
+## Default parent for new notes
 
-A template can gather the notes created from it in one place, instead of having them land wherever they happen to be created. To do so, add an `~inbox` relation to the template note, pointing at the note that should hold the instances — for example a _Person_ template with `~inbox` pointing to a _People_ note.
+A template can gather the notes created from it in one place, instead of having them land wherever they happen to be created. To do so, add a `~template:newNoteDefaultParent` relation to the template note, pointing at the note that should hold the instances — for example a _Person_ template pointing to a _People_ note.
 
-The inbox is used whenever a note is created from the template through the _Choose note type_ dialog — for example via `@`-completion in a <a class="reference-link" href="../Note%20Types/Text.md">Text</a> note, or the _Create and link child note_ option of the note search — and no other location is picked in that dialog. Creating an instance note from the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Note%20Tree.md">Note Tree</a> context menu (_Insert child note_, _Insert note after_) still creates it at the chosen place.
+The default parent is used whenever a note is created from the template through the _Choose note type_ dialog — for example via `@`-completion in a <a class="reference-link" href="../Note%20Types/Text.md">Text</a> note, or the _Create and link child note_ option of the note search — and no other location is picked in that dialog. Creating an instance note from the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Note%20Tree.md">Note Tree</a> context menu (_Insert child note_, _Insert note after_) still creates it at the chosen place.
 
-See <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Notes/Note%20Inbox.md">Note Inbox</a> for the inbox used by notes created without a template.
+Unlike the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Notes/Note%20Inbox.md">Note Inbox</a>, which holds quickly captured notes until they are sorted, the default parent is meant as the instances' permanent location.
 
 ## Regarding note types
 
