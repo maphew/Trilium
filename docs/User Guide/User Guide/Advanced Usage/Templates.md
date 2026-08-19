@@ -35,13 +35,18 @@ To specify a template for child notes, you can use a `~child:template` relation 
 
 ## Default parent for new notes
 
-A template can gather the notes created from it in one place, instead of having them land wherever they happen to be created. To do so, add a `~template:newNoteDefaultParent` relation to the template note, pointing at the note that should hold the instances — for example a _Person_ template pointing to a _People_ note.
+A template can gather the notes created from it in one place, instead of having them land wherever they happen to be created. To do so, add a `~template:newNoteDefaultParent` relation to the template note, pointing at the note that should hold the instances, for example a _Person_ template pointing to a _People_ note.
 
-Adding the relation several times places the new note in every target, as <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Notes/Cloning%20Notes.md">clones</a>. The relation can also be inherited — for example from a folder holding several templates — in which case a relation owned by the template itself replaces the inherited one. Inheritance requires the relation to be marked as inheritable: a template created from another template does not adopt that template's default parent.
+Adding the relation several times places the new note in every target, as <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Notes/Cloning%20Notes.md">Cloning Notes</a>. The relation can also be inherited (e.g. from a folder holding several templates), in which case a relation owned by the template itself replaces the inherited one. Inheritance requires the relation to be marked as inheritable: a template created from another template does not adopt that template's default parent.
 
-The default parent is used whenever a note is created from the template through the _Choose note type_ dialog — for example via `@`-completion in a <a class="reference-link" href="../Note%20Types/Text.md">Text</a> note, or the _Create and link child note_ option of the note search — and no other location is picked in that dialog. Creating an instance note from the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Note%20Tree.md">Note Tree</a> context menu (_Insert child note_, _Insert note after_) still creates it at the chosen place.
+The default parent is used whenever a note is created from the template through the _Choose note type_ dialog:
 
-Unlike the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Notes/Note%20Inbox.md">Note Inbox</a>, which holds quickly captured notes until they are sorted, the default parent is meant as the instances' permanent location.
+*   Via `@`\-completion in a <a class="reference-link" href="../Note%20Types/Text.md">Text</a> note
+*   Via the _Create and link child note_ option of the note search (new tab or <a class="reference-link" href="../Note%20Types/Text/Links/Internal%20(reference)%20links.md">Internal (reference) links</a>), but only if the default/empty location is set.
+
+Creating an instance note from the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Note%20Tree.md">Note Tree</a> context menu (_Insert child note_, _Insert note after_) still creates it at the chosen place.
+
+Unlike the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Notes/Note%20Inbox.md">Note Inbox</a>, which holds quickly captured notes until they are sorted, the default parent is meant as the instances' permanent location.
 
 ## Regarding note types
 
