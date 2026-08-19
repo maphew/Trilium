@@ -77,19 +77,19 @@
     }
 
     .cleanup-segment-deletedEntities {
-        --donut-segment-color: var(--cleanup-deleted-color);
+        --space-usage-donut-segment-color: var(--cleanup-deleted-color);
     }
 
     .cleanup-segment-unusedAttachments {
-        --donut-segment-color: var(--cleanup-attachments-color);
+        --space-usage-donut-segment-color: var(--cleanup-attachments-color);
     }
 
     .cleanup-segment-revisionSnapshots {
-        --donut-segment-color: var(--cleanup-revisions-color);
+        --space-usage-donut-segment-color: var(--cleanup-revisions-color);
     }
 
     .cleanup-segment-compactDatabase {
-        --donut-segment-color: var(--cleanup-compact-color);
+        --space-usage-donut-segment-color: var(--cleanup-compact-color);
     }
 
     /* Left in place rather than removed: the ring stands for everything reclaimable, so an unpicked

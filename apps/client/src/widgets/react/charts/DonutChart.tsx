@@ -55,7 +55,7 @@ interface DonutChartProps<T> {
     selectedSegmentId?: string;
     className?: string;
     /**
-     * SVG paint servers (gradients, patterns) for segments whose class points `--donut-segment-color`
+     * SVG paint servers (gradients, patterns) for segments whose class points `--space-usage-donut-segment-color`
      * at one: a stroke can only reference them through `url(#id)`, so they must live in this chart's
      * own `<defs>`.
      */

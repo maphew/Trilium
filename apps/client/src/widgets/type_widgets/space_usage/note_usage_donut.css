@@ -1,33 +1,60 @@
-.note-usage-donut {
-    /* The semantic segment colors; themes can override the variables. Mixed into the theme surface
-       at a lower share than the children ring's tints (45%), so the composition ring reads
-       deliberately quieter than the ring around it. */
-    --space-usage-body-color: color-mix(in srgb, var(--accented-background-color) 70%, #5b8dd9 30%);
-    --space-usage-attachments-color: color-mix(in srgb, var(--accented-background-color) 70%, #d9a93d 30%);
-    --space-usage-revisions-color: color-mix(in srgb, var(--accented-background-color) 70%, #8f959c 30%);
-    /* The hatch's stripes: the same gray carried further from the surface, so the texture reads at
-       ring thickness without becoming a second color. */
-    --space-usage-revisions-stripe-color: color-mix(in srgb, var(--accented-background-color) 40%, #8f959c 60%);
+/* The semantic segment colors, and the trace a chosen one is marked with. Zero specificity, so a
+   theme overrides them from its own `:root` block; the values here are the light scheme. */
+:where(:root) {
+    /* What the note itself holds, and what hangs off it. */
+    --space-usage-body-color: #c7d6ed;
+    --space-usage-attachments-color: #eddebe;
+    /* History, quieter than either: a tier rather than a thing the user put there. */
+    --space-usage-revisions-color: #d6d8da;
+    /* The hatch's stripes: the same gray carried further from the fill, so the texture reads
+       at ring thickness without becoming a second color. */
+    --space-usage-revisions-stripe-color: #b8bbc0;
 
-    /* These two are painted from a semantic colour rather than from a hue, so they name the hue that
-       colour is built on for the chosen trace to be struck from: the fills above are that hue mixed
-       most of the way into the theme's surface, and this is the same hue at full strength. The
-       revisions gray stands for a tier rather than a thing and has no hue to give, so its trace
-       keeps the primitive's plain default. */
+    /* The hue each fill is built on, so a hovered or chosen segment is marked the way a hue-colored
+       one is: struck from that hue at the strength the primitive gives. The revisions gray
+       stands for a tier rather than a thing and has no hue to give, so it keeps the plain
+       defaults. */
+    --space-usage-body-hue: 217;
+    --space-usage-attachments-hue: 42;
+    --space-usage-body-hover-color: hsl(
+        var(--space-usage-body-hue)
+        var(--space-usage-donut-hover-saturation)
+        var(--space-usage-donut-hover-lightness)
+    );
+    --space-usage-body-selected-color: hsl(
+        var(--space-usage-body-hue)
+        var(--space-usage-donut-selected-saturation)
+        var(--space-usage-donut-selected-lightness)
+    );
+    --space-usage-attachments-hover-color: hsl(
+        var(--space-usage-attachments-hue)
+        var(--space-usage-donut-hover-saturation)
+        var(--space-usage-donut-hover-lightness)
+    );
+    --space-usage-attachments-selected-color: hsl(
+        var(--space-usage-attachments-hue)
+        var(--space-usage-donut-selected-saturation)
+        var(--space-usage-donut-selected-lightness)
+    );
+}
+
+.note-usage-donut {
     .space-usage-segment-body {
-        --donut-segment-color: var(--space-usage-body-color);
-        --donut-segment-selected-color: hsl(217 100% 50%);
+        --space-usage-donut-segment-color: var(--space-usage-body-color);
+        --space-usage-donut-segment-hover-color: var(--space-usage-body-hover-color);
+        --space-usage-donut-segment-selected-color: var(--space-usage-body-selected-color);
     }
 
     .space-usage-segment-attachment {
-        --donut-segment-color: var(--space-usage-attachments-color);
-        --donut-segment-selected-color: hsl(42 100% 50%);
+        --space-usage-donut-segment-color: var(--space-usage-attachments-color);
+        --space-usage-donut-segment-hover-color: var(--space-usage-attachments-hover-color);
+        --space-usage-donut-segment-selected-color: var(--space-usage-attachments-selected-color);
     }
 
     /* Stroked with the hatch rather than a flat fill: history is not content the user put there,
        and the texture says so without spending another color. */
     .space-usage-segment-revisions {
-        --donut-segment-color: url(#space-usage-revisions-hatch);
+        --space-usage-donut-segment-color: url(#space-usage-revisions-hatch);
     }
 
     .space-usage-hatch-base {
@@ -83,5 +110,4 @@
     .note-usage-donut-size-value {
         font-weight: 600;
     }
-
 }

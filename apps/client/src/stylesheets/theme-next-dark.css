@@ -379,6 +379,25 @@
 
     --space-usage-treemap-selected-saturation: 70%;
     --space-usage-treemap-selected-lightness: 70%;
+
+    --space-usage-body-color: #a7c0d3;
+    --space-usage-attachments-color: #dec7a7;
+    --space-usage-revisions-color: #61d177;
+    --space-usage-revisions-stripe-color: #000000;
+
+    --space-usage-donut-track-color: var(--main-border-color);
+    --space-usage-donut-segment-color: var(--accented-background-color);
+    --space-usage-donut-segment-hover-color: var(--input-focus-outline-color);
+    --space-usage-donut-segment-selected-color: var(--main-text-color);
+
+    --space-usage-donut-segment-saturation: 55%;
+    --space-usage-donut-segment-lightness: 60%;
+
+    --space-usage-donut-hover-saturation: 90%;
+    --space-usage-donut-hover-lightness: 80%;
+
+    --space-usage-donut-selected-saturation: 90%;
+    --space-usage-donut-selected-lightness: 80%;
 }
 
 /*
