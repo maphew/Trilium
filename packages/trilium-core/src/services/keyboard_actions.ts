@@ -412,6 +412,10 @@ function getDefaultKeyboardActions() {
             defaultShortcuts: [],
             scope: "window"
         },
+
+        {
+            separator: t("keyboard_actions.split-view")
+        },
         {
             actionName: "openNewNoteSplit",
             friendlyName: t("keyboard_action_names.create-new-split"),
