@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildNote } from "../test/easy-froca";
 import froca from "./froca";
+import noteAttributeCache from "./note_attribute_cache.js";
 import server from "./server.js";
 import ws from "./ws.js";
 
@@ -344,6 +345,7 @@ describe("chooseNoteType", () => {
                     { id: "inheriting-tpl", title: "Inheriting", "#template": "" },
                     { id: "overriding-tpl", title: "Overriding", "#template": "", "~template:newNoteDefaultParent": "people" }
                 ] },
+                { id: "derived-tpl", title: "Derived", "#template": "", "~template": "person-tpl" },
                 { id: "plain-tpl", title: "Plain", "#template": "" }
             ]
         });
@@ -365,6 +367,14 @@ describe("chooseNoteType", () => {
         it("reports every default parent: the first as the note path, the rest as clone targets", async () => {
             await expect(choose({ success: true, noteType: "text", templateNoteId: "multi-tpl" }))
                 .resolves.toMatchObject({ notePath: "root/people", cloneToNoteIds: ["advisors"] });
+        });
+
+        it("ignores a non-inheritable destination flowing through ~template from the base template", async () => {
+            // easy-froca seeds owned attributes into the attribute cache, which would mask template
+            // inheritance; recomputing resolves it the way the application does.
+            noteAttributeCache.invalidate();
+            await expect(choose({ success: true, noteType: "text", templateNoteId: "derived-tpl" }))
+                .resolves.toEqual({ success: true, noteType: "text", templateNoteId: "derived-tpl" });
         });
 
         it("uses an inherited default parent, unless the template owns one, which replaces it", async () => {

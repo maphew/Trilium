@@ -170,6 +170,11 @@ async function createNoteWithTypePrompt(parentNotePath: string, options: CreateN
  * called, since all branches of a note are equal. Owned relations replace inherited ones, so a
  * template overrides an inheritable default on an ancestor instead of adding to it. Undefined when
  * no target resolves to a note with a visible path.
+ *
+ * Inherited relations count only when marked inheritable. Attributes also flow through `~template`
+ * regardless of that flag, and every note created from a template carries `~template` — without the
+ * check, a note created from a template and later marked `#template` itself would silently adopt
+ * the original template's destination.
  */
 async function getTemplateDefaultParents(templateNoteId: string) {
     const templateNote = await froca.getNote(templateNoteId);
@@ -180,7 +185,7 @@ async function getTemplateDefaultParents(templateNoteId: string) {
     const ownedRelations = templateNote.getOwnedRelations("template:newNoteDefaultParent");
     const relations = ownedRelations.length
         ? ownedRelations
-        : templateNote.getRelations("template:newNoteDefaultParent");
+        : templateNote.getRelations("template:newNoteDefaultParent").filter((attr) => attr.isInheritable);
     const targetNoteIds = [...new Set(relations.map((relation) => relation.value).filter(Boolean))];
     const targetNotes = await froca.getNotes(targetNoteIds, true);
     const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
