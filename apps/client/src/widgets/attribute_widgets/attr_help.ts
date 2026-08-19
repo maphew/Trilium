@@ -200,6 +200,7 @@ export const ATTR_HELP: AttrHelpMap = {
         runOnAttributeCreation: t("attribute_detail.run_on_attribute_creation"),
         runOnAttributeChange: t("attribute_detail.run_on_attribute_change"),
         template: t("attribute_detail.relation_template"),
+        inbox: t("attribute_detail.relation_inbox"),
         inherit: t("attribute_detail.inherit"),
         renderNote: t("attribute_detail.render_note"),
         widget: t("attribute_detail.widget_relation"),

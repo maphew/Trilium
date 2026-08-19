@@ -57,6 +57,23 @@
     will not automatically apply the new template to the grandchild notes.
     Only the structure present at the time of note creation is considered.</p>
 </aside>
+<h2>Template inbox</h2>
+<p>A template can gather the notes created from it in one place, instead
+  of having them land wherever they happen to be created. To do so, add an
+  <code
+  spellcheck="false">~inbox</code>relation to the template note, pointing at the note that should
+    hold the instances — for example a <em>Person</em> template with <code spellcheck="false">~inbox</code> pointing
+    to a <em>People</em> note.</p>
+<p>The inbox is used whenever a note is created from the template through
+  the <em>Choose note type</em> dialog — for example via <code spellcheck="false">@</code>-completion
+  in a&nbsp;<a class="reference-link" href="#root/_help_iPIMuisry3hd">Text</a>&nbsp;note,
+  or the <em>Create and link child note</em> option of the note search — and
+  no other location is picked in that dialog. Creating an instance note from
+  the&nbsp;<a class="reference-link" href="#root/_help_oPVyFC7WL2Lp">Note Tree</a>&nbsp;context
+  menu (<em>Insert child note</em>, <em>Insert note after</em>) still creates
+  it at the chosen place.</p>
+<p>See&nbsp;<a class="reference-link" href="#root/_help_S0Fos78ZfcY7">Note Inbox</a>&nbsp;for
+  the inbox used by notes created without a template.</p>
 <h2>Regarding note types</h2>
 <p>By default, newly created notes are&nbsp;<a class="reference-link" href="#root/_help_iPIMuisry3hd">Text</a>&nbsp;notes.
   If a parent note defines a <code spellcheck="false">child:template</code> pointing

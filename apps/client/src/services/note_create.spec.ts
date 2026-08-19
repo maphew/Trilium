@@ -321,6 +321,60 @@ describe("chooseNoteType", () => {
         triggerCommand.mockImplementation((_name: string, data: any) => data.callback(payload));
         await expect(noteCreateService.chooseNoteType()).resolves.toEqual(payload);
     });
+
+    describe("template inbox", () => {
+        // A template whose ~inbox points at a note reachable from root, so that it has a note path.
+        const root = buildNote({
+            id: "root",
+            title: "root",
+            children: [
+                { id: "people", title: "People" },
+                { id: "person-tpl", title: "Person", "#template": "", "~inbox": "people" },
+                { id: "plain-tpl", title: "Plain", "#template": "" }
+            ]
+        });
+        expect(root.noteId).toBe("root");
+
+        function choose(response: Record<string, unknown>) {
+            triggerCommand.mockImplementation((_name: string, data: any) => data.callback(response));
+            return noteCreateService.chooseNoteType();
+        }
+
+        it("routes a template without an explicit parent into the template's inbox", async () => {
+            await expect(choose({ success: true, noteType: "text", templateNoteId: "person-tpl" }))
+                .resolves.toEqual({
+                    success: true, noteType: "text", templateNoteId: "person-tpl", notePath: "root/people"
+                });
+        });
+
+        it("keeps a parent the user picked over the template's inbox", async () => {
+            await expect(choose({
+                success: true, noteType: "text", templateNoteId: "person-tpl", notePath: "root/elsewhere"
+            })).resolves.toMatchObject({ notePath: "root/elsewhere" });
+        });
+
+        it("leaves the path unset without a template or without an inbox on it", async () => {
+            await expect(choose({ success: true, noteType: "text" }))
+                .resolves.toEqual({ success: true, noteType: "text" });
+            await expect(choose({ success: true, noteType: "text", templateNoteId: "plain-tpl" }))
+                .resolves.not.toHaveProperty("notePath", expect.any(String));
+        });
+
+        it("creates the note in the inbox when the chooser is used through createNoteWithTypePrompt", async () => {
+            setActiveContext(true);
+            triggerCommand.mockImplementation((_name: string, data: any) => {
+                data.callback({ success: true, noteType: "text", templateNoteId: "person-tpl" });
+            });
+
+            await noteCreateService.createNoteWithTypePrompt("fallback-parent", {});
+
+            expect(server.post).toHaveBeenCalledWith(
+                `notes/people/children?target=into&targetBranchId=`,
+                expect.objectContaining({ templateNoteId: "person-tpl" }),
+                undefined
+            );
+        });
+    });
 });
 
 describe("duplicateSubtree", () => {

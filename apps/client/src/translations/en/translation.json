@@ -633,6 +633,7 @@
     "run_on_attribute_creation": "Executes when new attribute is created for the note which defines this relation.",
     "run_on_attribute_change": "Executes when the attribute is changed of a note which defines this relation. This is triggered also when the attribute is deleted.",
     "relation_template": "Note's attributes will be inherited even without a parent-child relationship, note's content and subtree will be added to instance notes if empty. See documentation for details.",
+    "relation_inbox": "Set on a template note: notes created from the template (e.g. via @-completion) are created under the target note, unless another location is picked explicitly.",
     "inherit": "Note's attributes will be inherited even without a parent-child relationship. See template relation for a similar concept. See attribute inheritance in the documentation.",
     "render_note": "Notes of type \"render HTML note\" will be rendered using a code note (HTML or script) and it is necessary to point using this relation to which note should be rendered.",
     "widget_relation": "Target of this relation will be executed and rendered as a widget in the sidebar.",
