@@ -6,7 +6,7 @@ For the user-facing documentation, including how to write scripts and the variou
 ### Quick links
 
 *   <a class="reference-link" href="Developer%20Guide/Environment%20Setup.md">Environment Setup</a>
-*   <a class="reference-link" href="Developer%20Guide/Project%20Structure.md">[missing note]</a>
+*   <a class="reference-link" href="Developer%20Guide/Project%20Structure.md">Project Structure</a>
 
 ### External links
 

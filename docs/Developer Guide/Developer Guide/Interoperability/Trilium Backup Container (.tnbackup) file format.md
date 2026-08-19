@@ -149,7 +149,7 @@ Present only when flag bit 1 is set.
 
 The three parameter bytes are interpreted per algorithm, so a future KDF is not forced into scrypt's shape:
 
-| KDF id | Byte 33 | Byte 34 | Byte 35 |
+| KDF id | Byte 41 | Byte 42 | Byte 43 |
 | --- | --- | --- | --- |
 | `1` scrypt | log2(N) | r | p |
 | `2` and above | Defined when the id is assigned |  |  |
@@ -363,4 +363,4 @@ Extension rules:
 *   A flag that changes what a reader must verify must say what stands in for the check it removes, and the substitute must be mandatory rather than advisory. Prefer not to have one: a check that every container carries is worth more than a flag that lets some of them skip it.
 *   Fields that are only knowable once the payload is written belong in the trailer, never in the header, so that no writer ever has to seek and every destination can hold the format.
 *   Version `0` is never valid, because it is what a zero-filled or truncated file produces.
-*   The authenticated header is included in every frame's AAD verbatim, which is 60 bytes in version 1 and therefore free. A version that grows it to kilobytes should switch the frame AAD to a digest of it, so that per-frame authentication stays constant-cost.
+*   The authenticated header is included in every frame's AAD verbatim, which is 68 bytes in version 1 and therefore free. A version that grows it to kilobytes should switch the frame AAD to a digest of it, so that per-frame authentication stays constant-cost.
