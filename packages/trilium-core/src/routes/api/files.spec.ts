@@ -125,6 +125,83 @@ describe("Files API (core)", () => {
     });
 
     /**
+     * An SVG served inline is a document, and a document runs its scripts in Trilium's origin. The
+     * `/open` routes carry no Content-Disposition, so they are the sink; `/download` is marked
+     * `attachment` and must hand back the stored bytes untouched.
+     */
+    describe("SVG serving", () => {
+        const MALICIOUS_SVG = `<svg xmlns="http://www.w3.org/2000/svg"><script>alert(document.domain)</script><rect width="10" height="10" onload="alert(1)"/></svg>`;
+
+        async function createSvgNote(mime: string, type = "file"): Promise<string> {
+            const res = await api.post<{ note: { noteId: string } }>("/api/notes/root/children?target=into", {
+                body: { title: "invoice.svg", type, mime, content: MALICIOUS_SVG }
+            });
+            expect(res.status).toBe(200);
+            return res.body.note.noteId;
+        }
+
+        it("strips scripts and event handlers from an SVG file note opened inline", async () => {
+            // The shape a crafted `!!!meta.json` produces: type `file`, so no import-time
+            // sanitization runs, with an SVG mime that makes the client open it as a document.
+            const noteId = await createSvgNote("image/svg+xml");
+
+            const res = await api.get<string>(`/api/notes/${noteId}/open`);
+            expect(res.status).toBe(200);
+            expect(res.body).not.toContain("<script");
+            expect(res.body).not.toContain("onload=");
+            expect(res.body).toContain("<rect");
+            expect(res.headers["Content-Security-Policy"]).toBeTruthy();
+            expect(res.headers["X-Content-Type-Options"]).toBe("nosniff");
+            expect(res.headers["Content-Disposition"]).toBeUndefined();
+        });
+
+        it("sanitizes an image note opened inline, and the unregistered `image/svg` spelling too", async () => {
+            // An ordinary `.svg` upload lands as an image note, whose ribbon has the same Open
+            // button — the sink is reachable without an import at all.
+            for (const mime of [ "image/svg+xml", "image/svg" ]) {
+                const noteId = await createSvgNote(mime, "image");
+
+                const res = await api.get<string>(`/api/notes/${noteId}/open`);
+                expect(res.status, mime).toBe(200);
+                expect(res.body, mime).not.toContain("<script");
+                expect(res.headers["Content-Security-Policy"], mime).toBeTruthy();
+            }
+        });
+
+        it("sanitizes an SVG attachment opened inline", async () => {
+            const { noteId } = await createTextNote(api, { title: "Has SVG" });
+            const save = await api.post(`/api/notes/${noteId}/attachments`, {
+                body: { role: "image", mime: "image/svg+xml", title: "logo.svg", content: MALICIOUS_SVG }
+            });
+            expect(save.status).toBe(204);
+            const list = await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`);
+            const { attachmentId } = list.body[0];
+
+            const res = await api.get<string>(`/api/attachments/${attachmentId}/open`);
+            expect(res.status).toBe(200);
+            expect(res.body).not.toContain("<script");
+            expect(res.headers["Content-Security-Policy"]).toBeTruthy();
+        });
+
+        it("leaves a downloaded SVG byte-for-byte and does not touch non-SVG content", async () => {
+            // A download is saved, never rendered, so the user's file has to arrive as it was stored.
+            const svgNoteId = await createSvgNote("image/svg+xml");
+            const download = await api.get<string>(`/api/notes/${svgNoteId}/download`);
+            expect(download.status).toBe(200);
+            expect(download.body).toBe(MALICIOUS_SVG);
+            expect(download.headers["Content-Disposition"]).toBeTruthy();
+            expect(download.headers["Content-Security-Policy"]).toBeUndefined();
+
+            // A non-SVG mime keeps the plain path, scripts and all.
+            const plainId = await createSvgNote("text/plain");
+            const plain = await api.get<string>(`/api/notes/${plainId}/open`);
+            expect(plain.status).toBe(200);
+            expect(plain.body).toContain("<script>");
+            expect(plain.headers["Content-Security-Policy"]).toBeUndefined();
+        });
+    });
+
+    /**
      * Writing a file back over a note or an attachment: "upload new revision" on a file note, the
      * PDF viewer saving its annotations, and replacing an attachment's file. The upload arrives as
      * `req.file` — multipart parsed by multer on the server, by the router itself in standalone.
