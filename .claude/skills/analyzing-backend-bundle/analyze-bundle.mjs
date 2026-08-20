@@ -188,8 +188,11 @@ function findEntryInput(meta) {
 }
 
 /** BFS over static edges only — a dynamic-import edge is a lazy boundary. */
-function staticReachability(meta) {
-    const entry = findEntryInput(meta);
+function staticReachability(meta, from) {
+    const entry = from ?? findEntryInput(meta);
+    if (!meta.inputs[entry]) {
+        throw new Error(`no such input: ${entry}`);
+    }
     const prev = new Map([[entry, null]]);
     const queue = [entry];
     while (queue.length) {
@@ -208,24 +211,48 @@ function staticReachability(meta) {
 /** Explains why packages are eager: the shortest static import chain from the entry. */
 async function why() {
     const meta = JSON.parse(fs.readFileSync(flag("--meta"), "utf8"));
-    const prev = staticReachability(meta);
-    const needles = args.filter((a) => !a.startsWith("--") && a !== flag("--meta") && a !== flag("--entry"));
+    const from = flag("--from");
+    const prev = staticReachability(meta, from);
+    const needles = args.filter((a) => !a.startsWith("--")
+        && a !== flag("--meta") && a !== flag("--entry") && a !== from);
     for (const needle of needles) {
-        const target = [...prev.keys()].find((k) => k.includes(needle));
+        const target = findInput([...prev.keys()], needle);
         if (!target) {
-            console.log(`\n${needle}: NOT statically reachable.`);
-            console.log("  If it still loads at boot (per a recording), a dynamic import runs during startup — find and defer that call.");
+            console.log(`\n${needle}: NOT statically reachable from ${from ?? "the entry"}.`);
+            console.log("  Two things still put it in the startup set, both visible only in a recording:");
+            console.log("  - a dynamic import that runs during startup (defer that call), or");
+            console.log("  - a static path from a module that is itself dynamically imported at boot");
+            console.log(`    (e.g. www.ts). Re-run with --from <that input> to see the chain.`);
             continue;
         }
         const chain = [];
         for (let n = target; n; n = prev.get(n)) {
             chain.unshift(n);
         }
-        console.log(`\n${needle}: eager via`);
+        console.log(`\n${needle} (matched ${target}): eager via`);
         for (const p of chain) {
             console.log("   " + p);
         }
     }
+}
+
+/**
+ * Resolves a needle to one input path. A bare package name is matched at its
+ * `node_modules/<name>/` boundary first: plain substring matching confuses a
+ * package with any file whose name ends the same way ("highlight.js" also
+ * matches postcss's `terminal-highlight.js`).
+ */
+function findInput(keys, needle) {
+    if (needle.includes("/")) {
+        return keys.find((k) => k.includes(needle));
+    }
+    const atBoundary = keys.find((k) => k.includes(`node_modules/${needle}/`));
+    if (atBoundary) {
+        return atBoundary;
+    }
+    // Path-segment match only, so a needle never matches the tail of a longer
+    // file name.
+    return keys.find((k) => k.includes(`/${needle}/`) || k.endsWith(`/${needle}`));
 }
 
 /** Whole-bundle composition, no recording needed. */

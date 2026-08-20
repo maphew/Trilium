@@ -41,9 +41,12 @@ env $ENV node .claude/skills/analyzing-backend-bundle/analyze-bundle.mjs record 
 node .claude/skills/analyzing-backend-bundle/analyze-bundle.mjs startup \
     --meta <meta.json> --loaded /tmp/loaded.txt
 
-# 3. Explain WHY a package is eager (shortest static import chain from the entry):
+# 3. Explain WHY a package is eager (shortest static import chain from the entry;
+#    --from <input> traces from a module that is itself dynamically imported):
 node .claude/skills/analyzing-backend-bundle/analyze-bundle.mjs why \
     --meta <meta.json> iconv-lite undici
+node .claude/skills/analyzing-backend-bundle/analyze-bundle.mjs why \
+    --meta <meta.json> --from apps/server/src/www.ts highlight.js
 
 # 4. Whole-bundle composition, no boot needed:
 node .claude/skills/analyzing-backend-bundle/analyze-bundle.mjs packages --meta <meta.json>
@@ -79,10 +82,18 @@ restoring. (Making buildBackend write per-entry metafiles is the real fix if thi
   reasoning that consults `entryPoint`, or assumes "chunk = lazy", overcounts. Conversely the
   static-reachability closure *undercounts*: a dynamic import executed during boot loads its
   chunk anyway.
-- **"NOT statically reachable" + present in the startup set** is that second pattern and is
-  the best kind of finding: the seam already exists, boot-time code defeats it. Find the
-  dynamic import that runs at startup and defer it to first use (example: the `/mcp` route
-  registering the MCP SDK at boot instead of on first request).
+- **"NOT statically reachable" + present in the startup set** has two causes, and they call
+  for opposite fixes. Either a dynamic import runs during startup — the seam exists and
+  boot-time code defeats it, so defer that call (example: the `/mcp` route registering the
+  MCP SDK at boot instead of on first request) — or the package is reached by an ordinary
+  static chain from a module that is *itself* dynamically imported at boot, such as
+  `apps/server/src/www.ts`. `why --from apps/server/src/www.ts <pkg>` shows the second kind;
+  the fix there is a seam somewhere along the chain it prints.
+- **`why` takes a package name, not a substring.** A bare needle matches at
+  `node_modules/<name>/` or a whole path segment, because plain substring matching silently
+  confuses a package with any file whose name merely ends the same way — "highlight.js" also
+  appears in postcss's `terminal-highlight.js`, which reads as a plausible but entirely
+  fictitious dependency edge.
 - **Chunks load as units.** A package can be "lazy" in source but ride in a chunk shared
   with eager code; `startup`'s biggest-chunks table shows each chunk's dominant input so
   this is visible.
