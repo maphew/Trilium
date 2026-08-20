@@ -27,13 +27,39 @@ export async function getLanguageStats(project: WeblateProject) {
 
     // Make the request
     console.log("Reading language stats from Weblate API.");
-    const request = await fetch(`https://hosted.weblate.org/api/components/trilium/${project}/translations/`);
-    const stats = JSON.parse(await request.text());
+    const stats = await fetchAllPages(
+        `https://hosted.weblate.org/api/components/trilium/${project}/translations/`);
 
     // Update the cache
     await writeFile(cacheFile, JSON.stringify(stats, null, 4));
 
     return stats;
+}
+
+/**
+ * Reads every page of a paginated Weblate endpoint into a single `results` array.
+ *
+ * The API serves 50 entries per page. Each component is already at 40 languages, so a
+ * caller reading only the first response would start losing languages once translators
+ * pick up ten more, and the coverage gate would pass by never seeing them.
+ */
+export async function fetchAllPages(firstPageUrl: string) {
+    const results: unknown[] = [];
+    let url: string | null = firstPageUrl;
+
+    while (url) {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(
+                `Weblate answered ${response.status} ${response.statusText} for ${url}.`);
+        }
+
+        const page = await response.json();
+        results.push(...page.results);
+        url = page.next;
+    }
+
+    return { count: results.length, results };
 }
 
 /**
