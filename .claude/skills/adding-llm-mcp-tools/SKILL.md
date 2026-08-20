@@ -36,9 +36,12 @@ Rule: **any tool that writes** (`setContent`, `save`, `setAttribute`, `createNew
 
 **Node-only tools take the other door.** A tool that needs something core cannot have in the browser
 (the in-app documentation reader, for instance) lives in `apps/server/src/services/llm/tools/`
-(`doc_notes.ts`, `help_tools.ts`) and registers itself at server startup by calling
-`registerToolRegistry(theRegistry)` (`index.ts:48`), which appends to the same array. Standalone
-simply runs without it. Put a tool there **only** if it genuinely cannot run under sqlite-wasm —
+(`doc_notes.ts`, `help_tools.ts`) and registers at server startup via
+`registerToolRegistryLoader(async () => (await import("./tools/x.js")).xTools)` from core's light
+`tools/registration.ts` (see `registerServerLlmExtensions`); the first chat turn or MCP request
+resolves the loader through `resolveToolRegistries()` and appends the registry to the same array.
+Register the loader, never a static import — the loader form is what keeps the tool stack (zod, the
+AI SDK) out of the server's startup path. Standalone simply runs without it. Put a tool there **only** if it genuinely cannot run under sqlite-wasm —
 core is the default home, and anything placed in the server loses the standalone and desktop
 consumers.
 

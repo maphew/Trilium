@@ -634,7 +634,7 @@ export class ClaudeAgentProvider implements LlmProvider {
             // open port, and no dependency on the user-facing `mcpEnabled`
             // toggle (which exists to expose notes to *external* clients).
             options.mcpServers = {
-                trilium: { type: "sdk", name: "trilium", instance: createMcpServer() }
+                trilium: { type: "sdk", name: "trilium", instance: await createMcpServer() }
             };
             // Bare server prefix auto-allows every tool from that server.
             allowedTools.push("mcp__trilium");

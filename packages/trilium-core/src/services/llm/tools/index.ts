@@ -17,6 +17,7 @@ import { attributeTools } from "./attribute_tools.js";
 import { hierarchyTools } from "./hierarchy_tools.js";
 import { iconTools } from "./icon_tools.js";
 import { noteTools } from "./note_tools.js";
+import { drainToolRegistryLoaders } from "./registration.js";
 import { skillTools } from "./skill_tools.js";
 import type { ToolRegistry } from "./tool_registry.js";
 
@@ -44,9 +45,25 @@ export const allToolRegistries: ToolRegistry[] = [
  * or MCP tool listing, both of which read {@link allToolRegistries} eagerly.
  * Registering the same registry twice is a no-op, so a host that initialises
  * more than once (tests, Electron reloads) does not duplicate its tools.
+ *
+ * A host whose registry should stay out of the startup path registers a loader
+ * with `registerToolRegistryLoader` (see `registration.js`) instead of calling
+ * this directly.
  */
 export function registerToolRegistry(registry: ToolRegistry) {
     if (!allToolRegistries.includes(registry)) {
         allToolRegistries.push(registry);
+    }
+}
+
+/**
+ * Loads every host-registered lazy registry into {@link allToolRegistries}.
+ * The chat pipeline and the MCP server call this at the start of their async
+ * entry points, which is what lets `buildTools()` and other readers stay
+ * synchronous: by the time they iterate the array, it is complete.
+ */
+export async function resolveToolRegistries(): Promise<void> {
+    for (const loader of drainToolRegistryLoaders()) {
+        registerToolRegistry(await loader());
     }
 }
