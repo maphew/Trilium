@@ -3,10 +3,13 @@ import { join } from "path";
 
 const scriptDir = __dirname;
 
+/** The Weblate components under https://hosted.weblate.org/projects/trilium/ that are gated. */
+export type WeblateProject = "readme" | "client" | "website";
+
 /** How long a `.language-stats-*.json` cache file is reused before Weblate is queried again. */
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-export async function getLanguageStats(project: "readme" | "client") {
+export async function getLanguageStats(project: WeblateProject) {
     const cacheFile = join(scriptDir, `.language-stats-${project}.json`);
 
     // Try to read from the cache.
