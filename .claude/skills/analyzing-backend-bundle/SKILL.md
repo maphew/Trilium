@@ -48,6 +48,9 @@ node .claude/skills/analyzing-backend-bundle/analyze-bundle.mjs why \
 # 4. Whole-bundle composition, no boot needed:
 node .claude/skills/analyzing-backend-bundle/analyze-bundle.mjs packages --meta <meta.json>
 
+# 5. After adding any lazy seam — catches the CJS interop break described below:
+node .claude/skills/analyzing-backend-bundle/check-dynamic-imports.mjs apps/server/dist
+
 # Memory numbers (RSS/heap post-GC; add --snapshot for a heap snapshot):
 env $ENV node --expose-gc .claude/skills/analyzing-backend-bundle/profile-bundle.cjs \
     apps/server/dist/main.mjs --port 8123 --snapshot /tmp/s.heapsnapshot
@@ -96,9 +99,33 @@ restoring. (Making buildBackend write per-entry metafiles is the real fix if thi
 | Consumed synchronously (script API, sucrase transpile) | Per-call import is impossible — preload conditionally at startup behind the feature's flag (backend scripting is off by default) |
 | Pulled by a dep's edge that never runs meaningfully | esbuild `alias`/stub for that one file |
 
-After any fix: re-run `record` + `startup` and compare the eager total, and check no chunk
-in the new startup set carries characters above U+00FF (`grep -lP '[^\x00-\xFF]'` over the
-loaded chunks; `heap-strings.mjs` shows a ~2x source string when one slips through).
+After any fix: re-run `record` + `startup` and compare the eager total, run
+`check-dynamic-imports.mjs` (see below), and check no chunk in the new startup set carries
+characters above U+00FF (`grep -lP '[^\x00-\xFF]'` over the loaded chunks; `heap-strings.mjs`
+shows a ~2x source string when one slips through).
+
+## The CommonJS interop trap — verify every new seam
+
+**`const { x } = await import("some-cjs-package")` is silently broken in the split ESM
+build.** esbuild cannot know a CommonJS module's named exports, so it emits the chunk with a
+single `default` export; destructuring names off the namespace yields `undefined`, and the
+first call fails with something like "l is not a constructor". Unit tests do not catch it,
+because a `vi.mock("some-cjs-package", …)` supplies whatever names the test asks for.
+
+Write the seam through the interop instead, and give the test mock a matching `default` (the
+real module has one — that is the shape Node's own CJS interop produces):
+
+```ts
+const mod = await import("undici");
+const { Agent, fetch } = mod.default ?? mod;   // works in ESM chunks, CJS output, and Node
+```
+
+Seams whose target is **own source or a real ESM package** (unpdf, the agent SDK, the MCP
+SDK, core's own modules) are unaffected — they have genuine named exports. Only CJS
+packages bite. `check-dynamic-imports.mjs` compares, for every dynamic import in the built
+bundle, the names the consumer destructures against the names the target chunk exports; run
+it on a clean build after adding a seam, and confirm the seam works for real (import the
+emitted chunk in a scratch script and call into it) rather than trusting the unit tests.
 
 ## Gotchas
 
