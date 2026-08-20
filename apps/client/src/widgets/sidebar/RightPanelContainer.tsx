@@ -381,7 +381,7 @@ function useSplit(mode: PaneMode) {
         const selectors = mode === "docked"
             ? [ "#center-pane", "#right-pane-host" ]
             : [ ".right-pane-peek-spacer", "#right-pane" ];
-        const minSize = mode === "docked" ? [ 300, 180 ] : [ 0, 180 ];
+        const minSize = mode === "docked" ? [ 300, 230 ] : [ 0, 230 ];
 
         const createSplit = () => Split(selectors, {
             sizes: [100 - rightPaneWidth, rightPaneWidth],
