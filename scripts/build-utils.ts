@@ -111,6 +111,11 @@ export default class BuildHelper {
             // ESM, so each output file defines them from `import.meta.url`.
             // esbuild's `__require` interop helper picks up the banner's
             // `require` binding for external packages (better-sqlite3 etc.).
+            // `__dirname` in a chunk resolves to the bundle root, not
+            // `chunks/`: bundled code uses it to find siblings of the entry
+            // (preload.cjs, image_worker.cjs, assets/), and which chunk a
+            // module lands in must not change what the path means. The
+            // `chunks` suffix check matches `chunkNames` above.
             ...(esm ? {
                 banner: {
                     js: [
@@ -119,7 +124,8 @@ export default class BuildHelper {
                         `import { dirname as __bundleDirname } from "node:path";`,
                         `const require = __bundleCreateRequire(import.meta.url);`,
                         `const __filename = __bundleFileURLToPath(import.meta.url);`,
-                        `const __dirname = __bundleDirname(__filename);`
+                        `const __bundleFileDir = __bundleDirname(__filename);`,
+                        `const __dirname = /[\\\\/]chunks$/.test(__bundleFileDir) ? __bundleDirname(__bundleFileDir) : __bundleFileDir;`
                     ].join("\n")
                 }
             } : importMetaUrlShim && {
