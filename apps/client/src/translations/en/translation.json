@@ -3480,7 +3480,8 @@
   "server": {
     "unknown_http_error_title": "Communication error with the server",
     "unknown_http_error_content": "Status code: {{statusCode}}\nURL: {{method}} {{url}}\nMessage: {{message}}",
-    "traefik_blocks_requests": "If you are using the Traefik reverse proxy, it introduced a breaking change which affects the communication with the server."
+    "reverse_proxy_blocked_title": "Requests blocked by a reverse proxy",
+    "reverse_proxy_blocked_message": "Some requests were rejected (HTTP 400) before reaching Trilium, most likely by a reverse proxy that blocks percent-encoded characters in URLs.\n\nTraefik versions 3.6.4 to 3.6.6 do this by default: upgrade to Traefik 3.6.7 or newer, or allow encoded characters in its configuration."
   },
   "tab_history_navigation_buttons": {
     "go-back": "Go back to previous note",
