@@ -3,15 +3,16 @@ import { join } from "path";
 
 const scriptDir = __dirname;
 
+/** How long a `.language-stats-*.json` cache file is reused before Weblate is queried again. */
+export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 export async function getLanguageStats(project: "readme" | "client") {
     const cacheFile = join(scriptDir, `.language-stats-${project}.json`);
 
     // Try to read from the cache.
     try {
         const cacheStats = await stat(cacheFile);
-        const now = new Date();
-        const oneDay = 24 * 60 * 60 * 1000; // milliseconds
-        if (cacheStats.mtimeMs < now.getTime() + oneDay) {
+        if (isCacheFresh(cacheStats.mtimeMs, Date.now())) {
             console.log("Reading language stats from cache.");
             return JSON.parse(await readFile(cacheFile, "utf-8"));
         }
@@ -30,4 +31,15 @@ export async function getLanguageStats(project: "readme" | "client") {
     await writeFile(cacheFile, JSON.stringify(stats, null, 4));
 
     return stats;
+}
+
+/**
+ * Determines whether a cache file written at `mtimeMs` can still be used at `nowMs`.
+ *
+ * A file stamped in the future is treated as stale, so a bad clock or a copied timestamp
+ * cannot pin the cache to a snapshot that never expires.
+ */
+export function isCacheFresh(mtimeMs: number, nowMs: number) {
+    const age = nowMs - mtimeMs;
+    return age >= 0 && age < CACHE_MAX_AGE_MS;
 }
