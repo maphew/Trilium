@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { buildShareNote, buildShareNotes } from "../test/shaca_mocking.js";
 import { getContent, renderCode, type Result, shouldSyntaxHighlight } from "./content_renderer.js";
+import shareRoot from "./share_root.js";
 
 describe("content_renderer", () => {
     beforeAll(() => {
@@ -531,6 +532,28 @@ describe("content_renderer", () => {
             // No newlines, so the line check never trips — the character ceiling must catch it.
             expect(shouldSyntaxHighlight("x".repeat(50_000))).toBe(true);
             expect(shouldSyntaxHighlight("x".repeat(50_001))).toBe(false);
+        });
+    });
+
+    describe("Share index", () => {
+        it("points each index entry at the child's shareId, whatever characters it carries", () => {
+            buildShareNote({
+                id: shareRoot.SHARE_ROOT_NOTE_ID,
+                children: [
+                    { "id": "child1", "title": "Child", "#shareAlias": `my alias"x` }
+                ]
+            });
+            const note = buildShareNote({
+                "id": "indexNote",
+                "content": "<p>Index</p>",
+                "#shareIndex": ""
+            });
+
+            const result = getContent(note);
+            const anchor = parse(String(result.content)).querySelector("#index a");
+
+            expect(anchor?.getAttribute("href")).toBe(`./my alias"x`);
+            expect(Object.keys(anchor?.attributes ?? {}).sort()).toEqual([ "class", "href" ]);
         });
     });
 });
