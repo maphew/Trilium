@@ -3,7 +3,8 @@ import { parse } from "node-html-parser";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { buildShareNote, buildShareNotes } from "../test/shaca_mocking.js";
-import { getContent, renderCode, type Result, shouldSyntaxHighlight } from "./content_renderer.js";
+import { getContent, renderCode, renderNoteContent, type Result, shouldSyntaxHighlight } from "./content_renderer.js";
+import type SNote from "./shaca/entities/snote.js";
 import shareRoot from "./share_root.js";
 
 describe("content_renderer", () => {
@@ -128,6 +129,86 @@ describe("content_renderer", () => {
             expect(result.content).toContain("A body");
             expect(result.content).toContain("B body");
             expect(result.content).toContain("reference-link");
+        });
+
+        it("replaces an include of a shareCredentials-protected note with a placeholder when the caller lacks access", () => {
+            buildShareNote({
+                id: "credSecret",
+                title: "Quarterly figures",
+                content: "<p>secret body</p>",
+                "#shareCredentials": "viewer:secretpass"
+            });
+            const host = buildShareNote({
+                id: "credHost",
+                content: `<p>public</p><section class="include-note" data-note-id="credSecret" data-box-size="medium">&nbsp;</section>`
+            });
+
+            const denied = getContent(host, { canAccessInclude: (note) => note.getCredentials().length === 0 });
+            if (typeof denied.content !== "string") throw new Error("expected string content");
+            expect(denied.content).toContain("public");
+            expect(denied.content).not.toContain("secret body");
+            // The title is withheld as well: an included note need not be visible in the share tree.
+            expect(denied.content).not.toContain("Quarterly figures");
+            expect(denied.content).toContain("include-note-forbidden");
+
+            const allowed = getContent(host, { canAccessInclude: () => true });
+            if (typeof allowed.content !== "string") throw new Error("expected string content");
+            expect(allowed.content).toContain("secret body");
+        });
+
+        it("applies the include access check at every nesting level and to the reference-link fallback", () => {
+            buildShareNote({
+                id: "credDeep",
+                title: "Deep secret",
+                content: "<p>deep body</p>",
+                "#shareCredentials": "viewer:secretpass"
+            });
+            buildShareNote({
+                id: "credMiddle",
+                content: `<p>middle body</p><section class="include-note" data-note-id="credDeep" data-box-size="medium">&nbsp;</section>`
+            });
+            const host = buildShareNote({
+                id: "credOuter",
+                content: `<section class="include-note" data-note-id="credMiddle" data-box-size="medium">&nbsp;</section>`
+            });
+            const canAccessInclude = (note: SNote) => note.getCredentials().length === 0;
+
+            // Live share view: the second level would degrade to a reference link, which must not
+            // leak the protected note's title either.
+            const shareView = getContent(host, { canAccessInclude });
+            if (typeof shareView.content !== "string") throw new Error("expected string content");
+            expect(shareView.content).toContain("middle body");
+            expect(shareView.content).not.toContain("deep body");
+            expect(shareView.content).not.toContain("Deep secret");
+            expect(shareView.content).not.toContain("reference-link");
+
+            // Recursive expansion carries the check down with it.
+            const expanded = getContent(host, { expandNestedIncludes: true, canAccessInclude });
+            if (typeof expanded.content !== "string") throw new Error("expected string content");
+            expect(expanded.content).toContain("middle body");
+            expect(expanded.content).not.toContain("deep body");
+        });
+
+        it("carries the share route's credential check into the rendered page (renderNoteContent)", () => {
+            buildShareNote({
+                id: "credPageSecret",
+                title: "Page secret",
+                content: "<p>page secret body</p>",
+                "#shareCredentials": "viewer:secretpass"
+            });
+            const shareRootNote = buildShareNote({
+                id: shareRoot.SHARE_ROOT_NOTE_ID,
+                children: [{
+                    id: "credPageHost",
+                    content: `<p>page host body</p><section class="include-note" data-note-id="credPageSecret" data-box-size="medium">&nbsp;</section>`
+                }]
+            });
+            const host = shareRootNote.getChildNotes()[0];
+
+            const page = renderNoteContent(host, (note) => note.getCredentials().length === 0);
+            if (typeof page !== "string") throw new Error("expected string content");
+            expect(page).toContain("page host body");
+            expect(page).not.toContain("page secret body");
         });
 
         it("leaves an include-note section untouched when the referenced note is missing", () => {
