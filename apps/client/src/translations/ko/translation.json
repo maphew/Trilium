@@ -3288,7 +3288,8 @@
   "server": {
     "unknown_http_error_title": "서버와의 통신 오류",
     "unknown_http_error_content": "상태 코드: {{statusCode}}\nURL: {{method}} {{url}}\n메시지: {{message}}",
-    "traefik_blocks_requests": "Traefik 리버스 프록시를 사용 중이라면, 서버와의 통신에 영향을 주는 결정적인 변경이 발생했습니다."
+    "reverse_proxy_blocked_title": "리버스 프록시에 의해 차단된 요청",
+    "reverse_proxy_blocked_message": "일부 요청이 Trilium에 도달하기 전에 거부되었습니다(HTTP 400). URL의 퍼센트 인코딩된 문자를 차단하는 리버스 프록시가 원인일 가능성이 높습니다.\n\nTraefik 3.6.4~3.6.6 버전에서는 기본적으로 이러한 동작이 발생합니다. Traefik 3.6.7 이상으로 업그레이드하거나 설정에서 인코딩된 문자를 허용하세요."
   },
   "tab_history_navigation_buttons": {
     "go-back": "이전 노트로 돌아가기",
