@@ -18,10 +18,14 @@ first needs it. Every megabyte the process loads at startup costs three ways, pe
   `NODE_COMPILE_CACHE` roughly halves it on warm starts.
 - **Bytecode and metadata** in the JS heap.
 
-Reference points (2026-08, Node 22, real 146 MB DB): the monolithic 14.6 MB CJS bundle cost
-221 MB RSS / 77 MB heap; the split ESM build loading 9 MB at startup cost 135 MB / 54 MB.
-So the question that matters is never "how big is the bundle" but **"how much of it loads at
-startup"** — and the tools here answer it with runtime evidence, not static guessing.
+Reference points (2026-08, Node 22, real 146 MB DB, same source built both ways; the full
+table is in PR #11111): the monolithic 14.8 MB CJS bundle cost 207 MB RSS / 64 MB heap
+post-GC and 1 177 ms to first HTTP response; the split ESM build loaded 7.65 MB at startup
+and cost 120 MB / 42 MB and 895 ms, with the V8 parser's native peak down from 78 MB to
+21 MB. ESM *without* seams matched CJS on every metric — splitting only pays through
+dynamic-import boundaries. So the question that matters is never "how big is the bundle" but
+**"how much of it loads at startup"** — and the tools here answer it with runtime evidence,
+not static guessing.
 
 ## Tools
 
@@ -57,6 +61,10 @@ node .claude/skills/analyzing-backend-bundle/check-dynamic-imports.mjs apps/serv
 # Memory numbers (RSS/heap post-GC; add --snapshot for a heap snapshot):
 env $ENV node --expose-gc .claude/skills/analyzing-backend-bundle/profile-bundle.cjs \
     apps/server/dist/main.mjs --port 8123 --snapshot /tmp/s.heapsnapshot
+
+# Startup speed (spawn -> first HTTP response, median of N runs):
+env $ENV node .claude/skills/analyzing-backend-bundle/bench-startup.mjs \
+    apps/server/dist/main.mjs 5
 
 # What the heap actually retains (proves which chunk sources are resident):
 node --max-old-space-size=8192 .claude/skills/analyzing-backend-bundle/heap-strings.mjs \
