@@ -116,11 +116,13 @@ export function seedDefaultTaskStates() {
 }
 
 /**
- * Charset a task state's `color` must match to be emitted as a raw CSS value. Keeps
- * `var()`, `rgb()` and `color-mix()` usable while excluding the characters that end a
- * declaration, a rule, or the inline `<style>` element the stylesheet is served in.
+ * Characters that stop a task state's `color` from being emitted as a raw CSS value. These
+ * are the only ones that can end the declaration, the rule, or the inline `<style>` element
+ * the stylesheet is served in — an escape resolves within a token rather than terminating
+ * anything, and an unbalanced paren cannot reach past the element either. Everything else
+ * is inert inside a value, so `color-mix()`, `var()` and `calc()` arithmetic pass through.
  */
-const SAFE_CSS_VALUE_PATTERN = /^[a-zA-Z0-9\s,.()%#/_-]+$/;
+const UNSAFE_CSS_VALUE_PATTERN = /["'<>;{}\\]|[\u0000-\u001F\u007F]/;
 
 /**
  * Resolves an icon class (e.g. `bx bx-cancel`) to its font glyph and family
@@ -180,7 +182,7 @@ export function generateTaskStateCss(): string {
             continue;
         }
         const name = escapeCssString(state.name);
-        const color = (state.color && SAFE_CSS_VALUE_PATTERN.test(state.color)) ? state.color : "";
+        const color = (state.color && !UNSAFE_CSS_VALUE_PATTERN.test(state.color)) ? state.color : "";
         const hue = color ? computeHue(color) : undefined;
 
         rules.push(`[data-trilium-task-state="${name}"], .tn-task-checkbox[data-trilium-task-state="${name}"] {
