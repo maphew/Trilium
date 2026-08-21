@@ -2565,7 +2565,8 @@
   "server": {
     "unknown_http_error_title": "サーバーとの通信エラー",
     "unknown_http_error_content": "ステータスコード: {{statusCode}}\nURL: {{method}} {{url}}\nメッセージ: {{message}}",
-    "traefik_blocks_requests": "Traefik リバース プロキシを使用している場合、サーバーとの通信に影響する重大な変更が導入されました。"
+    "reverse_proxy_blocked_title": "リバースプロキシによってブロックされたリクエスト",
+    "reverse_proxy_blocked_message": "一部のリクエストが Trilium に到達する前に拒否（HTTP 400）されました。これはおそらく、URL 内のパーセントエンコードされた文字をブロックするリバースプロキシによるものと考えられます。\n\nTraefik バージョン 3.6.4 から 3.6.6 では、これがデフォルトで実行されます: Traefik 3.6.7以降にアップグレードするか、設定でエンコードされた文字を許可してください。"
   },
   "tab_history_navigation_buttons": {
     "go-back": "前のノートに戻る",
