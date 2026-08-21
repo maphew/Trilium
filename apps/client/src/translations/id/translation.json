@@ -2894,8 +2894,7 @@
   },
   "server": {
     "unknown_http_error_title": "Kesalahan komunikasi dengan server",
-    "unknown_http_error_content": "Kode status: {{statusCode}}\nURL: {{method}} {{url}}\nPesan: {{message}}",
-    "traefik_blocks_requests": "Jika Anda menggunakan reverse proxy Traefik, Traefik telah memperkenalkan perubahan yang bersifat breaking dan memengaruhi komunikasi dengan server."
+    "unknown_http_error_content": "Kode status: {{statusCode}}\nURL: {{method}} {{url}}\nPesan: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "Kembali ke catatan sebelumnya",
@@ -3612,9 +3611,7 @@
     "note_paths_what": "Sebuah catatan dapat berada di lebih dari satu lokasi dalam pohon catatan sekaligus, dan setiap lokasi tersebut ditampilkan di sini sebagai sebuah jalur.",
     "note_paths_cloning": "Menambahkan lokasi disebut cloning: tidak ada yang disalin, sehingga perubahan yang dilakukan melalui satu jalur akan muncul di semua jalur lainnya, dan menghapus satu jalur hanya menghilangkan lokasi tersebut tanpa memengaruhi yang lain.",
     "backlinks_what": "Catatan yang menunjuk ke catatan ini, baik melalui tautan di dalam teks maupun melalui relasi yang menamainya.",
-    "backlinks_listing": "Tautan teks ditampilkan bersama potongan teks di sekitarnya, sedangkan relasi ditampilkan bersama nama relasinya. Sisi tautan ini tidak dapat diedit: tautan akan hilang ketika catatan yang membuatnya menghapus tautan tersebut.",
-    "similar_notes_what": "Catatan yang tampak berkaitan dengan catatan ini meskipun tidak ada tautan yang menghubungkannya.",
-    "similar_notes_how": "Kemiripannya ditentukan berdasarkan isi catatan, atribut dan relasi yang dimilikinya, serta seberapa dekat waktu pembuatannya."
+    "backlinks_listing": "Tautan teks ditampilkan bersama potongan teks di sekitarnya, sedangkan relasi ditampilkan bersama nama relasinya. Sisi tautan ini tidak dapat diedit: tautan akan hilang ketika catatan yang membuatnya menghapus tautan tersebut."
   },
   "icon_pack": {
     "preview_title": "Pratinjau paket ikon",

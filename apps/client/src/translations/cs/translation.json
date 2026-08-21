@@ -2051,8 +2051,7 @@
   },
   "server": {
     "unknown_http_error_title": "Chyba komunikace se serverem",
-    "unknown_http_error_content": "Stavový kód: {{statusCode}} \nURL: {{method}} {{url}} \nZpráva: {{message}}",
-    "traefik_blocks_requests": "Pokud používáte reverzní proxy Traefik, došlo k wprowadzeniu zásadní změny, která ovlivňuje komunikaci se serverem."
+    "unknown_http_error_content": "Stavový kód: {{statusCode}} \nURL: {{method}} {{url}} \nZpráva: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "Přejít na předchozí poznámku",

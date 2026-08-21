@@ -2149,7 +2149,6 @@
     "go-back": "Перейти к предыдущей заметке"
   },
   "server": {
-    "traefik_blocks_requests": "Если вы используете обратный прокси-сервер Traefik, то следует учитывать, что в него внесены критические изменения, влияющие на связь с сервером.",
     "unknown_http_error_content": "Код: {{statusCode}}\nURL: {{method}} {{url}}\nСообщение: {{message}}",
     "unknown_http_error_title": "Ошибка связи с сервером"
   },
