@@ -1,10 +1,13 @@
 import { trimIndentation } from "@triliumnext/commons";
+import { sanitize, utils } from "@triliumnext/core";
+import ejs from "ejs";
 import { parse } from "node-html-parser";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { buildShareNote, buildShareNotes } from "../test/shaca_mocking.js";
-import { getContent, renderCode, renderNoteContent, type Result, shouldSyntaxHighlight } from "./content_renderer.js";
+import { getContent, getDefaultTemplatePath, readTemplate, renderCode, renderNoteContent, type Result, shouldSyntaxHighlight } from "./content_renderer.js";
 import type SNote from "./shaca/entities/snote.js";
+import shaca from "./shaca/shaca.js";
 import shareRoot from "./share_root.js";
 
 describe("content_renderer", () => {
@@ -636,5 +639,104 @@ describe("content_renderer", () => {
             expect(anchor?.getAttribute("href")).toBe(`./my alias"x`);
             expect(Object.keys(anchor?.attributes ?? {}).sort()).toEqual([ "class", "href" ]);
         });
+    });
+    describe("Tree item template", () => {
+        it("sets a working target and rel on external tree links only", () => {
+            const external = renderTreeItemAnchor({
+                "id": "external1",
+                "#shareExternal": "https://example.com/page"
+            });
+
+            expect(external?.getAttribute("href")).toBe("https://example.com/page");
+            expect(external?.getAttribute("target")).toBe("_blank");
+            expect(external?.getAttribute("rel")).toBe("noopener noreferrer");
+            expect(Object.keys(external?.attributes ?? {}).sort())
+                .toEqual([ "class", "href", "rel", "target" ]);
+
+            const internal = renderTreeItemAnchor({ id: "internal1" });
+
+            expect(internal?.getAttribute("href")).toBe("./internal1");
+            expect(Object.keys(internal?.attributes ?? {}).sort()).toEqual([ "class", "href" ]);
+        });
+
+        function renderTreeItemAnchor(noteDef: Parameters<typeof buildShareNote>[0]) {
+            const note = buildShareNote(noteDef);
+            const subRootNote = buildShareNote({ id: `subRoot-${noteDef.id}` });
+
+            const html = ejs.render(readTemplate(getDefaultTemplatePath("tree_item")), {
+                note,
+                activeNote: subRootNote,
+                subRoot: { note: subRootNote },
+                ancestors: [],
+                sanitizeUrl: sanitize.sanitizeUrl,
+                iconPackSupportedPrefixes: [],
+                t: (key: string) => key
+            });
+
+            return parse(html).querySelector("a");
+        }
+    });
+    describe("Subpage list template", () => {
+        it("sets a working target and rel on external subpage links only", () => {
+            buildShareNote({
+                id: "pageParent",
+                content: "<p>Parent</p>",
+                children: [
+                    {
+                        "id": "pageExternal",
+                        "title": "External",
+                        "#shareExternal": "https://example.com/page"
+                    },
+                    { id: "pageInternal", title: "Internal" }
+                ]
+            });
+            const anchors = renderPageAnchors("pageParent");
+
+            const external = anchors.find((a) => a.textContent === "External");
+            expect(external?.getAttribute("href")).toBe("https://example.com/page");
+            expect(external?.getAttribute("target")).toBe("_blank");
+            expect(external?.getAttribute("rel")).toBe("noopener noreferrer");
+            expect(Object.keys(external?.attributes ?? {}).sort())
+                .toEqual([ "class", "href", "rel", "target" ]);
+
+            const internal = anchors.find((a) => a.textContent === "Internal");
+            expect(internal?.getAttribute("href")).toBe("./pageInternal");
+            expect(Object.keys(internal?.attributes ?? {}).sort()).toEqual([ "class", "href" ]);
+        });
+
+        function renderPageAnchors(noteId: string) {
+            const note = shaca.getNote(noteId);
+            const { header, content, isEmpty } = getContent(note);
+
+            const html = ejs.render(readTemplate(getDefaultTemplatePath("page")), {
+                note,
+                header,
+                content,
+                isEmpty,
+                assetPath: "assets",
+                assetUrlFragment: "assets",
+                showLoginInShareTheme: false,
+                t: (key: string) => key,
+                isDev: false,
+                utils,
+                sanitizeUrl: sanitize.sanitizeUrl,
+                subRoot: { note },
+                rootNoteId: noteId,
+                cssToLoad: [],
+                jsToLoad: [],
+                logoUrl: "",
+                ancestors: [],
+                isStatic: false,
+                faviconUrl: "",
+                iconPackCss: "",
+                iconPackSupportedPrefixes: []
+            }, {
+                includer: (path: string) => ({
+                    template: readTemplate(getDefaultTemplatePath(path))
+                })
+            });
+
+            return parse(html).querySelectorAll("#childLinks a");
+        }
     });
 });
