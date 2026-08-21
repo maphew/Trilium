@@ -218,6 +218,23 @@ describe("task_states (real DB)", () => {
             expect(colorNote.noteId).toBeTruthy();
         });
 
+        it("falls back to inherit for a color that could break out of the declaration", () => {
+            const note = getContext().init(() =>
+                createTaskStateNote(
+                    customState({
+                        name: "evilcolor",
+                        markdownSymbol: "e",
+                        color: `red; } </style><script>alert(1)</script><style> .x {`
+                    })
+                )
+            );
+            expect(note.noteId).toBeTruthy();
+
+            const css = generateTaskStateCss();
+            expect(css).not.toMatch(/<\/style/i);
+            expect(css).toContain("--task-state-color: inherit");
+        });
+
         it("skips states whose icon cannot be resolved to a glyph", () => {
             const note = getContext().init(() =>
                 createTaskStateNote(
