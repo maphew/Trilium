@@ -3612,8 +3612,7 @@
   },
   "server": {
     "unknown_http_error_title": "Sunucuyla iletişim hatası",
-    "unknown_http_error_content": "Durum kodu: {{statusCode}}\nURL: {{method}} {{url}}\nMesaj: {{message}}",
-    "traefik_blocks_requests": "Traefik ters vekil sunucusunu kullanıyorsanız, sunucuyla iletişimi etkileyen bir değişiklik yaptı."
+    "unknown_http_error_content": "Durum kodu: {{statusCode}}\nURL: {{method}} {{url}}\nMesaj: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "Önceki nota geri dön",

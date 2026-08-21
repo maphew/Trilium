@@ -2644,8 +2644,7 @@
   },
   "server": {
     "unknown_http_error_title": "Earráid chumarsáide leis an bhfreastalaí",
-    "unknown_http_error_content": "Cód stádais: {{statusCode}}\nURL: {{method}} {{url}}\nTeachtaireacht: {{message}}",
-    "traefik_blocks_requests": "Má tá tú ag úsáid seachfhreastalaí droim ar ais Traefik, tugadh isteach athrú briste a théann i bhfeidhm ar an gcumarsáid leis an bhfreastalaí."
+    "unknown_http_error_content": "Cód stádais: {{statusCode}}\nURL: {{method}} {{url}}\nTeachtaireacht: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "Téigh ar ais go dtí an nóta roimhe seo",

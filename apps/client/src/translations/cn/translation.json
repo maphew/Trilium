@@ -2564,8 +2564,7 @@
   },
   "server": {
     "unknown_http_error_title": "与服务器通讯错误",
-    "unknown_http_error_content": "状态码: {{statusCode}}\n地址: {{method}} {{url}}\n信息: {{message}}",
-    "traefik_blocks_requests": "如果你正在使用 Traefik 反向代理，其引入的一个重大更改会影响与服务器的通信。"
+    "unknown_http_error_content": "状态码: {{statusCode}}\n地址: {{method}} {{url}}\n信息: {{message}}"
   },
   "experimental_features": {
     "title": "实验选项",

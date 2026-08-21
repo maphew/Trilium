@@ -2590,8 +2590,7 @@
   },
   "server": {
     "unknown_http_error_title": "Errore di comunicazione con il server",
-    "unknown_http_error_content": "Codice di stato: {{statusCode}}\nURL: {{method}} {{url}}\nMessaggio: {{message}}",
-    "traefik_blocks_requests": "Se si utilizza il proxy inverso Traefik, è stata introdotta una modifica sostanziale che influisce sulla comunicazione con il server."
+    "unknown_http_error_content": "Codice di stato: {{statusCode}}\nURL: {{method}} {{url}}\nMessaggio: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "Torna alla nota precedente",

@@ -2894,8 +2894,7 @@
   },
   "server": {
     "unknown_http_error_title": "Kesalahan komunikasi dengan server",
-    "unknown_http_error_content": "Kode status: {{statusCode}}\nURL: {{method}} {{url}}\nPesan: {{message}}",
-    "traefik_blocks_requests": "Jika Anda menggunakan reverse proxy Traefik, Traefik telah memperkenalkan perubahan yang bersifat breaking dan memengaruhi komunikasi dengan server."
+    "unknown_http_error_content": "Kode status: {{statusCode}}\nURL: {{method}} {{url}}\nPesan: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "Kembali ke catatan sebelumnya",

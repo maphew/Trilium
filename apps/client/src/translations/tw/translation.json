@@ -114,6 +114,7 @@
     "if_you_dont_check": "便條本身被保留；只是它在這裡的位置被移除了。",
     "also_delete_note": "同時刪除筆記",
     "delete_note_keeps_note_one": "這個便條有 {{count}} 個其他複本，因此便條本身被保留。",
+    "delete_note_keeps_note_other": "",
     "delete_note_deletes_note": "這是該註解在樹中的唯一位置，因此註解本身將被刪除。這可以在最近的更動中復原。",
     "delete_note_deletes_clones": "該註解將從它出現的所有 {{places}} 處被刪除。此操作可以在最近的更改中還原。"
   },
@@ -2217,8 +2218,7 @@
   },
   "server": {
     "unknown_http_error_title": "與伺服器通訊錯誤",
-    "unknown_http_error_content": "狀態碼：{{statusCode}}\n網址：{{method}} {{url}}\n訊息：{{message}}",
-    "traefik_blocks_requests": "若您正在使用 Traefik 反向代理，該代理已引入一項重大變更影響與伺服器的通訊。"
+    "unknown_http_error_content": "狀態碼：{{statusCode}}\n網址：{{method}} {{url}}\n訊息：{{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "返回前一筆記",
