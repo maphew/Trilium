@@ -56,14 +56,42 @@ export function registerToolRegistry(registry: ToolRegistry) {
     }
 }
 
+let inFlightResolve: Promise<void> | null = null;
+
 /**
  * Loads every host-registered lazy registry into {@link allToolRegistries}.
  * The chat pipeline and the MCP server call this at the start of their async
  * entry points, which is what lets `buildTools()` and other readers stay
  * synchronous: by the time they iterate the array, it is complete.
+ *
+ * Concurrent callers share one in-flight resolution. Draining the queue
+ * empties it before the imports finish, so without the shared promise a
+ * second first-use request would see nothing left to load and proceed
+ * against a still-incomplete array.
  */
-export async function resolveToolRegistries(): Promise<void> {
-    for (const loader of drainToolRegistryLoaders()) {
-        registerToolRegistry(await loader());
+export function resolveToolRegistries(): Promise<void> {
+    if (inFlightResolve) {
+        return inFlightResolve;
     }
+
+    // Draining before creating the promise keeps the empty case fully
+    // synchronous. Routing it through the async closure below would let the
+    // closure settle while its own creation is still being evaluated, and the
+    // assignment would then store an already-settled promise that the
+    // `finally` can never clear again.
+    const loaders = drainToolRegistryLoaders();
+    if (loaders.length === 0) {
+        return Promise.resolve();
+    }
+
+    inFlightResolve = (async () => {
+        try {
+            for (const loader of loaders) {
+                registerToolRegistry(await loader());
+            }
+        } finally {
+            inFlightResolve = null;
+        }
+    })();
+    return inFlightResolve;
 }
