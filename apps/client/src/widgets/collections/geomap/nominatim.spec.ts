@@ -34,6 +34,19 @@ function respondWith(body: unknown, init: { ok?: boolean; status?: number } = {}
     return fetchMock;
 }
 
+/** Answers each request in turn, for a search that makes more than one (see the two passes). */
+function respondInTurn(bodies: unknown[]) {
+    let call = 0;
+    const fetchMock = vi.fn(async (_url: string) => ({
+        ok: true,
+        status: 200,
+        statusText: "",
+        json: async () => bodies[Math.min(call++, bodies.length - 1)]
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+}
+
 /** Runs a search, letting the rate limiter's wait elapse rather than sitting through it. */
 async function search(query: string, options?: Parameters<typeof provider.search>[1]) {
     const results = provider.search(query, options);
@@ -41,8 +54,8 @@ async function search(query: string, options?: Parameters<typeof provider.search
     return results;
 }
 
-function requestedUrl(fetchMock: ReturnType<typeof respondWith>) {
-    return new URL(fetchMock.mock.calls[0][0]);
+function requestedUrl(fetchMock: ReturnType<typeof respondWith>, call = 0) {
+    return new URL(fetchMock.mock.calls[call][0]);
 }
 
 beforeEach(() => vi.useFakeTimers());
@@ -102,27 +115,53 @@ describe("Nominatim geocoding", () => {
         await refused;
     });
 
-    it("prefers what the map is showing, without refusing what lies outside it", async () => {
-        const fetchMock = respondWith([]);
+    it("asks what the map is showing first, then the wider world", async () => {
+        const inSibiu = place({ place_id: 1, name: "Jumbo", display_name: "Jumbo, Sibiu, Romania" });
+        const inTheUnitedStates = place({ place_id: 2, name: "Jumbo", display_name: "Jumbo, Ohio, USA" });
+        const fetchMock = respondInTurn([ [ inSibiu ], [ inTheUnitedStates, inSibiu ] ]);
 
-        await search("jumbo", { viewport: [ [ 19.8, 39.5 ], [ 20.1, 39.8 ] ] });
+        const results = await search("jumbo", { viewport: [ [ 24.0, 45.7 ], [ 24.3, 45.9 ] ] });
 
+        // Restricted to the view first: a viewbox alone is only a nudge next to how well known a
+        // place is, so a shop in Sibiu would otherwise stay under every Jumbo in the United States.
+        const nearby = requestedUrl(fetchMock, 0).searchParams;
         // Two opposite corners, longitude first, as Nominatim reads a preferred area.
-        expect(requestedUrl(fetchMock).searchParams.get("viewbox")).toBe("19.8,39.5,20.1,39.8");
-        // A preference, not a restriction: `bounded` would answer nothing where the only match is
-        // somewhere else entirely.
-        expect(requestedUrl(fetchMock).searchParams.get("bounded")).toBeNull();
+        expect(nearby.get("viewbox")).toBe("24,45.7,24.3,45.9");
+        expect(nearby.get("bounded")).toBe("1");
+
+        // Then unrestricted, so a place nowhere near the map is still found.
+        const elsewhere = requestedUrl(fetchMock, 1).searchParams;
+        expect(elsewhere.get("viewbox")).toBe("24,45.7,24.3,45.9");
+        expect(elsewhere.get("bounded")).toBeNull();
+
+        // What is at hand comes first, and is not offered twice for being in both answers.
+        expect(results.map((result) => result.label)).toEqual([
+            "Jumbo, Sibiu, Romania",
+            "Jumbo, Ohio, USA"
+        ]);
     });
 
-    it("asks from nowhere in particular where the view says nothing usable", async () => {
+    it("does not go looking further afield where the view already fills the list", async () => {
+        const local = Array.from({ length: 8 }, (_, index) => place({ place_id: index, display_name: `Jumbo ${index}` }));
+        const fetchMock = respondInTurn([ local, [] ]);
+
+        const results = await search("jumbo", { viewport: [ [ 24.0, 45.7 ], [ 24.3, 45.9 ] ] });
+
+        expect(fetchMock).toHaveBeenCalledOnce();
+        expect(results).toHaveLength(8);
+    });
+
+    it("asks once, from nowhere in particular, where the view says nothing usable", async () => {
         const fromNowhere = respondWith([]);
         await search("jumbo");
+        expect(fromNowhere).toHaveBeenCalledOnce();
         expect(requestedUrl(fromNowhere).searchParams.get("viewbox")).toBeNull();
 
         // Panned across the antimeridian, where the view runs the other way round and no pair of
         // corners describes it.
         const wrapped = respondWith([]);
         await search("jumbo", { viewport: [ [ 170, 39.5 ], [ -170, 39.8 ] ] });
+        expect(wrapped).toHaveBeenCalledOnce();
         expect(requestedUrl(wrapped).searchParams.get("viewbox")).toBeNull();
     });
 

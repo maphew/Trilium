@@ -38,6 +38,9 @@ let nextRequestAt = 0;
  *
  * The same policy rules out searching as the user types, which is why a search runs only when the
  * user asks for one (see SearchBox).
+ *
+ * A search is answered in two passes where the map says what it is showing, so that what is at hand
+ * comes first and what is far off still comes at all (see searchNominatim).
  */
 export const nominatim: GeocodingProvider = {
     name: "Nominatim (OpenStreetMap)",
@@ -45,10 +48,31 @@ export const nominatim: GeocodingProvider = {
 };
 
 async function searchNominatim(query: string, { viewport }: GeoSearchOptions = {}): Promise<GeoSearchResult[]> {
+    const viewbox = toViewbox(viewport);
+
+    // What the map is showing, and nothing else. A viewbox on its own is only a nudge next to how
+    // well known a place is, so a supermarket in the town on screen stays buried under the towns of
+    // that name across the world — restricting the search to the view is what brings it up.
+    const nearby = viewbox ? await searchPlaces(query, { viewbox, bounded: "1" }) : [];
+    if (nearby.length >= MAX_RESULTS) {
+        return nearby;
+    }
+
+    // Then the wider world, so that a place nowhere near the map is still found, and a view holding
+    // one match is not the whole answer. What is at hand stands above it either way.
+    const elsewhere = await searchPlaces(query, viewbox ? { viewbox } : {});
+    const nearbyIds = new Set(nearby.map((place) => place.id));
+
+    return [ ...nearby, ...elsewhere.filter((place) => !nearbyIds.has(place.id)) ].slice(0, MAX_RESULTS);
+}
+
+/** One request to Nominatim's search, asked in the language the app runs in. */
+async function searchPlaces(query: string, extraParams: Record<string, string>): Promise<GeoSearchResult[]> {
     const params = new URLSearchParams({
         q: query,
         format: "jsonv2",
-        limit: String(MAX_RESULTS)
+        limit: String(MAX_RESULTS),
+        ...extraParams
     });
 
     // Place names in the language the app runs in, where Nominatim holds one. Trilium writes some
@@ -56,11 +80,6 @@ async function searchNominatim(query: string, { viewport }: GeoSearchOptions = {
     const language = getCurrentLanguage();
     if (language) {
         params.set("accept-language", language.replace("_", "-"));
-    }
-
-    const viewbox = toViewbox(viewport);
-    if (viewbox) {
-        params.set("viewbox", viewbox);
     }
 
     await waitForRequestSlot();
