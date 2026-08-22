@@ -2648,7 +2648,7 @@
     "custom_widget_go_to_source": "ソースコードへ移動",
     "peek": "右ペインをピーク表示",
     "hide": "右ペインを非表示",
-    "dock": "パネルをドッキング",
+    "dock": "パネルを固定",
     "close": "パネルを閉じる",
     "tab_outline": "アウトライン",
     "tab_attributes": "属性",
