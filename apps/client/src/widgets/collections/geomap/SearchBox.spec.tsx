@@ -325,6 +325,26 @@ describe("geo map SearchBox", () => {
             .toEqual({ kind: "note", noteId: expect.any(String), center: [ 139.7, 35.6 ] });
     });
 
+    it("names the geocoder on the rows it answers for, before the asking and during it", async () => {
+        const provider = GEOCODING_PROVIDERS[DEFAULT_GEOCODING_PROVIDER_NAME];
+        mockGeocoder([ TOKYO ]);
+        const container = renderSearchBox(fakeMap(), []);
+
+        const detailOf = (name: string) => rows()
+            .find((row) => nameOf(row) === name)
+            ?.querySelector(".geo-search-entry-address")?.textContent;
+
+        await type(container, "tokyo");
+        // What is about to leave the map, said where it is read rather than in a setting somewhere.
+        expect(detailOf("geo-map.search-online(tokyo)")).toBe(provider.name);
+        expect(provider.name).toContain("Nominatim");
+
+        await pickNamed("geo-map.search-online(tokyo)");
+
+        // And where the places it turned up came from.
+        expect(detailOf("Tokyo")).toBe("Japan");
+    });
+
     it("gives a place two lines: what it is called, and the address that places it", async () => {
         mockGeocoder([
             { ...TOKYO, label: "Tokyo, Ōta, Japan" },

@@ -76,6 +76,8 @@ type SearchEntry = {
     icon?: string;
     /** How far the place is from the middle of the map, in metres. */
     distance?: number;
+    /** A second line under the first: the address that places a place, or whose answer a row is. */
+    detail?: string;
 } & (
     | { kind: "marker"; center: [number, number]; noteId: string }
     /** A place from the geocoder, carried whole for whoever the pick is reported to. */
@@ -139,13 +141,13 @@ export default function SearchBox({ notes, onPickResult }: SearchBoxProps) {
         // Measured from the middle of what the map is showing, at the moment the list is built: two
         // places of the same name are told apart by which of them is at hand.
         const origin = map ? map.getCenter().toArray() : null;
-        const { places, notice } = geocodeEntries(geocodeRun, trimmed);
+        const { places, notice } = geocodeEntries(geocodeRun, trimmed, provider.name);
         const found = [ ...matchMarkers(notes, trimmed), ...places ]
             .map((entry) => withDistance(entry, origin));
         const entries = [ ...grouped(found), ...(notice ? [ notice ] : []) ];
         entriesByKey.current = new Map(entries.map((entry) => [ entry.key, entry ]));
         return entries.map((entry) => entry.key);
-    }, [ notes, geocodeRun, dismissed, map ]);
+    }, [ notes, geocodeRun, dismissed, map, provider ]);
 
     const changeQuery = useCallback((newQuery: string) => {
         setDismissed(false);
@@ -228,20 +230,18 @@ export default function SearchBox({ notes, onPickResult }: SearchBoxProps) {
             return entry.label;
         }
 
-        // A place reads over two lines: what it is called, and the address that places it. Every
-        // other row is one thing said once.
-        const address = entry.kind === "place" ? describePlace(entry.result) : null;
+        // Two lines: what the row is, and under it what places it — the address of a place, and the
+        // geocoder's name on the rows that are its to answer for.
+        const [ name, detail ] = entry.kind === "place"
+            ? [ entry.result.name, describePlace(entry.result) ]
+            : [ entry.label, entry.detail ];
 
         return (
             <span className={`geo-search-entry geo-search-entry-${entry.kind}`}>
                 <Icon icon={entry.icon} />
                 <span className="geo-search-entry-lines">
-                    {entry.kind === "place"
-                        ? <>
-                            <span className="geo-search-entry-name">{entry.result.name}</span>
-                            {address && <span className="geo-search-entry-address">{address}</span>}
-                        </>
-                        : entry.label}
+                    <span className="geo-search-entry-name">{name}</span>
+                    {detail && <span className="geo-search-entry-address">{detail}</span>}
                 </span>
                 {entry.distance !== undefined &&
                     <span className="geo-search-entry-distance">
@@ -375,10 +375,13 @@ function matchMarkers(notes: FNote[], query: string): SearchEntry[] {
  * The two are separated because they belong in different parts of the list: places are sorted in
  * among the map's own notes, and a notice stands at the foot whatever the distances say.
  */
-function geocodeEntries(run: GeocodeRun | undefined, query: string): {
+function geocodeEntries(run: GeocodeRun | undefined, query: string, provider: string): {
     places: SearchEntry[];
     notice: SearchEntry | null;
 } {
+    // Named under every row that is the geocoder's to answer for — the offer to ask it, and whatever
+    // came of the asking — so that what is about to leave the map, and where the places on it came
+    // from, is said where it is read rather than in a setting somewhere.
     if (run?.query !== query) {
         return {
             places: [],
@@ -386,6 +389,7 @@ function geocodeEntries(run: GeocodeRun | undefined, query: string): {
                 kind: "geocode",
                 key: "geocode",
                 label: t("geo-map.search-online", { query }),
+                detail: provider,
                 icon: "bx bx-search-alt",
                 query
             }
@@ -393,13 +397,13 @@ function geocodeEntries(run: GeocodeRun | undefined, query: string): {
     }
 
     if (run.status === "loading") {
-        return { places: [], notice: infoEntry(t("geo-map.searching-online"), "bx bx-loader-alt") };
+        return { places: [], notice: infoEntry(t("geo-map.searching-online"), "bx bx-loader-alt", provider) };
     }
     if (run.status === "failed") {
-        return { places: [], notice: infoEntry(t("geo-map.search-failed"), "bx bx-error-circle") };
+        return { places: [], notice: infoEntry(t("geo-map.search-failed"), "bx bx-error-circle", provider) };
     }
     if (!run.results.length) {
-        return { places: [], notice: infoEntry(t("geo-map.no-places-found"), "bx bx-info-circle") };
+        return { places: [], notice: infoEntry(t("geo-map.no-places-found"), "bx bx-info-circle", provider) };
     }
 
     return { places: run.results, notice: null };
@@ -450,6 +454,6 @@ function placeEntry(result: GeoSearchResult): SearchEntry {
 }
 
 /** A row that reports on the geocoder rather than offering a place. */
-function infoEntry(label: string, icon: string): SearchEntry {
-    return { kind: "info", key: STATUS_KEY, label, icon };
+function infoEntry(label: string, icon: string, detail: string): SearchEntry {
+    return { kind: "info", key: STATUS_KEY, label, icon, detail };
 }
