@@ -71,7 +71,7 @@ Selecting a note already on the map moves to its marker and opens the note besid
 
 Selecting a place found online moves the map to it and marks it with a temporary pin, distinct in colour from the map's own markers. The map is framed by the ground the place covers, so a country fills the view while a house is shown at street level. Where the service reports a boundary — a country, a county, a park — that boundary is outlined under the pin.
 
-A panel then opens in the top-right corner with the place's full address and its coordinates. Pressing the coordinates copies them to the clipboard.
+A panel then opens with the place's full address and its coordinates: in the top-right corner on desktop, and at the bottom of the map on mobile, where the top is kept for the search bar and the result counter. Pressing the coordinates copies them to the clipboard.
 
 ### Keeping a place as a marker
 

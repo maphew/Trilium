@@ -51,6 +51,11 @@
      navigator placed from it (see ResultNavigator.css). Overridden for mobile below. */
   --geo-map-search-top: var(--geo-map-inset-top);
 
+  /* Where the foot of the map stops anything reaching down towards it: the room kept from the
+     bottom, the height of the bars standing there (MapToolbar, EditToolbar), and as much air again.
+     Read by the detail pane and by the place panel on mobile. */
+  --geo-map-foot: calc(var(--geo-map-inset-bottom) + var(--geo-map-toolbar-height) + var(--geo-map-inset));
+
   /*
    * What everything standing over the map is dressed in — our own control groups and MapLibre's
    * scale and attribution alike, so that they read as one set rather than as ours beside theirs.

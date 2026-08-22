@@ -10,6 +10,17 @@
     z-index: 3;
 }
 
+/* On a phone the panel is as wide as the map, so at the head it would cover the search bar and the
+   result navigator standing under it (see index.css). It stands at the foot instead, which leaves
+   those reachable: results can be stepped through with a place open. */
+body.mobile .geo-map-container .geo-place-panel {
+    top: auto;
+    bottom: var(--geo-map-foot);
+    /* Half the map at most, so a long address cannot grow the card back over the bar; what does not
+       fit scrolls within it (see OverlayPanel.css). */
+    max-height: 50%;
+}
+
 .geo-map-container .geo-place-panel .geo-place-panel-body {
     display: flex;
     flex-direction: column;
