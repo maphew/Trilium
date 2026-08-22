@@ -10,7 +10,7 @@ function renderToHtml(content: string, title: string, opts?: { obsidian?: boolea
         taskStates: getTaskStates(),
         obsidian: opts?.obsidian
     });
-    return normalizeCollapsibles(html);
+    return normalizeToEditorMarkup(html);
 }
 
 export default {
@@ -18,20 +18,21 @@ export default {
 };
 
 /**
- * Restores what `buildDetailsFilter()` in `services/export/markdown.ts` gives up when it
- * writes a `<details>` block to Markdown: the `trilium-collapsible` class, and the absence
- * of whitespace between block children, which that filter indents for readability. Both are
- * what the collapsible CKEditor plugin downcasts, so a note that goes out to Markdown and
- * comes back keeps the content it started with instead of changing on its next save.
+ * Restores what the Markdown exporter gives up on a `<details>` block and on a table it keeps as
+ * raw HTML: the `trilium-collapsible` class, the `<figure class="table">` wrapper, and the absence
+ * of whitespace between block children, which the exporter indents for readability. All three are
+ * what CKEditor downcasts, so a note that goes out to Markdown and comes back keeps the content it
+ * started with instead of changing on its next save.
  */
-function normalizeCollapsibles(html: string): string {
-    if (!html.includes("<details")) {
+function normalizeToEditorMarkup(html: string): string {
+    if (!html.includes("<details") && !html.includes("<table")) {
         return html;
     }
 
     const root = parseHtml(html);
     const collapsibles = root.querySelectorAll("details");
-    if (!collapsibles.length) {
+    const tables = root.querySelectorAll("table");
+    if (!collapsibles.length && !tables.length) {
         return html;
     }
 
@@ -44,18 +45,31 @@ function normalizeCollapsibles(html: string): string {
             classList.push(COLLAPSIBLE_CLASS);
         }
         collapsible.setAttributes({ class: classList.join(" "), ...rest });
-        removeLayoutWhitespace(collapsible);
+        removeLayoutWhitespace(collapsible, COLLAPSIBLE_CONTAINER_TAGS);
+    }
+
+    // Innermost table first: wrapping re-serializes the element, so an inner table has to carry
+    // its own wrapper by the time the one around it is rewritten.
+    for (const table of tables.reverse()) {
+        removeLayoutWhitespace(table, TABLE_CONTAINER_TAGS);
+
+        const parent = table.parentNode;
+        if (parent instanceof HTMLElement && parent.tagName === "FIGURE") {
+            continue;
+        }
+        table.insertAdjacentHTML("beforebegin", `<figure class="table">${table.toString()}</figure>`);
+        table.remove();
     }
     return root.toString();
 }
 
 /**
- * Drops whitespace-only text nodes from an element whose children are blocks, and recurses
- * into the block containers `buildDetailsFilter()` indents. An element holding text of its
- * own is left alone, so spacing that separates inline content survives. Whitespace inside
- * `<pre>` is never reached — `<pre>` is not one of the containers.
+ * Drops whitespace-only text nodes from an element whose children are blocks, and recurses into
+ * `containerTags`, the tags the exporter indents into. An element holding text of its own is left
+ * alone, so spacing that separates inline content survives. Whitespace inside `<pre>` and inside a
+ * table cell is never reached — neither is one of the containers.
  */
-function removeLayoutWhitespace(element: HTMLElement) {
+function removeLayoutWhitespace(element: HTMLElement, containerTags: Set<string>) {
     const isText = (node: Node) => node.nodeType === NodeType.TEXT_NODE;
     const holdsText = (node: Node) => isText(node) && node.rawText.trim() !== "";
 
@@ -64,8 +78,8 @@ function removeLayoutWhitespace(element: HTMLElement) {
     }
 
     for (const child of element.childNodes) {
-        if (child instanceof HTMLElement && BLOCK_CONTAINER_TAGS.has(child.tagName)) {
-            removeLayoutWhitespace(child);
+        if (child instanceof HTMLElement && containerTags.has(child.tagName)) {
+            removeLayoutWhitespace(child, containerTags);
         }
     }
 }
@@ -73,5 +87,8 @@ function removeLayoutWhitespace(element: HTMLElement) {
 /** The styling hook `collapsible_editing.ts` downcasts onto every `<details>` it writes. */
 const COLLAPSIBLE_CLASS = "trilium-collapsible";
 
-/** Mirrors `DETAILS_CONTAINER_TAGS` in `services/export/markdown.ts`, the tags it indents into. */
-const BLOCK_CONTAINER_TAGS = new Set(["DETAILS", "UL", "OL", "LI", "BLOCKQUOTE"]);
+/** Mirrors `DETAILS_CONTAINER_TAGS` in `services/export/markdown.ts`. */
+const COLLAPSIBLE_CONTAINER_TAGS = new Set(["DETAILS", "UL", "OL", "LI", "BLOCKQUOTE"]);
+
+/** Mirrors `TABLE_CONTAINER_TAGS` in `@triliumnext/turndown-plugin-gfm`. */
+const TABLE_CONTAINER_TAGS = new Set(["TABLE", "THEAD", "TBODY", "TFOOT", "TR", "COLGROUP"]);

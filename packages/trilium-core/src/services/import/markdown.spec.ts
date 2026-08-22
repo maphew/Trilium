@@ -360,8 +360,14 @@ $$`;
             `    </tbody>`,
             `</table>`
         ].join("\n");
+        const expected = [
+            `<figure class="table"><table><tbody>`,
+            `<tr><th>Heading</th><td>Not a heading</td></tr>`,
+            `<tr><td>Heading</td><td>Not a heading</td></tr>`,
+            `</tbody></table></figure>`
+        ].join("");
         const result = markdownService.renderToHtml(html, "Title");
-        expect(result).toStrictEqual(html);
+        expect(result).toStrictEqual(expected);
         // No synthesized empty header row leaked in.
         expect(result).not.toContain("<thead>");
         expect(result).not.toContain("<th></th>");
@@ -526,6 +532,59 @@ $$`;
                 `<aside class="admonition tip"><p>A&nbsp;tip.</p></aside></details>`
             ].join("");
             expect(markdownService.renderToHtml(markdownExportService.toMarkdown(original), "Title")).toStrictEqual(original);
+        });
+    });
+    describe("tables", () => {
+        it("wraps a table kept as raw HTML in the figure CKEditor downcasts, and drops the indentation the exporter adds", () => {
+            const input = trimIndentation`\
+                <table class="ck-table-resized" style="border-style:none;">
+                    <colgroup>
+                        <col style="width:80.6%;">
+                        <col style="width:19.4%;">
+                    </colgroup>
+                    <tbody>
+                        <tr>
+                            <td>a</td>
+                            <td>b</td>
+                        </tr>
+                    </tbody>
+                </table>`;
+            const expected = [
+                `<figure class="table"><table class="ck-table-resized" style="border-style:none;">`,
+                `<colgroup><col style="width:80.6%;"><col style="width:19.4%;"></colgroup>`,
+                `<tbody><tr><td>a</td><td>b</td></tr></tbody></table></figure>`
+            ].join("");
+            expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+        });
+
+        it("leaves a table the renderer already wrapped alone rather than nesting a second figure", () => {
+            const input = trimIndentation`\
+                | a | b |
+                | --- | --- |
+                | 1 | 2 |`;
+            const expected = [
+                `<figure class="table"><table><thead><tr><th>a</th><th>b</th></tr></thead>`,
+                `<tbody><tr><td>1</td><td>2</td></tr></tbody></table></figure>`
+            ].join("");
+            expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+        });
+
+        it("keeps the whitespace inside a cell, which carries inline content rather than blocks", () => {
+            const input = `<table><tbody><tr><td>a <em>b</em> c</td><td> </td></tr></tbody></table>`;
+            const expected = `<figure class="table"><table><tbody><tr><td>a <em>b</em> c</td><td> </td></tr></tbody></table></figure>`;
+            expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+        });
+
+        it("round-trips a table through the Markdown exporter unchanged, whether it is kept as raw HTML or written as a pipe table", () => {
+            for (const original of [
+                `<figure class="table"><table class="ck-table-resized" style="border-style:none;"><colgroup><col style="width:80.6%;"><col style="width:19.4%;"></colgroup><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td><ul><li>one</li></ul></td><td>2</td></tr></tbody></table></figure>`,
+                `<figure class="table"><table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></figure>`,
+                `<details class="trilium-collapsible"><summary>S</summary><figure class="table"><table class="ck-table-resized"><colgroup><col style="width:50%;"></colgroup><tbody><tr><td>x</td></tr></tbody></table></figure></details>`
+            ]) {
+                const markdown = markdownExportService.toMarkdown(original);
+                expect(markdownService.renderToHtml(markdown, "Title")).toStrictEqual(original);
+                expect(markdownExportService.toMarkdown(markdownService.renderToHtml(markdown, "Title"))).toStrictEqual(markdown);
+            }
         });
     });
 });
