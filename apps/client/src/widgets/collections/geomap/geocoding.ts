@@ -1,3 +1,5 @@
+import { getCurrentLanguage } from "../../../services/i18n";
+
 /** A single place returned by a geocoder. */
 export interface GeoSearchResult {
     /** Unique within one result set. */
@@ -11,55 +13,112 @@ export interface GeoSearchResult {
 export interface GeocodingProvider {
     /** Display name, shown where the user picks a provider. */
     name: string;
-    /** Returns matches, best first, or an empty array when nothing matches. */
+    /**
+     * Returns matches, best first, or an empty array when nothing matches. Throws when the provider
+     * cannot be reached or refuses the request.
+     */
     search(query: string): Promise<GeoSearchResult[]>;
 }
 
 /**
  * The geocoders a map can search, keyed by the name a note selects one by.
  *
- * Same shape as `MAP_LAYERS` in map_layer.ts, so both are read the same way. Only the dummy provider
- * exists so far; a real one is a new entry here.
+ * Same shape as `MAP_LAYERS` in map_layer.ts, so both are read the same way.
  */
 export const GEOCODING_PROVIDERS: Record<string, GeocodingProvider> = {
-    "dummy": {
-        name: "Dummy",
-        search: searchDummyPlaces
+    "nominatim": {
+        name: "Nominatim (OpenStreetMap)",
+        search: searchNominatim
     }
 };
 
-export const DEFAULT_GEOCODING_PROVIDER_NAME: keyof typeof GEOCODING_PROVIDERS = "dummy";
+export const DEFAULT_GEOCODING_PROVIDER_NAME: keyof typeof GEOCODING_PROVIDERS = "nominatim";
 
-/** The places `searchDummyPlaces()` matches against. */
-const DUMMY_PLACES: GeoSearchResult[] = [
-    { id: "dummy-amsterdam", label: "Amsterdam, Netherlands", lat: 52.3676, lng: 4.9041 },
-    { id: "dummy-berlin", label: "Berlin, Germany", lat: 52.52, lng: 13.405 },
-    { id: "dummy-bucharest", label: "Bucharest, Romania", lat: 44.4268, lng: 26.1025 },
-    { id: "dummy-cluj", label: "Cluj-Napoca, Cluj, Romania", lat: 46.7712, lng: 23.6236 },
-    { id: "dummy-lisbon", label: "Lisbon, Portugal", lat: 38.7223, lng: -9.1393 },
-    { id: "dummy-london", label: "London, England, United Kingdom", lat: 51.5072, lng: -0.1276 },
-    { id: "dummy-london-on", label: "London, Ontario, Canada", lat: 42.9849, lng: -81.2453 },
-    { id: "dummy-new-york", label: "New York, New York, United States", lat: 40.7128, lng: -74.006 },
-    { id: "dummy-paris", label: "Paris, Île-de-France, France", lat: 48.8566, lng: 2.3522 },
-    { id: "dummy-reykjavik", label: "Reykjavík, Iceland", lat: 64.1466, lng: -21.9426 },
-    { id: "dummy-sydney", label: "Sydney, New South Wales, Australia", lat: -33.8688, lng: 151.2093 },
-    { id: "dummy-tokyo", label: "Tokyo, Japan", lat: 35.6762, lng: 139.6503 }
-];
+const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 
 /** Caps how many results one search returns. */
 const MAX_RESULTS = 8;
 
 /**
- * Matches `DUMMY_PLACES` by substring, so the search bar works before a real geocoder is wired up.
- * Async like a real provider, so callers cannot depend on results arriving in the same tick.
+ * Nominatim's usage policy allows at most one request per second, and blocks clients that exceed it.
+ * See https://operations.osmfoundation.org/policies/nominatim/.
  */
-async function searchDummyPlaces(query: string): Promise<GeoSearchResult[]> {
-    const needle = query.trim().toLowerCase();
-    if (!needle) {
-        return [];
+const MIN_REQUEST_INTERVAL = 1000;
+
+/** When the next request is allowed to go out, moved forward by every request that is queued. */
+let nextRequestAt = 0;
+
+/**
+ * Looks a query up through Nominatim, the geocoder run by the OpenStreetMap Foundation.
+ *
+ * No API key, and it answers with `Access-Control-Allow-Origin: *`, so the browser can ask it
+ * directly — which matters on desktop, where the page is served from `trilium-app://`. Its policy
+ * also asks that clients identify themselves, which a browser can only do through the `Referer` it
+ * sends of its own accord.
+ *
+ * The same policy rules out searching as the user types, which is why a search runs only when the
+ * user asks for one (see SearchBox).
+ */
+async function searchNominatim(query: string): Promise<GeoSearchResult[]> {
+    const params = new URLSearchParams({
+        q: query,
+        format: "jsonv2",
+        limit: String(MAX_RESULTS)
+    });
+
+    // Place names in the language the app runs in, where Nominatim holds one. Trilium writes some
+    // locale ids with an underscore (`pt_br`), which is not what a language tag looks like.
+    const language = getCurrentLanguage();
+    if (language) {
+        params.set("accept-language", language.replace("_", "-"));
     }
 
-    return DUMMY_PLACES
-        .filter((place) => place.label.toLowerCase().includes(needle))
-        .slice(0, MAX_RESULTS);
+    await waitForRequestSlot();
+    const response = await fetch(`${NOMINATIM_URL}?${params}`);
+    if (!response.ok) {
+        throw new Error(`Nominatim answered ${response.status} ${response.statusText}`);
+    }
+
+    const places: NominatimPlace[] = await response.json();
+    return places.map(toSearchResult).filter((result) => result !== null);
+}
+
+/** One entry of a Nominatim `jsonv2` response, narrowed to the fields a result is built from. */
+interface NominatimPlace {
+    place_id?: number;
+    display_name?: string;
+    lat?: string;
+    lon?: string;
+}
+
+/** A place as the app holds one, or `null` where the entry carries no readable position. */
+function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
+    const lat = Number(place.lat);
+    const lng = Number(place.lon);
+    if (!place.display_name || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return null;
+    }
+
+    return {
+        id: String(place.place_id ?? `${lat},${lng}`),
+        label: place.display_name,
+        lat,
+        lng
+    };
+}
+
+/**
+ * Holds a request back until the interval the policy asks for has passed since the last one.
+ *
+ * The slot is claimed before the wait rather than after it, so two searches started at once queue
+ * behind each other instead of both finding the same slot free.
+ */
+async function waitForRequestSlot() {
+    const now = Date.now();
+    const slot = Math.max(now, nextRequestAt);
+    nextRequestAt = slot + MIN_REQUEST_INTERVAL;
+
+    if (slot > now) {
+        await new Promise((resolve) => setTimeout(resolve, slot - now));
+    }
 }

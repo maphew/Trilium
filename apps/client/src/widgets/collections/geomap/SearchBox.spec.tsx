@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type FNote from "../../../entities/fnote";
 import { buildNote } from "../../../test/easy-froca";
 import { renderInto } from "../../../test/render";
-import { GEOCODING_PROVIDERS } from "./geocoding";
+import { DEFAULT_GEOCODING_PROVIDER_NAME, GEOCODING_PROVIDERS, type GeoSearchResult } from "./geocoding";
 import { ParentMap } from "./map";
 import SearchBox from "./SearchBox";
 
@@ -19,6 +19,14 @@ import SearchBox from "./SearchBox";
 vi.mock("../../../services/i18n", () => ({
     t: (key: string, vars?: Record<string, unknown>) => (vars ? `${key}(${Object.values(vars).join(",")})` : key)
 }));
+
+const TOKYO: GeoSearchResult = { id: "1", label: "Tokyo, Japan", lat: 35.6762, lng: 139.6503 };
+
+/** Stands in for the geocoder, which would otherwise reach for the network. */
+function mockGeocoder(results: GeoSearchResult[]) {
+    return vi.spyOn(GEOCODING_PROVIDERS[DEFAULT_GEOCODING_PROVIDER_NAME], "search")
+        .mockResolvedValue(results);
+}
 
 /** A map that can be flown somewhere, which is all the bar uses. */
 function fakeMap() {
@@ -94,6 +102,7 @@ afterEach(() => {
 
 describe("geo map SearchBox", () => {
     it("lists the map's own markers by title, skipping notes with nowhere to fly to", async () => {
+        mockGeocoder([]);
         const container = renderSearchBox(fakeMap(), mapNotes());
 
         await type(container, "london");
@@ -115,7 +124,7 @@ describe("geo map SearchBox", () => {
     });
 
     it("does not reach the geocoder until its row is picked", async () => {
-        const search = vi.spyOn(GEOCODING_PROVIDERS.dummy, "search");
+        const search = mockGeocoder([ TOKYO ]);
         const container = renderSearchBox(fakeMap(), mapNotes());
 
         await type(container, "tokyo");
@@ -130,6 +139,7 @@ describe("geo map SearchBox", () => {
     });
 
     it("flies to a marker, and closes the list rather than leaving it open over the map", async () => {
+        mockGeocoder([]);
         const map = fakeMap();
         const container = renderSearchBox(map, mapNotes());
 
@@ -142,6 +152,7 @@ describe("geo map SearchBox", () => {
     });
 
     it("flies to a geocoded place, further out than to a marker", async () => {
+        mockGeocoder([ TOKYO ]);
         const map = fakeMap();
         const container = renderSearchBox(map, mapNotes());
 
@@ -160,19 +171,21 @@ describe("geo map SearchBox", () => {
     });
 
     it("says so when the geocoder finds nothing, and when it cannot be reached", async () => {
+        mockGeocoder([]);
         const container = renderSearchBox(fakeMap(), []);
 
         await type(container, "atlantis");
         await pick(0);
         expect(labels()).toEqual([ "geo-map.no-places-found" ]);
 
-        vi.spyOn(GEOCODING_PROVIDERS.dummy, "search").mockRejectedValue(new Error("rate limited"));
+        mockGeocoder([]).mockRejectedValue(new Error("rate limited"));
         await type(container, "berlin");
         await pick(0);
         expect(labels()).toEqual([ "geo-map.search-failed" ]);
     });
 
     it("offers the geocoder again once the query moves on from what it answered", async () => {
+        mockGeocoder([ { id: "2", label: "Berlin, Germany", lat: 52.52, lng: 13.405 } ]);
         const container = renderSearchBox(fakeMap(), []);
 
         await type(container, "berlin");
