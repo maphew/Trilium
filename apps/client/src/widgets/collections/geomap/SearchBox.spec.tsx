@@ -12,6 +12,7 @@ import { buildNote } from "../../../test/easy-froca";
 import { renderInto } from "../../../test/render";
 import { DEFAULT_GEOCODING_PROVIDER_NAME, GEOCODING_PROVIDERS, type GeoSearchResult } from "./geocoding";
 import { ParentMap } from "./map";
+import type { SearchResult } from "./results";
 import SearchBox from "./SearchBox";
 
 /** The pin is drawn on the map by its own component, which has a spec of its own; here it only has to
@@ -77,8 +78,15 @@ function mapNotes(): FNote[] {
     ];
 }
 
-/** What the bar has reported picking, the map being what stands a place on itself (see index.tsx). */
-let picked: (GeoSearchResult | null)[] = [];
+/** What the bar has reported picking, the map being what stands a result on itself (see index.tsx). */
+let picked: ({ results: SearchResult[]; index: number } | null)[] = [];
+
+/** The place of the last result reported, or none where the bar reported moving on from the search. */
+function pickedPlace() {
+    const last = picked.at(-1);
+    const result = last && last.results[last.index];
+    return result?.kind === "place" ? result.place : null;
+}
 
 function renderSearchBox(map: ReturnType<typeof fakeMap> | null, notes: FNote[] = []) {
     picked = [];
@@ -86,7 +94,7 @@ function renderSearchBox(map: ReturnType<typeof fakeMap> | null, notes: FNote[] 
     act(() => {
         container = renderInto(
             <ParentMap.Provider value={map as unknown as MapLibreGLMap}>
-                <SearchBox notes={notes} onPickPlace={(place) => picked.push(place)} />
+                <SearchBox notes={notes} onPickResult={(result) => picked.push(result)} />
             </ParentMap.Provider>
         );
     });
@@ -301,13 +309,16 @@ describe("geo map SearchBox", () => {
         await pickNamed("geo-map.search-online(tokyo)");
         await pickNamed("Tokyo");
 
-        // Once, and whole — so what stands it on the map has its boundary and its bounds to hand.
-        expect(picked).toEqual([ TOKYO ]);
+        // Whole, so what stands it on the map has its boundary and its bounds to hand.
+        expect(pickedPlace()).toBe(TOKYO);
+        // And with everything the list offered, so the rest can be stepped through after it.
+        expect(picked.at(-1)?.results).toHaveLength(2);
 
-        // A note of the map's own has a marker already, so taking one moves on from the place.
+        // A note of the map's own is one of the results too, and taking it stands the map there.
         await type(container, "tokyo trip");
         await pick(0);
-        expect(picked).toEqual([ TOKYO, null ]);
+        expect(picked.at(-1)?.results[picked.at(-1)?.index ?? -1])
+            .toEqual({ kind: "note", noteId: expect.any(String), center: [ 139.7, 35.6 ] });
     });
 
     it("gives a place two lines: what it is called, and the address that places it", async () => {
@@ -489,15 +500,15 @@ describe("geo map SearchBox", () => {
 
         await pickNamed("geo-map.search-online(tokyo)");
         await pickNamed("Tokyo");
-        expect(picked).toEqual([ TOKYO ]);
+        expect(pickedPlace()).toBe(TOKYO);
 
         await act(async () => { clearButton()?.click(); });
         await settle();
 
         expect(field(container).value).toBe("");
         expect(isShown()).toBe(false);
-        // Clearing the field is what takes the place off the map, panel and pin alike.
-        expect(picked).toEqual([ TOKYO, null ]);
+        // Clearing the field is what takes the search off the map, panel and pin alike.
+        expect(picked.at(-1)).toBeNull();
         // Rarely the end of searching, so the field is where the reader was left.
         expect(document.activeElement).toBe(field(container));
     });
@@ -509,11 +520,11 @@ describe("geo map SearchBox", () => {
         await type(container, "tokyo");
         await pickNamed("geo-map.search-online(tokyo)");
         await pickNamed("Tokyo");
-        expect(picked).toEqual([ TOKYO ]);
+        expect(pickedPlace()).toBe(TOKYO);
 
         await type(container, "");
 
-        expect(picked).toEqual([ TOKYO, null ]);
+        expect(picked.at(-1)).toBeNull();
     });
 
     it("renders nothing when the map failed to initialize", () => {

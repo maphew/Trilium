@@ -2962,7 +2962,10 @@
     "search-failed": "Couldn't search for places",
     "results-nearby": "Nearby",
     "results-far": "Far away",
-    "add-place-as-marker": "Add as marker"
+    "add-place-as-marker": "Add as marker",
+    "previous-result": "Previous result",
+    "next-result": "Next result",
+    "result-position": "Result {{index}} of {{total}}, click to return to it"
   },
   "embedded_note": {
     "open-note": "Open note",

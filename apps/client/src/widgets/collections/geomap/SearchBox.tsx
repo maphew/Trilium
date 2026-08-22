@@ -18,6 +18,7 @@ import { DEFAULT_GEOCODING_PROVIDER_NAME, DEFAULT_PLACE_ICON, type GeoBounds, GE
 import { ParentMap } from "./map";
 import { describePlace } from "./place_address";
 import { LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
+import { frameResult, type SearchResult } from "./results";
 
 /** Shorter queries are not searched. */
 const MIN_QUERY_LENGTH = 2;
@@ -57,11 +58,11 @@ interface SearchBoxProps {
     /** The notes on the map, searched by title. */
     notes: FNote[];
     /**
-     * Reports the place picked from the list, or none where the reader has moved on from it — a note
-     * of the map's own taken instead, or the field emptied. What is done with it is the map's (see
-     * `pickPlace` in index.tsx).
+     * Reports what the list offered and which of it was taken, so the map can stand on that one and
+     * step through the rest (see `showResult` in index.tsx). None where the reader has moved on from
+     * the search altogether, the field having been emptied.
      */
-    onPickPlace(place: GeoSearchResult | null): void;
+    onPickResult(picked: { results: SearchResult[]; index: number } | null): void;
 }
 
 /**
@@ -76,7 +77,7 @@ type SearchEntry = {
     /** How far the place is from the middle of the map, in metres. */
     distance?: number;
 } & (
-    | { kind: "marker"; center: [number, number] }
+    | { kind: "marker"; center: [number, number]; noteId: string }
     /** A place from the geocoder, carried whole for whoever the pick is reported to. */
     | { kind: "place"; center: [number, number]; result: GeoSearchResult }
     /** Names the run of rows below it; not a choice (see `isHeading` on FormAutocomplete). */
@@ -115,7 +116,7 @@ interface GeocodeRun {
  * geocoder row can replace itself with results, so closing it after a marker or place is taken is
  * this component's job — see `dismissed`.
  */
-export default function SearchBox({ notes, onPickPlace }: SearchBoxProps) {
+export default function SearchBox({ notes, onPickResult }: SearchBoxProps) {
     const map = useContext(ParentMap);
     const [ query, setQuery ] = useState("");
     const [ geocodeRun, setGeocodeRun ] = useState<GeocodeRun>();
@@ -149,11 +150,11 @@ export default function SearchBox({ notes, onPickPlace }: SearchBoxProps) {
     const changeQuery = useCallback((newQuery: string) => {
         setDismissed(false);
         setQuery(newQuery);
-        // Emptying the field is how the pin is taken back off the map.
+        // Emptying the field is how the search is taken back off the map, pin and all.
         if (!newQuery.trim()) {
-            onPickPlace(null);
+            onPickResult(null);
         }
-    }, [ onPickPlace ]);
+    }, [ onPickResult ]);
 
     const runGeocoder = useCallback(async (searchQuery: string) => {
         const runId = ++latestRun.current;
@@ -206,19 +207,15 @@ export default function SearchBox({ notes, onPickPlace }: SearchBoxProps) {
             runGeocoder(entry.query);
         } else if (entry.kind === "marker" || entry.kind === "place") {
             setDismissed(true);
-            // A note of the map's own has a marker already; only a place needs one put down for it.
-            onPickPlace(entry.kind === "place" ? entry.result : null);
 
-            const bounds = entry.kind === "place" ? entry.result.bounds : undefined;
-            if (bounds) {
-                // Framed by what the place covers rather than flown to at a level guessed for every
-                // place alike: one zoom that suits a city shows a street as the city around it.
-                map.fitBounds(bounds, { padding: PLACE_PADDING, maxZoom: PLACE_MAX_ZOOM });
-            } else {
-                map.flyTo({ center: entry.center, zoom: entry.kind === "marker" ? MARKER_ZOOM : PLACE_ZOOM });
-            }
+            // The whole of what was offered, so the map can step through the rest of it once the
+            // list has stood down (see ResultNavigator).
+            const results = walkableResults(entriesByKey.current);
+            const index = results.findIndex((result) => keyOf(result) === entry.key);
+            onPickResult({ results, index });
+            frameResult(map, results[index]);
         }
-    }, [ map, runGeocoder, onPickPlace ]);
+    }, [ map, runGeocoder, onPickResult ]);
 
     const isHeading = useCallback(
         (key: string) => entriesByKey.current.get(key)?.kind === "heading", []);
@@ -293,6 +290,29 @@ export default function SearchBox({ notes, onPickPlace }: SearchBoxProps) {
 }
 
 /**
+ * The rows that stand somewhere on the map, in the order they were offered — the headings and the
+ * geocoder's own rows being neither results nor anywhere.
+ */
+function walkableResults(entries: Map<string, SearchEntry>): SearchResult[] {
+    const results: SearchResult[] = [];
+
+    for (const entry of entries.values()) {
+        if (entry.kind === "marker") {
+            results.push({ kind: "note", noteId: entry.noteId, center: entry.center });
+        } else if (entry.kind === "place") {
+            results.push({ kind: "place", place: entry.result });
+        }
+    }
+
+    return results;
+}
+
+/** The key the row a result came from was listed under (see `placeEntry` and `matchMarkers`). */
+function keyOf(result: SearchResult) {
+    return result.kind === "note" ? `marker:${result.noteId}` : `place:${result.place.id}`;
+}
+
+/**
  * How far a row's place stands from where the map is looking, for the rows that stand anywhere: the
  * geocoder's row and its reports name no place, and a map that could not be drawn is looking nowhere.
  */
@@ -338,6 +358,7 @@ function matchMarkers(notes: FNote[], query: string): SearchEntry[] {
         matches.push({
             kind: "marker",
             key: `marker:${note.noteId}`,
+            noteId: note.noteId,
             label: note.title,
             icon: note.getIcon(),
             center

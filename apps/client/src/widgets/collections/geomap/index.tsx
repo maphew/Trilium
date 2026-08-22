@@ -27,6 +27,8 @@ import type { GeoSearchResult } from "./geocoding";
 import Markers, { DEFAULT_MARKER_COLOR, LOCATION_ATTRIBUTE } from "./Markers";
 import PlaceMarker from "./PlaceMarker";
 import PlacePanel from "./PlacePanel";
+import ResultNavigator from "./ResultNavigator";
+import type { SearchResult } from "./results";
 import SearchBox from "./SearchBox";
 import Tooltips from "./Tooltips";
 
@@ -71,6 +73,9 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     // map is currently standing on, and both are shown in the same corner.
     const [ pickedPlace, setPickedPlace ] = useState<GeoSearchResult>();
     const [ placeOutline, setPlaceOutline ] = useState<GeoJSON.Geometry>();
+    // What the last search offered and which of it the map stands on, so the rest can be stepped
+    // through once the list has stood down (see ResultNavigator).
+    const [ walk, setWalk ] = useState<{ results: SearchResult[]; index: number }>();
     // Which pick the map stands on, so a boundary arriving after a later one is dropped rather than
     // drawn around whatever took its place.
     const latestPlacePick = useRef(0);
@@ -142,6 +147,30 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 }
             })
             .catch((e) => logError(`Fetching the boundary of "${place.label}" failed: ${e}`));
+    }, []);
+
+    /**
+     * Stands the map on one of a search's results: a place under a pin of its own, or a note of the
+     * map's own in the detail pane. Where the map is pointed is the caller's, which is the one thing
+     * that differs between taking a result from the list and stepping onto it.
+     */
+    const showResult = useCallback((results: SearchResult[], index: number) => {
+        setWalk({ results, index });
+
+        const result = results[index];
+        if (result.kind === "place") {
+            pickPlace(result.place);
+        } else {
+            selectNote({ noteId: result.noteId });
+        }
+    }, [ pickPlace, selectNote ]);
+
+    /** Takes the search off the map altogether: what it was standing on, and the rest it offered. */
+    const clearSearch = useCallback(() => {
+        latestPlacePick.current++;
+        setWalk(undefined);
+        setPickedPlace(undefined);
+        setPlaceOutline(undefined);
     }, []);
 
     /** Keeps the place the map stands on as a note of its own, which is what turns its pin into a
@@ -302,7 +331,14 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 onClick={onClick}
                 scale={hasScale}
             >
-                <SearchBox notes={notes} onPickPlace={pickPlace} />
+                <SearchBox
+                    notes={notes}
+                    onPickResult={(picked) => picked ? showResult(picked.results, picked.index) : clearSearch()}
+                />
+                {walk && <ResultNavigator
+                    results={walk.results} index={walk.index}
+                    onStep={(index) => showResult(walk.results, index)}
+                />}
                 {pickedPlace && placeCenter && <>
                     <PlaceMarker
                         center={placeCenter} name={pickedPlace.name} icon={pickedPlace.icon}
