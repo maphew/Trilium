@@ -1,6 +1,7 @@
 import { trimIndentation } from "@triliumnext/commons";
 import { describe, expect, it } from "vitest";
 
+import markdownExportService from "../export/markdown.js";
 import markdownService from "./markdown.js";
 
 describe("markdown", () => {
@@ -450,5 +451,72 @@ $$`;
         const input = `*   &lt;note&gt; is note.`;
         const expected = /*html*/`<ul><li>&lt;note&gt; is note.</li></ul>`;
         expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+    });
+
+    describe("collapsible blocks", () => {
+        it("re-stamps the trilium-collapsible class and drops the indentation the exporter adds, so the block matches what the editor downcasts", () => {
+            const input = trimIndentation`\
+                <details>
+                    <summary>Configuration change</summary>
+                    <p>Set the following:</p>
+                    <pre><code class="language-text-x-yaml">entryPoints:
+                  web:
+                    http: true</code></pre>
+                    <aside class="admonition tip"><p>A tip.</p></aside>
+                </details>`;
+            const expected = [
+                `<details class="trilium-collapsible"><summary>Configuration change</summary><p>Set the following:</p>`,
+                `<pre><code class="language-text-x-yaml">entryPoints:\n  web:\n    http: true</code></pre>`,
+                `<aside class="admonition tip"><p>A tip.</p></aside></details>`
+            ].join("");
+            expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+        });
+
+        it("writes the class before an expanded block's open attribute and strips the indentation of nested lists", () => {
+            const input = trimIndentation`\
+                <details open="">
+                    <summary>Sum</summary>
+                    <ol>
+                        <li>
+                            <span>First</span>
+                            <ul>
+                                <li>
+                                    <span>Nested</span>
+                                </li>
+                            </ul>
+                        </li>
+                    </ol>
+                </details>`;
+            const expected = `<details class="trilium-collapsible" open=""><summary>Sum</summary><ol><li><span>First</span><ul><li><span>Nested</span></li></ul></li></ol></details>`;
+            expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+        });
+
+        it("keeps a user-added class, adds the styling hook only once and leaves an element holding text of its own untouched", () => {
+            expect(markdownService.renderToHtml(`<details class="custom"><summary>S</summary><p>B</p></details>`, "Title"))
+                .toStrictEqual(`<details class="custom trilium-collapsible"><summary>S</summary><p>B</p></details>`);
+            expect(markdownService.renderToHtml(`<details class="trilium-collapsible"><summary>S</summary><p>B</p></details>`, "Title"))
+                .toStrictEqual(`<details class="trilium-collapsible"><summary>S</summary><p>B</p></details>`);
+            expect(markdownService.renderToHtml(`<details>Just some <em>text</em> here</details>`, "Title"))
+                .toStrictEqual(`<details class="trilium-collapsible">Just some <em>text</em> here</details>`);
+        });
+
+        it("leaves a <details> shown inside a fenced code block as escaped sample text", () => {
+            const input = trimIndentation`\
+                \`\`\`html
+                <details><summary>S</summary></details>
+                \`\`\``;
+            expect(markdownService.renderToHtml(input, "Title"))
+                .toStrictEqual(`<pre><code class="language-text-html">&lt;details&gt;&lt;summary&gt;S&lt;/summary&gt;&lt;/details&gt;</code></pre>`);
+        });
+
+        it("round-trips a collapsible block through the Markdown exporter unchanged", () => {
+            const original = [
+                `<details class="trilium-collapsible" open=""><summary>Configuration change</summary>`,
+                `<p>Set the <a href="https://example.com"><strong>static</strong> configuration</a>:</p>`,
+                `<pre><code class="language-text-x-yaml">entryPoints:\n  web:\n    http: true</code></pre>`,
+                `<aside class="admonition tip"><p>A&nbsp;tip.</p></aside></details>`
+            ].join("");
+            expect(markdownService.renderToHtml(markdownExportService.toMarkdown(original), "Title")).toStrictEqual(original);
+        });
     });
 });
