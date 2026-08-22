@@ -2590,8 +2590,7 @@
   },
   "server": {
     "unknown_http_error_title": "Errore di comunicazione con il server",
-    "unknown_http_error_content": "Codice di stato: {{statusCode}}\nURL: {{method}} {{url}}\nMessaggio: {{message}}",
-    "traefik_blocks_requests": "Se si utilizza il proxy inverso Traefik, è stata introdotta una modifica sostanziale che influisce sulla comunicazione con il server."
+    "unknown_http_error_content": "Codice di stato: {{statusCode}}\nURL: {{method}} {{url}}\nMessaggio: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "Torna alla nota precedente",
@@ -3643,9 +3642,7 @@
     "note_paths_what": "Una nota può trovarsi contemporaneamente in più di una posizione nell'albero delle note, e ciascuna di queste posizioni è elencata qui come un percorso.",
     "note_paths_cloning": "L'aggiunta di un percorso si chiama clonazione: non viene copiato nulla, quindi una modifica apportata a un percorso sarà visibile a tutti gli altri, e la rimozione di un percorso la nota rimarrà visibile anche negli altri.",
     "backlinks_what": "Le note che puntano a questa, o tramite un link nel loro testo o tramite una relazione che la nomina.",
-    "backlinks_listing": "Un collegamento testuale viene visualizzato con il passaggio che lo circonda, una relazione con il nome a cui punta. Questa parte del collegamento non è modificabile: scompare quando la nota che lo ha creato elimina il collegamento.",
-    "similar_notes_what": "Note che sembrano correlate a questa, anche se non c'è alcun collegamento tra di esse.",
-    "similar_notes_how": "La somiglianza viene dedotta dal contenuto delle note, dagli attributi e dalle relazioni che esse veicolano, e dalla vicinanza temporale con cui sono state create."
+    "backlinks_listing": "Un collegamento testuale viene visualizzato con il passaggio che lo circonda, una relazione con il nome a cui punta. Questa parte del collegamento non è modificabile: scompare quando la nota che lo ha creato elimina il collegamento."
   },
   "gpx_preview": {
     "distance": "Distanza",

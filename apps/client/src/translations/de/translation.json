@@ -2308,8 +2308,7 @@
   },
   "server": {
     "unknown_http_error_title": "Kommunikationsfehler mit dem Server",
-    "unknown_http_error_content": "Statuscode: {{statusCode}}\nURL: {{method}} {{url}}\nNachricht: {{message}}",
-    "traefik_blocks_requests": "Falls Sie den Traefik-Reverse-Proxy verwenden: Dieser hat eine grundlegende Änderung eingeführt, die die Kommunikation mit dem Server beeinträchtigt."
+    "unknown_http_error_content": "Statuscode: {{statusCode}}\nURL: {{method}} {{url}}\nNachricht: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "Zur vorherigen Notiz zurückkehren",
