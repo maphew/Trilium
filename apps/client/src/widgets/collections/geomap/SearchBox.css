@@ -1,7 +1,7 @@
 /* Top leading corner of the map, using the insets and z-index every overlay here uses (see
    index.css). */
 .geo-map-container .geo-search-toolbar {
-    top: var(--geo-map-inset-top);
+    top: var(--geo-map-search-top);
     inset-inline-start: var(--geo-map-inset-start);
     z-index: 3;
     gap: 6px;
@@ -12,11 +12,6 @@
     background: var(--geo-map-panel-background);
     color: var(--geo-map-panel-text-color);
     border-color: var(--geo-map-panel-border-color);
-}
-
-/* On mobile the attribution takes the top leading corner (see map.tsx), so start below it. */
-body.mobile .geo-map-container .geo-search-toolbar {
-    top: calc(var(--geo-map-inset-top) * 2 + var(--geo-map-toolbar-height));
 }
 
 /* The bar is the field, icon and all, so it takes the focus outline an input group takes (see the

@@ -1,8 +1,8 @@
-/* Under the search bar, in the same corner: the room the bar keeps from the top, the bar's own
-   height, and as much air again. */
+/* Under the search bar, in the same corner: where that bar stands, its own height, and as much air
+   again — read from the bar's own top, which on mobile is below the attribution (see index.css). */
 .geo-map-container .geo-result-navigator {
     --overlay-group-inset-top: calc(
-        var(--geo-map-inset-top) + var(--geo-map-toolbar-height) + var(--geo-map-inset));
+        var(--geo-map-search-top) + var(--geo-map-toolbar-height) + var(--geo-map-inset));
 }
 
 /* The count is read rather than pressed for its own sake, so it keeps a readout's room rather than
