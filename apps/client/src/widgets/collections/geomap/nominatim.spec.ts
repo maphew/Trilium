@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { nominatim as provider } from "./nominatim";
 
-vi.mock("../../../services/i18n", () => ({ getCurrentLanguage: () => "pt_br" }));
+/** The locale the app is running in, which a test can settle for itself. */
+let language = "pt_br";
+
+vi.mock("../../../services/i18n", () => ({ getCurrentLanguage: () => language }));
 
 /** One entry as Nominatim's `jsonv2` answer carries it. */
 function place(overrides: Record<string, unknown> = {}) {
@@ -58,7 +61,10 @@ function requestedUrl(fetchMock: ReturnType<typeof respondWith>, call = 0) {
     return new URL(fetchMock.mock.calls[call][0]);
 }
 
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => {
+    vi.useFakeTimers();
+    language = "pt_br";
+});
 afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -296,6 +302,83 @@ describe("Nominatim geocoding", () => {
         await vi.runAllTimersAsync();
 
         expect(await outlineFetch).toBeNull();
+    });
+
+    it("asks for no language in particular where the app has settled on none", async () => {
+        language = "";
+        const fetchMock = respondWith([]);
+
+        await search("berlin");
+
+        expect(requestedUrl(fetchMock).searchParams.get("accept-language")).toBeNull();
+    });
+
+    it("names a town and a region by whichever kind of place fills that role", async () => {
+        respondWith([
+            // A village has no city, and a county stands in for a state where a country has none.
+            place({ address: { village: "Rasinari", county: "Sibiu", country: "Romania", country_code: "RO" } })
+        ]);
+
+        const [ result ] = await search("rasinari");
+
+        expect(result.address).toMatchObject({
+            locality: "Rasinari",
+            region: "Sibiu",
+            country: "Romania",
+            // Lowercased, a flag being looked up by it.
+            countryCode: "ro"
+        });
+    });
+
+    it("holds no address for a result Nominatim broke into no parts of one", async () => {
+        // Distinct places: two that read the same are one answer, and only one survives.
+        respondWith([
+            place({ address: {} }),
+            place({ osm_id: 63, display_name: "Elsewhere", address: undefined })
+        ]);
+
+        const results = await search("nowhere");
+
+        expect(results.map((result) => result.address)).toEqual([ undefined, undefined ]);
+    });
+
+    it("falls back to Nominatim's numbering, and then to the position, to tell a place apart", async () => {
+        respondWith([
+            // No OSM object named at all, so its own numbering is all there is to go on.
+            place({ osm_type: undefined, osm_id: undefined, place_id: 111, display_name: "One" }),
+            // A kind of object without the id of one, which names nothing either.
+            place({ osm_type: "node", osm_id: undefined, place_id: 222, display_name: "Two" }),
+            // Not even that, and what is left is where it stands.
+            place({
+                osm_type: undefined, osm_id: undefined, place_id: undefined,
+                display_name: "Three", lat: "1.5", lon: "2.5"
+            })
+        ]);
+
+        const results = await search("anywhere");
+
+        expect(results.map((result) => result.id)).toEqual([ "111", "222", "1.5,2.5" ]);
+        // None of them can be asked for a boundary: that wants an OSM object to look up.
+        expect(results.map((result) => result.outline)).toEqual([ undefined, undefined, undefined ]);
+    });
+
+    it("frames nothing for a place whose extent runs the other way round the world", async () => {
+        // Reported west of east, which as a rectangle is the whole world the long way round.
+        respondWith([ place({ boundingbox: [ "-18", "-16", "177", "-179" ] }) ]);
+
+        const [ result ] = await search("fiji");
+
+        expect(result.bounds).toBeUndefined();
+    });
+
+    it("reports a refused boundary lookup rather than drawing nothing quietly", async () => {
+        respondWith([ place() ]);
+        const [ berlin ] = await search("berlin");
+
+        respondWith([], { ok: false, status: 429 });
+        const refused = expect(berlin.outline?.()).rejects.toThrow("429");
+        await vi.runAllTimersAsync();
+        await refused;
     });
 
     it("holds searches to the one request a second the usage policy allows", async () => {
