@@ -1,10 +1,9 @@
 import "./SearchBox.css";
 
 import clsx from "clsx";
+import type { Map as MapLibreGLMap } from "maplibre-gl";
 import type { TargetedKeyboardEvent } from "preact";
 import { useCallback, useContext, useRef, useState } from "preact/hooks";
-
-import type { Map as MapLibreGLMap } from "maplibre-gl";
 
 import type FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";

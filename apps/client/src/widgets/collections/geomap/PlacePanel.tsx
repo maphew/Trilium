@@ -36,8 +36,6 @@ export default function PlacePanel({ place, isReadOnly, onAddMarker, onClose }: 
     const panelRef = useRef<HTMLDivElement>(null);
     const addRef = useRef<HTMLButtonElement>(null);
 
-    // Nothing to move to on a map that may not be edited, where the panel is only to be read: the
-    // field keeps the focus, which is where the reader left it.
     useEffect(() => { addRef.current?.focus(); }, [ place ]);
 
     useEffect(() => {

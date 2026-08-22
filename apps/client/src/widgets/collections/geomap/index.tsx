@@ -8,8 +8,8 @@ import branches from "../../../services/branches";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
-import { logError } from "../../../services/ws";
 import toast from "../../../services/toast";
+import { logError } from "../../../services/ws";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import { useCollectionTreeDrag, useEffectiveReadOnly, useNoteBlob, useNoteContext, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate } from "../../react/hooks";
 import { ViewModeProps } from "../interface";
@@ -40,6 +40,12 @@ const DEFAULT_COORDINATES: [number, number] = [3.878638227135724, 446.6630455551
  * rewrites that toast rather than stacking a second one under it.
  */
 const PLACEMENT_TOAST_ID = "geo-placement";
+
+/**
+ * How long a place is stood on before its boundary is asked for. Long enough that stepping through
+ * results asks for nothing on the way past, short enough not to be waited on once the stepping stops.
+ */
+const OUTLINE_DELAY_MS = 250;
 
 export { LOCATION_ATTRIBUTE };
 
@@ -79,6 +85,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     // Which pick the map stands on, so a boundary arriving after a later one is dropped rather than
     // drawn around whatever took its place.
     const latestPlacePick = useRef(0);
+    const outlineTimer = useRef<ReturnType<typeof setTimeout>>();
     // Held still between renders: the pin's layer is rebuilt whenever it is handed a different one,
     // and an array literal is different every time (see PlaceMarker).
     const placeCenter = useMemo<[number, number] | null>(
@@ -119,34 +126,52 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     // pressing it again is the visible way out of it — the counterpart of the toast's Escape. It
     // also takes over a map armed to move a marker, a press on + saying what the next click is for
     // more plainly than whatever was armed before.
+    /** Forgets the place the map was standing on, and whatever was still to be fetched for it. */
+    const forgetPlace = useCallback(() => {
+        latestPlacePick.current++;
+        clearTimeout(outlineTimer.current);
+        setPickedPlace(undefined);
+        setPlaceOutline(undefined);
+    }, []);
+
+    // Nothing is left waiting to be fetched for a map that is no longer on the screen.
+    useEffect(() => () => clearTimeout(outlineTimer.current), []);
+
     /** Opens the pane on a note, which sends away the searched place the panel would otherwise share
      *  a corner with. */
     const selectNote = useCallback((next: PaneSelection | null) => {
         setSelection(next);
         if (next) {
-            latestPlacePick.current++;
-            setPickedPlace(undefined);
-            setPlaceOutline(undefined);
+            forgetPlace();
         }
-    }, []);
+    }, [ forgetPlace ]);
 
     /** Stands the map on a place found by searching, and fetches the ground it covers where it covers
      *  any (see PlaceMarker). */
     const pickPlace = useCallback((place: GeoSearchResult | null) => {
         const pickId = ++latestPlacePick.current;
+        clearTimeout(outlineTimer.current);
         setPickedPlace(place ?? undefined);
         setPlaceOutline(undefined);
         if (place) {
             setSelection(null);
         }
 
-        place?.outline?.()
-            .then((outline) => {
-                if (outline && latestPlacePick.current === pickId) {
-                    setPlaceOutline(outline);
-                }
-            })
-            .catch((e) => logError(`Fetching the boundary of "${place.label}" failed: ${e}`));
+        const fetchOutline = place?.outline;
+        if (!fetchOutline) return;
+
+        // Held back until the reader has settled on a place rather than fetched for each one they
+        // pass. The geocoder answers one request a second and the searches queue behind the same
+        // count, so a boundary nobody waited to see would be waited out by the next search.
+        outlineTimer.current = setTimeout(() => {
+            fetchOutline()
+                .then((outline) => {
+                    if (outline && latestPlacePick.current === pickId) {
+                        setPlaceOutline(outline);
+                    }
+                })
+                .catch((e) => logError(`Fetching the boundary of "${place.label}" failed: ${e}`));
+        }, OUTLINE_DELAY_MS);
     }, []);
 
     /**
@@ -167,11 +192,9 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
 
     /** Takes the search off the map altogether: what it was standing on, and the rest it offered. */
     const clearSearch = useCallback(() => {
-        latestPlacePick.current++;
         setWalk(undefined);
-        setPickedPlace(undefined);
-        setPlaceOutline(undefined);
-    }, []);
+        forgetPlace();
+    }, [ forgetPlace ]);
 
     /** Keeps the place the map stands on as a note of its own, which is what turns its pin into a
      *  marker; the pane then opens on the note as any other newly created one. */

@@ -1,6 +1,6 @@
 import { getLocaleById, t } from "../services/i18n";
-import type { MeasurementSystem } from "./units";
 import options from "../services/options";
+import type { MeasurementSystem } from "./units";
 
 type DateTimeStyle = "full" | "long" | "medium" | "short" | "none" | undefined;
 
