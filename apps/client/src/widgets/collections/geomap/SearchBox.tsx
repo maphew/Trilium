@@ -175,7 +175,6 @@ export default function SearchBox({ notes, onPickPlace }: SearchBoxProps) {
         if (entry.kind === "geocode") {
             runGeocoder(entry.query);
         } else if (entry.kind === "marker" || entry.kind === "place") {
-            setQuery(entry.label);
             setDismissed(true);
             // A note of the map's own has a marker already; only a place needs one put down for it.
             onPickPlace(entry.kind === "place" ? entry.result : null);
