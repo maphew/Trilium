@@ -50,6 +50,24 @@ body.mobile .geo-map-container .geo-search-toolbar {
     opacity: 0.6;
 }
 
+/*
+ * Sized to the field beside it rather than to a toolbar's own buttons, so the bar keeps its height.
+ *
+ * It holds its place in the bar with nothing to clear rather than leaving it, which would take the
+ * bar's width with it — hidden rather than gone, so it is out of reach of the pointer and the tab
+ * key as well as out of sight.
+ */
+.geo-map-container .geo-search-toolbar .geo-search-clear {
+    --icon-button-size: 24px;
+    width: 24px;
+    height: 24px;
+    visibility: hidden;
+}
+
+.geo-map-container .geo-search-toolbar .geo-search-clear.shown {
+    visibility: visible;
+}
+
 /* The dropdown is portalled to the body, so these are not scoped under .geo-map-container. */
 .form-autocomplete-dropdown .geo-search-entry {
     display: flex;

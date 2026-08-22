@@ -421,6 +421,34 @@ describe("geo map SearchBox", () => {
         expect(labels()).toEqual([ "Tokyo" ]);
     });
 
+    it("offers to clear the field only once there is something in it to clear", async () => {
+        mockGeocoder([ TOKYO ]);
+        const container = renderSearchBox(fakeMap(), mapNotes());
+        const clearButton = () => container.querySelector<HTMLButtonElement>(".geo-search-clear");
+        const isShown = () => clearButton()?.classList.contains("shown");
+
+        // Standing in the bar either way, so the field beside it does not move as it comes and goes.
+        expect(clearButton()).not.toBeNull();
+        expect(isShown()).toBe(false);
+
+        await type(container, "tokyo");
+        expect(isShown()).toBe(true);
+
+        await pickNamed("geo-map.search-online(tokyo)");
+        await pickNamed("Tokyo");
+        expect(picked).toEqual([ TOKYO ]);
+
+        await act(async () => { clearButton()?.click(); });
+        await settle();
+
+        expect(field(container).value).toBe("");
+        expect(isShown()).toBe(false);
+        // Clearing the field is what takes the place off the map, panel and pin alike.
+        expect(picked).toEqual([ TOKYO, null ]);
+        // Rarely the end of searching, so the field is where the reader was left.
+        expect(document.activeElement).toBe(field(container));
+    });
+
     it("reports moving on from a place once the field is emptied", async () => {
         mockGeocoder([ TOKYO ]);
         const container = renderSearchBox(fakeMap(), []);

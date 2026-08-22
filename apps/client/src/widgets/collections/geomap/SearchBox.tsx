@@ -1,5 +1,6 @@
 import "./SearchBox.css";
 
+import clsx from "clsx";
 import { useCallback, useContext, useRef, useState } from "preact/hooks";
 
 import type { Map as MapLibreGLMap } from "maplibre-gl";
@@ -11,7 +12,7 @@ import { getMeasurementSystem } from "../../../utils/formatters";
 import { formatDistance } from "../../../utils/units";
 import FormAutocomplete from "../../react/FormAutocomplete";
 import Icon from "../../react/Icon";
-import OverlayToolbar from "../../react/OverlayToolbar";
+import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
 import { DEFAULT_GEOCODING_PROVIDER_NAME, type GeoBounds, GEOCODING_PROVIDERS, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
 import { ParentMap } from "./map";
 import { LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
@@ -119,6 +120,7 @@ export default function SearchBox({ notes, onPickPlace }: SearchBoxProps) {
     // Empties the list once a marker or place has been taken, which is what closes the dropdown under
     // `keepOpenOnPick`. Typing again clears it.
     const [ dismissed, setDismissed ] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
     const entriesByKey = useRef(new Map<string, SearchEntry>());
     // Discards a run superseded by a later one, since each reports through the same state.
     const latestRun = useRef(0);
@@ -167,6 +169,13 @@ export default function SearchBox({ notes, onPickPlace }: SearchBoxProps) {
             setGeocodeRun({ query: searchQuery, status: "failed", results: [] });
         }
     }, [ provider, map ]);
+
+    /** Empties the field, which is also what takes a searched place off the map (see `changeQuery`). */
+    const clearSearch = useCallback(() => {
+        changeQuery("");
+        // The field is where the reader was, and clearing it is rarely the end of searching.
+        inputRef.current?.focus();
+    }, [ changeQuery ]);
 
     const pickEntry = useCallback((key: string) => {
         const entry = entriesByKey.current.get(key);
@@ -229,20 +238,30 @@ export default function SearchBox({ notes, onPickPlace }: SearchBoxProps) {
 
     return (
         <OverlayToolbar className="geo-search-toolbar" titlePosition="bottom">
-                <Icon icon="bx bx-search" className="geo-search-icon" />
-                <FormAutocomplete
-                    className="geo-search-input"
-                    currentValue={query}
-                    onChange={changeQuery}
-                    onPick={pickEntry}
-                    source={source}
-                    renderItem={renderEntry}
-                    isHeading={isHeading}
-                    dropdownMinWidth={RESULT_LIST_WIDTH}
-                    autoActivate
-                    keepOpenOnPick
-                    placeholder={t("geo-map.search-placeholder")}
-                    aria-label={t("geo-map.search")}
+            <Icon icon="bx bx-search" className="geo-search-icon" />
+            <FormAutocomplete
+                className="geo-search-input"
+                inputRef={inputRef}
+                currentValue={query}
+                onChange={changeQuery}
+                onPick={pickEntry}
+                source={source}
+                renderItem={renderEntry}
+                isHeading={isHeading}
+                dropdownMinWidth={RESULT_LIST_WIDTH}
+                autoActivate
+                keepOpenOnPick
+                placeholder={t("geo-map.search-placeholder")}
+                aria-label={t("geo-map.search")}
+            />
+            {/* Kept in the bar whether or not there is anything to clear, and only shown when there
+                is: a button coming and going would take the bar's width with it, moving the field
+                under the reader mid-word. */}
+            <OverlayToolbarButton
+                className={clsx("geo-search-clear", query && "shown")}
+                icon="bx bx-x"
+                text={t("options.search_clear")}
+                onClick={clearSearch}
             />
         </OverlayToolbar>
     );
