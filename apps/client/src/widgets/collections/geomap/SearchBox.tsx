@@ -16,8 +16,17 @@ import PlaceMarker from "./PlaceMarker";
 /** Shorter queries are not searched. */
 const MIN_QUERY_LENGTH = 2;
 
-/** The zoom level a place from the geocoder is shown at. */
+/** The zoom level a place is shown at where the geocoder does not say how much ground it covers. */
 const PLACE_ZOOM = 12;
+
+/**
+ * How close a place is framed at most. A house's extent is a few metres across, which on its own
+ * would fill the screen with the roof.
+ */
+const PLACE_MAX_ZOOM = 17;
+
+/** The room kept around a framed place, so its pin and name do not sit against the map's edge. */
+const PLACE_PADDING = 60;
 
 /** The zoom level a marker is shown at, closer in since a note marks a spot rather than an area. */
 const MARKER_ZOOM = 15;
@@ -47,8 +56,11 @@ type SearchEntry = {
     icon: string;
 } & (
     | { kind: "marker"; center: [number, number] }
-    /** A place from the geocoder, `name` being what its pin is labelled with. */
-    | { kind: "place"; center: [number, number]; name: string }
+    /**
+     * A place from the geocoder: `name` is what its pin is labelled with, and `bounds` how much
+     * ground it covers, where the geocoder says.
+     */
+    | { kind: "place"; center: [number, number]; name: string; bounds?: GeoSearchResult["bounds"] }
     /** Runs the geocoder for `query`. */
     | { kind: "geocode"; query: string }
     /** Reports on a geocoder run; picking it does nothing. */
@@ -139,7 +151,13 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
             setDismissed(true);
             // A note already has a marker of its own to fly to; only a place needs one put down.
             setPickedPlace(entry.kind === "place" ? { center: entry.center, name: entry.name } : undefined);
-            map.flyTo({ center: entry.center, zoom: entry.kind === "marker" ? MARKER_ZOOM : PLACE_ZOOM });
+            if (entry.kind === "place" && entry.bounds) {
+                // Framed by what the place covers rather than flown to at a level guessed for every
+                // place alike: one zoom that suits a city shows a street as the city around it.
+                map.fitBounds(entry.bounds, { padding: PLACE_PADDING, maxZoom: PLACE_MAX_ZOOM });
+            } else {
+                map.flyTo({ center: entry.center, zoom: entry.kind === "marker" ? MARKER_ZOOM : PLACE_ZOOM });
+            }
         }
     }, [ map, runGeocoder ]);
 
@@ -240,7 +258,8 @@ function placeEntry(result: GeoSearchResult): SearchEntry {
         label: result.label,
         name: result.name,
         icon: "bx bx-map-pin",
-        center: [ result.lng, result.lat ]
+        center: [ result.lng, result.lat ],
+        bounds: result.bounds
     };
 }
 

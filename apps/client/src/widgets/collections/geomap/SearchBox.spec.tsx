@@ -27,7 +27,13 @@ vi.mock("../../../services/i18n", () => ({
     t: (key: string, vars?: Record<string, unknown>) => (vars ? `${key}(${Object.values(vars).join(",")})` : key)
 }));
 
-const TOKYO: GeoSearchResult = { id: "1", label: "Tokyo, Japan", name: "Tokyo", lat: 35.6762, lng: 139.6503 };
+const TOKYO: GeoSearchResult = {
+    id: "1", label: "Tokyo, Japan", name: "Tokyo", lat: 35.6762, lng: 139.6503,
+    bounds: [ [ 139.5, 35.5 ], [ 139.9, 35.8 ] ]
+};
+
+/** A result the geocoder gave no extent for, which is what the fallback zoom is left for. */
+const UNBOUNDED: GeoSearchResult = { id: "9", label: "Somewhere", name: "Somewhere", lat: 10, lng: 20 };
 
 /** Stands in for the geocoder, which would otherwise reach for the network. */
 function mockGeocoder(results: GeoSearchResult[]) {
@@ -35,9 +41,9 @@ function mockGeocoder(results: GeoSearchResult[]) {
         .mockResolvedValue(results);
 }
 
-/** A map that can be flown somewhere, which is all the bar uses. */
+/** A map that can be flown somewhere or framed on something, which is all the bar uses. */
 function fakeMap() {
-    return { flyTo: vi.fn() };
+    return { flyTo: vi.fn(), fitBounds: vi.fn() };
 }
 
 /** Two notes on the map and one that is only in its subtree, having no location to be drawn at. */
@@ -158,18 +164,38 @@ describe("geo map SearchBox", () => {
         expect(entries()).toHaveLength(0);
     });
 
-    it("flies to a geocoded place, further out than to a marker", async () => {
+    it("frames a place on the ground it covers, so a street is not shown as its city", async () => {
         mockGeocoder([ TOKYO ]);
+        const map = fakeMap();
+        const container = renderSearchBox(map, []);
+
+        await type(container, "tokyo");
+        await pick(0);
+        await pick(0);
+
+        expect(map.fitBounds).toHaveBeenCalledWith(TOKYO.bounds, {
+            padding: expect.any(Number),
+            // A house covers a few metres, which framed on its own would fill the screen with a roof.
+            maxZoom: expect.any(Number)
+        });
+        expect(map.flyTo).not.toHaveBeenCalled();
+        expect(field(container).value).toBe("Tokyo, Japan");
+    });
+
+    it("falls back to a zoom for a place the geocoder gave no extent for", async () => {
+        mockGeocoder([ UNBOUNDED ]);
         const map = fakeMap();
         const container = renderSearchBox(map, mapNotes());
 
-        await type(container, "tokyo");
-        await pick(1);
-        await pick(1);
+        await type(container, "somewhere");
+        await pick(0);
+        await pick(0);
 
-        expect(map.flyTo).toHaveBeenCalledWith({ center: [ 139.6503, 35.6762 ], zoom: expect.any(Number) });
-        expect(field(container).value).toBe("Tokyo, Japan");
+        expect(map.fitBounds).not.toHaveBeenCalled();
+        expect(map.flyTo).toHaveBeenCalledWith({ center: [ UNBOUNDED.lng, UNBOUNDED.lat ], zoom: expect.any(Number) });
 
+        // A note marks a spot rather than an area, so it is shown closer in than a place of unknown
+        // size.
         const [ { zoom: placeZoom } ] = map.flyTo.mock.calls[0];
         await type(container, "tokyo trip");
         await pick(0);

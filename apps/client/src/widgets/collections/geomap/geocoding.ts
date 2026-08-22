@@ -10,6 +10,12 @@ export interface GeoSearchResult {
     name: string;
     lat: number;
     lng: number;
+    /**
+     * What the place covers, as `[[west, south], [east, north]]`, where the geocoder says. A street
+     * and the city around it are told apart by their extent rather than by one zoom level guessed
+     * for both.
+     */
+    bounds?: [[number, number], [number, number]];
 }
 
 export interface GeocodingProvider {

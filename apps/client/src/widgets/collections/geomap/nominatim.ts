@@ -62,6 +62,8 @@ interface NominatimPlace {
     name?: string;
     lat?: string;
     lon?: string;
+    /** `[south, north, west, east]`, as strings, which is the order Nominatim writes it in. */
+    boundingbox?: string[];
 }
 
 /** A place as the app holds one, or `null` where the entry carries no readable position. */
@@ -79,8 +81,29 @@ function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
         // where the leading part of the label is what names it.
         name: place.name || place.display_name.split(",")[0].trim(),
         lat,
-        lng
+        lng,
+        bounds: toBounds(place.boundingbox)
     };
+}
+
+/** The extent Nominatim reports, as MapLibre reads one, or nothing where it cannot be read. */
+function toBounds(boundingbox: string[] | undefined): GeoSearchResult["bounds"] {
+    if (boundingbox?.length !== 4) {
+        return undefined;
+    }
+
+    const [ south, north, west, east ] = boundingbox.map(Number);
+    if (![ south, north, west, east ].every(Number.isFinite)) {
+        return undefined;
+    }
+
+    // A place spanning the antimeridian is reported west of east, which frames the whole world the
+    // long way round. Rare enough to be left to the fallback zoom rather than split in two.
+    if (west > east) {
+        return undefined;
+    }
+
+    return [ [ west, south ], [ east, north ] ];
 }
 
 /**
