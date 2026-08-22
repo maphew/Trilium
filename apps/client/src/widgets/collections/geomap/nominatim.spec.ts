@@ -4,11 +4,9 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_GEOCODING_PROVIDER_NAME, GEOCODING_PROVIDERS } from "./geocoding";
+import { nominatim as provider } from "./nominatim";
 
 vi.mock("../../../services/i18n", () => ({ getCurrentLanguage: () => "pt_br" }));
-
-const provider = GEOCODING_PROVIDERS[DEFAULT_GEOCODING_PROVIDER_NAME];
 
 /** One entry as Nominatim's `jsonv2` answer carries it. */
 function place(overrides: Record<string, unknown> = {}) {
