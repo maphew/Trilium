@@ -2564,7 +2564,9 @@
   },
   "server": {
     "unknown_http_error_title": "与服务器通讯错误",
-    "unknown_http_error_content": "状态码: {{statusCode}}\n地址: {{method}} {{url}}\n信息: {{message}}"
+    "unknown_http_error_content": "状态码: {{statusCode}}\n地址: {{method}} {{url}}\n信息: {{message}}",
+    "reverse_proxy_blocked_title": "被反向代理拦截的请求",
+    "reverse_proxy_blocked_message": "部分请求在到达 Trilium 之前被拒绝（HTTP 400），极有可能是反向代理拦截了 URL 中的百分号编码字符所致。\n\nTraefik 3.6.4 至 3.6.6 版本默认有此行为：请升级到 Traefik 3.6.7 或更新版本，或在其配置中允许编码字符。"
   },
   "experimental_features": {
     "title": "实验选项",

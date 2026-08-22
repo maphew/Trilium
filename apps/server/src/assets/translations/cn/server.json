@@ -228,7 +228,8 @@
     "reading-log-failed": "读取后端日志文件 '{{ fileName }}' 失败。"
   },
   "content_renderer": {
-    "note-cannot-be-displayed": "此笔记类型无法显示。"
+    "note-cannot-be-displayed": "此笔记类型无法显示。",
+    "included-note-requires-credentials": "此包含的笔记受密码保护，无法在此显示。"
   },
   "pdf": {
     "export_filter": "PDF 文档 (*.pdf)",

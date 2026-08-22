@@ -337,7 +337,8 @@
     "reading-log-failed": "Theip ar an gcomhad loga cúil '{{ fileName }}' a léamh."
   },
   "content_renderer": {
-    "note-cannot-be-displayed": "Ní féidir an cineál nóta seo a thaispeáint."
+    "note-cannot-be-displayed": "Ní féidir an cineál nóta seo a thaispeáint.",
+    "included-note-requires-credentials": "Tá an nóta seo atá san áireamh cosanta ag pasfhocal agus ní féidir é a thaispeáint anseo."
   },
   "pdf": {
     "export_filter": "Doiciméad PDF (*.pdf)",
