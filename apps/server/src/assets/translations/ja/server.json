@@ -325,7 +325,8 @@
     "reading-log-failed": "バックエンドのログファイル '{{ fileName }}' の読み込みに失敗しました。"
   },
   "content_renderer": {
-    "note-cannot-be-displayed": "このノートタイプは表示できません。"
+    "note-cannot-be-displayed": "このノートタイプは表示できません。",
+    "included-note-requires-credentials": "この埋め込みノートはパスワードで保護されているため、ここでは表示できません。"
   },
   "pdf": {
     "export_filter": "PDFドキュメント (*.pdf)",
