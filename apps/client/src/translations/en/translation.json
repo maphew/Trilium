@@ -2955,7 +2955,11 @@
     "marker-color": "Marker color",
     "copy-coordinates": "Copy coordinates",
     "search": "Search",
-    "search-placeholder": "Search for a place"
+    "search-placeholder": "Search for a place",
+    "search-online": "Search online for \"{{- query}}\"",
+    "searching-online": "Searching online…",
+    "no-places-found": "No places found",
+    "search-failed": "Couldn't search for places"
   },
   "embedded_note": {
     "open-note": "Open note",

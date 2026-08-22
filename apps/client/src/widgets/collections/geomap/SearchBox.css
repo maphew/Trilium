@@ -38,3 +38,31 @@ body.mobile .geo-map-container .geo-search-toolbar {
     color: inherit;
     opacity: 0.6;
 }
+
+/* Every row reads as icon + label, whether it offers a marker, a place, the geocoder or a report on
+   it. Scoped to the portalled dropdown, which is a body child rather than part of the map. */
+.form-autocomplete-dropdown .geo-search-entry {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+}
+
+.form-autocomplete-dropdown .geo-search-entry .tn-icon {
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+/* The geocoder row and its reports are set apart from the places they produce. */
+.form-autocomplete-dropdown .geo-search-entry-geocode,
+.form-autocomplete-dropdown .geo-search-entry-info {
+    font-style: italic;
+    opacity: 0.85;
+}
+
+/* A report is not a choice, so it neither highlights nor takes a pointer. */
+.form-autocomplete-dropdown .form-autocomplete-item:has(.geo-search-entry-info) {
+    cursor: default;
+    background: none;
+    color: inherit;
+}
