@@ -453,6 +453,15 @@ $$`;
         expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
     });
 
+    it("keeps the trailing semicolon CKEditor writes into a style attribute", () => {
+        // Without it, the first save after an import rewrites every styled element in the note.
+        const input = `<ul style="list-style-type:disc;margin-left:0px;"><li style="margin-left:0px">Item</li></ul>`;
+        const expected = `<ul style="list-style-type:disc;margin-left:0px;"><li style="margin-left:0px;">Item</li></ul>`;
+        expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+        // Sanitization drops an empty attribute, so nothing comes back holding `style=";"`.
+        expect(markdownService.renderToHtml(`<p style="">Empty</p>`, "Title")).toStrictEqual(`<p>Empty</p>`);
+    });
+
     describe("collapsible blocks", () => {
         it("re-stamps the trilium-collapsible class and drops the indentation the exporter adds, so the block matches what the editor downcasts", () => {
             const input = trimIndentation`\

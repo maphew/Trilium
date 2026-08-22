@@ -607,8 +607,9 @@ export function renderToHtml(content: string, title: string, options: RenderToHt
     }
     html = options.sanitize(html);
 
-    // Add a trailing semicolon to CSS styles.
-    html = html.replaceAll(/(<(img|figure|col).*?style=".*?)"/g, '$1;"');
+    // Sanitization re-serializes a `style` attribute without the trailing semicolon CKEditor
+    // writes, which would rewrite a note the first time it is saved after an import.
+    html = html.replaceAll(/(<[a-z][^<>]*\sstyle="[^"]*[^";])"/gi, '$1;"');
 
     // Remove slash for self-closing tags to match CKEditor's approach.
     html = html.replace(/<(\w+)([^>]*)\s+\/>/g, "<$1$2>");
