@@ -16,6 +16,19 @@ const POLYGON_THRESHOLD = 0.001;
  */
 const OSM_TYPE_PREFIX: Record<string, string> = { relation: "R", way: "W" };
 
+/**
+ * The least ground a search treats as here, as a half-span in metres.
+ *
+ * A map zoomed into a neighbourhood shows a few hundred metres across, and a search restricted to
+ * exactly that answers nothing for a shop three streets away. What the reader means by searching from
+ * where they are standing is the town they are looking at, not the block.
+ */
+const MIN_SEARCH_RADIUS_M = 25_000;
+
+/** Metres to a degree of latitude, the same the world over. A degree of longitude is this shortened
+ *  by the cosine of the latitude. */
+const METRES_PER_DEGREE = 111_320;
+
 /** Caps how many results one search returns. */
 const MAX_RESULTS = 8;
 
@@ -151,8 +164,11 @@ function toBounds(boundingbox: string[] | undefined): GeoSearchResult["bounds"] 
 
 /**
  * What the map is showing, as Nominatim reads a preferred area: two opposite corners, longitude
- * first. Sent without `bounded`, so a place is ranked up for being in view rather than a place out
- * of view being refused.
+ * first. Sent without `bounded` on the wider pass, so a place is ranked up for being in view rather
+ * than a place out of view being refused.
+ *
+ * Grown to at least {@link MIN_SEARCH_RADIUS_M} about its middle, since a view of one neighbourhood
+ * restricts a search to that neighbourhood and answers nothing for the next street over.
  *
  * A view running the other way round has been panned across the antimeridian, which no pair of
  * corners describes; nothing is sent for one, and the search is answered as if from nowhere.
@@ -167,7 +183,23 @@ function toViewbox(viewport: GeoBounds | undefined) {
         return null;
     }
 
-    return [ west, south, east, north ].join(",");
+    const middleLat = (south + north) / 2;
+    const middleLng = (west + east) / 2;
+    const latitudePad = MIN_SEARCH_RADIUS_M / METRES_PER_DEGREE;
+    // A degree of longitude shortens towards the poles, where it is short enough that padding by one
+    // would reach around the world; the cosine is floored to keep the padding finite.
+    const longitudePad = latitudePad / Math.max(Math.cos(middleLat * Math.PI / 180), 0.01);
+
+    return [
+        clamp(Math.min(west, middleLng - longitudePad), -180, 180),
+        clamp(Math.min(south, middleLat - latitudePad), -90, 90),
+        clamp(Math.max(east, middleLng + longitudePad), -180, 180),
+        clamp(Math.max(north, middleLat + latitudePad), -90, 90)
+    ].map((degrees) => Number(degrees.toFixed(5))).join(",");
+}
+
+function clamp(value: number, least: number, most: number) {
+    return Math.min(Math.max(value, least), most);
 }
 
 /**

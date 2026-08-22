@@ -120,18 +120,18 @@ describe("Nominatim geocoding", () => {
         const inTheUnitedStates = place({ place_id: 2, name: "Jumbo", display_name: "Jumbo, Ohio, USA" });
         const fetchMock = respondInTurn([ [ inSibiu ], [ inTheUnitedStates, inSibiu ] ]);
 
-        const results = await search("jumbo", { viewport: [ [ 24.0, 45.7 ], [ 24.3, 45.9 ] ] });
+        const results = await search("jumbo", { viewport: [ [ 23, 45 ], [ 25, 47 ] ] });
 
         // Restricted to the view first: a viewbox alone is only a nudge next to how well known a
         // place is, so a shop in Sibiu would otherwise stay under every Jumbo in the United States.
         const nearby = requestedUrl(fetchMock, 0).searchParams;
         // Two opposite corners, longitude first, as Nominatim reads a preferred area.
-        expect(nearby.get("viewbox")).toBe("24,45.7,24.3,45.9");
+        expect(nearby.get("viewbox")).toBe("23,45,25,47");
         expect(nearby.get("bounded")).toBe("1");
 
         // Then unrestricted, so a place nowhere near the map is still found.
         const elsewhere = requestedUrl(fetchMock, 1).searchParams;
-        expect(elsewhere.get("viewbox")).toBe("24,45.7,24.3,45.9");
+        expect(elsewhere.get("viewbox")).toBe("23,45,25,47");
         expect(elsewhere.get("bounded")).toBeNull();
 
         // What is at hand comes first, and is not offered twice for being in both answers.
@@ -141,11 +141,31 @@ describe("Nominatim geocoding", () => {
         ]);
     });
 
+    it("searches the town around a view of one neighbourhood, not the neighbourhood alone", async () => {
+        const fetchMock = respondWith([]);
+
+        // A few streets of Sibiu, some 500 m across.
+        await search("jumbo", { viewport: [ [ 24.147, 45.796 ], [ 24.153, 45.800 ] ] });
+
+        const [ west, south, east, north ] = (requestedUrl(fetchMock).searchParams.get("viewbox") ?? "")
+            .split(",").map(Number);
+
+        // Grown about the same middle rather than shifted off it.
+        expect((west + east) / 2).toBeCloseTo(24.15, 4);
+        expect((south + north) / 2).toBeCloseTo(45.798, 4);
+
+        // Wide enough to hold the town: a degree of latitude is about 111 km, so 25 km either way of
+        // the middle is a little over 0.2 degrees.
+        expect(north - south).toBeGreaterThan(0.4);
+        // Longitude is shorter this far north, so the box is wider in degrees than it is tall.
+        expect(east - west).toBeGreaterThan(north - south);
+    });
+
     it("does not go looking further afield where the view already fills the list", async () => {
         const local = Array.from({ length: 8 }, (_, index) => place({ place_id: index, display_name: `Jumbo ${index}` }));
         const fetchMock = respondInTurn([ local, [] ]);
 
-        const results = await search("jumbo", { viewport: [ [ 24.0, 45.7 ], [ 24.3, 45.9 ] ] });
+        const results = await search("jumbo", { viewport: [ [ 23, 45 ], [ 25, 47 ] ] });
 
         expect(fetchMock).toHaveBeenCalledOnce();
         expect(results).toHaveLength(8);
