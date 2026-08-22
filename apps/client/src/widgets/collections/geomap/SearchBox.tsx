@@ -31,6 +31,12 @@ const PLACE_PADDING = 60;
 /** The zoom level a marker is shown at, closer in since a note marks a spot rather than an area. */
 const MARKER_ZOOM = 15;
 
+/**
+ * How wide the result list is drawn. The field is a corner of the map, while what it offers is whole
+ * addresses, which at the field's own width is mostly an ellipsis.
+ */
+const RESULT_LIST_WIDTH = 500;
+
 /** Caps how many of the map's own notes the list offers. */
 const MAX_MARKER_RESULTS = 8;
 
@@ -192,10 +198,19 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
         const entry = entriesByKey.current.get(key);
         if (!entry) return key;
 
+        // A place reads over two lines: what it is called, and the address that places it. Every
+        // other row is one thing said once.
+        const address = entry.kind === "place" ? addressOf(entry.label, entry.name) : null;
+
         return (
             <span className={`geo-search-entry geo-search-entry-${entry.kind}`}>
                 <Icon icon={entry.icon} />
-                {entry.label}
+                {entry.kind === "place"
+                    ? <span className="geo-search-entry-lines">
+                        <span className="geo-search-entry-name">{entry.name}</span>
+                        {address && <span className="geo-search-entry-address">{address}</span>}
+                    </span>
+                    : entry.label}
             </span>
         );
     }, []);
@@ -218,6 +233,7 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
                     onPick={pickEntry}
                     source={source}
                     renderItem={renderEntry}
+                    dropdownMinWidth={RESULT_LIST_WIDTH}
                     keepOpenOnPick
                     placeholder={t("geo-map.search-placeholder")}
                     aria-label={t("geo-map.search")}
@@ -225,6 +241,16 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
             </OverlayToolbar>
         </>
     );
+}
+
+/**
+ * What a label says beyond the place's own name, which is the address around it — "Ōta, Japan" of
+ * "Tokyo, Ōta, Japan". A label that does not begin with the name is left whole, having nothing to
+ * repeat.
+ */
+function addressOf(label: string, name: string) {
+    const rest = label.startsWith(name) ? label.slice(name.length) : label;
+    return rest.replace(/^[\s,]+/, "");
 }
 
 /** The notes on the map whose title contains the query and that are drawn somewhere. */

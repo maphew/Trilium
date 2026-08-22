@@ -39,11 +39,12 @@ body.mobile .geo-map-container .geo-search-toolbar {
     opacity: 0.6;
 }
 
-/* Every row reads as icon + label, whether it offers a marker, a place, the geocoder or a report on
-   it. Scoped to the portalled dropdown, which is a body child rather than part of the map. */
+/* Every row reads as icon + what it says, whether it offers a marker, a place, the geocoder or a
+   report on it. Scoped to the portalled dropdown, which is a body child rather than part of the map. */
 .form-autocomplete-dropdown .geo-search-entry {
     display: flex;
-    align-items: center;
+    /* The mark sits on the first line rather than in the middle of a row that runs to two. */
+    align-items: flex-start;
     gap: 6px;
     overflow: hidden;
 }
@@ -51,6 +52,33 @@ body.mobile .geo-map-container .geo-search-toolbar {
 .form-autocomplete-dropdown .geo-search-entry .tn-icon {
     flex-shrink: 0;
     opacity: 0.7;
+    /* Set against the line beside it, the mark being drawn taller than the text it stands with. */
+    line-height: 1.4;
+}
+
+/* A place says what it is called and then where it is, so the row is given the height of both and
+   the address wraps instead of ending in an ellipsis a word in. */
+.form-autocomplete-dropdown .form-autocomplete-item:has(.geo-search-entry) {
+    white-space: normal;
+    padding-block: 6px;
+}
+
+.form-autocomplete-dropdown .geo-search-entry-lines {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.form-autocomplete-dropdown .geo-search-entry-address {
+    font-size: 0.85em;
+    opacity: 0.7;
+    /* Two lines of address and no more: past that the list is a page, and what is cut is the part of
+       an address that names a postcode or a country. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 /* The geocoder row and its reports are set apart from the places they produce. */

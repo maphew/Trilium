@@ -58,6 +58,12 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
      */
     leading?: ComponentChildren;
     /**
+     * The least the list is drawn at, in pixels, for a field too narrow for what its entries have to
+     * say — a search box in the corner of a map offering whole addresses. The field's own width is
+     * still the floor and the viewport the ceiling, so the list never runs off the screen.
+     */
+    dropdownMinWidth?: number;
+    /**
      * Opens the list with an entry already picked out — the one the field's text names, or failing
      * that the first — so that Enter takes it without arrowing down to it first.
      *
@@ -74,7 +80,7 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
  * The dropdown is portalled to the body and positioned over everything else, so it is not clipped
  * by scrolling ancestors. Selecting a suggestion reports it through `onChange`, exactly like typing.
  */
-export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, onPick, keepOpenOnPick, renderItem, leading, autoActivate, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
+export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, onPick, keepOpenOnPick, renderItem, leading, autoActivate, dropdownMinWidth, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
     const ownInputRef = useRef<HTMLInputElement>(null);
     const inputEl = inputRef ?? ownInputRef;
     const fieldRef = useRef<HTMLDivElement>(null);
@@ -140,7 +146,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
             // The wrapper where there is one, so a field carrying chips is spanned whole.
             const anchor = fieldRef.current ?? inputEl.current;
             if (anchor) {
-                setPosition(computeDropdownPosition(anchor));
+                setPosition(computeDropdownPosition(anchor, dropdownMinWidth));
             }
         };
 
@@ -152,7 +158,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
             window.removeEventListener("resize", reposition);
             window.removeEventListener("scroll", reposition, true);
         };
-    }, [ isOpen, items.length, inputEl ]);
+    }, [ isOpen, items.length, inputEl, dropdownMinWidth ]);
 
     function selectItem(item: string) {
         (onPick ?? onChange)(item);
@@ -287,20 +293,32 @@ function bestMatchIndex(items: string[], text: string) {
  * Places the dropdown under the input, flipping above it only when the space below is too small to
  * be useful. Preferring below matters for inputs sitting in a panel docked to the bottom of the
  * screen: the room under them is limited but ample, while flipping would cover the panel itself.
+ *
+ * As wide as the field, or as wide as `minWidth` asks where that is more, and never wider than the
+ * viewport. A list grown past the far edge is pulled back onto the screen rather than left running
+ * off it, since it is placed from the field's leading edge.
+ *
+ * Exported for its own tests: everything it reads is measured from the layout, which is what a
+ * component test in a headless DOM has none of.
  */
-function computeDropdownPosition(input: HTMLElement): CSSProperties {
+export function computeDropdownPosition(input: HTMLElement, minWidth = 0): CSSProperties {
     const rect = input.getBoundingClientRect();
     const viewportHeight = document.documentElement.clientHeight;
+    const viewportWidth = document.documentElement.clientWidth;
     const spaceBelow = viewportHeight - rect.bottom - VIEWPORT_MARGIN;
     const spaceAbove = rect.top - VIEWPORT_MARGIN;
     const flipAbove = spaceBelow < MIN_DROPDOWN_HEIGHT && spaceAbove > spaceBelow;
     const available = flipAbove ? spaceAbove : spaceBelow;
     const maxHeight = Math.min(MAX_DROPDOWN_HEIGHT, Math.max(available, 0));
 
+    const room = Math.max(viewportWidth - 2 * VIEWPORT_MARGIN, 0);
+    const width = Math.min(Math.max(rect.width, minWidth), room);
+    const left = Math.max(VIEWPORT_MARGIN, Math.min(rect.left, viewportWidth - VIEWPORT_MARGIN - width));
+
     return {
-        left: `${rect.left}px`,
+        left: `${left}px`,
         top: `${flipAbove ? rect.top - maxHeight : rect.bottom}px`,
-        width: `${rect.width}px`,
+        width: `${width}px`,
         maxHeight: `${maxHeight}px`
     };
 }

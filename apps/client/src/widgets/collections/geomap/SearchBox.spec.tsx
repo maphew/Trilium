@@ -97,8 +97,10 @@ function entries() {
     return [ ...document.querySelectorAll<HTMLElement>(".form-autocomplete-dropdown .form-autocomplete-item") ];
 }
 
+/** What each row is called: the first line of a place, and the whole of any other row. */
 function labels() {
-    return entries().map((entry) => entry.textContent);
+    return entries().map((entry) =>
+        entry.querySelector(".geo-search-entry-name")?.textContent ?? entry.textContent);
 }
 
 /** Picks a row and lets whatever it started settle. */
@@ -148,7 +150,7 @@ describe("geo map SearchBox", () => {
 
         expect(search).toHaveBeenCalledWith("tokyo");
         // The row is replaced by what it found, the markers still standing above it.
-        expect(labels()).toEqual([ "Tokyo trip", "Tokyo, Japan" ]);
+        expect(labels()).toEqual([ "Tokyo trip", "Tokyo" ]);
     });
 
     it("flies to a marker, and closes the list rather than leaving it open over the map", async () => {
@@ -223,7 +225,7 @@ describe("geo map SearchBox", () => {
 
         await type(container, "berlin");
         await pick(0);
-        expect(labels()).toEqual([ "Berlin, Germany" ]);
+        expect(labels()).toEqual([ "Berlin" ]);
 
         await type(container, "berlin de");
         expect(labels()).toEqual([ "geo-map.search-online(berlin de)" ]);
@@ -280,6 +282,27 @@ describe("geo map SearchBox", () => {
         await act(async () => { deliver?.({ type: "Polygon", coordinates: [] }); });
 
         expect(container.querySelector(".place-marker")).toBeNull();
+    });
+
+    it("gives a place two lines: what it is called, and the address that places it", async () => {
+        mockGeocoder([
+            { ...TOKYO, label: "Tokyo, Ōta, Japan" },
+            // A label that does not begin with the name has nothing to repeat, so it is left whole.
+            { id: "3", label: "Shibuya Crossing", name: "Scramble", lat: 35.6, lng: 139.7 }
+        ]);
+        const container = renderSearchBox(fakeMap(), []);
+
+        await type(container, "tokyo");
+        await pick(0);
+
+        const lines = entries().map((entry) => [
+            entry.querySelector(".geo-search-entry-name")?.textContent,
+            entry.querySelector(".geo-search-entry-address")?.textContent
+        ]);
+        expect(lines).toEqual([
+            [ "Tokyo", "Ōta, Japan" ],
+            [ "Scramble", "Shibuya Crossing" ]
+        ]);
     });
 
     it("takes the pin off the map once the field is emptied", async () => {
