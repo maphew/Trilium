@@ -66,33 +66,3 @@ body.mobile .geo-map-container .geo-search-toolbar {
     background: none;
     color: inherit;
 }
-
-/*
- * The pin standing on a place taken from the geocoder. MapLibre places the element and writes its
- * transform, so the drop is animated on the image inside it.
- */
-.geo-map-container .geo-place-marker {
-    /* A click at the place belongs to the map, which is what arms placement and opens the context
-       menu (see index.tsx). */
-    pointer-events: none;
-}
-
-.geo-map-container .geo-place-marker img {
-    display: block;
-    /* The canvas drawMarkerImage draws, in CSS pixels: the pin plus the room left around it for its
-       shadow. Must agree with MARKER_WIDTH, MARKER_HEIGHT and MARKER_SHADOW_PADDING (Markers.tsx). */
-    width: 37px;
-    height: 53px;
-    animation: geo-place-marker-drop 200ms ease-out;
-}
-
-@keyframes geo-place-marker-drop {
-    from {
-        transform: translateY(-10px);
-        opacity: 0;
-    }
-    to {
-        transform: none;
-        opacity: 1;
-    }
-}

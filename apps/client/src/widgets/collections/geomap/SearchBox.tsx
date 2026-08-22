@@ -1,7 +1,6 @@
 import "./SearchBox.css";
 
-import { Marker } from "maplibre-gl";
-import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useRef, useState } from "preact/hooks";
 
 import type FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
@@ -11,7 +10,8 @@ import Icon from "../../react/Icon";
 import OverlayToolbar from "../../react/OverlayToolbar";
 import { DEFAULT_GEOCODING_PROVIDER_NAME, GEOCODING_PROVIDERS, type GeoSearchResult } from "./geocoding";
 import { ParentMap } from "./map";
-import { drawMarkerImage, LOCATION_ATTRIBUTE, MARKER_SHADOW_PADDING, parseLocation } from "./Markers";
+import { LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
+import PlaceMarker from "./PlaceMarker";
 
 /** Shorter queries are not searched. */
 const MIN_QUERY_LENGTH = 2;
@@ -28,15 +28,12 @@ const MAX_MARKER_RESULTS = 8;
 /** The key of the row reporting on a geocoder run, which only ever appears once. */
 const STATUS_KEY = "geocode-status";
 
-/** The colour the pin for a searched place is drawn in, so it is not read as one of the map's notes. */
-const PLACE_MARKER_COLOR = "#E8833A";
-
-/** The icon that pin wears, naming where it came from. */
-const PLACE_MARKER_ICON = "bx bx-search";
 
 interface SearchBoxProps {
     /** The notes on the map, searched by title. */
     notes: FNote[];
+    /** Whether the map's style is a dark one, which a pinned place is labelled against. */
+    isDarkTheme: boolean;
 }
 
 /**
@@ -49,7 +46,9 @@ type SearchEntry = {
     /** A boxicons class, as `FNote.getIcon()` gives it. */
     icon: string;
 } & (
-    | { kind: "marker" | "place"; center: [number, number] }
+    | { kind: "marker"; center: [number, number] }
+    /** A place from the geocoder, `name` being what its pin is labelled with. */
+    | { kind: "place"; center: [number, number]; name: string }
     /** Runs the geocoder for `query`. */
     | { kind: "geocode"; query: string }
     /** Reports on a geocoder run; picking it does nothing. */
@@ -79,15 +78,15 @@ interface GeocodeRun {
  * geocoder row can replace itself with results, so closing it after a marker or place is taken is
  * this component's job — see `dismissed`.
  */
-export default function SearchBox({ notes }: SearchBoxProps) {
+export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
     const map = useContext(ParentMap);
     const [ query, setQuery ] = useState("");
     const [ geocodeRun, setGeocodeRun ] = useState<GeocodeRun>();
     // Empties the list once a marker or place has been taken, which is what closes the dropdown under
     // `keepOpenOnPick`. Typing again clears it.
     const [ dismissed, setDismissed ] = useState(false);
-    // Where the geocoder's last answer is pinned, and nothing while the map shows only its own notes.
-    const [ pickedPlace, setPickedPlace ] = useState<[number, number]>();
+    // The geocoder's last answer, pinned where it stands; nothing while the map shows only its notes.
+    const [ pickedPlace, setPickedPlace ] = useState<{ center: [number, number]; name: string }>();
     const entriesByKey = useRef(new Map<string, SearchEntry>());
     // Discards a run superseded by a later one, since each reports through the same state.
     const latestRun = useRef(0);
@@ -139,7 +138,7 @@ export default function SearchBox({ notes }: SearchBoxProps) {
             setQuery(entry.label);
             setDismissed(true);
             // A note already has a marker of its own to fly to; only a place needs one put down.
-            setPickedPlace(entry.kind === "place" ? entry.center : undefined);
+            setPickedPlace(entry.kind === "place" ? { center: entry.center, name: entry.name } : undefined);
             map.flyTo({ center: entry.center, zoom: entry.kind === "marker" ? MARKER_ZOOM : PLACE_ZOOM });
         }
     }, [ map, runGeocoder ]);
@@ -161,7 +160,7 @@ export default function SearchBox({ notes }: SearchBoxProps) {
 
     return (
         <>
-            {pickedPlace && <PlaceMarker center={pickedPlace} />}
+            {pickedPlace && <PlaceMarker center={pickedPlace.center} name={pickedPlace.name} isDarkTheme={isDarkTheme} />}
             <OverlayToolbar className="geo-search-toolbar" titlePosition="bottom">
                 <Icon icon="bx bx-search" className="geo-search-icon" />
                 <FormAutocomplete
@@ -178,48 +177,6 @@ export default function SearchBox({ notes }: SearchBoxProps) {
             </OverlayToolbar>
         </>
     );
-}
-
-/**
- * The pin standing on a place taken from the geocoder, for as long as that place is the one searched
- * for.
- *
- * A MapLibre `Marker` rather than a feature in the notes' symbol layer: that layer is built from the
- * notes and reloaded with them, and this pin belongs to neither. It wears the image the symbol layer
- * stamps (see `drawMarkerImage`), in a colour and an icon no note marker uses.
- */
-function PlaceMarker({ center }: { center: [number, number] }) {
-    const map = useContext(ParentMap);
-
-    useEffect(() => {
-        if (!map) return;
-
-        const element = document.createElement("div");
-        element.className = "geo-place-marker";
-        // The pin names nothing the search field does not already say, and a click at the place has
-        // the map to reach (see the armed click in index.tsx).
-        element.ariaHidden = "true";
-
-        // `icon-offset` on the symbol layer, as a marker offset: the tip of the pin sits a shadow's
-        // padding above the bottom edge of the image it is drawn in.
-        const marker = new Marker({ element, anchor: "bottom", offset: [ 0, MARKER_SHADOW_PADDING ] })
-            .setLngLat(center)
-            .addTo(map);
-
-        let cancelled = false;
-        drawMarkerImage(PLACE_MARKER_COLOR, PLACE_MARKER_ICON).then((image) => {
-            if (!cancelled && image) {
-                element.replaceChildren(image);
-            }
-        });
-
-        return () => {
-            cancelled = true;
-            marker.remove();
-        };
-    }, [ map, center ]);
-
-    return null;
 }
 
 /** The notes on the map whose title contains the query and that are drawn somewhere. */
@@ -281,6 +238,7 @@ function placeEntry(result: GeoSearchResult): SearchEntry {
         kind: "place",
         key: `place:${result.id}`,
         label: result.label,
+        name: result.name,
         icon: "bx bx-map-pin",
         center: [ result.lng, result.lat ]
     };

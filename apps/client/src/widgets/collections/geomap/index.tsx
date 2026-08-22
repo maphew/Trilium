@@ -244,7 +244,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 onClick={onClick}
                 scale={hasScale}
             >
-                <SearchBox notes={notes} />
+                <SearchBox notes={notes} isDarkTheme={layerData.isDarkTheme ?? false} />
                 <MapToolbar />
                 <EditToolbar
                     isReadOnly={isReadOnly}

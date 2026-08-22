@@ -6,6 +6,8 @@ export interface GeoSearchResult {
     id: string;
     /** Display text, with enough context to tell two places of the same name apart. */
     label: string;
+    /** The place's own name, for labelling it on the map where the full label would be a paragraph. */
+    name: string;
     lat: number;
     lng: number;
 }

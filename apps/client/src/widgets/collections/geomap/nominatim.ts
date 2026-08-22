@@ -59,6 +59,7 @@ async function searchNominatim(query: string): Promise<GeoSearchResult[]> {
 interface NominatimPlace {
     place_id?: number;
     display_name?: string;
+    name?: string;
     lat?: string;
     lon?: string;
 }
@@ -74,6 +75,9 @@ function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
     return {
         id: String(place.place_id ?? `${lat},${lng}`),
         label: place.display_name,
+        // Nominatim leaves `name` empty for a result that is an address rather than a named place,
+        // where the leading part of the label is what names it.
+        name: place.name || place.display_name.split(",")[0].trim(),
         lat,
         lng
     };

@@ -12,6 +12,7 @@ vi.mock("../../../services/i18n", () => ({ getCurrentLanguage: () => "pt_br" }))
 function place(overrides: Record<string, unknown> = {}) {
     return {
         place_id: 240109189,
+        name: "Berlin",
         display_name: "Berlin, Germany",
         lat: "52.5170365",
         lon: "13.3888599",
@@ -67,12 +68,13 @@ describe("Nominatim geocoding", () => {
             place(),
             place({ place_id: 2, display_name: "Nowhere", lat: "not a number" }),
             place({ place_id: 3, display_name: undefined }),
-            place({ place_id: 4, display_name: "Paris, France", lat: "48.8566", lon: "2.3522" })
+            place({ place_id: 4, name: undefined, display_name: "Paris, France", lat: "48.8566", lon: "2.3522" })
         ]);
 
         expect(await search("anywhere")).toEqual([
-            { id: "240109189", label: "Berlin, Germany", lat: 52.5170365, lng: 13.3888599 },
-            { id: "4", label: "Paris, France", lat: 48.8566, lng: 2.3522 }
+            { id: "240109189", label: "Berlin, Germany", name: "Berlin", lat: 52.5170365, lng: 13.3888599 },
+            // Named by the leading part of its label, Nominatim having named it nothing itself.
+            { id: "4", label: "Paris, France", name: "Paris", lat: 48.8566, lng: 2.3522 }
         ]);
     });
 

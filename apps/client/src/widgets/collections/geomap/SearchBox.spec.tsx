@@ -14,40 +14,11 @@ import { DEFAULT_GEOCODING_PROVIDER_NAME, GEOCODING_PROVIDERS, type GeoSearchRes
 import { ParentMap } from "./map";
 import SearchBox from "./SearchBox";
 
-// Hoisted, because map.tsx imports maplibre-gl as this file is loaded — a class declared below would
-// still be in its temporal dead zone when the factory runs.
-const { FakeMarker } = vi.hoisted(() => {
-    /** Stands in for MapLibre's own marker, which wants a real map to attach itself to. */
-    class FakeMarker {
-        static standing: FakeMarker[] = [];
-        lngLat?: [number, number];
-
-        constructor(readonly options: { element: HTMLElement; anchor?: string; offset?: [number, number] }) {}
-
-        setLngLat(lngLat: [number, number]) {
-            this.lngLat = lngLat;
-            return this;
-        }
-
-        addTo(_map: unknown) {
-            FakeMarker.standing.push(this);
-            return this;
-        }
-
-        remove() {
-            FakeMarker.standing = FakeMarker.standing.filter((marker) => marker !== this);
-            return this;
-        }
-    }
-
-    return { FakeMarker };
-});
-
-vi.mock("maplibre-gl", () => ({ Marker: FakeMarker }));
-
-// The pin's image is drawn from an icon the glyph service resolves against the real stylesheet.
-vi.mock("../../../services/icon_glyphs", () => ({
-    renderIconImage: vi.fn(async () => "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")
+/** The pin is drawn on the map by its own component, which has a spec of its own; here it only has to
+ *  stand in the right place, so it is rendered as something the DOM can be asked about. */
+vi.mock("./PlaceMarker", () => ({
+    default: ({ center, name }: { center: [number, number]; name: string }) =>
+        <div className="place-marker" data-center={center.join(",")} data-name={name} />
 }));
 
 // i18next is not initialized under test, so t() returns "". The key stands in for the text, with any
@@ -56,7 +27,7 @@ vi.mock("../../../services/i18n", () => ({
     t: (key: string, vars?: Record<string, unknown>) => (vars ? `${key}(${Object.values(vars).join(",")})` : key)
 }));
 
-const TOKYO: GeoSearchResult = { id: "1", label: "Tokyo, Japan", lat: 35.6762, lng: 139.6503 };
+const TOKYO: GeoSearchResult = { id: "1", label: "Tokyo, Japan", name: "Tokyo", lat: 35.6762, lng: 139.6503 };
 
 /** Stands in for the geocoder, which would otherwise reach for the network. */
 function mockGeocoder(results: GeoSearchResult[]) {
@@ -84,7 +55,7 @@ function renderSearchBox(map: ReturnType<typeof fakeMap> | null, notes: FNote[] 
     act(() => {
         container = renderInto(
             <ParentMap.Provider value={map as unknown as MapLibreGLMap}>
-                <SearchBox notes={notes} />
+                <SearchBox notes={notes} isDarkTheme={false} />
             </ParentMap.Provider>
         );
     });
@@ -130,10 +101,7 @@ async function pick(index: number) {
     await settle();
 }
 
-beforeEach(() => {
-    vi.useFakeTimers();
-    FakeMarker.standing = [];
-});
+beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -224,7 +192,7 @@ describe("geo map SearchBox", () => {
     });
 
     it("offers the geocoder again once the query moves on from what it answered", async () => {
-        mockGeocoder([ { id: "2", label: "Berlin, Germany", lat: 52.52, lng: 13.405 } ]);
+        mockGeocoder([ { id: "2", label: "Berlin, Germany", name: "Berlin", lat: 52.52, lng: 13.405 } ]);
         const container = renderSearchBox(fakeMap(), []);
 
         await type(container, "berlin");
@@ -235,7 +203,7 @@ describe("geo map SearchBox", () => {
         expect(labels()).toEqual([ "geo-map.search-online(berlin de)" ]);
     });
 
-    it("pins a searched place where it stands, since the map has nothing there of its own", async () => {
+    it("pins a searched place where it stands, named as the geocoder names it", async () => {
         mockGeocoder([ TOKYO ]);
         const container = renderSearchBox(fakeMap(), mapNotes());
 
@@ -243,15 +211,15 @@ describe("geo map SearchBox", () => {
         await pick(1);
         await pick(1);
 
-        expect(FakeMarker.standing).toHaveLength(1);
-        expect(FakeMarker.standing[0].lngLat).toEqual([ TOKYO.lng, TOKYO.lat ]);
-        // The tip of the pin stands on the place rather than the bottom edge of its image.
-        expect(FakeMarker.standing[0].options.anchor).toBe("bottom");
+        const pin = () => container.querySelector<HTMLElement>(".place-marker");
+        expect(pin()?.dataset.center).toBe(`${TOKYO.lng},${TOKYO.lat}`);
+        // The place's own name rather than the full label the list reads.
+        expect(pin()?.dataset.name).toBe("Tokyo");
 
         // A note of the map's own is already pinned, so taking one takes the searched pin away.
         await type(container, "tokyo trip");
         await pick(0);
-        expect(FakeMarker.standing).toHaveLength(0);
+        expect(pin()).toBeNull();
     });
 
     it("takes the pin off the map once the field is emptied", async () => {
@@ -261,11 +229,11 @@ describe("geo map SearchBox", () => {
         await type(container, "tokyo");
         await pick(0);
         await pick(0);
-        expect(FakeMarker.standing).toHaveLength(1);
+        expect(container.querySelector(".place-marker")).not.toBeNull();
 
         await type(container, "");
 
-        expect(FakeMarker.standing).toHaveLength(0);
+        expect(container.querySelector(".place-marker")).toBeNull();
     });
 
     it("renders nothing when the map failed to initialize", () => {
