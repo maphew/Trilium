@@ -2953,7 +2953,9 @@
     "exit-3d": "Lay the map flat again",
     "close-details": "Close",
     "marker-color": "Marker color",
-    "copy-coordinates": "Copy coordinates"
+    "copy-coordinates": "Copy coordinates",
+    "search": "Search",
+    "search-placeholder": "Search for a place"
   },
   "embedded_note": {
     "open-note": "Open note",

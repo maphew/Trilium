@@ -23,6 +23,7 @@ import Map, { DEFAULT_ZOOM, GeoMouseEvent } from "./map";
 import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
 import MapToolbar from "./MapToolbar";
 import Markers, { DEFAULT_MARKER_COLOR, LOCATION_ATTRIBUTE } from "./Markers";
+import SearchBox from "./SearchBox";
 import Tooltips from "./Tooltips";
 
 const DEFAULT_COORDINATES: [number, number] = [3.878638227135724, 446.6630455551659];
@@ -243,6 +244,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 onClick={onClick}
                 scale={hasScale}
             >
+                <SearchBox />
                 <MapToolbar />
                 <EditToolbar
                     isReadOnly={isReadOnly}
