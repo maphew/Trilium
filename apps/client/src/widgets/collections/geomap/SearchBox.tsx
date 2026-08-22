@@ -142,7 +142,7 @@ export default function SearchBox({ notes, onPickResult }: SearchBoxProps) {
         const { places, notice } = geocodeEntries(geocodeRun, trimmed);
         const found = [ ...matchMarkers(notes, trimmed), ...places ]
             .map((entry) => withDistance(entry, origin));
-        const entries = [ ...byDistance(found), ...(notice ? [ notice ] : []) ];
+        const entries = [ ...grouped(found), ...(notice ? [ notice ] : []) ];
         entriesByKey.current = new Map(entries.map((entry) => [ entry.key, entry ]));
         return entries.map((entry) => entry.key);
     }, [ notes, geocodeRun, dismissed, map ]);
@@ -406,28 +406,32 @@ function geocodeEntries(run: GeocodeRun | undefined, query: string): {
 }
 
 /**
- * The places found, nearest first, under headings that say which are at hand and which are not — a
- * shop down the road and one on another continent are both answers to the same name, and the list
- * used to run them together.
+ * What was found, under headings naming what each run of rows is: the map's own notes first, then
+ * the geocoder's places, split by whether they are at hand.
  *
- * Headings only where there is something on both sides of {@link SEARCH_RADIUS_M}: one name over one
- * run of rows distinguishes it from nothing.
+ * Nearest first within each. A note already standing on the map, a shop down the road and one on
+ * another continent are three different answers to the same name, and the list used to run them
+ * together.
+ *
+ * Headings only where more than one of the three was found: one name over the whole list
+ * distinguishes it from nothing.
  */
-function byDistance(entries: SearchEntry[]): SearchEntry[] {
+function grouped(entries: SearchEntry[]): SearchEntry[] {
     const sorted = [ ...entries ].sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
-    const atHand = sorted.filter((entry) => (entry.distance ?? Infinity) <= SEARCH_RADIUS_M);
-    const further = sorted.slice(atHand.length);
+    const places = sorted.filter((entry) => entry.kind === "place");
+    const isAtHand = (entry: SearchEntry) => (entry.distance ?? Infinity) <= SEARCH_RADIUS_M;
 
-    if (!atHand.length || !further.length) {
-        return sorted;
+    const groups: { key: string; label: string; rows: SearchEntry[] }[] = [
+        { key: "on-map", label: t("geo-map.results-on-map"), rows: sorted.filter((entry) => entry.kind === "marker") },
+        { key: "nearby", label: t("geo-map.results-nearby"), rows: places.filter(isAtHand) },
+        { key: "far", label: t("geo-map.results-far"), rows: places.filter((entry) => !isAtHand(entry)) }
+    ].filter((group) => group.rows.length);
+
+    if (groups.length < 2) {
+        return groups.flatMap((group) => group.rows);
     }
 
-    return [
-        headingEntry("nearby", t("geo-map.results-nearby")),
-        ...atHand,
-        headingEntry("far", t("geo-map.results-far")),
-        ...further
-    ];
+    return groups.flatMap((group) => [ headingEntry(group.key, group.label), ...group.rows ]);
 }
 
 function headingEntry(key: string, label: string): SearchEntry {

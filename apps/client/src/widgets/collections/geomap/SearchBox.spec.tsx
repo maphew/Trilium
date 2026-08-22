@@ -217,8 +217,12 @@ describe("geo map SearchBox", () => {
             // answered with the one at hand.
             viewport: [ [ VIEWPORT.west, VIEWPORT.south ], [ VIEWPORT.east, VIEWPORT.north ] ]
         });
-        // The row is replaced by what it found, standing among the map's own notes.
-        expect([ ...labels() ].sort()).toEqual([ "Tokyo", "Tokyo trip" ]);
+        // The row is replaced by what it found, under a heading of its own: a place the geocoder
+        // turned up is a different answer from a note already standing on the map.
+        expect(labels()).toEqual([
+            "geo-map.results-on-map", "Tokyo trip",
+            "geo-map.results-far", "Tokyo"
+        ]);
     });
 
     it("flies to a marker, and closes the list rather than leaving it open over the map", async () => {
@@ -395,7 +399,7 @@ describe("geo map SearchBox", () => {
         expect(field(container).value).toBe("tokyo");
     });
 
-    it("puts what is at hand under one heading and what is far off under another, nearest first", async () => {
+    it("puts the map's own notes, what is at hand and what is far off each under their own heading", async () => {
         // Half of Corfu away, a good way up the coast, and another country entirely.
         mockGeocoder([
             { id: "near", label: "Jumbo, Corfu", name: "Jumbo", lat: CENTRE.lat + 0.09, lng: CENTRE.lng },
@@ -409,12 +413,10 @@ describe("geo map SearchBox", () => {
         await pickNamed("geo-map.search-online(jumbo)");
 
         expect(labels()).toEqual([
-            "geo-map.results-nearby",
-            // The note is nearer than the shop, and the shop nearer than the one across the ocean.
-            "Jumbo receipt",
-            "Jumbo",
-            "geo-map.results-far",
-            "Jumbo"
+            // The map's own first, whatever the distances say.
+            "geo-map.results-on-map", "Jumbo receipt",
+            "geo-map.results-nearby", "Jumbo",
+            "geo-map.results-far", "Jumbo"
         ]);
         // A heading names the rows below it rather than offering anything, so it is not among the
         // rows that can be taken.
