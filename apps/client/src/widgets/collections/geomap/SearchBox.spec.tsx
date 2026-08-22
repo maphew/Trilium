@@ -17,8 +17,8 @@ import SearchBox from "./SearchBox";
 /** The pin is drawn on the map by its own component, which has a spec of its own; here it only has to
  *  stand in the right place, so it is rendered as something the DOM can be asked about. */
 vi.mock("./PlaceMarker", () => ({
-    default: ({ center, name }: { center: [number, number]; name: string }) =>
-        <div className="place-marker" data-center={center.join(",")} data-name={name} />
+    default: ({ center, name, outline }: { center: [number, number]; name: string; outline?: GeoJSON.Geometry }) =>
+        <div className="place-marker" data-center={center.join(",")} data-name={name} data-outline={outline?.type} />
 }));
 
 // i18next is not initialized under test, so t() returns "". The key stands in for the text, with any
@@ -246,6 +246,40 @@ describe("geo map SearchBox", () => {
         await type(container, "tokyo trip");
         await pick(0);
         expect(pin()).toBeNull();
+    });
+
+    it("asks for a place's boundary only once that place has been picked", async () => {
+        const outline = vi.fn(async () => ({ type: "Polygon", coordinates: [] } as GeoJSON.Geometry));
+        mockGeocoder([ { ...TOKYO, outline } ]);
+        const container = renderSearchBox(fakeMap(), []);
+
+        await type(container, "tokyo");
+        // The row that runs the geocoder, which offers the place but does not settle on it.
+        await pick(0);
+        expect(outline).not.toHaveBeenCalled();
+
+        await pick(0);
+
+        expect(outline).toHaveBeenCalledOnce();
+        expect(container.querySelector<HTMLElement>(".place-marker")?.dataset.outline).toBe("Polygon");
+    });
+
+    it("drops a boundary that arrives after the place it belongs to has been replaced", async () => {
+        let deliver: ((outline: GeoJSON.Geometry) => void) | undefined;
+        const outline = vi.fn(() => new Promise<GeoJSON.Geometry>((resolve) => { deliver = resolve; }));
+        mockGeocoder([ { ...TOKYO, outline } ]);
+        const container = renderSearchBox(fakeMap(), mapNotes());
+
+        await type(container, "tokyo");
+        await pick(1);
+        await pick(1);
+
+        // A note of the map's own is settled on while the boundary is still being fetched.
+        await type(container, "tokyo trip");
+        await pick(0);
+        await act(async () => { deliver?.({ type: "Polygon", coordinates: [] }); });
+
+        expect(container.querySelector(".place-marker")).toBeNull();
     });
 
     it("takes the pin off the map once the field is emptied", async () => {

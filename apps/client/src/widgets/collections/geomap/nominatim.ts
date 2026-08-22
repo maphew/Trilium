@@ -2,6 +2,19 @@ import { getCurrentLanguage } from "../../../services/i18n";
 import type { GeocodingProvider, GeoSearchResult } from "./geocoding";
 
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+const NOMINATIM_LOOKUP_URL = "https://nominatim.openstreetmap.org/lookup";
+
+/**
+ * How coarsely a boundary is simplified, in degrees — roughly 100 m. At full detail a country runs to
+ * megabytes, and a border drawn over a map is not read to the metre.
+ */
+const POLYGON_THRESHOLD = 0.001;
+
+/**
+ * How a lookup names an OSM object, from how a search result names one. Nodes are left out: a place
+ * that is a single point has no boundary, and its pin already says where it is.
+ */
+const OSM_TYPE_PREFIX: Record<string, string> = { relation: "R", way: "W" };
 
 /** Caps how many results one search returns. */
 const MAX_RESULTS = 8;
@@ -58,6 +71,8 @@ async function searchNominatim(query: string): Promise<GeoSearchResult[]> {
 /** One entry of a Nominatim `jsonv2` response, narrowed to the fields a result is built from. */
 interface NominatimPlace {
     place_id?: number;
+    osm_type?: string;
+    osm_id?: number;
     display_name?: string;
     name?: string;
     lat?: string;
@@ -74,6 +89,9 @@ function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
         return null;
     }
 
+    const prefix = OSM_TYPE_PREFIX[place.osm_type ?? ""];
+    const osmId = prefix && place.osm_id ? `${prefix}${place.osm_id}` : null;
+
     return {
         id: String(place.place_id ?? `${lat},${lng}`),
         label: place.display_name,
@@ -82,7 +100,8 @@ function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
         name: place.name || place.display_name.split(",")[0].trim(),
         lat,
         lng,
-        bounds: toBounds(place.boundingbox)
+        bounds: toBounds(place.boundingbox),
+        outline: osmId ? () => fetchOutline(osmId) : undefined
     };
 }
 
@@ -104,6 +123,32 @@ function toBounds(boundingbox: string[] | undefined): GeoSearchResult["bounds"] 
     }
 
     return [ [ west, south ], [ east, north ] ];
+}
+
+/**
+ * The boundary of one OSM object, simplified, or `null` where it has none to draw.
+ *
+ * A lookup of its own rather than `polygon_geojson` on the search: a search answers with eight places
+ * and the boundaries of the seven that go unlooked-at are the bulk of what would be carried.
+ */
+async function fetchOutline(osmId: string): Promise<GeoJSON.Geometry | null> {
+    const params = new URLSearchParams({
+        osm_ids: osmId,
+        format: "jsonv2",
+        polygon_geojson: "1",
+        polygon_threshold: String(POLYGON_THRESHOLD)
+    });
+
+    await waitForRequestSlot();
+    const response = await fetch(`${NOMINATIM_LOOKUP_URL}?${params}`);
+    if (!response.ok) {
+        throw new Error(`Nominatim answered ${response.status} ${response.statusText}`);
+    }
+
+    const [ place ]: { geojson?: GeoJSON.Geometry }[] = await response.json();
+    const geometry = place?.geojson;
+    // A shape that is a point or a line is what the pin already says, drawn again.
+    return geometry?.type === "Polygon" || geometry?.type === "MultiPolygon" ? geometry : null;
 }
 
 /**

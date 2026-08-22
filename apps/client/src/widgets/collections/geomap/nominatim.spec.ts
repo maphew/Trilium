@@ -13,6 +13,8 @@ function place(overrides: Record<string, unknown> = {}) {
     return {
         place_id: 240109189,
         name: "Berlin",
+        osm_type: "relation",
+        osm_id: 62422,
         display_name: "Berlin, Germany",
         boundingbox: [ "52.3382448", "52.6755087", "13.0883450", "13.7611609" ],
         lat: "52.5170365",
@@ -71,7 +73,7 @@ describe("Nominatim geocoding", () => {
             place({ place_id: 3, display_name: undefined }),
             place({
                 place_id: 4, name: undefined, display_name: "Paris, France", lat: "48.8566", lon: "2.3522",
-                boundingbox: [ "not", "a", "box", "at all" ]
+                boundingbox: [ "not", "a", "box", "at all" ], osm_type: "node", osm_id: 17807753
             })
         ]);
 
@@ -79,11 +81,15 @@ describe("Nominatim geocoding", () => {
             {
                 id: "240109189", label: "Berlin, Germany", name: "Berlin", lat: 52.5170365, lng: 13.3888599,
                 // Written south-north-west-east by Nominatim, and read as MapLibre frames one.
-                bounds: [ [ 13.088345, 52.3382448 ], [ 13.7611609, 52.6755087 ] ]
+                bounds: [ [ 13.088345, 52.3382448 ], [ 13.7611609, 52.6755087 ] ],
+                outline: expect.any(Function)
             },
             // Named by the leading part of its label, Nominatim having named it nothing itself, and
-            // framed by nothing, its extent being unreadable.
-            { id: "4", label: "Paris, France", name: "Paris", lat: 48.8566, lng: 2.3522, bounds: undefined }
+            // framed by nothing: its extent is unreadable, and a node has no boundary to fetch.
+            {
+                id: "4", label: "Paris, France", name: "Paris", lat: 48.8566, lng: 2.3522,
+                bounds: undefined, outline: undefined
+            }
         ]);
     });
 
@@ -94,6 +100,31 @@ describe("Nominatim geocoding", () => {
         const refused = expect(provider.search("berlin")).rejects.toThrow("429");
         await vi.runAllTimersAsync();
         await refused;
+    });
+
+    it("fetches the boundary of a place on its own, simplified, only when it is asked for", async () => {
+        const fetchMock = respondWith([ place() ]);
+        const [ berlin ] = await search("berlin");
+        expect(fetchMock).toHaveBeenCalledOnce();
+
+        const boundary: GeoJSON.Geometry = { type: "MultiPolygon", coordinates: [] };
+        respondWith([ { geojson: boundary } ]);
+        const outlineFetch = berlin.outline?.();
+        await vi.runAllTimersAsync();
+
+        expect(await outlineFetch).toEqual(boundary);
+    });
+
+    it("draws no boundary for a shape that is not one", async () => {
+        respondWith([ place() ]);
+        const [ berlin ] = await search("berlin");
+
+        // A point is what the pin already says; there is nothing to ring.
+        respondWith([ { geojson: { type: "Point", coordinates: [ 13.4, 52.5 ] } } ]);
+        const outlineFetch = berlin.outline?.();
+        await vi.runAllTimersAsync();
+
+        expect(await outlineFetch).toBeNull();
     });
 
     it("holds searches to the one request a second the usage policy allows", async () => {

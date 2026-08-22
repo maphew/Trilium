@@ -16,6 +16,14 @@ export interface GeoSearchResult {
      * for both.
      */
     bounds?: [[number, number], [number, number]];
+    /**
+     * Fetches the boundary of the place — a country's coastline, a county's border — or `null` where
+     * it has none worth drawing. Absent where the provider cannot supply one at all.
+     *
+     * A call rather than a value, so the boundary is asked for only once a place has been picked: a
+     * search returns several places and at most one of them is ever looked at.
+     */
+    outline?: () => Promise<GeoJSON.Geometry | null>;
 }
 
 export interface GeocodingProvider {

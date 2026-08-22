@@ -60,7 +60,13 @@ type SearchEntry = {
      * A place from the geocoder: `name` is what its pin is labelled with, and `bounds` how much
      * ground it covers, where the geocoder says.
      */
-    | { kind: "place"; center: [number, number]; name: string; bounds?: GeoSearchResult["bounds"] }
+    | {
+        kind: "place";
+        center: [number, number];
+        name: string;
+        bounds?: GeoSearchResult["bounds"];
+        outline?: GeoSearchResult["outline"];
+    }
     /** Runs the geocoder for `query`. */
     | { kind: "geocode"; query: string }
     /** Reports on a geocoder run; picking it does nothing. */
@@ -98,7 +104,14 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
     // `keepOpenOnPick`. Typing again clears it.
     const [ dismissed, setDismissed ] = useState(false);
     // The geocoder's last answer, pinned where it stands; nothing while the map shows only its notes.
-    const [ pickedPlace, setPickedPlace ] = useState<{ center: [number, number]; name: string }>();
+    const [ pickedPlace, setPickedPlace ] = useState<{
+        center: [number, number];
+        name: string;
+        outline?: GeoJSON.Geometry;
+    }>();
+    // Which pick the map currently stands on, so a boundary arriving after a later pick is dropped
+    // rather than drawn around the place that replaced it.
+    const latestPick = useRef(0);
     const entriesByKey = useRef(new Map<string, SearchEntry>());
     // Discards a run superseded by a later one, since each reports through the same state.
     const latestRun = useRef(0);
@@ -121,6 +134,7 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
         setQuery(newQuery);
         // Emptying the field is how the pin is taken back off the map.
         if (!newQuery.trim()) {
+            latestPick.current++;
             setPickedPlace(undefined);
         }
     }, []);
@@ -147,10 +161,23 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
         if (entry.kind === "geocode") {
             runGeocoder(entry.query);
         } else if (entry.kind === "marker" || entry.kind === "place") {
+            const pickId = ++latestPick.current;
             setQuery(entry.label);
             setDismissed(true);
             // A note already has a marker of its own to fly to; only a place needs one put down.
             setPickedPlace(entry.kind === "place" ? { center: entry.center, name: entry.name } : undefined);
+
+            // The ground a country or a county covers, fetched only now that one of the places the
+            // search offered has been settled on. A place that is a point has none, and one whose
+            // boundary cannot be fetched keeps its pin.
+            if (entry.kind === "place" && entry.outline) {
+                entry.outline()
+                    .then((outline) => {
+                        if (!outline || latestPick.current !== pickId) return;
+                        setPickedPlace((current) => current && { ...current, outline });
+                    })
+                    .catch((e) => logError(`Fetching the boundary of "${entry.label}" failed: ${e}`));
+            }
             if (entry.kind === "place" && entry.bounds) {
                 // Framed by what the place covers rather than flown to at a level guessed for every
                 // place alike: one zoom that suits a city shows a street as the city around it.
@@ -178,7 +205,10 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
 
     return (
         <>
-            {pickedPlace && <PlaceMarker center={pickedPlace.center} name={pickedPlace.name} isDarkTheme={isDarkTheme} />}
+            {pickedPlace && <PlaceMarker
+                center={pickedPlace.center} name={pickedPlace.name}
+                outline={pickedPlace.outline} isDarkTheme={isDarkTheme}
+            />}
             <OverlayToolbar className="geo-search-toolbar" titlePosition="bottom">
                 <Icon icon="bx bx-search" className="geo-search-icon" />
                 <FormAutocomplete
@@ -259,7 +289,8 @@ function placeEntry(result: GeoSearchResult): SearchEntry {
         name: result.name,
         icon: "bx bx-map-pin",
         center: [ result.lng, result.lat ],
-        bounds: result.bounds
+        bounds: result.bounds,
+        outline: result.outline
     };
 }
 

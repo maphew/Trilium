@@ -12,6 +12,13 @@ export const PLACE_MARKER_ICON = "bx bx-search";
 export const PLACE_SOURCE = "searched-place";
 export const PLACE_LAYER = "searched-place-layer";
 
+export const OUTLINE_SOURCE = "searched-place-outline";
+export const OUTLINE_FILL_LAYER = "searched-place-outline-fill";
+export const OUTLINE_LINE_LAYER = "searched-place-outline-line";
+
+/** How much of the map shows through the boundary's fill, which is a tint rather than a covering. */
+const OUTLINE_FILL_OPACITY = 0.12;
+
 interface PlaceMarkerProps {
     /** Where the place stands, as `[lng, lat]`. */
     center: [number, number];
@@ -19,6 +26,8 @@ interface PlaceMarkerProps {
     name: string;
     /** Whether the map's style is a dark one, which decides how the label is drawn (see Markers). */
     isDarkTheme: boolean;
+    /** The ground the place covers, for one that is an area rather than a point. */
+    outline?: GeoJSON.Geometry;
 }
 
 /**
@@ -29,8 +38,11 @@ interface PlaceMarkerProps {
  * rasterizer and the same label layout and paint the note markers use (see Markers), so it is drawn
  * as a marker of the map rather than as something laid over it — the name included, which follows
  * the style from light to dark as every other label on the map does.
+ *
+ * A place that covers ground rather than standing at a point — a country, a county — also has that
+ * ground drawn under the pin, in the pin's own colour so the two read as one answer.
  */
-export default function PlaceMarker({ center, name, isDarkTheme }: PlaceMarkerProps) {
+export default function PlaceMarker({ center, name, isDarkTheme, outline }: PlaceMarkerProps) {
     const parentMap = useContext(ParentMap);
     const styleLoaded = useContext(MapStyleLoaded);
 
@@ -123,6 +135,74 @@ export default function PlaceMarker({ center, name, isDarkTheme }: PlaceMarkerPr
             }
         };
     }, [ parentMap, styleLoaded, center, name, isDarkTheme ]);
+
+    useEffect(() => {
+        if (!parentMap || !outline) return;
+        // Aliased so the narrowing above carries into the nested function below.
+        const map = parentMap;
+        const geometry = outline;
+
+        function addOutline() {
+            try {
+                if (map.getLayer(OUTLINE_FILL_LAYER)) return;
+
+                map.addSource(OUTLINE_SOURCE, {
+                    type: "geojson",
+                    data: { type: "Feature", geometry, properties: {} }
+                });
+
+                // Under the pin, which would otherwise be buried by the boundary drawn around it.
+                // The pin's layer is only there once its image has been rasterized, so where it is
+                // not yet, the boundary goes on top and the pin is added above it in its turn.
+                const beforeId = map.getLayer(PLACE_LAYER) ? PLACE_LAYER : undefined;
+
+                map.addLayer({
+                    id: OUTLINE_FILL_LAYER,
+                    type: "fill",
+                    source: OUTLINE_SOURCE,
+                    paint: {
+                        "fill-color": PLACE_MARKER_COLOR,
+                        "fill-opacity": OUTLINE_FILL_OPACITY
+                    }
+                }, beforeId);
+
+                map.addLayer({
+                    id: OUTLINE_LINE_LAYER,
+                    type: "line",
+                    source: OUTLINE_SOURCE,
+                    paint: {
+                        "line-color": PLACE_MARKER_COLOR,
+                        "line-width": 2
+                    }
+                }, beforeId);
+            } catch (e) {
+                if (styleLoaded) {
+                    console.warn("Geo map: could not draw the searched place's boundary —", e);
+                }
+            }
+        }
+
+        if (styleLoaded) {
+            addOutline();
+        }
+        map.on("style.load", addOutline);
+
+        return () => {
+            map.off("style.load", addOutline);
+            try {
+                for (const layer of [ OUTLINE_FILL_LAYER, OUTLINE_LINE_LAYER ]) {
+                    if (map.getLayer(layer)) {
+                        map.removeLayer(layer);
+                    }
+                }
+                if (map.getSource(OUTLINE_SOURCE)) {
+                    map.removeSource(OUTLINE_SOURCE);
+                }
+            } catch {
+                // The map may already have been removed.
+            }
+        };
+    }, [ parentMap, styleLoaded, outline ]);
 
     return null;
 }
