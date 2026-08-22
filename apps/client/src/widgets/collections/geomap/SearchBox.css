@@ -19,11 +19,18 @@ body.mobile .geo-map-container .geo-search-toolbar {
     top: calc(var(--geo-map-inset-top) * 2 + var(--geo-map-toolbar-height));
 }
 
+/* The bar is the field, icon and all, so it takes the focus outline an input group takes (see the
+   input group in theme-next/forms.css). Only Next names the colour. */
+.geo-map-container .geo-search-toolbar:focus-within {
+    outline: 3px solid var(--input-focus-outline-color, var(--main-border-color));
+    outline-offset: 0;
+}
+
 .geo-map-container .geo-search-toolbar .geo-search-icon {
     opacity: 0.7;
 }
 
-/* The toolbar already frames the field, so drop the input's own border. */
+/* The toolbar already frames the field, so drop the input's own border and focus outline. */
 .geo-map-container .geo-search-toolbar .geo-search-input {
     width: 15rem;
     max-width: 40vw;
@@ -32,6 +39,10 @@ body.mobile .geo-map-container .geo-search-toolbar {
     background: transparent;
     border: none;
     box-shadow: none;
+}
+
+.geo-map-container .geo-search-toolbar .geo-search-input:focus {
+    outline: none;
 }
 
 .geo-map-container .geo-search-toolbar .geo-search-input::placeholder {
