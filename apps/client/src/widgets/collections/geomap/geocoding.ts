@@ -1,4 +1,5 @@
 import { nominatim } from "./nominatim";
+import type { PlaceAddress } from "./place_address";
 
 /**
  * How much ground counts as here: what a search treats as the area around the reader, and what a
@@ -42,6 +43,11 @@ export interface GeoSearchResult {
     icon?: string;
     lat: number;
     lng: number;
+    /**
+     * Where the place stands, in parts, for naming it and for saying where it is without reciting the
+     * whole label. Absent where the provider breaks an address into nothing.
+     */
+    address?: PlaceAddress;
     /**
      * What the place covers, where the geocoder says. A street and the city around it are told apart
      * by their extent rather than by one zoom level guessed for both.

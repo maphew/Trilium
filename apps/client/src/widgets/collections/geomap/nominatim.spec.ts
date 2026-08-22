@@ -96,15 +96,41 @@ describe("Nominatim geocoding", () => {
                 id: "R62422", label: "Berlin, Germany", name: "Berlin", lat: 52.5170365, lng: 13.3888599,
                 // Written south-north-west-east by Nominatim, and read as MapLibre frames one.
                 bounds: [ [ 13.088345, 52.3382448 ], [ 13.7611609, 52.6755087 ] ],
-                icon: undefined, outline: expect.any(Function)
+                icon: undefined, address: undefined, outline: expect.any(Function)
             },
             // Named by the leading part of its label, Nominatim having named it nothing itself, and
             // framed by nothing: its extent is unreadable, and a node has no boundary to fetch.
             {
                 id: "N17807753", label: "Paris, France", name: "Paris", lat: 48.8566, lng: 2.3522,
-                bounds: undefined, icon: undefined, outline: undefined
+                bounds: undefined, icon: undefined, address: undefined, outline: undefined
             }
         ]);
+    });
+
+    it("names a house by its street and number, which is what it has instead of a name", async () => {
+        // As Nominatim answers for a plain address: no name of its own, and a label led by the number.
+        respondWith([ place({
+            name: "", osm_type: "way", osm_id: 90,
+            display_name: "25, Lankwitzer Straße, Mariendorf, Berlin, 12107, Deutschland",
+            address: {
+                house_number: "25", road: "Lankwitzer Straße", suburb: "Mariendorf",
+                city: "Berlin", state: "Berlin", postcode: "12107",
+                country: "Deutschland", country_code: "DE"
+            }
+        }) ]);
+
+        const [ house ] = await search("lankwitzer strasse 25");
+        expect(house.name).toBe("Lankwitzer Straße 25");
+        expect(house.address).toEqual({
+            street: "Lankwitzer Straße 25", locality: "Berlin", region: "Berlin",
+            country: "Deutschland", countryCode: "de"
+        });
+    });
+
+    it("asks for the address in parts", async () => {
+        const fetchMock = respondWith([]);
+        await search("berlin");
+        expect(requestedUrl(fetchMock).searchParams.get("addressdetails")).toBe("1");
     });
 
     it("carries the kind of place through, for the icon it is drawn with", async () => {

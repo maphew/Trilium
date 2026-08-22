@@ -1,6 +1,7 @@
 import { getCurrentLanguage } from "../../../services/i18n";
 import { type GeoBounds, type GeocodingProvider, type GeoSearchOptions, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
 import { placeIcon } from "./osm_icons";
+import { formatStreet, type PlaceAddress } from "./place_address";
 
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const NOMINATIM_LOOKUP_URL = "https://nominatim.openstreetmap.org/lookup";
@@ -105,6 +106,8 @@ async function searchPlaces(query: string, extraParams: Record<string, string>):
         q: query,
         format: "jsonv2",
         limit: String(MAX_RESULTS),
+        // The address in parts, which is what names a house and places a shop (see place_address).
+        addressdetails: "1",
         ...extraParams
     });
 
@@ -142,6 +145,30 @@ interface NominatimPlace {
     type?: string;
     /** What kind of address the place is: `city`, `country`, `road`, `shop`. */
     addresstype?: string;
+    /** The address in parts, asked for with `addressdetails`. */
+    address?: NominatimAddress;
+}
+
+/**
+ * Nominatim's breakdown of an address, narrowed to the parts a result is named and placed by.
+ *
+ * It names the town by what kind of settlement it is, so a place in a village carries `village` and
+ * no `city`; the same goes for the region around it (see toAddress).
+ */
+interface NominatimAddress {
+    house_number?: string;
+    road?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    hamlet?: string;
+    municipality?: string;
+    county?: string;
+    state?: string;
+    province?: string;
+    region?: string;
+    country?: string;
+    country_code?: string;
 }
 
 /** A place as the app holds one, or `null` where the entry carries no readable position. */
@@ -152,6 +179,7 @@ function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
         return null;
     }
 
+    const address = toAddress(place.address);
     const prefix = OSM_TYPE_PREFIX[place.osm_type ?? ""];
     const osmId = prefix && place.osm_id ? `${prefix}${place.osm_id}` : null;
     const hasBoundary = OSM_TYPES_WITH_A_BOUNDARY.has(place.osm_type ?? "");
@@ -163,15 +191,41 @@ function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
         // back under two of them and is offered twice.
         id: osmId ?? String(place.place_id ?? `${lat},${lng}`),
         label: place.display_name,
-        // Nominatim leaves `name` empty for a result that is an address rather than a named place,
-        // where the leading part of the label is what names it.
-        name: place.name || place.display_name.split(",")[0].trim(),
+        // Nominatim leaves `name` empty for a result that is an address rather than a named place.
+        // Its street and number name it; the leading part of the label, which is the house number on
+        // its own, is what is left when even those are missing.
+        name: place.name || address?.street || place.display_name.split(",")[0].trim(),
+        address,
         lat,
         lng,
         bounds,
         icon: placeIcon({ category: place.category, type: place.type, addressType: place.addresstype }),
         outline: osmId && hasBoundary ? () => fetchOutline(osmId, bounds) : undefined
     };
+}
+
+/**
+ * Nominatim's address, in the parts a result is named and placed by, or nothing where it broke the
+ * address into none.
+ *
+ * The town and the region are each named by whichever kind of place fills that role here: a village
+ * has no `city`, and a county stands in for a state where a country has no states.
+ */
+function toAddress(address: NominatimAddress | undefined): PlaceAddress | undefined {
+    if (!address) {
+        return undefined;
+    }
+
+    const countryCode = address.country_code?.toLowerCase();
+    const place: PlaceAddress = {
+        street: formatStreet(address.house_number, address.road, countryCode),
+        locality: address.city ?? address.town ?? address.village ?? address.hamlet ?? address.municipality,
+        region: address.state ?? address.province ?? address.region ?? address.county,
+        country: address.country,
+        countryCode
+    };
+
+    return Object.values(place).some(Boolean) ? place : undefined;
 }
 
 /** The extent Nominatim reports, as MapLibre reads one, or nothing where it cannot be read. */

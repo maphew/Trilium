@@ -16,6 +16,7 @@ import Icon from "../../react/Icon";
 import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
 import { DEFAULT_GEOCODING_PROVIDER_NAME, DEFAULT_PLACE_ICON, type GeoBounds, GEOCODING_PROVIDERS, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
 import { ParentMap } from "./map";
+import { describePlace } from "./place_address";
 import { LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
 
 /** Shorter queries are not searched. */
@@ -232,7 +233,7 @@ export default function SearchBox({ notes, onPickPlace }: SearchBoxProps) {
 
         // A place reads over two lines: what it is called, and the address that places it. Every
         // other row is one thing said once.
-        const address = entry.kind === "place" ? addressOf(entry.label, entry.result.name) : null;
+        const address = entry.kind === "place" ? describePlace(entry.result) : null;
 
         return (
             <span className={`geo-search-entry geo-search-entry-${entry.kind}`}>
@@ -318,16 +319,6 @@ function metresBetween([ lngA, latA ]: [number, number], [ lngB, latB ]: [number
 function viewportOf(map: MapLibreGLMap): GeoBounds {
     const bounds = map.getBounds();
     return [ [ bounds.getWest(), bounds.getSouth() ], [ bounds.getEast(), bounds.getNorth() ] ];
-}
-
-/**
- * What a label says beyond the place's own name, which is the address around it — "Ōta, Japan" of
- * "Tokyo, Ōta, Japan". A label that does not begin with the name is left whole, having nothing to
- * repeat.
- */
-function addressOf(label: string, name: string) {
-    const rest = label.startsWith(name) ? label.slice(name.length) : label;
-    return rest.replace(/^[\s,]+/, "");
 }
 
 /** The notes on the map whose title contains the query and that are drawn somewhere. */
