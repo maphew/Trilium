@@ -126,6 +126,14 @@ function labels() {
         ?? entry.textContent);
 }
 
+/** Presses a key in the field, as the reader reaching for the keyboard rather than the pointer. */
+async function press(container: HTMLElement, key: string) {
+    await act(async () => {
+        field(container).dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    });
+    await settle();
+}
+
 /** Picks a row and lets whatever it started settle. */
 async function pick(index: number) {
     await act(async () => { entries()[index].click(); });
@@ -352,6 +360,37 @@ describe("geo map SearchBox", () => {
 
         // The place the geocoder found is measured the same way.
         expect(distances()[1]).toMatch(/^gpx_preview\.unit_km/);
+    });
+
+    it("stands the first row ready, so Enter takes it without arrowing down to it", async () => {
+        mockGeocoder([ TOKYO ]);
+        const map = fakeMap();
+        const container = renderSearchBox(map, mapNotes());
+
+        await type(container, "tokyo");
+        expect(entries()[0].className).toContain("active");
+
+        // The map's own note stands first, so Enter goes there rather than to the geocoder.
+        await press(container, "Enter");
+
+        expect(map.flyTo).toHaveBeenCalledWith({ center: [ 139.7, 35.6 ], zoom: expect.any(Number) });
+        expect(field(container).value).toBe("Tokyo trip");
+    });
+
+    it("runs the geocoder on Enter where the map has nothing of its own, and takes the first place on the next", async () => {
+        const search = mockGeocoder([ TOKYO ]);
+        const map = fakeMap();
+        const container = renderSearchBox(map, []);
+
+        // Nothing of the map's own matches, so the row that stands ready is the geocoder's.
+        await type(container, "tokyo");
+        await press(container, "Enter");
+        expect(search).toHaveBeenCalledOnce();
+
+        await press(container, "Enter");
+
+        expect(map.fitBounds).toHaveBeenCalledWith(TOKYO.bounds, expect.anything());
+        expect(field(container).value).toBe("Tokyo, Japan");
     });
 
     it("takes the pin off the map once the field is emptied", async () => {

@@ -107,6 +107,10 @@ interface GeocodeRun {
  * nothing at otherwise leaves the user to work out which patch of ground was meant. The pin stands
  * until another is taken or the field is emptied.
  *
+ * The rows are the choices themselves rather than help with typing, so the first stands ready and
+ * Enter takes it — `autoActivate`, as the attribute pickers use it. From a field holding nothing but
+ * a name, that is: Enter, which runs the geocoder, and Enter again, which takes what it found.
+ *
  * `FormAutocomplete` handles the debounce, the stale-response guard, keyboard navigation and a
  * dropdown portalled out of the map's scrolling container. `keepOpenOnPick` keeps the list up so the
  * geocoder row can replace itself with results, so closing it after a marker or place is taken is
@@ -256,6 +260,7 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
                     source={source}
                     renderItem={renderEntry}
                     dropdownMinWidth={RESULT_LIST_WIDTH}
+                    autoActivate
                     keepOpenOnPick
                     placeholder={t("geo-map.search-placeholder")}
                     aria-label={t("geo-map.search")}
