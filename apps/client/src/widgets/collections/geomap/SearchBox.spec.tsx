@@ -113,17 +113,28 @@ async function type(container: HTMLElement, text: string) {
     await settle();
 }
 
-/** The dropdown is portalled to the body, so look for it there rather than in the container. */
-function entries() {
-    return [ ...document.querySelectorAll<HTMLElement>(".form-autocomplete-dropdown .form-autocomplete-item") ];
+/**
+ * Every row of the list, headings included. The dropdown is portalled to the body, so it is looked
+ * for there rather than in the container.
+ */
+function rows() {
+    return [ ...document.querySelectorAll<HTMLElement>(".form-autocomplete-dropdown li") ];
 }
 
-/** What each row is called: the first line of a place, and the whole of any other row. */
+/** The rows that can be taken, which is every row but the headings. */
+function entries() {
+    return rows().filter((row) => row.classList.contains("form-autocomplete-item"));
+}
+
+/** What a row is called: the first line of a place, and the whole of any other row. */
+function nameOf(row: HTMLElement) {
+    return row.querySelector(".geo-search-entry-name")?.textContent
+        ?? row.querySelector(".geo-search-entry-lines")?.textContent
+        ?? row.textContent;
+}
+
 function labels() {
-    return entries().map((entry) =>
-        entry.querySelector(".geo-search-entry-name")?.textContent
-        ?? entry.querySelector(".geo-search-entry-lines")?.textContent
-        ?? entry.textContent);
+    return rows().map(nameOf);
 }
 
 /** Presses a key in the field, as the reader reaching for the keyboard rather than the pointer. */
@@ -131,6 +142,16 @@ async function press(container: HTMLElement, key: string) {
     await act(async () => {
         field(container).dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
     });
+    await settle();
+}
+
+/** Picks the row that reads as the given name, the list standing in distance order rather than a
+ *  settled one. */
+async function pickNamed(name: string) {
+    const row = rows().find((candidate) => nameOf(candidate) === name);
+    if (!row) throw new Error(`the list offers no "${name}": ${labels().join(", ")}`);
+
+    await act(async () => { row.click(); });
     await settle();
 }
 
@@ -184,8 +205,8 @@ describe("geo map SearchBox", () => {
             // answered with the one at hand.
             viewport: [ [ VIEWPORT.west, VIEWPORT.south ], [ VIEWPORT.east, VIEWPORT.north ] ]
         });
-        // The row is replaced by what it found, the markers still standing above it.
-        expect(labels()).toEqual([ "Tokyo trip", "Tokyo" ]);
+        // The row is replaced by what it found, standing among the map's own notes.
+        expect([ ...labels() ].sort()).toEqual([ "Tokyo", "Tokyo trip" ]);
     });
 
     it("flies to a marker, and closes the list rather than leaving it open over the map", async () => {
@@ -271,8 +292,8 @@ describe("geo map SearchBox", () => {
         const container = renderSearchBox(fakeMap(), mapNotes());
 
         await type(container, "tokyo");
-        await pick(1);
-        await pick(1);
+        await pickNamed("geo-map.search-online(tokyo)");
+        await pickNamed("Tokyo");
 
         const pin = () => container.querySelector<HTMLElement>(".place-marker");
         expect(pin()?.dataset.center).toBe(`${TOKYO.lng},${TOKYO.lat}`);
@@ -391,6 +412,43 @@ describe("geo map SearchBox", () => {
 
         expect(map.fitBounds).toHaveBeenCalledWith(TOKYO.bounds, expect.anything());
         expect(field(container).value).toBe("Tokyo, Japan");
+    });
+
+    it("puts what is at hand under one heading and what is far off under another, nearest first", async () => {
+        // Half of Corfu away, a good way up the coast, and another country entirely.
+        mockGeocoder([
+            { id: "near", label: "Jumbo, Corfu", name: "Jumbo", lat: CENTRE.lat + 0.09, lng: CENTRE.lng },
+            { id: "far", label: "Jumbo, Ohio", name: "Jumbo", lat: 40.4, lng: -82.9 }
+        ]);
+        const container = renderSearchBox(fakeMap(), [
+            buildNote({ title: "Jumbo receipt", "#geolocation": `${CENTRE.lat + 0.04},${CENTRE.lng}` })
+        ]);
+
+        await type(container, "jumbo");
+        await pickNamed("geo-map.search-online(jumbo)");
+
+        expect(labels()).toEqual([
+            "geo-map.results-nearby",
+            // The note is nearer than the shop, and the shop nearer than the one across the ocean.
+            "Jumbo receipt",
+            "Jumbo",
+            "geo-map.results-far",
+            "Jumbo"
+        ]);
+        // A heading names the rows below it rather than offering anything, so it is not among the
+        // rows that can be taken.
+        expect(entries().map(nameOf)).toEqual([ "Jumbo receipt", "Jumbo", "Jumbo" ]);
+    });
+
+    it("leaves the headings off where every result is on one side of the line", async () => {
+        mockGeocoder([ TOKYO ]);
+        const container = renderSearchBox(fakeMap(), []);
+
+        await type(container, "tokyo");
+        await pickNamed("geo-map.search-online(tokyo)");
+
+        // Nothing at hand to tell it apart from: one name over one run of rows says nothing.
+        expect(labels()).toEqual([ "Tokyo" ]);
     });
 
     it("takes the pin off the map once the field is emptied", async () => {

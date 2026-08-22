@@ -1,5 +1,15 @@
 import { nominatim } from "./nominatim";
 
+/**
+ * How much ground counts as here: what a search treats as the area around the reader, and what a
+ * result is called nearby for standing within.
+ *
+ * A map zoomed into a neighbourhood shows a few hundred metres across, and a search restricted to
+ * exactly that answers nothing for a shop three streets away. What the reader means by searching from
+ * where they are standing is the town they are looking at, not the block.
+ */
+export const SEARCH_RADIUS_M = 25_000;
+
 /** A rectangle of ground, as `[[west, south], [east, north]]`. */
 export type GeoBounds = [[number, number], [number, number]];
 

@@ -101,6 +101,12 @@ body.mobile .geo-map-container .geo-search-toolbar {
     opacity: 0.85;
 }
 
+/* A heading names the rows under it and reads as the dropdown's own furniture rather than as one of
+   the entries, so it keeps none of the room a row's mark and distance are given. */
+.form-autocomplete-dropdown .geo-search-heading {
+    display: block;
+}
+
 /* A report is not a choice, so it neither highlights nor takes a pointer. */
 .form-autocomplete-dropdown .form-autocomplete-item:has(.geo-search-entry-info) {
     cursor: default;

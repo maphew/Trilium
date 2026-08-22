@@ -12,7 +12,7 @@ import { formatDistance } from "../../../utils/units";
 import FormAutocomplete from "../../react/FormAutocomplete";
 import Icon from "../../react/Icon";
 import OverlayToolbar from "../../react/OverlayToolbar";
-import { DEFAULT_GEOCODING_PROVIDER_NAME, type GeoBounds, GEOCODING_PROVIDERS, type GeoSearchResult } from "./geocoding";
+import { DEFAULT_GEOCODING_PROVIDER_NAME, type GeoBounds, GEOCODING_PROVIDERS, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
 import { ParentMap } from "./map";
 import { LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
 import PlaceMarker from "./PlaceMarker";
@@ -65,8 +65,8 @@ interface SearchBoxProps {
 type SearchEntry = {
     key: string;
     label: string;
-    /** A boxicons class, as `FNote.getIcon()` gives it. */
-    icon: string;
+    /** A boxicons class, as `FNote.getIcon()` gives it. Headings have none. */
+    icon?: string;
     /** How far the place is from the middle of the map, in metres. */
     distance?: number;
 } & (
@@ -82,6 +82,8 @@ type SearchEntry = {
         bounds?: GeoSearchResult["bounds"];
         outline?: GeoSearchResult["outline"];
     }
+    /** Names the run of rows below it; not a choice (see `isHeading` on FormAutocomplete). */
+    | { kind: "heading" }
     /** Runs the geocoder for `query`. */
     | { kind: "geocode"; query: string }
     /** Reports on a geocoder run; picking it does nothing. */
@@ -147,8 +149,10 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
         // Measured from the middle of what the map is showing, at the moment the list is built: two
         // places of the same name are told apart by which of them is at hand.
         const origin = map ? map.getCenter().toArray() : null;
-        const entries = [ ...matchMarkers(notes, trimmed), ...geocodeEntries(geocodeRun, trimmed) ]
+        const { places, notice } = geocodeEntries(geocodeRun, trimmed);
+        const found = [ ...matchMarkers(notes, trimmed), ...places ]
             .map((entry) => withDistance(entry, origin));
+        const entries = [ ...byDistance(found), ...(notice ? [ notice ] : []) ];
         entriesByKey.current = new Map(entries.map((entry) => [ entry.key, entry ]));
         return entries.map((entry) => entry.key);
     }, [ notes, geocodeRun, dismissed, map ]);
@@ -214,9 +218,16 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
         }
     }, [ map, runGeocoder ]);
 
+    const isHeading = useCallback(
+        (key: string) => entriesByKey.current.get(key)?.kind === "heading", []);
+
     const renderEntry = useCallback((key: string) => {
         const entry = entriesByKey.current.get(key);
         if (!entry) return key;
+
+        if (entry.kind === "heading") {
+            return entry.label;
+        }
 
         // A place reads over two lines: what it is called, and the address that places it. Every
         // other row is one thing said once.
@@ -259,6 +270,7 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
                     onPick={pickEntry}
                     source={source}
                     renderItem={renderEntry}
+                    isHeading={isHeading}
                     dropdownMinWidth={RESULT_LIST_WIDTH}
                     autoActivate
                     keepOpenOnPick
@@ -336,31 +348,69 @@ function matchMarkers(notes: FNote[], query: string): SearchEntry[] {
 }
 
 /**
- * What the list offers below the markers: the results of a run answering this query, or the row that
- * starts one. Typing never reaches the provider — picking that row is the only thing that does.
+ * What the geocoder has to offer for this query: the places a run answering it found, and whatever
+ * has to be said about the run — the row that starts one, or a word on how the last one went.
+ *
+ * The two are separated because they belong in different parts of the list: places are sorted in
+ * among the map's own notes, and a notice stands at the foot whatever the distances say.
  */
-function geocodeEntries(run: GeocodeRun | undefined, query: string): SearchEntry[] {
+function geocodeEntries(run: GeocodeRun | undefined, query: string): {
+    places: SearchEntry[];
+    notice: SearchEntry | null;
+} {
     if (run?.query !== query) {
-        return [ {
-            kind: "geocode",
-            key: "geocode",
-            label: t("geo-map.search-online", { query }),
-            icon: "bx bx-search-alt",
-            query
-        } ];
+        return {
+            places: [],
+            notice: {
+                kind: "geocode",
+                key: "geocode",
+                label: t("geo-map.search-online", { query }),
+                icon: "bx bx-search-alt",
+                query
+            }
+        };
     }
 
     if (run.status === "loading") {
-        return [ infoEntry(t("geo-map.searching-online"), "bx bx-loader-alt") ];
+        return { places: [], notice: infoEntry(t("geo-map.searching-online"), "bx bx-loader-alt") };
     }
     if (run.status === "failed") {
-        return [ infoEntry(t("geo-map.search-failed"), "bx bx-error-circle") ];
+        return { places: [], notice: infoEntry(t("geo-map.search-failed"), "bx bx-error-circle") };
     }
     if (!run.results.length) {
-        return [ infoEntry(t("geo-map.no-places-found"), "bx bx-info-circle") ];
+        return { places: [], notice: infoEntry(t("geo-map.no-places-found"), "bx bx-info-circle") };
     }
 
-    return run.results;
+    return { places: run.results, notice: null };
+}
+
+/**
+ * The places found, nearest first, under headings that say which are at hand and which are not — a
+ * shop down the road and one on another continent are both answers to the same name, and the list
+ * used to run them together.
+ *
+ * Headings only where there is something on both sides of {@link SEARCH_RADIUS_M}: one name over one
+ * run of rows distinguishes it from nothing.
+ */
+function byDistance(entries: SearchEntry[]): SearchEntry[] {
+    const sorted = [ ...entries ].sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+    const atHand = sorted.filter((entry) => (entry.distance ?? Infinity) <= SEARCH_RADIUS_M);
+    const further = sorted.slice(atHand.length);
+
+    if (!atHand.length || !further.length) {
+        return sorted;
+    }
+
+    return [
+        headingEntry("nearby", t("geo-map.results-nearby")),
+        ...atHand,
+        headingEntry("far", t("geo-map.results-far")),
+        ...further
+    ];
+}
+
+function headingEntry(key: string, label: string): SearchEntry {
+    return { kind: "heading", key: `heading:${key}`, label };
 }
 
 function placeEntry(result: GeoSearchResult): SearchEntry {

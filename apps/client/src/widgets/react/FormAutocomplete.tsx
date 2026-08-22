@@ -58,6 +58,11 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
      */
     leading?: ComponentChildren;
     /**
+     * Marks an entry as a heading over the ones below it rather than a choice of its own: it takes no
+     * click, is stepped over on the way through the list, and is never what Enter takes.
+     */
+    isHeading?(item: string): boolean;
+    /**
      * The least the list is drawn at, in pixels, for a field too narrow for what its entries have to
      * say — a search box in the corner of a map offering whole addresses. The field's own width is
      * still the floor and the viewport the ceiling, so the list never runs off the screen.
@@ -80,7 +85,7 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
  * The dropdown is portalled to the body and positioned over everything else, so it is not clipped
  * by scrolling ancestors. Selecting a suggestion reports it through `onChange`, exactly like typing.
  */
-export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, onPick, keepOpenOnPick, renderItem, leading, autoActivate, dropdownMinWidth, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
+export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, onPick, keepOpenOnPick, renderItem, leading, autoActivate, isHeading, dropdownMinWidth, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
     const ownInputRef = useRef<HTMLInputElement>(null);
     const inputEl = inputRef ?? ownInputRef;
     const fieldRef = useRef<HTMLDivElement>(null);
@@ -120,12 +125,12 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
             // A newer query (or a close) happened while awaiting.
             if (latestQuery.current === queryId) {
                 setItems(suggestions);
-                setActiveIndex(autoActivate ? bestMatchIndex(suggestions, currentValue) : -1);
+                setActiveIndex(autoActivate ? bestMatchIndex(suggestions, currentValue, isHeading) : -1);
             }
         }, DEBOUNCE_MS);
 
         return () => clearTimeout(timeout);
-    }, [ isOpen, currentValue, source, autoActivate ]);
+    }, [ isOpen, currentValue, source, autoActivate, isHeading ]);
 
     // Keep the highlighted entry in sight: it can be picked out on opening, or arrowed past the
     // bottom of a list taller than the room the dropdown was given.
@@ -161,6 +166,10 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
     }, [ isOpen, items.length, inputEl, dropdownMinWidth ]);
 
     function selectItem(item: string) {
+        if (isHeading?.(item)) {
+            return;
+        }
+
         (onPick ?? onChange)(item);
         if (keepOpenOnPick) {
             // Nothing is highlighted until the refreshed entries arrive, so Enter cannot take twice
@@ -183,7 +192,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                     setIsOpen(true);
                 } else {
                     const delta = e.key === "ArrowDown" ? 1 : -1;
-                    setActiveIndex((index) => (index + delta + items.length) % items.length);
+                    setActiveIndex((index) => stepOver(items, index, delta, isHeading));
                 }
                 break;
 
@@ -257,17 +266,21 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                     onMouseDown={(e) => e.preventDefault()}
                 >
                     {items.map((item, index) => (
-                        <li
-                            key={item}
-                            id={`${itemIdPrefix}-${index}`}
-                            className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
-                            role="option"
-                            aria-selected={index === activeIndex}
-                            onMouseEnter={() => setActiveIndex(index)}
-                            onClick={() => selectItem(item)}
-                        >
-                            {renderItem ? renderItem(item) : item}
-                        </li>
+                        isHeading?.(item)
+                            ? <li key={item} className="form-autocomplete-heading" role="presentation">
+                                {renderItem ? renderItem(item) : item}
+                            </li>
+                            : <li
+                                key={item}
+                                id={`${itemIdPrefix}-${index}`}
+                                className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
+                                role="option"
+                                aria-selected={index === activeIndex}
+                                onMouseEnter={() => setActiveIndex(index)}
+                                onClick={() => selectItem(item)}
+                            >
+                                {renderItem ? renderItem(item) : item}
+                            </li>
                     ))}
                 </ul>,
                 document.body)}
@@ -276,17 +289,38 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
 }
 
 /**
- * Which entry a list opens on: the one the field's text names, or the first, so that a field whose
- * text stands for a choice already made opens on it and one being typed into opens on its best
- * candidate. Matched the way the sources filter — ignoring case and surrounding space.
+ * Which entry a list opens on: the one the field's text names, or the first that can be taken, so
+ * that a field whose text stands for a choice already made opens on it and one being typed into
+ * opens on its best candidate. Matched the way the sources filter — ignoring case and surrounding
+ * space.
  */
-function bestMatchIndex(items: string[], text: string) {
-    if (!items.length) {
-        return -1;
-    }
+function bestMatchIndex(items: string[], text: string, isHeading?: (item: string) => boolean) {
+    const canBeTaken = (item: string) => !isHeading?.(item);
     const trimmed = text.trim().toLowerCase();
-    const exact = items.findIndex((item) => item.toLowerCase() === trimmed);
-    return exact >= 0 ? exact : 0;
+    const exact = items.findIndex((item) => canBeTaken(item) && item.toLowerCase() === trimmed);
+
+    return exact >= 0 ? exact : items.findIndex(canBeTaken);
+}
+
+/**
+ * The next entry that can be taken, in the direction asked for, wrapping at either end and stepping
+ * over the headings in between. Nothing to step to — a list of headings alone — leaves nothing
+ * highlighted.
+ *
+ * Exported for its own tests, the alternative being to drive a dropdown by keystrokes to find out
+ * which row a heading was skipped for.
+ */
+export function stepOver(items: string[], from: number, delta: number, isHeading?: (item: string) => boolean) {
+    let index = from;
+
+    for (let step = 0; step < items.length; step++) {
+        index = (index + delta + items.length) % items.length;
+        if (!isHeading?.(items[index])) {
+            return index;
+        }
+    }
+
+    return -1;
 }
 
 /**

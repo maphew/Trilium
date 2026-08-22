@@ -5,7 +5,7 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 
-import { computeDropdownPosition } from "./FormAutocomplete";
+import { computeDropdownPosition, stepOver } from "./FormAutocomplete";
 
 /** The room the placement keeps between the list and the edge of the screen. */
 const MARGIN = 8;
@@ -29,6 +29,26 @@ afterEach(() => {
     for (const name of [ "clientWidth", "clientHeight" ]) {
         Reflect.deleteProperty(document.documentElement, name);
     }
+});
+
+describe("stepping through a list with headings in it", () => {
+    const items = [ "Nearby", "a", "b", "Far away", "c" ];
+    const isHeading = (item: string) => item === "Nearby" || item === "Far away";
+
+    it("steps over the headings, in either direction, wrapping at the ends", () => {
+        // Opening the list lands on the first entry that can be taken, not on the heading over it.
+        expect(stepOver(items, -1, 1, isHeading)).toBe(1);
+        expect(stepOver(items, 1, 1, isHeading)).toBe(2);
+        // Past the last of one group is the first of the next, the heading between them stepped over.
+        expect(stepOver(items, 2, 1, isHeading)).toBe(4);
+        // And round the end, back to the top.
+        expect(stepOver(items, 4, 1, isHeading)).toBe(1);
+        expect(stepOver(items, 1, -1, isHeading)).toBe(4);
+    });
+
+    it("highlights nothing in a list that is headings alone", () => {
+        expect(stepOver([ "Nearby" ], -1, 1, isHeading)).toBe(-1);
+    });
 });
 
 describe("computeDropdownPosition", () => {

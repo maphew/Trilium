@@ -2959,7 +2959,10 @@
     "search-online": "Search online for \"{{- query}}\"",
     "searching-online": "Searching online…",
     "no-places-found": "No places found",
-    "search-failed": "Couldn't search for places"
+    "search-failed": "Couldn't search for places",
+    "results-nearby": "Nearby",
+    "results-far": "Far away",
+    "add-place-as-marker": "Add as marker"
   },
   "embedded_note": {
     "open-note": "Open note",

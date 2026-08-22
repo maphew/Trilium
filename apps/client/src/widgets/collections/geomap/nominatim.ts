@@ -1,5 +1,5 @@
 import { getCurrentLanguage } from "../../../services/i18n";
-import type { GeoBounds, GeocodingProvider, GeoSearchOptions, GeoSearchResult } from "./geocoding";
+import { type GeoBounds, type GeocodingProvider, type GeoSearchOptions, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
 
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const NOMINATIM_LOOKUP_URL = "https://nominatim.openstreetmap.org/lookup";
@@ -16,14 +16,6 @@ const OSM_TYPE_PREFIX: Record<string, string> = { node: "N", way: "W", relation:
 /** The kinds of OSM object that can enclose ground. A node is a single point and has no boundary. */
 const OSM_TYPES_WITH_A_BOUNDARY = new Set([ "way", "relation" ]);
 
-/**
- * The least ground a search treats as here, as a half-span in metres.
- *
- * A map zoomed into a neighbourhood shows a few hundred metres across, and a search restricted to
- * exactly that answers nothing for a shop three streets away. What the reader means by searching from
- * where they are standing is the town they are looking at, not the block.
- */
-const MIN_SEARCH_RADIUS_M = 25_000;
 
 /** Metres to a degree of latitude, the same the world over. A degree of longitude is this shortened
  *  by the cosine of the latitude. */
@@ -192,7 +184,7 @@ function toBounds(boundingbox: string[] | undefined): GeoSearchResult["bounds"] 
  * first. Sent without `bounded` on the wider pass, so a place is ranked up for being in view rather
  * than a place out of view being refused.
  *
- * Grown to at least {@link MIN_SEARCH_RADIUS_M} about its middle, since a view of one neighbourhood
+ * Grown to at least {@link SEARCH_RADIUS_M} about its middle, since a view of one neighbourhood
  * restricts a search to that neighbourhood and answers nothing for the next street over.
  *
  * A view running the other way round has been panned across the antimeridian, which no pair of
@@ -210,7 +202,7 @@ function toViewbox(viewport: GeoBounds | undefined) {
 
     const middleLat = (south + north) / 2;
     const middleLng = (west + east) / 2;
-    const latitudePad = MIN_SEARCH_RADIUS_M / METRES_PER_DEGREE;
+    const latitudePad = SEARCH_RADIUS_M / METRES_PER_DEGREE;
     // A degree of longitude shortens towards the poles, where it is short enough that padding by one
     // would reach around the world; the cosine is floored to keep the padding finite.
     const longitudePad = latitudePad / Math.max(Math.cos(middleLat * Math.PI / 180), 0.01);
