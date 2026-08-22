@@ -109,6 +109,9 @@ jobs:
 
   build:
     name: Build Docker images
+    # Forks can still run test_docker, but only the canonical repository may
+    # publish per-platform images and attestations.
+    if: ${{ github.repository == 'TriliumNext/Trilium' }}
     strategy:
       fail-fast: false
       matrix:
@@ -216,6 +219,7 @@ jobs:
 
   merge:
     name: Merge manifest lists
+    if: ${{ github.repository == 'TriliumNext/Trilium' }}
     runs-on: ubuntu-latest
     needs:
       - build
