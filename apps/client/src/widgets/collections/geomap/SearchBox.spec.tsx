@@ -14,6 +14,42 @@ import { DEFAULT_GEOCODING_PROVIDER_NAME, GEOCODING_PROVIDERS, type GeoSearchRes
 import { ParentMap } from "./map";
 import SearchBox from "./SearchBox";
 
+// Hoisted, because map.tsx imports maplibre-gl as this file is loaded — a class declared below would
+// still be in its temporal dead zone when the factory runs.
+const { FakeMarker } = vi.hoisted(() => {
+    /** Stands in for MapLibre's own marker, which wants a real map to attach itself to. */
+    class FakeMarker {
+        static standing: FakeMarker[] = [];
+        lngLat?: [number, number];
+
+        constructor(readonly options: { element: HTMLElement; anchor?: string; offset?: [number, number] }) {}
+
+        setLngLat(lngLat: [number, number]) {
+            this.lngLat = lngLat;
+            return this;
+        }
+
+        addTo(_map: unknown) {
+            FakeMarker.standing.push(this);
+            return this;
+        }
+
+        remove() {
+            FakeMarker.standing = FakeMarker.standing.filter((marker) => marker !== this);
+            return this;
+        }
+    }
+
+    return { FakeMarker };
+});
+
+vi.mock("maplibre-gl", () => ({ Marker: FakeMarker }));
+
+// The pin's image is drawn from an icon the glyph service resolves against the real stylesheet.
+vi.mock("../../../services/icon_glyphs", () => ({
+    renderIconImage: vi.fn(async () => "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")
+}));
+
 // i18next is not initialized under test, so t() returns "". The key stands in for the text, with any
 // interpolated values after it, which is enough to tell the rows apart.
 vi.mock("../../../services/i18n", () => ({
@@ -94,7 +130,10 @@ async function pick(index: number) {
     await settle();
 }
 
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => {
+    vi.useFakeTimers();
+    FakeMarker.standing = [];
+});
 afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -194,6 +233,39 @@ describe("geo map SearchBox", () => {
 
         await type(container, "berlin de");
         expect(labels()).toEqual([ "geo-map.search-online(berlin de)" ]);
+    });
+
+    it("pins a searched place where it stands, since the map has nothing there of its own", async () => {
+        mockGeocoder([ TOKYO ]);
+        const container = renderSearchBox(fakeMap(), mapNotes());
+
+        await type(container, "tokyo");
+        await pick(1);
+        await pick(1);
+
+        expect(FakeMarker.standing).toHaveLength(1);
+        expect(FakeMarker.standing[0].lngLat).toEqual([ TOKYO.lng, TOKYO.lat ]);
+        // The tip of the pin stands on the place rather than the bottom edge of its image.
+        expect(FakeMarker.standing[0].options.anchor).toBe("bottom");
+
+        // A note of the map's own is already pinned, so taking one takes the searched pin away.
+        await type(container, "tokyo trip");
+        await pick(0);
+        expect(FakeMarker.standing).toHaveLength(0);
+    });
+
+    it("takes the pin off the map once the field is emptied", async () => {
+        mockGeocoder([ TOKYO ]);
+        const container = renderSearchBox(fakeMap(), []);
+
+        await type(container, "tokyo");
+        await pick(0);
+        await pick(0);
+        expect(FakeMarker.standing).toHaveLength(1);
+
+        await type(container, "");
+
+        expect(FakeMarker.standing).toHaveLength(0);
     });
 
     it("renders nothing when the map failed to initialize", () => {

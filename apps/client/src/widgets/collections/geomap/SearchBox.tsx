@@ -1,6 +1,7 @@
 import "./SearchBox.css";
 
-import { useCallback, useContext, useRef, useState } from "preact/hooks";
+import { Marker } from "maplibre-gl";
+import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import type FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
@@ -10,7 +11,7 @@ import Icon from "../../react/Icon";
 import OverlayToolbar from "../../react/OverlayToolbar";
 import { DEFAULT_GEOCODING_PROVIDER_NAME, GEOCODING_PROVIDERS, type GeoSearchResult } from "./geocoding";
 import { ParentMap } from "./map";
-import { LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
+import { drawMarkerImage, LOCATION_ATTRIBUTE, MARKER_SHADOW_PADDING, parseLocation } from "./Markers";
 
 /** Shorter queries are not searched. */
 const MIN_QUERY_LENGTH = 2;
@@ -26,6 +27,12 @@ const MAX_MARKER_RESULTS = 8;
 
 /** The key of the row reporting on a geocoder run, which only ever appears once. */
 const STATUS_KEY = "geocode-status";
+
+/** The colour the pin for a searched place is drawn in, so it is not read as one of the map's notes. */
+const PLACE_MARKER_COLOR = "#E8833A";
+
+/** The icon that pin wears, naming where it came from. */
+const PLACE_MARKER_ICON = "bx bx-search";
 
 interface SearchBoxProps {
     /** The notes on the map, searched by title. */
@@ -63,6 +70,10 @@ interface GeocodeRun {
  * to a third party, and providers rate-limit and discourage per-keystroke lookups, so it sits at the
  * bottom of the list as a row that runs it when picked.
  *
+ * A place taken from the geocoder is pinned where it stands, since flying to a spot the map has
+ * nothing at otherwise leaves the user to work out which patch of ground was meant. The pin stands
+ * until another is taken or the field is emptied.
+ *
  * `FormAutocomplete` handles the debounce, the stale-response guard, keyboard navigation and a
  * dropdown portalled out of the map's scrolling container. `keepOpenOnPick` keeps the list up so the
  * geocoder row can replace itself with results, so closing it after a marker or place is taken is
@@ -75,6 +86,8 @@ export default function SearchBox({ notes }: SearchBoxProps) {
     // Empties the list once a marker or place has been taken, which is what closes the dropdown under
     // `keepOpenOnPick`. Typing again clears it.
     const [ dismissed, setDismissed ] = useState(false);
+    // Where the geocoder's last answer is pinned, and nothing while the map shows only its own notes.
+    const [ pickedPlace, setPickedPlace ] = useState<[number, number]>();
     const entriesByKey = useRef(new Map<string, SearchEntry>());
     // Discards a run superseded by a later one, since each reports through the same state.
     const latestRun = useRef(0);
@@ -95,6 +108,10 @@ export default function SearchBox({ notes }: SearchBoxProps) {
     const changeQuery = useCallback((newQuery: string) => {
         setDismissed(false);
         setQuery(newQuery);
+        // Emptying the field is how the pin is taken back off the map.
+        if (!newQuery.trim()) {
+            setPickedPlace(undefined);
+        }
     }, []);
 
     const runGeocoder = useCallback(async (searchQuery: string) => {
@@ -121,6 +138,8 @@ export default function SearchBox({ notes }: SearchBoxProps) {
         } else if (entry.kind === "marker" || entry.kind === "place") {
             setQuery(entry.label);
             setDismissed(true);
+            // A note already has a marker of its own to fly to; only a place needs one put down.
+            setPickedPlace(entry.kind === "place" ? entry.center : undefined);
             map.flyTo({ center: entry.center, zoom: entry.kind === "marker" ? MARKER_ZOOM : PLACE_ZOOM });
         }
     }, [ map, runGeocoder ]);
@@ -141,21 +160,66 @@ export default function SearchBox({ notes }: SearchBoxProps) {
     if (!map) return null;
 
     return (
-        <OverlayToolbar className="geo-search-toolbar" titlePosition="bottom">
-            <Icon icon="bx bx-search" className="geo-search-icon" />
-            <FormAutocomplete
-                className="geo-search-input"
-                currentValue={query}
-                onChange={changeQuery}
-                onPick={pickEntry}
-                source={source}
-                renderItem={renderEntry}
-                keepOpenOnPick
-                placeholder={t("geo-map.search-placeholder")}
-                aria-label={t("geo-map.search")}
-            />
-        </OverlayToolbar>
+        <>
+            {pickedPlace && <PlaceMarker center={pickedPlace} />}
+            <OverlayToolbar className="geo-search-toolbar" titlePosition="bottom">
+                <Icon icon="bx bx-search" className="geo-search-icon" />
+                <FormAutocomplete
+                    className="geo-search-input"
+                    currentValue={query}
+                    onChange={changeQuery}
+                    onPick={pickEntry}
+                    source={source}
+                    renderItem={renderEntry}
+                    keepOpenOnPick
+                    placeholder={t("geo-map.search-placeholder")}
+                    aria-label={t("geo-map.search")}
+                />
+            </OverlayToolbar>
+        </>
     );
+}
+
+/**
+ * The pin standing on a place taken from the geocoder, for as long as that place is the one searched
+ * for.
+ *
+ * A MapLibre `Marker` rather than a feature in the notes' symbol layer: that layer is built from the
+ * notes and reloaded with them, and this pin belongs to neither. It wears the image the symbol layer
+ * stamps (see `drawMarkerImage`), in a colour and an icon no note marker uses.
+ */
+function PlaceMarker({ center }: { center: [number, number] }) {
+    const map = useContext(ParentMap);
+
+    useEffect(() => {
+        if (!map) return;
+
+        const element = document.createElement("div");
+        element.className = "geo-place-marker";
+        // The pin names nothing the search field does not already say, and a click at the place has
+        // the map to reach (see the armed click in index.tsx).
+        element.ariaHidden = "true";
+
+        // `icon-offset` on the symbol layer, as a marker offset: the tip of the pin sits a shadow's
+        // padding above the bottom edge of the image it is drawn in.
+        const marker = new Marker({ element, anchor: "bottom", offset: [ 0, MARKER_SHADOW_PADDING ] })
+            .setLngLat(center)
+            .addTo(map);
+
+        let cancelled = false;
+        drawMarkerImage(PLACE_MARKER_COLOR, PLACE_MARKER_ICON).then((image) => {
+            if (!cancelled && image) {
+                element.replaceChildren(image);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+            marker.remove();
+        };
+    }, [ map, center ]);
+
+    return null;
 }
 
 /** The notes on the map whose title contains the query and that are drawn somewhere. */
