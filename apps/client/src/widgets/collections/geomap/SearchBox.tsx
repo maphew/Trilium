@@ -2,13 +2,15 @@ import "./SearchBox.css";
 
 import { useCallback, useContext, useRef, useState } from "preact/hooks";
 
+import type { Map as MapLibreGLMap } from "maplibre-gl";
+
 import type FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import { logError } from "../../../services/ws";
 import FormAutocomplete from "../../react/FormAutocomplete";
 import Icon from "../../react/Icon";
 import OverlayToolbar from "../../react/OverlayToolbar";
-import { DEFAULT_GEOCODING_PROVIDER_NAME, GEOCODING_PROVIDERS, type GeoSearchResult } from "./geocoding";
+import { DEFAULT_GEOCODING_PROVIDER_NAME, type GeoBounds, GEOCODING_PROVIDERS, type GeoSearchResult } from "./geocoding";
 import { ParentMap } from "./map";
 import { LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
 import PlaceMarker from "./PlaceMarker";
@@ -91,7 +93,8 @@ interface GeocodeRun {
  *
  * The map's own notes are matched by title as the user types. The geocoder is not: it costs a request
  * to a third party, and providers rate-limit and discourage per-keystroke lookups, so it sits at the
- * bottom of the list as a row that runs it when picked.
+ * bottom of the list as a row that runs it when picked. It is told what the map is showing, so that
+ * what is nearby is preferred to what merely shares a name.
  *
  * A place taken from the geocoder is pinned where it stands, since flying to a spot the map has
  * nothing at otherwise leaves the user to work out which patch of ground was meant. The pin stands
@@ -150,7 +153,9 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
         setGeocodeRun({ query: searchQuery, status: "loading", results: [] });
 
         try {
-            const results = await provider.search(searchQuery);
+            // Where the map is looking, so a shop searched for from Corfu is answered with the one in
+            // Corfu rather than the one in Finland.
+            const results = await provider.search(searchQuery, { viewport: map ? viewportOf(map) : undefined });
             if (latestRun.current !== runId) return;
             setGeocodeRun({ query: searchQuery, status: "done", results: results.map(placeEntry) });
         } catch (e) {
@@ -158,7 +163,7 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
             if (latestRun.current !== runId) return;
             setGeocodeRun({ query: searchQuery, status: "failed", results: [] });
         }
-    }, [ provider ]);
+    }, [ provider, map ]);
 
     const pickEntry = useCallback((key: string) => {
         const entry = entriesByKey.current.get(key);
@@ -241,6 +246,12 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
             </OverlayToolbar>
         </>
     );
+}
+
+/** What the map is showing, as a geocoder reads a preferred area. */
+function viewportOf(map: MapLibreGLMap): GeoBounds {
+    const bounds = map.getBounds();
+    return [ [ bounds.getWest(), bounds.getSouth() ], [ bounds.getEast(), bounds.getNorth() ] ];
 }
 
 /**

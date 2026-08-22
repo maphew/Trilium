@@ -1,5 +1,5 @@
 import { getCurrentLanguage } from "../../../services/i18n";
-import type { GeocodingProvider, GeoSearchResult } from "./geocoding";
+import type { GeoBounds, GeocodingProvider, GeoSearchOptions, GeoSearchResult } from "./geocoding";
 
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const NOMINATIM_LOOKUP_URL = "https://nominatim.openstreetmap.org/lookup";
@@ -44,7 +44,7 @@ export const nominatim: GeocodingProvider = {
     search: searchNominatim
 };
 
-async function searchNominatim(query: string): Promise<GeoSearchResult[]> {
+async function searchNominatim(query: string, { viewport }: GeoSearchOptions = {}): Promise<GeoSearchResult[]> {
     const params = new URLSearchParams({
         q: query,
         format: "jsonv2",
@@ -56,6 +56,11 @@ async function searchNominatim(query: string): Promise<GeoSearchResult[]> {
     const language = getCurrentLanguage();
     if (language) {
         params.set("accept-language", language.replace("_", "-"));
+    }
+
+    const viewbox = toViewbox(viewport);
+    if (viewbox) {
+        params.set("viewbox", viewbox);
     }
 
     await waitForRequestSlot();
@@ -123,6 +128,27 @@ function toBounds(boundingbox: string[] | undefined): GeoSearchResult["bounds"] 
     }
 
     return [ [ west, south ], [ east, north ] ];
+}
+
+/**
+ * What the map is showing, as Nominatim reads a preferred area: two opposite corners, longitude
+ * first. Sent without `bounded`, so a place is ranked up for being in view rather than a place out
+ * of view being refused.
+ *
+ * A view running the other way round has been panned across the antimeridian, which no pair of
+ * corners describes; nothing is sent for one, and the search is answered as if from nowhere.
+ */
+function toViewbox(viewport: GeoBounds | undefined) {
+    if (!viewport) {
+        return null;
+    }
+
+    const [ [ west, south ], [ east, north ] ] = viewport;
+    if (!(west < east)) {
+        return null;
+    }
+
+    return [ west, south, east, north ].join(",");
 }
 
 /**

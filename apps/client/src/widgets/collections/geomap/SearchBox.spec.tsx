@@ -41,9 +41,21 @@ function mockGeocoder(results: GeoSearchResult[]) {
         .mockResolvedValue(results);
 }
 
-/** A map that can be flown somewhere or framed on something, which is all the bar uses. */
+/** Where a fake map is looking, which is what a search is told to prefer. */
+const VIEWPORT = { west: 19.8, south: 39.5, east: 20.1, north: 39.8 };
+
+/** A map that can be flown somewhere or framed on something, and that says what it is showing. */
 function fakeMap() {
-    return { flyTo: vi.fn(), fitBounds: vi.fn() };
+    return {
+        flyTo: vi.fn(),
+        fitBounds: vi.fn(),
+        getBounds: () => ({
+            getWest: () => VIEWPORT.west,
+            getSouth: () => VIEWPORT.south,
+            getEast: () => VIEWPORT.east,
+            getNorth: () => VIEWPORT.north
+        })
+    };
 }
 
 /** Two notes on the map and one that is only in its subtree, having no location to be drawn at. */
@@ -148,7 +160,11 @@ describe("geo map SearchBox", () => {
 
         await pick(1);
 
-        expect(search).toHaveBeenCalledWith("tokyo");
+        expect(search).toHaveBeenCalledWith("tokyo", {
+            // The geocoder is told where the map is looking, so a name shared by two places is
+            // answered with the one at hand.
+            viewport: [ [ VIEWPORT.west, VIEWPORT.south ], [ VIEWPORT.east, VIEWPORT.north ] ]
+        });
         // The row is replaced by what it found, the markers still standing above it.
         expect(labels()).toEqual([ "Tokyo trip", "Tokyo" ]);
     });

@@ -35,8 +35,8 @@ function respondWith(body: unknown, init: { ok?: boolean; status?: number } = {}
 }
 
 /** Runs a search, letting the rate limiter's wait elapse rather than sitting through it. */
-async function search(query: string) {
-    const results = provider.search(query);
+async function search(query: string, options?: Parameters<typeof provider.search>[1]) {
+    const results = provider.search(query, options);
     await vi.runAllTimersAsync();
     return results;
 }
@@ -100,6 +100,30 @@ describe("Nominatim geocoding", () => {
         const refused = expect(provider.search("berlin")).rejects.toThrow("429");
         await vi.runAllTimersAsync();
         await refused;
+    });
+
+    it("prefers what the map is showing, without refusing what lies outside it", async () => {
+        const fetchMock = respondWith([]);
+
+        await search("jumbo", { viewport: [ [ 19.8, 39.5 ], [ 20.1, 39.8 ] ] });
+
+        // Two opposite corners, longitude first, as Nominatim reads a preferred area.
+        expect(requestedUrl(fetchMock).searchParams.get("viewbox")).toBe("19.8,39.5,20.1,39.8");
+        // A preference, not a restriction: `bounded` would answer nothing where the only match is
+        // somewhere else entirely.
+        expect(requestedUrl(fetchMock).searchParams.get("bounded")).toBeNull();
+    });
+
+    it("asks from nowhere in particular where the view says nothing usable", async () => {
+        const fromNowhere = respondWith([]);
+        await search("jumbo");
+        expect(requestedUrl(fromNowhere).searchParams.get("viewbox")).toBeNull();
+
+        // Panned across the antimeridian, where the view runs the other way round and no pair of
+        // corners describes it.
+        const wrapped = respondWith([]);
+        await search("jumbo", { viewport: [ [ 170, 39.5 ], [ -170, 39.8 ] ] });
+        expect(requestedUrl(wrapped).searchParams.get("viewbox")).toBeNull();
     });
 
     it("fetches the boundary of a place on its own, simplified, only when it is asked for", async () => {

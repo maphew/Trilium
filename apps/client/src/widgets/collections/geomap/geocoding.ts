@@ -1,5 +1,19 @@
 import { nominatim } from "./nominatim";
 
+/** A rectangle of ground, as `[[west, south], [east, north]]`. */
+export type GeoBounds = [[number, number], [number, number]];
+
+export interface GeoSearchOptions {
+    /**
+     * What the map is showing. A place inside it is preferred to one of the same name elsewhere —
+     * searching for a shop while looking at Corfu should not answer with the branch in Finland.
+     *
+     * A preference rather than a restriction: the only match for a query is worth offering wherever
+     * it stands.
+     */
+    viewport?: GeoBounds;
+}
+
 /** A single place returned by a geocoder. */
 export interface GeoSearchResult {
     /** Unique within one result set. */
@@ -11,11 +25,10 @@ export interface GeoSearchResult {
     lat: number;
     lng: number;
     /**
-     * What the place covers, as `[[west, south], [east, north]]`, where the geocoder says. A street
-     * and the city around it are told apart by their extent rather than by one zoom level guessed
-     * for both.
+     * What the place covers, where the geocoder says. A street and the city around it are told apart
+     * by their extent rather than by one zoom level guessed for both.
      */
-    bounds?: [[number, number], [number, number]];
+    bounds?: GeoBounds;
     /**
      * Fetches the boundary of the place — a country's coastline, a county's border — or `null` where
      * it has none worth drawing. Absent where the provider cannot supply one at all.
@@ -33,7 +46,7 @@ export interface GeocodingProvider {
      * Returns matches, best first, or an empty array when nothing matches. Throws when the provider
      * cannot be reached or refuses the request.
      */
-    search(query: string): Promise<GeoSearchResult[]>;
+    search(query: string, options?: GeoSearchOptions): Promise<GeoSearchResult[]>;
 }
 
 /**
