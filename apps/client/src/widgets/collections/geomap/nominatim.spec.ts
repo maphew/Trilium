@@ -92,7 +92,8 @@ describe("Nominatim geocoding", () => {
 
         expect(await search("anywhere")).toEqual([
             {
-                id: "240109189", label: "Berlin, Germany", name: "Berlin", lat: 52.5170365, lng: 13.3888599,
+                // What OSM calls it, not what Nominatim numbered it.
+                id: "R62422", label: "Berlin, Germany", name: "Berlin", lat: 52.5170365, lng: 13.3888599,
                 // Written south-north-west-east by Nominatim, and read as MapLibre frames one.
                 bounds: [ [ 13.088345, 52.3382448 ], [ 13.7611609, 52.6755087 ] ],
                 outline: expect.any(Function)
@@ -100,7 +101,7 @@ describe("Nominatim geocoding", () => {
             // Named by the leading part of its label, Nominatim having named it nothing itself, and
             // framed by nothing: its extent is unreadable, and a node has no boundary to fetch.
             {
-                id: "4", label: "Paris, France", name: "Paris", lat: 48.8566, lng: 2.3522,
+                id: "N17807753", label: "Paris, France", name: "Paris", lat: 48.8566, lng: 2.3522,
                 bounds: undefined, outline: undefined
             }
         ]);
@@ -116,8 +117,8 @@ describe("Nominatim geocoding", () => {
     });
 
     it("asks what the map is showing first, then the wider world", async () => {
-        const inSibiu = place({ place_id: 1, name: "Jumbo", display_name: "Jumbo, Sibiu, Romania" });
-        const inTheUnitedStates = place({ place_id: 2, name: "Jumbo", display_name: "Jumbo, Ohio, USA" });
+        const inSibiu = place({ osm_type: "node", osm_id: 1, name: "Jumbo", display_name: "Jumbo, Sibiu, Romania" });
+        const inTheUnitedStates = place({ osm_type: "node", osm_id: 2, name: "Jumbo", display_name: "Jumbo, Ohio, USA" });
         const fetchMock = respondInTurn([ [ inSibiu ], [ inTheUnitedStates, inSibiu ] ]);
 
         const results = await search("jumbo", { viewport: [ [ 23, 45 ], [ 25, 47 ] ] });
@@ -159,6 +160,25 @@ describe("Nominatim geocoding", () => {
         expect(north - south).toBeGreaterThan(0.4);
         // Longitude is shorter this far north, so the box is wider in degrees than it is tall.
         expect(east - west).toBeGreaterThan(north - south);
+    });
+
+    it("offers a place once, however many ways the two passes name it", async () => {
+        const shop = { osm_type: "node", osm_id: 5, name: "Jumbo", display_name: "Jumbo, Sibiu, Romania" };
+        const fetchMock = respondInTurn([
+            // Nominatim's own numbering differs between the instances the public service runs behind,
+            // so the same shop comes back under two place ids.
+            [ place({ ...shop, place_id: 111 }) ],
+            [
+                place({ ...shop, place_id: 222 }),
+                // The building around the shop: another OSM object under the same name and address.
+                place({ ...shop, place_id: 333, osm_type: "way", osm_id: 6 })
+            ]
+        ]);
+
+        const results = await search("jumbo", { viewport: [ [ 23, 45 ], [ 25, 47 ] ] });
+
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(results.map((result) => result.id)).toEqual([ "N5" ]);
     });
 
     it("does not go looking further afield where the view already fills the list", async () => {

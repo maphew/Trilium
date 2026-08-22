@@ -10,11 +10,11 @@ const NOMINATIM_LOOKUP_URL = "https://nominatim.openstreetmap.org/lookup";
  */
 const POLYGON_THRESHOLD = 0.001;
 
-/**
- * How a lookup names an OSM object, from how a search result names one. Nodes are left out: a place
- * that is a single point has no boundary, and its pin already says where it is.
- */
-const OSM_TYPE_PREFIX: Record<string, string> = { relation: "R", way: "W" };
+/** How a lookup names an OSM object, from how a search result names one. */
+const OSM_TYPE_PREFIX: Record<string, string> = { node: "N", way: "W", relation: "R" };
+
+/** The kinds of OSM object that can enclose ground. A node is a single point and has no boundary. */
+const OSM_TYPES_WITH_A_BOUNDARY = new Set([ "way", "relation" ]);
 
 /**
  * The least ground a search treats as here, as a half-span in metres.
@@ -74,9 +74,30 @@ async function searchNominatim(query: string, { viewport }: GeoSearchOptions = {
     // Then the wider world, so that a place nowhere near the map is still found, and a view holding
     // one match is not the whole answer. What is at hand stands above it either way.
     const elsewhere = await searchPlaces(query, viewbox ? { viewbox } : {});
-    const nearbyIds = new Set(nearby.map((place) => place.id));
 
-    return [ ...nearby, ...elsewhere.filter((place) => !nearbyIds.has(place.id)) ].slice(0, MAX_RESULTS);
+    return dedupe([ ...nearby, ...elsewhere ]).slice(0, MAX_RESULTS);
+}
+
+/**
+ * Drops a place already offered, keeping the first of them — which is the nearest, the passes running
+ * that way round.
+ *
+ * By what it says as well as by which place it is. A shop and the building around it are two OSM
+ * objects under one name and one address, and two rows a reader cannot tell apart are one answer
+ * given twice.
+ */
+function dedupe(places: GeoSearchResult[]): GeoSearchResult[] {
+    const seen = new Set<string>();
+
+    return places.filter((place) => {
+        if (seen.has(place.id) || seen.has(place.label)) {
+            return false;
+        }
+
+        seen.add(place.id);
+        seen.add(place.label);
+        return true;
+    });
 }
 
 /** One request to Nominatim's search, asked in the language the app runs in. */
@@ -128,9 +149,13 @@ function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
 
     const prefix = OSM_TYPE_PREFIX[place.osm_type ?? ""];
     const osmId = prefix && place.osm_id ? `${prefix}${place.osm_id}` : null;
+    const hasBoundary = OSM_TYPES_WITH_A_BOUNDARY.has(place.osm_type ?? "");
 
     return {
-        id: String(place.place_id ?? `${lat},${lng}`),
+        // What OSM calls the place, where it says: `place_id` is Nominatim's own numbering, and the
+        // public service runs several instances that number independently, so the same place comes
+        // back under two of them and is offered twice.
+        id: osmId ?? String(place.place_id ?? `${lat},${lng}`),
         label: place.display_name,
         // Nominatim leaves `name` empty for a result that is an address rather than a named place,
         // where the leading part of the label is what names it.
@@ -138,7 +163,7 @@ function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
         lat,
         lng,
         bounds: toBounds(place.boundingbox),
-        outline: osmId ? () => fetchOutline(osmId) : undefined
+        outline: osmId && hasBoundary ? () => fetchOutline(osmId) : undefined
     };
 }
 
