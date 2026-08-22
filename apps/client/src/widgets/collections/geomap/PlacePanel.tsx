@@ -1,5 +1,7 @@
 import "./PlacePanel.css";
 
+import { useEffect, useRef } from "preact/hooks";
+
 import { t } from "../../../services/i18n";
 import Button from "../../react/Button";
 import OverlayPanel, { OverlayPanelBody, OverlayPanelTitle } from "../../react/OverlayPanel";
@@ -25,11 +27,37 @@ interface PlacePanelProps {
  * place closes the pane and selecting a note closes this (see index.tsx). A panel rather than a popup
  * over the pin: a popup would crowd the address that tells two places of the same name apart, and
  * MapLibre's popups already belong to the markers' previews (see Tooltips).
+ *
+ * The keyboard follows the panel as it appears, so that searching, taking a place and keeping it are
+ * three presses of Enter and the search bar stops reading as the thing in hand. Escape sends the
+ * panel away again, the way out being what makes taking the focus fair.
  */
 export default function PlacePanel({ place, isReadOnly, onAddMarker, onClose }: PlacePanelProps) {
+    const panelRef = useRef<HTMLDivElement>(null);
+    const addRef = useRef<HTMLButtonElement>(null);
+
+    // Nothing to move to on a map that may not be edited, where the panel is only to be read: the
+    // field keeps the focus, which is where the reader left it.
+    useEffect(() => { addRef.current?.focus(); }, [ place ]);
+
+    useEffect(() => {
+        const panel = panelRef.current;
+        if (!panel) return;
+
+        const dismiss = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                onClose();
+            }
+        };
+
+        panel.addEventListener("keydown", dismiss);
+        return () => panel.removeEventListener("keydown", dismiss);
+    }, [ onClose ]);
+
     return (
         <OverlayPanel
             className="geo-place-panel"
+            containerRef={panelRef}
             header={<OverlayPanelTitle icon={place.icon ?? PLACE_MARKER_ICON} text={place.name} />}
             close={{ text: t("geo-map.close-details"), onClick: onClose }}
         >
@@ -44,6 +72,7 @@ export default function PlacePanel({ place, isReadOnly, onAddMarker, onClose }: 
                 {!isReadOnly && (
                     <Button
                         className="geo-place-panel-add"
+                        buttonRef={addRef}
                         kind="primary"
                         icon="bx bx-pin"
                         text={t("geo-map.add-place-as-marker")}

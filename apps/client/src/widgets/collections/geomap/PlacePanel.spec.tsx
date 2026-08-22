@@ -61,6 +61,23 @@ describe("geo map PlacePanel", () => {
         expect(onClose).toHaveBeenCalledOnce();
     });
 
+    it("takes the keyboard as it appears, so keeping the place is the next press", () => {
+        const { container } = renderPanel();
+
+        expect(document.activeElement).toBe(container.querySelector(".geo-place-panel-add"));
+    });
+
+    it("sends itself away on Escape, the focus it took having to have a way out", () => {
+        const { container, onClose } = renderPanel();
+
+        act(() => {
+            container.querySelector(".tn-overlay-panel")
+                ?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        });
+
+        expect(onClose).toHaveBeenCalledOnce();
+    });
+
     it("offers no marker on a map that may not be edited, the place still being worth reading", () => {
         const { container } = renderPanel({ isReadOnly: true });
 
