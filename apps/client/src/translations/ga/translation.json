@@ -2644,7 +2644,9 @@
   },
   "server": {
     "unknown_http_error_title": "Earráid chumarsáide leis an bhfreastalaí",
-    "unknown_http_error_content": "Cód stádais: {{statusCode}}\nURL: {{method}} {{url}}\nTeachtaireacht: {{message}}"
+    "unknown_http_error_content": "Cód stádais: {{statusCode}}\nURL: {{method}} {{url}}\nTeachtaireacht: {{message}}",
+    "reverse_proxy_blocked_title": "Iarratais blocáilte ag seachfhreastalaí droim ar ais",
+    "reverse_proxy_blocked_message": "Diúltaíodh do roinnt iarratais (HTTP 400) sular shroich siad Trilium, is dóichí gur seachfhreastalaí droim ar ais a chuireann bac ar charachtair atá ionchódaithe de réir céatadáin in URLanna.\n\nDéanann leaganacha 3.6.4 go 3.6.6 de Traefik é seo de réir réamhshocraithe: uasghrádaigh go Traefik 3.6.7 nó níos nuaí, nó ceadaigh carachtair ionchódaithe ina chumraíocht."
   },
   "tab_history_navigation_buttons": {
     "go-back": "Téigh ar ais go dtí an nóta roimhe seo",
