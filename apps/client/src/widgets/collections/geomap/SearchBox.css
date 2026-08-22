@@ -50,11 +50,10 @@ body.mobile .geo-map-container .geo-search-toolbar {
     opacity: 0.6;
 }
 
-/* Every row reads as icon + what it says, whether it offers a marker, a place, the geocoder or a
-   report on it. Scoped to the portalled dropdown, which is a body child rather than part of the map. */
+/* The dropdown is portalled to the body, so these are not scoped under .geo-map-container. */
 .form-autocomplete-dropdown .geo-search-entry {
     display: flex;
-    /* The mark sits on the first line rather than in the middle of a row that runs to two. */
+    /* The icon sits on the first line of a row that runs to two. */
     align-items: flex-start;
     gap: 6px;
     overflow: hidden;
@@ -63,12 +62,10 @@ body.mobile .geo-map-container .geo-search-toolbar {
 .form-autocomplete-dropdown .geo-search-entry .tn-icon {
     flex-shrink: 0;
     opacity: 0.7;
-    /* Set against the line beside it, the mark being drawn taller than the text it stands with. */
     line-height: 1.4;
 }
 
-/* A place says what it is called and then where it is, so the row is given the height of both and
-   the address wraps instead of ending in an ellipsis a word in. */
+/* Overrides the single-line ellipsis in FormAutocomplete.css, so an address can wrap. */
 .form-autocomplete-dropdown .form-autocomplete-item:has(.geo-search-entry) {
     white-space: normal;
     padding-block: 6px;
@@ -78,12 +75,9 @@ body.mobile .geo-map-container .geo-search-toolbar {
     display: flex;
     flex-direction: column;
     min-width: 0;
-    /* Takes the room the mark and the distance leave, so the distance keeps the trailing edge. */
     flex: 1;
 }
 
-/* How far off the place is, against the trailing edge where a row's rightmost column belongs — read
-   after what the row offers rather than before it. */
 .form-autocomplete-dropdown .geo-search-entry-distance {
     flex-shrink: 0;
     align-self: center;
@@ -96,8 +90,7 @@ body.mobile .geo-map-container .geo-search-toolbar {
 .form-autocomplete-dropdown .geo-search-entry-address {
     font-size: 0.85em;
     opacity: 0.7;
-    /* Two lines of address and no more: past that the list is a page, and what is cut is the part of
-       an address that names a postcode or a country. */
+    /* Two lines at most: a Nominatim address can run to five. */
     display: -webkit-box;
     -webkit-line-clamp: 2;
     line-clamp: 2;
@@ -110,12 +103,6 @@ body.mobile .geo-map-container .geo-search-toolbar {
 .form-autocomplete-dropdown .geo-search-entry-info {
     font-style: italic;
     opacity: 0.85;
-}
-
-/* A heading names the rows under it and reads as the dropdown's own furniture rather than as one of
-   the entries, so it keeps none of the room a row's mark and distance are given. */
-.form-autocomplete-dropdown .geo-search-heading {
-    display: block;
 }
 
 /* A report is not a choice, so it neither highlights nor takes a pointer. */

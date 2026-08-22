@@ -57,14 +57,6 @@ export async function removeFromMap(note: FNote, mapNote: FNote) {
 }
 
 /**
- * Creates a note where the click landed, and hands it back for the pane to open on.
- *
- * No title is asked for first. A modal between the click and the note was the wrong way round: it
- * blocked the map to ask for the one thing the detail pane is made for editing. The note is created
- * under the stock name instead, and the caller opens the pane on it with that name selected — naming
- * the place is typing over it (see index.tsx).
- */
-/**
  * Brings a GPX file onto the map as a child note, and hands the note back.
  *
  * Created directly rather than sent through the import pipeline: an import's success is announced
@@ -93,15 +85,38 @@ export async function importGpxTrack(parentNote: FNote, file: File) {
     return note;
 }
 
+/**
+ * Creates a note where the click landed, and hands it back for the pane to open on.
+ *
+ * No title is asked for first. A modal between the click and the note was the wrong way round: it
+ * blocked the map to ask for the one thing the detail pane is made for editing. The note is created
+ * under the stock name instead, and the caller opens the pane on it with that name selected — naming
+ * the place is typing over it (see index.tsx).
+ */
 export async function createNewNote(parentNote: FNote, e: GeoMouseEvent) {
+    return createNoteAt(parentNote, [ e.latlng.lat, e.latlng.lng ], t("relation_map.default_new_note_title"));
+}
+
+/**
+ * Turns a place found by searching into a note of the map's own, named as the geocoder names it.
+ *
+ * Unlike a note dropped by clicking the map, this one arrives with a name worth keeping, so the
+ * detail pane opens on it as it stands rather than with the title picked out to be typed over (see
+ * `isNew` in DetailPane).
+ */
+export async function createNoteForPlace(parentNote: FNote, place: { name: string; lat: number; lng: number }) {
+    return createNoteAt(parentNote, [ place.lat, place.lng ], place.name);
+}
+
+async function createNoteAt(parentNote: FNote, [ lat, lng ]: [number, number], title: string) {
     const { note } = await note_create.createNote(parentNote.noteId, {
-        title: t("relation_map.default_new_note_title"),
+        title,
         content: "",
         type: "text",
         activate: false,
         isProtected: parentNote.isProtected,
         attributes: [
-            { type: "label", name: LOCATION_ATTRIBUTE, value: [e.latlng.lat, e.latlng.lng].join(",") },
+            { type: "label", name: LOCATION_ATTRIBUTE, value: [ lat, lng ].join(",") },
             { type: "label", name: "iconClass", value: CHILD_NOTE_ICON }
         ]
     });

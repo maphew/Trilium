@@ -15,7 +15,6 @@ import OverlayToolbar from "../../react/OverlayToolbar";
 import { DEFAULT_GEOCODING_PROVIDER_NAME, type GeoBounds, GEOCODING_PROVIDERS, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
 import { ParentMap } from "./map";
 import { LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
-import PlaceMarker from "./PlaceMarker";
 
 /** Shorter queries are not searched. */
 const MIN_QUERY_LENGTH = 2;
@@ -54,8 +53,12 @@ const STATUS_KEY = "geocode-status";
 interface SearchBoxProps {
     /** The notes on the map, searched by title. */
     notes: FNote[];
-    /** Whether the map's style is a dark one, which a pinned place is labelled against. */
-    isDarkTheme: boolean;
+    /**
+     * Reports the place picked from the list, or none where the reader has moved on from it — a note
+     * of the map's own taken instead, or the field emptied. What is done with it is the map's (see
+     * `pickPlace` in index.tsx).
+     */
+    onPickPlace(place: GeoSearchResult | null): void;
 }
 
 /**
@@ -71,17 +74,8 @@ type SearchEntry = {
     distance?: number;
 } & (
     | { kind: "marker"; center: [number, number] }
-    /**
-     * A place from the geocoder: `name` is what its pin is labelled with, and `bounds` how much
-     * ground it covers, where the geocoder says.
-     */
-    | {
-        kind: "place";
-        center: [number, number];
-        name: string;
-        bounds?: GeoSearchResult["bounds"];
-        outline?: GeoSearchResult["outline"];
-    }
+    /** A place from the geocoder, carried whole for whoever the pick is reported to. */
+    | { kind: "place"; center: [number, number]; result: GeoSearchResult }
     /** Names the run of rows below it; not a choice (see `isHeading` on FormAutocomplete). */
     | { kind: "heading" }
     /** Runs the geocoder for `query`. */
@@ -118,22 +112,13 @@ interface GeocodeRun {
  * geocoder row can replace itself with results, so closing it after a marker or place is taken is
  * this component's job — see `dismissed`.
  */
-export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
+export default function SearchBox({ notes, onPickPlace }: SearchBoxProps) {
     const map = useContext(ParentMap);
     const [ query, setQuery ] = useState("");
     const [ geocodeRun, setGeocodeRun ] = useState<GeocodeRun>();
     // Empties the list once a marker or place has been taken, which is what closes the dropdown under
     // `keepOpenOnPick`. Typing again clears it.
     const [ dismissed, setDismissed ] = useState(false);
-    // The geocoder's last answer, pinned where it stands; nothing while the map shows only its notes.
-    const [ pickedPlace, setPickedPlace ] = useState<{
-        center: [number, number];
-        name: string;
-        outline?: GeoJSON.Geometry;
-    }>();
-    // Which pick the map currently stands on, so a boundary arriving after a later pick is dropped
-    // rather than drawn around the place that replaced it.
-    const latestPick = useRef(0);
     const entriesByKey = useRef(new Map<string, SearchEntry>());
     // Discards a run superseded by a later one, since each reports through the same state.
     const latestRun = useRef(0);
@@ -162,10 +147,9 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
         setQuery(newQuery);
         // Emptying the field is how the pin is taken back off the map.
         if (!newQuery.trim()) {
-            latestPick.current++;
-            setPickedPlace(undefined);
+            onPickPlace(null);
         }
-    }, []);
+    }, [ onPickPlace ]);
 
     const runGeocoder = useCallback(async (searchQuery: string) => {
         const runId = ++latestRun.current;
@@ -191,32 +175,21 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
         if (entry.kind === "geocode") {
             runGeocoder(entry.query);
         } else if (entry.kind === "marker" || entry.kind === "place") {
-            const pickId = ++latestPick.current;
             setQuery(entry.label);
             setDismissed(true);
-            // A note already has a marker of its own to fly to; only a place needs one put down.
-            setPickedPlace(entry.kind === "place" ? { center: entry.center, name: entry.name } : undefined);
+            // A note of the map's own has a marker already; only a place needs one put down for it.
+            onPickPlace(entry.kind === "place" ? entry.result : null);
 
-            // The ground a country or a county covers, fetched only now that one of the places the
-            // search offered has been settled on. A place that is a point has none, and one whose
-            // boundary cannot be fetched keeps its pin.
-            if (entry.kind === "place" && entry.outline) {
-                entry.outline()
-                    .then((outline) => {
-                        if (!outline || latestPick.current !== pickId) return;
-                        setPickedPlace((current) => current && { ...current, outline });
-                    })
-                    .catch((e) => logError(`Fetching the boundary of "${entry.label}" failed: ${e}`));
-            }
-            if (entry.kind === "place" && entry.bounds) {
+            const bounds = entry.kind === "place" ? entry.result.bounds : undefined;
+            if (bounds) {
                 // Framed by what the place covers rather than flown to at a level guessed for every
                 // place alike: one zoom that suits a city shows a street as the city around it.
-                map.fitBounds(entry.bounds, { padding: PLACE_PADDING, maxZoom: PLACE_MAX_ZOOM });
+                map.fitBounds(bounds, { padding: PLACE_PADDING, maxZoom: PLACE_MAX_ZOOM });
             } else {
                 map.flyTo({ center: entry.center, zoom: entry.kind === "marker" ? MARKER_ZOOM : PLACE_ZOOM });
             }
         }
-    }, [ map, runGeocoder ]);
+    }, [ map, runGeocoder, onPickPlace ]);
 
     const isHeading = useCallback(
         (key: string) => entriesByKey.current.get(key)?.kind === "heading", []);
@@ -231,7 +204,7 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
 
         // A place reads over two lines: what it is called, and the address that places it. Every
         // other row is one thing said once.
-        const address = entry.kind === "place" ? addressOf(entry.label, entry.name) : null;
+        const address = entry.kind === "place" ? addressOf(entry.label, entry.result.name) : null;
 
         return (
             <span className={`geo-search-entry geo-search-entry-${entry.kind}`}>
@@ -239,7 +212,7 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
                 <span className="geo-search-entry-lines">
                     {entry.kind === "place"
                         ? <>
-                            <span className="geo-search-entry-name">{entry.name}</span>
+                            <span className="geo-search-entry-name">{entry.result.name}</span>
                             {address && <span className="geo-search-entry-address">{address}</span>}
                         </>
                         : entry.label}
@@ -256,12 +229,7 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
     if (!map) return null;
 
     return (
-        <>
-            {pickedPlace && <PlaceMarker
-                center={pickedPlace.center} name={pickedPlace.name}
-                outline={pickedPlace.outline} isDarkTheme={isDarkTheme}
-            />}
-            <OverlayToolbar className="geo-search-toolbar" titlePosition="bottom">
+        <OverlayToolbar className="geo-search-toolbar" titlePosition="bottom">
                 <Icon icon="bx bx-search" className="geo-search-icon" />
                 <FormAutocomplete
                     className="geo-search-input"
@@ -276,9 +244,8 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
                     keepOpenOnPick
                     placeholder={t("geo-map.search-placeholder")}
                     aria-label={t("geo-map.search")}
-                />
-            </OverlayToolbar>
-        </>
+            />
+        </OverlayToolbar>
     );
 }
 
@@ -418,11 +385,9 @@ function placeEntry(result: GeoSearchResult): SearchEntry {
         kind: "place",
         key: `place:${result.id}`,
         label: result.label,
-        name: result.name,
         icon: "bx bx-map-pin",
         center: [ result.lng, result.lat ],
-        bounds: result.bounds,
-        outline: result.outline
+        result
     };
 }
 

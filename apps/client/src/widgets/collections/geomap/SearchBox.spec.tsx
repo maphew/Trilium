@@ -77,12 +77,16 @@ function mapNotes(): FNote[] {
     ];
 }
 
+/** What the bar has reported picking, the map being what stands a place on itself (see index.tsx). */
+let picked: (GeoSearchResult | null)[] = [];
+
 function renderSearchBox(map: ReturnType<typeof fakeMap> | null, notes: FNote[] = []) {
+    picked = [];
     let container: HTMLElement | undefined;
     act(() => {
         container = renderInto(
             <ParentMap.Provider value={map as unknown as MapLibreGLMap}>
-                <SearchBox notes={notes} isDarkTheme={false} />
+                <SearchBox notes={notes} onPickPlace={(place) => picked.push(place)} />
             </ParentMap.Provider>
         );
     });
@@ -218,7 +222,8 @@ describe("geo map SearchBox", () => {
         await pick(0);
 
         expect(map.flyTo).toHaveBeenCalledWith({ center: [ 139.7, 35.6 ], zoom: expect.any(Number) });
-        expect(field(container).value).toBe("Tokyo trip");
+        // The field keeps what was typed, so the next search starts from it.
+        expect(field(container).value).toBe("tokyo trip");
         expect(entries()).toHaveLength(0);
     });
 
@@ -237,7 +242,8 @@ describe("geo map SearchBox", () => {
             maxZoom: expect.any(Number)
         });
         expect(map.flyTo).not.toHaveBeenCalled();
-        expect(field(container).value).toBe("Tokyo, Japan");
+        // Not the place's whole label, which is an address the field has no room for.
+        expect(field(container).value).toBe("tokyo");
     });
 
     it("falls back to a zoom for a place the geocoder gave no extent for", async () => {
@@ -287,7 +293,7 @@ describe("geo map SearchBox", () => {
         expect(labels()).toEqual([ "geo-map.search-online(berlin de)" ]);
     });
 
-    it("pins a searched place where it stands, named as the geocoder names it", async () => {
+    it("reports the place picked, whole, and reports moving on from it", async () => {
         mockGeocoder([ TOKYO ]);
         const container = renderSearchBox(fakeMap(), mapNotes());
 
@@ -295,49 +301,13 @@ describe("geo map SearchBox", () => {
         await pickNamed("geo-map.search-online(tokyo)");
         await pickNamed("Tokyo");
 
-        const pin = () => container.querySelector<HTMLElement>(".place-marker");
-        expect(pin()?.dataset.center).toBe(`${TOKYO.lng},${TOKYO.lat}`);
-        // The place's own name rather than the full label the list reads.
-        expect(pin()?.dataset.name).toBe("Tokyo");
+        // Once, and whole — so what stands it on the map has its boundary and its bounds to hand.
+        expect(picked).toEqual([ TOKYO ]);
 
-        // A note of the map's own is already pinned, so taking one takes the searched pin away.
+        // A note of the map's own has a marker already, so taking one moves on from the place.
         await type(container, "tokyo trip");
         await pick(0);
-        expect(pin()).toBeNull();
-    });
-
-    it("asks for a place's boundary only once that place has been picked", async () => {
-        const outline = vi.fn(async () => ({ type: "Polygon", coordinates: [] } as GeoJSON.Geometry));
-        mockGeocoder([ { ...TOKYO, outline } ]);
-        const container = renderSearchBox(fakeMap(), []);
-
-        await type(container, "tokyo");
-        // The row that runs the geocoder, which offers the place but does not settle on it.
-        await pick(0);
-        expect(outline).not.toHaveBeenCalled();
-
-        await pick(0);
-
-        expect(outline).toHaveBeenCalledOnce();
-        expect(container.querySelector<HTMLElement>(".place-marker")?.dataset.outline).toBe("Polygon");
-    });
-
-    it("drops a boundary that arrives after the place it belongs to has been replaced", async () => {
-        let deliver: ((outline: GeoJSON.Geometry) => void) | undefined;
-        const outline = vi.fn(() => new Promise<GeoJSON.Geometry>((resolve) => { deliver = resolve; }));
-        mockGeocoder([ { ...TOKYO, outline } ]);
-        const container = renderSearchBox(fakeMap(), mapNotes());
-
-        await type(container, "tokyo");
-        await pick(1);
-        await pick(1);
-
-        // A note of the map's own is settled on while the boundary is still being fetched.
-        await type(container, "tokyo trip");
-        await pick(0);
-        await act(async () => { deliver?.({ type: "Polygon", coordinates: [] }); });
-
-        expect(container.querySelector(".place-marker")).toBeNull();
+        expect(picked).toEqual([ TOKYO, null ]);
     });
 
     it("gives a place two lines: what it is called, and the address that places it", async () => {
@@ -395,7 +365,7 @@ describe("geo map SearchBox", () => {
         await press(container, "Enter");
 
         expect(map.flyTo).toHaveBeenCalledWith({ center: [ 139.7, 35.6 ], zoom: expect.any(Number) });
-        expect(field(container).value).toBe("Tokyo trip");
+        expect(field(container).value).toBe("tokyo");
     });
 
     it("runs the geocoder on Enter where the map has nothing of its own, and takes the first place on the next", async () => {
@@ -411,7 +381,7 @@ describe("geo map SearchBox", () => {
         await press(container, "Enter");
 
         expect(map.fitBounds).toHaveBeenCalledWith(TOKYO.bounds, expect.anything());
-        expect(field(container).value).toBe("Tokyo, Japan");
+        expect(field(container).value).toBe("tokyo");
     });
 
     it("puts what is at hand under one heading and what is far off under another, nearest first", async () => {
@@ -451,18 +421,18 @@ describe("geo map SearchBox", () => {
         expect(labels()).toEqual([ "Tokyo" ]);
     });
 
-    it("takes the pin off the map once the field is emptied", async () => {
+    it("reports moving on from a place once the field is emptied", async () => {
         mockGeocoder([ TOKYO ]);
         const container = renderSearchBox(fakeMap(), []);
 
         await type(container, "tokyo");
-        await pick(0);
-        await pick(0);
-        expect(container.querySelector(".place-marker")).not.toBeNull();
+        await pickNamed("geo-map.search-online(tokyo)");
+        await pickNamed("Tokyo");
+        expect(picked).toEqual([ TOKYO ]);
 
         await type(container, "");
 
-        expect(container.querySelector(".place-marker")).toBeNull();
+        expect(picked).toEqual([ TOKYO, null ]);
     });
 
     it("renders nothing when the map failed to initialize", () => {

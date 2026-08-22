@@ -8,11 +8,12 @@ import branches from "../../../services/branches";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
+import { logError } from "../../../services/ws";
 import toast from "../../../services/toast";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import { useCollectionTreeDrag, useEffectiveReadOnly, useNoteBlob, useNoteContext, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate } from "../../react/hooks";
 import { ViewModeProps } from "../interface";
-import { createNewNote, importGpxTrack, moveMarker } from "./api";
+import { createNewNote, createNoteForPlace, importGpxTrack, moveMarker } from "./api";
 import Buildings from "./Buildings";
 import ContextMenus from "./ContextMenus";
 import DetailPane, { PaneSelection } from "./DetailPane";
@@ -22,7 +23,10 @@ import { GPX_MIME, GpxTrack } from "./GpxTrack";
 import Map, { DEFAULT_ZOOM, GeoMouseEvent } from "./map";
 import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
 import MapToolbar from "./MapToolbar";
+import type { GeoSearchResult } from "./geocoding";
 import Markers, { DEFAULT_MARKER_COLOR, LOCATION_ATTRIBUTE } from "./Markers";
+import PlaceMarker from "./PlaceMarker";
+import PlacePanel from "./PlacePanel";
 import SearchBox from "./SearchBox";
 import Tooltips from "./Tooltips";
 
@@ -62,6 +66,18 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     // Which marker the detail pane stands for. Held here rather than in the pane so that creating a
     // note can open the pane on it (see createNoteAt below).
     const [ selection, setSelection ] = useState<PaneSelection | null>(null);
+    // The place taken from the search, standing on the map under a pin of its own until it is kept as
+    // a note or dismissed. It and the selection above are one state between them: both are what the
+    // map is currently standing on, and both are shown in the same corner.
+    const [ pickedPlace, setPickedPlace ] = useState<GeoSearchResult>();
+    const [ placeOutline, setPlaceOutline ] = useState<GeoJSON.Geometry>();
+    // Which pick the map stands on, so a boundary arriving after a later one is dropped rather than
+    // drawn around whatever took its place.
+    const latestPlacePick = useRef(0);
+    // Held still between renders: the pin's layer is rebuilt whenever it is handed a different one,
+    // and an array literal is different every time (see PlaceMarker).
+    const placeCenter = useMemo<[number, number] | null>(
+        () => pickedPlace ? [ pickedPlace.lng, pickedPlace.lat ] : null, [ pickedPlace ]);
     // Whether that pane has been grown over the map. Held here for the reason the selection is: what
     // the map places around the pane has to know of it too (see the maximized pane in DetailPane).
     const [ paneMaximized, setPaneMaximized ] = useState(false);
@@ -98,6 +114,48 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     // pressing it again is the visible way out of it — the counterpart of the toast's Escape. It
     // also takes over a map armed to move a marker, a press on + saying what the next click is for
     // more plainly than whatever was armed before.
+    /** Opens the pane on a note, which sends away the searched place the panel would otherwise share
+     *  a corner with. */
+    const selectNote = useCallback((next: PaneSelection | null) => {
+        setSelection(next);
+        if (next) {
+            latestPlacePick.current++;
+            setPickedPlace(undefined);
+            setPlaceOutline(undefined);
+        }
+    }, []);
+
+    /** Stands the map on a place found by searching, and fetches the ground it covers where it covers
+     *  any (see PlaceMarker). */
+    const pickPlace = useCallback((place: GeoSearchResult | null) => {
+        const pickId = ++latestPlacePick.current;
+        setPickedPlace(place ?? undefined);
+        setPlaceOutline(undefined);
+        if (place) {
+            setSelection(null);
+        }
+
+        place?.outline?.()
+            .then((outline) => {
+                if (outline && latestPlacePick.current === pickId) {
+                    setPlaceOutline(outline);
+                }
+            })
+            .catch((e) => logError(`Fetching the boundary of "${place.label}" failed: ${e}`));
+    }, []);
+
+    /** Keeps the place the map stands on as a note of its own, which is what turns its pin into a
+     *  marker; the pane then opens on the note as any other newly created one. */
+    const keepPlaceAsMarker = useCallback(async () => {
+        if (!pickedPlace) return;
+
+        const created = await createNoteForPlace(note, pickedPlace);
+        if (!created) return;
+
+        setNotes((current) => current.some((n) => n.noteId === created.noteId) ? current : [ ...current, created ]);
+        selectNote({ noteId: created.noteId });
+    }, [ note, pickedPlace, selectNote ]);
+
     const toggleNotePlacement = useCallback(() => {
         setPlacement((current) => current?.mode === "new" ? undefined : { mode: "new" });
     }, []);
@@ -118,7 +176,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         if (!created) return;
 
         setNotes((current) => current.some((n) => n.noteId === created.noteId) ? current : [ ...current, created ]);
-        setSelection({ noteId: created.noteId, isNew: true });
+        selectNote({ noteId: created.noteId, isNew: true });
     }, [ note ]);
 
     /**
@@ -139,7 +197,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         if (!created) return;
 
         setNotes((current) => current.some((n) => n.noteId === created.noteId) ? current : [ ...current, created ]);
-        setSelection({ noteId: created.noteId });
+        selectNote({ noteId: created.noteId });
     }, [ note ]);
 
     // Placement mode is armed by the button or by the context menu. Tying the instruction toast and
@@ -244,7 +302,17 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 onClick={onClick}
                 scale={hasScale}
             >
-                <SearchBox notes={notes} isDarkTheme={layerData.isDarkTheme ?? false} />
+                <SearchBox notes={notes} onPickPlace={pickPlace} />
+                {pickedPlace && placeCenter && <>
+                    <PlaceMarker
+                        center={placeCenter} name={pickedPlace.name}
+                        outline={placeOutline} isDarkTheme={layerData.isDarkTheme ?? false}
+                    />
+                    <PlacePanel
+                        place={pickedPlace} isReadOnly={isReadOnly}
+                        onAddMarker={keepPlaceAsMarker} onClose={() => pickPlace(null)}
+                    />
+                </>}
                 <MapToolbar />
                 <EditToolbar
                     isReadOnly={isReadOnly}
@@ -259,7 +327,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 {placement && <GhostPin note={placement.mode === "move" ? notes.find((n) => n.noteId === placement.noteId) : undefined} />}
                 <DetailPane
                     notes={notes} parentNote={note} placing={!!placement} isReadOnly={isReadOnly}
-                    selection={selection} onSelect={setSelection} onRelocate={startMarkerRelocation}
+                    selection={selection} onSelect={selectNote} onRelocate={startMarkerRelocation}
                     maximized={paneMaximized} onMaximizedChange={setPaneMaximized}
                 />
                 <ContextMenus parentNote={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} onCreateNote={createNoteAt} />

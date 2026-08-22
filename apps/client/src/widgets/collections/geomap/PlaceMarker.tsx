@@ -6,7 +6,7 @@ import { buildMarkerImage, LABEL_LAYOUT, LABEL_PAINT, MARKER_SHADOW_PADDING, mar
 /** The colour the pin is drawn in, so a searched place is not read as one of the map's own notes. */
 export const PLACE_MARKER_COLOR = "#E8833A";
 
-/** The icon that pin wears, naming where it came from. */
+/** The icon inside that pin, naming where it came from. */
 export const PLACE_MARKER_ICON = "bx bx-search";
 
 export const PLACE_SOURCE = "searched-place";
