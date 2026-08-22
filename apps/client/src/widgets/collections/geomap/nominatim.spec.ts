@@ -96,15 +96,26 @@ describe("Nominatim geocoding", () => {
                 id: "R62422", label: "Berlin, Germany", name: "Berlin", lat: 52.5170365, lng: 13.3888599,
                 // Written south-north-west-east by Nominatim, and read as MapLibre frames one.
                 bounds: [ [ 13.088345, 52.3382448 ], [ 13.7611609, 52.6755087 ] ],
-                outline: expect.any(Function)
+                icon: undefined, outline: expect.any(Function)
             },
             // Named by the leading part of its label, Nominatim having named it nothing itself, and
             // framed by nothing: its extent is unreadable, and a node has no boundary to fetch.
             {
                 id: "N17807753", label: "Paris, France", name: "Paris", lat: 48.8566, lng: 2.3522,
-                bounds: undefined, outline: undefined
+                bounds: undefined, icon: undefined, outline: undefined
             }
         ]);
+    });
+
+    it("carries the kind of place through, for the icon it is drawn with", async () => {
+        respondWith([
+            place({ category: "shop", type: "supermarket", addresstype: "shop" }),
+            place({ osm_id: 62423, display_name: "Berlin, Germany, the city", category: "boundary", type: "administrative", addresstype: "city" })
+        ]);
+
+        const [ shop, city ] = await search("berlin");
+        expect(shop.icon).toBe("bx bx-cart");
+        expect(city.icon).toBe("bx bx-buildings");
     });
 
     it("reports a refused request rather than answering with no places", async () => {

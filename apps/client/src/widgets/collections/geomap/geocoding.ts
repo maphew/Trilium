@@ -24,6 +24,9 @@ export interface GeoSearchOptions {
     viewport?: GeoBounds;
 }
 
+/** The icon for a place whose kind the geocoder says nothing about. */
+export const DEFAULT_PLACE_ICON = "bx bx-map-pin";
+
 /** A single place returned by a geocoder. */
 export interface GeoSearchResult {
     /** Unique within one result set. */
@@ -32,6 +35,11 @@ export interface GeoSearchResult {
     label: string;
     /** The place's own name, for labelling it on the map where the full label would be a paragraph. */
     name: string;
+    /**
+     * A boxicons class saying what kind of place it is, as `FNote.getIcon()` gives one — a cart for a
+     * supermarket, a flag for a country. Absent where the provider says nothing about the kind.
+     */
+    icon?: string;
     lat: number;
     lng: number;
     /**

@@ -6,7 +6,7 @@ import { buildMarkerImage, LABEL_LAYOUT, LABEL_PAINT, MARKER_SHADOW_PADDING, mar
 /** The colour the pin is drawn in, so a searched place is not read as one of the map's own notes. */
 export const PLACE_MARKER_COLOR = "#E8833A";
 
-/** The icon inside that pin, naming where it came from. */
+/** The icon inside that pin, for a place whose kind the geocoder does not say. */
 export const PLACE_MARKER_ICON = "bx bx-search";
 
 export const PLACE_SOURCE = "searched-place";
@@ -26,6 +26,8 @@ interface PlaceMarkerProps {
     name: string;
     /** Whether the map's style is a dark one, which decides how the label is drawn (see Markers). */
     isDarkTheme: boolean;
+    /** A boxicons class saying what kind of place it is, drawn inside the pin (see osm_icons). */
+    icon?: string;
     /** The ground the place covers, for one that is an area rather than a point. */
     outline?: GeoJSON.Geometry;
 }
@@ -42,7 +44,7 @@ interface PlaceMarkerProps {
  * A place that covers ground rather than standing at a point — a country, a county — also has that
  * ground drawn under the pin, in the pin's own colour so the two read as one answer.
  */
-export default function PlaceMarker({ center, name, isDarkTheme, outline }: PlaceMarkerProps) {
+export default function PlaceMarker({ center, name, isDarkTheme, icon, outline }: PlaceMarkerProps) {
     const parentMap = useContext(ParentMap);
     const styleLoaded = useContext(MapStyleLoaded);
 
@@ -50,7 +52,8 @@ export default function PlaceMarker({ center, name, isDarkTheme, outline }: Plac
         if (!parentMap) return;
         // Aliased so the narrowing above carries into the nested function below.
         const map = parentMap;
-        const imageId = markerImageId(PLACE_MARKER_COLOR, PLACE_MARKER_ICON);
+        const iconClass = icon ?? PLACE_MARKER_ICON;
+        const imageId = markerImageId(PLACE_MARKER_COLOR, iconClass);
         let cancelled = false;
         let image: HTMLImageElement | null = null;
 
@@ -106,7 +109,7 @@ export default function PlaceMarker({ center, name, isDarkTheme, outline }: Plac
             }
         }
 
-        buildMarkerImage(PLACE_MARKER_COLOR, PLACE_MARKER_ICON).then((built) => {
+        buildMarkerImage(PLACE_MARKER_COLOR, iconClass).then((built) => {
             if (cancelled) return;
             image = built;
             if (styleLoaded) {
@@ -134,7 +137,7 @@ export default function PlaceMarker({ center, name, isDarkTheme, outline }: Plac
                 // The map may already have been removed.
             }
         };
-    }, [ parentMap, styleLoaded, center, name, isDarkTheme ]);
+    }, [ parentMap, styleLoaded, center, name, isDarkTheme, icon ]);
 
     useEffect(() => {
         if (!parentMap || !outline) return;

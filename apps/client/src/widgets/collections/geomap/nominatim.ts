@@ -1,5 +1,6 @@
 import { getCurrentLanguage } from "../../../services/i18n";
 import { type GeoBounds, type GeocodingProvider, type GeoSearchOptions, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
+import { placeIcon } from "./osm_icons";
 
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const NOMINATIM_LOOKUP_URL = "https://nominatim.openstreetmap.org/lookup";
@@ -135,6 +136,12 @@ interface NominatimPlace {
     lon?: string;
     /** `[south, north, west, east]`, as strings, which is the order Nominatim writes it in. */
     boundingbox?: string[];
+    /** The OSM key the place is filed under: `shop`, `amenity`, `boundary`. */
+    category?: string;
+    /** The OSM value under that key: `supermarket`, `restaurant`, `administrative`. */
+    type?: string;
+    /** What kind of address the place is: `city`, `country`, `road`, `shop`. */
+    addresstype?: string;
 }
 
 /** A place as the app holds one, or `null` where the entry carries no readable position. */
@@ -162,6 +169,7 @@ function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
         lat,
         lng,
         bounds,
+        icon: placeIcon({ category: place.category, type: place.type, addressType: place.addresstype }),
         outline: osmId && hasBoundary ? () => fetchOutline(osmId, bounds) : undefined
     };
 }

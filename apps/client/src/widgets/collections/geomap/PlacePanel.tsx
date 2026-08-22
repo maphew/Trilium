@@ -30,7 +30,7 @@ export default function PlacePanel({ place, isReadOnly, onAddMarker, onClose }: 
     return (
         <OverlayPanel
             className="geo-place-panel"
-            header={<OverlayPanelTitle icon={PLACE_MARKER_ICON} text={place.name} />}
+            header={<OverlayPanelTitle icon={place.icon ?? PLACE_MARKER_ICON} text={place.name} />}
             close={{ text: t("geo-map.close-details"), onClick: onClose }}
         >
             <OverlayPanelBody className="geo-place-panel-body">

@@ -13,7 +13,7 @@ import { formatDistance } from "../../../utils/units";
 import FormAutocomplete from "../../react/FormAutocomplete";
 import Icon from "../../react/Icon";
 import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
-import { DEFAULT_GEOCODING_PROVIDER_NAME, type GeoBounds, GEOCODING_PROVIDERS, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
+import { DEFAULT_GEOCODING_PROVIDER_NAME, DEFAULT_PLACE_ICON, type GeoBounds, GEOCODING_PROVIDERS, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
 import { ParentMap } from "./map";
 import { LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
 
@@ -403,7 +403,7 @@ function placeEntry(result: GeoSearchResult): SearchEntry {
         kind: "place",
         key: `place:${result.id}`,
         label: result.label,
-        icon: "bx bx-map-pin",
+        icon: result.icon ?? DEFAULT_PLACE_ICON,
         center: [ result.lng, result.lat ],
         result
     };

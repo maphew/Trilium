@@ -305,7 +305,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 <SearchBox notes={notes} onPickPlace={pickPlace} />
                 {pickedPlace && placeCenter && <>
                     <PlaceMarker
-                        center={placeCenter} name={pickedPlace.name}
+                        center={placeCenter} name={pickedPlace.name} icon={pickedPlace.icon}
                         outline={placeOutline} isDarkTheme={layerData.isDarkTheme ?? false}
                     />
                     <PlacePanel
