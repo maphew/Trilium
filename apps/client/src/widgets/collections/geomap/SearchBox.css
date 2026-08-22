@@ -67,6 +67,19 @@ body.mobile .geo-map-container .geo-search-toolbar {
     display: flex;
     flex-direction: column;
     min-width: 0;
+    /* Takes the room the mark and the distance leave, so the distance keeps the trailing edge. */
+    flex: 1;
+}
+
+/* How far off the place is, against the trailing edge where a row's rightmost column belongs — read
+   after what the row offers rather than before it. */
+.form-autocomplete-dropdown .geo-search-entry-distance {
+    flex-shrink: 0;
+    align-self: center;
+    padding-inline-start: 8px;
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.6;
 }
 
 .form-autocomplete-dropdown .geo-search-entry-address {

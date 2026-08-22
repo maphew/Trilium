@@ -7,6 +7,8 @@ import type { Map as MapLibreGLMap } from "maplibre-gl";
 import type FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import { logError } from "../../../services/ws";
+import { getMeasurementSystem } from "../../../utils/formatters";
+import { formatDistance } from "../../../utils/units";
 import FormAutocomplete from "../../react/FormAutocomplete";
 import Icon from "../../react/Icon";
 import OverlayToolbar from "../../react/OverlayToolbar";
@@ -32,6 +34,9 @@ const PLACE_PADDING = 60;
 
 /** The zoom level a marker is shown at, closer in since a note marks a spot rather than an area. */
 const MARKER_ZOOM = 15;
+
+/** The mean radius of the Earth, which is what a great-circle distance is measured on. */
+const EARTH_RADIUS_M = 6_371_008.8;
 
 /**
  * How wide the result list is drawn. The field is a corner of the map, while what it offers is whole
@@ -62,6 +67,8 @@ type SearchEntry = {
     label: string;
     /** A boxicons class, as `FNote.getIcon()` gives it. */
     icon: string;
+    /** How far the place is from the middle of the map, in metres. */
+    distance?: number;
 } & (
     | { kind: "marker"; center: [number, number] }
     /**
@@ -133,10 +140,14 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
             return [];
         }
 
-        const entries = [ ...matchMarkers(notes, trimmed), ...geocodeEntries(geocodeRun, trimmed) ];
+        // Measured from the middle of what the map is showing, at the moment the list is built: two
+        // places of the same name are told apart by which of them is at hand.
+        const origin = map ? map.getCenter().toArray() : null;
+        const entries = [ ...matchMarkers(notes, trimmed), ...geocodeEntries(geocodeRun, trimmed) ]
+            .map((entry) => withDistance(entry, origin));
         entriesByKey.current = new Map(entries.map((entry) => [ entry.key, entry ]));
         return entries.map((entry) => entry.key);
-    }, [ notes, geocodeRun, dismissed ]);
+    }, [ notes, geocodeRun, dismissed, map ]);
 
     const changeQuery = useCallback((newQuery: string) => {
         setDismissed(false);
@@ -210,12 +221,18 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
         return (
             <span className={`geo-search-entry geo-search-entry-${entry.kind}`}>
                 <Icon icon={entry.icon} />
-                {entry.kind === "place"
-                    ? <span className="geo-search-entry-lines">
-                        <span className="geo-search-entry-name">{entry.name}</span>
-                        {address && <span className="geo-search-entry-address">{address}</span>}
-                    </span>
-                    : entry.label}
+                <span className="geo-search-entry-lines">
+                    {entry.kind === "place"
+                        ? <>
+                            <span className="geo-search-entry-name">{entry.name}</span>
+                            {address && <span className="geo-search-entry-address">{address}</span>}
+                        </>
+                        : entry.label}
+                </span>
+                {entry.distance !== undefined &&
+                    <span className="geo-search-entry-distance">
+                        {formatDistance(entry.distance, getMeasurementSystem())}
+                    </span>}
             </span>
         );
     }, []);
@@ -246,6 +263,29 @@ export default function SearchBox({ notes, isDarkTheme }: SearchBoxProps) {
             </OverlayToolbar>
         </>
     );
+}
+
+/**
+ * How far a row's place stands from where the map is looking, for the rows that stand anywhere: the
+ * geocoder's row and its reports name no place, and a map that could not be drawn is looking nowhere.
+ */
+function withDistance(entry: SearchEntry, origin: [number, number] | null): SearchEntry {
+    if (!origin || !("center" in entry)) {
+        return entry;
+    }
+
+    return { ...entry, distance: metresBetween(origin, entry.center) };
+}
+
+/** The great-circle metres between two `[lng, lat]` points. */
+function metresBetween([ lngA, latA ]: [number, number], [ lngB, latB ]: [number, number]) {
+    const toRadians = Math.PI / 180;
+    const deltaLat = (latB - latA) * toRadians;
+    const deltaLng = (lngB - lngA) * toRadians;
+    const h = Math.sin(deltaLat / 2) ** 2
+        + Math.cos(latA * toRadians) * Math.cos(latB * toRadians) * Math.sin(deltaLng / 2) ** 2;
+
+    return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
 }
 
 /** What the map is showing, as a geocoder reads a preferred area. */

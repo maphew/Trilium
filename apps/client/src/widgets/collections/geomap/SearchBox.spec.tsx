@@ -21,6 +21,11 @@ vi.mock("./PlaceMarker", () => ({
         <div className="place-marker" data-center={center.join(",")} data-name={name} data-outline={outline?.type} />
 }));
 
+vi.mock("../../../utils/formatters", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../../utils/formatters")>()),
+    getMeasurementSystem: () => "metric"
+}));
+
 // i18next is not initialized under test, so t() returns "". The key stands in for the text, with any
 // interpolated values after it, which is enough to tell the rows apart.
 vi.mock("../../../services/i18n", () => ({
@@ -44,11 +49,15 @@ function mockGeocoder(results: GeoSearchResult[]) {
 /** Where a fake map is looking, which is what a search is told to prefer. */
 const VIEWPORT = { west: 19.8, south: 39.5, east: 20.1, north: 39.8 };
 
+/** The middle of that view, which is what a row's distance is measured from. */
+const CENTRE = { lng: 19.95, lat: 39.65 };
+
 /** A map that can be flown somewhere or framed on something, and that says what it is showing. */
 function fakeMap() {
     return {
         flyTo: vi.fn(),
         fitBounds: vi.fn(),
+        getCenter: () => ({ toArray: () => [ CENTRE.lng, CENTRE.lat ] as [number, number] }),
         getBounds: () => ({
             getWest: () => VIEWPORT.west,
             getSouth: () => VIEWPORT.south,
@@ -112,7 +121,9 @@ function entries() {
 /** What each row is called: the first line of a place, and the whole of any other row. */
 function labels() {
     return entries().map((entry) =>
-        entry.querySelector(".geo-search-entry-name")?.textContent ?? entry.textContent);
+        entry.querySelector(".geo-search-entry-name")?.textContent
+        ?? entry.querySelector(".geo-search-entry-lines")?.textContent
+        ?? entry.textContent);
 }
 
 /** Picks a row and lets whatever it started settle. */
@@ -319,6 +330,28 @@ describe("geo map SearchBox", () => {
             [ "Tokyo", "Ōta, Japan" ],
             [ "Scramble", "Shibuya Crossing" ]
         ]);
+    });
+
+    it("says how far off each place stands, and says nothing of the rows that are nowhere", async () => {
+        mockGeocoder([ TOKYO ]);
+        const container = renderSearchBox(fakeMap(), mapNotes());
+
+        await type(container, "tokyo");
+
+        const distances = () => entries().map((entry) =>
+            entry.querySelector(".geo-search-entry-distance")?.textContent ?? null);
+
+        // The note is on the other side of the world from the view, which is in Corfu.
+        const [ tokyoTrip, geocoderRow ] = distances();
+        expect(tokyoTrip).toMatch(/^gpx_preview\.unit_km/);
+        expect(Number(tokyoTrip?.replace(/\D/g, ""))).toBeGreaterThan(9000);
+        // The row that runs the geocoder names no place, so it stands nowhere.
+        expect(geocoderRow).toBeNull();
+
+        await pick(1);
+
+        // The place the geocoder found is measured the same way.
+        expect(distances()[1]).toMatch(/^gpx_preview\.unit_km/);
     });
 
     it("takes the pin off the map once the field is emptied", async () => {
