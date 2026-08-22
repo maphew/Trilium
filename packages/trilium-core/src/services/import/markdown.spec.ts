@@ -405,6 +405,43 @@ $$`;
         expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
     });
 
+    it("splits a todo list at a blank line into the lists the exporter wrote it from", () => {
+        // A blank line makes the list loose, so marked wraps each item in <p>. Left that
+        // way the checkbox lands inside the description span, where neither CKEditor's
+        // upcast nor `.todo-list__label > input` reaches it and the note shows a bare
+        // native checkbox. An empty `- [ ]` is not a task marker at all — it stays text.
+        const input = trimIndentation`\
+            Add a line break between two checkbox:
+
+            - [ ] Truc
+
+            - [ ] Machin
+
+            An empty item:
+
+            - [ ]`;
+        const todoList = (text: string) =>
+            `<ul class="todo-list"><li><label class="todo-list__label"><input type="checkbox" disabled="disabled">` +
+            `<span class="todo-list__label__description">${text}</span></label></li></ul>`;
+        const expected = [
+            `<p>Add a line break between two checkbox:</p>`,
+            todoList("Truc"),
+            `<p>&nbsp;</p>`,
+            todoList("Machin"),
+            `<p>An empty item:</p>`,
+            `<ul><li>[ ]</li></ul>`
+        ].join("");
+        expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+    });
+
+    it("round-trips two todo lists separated by an empty paragraph through the Markdown exporter", () => {
+        const todoList = (text: string) =>
+            `<ul class="todo-list"><li><label class="todo-list__label"><input type="checkbox" disabled="disabled">` +
+            `<span class="todo-list__label__description">${text}</span></label></li></ul>`;
+        const original = `${todoList("Truc")}<p>&nbsp;</p>${todoList("Machin")}`;
+        expect(markdownService.renderToHtml(markdownExportService.toMarkdown(original), "Title")).toStrictEqual(original);
+    });
+
     it("imports todo list multistate markers as data-trilium-task-state and titles the <li> with the state's human name", () => {
         // The `title` attribute mirrors what the CKEditor data downcast emits — it's
         // the hover tooltip viewers of the shared page, the read-only preview and
