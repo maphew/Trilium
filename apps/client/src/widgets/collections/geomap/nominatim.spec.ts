@@ -211,11 +211,42 @@ describe("Nominatim geocoding", () => {
         expect(fetchMock).toHaveBeenCalledOnce();
 
         const boundary: GeoJSON.Geometry = { type: "MultiPolygon", coordinates: [] };
-        respondWith([ { geojson: boundary } ]);
+        const lookup = respondWith([ { geojson: boundary } ]);
         const outlineFetch = berlin.outline?.();
         await vi.runAllTimersAsync();
 
         expect(await outlineFetch).toEqual(boundary);
+        expect(requestedUrl(lookup).searchParams.get("osm_ids")).toBe("R62422");
+    });
+
+    it("simplifies a boundary by what the place itself measures", async () => {
+        // A city is wider than the cap, and is drawn as coarsely as anything is.
+        respondWith([ place() ]);
+        const [ berlin ] = await search("berlin");
+        const cityLookup = respondWith([ {} ]);
+        berlin.outline?.();
+        await vi.runAllTimersAsync();
+        expect(requestedUrl(cityLookup).searchParams.get("polygon_threshold")).toBe("0.001000");
+
+        // A building measures tens of metres across, where that cap would flatten it to a triangle.
+        respondWith([ place({
+            osm_type: "way",
+            osm_id: 90,
+            boundingbox: [ "52.5170000", "52.5172000", "13.3888000", "13.3891000" ]
+        }) ]);
+        const [ shop ] = await search("shop");
+        const buildingLookup = respondWith([ {} ]);
+        shop.outline?.();
+        await vi.runAllTimersAsync();
+        expect(requestedUrl(buildingLookup).searchParams.get("polygon_threshold")).toBe("0.000002");
+
+        // A place Nominatim gave no readable extent for is drawn as coarsely as a country.
+        respondWith([ place({ boundingbox: undefined }) ]);
+        const [ unmeasured ] = await search("somewhere");
+        const unmeasuredLookup = respondWith([ {} ]);
+        unmeasured.outline?.();
+        await vi.runAllTimersAsync();
+        expect(requestedUrl(unmeasuredLookup).searchParams.get("polygon_threshold")).toBe("0.001000");
     });
 
     it("draws no boundary for a shape that is not one", async () => {

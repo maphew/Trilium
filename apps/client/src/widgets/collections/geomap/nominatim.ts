@@ -5,10 +5,16 @@ const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const NOMINATIM_LOOKUP_URL = "https://nominatim.openstreetmap.org/lookup";
 
 /**
- * How coarsely a boundary is simplified, in degrees — roughly 100 m. At full detail a country runs to
- * megabytes, and a border drawn over a map is not read to the metre.
+ * The coarsest a boundary is simplified to, in degrees — roughly 100 m. At full detail a country runs
+ * to megabytes, and a border drawn over a map is not read to the metre.
  */
-const POLYGON_THRESHOLD = 0.001;
+const MAX_POLYGON_THRESHOLD = 0.001;
+
+/**
+ * How small a part of a place's own extent the simplification is allowed to lose. A fixed threshold
+ * that suits a country flattens a building to a triangle, so it is scaled to what is being drawn.
+ */
+const POLYGON_THRESHOLD_RATIO = 1 / 100;
 
 /** How a lookup names an OSM object, from how a search result names one. */
 const OSM_TYPE_PREFIX: Record<string, string> = { node: "N", way: "W", relation: "R" };
@@ -142,6 +148,7 @@ function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
     const prefix = OSM_TYPE_PREFIX[place.osm_type ?? ""];
     const osmId = prefix && place.osm_id ? `${prefix}${place.osm_id}` : null;
     const hasBoundary = OSM_TYPES_WITH_A_BOUNDARY.has(place.osm_type ?? "");
+    const bounds = toBounds(place.boundingbox);
 
     return {
         // What OSM calls the place, where it says: `place_id` is Nominatim's own numbering, and the
@@ -154,8 +161,8 @@ function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
         name: place.name || place.display_name.split(",")[0].trim(),
         lat,
         lng,
-        bounds: toBounds(place.boundingbox),
-        outline: osmId && hasBoundary ? () => fetchOutline(osmId) : undefined
+        bounds,
+        outline: osmId && hasBoundary ? () => fetchOutline(osmId, bounds) : undefined
     };
 }
 
@@ -225,12 +232,12 @@ function clamp(value: number, least: number, most: number) {
  * A lookup of its own rather than `polygon_geojson` on the search: a search answers with eight places
  * and the boundaries of the seven that go unlooked-at are the bulk of what would be carried.
  */
-async function fetchOutline(osmId: string): Promise<GeoJSON.Geometry | null> {
+async function fetchOutline(osmId: string, bounds: GeoBounds | undefined): Promise<GeoJSON.Geometry | null> {
     const params = new URLSearchParams({
         osm_ids: osmId,
         format: "jsonv2",
         polygon_geojson: "1",
-        polygon_threshold: String(POLYGON_THRESHOLD)
+        polygon_threshold: polygonThreshold(bounds)
     });
 
     await waitForRequestSlot();
@@ -243,6 +250,31 @@ async function fetchOutline(osmId: string): Promise<GeoJSON.Geometry | null> {
     const geometry = place?.geojson;
     // A shape that is a point or a line is what the pin already says, drawn again.
     return geometry?.type === "Polygon" || geometry?.type === "MultiPolygon" ? geometry : null;
+}
+
+/**
+ * How coarsely to simplify a place of the given extent, in degrees.
+ *
+ * Douglas-Peucker drops every corner standing less than the threshold off the line between its
+ * neighbours, so one wide enough to thin a coastline squares off a street corner and leaves a
+ * building as the triangle that is the least a ring can be. The threshold is taken from the place's
+ * narrower side — the one that collapses first — and capped at {@link MAX_POLYGON_THRESHOLD}, which
+ * is what a country or a county gets.
+ *
+ * A place whose extent is unknown is one Nominatim reported no readable box for, and gets the cap.
+ *
+ * Written out to six decimals rather than stringified, which would send a threshold under a
+ * millionth of a degree in exponential notation.
+ */
+function polygonThreshold(bounds: GeoBounds | undefined) {
+    if (!bounds) {
+        return MAX_POLYGON_THRESHOLD.toFixed(6);
+    }
+
+    const [ [ west, south ], [ east, north ] ] = bounds;
+    const narrowerSide = Math.min(east - west, north - south);
+
+    return Math.min(narrowerSide * POLYGON_THRESHOLD_RATIO, MAX_POLYGON_THRESHOLD).toFixed(6);
 }
 
 /**
