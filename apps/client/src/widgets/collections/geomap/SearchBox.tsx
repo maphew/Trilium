@@ -1,6 +1,7 @@
 import "./SearchBox.css";
 
 import clsx from "clsx";
+import type { TargetedKeyboardEvent } from "preact";
 import { useCallback, useContext, useRef, useState } from "preact/hooks";
 
 import type { Map as MapLibreGLMap } from "maplibre-gl";
@@ -170,6 +171,25 @@ export default function SearchBox({ notes, onPickPlace }: SearchBoxProps) {
         }
     }, [ provider, map ]);
 
+    /**
+     * Puts the rows back on offer, so a query that was right can be looked at again without being
+     * retyped: the field is come back to, or Enter is pressed on it with nothing on offer.
+     *
+     * Only where there is nothing on offer, since the Enter that takes a row arrives here too and
+     * would otherwise undo the dismissal it has just caused.
+     */
+    const offerRowsAgain = useCallback(() => {
+        if (!entriesByKey.current.size) {
+            setDismissed(false);
+        }
+    }, []);
+
+    const offerRowsOnEnter = useCallback((e: TargetedKeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter") {
+            offerRowsAgain();
+        }
+    }, [ offerRowsAgain ]);
+
     /** Empties the field, which is also what takes a searched place off the map (see `changeQuery`). */
     const clearSearch = useCallback(() => {
         changeQuery("");
@@ -250,7 +270,11 @@ export default function SearchBox({ notes, onPickPlace }: SearchBoxProps) {
                 isHeading={isHeading}
                 dropdownMinWidth={RESULT_LIST_WIDTH}
                 autoActivate
+                openOnFocus
+                openOnEnter
                 keepOpenOnPick
+                onFocus={offerRowsAgain}
+                onKeyDown={offerRowsOnEnter}
                 placeholder={t("geo-map.search-placeholder")}
                 aria-label={t("geo-map.search")}
             />

@@ -29,6 +29,15 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
     /** Opens the dropdown as soon as the field receives focus, not just on typing. */
     openOnFocus?: boolean;
     /**
+     * Opens the list on Enter where it is closed, for a box whose entries are what the field is for.
+     * A list sent away — by Escape, or by taking something from it — is otherwise only brought back
+     * by typing, which means editing a query that was already right.
+     *
+     * The key is not consumed when it only opens the list, so a form around the field is submitted by
+     * it as before.
+     */
+    openOnEnter?: boolean;
+    /**
      * Receives a suggestion picked from the dropdown (click or Enter) instead of `onChange`, for a
      * host that treats a made choice differently from typing — both otherwise arrive as the same
      * string. Left out, picking reports through `onChange`, exactly like typing. (Not `onSelect`,
@@ -85,7 +94,7 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
  * The dropdown is portalled to the body and positioned over everything else, so it is not clipped
  * by scrolling ancestors. Selecting a suggestion reports it through `onChange`, exactly like typing.
  */
-export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, onPick, keepOpenOnPick, renderItem, leading, autoActivate, isHeading, dropdownMinWidth, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
+export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, openOnEnter, onPick, keepOpenOnPick, renderItem, leading, autoActivate, isHeading, dropdownMinWidth, inputRef, onFocus, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
     const ownInputRef = useRef<HTMLInputElement>(null);
     const inputEl = inputRef ?? ownInputRef;
     const fieldRef = useRef<HTMLDivElement>(null);
@@ -202,6 +211,8 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                     e.preventDefault();
                     e.stopPropagation();
                     selectItem(items[activeIndex]);
+                } else if (openOnEnter && !isDisabled) {
+                    setIsOpen(true);
                 }
                 break;
 
@@ -236,7 +247,12 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                     setIsOpen(true);
                 }
             }}
-            onFocus={openOnFocus && !isDisabled ? () => setIsOpen(true) : undefined}
+            onFocus={(e) => {
+                if (openOnFocus && !isDisabled) {
+                    setIsOpen(true);
+                }
+                onFocus?.(e);
+            }}
             onBlur={(newValue) => {
                 close();
                 onBlur?.(newValue);

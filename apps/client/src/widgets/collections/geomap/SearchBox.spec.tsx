@@ -421,6 +421,59 @@ describe("geo map SearchBox", () => {
         expect(labels()).toEqual([ "Tokyo" ]);
     });
 
+    it("puts the rows back on Enter once one of them has been taken", async () => {
+        mockGeocoder([ TOKYO ]);
+        const container = renderSearchBox(fakeMap(), mapNotes());
+
+        const offered = [ "Tokyo trip", "geo-map.search-online(tokyo)" ];
+
+        await type(container, "tokyo");
+        expect(labels()).toEqual(offered);
+
+        // The first row is taken, and the list stands down rather than staying open on it.
+        await press(container, "Enter");
+        expect(entries()).toHaveLength(0);
+
+        // The query was right, so looking at what it offers again should not mean retyping it.
+        await press(container, "Enter");
+        expect(labels()).toEqual(offered);
+    });
+
+    it("puts the rows back on Enter after Escape has sent them away", async () => {
+        mockGeocoder([ TOKYO ]);
+        const container = renderSearchBox(fakeMap(), mapNotes());
+
+        await type(container, "tokyo");
+        await press(container, "Escape");
+        expect(entries()).toHaveLength(0);
+
+        await press(container, "Enter");
+
+        expect(labels()).toEqual([ "Tokyo trip", "geo-map.search-online(tokyo)" ]);
+    });
+
+    it("puts the rows back when the field is come back to, without a key being pressed", async () => {
+        mockGeocoder([ TOKYO ]);
+        const container = renderSearchBox(fakeMap(), mapNotes());
+        const offered = [ "Tokyo trip", "geo-map.search-online(tokyo)" ];
+
+        await act(async () => { field(container).focus(); });
+        await type(container, "tokyo");
+        expect(labels()).toEqual(offered);
+
+        // Clicking away from the field, as a press on the map does, takes the list with it.
+        await act(async () => { field(container).blur(); });
+        await settle();
+        expect(entries()).toHaveLength(0);
+
+        // Coming back to the field is asking for what it was offering; Enter is not reaching it
+        // while the map has the focus, so it cannot be what brings the list back.
+        await act(async () => { field(container).focus(); });
+        await settle();
+
+        expect(labels()).toEqual(offered);
+    });
+
     it("offers to clear the field only once there is something in it to clear", async () => {
         mockGeocoder([ TOKYO ]);
         const container = renderSearchBox(fakeMap(), mapNotes());
