@@ -128,15 +128,15 @@ This works for:
 
 When a vector map style is used, the map itself draws the shops, cafés, museums and other places around the area being viewed. Once the map is zoomed in far enough for these to be drawn, they can be clicked:
 
-1.  Click one of the place icons drawn by the map. The mouse cursor turns into a pointer over the ones that can be clicked.
-2.  The same panel used for a searched place appears, showing the place's name and its coordinates, and a pin is placed on it.
+1.  Rest the mouse on one of the place icons drawn by the map. Its name appears above it, and the cursor turns into a pointer. The map draws these places as bare icons, so hovering is how their names are read — showing them all at once would crowd out the titles of your own markers.
+2.  Click it. The same panel used for a searched place appears, showing the place's name and its coordinates, and a pin is placed on it.
 3.  Press _Add as marker_ to keep it. The note is created with the place's name as its title, and the icon matching the kind of place it is.
 
 Places are read from the map data that has already been downloaded, so clicking one does not send anything to the internet.
 
 Some things to keep in mind:
 
-*   Places that have no name in the map data, such as benches or parking spaces, are not clickable. Clicking them does nothing, as clicking the map elsewhere.
+*   Places that have no name in the map data, such as benches or parking spaces, show no name and are not clickable. Clicking them does nothing, as clicking the map elsewhere.
 *   The markers of the map take precedence: where one stands over a place, clicking it opens the note, not the place.
 *   This does not work with the raster (OpenStreetMap) style, whose places are part of the map image, nor with the _Neutrino_ style, which draws no places.
 *   In read-only mode a place can still be clicked and read, but not kept as a marker.

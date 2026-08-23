@@ -6,13 +6,48 @@
 import type { Map as MapLibreGLMap, MapGeoJSONFeature } from "maplibre-gl";
 import { render } from "preact";
 import { act } from "preact/test-utils";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CLUSTER_LAYER } from "./clusters";
 import type { GeoSearchResult } from "./geocoding";
 import { MapStyleLoaded, ParentMap } from "./map";
 import { MARKER_LAYER } from "./Markers";
 import Pois, { poiFromFeature, poiLayers } from "./Pois";
+
+/**
+ * The popup MapLibre would draw, recording what it was shown and whether it is up. Hoisted because
+ * the module mock below it is, and that mock is what hands the class to the component.
+ */
+const { FakePopup } = vi.hoisted(() => {
+    class FakePopup {
+        static open: FakePopup[] = [];
+
+        content: HTMLElement | null = null;
+        lngLat: unknown;
+
+        setLngLat(lngLat: unknown) { this.lngLat = lngLat; return this; }
+        setDOMContent(content: HTMLElement) { this.content = content; return this; }
+
+        addTo() {
+            if (!FakePopup.open.includes(this)) FakePopup.open.push(this);
+            return this;
+        }
+
+        remove() {
+            FakePopup.open = FakePopup.open.filter((popup) => popup !== this);
+            return this;
+        }
+    }
+
+    return { FakePopup };
+});
+
+vi.mock("maplibre-gl", () => ({ Popup: FakePopup }));
+
+/** What the tooltip currently reads, or `null` where none is up. */
+function tooltipText() {
+    return FakePopup.open[0]?.content?.textContent ?? null;
+}
 
 type Listener = (e?: unknown) => void;
 
@@ -51,18 +86,21 @@ function fakeMap({ poiLayerIds = [ "poi-amenity", "poi-shop" ], ownLayerIds = [ 
         click() {
             for (const fn of listeners.get("click") ?? []) fn({ point: { x: 0, y: 0 } });
         },
-        /** The pointer arriving over one of the layers the cursor is bound to, and leaving it again. */
-        hover(layer: string) {
-            for (const fn of listeners.get(`mouseenter:${layer}`) ?? []) fn();
+        /** The pointer coming to rest on a place of the base map, as MapLibre reports it. */
+        hover(feature: unknown) {
+            for (const fn of listeners.get(`mousemove:${poiLayerIds}`) ?? []) {
+                fn({ point: { x: 0, y: 0 }, features: [ feature ] });
+            }
         },
-        unhover(layer: string) {
-            for (const fn of listeners.get(`mouseleave:${layer}`) ?? []) fn();
+        /** The pointer leaving the layers the places are drawn on. */
+        unhover() {
+            for (const fn of listeners.get(`mouseleave:${poiLayerIds}`) ?? []) fn();
         },
-        /** Which layers the cursor is currently bound to, as a style switch has to put back. */
+        /** Which layers the hover is currently bound to, as a style switch has to put back. */
         boundLayers() {
             return [ ...listeners.keys() ]
-                .filter((key) => key.startsWith("mouseenter:") && (listeners.get(key)?.size ?? 0) > 0)
-                .map((key) => key.slice("mouseenter:".length));
+                .filter((key) => key.startsWith("mousemove:") && (listeners.get(key)?.size ?? 0) > 0)
+                .flatMap((key) => key.slice("mousemove:".length).split(",").filter(Boolean));
         },
         fireStyleLoad() {
             for (const fn of listeners.get("style.load") ?? []) fn();
@@ -214,17 +252,19 @@ describe("geo map Pois", () => {
 
         // The styles fade their places in over the zoom above 16, and what cannot be seen is not
         // what a click was aimed at.
+        const place = poiFeature({ name: "Café Kranzler", amenity: "cafe" });
+
         map.setZoom(16);
-        map.setUnderPointer({ poi: [ poiFeature({ name: "Café Kranzler", amenity: "cafe" }) ] });
+        map.setUnderPointer({ poi: [ place ] });
         await act(async () => { map.click(); });
-        map.hover("poi-amenity");
+        map.hover(place);
 
         expect(picked).toEqual([]);
         expect(map.cursor).toBe("");
 
         map.setZoom(17);
         await act(async () => { map.click(); });
-        map.hover("poi-amenity");
+        map.hover(place);
 
         expect(picked).toHaveLength(1);
         expect(map.cursor).toBe("pointer");
@@ -244,18 +284,44 @@ describe("geo map Pois", () => {
     it("says a place can be clicked, and puts the pointer back when it goes", async () => {
         const map = fakeMap();
         const { unmount } = await renderPois(map);
+        const place = poiFeature({ name: "Café Kranzler", amenity: "cafe" });
 
-        map.hover("poi-amenity");
+        map.hover(place);
         expect(map.cursor).toBe("pointer");
 
-        map.unhover("poi-amenity");
+        map.unhover();
         expect(map.cursor).toBe("");
 
-        map.hover("poi-shop");
+        map.hover(place);
         await unmount();
         // Torn down with the pointer sitting on a place, the `mouseleave` no longer being listened for.
         expect(map.cursor).toBe("");
         expect(map.boundLayers()).toEqual([]);
+    });
+
+    it("offers no pointer over a place that has no name to keep", async () => {
+        const map = fakeMap();
+        await renderPois(map);
+
+        map.hover(poiFeature({ amenity: "bench" }));
+
+        expect(map.cursor).toBe("");
+    });
+
+    it("leaves the pointer to a marker standing over a place", async () => {
+        const map = fakeMap();
+        await renderPois(map);
+        const place = poiFeature({ name: "Café Kranzler", amenity: "cafe" });
+
+        map.hover(place);
+        expect(map.cursor).toBe("pointer");
+
+        // The marker sets its own pointer and clears it again, so this leaves the cursor alone
+        // rather than clearing what the marker has just set.
+        map.setUnderPointer({ own: [ { properties: { id: "note1" } } ] });
+        map.hover(place);
+
+        expect(map.cursor).toBe("pointer");
     });
 
     it("puts the pointer back on the layers a style switch brought in", async () => {
@@ -268,7 +334,116 @@ describe("geo map Pois", () => {
         await act(async () => { map.fireStyleLoad(); });
 
         expect(map.boundLayers()).toEqual([ "poi-amenity", "poi-shop" ]);
-        map.hover("poi-amenity");
+        map.hover(poiFeature({ name: "Café Kranzler", amenity: "cafe" }));
         expect(map.cursor).toBe("pointer");
+    });
+});
+
+describe("geo map place tooltips", () => {
+    /** Long enough for the rest the name is held back for, whatever that rest is set to. */
+    const RESTED = 500;
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        FakePopup.open = [];
+    });
+
+    afterEach(() => { vi.useRealTimers(); });
+
+    it("names the place the pointer has come to rest on", async () => {
+        const map = fakeMap();
+        await renderPois(map);
+
+        map.hover(poiFeature({ name: "Café Kranzler", amenity: "cafe" }));
+        // Not while the pointer is merely passing over it.
+        expect(tooltipText()).toBeNull();
+
+        vi.advanceTimersByTime(RESTED);
+
+        expect(tooltipText()).toBe("Café Kranzler");
+        // Where the place stands, so the name follows it as the map is moved.
+        expect(FakePopup.open[0]?.lngLat).toEqual([ 13.4, 52.5 ]);
+    });
+
+    it("names the place with the icon it would wear as a marker", async () => {
+        const map = fakeMap();
+        await renderPois(map);
+
+        map.hover(poiFeature({ name: "Edeka", shop: "supermarket" }));
+        vi.advanceTimersByTime(RESTED);
+
+        expect(FakePopup.open[0]?.content?.querySelector("i")?.className).toBe("bx bx-cart");
+    });
+
+    it("says nothing of a place with no name, nor of one a marker stands over", async () => {
+        const map = fakeMap();
+        await renderPois(map);
+
+        map.hover(poiFeature({ amenity: "bench" }));
+        vi.advanceTimersByTime(RESTED);
+        expect(tooltipText()).toBeNull();
+
+        map.setUnderPointer({ own: [ { properties: { id: "note1" } } ] });
+        map.hover(poiFeature({ name: "Café Kranzler", amenity: "cafe" }));
+        vi.advanceTimersByTime(RESTED);
+        expect(tooltipText()).toBeNull();
+    });
+
+    it("carries the name across to the next place the pointer reaches", async () => {
+        const map = fakeMap();
+        await renderPois(map);
+
+        map.hover(poiFeature({ name: "Café Kranzler", amenity: "cafe" }));
+        vi.advanceTimersByTime(RESTED);
+        expect(tooltipText()).toBe("Café Kranzler");
+
+        // A different place, which never leaves the layer the two are drawn on.
+        map.hover({ ...poiFeature({ name: "Edeka", shop: "supermarket" }), id: 43 });
+        // The name just left goes at once rather than standing over its neighbour.
+        expect(tooltipText()).toBeNull();
+
+        vi.advanceTimersByTime(RESTED);
+        expect(tooltipText()).toBe("Edeka");
+    });
+
+    it("takes the name down when the place is clicked, until the pointer has been away", async () => {
+        const map = fakeMap();
+        const place = poiFeature({ name: "Café Kranzler", amenity: "cafe" });
+        map.setUnderPointer({ poi: [ place ] });
+        await renderPois(map);
+
+        map.hover(place);
+        vi.advanceTimersByTime(RESTED);
+        expect(tooltipText()).toBe("Café Kranzler");
+
+        // The panel the click opens says the name at length, and the pin now carries it too.
+        map.click();
+        expect(tooltipText()).toBeNull();
+
+        map.hover(place);
+        vi.advanceTimersByTime(RESTED);
+        expect(tooltipText()).toBeNull();
+
+        map.unhover();
+        map.hover(place);
+        vi.advanceTimersByTime(RESTED);
+        expect(tooltipText()).toBe("Café Kranzler");
+    });
+
+    it("takes the name down as the pointer leaves the place", async () => {
+        const map = fakeMap();
+        const { unmount } = await renderPois(map);
+
+        map.hover(poiFeature({ name: "Café Kranzler", amenity: "cafe" }));
+        vi.advanceTimersByTime(RESTED);
+        map.unhover();
+        expect(tooltipText()).toBeNull();
+
+        // Nor is one left standing over a map that is no longer on the screen.
+        map.hover(poiFeature({ name: "Café Kranzler", amenity: "cafe" }));
+        vi.advanceTimersByTime(RESTED);
+        await unmount();
+
+        expect(tooltipText()).toBeNull();
     });
 });
