@@ -92,11 +92,11 @@ export async function importGpxTrack(parentNote: FNote, file: File) {
  *
  * No title is asked for first. A modal between the click and the note was the wrong way round: it
  * blocked the map to ask for the one thing the detail pane is made for editing. The note is created
- * under the stock name instead, and the caller opens the pane on it with that name selected — naming
- * the place is typing over it (see index.tsx).
+ * unnamed instead, and the caller opens the pane on it with the name it was given selected —
+ * naming the place is typing over it (see index.tsx).
  */
 export async function createNewNote(parentNote: FNote, e: GeoMouseEvent) {
-    return createNoteAt(parentNote, [ e.latlng.lat, e.latlng.lng ], t("relation_map.default_new_note_title"));
+    return createNoteAt(parentNote, [ e.latlng.lat, e.latlng.lng ]);
 }
 
 /**
@@ -111,7 +111,7 @@ export async function createNewNote(parentNote: FNote, e: GeoMouseEvent) {
  * takes instead, and the pane opens on it the same way (see `keepPlaceAsMarker` in index).
  */
 export async function createNoteForPlace(parentNote: FNote, place: PlaceToKeep) {
-    const title = place.unnamed ? t("relation_map.default_new_note_title") : place.name;
+    const title = place.unnamed ? undefined : place.name;
 
     return createNoteAt(parentNote, [ place.lat, place.lng ], title);
 }
@@ -124,7 +124,15 @@ interface PlaceToKeep {
     unnamed?: boolean;
 }
 
-async function createNoteAt(parentNote: FNote, [ lat, lng ]: [number, number], title: string) {
+/**
+ * Creates a located note under the map.
+ *
+ * A note with no name of its own is created without one rather than under a name of the map's
+ * choosing, which is what leaves the naming to the server: an unnamed note takes the name every
+ * new note takes — the one the tree's + button gives — and a map labelled `#titleTemplate` names
+ * its markers by that instead.
+ */
+async function createNoteAt(parentNote: FNote, [ lat, lng ]: [number, number], title?: string) {
     const { note } = await note_create.createNote(parentNote.noteId, {
         title,
         content: "",

@@ -62,7 +62,7 @@ The search prefers what the map is showing. Places inside the current view are l
 
 Coordinates typed or pasted into the search bar are offered as a _Go to_ row above everything else, and taking it flies the map to that exact spot and marks it, so it can be kept as a marker in the same way a searched place can.
 
-A point has no name of its own, only the coordinates it was typed as. The note kept from one is therefore created under the same stock name a marker placed with the _Add marker_ button gets, and opens with that title selected, ready to be typed over.
+A point has no name of its own. It only has the coordinates you typed. The note is therefore given the same name as any other new note, which is the name you also get from the _Add marker_ button and from the + button in the note tree. The note opens with that name selected, so you can type over it. If the map has a <a class="reference-link" href="../Advanced%20Usage/Default%20Note%20Title.md">titleTemplate</a> label, the marker is named by that template instead.
 
 The forms understood are:
 

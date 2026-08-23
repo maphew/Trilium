@@ -17,10 +17,6 @@ vi.mock("../../../services/note_create", () => ({
     default: { createNote: vi.fn(async () => ({ note: { noteId: "created" }, branch: null })) }
 }));
 
-// i18next is not initialized under test, so t() returns nothing. The key stands in for the text,
-// which is enough to tell the stock name from a name the place brought with it.
-vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
-
 vi.mock("../../../services/attributes", () => ({ default: { setLabel: vi.fn(async () => {}) } }));
 vi.mock("../../../services/note_deletion", () => ({ deleteNoteOrBranch: vi.fn(async () => {}) }));
 vi.mock("../../../services/dialog", () => ({
@@ -35,7 +31,7 @@ const confirmDelete = vi.mocked(dialog.confirmDeleteNoteBoxWithNote);
 beforeEach(() => vi.clearAllMocks());
 
 describe("geo map api", () => {
-    it("creates a placed note under the stock name, located where the click landed", async () => {
+    it("leaves a placed note to be named as any new note is, where the click landed", async () => {
         const parent = buildNote({ title: "The map" });
 
         const created = await createNewNote(parent, {
@@ -48,8 +44,10 @@ describe("geo map api", () => {
         expect(created).toEqual({ noteId: "created" });
         expect(createNote).toHaveBeenCalledWith(parent.noteId, expect.objectContaining({
             type: "text",
+            // No name is sent, which is what leaves the naming where every other new note's is: the
+            // server's, and so a `#titleTemplate` on the map's if it carries one.
+            title: undefined,
             // Nothing is asked first — the name is typed over in the pane, not answered in a modal.
-            title: "relation_map.default_new_note_title",
             activate: false,
             attributes: expect.arrayContaining([
                 { type: "label", name: "geolocation", value: "48.85,2.36" },
@@ -76,7 +74,7 @@ describe("geo map api", () => {
         }));
     });
 
-    it("gives a note kept from a bare point the name a placed marker gets", async () => {
+    it("leaves a note kept from a bare point to be named as a placed one is", async () => {
         const parent = buildNote({ title: "The map" });
 
         // A point read out of the search bar is called by its own coordinates, which is no title.
@@ -85,7 +83,7 @@ describe("geo map api", () => {
 
         expect(created).toEqual({ noteId: "created" });
         expect(createNote).toHaveBeenCalledWith(parent.noteId, expect.objectContaining({
-            title: "relation_map.default_new_note_title",
+            title: undefined,
             attributes: expect.arrayContaining([
                 { type: "label", name: "geolocation", value: "45.796,24.147" }
             ])
