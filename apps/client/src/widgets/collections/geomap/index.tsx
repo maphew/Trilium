@@ -86,6 +86,9 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     // drawn around whatever took its place.
     const latestPlacePick = useRef(0);
     const outlineTimer = useRef<ReturnType<typeof setTimeout>>();
+    // Gives up a boundary lookup already under way, which hands back its place in the geocoder's
+    // request queue: the next search would otherwise wait out a boundary nobody is looking at.
+    const outlineRequest = useRef<AbortController>();
     // Held still between renders: the pin's layer is rebuilt whenever it is handed a different one,
     // and an array literal is different every time (see PlaceMarker).
     const placeCenter = useMemo<[number, number] | null>(
@@ -130,12 +133,16 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     const forgetPlace = useCallback(() => {
         latestPlacePick.current++;
         clearTimeout(outlineTimer.current);
+        outlineRequest.current?.abort();
         setPickedPlace(undefined);
         setPlaceOutline(undefined);
     }, []);
 
     // Nothing is left waiting to be fetched for a map that is no longer on the screen.
-    useEffect(() => () => clearTimeout(outlineTimer.current), []);
+    useEffect(() => () => {
+        clearTimeout(outlineTimer.current);
+        outlineRequest.current?.abort();
+    }, []);
 
     /** Opens the pane on a note, which sends away the searched place the panel would otherwise share
      *  a corner with. */
@@ -151,6 +158,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     const pickPlace = useCallback((place: GeoSearchResult | null) => {
         const pickId = ++latestPlacePick.current;
         clearTimeout(outlineTimer.current);
+        outlineRequest.current?.abort();
         setPickedPlace(place ?? undefined);
         setPlaceOutline(undefined);
         if (place) {
@@ -164,7 +172,9 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         // pass. The geocoder answers one request a second and the searches queue behind the same
         // count, so a boundary nobody waited to see would be waited out by the next search.
         outlineTimer.current = setTimeout(() => {
-            fetchOutline()
+            const request = new AbortController();
+            outlineRequest.current = request;
+            fetchOutline(request.signal)
                 .then((outline) => {
                     if (outline && latestPlacePick.current === pickId) {
                         setPlaceOutline(outline);

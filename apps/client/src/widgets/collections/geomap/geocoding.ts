@@ -59,8 +59,11 @@ export interface GeoSearchResult {
      *
      * A call rather than a value, so the boundary is asked for only once a place has been picked: a
      * search returns several places and at most one of them is ever looked at.
+     *
+     * A lookup given up on through `signal` answers `null` and gives up its place in the provider's
+     * request queue, so what is asked for next is not held behind it.
      */
-    outline?: () => Promise<GeoJSON.Geometry | null>;
+    outline?: (signal?: AbortSignal) => Promise<GeoJSON.Geometry | null>;
 }
 
 export interface GeocodingProvider {

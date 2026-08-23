@@ -395,4 +395,49 @@ describe("Nominatim geocoding", () => {
 
         expect(requestedAt[1] - requestedAt[0]).toBeGreaterThanOrEqual(1000);
     });
+
+    it("moves the requests behind a boundary lookup up when it is given up on", async () => {
+        respondWith([ place() ]);
+        const [ berlin ] = await search("berlin");
+
+        const requestedAt: number[] = [];
+        vi.stubGlobal("fetch", vi.fn(async () => {
+            requestedAt.push(Date.now());
+            return { ok: true, status: 200, statusText: "", json: async () => [] };
+        }));
+
+        // A lookup between two searches, given up on before its slot comes up — which is what
+        // stepping onto another result does.
+        const first = provider.search("paris");
+        const abandoned = new AbortController();
+        const outline = berlin.outline?.(abandoned.signal);
+        const second = provider.search("rome");
+        abandoned.abort();
+
+        await vi.runAllTimersAsync();
+        await Promise.all([ first, second ]);
+
+        expect(await outline).toBeNull();
+        // The searches, a second apart: the lookup neither goes out nor is waited out.
+        expect(requestedAt).toHaveLength(2);
+        expect(requestedAt[1] - requestedAt[0]).toBeGreaterThanOrEqual(1000);
+        expect(requestedAt[1] - requestedAt[0]).toBeLessThan(2000);
+    });
+
+    it("gives up a boundary lookup already out without reporting it as a failure", async () => {
+        respondWith([ place() ]);
+        const [ berlin ] = await search("berlin");
+
+        // Never answers of its own accord, so the lookup is still out when it is given up on.
+        vi.stubGlobal("fetch", vi.fn((_url: string, init?: { signal?: AbortSignal }) => new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+        })));
+
+        const request = new AbortController();
+        const outline = berlin.outline?.(request.signal);
+        await vi.runAllTimersAsync();
+        request.abort();
+
+        expect(await outline).toBeNull();
+    });
 });

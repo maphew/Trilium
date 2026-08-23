@@ -38,8 +38,14 @@ const MAX_RESULTS = 8;
  */
 const MIN_REQUEST_INTERVAL = 1000;
 
-/** When the next request is allowed to go out, moved forward by every request that is queued. */
+/** When the next request may go out, moved forward as each one is let through. */
 let nextRequestAt = 0;
+
+/** The requests waiting for a slot, in the order they asked for one. */
+const waiting: { resolve(letThrough: boolean): void }[] = [];
+
+/** Holds the wait of whichever request stands at the head of {@link waiting}. */
+let releaseTimer: ReturnType<typeof setTimeout> | undefined;
 
 /**
  * Nominatim, the geocoder run by the OpenStreetMap Foundation.
@@ -200,7 +206,7 @@ function toSearchResult(place: NominatimPlace): GeoSearchResult | null {
         lng,
         bounds,
         icon: placeIcon({ category: place.category, type: place.type, addressType: place.addresstype }),
-        outline: osmId && hasBoundary ? () => fetchOutline(osmId, bounds) : undefined
+        outline: osmId && hasBoundary ? (signal?: AbortSignal) => fetchOutline(osmId, bounds, signal) : undefined
     };
 }
 
@@ -294,7 +300,7 @@ function clamp(value: number, least: number, most: number) {
  * A lookup of its own rather than `polygon_geojson` on the search: a search answers with eight places
  * and the boundaries of the seven that go unlooked-at are the bulk of what would be carried.
  */
-async function fetchOutline(osmId: string, bounds: GeoBounds | undefined): Promise<GeoJSON.Geometry | null> {
+async function fetchOutline(osmId: string, bounds: GeoBounds | undefined, signal?: AbortSignal): Promise<GeoJSON.Geometry | null> {
     const params = new URLSearchParams({
         osm_ids: osmId,
         format: "jsonv2",
@@ -302,8 +308,21 @@ async function fetchOutline(osmId: string, bounds: GeoBounds | undefined): Promi
         polygon_threshold: polygonThreshold(bounds)
     });
 
-    await waitForRequestSlot();
-    const response = await fetch(`${NOMINATIM_LOOKUP_URL}?${params}`);
+    if (!await waitForRequestSlot(signal)) {
+        return null;
+    }
+
+    let response: Response;
+    try {
+        response = await fetch(`${NOMINATIM_LOOKUP_URL}?${params}`, { signal });
+    } catch (e) {
+        // Given up on while in flight, which is the caller's own doing rather than a failure.
+        if (signal?.aborted) {
+            return null;
+        }
+        throw e;
+    }
+
     if (!response.ok) {
         throw new Error(`Nominatim answered ${response.status} ${response.statusText}`);
     }
@@ -340,17 +359,54 @@ function polygonThreshold(bounds: GeoBounds | undefined) {
 }
 
 /**
- * Holds a request back until the interval the policy asks for has passed since the last one.
+ * Holds a request back until the interval the policy asks for has passed since the last one, and
+ * answers whether it may go out.
  *
- * The slot is claimed before the wait rather than after it, so two searches started at once queue
- * behind each other instead of both finding the same slot free.
+ * Requests are let through in the order they asked, so two started at once queue behind each other
+ * instead of both finding the same slot free. One given up on through `signal` leaves the queue and
+ * answers `false`: the requests behind it move up rather than waiting out a request never sent,
+ * which is what keeps a search from queueing behind boundaries nobody is looking at any more.
  */
-async function waitForRequestSlot() {
-    const now = Date.now();
-    const slot = Math.max(now, nextRequestAt);
-    nextRequestAt = slot + MIN_REQUEST_INTERVAL;
-
-    if (slot > now) {
-        await new Promise((resolve) => setTimeout(resolve, slot - now));
+async function waitForRequestSlot(signal?: AbortSignal): Promise<boolean> {
+    if (signal?.aborted) {
+        return false;
     }
+
+    // The slot at hand is taken there and then, so a lone request is not held for a turn of the
+    // event loop before going out.
+    const now = Date.now();
+    if (!waiting.length && now >= nextRequestAt) {
+        nextRequestAt = now + MIN_REQUEST_INTERVAL;
+        return true;
+    }
+
+    return new Promise<boolean>((resolve) => {
+        const request = { resolve };
+        waiting.push(request);
+        signal?.addEventListener("abort", () => {
+            const queued = waiting.indexOf(request);
+            if (queued >= 0) {
+                waiting.splice(queued, 1);
+                resolve(false);
+            }
+        }, { once: true });
+        releaseNextRequest();
+    });
+}
+
+/** Lets the request at the head of the queue through once its slot comes up, and then the next. */
+function releaseNextRequest() {
+    if (releaseTimer !== undefined || !waiting.length) {
+        return;
+    }
+
+    releaseTimer = setTimeout(() => {
+        releaseTimer = undefined;
+        const request = waiting.shift();
+        if (request) {
+            nextRequestAt = Date.now() + MIN_REQUEST_INTERVAL;
+            request.resolve(true);
+        }
+        releaseNextRequest();
+    }, Math.max(0, nextRequestAt - Date.now()));
 }
