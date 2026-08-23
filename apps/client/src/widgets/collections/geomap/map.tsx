@@ -61,13 +61,10 @@ export function toGeoMouseEvent(e: MapMouseEvent): GeoMouseEvent {
 /** Where the fonts a label is drawn from come from, matching what the vector styles ask for. */
 const GLYPHS_URL = "https://tiles.versatiles.org/assets/glyphs/{fontstack}/{range}.pbf";
 
-/** Builds the style that can be applied synchronously: the raster style spec, a vector style URL
- * or the vector fallback style used as a placeholder until the real style loads asynchronously. */
-function buildSyncStyle(layerData: MapLayer): StyleSpecification | string {
+/** The style for a layer: a vector layer's URL for MapLibre to fetch, or a raster spec built here. */
+function buildStyle(layerData: MapLayer): StyleSpecification | string {
     if (layerData.type === "vector") {
-        return typeof layerData.style === "string"
-            ? layerData.style
-            : layerData.styleFallback;
+        return layerData.style;
     }
 
     return {
@@ -157,9 +154,9 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
      * loading — and every style still is for at least a frame, since even one handed over as plain
      * JSON is only taken up on the next animation frame. Rather than wait that frame out, MapLibre
      * gives up: "Unable to perform style diff" on the console, the whole style torn down, and the
-     * map blinking blank until the replacement and its tiles arrive. The vector styles here import
-     * asynchronously and routinely resolve inside that first frame, so the blink was a matter of
-     * which of the two won.
+     * map blinking blank until the replacement and its tiles arrive. The effect that reacts to the
+     * layer runs once on mount, right behind the map's own construction, so the first style is
+     * always applied into that window.
      *
      * Held styles are applied by the `style.load` listener below, where the diff cannot lose the
      * race. Only the latest is kept — a style overtaken before it was ever applied is a style
@@ -170,16 +167,25 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
             pendingStyle.current = style;
             return;
         }
-        mapInstance.setStyle(style, { transformStyle: keepAdditions(appliedStyle.current) });
-        appliedStyle.current = typeof style === "string" ? undefined : styleContents(style);
+
+        const carryAdditions = keepAdditions(appliedStyle.current);
+        mapInstance.setStyle(style, {
+            transformStyle: (previous, next) => {
+                // Where the incoming style is read: `next` is what MapLibre resolved, fetched
+                // already if the style was named by URL, and still without the children's
+                // additions that the merge below puts back. Recorded so that the switch after
+                // this one can tell the map apart from what a child added to it.
+                appliedStyle.current = styleContents(next);
+                return carryAdditions(previous, next);
+            }
+        });
     }
 
     // Initialize the map.
     useEffect(() => {
         if (!containerRef.current) return;
 
-        const initialStyle = buildSyncStyle(layerData);
-        appliedStyle.current = typeof initialStyle === "string" ? undefined : styleContents(initialStyle);
+        const initialStyle = buildStyle(layerData);
 
         let mapInstance: MapLibreGLMap;
         try {
@@ -203,6 +209,12 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
         // that has loaded is followed only by another style loading, and each of those fires again.
         // Also where a style that arrived too early to be applied gets its turn — see applyStyle.
         mapInstance.on("style.load", () => {
+            // The style the map was built with is the one style that does not go through
+            // applyStyle, so this is where its contents are taken. Read here rather than from
+            // `initialStyle` because a vector layer names its style by URL, which only MapLibre
+            // has resolved. `??=` leaves every later style to applyStyle, which reads it before
+            // the children's additions are merged in; this listener runs after them.
+            appliedStyle.current ??= styleContents(mapInstance.getStyle());
             styleLoadedRef.current = true;
             setStyleLoaded(true);
 
@@ -247,27 +259,14 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
         };
     }, []);
 
-    // React to layer changes. Also runs after the initial map creation, which for the synchronous
-    // styles re-applies the style the map was built with (a diff with nothing in it) but loads the
-    // asynchronous vector styles for the first time.
+    // React to layer changes. Also runs after the initial map creation, re-applying the style the
+    // map was built with: a diff with nothing in it, which MapLibre answers by leaving the map be.
     useEffect(() => {
         if (!map) return;
 
-        let cancelled = false;
-
-        if (layerData.type === "vector" && typeof layerData.style !== "string") {
-            layerData.style().then(asyncStyle => {
-                // Guard against the layer changing again or the map being torn down while the
-                // style was still loading.
-                if (cancelled) return;
-                applyStyle(map, asyncStyle);
-            });
-        } else {
-            applyStyle(map, buildSyncStyle(layerData));
-        }
+        applyStyle(map, buildStyle(layerData));
 
         return () => {
-            cancelled = true;
             // A style still being held is this run's; the run for the next layer brings its own.
             pendingStyle.current = null;
         };
@@ -504,9 +503,8 @@ export function styleContents(style: StyleSpecification): StyleContents {
  * turn one style into the other or has to build the new one from scratch, so nothing here depends on
  * which of the two it chooses.
  *
- * @param applied the style this map was last given, or `undefined` where it is not known — a style
- *                named by URL, whose contents we never see. Nothing is carried over then, and the
- *                additions are put back on `style.load` as they were before.
+ * @param applied the style this map was last given, or `undefined` where it is not known. Nothing
+ *                is carried over then, and the additions are put back on `style.load` instead.
  */
 export function keepAdditions(applied: StyleContents | undefined): TransformStyleFunction {
     return (previous, next) => {
