@@ -11,6 +11,7 @@ import type FNote from "../../../entities/fnote";
 import { buildNote } from "../../../test/easy-froca";
 import { renderInto } from "../../../test/render";
 import { DEFAULT_GEOCODING_PROVIDER_NAME, GEOCODING_PROVIDERS, type GeoSearchResult } from "./geocoding";
+import { GPX_MIME } from "./GpxTrack";
 import { ParentMap } from "./map";
 import type { SearchResult } from "./results";
 import SearchBox from "./SearchBox";
@@ -226,6 +227,24 @@ describe("geo map SearchBox", () => {
         expect(labels()[0]).toBe("Cafe next door");
         expect(labels()).toHaveLength(9);
         expect(labels().at(-1)).toBe("geo-map.search-online(cafe)");
+    });
+
+    it("offers a GPX track by its title, which stands on no location of its own", async () => {
+        mockGeocoder([]);
+        const map = fakeMap();
+        const track = buildNote({ title: "Ridge walk", mime: GPX_MIME });
+        const container = renderSearchBox(map, [ ...mapNotes(), track ]);
+
+        await type(container, "ridge");
+        expect(labels()[0]).toBe("Ridge walk");
+
+        await pick(0);
+
+        // Reported with no point to stand on, so the pane fits the whole route (see DetailPane)
+        // rather than the map flying to one end of it.
+        expect(picked.at(-1)?.results[0]).toEqual({ kind: "note", noteId: track.noteId, center: undefined });
+        expect(map.flyTo).not.toHaveBeenCalled();
+        expect(map.fitBounds).not.toHaveBeenCalled();
     });
 
     it("offers nothing for a query below the minimum length", async () => {

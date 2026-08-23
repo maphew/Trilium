@@ -15,6 +15,7 @@ import FormAutocomplete from "../../react/FormAutocomplete";
 import Icon from "../../react/Icon";
 import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
 import { DEFAULT_GEOCODING_PROVIDER_NAME, DEFAULT_PLACE_ICON, type GeoBounds, GEOCODING_PROVIDERS, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
+import { GPX_MIME } from "./GpxTrack";
 import { ParentMap } from "./map";
 import { describePlace } from "./place_address";
 import { LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
@@ -79,7 +80,8 @@ type SearchEntry = {
     /** A second line under the first: the address that places a place, or whose answer a row is. */
     detail?: string;
 } & (
-    | { kind: "marker"; center: [number, number]; noteId: string }
+    /** A note of the map's own. `center` is absent for a GPX track, which stands on no one point. */
+    | { kind: "marker"; center?: [number, number]; noteId: string }
     /** A place from the geocoder, carried whole for whoever the pick is reported to. */
     | { kind: "place"; center: [number, number]; result: GeoSearchResult }
     /** Names the run of rows below it; not a choice (see `isHeading` on FormAutocomplete). */
@@ -317,11 +319,12 @@ function keyOf(result: SearchResult) {
  * geocoder's row and its reports name no place, and a map that could not be drawn is looking nowhere.
  */
 function withDistance(entry: SearchEntry, origin: [number, number] | null): SearchEntry {
-    if (!origin || !("center" in entry)) {
+    const center = "center" in entry ? entry.center : undefined;
+    if (!origin || !center) {
         return entry;
     }
 
-    return { ...entry, distance: metresBetween(origin, entry.center) };
+    return { ...entry, distance: metresBetween(origin, center) };
 }
 
 /** The great-circle metres between two `[lng, lat]` points. */
@@ -358,10 +361,11 @@ function matchMarkers(notes: FNote[], query: string): SearchEntry[] {
     for (const note of notes) {
         if (!matchesFilter(tokens, note.title)) continue;
 
-        // A note without a readable location has no marker to fly to. GPX tracks are skipped for the
-        // same reason: their route is in the file rather than on a label.
+        // A note without a readable location has no marker to fly to. A GPX track has no location
+        // either — its route is in the file — but it is drawn on the map all the same, and the pane
+        // fits the whole of it (see DetailPane).
         const center = parseLocation(note.getLabelValue(LOCATION_ATTRIBUTE));
-        if (!center) continue;
+        if (!center && note.mime !== GPX_MIME) continue;
 
         matches.push({
             kind: "marker",
@@ -369,7 +373,7 @@ function matchMarkers(notes: FNote[], query: string): SearchEntry[] {
             noteId: note.noteId,
             label: note.title,
             icon: note.getIcon(),
-            center
+            center: center ?? undefined
         });
     }
 
