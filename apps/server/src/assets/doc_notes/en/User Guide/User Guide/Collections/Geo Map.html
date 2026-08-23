@@ -11,6 +11,7 @@
     text.</li>
   <li>Search the notes already on the map, and look up places anywhere in the
     world.</li>
+  <li>Turn a place the map already shows into a marker by clicking it.</li>
   <li>Display tracks on the map using <code spellcheck="false">.gpx</code> files.</li>
   <li>3D view of the map, which displays buildings when using a vector map.</li>
 </ul>
@@ -174,6 +175,34 @@
   <p>Dragging existing notes only works if the map is in editing mode. See
     the <em>Read-only</em> section for more information.</p>
 </aside>
+<h3>Adding a note from a place the map already shows</h3>
+<p>When a vector map style is used, the map itself draws the shops, cafés,
+  museums and other places around the area being viewed. Once the map is
+  zoomed in far enough for these to be drawn, they can be clicked:</p>
+<ol>
+  <li>Click one of the place icons drawn by the map. The mouse cursor turns
+    into a pointer over the ones that can be clicked.</li>
+  <li>The same panel used for a searched place appears, showing the place's
+    name and its coordinates, and a pin is placed on it.</li>
+  <li>Press <em>Add as marker</em> to keep it. The note is created with the
+    place's name as its title, and the icon matching the kind of place it
+    is.</li>
+</ol>
+<p>Places are read from the map data that has already been downloaded, so
+  clicking one does not send anything to the internet.</p>
+<p>Some things to keep in mind:</p>
+<ul>
+  <li>Places that have no name in the map data, such as benches or parking
+    spaces, are not clickable. Clicking them does nothing, as clicking the
+    map elsewhere.</li>
+  <li>The markers of the map take precedence: where one stands over a place,
+    clicking it opens the note, not the place.</li>
+  <li>This does not work with the raster (OpenStreetMap) style, whose places
+    are part of the map image, nor with the <em>Neutrino</em> style, which
+    draws no places.</li>
+  <li>In read-only mode a place can still be clicked and read, but not kept
+    as a marker.</li>
+</ul>
 <h2>How the location of the markers is stored</h2>
 <p>The location of a marker is stored in the <code spellcheck="false">#geolocation</code> attribute
   of the child notes:</p>
@@ -360,8 +389,9 @@ class="admonition note">
     <li>The add button at the bottom of the map.</li>
     <li>Repositioning markers.</li>
     <li>Editing from the contextual menu (removing locations or adding new items).</li>
-  <li>Keeping a place found by searching as a marker. The search itself still
-    works, and a place can still be looked at and its coordinates copied.</li>
+  <li>Keeping a place as a marker, whether it was found by searching or clicked
+    on the map. Both still work, and a place can still be looked at and its
+    coordinates copied.</li>
   </ul>
   <p>To set a map as read-only, go to&nbsp;<a class="reference-link" href="#root/_help_8YBEPzcpUgxw">Note buttons</a>&nbsp;→ <em>Editable</em> → <em>Read-only</em> (on
     the new layout, or in Basic Properties on the&nbsp;<a class="reference-link"

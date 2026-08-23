@@ -27,6 +27,7 @@ import type { GeoSearchResult } from "./geocoding";
 import Markers, { DEFAULT_MARKER_COLOR, LOCATION_ATTRIBUTE } from "./Markers";
 import PlaceMarker from "./PlaceMarker";
 import PlacePanel from "./PlacePanel";
+import Pois from "./Pois";
 import ResultNavigator from "./ResultNavigator";
 import type { SearchResult } from "./results";
 import SearchBox from "./SearchBox";
@@ -403,6 +404,9 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 {/* Stood up only while the view is leaned over, so the 3D button changes the map
                     and not merely the angle it is seen from. */}
                 <Buildings isDarkTheme={layerData.isDarkTheme ?? false} />
+                {/* The places the base map itself draws answer a click, which is a marker named and
+                    placed without typing either (see Pois). */}
+                <Pois placing={!!placement} onPick={pickPlace} />
                 {/* The pane above is what a click on a marker opens now, so the markers no longer
                     open the note themselves — the two would otherwise both answer the same click,
                     raising the quick editor over the pane that had just opened behind it. */}

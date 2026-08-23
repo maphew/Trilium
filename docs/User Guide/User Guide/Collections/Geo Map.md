@@ -7,6 +7,7 @@ This note type displays the children notes on a geographical map, based on an at
 
 *   Add markers on the map, which can be customized with icons, colors and text.
 *   Search the notes already on the map, and look up places anywhere in the world.
+*   Turn a place the map already shows into a marker by clicking it.
 *   Display tracks on the map using `.gpx` files.
 *   3D view of the map, which displays buildings when using a vector map.
 
@@ -122,6 +123,23 @@ This works for:
 
 > [!NOTE]
 > Dragging existing notes only works if the map is in editing mode. See the _Read-only_ section for more information.
+
+### Adding a note from a place the map already shows
+
+When a vector map style is used, the map itself draws the shops, cafés, museums and other places around the area being viewed. Once the map is zoomed in far enough for these to be drawn, they can be clicked:
+
+1.  Click one of the place icons drawn by the map. The mouse cursor turns into a pointer over the ones that can be clicked.
+2.  The same panel used for a searched place appears, showing the place's name and its coordinates, and a pin is placed on it.
+3.  Press _Add as marker_ to keep it. The note is created with the place's name as its title, and the icon matching the kind of place it is.
+
+Places are read from the map data that has already been downloaded, so clicking one does not send anything to the internet.
+
+Some things to keep in mind:
+
+*   Places that have no name in the map data, such as benches or parking spaces, are not clickable. Clicking them does nothing, as clicking the map elsewhere.
+*   The markers of the map take precedence: where one stands over a place, clicking it opens the note, not the place.
+*   This does not work with the raster (OpenStreetMap) style, whose places are part of the map image, nor with the _Neutrino_ style, which draws no places.
+*   In read-only mode a place can still be clicked and read, but not kept as a marker.
 
 ## How the location of the markers is stored
 
@@ -252,7 +270,7 @@ When a map is [read-only](../Basic%20Concepts%20and%20Features/Notes/Read-Only%2
 *   The add button at the bottom of the map.
 *   Repositioning markers.
 *   Editing from the contextual menu (removing locations or adding new items).
-*   Keeping a place found by searching as a marker. The search itself still works, and a place can still be looked at and its coordinates copied.
+*   Keeping a place as a marker, whether it was found by searching or clicked on the map. Both still work, and a place can still be looked at and its coordinates copied.
 
 To set a map as read-only, go to <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Note%20buttons.md">Note buttons</a> → _Editable_ → _Read-only_ (on the new layout, or in Basic Properties on the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Ribbon.md">Ribbon</a> for the old layout).
 
