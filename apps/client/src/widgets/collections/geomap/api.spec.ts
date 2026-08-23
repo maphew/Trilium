@@ -100,7 +100,8 @@ describe("geo map api", () => {
 
         expect(created).toEqual({ noteId: "created" });
         expect(createNote).toHaveBeenCalledWith(parent.noteId, expect.objectContaining({
-            title: "sunday-ride.gpx",
+            // Titled without the extension, as an imported file is; the whole name stays on the label.
+            title: "sunday-ride",
             content: "<gpx><trk/></gpx>",
             type: "file",
             // Pinned rather than read off the file: a browser reports no type for a .gpx, and this

@@ -71,7 +71,9 @@ export async function removeFromMap(note: FNote, mapNote: FNote) {
  */
 export async function importGpxTrack(parentNote: FNote, file: File) {
     const { note } = await note_create.createNote(parentNote.noteId, {
-        title: file.name,
+        // Without its extension, as an imported file is titled (see getNoteTitle in core). The whole
+        // name is kept on the label below.
+        title: file.name.replace(/\.gpx$/i, ""),
         content: await file.text(),
         type: "file",
         mime: "application/gpx+xml",
