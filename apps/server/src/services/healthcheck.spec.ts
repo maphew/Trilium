@@ -1,10 +1,12 @@
 import fs from "fs";
 import http from "http";
+import https from "https";
 import net from "net";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { SELF_SIGNED_CERT, SELF_SIGNED_KEY } from "../../spec/support/self_signed_tls.js";
 import { probeHealth, resolveHealthcheckTarget } from "./healthcheck.js";
 
 //#region Probing the server
@@ -90,16 +92,36 @@ describe("the docker healthcheck probe", () => {
         expect(logged).toEqual([ "ERROR" ]);
     });
 
-    it("reports healthy without contacting the server when trilium terminates TLS", async () => {
-        let reached = false;
-        const port = await startServer((_req, res) => {
-            reached = true;
+    it("speaks TLS when trilium terminates it, rather than assuming the server is up", async () => {
+        const seen: (string | undefined)[] = [];
+        const port = await startTlsServer((req, res) => {
+            seen.push(req.url);
+            res.statusCode = 200;
             res.end();
         });
 
         expect(await probeHealth({ https: true, port, host: LOCALHOST })).toBe(0);
-        expect(reached).toBe(false);
-        expect(logged).toEqual([]);
+        expect(seen).toEqual([ "/api/health-check" ]);
+        expect(logged).toEqual([ "STATUS: 200" ]);
+    });
+
+    it("reports unhealthy over TLS when the server is gone, not passing blindly", async () => {
+        const port = await reserveFreePort();
+
+        expect(await probeHealth({ https: true, port, host: LOCALHOST })).toBe(1);
+        expect(logged).toEqual([ "ERROR" ]);
+    });
+
+    it("accepts the self-signed certificate a loopback probe cannot verify", async () => {
+        // The certificate secures nothing here: the probe is checking that the server answers,
+        // not who it is, and a self-signed or expired cert must not read as unhealthy.
+        const port = await startTlsServer((_req, res) => {
+            res.statusCode = 503;
+            res.end();
+        });
+
+        expect(await probeHealth({ https: true, port, host: LOCALHOST })).toBe(1);
+        expect(logged).toEqual([ "STATUS: 503" ]);
     });
 
     it("accepts a 200 whatever the body says", async () => {
@@ -140,6 +162,19 @@ const tempDirs: string[] = [];
 
 async function startServer(handler: http.RequestListener) {
     const server = track(http.createServer(handler));
+    await new Promise<void>((resolve) => server.listen(0, LOCALHOST, resolve));
+
+    const address = server.address();
+    if (address === null || typeof address === "string") {
+        throw new Error("expected the server to be listening on a TCP port");
+    }
+
+    return address.port;
+}
+
+async function startTlsServer(handler: http.RequestListener) {
+    const tls = { key: SELF_SIGNED_KEY, cert: SELF_SIGNED_CERT };
+    const server = track(https.createServer(tls, handler));
     await new Promise<void>((resolve) => server.listen(0, LOCALHOST, resolve));
 
     const address = server.address();
