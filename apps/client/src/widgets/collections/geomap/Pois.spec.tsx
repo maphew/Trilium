@@ -12,7 +12,7 @@ import { CLUSTER_LAYER } from "./clusters";
 import type { GeoSearchResult } from "./geocoding";
 import { MapStyleLoaded, ParentMap } from "./map";
 import { MARKER_LAYER } from "./Markers";
-import Pois, { clickableTint, poiFromFeature, poiLayers } from "./Pois";
+import Pois, { clickableOpacity, clickableTint, poiFromFeature, poiLayers } from "./Pois";
 import { PLACE_MARKER_COLOR } from "./PlaceMarker";
 
 /**
@@ -69,11 +69,13 @@ function fakeMap({
     poiLayerIds = [ "poi-amenity", "poi-shop" ],
     ownLayerIds = [ MARKER_LAYER ],
     zoom = 18,
-    styleColor = "rgb(85,85,85)" as unknown
+    styleColor = "rgb(85,85,85)" as unknown,
+    styleOpacity = { stops: [ [ 16, 0 ], [ 17, 0.4 ] ] } as unknown
 } = {}) {
     const listeners = new Map<string, Set<Listener>>();
     const canvas = { style: { cursor: "" } };
     const paint = new Map<string, unknown>(poiLayerIds.map((id) => [ id, styleColor ]));
+    const opacities = new Map<string, unknown>(poiLayerIds.map((id) => [ id, styleOpacity ]));
     let onPoi: unknown[] = [];
     let onOwn: unknown[] = [];
 
@@ -125,9 +127,13 @@ function fakeMap({
         },
         /** What a layer's places are currently painted in. */
         iconColor: (layer: string) => paint.get(layer),
-        getPaintProperty: (layer: string, name: string) => name === "icon-color" ? paint.get(layer) : undefined,
+        /** How solid a layer's places are currently drawn. */
+        iconOpacity: (layer: string) => opacities.get(layer),
+        getPaintProperty: (layer: string, name: string) =>
+            name === "icon-color" ? paint.get(layer) : opacities.get(layer),
         setPaintProperty(layer: string, name: string, value: unknown) {
             if (name === "icon-color") paint.set(layer, value);
+            else opacities.set(layer, value);
         },
         getLayersOrder: () => [ ...layers.keys() ],
         getLayer: (id: string) => layers.get(id),
@@ -532,6 +538,85 @@ describe("geo map place colouring", () => {
         expect(map.iconColor("poi-amenity")).toEqual(clickableTint("rgb(20,20,20)"));
     });
 });
+
+describe("geo map place solidity", () => {
+    /** What the styles ask for: nothing at zoom 16, climbing to a fraction of solid by 17. */
+    const STYLE_RAMP = { stops: [ [ 16, 0 ], [ 17, 0.4 ] ] };
+
+    it("brings the places that answer a click up to nearly solid", async () => {
+        const map = fakeMap();
+        await renderPois(map);
+
+        expect(map.iconOpacity("poi-amenity")).toEqual(clickableOpacity(STYLE_RAMP));
+        expect(clickableOpacity(STYLE_RAMP)).toEqual([
+            "interpolate",
+            [ "linear" ],
+            [ "zoom" ],
+            // Below the zoom a place can be picked from, what the style asked for stands.
+            16, 0,
+            // At it, a place carrying a name is drawn nearly solid and the rest stay a background.
+            17, [ "case", NAMED, 0.95, 0.4 ]
+        ]);
+    });
+
+    it("keeps the curve the style asked to be read between its stops by", () => {
+        const exponential = clickableOpacity({ stops: [ [ 16, 0 ], [ 18, 0.5 ] ], base: 1.5 });
+
+        expect((exponential as unknown[])[1]).toEqual([ "exponential", 1.5 ]);
+    });
+
+    it("raises the places at the zoom they can be picked from, whatever the style's ramp says", () => {
+        // A ramp that has finished climbing before a place can be picked says nothing about the
+        // zooms that matter, so the raise is added as a stop of its own.
+        expect(clickableOpacity({ stops: [ [ 14, 0 ], [ 15, 0.4 ] ] })).toEqual([
+            "interpolate",
+            [ "linear" ],
+            [ "zoom" ],
+            14, 0,
+            15, 0.4,
+            17, [ "case", NAMED, 0.95, 0.4 ]
+        ]);
+
+        // A flat number has no zoom to it, and is stepped in where the colour is.
+        expect(clickableOpacity(0.4)).toEqual([
+            "step", [ "zoom" ], 0.4, 17, [ "case", NAMED, 0.95, 0.4 ]
+        ]);
+    });
+
+    it("leaves alone what it cannot read a ramp of numbers out of", async () => {
+        expect(clickableOpacity({ stops: [ [ 16, "half" ] ] })).toBeNull();
+        expect(clickableOpacity({ stops: [] })).toBeNull();
+        expect(clickableOpacity(undefined)).toBeNull();
+        expect(clickableOpacity([ "case", NAMED, 1, 0 ])).toBeNull();
+
+        // A style this cannot be read out of keeps the solidity it asked for, colour or no colour.
+        const map = fakeMap({ styleOpacity: [ "case", NAMED, 1, 0 ] });
+        await renderPois(map);
+
+        expect(map.iconOpacity("poi-amenity")).toEqual([ "case", NAMED, 1, 0 ]);
+        expect(map.iconColor("poi-amenity")).toEqual(clickableTint("rgb(85,85,85)"));
+    });
+
+    it("asks the zoom only where MapLibre takes it, at the top of the expression", () => {
+        const solid = clickableOpacity(STYLE_RAMP) as unknown[];
+
+        expect(solid[0]).toBe("interpolate");
+        expect(solid[2]).toEqual([ "zoom" ]);
+        expect(mentionsZoom(solid.slice(3))).toBe(false);
+    });
+
+    it("puts the style's own solidity back when it goes", async () => {
+        const map = fakeMap({ styleOpacity: STYLE_RAMP });
+        const { unmount } = await renderPois(map);
+
+        await unmount();
+
+        expect(map.iconOpacity("poi-amenity")).toBe(STYLE_RAMP);
+    });
+});
+
+/** What both builders ask of a place: that it carries a name to be kept under. */
+const NAMED = [ "to-boolean", [ "coalesce", [ "get", "name_en" ], [ "get", "name" ] ] ];
 
 /** Whether `["zoom"]` is asked anywhere within a value, however deeply it is nested. */
 function mentionsZoom(value: unknown): boolean {

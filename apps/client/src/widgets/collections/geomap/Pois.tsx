@@ -21,6 +21,12 @@ const POI_SOURCE_LAYER = "pois";
 const MIN_POI_ZOOM = 17;
 
 /**
+ * How solid a place that answers a click is drawn. The styles hold their places at a fraction of
+ * this, which is what keeps them a background; a place that can be kept is not one.
+ */
+const CLICKABLE_OPACITY = 0.95;
+
+/**
  * How long the pointer has to rest on a place before its name is shown.
  *
  * Shorter than the wait a marker's preview sits out, that one reading a note from the server while
@@ -224,16 +230,17 @@ export default function Pois({ placing, onPick }: PoisProps) {
         if (!parentMap) return;
         // Aliased so the narrowing above carries into the functions below.
         const map = parentMap;
-        // What the style painted its places with, to be put back when this is taken off.
-        let painted: { layer: string; color: string }[] = [];
+        // What the style painted its places with, to be put back when this is taken off. Either
+        // may be absent, a style being composable in one and not the other.
+        let painted: { layer: string; color?: unknown; opacity?: unknown }[] = [];
 
         /** Puts back what the style painted, for a map that keeps its layers after this goes. */
         function restore() {
-            for (const { layer, color } of painted) {
+            for (const { layer, color, opacity } of painted) {
                 try {
-                    if (map.getLayer(layer)) {
-                        map.setPaintProperty(layer, "icon-color", color);
-                    }
+                    if (!map.getLayer(layer)) continue;
+                    if (color !== undefined) map.setPaintProperty(layer, "icon-color", color);
+                    if (opacity !== undefined) map.setPaintProperty(layer, "icon-opacity", opacity);
                 } catch {
                     // The style has moved on, and took the layer with it.
                 }
@@ -248,15 +255,23 @@ export default function Pois({ placing, onPick }: PoisProps) {
 
             for (const layer of poiLayers(map)) {
                 const color = map.getPaintProperty(layer, "icon-color");
+                const opacity = map.getPaintProperty(layer, "icon-opacity");
                 // Only a plain colour can be composed with: the old function syntax a style may
                 // paint with is an object rather than an expression, and cannot stand inside one.
-                if (typeof color !== "string") continue;
+                const tinted = typeof color === "string" ? clickableTint(color) : null;
+                const solid = clickableOpacity(opacity);
+                if (!tinted && !solid) continue;
 
                 try {
-                    map.setPaintProperty(layer, "icon-color", clickableTint(color));
-                    painted.push({ layer, color });
+                    if (tinted) map.setPaintProperty(layer, "icon-color", tinted);
+                    if (solid) map.setPaintProperty(layer, "icon-opacity", solid);
+                    painted.push({
+                        layer,
+                        color: tinted ? color : undefined,
+                        opacity: solid ? opacity : undefined
+                    });
                 } catch (e) {
-                    console.warn("Geo map: could not colour the places that answer a click --", e);
+                    console.warn("Geo map: could not draw the places that answer a click --", e);
                 }
             }
         }
@@ -340,14 +355,90 @@ function isOwnUnderPointer(map: MapLibreGLMap, point: MapMouseEvent["point"]) {
  * is where the name is then asked about.
  */
 export function clickableTint(styleColor: string) {
-    const named = [ "to-boolean", [ "coalesce", [ "get", "name_en" ], [ "get", "name" ] ] ];
-
     return [
         "step",
         [ "zoom" ],
         styleColor,
-        MIN_POI_ZOOM, [ "case", named, PLACE_MARKER_COLOR, styleColor ]
+        MIN_POI_ZOOM, [ "case", namedPlace(), PLACE_MARKER_COLOR, styleColor ]
     ];
+}
+
+/**
+ * How solid a place is drawn: what the style asked for, with the places that answer a click brought
+ * up to nearly solid at the zooms they can be picked from. `null` where the style asks for something
+ * this cannot be read out of, and the layer is then left as it is.
+ *
+ * The styles paint this with the old function syntax -- `{stops: [[16, 0], [17, 0.4]]}` -- which is
+ * an object rather than an expression and so cannot be composed with. It is read and rebuilt as the
+ * expression saying the same thing, rather than written out here from what the styles say today: a
+ * style is fetched now rather than shipped (see map_layer), and one that lifts its places out of the
+ * background on its own should not be argued with about how far.
+ */
+export function clickableOpacity(styleOpacity: unknown) {
+    // A flat number has no zoom to it, so the raise is stepped in where the colour is (see
+    // `clickableTint`) rather than standing at every zoom the style draws its places at.
+    if (typeof styleOpacity === "number") {
+        return [
+            "step",
+            [ "zoom" ],
+            styleOpacity,
+            MIN_POI_ZOOM, [ "case", namedPlace(), CLICKABLE_OPACITY, styleOpacity ]
+        ];
+    }
+
+    const ramp = readRamp(styleOpacity);
+    if (!ramp) {
+        return null;
+    }
+
+    const { stops, interpolation } = ramp;
+    const raised: unknown[][] = stops.map(([ zoom, value ]) => [
+        zoom,
+        zoom >= MIN_POI_ZOOM ? [ "case", namedPlace(), CLICKABLE_OPACITY, value ] : value
+    ]);
+
+    // A ramp that has finished climbing before a place can be picked says nothing about the zooms
+    // that matter here, so the raise is added as a stop of its own at the first zoom that does.
+    const [ lastZoom, lastValue ] = stops[stops.length - 1];
+    if (lastZoom < MIN_POI_ZOOM) {
+        raised.push([ MIN_POI_ZOOM, [ "case", namedPlace(), CLICKABLE_OPACITY, lastValue ] ]);
+    }
+
+    return [ "interpolate", interpolation, [ "zoom" ], ...raised.flat() ];
+}
+
+/** Whether a place carries a name, which is what it would be kept under (see `poiFromFeature`). */
+function namedPlace() {
+    return [ "to-boolean", [ "coalesce", [ "get", "name_en" ], [ "get", "name" ] ] ];
+}
+
+/**
+ * The zoom ramp behind the old function syntax -- its stops and how it reads between them -- or
+ * `null` for anything that is not one of numbers.
+ */
+function readRamp(value: unknown) {
+    if (!value || typeof value !== "object" || !("stops" in value)) {
+        return null;
+    }
+
+    const { stops, base } = value as { stops?: unknown; base?: unknown };
+    if (!Array.isArray(stops) || !stops.length) {
+        return null;
+    }
+
+    const read: [number, number][] = [];
+    for (const stop of stops) {
+        if (!Array.isArray(stop) || typeof stop[0] !== "number" || typeof stop[1] !== "number") {
+            return null;
+        }
+        read.push([ stop[0], stop[1] ]);
+    }
+
+    // A base of one climbs evenly, which is what `linear` says; anything else is the curve the old
+    // syntax spells `base`.
+    const interpolation = typeof base === "number" && base !== 1 ? [ "exponential", base ] : [ "linear" ];
+
+    return { stops: read, interpolation };
 }
 
 /** The name of a place and the icon it would wear as a marker, as the tooltip shows them. */
