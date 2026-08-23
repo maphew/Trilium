@@ -32,6 +32,9 @@ const PLACE_PADDING = 60;
  *
  * A GPX track is left to the pane, which fits its whole route once the line is on the map (see
  * DetailPane) — a route is a shape, and there is no one point to fly to.
+ *
+ * A place asking for a zoom of its own is shown at it, which is how a point named by its
+ * coordinates is shown as closely as it was meant rather than at the level a town is.
  */
 export function frameResult(map: MapLibreGLMap, result: SearchResult) {
     if (result.kind === "place" && result.place.bounds) {
@@ -46,5 +49,8 @@ export function frameResult(map: MapLibreGLMap, result: SearchResult) {
         return;
     }
 
-    map.flyTo({ center: [ result.place.lng, result.place.lat ], zoom: PLACE_ZOOM });
+    map.flyTo({
+        center: [ result.place.lng, result.place.lat ],
+        zoom: result.place.zoom ?? PLACE_ZOOM
+    });
 }

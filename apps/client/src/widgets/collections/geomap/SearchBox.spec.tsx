@@ -247,6 +247,24 @@ describe("geo map SearchBox", () => {
         expect(map.fitBounds).not.toHaveBeenCalled();
     });
 
+    it("offers a point named outright, above whatever was searched for", async () => {
+        mockGeocoder([]);
+        const map = fakeMap();
+        const container = renderSearchBox(map, mapNotes());
+
+        await type(container, "45.9432, 24.9668");
+
+        // Above the rest: the reader named where they were going rather than looked for it.
+        expect(labels()[0]).toBe("geo-map.go-to-coordinates(45.9432, 24.9668)");
+
+        await pick(0);
+
+        // Pinned and offered for keeping as a searched place is, and shown as closely as it was
+        // meant rather than at the level a place of unsaid extent gets.
+        expect(pickedPlace()).toMatchObject({ name: "45.9432, 24.9668", lat: 45.9432, lng: 24.9668 });
+        expect(map.flyTo).toHaveBeenCalledWith({ center: [ 24.9668, 45.9432 ], zoom: 16 });
+    });
+
     it("offers nothing for a query below the minimum length", async () => {
         const container = renderSearchBox(fakeMap(), mapNotes());
 

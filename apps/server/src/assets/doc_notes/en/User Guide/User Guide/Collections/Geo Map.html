@@ -83,6 +83,22 @@
   of the same name on another continent. The view is treated as at least 25 km
   across, so searching while zoomed into a single street still covers the town
   around it.</p>
+<h3>Going to a point</h3>
+<p>Coordinates typed or pasted into the search bar are offered as a <em>Go to</em> row
+  above everything else, and taking it flies the map to that exact spot and
+  marks it, so it can be kept as a marker in the same way a searched place
+  can.</p>
+<p>The forms understood are:</p>
+<ul>
+  <li>A plain pair, <code spellcheck="false">45.9432, 24.9668</code> — what both Google Maps and
+    OpenStreetMap give when asked for a place's coordinates, and what the
+    <code spellcheck="false">#geolocation</code> attribute holds.</li>
+  <li>The <code spellcheck="false">geo:</code> link the map itself offers a place under, from the
+    <em>Open location</em> action.</li>
+  <li>The address of a place on Google Maps or OpenStreetMap, pasted whole.</li>
+</ul>
+<p>A pair that is not a place on Earth, such as <code spellcheck="false">1234, 5678</code>, is not
+  offered.</p>
 <h3>Reading the results</h3>
 <p>Results are gathered under headings, and each group is ordered by distance
   from the middle of the map:</p>

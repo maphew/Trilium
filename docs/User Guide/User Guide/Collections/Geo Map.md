@@ -58,6 +58,18 @@ Trilium uses Nominatim, the place search run by the OpenStreetMap Foundation. It
 
 The search prefers what the map is showing. Places inside the current view are looked for first and listed above the rest, so searching for a shop while looking at your own town finds the branch in that town rather than one of the same name on another continent. The view is treated as at least 25 km across, so searching while zoomed into a single street still covers the town around it.
 
+### Going to a point
+
+Coordinates typed or pasted into the search bar are offered as a _Go to_ row above everything else, and taking it flies the map to that exact spot and marks it, so it can be kept as a marker in the same way a searched place can.
+
+The forms understood are:
+
+*   A plain pair, `45.9432, 24.9668` — what both Google Maps and OpenStreetMap give when asked for a place's coordinates, and what the `#geolocation` attribute holds.
+*   The `geo:` link the map itself offers a place under, from the _Open location_ action.
+*   The address of a place on Google Maps or OpenStreetMap, pasted whole.
+
+A pair that is not a place on Earth, such as `1234, 5678`, is not offered.
+
 ### Reading the results
 
 Results are gathered under headings, and each group is ordered by distance from the middle of the map:

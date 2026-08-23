@@ -2966,7 +2966,8 @@
     "previous-result": "Previous result",
     "next-result": "Next result",
     "result-position": "Result {{index}} of {{total}}, click to return to it",
-    "results-on-map": "On this map"
+    "results-on-map": "On this map",
+    "go-to-coordinates": "Go to {{- coordinates}}"
   },
   "embedded_note": {
     "open-note": "Open note",

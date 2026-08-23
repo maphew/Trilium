@@ -54,6 +54,11 @@ export interface GeoSearchResult {
      */
     bounds?: GeoBounds;
     /**
+     * How close the place asks to be shown, for one that knows better than the guess made for
+     * a place of unsaid extent: a point named by its coordinates is meant exactly.
+     */
+    zoom?: number;
+    /**
      * Fetches the boundary of the place — a country's coastline, a county's border — or `null` where
      * it has none worth drawing. Absent where the provider cannot supply one at all.
      *

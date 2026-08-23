@@ -14,6 +14,7 @@ import { filterTokens, matchesFilter } from "../../react/filter";
 import FormAutocomplete from "../../react/FormAutocomplete";
 import Icon from "../../react/Icon";
 import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
+import { formatCoordinates, parseCoordinates } from "./coordinates";
 import { DEFAULT_GEOCODING_PROVIDER_NAME, DEFAULT_PLACE_ICON, type GeoBounds, GEOCODING_PROVIDERS, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
 import { GPX_MIME } from "./GpxTrack";
 import { ParentMap } from "./map";
@@ -47,6 +48,12 @@ const EARTH_RADIUS_M = 6_371_008.8;
  * addresses, which at the field's own width is mostly an ellipsis.
  */
 const RESULT_LIST_WIDTH = 500;
+
+/**
+ * How close a point named by its coordinates is shown. Nearer than the level a place of unsaid
+ * extent is given: coordinates are typed to reach one spot rather than the town around it.
+ */
+const POINT_ZOOM = 16;
 
 /** Caps how many of the map's own notes the list offers. */
 const MAX_MARKER_RESULTS = 8;
@@ -84,6 +91,12 @@ type SearchEntry = {
     | { kind: "marker"; center?: [number, number]; noteId: string }
     /** A place from the geocoder, carried whole for whoever the pick is reported to. */
     | { kind: "place"; center: [number, number]; result: GeoSearchResult }
+    /**
+     * A point the query names outright. Carried as a place, which is what it is taken as, but a row
+     * of its own: what it says is what taking it does, the coordinates being what the reader just
+     * typed rather than something found for them.
+     */
+    | { kind: "point"; center: [number, number]; result: GeoSearchResult }
     /** Names the run of rows below it; not a choice (see `isHeading` on FormAutocomplete). */
     | { kind: "heading" }
     /** Runs the geocoder for `query`. */
@@ -146,7 +159,14 @@ export default function SearchBox({ notes, onPickResult }: SearchBoxProps) {
         const { places, notice } = geocodeEntries(geocodeRun, trimmed, provider.name);
         const found = [ ...matchMarkers(notes, trimmed), ...places ]
             .map((entry) => withDistance(entry, origin));
-        const entries = [ ...grouped(found), ...(notice ? [ notice ] : []) ];
+        // Above the groups rather than sorted into them: a reader who typed a point named where
+        // they were going, and what a search turned up answers a different question.
+        const point = pointEntry(trimmed);
+        const entries = [
+            ...(point ? [ withDistance(point, origin) ] : []),
+            ...grouped(found),
+            ...(notice ? [ notice ] : [])
+        ];
         entriesByKey.current = new Map(entries.map((entry) => [ entry.key, entry ]));
         return entries.map((entry) => entry.key);
     }, [ notes, geocodeRun, dismissed, map, provider ]);
@@ -209,7 +229,7 @@ export default function SearchBox({ notes, onPickResult }: SearchBoxProps) {
 
         if (entry.kind === "geocode") {
             runGeocoder(entry.query);
-        } else if (entry.kind === "marker" || entry.kind === "place") {
+        } else if (entry.kind === "marker" || entry.kind === "place" || entry.kind === "point") {
             setDismissed(true);
 
             // The whole of what was offered, so the map can step through the rest of it once the
@@ -301,7 +321,7 @@ function walkableResults(entries: Map<string, SearchEntry>): SearchResult[] {
     for (const entry of entries.values()) {
         if (entry.kind === "marker") {
             results.push({ kind: "note", noteId: entry.noteId, center: entry.center });
-        } else if (entry.kind === "place") {
+        } else if (entry.kind === "place" || entry.kind === "point") {
             results.push({ kind: "place", place: entry.result });
         }
     }
@@ -454,6 +474,39 @@ function grouped(entries: SearchEntry[]): SearchEntry[] {
 
 function headingEntry(key: string, label: string): SearchEntry {
     return { kind: "heading", key: `heading:${key}`, label };
+}
+
+/**
+ * The row for a point the query names outright, or `null` where it names none.
+ *
+ * A place like any the geocoder answers with, so that taking it pins it, offers it for keeping and
+ * steps among the rest exactly as a searched place does — one without a name, which is why it is
+ * named by its own coordinates.
+ */
+function pointEntry(query: string): SearchEntry | null {
+    const center = parseCoordinates(query);
+    if (!center) {
+        return null;
+    }
+
+    const [ lng, lat ] = center;
+    const coordinates = formatCoordinates(center);
+
+    return {
+        kind: "point",
+        key: `place:point:${lng},${lat}`,
+        label: t("geo-map.go-to-coordinates", { coordinates }),
+        icon: "bx bx-crosshair",
+        center,
+        result: {
+            id: `point:${lng},${lat}`,
+            name: coordinates,
+            label: coordinates,
+            lat,
+            lng,
+            zoom: POINT_ZOOM
+        }
+    };
 }
 
 function placeEntry(result: GeoSearchResult): SearchEntry {
