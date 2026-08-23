@@ -9,7 +9,7 @@ import { trackHitLayers } from "./GpxTrack";
 import { MapStyleLoaded, ParentMap } from "./map";
 import { MARKER_LAYER } from "./Markers";
 import { placeIcon } from "./osm_icons";
-import { PLACE_LAYER } from "./PlaceMarker";
+import { PLACE_LAYER, PLACE_MARKER_COLOR } from "./PlaceMarker";
 
 /** The source layer the vector styles draw shops, cafes and the rest of the base map's places from. */
 const POI_SOURCE_LAYER = "pois";
@@ -212,6 +212,65 @@ export default function Pois({ placing, onPick }: PoisProps) {
         };
     }, [ parentMap, placing, styleLoaded ]);
 
+    /**
+     * Draws the places that answer a click in the colour a place is pinned in, so which of them do
+     * is read off the map rather than found by hovering each in turn.
+     *
+     * Composed over what the style painted rather than replacing it, so the places that answer no
+     * click -- an unnamed bench, anything at a zoom too far out to pick from -- keep the grey the
+     * style drew them in and stand as the background they are.
+     */
+    useEffect(() => {
+        if (!parentMap) return;
+        // Aliased so the narrowing above carries into the functions below.
+        const map = parentMap;
+        // What the style painted its places with, to be put back when this is taken off.
+        let painted: { layer: string; color: string }[] = [];
+
+        /** Puts back what the style painted, for a map that keeps its layers after this goes. */
+        function restore() {
+            for (const { layer, color } of painted) {
+                try {
+                    if (map.getLayer(layer)) {
+                        map.setPaintProperty(layer, "icon-color", color);
+                    }
+                } catch {
+                    // The style has moved on, and took the layer with it.
+                }
+            }
+            painted = [];
+        }
+
+        function tint() {
+            // Forgotten rather than put back: a style paints its places itself, and writing the
+            // colours of the style before it over them is how the wrong grey lands on a dark map.
+            painted = [];
+
+            for (const layer of poiLayers(map)) {
+                const color = map.getPaintProperty(layer, "icon-color");
+                // Only a plain colour can be composed with: the old function syntax a style may
+                // paint with is an object rather than an expression, and cannot stand inside one.
+                if (typeof color !== "string") continue;
+
+                try {
+                    map.setPaintProperty(layer, "icon-color", clickableTint(color));
+                    painted.push({ layer, color });
+                } catch (e) {
+                    console.warn("Geo map: could not colour the places that answer a click --", e);
+                }
+            }
+        }
+
+        tint();
+        // Switching the style paints its places afresh.
+        map.on("style.load", tint);
+
+        return () => {
+            map.off("style.load", tint);
+            restore();
+        };
+    }, [ parentMap, styleLoaded ]);
+
     return null;
 }
 
@@ -267,6 +326,28 @@ function isOwnUnderPointer(map: MapLibreGLMap, point: MapMouseEvent["point"]) {
         .filter((id) => map.getLayer(id));
 
     return own.length > 0 && map.queryRenderedFeatures(point, { layers: own }).length > 0;
+}
+
+/**
+ * What a place is drawn in: the colour a picked place is pinned in where it answers a click, and
+ * `styleColor` -- what the style painted it -- where it does not.
+ *
+ * The two conditions are the ones the click itself asks (see the click handler above): the map has
+ * to be zoomed in far enough for a place to be picked, and the place has to carry a name.
+ *
+ * The zoom is asked at the top of the expression rather than beside the name, MapLibre taking
+ * `["zoom"]` only as the input of an outermost `step` or `interpolate`. What each zoom is drawn in
+ * is where the name is then asked about.
+ */
+export function clickableTint(styleColor: string) {
+    const named = [ "to-boolean", [ "coalesce", [ "get", "name_en" ], [ "get", "name" ] ] ];
+
+    return [
+        "step",
+        [ "zoom" ],
+        styleColor,
+        MIN_POI_ZOOM, [ "case", named, PLACE_MARKER_COLOR, styleColor ]
+    ];
 }
 
 /** The name of a place and the icon it would wear as a marker, as the tooltip shows them. */

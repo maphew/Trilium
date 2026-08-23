@@ -128,9 +128,10 @@ This works for:
 
 When a vector map style is used, the map itself draws the shops, cafés, museums and other places around the area being viewed. Once the map is zoomed in far enough for these to be drawn, they can be clicked:
 
-1.  Rest the mouse on one of the place icons drawn by the map. Its name appears above it, and the cursor turns into a pointer. The map draws these places as bare icons, so hovering is how their names are read — showing them all at once would crowd out the titles of your own markers.
-2.  Click it. The same panel used for a searched place appears, showing the place's name and its coordinates, and a pin is placed on it.
-3.  Press _Add as marker_ to keep it. The note is created with the place's name as its title, and the icon matching the kind of place it is.
+1.  Look for the places drawn in orange — the same colour a searched place is pinned in. Those are the ones that can be clicked; the rest of the map's places stay grey.
+2.  Rest the mouse on one of them. Its name appears above it, and the cursor turns into a pointer. The map draws these places as bare icons, so hovering is how their names are read — showing them all at once would crowd out the titles of your own markers.
+3.  Click it. The same panel used for a searched place appears, showing the place's name and its coordinates, and a pin is placed on it.
+4.  Press _Add as marker_ to keep it. The note is created with the place's name as its title, and the icon matching the kind of place it is.
 
 Places are read from the map data that has already been downloaded, so clicking one does not send anything to the internet.
 

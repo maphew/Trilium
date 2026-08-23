@@ -12,7 +12,8 @@ import { CLUSTER_LAYER } from "./clusters";
 import type { GeoSearchResult } from "./geocoding";
 import { MapStyleLoaded, ParentMap } from "./map";
 import { MARKER_LAYER } from "./Markers";
-import Pois, { poiFromFeature, poiLayers } from "./Pois";
+import Pois, { clickableTint, poiFromFeature, poiLayers } from "./Pois";
+import { PLACE_MARKER_COLOR } from "./PlaceMarker";
 
 /**
  * The popup MapLibre would draw, recording what it was shown and whether it is up. Hoisted because
@@ -64,9 +65,15 @@ function poiFeature(properties: Record<string, unknown>, coordinates: [number, n
  * A map whose style draws places, standing in for MapLibre. What it has to answer is the hit test:
  * what the click landed on, told apart by which layers the query names.
  */
-function fakeMap({ poiLayerIds = [ "poi-amenity", "poi-shop" ], ownLayerIds = [ MARKER_LAYER ], zoom = 18 } = {}) {
+function fakeMap({
+    poiLayerIds = [ "poi-amenity", "poi-shop" ],
+    ownLayerIds = [ MARKER_LAYER ],
+    zoom = 18,
+    styleColor = "rgb(85,85,85)" as unknown
+} = {}) {
     const listeners = new Map<string, Set<Listener>>();
     const canvas = { style: { cursor: "" } };
+    const paint = new Map<string, unknown>(poiLayerIds.map((id) => [ id, styleColor ]));
     let onPoi: unknown[] = [];
     let onOwn: unknown[] = [];
 
@@ -115,6 +122,12 @@ function fakeMap({ poiLayerIds = [ "poi-amenity", "poi-shop" ], ownLayerIds = [ 
         },
         queryRenderedFeatures(_point: unknown, { layers: queried }: { layers: string[] }) {
             return queried.some((id) => poiLayerIds.includes(id)) ? onPoi : onOwn;
+        },
+        /** What a layer's places are currently painted in. */
+        iconColor: (layer: string) => paint.get(layer),
+        getPaintProperty: (layer: string, name: string) => name === "icon-color" ? paint.get(layer) : undefined,
+        setPaintProperty(layer: string, name: string, value: unknown) {
+            if (name === "icon-color") paint.set(layer, value);
         },
         getLayersOrder: () => [ ...layers.keys() ],
         getLayer: (id: string) => layers.get(id),
@@ -447,3 +460,84 @@ describe("geo map place tooltips", () => {
         expect(tooltipText()).toBeNull();
     });
 });
+
+
+describe("geo map place colouring", () => {
+    it("draws the places that answer a click in the colour a place is pinned in", async () => {
+        const map = fakeMap();
+        await renderPois(map);
+
+        // Composed over what the style painted, which is what the rest of the places keep.
+        expect(map.iconColor("poi-amenity")).toEqual(clickableTint("rgb(85,85,85)"));
+        expect(map.iconColor("poi-shop")).toEqual(clickableTint("rgb(85,85,85)"));
+    });
+
+    it("asks of a place exactly what the click asks of it", () => {
+        const [ step, input, tooFarOut, threshold, closeIn ] = clickableTint("rgb(85,85,85)") as unknown[];
+
+        expect(step).toBe("step");
+        expect(input).toEqual([ "zoom" ]);
+        // Too far out to pick a place, so the style's own grey stands unchanged.
+        expect(tooFarOut).toBe("rgb(85,85,85)");
+        expect(threshold).toBe(17);
+        // Close enough in, a place carrying a name is drawn in the colour one is pinned in, and one
+        // without a name keeps the grey along with the click it does not answer.
+        expect(closeIn).toEqual([
+            "case",
+            [ "to-boolean", [ "coalesce", [ "get", "name_en" ], [ "get", "name" ] ] ],
+            PLACE_MARKER_COLOR,
+            "rgb(85,85,85)"
+        ]);
+    });
+
+    it("asks the zoom only where MapLibre takes it, at the top of the expression", () => {
+        const tint = clickableTint("rgb(85,85,85)") as unknown[];
+
+        // A paint value whose `["zoom"]` stands anywhere but the input of an outermost `step` or
+        // `interpolate` is refused, and a refused value leaves the places painted as they were —
+        // which is the whole of what a reader would see of the mistake.
+        expect(tint[0]).toBe("step");
+        expect(tint[1]).toEqual([ "zoom" ]);
+        expect(mentionsZoom(tint.slice(2))).toBe(false);
+    });
+
+    it("leaves a style that paints its places some other way alone", async () => {
+        // The old function syntax is an object rather than an expression, and cannot be composed with.
+        const stops = { stops: [ [ 16, "#111" ], [ 20, "#999" ] ] };
+        const map = fakeMap({ styleColor: stops });
+        await renderPois(map);
+
+        expect(map.iconColor("poi-amenity")).toBe(stops);
+    });
+
+    it("puts the style's own colour back when it goes", async () => {
+        const map = fakeMap();
+        const { unmount } = await renderPois(map);
+
+        await unmount();
+
+        expect(map.iconColor("poi-amenity")).toBe("rgb(85,85,85)");
+        expect(map.iconColor("poi-shop")).toBe("rgb(85,85,85)");
+    });
+
+    it("colours the places a style switch brought in, over what that style painted them", async () => {
+        const map = fakeMap();
+        await renderPois(map);
+
+        // A style paints its places afresh, so what was composed before is gone and the colour read
+        // back is the new style's own rather than the last composition.
+        map.setPaintProperty("poi-amenity", "icon-color", "rgb(20,20,20)");
+        await act(async () => { map.fireStyleLoad(); });
+
+        expect(map.iconColor("poi-amenity")).toEqual(clickableTint("rgb(20,20,20)"));
+    });
+});
+
+/** Whether `["zoom"]` is asked anywhere within a value, however deeply it is nested. */
+function mentionsZoom(value: unknown): boolean {
+    if (!Array.isArray(value)) {
+        return false;
+    }
+
+    return (value[0] === "zoom" && value.length === 1) || value.some(mentionsZoom);
+}
