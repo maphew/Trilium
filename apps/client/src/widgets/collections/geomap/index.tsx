@@ -27,8 +27,9 @@ import type { GeoSearchResult } from "./geocoding";
 import Markers, { DEFAULT_MARKER_COLOR, LOCATION_ATTRIBUTE } from "./Markers";
 import PlaceMarker from "./PlaceMarker";
 import PlacePanel from "./PlacePanel";
+import Pois from "./Pois";
 import ResultNavigator from "./ResultNavigator";
-import type { SearchResult } from "./results";
+import { NOTE_ZOOM, type SearchResult } from "./results";
 import SearchBox from "./SearchBox";
 import Tooltips from "./Tooltips";
 
@@ -196,7 +197,8 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         if (result.kind === "place") {
             pickPlace(result.place);
         } else {
-            selectNote({ noteId: result.noteId });
+            // The pane aims the camera at the marker, so it is given the zoom to aim at as well.
+            selectNote({ noteId: result.noteId, zoom: NOTE_ZOOM });
         }
     }, [ pickPlace, selectNote ]);
 
@@ -215,7 +217,9 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         if (!created) return;
 
         setNotes((current) => current.some((n) => n.noteId === created.noteId) ? current : [ ...current, created ]);
-        selectNote({ noteId: created.noteId });
+        // A place named only by where it stands gave the note nothing to be called, so the pane
+        // opens with the stock title picked out, exactly as it does over a marker just placed.
+        selectNote({ noteId: created.noteId, isNew: pickedPlace.unnamed });
     }, [ note, pickedPlace, selectNote ]);
 
     const toggleNotePlacement = useCallback(() => {
@@ -403,6 +407,9 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 {/* Stood up only while the view is leaned over, so the 3D button changes the map
                     and not merely the angle it is seen from. */}
                 <Buildings isDarkTheme={layerData.isDarkTheme ?? false} />
+                {/* The places the base map itself draws answer a click, which is a marker named and
+                    placed without typing either (see Pois). */}
+                <Pois placing={!!placement} onPick={pickPlace} />
                 {/* The pane above is what a click on a marker opens now, so the markers no longer
                     open the note themselves — the two would otherwise both answer the same click,
                     raising the quick editor over the pane that had just opened behind it. */}

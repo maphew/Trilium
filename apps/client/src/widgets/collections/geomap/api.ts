@@ -71,7 +71,9 @@ export async function removeFromMap(note: FNote, mapNote: FNote) {
  */
 export async function importGpxTrack(parentNote: FNote, file: File) {
     const { note } = await note_create.createNote(parentNote.noteId, {
-        title: file.name,
+        // Without its extension, as an imported file is titled (see getNoteTitle in core). The whole
+        // name is kept on the label below.
+        title: file.name.replace(/\.gpx$/i, ""),
         content: await file.text(),
         type: "file",
         mime: "application/gpx+xml",
@@ -90,25 +92,47 @@ export async function importGpxTrack(parentNote: FNote, file: File) {
  *
  * No title is asked for first. A modal between the click and the note was the wrong way round: it
  * blocked the map to ask for the one thing the detail pane is made for editing. The note is created
- * under the stock name instead, and the caller opens the pane on it with that name selected — naming
- * the place is typing over it (see index.tsx).
+ * unnamed instead, and the caller opens the pane on it with the name it was given selected —
+ * naming the place is typing over it (see index.tsx).
  */
 export async function createNewNote(parentNote: FNote, e: GeoMouseEvent) {
-    return createNoteAt(parentNote, [ e.latlng.lat, e.latlng.lng ], t("relation_map.default_new_note_title"));
+    return createNoteAt(parentNote, [ e.latlng.lat, e.latlng.lng ]);
 }
 
 /**
- * Turns a place found by searching into a note of the map's own, named as the geocoder names it.
+ * Turns a place into a note of the map's own, named as the place is named.
  *
- * Unlike a note dropped by clicking the map, this one arrives with a name worth keeping, so the
- * detail pane opens on it as it stands rather than with the title picked out to be typed over (see
- * `isNew` in DetailPane).
+ * Unlike a note dropped by clicking the map, this one usually arrives with a name worth keeping, so
+ * the detail pane opens on it as it stands rather than with the title picked out to be typed over
+ * (see `isNew` in DetailPane).
+ *
+ * A place named only by where it stands is the exception: a point read out of the search bar is
+ * called by its own coordinates, which is no title for a note. It takes the name a placed marker
+ * takes instead, and the pane opens on it the same way (see `keepPlaceAsMarker` in index).
  */
-export async function createNoteForPlace(parentNote: FNote, place: { name: string; lat: number; lng: number }) {
-    return createNoteAt(parentNote, [ place.lat, place.lng ], place.name);
+export async function createNoteForPlace(parentNote: FNote, place: PlaceToKeep) {
+    const title = place.unnamed ? undefined : place.name;
+
+    return createNoteAt(parentNote, [ place.lat, place.lng ], title);
 }
 
-async function createNoteAt(parentNote: FNote, [ lat, lng ]: [number, number], title: string) {
+/** What keeping a place as a marker needs of it: where it stands, and what to call it there. */
+interface PlaceToKeep {
+    name: string;
+    lat: number;
+    lng: number;
+    unnamed?: boolean;
+}
+
+/**
+ * Creates a located note under the map.
+ *
+ * A note with no name of its own is created without one rather than under a name of the map's
+ * choosing, which is what leaves the naming to the server: an unnamed note takes the name every
+ * new note takes — the one the tree's + button gives — and a map labelled `#titleTemplate` names
+ * its markers by that instead.
+ */
+async function createNoteAt(parentNote: FNote, [ lat, lng ]: [number, number], title?: string) {
     const { note } = await note_create.createNote(parentNote.noteId, {
         title,
         content: "",

@@ -61,8 +61,11 @@ export default function PlacePanel({ place, isReadOnly, onAddMarker, onClose }: 
         >
             <OverlayPanelBody className="geo-place-panel-body">
                 {/* The whole of what the geocoder calls the place, the heading above carrying only
-                    its name. */}
-                <div className="geo-place-panel-address">{place.label}</div>
+                    its name. A place clicked on the base map is named but not addressed, and the
+                    line is left out rather than repeating the heading (see Pois). */}
+                {place.label !== place.name && (
+                    <div className="geo-place-panel-address">{place.label}</div>
+                )}
 
                 {/* The pane's own, so a place and a marker offer their coordinates alike. */}
                 <LocationButton coordinates={[ place.lng, place.lat ]} />

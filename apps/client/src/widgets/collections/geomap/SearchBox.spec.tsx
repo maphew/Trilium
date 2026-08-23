@@ -11,6 +11,7 @@ import type FNote from "../../../entities/fnote";
 import { buildNote } from "../../../test/easy-froca";
 import { renderInto } from "../../../test/render";
 import { DEFAULT_GEOCODING_PROVIDER_NAME, GEOCODING_PROVIDERS, type GeoSearchResult } from "./geocoding";
+import { GPX_MIME } from "./GpxTrack";
 import { ParentMap } from "./map";
 import type { SearchResult } from "./results";
 import SearchBox from "./SearchBox";
@@ -192,6 +193,83 @@ describe("geo map SearchBox", () => {
             "London office",
             "geo-map.search-online(london)"
         ]);
+    });
+
+    it("matches a title past its accents and in whatever order the terms are typed", async () => {
+        mockGeocoder([]);
+        const container = renderSearchBox(fakeMap(), [
+            buildNote({ title: "Zürich Hauptbahnhof", "#geolocation": "47.37,8.54" }),
+            buildNote({ title: "Paris Hotel", "#geolocation": "48.85,2.35" })
+        ]);
+
+        // Matched by the terms the app filters its own lists by, which fold accents on both sides.
+        await type(container, "zurich");
+        expect(labels()).toEqual([ "Zürich Hauptbahnhof", "geo-map.search-online(zurich)" ]);
+
+        // Every term rather than the whole query in one piece, so their order is the typist's.
+        await type(container, "hotel paris");
+        expect(labels()).toEqual([ "Paris Hotel", "geo-map.search-online(hotel paris)" ]);
+    });
+
+    it("offers the nearest of the notes that match, rather than the first the map holds", async () => {
+        mockGeocoder([]);
+        // More matches than the list has room for, the nearest of them held last: a cap taken while
+        // gathering would offer the nine furthest and leave the one at hand out altogether.
+        const far = Array.from({ length: 9 }, (_, index) =>
+            buildNote({ title: `Cafe ${index}`, "#geolocation": "10,10" }));
+        const container = renderSearchBox(
+            fakeMap(), [ ...far, buildNote({ title: "Cafe next door", "#geolocation": "39.66,19.96" }) ]);
+
+        await type(container, "cafe");
+
+        // The last of them stands beside what the map is showing (see CENTRE), so it comes first —
+        // and the list holds the eight it has room for, with the geocoder's row under them.
+        expect(labels()[0]).toBe("Cafe next door");
+        expect(labels()).toHaveLength(9);
+        expect(labels().at(-1)).toBe("geo-map.search-online(cafe)");
+    });
+
+    it("offers a GPX track by its title, which stands on no location of its own", async () => {
+        mockGeocoder([]);
+        const map = fakeMap();
+        const track = buildNote({ title: "Ridge walk", mime: GPX_MIME });
+        const container = renderSearchBox(map, [ ...mapNotes(), track ]);
+
+        await type(container, "ridge");
+        expect(labels()[0]).toBe("Ridge walk");
+
+        await pick(0);
+
+        // Reported with no point to stand on, so the pane fits the whole route (see DetailPane)
+        // rather than the map flying to one end of it.
+        expect(picked.at(-1)?.results[0]).toEqual({ kind: "note", noteId: track.noteId, center: undefined });
+        expect(map.flyTo).not.toHaveBeenCalled();
+        expect(map.fitBounds).not.toHaveBeenCalled();
+    });
+
+    it("offers a point named outright, above whatever was searched for", async () => {
+        mockGeocoder([]);
+        const map = fakeMap();
+        const container = renderSearchBox(map, mapNotes());
+
+        await type(container, "45.9432, 24.9668");
+
+        // Above the rest: the reader named where they were going rather than looked for it.
+        expect(labels()[0]).toBe("geo-map.go-to-coordinates(45.9432, 24.9668)");
+
+        await pick(0);
+
+        // Pinned and offered for keeping as a searched place is, and shown as closely as it was
+        // meant rather than at the level a place of unsaid extent gets.
+        expect(pickedPlace()).toMatchObject({
+            name: "45.9432, 24.9668",
+            lat: 45.9432,
+            lng: 24.9668,
+            // Named by where it stands and nothing else, so a note kept from it is named as a
+            // placed marker is rather than after its own coordinates (see createNoteForPlace).
+            unnamed: true
+        });
+        expect(map.flyTo).toHaveBeenCalledWith({ center: [ 24.9668, 45.9432 ], zoom: 16 });
     });
 
     it("offers nothing for a query below the minimum length", async () => {

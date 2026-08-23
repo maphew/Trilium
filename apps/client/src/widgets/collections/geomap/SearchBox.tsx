@@ -10,10 +10,13 @@ import { t } from "../../../services/i18n";
 import { logError } from "../../../services/ws";
 import { getMeasurementSystem } from "../../../utils/formatters";
 import { formatDistance } from "../../../utils/units";
+import { filterTokens, matchesFilter } from "../../react/filter";
 import FormAutocomplete from "../../react/FormAutocomplete";
 import Icon from "../../react/Icon";
 import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
+import { formatCoordinates, parseCoordinates } from "./coordinates";
 import { DEFAULT_GEOCODING_PROVIDER_NAME, DEFAULT_PLACE_ICON, type GeoBounds, GEOCODING_PROVIDERS, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
+import { GPX_MIME } from "./GpxTrack";
 import { ParentMap } from "./map";
 import { describePlace } from "./place_address";
 import { LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
@@ -45,6 +48,12 @@ const EARTH_RADIUS_M = 6_371_008.8;
  * addresses, which at the field's own width is mostly an ellipsis.
  */
 const RESULT_LIST_WIDTH = 500;
+
+/**
+ * How close a point named by its coordinates is shown. Nearer than the level a place of unsaid
+ * extent is given: coordinates are typed to reach one spot rather than the town around it.
+ */
+const POINT_ZOOM = 16;
 
 /** Caps how many of the map's own notes the list offers. */
 const MAX_MARKER_RESULTS = 8;
@@ -78,9 +87,16 @@ type SearchEntry = {
     /** A second line under the first: the address that places a place, or whose answer a row is. */
     detail?: string;
 } & (
-    | { kind: "marker"; center: [number, number]; noteId: string }
+    /** A note of the map's own. `center` is absent for a GPX track, which stands on no one point. */
+    | { kind: "marker"; center?: [number, number]; noteId: string }
     /** A place from the geocoder, carried whole for whoever the pick is reported to. */
     | { kind: "place"; center: [number, number]; result: GeoSearchResult }
+    /**
+     * A point the query names outright. Carried as a place, which is what it is taken as, but a row
+     * of its own: what it says is what taking it does, the coordinates being what the reader just
+     * typed rather than something found for them.
+     */
+    | { kind: "point"; center: [number, number]; result: GeoSearchResult }
     /** Names the run of rows below it; not a choice (see `isHeading` on FormAutocomplete). */
     | { kind: "heading" }
     /** Runs the geocoder for `query`. */
@@ -143,7 +159,14 @@ export default function SearchBox({ notes, onPickResult }: SearchBoxProps) {
         const { places, notice } = geocodeEntries(geocodeRun, trimmed, provider.name);
         const found = [ ...matchMarkers(notes, trimmed), ...places ]
             .map((entry) => withDistance(entry, origin));
-        const entries = [ ...grouped(found), ...(notice ? [ notice ] : []) ];
+        // Above the groups rather than sorted into them: a reader who typed a point named where
+        // they were going, and what a search turned up answers a different question.
+        const point = pointEntry(trimmed);
+        const entries = [
+            ...(point ? [ withDistance(point, origin) ] : []),
+            ...grouped(found),
+            ...(notice ? [ notice ] : [])
+        ];
         entriesByKey.current = new Map(entries.map((entry) => [ entry.key, entry ]));
         return entries.map((entry) => entry.key);
     }, [ notes, geocodeRun, dismissed, map, provider ]);
@@ -206,7 +229,7 @@ export default function SearchBox({ notes, onPickResult }: SearchBoxProps) {
 
         if (entry.kind === "geocode") {
             runGeocoder(entry.query);
-        } else if (entry.kind === "marker" || entry.kind === "place") {
+        } else if (entry.kind === "marker" || entry.kind === "place" || entry.kind === "point") {
             setDismissed(true);
 
             // The whole of what was offered, so the map can step through the rest of it once the
@@ -298,7 +321,7 @@ function walkableResults(entries: Map<string, SearchEntry>): SearchResult[] {
     for (const entry of entries.values()) {
         if (entry.kind === "marker") {
             results.push({ kind: "note", noteId: entry.noteId, center: entry.center });
-        } else if (entry.kind === "place") {
+        } else if (entry.kind === "place" || entry.kind === "point") {
             results.push({ kind: "place", place: entry.result });
         }
     }
@@ -316,11 +339,12 @@ function keyOf(result: SearchResult) {
  * geocoder's row and its reports name no place, and a map that could not be drawn is looking nowhere.
  */
 function withDistance(entry: SearchEntry, origin: [number, number] | null): SearchEntry {
-    if (!origin || !("center" in entry)) {
+    const center = "center" in entry ? entry.center : undefined;
+    if (!origin || !center) {
         return entry;
     }
 
-    return { ...entry, distance: metresBetween(origin, entry.center) };
+    return { ...entry, distance: metresBetween(origin, center) };
 }
 
 /** The great-circle metres between two `[lng, lat]` points. */
@@ -340,19 +364,28 @@ function viewportOf(map: MapLibreGLMap): GeoBounds {
     return [ [ bounds.getWest(), bounds.getSouth() ], [ bounds.getEast(), bounds.getNorth() ] ];
 }
 
-/** The notes on the map whose title contains the query and that are drawn somewhere. */
+/**
+ * The notes on the map that the query names and that are drawn somewhere.
+ *
+ * Matched by the terms the app filters its own lists by (see `filterTokens`), which ignores case and
+ * accents on both sides and asks for every term rather than the whole query in one piece: "zurich"
+ * finds "Zürich Hauptbahnhof", and "hotel paris" finds "Paris Hotel".
+ *
+ * All of them, however many: which of them the list has room for is settled once they can be ordered
+ * by how far off they stand (see {@link grouped}).
+ */
 function matchMarkers(notes: FNote[], query: string): SearchEntry[] {
-    const needle = query.toLowerCase();
+    const tokens = filterTokens(query);
     const matches: SearchEntry[] = [];
 
     for (const note of notes) {
-        if (matches.length >= MAX_MARKER_RESULTS) break;
-        if (!note.title.toLowerCase().includes(needle)) continue;
+        if (!matchesFilter(tokens, note.title)) continue;
 
-        // A note without a readable location has no marker to fly to. GPX tracks are skipped for the
-        // same reason: their route is in the file rather than on a label.
+        // A note without a readable location has no marker to fly to. A GPX track has no location
+        // either — its route is in the file — but it is drawn on the map all the same, and the pane
+        // fits the whole of it (see DetailPane).
         const center = parseLocation(note.getLabelValue(LOCATION_ATTRIBUTE));
-        if (!center) continue;
+        if (!center && note.mime !== GPX_MIME) continue;
 
         matches.push({
             kind: "marker",
@@ -360,7 +393,7 @@ function matchMarkers(notes: FNote[], query: string): SearchEntry[] {
             noteId: note.noteId,
             label: note.title,
             icon: note.getIcon(),
-            center
+            center: center ?? undefined
         });
     }
 
@@ -425,7 +458,9 @@ function grouped(entries: SearchEntry[]): SearchEntry[] {
     const isAtHand = (entry: SearchEntry) => (entry.distance ?? Infinity) <= SEARCH_RADIUS_M;
 
     const groups: { key: string; label: string; rows: SearchEntry[] }[] = [
-        { key: "on-map", label: t("geo-map.results-on-map"), rows: sorted.filter((entry) => entry.kind === "marker") },
+        // Capped once sorted, so what the list offers is the nearest of the notes that match rather
+        // than whichever of them the map happens to hold first.
+        { key: "on-map", label: t("geo-map.results-on-map"), rows: sorted.filter((entry) => entry.kind === "marker").slice(0, MAX_MARKER_RESULTS) },
         { key: "nearby", label: t("geo-map.results-nearby"), rows: places.filter(isAtHand) },
         { key: "far", label: t("geo-map.results-far"), rows: places.filter((entry) => !isAtHand(entry)) }
     ].filter((group) => group.rows.length);
@@ -439,6 +474,40 @@ function grouped(entries: SearchEntry[]): SearchEntry[] {
 
 function headingEntry(key: string, label: string): SearchEntry {
     return { kind: "heading", key: `heading:${key}`, label };
+}
+
+/**
+ * The row for a point the query names outright, or `null` where it names none.
+ *
+ * A place like any the geocoder answers with, so that taking it pins it, offers it for keeping and
+ * steps among the rest exactly as a searched place does — one without a name, which is why it is
+ * named by its own coordinates.
+ */
+function pointEntry(query: string): SearchEntry | null {
+    const center = parseCoordinates(query);
+    if (!center) {
+        return null;
+    }
+
+    const [ lng, lat ] = center;
+    const coordinates = formatCoordinates(center);
+
+    return {
+        kind: "point",
+        key: `place:point:${lng},${lat}`,
+        label: t("geo-map.go-to-coordinates", { coordinates }),
+        icon: "bx bx-crosshair",
+        center,
+        result: {
+            id: `point:${lng},${lat}`,
+            name: coordinates,
+            label: coordinates,
+            lat,
+            lng,
+            zoom: POINT_ZOOM,
+            unnamed: true
+        }
+    };
 }
 
 function placeEntry(result: GeoSearchResult): SearchEntry {

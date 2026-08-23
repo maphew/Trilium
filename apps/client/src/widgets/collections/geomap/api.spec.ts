@@ -31,7 +31,7 @@ const confirmDelete = vi.mocked(dialog.confirmDeleteNoteBoxWithNote);
 beforeEach(() => vi.clearAllMocks());
 
 describe("geo map api", () => {
-    it("creates a placed note under the stock name, located where the click landed", async () => {
+    it("leaves a placed note to be named as any new note is, where the click landed", async () => {
         const parent = buildNote({ title: "The map" });
 
         const created = await createNewNote(parent, {
@@ -44,6 +44,9 @@ describe("geo map api", () => {
         expect(created).toEqual({ noteId: "created" });
         expect(createNote).toHaveBeenCalledWith(parent.noteId, expect.objectContaining({
             type: "text",
+            // No name is sent, which is what leaves the naming where every other new note's is: the
+            // server's, and so a `#titleTemplate` on the map's if it carries one.
+            title: undefined,
             // Nothing is asked first — the name is typed over in the pane, not answered in a modal.
             activate: false,
             attributes: expect.arrayContaining([
@@ -71,6 +74,22 @@ describe("geo map api", () => {
         }));
     });
 
+    it("leaves a note kept from a bare point to be named as a placed one is", async () => {
+        const parent = buildNote({ title: "The map" });
+
+        // A point read out of the search bar is called by its own coordinates, which is no title.
+        const created = await createNoteForPlace(
+            parent, { name: "45.796, 24.147", lat: 45.796, lng: 24.147, unnamed: true });
+
+        expect(created).toEqual({ noteId: "created" });
+        expect(createNote).toHaveBeenCalledWith(parent.noteId, expect.objectContaining({
+            title: undefined,
+            attributes: expect.arrayContaining([
+                { type: "label", name: "geolocation", value: "45.796,24.147" }
+            ])
+        }));
+    });
+
     it("brings a GPX file in as a file note the map draws tracks by", async () => {
         const parent = buildNote({ title: "The map" });
         const file = new File([ "<gpx><trk/></gpx>" ], "sunday-ride.gpx");
@@ -79,7 +98,8 @@ describe("geo map api", () => {
 
         expect(created).toEqual({ noteId: "created" });
         expect(createNote).toHaveBeenCalledWith(parent.noteId, expect.objectContaining({
-            title: "sunday-ride.gpx",
+            // Titled without the extension, as an imported file is; the whole name stays on the label.
+            title: "sunday-ride",
             content: "<gpx><trk/></gpx>",
             type: "file",
             // Pinned rather than read off the file: a browser reports no type for a .gpx, and this
