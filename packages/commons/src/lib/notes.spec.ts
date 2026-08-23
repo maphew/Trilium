@@ -119,6 +119,11 @@ describe("getNoteIcon", () => {
         expect(icon).toBe("bx bxs-file-pdf");
     });
 
+    it("marks a GPX track as the journey it holds rather than as a file", () => {
+        const icon = getNoteIcon(buildArgs({ type: "file", mime: "application/gpx+xml" }));
+        expect(icon).toBe("bx bx-trip");
+    });
+
     it("falls back to the file icon for a file note with an unmapped mime", () => {
         const icon = getNoteIcon(buildArgs({ type: "file", mime: "text/plain" }));
         expect(icon).toBe("bx bx-file");
@@ -171,6 +176,7 @@ describe("getMimeIcon", () => {
         expect(getMimeIcon("audio/mpeg")).toBe("bx bx-music");
         expect(getMimeIcon("image/gif")).toBe("bx bxs-file-gif");
         expect(getMimeIcon("image/png")).toBe("bx bx-image");
+        expect(getMimeIcon("application/gpx+xml")).toBe("bx bx-trip");
         expect(getMimeIcon("text/plain")).toBe("bx bx-file");
     });
 

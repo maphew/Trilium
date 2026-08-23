@@ -82,6 +82,7 @@ const FILE_MIME_MAPPINGS: Record<string, string> = {
     "application/pdf": "bx bxs-file-pdf",
     "application/vnd.oasis.opendocument.text": "bx bxs-file-doc",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "bx bxs-file-doc",
+    "application/gpx+xml": "bx bx-trip",
 };
 
 const IMAGE_MIME_MAPPINGS: Record<string, string> = {
