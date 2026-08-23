@@ -353,10 +353,13 @@ function featureFocus(feature: MapGeoJSONFeature): PaneFocus | undefined {
  * Longitude is read in two frames at once, because it is a circle wearing a seam: a track across
  * the antimeridian holds points either side of ±180° that are a stroll apart on the ground, and
  * their raw minimum and maximum span nearly the whole world. The same longitudes are therefore
- * also read with the seam moved to 0° — each western value pushed a turn east — and whichever
- * frame drew the narrower box is the one answered. A crossing of one seam is whole in the other
- * frame; only a track truly girdling half the earth stays wide in both, and then wide is the
- * truth. The shifted answer may name longitudes past 180°, which `fitBounds` takes in stride.
+ * also read with the seam moved to 0° — each western value pushed a turn east — and the shifted
+ * frame answers where it draws the narrower box.
+ *
+ * Only a box wider than half the world is reconsidered, that being the width a crossing of the seam
+ * produces. Anything narrower is already whole, and the two widths are then equal to within what
+ * floating point does to them, which is enough to send a track in Florida round the far side of the
+ * world. The shifted answer may name longitudes past 180°, which `fitBounds` takes in stride.
  */
 async function trackBounds(map: MapLibreGLMap, noteId: string, track?: number): Promise<[[number, number], [number, number]] | null> {
     const data = await map.getSource<GeoJSONSource>(trackSourceId(noteId))?.getData();
@@ -391,7 +394,8 @@ async function trackBounds(map: MapLibreGLMap, noteId: string, track?: number): 
 
     if (!Number.isFinite(west)) return null;
 
-    return eastShifted - westShifted < east - west
+    const spansHalfTheWorld = east - west > 180;
+    return spansHalfTheWorld && eastShifted - westShifted < east - west
         ? [ [ westShifted, south ], [ eastShifted, north ] ]
         : [ [ west, south ], [ east, north ] ];
 }
