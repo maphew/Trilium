@@ -11,7 +11,7 @@ export type SearchResult =
 const PLACE_ZOOM = 12;
 
 /** The zoom level a note is shown at, closer in since it marks a spot rather than an area. */
-const NOTE_ZOOM = 15;
+export const NOTE_ZOOM = 15;
 
 /**
  * How close a place is framed at most. A house's extent is a few metres across, which on its own

@@ -29,7 +29,7 @@ import PlaceMarker from "./PlaceMarker";
 import PlacePanel from "./PlacePanel";
 import Pois from "./Pois";
 import ResultNavigator from "./ResultNavigator";
-import type { SearchResult } from "./results";
+import { NOTE_ZOOM, type SearchResult } from "./results";
 import SearchBox from "./SearchBox";
 import Tooltips from "./Tooltips";
 
@@ -197,7 +197,8 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         if (result.kind === "place") {
             pickPlace(result.place);
         } else {
-            selectNote({ noteId: result.noteId });
+            // The pane aims the camera at the marker, so it is given the zoom to aim at as well.
+            selectNote({ noteId: result.noteId, zoom: NOTE_ZOOM });
         }
     }, [ pickPlace, selectNote ]);
 

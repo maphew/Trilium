@@ -500,6 +500,16 @@ describe("DetailPane", () => {
         expect(map.eased).toEqual([ { center: [ 2, 1 ], offset: [ -200, 0 ] } ]);
     });
 
+    it("stands the marker at the zoom the selection names", async () => {
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const map = fakeMap();
+
+        await mount([ note ], map, false, false, { noteId: note.noteId, zoom: 15 });
+        await settle();
+
+        expect(map.eased).toEqual([ { center: [ 2, 1 ], offset: [ -200, 0 ], zoom: 15 } ]);
+    });
+
     /** An embedded map may be narrower than the pane, leaving nowhere to move to. */
     it("leaves the marker where it is on a map the pane covers whole", async () => {
         const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });

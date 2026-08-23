@@ -1,7 +1,7 @@
 import "./DetailPane.css";
 
 import clsx from "clsx";
-import type { GeoJSONSource, MapGeoJSONFeature, Map as MapLibreGLMap, MapMouseEvent, MapSourceDataEvent } from "maplibre-gl";
+import type { EaseToOptions, GeoJSONSource, MapGeoJSONFeature, Map as MapLibreGLMap, MapMouseEvent, MapSourceDataEvent } from "maplibre-gl";
 import { useCallback, useContext, useEffect, useMemo, useRef } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
@@ -36,6 +36,9 @@ export interface PaneSelection {
     isNew?: boolean;
     /** What of the note the click named, where it named more than the note. See {@link PaneFocus}. */
     focus?: PaneFocus;
+    /** The zoom to stand the marker at. Absent for a marker clicked on the map, which keeps the
+     *  current zoom. */
+    zoom?: number;
 }
 
 /**
@@ -227,14 +230,18 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
         const coordinates = parseLocation(location);
         if (!coordinates) return;
 
-        map.easeTo({ center: coordinates, offset: paneOffset(map) });
+        const aim: EaseToOptions = { center: coordinates, offset: paneOffset(map) };
+        if (selection?.zoom !== undefined) {
+            aim.zoom = selection.zoom;
+        }
+        map.easeTo(aim);
         // The focus is depended on by identity, which a click renews even on the same note: every
         // click is a fresh ask, and re-clicking what is already open brings it back into view.
         //
         // Growing and shrinking the pane are asks of the same kind, the room the camera is aiming
         // into being what changed: a pane put back down brings its marker clear of it again, rather
         // than leaving it under the pane until something else happens to move the camera.
-    }, [ map, note?.noteId, location, selection?.focus, maximized ]);
+    }, [ map, note?.noteId, location, selection?.focus, selection?.zoom, maximized ]);
 
     // Bound only while something is selected, so the map's other Escape — giving up on placing a
     // marker (see index.tsx) — stands alone when nothing is. A phone's dialog answers the key
