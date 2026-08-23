@@ -39,7 +39,7 @@ async function main() {
 }
 
 /**
- * Docker runs the healthcheck every 30 seconds, and each run is a cold node process that parses
+ * Docker runs the healthcheck every 60 seconds, and each run is a cold node process that parses
  * the whole bundle. It resolves its target in healthcheck_target.ts rather than through config.ts
  * so that it pulls in nothing else; importing a server service here costs megabytes and puts that
  * cost on every probe. The limit is generous, so tripping it means a dependency crept back in.

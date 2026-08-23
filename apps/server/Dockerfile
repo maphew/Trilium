@@ -22,4 +22,4 @@ COPY ./start-docker.sh /usr/src/app
 # Configure container
 EXPOSE 8080
 CMD [ "sh", "./start-docker.sh" ]
-HEALTHCHECK --start-period=10s CMD exec gosu node node /usr/src/app/docker_healthcheck.cjs
+HEALTHCHECK --interval=60s --timeout=5s --start-period=30s CMD exec gosu node node /usr/src/app/docker_healthcheck.cjs
