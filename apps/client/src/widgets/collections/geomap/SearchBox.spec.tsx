@@ -261,7 +261,14 @@ describe("geo map SearchBox", () => {
 
         // Pinned and offered for keeping as a searched place is, and shown as closely as it was
         // meant rather than at the level a place of unsaid extent gets.
-        expect(pickedPlace()).toMatchObject({ name: "45.9432, 24.9668", lat: 45.9432, lng: 24.9668 });
+        expect(pickedPlace()).toMatchObject({
+            name: "45.9432, 24.9668",
+            lat: 45.9432,
+            lng: 24.9668,
+            // Named by where it stands and nothing else, so a note kept from it is named as a
+            // placed marker is rather than after its own coordinates (see createNoteForPlace).
+            unnamed: true
+        });
         expect(map.flyTo).toHaveBeenCalledWith({ center: [ 24.9668, 45.9432 ], zoom: 16 });
     });
 

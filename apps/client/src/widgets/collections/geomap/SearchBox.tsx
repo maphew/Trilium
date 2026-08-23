@@ -504,7 +504,8 @@ function pointEntry(query: string): SearchEntry | null {
             label: coordinates,
             lat,
             lng,
-            zoom: POINT_ZOOM
+            zoom: POINT_ZOOM,
+            unnamed: true
         }
     };
 }

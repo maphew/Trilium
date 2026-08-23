@@ -17,6 +17,10 @@ vi.mock("../../../services/note_create", () => ({
     default: { createNote: vi.fn(async () => ({ note: { noteId: "created" }, branch: null })) }
 }));
 
+// i18next is not initialized under test, so t() returns nothing. The key stands in for the text,
+// which is enough to tell the stock name from a name the place brought with it.
+vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
+
 vi.mock("../../../services/attributes", () => ({ default: { setLabel: vi.fn(async () => {}) } }));
 vi.mock("../../../services/note_deletion", () => ({ deleteNoteOrBranch: vi.fn(async () => {}) }));
 vi.mock("../../../services/dialog", () => ({
@@ -45,6 +49,7 @@ describe("geo map api", () => {
         expect(createNote).toHaveBeenCalledWith(parent.noteId, expect.objectContaining({
             type: "text",
             // Nothing is asked first — the name is typed over in the pane, not answered in a modal.
+            title: "relation_map.default_new_note_title",
             activate: false,
             attributes: expect.arrayContaining([
                 { type: "label", name: "geolocation", value: "48.85,2.36" },
@@ -67,6 +72,22 @@ describe("geo map api", () => {
             attributes: expect.arrayContaining([
                 { type: "label", name: "geolocation", value: "45.796,24.147" },
                 { type: "label", name: "iconClass", value: "bx bx-pin" }
+            ])
+        }));
+    });
+
+    it("gives a note kept from a bare point the name a placed marker gets", async () => {
+        const parent = buildNote({ title: "The map" });
+
+        // A point read out of the search bar is called by its own coordinates, which is no title.
+        const created = await createNoteForPlace(
+            parent, { name: "45.796, 24.147", lat: 45.796, lng: 24.147, unnamed: true });
+
+        expect(created).toEqual({ noteId: "created" });
+        expect(createNote).toHaveBeenCalledWith(parent.noteId, expect.objectContaining({
+            title: "relation_map.default_new_note_title",
+            attributes: expect.arrayContaining([
+                { type: "label", name: "geolocation", value: "45.796,24.147" }
             ])
         }));
     });

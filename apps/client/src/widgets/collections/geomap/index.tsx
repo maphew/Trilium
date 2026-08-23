@@ -217,7 +217,9 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         if (!created) return;
 
         setNotes((current) => current.some((n) => n.noteId === created.noteId) ? current : [ ...current, created ]);
-        selectNote({ noteId: created.noteId });
+        // A place named only by where it stands gave the note nothing to be called, so the pane
+        // opens with the stock title picked out, exactly as it does over a marker just placed.
+        selectNote({ noteId: created.noteId, isNew: pickedPlace.unnamed });
     }, [ note, pickedPlace, selectNote ]);
 
     const toggleNotePlacement = useCallback(() => {

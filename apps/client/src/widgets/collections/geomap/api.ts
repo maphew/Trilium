@@ -98,14 +98,28 @@ export async function createNewNote(parentNote: FNote, e: GeoMouseEvent) {
 }
 
 /**
- * Turns a place found by searching into a note of the map's own, named as the geocoder names it.
+ * Turns a place into a note of the map's own, named as the place is named.
  *
- * Unlike a note dropped by clicking the map, this one arrives with a name worth keeping, so the
- * detail pane opens on it as it stands rather than with the title picked out to be typed over (see
- * `isNew` in DetailPane).
+ * Unlike a note dropped by clicking the map, this one usually arrives with a name worth keeping, so
+ * the detail pane opens on it as it stands rather than with the title picked out to be typed over
+ * (see `isNew` in DetailPane).
+ *
+ * A place named only by where it stands is the exception: a point read out of the search bar is
+ * called by its own coordinates, which is no title for a note. It takes the name a placed marker
+ * takes instead, and the pane opens on it the same way (see `keepPlaceAsMarker` in index).
  */
-export async function createNoteForPlace(parentNote: FNote, place: { name: string; lat: number; lng: number }) {
-    return createNoteAt(parentNote, [ place.lat, place.lng ], place.name);
+export async function createNoteForPlace(parentNote: FNote, place: PlaceToKeep) {
+    const title = place.unnamed ? t("relation_map.default_new_note_title") : place.name;
+
+    return createNoteAt(parentNote, [ place.lat, place.lng ], title);
+}
+
+/** What keeping a place as a marker needs of it: where it stands, and what to call it there. */
+interface PlaceToKeep {
+    name: string;
+    lat: number;
+    lng: number;
+    unnamed?: boolean;
 }
 
 async function createNoteAt(parentNote: FNote, [ lat, lng ]: [number, number], title: string) {

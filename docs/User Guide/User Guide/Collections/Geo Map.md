@@ -62,6 +62,8 @@ The search prefers what the map is showing. Places inside the current view are l
 
 Coordinates typed or pasted into the search bar are offered as a _Go to_ row above everything else, and taking it flies the map to that exact spot and marks it, so it can be kept as a marker in the same way a searched place can.
 
+A point has no name of its own, only the coordinates it was typed as. The note kept from one is therefore created under the same stock name a marker placed with the _Add marker_ button gets, and opens with that title selected, ready to be typed over.
+
 The forms understood are:
 
 *   A plain pair, `45.9432, 24.9668` — what both Google Maps and OpenStreetMap give when asked for a place's coordinates, and what the `#geolocation` attribute holds.
