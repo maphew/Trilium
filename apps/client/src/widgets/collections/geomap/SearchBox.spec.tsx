@@ -194,6 +194,40 @@ describe("geo map SearchBox", () => {
         ]);
     });
 
+    it("matches a title past its accents and in whatever order the terms are typed", async () => {
+        mockGeocoder([]);
+        const container = renderSearchBox(fakeMap(), [
+            buildNote({ title: "Zürich Hauptbahnhof", "#geolocation": "47.37,8.54" }),
+            buildNote({ title: "Paris Hotel", "#geolocation": "48.85,2.35" })
+        ]);
+
+        // Matched by the terms the app filters its own lists by, which fold accents on both sides.
+        await type(container, "zurich");
+        expect(labels()).toEqual([ "Zürich Hauptbahnhof", "geo-map.search-online(zurich)" ]);
+
+        // Every term rather than the whole query in one piece, so their order is the typist's.
+        await type(container, "hotel paris");
+        expect(labels()).toEqual([ "Paris Hotel", "geo-map.search-online(hotel paris)" ]);
+    });
+
+    it("offers the nearest of the notes that match, rather than the first the map holds", async () => {
+        mockGeocoder([]);
+        // More matches than the list has room for, the nearest of them held last: a cap taken while
+        // gathering would offer the nine furthest and leave the one at hand out altogether.
+        const far = Array.from({ length: 9 }, (_, index) =>
+            buildNote({ title: `Cafe ${index}`, "#geolocation": "10,10" }));
+        const container = renderSearchBox(
+            fakeMap(), [ ...far, buildNote({ title: "Cafe next door", "#geolocation": "39.66,19.96" }) ]);
+
+        await type(container, "cafe");
+
+        // The last of them stands beside what the map is showing (see CENTRE), so it comes first —
+        // and the list holds the eight it has room for, with the geocoder's row under them.
+        expect(labels()[0]).toBe("Cafe next door");
+        expect(labels()).toHaveLength(9);
+        expect(labels().at(-1)).toBe("geo-map.search-online(cafe)");
+    });
+
     it("offers nothing for a query below the minimum length", async () => {
         const container = renderSearchBox(fakeMap(), mapNotes());
 

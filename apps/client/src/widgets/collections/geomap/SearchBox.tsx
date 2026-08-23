@@ -10,6 +10,7 @@ import { t } from "../../../services/i18n";
 import { logError } from "../../../services/ws";
 import { getMeasurementSystem } from "../../../utils/formatters";
 import { formatDistance } from "../../../utils/units";
+import { filterTokens, matchesFilter } from "../../react/filter";
 import FormAutocomplete from "../../react/FormAutocomplete";
 import Icon from "../../react/Icon";
 import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
@@ -340,14 +341,22 @@ function viewportOf(map: MapLibreGLMap): GeoBounds {
     return [ [ bounds.getWest(), bounds.getSouth() ], [ bounds.getEast(), bounds.getNorth() ] ];
 }
 
-/** The notes on the map whose title contains the query and that are drawn somewhere. */
+/**
+ * The notes on the map that the query names and that are drawn somewhere.
+ *
+ * Matched by the terms the app filters its own lists by (see `filterTokens`), which ignores case and
+ * accents on both sides and asks for every term rather than the whole query in one piece: "zurich"
+ * finds "Zürich Hauptbahnhof", and "hotel paris" finds "Paris Hotel".
+ *
+ * All of them, however many: which of them the list has room for is settled once they can be ordered
+ * by how far off they stand (see {@link grouped}).
+ */
 function matchMarkers(notes: FNote[], query: string): SearchEntry[] {
-    const needle = query.toLowerCase();
+    const tokens = filterTokens(query);
     const matches: SearchEntry[] = [];
 
     for (const note of notes) {
-        if (matches.length >= MAX_MARKER_RESULTS) break;
-        if (!note.title.toLowerCase().includes(needle)) continue;
+        if (!matchesFilter(tokens, note.title)) continue;
 
         // A note without a readable location has no marker to fly to. GPX tracks are skipped for the
         // same reason: their route is in the file rather than on a label.
@@ -425,7 +434,9 @@ function grouped(entries: SearchEntry[]): SearchEntry[] {
     const isAtHand = (entry: SearchEntry) => (entry.distance ?? Infinity) <= SEARCH_RADIUS_M;
 
     const groups: { key: string; label: string; rows: SearchEntry[] }[] = [
-        { key: "on-map", label: t("geo-map.results-on-map"), rows: sorted.filter((entry) => entry.kind === "marker") },
+        // Capped once sorted, so what the list offers is the nearest of the notes that match rather
+        // than whichever of them the map happens to hold first.
+        { key: "on-map", label: t("geo-map.results-on-map"), rows: sorted.filter((entry) => entry.kind === "marker").slice(0, MAX_MARKER_RESULTS) },
         { key: "nearby", label: t("geo-map.results-nearby"), rows: places.filter(isAtHand) },
         { key: "far", label: t("geo-map.results-far"), rows: places.filter((entry) => !isAtHand(entry)) }
     ].filter((group) => group.rows.length);
