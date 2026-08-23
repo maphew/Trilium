@@ -2953,7 +2953,20 @@
     "exit-3d": "Lay the map flat again",
     "close-details": "Close",
     "marker-color": "Marker color",
-    "copy-coordinates": "Copy coordinates"
+    "copy-coordinates": "Copy coordinates",
+    "search": "Search",
+    "search-placeholder": "Search for a place",
+    "search-online": "Search online for \"{{- query}}\"",
+    "searching-online": "Searching online…",
+    "no-places-found": "No places found",
+    "search-failed": "Couldn't search for places",
+    "results-nearby": "Nearby",
+    "results-far": "Far away",
+    "add-place-as-marker": "Add as marker",
+    "previous-result": "Previous result",
+    "next-result": "Next result",
+    "result-position": "Result {{index}} of {{total}}, click to return to it",
+    "results-on-map": "On this map"
   },
   "embedded_note": {
     "open-note": "Open note",

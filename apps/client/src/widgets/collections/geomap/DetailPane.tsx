@@ -632,7 +632,7 @@ function MarkerLocation({ note }: { note: FNote }) {
  * pane does: the hook binds on mount and does not look again, and there is a render before the
  * location has been read in which there is no button to bind to.
  */
-function LocationButton({ coordinates }: { coordinates: [number, number] }) {
+export function LocationButton({ coordinates }: { coordinates: [number, number] }) {
     const buttonRef = useRef<HTMLButtonElement>(null);
 
     // The app's own tooltip rather than the browser's, as the buttons under it wear (see
