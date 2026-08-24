@@ -60,7 +60,7 @@ describe("context", () => {
 
             const seen = init(() => get<string>("isolationKey"));
 
-            // cls-hooked starts a fresh store per init(), so the value set in
+            // Sibling scopes start independent, so the value set in
             // the previous scope must not leak into this one.
             expect(seen).toBeUndefined();
         });

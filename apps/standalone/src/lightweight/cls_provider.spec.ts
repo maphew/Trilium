@@ -41,7 +41,7 @@ describe("BrowserExecutionContext", () => {
     // Known limitation, recorded so a fix flips these assertions rather than passing silently.
     // A stack is not async-context propagation: the browser has no AsyncLocalStorage, so scopes
     // are pushed and popped, and a scope stays on the stack for the grace period after it ends.
-    // The server's cls-hooked context gets both of these right.
+    // The server's AsyncLocalStorage context gets both of these right.
     describe("stack-based scoping (known divergence from the server context)", () => {
         it("starts a nested scope empty, leaving the enclosing one reading it", () => {
             const ctx = new BrowserExecutionContext();
@@ -50,7 +50,7 @@ describe("BrowserExecutionContext", () => {
                 ctx.set("componentId", "outer");
 
                 ctx.init(() => {
-                    // No inheritance: cls-hooked would report "outer" here.
+                    // No inheritance: the server context would report "outer" here.
                     expect(ctx.get("componentId")).toBeUndefined();
                     ctx.set("componentId", "inner");
                 });

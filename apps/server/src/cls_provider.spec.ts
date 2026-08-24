@@ -1,22 +1,15 @@
-import clsHooked from "cls-hooked";
 import { EventEmitter } from "events";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import ClsHookedExecutionContext, { namespace } from "./cls_provider.js";
-
-afterEach(() => vi.restoreAllMocks());
+import AsyncLocalStorageExecutionContext, { bindEmitter } from "./cls_provider.js";
 
 /**
  * The contract every `ExecutionContext` on the Node side has to satisfy. `route_api`, `etapi_utils`
  * and `custom` all rely on it, and `putEntityChange()` writes through it on every entity save, so a
  * gap here surfaces as lost entity changes rather than as a thrown error.
  */
-describe("ClsHookedExecutionContext", () => {
-    const ctx = new ClsHookedExecutionContext();
-
-    // Binding an emitter is not part of ExecutionContext — the three route modules reach for the
-    // namespace directly. Routed through one helper so the tests below describe behaviour only.
-    const bindEmitter = (emitter: EventEmitter) => namespace.bindEmitter(emitter);
+describe("AsyncLocalStorageExecutionContext", () => {
+    const ctx = new AsyncLocalStorageExecutionContext();
 
     describe("value storage", () => {
         it("round-trips values inside init() and returns the callback's value", () => {
@@ -167,9 +160,18 @@ describe("ClsHookedExecutionContext", () => {
         });
     });
 
-    it("delegates reset() to the underlying implementation", () => {
-        const resetSpy = vi.spyOn(clsHooked, "reset").mockImplementation(() => {});
-        ctx.reset();
-        expect(resetSpy).toHaveBeenCalled();
+    it("drops the active context on reset(), and starts clean on the next init()", () => {
+        ctx.init(() => {
+            ctx.set("alpha", 1);
+            ctx.reset();
+            expect(ctx.get("alpha")).toBeUndefined();
+        });
+
+        const afterReset = ctx.init(() => {
+            ctx.set("alpha", 2);
+            return ctx.get<number>("alpha");
+        });
+
+        expect(afterReset).toBe(2);
     });
 });
