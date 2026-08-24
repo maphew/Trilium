@@ -1,3 +1,5 @@
+import { AttributeRow } from "@triliumnext/commons";
+
 import FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
 import dialog from "../../../services/dialog";
@@ -7,9 +9,6 @@ import { deleteNoteOrBranch } from "../../../services/note_deletion";
 import { GPX_MIME } from "./GpxTrack";
 import type { GeoMouseEvent } from "./map";
 import { LOCATION_ATTRIBUTE } from "./Markers";
-
-/** The icon a note created on the map is given, and so what the ghost pin previews for one. */
-export const CHILD_NOTE_ICON = "bx bx-pin";
 
 export async function moveMarker(noteId: string, latLng: { lat: number; lng: number } | null) {
     const value = latLng ? [latLng.lat, latLng.lng].join(",") : "";
@@ -140,20 +139,26 @@ interface PlaceToKeep {
  *
  * `icon` is what the place is already drawn under — a cart for a supermarket, a flag for a country
  * (see placeIcon in osm_icons) — so the marker keeps the icon the panel offered it under. A note
- * dropped by clicking the map has no such place behind it and wears CHILD_NOTE_ICON.
+ * dropped by clicking the map has no such place behind it and is given no icon at all:
+ * `getNoteIcon` draws a note carrying a location as a pin, which leaves an icon the map hands down
+ * through `#child:iconClass` or a template to apply instead.
  */
 async function createNoteAt(
     parentNote: FNote, [ lat, lng ]: [number, number], title?: string, icon?: string) {
+    const noteAttributes: Omit<AttributeRow, "noteId" | "attributeId">[] = [
+        { type: "label", name: LOCATION_ATTRIBUTE, value: [ lat, lng ].join(",") }
+    ];
+    if (icon) {
+        noteAttributes.push({ type: "label", name: "iconClass", value: icon });
+    }
+
     const { note } = await note_create.createNote(parentNote.noteId, {
         title,
         content: "",
         type: "text",
         activate: false,
         isProtected: parentNote.isProtected,
-        attributes: [
-            { type: "label", name: LOCATION_ATTRIBUTE, value: [ lat, lng ].join(",") },
-            { type: "label", name: "iconClass", value: icon ?? CHILD_NOTE_ICON }
-        ]
+        attributes: noteAttributes
     });
 
     return note;

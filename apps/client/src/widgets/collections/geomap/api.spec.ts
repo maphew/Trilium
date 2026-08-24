@@ -49,10 +49,12 @@ describe("geo map api", () => {
             title: undefined,
             // Nothing is asked first — the name is typed over in the pane, not answered in a modal.
             activate: false,
-            attributes: expect.arrayContaining([
-                { type: "label", name: "geolocation", value: "48.85,2.36" },
-                { type: "label", name: "iconClass", value: "bx bx-pin" }
-            ])
+            // The location and nothing else. No icon is written onto the marker: getNoteIcon draws
+            // a note carrying a location as a pin, so an icon the map hands down through
+            // `#child:iconClass` or a template is what the marker wears instead.
+            attributes: [
+                { type: "label", name: "geolocation", value: "48.85,2.36" }
+            ]
         }));
     });
 
@@ -77,16 +79,17 @@ describe("geo map api", () => {
         }));
     });
 
-    it("gives a place of no stated kind the icon a placed marker wears", async () => {
+    it("writes no icon for a place of no stated kind, which leaves it drawn as a pin", async () => {
         const parent = buildNote({ title: "The map" });
 
-        // Neither the geocoder nor the tile said what kind of place it is (see placeIcon).
+        // Neither the geocoder nor the tile said what kind of place it is (see placeIcon), so there
+        // is nothing to keep the marker under and getNoteIcon draws it as a pin.
         await createNoteForPlace(parent, { name: "Somewhere", lat: 45.796, lng: 24.147 });
 
         expect(createNote).toHaveBeenCalledWith(parent.noteId, expect.objectContaining({
-            attributes: expect.arrayContaining([
-                { type: "label", name: "iconClass", value: "bx bx-pin" }
-            ])
+            attributes: [
+                { type: "label", name: "geolocation", value: "45.796,24.147" }
+            ]
         }));
     });
 

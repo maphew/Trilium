@@ -956,6 +956,20 @@ describe("FNote icon, color, folder & css", () => {
         expect(noIcon.getIcon()).toContain("tn-icon");
     });
 
+    it("draws a note carrying a location as a pin, behind an icon of its own", () => {
+        const here = buildNote({ title: "here", "#geolocation": "48.85,2.36" });
+        expect(here.getIcon()).toBe("tn-icon bx bx-pin");
+
+        const own = buildNote({
+            title: "own", "#geolocation": "48.85,2.36", "#iconClass": "bx bx-store" });
+        expect(own.getIcon()).toBe("tn-icon bx bx-store");
+
+        // Taking a marker off the map empties the label rather than removing it (see moveMarker in
+        // the geo map's api), and a note that stands nowhere is a plain note again.
+        const gone = buildNote({ title: "gone", "#geolocation": "" });
+        expect(gone.getIcon()).toBe("tn-icon bx bx-note");
+    });
+
     it("isFolder reflects subtreeHidden, search type and filtered children", () => {
         const hiddenSubtree = buildNote({ title: "hs", "#subtreeHidden": "" });
         expect(hiddenSubtree.isFolder()).toBe(false);

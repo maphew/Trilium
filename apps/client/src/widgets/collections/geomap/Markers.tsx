@@ -1,3 +1,4 @@
+import { GEO_LOCATION_ATTRIBUTE } from "@triliumnext/commons";
 import { AddLayerObject, type CircleLayerSpecification, type ExpressionSpecification, type GeoJSONSource, type MapGeoJSONFeature, type Map as MapLibreGLMap, type MapMouseEvent, type SymbolLayerSpecification } from "maplibre-gl";
 import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
 
@@ -9,7 +10,7 @@ import { useTriliumEvent } from "../../react/hooks";
 import { CLUSTER_LAYERS, CLUSTER_SOURCE_OPTIONS, installClusterLayers, UNCLUSTERED_ONLY, useClusterExpansion } from "./clusters";
 import { ParentMap } from "./map";
 
-export const LOCATION_ATTRIBUTE = "geolocation";
+export { GEO_LOCATION_ATTRIBUTE as LOCATION_ATTRIBUTE } from "@triliumnext/commons";
 export const MARKER_LAYER = "points-layer";
 export const MARKER_SOURCE = "points";
 /** The glow put under the selected marker, drawn from the same source beneath the pins. */
@@ -479,7 +480,7 @@ async function buildMarkerData(notes: FNote[]) {
     const wanted = new Map<string, { color: string, iconClass: string }>();
 
     for (const note of notes) {
-        const latLng = parseLocation(note.getLabelValue(LOCATION_ATTRIBUTE));
+        const latLng = parseLocation(note.getLabelValue(GEO_LOCATION_ATTRIBUTE));
         if (!latLng) continue;
 
         const color = note.getLabelValue("color") ?? DEFAULT_MARKER_COLOR;
