@@ -5,9 +5,17 @@ const themes = {
         name: "Black",
         loadTheme: () => import("./reveal-themes/black.scss?inline")
     },
+    "black-contrast": {
+        name: "Black Contrast",
+        loadTheme: () => import("./reveal-themes/black-contrast.scss?inline")
+    },
     white: {
         name: "White",
         loadTheme: () => import("./reveal-themes/white.scss?inline")
+    },
+    "white-contrast": {
+        name: "White Contrast",
+        loadTheme: () => import("./reveal-themes/white-contrast.scss?inline")
     },
     beige: {
         name: "Beige",
@@ -40,6 +48,14 @@ const themes = {
     blood: {
         name: "Blood",
         loadTheme: () => import("./reveal-themes/blood.scss?inline")
+    },
+    league: {
+        name: "League",
+        loadTheme: () => import("./reveal-themes/league.scss?inline")
+    },
+    night: {
+        name: "Night",
+        loadTheme: () => import("./reveal-themes/night.scss?inline")
     }
 } as const;
 

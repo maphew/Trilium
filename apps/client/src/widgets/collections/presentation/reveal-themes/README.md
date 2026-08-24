@@ -60,5 +60,7 @@ lines: a `@use 'template/settings' with (…)` block of overrides, then `@use 't
 `template/_system-fonts.scss` is the one file here upstream does not have. It holds `$sans` and
 `$condensed`, and nine themes plus `settings.scss` read their fallbacks from it.
 
-`black-contrast` and `white-contrast` are the higher-contrast variants of `black` and `white`;
-`league` and `night` round out the upstream set. None of the four is in the picker today.
+`black-contrast` and `white-contrast` are the higher-contrast variants of `black` and `white`,
+differing from them only in a pure black background and pure black text on light slides. All
+fourteen are in the picker; `themes.ts` lists them and `BUILTIN_ATTRIBUTES` repeats the ids for
+`presentation:theme`, with a spec holding the two in step.
