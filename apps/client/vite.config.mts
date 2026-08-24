@@ -127,6 +127,10 @@ export default defineConfig(() => ({
     },
     test: {
         environment: "happy-dom",
+        // Vitest skips CSS processing by default, which would hand `?inline` importers an empty
+        // string. The presentation themes are SCSS compiled through that path, so their specs need
+        // it on to assert against real rules.
+        css: { include: [/\.scss(\?|$)/] },
         setupFiles: [
             "./src/test/setup.ts"
         ],
