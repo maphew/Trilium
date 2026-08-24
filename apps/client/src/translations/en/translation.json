@@ -1610,6 +1610,14 @@
     "unit_kmh": "{{value}} km/h",
     "unit_mph": "{{value}} mph"
   },
+  "font_preview": {
+    "pangram": "The quick brown fox jumps over the lazy dog",
+    "specimen_placeholder": "Type to preview your own text…",
+    "size": "Preview size",
+    "size_pixels": "{{size}} px",
+    "sizes": "Sizes",
+    "characters": "Characters"
+  },
   "media": {
     "play": "Play",
     "activate": "Play {{- title}}",
