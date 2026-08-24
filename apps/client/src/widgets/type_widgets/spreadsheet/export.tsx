@@ -1,10 +1,10 @@
-import type { ResolvedImage } from "@triliumnext/commons/src/lib/spreadsheet/render_to_xlsx";
 import { FUniver } from "@univerjs/presets";
 import { MutableRef } from "preact/hooks";
 
 import NoteContext from "../../../components/note_context";
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
+import server from "../../../services/server";
 import toast from "../../../services/toast";
 import utils from "../../../services/utils";
 import { useTriliumEvent } from "../../react/hooks";
@@ -19,9 +19,9 @@ const UTF8_BOM = "\uFEFF";
  * Exports the spreadsheet when the `exportXlsx` / `exportCsv` events fire for this note
  * context. The events are raised from the note actions menu and the floating buttons (the
  * same surfaces the PNG/SVG exports use), so they work regardless of Univer's own toolbar
- * (which is hidden in read-only mode). The conversions run client-side via the exporters in
- * `@triliumnext/commons`, dynamically imported so their dependencies (e.g. exceljs) are only
- * fetched on export (and never enter the standalone/core bundles).
+ * (which is hidden in read-only mode). CSV is converted client-side via the exporters in
+ * `@triliumnext/commons`, dynamically imported so they are only fetched on export; XLSX is
+ * rendered by the backend, which keeps exceljs out of the client bundle entirely.
  */
 export default function useSpreadsheetExport(apiRef: MutableRef<FUniver | undefined>, note: FNote, noteContext: NoteContext | null | undefined) {
     useTriliumEvent("exportXlsx", ({ ntxId }) => {
@@ -39,10 +39,11 @@ async function exportToXlsx(univerAPI: FUniver | undefined, note: FNote) {
     if (json == null) return;
 
     try {
-        // Dynamic import keeps exceljs out of the main bundle (and out of standalone/core).
-        const { renderSpreadsheetToXlsx } = await import("@triliumnext/commons/src/lib/spreadsheet/render_to_xlsx");
-        const buffer = await renderSpreadsheetToXlsx(json, { resolveImage: resolveSpreadsheetImage });
-        await download(note, "xlsx", new Blob([buffer as BlobPart], { type: XLSX_MIME }));
+        // The backend renders the workbook and resolves its attachment images, so the client never
+        // loads exceljs. It answers with base64, which is what the data-URL download wants anyway.
+        const body = { content: json };
+        const { base64 } = await server.post<{ base64: string }>("spreadsheet/xlsx", body);
+        utils.triggerDownload(downloadName(note, "xlsx"), `data:${XLSX_MIME};base64,${base64}`);
     } catch (e) {
         console.error("[spreadsheet-export] xlsx failed", e);
         toast.showError(t("spreadsheet.export-failed"));
@@ -95,7 +96,11 @@ async function download(note: FNote, extension: string, blob: Blob) {
     // awaits gets silently blocked once the user-activation is consumed, whereas the
     // data-URL path used by downloadAsPng/Svg works.
     const dataUrl = await blobToDataUrl(blob);
-    utils.triggerDownload(`${note.title || "spreadsheet"}.${extension}`, dataUrl);
+    utils.triggerDownload(downloadName(note, extension), dataUrl);
+}
+
+function downloadName(note: FNote, extension: string) {
+    return `${note.title || "spreadsheet"}.${extension}`;
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -105,46 +110,4 @@ function blobToDataUrl(blob: Blob): Promise<string> {
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(blob);
     });
-}
-
-/**
- * Resolves a spreadsheet image source to embeddable bytes for the XLSX exporter. Images are stored
- * as `api/attachments/<id>/image/...` URLs (fetched here) or inline `data:` URLs; both are reduced
- * to a base64 payload and an exceljs-supported extension. Returns null (image skipped) on a fetch
- * failure or an unsupported format — exceljs only embeds png/jpeg/gif.
- */
-async function resolveSpreadsheetImage(source: string): Promise<ResolvedImage | null> {
-    try {
-        const dataUrl = source.startsWith("data:") ? source : await fetchAsDataUrl(source);
-        if (!dataUrl) return null;
-
-        // Parse `data:<mime>;base64,<payload>` with plain string ops — a regex with a nested
-        // quantifier over the `;` parameters can backtrack exponentially (ReDoS).
-        const comma = dataUrl.indexOf(",");
-        if (comma < 0) return null;
-        const header = dataUrl.slice(0, comma);
-        if (!/;base64$/i.test(header)) return null; // only base64 payloads
-
-        const mime = header.slice("data:".length).split(";")[0];
-        const extension = imageExtensionForMime(mime);
-        return extension ? { base64: dataUrl.slice(comma + 1), extension } : null;
-    } catch {
-        return null;
-    }
-}
-
-async function fetchAsDataUrl(url: string): Promise<string | null> {
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    return blobToDataUrl(await response.blob());
-}
-
-function imageExtensionForMime(mime: string): ResolvedImage["extension"] | null {
-    switch (mime.toLowerCase()) {
-        case "image/png": return "png";
-        case "image/jpeg":
-        case "image/jpg": return "jpeg";
-        case "image/gif": return "gif";
-        default: return null; // svg/webp/bmp etc. — exceljs can't embed these
-    }
 }

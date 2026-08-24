@@ -85,11 +85,7 @@ export default defineConfig(() => ({
     optimizeDeps: {
         include: [
             "ckeditor5",
-            "mathlive",
-            // Pre-bundle so the first spreadsheet XLSX export (which dynamically imports
-            // exceljs) doesn't trigger an on-demand re-optimization + dev-server reload
-            // that aborts the export.
-            "exceljs"
+            "mathlive"
         ]
     },
     build: {
