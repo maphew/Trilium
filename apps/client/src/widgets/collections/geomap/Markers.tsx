@@ -1,4 +1,4 @@
-import { AddLayerObject, type ExpressionSpecification, type GeoJSONSource, type MapGeoJSONFeature, type Map as MapLibreGLMap, type MapMouseEvent } from "maplibre-gl";
+import { AddLayerObject, type CircleLayerSpecification, type ExpressionSpecification, type GeoJSONSource, type MapGeoJSONFeature, type Map as MapLibreGLMap, type MapMouseEvent, type SymbolLayerSpecification } from "maplibre-gl";
 import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
@@ -72,7 +72,7 @@ export const LABEL_PAINT = {
         "text-color": "#fff",
         "text-halo-color": "rgba(0, 0, 0, 0.8)"
     }
-};
+} satisfies Record<"light" | "dark", NonNullable<SymbolLayerSpecification["paint"]>>;
 
 /**
  * The title of a marker whose titles are hidden.
@@ -101,7 +101,7 @@ const SELECTED_PIN_SCALE = 1.3;
 const SELECTION_GLOW_PAINT = {
     light: { "circle-color": "rgba(0, 0, 0, 0.35)" },
     dark: { "circle-color": "rgba(255, 255, 255, 0.4)" }
-};
+} satisfies Record<"light" | "dark", NonNullable<CircleLayerSpecification["paint"]>>;
 
 /** The glow's reach in screen pixels, a little wider than the grown pin standing over it. */
 const SELECTION_GLOW_RADIUS = 18;
@@ -350,14 +350,14 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
     useEffect(() => {
         if (!map?.getLayer(MARKER_LAYER)) return;
 
-        map.setLayoutProperty(MARKER_LAYER, "text-field", titleField(hideLabels, selectedNoteId));
-        for (const [ property, value ] of Object.entries(LABEL_PAINT[isDarkTheme ? "dark" : "light"])) {
-            map.setPaintProperty(MARKER_LAYER, property, value);
-        }
+        const labelPaint = LABEL_PAINT[isDarkTheme ? "dark" : "light"];
         // The glow keeps the same bargain the titles do, so it changes sides with them.
-        for (const [ property, value ] of Object.entries(SELECTION_GLOW_PAINT[isDarkTheme ? "dark" : "light"])) {
-            map.setPaintProperty(SELECTION_LAYER, property, value);
-        }
+        const glowPaint = SELECTION_GLOW_PAINT[isDarkTheme ? "dark" : "light"];
+
+        map.setLayoutProperty(MARKER_LAYER, "text-field", titleField(hideLabels, selectedNoteId));
+        map.setPaintProperty(MARKER_LAYER, "text-color", labelPaint["text-color"]);
+        map.setPaintProperty(MARKER_LAYER, "text-halo-color", labelPaint["text-halo-color"]);
+        map.setPaintProperty(SELECTION_LAYER, "circle-color", glowPaint["circle-color"]);
     }, [ map, hideLabels, isDarkTheme, selectedNoteId ]);
 
     // The selected marker, told apart on the standing layers: its pin grown and raised above its
