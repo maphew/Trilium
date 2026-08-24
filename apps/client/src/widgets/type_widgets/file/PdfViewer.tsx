@@ -2,7 +2,7 @@ import type { HTMLAttributes, RefObject } from "preact";
 import { useCallback, useEffect, useRef } from "preact/hooks";
 
 import { useSyncedRef, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
-import Inter from "./../../../fonts/Inter/Inter-VariableFont_opsz,wght.ttf";
+import Inter from "./../../../fonts/Inter/Inter-VariableFont_opsz,wght.woff2";
 
 interface FontDefinition {
     name: string;
