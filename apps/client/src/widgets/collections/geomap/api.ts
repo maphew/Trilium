@@ -113,15 +113,21 @@ export async function createNewNote(parentNote: FNote, e: GeoMouseEvent) {
 export async function createNoteForPlace(parentNote: FNote, place: PlaceToKeep) {
     const title = place.unnamed ? undefined : place.name;
 
-    return createNoteAt(parentNote, [ place.lat, place.lng ], title);
+    return createNoteAt(parentNote, [ place.lat, place.lng ], title, place.icon);
 }
 
-/** What keeping a place as a marker needs of it: where it stands, and what to call it there. */
+/** What keeping a place as a marker needs of it: where it stands, what to call it there, and what
+ *  kind of place it is. */
 interface PlaceToKeep {
     name: string;
     lat: number;
     lng: number;
     unnamed?: boolean;
+    /**
+     * The boxicons class the place is drawn under, as `GeoSearchResult.icon` gives it. Absent where
+     * neither the geocoder nor the tile says what kind of place it is.
+     */
+    icon?: string;
 }
 
 /**
@@ -131,8 +137,13 @@ interface PlaceToKeep {
  * choosing, which is what leaves the naming to the server: an unnamed note takes the name every
  * new note takes — the one the tree's + button gives — and a map labelled `#titleTemplate` names
  * its markers by that instead.
+ *
+ * `icon` is what the place is already drawn under — a cart for a supermarket, a flag for a country
+ * (see placeIcon in osm_icons) — so the marker keeps the icon the panel offered it under. A note
+ * dropped by clicking the map has no such place behind it and wears CHILD_NOTE_ICON.
  */
-async function createNoteAt(parentNote: FNote, [ lat, lng ]: [number, number], title?: string) {
+async function createNoteAt(
+    parentNote: FNote, [ lat, lng ]: [number, number], title?: string, icon?: string) {
     const { note } = await note_create.createNote(parentNote.noteId, {
         title,
         content: "",
@@ -141,7 +152,7 @@ async function createNoteAt(parentNote: FNote, [ lat, lng ]: [number, number], t
         isProtected: parentNote.isProtected,
         attributes: [
             { type: "label", name: LOCATION_ATTRIBUTE, value: [ lat, lng ].join(",") },
-            { type: "label", name: "iconClass", value: CHILD_NOTE_ICON }
+            { type: "label", name: "iconClass", value: icon ?? CHILD_NOTE_ICON }
         ]
     });
 

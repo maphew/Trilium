@@ -59,7 +59,8 @@ describe("geo map api", () => {
     it("names a note for a searched place as the place is named, and stands it there", async () => {
         const parent = buildNote({ title: "The map" });
 
-        const created = await createNoteForPlace(parent, { name: "Jumbo", lat: 45.796, lng: 24.147 });
+        const created = await createNoteForPlace(
+            parent, { name: "Jumbo", lat: 45.796, lng: 24.147, icon: "bx bx-cart" });
 
         expect(created).toEqual({ noteId: "created" });
         expect(createNote).toHaveBeenCalledWith(parent.noteId, expect.objectContaining({
@@ -69,6 +70,21 @@ describe("geo map api", () => {
             activate: false,
             attributes: expect.arrayContaining([
                 { type: "label", name: "geolocation", value: "45.796,24.147" },
+                // The kind of place it is, which is what the panel offered it under (see
+                // PlacePanel): a supermarket kept as a marker stays a supermarket.
+                { type: "label", name: "iconClass", value: "bx bx-cart" }
+            ])
+        }));
+    });
+
+    it("gives a place of no stated kind the icon a placed marker wears", async () => {
+        const parent = buildNote({ title: "The map" });
+
+        // Neither the geocoder nor the tile said what kind of place it is (see placeIcon).
+        await createNoteForPlace(parent, { name: "Somewhere", lat: 45.796, lng: 24.147 });
+
+        expect(createNote).toHaveBeenCalledWith(parent.noteId, expect.objectContaining({
+            attributes: expect.arrayContaining([
                 { type: "label", name: "iconClass", value: "bx bx-pin" }
             ])
         }));
