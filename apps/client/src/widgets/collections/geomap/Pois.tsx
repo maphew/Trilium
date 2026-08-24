@@ -232,7 +232,11 @@ export default function Pois({ placing, onPick }: PoisProps) {
         const map = parentMap;
         // What the style painted its places with, to be put back when this is taken off. Either
         // may be absent, a style being composable in one and not the other.
-        let painted: { layer: string; color?: AllPaintProperties["icon-color"]; opacity?: AllPaintProperties["icon-opacity"] }[] = [];
+        let painted: {
+            layer: string;
+            color?: AllPaintProperties["icon-color"];
+            opacity?: AllPaintProperties["icon-opacity"];
+        }[] = [];
 
         /** Puts back what the style painted, for a map that keeps its layers after this goes. */
         function restore() {
@@ -436,7 +440,9 @@ function readRamp(value: unknown) {
 
     // A base of one climbs evenly, which is what `linear` says; anything else is the curve the old
     // syntax spells `base`.
-    const interpolation: InterpolationSpecification = typeof base === "number" && base !== 1 ? [ "exponential", base ] : [ "linear" ];
+    const interpolation: InterpolationSpecification = typeof base === "number" && base !== 1
+        ? [ "exponential", base ]
+        : [ "linear" ];
 
     return { stops: read, interpolation };
 }

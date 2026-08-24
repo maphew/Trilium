@@ -351,12 +351,13 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
         if (!map?.getLayer(MARKER_LAYER)) return;
 
         const labelPaint = LABEL_PAINT[isDarkTheme ? "dark" : "light"];
+        // The glow keeps the same bargain the titles do, so it changes sides with them.
+        const glowPaint = SELECTION_GLOW_PAINT[isDarkTheme ? "dark" : "light"];
 
         map.setLayoutProperty(MARKER_LAYER, "text-field", titleField(hideLabels, selectedNoteId));
         map.setPaintProperty(MARKER_LAYER, "text-color", labelPaint["text-color"]);
         map.setPaintProperty(MARKER_LAYER, "text-halo-color", labelPaint["text-halo-color"]);
-        // The glow keeps the same bargain the titles do, so it changes sides with them.
-        map.setPaintProperty(SELECTION_LAYER, "circle-color", SELECTION_GLOW_PAINT[isDarkTheme ? "dark" : "light"]["circle-color"]);
+        map.setPaintProperty(SELECTION_LAYER, "circle-color", glowPaint["circle-color"]);
     }, [ map, hideLabels, isDarkTheme, selectedNoteId ]);
 
     // The selected marker, told apart on the standing layers: its pin grown and raised above its
