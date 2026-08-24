@@ -38,6 +38,46 @@ describe("BrowserExecutionContext", () => {
         expect(ctx.get("k")).toBeUndefined();
     });
 
+    // Known limitation, recorded so a fix flips these assertions rather than passing silently.
+    // A stack is not async-context propagation: the browser has no AsyncLocalStorage, so scopes
+    // are pushed and popped, and a scope stays on the stack for the grace period after it ends.
+    // The server's cls-hooked context gets both of these right.
+    describe("stack-based scoping (known divergence from the server context)", () => {
+        it("starts a nested scope empty, leaving the enclosing one reading it", () => {
+            const ctx = new BrowserExecutionContext();
+
+            ctx.init(() => {
+                ctx.set("componentId", "outer");
+
+                ctx.init(() => {
+                    // No inheritance: cls-hooked would report "outer" here.
+                    expect(ctx.get("componentId")).toBeUndefined();
+                    ctx.set("componentId", "inner");
+                });
+
+                // The nested scope is still on top of the stack until its cleanup timer fires,
+                // so the enclosing scope reads the nested scope's value instead of its own.
+                expect(ctx.get<string>("componentId")).toBe("inner");
+            });
+        });
+
+        it("lets overlapping scopes read each other's values", async () => {
+            vi.useRealTimers();
+            const ctx = new BrowserExecutionContext();
+
+            const request = (componentId: string, delayMs: number) => ctx.init(async () => {
+                ctx.set("componentId", componentId);
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
+                return ctx.get<string>("componentId");
+            });
+
+            // The worker's onmessage handler is async and unserialized, so requests do overlap.
+            // Both read whichever scope is on top, rather than ["slow", "fast"].
+            expect(await Promise.all([request("slow", 30), request("fast", 1)]))
+                .toEqual(["fast", "fast"]);
+        });
+    });
+
     it("cleans up after an async init() resolves", async () => {
         const ctx = new BrowserExecutionContext();
         const promise = ctx.init(async () => {
