@@ -289,8 +289,8 @@ importers:
         specifier: 7.0.2
         version: 7.0.2(preact-render-to-string@6.7.0)(temporal-polyfill@1.0.4)
       gridstack:
-        specifier: 13.1.2
-        version: 13.1.2
+        specifier: 13.2.0
+        version: 13.2.0
       htmldiff-js:
         specifier: 1.0.5
         version: 1.0.5
@@ -8285,8 +8285,8 @@ packages:
   grapheme-splitter@1.0.4:
     resolution: {integrity: sha512-bzh50DW9kTPM00T8y4o8vQg89Di9oLJVLW/KaOGIXJWP/iqCN6WKYkbNOF04vFLJhwcpYUh9ydh/+5vpOqV4YQ==}
 
-  gridstack@13.1.2:
-    resolution: {integrity: sha512-TnEGpGKDrW3XutMgb+Gf/QGff003jzjEXfP5tG5jNB5OU33KfnZJVfe2sy58L3SnP4ImqJRqz3mE6Z88s14n1w==}
+  gridstack@13.2.0:
+    resolution: {integrity: sha512-+ImmOx6qd1wiF0EagY7e/pPdngh/6s0FM+r9hh4d8AsXslO51iHEuoAF7CMrXCFr0Xqd0X4WS/bqRLXtEUThug==}
 
   hachure-fill@0.5.2:
     resolution: {integrity: sha512-3GKBOn+m2LX9iq+JC1064cSFprJY4jL1jCXTcpnfER5HYE2l/4EfWSGzkPa/ZDBmYI0ZOEj5VHV/eKnPGkHuOg==}
@@ -21520,7 +21520,7 @@ snapshots:
 
   grapheme-splitter@1.0.4: {}
 
-  gridstack@13.1.2: {}
+  gridstack@13.2.0: {}
 
   hachure-fill@0.5.2: {}
 
