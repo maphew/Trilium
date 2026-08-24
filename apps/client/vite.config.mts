@@ -5,7 +5,7 @@ import { join } from 'path';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 
-import { stripUniverHyphenationPatterns } from './vite-plugins.mjs';
+import { stripUniverHyphenation } from './vite-plugins.mjs';
 
 const assets = [ "assets", "stylesheets", "fonts", "translations" ];
 
@@ -16,11 +16,11 @@ if (isDev) {
     // Add Prefresh for Preact HMR in development
     plugins = [
         prefresh(),
-        stripUniverHyphenationPatterns()
+        stripUniverHyphenation()
     ];
 } else {
     plugins = [
-        stripUniverHyphenationPatterns(),
+        stripUniverHyphenation(),
         viteStaticCopy({
             targets: assets.map((asset) => ({
                 src: `src/${asset}/**/*`,

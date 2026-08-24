@@ -3,19 +3,19 @@ import { createRequire } from "module";
 import { dirname, join } from "path";
 import { describe, expect, it } from "vitest";
 
-import { ENGINE_RENDER_ENTRY, resolveUniverHyphenationPattern } from "./vite-plugins.mjs";
+import { ENGINE_RENDER_ENTRY, LANGUAGE_DETECTOR_PACKAGE, resolveUniverHyphenationStub } from "./vite-plugins.mjs";
 
 const entryPath = createRequire(import.meta.url).resolve("@univerjs/engine-render/lib/es/index.js");
 const entrySource = readFileSync(entryPath, "utf8");
 
 /**
- * Canary for `stripUniverHyphenationPatterns`. The rule it applies — every relative
- * import made by `@univerjs/engine-render`'s entry is a hyphenation table — holds for
- * the installed version, but an upgrade could rename the entry, inline the tables, or
- * start importing a real sibling module. The first two turn the plugin into a no-op
- * that silently puts 4.4 MB back into the build; the third makes it stub out live code.
+ * Canary for `stripUniverHyphenation`. The rules it applies hold for the installed
+ * version, but an upgrade could rename the entry, inline the tables, start importing a
+ * real sibling module, or reach for `franc-min` somewhere the stub does not cover. The
+ * first two turn the plugin into a no-op that silently puts 4.4 MB back into the build;
+ * the others make it stub out live code.
  */
-describe("stripUniverHyphenationPatterns", () => {
+describe("stripUniverHyphenation", () => {
     it("matches an entry that still lazy-loads a pattern table per locale", () => {
         expect(entryPath.replace(/\\/g, "/")).toContain(ENGINE_RENDER_ENTRY);
         expect(patternLoaders().length).toBeGreaterThan(50);
@@ -30,7 +30,7 @@ describe("stripUniverHyphenationPatterns", () => {
 
     it("intercepts every table the loader map points at", () => {
         for (const { locale, source } of patternLoaders()) {
-            expect(resolveUniverHyphenationPattern(source, entryPath)).toContain("univer_hyphenation_pattern");
+            expect(resolveUniverHyphenationStub(source, entryPath)).toContain("univer_hyphenation_pattern");
 
             // Each table exports its locale Pascal-cased (`de-ch-1901` -> `DeCh1901`),
             // which is also how `Hyphen.loadPattern()` reads it back off the namespace.
@@ -39,22 +39,34 @@ describe("stripUniverHyphenationPatterns", () => {
         }
     });
 
-    it("declines a bare specifier and any importer outside the entry", () => {
-        expect(resolveUniverHyphenationPattern("rxjs", entryPath)).toBeNull();
-        expect(resolveUniverHyphenationPattern("./hu-DVk7Y_ka.js", "/app/src/services/froca.ts")).toBeNull();
-        expect(resolveUniverHyphenationPattern("./hu-DVk7Y_ka.js", undefined)).toBeNull();
+    it("intercepts the language detector the entry imports, taking only what it uses", () => {
+        expect(entrySource).toContain(`import { franc } from "${LANGUAGE_DETECTOR_PACKAGE}"`);
+        expect(resolveUniverHyphenationStub(LANGUAGE_DETECTOR_PACKAGE, entryPath)).toContain("franc_min");
+
+        // `detect()` maps franc's code through this table, so the stub's `und` has to
+        // land on `unknown` — the value that makes `shaping()` skip hyphenation.
+        expect(entrySource).toMatch(/\bund:\s*"unknown"/);
     });
 
-    it("stubs a module that the pattern loader reads as an absent table", async () => {
-        // `loadPattern()` takes the table off the namespace under its Pascal-cased locale
+    it("declines a bare specifier and any importer outside the entry", () => {
+        expect(resolveUniverHyphenationStub("rxjs", entryPath)).toBeNull();
+        expect(resolveUniverHyphenationStub(LANGUAGE_DETECTOR_PACKAGE, "/app/src/services/froca.ts")).toBeNull();
+        expect(resolveUniverHyphenationStub("./hu-DVk7Y_ka.js", "/app/src/services/froca.ts")).toBeNull();
+        expect(resolveUniverHyphenationStub("./hu-DVk7Y_ka.js", undefined)).toBeNull();
+    });
+
+    it("stubs modules that the hyphenation code reads as absent", async () => {
+        // `loadPattern()` takes a table off the namespace under its Pascal-cased locale
         // and returns early when it is missing, so nothing throws and `hasPattern()` stays
         // false — the hyphenating line breaker is never built.
-        const stub: Record<string, unknown> = await import("./src/stubs/univer_hyphenation_pattern.js");
-
-        expect(Array.isArray(stub)).toBe(false);
+        const patterns: Record<string, unknown> = await import("./src/stubs/univer_hyphenation_pattern.js");
+        expect(Array.isArray(patterns)).toBe(false);
         for (const { locale } of patternLoaders()) {
-            expect(stub[pascalCaseLocale(locale)]).toBeUndefined();
+            expect(patterns[pascalCaseLocale(locale)]).toBeUndefined();
         }
+
+        const { franc } = await import("./src/stubs/franc_min.js");
+        expect(franc()).toBe("und");
     });
 });
 

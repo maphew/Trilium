@@ -6,7 +6,7 @@ import prefresh from "@prefresh/vite";
 import { defineConfig, type Plugin } from "vite";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
-import { stripUniverHyphenationPatterns } from "../client/vite-plugins.mjs";
+import { stripUniverHyphenation } from "../client/vite-plugins.mjs";
 
 const clientAssets = ["assets", "stylesheets", "fonts", "translations"];
 
@@ -113,7 +113,7 @@ const sqliteWasmPlugin = viteStaticCopy({
 });
 
 let plugins: any = [
-    stripUniverHyphenationPatterns(),
+    stripUniverHyphenation(),
     sqliteWasmDedupePlugin(),
     sqliteWasmPlugin,
     viteStaticCopy({

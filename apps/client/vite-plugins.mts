@@ -1,36 +1,48 @@
 import type { Plugin } from "vite";
 
 /**
- * Drops the TeX hyphenation tables `@univerjs/engine-render` lazy-loads. Its bundled
- * `index.js` has exactly 77 relative imports and every one of them is a pattern table
- * (4.4 MB of chunks, Hungarian alone 747 kB); resolving them all to one empty module
- * collapses them into a single stub chunk. `Hyphen` reaches a table only for a
- * paragraph whose section sets `autoHyphenation`, a Univer Docs setting the
- * spreadsheet note type never turns on.
+ * Drops the hyphenation machinery `@univerjs/engine-render` carries for Univer Docs.
+ * `shaping()` hyphenates only a paragraph whose section sets `autoHyphenation`, which
+ * the spreadsheet note type never turns on, so none of it can run:
  *
- * Both the client and the standalone build bundle Univer, so both apply this.
- * `vite-plugins.spec.ts` checks the rule still matches the installed dependency.
+ * - The 77 TeX pattern tables, 4.4 MB of lazy chunks (Hungarian alone 747 kB). The
+ *   entry makes exactly 77 relative imports and every one is a table, so resolving
+ *   them all to one empty module collapses them into a single stub chunk.
+ * - `franc-min`, whose 102 kB trigram model backs the `LanguageDetector` call that
+ *   `shaping()` makes ahead of the hyphenation check, on every paragraph it lays out.
+ *
+ * Both stubs are keyed on the importer, so a second consumer of `franc-min` would still
+ * get the real package. Both the client and the standalone build bundle Univer, so both
+ * apply this. `vite-plugins.spec.ts` checks the rules still match the installed
+ * dependency.
  */
-export function stripUniverHyphenationPatterns(): Plugin {
+export function stripUniverHyphenation(): Plugin {
     return {
-        name: "strip-univer-hyphenation-patterns",
+        name: "strip-univer-hyphenation",
         enforce: "pre",
-        resolveId: resolveUniverHyphenationPattern
+        resolveId: resolveUniverHyphenationStub
     };
 }
 
 /**
- * Returns the stub for a relative import made by `@univerjs/engine-render`'s entry,
+ * Returns the stub for a hyphenation import made by `@univerjs/engine-render`'s entry,
  * and `null` for everything else so other resolvers keep their turn.
  */
-export function resolveUniverHyphenationPattern(source: string, importer: string | undefined): string | null {
+export function resolveUniverHyphenationStub(source: string, importer: string | undefined): string | null {
     if (!importer?.replace(/\\/g, "/").endsWith(ENGINE_RENDER_ENTRY)) {
         return null;
     }
 
-    return source.startsWith("./") ? HYPHENATION_STUB : null;
+    if (source === LANGUAGE_DETECTOR_PACKAGE) {
+        return stubPath("franc_min");
+    }
+
+    return source.startsWith("./") ? stubPath("univer_hyphenation_pattern") : null;
 }
 
 export const ENGINE_RENDER_ENTRY = "@univerjs/engine-render/lib/es/index.js";
+export const LANGUAGE_DETECTOR_PACKAGE = "franc-min";
 
-const HYPHENATION_STUB = new URL("./src/stubs/univer_hyphenation_pattern.ts", import.meta.url).pathname;
+function stubPath(name: string): string {
+    return new URL(`./src/stubs/${name}.ts`, import.meta.url).pathname;
+}
