@@ -970,6 +970,45 @@ describe("FNote icon, color, folder & css", () => {
         expect(gone.getIcon()).toBe("tn-icon bx bx-note");
     });
 
+    it("answers what a new child would be given, nearest source first", () => {
+        const template = buildNote({ title: "Place", "#iconClass": "bx bx-map" });
+
+        // All three at once: the copy beats the inheritable label, which beats the template.
+        const dressed = buildNote({
+            title: "The map",
+            "#child:iconClass": "bx bx-store",
+            "#iconClass(inheritable)": "bx bx-star",
+            "~child:template": template.noteId
+        });
+        expect(dressed.getLabelValueForNewChild("iconClass")).toBe("bx bx-store");
+
+        const inheritable = buildNote({ title: "map2", "#iconClass(inheritable)": "bx bx-star" });
+        expect(inheritable.getLabelValueForNewChild("iconClass")).toBe("bx bx-star");
+
+        const templated = buildNote({ title: "map3", "~child:template": template.noteId });
+        expect(templated.getLabelValueForNewChild("iconClass")).toBe("bx bx-map");
+
+        // An inheritable `~template` reaches the child down the tree rather than by being copied.
+        const handedDown = buildNote({ title: "map4", "~template(inheritable)": template.noteId });
+        expect(handedDown.getLabelValueForNewChild("iconClass")).toBe("bx bx-map");
+
+        // An icon the map wears itself is the map's, and says nothing about its children.
+        const own = buildNote({ title: "map5", "#iconClass": "bx bx-star" });
+        expect(own.getLabelValueForNewChild("iconClass")).toBeNull();
+        expect(buildNote({ title: "map6" }).getLabelValueForNewChild("iconClass")).toBeNull();
+    });
+
+    it("skips a child template of another type, which core would not apply either", () => {
+        // The type is the caller's explicit choice, so core leaves such a template alone (#3015);
+        // left unsaid, the template is taken to apply.
+        const canvas = buildNote({ title: "Sketch", type: "canvas", "#iconClass": "bx bx-pen" });
+        const map = buildNote({ title: "The map", "~child:template": canvas.noteId });
+
+        expect(map.getLabelValueForNewChild("iconClass", "text")).toBeNull();
+        expect(map.getLabelValueForNewChild("iconClass", "canvas")).toBe("bx bx-pen");
+        expect(map.getLabelValueForNewChild("iconClass")).toBe("bx bx-pen");
+    });
+
     it("isFolder reflects subtreeHidden, search type and filtered children", () => {
         const hiddenSubtree = buildNote({ title: "hs", "#subtreeHidden": "" });
         expect(hiddenSubtree.isFolder()).toBe(false);

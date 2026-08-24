@@ -1,6 +1,6 @@
 import { AttributeRow } from "@triliumnext/commons";
 
-import FNote from "../../../entities/fnote";
+import FNote, { type NoteType } from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
 import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
@@ -9,6 +9,9 @@ import { deleteNoteOrBranch } from "../../../services/note_deletion";
 import { GPX_MIME } from "./GpxTrack";
 import type { GeoMouseEvent } from "./map";
 import { LOCATION_ATTRIBUTE } from "./Markers";
+
+/** The type a note put on the map is created as, and so what a template handed to it must match. */
+export const MARKER_NOTE_TYPE: NoteType = "text";
 
 export async function moveMarker(noteId: string, latLng: { lat: number; lng: number } | null) {
     const value = latLng ? [latLng.lat, latLng.lng].join(",") : "";
@@ -155,7 +158,7 @@ async function createNoteAt(
     const { note } = await note_create.createNote(parentNote.noteId, {
         title,
         content: "",
-        type: "text",
+        type: MARKER_NOTE_TYPE,
         activate: false,
         isProtected: parentNote.isProtected,
         attributes: noteAttributes
