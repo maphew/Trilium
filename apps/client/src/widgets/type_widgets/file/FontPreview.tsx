@@ -77,7 +77,6 @@ export default function FontPreview({ note, blob }: FontPreviewProps) {
 
             <div className="font-preview-specimen" style={{ "--font-preview-specimen-size": `${size}px` }}>{text}</div>
 
-            <div className="font-preview-heading">{t("font_preview.sizes")}</div>
             <div className="font-preview-ladder">
                 {LADDER_SIZES.map((ladderSize) => (
                     <Fragment key={ladderSize}>
@@ -87,7 +86,6 @@ export default function FontPreview({ note, blob }: FontPreviewProps) {
                 ))}
             </div>
 
-            <div className="font-preview-heading">{t("font_preview.characters")}</div>
             <div className="font-preview-characters">
                 <div>{UPPERCASE}</div>
                 <div>{LOWERCASE}</div>

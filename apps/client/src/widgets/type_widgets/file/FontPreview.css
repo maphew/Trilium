@@ -38,14 +38,6 @@
         margin-bottom: 24px;
     }
 
-    .font-preview-heading {
-        color: var(--muted-text-color);
-        font-size: 0.85em;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin-bottom: 10px;
-    }
-
     .font-preview-ladder {
         display: grid;
         grid-template-columns: auto 1fr;

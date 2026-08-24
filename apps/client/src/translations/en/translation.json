@@ -1614,9 +1614,7 @@
     "pangram": "The quick brown fox jumps over the lazy dog",
     "specimen_placeholder": "Type to preview your own text…",
     "size": "Preview size",
-    "size_pixels": "{{size}} px",
-    "sizes": "Sizes",
-    "characters": "Characters"
+    "size_pixels": "{{size}} px"
   },
   "media": {
     "play": "Play",
