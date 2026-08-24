@@ -5,6 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 
 import type FBlob from "../../../entities/fblob";
 import type FNote from "../../../entities/fnote";
+import { registerFontNote } from "../../../services/custom_fonts";
 import { t } from "../../../services/i18n";
 import Alert from "../../react/Alert";
 import FormTextBox from "../../react/FormTextBox";
@@ -136,23 +137,14 @@ function useLoadedFont(note: FNote, blob: FBlob | null | undefined) {
         const previewFamily = `trilium-font-preview-${note.noteId}`;
         setFamily(undefined);
 
-        // The bytes are fetched and handed to `FontFace` directly rather than referenced by their
-        // API URL: a `url()` source is loaded by the engine itself, outside the host document's
-        // service worker and Capacitor request interceptors, which is where standalone and iOS
-        // answer an API request from (see loadIconPackFont in IconPackPreview.tsx). Versioned by
-        // blobId so a replaced file is not served from the cache of the one it replaced.
-        const url = new URL(`api/notes/${note.noteId}/open?v=${encodeURIComponent(blob.blobId)}`, document.baseURI).href;
-
         (async () => {
             try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`Font request failed with HTTP ${response.status}.`);
+                const face = await registerFontNote(note.noteId, previewFamily, blob.blobId);
+                if (cancelled) {
+                    document.fonts.delete(face);
+                    return;
                 }
-                const face = await new FontFace(previewFamily, await response.arrayBuffer()).load();
-                if (cancelled) return;
 
-                document.fonts.add(face);
                 registered = face;
                 setFamily(previewFamily);
             } catch {

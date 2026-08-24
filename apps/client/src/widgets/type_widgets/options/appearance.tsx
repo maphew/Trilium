@@ -1,6 +1,6 @@
 import "./appearance.css";
 
-import { FontFamily, OptionNames, SYSTEM_MONOSPACE_FONT_STACK, SYSTEM_SANS_SERIF_FONT_STACK } from "@triliumnext/commons";
+import { FontFamily, OptionNames, SYSTEM_MONOSPACE_FONT_STACK, SYSTEM_SANS_SERIF_FONT_STACK, UserFont } from "@triliumnext/commons";
 import clsx from "clsx";
 import { Fragment } from "preact";
 import { createPortal } from "preact/compat";
@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 
 import zoomService from "../../../components/zoom";
 import { ColorScheme, resolveColorScheme, THEME_FAMILY_SCHEMES } from "../../../services/color_scheme";
+import { getCustomFonts, registerFontNote } from "../../../services/custom_fonts";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import { isElectron, isMobile, reloadFrontendApp } from "../../../services/utils";
@@ -451,6 +452,7 @@ function Fonts() {
     const [ overrideThemeFonts, setOverrideThemeFonts ] = useTriliumOptionBool("overrideThemeFonts");
     const [ ligaturesEnabled, setLigaturesEnabled ] = useTriliumOptionBool("monospaceLigaturesEnabled");
     const isEnabled = overrideThemeFonts === true;
+    const fontGroups = useFontGroups();
 
     return (
         <Card className="appearance-fonts" heading={t("fonts.fonts")}>
@@ -463,10 +465,10 @@ function Fonts() {
                 // nothing under it says nothing about what it would bring.
                 subSectionsVisible
                 subSections={[
-                    <Font key="main" label={t("fonts.main_font")} fontFamilyOption="mainFontFamily" fontSizeOption="mainFontSize" disabled={!isEnabled} />,
-                    <Font key="tree" label={t("fonts.note_tree_font")} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="treeFontFamily" fontSizeOption="treeFontSize" disabled={!isEnabled} />,
-                    <Font key="detail" label={t("fonts.note_detail_font")} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="detailFontFamily" fontSizeOption="detailFontSize" disabled={!isEnabled} />,
-                    <Font key="monospace" label={t("fonts.monospace_font")} description={t("fonts.monospace_font_description")} fontFamilyOption="monospaceFontFamily" fontSizeOption="monospaceFontSize" disabled={!isEnabled} isMonospace />
+                    <Font key="main" label={t("fonts.main_font")} groups={fontGroups} fontFamilyOption="mainFontFamily" fontSizeOption="mainFontSize" disabled={!isEnabled} />,
+                    <Font key="tree" label={t("fonts.note_tree_font")} groups={fontGroups} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="treeFontFamily" fontSizeOption="treeFontSize" disabled={!isEnabled} />,
+                    <Font key="detail" label={t("fonts.note_detail_font")} groups={fontGroups} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="detailFontFamily" fontSizeOption="detailFontSize" disabled={!isEnabled} />,
+                    <Font key="monospace" label={t("fonts.monospace_font")} groups={fontGroups} description={t("fonts.monospace_font_description")} fontFamilyOption="monospaceFontFamily" fontSizeOption="monospaceFontSize" disabled={!isEnabled} isMonospace />
                 ]}
             >
                 <FormToggle currentValue={overrideThemeFonts} onChange={setOverrideThemeFonts} />
@@ -488,23 +490,72 @@ function Fonts() {
     );
 }
 
+/**
+ * The picker's groups, with the fonts the user labelled `#customFont` appended. Those are also
+ * registered with the document for as long as the page is open, so the picker draws each specimen
+ * in the font it names.
+ */
+function useFontGroups(): FontGroup[] {
+    const [ customFonts, setCustomFonts ] = useState<UserFont[]>([]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const registered: FontFace[] = [];
+
+        (async () => {
+            // By family, since that is what the picker lists and what an option holds: two notes
+            // offering the same name are one entry.
+            const fonts = [ ...new Map((await getCustomFonts()).map((font) => [ font.family, font ])).values() ];
+            if (cancelled) return;
+            setCustomFonts(fonts);
+
+            await Promise.all(fonts.map(async ({ noteId, family, blobId }) => {
+                try {
+                    const face = await registerFontNote(noteId, family, blobId);
+                    if (cancelled) {
+                        document.fonts.delete(face);
+                    } else {
+                        registered.push(face);
+                    }
+                } catch {
+                    // The entry stays on the list and draws in the fallback family: the option can
+                    // still be set to a font this device happens not to be able to load.
+                }
+            }));
+        })();
+
+        return () => {
+            cancelled = true;
+            for (const face of registered) {
+                document.fonts.delete(face);
+            }
+        };
+    }, []);
+
+    return useMemo(() => (customFonts.length
+        ? [ ...FONT_FAMILIES, { title: t("fonts.user-fonts"), items: customFonts.map(({ family }) => ({ value: family })) } ]
+        : FONT_FAMILIES), [ customFonts ]);
+}
+
 interface FontProps {
     label: string;
     description?: string;
     sizeDescription?: string;
+    /** The picker's groups, the user's own fonts among them (see {@link useFontGroups}). */
+    groups: FontGroup[];
     fontFamilyOption: OptionNames;
     fontSizeOption: OptionNames;
     disabled?: boolean;
     isMonospace?: boolean;
 }
 
-function Font({ label, description, sizeDescription, fontFamilyOption, fontSizeOption, disabled, isMonospace }: FontProps) {
+function Font({ label, description, sizeDescription, groups, fontFamilyOption, fontSizeOption, disabled, isMonospace }: FontProps) {
     const [ fontFamily, setFontFamily ] = useTriliumOption(fontFamilyOption);
     const [ fontSize, setFontSize ] = useTriliumOption(fontSizeOption);
     const [ showModal, setShowModal ] = useState(false);
 
     // Find the current font entry to display
-    const currentFont = FONT_FAMILIES
+    const currentFont = groups
         .flatMap(group => group.items)
         .find(item => item.value === fontFamily);
     const displayLabel = currentFont?.label ?? currentFont?.value ?? fontFamily ?? "";
@@ -548,6 +599,7 @@ function Font({ label, description, sizeDescription, fontFamilyOption, fontSizeO
                 show={showModal}
                 onHidden={() => setShowModal(false)}
                 title={label}
+                groups={groups}
                 fontFamily={fontFamily ?? ""}
                 fontSize={parseInt(fontSize ?? "100", 10)}
                 onFontFamilyChange={setFontFamily}
@@ -565,6 +617,7 @@ interface FontPickerModalProps {
     show: boolean;
     onHidden: () => void;
     title: string;
+    groups: FontGroup[];
     fontFamily: string;
     fontSize: number;
     onFontFamilyChange: (value: string) => void;
@@ -573,7 +626,7 @@ interface FontPickerModalProps {
     sizeDescription?: string;
 }
 
-function FontPickerModal({ show, onHidden, title, fontFamily, fontSize, onFontFamilyChange, onFontSizeChange, getFontFamily, sizeDescription }: FontPickerModalProps) {
+function FontPickerModal({ show, onHidden, title, groups, fontFamily, fontSize, onFontFamilyChange, onFontSizeChange, getFontFamily, sizeDescription }: FontPickerModalProps) {
     return createPortal(
         <Modal
             className="font-picker-modal"
@@ -584,7 +637,7 @@ function FontPickerModal({ show, onHidden, title, fontFamily, fontSize, onFontFa
             stackable
             sidebar={
                 <FormList fullHeight wrapperClassName="font-picker-list">
-                    {FONT_FAMILIES.map(group => (
+                    {groups.map(group => (
                         <Fragment key={group.title}>
                             <FormListHeader text={group.title} />
                             {group.items.map(item => (

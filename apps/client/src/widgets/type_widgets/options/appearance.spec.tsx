@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
     electron: true,
     mobile: false,
-    stored: {} as Record<string, string | boolean>
+    stored: {} as Record<string, string | boolean>,
+    userFonts: [] as { family: string; title: string; noteId: string; blobId: string }[]
 }));
 
 // Both the desktop card and the illustrated layout choices turn on which kind of client this is.
@@ -38,6 +39,13 @@ vi.mock("../../react/hooks", async (importOriginal) => ({
 
 vi.mock("./components/OptionsPageHeader", () => ({ default: () => <div className="header-stub" /> }));
 
+// The font picker asks for the user's own fonts and registers each one it is given; only the list
+// is of interest here, so the registration is stood in for.
+vi.mock("../../../services/custom_fonts", () => ({
+    getCustomFonts: async () => mocks.userFonts,
+    registerFontNote: async (_noteId: string, family: string) => ({ family })
+}));
+
 import AppearanceSettings from "./appearance";
 
 let host: HTMLElement;
@@ -46,6 +54,11 @@ beforeEach(() => {
     mocks.electron = true;
     mocks.mobile = false;
     mocks.stored = {};
+    mocks.userFonts = [];
+    Object.defineProperty(document, "fonts", {
+        configurable: true,
+        value: { add: vi.fn(), delete: vi.fn() }
+    });
     host = document.body.appendChild(document.createElement("div"));
 });
 
@@ -87,6 +100,39 @@ describe("the font settings", () => {
     it("nests them under the switch that governs them", () => {
         open();
         expect(fontRows().every((row) => row.className.includes("tn-card-section-nested"))).toBe(true);
+    });
+
+    it("offers the fonts the user labelled #customFont, one entry per family", async () => {
+        mocks.stored = { overrideThemeFonts: true };
+        mocks.userFonts = [
+            { family: "Iosevka", title: "Iosevka.woff2", noteId: "n1", blobId: "b1" },
+            { family: "Inter", title: "Inter.woff2", noteId: "n2", blobId: "b2" },
+            // A second note offering a family already on the list is not a second entry.
+            { family: "Inter", title: "Inter (copy).woff2", noteId: "n3", blobId: "b3" }
+        ];
+        open();
+        await act(async () => {});
+
+        await act(async () => (fontRows()[0] as HTMLElement).click());
+
+        const picker = document.querySelector(".font-picker-list");
+        const headers = [ ...(picker?.querySelectorAll(".dropdown-header") ?? []) ].map((header) => header.textContent);
+        expect(headers).toContain("fonts.user-fonts");
+
+        const listed = [ ...(picker?.querySelectorAll(".dropdown-item") ?? []) ].map((item) => item.textContent?.trim());
+        expect(listed.filter((entry) => entry === "Inter")).toHaveLength(1);
+        expect(listed).toContain("Iosevka");
+    });
+
+    it("lists only the built-in families when the user has labelled no fonts", async () => {
+        mocks.stored = { overrideThemeFonts: true };
+        open();
+        await act(async () => {});
+        await act(async () => (fontRows()[0] as HTMLElement).click());
+
+        const headers = [ ...document.querySelectorAll(".font-picker-list .dropdown-header") ].map((header) => header.textContent);
+        expect(headers).not.toContain("fonts.user-fonts");
+        expect(headers).toContain("fonts.generic-fonts");
     });
 
     it("leaves ligatures alone, since they come from the theme's own font", () => {

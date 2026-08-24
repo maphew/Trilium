@@ -27,6 +27,7 @@ export const ATTR_HELP: AttrHelpMap = {
         appCss: t("attribute_detail.app_css"),
         appTheme: t("attribute_detail.app_theme"),
         appThemeBase: t("attribute_detail.app_theme_base"),
+        customFont: t("attribute_detail.custom_font"),
         cssClass: t("attribute_detail.css_class"),
         iconClass: t("attribute_detail.icon_class"),
         pageSize: t("attribute_detail.page_size"),

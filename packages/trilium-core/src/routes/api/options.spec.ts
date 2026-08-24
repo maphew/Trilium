@@ -1,3 +1,4 @@
+import type { UserFont } from "@triliumnext/commons";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import * as i18n from "../../services/i18n";
@@ -13,6 +14,18 @@ let api: CoreApiTester;
 
 function getOptionValue(name: string): string | null {
     return getSql().getValue<string | null>("SELECT value FROM options WHERE name = ?", [name]);
+}
+
+/** Creates a file note carrying a `#customFont` label and returns its note ID. */
+async function createFontNote(title: string, family: string): Promise<string> {
+    const created = await api.post<{ note: { noteId: string } }>("/api/notes/root/children?target=into", {
+        body: { title, type: "file", mime: "font/woff2", content: "wOF2" }
+    });
+    const { noteId } = created.body.note;
+    await api.put(`/api/notes/${noteId}/set-attribute`, {
+        body: { type: "label", name: "customFont", value: family }
+    });
+    return noteId;
 }
 
 /** Creates a code note carrying a `#run` label and returns its note ID. */
@@ -187,5 +200,21 @@ describe("Options API (core)", () => {
         expect(withValueEntry?.val).toBe("my-theme");
         // "Theme B!!" -> non-alphanumerics replaced with "-"
         expect(noValueEntry?.val).toBe("theme-b--");
+    });
+
+    it("returns user fonts, falling back to the title as the family when customFont has no value", async () => {
+        const named = await createFontNote("Iosevka.woff2", "Iosevka");
+        const unnamed = await createFontNote("Inter Variable", "");
+
+        const res = await api.get<UserFont[]>("/api/options/user-fonts");
+        expect(res.status).toBe(200);
+
+        const namedEntry = res.body.find((font) => font.noteId === named);
+        const unnamedEntry = res.body.find((font) => font.noteId === unnamed);
+        expect(namedEntry?.family).toBe("Iosevka");
+        expect(namedEntry?.title).toBe("Iosevka.woff2");
+        // The family the picker lists it under, and the version the bytes are fetched with.
+        expect(unnamedEntry?.family).toBe("Inter Variable");
+        expect(unnamedEntry?.blobId).toBeTruthy();
     });
 });
