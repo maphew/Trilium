@@ -1,34 +1,49 @@
 import type { ResolvedImage } from "@triliumnext/commons/src/lib/spreadsheet/render_to_xlsx.js";
-import type { Request } from "express";
+import type { Request, Response } from "express";
 
 import becca from "../../becca/becca.js";
-import { ValidationError } from "../../errors.js";
-import { encodeBase64 } from "../../services/utils/binary.js";
+import { decodeUtf8, encodeBase64 } from "../../services/utils/binary.js";
+import { getContentDisposition } from "../../services/utils/index.js";
+
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 // A drawing whose image lives in an attachment, as `persistence.tsx` rewrites it on save.
 const ATTACHMENT_IMAGE_SOURCE = /attachments\/([A-Za-z0-9_]+)\/image\//;
 
 /**
- * Renders a spreadsheet workbook to an `.xlsx` file, returned base64-encoded so the client can
- * hand it straight to a data-URL download. The client posts the live editor state instead of a
- * `noteId`, so an export includes edits the debounced save has not flushed yet.
+ * Renders a spreadsheet note to an `.xlsx` file and sends it as a download. The client flushes its
+ * pending save before navigating here, so the stored content it renders is the state the user sees.
  *
  * `exceljs` is dynamically imported, which both keeps it off the startup path and keeps it out of
  * the client bundle: rendering here is the only reason the browser used to need the library.
  */
-async function renderXlsx(req: Request) {
-    const { content } = req.body;
+async function exportXlsx(req: Request<{ noteId: string }>, res: Response) {
+    const { noteId } = req.params;
+    const note = becca.getNote(noteId);
 
-    if (typeof content !== "string") {
-        throw new ValidationError("'content' must be the workbook JSON.");
+    if (!note || note.type !== "spreadsheet") {
+        return res.setHeader("Content-Type", "text/plain").status(404)
+            .send(`Note '${noteId}' is not a spreadsheet.`);
     }
 
+    if (!note.isContentAvailable()) {
+        return res.setHeader("Content-Type", "text/plain").status(401)
+            .send("Protected session not available");
+    }
+
+    const content = note.getContent();
     const { renderSpreadsheetToXlsx } = await import(
         "@triliumnext/commons/src/lib/spreadsheet/render_to_xlsx.js"
     );
-    const buffer = await renderSpreadsheetToXlsx(content, { resolveImage });
+    const buffer = await renderSpreadsheetToXlsx(
+        typeof content === "string" ? content : decodeUtf8(content),
+        { resolveImage }
+    );
 
-    return { base64: encodeBase64(new Uint8Array(buffer)) };
+    res.setHeader("Content-Disposition", getContentDisposition(`${note.title}.xlsx`));
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Content-Type", XLSX_MIME);
+    res.send(buffer);
 }
 
 /**
@@ -90,5 +105,5 @@ function imageExtensionForMime(mime: string): ResolvedImage["extension"] | null 
 }
 
 export default {
-    renderXlsx
+    exportXlsx
 };

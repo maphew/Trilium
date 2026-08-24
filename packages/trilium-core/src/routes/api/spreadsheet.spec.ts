@@ -6,10 +6,12 @@ import { createTextNote } from "../../test/api_fixtures";
 import { CoreApiTester } from "../../test/api_tester";
 
 /**
- * Drives the shared spreadsheet render route through {@link CoreApiTester} (no Express), so this
+ * Drives the shared spreadsheet export route through {@link CoreApiTester} (no Express), so this
  * spec runs under both the node and standalone (WASM) suites.
  */
 let api: CoreApiTester;
+
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 /** A 1x1 transparent PNG, small enough to be written out in full. */
 const PIXEL_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAA"
@@ -20,17 +22,25 @@ describe("Spreadsheet API (core)", () => {
         api = CoreApiTester.build();
     });
 
-    it("renders a workbook to a readable xlsx, and rejects a non-string content", async () => {
+    it("renders the note's stored workbook to a readable xlsx", async () => {
         const cellData = { "0": { "0": { v: "Hello", t: 1 }, "1": { v: 42, t: 2 } } };
         const ws = (await renderWorkbook(workbookJson(cellData))).getWorksheet("Ledger");
 
         expect(ws?.getCell("A1").value).toBe("Hello");
         expect(ws?.getCell("B1").value).toBe(42);
+    });
 
-        const rejected = await api.post("/api/spreadsheet/xlsx", {
-            body: { content: { not: "a string" } }
-        });
-        expect(rejected.status).toBe(400);
+    it("names the download after the note and refuses a note that is not a spreadsheet", async () => {
+        const noteId = await createSpreadsheetNote("Quarterly Ledger", workbookJson({}));
+        const res = await api.get(`/api/spreadsheet/${noteId}/xlsx`);
+
+        expect(res.status).toBe(200);
+        expect(res.headers["Content-Disposition"]).toContain("Quarterly%20Ledger.xlsx");
+        expect(res.headers["Content-Type"]).toBe(XLSX_MIME);
+
+        const { noteId: textNoteId } = await createTextNote(api, { title: "Not a spreadsheet" });
+        expect((await api.get(`/api/spreadsheet/${textNoteId}/xlsx`)).status).toBe(404);
+        expect((await api.get("/api/spreadsheet/nosuchnote/xlsx")).status).toBe(404);
     });
 
     it("embeds an image stored as an attachment", async () => {
@@ -65,19 +75,26 @@ describe("Spreadsheet API (core)", () => {
     });
 });
 
-/** Posts the workbook JSON to the route and reads the answer back as a real workbook. */
+/** Stores the workbook JSON on a spreadsheet note, downloads it, and reads it back as a workbook. */
 async function renderWorkbook(json: string): Promise<ExcelJS.Workbook> {
-    const res = await api.post<{ base64: string }>("/api/spreadsheet/xlsx", {
-        body: { content: json }
-    });
+    const noteId = await createSpreadsheetNote("Ledger note", json);
+    const res = await api.get<Uint8Array>(`/api/spreadsheet/${noteId}/xlsx`);
     expect(res.status).toBe(200);
 
-    // The decoder can hand back a view into a larger pooled buffer, so copy the bytes into an
+    // The response body can be a view into a larger pooled buffer, so copy the bytes into an
     // ArrayBuffer of their own before exceljs unzips it.
-    const bytes = decodeBase64(res.body.base64);
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(new Uint8Array(bytes).buffer);
+    await wb.xlsx.load(new Uint8Array(res.body).buffer);
     return wb;
+}
+
+/** Creates a spreadsheet note holding `content`, returning its id. */
+async function createSpreadsheetNote(title: string, content: string): Promise<string> {
+    const res = await api.post<{ note: { noteId: string } }>("/api/notes/root/children?target=into", {
+        body: { title, type: "spreadsheet", mime: "application/json", content }
+    });
+    expect(res.status).toBe(200);
+    return res.body.note.noteId;
 }
 
 /** Wraps cell data into a complete single-sheet workbook payload. */

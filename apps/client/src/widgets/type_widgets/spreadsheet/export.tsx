@@ -4,12 +4,13 @@ import { MutableRef } from "preact/hooks";
 import NoteContext from "../../../components/note_context";
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
-import server from "../../../services/server";
+import open from "../../../services/open";
+import type SpacedUpdate from "../../../services/spaced_update";
 import toast from "../../../services/toast";
 import utils from "../../../services/utils";
+import type { SavedData } from "../../react/hooks";
 import { useTriliumEvent } from "../../react/hooks";
 
-const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv;charset=utf-8";
 const ZIP_MIME = "application/zip";
 // Excel on Windows only auto-detects UTF-8 in a CSV when it starts with a byte-order mark.
@@ -23,10 +24,10 @@ const UTF8_BOM = "\uFEFF";
  * `@triliumnext/commons`, dynamically imported so they are only fetched on export; XLSX is
  * rendered by the backend, which keeps exceljs out of the client bundle entirely.
  */
-export default function useSpreadsheetExport(apiRef: MutableRef<FUniver | undefined>, note: FNote, noteContext: NoteContext | null | undefined) {
+export default function useSpreadsheetExport(apiRef: MutableRef<FUniver | undefined>, note: FNote, noteContext: NoteContext | null | undefined, spacedUpdate: SpacedUpdate<SavedData | undefined>) {
     useTriliumEvent("exportXlsx", ({ ntxId }) => {
         if (ntxId !== noteContext?.ntxId) return;
-        void exportToXlsx(apiRef.current, note);
+        void exportToXlsx(note, spacedUpdate);
     });
     useTriliumEvent("exportCsv", ({ ntxId }) => {
         if (ntxId !== noteContext?.ntxId) return;
@@ -34,16 +35,13 @@ export default function useSpreadsheetExport(apiRef: MutableRef<FUniver | undefi
     });
 }
 
-async function exportToXlsx(univerAPI: FUniver | undefined, note: FNote) {
-    const json = serializeWorkbook(univerAPI);
-    if (json == null) return;
-
+async function exportToXlsx(note: FNote, spacedUpdate: SpacedUpdate<SavedData | undefined>) {
     try {
-        // The backend renders the workbook and resolves its attachment images, so the client never
-        // loads exceljs. It answers with base64, which is what the data-URL download wants anyway.
-        const body = { content: json };
-        const { base64 } = await server.post<{ base64: string }>("spreadsheet/xlsx", body);
-        utils.triggerDownload(downloadName(note, "xlsx"), `data:${XLSX_MIME};base64,${base64}`);
+        // The backend renders from the note's stored content, so a pending edit has to reach the
+        // database before the download is requested. `open.download` navigates rather than clicking
+        // an anchor, which keeps the workbook off the wire in both directions.
+        await spacedUpdate.updateNowIfNecessary();
+        open.download(open.getUrlForDownload(`api/spreadsheet/${note.noteId}/xlsx`));
     } catch (e) {
         console.error("[spreadsheet-export] xlsx failed", e);
         toast.showError(t("spreadsheet.export-failed"));
@@ -82,13 +80,6 @@ function countVisibleSheets(wbData: { sheetOrder?: string[]; sheets?: Record<str
     const sheets = wbData.sheets ?? {};
     const ids = wbData.sheetOrder ?? Object.keys(sheets);
     return ids.filter((id) => sheets[id] && !sheets[id].hidden).length;
-}
-
-/** Serializes the live workbook in the same shape the note is persisted in. */
-function serializeWorkbook(univerAPI: FUniver | undefined): string | null {
-    const workbook = univerAPI?.getActiveWorkbook();
-    if (!workbook) return null;
-    return JSON.stringify({ version: 1, workbook: workbook.save() });
 }
 
 async function download(note: FNote, extension: string, blob: Blob) {
