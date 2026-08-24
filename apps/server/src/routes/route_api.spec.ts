@@ -157,8 +157,11 @@ describe("internalRoute CLS wiring", () => {
             localNowDateTime: cls.get<string>("localNowDateTime")
         }), apiResultHandler);
 
+        // `pace` selects one of two fixed delays: a timer whose duration comes from the request
+        // is a resource-exhaustion sink.
         asyncRoute("get", "/cls/async", [], async (req) => {
-            await new Promise((resolve) => setTimeout(resolve, Number(req.query.delay ?? 0)));
+            const delayMs = req.query.pace === "slow" ? 30 : 1;
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
             return { componentId: cls.getComponentId() };
         }, apiResultHandler);
 
@@ -202,13 +205,13 @@ describe("internalRoute CLS wiring", () => {
     });
 
     it("keeps each request's context across an await, including while they overlap", async () => {
-        const call = (componentId: string, delay: number) => request(app)
-            .get(`/cls/async?delay=${delay}`)
-            .set("trilium-component-id", componentId)
+        const call = (pace: string) => request(app)
+            .get(`/cls/async?pace=${pace}`)
+            .set("trilium-component-id", pace)
             .expect(200);
 
         // The slow request starts first and finishes last, so the two are in flight together.
-        const [slow, fast] = await Promise.all([call("slow", 30), call("fast", 1)]);
+        const [slow, fast] = await Promise.all([call("slow"), call("fast")]);
 
         expect(slow.body.componentId).toBe("slow");
         expect(fast.body.componentId).toBe("fast");
