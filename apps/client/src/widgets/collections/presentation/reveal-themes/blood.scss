@@ -13,6 +13,7 @@
 // Load utils
 @use 'sass:color';
 @use 'template/mixins' as mixins;
+@use 'template/system-fonts' as fonts;
 
 $coal: #222;
 $active-color: #a23;
@@ -22,10 +23,10 @@ $code-background-color: #23241f;
 @use 'template/settings' with (
 	$background-color: $coal,
 
-	$main-font: 'Ubuntu, sans-serif',
+	$main-font: "Ubuntu, #{fonts.$sans}",
 	$main-color: #eee,
 
-	$heading-font: 'Ubuntu, sans-serif',
+	$heading-font: "Ubuntu, #{fonts.$sans}",
 	$heading-text-shadow: 2px 2px 2px $coal,
 
 	$heading1-text-shadow: #{0 1px 0 #ccc,

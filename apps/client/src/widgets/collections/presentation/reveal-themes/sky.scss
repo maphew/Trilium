@@ -7,6 +7,7 @@
 // Load utils
 @use 'sass:color';
 @use 'template/mixins' as mixins;
+@use 'template/system-fonts' as fonts;
 
 $active-color: #2a76dd;
 
@@ -16,10 +17,10 @@ $active-color: #2a76dd;
 	$background-color: #f7fbfc,
 
 	$main-color: #333,
-	$main-font: "'Open Sans', sans-serif",
+	$main-font: "'Open Sans', #{fonts.$sans}",
 
 	$heading-color: #333,
-	$heading-font: "'Quicksand', sans-serif",
+	$heading-font: "'Quicksand', #{fonts.$sans}",
 	$heading-letter-spacing: -0.05em,
 
 	$link-color: $active-color,

@@ -7,6 +7,7 @@
 // Load utils
 @use 'sass:color';
 @use 'template/mixins' as mixins;
+@use 'template/system-fonts' as fonts;
 
 $active-color: #42affa;
 
@@ -14,12 +15,12 @@ $active-color: #42affa;
 @use 'template/settings' with (
 	$background-color: #191919,
 
-	$main-font: "'Source Sans Pro', Helvetica, sans-serif",
+	$main-font: "'Source Sans Pro', #{fonts.$sans}",
 	$main-font-size: 42px,
 	$main-color: #fff,
 
 	$heading-color: #fff,
-	$heading-font: "'Source Sans Pro', Helvetica, sans-serif",
+	$heading-font: "'Source Sans Pro', #{fonts.$sans}",
 	$heading-font-weight: 600,
 
 	$heading1-size: 2.5em,

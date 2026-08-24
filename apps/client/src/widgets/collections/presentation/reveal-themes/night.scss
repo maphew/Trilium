@@ -7,6 +7,7 @@
 // Load utils
 @use 'sass:color';
 @use 'template/mixins' as mixins;
+@use 'template/system-fonts' as fonts;
 
 $active-color: #e7ad52;
 
@@ -14,11 +15,11 @@ $active-color: #e7ad52;
 @use 'template/settings' with (
 	$background-color: #111,
 
-	$main-font: "'Open Sans', sans-serif",
+	$main-font: "'Open Sans', #{fonts.$sans}",
 	$main-color: #fff,
 
 	$heading-color: #fff,
-	$heading-font: "'Montserrat', Impact, sans-serif",
+	$heading-font: "'Montserrat', #{fonts.$condensed}",
 	$heading-text-transform: none,
 	$heading-letter-spacing: -0.03em,
 

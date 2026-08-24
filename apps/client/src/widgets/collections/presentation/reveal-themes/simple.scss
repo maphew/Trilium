@@ -9,6 +9,7 @@
 // Load utils
 @use 'sass:color';
 @use 'template/mixins' as mixins;
+@use 'template/system-fonts' as fonts;
 
 $active-color: #00008b;
 
@@ -17,10 +18,10 @@ $active-color: #00008b;
 	$background-color: #fff,
 
 	$main-color: #000,
-	$main-font: "'Lato', sans-serif",
+	$main-font: "'Lato', #{fonts.$sans}",
 
 	$heading-color: #000,
-	$heading-font: "'News Cycle', Impact, sans-serif",
+	$heading-font: "'News Cycle', #{fonts.$condensed}",
 	$heading-font-weight: 600,
 
 	$heading1-size: 2.5em,
