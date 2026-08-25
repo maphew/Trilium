@@ -67,7 +67,6 @@
     "@types/ws": "8.18.1",
     "@types/yauzl": "3.4.0",
     "archiver": "8.0.0",
-    "cheerio": "1.2.0",
     "chokidar": "5.0.0",
     "color": "5.0.3",
     "compression": "1.8.1",
