@@ -646,6 +646,17 @@ body.mobile .dropdown-menu .dropdown-submenu {
     }
 }
 
+/* CodeMirror renders its tooltips into this element rather than into `.cm-editor`, which clips them
+   (see `getTooltipHost()` in `packages/codemirror`). The stacking context has to clear the dialogs an
+   editor can sit in, up to 1101, and stay under the context menu at 2500. */
+.cm-tooltip-host {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2000;
+    font-size: var(--monospace-font-size);
+}
+
 #sql-console-query {
     height: 150px;
     width: 100%;
