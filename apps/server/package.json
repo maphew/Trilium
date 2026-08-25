@@ -16,7 +16,7 @@
     "coverage": "vitest --coverage",
     "test-build": "vitest --config vitest.build.config.mts",
     "start-prod": "cross-env TRILIUM_DATA_DIR=data pnpm start-prod-no-dir",
-    "start-prod-no-dir": "pnpm build && cross-env TRILIUM_ENV=production TRILIUM_PORT=8082 node dist/main.cjs",
+    "start-prod-no-dir": "pnpm build && cross-env TRILIUM_ENV=production TRILIUM_PORT=8082 node dist/main.mjs",
     "e2e": "playwright test",
     "circular-deps": "dpdm -T src/**/*.ts --tree=false --warning=false --skip-dynamic-imports=circular",
     "docker-build-debian": "pnpm build && docker build . -t triliumnext-debian -f Dockerfile",
