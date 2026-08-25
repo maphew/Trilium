@@ -359,7 +359,9 @@ async function initialize(): Promise<void> {
                 const dbLocale = coreModule.options.getOptionOrNull("locale");
                 if (dbLocale && dbLocale !== "en") {
                     logService.info(`[Worker] Reconciling i18next locale to "${dbLocale}" from DB`);
-                    await coreModule.i18n.changeLanguage(dbLocale);
+                    // `changeLanguage` rebuilds the hidden subtree, and committing that writes
+                    // entity change ids into the execution context, so it needs one open.
+                    await coreModule.getContext().init(() => coreModule.i18n.changeLanguage(dbLocale));
                 }
             } else {
                 logService.info("[Worker] Database not initialized, skipping becca load (will be loaded during DB initialization)");
