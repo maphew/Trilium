@@ -114,6 +114,9 @@ overrides:
 # CI install on its PRs (ERR_PNPM_LOCKFILE_CONFIG_MISMATCH).
 ignoredOptionalDependencies:
   - "@anthropic-ai/claude-agent-sdk-*"
+  # sass wants @parcel/watcher for its --watch mode, which nothing here invokes -- Vite drives the
+  # compiler API. Skipping it avoids a native install script and twelve per-platform binaries.
+  - "@parcel/watcher"
 
 patchedDependencies:
   '@excalidraw/excalidraw@0.18.1': patches/@excalidraw__excalidraw@0.18.1.patch
