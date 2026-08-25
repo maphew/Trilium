@@ -107,7 +107,13 @@
         "restore-looking-for-backups": "Поиск резервных копий...",
         "restore-choose-file": "Выбрать файл резервной копии",
         "restore-choose-file-description": "Выберите файл резервной копии базы данных (.db, .tnbackup) на вашем устройстве",
-        "restore-uploading": "Загрузка резервной копии..."
+        "restore-uploading": "Загрузка резервной копии...",
+        "restore-uploaded-so-far": "{{sent}} из {{total}}",
+        "restore-upload-speed": "{{speed}}/с",
+        "restore-upload-reconnecting": "Ожидание восстановления соединения...",
+        "restore-error-unusable": "Неподдерживаемая или повреждённая резервная копия Trilium.",
+        "restore-error-too-new": "Эта резервная копия создана в более новой версии Trilium. Обновите Trilium и повторите попытку.",
+        "restore-error-too-old": "Эта резервная копия из версии Trilium, которая слишком старая для восстановления."
     },
     "login": {
         "heading": "Вход в Trilium Notes",
