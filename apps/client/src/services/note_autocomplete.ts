@@ -97,23 +97,23 @@ async function getInboxTarget() {
 /** Labels the creation entry with the note the capture would land in. */
 function buildCreateNoteTitle(term: string, target: InboxTargetResponse | null) {
     if (!target) {
-        return t("note_autocomplete.create-note", { term });
+        return t("note_autocomplete.create-note", { term: escapeHtml(term) });
     }
 
     if (target.kind === "dayNote") {
-        return t("note_autocomplete.create-note-into-day-note", { term });
+        return t("note_autocomplete.create-note-into-day-note", { term: escapeHtml(term) });
     }
 
     // The root note's own title names nothing the user recognises in the tree.
     if (target.kind === "root") {
-        return t("note_autocomplete.create-note-into-root", { term });
+        return t("note_autocomplete.create-note-into-root", { term: escapeHtml(term) });
     }
 
     if (!target.title) {
-        return t("note_autocomplete.create-note", { term });
+        return t("note_autocomplete.create-note", { term: escapeHtml(term) });
     }
 
-    return t("note_autocomplete.create-note-into", { term, parentTitle: target.title });
+    return t("note_autocomplete.create-note-into", { term: escapeHtml(term), parentTitle: escapeHtml(target.title) });
 }
 
 // TODO: Deduplicate with server.
@@ -241,7 +241,7 @@ async function autocompleteSource(term: string, cb: (rows: Suggestion[]) => void
                 action: "create-child-note",
                 noteTitle: term,
                 parentNoteId: activeNoteId || "root",
-                highlightedNotePathTitle: t("note_autocomplete.create-child-note", { term })
+                highlightedNotePathTitle: t("note_autocomplete.create-child-note", { term: escapeHtml(term) })
             } as Suggestion
         ].concat(results);
     }
@@ -251,7 +251,7 @@ async function autocompleteSource(term: string, cb: (rows: Suggestion[]) => void
             {
                 action: "search-notes",
                 noteTitle: term,
-                highlightedNotePathTitle: `${t("note_autocomplete.search-for", { term })} <kbd style='color: var(--muted-text-color); background-color: transparent; float: right;'>Ctrl+Enter</kbd>`
+                highlightedNotePathTitle: `${t("note_autocomplete.search-for", { term: escapeHtml(term) })} <kbd style='color: var(--muted-text-color); background-color: transparent; float: right;'>Ctrl+Enter</kbd>`
             }
         ]);
     }
@@ -261,7 +261,7 @@ async function autocompleteSource(term: string, cb: (rows: Suggestion[]) => void
             {
                 action: "external-link",
                 externalLink: term,
-                highlightedNotePathTitle: t("note_autocomplete.insert-external-link", { term })
+                highlightedNotePathTitle: t("note_autocomplete.insert-external-link", { term: escapeHtml(term) })
             } as Suggestion
         ].concat(results);
     }
