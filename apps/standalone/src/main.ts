@@ -11,7 +11,8 @@ import { announceLeadership, attachServiceWorkerBridge, downloadDatabase, regist
  * the relative cost of each step on a first visit, where the two large downloads — the SQLite
  * WASM binary and the core bundle — dominate; a warm start runs the same sequence from cache.
  *
- * The worker reports the middle of this sequence over `STARTUP_PROGRESS` (see local-bridge.ts).
+ * The worker reports the middle of this sequence over `STARTUP_PROGRESS` (see local-bridge.ts),
+ * and the client reports the last two once its entry point is loading its layout and note tree.
  * A follower tab has no worker of its own, so it sits on the first phase until the leader answers
  * its `/bootstrap` and the client's own phases carry the bar the rest of the way.
  *
@@ -27,7 +28,9 @@ const STANDALONE_STARTUP_PHASES: SplashPhase[] = [
     { id: "database", weight: 2, status: "Opening the database…" },
     { id: "core", weight: 4, status: "Loading Trilium…" },
     { id: "becca", weight: 2, status: "Reading your notes…" },
-    { id: "application", weight: 4, status: "Loading the application…" }
+    { id: "application", weight: 4, status: "Loading the application…" },
+    { id: "interface", weight: 2, status: "Building the interface…" },
+    { id: "notes", weight: 1, status: "Loading the note tree…" }
 ];
 
 async function waitForServiceWorkerControl(): Promise<void> {

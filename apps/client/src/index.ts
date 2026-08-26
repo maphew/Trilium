@@ -148,32 +148,37 @@ function setBodyAttributes() {
 }
 
 async function loadScripts() {
+    const entry = await importEntry();
+
+    // Every entry point renders after its module has finished evaluating: the desktop layout, the
+    // note tree and the locale catalogue are all fetched from there. Waiting for the `ready` it
+    // exports keeps the splash up until the screen is actually populated, instead of handing the
+    // user a blank page for the seconds those fetches take on a slow connection.
+    reportSplashPhase("interface");
+    await entry.ready;
+}
+
+function importEntry(): Promise<{ ready?: Promise<unknown> }> {
     if (!glob.dbInitialized) {
-        await import("./setup.js");
-        return;
+        return import("./setup.js");
     }
 
     if (glob.passwordSet === false) {
-        await import("./set_password.js");
-        return;
+        return import("./set_password.js");
     }
 
     if (glob.loggedIn === false) {
-        await import("./login.js");
-        return;
+        return import("./login.js");
     }
 
     switch (glob.device) {
         case "mobile":
-            await import("./mobile.js");
-            break;
+            return import("./mobile.js");
         case "print":
-            await import("./print.js");
-            break;
+            return import("./print.js");
         case "desktop":
         default:
-            await import("./desktop.js");
-            break;
+            return import("./desktop.js");
     }
 }
 

@@ -34,7 +34,9 @@ export interface SplashPhase {
  */
 export const CLIENT_STARTUP_PHASES: SplashPhase[] = [
     { id: "bootstrap", weight: 1, status: "Opening your notes…" },
-    { id: "application", weight: 2, status: "Loading the application…" }
+    { id: "application", weight: 3, status: "Loading the application…" },
+    { id: "interface", weight: 2, status: "Building the interface…" },
+    { id: "notes", weight: 2, status: "Loading the note tree…" }
 ];
 
 let phases: SplashPhase[] = [];

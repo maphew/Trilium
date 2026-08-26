@@ -132,9 +132,9 @@ describe("bootstrap", () => {
         await vi.waitFor(() => expect(sw.register).toHaveBeenCalled());
         expect(document.getElementById("splash-status")?.textContent)
             .toBe("Setting up offline support…");
-        // Seven weighted phases, the first of which covers 1/17 of the bar.
+        // Nine weighted phases, the first of which covers 1/20 of the bar.
         const fill = document.querySelector<HTMLElement>(".splash-bar-fill");
-        expect(fill?.style.width).toBe("6%");
+        expect(fill?.style.width).toBe("5%");
     });
 
     it("lets the worker's phases through after the client reports its own", async () => {
