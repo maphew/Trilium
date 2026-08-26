@@ -1,11 +1,14 @@
 import { createFontStylesheetLink } from "./services/font";
-import { hideSplash, showSplashError, updateSplashStatus } from "./services/splash";
+import {
+    CLIENT_STARTUP_PHASES, hideSplash, initSplashProgress, reportSplashPhase, showSplashError
+} from "./services/splash";
 import { buildThemeStylesheetRefs, createStylesheetLink, getThemeStyle, initThemeChangeNotifier, StylesheetRef } from "./services/theme";
 
 async function bootstrap() {
-    // The splash from index.html covers the page until hideSplash(). In standalone mode this
-    // fetch waits for the SQLite worker to open the database, which can take a while.
-    updateSplashStatus("Opening your notes…");
+    // The splash from index.html covers the page until hideSplash(). Standalone reports a longer
+    // sequence of its own before this one, so these phases only take effect on server and desktop.
+    initSplashProgress(CLIENT_STARTUP_PHASES);
+    reportSplashPhase("bootstrap");
     await setupGlob();
     await Promise.all([
         initJQuery(),
@@ -15,7 +18,7 @@ async function bootstrap() {
     initThemeChangeNotifier();
     loadIcons();
     setBodyAttributes();
-    updateSplashStatus("Loading the application…");
+    reportSplashPhase("application");
     await loadScripts();
     hideSplash();
 }

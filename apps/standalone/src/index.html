@@ -49,7 +49,7 @@
                 color: #333333;
             }
             #splash .splash-bar {
-                width: 176px;
+                width: 240px;
                 height: 3px;
                 margin-top: 24px;
                 border-radius: 2px;
@@ -62,6 +62,32 @@
                 border-radius: 2px;
                 background: #72b755;
                 animation: splash-slide 1.4s ease-in-out infinite;
+            }
+            /* Segmented state, installed by splash.ts once the startup phases are known: one
+               segment per phase, each as wide as that phase is expensive. */
+            #splash .splash-bar.is-segmented {
+                display: flex;
+                gap: 2px;
+                background: none;
+                overflow: visible;
+            }
+            #splash .splash-bar.is-segmented .splash-bar-fill {
+                display: none;
+            }
+            #splash .splash-seg {
+                flex-basis: 0;
+                height: 100%;
+                border-radius: 2px;
+                background: rgba(128, 128, 128, 0.2);
+                transition: background-color 0.3s ease;
+            }
+            #splash .splash-seg.is-done {
+                background: #72b755;
+            }
+            #splash .splash-seg.is-active {
+                background: linear-gradient(90deg, rgba(114, 183, 85, 0.25) 0%, #72b755 50%, rgba(114, 183, 85, 0.25) 100%);
+                background-size: 250% 100%;
+                animation: splash-seg-sweep 1.2s ease-in-out infinite;
             }
             #splash-status {
                 min-height: 1.5em;
@@ -87,6 +113,10 @@
                 0%, 100% { opacity: 0.3; }
                 50% { opacity: 1; }
             }
+            @keyframes splash-seg-sweep {
+                0% { background-position: 100% 0; }
+                100% { background-position: 0 0; }
+            }
             @media (prefers-color-scheme: dark) {
                 #splash { background: #242424; color: #999999; }
                 #splash .splash-title { color: #cccccc; }
@@ -94,6 +124,7 @@
             @media (prefers-reduced-motion: reduce) {
                 #splash .splash-content { opacity: 1; animation: none; }
                 #splash .splash-bar-fill { width: 100%; animation: splash-pulse 1.8s ease-in-out infinite; }
+                #splash .splash-seg.is-active { background: rgba(114, 183, 85, 0.55); animation: none; }
             }
             @media print {
                 #splash { display: none; }

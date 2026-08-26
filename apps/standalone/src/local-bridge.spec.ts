@@ -61,6 +61,32 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
+describe("startup progress", () => {
+    it("advances the splash as the worker reports its startup phases", async () => {
+        document.body.innerHTML = `
+            <div id="splash">
+                <div class="splash-bar"></div>
+                <div id="splash-status"></div>
+            </div>`;
+        const bridge = await freshBridge();
+        const { initSplashProgress } = await import("../../client/src/services/splash.js");
+        initSplashProgress([
+            { id: "sqlite", weight: 1, status: "Loading the database engine…" },
+            { id: "core", weight: 1, status: "Loading Trilium…" }
+        ]);
+
+        bridge.startLocalServerWorker();
+        lastWorker().onmessage?.({ data: { type: "STARTUP_PROGRESS", phase: "core" } });
+
+        expect(document.getElementById("splash-status")?.textContent).toBe("Loading Trilium…");
+        const segments = [ ...document.querySelectorAll(".splash-seg") ];
+        expect(segments[0]?.classList.contains("is-done")).toBe(true);
+        expect(segments[1]?.classList.contains("is-active")).toBe(true);
+
+        document.body.innerHTML = "";
+    });
+});
+
 describe("startLocalServerWorker", () => {
     it("creates the worker once and sends an INIT message", async () => {
         const bridge = await freshBridge();

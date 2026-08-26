@@ -118,7 +118,11 @@ describe("bootstrap", () => {
     });
 
     it("reports progress on the splash while the SW installs", async () => {
-        document.body.innerHTML = `<div id="splash"><div id="splash-status"></div></div>`;
+        document.body.innerHTML = `
+            <div id="splash">
+                <div class="splash-bar"></div>
+                <div id="splash-status"></div>
+            </div>`;
         const sw: ServiceWorkerLike = {
             controller: null, register: vi.fn(), ready: Promise.resolve()
         };
@@ -128,6 +132,10 @@ describe("bootstrap", () => {
         await vi.waitFor(() => expect(sw.register).toHaveBeenCalled());
         expect(document.getElementById("splash-status")?.textContent)
             .toBe("Setting up offline support…");
+        // One segment per startup phase, the first of them active.
+        const segments = [ ...document.querySelectorAll(".splash-seg") ];
+        expect(segments).toHaveLength(8);
+        expect(segments[0]?.classList.contains("is-active")).toBe(true);
     });
 
     it("reloads the page when the SW installs but does not take control", async () => {
