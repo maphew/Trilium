@@ -55,7 +55,16 @@ export function initSplashProgress(startupPhases: SplashPhase[]): void {
     phases = startupPhases;
     totalWeight = phases.reduce((sum, phase) => sum + phase.weight, 0);
 
-    document.querySelector("#splash .splash-bar")?.classList.add("is-continuous");
+    const bar = document.querySelector("#splash .splash-bar");
+    if (!bar) {
+        return;
+    }
+
+    // The indeterminate fill sits at 40% of the bar, which is further along than most startups
+    // begin. Dropping to the real starting position has to skip the long ease, or the bar spends
+    // its first seconds visibly shrinking; the guard is lifted a frame later, once 0 has landed.
+    bar.classList.add("is-continuous", "is-starting");
+    requestAnimationFrame(() => bar.classList.remove("is-starting"));
 }
 
 /**

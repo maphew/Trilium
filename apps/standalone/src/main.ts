@@ -14,15 +14,19 @@ import { announceLeadership, attachServiceWorkerBridge, downloadDatabase, regist
  * The worker reports the middle of this sequence over `STARTUP_PROGRESS` (see local-bridge.ts).
  * A follower tab has no worker of its own, so it sits on the first phase until the leader answers
  * its `/bootstrap` and the client's own phases carry the bar the rest of the way.
+ *
+ * The client's own `bootstrap` phase is deliberately absent: here `/bootstrap` is answered by the
+ * worker, so it does not follow the worker's steps but spans them. Listing it would let index.ts
+ * report it while the worker was still on `sqlite`, and the monotonic guard in reportSplashPhase()
+ * would then swallow every later worker phase.
  */
 const STANDALONE_STARTUP_PHASES: SplashPhase[] = [
     { id: "service-worker", weight: 1, status: "Setting up offline support…" },
-    { id: "worker-modules", weight: 1, status: "Starting the database engine…" },
+    { id: "worker-modules", weight: 1, status: "Starting up…" },
     { id: "sqlite", weight: 3, status: "Loading the database engine…" },
     { id: "database", weight: 2, status: "Opening the database…" },
     { id: "core", weight: 4, status: "Loading Trilium…" },
     { id: "becca", weight: 2, status: "Reading your notes…" },
-    { id: "bootstrap", weight: 1, status: "Preparing the workspace…" },
     { id: "application", weight: 4, status: "Loading the application…" }
 ];
 
