@@ -3150,7 +3150,8 @@
     "vector_dark": "벡터(어둡게)",
     "show-scale": "축척 표시",
     "show-labels": "마커 이름 표시",
-    "cluster-markers": "가까운 마커 그룹화"
+    "cluster-markers": "가까운 마커 그룹화",
+    "presentation-theme": "테마"
   },
   "table_context_menu": {
     "delete_row": "행 삭제"
