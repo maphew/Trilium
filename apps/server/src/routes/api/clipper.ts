@@ -1,4 +1,4 @@
-import { app_info as appInfo, attribute_formatter as attributeFormatter, attributes as attributeService, type BNote, cloning as cloneService, date_notes as dateNoteService, date_utils as dateUtils, getLog, note_service as noteService, sanitize, search as searchService, ValidationError, ws } from "@triliumnext/core";
+import { app_info as appInfo, attribute_formatter as attributeFormatter, attributes as attributeService, type BNote, date_notes as dateNoteService, date_utils as dateUtils, getLog, note_service as noteService, sanitize, search as searchService, ValidationError, ws } from "@triliumnext/core";
 import type { Request } from "express";
 import { parse } from "node-html-parser";
 import path from "path";

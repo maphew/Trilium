@@ -1,4 +1,11 @@
-import { becca_easy_mocking, BNote, cls } from "@triliumnext/core";
+import {
+    becca,
+    becca_easy_mocking,
+    branches as branchService,
+    BNote,
+    cls,
+    note_service as noteService
+} from "@triliumnext/core";
 import type { Request } from "express";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -71,18 +78,40 @@ describe("clipper route handlers", () => {
         expect(clipperRoute.openNote(req)).toEqual({ result: "open-in-browser" });
     });
 
-    it("creates a clipping note, then appends to it when clipped from the same URL", async () => {
+    it("reuses a moved clipping note without cloning it back into the inbox", async () => {
         const pageUrl = "https://example.com/article";
         const first = await cls.init(() => clipperRoute.addClipping({
             body: { title: "Article", content: "<p>first</p>", images: [], pageUrl }
         } as unknown as Request));
         expect(first.noteId).toBeTruthy();
 
+        const clippingNote = becca.getNoteOrThrow(first.noteId);
+        const originalBranch = clippingNote.getParentBranches()[0];
+        if (!originalBranch) {
+            throw new Error("Expected the clipping note to have a parent branch");
+        }
+
+        const destination = cls.init(() => noteService.createNewNote({
+            parentNoteId: "root",
+            title: "Clipping destination",
+            content: "",
+            type: "text"
+        }).note);
+        const moveResult = cls.init(() =>
+            branchService.moveBranchToNote(originalBranch, destination.noteId)
+        );
+        expect(moveResult).toMatchObject({ success: true });
+        expect(clippingNote.getParentBranches().map((branch) => branch.parentNoteId)).toEqual([
+            destination.noteId
+        ]);
+
         const second = await cls.init(() => clipperRoute.addClipping({
             body: { title: "Article", content: "<p>second</p>", images: [], pageUrl }
         } as unknown as Request));
-        // Same pageUrl → appends to the existing clipping note.
         expect(second.noteId).toBe(first.noteId);
+        expect(clippingNote.getParentBranches().map((branch) => branch.parentNoteId)).toEqual([
+            destination.noteId
+        ]);
 
         const found = await cls.init(() => clipperRoute.findNotesByUrl({ params: { noteUrl: pageUrl } } as unknown as Request<{ noteUrl: string }>));
         expect(found.noteId).toBe(first.noteId);
