@@ -22,11 +22,8 @@ function renderSplash() {
         </div>`;
 }
 
-function segmentClasses() {
-    return [ ...document.querySelectorAll(".splash-seg") ].map((seg) => ({
-        done: seg.classList.contains("is-done"),
-        active: seg.classList.contains("is-active")
-    }));
+function fillWidth(): string {
+    return document.querySelector<HTMLElement>(".splash-bar-fill")?.style.width ?? "";
 }
 
 beforeEach(() => {
@@ -51,15 +48,28 @@ describe("splash", () => {
         expect(document.getElementById("splash-status")?.textContent).toBe("something broke");
     });
 
-    it("draws one segment per phase, sized by weight", async () => {
-        const { initSplashProgress } = await freshSplash();
+    it("tracks the running phase's share of the total weight", async () => {
+        const { initSplashProgress, reportSplashPhase } = await freshSplash();
         initSplashProgress(PHASES);
 
         const bar = document.querySelector(".splash-bar");
-        expect(bar?.classList.contains("is-segmented")).toBe(true);
+        expect(bar?.classList.contains("is-continuous")).toBe(true);
 
-        const segments = [ ...document.querySelectorAll<HTMLElement>(".splash-seg") ];
-        expect(segments.map((seg) => seg.style.flexGrow)).toEqual([ "1", "3", "2" ]);
+        // Weights 1, 3, 2: the bar eases towards the end of whichever phase is running.
+        reportSplashPhase("first");
+        expect(fillWidth()).toBe("17%");
+        reportSplashPhase("second");
+        expect(fillWidth()).toBe("67%");
+        expect(document.getElementById("splash-status")?.textContent).toBe("Second…");
+    });
+
+    it("stops short of a full bar while the startup is still running", async () => {
+        const { initSplashProgress, reportSplashPhase } = await freshSplash();
+        initSplashProgress(PHASES);
+
+        // The last phase ends the sequence, but a full bar would read as finished.
+        reportSplashPhase("third");
+        expect(fillWidth()).toBe("95%");
     });
 
     it("keeps the sequence the first caller installed", async () => {
@@ -68,43 +78,32 @@ describe("splash", () => {
         // Standalone claims the bar before the client's own, shorter list is offered.
         initSplashProgress([ { id: "other", weight: 1, status: "Other…" } ]);
 
-        expect(document.querySelectorAll(".splash-seg")).toHaveLength(3);
         reportSplashPhase("other");
         expect(document.getElementById("splash-status")?.textContent).toBe("");
-    });
-
-    it("marks earlier phases done, the reported one active, and shows its status", async () => {
-        const { initSplashProgress, reportSplashPhase } = await freshSplash();
-        initSplashProgress(PHASES);
-
-        reportSplashPhase("second");
-        expect(segmentClasses()).toEqual([
-            { done: true, active: false },
-            { done: false, active: true },
-            { done: false, active: false }
-        ]);
-        expect(document.getElementById("splash-status")?.textContent).toBe("Second…");
+        expect(fillWidth()).toBe("");
     });
 
     it("never moves backwards, and ignores an unknown phase", async () => {
         const { initSplashProgress, reportSplashPhase } = await freshSplash();
         initSplashProgress(PHASES);
 
-        reportSplashPhase("third");
+        reportSplashPhase("second");
         // A phase reported late — or, in a follower tab, out of order — must not undo progress.
         reportSplashPhase("first");
         reportSplashPhase("nonexistent");
-        expect(document.getElementById("splash-status")?.textContent).toBe("Third…");
-        expect(segmentClasses()[2]).toEqual({ done: false, active: true });
+        expect(fillWidth()).toBe("67%");
+        expect(document.getElementById("splash-status")?.textContent).toBe("Second…");
     });
 
-    it("fills the bar, then fades the splash out and removes it", async () => {
+    it("runs the bar out to full, then fades the splash out and removes it", async () => {
         const { initSplashProgress, reportSplashPhase, hideSplash } = await freshSplash();
         initSplashProgress(PHASES);
         reportSplashPhase("second");
 
         hideSplash();
-        expect(segmentClasses().every((seg) => seg.done && !seg.active)).toBe(true);
+        expect(fillWidth()).toBe("100%");
+        const bar = document.querySelector(".splash-bar");
+        expect(bar?.classList.contains("is-finishing")).toBe(true);
         expect(document.getElementById("splash")?.classList.contains("splash-hidden")).toBe(true);
 
         vi.runAllTimers();

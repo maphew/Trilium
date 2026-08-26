@@ -65,23 +65,22 @@ describe("startup progress", () => {
     it("advances the splash as the worker reports its startup phases", async () => {
         document.body.innerHTML = `
             <div id="splash">
-                <div class="splash-bar"></div>
+                <div class="splash-bar"><div class="splash-bar-fill"></div></div>
                 <div id="splash-status"></div>
             </div>`;
         const bridge = await freshBridge();
         const { initSplashProgress } = await import("../../client/src/services/splash.js");
         initSplashProgress([
             { id: "sqlite", weight: 1, status: "Loading the database engine…" },
-            { id: "core", weight: 1, status: "Loading Trilium…" }
+            { id: "core", weight: 1, status: "Loading Trilium…" },
+            { id: "application", weight: 2, status: "Loading the application…" }
         ]);
 
         bridge.startLocalServerWorker();
         lastWorker().onmessage?.({ data: { type: "STARTUP_PROGRESS", phase: "core" } });
 
         expect(document.getElementById("splash-status")?.textContent).toBe("Loading Trilium…");
-        const segments = [ ...document.querySelectorAll(".splash-seg") ];
-        expect(segments[0]?.classList.contains("is-done")).toBe(true);
-        expect(segments[1]?.classList.contains("is-active")).toBe(true);
+        expect(document.querySelector<HTMLElement>(".splash-bar-fill")?.style.width).toBe("50%");
 
         document.body.innerHTML = "";
     });
