@@ -117,6 +117,19 @@ describe("bootstrap", () => {
         expect(document.body.innerHTML).toBe("");
     });
 
+    it("reports progress on the splash while the SW installs", async () => {
+        document.body.innerHTML = `<div id="splash"><div id="splash-status"></div></div>`;
+        const sw: ServiceWorkerLike = {
+            controller: null, register: vi.fn(), ready: Promise.resolve()
+        };
+        sw.register.mockImplementation(async () => { sw.controller = {}; });
+        setServiceWorker(sw);
+        await runBootstrap();
+        await vi.waitFor(() => expect(sw.register).toHaveBeenCalled());
+        expect(document.getElementById("splash-status")?.textContent)
+            .toBe("Setting up offline support…");
+    });
+
     it("reloads the page when the SW installs but does not take control", async () => {
         setServiceWorker({ controller: null, register: vi.fn().mockResolvedValue(undefined), ready: Promise.resolve() });
         await runBootstrap();

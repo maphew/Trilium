@@ -1,3 +1,4 @@
+import { updateSplashStatus } from "../../client/src/services/splash.js";
 import { showErrorOverlay } from "./error-overlay.js";
 import { installIosInterceptors } from "./ios-interceptors.js";
 import { claimLeadership } from "./leader_election.js";
@@ -27,6 +28,7 @@ async function waitForServiceWorkerControl(): Promise<void> {
     }
 
     console.log("[Bootstrap] Waiting for service worker to take control...");
+    updateSplashStatus("Setting up offline support…");
 
     await navigator.serviceWorker.register("./sw.js", { scope: "/" });
     await navigator.serviceWorker.ready;

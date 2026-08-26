@@ -1,8 +1,11 @@
 import { createFontStylesheetLink } from "./services/font";
+import { hideSplash, showSplashError, updateSplashStatus } from "./services/splash";
 import { buildThemeStylesheetRefs, createStylesheetLink, getThemeStyle, initThemeChangeNotifier, StylesheetRef } from "./services/theme";
 
 async function bootstrap() {
-    showSplash();
+    // The splash from index.html covers the page until hideSplash(). In standalone mode this
+    // fetch waits for the SQLite worker to open the database, which can take a while.
+    updateSplashStatus("Opening your notes…");
     await setupGlob();
     await Promise.all([
         initJQuery(),
@@ -12,6 +15,7 @@ async function bootstrap() {
     initThemeChangeNotifier();
     loadIcons();
     setBodyAttributes();
+    updateSplashStatus("Loading the application…");
     await loadScripts();
     hideSplash();
 }
@@ -170,13 +174,8 @@ async function loadScripts() {
     }
 }
 
-function showSplash() {
-    // hide body to reduce flickering on the startup. This is done through JS and not CSS to not hide <noscript>
-    document.body.style.display = "none";
-}
-
-function hideSplash() {
-    document.body.style.display = "block";
-}
-
-bootstrap();
+bootstrap().catch((err) => {
+    console.error("Trilium failed to start:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    showSplashError(`Trilium failed to start: ${message} — reload the page to try again.`);
+});
