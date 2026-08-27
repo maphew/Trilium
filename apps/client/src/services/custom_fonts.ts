@@ -1,6 +1,57 @@
-import type { UserFont } from "@triliumnext/commons";
+import { customFontFamily, customFontNoteId, type UserFont } from "@triliumnext/commons";
 
+import froca from "./froca.js";
+import options from "./options.js";
 import server from "./server.js";
+import { logError } from "./ws.js";
+
+/** The font options that can name one of the user's own fonts. */
+const FONT_FAMILY_OPTIONS = [ "mainFontFamily", "treeFontFamily", "detailFontFamily", "monospaceFontFamily" ] as const;
+
+/** The faces registered for the fonts the options currently name, by the note each is stored in. */
+const registeredFonts = new Map<string, FontFace>();
+
+/**
+ * Registers the user's own fonts that the font options name, so the families the fonts stylesheet
+ * declares (see `getFontCss`) resolve to the files those notes hold. Fonts no longer named by any
+ * option are unregistered.
+ *
+ * Lives here rather than beside the stylesheet in `font.ts` because that module is loaded by
+ * `index.ts` before jQuery is: froca and the options reach i18next through their imports, which
+ * touches `$` as it loads.
+ */
+export async function applyCustomFontsFromOptions() {
+    const wanted = new Set(FONT_FAMILY_OPTIONS
+        .map((optionName) => customFontNoteId(options.get(optionName)))
+        .filter((noteId) => noteId !== null));
+
+    for (const [ noteId, face ] of registeredFonts) {
+        if (!wanted.has(noteId)) {
+            document.fonts.delete(face);
+            registeredFonts.delete(noteId);
+        }
+    }
+
+    await Promise.all([ ...wanted ].map(async (noteId) => {
+        if (registeredFonts.has(noteId)) return;
+
+        const note = await froca.getNote(noteId);
+        if (!note) return;
+
+        try {
+            const face = await registerFontNote(noteId, customFontFamily(noteId), note.blobId ?? "");
+            // A concurrent call may have registered the same note, or the option may have moved on
+            // while the bytes were being fetched; either way this face is one too many.
+            if (registeredFonts.has(noteId)) {
+                document.fonts.delete(face);
+            } else {
+                registeredFonts.set(noteId, face);
+            }
+        } catch (e) {
+            logError(`Could not load the font stored in note '${noteId}': ${e}`);
+        }
+    }));
+}
 
 /** The fonts the user offers to the font picker: the file notes labelled `#customFont`. */
 export async function getCustomFonts() {

@@ -1,0 +1,115 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+    options: {} as Record<string, string>,
+    notes: {} as Record<string, { blobId: string } | null>
+}));
+
+vi.mock("./options.js", () => ({ default: { get: (name: string) => mocks.options[name] ?? "" } }));
+vi.mock("./froca.js", () => ({ default: { getNote: async (noteId: string) => mocks.notes[noteId] ?? null } }));
+vi.mock("./ws.js", () => ({ logError: vi.fn() }));
+vi.mock("./server.js", () => ({ default: { get: vi.fn() } }));
+
+const { applyCustomFontsFromOptions, registerFontNote } = await import("./custom_fonts.js");
+
+/** The faces `document.fonts` holds, as the stub below sees them. */
+let registeredFaces: Set<FontFace>;
+let fetchMock: ReturnType<typeof vi.fn>;
+
+/** Stands in for `FontFace`, resolving unless the source bytes say the file is undecodable. */
+class FontStub {
+    constructor(public family: string, public source: ArrayBuffer | string) {}
+
+    load() {
+        const undecodable = typeof this.source !== "string" && new Uint8Array(this.source)[0] === 0xff;
+        return undecodable ? Promise.reject(new Error("Failed to decode downloaded font.")) : Promise.resolve(this);
+    }
+}
+
+beforeEach(() => {
+    mocks.options = {};
+    mocks.notes = {};
+    registeredFaces = new Set();
+    fetchMock = vi.fn(async () => new Response(new Uint8Array([ 0x00, 0x01, 0x00, 0x00 ])));
+
+    vi.stubGlobal("FontFace", FontStub);
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(document, "fonts", {
+        configurable: true,
+        value: {
+            add: (face: FontFace) => registeredFaces.add(face),
+            delete: (face: FontFace) => registeredFaces.delete(face)
+        }
+    });
+});
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+});
+
+const families = () => [ ...registeredFaces ].map((face) => face.family);
+
+describe("registerFontNote", () => {
+    it("loads a note's file and registers it under the given family, versioned by blob", async () => {
+        await registerFontNote("fontNoteA1", "some-family", "blobA");
+
+        expect(String(fetchMock.mock.calls[0][0])).toContain("api/notes/fontNoteA1/open?v=blobA");
+        expect(families()).toEqual([ "some-family" ]);
+    });
+
+    it("throws rather than registering anything when the file cannot be fetched", async () => {
+        fetchMock.mockResolvedValue(new Response("nope", { status: 404 }));
+
+        await expect(registerFontNote("fontNoteA1", "some-family", "blobA")).rejects.toThrow("404");
+        expect(families()).toEqual([]);
+    });
+});
+
+// Each case names notes of its own: what has been registered is module state, as it is for the page
+// these run in, and outlives the test that put it there.
+describe("applyCustomFontsFromOptions", () => {
+    it("registers the note a font option names, under the family the stylesheet declares", async () => {
+        mocks.options = { mainFontFamily: "customFont:fontNoteB2", treeFontFamily: "Arial" };
+        mocks.notes = { fontNoteB2: { blobId: "blobB" } };
+
+        await applyCustomFontsFromOptions();
+
+        // "Arial" names a family the browser resolves for itself; nothing is loaded for it.
+        expect(families()).toEqual([ "trilium-font-fontNoteB2" ]);
+    });
+
+    it("registers each named font once, however many options name it", async () => {
+        mocks.options = { mainFontFamily: "customFont:fontNoteC3", detailFontFamily: "customFont:fontNoteC3" };
+        mocks.notes = { fontNoteC3: { blobId: "blobC" } };
+
+        await applyCustomFontsFromOptions();
+        // A second pass over unchanged options loads nothing again either.
+        await applyCustomFontsFromOptions();
+
+        expect(families()).toEqual([ "trilium-font-fontNoteC3" ]);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("drops a font once no option names it any more", async () => {
+        mocks.options = { mainFontFamily: "customFont:fontNoteD4" };
+        mocks.notes = { fontNoteD4: { blobId: "blobD" }, fontNoteE5: { blobId: "blobE" } };
+        await applyCustomFontsFromOptions();
+
+        mocks.options = { mainFontFamily: "customFont:fontNoteE5" };
+        await applyCustomFontsFromOptions();
+
+        expect(families()).toEqual([ "trilium-font-fontNoteE5" ]);
+    });
+
+    it("carries on where the note is gone or its file will not load", async () => {
+        mocks.options = { mainFontFamily: "customFont:goneNote001" };
+        await expect(applyCustomFontsFromOptions()).resolves.toBeUndefined();
+        expect(families()).toEqual([]);
+
+        mocks.notes = { goneNote001: { blobId: "blobG" } };
+        fetchMock.mockResolvedValue(new Response(new Uint8Array([ 0xff, 0xff ])));
+        await expect(applyCustomFontsFromOptions()).resolves.toBeUndefined();
+        expect(families()).toEqual([]);
+    });
+});

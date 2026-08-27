@@ -2,6 +2,7 @@ import { LOCALES, OptionNames } from "@triliumnext/commons";
 
 import { EventData } from "../../components/app_context.js";
 import { getEnabledExperimentalFeatureIds } from "../../services/experimental_features.js";
+import { applyCustomFontsFromOptions } from "../../services/custom_fonts.js";
 import { applyFontsFromOptions } from "../../services/font.js";
 import options from "../../services/options.js";
 import { applyThemeFromOptions, updateColorSchemeClasses, updateThemeCapabilities } from "../../services/theme.js";
@@ -58,6 +59,9 @@ export default class RootContainer extends FlexContainer<BasicWidget> {
         this.#setMonospaceLigatures();
         updateThemeCapabilities();
         this.#setLocaleAndDirection(options.get("locale"));
+        // The fonts stylesheet went out with the page; the files the user's own fonts are stored in
+        // are fetched here, once froca can be asked which notes hold them.
+        void applyCustomFontsFromOptions();
         this.#setExperimentalFeatures();
         this.#initPWATopbarColor();
 
@@ -71,6 +75,7 @@ export default class RootContainer extends FlexContainer<BasicWidget> {
 
         if (FONT_OPTIONS.some((optionName) => loadResults.isOptionReloaded(optionName))) {
             applyFontsFromOptions();
+            void applyCustomFontsFromOptions();
         }
 
         if (loadResults.isOptionReloaded("motionEnabled")) {
