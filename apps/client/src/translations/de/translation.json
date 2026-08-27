@@ -3409,6 +3409,11 @@
     "system_description": "Trilium verknüpft eine feste Bedeutung mit diesem Namen: Sein Wert kann das Verhalten der Notiz verändern, anstatt sie nur zu beschreiben."
   },
   "sidebar_help": {
-    "attributes_what": "Die Labels und Beziehungen, die direkt für diese Notiz festgelegt sind. Ein Label versieht die Notiz mit einem Namen und optional einem Wert; eine Beziehung verweist auf eine andere Notiz."
+    "attributes_what": "Die Labels und Beziehungen, die direkt für diese Notiz festgelegt sind. Ein Label versieht die Notiz mit einem Namen und optional einem Wert; eine Beziehung verweist auf eine andere Notiz.",
+    "attributes_inheritable": "Wenn eine als vererbbar markiert wird, wird sie an den gesamten Unterbaum unterhalb dieser Notiz weitergegeben, wo sie als „geerbt“ statt als „eigen“ aufgeführt wird.",
+    "attributes_inherited_what": "Beschriftungen (Labels) und Beziehungen (Relations), die von anderen Stellen auf diese Notiz verweisen: entweder vererbte Einträge, die bei einer übergeordneten Notiz gesetzt wurden, oder Einträge, die über eine Vorlage (Template) übernommen wurden.",
+    "attributes_inherited_source": "Diese sind hier schreibgeschützt. Jede Zeile zeigt die Notiz an, von der sie stammt. Dort können sie geändert oder entfernt werden.",
+    "attributes_definitions_what": "Eine Definition ist das Schema hinter einem Attributnamen: Sie legt fest, welchen Typ von Wert das Attribut annehmen kann, ob es mehrfach vergeben werden darf und ob es als promoted (hervorgehoben) gekennzeichnet ist.",
+    "attributes_definitions_promoted": "Ein hervorgehobenes Attribut (promoted attribute) wird direkt in der Notiz als Formularfeld angezeigt, anstatt nur in diesem Bereich aufgelistet zu werden. Definitionen stammen in der Regel aus einer Vorlage (Template), und jede Zeile zeigt die Notiz an, in der die jeweilige Definition gespeichert ist."
   }
 }

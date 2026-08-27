@@ -2367,7 +2367,8 @@
     "vector_light": "Vector（ライト）",
     "vector_dark": "Vector （ダーク）",
     "show-labels": "マーカー名を表示",
-    "cluster-markers": "近くのマーカーをグループ化"
+    "cluster-markers": "近くのマーカーをグループ化",
+    "presentation-theme": "テーマ"
   },
   "call_to_action": {
     "next_theme_title": "新しいTriliumテーマをお試しください",
