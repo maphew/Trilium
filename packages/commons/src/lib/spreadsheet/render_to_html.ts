@@ -281,7 +281,10 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
         if (rowMeta?.hd) continue;
 
         const height = isFiniteNumber(rowMeta?.h) ? rowMeta.h : defaultHeight;
-        lines.push(`<tr style="height:${height}px">`);
+        // Univer leaves a cell at the bottom of its row unless it sets `vt`, while HTML centres it.
+        // The row carries that default because a `td` inherits `vertical-align`, so a cell that
+        // sets its own still wins.
+        lines.push(`<tr style="height:${height}px;vertical-align:bottom">`);
 
         for (let col = minCol; col <= maxCol; col++) {
             if (columnData[col]?.hd) continue;

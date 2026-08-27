@@ -766,8 +766,19 @@ describe("renderSpreadsheetToHtml", () => {
 
     it("omits vertical-align for an unknown vertical alignment", () => {
         const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x", s: { vt: 9 } }));
-        expect(html).not.toContain("vertical-align");
+        // The cell contributes none, so it falls back to the row's.
         expect(html).toContain("<td>x</td>");
+        expect(html).toContain(`<tr style="height:24px;vertical-align:bottom">`);
+    });
+
+    it("defaults a row to the bottom, which a cell's own alignment overrides", () => {
+        // Univer leaves a cell at the bottom of its row unless it sets `vt`, unlike HTML.
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x" }));
+        expect(html).toContain(`<tr style="height:24px;vertical-align:bottom">`);
+        expect(html).toContain("<td>x</td>");
+
+        const middle = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x", s: { vt: 2 } }));
+        expect(middle).toContain(`<td style="vertical-align:middle">x</td>`);
     });
 
     it("renders borders on all four sides with the correct Univer widths and styles", () => {
@@ -973,7 +984,7 @@ describe("renderSpreadsheetToHtml", () => {
         });
         const html = renderSpreadsheetToHtml(input);
         expect(html).toContain('<col style="width:200px">');
-        expect(html).toContain('<tr style="height:50px">');
+        expect(html).toContain('<tr style="height:50px;vertical-align:bottom">');
     });
 
     it("falls back to default column width and row height when absent", () => {
@@ -999,7 +1010,7 @@ describe("renderSpreadsheetToHtml", () => {
         });
         const html = renderSpreadsheetToHtml(input);
         expect(html).toContain('<col style="width:88px">');
-        expect(html).toContain('<tr style="height:24px">');
+        expect(html).toContain('<tr style="height:24px;vertical-align:bottom">');
     });
 
     it("renders an empty string for a cell with null value", () => {
