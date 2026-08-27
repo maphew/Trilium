@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderSpreadsheetToHtml } from "./render_to_html.js";
-import { BorderStyle, HorizontalAlign } from "./workbook_model.js";
+import { BorderStyle, HorizontalAlign, WrapStrategy } from "./workbook_model.js";
 
 describe("renderSpreadsheetToHtml", () => {
     it("renders a basic spreadsheet with values and styles", () => {
@@ -552,6 +552,73 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain(`Days left</span><img class="spreadsheet-cell-image"`);
     });
 
+    describe("overflow into neighbouring cells", () => {
+        /** One row of `cells`, keyed by column. */
+        function row(cells: Record<number, unknown>): string {
+            return JSON.stringify({
+                version: 1,
+                workbook: {
+                    sheetOrder: ["s1"],
+                    styles: {},
+                    sheets: {
+                        s1: {
+                            id: "s1",
+                            name: "Sheet1",
+                            hidden: 0,
+                            mergeData: [],
+                            cellData: { "0": cells },
+                            rowData: {},
+                            columnData: {}
+                        }
+                    }
+                }
+            });
+        }
+
+        /** Whether the workbook's cell at `column` clips its text. The render always starts at A1. */
+        function clips(json: string, column: number): boolean {
+            const cells = renderSpreadsheetToHtml(json).match(/<td[^>]*>/g) ?? [];
+            return (cells[column] ?? "").includes("overflow:hidden");
+        }
+
+        it("clips text only when the neighbour it would spill over holds a value", () => {
+            const occupied = row({ 0: { v: "a long label", t: 1 }, 1: { v: "next", t: 1 } });
+            expect(clips(occupied, 0)).toBe(true);
+
+            // An empty neighbour, or one carrying only a style, is spilled over as in the editor.
+            expect(clips(row({ 0: { v: "a long label", t: 1 } }), 0)).toBe(false);
+            expect(clips(row({ 0: { v: "a long label", t: 1 }, 1: { s: { bl: 1 } } }), 0)).toBe(false);
+            expect(clips(row({ 0: { v: "a long label", t: 1 }, 1: { v: "", t: 1 } }), 0)).toBe(false);
+        });
+
+        it("follows the alignment to decide which side the text spills towards", () => {
+            const rightAligned = { t: 1, s: { ht: HorizontalAlign.RIGHT } };
+            expect(clips(row({ 0: { v: "before", t: 1 }, 1: { v: "x", ...rightAligned } }), 1)).toBe(true);
+            expect(clips(row({ 1: { v: "x", ...rightAligned }, 2: { v: "after", t: 1 } }), 1)).toBe(false);
+
+            const centered = { t: 1, s: { ht: HorizontalAlign.CENTER } };
+            expect(clips(row({ 0: { v: "before", t: 1 }, 1: { v: "x", ...centered } }), 1)).toBe(true);
+            expect(clips(row({ 1: { v: "x", ...centered }, 2: { v: "after", t: 1 } }), 1)).toBe(true);
+            expect(clips(row({ 1: { v: "x", ...centered } }), 1)).toBe(false);
+        });
+
+        it("never spills a number, and never clips a wrapped or empty cell", () => {
+            expect(clips(row({ 0: { v: 42, t: 2 } }), 0)).toBe(true);
+            expect(clips(row({ 0: { v: true, t: 3 } }), 0)).toBe(true);
+
+            expect(clips(row({ 0: { v: "a long label", t: 1, s: { tb: WrapStrategy.WRAP } }, 1: { v: "next", t: 1 } }), 0)).toBe(false);
+            expect(clips(row({ 0: { s: { bl: 1 } }, 1: { v: "next", t: 1 } }), 0)).toBe(false);
+        });
+
+        it("counts a cell whose text lives only in its rich-text document as occupied", () => {
+            const html = row({
+                0: { v: "a long label", t: 1 },
+                1: { p: { body: { dataStream: "linked\r\n" } } }
+            });
+            expect(clips(html, 0)).toBe(true);
+        });
+    });
+
     describe("borders of a merged range", () => {
         const THIN = { s: BorderStyle.THIN };
 
@@ -1044,8 +1111,8 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain("font-weight:bold");
         expect(html).toContain("color:#ff0000");
         expect(html).toContain("byId");
-        // null style id and empty style object -> plain <td>.
-        expect(html).toContain("<td>nulled</td>");
+        // null style id and empty style object -> no styling of their own.
+        expect(html).toContain(`<td style="overflow:hidden">nulled</td>`);
         expect(html).toContain("<td>emptyStyle</td>");
     });
 
@@ -1183,17 +1250,17 @@ describe("renderSpreadsheetToHtml", () => {
 
     it("aligns a cell by its value type when it sets no alignment of its own", () => {
         // Univer right-aligns numbers and centers booleans; text keeps the table default.
-        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2 }))).toContain(`<td style="text-align:right">`);
-        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: true, t: 3 }))).toContain(`<td style="text-align:center">`);
+        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2 }))).toContain(`<td style="text-align:right;overflow:hidden">`);
+        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: true, t: 3 }))).toContain(`<td style="text-align:center;overflow:hidden">`);
         expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: "A", t: 1 }))).toContain("<td>A</td>");
 
         // A number formatted and styled by the workbook still gets the fallback alignment.
         expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2, s: { bl: 1 } })))
-            .toContain(`<td style="text-align:right;font-weight:bold">`);
+            .toContain(`<td style="text-align:right;font-weight:bold;overflow:hidden">`);
 
         // An explicit alignment wins over the fallback.
         expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2, s: { ht: HorizontalAlign.LEFT } })))
-            .toContain(`<td style="text-align:left">`);
+            .toContain(`<td style="text-align:left;overflow:hidden">`);
     });
 
     it("emits colspan only for a purely horizontal merge", () => {

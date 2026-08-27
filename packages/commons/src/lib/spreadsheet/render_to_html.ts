@@ -18,6 +18,7 @@ import {
     CellValueType,
     computeBounds,
     getCellDocumentSegments,
+    getCellDocumentText,
     getFloatingDrawings,
     getVisibleSheets,
     HorizontalAlign,
@@ -297,7 +298,9 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
 
             const cell = cellData[row]?.[col];
             const cellStyle = mergeAwareStyle(resolveCellStyle(cell?.s, styles), mergeInfo, row, col, cellData, styles);
-            const cssText = buildCssText(cellStyle, cell);
+            const declarations = [buildCssText(cellStyle, cell)];
+            if (clipsOverflow(cell, cellStyle, row, col, cellData)) declarations.push("overflow:hidden");
+            const cssText = declarations.filter(Boolean).join(";");
             const value = rotate(formatCellValue(cell, cellStyle), cellStyle?.tr)
                 + (cell ? renderCellImages(cell) : "");
 
@@ -470,6 +473,39 @@ function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     }
 
     return parts.join(";");
+}
+
+/**
+ * Whether a cell has to clip its text at its own edge. A spreadsheet spills text into a
+ * neighbouring cell only while that neighbour is empty, and never spills a number or a boolean
+ * (the overflow check in `@univerjs/engine-render`). The stylesheets let every cell spill, so
+ * without this a long value is drawn over the value beside it. The spill direction follows the
+ * alignment, and a wrapped cell never spills to begin with.
+ */
+function clipsOverflow(
+    cell: ICellData | undefined,
+    style: IStyleData | null,
+    row: number,
+    col: number,
+    cellData: CellMatrix
+): boolean {
+    if (!hasContent(cell) || style?.tb === WrapStrategy.WRAP) return false;
+    if (cell?.t === CellValueType.NUMBER || cell?.t === CellValueType.BOOLEAN) return true;
+
+    const before = hasContent(cellData[row]?.[col - 1]);
+    const after = hasContent(cellData[row]?.[col + 1]);
+    switch (style?.ht) {
+        case HorizontalAlign.RIGHT: return before;
+        case HorizontalAlign.CENTER: return before || after;
+        default: return after;
+    }
+}
+
+/** Whether a cell shows anything. A cell carrying only a style is empty, as it is in the editor. */
+function hasContent(cell: ICellData | undefined): boolean {
+    if (!cell) return false;
+    if (cell.v != null && cell.v !== "") return true;
+    return getCellDocumentText(cell) !== "";
 }
 
 /**
