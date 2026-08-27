@@ -124,7 +124,17 @@
         "restore-error-refused": "Другой шаг настройки уже выполняется.",
         "restore-error-already-initialized": "В этом экземпляре уже есть база знаний, поэтому её нельзя восстановить. Перезагрузите страницу.",
         "restore-error-could-not-start": "Не удалось запустить восстановление.",
-        "restore-error-upload-failed": "Не удалось загрузить резервную копию."
+        "restore-error-upload-failed": "Не удалось загрузить резервную копию.",
+        "restore-error-upload-interrupted": "Загрузка была прервана и не может быть продолжена. Выберите резервную копию еще раз, чтобы начать заново.",
+        "restore-passphrase": "Пароль шифрования",
+        "restore-passphrase-description": "Эта резервная копия зашифрована. Введите пароль, использованный для создания этой резервной копии.",
+        "restore-wrong-passphrase": "Этот пароль не открывает эту резервную копию. Пожалуйста, попробуйте снова.",
+        "restore-continue": "Восстановить",
+        "restore-stage-staging": "Подготовка резервной копии",
+        "restore-stage-validating": "Проверка базы данных",
+        "restore-stage-swapping": "Установка на место",
+        "restore-stage-migrating": "Открытие базы данных",
+        "restore-do-not-close": "Не закрывайте это окно."
     },
     "login": {
         "heading": "Вход в Trilium Notes",
