@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
     electron: true,
     mobile: false,
     stored: {} as Record<string, string | boolean>,
-    userFonts: [] as { family: string; title: string; noteId: string; blobId: string }[]
+    userFonts: [] as { noteId: string; title: string; blobId: string }[]
 }));
 
 // Both the desktop card and the illustrated layout choices turn on which kind of client this is.
@@ -31,12 +31,6 @@ vi.mock("../../../services/server", () => ({
     }
 }));
 
-vi.mock("../../react/hooks", async (importOriginal) => ({
-    ...(await importOriginal<typeof import("../../react/hooks")>()),
-    useTriliumOption: (name: string) => [ String(mocks.stored[name] ?? ""), vi.fn() ],
-    useTriliumOptionBool: (name: string) => [ mocks.stored[name] === true, vi.fn() ]
-}));
-
 vi.mock("./components/OptionsPageHeader", () => ({ default: () => <div className="header-stub" /> }));
 
 // The font picker asks for the user's own fonts and registers each one it is given; only the list
@@ -44,6 +38,14 @@ vi.mock("./components/OptionsPageHeader", () => ({ default: () => <div className
 vi.mock("../../../services/custom_fonts", () => ({
     getCustomFonts: async () => mocks.userFonts,
     registerFontNote: async (_noteId: string, family: string) => ({ family })
+}));
+
+// useNoteTitle names the font a font option points at; the listing above is what the picker lists.
+vi.mock("../../react/hooks", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../react/hooks")>()),
+    useNoteTitle: (noteId: string | undefined) => mocks.userFonts.find((font) => font.noteId === noteId)?.title,
+    useTriliumOption: (name: string) => [ String(mocks.stored[name] ?? ""), vi.fn() ],
+    useTriliumOptionBool: (name: string) => [ mocks.stored[name] === true, vi.fn() ]
 }));
 
 import AppearanceSettings from "./appearance";
@@ -102,13 +104,13 @@ describe("the font settings", () => {
         expect(fontRows().every((row) => row.className.includes("tn-card-section-nested"))).toBe(true);
     });
 
-    it("offers the fonts the user labelled #customFont, one entry per family", async () => {
+    it("offers the fonts the user labelled #customFont, one entry per note", async () => {
         mocks.stored = { overrideThemeFonts: true };
         mocks.userFonts = [
-            { family: "Iosevka", title: "Iosevka.woff2", noteId: "n1", blobId: "b1" },
-            { family: "Inter", title: "Inter.woff2", noteId: "n2", blobId: "b2" },
-            // A second note offering a family already on the list is not a second entry.
-            { family: "Inter", title: "Inter (copy).woff2", noteId: "n3", blobId: "b3" }
+            { noteId: "fontNoteA1", title: "Iosevka", blobId: "b1" },
+            { noteId: "fontNoteB2", title: "Inter", blobId: "b2" },
+            // Two notes may well carry the same name; each is its own entry, told apart by its note.
+            { noteId: "fontNoteC3", title: "Inter", blobId: "b3" }
         ];
         open();
         await act(async () => {});
@@ -119,9 +121,19 @@ describe("the font settings", () => {
         const headers = [ ...(picker?.querySelectorAll(".dropdown-header") ?? []) ].map((header) => header.textContent);
         expect(headers).toContain("fonts.user-fonts");
 
+        // Each is named by its note's own title, and stands for the note rather than for a family.
         const listed = [ ...(picker?.querySelectorAll(".dropdown-item") ?? []) ].map((item) => item.textContent?.trim());
-        expect(listed.filter((entry) => entry === "Inter")).toHaveLength(1);
+        expect(listed.filter((entry) => entry === "Inter")).toHaveLength(2);
         expect(listed).toContain("Iosevka");
+    });
+
+    it("names a set custom font by its note's title, not by the reference the option holds", async () => {
+        mocks.stored = { overrideThemeFonts: true, mainFontFamily: "customFont:fontNoteA1" };
+        mocks.userFonts = [ { noteId: "fontNoteA1", title: "Iosevka", blobId: "b1" } ];
+        open();
+        await act(async () => {});
+
+        expect(fontRows()[0].querySelector(".font-option-specimen")?.textContent).toBe("Iosevka");
     });
 
     it("lists only the built-in families when the user has labelled no fonts", async () => {

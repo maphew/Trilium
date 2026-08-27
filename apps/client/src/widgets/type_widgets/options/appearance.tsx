@@ -1,6 +1,6 @@
 import "./appearance.css";
 
-import { FontFamily, OptionNames, SYSTEM_MONOSPACE_FONT_STACK, SYSTEM_SANS_SERIF_FONT_STACK, UserFont } from "@triliumnext/commons";
+import { customFontFamily, customFontNoteId, customFontOption, FontFamily, OptionNames, SYSTEM_MONOSPACE_FONT_STACK, SYSTEM_SANS_SERIF_FONT_STACK, UserFont } from "@triliumnext/commons";
 import clsx from "clsx";
 import { Fragment } from "preact";
 import { createPortal } from "preact/compat";
@@ -19,7 +19,7 @@ import FormList, { FormListHeader, FormListItem } from "../../react/FormList";
 import { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
 import HelpButton from "../../react/HelpButton";
-import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
+import { useNoteTitle, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import Modal from "../../react/Modal";
 import SegmentedChoice, { SegmentedChoiceOption } from "../../react/SegmentedChoice";
@@ -503,15 +503,13 @@ function useFontGroups(): FontGroup[] {
         const registered: FontFace[] = [];
 
         (async () => {
-            // By family, since that is what the picker lists and what an option holds: two notes
-            // offering the same name are one entry.
-            const fonts = [ ...new Map((await getCustomFonts()).map((font) => [ font.family, font ])).values() ];
+            const fonts = await getCustomFonts();
             if (cancelled) return;
             setCustomFonts(fonts);
 
-            await Promise.all(fonts.map(async ({ noteId, family, blobId }) => {
+            await Promise.all(fonts.map(async ({ noteId, blobId }) => {
                 try {
-                    const face = await registerFontNote(noteId, family, blobId);
+                    const face = await registerFontNote(noteId, customFontFamily(noteId), blobId);
                     if (cancelled) {
                         document.fonts.delete(face);
                     } else {
@@ -533,7 +531,10 @@ function useFontGroups(): FontGroup[] {
     }, []);
 
     return useMemo(() => (customFonts.length
-        ? [ ...FONT_FAMILIES, { title: t("fonts.user-fonts"), items: customFonts.map(({ family }) => ({ value: family })) } ]
+        ? [ ...FONT_FAMILIES, {
+            title: t("fonts.user-fonts"),
+            items: customFonts.map(({ noteId, title }) => ({ value: customFontOption(noteId), label: title }))
+        } ]
         : FONT_FAMILIES), [ customFonts ]);
 }
 
@@ -554,11 +555,15 @@ function Font({ label, description, sizeDescription, groups, fontFamilyOption, f
     const [ fontSize, setFontSize ] = useTriliumOption(fontSizeOption);
     const [ showModal, setShowModal ] = useState(false);
 
+    // One of the user's own fonts is named by the note holding it, so its own title says what is
+    // set — read from the cache rather than waited for from the listing, and it follows a rename.
+    const customFontTitle = useNoteTitle(customFontNoteId(fontFamily) ?? undefined, undefined);
+
     // Find the current font entry to display
     const currentFont = groups
         .flatMap(group => group.items)
         .find(item => item.value === fontFamily);
-    const displayLabel = currentFont?.label ?? currentFont?.value ?? fontFamily ?? "";
+    const displayLabel = customFontTitle ?? currentFont?.label ?? currentFont?.value ?? fontFamily ?? "";
 
     // Map option name to CSS variable
     const themeCssVariable = {
@@ -578,7 +583,10 @@ function Font({ label, description, sizeDescription, groups, fontFamilyOption, f
             // Use the appropriate system font stack
             return isMonospace ? SYSTEM_MONOSPACE_FONT_STACK : SYSTEM_SANS_SERIF_FONT_STACK;
         }
-        return value;
+        // One of the user's own fonts names the note it is stored in, not a family the browser
+        // could resolve; the family it was registered under is built from the same id.
+        const noteId = customFontNoteId(value);
+        return noteId ? customFontFamily(noteId) : value;
     };
 
     return (

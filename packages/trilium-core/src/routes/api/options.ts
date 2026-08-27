@@ -293,12 +293,9 @@ function getUserFonts() {
             continue;
         }
 
-        const title = note.getTitleOrProtected();
-
         ret.push({
-            family: note.getOwnedLabelValue("customFont") || title,
-            title,
             noteId: note.noteId,
+            title: note.getTitleOrProtected(),
             blobId: note.blobId ?? ""
         });
     }

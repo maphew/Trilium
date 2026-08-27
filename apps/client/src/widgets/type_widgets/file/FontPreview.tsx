@@ -9,6 +9,8 @@ import { registerFontNote } from "../../../services/custom_fonts";
 import { t } from "../../../services/i18n";
 import Alert from "../../react/Alert";
 import FormTextBox from "../../react/FormTextBox";
+import FormToggle from "../../react/FormToggle";
+import { useNoteLabelBoolean } from "../../react/hooks";
 import Slider from "../../react/Slider";
 
 /** The sizes the specimen is laddered at, from a display line down to body copy. */
@@ -74,6 +76,8 @@ export default function FontPreview({ note, blob }: FontPreviewProps) {
                     />
                     <span className="font-preview-size-value">{t("font_preview.size_pixels", { size })}</span>
                 </div>
+
+                <PickerOffer note={note} />
             </div>
 
             <div className="font-preview-specimen" style={{ "--font-preview-specimen-size": `${size}px` }}>{text}</div>
@@ -92,6 +96,25 @@ export default function FontPreview({ note, blob }: FontPreviewProps) {
                 <div>{LOWERCASE}</div>
                 <div>{DIGITS_AND_PUNCTUATION}</div>
             </div>
+        </div>
+    );
+}
+
+/** Whether the font picker in the appearance settings offers this font, and the switch that puts it
+ *  there or takes it back — the `#customFont` label, which the picker reads. */
+function PickerOffer({ note }: { note: FNote }) {
+    const [ offered, setOffered ] = useNoteLabelBoolean(note, "customFont");
+
+    return (
+        <div className="font-preview-offer">
+            <FormToggle
+                currentValue={offered}
+                switchOnName={t("font_preview.in_picker")}
+                switchOnTooltip={t("font_preview.offer_in_picker")}
+                switchOffName={t("font_preview.in_picker")}
+                switchOffTooltip={t("font_preview.remove_from_picker")}
+                onChange={setOffered}
+            />
         </div>
     );
 }

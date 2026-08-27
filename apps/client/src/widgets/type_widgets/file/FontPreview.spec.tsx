@@ -7,6 +7,15 @@ vi.mock("../../../services/i18n", () => ({
     t: (key: string, opts?: Record<string, unknown>) => [ key, ...Object.values(opts ?? {}) ].join("|")
 }));
 
+// The real hooks module imports half the app (app_context, keyboard actions) at module scope; only
+// the one the preview reaches for is stood in for.
+const setOffered = vi.fn();
+let isOffered = false;
+
+vi.mock("../../react/hooks", () => ({
+    useNoteLabelBoolean: () => [ isOffered, setOffered ]
+}));
+
 const { default: FontPreview } = await import("./FontPreview");
 
 /** The faces `document.fonts` currently holds, as the stubbed registry below sees them. */
@@ -26,6 +35,7 @@ class FontStub {
 }
 
 beforeEach(() => {
+    isOffered = false;
     registeredFonts = new Set();
     fetchMock = vi.fn(async () => new Response(new Uint8Array([ 0x00, 0x01, 0x00, 0x00 ])));
 
@@ -50,8 +60,8 @@ afterEach(() => {
     vi.clearAllMocks();
 });
 
-function mount({ noteId = "font1", blobId = "blobA" as string | null, isContentAvailable = true } = {}) {
-    const note = { noteId, isContentAvailable: () => isContentAvailable };
+function mount({ noteId = "font1", blobId = "blobA" as string | null, isContentAvailable = true, title = "Iosevka-Regular" } = {}) {
+    const note = { noteId, title, isContentAvailable: () => isContentAvailable };
     const blob = blobId ? { blobId } : null;
     const props = { note, blob } as unknown as Parameters<typeof FontPreview>[0];
     render(<FontPreview {...props} />, container);
@@ -144,6 +154,27 @@ describe("FontPreview", () => {
 
         await vi.waitFor(() => expect(container.querySelector(".file-preview-not-available")).not.toBeNull());
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("offers the font to the picker, and takes the offer back, through #customFont", async () => {
+        mount();
+        await waitForSpecimen();
+
+        const toggle = () => container.querySelector<HTMLInputElement>(".font-preview-offer input.switch-toggle");
+        expect(toggle()?.checked).toBe(false);
+        toggle()?.dispatchEvent(new Event("input", { bubbles: true }));
+        expect(setOffered).toHaveBeenCalledWith(true);
+
+        // The label alone says the font is offered — the picker names it by the note's title, so
+        // there is no family to keep in step with a rename.
+        isOffered = true;
+        render(null, container);
+        mount();
+        await waitForSpecimen();
+
+        expect(toggle()?.checked).toBe(true);
+        toggle()?.dispatchEvent(new Event("input", { bubbles: true }));
+        expect(setOffered).toHaveBeenCalledWith(false);
     });
 
     it("stays blank until the blob that versions the request arrives", () => {
