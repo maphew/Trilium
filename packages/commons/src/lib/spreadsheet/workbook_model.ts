@@ -72,6 +72,13 @@ export interface ICellData {
 export interface ICellDocumentData {
     drawings?: Record<string, ISheetDrawing>;
     drawingsOrder?: string[];
+    /** Text content, present when the cell holds rich text such as a link or mixed formatting. */
+    body?: ICellDocumentBody;
+}
+
+export interface ICellDocumentBody {
+    /** Univer's flat text buffer, with structure encoded as control characters. */
+    dataStream?: string;
 }
 
 export interface ISheetDrawing {
@@ -261,6 +268,29 @@ export function resolveCellStyle(
     if (!s) return null;
     if (typeof s === "string") return styles[s] ?? null;
     return s;
+}
+
+/**
+ * Returns the plain text of a cell Univer stored as a rich-text document. Univer writes `p`
+ * without a matching `v` for some cells, such as a link typed into an empty cell, so an emitter
+ * that reads only `v` renders them blank.
+ */
+export function getCellDocumentText(cell: ICellData | undefined): string {
+    return normalizeDataStream(cell?.p?.body?.dataStream);
+}
+
+/**
+ * Converts Univer's `dataStream` to plain text. A carriage return ends a paragraph and a line
+ * feed ends a section, so both become newlines and the trailing terminator every stream carries
+ * is dropped. The other C0 control characters are structural placeholders, the backspace
+ * character standing in for an embedded drawing.
+ */
+export function normalizeDataStream(dataStream: unknown): string {
+    if (typeof dataStream !== "string") return "";
+    return dataStream
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+        .replace(/\r\n|[\r\n]/g, "\n")
+        .replace(/\n+$/, "");
 }
 
 export interface Bounds {

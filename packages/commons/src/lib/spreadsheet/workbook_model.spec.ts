@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    getCellDocumentText,
     getDataValidations,
     getFloatingDrawings,
     type IWorkbookData,
+    normalizeDataStream,
     SHEET_DATA_VALIDATION_RESOURCE,
     SHEET_DRAWING_RESOURCE
 } from "./workbook_model.js";
@@ -100,5 +102,21 @@ describe("getDataValidations", () => {
             workbookWithResource(SHEET_DATA_VALIDATION_RESOURCE, JSON.stringify({ sheet1: { uid: "v1" } })),
             "sheet1"
         )).toEqual([]);
+    });
+});
+
+describe("getCellDocumentText", () => {
+    it("reads the rich-text document, dropping the terminator and structural characters", () => {
+        expect(getCellDocumentText({ p: { body: { dataStream: "Kit\r\n" } } })).toBe("Kit");
+        expect(getCellDocumentText({ p: { body: { dataStream: "first\rsecond\r\n" } } })).toBe("first\nsecond");
+        expect(getCellDocumentText({ p: { body: { dataStream: "logo\b\r\n" } } })).toBe("logo");
+    });
+
+    it("returns an empty string when the cell carries no document text", () => {
+        expect(getCellDocumentText(undefined)).toBe("");
+        expect(getCellDocumentText({ v: "plain" })).toBe("");
+        expect(getCellDocumentText({ p: { drawings: {} } })).toBe("");
+        expect(getCellDocumentText({ p: { body: { dataStream: "\r\n" } } })).toBe("");
+        expect(normalizeDataStream(42)).toBe("");
     });
 });

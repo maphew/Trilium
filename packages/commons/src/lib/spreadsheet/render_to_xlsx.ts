@@ -18,6 +18,7 @@ import "./exceljs_augmentation.js";
 import {
     BorderStyle,
     type DataValidationRule,
+    getCellDocumentText,
     getDataValidations,
     getFloatingDrawings,
     getVisibleSheets,
@@ -393,7 +394,12 @@ function setCellValue(target: ExcelJS.Cell, cell: ICellData): void {
         target.value = { formula: cell.f.replace(/^=/, ""), result: cell.v ?? undefined } as ExcelJS.CellFormulaValue;
         return;
     }
-    if (cell.v == null) return;
+    if (cell.v == null || cell.v === "") {
+        // A rich-text cell (a link, mixed formatting) can carry its text only in `p`.
+        const text = getCellDocumentText(cell);
+        if (text) target.value = text;
+        return;
+    }
     target.value = cell.v;
 }
 

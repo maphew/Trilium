@@ -15,6 +15,7 @@ import { format as formatNumfmt, formatColor as formatNumfmtColor } from "numfmt
 import {
     BorderStyle,
     computeBounds,
+    getCellDocumentText,
     getFloatingDrawings,
     getVisibleSheets,
     HorizontalAlign,
@@ -520,7 +521,10 @@ function sanitizeCssColor(value: string): string {
 // #region Value formatting
 
 function formatCellValue(cell: ICellData | undefined, style: IStyleData | null): string {
-    if (!cell || cell.v == null) return "";
+    if (!cell) return "";
+
+    // A rich-text cell (a link, mixed formatting) can carry its text only in `p`.
+    if (cell.v == null || cell.v === "") return escapeHtml(getCellDocumentText(cell));
 
     if (typeof cell.v === "boolean") {
         return cell.v ? "TRUE" : "FALSE";

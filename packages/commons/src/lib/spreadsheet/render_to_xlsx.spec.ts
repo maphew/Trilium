@@ -837,3 +837,10 @@ function workbookWithSheetNames(names: string[]): string {
     });
     return JSON.stringify({ version: 1, workbook: { sheetOrder, styles: {}, sheets } });
 }
+
+describe("rich-text cells", () => {
+    it("writes the text of a cell that has no plain value", async () => {
+        const wb = await roundTrip(singleCellWorkbook({ p: { body: { dataStream: "Kit\r\n" } } }));
+        expect(wb.worksheets[0].getCell("A1").value).toBe("Kit");
+    });
+});

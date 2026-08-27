@@ -419,6 +419,11 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain("transparent");
     });
 
+    it("renders a cell whose text lives only in its rich-text document", () => {
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({ p: { body: { dataStream: "Senzor PIR\r\n" } } }));
+        expect(html).toContain("Senzor PIR");
+    });
+
     // Helper to wrap a single styled cell into a complete workbook payload.
     function singleCellWorkbook(cell: unknown, sheetExtra: Record<string, unknown> = {}): string {
         return JSON.stringify({
