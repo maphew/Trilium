@@ -459,7 +459,7 @@ function Fonts() {
             <OptionCardSection
                 name="override-theme-fonts"
                 label={t("fonts.custom_fonts")}
-                description={t("fonts.not_all_fonts_available")}
+                description={t("fonts.custom_fonts_description")}
                 // The four fonts stay on show with the switch off, greyed rather than gone: what
                 // is there to be set is the whole reason for turning it on, and a switch with
                 // nothing under it says nothing about what it would bring.

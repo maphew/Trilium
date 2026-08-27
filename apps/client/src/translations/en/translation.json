@@ -1809,7 +1809,7 @@
   "fonts": {
     "theme_defined": "Theme defined",
     "fonts": "Fonts",
-    "custom_fonts": "Use custom fonts",
+    "custom_fonts": "Use different fonts",
     "main_font": "Interface text",
     "font_family": "Font family",
     "size": "Size",
@@ -1821,7 +1821,7 @@
     "monospace_ligatures": "Programming ligatures",
     "monospace_ligatures_description": "Renders character pairs such as != and -> as single symbols (≠, →), if the monospace font supports it. The text itself is unchanged.",
     "size_relative_to_general": "Size is relative to the general font size",
-    "not_all_fonts_available": "Not all listed fonts may be available on your system",
+    "custom_fonts_description": "Replaces the theme's fonts. Not all listed fonts are available on every device; a font uploaded into Trilium can be added from its own note.",
     "apply_changes": "Reload to apply changes",
     "generic-fonts": "Generic fonts",
     "user-fonts": "Custom fonts",
