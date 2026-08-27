@@ -21,6 +21,8 @@ import {
     getFloatingDrawings,
     getVisibleSheets,
     HorizontalAlign,
+    type CellMatrix,
+    type IBorderData,
     type IBorderStyleData,
     type ICellData,
     isFiniteNumber,
@@ -294,7 +296,7 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
             if (mergeInfo === "hidden") continue;
 
             const cell = cellData[row]?.[col];
-            const cellStyle = resolveCellStyle(cell?.s, styles);
+            const cellStyle = mergeAwareStyle(resolveCellStyle(cell?.s, styles), mergeInfo, row, col, cellData, styles);
             const cssText = buildCssText(cellStyle, cell);
             const value = rotate(formatCellValue(cell, cellStyle), cellStyle?.tr)
                 + (cell ? renderCellImages(cell) : "");
@@ -348,6 +350,34 @@ function buildTableTag(sheet: IWorksheetData, totalWidth: number): string {
 interface MergeOrigin {
     rowSpan: number;
     colSpan: number;
+    /** Last row and column of the range, clamped to the rendered bounds. */
+    endRow: number;
+    endColumn: number;
+}
+
+/**
+ * Replaces a merged range's border with the one composed from the cells on its edges. Excel keeps
+ * a range's outline on the member cell each edge belongs to: the anchor holds the top and the
+ * left, the cell in the range's last column holds the right, and the one in its last row holds the
+ * bottom. Reading only the anchor drops the two far edges, so the range renders with no line
+ * between it and the range beside it. An unmerged cell is returned untouched.
+ */
+function mergeAwareStyle(
+    style: IStyleData | null,
+    merge: MergeOrigin | undefined,
+    row: number,
+    col: number,
+    cellData: CellMatrix,
+    styles: Record<string, IStyleData | null>
+): IStyleData | null {
+    if (!merge) return style;
+
+    const bd: IBorderData = {
+        ...style?.bd,
+        r: resolveCellStyle(cellData[row]?.[merge.endColumn]?.s, styles)?.bd?.r,
+        b: resolveCellStyle(cellData[merge.endRow]?.[col]?.s, styles)?.bd?.b
+    };
+    return { ...style, bd };
 }
 
 type MergeInfo = MergeOrigin | "hidden";
@@ -367,7 +397,9 @@ function buildMergeMap(mergeData: IRange[], minRow: number, maxRow: number, minC
 
         map.set(cellKey(range.startRow, range.startColumn), {
             rowSpan: endRow - startRow + 1,
-            colSpan: endCol - startCol + 1
+            colSpan: endCol - startCol + 1,
+            endRow,
+            endColumn: endCol
         });
 
         for (let r = startRow; r <= endRow; r++) {

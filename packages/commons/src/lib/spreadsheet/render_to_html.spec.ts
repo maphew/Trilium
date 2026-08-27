@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderSpreadsheetToHtml } from "./render_to_html.js";
-import { HorizontalAlign } from "./workbook_model.js";
+import { BorderStyle, HorizontalAlign } from "./workbook_model.js";
 
 describe("renderSpreadsheetToHtml", () => {
     it("renders a basic spreadsheet with values and styles", () => {
@@ -550,6 +550,84 @@ describe("renderSpreadsheetToHtml", () => {
         }));
 
         expect(html).toContain(`Days left</span><img class="spreadsheet-cell-image"`);
+    });
+
+    describe("borders of a merged range", () => {
+        const THIN = { s: BorderStyle.THIN };
+
+        /** A sheet of `cellData` (keyed by row, then column) carrying the given merges. */
+        function mergedWorkbook(cellData: Record<number, Record<number, unknown>>, mergeData: unknown[]): string {
+            return JSON.stringify({
+                version: 1,
+                workbook: {
+                    sheetOrder: ["s1"],
+                    styles: {},
+                    sheets: {
+                        s1: {
+                            id: "s1",
+                            name: "Sheet1",
+                            hidden: 0,
+                            mergeData,
+                            cellData,
+                            rowData: {},
+                            columnData: {}
+                        }
+                    }
+                }
+            });
+        }
+
+        /** The border declarations of the first cell in the rendered row. */
+        function bordersOfFirstCell(html: string): string[] {
+            const style = (html.match(/<td[^>]*style="([^"]*)"/) ?? [])[1] ?? "";
+            return style.split(";").filter((part) => part.startsWith("border"));
+        }
+
+        it("takes the right edge from the range's last column and the bottom from its last row", () => {
+            // Excel spreads a range's outline over its member cells, so A1:B1 keeps its right
+            // border on B1 and A1:A2 keeps its bottom on A2.
+            const across = renderSpreadsheetToHtml(mergedWorkbook(
+                { 0: { 0: { v: "x", s: { bd: { l: THIN } } }, 1: { s: { bd: { r: THIN } } } } },
+                [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 1 }]
+            ));
+            expect(bordersOfFirstCell(across)).toEqual(["border-right:1px solid #000", "border-left:1px solid #000"]);
+
+            const down = renderSpreadsheetToHtml(mergedWorkbook(
+                { 0: { 0: { v: "x", s: { bd: { t: THIN } } } }, 1: { 0: { s: { bd: { b: THIN } } } } },
+                [{ startRow: 0, endRow: 1, startColumn: 0, endColumn: 0 }]
+            ));
+            expect(bordersOfFirstCell(down)).toEqual(["border-top:1px solid #000", "border-bottom:1px solid #000"]);
+        });
+
+        it("drops the anchor's own right and bottom when they fall inside the range", () => {
+            // In a 2x2 range the anchor's right and bottom are internal edges the merge hides.
+            const html = renderSpreadsheetToHtml(mergedWorkbook(
+                { 0: { 0: { v: "x", s: { bd: { t: THIN, r: THIN, b: THIN } } }, 1: {} }, 1: { 0: {}, 1: {} } },
+                [{ startRow: 0, endRow: 1, startColumn: 0, endColumn: 1 }]
+            ));
+            expect(bordersOfFirstCell(html)).toEqual(["border-top:1px solid #000"]);
+        });
+
+        it("leaves an unmerged cell's borders alone", () => {
+            const html = renderSpreadsheetToHtml(mergedWorkbook({ 0: { 0: { v: "x", s: { bd: { r: THIN, b: THIN } } } } }, []));
+            expect(bordersOfFirstCell(html)).toEqual(["border-right:1px solid #000", "border-bottom:1px solid #000"]);
+        });
+
+        it("keeps its own edges when the range is one cell wide and tall", () => {
+            const html = renderSpreadsheetToHtml(mergedWorkbook(
+                { 0: { 0: { v: "x", s: { bd: { r: THIN, b: THIN } } } } },
+                [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 0 }]
+            ));
+            expect(bordersOfFirstCell(html)).toEqual(["border-right:1px solid #000", "border-bottom:1px solid #000"]);
+        });
+
+        it("emits no border when neither the anchor nor the edge cells carry one", () => {
+            const html = renderSpreadsheetToHtml(mergedWorkbook(
+                { 0: { 0: { v: "x", s: { bl: 1 } }, 1: {} } },
+                [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 1 }]
+            ));
+            expect(bordersOfFirstCell(html)).toEqual([]);
+        });
     });
 
     // Helper to wrap a single styled cell into a complete workbook payload.
