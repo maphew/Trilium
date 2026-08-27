@@ -508,6 +508,50 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain("42.0%");
     });
 
+    it("rotates a cell's text", () => {
+        const rotated = (tr: unknown) => renderSpreadsheetToHtml(singleCellWorkbook({ v: "Days left", t: 1, s: { tr } }));
+
+        // A quarter turn either way becomes a vertical writing mode, so the row can grow to fit it.
+        expect(rotated({ a: 90 })).toContain(
+            `<span style="display:inline-block;writing-mode:vertical-rl;transform:rotate(180deg)">Days left</span>`);
+        expect(rotated({ a: -90 })).toContain(
+            `<span style="display:inline-block;writing-mode:vertical-rl">Days left</span>`);
+
+        // Stacked text reads downwards with upright characters.
+        expect(rotated({ v: 1 })).toContain(
+            `<span style="display:inline-block;writing-mode:vertical-rl;text-orientation:upright">Days left</span>`);
+
+        // Any other angle turns the glyphs; CSS rotates clockwise, so the sign flips.
+        expect(rotated({ a: 45 })).toContain(
+            `<span style="display:inline-block;transform:rotate(-45deg)">Days left</span>`);
+        expect(rotated({ a: -30.5 })).toContain(`transform:rotate(30.5deg)`);
+    });
+
+    it("leaves a cell unwrapped when it has no rotation to apply", () => {
+        const plain = (s: unknown) => renderSpreadsheetToHtml(singleCellWorkbook({ v: "Days left", t: 1, s }));
+
+        expect(plain({})).toContain("<td>Days left</td>");
+        expect(plain({ tr: { a: 0, v: 0 } })).toContain("<td>Days left</td>");
+        expect(plain({ tr: { v: 0 } })).toContain("<td>Days left</td>");
+
+        // An empty cell gets no wrapper either, rotation or not.
+        expect(renderSpreadsheetToHtml(singleCellWorkbook({ s: { tr: { a: 90 } } }))).toContain("<td></td>");
+    });
+
+    it("keeps a cell's image upright when its text is rotated", () => {
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({
+            v: "Days left",
+            t: 1,
+            s: { tr: { a: 90 } },
+            p: {
+                drawings: { d1: { drawingId: "d1", source: "api/attachments/abc123/image/i.png" } },
+                drawingsOrder: ["d1"]
+            }
+        }));
+
+        expect(html).toContain(`Days left</span><img class="spreadsheet-cell-image"`);
+    });
+
     // Helper to wrap a single styled cell into a complete workbook payload.
     function singleCellWorkbook(cell: unknown, sheetExtra: Record<string, unknown> = {}): string {
         return JSON.stringify({

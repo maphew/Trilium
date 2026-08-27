@@ -27,6 +27,7 @@ import {
     type IRange,
     type ISheetDrawing,
     type IStyleData,
+    type ITextRotation,
     type IWorksheetData,
     parseWorkbookData,
     resolveCellStyle,
@@ -295,7 +296,8 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
             const cell = cellData[row]?.[col];
             const cellStyle = resolveCellStyle(cell?.s, styles);
             const cssText = buildCssText(cellStyle, cell);
-            const value = formatCellValue(cell, cellStyle) + (cell ? renderCellImages(cell) : "");
+            const value = rotate(formatCellValue(cell, cellStyle), cellStyle?.tr)
+                + (cell ? renderCellImages(cell) : "");
 
             const attrs: string[] = [];
             // Cells with a background fill carry `has-fill` so the stylesheet can suppress
@@ -561,6 +563,36 @@ function formatCellValue(cell: ICellData | undefined, style: IStyleData | null):
     }
 
     return escapeHtml(String(cell.v));
+}
+
+/**
+ * Wraps a cell's text in the element that carries its rotation. The wrapper keeps the rotation off
+ * the `td` itself, which would take the background and borders with it, and images anchored in the
+ * cell stay upright as they do in the editor.
+ */
+function rotate(html: string, rotation: ITextRotation | null | undefined): string {
+    if (!html) return html;
+
+    const css = rotationCss(rotation);
+    return css ? `<span style="${css}">${html}</span>` : html;
+}
+
+/**
+ * The CSS for Univer's text rotation. A quarter turn and stacked text become a vertical writing
+ * mode, which gives the text a real vertical box the row grows to fit; any other angle falls back
+ * to a transform, which turns the glyphs without reserving room for them. Excel measures the angle
+ * counter-clockwise and CSS turns clockwise, so the sign flips.
+ */
+function rotationCss(rotation: ITextRotation | null | undefined): string | null {
+    if (!rotation) return null;
+    // Stacked text: upright characters reading downwards.
+    if (rotation.v) return "display:inline-block;writing-mode:vertical-rl;text-orientation:upright";
+
+    const angle = isFiniteNumber(rotation.a) ? rotation.a : 0;
+    if (angle === 0) return null;
+    if (angle === 90) return "display:inline-block;writing-mode:vertical-rl;transform:rotate(180deg)";
+    if (angle === -90) return "display:inline-block;writing-mode:vertical-rl";
+    return `display:inline-block;transform:rotate(${px(-angle)}deg)`;
 }
 
 /**
