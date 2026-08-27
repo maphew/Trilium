@@ -79,6 +79,15 @@ export interface ICellDocumentData {
 export interface ICellDocumentBody {
     /** Univer's flat text buffer, with structure encoded as control characters. */
     dataStream?: string;
+    /** Spans of `dataStream` carrying extra properties, hyperlinks among them. */
+    customRanges?: ICellCustomRange[];
+}
+
+/** A span of a cell's document text. `startIndex` and `endIndex` are both inclusive. */
+export interface ICellCustomRange {
+    startIndex?: number;
+    endIndex?: number;
+    properties?: { url?: string };
 }
 
 export interface ISheetDrawing {
@@ -270,27 +279,98 @@ export function resolveCellStyle(
     return s;
 }
 
+/** A run of a cell's document text, carrying the hyperlink it sits inside. */
+export interface CellDocumentSegment {
+    text: string;
+    url?: string;
+}
+
+/**
+ * Splits a cell's rich-text document into runs of plain and linked text. Univer stores a
+ * hyperlink as a `customRange` holding the target and the offsets it covers in `dataStream`,
+ * so the runs are cut on those offsets. Returns an empty array when the cell carries no
+ * document, which is the common case: Univer writes `p` only for a rich-text cell.
+ */
+export function getCellDocumentSegments(cell: ICellData | undefined): CellDocumentSegment[] {
+    const body = cell?.p?.body;
+    const stream = typeof body?.dataStream === "string" ? body.dataStream : "";
+    if (!stream) return [];
+
+    const segments: CellDocumentSegment[] = [];
+    let cursor = 0;
+    for (const link of linkRanges(body?.customRanges, stream.length)) {
+        if (link.start > cursor) {
+            segments.push({ text: stripDataStreamControls(stream.slice(cursor, link.start)) });
+        }
+        segments.push({ text: stripDataStreamControls(stream.slice(link.start, link.end + 1)), url: link.url });
+        cursor = link.end + 1;
+    }
+    if (cursor < stream.length) {
+        segments.push({ text: stripDataStreamControls(stream.slice(cursor)) });
+    }
+
+    return trimTrailingBreaks(segments);
+}
+
 /**
  * Returns the plain text of a cell Univer stored as a rich-text document. Univer writes `p`
  * without a matching `v` for some cells, such as a link typed into an empty cell, so an emitter
  * that reads only `v` renders them blank.
  */
 export function getCellDocumentText(cell: ICellData | undefined): string {
-    return normalizeDataStream(cell?.p?.body?.dataStream);
+    return getCellDocumentSegments(cell).map((segment) => segment.text).join("");
+}
+
+/** Converts a whole `dataStream` to plain text, dropping the terminator it ends with. */
+export function normalizeDataStream(dataStream: unknown): string {
+    if (typeof dataStream !== "string") return "";
+    return stripDataStreamControls(dataStream).replace(/\n+$/, "");
+}
+
+/** The hyperlink ranges to cut on, in document order, clamped to the stream and non-overlapping. */
+function linkRanges(customRanges: ICellCustomRange[] | undefined, length: number) {
+    const links: { start: number; end: number; url: string }[] = [];
+    for (const range of customRanges ?? []) {
+        const url = range?.properties?.url;
+        if (typeof url !== "string" || !url) continue;
+        if (!isFiniteNumber(range.startIndex) || !isFiniteNumber(range.endIndex)) continue;
+
+        const start = Math.max(0, Math.trunc(range.startIndex));
+        const end = Math.min(length - 1, Math.trunc(range.endIndex));
+        if (end >= start) links.push({ start, end, url });
+    }
+    links.sort((a, b) => a.start - b.start);
+
+    const ordered: typeof links = [];
+    let cursor = 0;
+    for (const link of links) {
+        if (link.start < cursor) continue;
+        ordered.push(link);
+        cursor = link.end + 1;
+    }
+    return ordered;
 }
 
 /**
- * Converts Univer's `dataStream` to plain text. A carriage return ends a paragraph and a line
- * feed ends a section, so both become newlines and the trailing terminator every stream carries
- * is dropped. The other C0 control characters are structural placeholders, the backspace
- * character standing in for an embedded drawing.
+ * Removes the structural placeholders Univer encodes as C0 control characters, the backspace
+ * character standing in for an embedded drawing, and turns its paragraph and section breaks
+ * into newlines.
  */
-export function normalizeDataStream(dataStream: unknown): string {
-    if (typeof dataStream !== "string") return "";
-    return dataStream
+function stripDataStreamControls(text: string): string {
+    return text
         .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
-        .replace(/\r\n|[\r\n]/g, "\n")
-        .replace(/\n+$/, "");
+        .replace(/\r\n|[\r\n]/g, "\n");
+}
+
+/** Drops the terminator every stream ends with, along with any run it leaves empty. */
+function trimTrailingBreaks(segments: CellDocumentSegment[]): CellDocumentSegment[] {
+    while (segments.length > 0) {
+        const last = segments[segments.length - 1];
+        last.text = last.text.replace(/\n+$/, "");
+        if (last.text) break;
+        segments.pop();
+    }
+    return segments;
 }
 
 export interface Bounds {

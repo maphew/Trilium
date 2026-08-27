@@ -14,8 +14,9 @@ import { format as formatNumfmt, formatColor as formatNumfmtColor } from "numfmt
 
 import {
     BorderStyle,
+    type CellDocumentSegment,
     computeBounds,
-    getCellDocumentText,
+    getCellDocumentSegments,
     getFloatingDrawings,
     getVisibleSheets,
     HorizontalAlign,
@@ -523,8 +524,8 @@ function sanitizeCssColor(value: string): string {
 function formatCellValue(cell: ICellData | undefined, style: IStyleData | null): string {
     if (!cell) return "";
 
-    // A rich-text cell (a link, mixed formatting) can carry its text only in `p`.
-    if (cell.v == null || cell.v === "") return escapeHtml(getCellDocumentText(cell));
+    const rendered = formatCellDocument(cell);
+    if (rendered != null) return rendered;
 
     if (typeof cell.v === "boolean") {
         return cell.v ? "TRUE" : "FALSE";
@@ -543,6 +544,39 @@ function formatCellValue(cell: ICellData | undefined, style: IStyleData | null):
     }
 
     return escapeHtml(String(cell.v));
+}
+
+/**
+ * Renders a cell from its rich-text document, or returns `null` when the plain value is the
+ * better source. The document wins when the cell has no plain value, which is how Univer stores
+ * some cells, and when it carries hyperlinks that the plain value cannot express. A formatted
+ * number keeps its own rendering, since the document holds a display string that can go stale.
+ */
+function formatCellDocument(cell: ICellData): string | null {
+    const segments = getCellDocumentSegments(cell);
+    const hasPlainValue = cell.v != null && cell.v !== "";
+    if (hasPlainValue && (isFiniteNumber(cell.v) || !segments.some((segment) => segment.url))) {
+        return null;
+    }
+
+    const parts: string[] = [];
+    for (const segment of segments) {
+        const href = sanitizeLinkHref(segment.url);
+        const text = escapeHtml(segment.text);
+        parts.push(href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${text}</a>` : text);
+    }
+    return parts.join("");
+}
+
+/**
+ * Validates a hyperlink target for inclusion in shared/exported HTML. Accepts the absolute
+ * `http`, `https` and `mailto` URLs Univer's link dialog writes; anything else, `javascript:`
+ * among them, returns `null` so the run renders as plain text.
+ */
+function sanitizeLinkHref(url: string | undefined): string | null {
+    if (typeof url !== "string") return null;
+    const trimmed = url.trim();
+    return /^(?:https?:\/\/|mailto:)[^\u0000-\u0020\u007F]+$/i.test(trimmed) ? trimmed : null;
 }
 
 /**

@@ -302,6 +302,13 @@ span[style] {
 .spreadsheet-table.show-gridlines td:not(.has-fill) {
     border: 0.5pt solid var(--spreadsheet-gridline-color, #ccc);
 }
+
+/* On paper a link cannot be followed, so it keeps the cell's own text color and the underline
+   is the only marker, matching how .ck-content links print. */
+.spreadsheet-table a {
+    text-decoration: underline;
+    color: inherit;
+}
 /* #endregion */
 
 /* #region AI chat */

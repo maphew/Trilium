@@ -424,6 +424,89 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain("Senzor PIR");
     });
 
+    it("renders a hyperlink whether or not the cell also has a plain value", () => {
+        const link = (cell: Record<string, unknown>) => renderSpreadsheetToHtml(singleCellWorkbook({
+            ...cell,
+            p: {
+                body: {
+                    dataStream: "Kit\r\n",
+                    customRanges: [{ startIndex: 0, endIndex: 2, properties: { url: "https://example.com/kit" } }]
+                }
+            }
+        }));
+
+        const expected = `<a href="https://example.com/kit" target="_blank" rel="noopener noreferrer">Kit</a>`;
+        expect(link({})).toContain(expected);
+        expect(link({ v: "Kit", t: 1 })).toContain(expected);
+    });
+
+    it("links only the run a range covers, leaving the rest as text", () => {
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({
+            p: {
+                body: {
+                    dataStream: "see spy-shop now\r\n",
+                    customRanges: [{ startIndex: 4, endIndex: 11, properties: { url: "https://example.com" } }]
+                }
+            }
+        }));
+
+        expect(html).toContain(`see <a href="https://example.com" target="_blank" rel="noopener noreferrer">spy-shop</a> now`);
+    });
+
+    it("drops an unsafe or malformed link target, keeping its text", () => {
+        const withUrl = (url: unknown) => renderSpreadsheetToHtml(singleCellWorkbook({
+            p: {
+                body: {
+                    dataStream: "Kit\r\n",
+                    customRanges: [{ startIndex: 0, endIndex: 2, properties: { url } }]
+                }
+            }
+        }));
+
+        for (const url of ["javascript:alert(1)", "data:text/html,<script>", " ", 42, undefined]) {
+            const html = withUrl(url);
+            expect(html, String(url)).toContain("Kit");
+            expect(html, String(url)).not.toContain("<a ");
+        }
+    });
+
+    it("ignores link ranges that are out of order, overlapping or out of bounds", () => {
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({
+            p: {
+                body: {
+                    dataStream: "abcdef\r\n",
+                    customRanges: [
+                        { startIndex: 3, endIndex: 99, properties: { url: "https://example.com/second" } },
+                        { startIndex: 0, endIndex: 1, properties: { url: "https://example.com/first" } },
+                        { startIndex: 4, endIndex: 5, properties: { url: "https://example.com/overlapping" } },
+                        { startIndex: 2, properties: { url: "https://example.com/unbounded" } }
+                    ]
+                }
+            }
+        }));
+
+        expect(html).toContain(">ab</a>c<a ");
+        expect(html).toContain(">def</a>");
+        expect(html).not.toContain("overlapping");
+        expect(html).not.toContain("unbounded");
+    });
+
+    it("keeps the number format of a linked numeric cell", () => {
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({
+            v: 0.42,
+            t: 2,
+            s: { n: { pattern: "0.0%" } },
+            p: {
+                body: {
+                    dataStream: "42%\r\n",
+                    customRanges: [{ startIndex: 0, endIndex: 2, properties: { url: "https://example.com" } }]
+                }
+            }
+        }));
+
+        expect(html).toContain("42.0%");
+    });
+
     // Helper to wrap a single styled cell into a complete workbook payload.
     function singleCellWorkbook(cell: unknown, sheetExtra: Record<string, unknown> = {}): string {
         return JSON.stringify({

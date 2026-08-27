@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    getCellDocumentSegments,
     getCellDocumentText,
     getDataValidations,
     getFloatingDrawings,
@@ -118,5 +119,35 @@ describe("getCellDocumentText", () => {
         expect(getCellDocumentText({ p: { drawings: {} } })).toBe("");
         expect(getCellDocumentText({ p: { body: { dataStream: "\r\n" } } })).toBe("");
         expect(normalizeDataStream(42)).toBe("");
+    });
+});
+
+describe("getCellDocumentSegments", () => {
+    it("cuts the document into plain and linked runs", () => {
+        const segments = getCellDocumentSegments({
+            p: {
+                body: {
+                    dataStream: "see spy-shop now\r\n",
+                    customRanges: [{ startIndex: 4, endIndex: 11, properties: { url: "https://example.com" } }]
+                }
+            }
+        });
+
+        expect(segments).toEqual([
+            { text: "see " },
+            { text: "spy-shop", url: "https://example.com" },
+            { text: " now" }
+        ]);
+    });
+
+    it("keeps the trailing terminator out of a run that ends the document", () => {
+        expect(getCellDocumentSegments({
+            p: {
+                body: {
+                    dataStream: "Kit\r\n",
+                    customRanges: [{ startIndex: 0, endIndex: 4, properties: { url: "https://example.com" } }]
+                }
+            }
+        })).toEqual([{ text: "Kit", url: "https://example.com" }]);
     });
 });
