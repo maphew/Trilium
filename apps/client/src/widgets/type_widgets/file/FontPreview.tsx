@@ -96,26 +96,6 @@ export default function FontPreview({ note, blob }: FontPreviewProps) {
     );
 }
 
-/** Font formats `FontFace` rasterizes. EOT and TrueType collections are left out: no engine loads
- *  them this way, so a preview of one could only fail. */
-const PREVIEWABLE_MIME_TYPES = new Set([
-    "font/otf",
-    "font/sfnt",
-    "font/ttf",
-    "font/woff",
-    "font/woff2",
-    "application/font-woff",
-    "application/font-woff2",
-    "application/x-font-opentype",
-    "application/x-font-otf",
-    "application/x-font-truetype",
-    "application/x-font-ttf"
-]);
-
-export function isFontMimeType(mime: string) {
-    return PREVIEWABLE_MIME_TYPES.has(mime.toLowerCase());
-}
-
 /**
  * Registers the note's font with the document for as long as the preview is mounted, and returns
  * the family name to render it with — `undefined` while it loads, `null` if the file is not a font

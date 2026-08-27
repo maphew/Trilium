@@ -1,13 +1,13 @@
 import "./File.css";
 
-import { isOfficeMimeType } from "@triliumnext/commons";
+import { isFontMimeType, isOfficeMimeType } from "@triliumnext/commons";
 
 import { GPX_MIME } from "../../services/gpx";
 import { t } from "../../services/i18n";
 import Alert from "../react/Alert";
 import CodeBlock from "../react/CodeBlock";
 import { useNoteBlob } from "../react/hooks";
-import FontPreview, { isFontMimeType } from "./file/FontPreview";
+import FontPreview from "./file/FontPreview";
 import GpxPreview from "./file/GpxPreview";
 import MediaPreview from "./file/MediaPreview";
 import OfficePreview from "./file/Office";

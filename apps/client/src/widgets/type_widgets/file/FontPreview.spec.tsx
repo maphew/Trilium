@@ -7,7 +7,7 @@ vi.mock("../../../services/i18n", () => ({
     t: (key: string, opts?: Record<string, unknown>) => [ key, ...Object.values(opts ?? {}) ].join("|")
 }));
 
-const { default: FontPreview, isFontMimeType } = await import("./FontPreview");
+const { default: FontPreview } = await import("./FontPreview");
 
 /** The faces `document.fonts` currently holds, as the stubbed registry below sees them. */
 let registeredFonts: Set<FontStub>;
@@ -151,22 +151,5 @@ describe("FontPreview", () => {
 
         expect(container.innerHTML).toBe("");
         expect(fetchMock).not.toHaveBeenCalled();
-    });
-});
-
-describe("isFontMimeType", () => {
-    it("accepts the formats FontFace rasterizes, including the legacy aliases", () => {
-        for (const mime of [ "font/woff2", "font/woff", "font/ttf", "font/otf", "font/sfnt", "application/font-woff", "application/x-font-ttf", "application/x-font-truetype", "application/x-font-otf", "application/x-font-opentype" ]) {
-            expect(isFontMimeType(mime), mime).toBe(true);
-        }
-        expect(isFontMimeType("FONT/WOFF2")).toBe(true);
-    });
-
-    it("rejects font formats no engine loads this way, and non-fonts", () => {
-        // EOT and TrueType collections keep the generic no-preview notice rather than a preview
-        // that could only fail.
-        for (const mime of [ "application/vnd.ms-fontobject", "font/collection", "application/octet-stream", "image/png", "" ]) {
-            expect(isFontMimeType(mime), mime).toBe(false);
-        }
     });
 });

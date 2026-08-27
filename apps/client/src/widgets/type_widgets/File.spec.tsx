@@ -18,12 +18,7 @@ vi.mock("../react/ActionButton", () => ({ default: () => <button class="code-blo
 // the module graph; the markers let FileTypeWidget's mime routing be asserted without rendering them.
 vi.mock("../react/hooks", () => ({ useNoteBlob: vi.fn(() => null) }));
 vi.mock("./file/MediaPreview", () => ({ default: () => <div class="media-preview-stub" /> }));
-// Only the rendered preview is stubbed here — `isFontMimeType`, which the routing below is
-// asserted on, stays the real one.
-vi.mock("./file/FontPreview", async () => ({
-    ...await vi.importActual<typeof import("./file/FontPreview")>("./file/FontPreview"),
-    default: () => <div class="font-preview-stub" />
-}));
+vi.mock("./file/FontPreview", () => ({ default: () => <div class="font-preview-stub" /> }));
 vi.mock("./file/Office", () => ({ default: () => <div class="office-preview-stub" /> }));
 vi.mock("./file/Pdf", () => ({ default: () => <div class="pdf-preview-stub" /> }));
 
