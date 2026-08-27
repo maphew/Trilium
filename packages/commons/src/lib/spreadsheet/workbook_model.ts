@@ -70,6 +70,10 @@ export interface ICellData {
 }
 
 export interface ICellDocumentData {
+    /** Univer's unit id for the cell document. */
+    id?: string;
+    /** Layout Univer recomputes from the cell's own style every time it renders the cell. */
+    documentStyle?: Record<string, unknown>;
     drawings?: Record<string, ISheetDrawing>;
     drawingsOrder?: string[];
     /** Text content, present when the cell holds rich text such as a link or mixed formatting. */
@@ -81,13 +85,19 @@ export interface ICellDocumentBody {
     dataStream?: string;
     /** Spans of `dataStream` carrying extra properties, hyperlinks among them. */
     customRanges?: ICellCustomRange[];
+    /** Formatting runs and the paragraph/section markers Univer lays the text out from. */
+    textRuns?: { ts: Record<string, unknown>; st: number; ed: number }[];
+    paragraphs?: { startIndex: number }[];
+    sectionBreaks?: { startIndex: number }[];
 }
 
 /** A span of a cell's document text. `startIndex` and `endIndex` are both inclusive. */
 export interface ICellCustomRange {
+    rangeId?: string;
+    rangeType?: CustomRangeType;
     startIndex?: number;
     endIndex?: number;
-    properties?: { url?: string };
+    properties?: { url?: string; refId?: string };
 }
 
 export interface ISheetDrawing {
@@ -195,6 +205,11 @@ export const enum CellValueType {
     NUMBER = 2,
     BOOLEAN = 3,
     FORCE_STRING = 4
+}
+
+/** Univer's kinds of `ICellCustomRange` (`CustomRangeType` in @univerjs/core). */
+export const enum CustomRangeType {
+    HYPERLINK = 0
 }
 
 // Alignment enums (from UniversJS).
@@ -320,6 +335,38 @@ export function getCellDocumentSegments(cell: ICellData | undefined): CellDocume
  */
 export function getCellDocumentText(cell: ICellData | undefined): string {
     return getCellDocumentSegments(cell).map((segment) => segment.text).join("");
+}
+
+/**
+ * Builds the rich-text document Univer stores for a hyperlinked cell: the text terminated by a
+ * paragraph and a section break, plus one custom range covering it. `rangeId` identifies the link
+ * inside the cell. Returns `null` when there is no text to link or the target is not safe to
+ * store, so the caller keeps the cell as plain text.
+ *
+ * `documentStyle` stays empty because Univer overwrites its margins, page size and render config
+ * from the cell's own style on every render.
+ */
+export function buildLinkedCellDocument(text: string, url: unknown, rangeId: string): ICellDocumentData | null {
+    const target = sanitizeLinkUrl(url);
+    if (!text || !target) return null;
+
+    return {
+        id: "d",
+        documentStyle: {},
+        body: {
+            dataStream: `${text}\r\n`,
+            textRuns: [{ ts: {}, st: 0, ed: text.length }],
+            paragraphs: [{ startIndex: text.length }],
+            sectionBreaks: [{ startIndex: text.length + 1 }],
+            customRanges: [{
+                rangeId,
+                rangeType: CustomRangeType.HYPERLINK,
+                startIndex: 0,
+                endIndex: text.length - 1,
+                properties: { url: target, refId: rangeId }
+            }]
+        }
+    };
 }
 
 /** Converts a whole `dataStream` to plain text, dropping the terminator it ends with. */
