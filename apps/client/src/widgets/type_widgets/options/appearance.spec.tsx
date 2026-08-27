@@ -119,7 +119,8 @@ describe("the font settings", () => {
 
         const picker = document.querySelector(".font-picker-list");
         const headers = [ ...(picker?.querySelectorAll(".dropdown-header") ?? []) ].map((header) => header.textContent);
-        expect(headers).toContain("fonts.user-fonts");
+        // Ahead of the stock families, which the user has to scroll past otherwise.
+        expect(headers[0]).toBe("fonts.user-fonts");
 
         // Each is named by its note's own title, and stands for the note rather than for a family.
         const listed = [ ...(picker?.querySelectorAll(".dropdown-item") ?? []) ].map((item) => item.textContent?.trim());

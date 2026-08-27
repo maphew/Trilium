@@ -1824,7 +1824,7 @@
     "not_all_fonts_available": "Not all listed fonts may be available on your system",
     "apply_changes": "Reload to apply changes",
     "generic-fonts": "Generic fonts",
-    "user-fonts": "Your fonts",
+    "user-fonts": "Custom fonts",
     "sans-serif-system-fonts": "Sans-serif system fonts",
     "serif-system-fonts": "Serif system fonts",
     "monospace-system-fonts": "Monospace system fonts",

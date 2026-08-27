@@ -530,11 +530,12 @@ function useFontGroups(): FontGroup[] {
         };
     }, []);
 
+    // Ahead of the stock families: a font the user went and added is the one they are looking for.
     return useMemo(() => (customFonts.length
-        ? [ ...FONT_FAMILIES, {
+        ? [ {
             title: t("fonts.user-fonts"),
             items: customFonts.map(({ noteId, title }) => ({ value: customFontOption(noteId), label: title }))
-        } ]
+        }, ...FONT_FAMILIES ]
         : FONT_FAMILIES), [ customFonts ]);
 }
 
