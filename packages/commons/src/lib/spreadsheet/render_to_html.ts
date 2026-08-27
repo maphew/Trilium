@@ -15,6 +15,7 @@ import { format as formatNumfmt, formatColor as formatNumfmtColor } from "numfmt
 import {
     BorderStyle,
     type CellDocumentSegment,
+    type CellMatrix,
     CellValueType,
     computeBounds,
     getCellDocumentSegments,
@@ -22,10 +23,10 @@ import {
     getFloatingDrawings,
     getVisibleSheets,
     HorizontalAlign,
-    type CellMatrix,
     type IBorderData,
     type IBorderStyleData,
     type ICellData,
+    type IColumnData,
     isFiniteNumber,
     type IRange,
     type ISheetDrawing,
@@ -290,16 +291,18 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
         // sets its own still wins.
         lines.push(`<tr style="height:${height}px;vertical-align:bottom">`);
 
+        const neighbours: RowNeighbours = { row, minCol, maxCol, cellData, columnData, mergeMap };
+
         for (let col = minCol; col <= maxCol; col++) {
             if (columnData[col]?.hd) continue;
 
             const mergeInfo = mergeMap.get(cellKey(row, col));
-            if (mergeInfo === "hidden") continue;
+            if (mergeInfo?.kind === "member") continue;
 
             const cell = cellData[row]?.[col];
             const cellStyle = mergeAwareStyle(resolveCellStyle(cell?.s, styles), mergeInfo, row, col, cellData, styles);
             const declarations = [buildCssText(cellStyle, cell)];
-            if (clipsOverflow(cell, cellStyle, row, col, cellData)) declarations.push("overflow:hidden");
+            if (clipsOverflow(cell, cellStyle, col, mergeInfo, neighbours)) declarations.push("overflow:hidden");
             const cssText = declarations.filter(Boolean).join(";");
             const value = rotate(formatCellValue(cell, cellStyle), cellStyle?.tr)
                 + (cell ? renderCellImages(cell) : "");
@@ -350,12 +353,21 @@ function buildTableTag(sheet: IWorksheetData, totalWidth: number): string {
 
 // #region Merge handling
 
+/** The cell a merged range is rendered from, carrying the span it covers. */
 interface MergeOrigin {
+    kind: "origin";
     rowSpan: number;
     colSpan: number;
     /** Last row and column of the range, clamped to the rendered bounds. */
     endRow: number;
     endColumn: number;
+}
+
+/** A cell the range covers. It is not rendered; the anchor's content fills its place. */
+interface MergeMember {
+    kind: "member";
+    anchorRow: number;
+    anchorColumn: number;
 }
 
 /**
@@ -383,7 +395,7 @@ function mergeAwareStyle(
     return { ...style, bd };
 }
 
-type MergeInfo = MergeOrigin | "hidden";
+type MergeInfo = MergeOrigin | MergeMember;
 
 function cellKey(row: number, col: number): string {
     return `${row},${col}`;
@@ -399,6 +411,7 @@ function buildMergeMap(mergeData: IRange[], minRow: number, maxRow: number, minC
         const endCol = Math.min(range.endColumn, maxCol);
 
         map.set(cellKey(range.startRow, range.startColumn), {
+            kind: "origin",
             rowSpan: endRow - startRow + 1,
             colSpan: endCol - startCol + 1,
             endRow,
@@ -408,7 +421,7 @@ function buildMergeMap(mergeData: IRange[], minRow: number, maxRow: number, minC
         for (let r = startRow; r <= endRow; r++) {
             for (let c = startCol; c <= endCol; c++) {
                 if (r === range.startRow && c === range.startColumn) continue;
-                map.set(cellKey(r, c), "hidden");
+                map.set(cellKey(r, c), { kind: "member", anchorRow: range.startRow, anchorColumn: range.startColumn });
             }
         }
     }
@@ -475,6 +488,16 @@ function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     return parts.join(";");
 }
 
+/** One row's rendered layout, which is what decides whose value a cell's text would spill over. */
+interface RowNeighbours {
+    row: number;
+    minCol: number;
+    maxCol: number;
+    cellData: CellMatrix;
+    columnData: Record<number, IColumnData>;
+    mergeMap: Map<string, MergeInfo>;
+}
+
 /**
  * Whether a cell has to clip its text at its own edge. A spreadsheet spills text into a
  * neighbouring cell only while that neighbour is empty, and never spills a number or a boolean
@@ -485,20 +508,40 @@ function buildCssText(style: IStyleData | null, cell?: ICellData): string {
 function clipsOverflow(
     cell: ICellData | undefined,
     style: IStyleData | null,
-    row: number,
     col: number,
-    cellData: CellMatrix
+    merge: MergeOrigin | undefined,
+    neighbours: RowNeighbours
 ): boolean {
     if (!hasContent(cell) || style?.tb === WrapStrategy.WRAP) return false;
     if (cell?.t === CellValueType.NUMBER || cell?.t === CellValueType.BOOLEAN) return true;
 
-    const before = hasContent(cellData[row]?.[col - 1]);
-    const after = hasContent(cellData[row]?.[col + 1]);
+    // Rightwards, a merged cell starts looking past the last column its own range covers.
+    const before = () => neighbourHasContent(col, -1, neighbours);
+    const after = () => neighbourHasContent(merge?.endColumn ?? col, 1, neighbours);
     switch (style?.ht) {
-        case HorizontalAlign.RIGHT: return before;
-        case HorizontalAlign.CENTER: return before || after;
-        default: return after;
+        case HorizontalAlign.RIGHT: return before();
+        case HorizontalAlign.CENTER: return before() || after();
+        default: return after();
     }
+}
+
+/**
+ * Whether the cell rendered beside `from` shows anything. Adjacency follows the rendered row, not
+ * the cell matrix: hidden columns are stepped over because nothing of them reaches the page, and a
+ * column a merge covers reports that range's anchor, whose text is what fills the space there.
+ */
+function neighbourHasContent(from: number, step: -1 | 1, neighbours: RowNeighbours): boolean {
+    const { row, minCol, maxCol, cellData, columnData, mergeMap } = neighbours;
+
+    for (let col = from + step; col >= minCol && col <= maxCol; col += step) {
+        if (columnData[col]?.hd) continue;
+
+        const info = mergeMap.get(cellKey(row, col));
+        return hasContent(info?.kind === "member"
+            ? cellData[info.anchorRow]?.[info.anchorColumn]
+            : cellData[row]?.[col]);
+    }
+    return false;
 }
 
 /** Whether a cell shows anything. A cell carrying only a style is empty, as it is in the editor. */

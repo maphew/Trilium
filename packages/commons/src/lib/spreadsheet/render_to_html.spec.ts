@@ -553,8 +553,8 @@ describe("renderSpreadsheetToHtml", () => {
     });
 
     describe("overflow into neighbouring cells", () => {
-        /** One row of `cells`, keyed by column. */
-        function row(cells: Record<number, unknown>): string {
+        /** A sheet from a `cellData` matrix, with optional sheet-level overrides. */
+        function grid(cellData: Record<number, unknown>, extra: Record<string, unknown> = {}): string {
             return JSON.stringify({
                 version: 1,
                 workbook: {
@@ -566,13 +566,19 @@ describe("renderSpreadsheetToHtml", () => {
                             name: "Sheet1",
                             hidden: 0,
                             mergeData: [],
-                            cellData: { "0": cells },
+                            cellData,
                             rowData: {},
-                            columnData: {}
+                            columnData: {},
+                            ...extra
                         }
                     }
                 }
             });
+        }
+
+        /** One row of `cells`, keyed by column. */
+        function row(cells: Record<number, unknown>, extra: Record<string, unknown> = {}): string {
+            return grid({ "0": cells }, extra);
         }
 
         /** Whether the workbook's cell at `column` clips its text. The render always starts at A1. */
@@ -608,6 +614,29 @@ describe("renderSpreadsheetToHtml", () => {
 
             expect(clips(row({ 0: { v: "a long label", t: 1, s: { tb: WrapStrategy.WRAP } }, 1: { v: "next", t: 1 } }), 0)).toBe(false);
             expect(clips(row({ 0: { s: { bl: 1 } }, 1: { v: "next", t: 1 } }), 0)).toBe(false);
+        });
+
+        it("judges adjacency on the rendered row rather than the cell matrix", () => {
+            const long = { v: "a long label", t: 1 };
+
+            // A hidden column reaches nobody, so the cell steps over it in both directions.
+            expect(clips(row({ 0: long, 1: { v: "next", t: 1 } }, { columnData: { 1: { hd: 1 } } }), 0)).toBe(false);
+            expect(clips(row({ 0: long, 1: {}, 2: { v: "next", t: 1 } }, { columnData: { 1: { hd: 1 } } }), 0)).toBe(true);
+
+            // A merged cell starts looking past the last column its own range covers.
+            const merged = [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 1 }];
+            expect(clips(row({ 0: long, 1: {}, 2: { v: "next", t: 1 } }, { mergeData: merged }), 0)).toBe(true);
+            expect(clips(row({ 0: long, 1: {} }, { mergeData: merged }), 0)).toBe(false);
+        });
+
+        it("reads a column a merge spans into as holding that range's content", () => {
+            // The second row renders only the right-aligned cell; the range fills the column beside it.
+            const html = renderSpreadsheetToHtml(grid(
+                { "0": { 0: { v: "tall", t: 1 } }, "1": { 1: { v: "x", t: 1, s: { ht: HorizontalAlign.RIGHT } } } },
+                { mergeData: [{ startRow: 0, endRow: 1, startColumn: 0, endColumn: 0 }] }
+            ));
+
+            expect(html.split("</tr>")[1]).toContain(`<td style="text-align:right;overflow:hidden">x</td>`);
         });
 
         it("counts a cell whose text lives only in its rich-text document as occupied", () => {
