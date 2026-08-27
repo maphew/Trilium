@@ -348,8 +348,8 @@ describe("renderSpreadsheetToCsv (formatDate returns null)", () => {
 describe("rich-text cells", () => {
     it("exports the text of a cell that has no plain value", () => {
         const csv = renderSpreadsheetToCsv(workbook({
-            0: { 0: { p: { body: { dataStream: "Telecomand\u0103\r\n" } } }, 1: { v: 135.99 } }
+            0: { 0: { p: { body: { dataStream: "Caf\u00e9\r\n" } } }, 1: { v: 12.5 } }
         }));
-        expect(csv).toBe("Telecomand\u0103,135.99");
+        expect(csv).toBe("Caf\u00e9,12.5");
     });
 });

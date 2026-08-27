@@ -518,7 +518,7 @@ describe("extractSpreadsheetText rich-text cells", () => {
                         name: "Sheet1",
                         hidden: 0,
                         cellData: {
-                            "0": { "0": { p: { body: { [dataStreamKey]: "Senzor PIR\r\n" } } } },
+                            "0": { "0": { p: { body: { [dataStreamKey]: "Notebook\r\n" } } } },
                             "1": { "0": { v: "plain" } }
                         },
                         rowData: {},
@@ -528,7 +528,7 @@ describe("extractSpreadsheetText rich-text cells", () => {
             }
         });
 
-        expect(extractSpreadsheetText(sheet("dataStream"))).toBe("Senzor PIR plain");
-        expect(extractSpreadsheetText(sheet("datastream"))).toBe("Senzor PIR plain");
+        expect(extractSpreadsheetText(sheet("dataStream"))).toBe("Notebook plain");
+        expect(extractSpreadsheetText(sheet("datastream"))).toBe("Notebook plain");
     });
 });

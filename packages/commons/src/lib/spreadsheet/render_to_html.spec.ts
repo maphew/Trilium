@@ -420,8 +420,8 @@ describe("renderSpreadsheetToHtml", () => {
     });
 
     it("renders a cell whose text lives only in its rich-text document", () => {
-        const html = renderSpreadsheetToHtml(singleCellWorkbook({ p: { body: { dataStream: "Senzor PIR\r\n" } } }));
-        expect(html).toContain("Senzor PIR");
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({ p: { body: { dataStream: "Notebook\r\n" } } }));
+        expect(html).toContain("Notebook");
     });
 
     it("renders a hyperlink whether or not the cell also has a plain value", () => {
@@ -429,35 +429,35 @@ describe("renderSpreadsheetToHtml", () => {
             ...cell,
             p: {
                 body: {
-                    dataStream: "Kit\r\n",
-                    customRanges: [{ startIndex: 0, endIndex: 2, properties: { url: "https://example.com/kit" } }]
+                    dataStream: "Pen\r\n",
+                    customRanges: [{ startIndex: 0, endIndex: 2, properties: { url: "https://example.com/pen" } }]
                 }
             }
         }));
 
-        const expected = `<a href="https://example.com/kit" target="_blank" rel="noopener noreferrer">Kit</a>`;
+        const expected = `<a href="https://example.com/pen" target="_blank" rel="noopener noreferrer">Pen</a>`;
         expect(link({})).toContain(expected);
-        expect(link({ v: "Kit", t: 1 })).toContain(expected);
+        expect(link({ v: "Pen", t: 1 })).toContain(expected);
     });
 
     it("links only the run a range covers, leaving the rest as text", () => {
         const html = renderSpreadsheetToHtml(singleCellWorkbook({
             p: {
                 body: {
-                    dataStream: "see spy-shop now\r\n",
+                    dataStream: "see supplier now\r\n",
                     customRanges: [{ startIndex: 4, endIndex: 11, properties: { url: "https://example.com" } }]
                 }
             }
         }));
 
-        expect(html).toContain(`see <a href="https://example.com" target="_blank" rel="noopener noreferrer">spy-shop</a> now`);
+        expect(html).toContain(`see <a href="https://example.com" target="_blank" rel="noopener noreferrer">supplier</a> now`);
     });
 
     it("drops an unsafe or malformed link target, keeping its text", () => {
         const withUrl = (url: unknown) => renderSpreadsheetToHtml(singleCellWorkbook({
             p: {
                 body: {
-                    dataStream: "Kit\r\n",
+                    dataStream: "Pen\r\n",
                     customRanges: [{ startIndex: 0, endIndex: 2, properties: { url } }]
                 }
             }
@@ -465,7 +465,7 @@ describe("renderSpreadsheetToHtml", () => {
 
         for (const url of ["javascript:alert(1)", "data:text/html,<script>", " ", 42, undefined]) {
             const html = withUrl(url);
-            expect(html, String(url)).toContain("Kit");
+            expect(html, String(url)).toContain("Pen");
             expect(html, String(url)).not.toContain("<a ");
         }
     });

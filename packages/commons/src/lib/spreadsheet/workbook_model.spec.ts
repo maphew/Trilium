@@ -108,7 +108,7 @@ describe("getDataValidations", () => {
 
 describe("getCellDocumentText", () => {
     it("reads the rich-text document, dropping the terminator and structural characters", () => {
-        expect(getCellDocumentText({ p: { body: { dataStream: "Kit\r\n" } } })).toBe("Kit");
+        expect(getCellDocumentText({ p: { body: { dataStream: "Pen\r\n" } } })).toBe("Pen");
         expect(getCellDocumentText({ p: { body: { dataStream: "first\rsecond\r\n" } } })).toBe("first\nsecond");
         expect(getCellDocumentText({ p: { body: { dataStream: "logo\b\r\n" } } })).toBe("logo");
     });
@@ -127,7 +127,7 @@ describe("getCellDocumentSegments", () => {
         const segments = getCellDocumentSegments({
             p: {
                 body: {
-                    dataStream: "see spy-shop now\r\n",
+                    dataStream: "see supplier now\r\n",
                     customRanges: [{ startIndex: 4, endIndex: 11, properties: { url: "https://example.com" } }]
                 }
             }
@@ -135,7 +135,7 @@ describe("getCellDocumentSegments", () => {
 
         expect(segments).toEqual([
             { text: "see " },
-            { text: "spy-shop", url: "https://example.com" },
+            { text: "supplier", url: "https://example.com" },
             { text: " now" }
         ]);
     });
@@ -144,10 +144,10 @@ describe("getCellDocumentSegments", () => {
         expect(getCellDocumentSegments({
             p: {
                 body: {
-                    dataStream: "Kit\r\n",
+                    dataStream: "Pen\r\n",
                     customRanges: [{ startIndex: 0, endIndex: 4, properties: { url: "https://example.com" } }]
                 }
             }
-        })).toEqual([{ text: "Kit", url: "https://example.com" }]);
+        })).toEqual([{ text: "Pen", url: "https://example.com" }]);
     });
 });

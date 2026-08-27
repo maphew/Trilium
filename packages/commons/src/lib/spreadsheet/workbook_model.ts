@@ -288,7 +288,8 @@ export interface CellDocumentSegment {
 /**
  * Splits a cell's rich-text document into runs of plain and linked text. Univer stores a
  * hyperlink as a `customRange` holding the target and the offsets it covers in `dataStream`,
- * so the runs are cut on those offsets. Returns an empty array when the cell carries no
+ * so the runs are cut on those offsets. A run keeps its `url` only when the target is safe to
+ * export, so an emitter can use it as-is. Returns an empty array when the cell carries no
  * document, which is the common case: Univer writes `p` only for a rich-text cell.
  */
 export function getCellDocumentSegments(cell: ICellData | undefined): CellDocumentSegment[] {
@@ -331,8 +332,8 @@ export function normalizeDataStream(dataStream: unknown): string {
 function linkRanges(customRanges: ICellCustomRange[] | undefined, length: number) {
     const links: { start: number; end: number; url: string }[] = [];
     for (const range of customRanges ?? []) {
-        const url = range?.properties?.url;
-        if (typeof url !== "string" || !url) continue;
+        const url = sanitizeLinkUrl(range?.properties?.url);
+        if (!url) continue;
         if (!isFiniteNumber(range.startIndex) || !isFiniteNumber(range.endIndex)) continue;
 
         const start = Math.max(0, Math.trunc(range.startIndex));
@@ -349,6 +350,17 @@ function linkRanges(customRanges: ICellCustomRange[] | undefined, length: number
         cursor = link.end + 1;
     }
     return ordered;
+}
+
+/**
+ * Validates a hyperlink target before it reaches an export. Accepts the absolute `http`, `https`
+ * and `mailto` URLs Univer's link dialog writes; anything else, `javascript:` among them, returns
+ * `null` so the run is exported as plain text.
+ */
+function sanitizeLinkUrl(url: unknown): string | null {
+    if (typeof url !== "string") return null;
+    const trimmed = url.trim();
+    return /^(?:https?:\/\/|mailto:)[^\u0000-\u0020\u007F]+$/i.test(trimmed) ? trimmed : null;
 }
 
 /**
