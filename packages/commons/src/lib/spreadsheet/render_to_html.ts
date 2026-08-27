@@ -15,6 +15,7 @@ import { format as formatNumfmt, formatColor as formatNumfmtColor } from "numfmt
 import {
     BorderStyle,
     type CellDocumentSegment,
+    CellValueType,
     computeBounds,
     getCellDocumentSegments,
     getFloatingDrawings,
@@ -380,9 +381,15 @@ function buildMergeMap(mergeData: IRange[], minRow: number, maxRow: number, minC
 // #region Style resolution
 
 function buildCssText(style: IStyleData | null, cell?: ICellData): string {
-    if (!style) return "";
-
     const parts: string[] = [];
+
+    const ht = style?.ht ?? defaultHorizontalAlign(cell);
+    if (ht != null) {
+        const align = horizontalAlignToCss(ht);
+        if (align) parts.push(`text-align:${align}`);
+    }
+
+    if (!style) return parts.join(";");
 
     if (style.bl) parts.push("font-weight:bold");
     if (style.it) parts.push("font-style:italic");
@@ -406,10 +413,6 @@ function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     const textColor = patternColor ?? style.cl?.rgb;
     if (textColor) parts.push(`color:${sanitizeCssColor(textColor)}`);
 
-    if (style.ht != null) {
-        const align = horizontalAlignToCss(style.ht);
-        if (align) parts.push(`text-align:${align}`);
-    }
     if (style.vt != null) {
         const valign = verticalAlignToCss(style.vt);
         if (valign) parts.push(`vertical-align:${valign}`);
@@ -430,6 +433,17 @@ function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     }
 
     return parts.join(";");
+}
+
+/**
+ * The alignment Univer falls back to for a cell that sets none: numbers to the right, booleans
+ * centered, everything else left (`_horizontalHandler` in `@univerjs/engine-render`). Returns
+ * `undefined` for the left case so no `text-align` is emitted and the table default stands.
+ */
+function defaultHorizontalAlign(cell: ICellData | undefined): HorizontalAlign | undefined {
+    if (cell?.t === CellValueType.NUMBER) return HorizontalAlign.RIGHT;
+    if (cell?.t === CellValueType.BOOLEAN) return HorizontalAlign.CENTER;
+    return undefined;
 }
 
 function horizontalAlignToCss(align: number): string | null {

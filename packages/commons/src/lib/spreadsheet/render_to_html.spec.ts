@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderSpreadsheetToHtml } from "./render_to_html.js";
+import { HorizontalAlign } from "./workbook_model.js";
 
 describe("renderSpreadsheetToHtml", () => {
     it("renders a basic spreadsheet with values and styles", () => {
@@ -1044,7 +1045,22 @@ describe("renderSpreadsheetToHtml", () => {
 
     it("renders numeric cell values", () => {
         const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2 }));
-        expect(html).toContain("<td>42</td>");
+        expect(html).toContain(">42</td>");
+    });
+
+    it("aligns a cell by its value type when it sets no alignment of its own", () => {
+        // Univer right-aligns numbers and centers booleans; text keeps the table default.
+        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2 }))).toContain(`<td style="text-align:right">`);
+        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: true, t: 3 }))).toContain(`<td style="text-align:center">`);
+        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: "A", t: 1 }))).toContain("<td>A</td>");
+
+        // A number formatted and styled by the workbook still gets the fallback alignment.
+        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2, s: { bl: 1 } })))
+            .toContain(`<td style="text-align:right;font-weight:bold">`);
+
+        // An explicit alignment wins over the fallback.
+        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2, s: { ht: HorizontalAlign.LEFT } })))
+            .toContain(`<td style="text-align:left">`);
     });
 
     it("emits colspan only for a purely horizontal merge", () => {
@@ -1103,7 +1119,7 @@ describe("renderSpreadsheetToHtml", () => {
         const html = renderSpreadsheetToHtml(
             singleCellWorkbook({ v: 1234.5, t: 2, s: { n: { pattern: "#,##0.00" } } })
         );
-        expect(html).toContain("<td>1,234.50</td>");
+        expect(html).toContain(">1,234.50</td>");
         expect(html).not.toContain("1234.5<");
     });
 
@@ -1217,7 +1233,7 @@ describe("renderSpreadsheetToHtml", () => {
 
     it("renders an unformatted number when no pattern is set", () => {
         const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: 1234.5, t: 2 }));
-        expect(html).toContain("<td>1234.5</td>");
+        expect(html).toContain(">1234.5</td>");
     });
 
     it("marks the table with show-gridlines when the sheet has gridlines enabled", () => {
