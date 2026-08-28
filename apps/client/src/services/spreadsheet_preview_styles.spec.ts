@@ -75,4 +75,40 @@ describe("spreadsheet preview styling", () => {
         expect(gridlineColor()).toBe("#aabbcc");
         expect(gridlineColor("#00FF00")).toBe("#00FF00");
     });
+
+    it("applies the folded td default to bare cells, and lets a classed cell override it", () => {
+        // Three bold cells and one italic: bold folds into the default, italic keeps a class and
+        // is completed with font-weight:inherit so it does not come out bold as well.
+        const workbook = JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"], styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1", name: "S", hidden: 0, rowCount: 10, columnCount: 5, showGridlines: 1,
+                        mergeData: [],
+                        cellData: {
+                            "0": { "0": { v: "a", t: 1, s: { bl: 1 } } },
+                            "1": { "0": { v: "b", t: 1, s: { bl: 1 } } },
+                            "2": { "0": { v: "c", t: 1, s: { bl: 1 } } },
+                            "3": { "0": { v: "d", t: 1, s: { it: 1 } } }
+                        },
+                        rowData: {}, columnData: {}
+                    }
+                }
+            }
+        });
+
+        document.head.innerHTML = `<style>${spreadsheetRulesFrom("content_renderer.css")}</style>`;
+        document.body.innerHTML =
+            `<div class="ck-content office-preview-body">${renderSpreadsheetToHtml(workbook)}</div>`;
+
+        const [folded, , , classed] = document.querySelectorAll("td");
+        expect(folded.getAttribute("class")).toBeNull();
+        expect(getComputedStyle(folded).fontWeight).toBe("bold");
+
+        // The cell that kept a class is not dragged bold by the default it sits under.
+        expect(getComputedStyle(classed).fontStyle).toBe("italic");
+        expect(getComputedStyle(classed).fontWeight).not.toBe("bold");
+    });
 });

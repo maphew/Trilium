@@ -18,8 +18,12 @@ function withInlineStyles(html: string): string {
     for (const rule of stylesheet[1].matchAll(/\.spreadsheet-table \.([\w-]+)\{([^}]*)\}/g)) {
         declarations.set(rule[1], rule[2]);
     }
+    // The renderer folds the commonest cell style into a `td` default, leaving those cells without
+    // a class; every other rule sets what the default does, so a classed cell resolves to its rule
+    // alone. Putting the default back on the bare cells is what the browser works out.
+    const fallback = /\.spreadsheet-table td\{([^}]*)\}/.exec(stylesheet[1])?.[1] ?? "";
 
-    return html.slice(stylesheet[0].length).replace(/ class="([^"]*)"/g, (_whole, names: string) => {
+    const body = html.slice(stylesheet[0].length).replace(/ class="([^"]*)"/g, (_whole, names: string) => {
         const kept: string[] = [];
         const css: string[] = [];
         for (const name of names.split(" ")) {
@@ -29,6 +33,8 @@ function withInlineStyles(html: string): string {
         }
         return (kept.length ? ` class="${kept.join(" ")}"` : "") + (css.length ? ` style="${css.join(";")}"` : "");
     });
+
+    return fallback ? body.replace(/<td(?=[ >])(?![^>]*style=")/g, `<td style="${fallback}"`) : body;
 }
 import { BorderStyle, HorizontalAlign, WrapStrategy } from "./workbook_model.js";
 
@@ -2224,30 +2230,34 @@ describe("style deduplication", () => {
         }
     });
 
+    // One cell per row, so none has an occupied neighbour and none of them clips.
+    const rows = (...cells: unknown[]) => Object.fromEntries(cells.map((cell, row) => [String(row), { "0": cell }]));
+    const bold = { v: "x", t: 1, s: { bl: 1 } };
+    const italic = { v: "y", t: 1, s: { it: 1 } };
+
     it("writes a style shared by many cells once, and puts the stylesheet in front", () => {
-        // One per row, so no cell has an occupied neighbour and none of them clips: the three
-        // resolve to the same declarations.
-        const bold = { v: "x", t: 1, s: { bl: 1 } };
-        const html = renderRaw(gridWorkbook({ "0": { "0": bold }, "1": { "0": bold }, "2": { "0": bold } }));
+        const html = renderRaw(gridWorkbook(rows(bold, bold, bold, italic)));
 
         expect(html.startsWith("<style>")).toBe(true);
-        // One rule for the three bold cells, not three copies of the declaration.
+        // One rule for the three bold cells, not three copies of the declaration. Being the
+        // commonest style they carry, it is written as the folded `td` default.
         expect(html.match(/font-weight:bold/g)).toHaveLength(1);
+        expect(html).toContain(".spreadsheet-table td{font-weight:bold}");
 
-        const name = /\.spreadsheet-table \.(sst-[\w-]+)\{font-weight:bold\}/.exec(html)?.[1];
+        // The minority style keeps a class, used by the one cell that has it.
+        const name = /\.spreadsheet-table \.(sst-[\w-]+)\{font-style:italic/.exec(html)?.[1];
         expect(name).toBeTruthy();
-        expect(html.match(new RegExp(`class="${name}"`, "g"))).toHaveLength(3);
+        expect(html.match(new RegExp(`class="${name}"`, "g"))).toHaveLength(1);
     });
 
     it("scopes every rule under the table so a class cannot reach the rest of the page", () => {
-        const html = renderRaw(gridWorkbook({ "0": { "0": { v: "x", t: 1, s: { bl: 1 } } } }));
-        const stylesheet = /^<style>([\s\S]*?)<\/style>/.exec(html)?.[1] ?? "";
+        const stylesheet = /^<style>([\s\S]*?)<\/style>/.exec(renderRaw(gridWorkbook(rows(bold, italic))))?.[1] ?? "";
 
         expect(stylesheet).toBeTruthy();
         for (const rule of stylesheet.split("}").map((r) => r.trim()).filter(Boolean)) {
-            // Cell rules, and the gridline rule whose context sits in :where(); neither can
-            // match anything outside a rendered sheet.
-            expect(rule).toMatch(/^(\.spreadsheet-table \.sst-|:where\(\.spreadsheet-table)/);
+            // Cell rules, the folded `td` default, and the gridline rule whose context sits in
+            // :where(); none of them can match anything outside a rendered sheet.
+            expect(rule).toMatch(/^(\.spreadsheet-table (\.sst-|td\{)|:where\(\.spreadsheet-table)/);
         }
     });
 
@@ -2262,21 +2272,63 @@ describe("style deduplication", () => {
     });
 
     it("names a class after its declarations, so two documents share rather than collide", () => {
-        const one = renderRaw(gridWorkbook({ "0": { "0": { v: "a", t: 1, s: { bl: 1 } } } }));
-        const other = renderRaw(gridWorkbook({ "0": { "0": { v: "b", t: 1, s: { bl: 1 } } } }));
+        // Bold dominates in both, so italic is the one left carrying a class.
+        const nameIn = (html: string) => /\.spreadsheet-table \.(sst-[\w-]+)\{font-style:italic/.exec(html)?.[1];
+        const one = renderRaw(gridWorkbook(rows(bold, bold, italic)));
+        const other = renderRaw(gridWorkbook(rows(bold, bold, italic, bold)));
 
-        const nameIn = (html: string) => /\.spreadsheet-table \.(sst-[\w-]+)\{font-weight:bold\}/.exec(html)?.[1];
+        expect(nameIn(one)).toBeTruthy();
         expect(nameIn(one)).toBe(nameIn(other));
         // A different declaration gets a different name.
-        const italic = renderRaw(gridWorkbook({ "0": { "0": { v: "a", t: 1, s: { it: 1 } } } }));
-        expect(nameIn(one)).not.toBe(/\.spreadsheet-table \.(sst-[\w-]+)\{font-style/.exec(italic)?.[1]);
+        const underlined = renderRaw(gridWorkbook(rows(bold, bold, { v: "y", t: 1, s: { ul: { s: 1 } } })));
+        expect(nameIn(one)).not.toBe(/\.spreadsheet-table \.(sst-[\w-]+)\{text-decoration/.exec(underlined)?.[1]);
     });
 
     it("keeps has-fill alongside the generated class, and emits no stylesheet for an empty sheet", () => {
-        const html = renderRaw(gridWorkbook({ "0": { "0": { v: "x", t: 1, s: { bg: { rgb: "#FFE699" } } } } }));
-        expect(html).toMatch(/<td class="has-fill sst-[\w-]+"/);
+        const filled = { v: "x", t: 1, s: { bg: { rgb: "#FFE699" } } };
+        expect(renderRaw(gridWorkbook(rows(bold, bold, filled)))).toMatch(/<td class="has-fill sst-[\w-]+"/);
 
         expect(renderRaw(JSON.stringify({ version: 1, workbook: { sheetOrder: [], styles: {}, sheets: {} } })))
             .not.toContain("<style>");
+    });
+
+    describe("folding the commonest style into a td default", () => {
+        it("drops the class from the cells that used it, keeping it on the rest", () => {
+            const html = renderRaw(gridWorkbook(rows(bold, bold, bold, italic)));
+
+            expect(html).toContain(".spreadsheet-table td{font-weight:bold}");
+            // Three bare cells for the folded style, one still classed for the other.
+            expect(html.match(/<td>/g)).toHaveLength(3);
+            expect(html.match(/<td class="sst-[\w-]+">/g)).toHaveLength(1);
+        });
+
+        it("completes a rule that leaves an inherited property the default sets unset", () => {
+            // The default sets font-weight; the italic cell says nothing about it, and would
+            // otherwise come out bold. font-weight is inherited, so `inherit` restores exactly
+            // what no declaration at all would have computed to.
+            const html = renderRaw(gridWorkbook(rows(bold, bold, italic)));
+
+            expect(html).toContain(".spreadsheet-table td{font-weight:bold}");
+            expect(html).toMatch(/\.spreadsheet-table \.sst-[\w-]+\{font-style:italic;font-weight:inherit\}/);
+        });
+
+        it("declines when a rule would inherit a property that cannot be reset", () => {
+            // A background fill dominates, and no value means "as if never declared" for it, so
+            // the bold cell could not be kept from picking the fill up. Nothing is folded.
+            const filled = { v: "x", t: 1, s: { bg: { rgb: "#FFE699" } } };
+            const html = renderRaw(gridWorkbook(rows(filled, filled, filled, bold)));
+
+            expect(html).not.toContain(".spreadsheet-table td{");
+            expect(html).toMatch(/<td class="has-fill sst-[\w-]+"/);
+        });
+
+        it("declines when a cell styles nothing, having no rule to complete", () => {
+            // A left-aligned text cell emits no declarations at all, so it carries no class and
+            // would take the default whole.
+            const html = renderRaw(gridWorkbook(rows(bold, bold, { v: "plain", t: 1 })));
+
+            expect(html).not.toContain(".spreadsheet-table td{");
+            expect(html).toContain("<td>plain</td>");
+        });
     });
 });

@@ -127,7 +127,9 @@ body.type-webView {
     table-layout: fixed;
 }
 
-.spreadsheet-table td {
+/* The context is in :where() so this stays a default: the renderer emits the commonest cell
+   style as a `.spreadsheet-table td` rule, which has to win over it. */
+:where(.spreadsheet-table) td {
     padding: 2px 4px;
     /* Match the spreadsheet: long text overflows into empty neighbouring cells rather than
        wrapping, which keeps every row at its declared height. Wrapping would grow rows and push

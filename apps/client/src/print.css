@@ -296,7 +296,9 @@ span[style] {
     -webkit-print-color-adjust: exact;
 }
 
-.spreadsheet-table td {
+/* The context is in :where() so this stays a default: the renderer emits the commonest cell
+   style as a `.spreadsheet-table td` rule, which has to win over it. */
+:where(.spreadsheet-table) td {
     padding: 2pt 4pt;
     /* Match the spreadsheet: long text runs into empty neighbouring cells instead of wrapping,
        which keeps every row at its declared height. The renderer sets overflow:hidden on the cells

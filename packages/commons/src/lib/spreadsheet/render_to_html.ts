@@ -74,17 +74,35 @@ export function renderSpreadsheetToHtml(jsonContent: string): string {
 
     // The stylesheet is only complete once every sheet has been rendered, so it is built last
     // and put in front, where a consumer that has to lift it out finds it without a parse.
-    const stylesheet = buildStylesheet(visibleSheets, classes);
-    return stylesheet ? `${stylesheet}\n${parts.join("\n")}` : parts.join("\n");
+    const fold = classes.fold();
+    const stylesheet = buildStylesheet(visibleSheets, classes, fold);
+    const body = fold ? dropFoldedClass(parts.join("\n"), fold.className) : parts.join("\n");
+
+    return stylesheet ? `${stylesheet}\n${body}` : body;
+}
+
+/**
+ * Removes the class the `td` default now carries from the cells that were given it. Rows and
+ * columns keep theirs: the default reaches cells only, and a track never shares a cell's
+ * declarations (one sizes itself, the other styles its contents).
+ */
+function dropFoldedClass(html: string, className: string): string {
+    return html
+        .replaceAll(`<td class="${className}"`, "<td")
+        .replaceAll(`<td class="has-fill ${className}"`, `<td class="has-fill"`);
 }
 
 /**
  * Builds the `<style>` a render is preceded by: the gridline rule when any sheet asks for
- * gridlines, then one rule per distinct cell style. Returns "" when there is nothing to write.
+ * gridlines, the folded `td` default when there is one, then one rule per distinct style left.
+ * Returns "" when there is nothing to write.
  */
-function buildStylesheet(sheets: IWorksheetData[], classes: StyleClasses): string {
+function buildStylesheet(sheets: IWorksheetData[], classes: StyleClasses, fold: Fold | null): string {
     const rules = sheets.some((sheet) => sheet.showGridlines !== 0) ? [GRIDLINE_RULE] : [];
-    rules.push(...classes.toRules());
+    // After the gridline rule, so a folded border wins the way a cell's own border does, and
+    // before the class rules, which are more specific and override it per cell.
+    if (fold) rules.push(`.spreadsheet-table td{${fold.declarations}}`);
+    rules.push(...classes.toRules(fold));
 
     return rules.length ? `<style>\n${rules.join("\n")}\n</style>` : "";
 }
@@ -116,11 +134,92 @@ const GRIDLINE_RULE = ":where(.spreadsheet-table.show-gridlines) td:not(.has-fil
  */
 class StyleClasses {
     private readonly names = new Map<string, string>();
+    /** How many cells used each set of declarations; a `td` default is chosen from this. */
+    private readonly cellUsage = new Map<string, number>();
+    /** Whether any cell styles nothing at all, which no `td` default can be safe for. */
+    private hasUnstyledCell = false;
 
-    /** Returns the class for `declarations`, or "" when there is nothing to style. */
+    /** Returns the class for a row's or column's `declarations`, or "" when there is none. */
     classFor(declarations: string): string {
-        if (!declarations) return "";
+        return declarations ? this.nameFor(declarations) : "";
+    }
 
+    /** Returns the class for a cell's `declarations`, recording it towards the `td` default. */
+    cellClassFor(declarations: string): string {
+        if (!declarations) {
+            this.hasUnstyledCell = true;
+            return "";
+        }
+
+        this.cellUsage.set(declarations, (this.cellUsage.get(declarations) ?? 0) + 1);
+        return this.nameFor(declarations);
+    }
+
+    /**
+     * Picks the declarations to write as a `td` default, letting the cells that use them carry no
+     * class at all — on a large sheet that is the single biggest thing left in the document.
+     *
+     * A default reaches every cell, so it is only safe where no other cell can pick it up by
+     * accident. A rule that leaves one of the default's properties unset would inherit it, so
+     * every other rule has to either set that property itself or be completed here. Completion is
+     * only exact for an inherited property, where `inherit` computes to what no declaration at all
+     * would have computed to; for anything else there is no value that means "as if unset", so the
+     * fold is abandoned. Returns null when nothing can be folded.
+     */
+    fold(): Fold | null {
+        // A cell with no declarations has no rule to complete, so it would take the default whole.
+        if (this.hasUnstyledCell) return null;
+
+        let declarations = "";
+        let best = 0;
+        for (const [candidate, count] of this.cellUsage) {
+            if (count > best) {
+                declarations = candidate;
+                best = count;
+            }
+        }
+        if (!declarations) return null;
+
+        const defaulted = propertiesOf(declarations);
+        const completions = new Map<string, string>();
+        for (const other of this.cellUsage.keys()) {
+            if (other === declarations) continue;
+
+            const own = propertiesOf(other);
+            const missing: string[] = [];
+            for (const property of defaulted) {
+                if (own.has(property)) continue;
+                if (!INHERITED_PROPERTIES.has(property)) return null;
+                missing.push(`${property}:inherit`);
+            }
+            if (missing.length) completions.set(other, missing.join(";"));
+        }
+
+        return { declarations, className: this.nameFor(declarations), completions };
+    }
+
+    /**
+     * Builds a rule per distinct style collected, less the one `fold` turned into the `td` default,
+     * and with any completions that fold demands. A row's or column's declarations always carry a
+     * height or width, which a cell's never do, so folding a cell style never removes a rule a
+     * track still needs.
+     *
+     * The declarations cannot contain `<` or `/`: colors are validated against a pattern and every
+     * other author-supplied value goes through `sanitizeCssValue`, which strips both. That is what
+     * keeps a cell's styling from closing its rule, or the element these rules are written into.
+     */
+    toRules(fold: Fold | null): string[] {
+        const rules: string[] = [];
+        for (const [declarations, name] of this.names) {
+            if (fold?.declarations === declarations) continue;
+
+            const completion = fold?.completions.get(declarations);
+            rules.push(`.spreadsheet-table .${name}{${declarations}${completion ? `;${completion}` : ""}}`);
+        }
+        return rules;
+    }
+
+    private nameFor(declarations: string): string {
         let name = this.names.get(declarations);
         if (!name) {
             name = `sst-${hashDeclarations(declarations)}`;
@@ -128,21 +227,29 @@ class StyleClasses {
         }
         return name;
     }
+}
 
-    /**
-     * Builds a rule per distinct style collected.
-     *
-     * The declarations cannot contain `<` or `/`: colors are validated against a pattern and every
-     * other author-supplied value goes through `sanitizeCssValue`, which strips both. That is what
-     * keeps a cell's styling from closing its rule, or the element these rules are written into.
-     */
-    toRules(): string[] {
-        const rules: string[] = [];
-        for (const [declarations, name] of this.names) {
-            rules.push(`.spreadsheet-table .${name}{${declarations}}`);
-        }
-        return rules;
-    }
+/** The declarations promoted to a `td` default, and what that costs the rules left behind. */
+interface Fold {
+    declarations: string;
+    /** The class the folded cells would otherwise carry, which is stripped from them. */
+    className: string;
+    /** Declarations of other rules, mapped to what has to be appended to keep them intact. */
+    completions: Map<string, string>;
+}
+
+/**
+ * The properties `buildCssText` emits that CSS inherits, and so the only ones a rule can be
+ * completed with `inherit` for. Everything else it emits — background-color, vertical-align,
+ * overflow, the borders, text-decoration — has no value meaning "as if never declared".
+ */
+const INHERITED_PROPERTIES = new Set([
+    "color", "font-family", "font-size", "font-style", "font-weight", "overflow-wrap",
+    "text-align", "white-space"
+]);
+
+function propertiesOf(declarations: string): Set<string> {
+    return new Set(declarations.split(";").filter(Boolean).map((declaration) => declaration.slice(0, declaration.indexOf(":"))));
 }
 
 /**
@@ -394,7 +501,7 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
             const attrs: string[] = [];
             // Cells with a background fill carry `has-fill` so the stylesheet can suppress
             // gridlines under the fill, matching the editor (a fill covers the grid).
-            const names = [cellStyle?.bg?.rgb ? "has-fill" : "", classes.classFor(cssText)].filter(Boolean);
+            const names = [cellStyle?.bg?.rgb ? "has-fill" : "", classes.cellClassFor(cssText)].filter(Boolean);
             if (names.length) attrs.push(`class="${names.join(" ")}"`);
             if (mergeInfo) {
                 if (mergeInfo.rowSpan > 1) attrs.push(`rowspan="${mergeInfo.rowSpan}"`);
