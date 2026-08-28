@@ -640,6 +640,13 @@ function cellShownAt(col: number, neighbours: RowNeighbours): ICellData | undefi
 }
 
 /**
+ * A cell's text is laid out on the font's own leading, as the editor lays it out. The page around it
+ * sets a line height for prose, which is taller than a spreadsheet row expects and pushes the text
+ * out of the bottom of a box measured from the row.
+ */
+const CELL_LINE_HEIGHT = "line-height:normal";
+
+/**
  * Wraps a cell's text in the box that fixes its size. An HTML row grows to whatever it holds, while
  * a spreadsheet row is exactly as tall as it says and clips what does not fit, so without this the
  * grid drifts from the geometry the sheet declares and every absolutely placed image drifts with
@@ -656,6 +663,7 @@ function cellBox(html: string, bound: SpillBound | null, height: number): string
         if (bound.before) parts.push(`margin-left:${px(-bound.before)}px`);
         if (bound.after) parts.push(`margin-right:${px(-bound.after)}px`);
     }
+    parts.push(CELL_LINE_HEIGHT);
     return `<span style="${parts.join(";")}">${html}</span>`;
 }
 
@@ -693,6 +701,7 @@ function turnedBox(html: string, height: number, style: IStyleData | null): stri
         `justify-content:${turnedJustify(style)}`
     ];
     if (height > 0) parts.push(`height:${px(height)}px`);
+    parts.push(CELL_LINE_HEIGHT);
     return `<span style="${parts.join(";")}">${html}</span>`;
 }
 

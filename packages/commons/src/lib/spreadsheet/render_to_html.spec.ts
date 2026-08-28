@@ -585,7 +585,7 @@ describe("renderSpreadsheetToHtml", () => {
         }
 
         // An untouched cell keeps the box that only caps it, so its own alignment still places it.
-        expect(rotated(0)).toContain(`<span style="display:block;overflow:hidden;max-height:22px">`);
+        expect(rotated(0)).toContain(`<span style="display:block;overflow:hidden;max-height:22px;line-height:normal">`);
     });
 
     it("leaves a cell unwrapped when it has no rotation to apply", () => {
@@ -1396,7 +1396,7 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain("<td></td>");
         expect(unboxed(html)).toContain("<td>C</td>");
         // A may run across the empty column, so its text carries the room it has.
-        expect(html).toContain(`<td style="padding:0px 2px 2px 2px"><span style="display:block;overflow:hidden;max-height:22px;width:calc(100% + 88px);margin-right:-88px">A</span></td>`);
+        expect(html).toContain(`<td style="padding:0px 2px 2px 2px"><span style="display:block;overflow:hidden;max-height:22px;width:calc(100% + 88px);margin-right:-88px;line-height:normal">A</span></td>`);
     });
 
     it("renders numeric cell values", () => {
