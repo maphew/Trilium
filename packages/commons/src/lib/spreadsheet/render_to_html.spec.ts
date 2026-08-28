@@ -1427,6 +1427,36 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain("color:red");
     });
 
+    it("gives a filled cell the color Excel shows an automatic font in", () => {
+        // The fill comes from the workbook, the surrounding text color from the theme, so a pale
+        // fill would be unreadable wherever that theme is dark.
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x", t: 1, s: { bg: { rgb: "#FFE699" } } }));
+
+        expect(html).toContain("background-color:#FFE699");
+        expect(html).toContain("color:#000");
+    });
+
+    it("leaves a filled cell's own text color alone, and an unfilled cell with none", () => {
+        const own = renderSpreadsheetToHtml(
+            singleCellWorkbook({ v: "x", t: 1, s: { bg: { rgb: "#203864" }, cl: { rgb: "#FFFFFF" } } })
+        );
+        expect(own).toContain("color:#FFFFFF");
+        expect(own).not.toContain("color:#000");
+
+        // With no fill there is nothing absolute to read against, so the cell goes on inheriting.
+        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: "x", t: 1, s: { bl: 1 } })))
+            .not.toContain("color:");
+    });
+
+    it("lets a number format's color win over a fill's automatic one", () => {
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({
+            v: -8800.2, t: 2, s: { bg: { rgb: "#FFE699" }, n: { pattern: "#,##0.00;[Red]#,##0.00" } }
+        }));
+
+        expect(html).toContain("color:red");
+        expect(html).not.toContain("color:#000");
+    });
+
     it("does not apply the pattern color to a positive value", () => {
         const html = renderSpreadsheetToHtml(
             singleCellWorkbook({ v: 12.5, t: 2, s: { n: { pattern: "#,##0.00;[Red]#,##0.00" } } })

@@ -627,6 +627,12 @@ function buildMergeMap(mergeData: IRange[], minRow: number, maxRow: number, minC
 
 // #region Style resolution
 
+/**
+ * What Excel renders an automatic font in. `parse_from_xlsx` drops that default so a cell can
+ * take the editor's themed text color; static HTML has no such default to fall back on.
+ */
+const AUTOMATIC_TEXT_COLOR = "#000";
+
 function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     const parts: string[] = [];
 
@@ -655,9 +661,12 @@ function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     if (style.bg?.rgb) parts.push(`background-color:${sanitizeCssColor(style.bg.rgb)}`);
 
     // A color produced by the number-format pattern (e.g. `[Red]` for negatives) takes
-    // precedence over the cell's own text color, matching Univer's rendering.
+    // precedence over the cell's own text color, matching Univer's rendering. A filled cell that
+    // sets neither falls back to the color Excel shows an automatic font in, rather than to the
+    // surrounding text color: the fill comes from the workbook while that color comes from the
+    // theme around it, so a pale fill is unreadable wherever the theme is dark.
     const patternColor = resolvePatternColor(style, cell);
-    const textColor = patternColor ?? style.cl?.rgb;
+    const textColor = patternColor ?? style.cl?.rgb ?? (style.bg?.rgb ? AUTOMATIC_TEXT_COLOR : undefined);
     if (textColor) parts.push(`color:${sanitizeCssColor(textColor)}`);
 
     if (style.vt != null) {
