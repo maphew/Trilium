@@ -764,7 +764,8 @@ function cellPadding(style: IStyleData | null): Required<IPaddingData> {
  * Across, that gesture is recognised by the sheet declaring every column Excel has: a banner merged
  * by hand stops well short of that, and keeps widening the grid as any other merge does. Down, the
  * same test is not available, because a sheet's row count is capped at the rows it uses rather than
- * carried over from the file, so a merge reaching the last declared row is taken as the gesture.
+ * carried over from the file. So a merge is taken as the gesture there when it reaches the last
+ * declared row *and* covers at least the rows every sheet starts with, which no one merges by hand.
  */
 function boundingMerges(mergeData: IRange[], sheet: IWorksheetData): IRange[] {
     const columnCount = sheet.columnCount ?? 0;
@@ -772,8 +773,11 @@ function boundingMerges(mergeData: IRange[], sheet: IWorksheetData): IRange[] {
 
     return mergeData.filter((range) =>
         !(columnCount >= EXCEL_COLUMN_COUNT && range.startColumn === 0 && range.endColumn >= columnCount - 1)
-        && !(lastRow > 0 && range.startRow === 0 && range.endRow >= lastRow));
+        && !(range.startRow === 0 && range.endRow >= lastRow && range.endRow - range.startRow + 1 >= DEFAULT_ROW_COUNT));
 }
+
+/** The rows a sheet starts with, which both importers floor at and the editor creates. */
+const DEFAULT_ROW_COUNT = 1000;
 
 /** The columns an Excel sheet has, which only a sheet formatted across all of them declares. */
 const EXCEL_COLUMN_COUNT = 16384;

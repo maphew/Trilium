@@ -1998,6 +1998,36 @@ describe("renderSpreadsheetToHtml", () => {
         expect(banner(16383, 16384)).toContain(`colspan="4"`);
     });
 
+    it("lets a tall merge widen the grid unless it was applied to entire columns", () => {
+        const tall = (endRow: number, rowCount: number) => renderSpreadsheetToHtml(JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1",
+                        name: "Sheet1",
+                        hidden: 0,
+                        mergeData: [{ startRow: 0, endRow, startColumn: 0, endColumn: 0 }],
+                        cellData: { "0": { "0": { v: "Side", t: 1 }, "1": { v: "a", t: 1 } }, "1": { "1": { v: "b", t: 1 } } },
+                        rowData: {},
+                        columnData: {},
+                        rowCount,
+                        columnCount: 20
+                    }
+                }
+            }
+        }));
+
+        // Merged by hand down a sheet shorter than the rows one starts with: the span is kept.
+        expect(tall(49, 50)).toContain(`rowspan="50"`);
+
+        // Applied to entire columns, so it covers at least those rows and is clamped to the content.
+        expect(tall(999, 1000)).toContain(`rowspan="2"`);
+        expect(tall(1048575, 1000)).toContain(`rowspan="2"`);
+    });
+
     it("counts a border as structure the grid has to reach, but not a fill", () => {
         const beyond = (style: unknown) => renderSpreadsheetToHtml(JSON.stringify({
             version: 1,
