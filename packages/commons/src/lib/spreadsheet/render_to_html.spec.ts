@@ -16,12 +16,12 @@ function withInlineStyles(html: string): string {
 
     const declarations = new Map<string, string>();
     for (const rule of stylesheet[1].matchAll(/\.spreadsheet-table \.([\w-]+)\{([^}]*)\}/g)) {
-        declarations.set(rule[1], rule[2]);
+        declarations.set(rule[1], withoutThemedColors(rule[2]));
     }
     // The renderer folds the commonest cell style into a `td` default, leaving those cells without
     // a class; every other rule sets what the default does, so a classed cell resolves to its rule
     // alone. Putting the default back on the bare cells is what the browser works out.
-    const fallback = /\.spreadsheet-table td\{([^}]*)\}/.exec(stylesheet[1])?.[1] ?? "";
+    const fallback = withoutThemedColors(/\.spreadsheet-table td\{([^}]*)\}/.exec(stylesheet[1])?.[1] ?? "");
 
     const body = html.slice(stylesheet[0].length).replace(/ class="([^"]*)"/g, (_whole, names: string) => {
         const kept: string[] = [];
@@ -35,6 +35,15 @@ function withInlineStyles(html: string): string {
     });
 
     return fallback ? body.replace(/<td(?=[ >])(?![^>]*style=")/g, `<td style="${fallback}"`) : body;
+}
+
+/**
+ * Drops the `light-dark()` declaration each color is followed by, leaving the plain one in front
+ * of it — which is what a light theme renders, and what every assertion here is written against.
+ * The pairing itself is covered by the "dark mode" block, reading what is actually emitted.
+ */
+function withoutThemedColors(declarations: string): string {
+    return declarations.split(";").filter((part) => !part.includes("light-dark(")).join(";");
 }
 import { BorderStyle, HorizontalAlign, WrapStrategy } from "./workbook_model.js";
 
@@ -2382,5 +2391,61 @@ describe("style deduplication", () => {
             expect(html).not.toContain(".spreadsheet-table td{");
             expect(html).toContain("<td>plain</td>");
         });
+    });
+});
+
+describe("dark mode", () => {
+    const cellWorkbook = (cell: Record<string, unknown>) => JSON.stringify({
+        version: 1,
+        workbook: {
+            sheetOrder: ["s1"], styles: {},
+            sheets: {
+                s1: {
+                    id: "s1", name: "S", hidden: 0, rowCount: 5, columnCount: 5, showGridlines: 0,
+                    mergeData: [], cellData: { "0": { "0": cell } }, rowData: {}, columnData: {}
+                }
+            }
+        }
+    });
+
+    it("pairs a fill and its text with what a dark theme shows instead", () => {
+        const html = renderRaw(cellWorkbook({ v: "x", t: 1, s: { bg: { rgb: "#FFE699" } } }));
+
+        // Pale yellow darkens to brown rather than to the blue a plain 255-c would give, and the
+        // automatic font colour it sits on flips the other way.
+        expect(html).toContain("background-color:light-dark(#FFE699,#543b00)");
+        expect(html).toContain("color:light-dark(#000,#ffffff)");
+    });
+
+    it("pairs a border colour too, as Univer inverts every colour it paints", () => {
+        const html = renderRaw(cellWorkbook({
+            v: "x", t: 1, s: { bd: { t: { s: 1, cl: { rgb: "#203864" } }, b: { s: 1 } } }
+        }));
+
+        expect(html).toContain("border-top:1px solid light-dark(#203864,#a2bae6)");
+        // A border with no colour of its own defaults to black, which inverts to white.
+        expect(html).toContain("border-bottom:1px solid light-dark(#000,#ffffff)");
+    });
+
+    it("inverts a named colour a number format asks for", () => {
+        const html = renderRaw(cellWorkbook({
+            v: -8800.2, t: 2, s: { n: { pattern: "#,##0.00;[Red]#,##0.00" } }
+        }));
+
+        expect(html).toContain("color:light-dark(red,#ff5555)");
+    });
+
+    it("leaves a colour it cannot read alone rather than dropping it", () => {
+        // sanitizeCssColor passes rgb() through, and nothing in a workbook produces one, so it has
+        // no dark half; emitting it unpaired is better than emitting nothing.
+        const html = renderRaw(cellWorkbook({ v: "x", t: 1, s: { cl: { rgb: "rgb(1,2,3)" } } }));
+
+        expect(html).toContain("color:rgb(1,2,3)");
+        expect(html).not.toContain("light-dark(rgb");
+    });
+
+    it("inverts a grey to its exact complement", () => {
+        const html = renderRaw(cellWorkbook({ v: "x", t: 1, s: { bg: { rgb: "#DBDBDB" } } }));
+        expect(html).toContain("background-color:light-dark(#DBDBDB,#242424)");
     });
 });

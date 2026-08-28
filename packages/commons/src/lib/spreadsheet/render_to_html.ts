@@ -626,13 +626,84 @@ function buildMergeMap(mergeData: IRange[], minRow: number, maxRow: number, minC
 
 // #endregion
 
-// #region Style resolution
+// #region Dark mode
 
 /**
  * What Excel renders an automatic font in. `parse_from_xlsx` drops that default so a cell can
  * take the editor's themed text color; static HTML has no such default to fall back on.
  */
 const AUTOMATIC_TEXT_COLOR = "#000";
+
+/** The CSS values of the color names `numfmt` answers with for a `[Red]`-style pattern. */
+const NAMED_COLORS: Record<string, string> = {
+    black: "#000000", blue: "#0000ff", cyan: "#00ffff", green: "#008000",
+    magenta: "#ff00ff", red: "#ff0000", white: "#ffffff", yellow: "#ffff00"
+};
+
+/**
+ * The declarations setting `property` to `color`: the color as it stands, then again paired with
+ * what a dark theme shows instead, for the browser to choose between by `color-scheme` — which the
+ * client sets from `--theme-style` and the share theme sets outright. Print declares none and so
+ * takes the light half, which is what belongs on paper.
+ *
+ * The plain declaration comes first and is never dropped. A browser that does not know
+ * `light-dark()` discards the second and renders as it always did, which matters as far down as
+ * the iOS 15 the mobile app still builds for: an unrecognised value takes its whole declaration
+ * with it, so a cell would lose the fill or border entirely rather than merely fail to darken.
+ *
+ * `build` wraps the color in whatever else the property needs, a border's width and style.
+ */
+function themedDeclarations(property: string, color: string, build: (color: string) => string = (it) => it): string[] {
+    const declarations = [`${property}:${build(color)}`];
+
+    const inverted = invertColor(color);
+    if (inverted) declarations.push(`${property}:${build(`light-dark(${color},${inverted})`)}`);
+
+    return declarations;
+}
+
+/**
+ * Inverts a color the way Univer does on a dark theme, so a preview matches the editor
+ * (`invertColorByMatrix`, which its canvas color service runs over every color it paints).
+ *
+ * Each channel keeps a third of its own value and loses two thirds of the other two, then gains
+ * one. That inverts lightness while leaving the channel ordering — the hue — alone: a pale yellow
+ * fill comes back dark brown rather than the blue a plain `255 - c` would give, and a dark fill
+ * comes back pale. A grey inverts to its exact complement either way.
+ *
+ * The coefficients are Univer's own rounded literals rather than exact thirds, which is what keeps
+ * the two implementations agreeing to the byte.
+ */
+function invertColor(color: string): string | null {
+    const rgb = parseColor(color);
+    if (!rgb) return null;
+
+    const [r, g, b] = rgb.map((channel) => channel / 255);
+    const inverted = [
+        0.333 * r - 0.667 * g - 0.667 * b + 1,
+        -0.667 * r + 0.333 * g - 0.667 * b + 1,
+        -0.667 * r - 0.667 * g + 0.333 * b + 1
+    ];
+
+    return `#${inverted
+        .map((channel) => Math.round(Math.min(1, Math.max(0, channel)) * 255))
+        .map((channel) => channel.toString(16).padStart(2, "0"))
+        .join("")}`;
+}
+
+/** Reads `#rgb`, `#rrggbb` and the named colors, which is every form the renderer emits. */
+function parseColor(color: string): [number, number, number] | null {
+    const named = NAMED_COLORS[color.toLowerCase()];
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(named ?? color)?.[1];
+    if (!hex) return null;
+
+    const pairs = hex.length === 3 ? [...hex].map((c) => c + c) : [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)];
+    return pairs.map((pair) => Number.parseInt(pair, 16)) as [number, number, number];
+}
+
+// #endregion
+
+// #region Style resolution
 
 function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     const parts: string[] = [];
@@ -659,7 +730,7 @@ function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     }
     if (style.fs && isFiniteNumber(style.fs)) parts.push(`font-size:${style.fs}pt`);
     if (style.ff) parts.push(`font-family:${sanitizeCssValue(style.ff)}`);
-    if (style.bg?.rgb) parts.push(`background-color:${sanitizeCssColor(style.bg.rgb)}`);
+    if (style.bg?.rgb) parts.push(...themedDeclarations("background-color", sanitizeCssColor(style.bg.rgb)));
 
     // A color produced by the number-format pattern (e.g. `[Red]` for negatives) takes
     // precedence over the cell's own text color, matching Univer's rendering. A filled cell that
@@ -668,7 +739,7 @@ function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     // theme around it, so a pale fill is unreadable wherever the theme is dark.
     const patternColor = resolvePatternColor(style, cell);
     const textColor = patternColor ?? style.cl?.rgb ?? (style.bg?.rgb ? AUTOMATIC_TEXT_COLOR : undefined);
-    if (textColor) parts.push(`color:${sanitizeCssColor(textColor)}`);
+    if (textColor) parts.push(...themedDeclarations("color", sanitizeCssColor(textColor)));
 
     if (style.vt != null) {
         const valign = verticalAlignToCss(style.vt);
@@ -789,7 +860,7 @@ function appendBorderCss(parts: string[], property: string, border: IBorderStyle
     const width = borderStyleToWidth(border.s);
     const color = sanitizeCssColor(border.cl?.rgb ?? "#000");
     const style = borderStyleToCss(border.s);
-    parts.push(`${property}:${width} ${style} ${color}`);
+    parts.push(...themedDeclarations(property, color, (it) => `${width} ${style} ${it}`));
 }
 
 function borderStyleToWidth(style: number | undefined): string {
