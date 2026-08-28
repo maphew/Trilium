@@ -46,7 +46,10 @@ function splitStylesheet(body: string): OfficePreview {
         return { css: "", html: body };
     }
 
-    return { css: body.slice("<style>".length, end), html: body.slice(end + "</style>".length).trimStart() };
+    return {
+        css: body.slice("<style>".length, end).trim(),
+        html: body.slice(end + "</style>".length).trimStart()
+    };
 }
 
 /**

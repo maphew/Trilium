@@ -2244,7 +2244,7 @@ describe("style deduplication", () => {
         const stylesheet = /^<style>([\s\S]*?)<\/style>/.exec(html)?.[1] ?? "";
 
         expect(stylesheet).toBeTruthy();
-        for (const rule of stylesheet.split("}").filter(Boolean)) {
+        for (const rule of stylesheet.split("}").map((r) => r.trim()).filter(Boolean)) {
             // Cell rules, and the gridline rule whose context sits in :where(); neither can
             // match anything outside a rendered sheet.
             expect(rule).toMatch(/^(\.spreadsheet-table \.sst-|:where\(\.spreadsheet-table)/);

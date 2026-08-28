@@ -83,10 +83,10 @@ export function renderSpreadsheetToHtml(jsonContent: string): string {
  * gridlines, then one rule per distinct cell style. Returns "" when there is nothing to write.
  */
 function buildStylesheet(sheets: IWorksheetData[], classes: StyleClasses): string {
-    const gridlines = sheets.some((sheet) => sheet.showGridlines !== 0) ? GRIDLINE_RULE : "";
-    const rules = gridlines + classes.toRules();
+    const rules = sheets.some((sheet) => sheet.showGridlines !== 0) ? [GRIDLINE_RULE] : [];
+    rules.push(...classes.toRules());
 
-    return rules ? `<style>${rules}</style>` : "";
+    return rules.length ? `<style>\n${rules.join("\n")}\n</style>` : "";
 }
 
 /**
@@ -130,18 +130,18 @@ class StyleClasses {
     }
 
     /**
-     * Builds a rule per distinct style collected, or "" when none was.
+     * Builds a rule per distinct style collected.
      *
      * The declarations cannot contain `<` or `/`: colors are validated against a pattern and every
      * other author-supplied value goes through `sanitizeCssValue`, which strips both. That is what
      * keeps a cell's styling from closing its rule, or the element these rules are written into.
      */
-    toRules(): string {
+    toRules(): string[] {
         const rules: string[] = [];
         for (const [declarations, name] of this.names) {
             rules.push(`.spreadsheet-table .${name}{${declarations}}`);
         }
-        return rules.join("");
+        return rules;
     }
 }
 
@@ -359,11 +359,8 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
     const lines: string[] = [];
     lines.push(buildTableTag(sheet, totalWidth));
 
-    lines.push("<colgroup>");
-    for (const width of colWidths) {
-        lines.push(`<col class="${classes.classFor(`width:${px(width)}px`)}">`);
-    }
-    lines.push("</colgroup>");
+    const cols = colWidths.map((width) => `<col class="${classes.classFor(`width:${px(width)}px`)}">`);
+    lines.push(`<colgroup>${cols.join("")}</colgroup>`);
 
     const defaultHeight = sheet.defaultRowHeight ?? 24;
 
@@ -375,9 +372,10 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
         // Univer leaves a cell at the bottom of its row unless it sets `vt`, while HTML centres it.
         // The row carries that default because a `td` inherits `vertical-align`, so a cell that
         // sets its own still wins.
-        lines.push(`<tr class="${classes.classFor(`height:${height}px;vertical-align:bottom`)}">`);
+        const rowClass = classes.classFor(`height:${height}px;vertical-align:bottom`);
 
         const neighbours: RowNeighbours = { row, minCol, maxCol, cellData, columnData, mergeMap };
+        const cells: string[] = [];
 
         for (let col = minCol; col <= maxCol; col++) {
             if (columnData[col]?.hd) continue;
@@ -403,10 +401,13 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
                 if (mergeInfo.colSpan > 1) attrs.push(`colspan="${mergeInfo.colSpan}"`);
             }
 
-            lines.push(`<td${attrs.length ? " " + attrs.join(" ") : ""}>${value}</td>`);
+            cells.push(`<td${attrs.length ? " " + attrs.join(" ") : ""}>${value}</td>`);
         }
 
-        lines.push("</tr>");
+        // A row on one line: it reads like the grid it came from, and drops a newline per cell,
+        // which on a large sheet is tens of thousands of them. Whitespace between cells has no
+        // effect on a table's layout, so nothing depends on the newlines being there.
+        lines.push(`<tr class="${rowClass}">${cells.join("")}</tr>`);
     }
 
     lines.push("</table>");

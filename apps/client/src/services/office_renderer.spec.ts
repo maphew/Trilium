@@ -64,12 +64,14 @@ describe("renderOfficeToHtml", () => {
     });
 
     it("splits a leading stylesheet off the fragment, keeping it clear of the sanitizer", async () => {
+        // The renderer writes one rule per line, with the tags on their own.
         serverGet.mockResolvedValueOnce(
-            '<style>.spreadsheet-table .sst-1{font-weight:bold}</style>\n<table><td class="sst-1">x</td></table>');
+            '<style>\n.spreadsheet-table .sst-1{font-weight:bold}\n.spreadsheet-table .sst-2{color:red}\n</style>\n'
+            + '<table><td class="sst-1">x</td></table>');
 
         const { css, html } = await renderOfficeToHtml("notes", "n1");
 
-        expect(css).toBe(".spreadsheet-table .sst-1{font-weight:bold}");
+        expect(css).toBe(".spreadsheet-table .sst-1{font-weight:bold}\n.spreadsheet-table .sst-2{color:red}");
         expect(sanitizeNoteContentHtml).toHaveBeenCalledWith('<table><td class="sst-1">x</td></table>');
         expect(html).not.toContain("<style>");
     });
