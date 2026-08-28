@@ -21,8 +21,15 @@ export async function renderOfficeToHtml(entityType: "notes" | "attachments", en
     // `raw` keeps the response a plain string; the route sends the fragment as the body.
     const body = await server.get<string>(`${entityType}/${entityId}/office-preview`, undefined, true);
     const { css, html } = splitStylesheet(body);
+    const sanitized = sanitizeNoteContentHtml(html);
 
-    return { css, html: stripLinkColors(sanitizeNoteContentHtml(html)) };
+    // stripLinkColors parses and re-serializes the whole fragment, which on a spreadsheet is
+    // megabytes, so it only runs where it can find something. A stylesheet marks the native
+    // spreadsheet renderer, the only pipeline that emits one and one that writes anchors with no
+    // styling at all; and a fragment holding no anchor has nothing to strip either way.
+    const strippable = !css && /<a[\s>]/.test(sanitized);
+
+    return { css, html: strippable ? stripLinkColors(sanitized) : sanitized };
 }
 
 export interface OfficePreview {

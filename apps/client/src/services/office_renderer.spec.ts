@@ -85,4 +85,37 @@ describe("renderOfficeToHtml", () => {
         expect(truncated.css).toBe("");
         expect(sanitizeNoteContentHtml).toHaveBeenCalledWith("<style>.a{b:c}");
     });
+
+    it("skips the link pass for a spreadsheet, which cannot carry a styled link", async () => {
+        // A spreadsheet's anchors are written bare, and the fragment arrives with a stylesheet;
+        // running the pass would parse and re-serialize the whole grid to find nothing.
+        serverGet.mockResolvedValueOnce(
+            '<style>\n.spreadsheet-table .sst-1{text-align:right}\n</style>\n'
+            + '<table class="spreadsheet-table"><td><a href="https://x.test">y</a></td></table>');
+
+        const { html } = await renderOfficeToHtml("notes", "n1");
+
+        // Untouched by the pass: what the sanitizer returned is what comes back.
+        expect(html).toBe('SANITIZED:<table class="spreadsheet-table"><td><a href="https://x.test">y</a></td></table>');
+    });
+
+    it("skips the link pass for a fragment holding no link at all", async () => {
+        serverGet.mockResolvedValueOnce('<div class="container"><p style="color: #000080">not a link</p></div>');
+
+        const { html } = await renderOfficeToHtml("notes", "n1");
+
+        expect(html).toBe('SANITIZED:<div class="container"><p style="color: #000080">not a link</p></div>');
+    });
+
+    it("still runs the link pass for a converted document that has one", async () => {
+        // No stylesheet, and an anchor: the officeparser path, where the word processor's own
+        // hyperlink color is what has to go.
+        serverGet.mockResolvedValueOnce(
+            '<div class="container"><a href="#a" style="color: #000080">x</a></div>');
+
+        const { html } = await renderOfficeToHtml("notes", "n1");
+
+        expect(html).not.toContain("#000080");
+        expect(html).toContain('<a href="#a">x</a>');
+    });
 });
