@@ -591,7 +591,9 @@
     "other_notes_count_few": "{{count}} других заметки",
     "other_notes_count_many": "{{count}} других заметок",
     "relation_type": "Отношение",
-    "definition": "Определение атрибута"
+    "definition": "Определение атрибута",
+    "no_other_notes_title": "Нет других заметок с {{attributeType}} \"{{attributeName}}\".",
+    "show_all_in_search": "Показать все в поиске"
   },
   "command_palette": {
     "configure_launch_bar_description": "Откройте конфигурацию панели запуска, чтобы добавить или удалить элементы.",
