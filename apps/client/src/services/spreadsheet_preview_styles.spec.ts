@@ -50,10 +50,12 @@ describe("spreadsheet preview styling", () => {
         expect(styledCss.borderTopStyle).toBe("dotted");
         expect(styledCss.borderTopColor).toBe("#FF0000");
 
-        // A cell that styles nothing still picks up the gridline and padding defaults.
+        // A cell that styles nothing still picks up the gridline default.
         const plainCss = getComputedStyle(plain);
         expect(plainCss.borderTopStyle).toBe("solid");
-        expect(plainCss.paddingLeft).toBe("4px");
+        // Its padding comes from the renderer, which measures every cell holding content against
+        // the box the editor lays it out in, rather than from the stylesheet's own.
+        expect(plainCss.paddingLeft).toBe("2px");
     });
 
     it("draws gridlines from the host's color, which a sheet's own gridline color overrides", () => {
