@@ -690,10 +690,13 @@ describe("renderSpreadsheetToHtml", () => {
 
             const centered = { t: 1, s: { ht: HorizontalAlign.CENTER } };
             expect(room(row({ 0: { v: "before", t: 1 }, 1: { v: "x", ...centered } }), 1)).toEqual([0, 0]);
-            expect(room(row({ 1: { v: "x", ...centered } }), 1)).toEqual([88, 0]);
+            // Nothing to its right, so the room on its left is given up to keep it centred.
+            expect(room(row({ 1: { v: "x", ...centered } }), 1)).toEqual([0, 0]);
 
-            // Stopped on the right, with the empty column on its left still open to it.
-            expect(room(row({ 1: { v: "x", ...centered }, 2: { v: "after", t: 1 } }), 1)).toEqual([88, 0]);
+            // Centred text is given the same room on both sides, so the middle of the text stays on
+            // the middle of the cell: stopped on the right, it gives up the room on its left too.
+            expect(room(row({ 1: { v: "x", ...centered }, 2: { v: "after", t: 1 } }), 1)).toEqual([0, 0]);
+            expect(room(row({ 1: { v: "x", ...centered }, 3: { v: "after", t: 1 } }), 1)).toEqual([88, 88]);
         });
 
         it("keeps turned text in its own cell rather than running it into a neighbour", () => {

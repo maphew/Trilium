@@ -609,6 +609,14 @@ function spillBound(
         ? null
         : spillRoom(merge?.endColumn ?? col, 1, neighbours);
 
+    // Centred text has to stay centred on its own cell, so the room it is given is the same on
+    // both sides: growing one side further would carry the middle of the text away from the
+    // middle of the cell, which is where the editor keeps it.
+    if (align === HorizontalAlign.CENTER) {
+        const room = Math.min(before?.width ?? 0, after?.width ?? 0);
+        return { before: room, after: room };
+    }
+
     return { before: before?.width ?? 0, after: after?.width ?? 0 };
 }
 
