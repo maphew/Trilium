@@ -570,10 +570,10 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
                 declarations.push(`padding:${px(padding.t)}px ${px(padding.r)}px ${px(padding.b)}px ${px(padding.l)}px`);
             }
             const cssText = declarations.filter(Boolean).join(";");
-            const text = rotate(formatCellValue(cell, cellStyle), cellStyle);
+            const text = rotate(formatCellValue(cell, cellStyle), cellStyle, classes);
             const value = (isTurned(cellStyle?.tr)
-                ? turnedBox(text, boxHeight, cellStyle)
-                : cellBox(text, bound, boxHeight)) + (cell ? renderCellImages(cell) : "");
+                ? turnedBox(text, boxHeight, cellStyle, classes)
+                : cellBox(text, bound, boxHeight, classes)) + (cell ? renderCellImages(cell) : "");
 
             const attrs: string[] = [];
             // Cells with a background fill carry `has-fill` so the stylesheet can suppress
@@ -937,7 +937,7 @@ const CELL_LINE_HEIGHT = "line-height:normal";
  * it. The box also carries the room the text has to run sideways, widened by it and clipped there,
  * with the negative margins cancelling the extra width so the table's own layout is untouched.
  */
-function cellBox(html: string, bound: SpillBound | null, height: number): string {
+function cellBox(html: string, bound: SpillBound | null, height: number, classes: StyleClasses): string {
     if (!html) return html;
 
     const parts = ["display:block", "overflow:hidden"];
@@ -948,7 +948,11 @@ function cellBox(html: string, bound: SpillBound | null, height: number): string
         if (bound.after) parts.push(`margin-right:${px(-bound.after)}px`);
     }
     parts.push(CELL_LINE_HEIGHT);
-    return `<span style="${parts.join(";")}">${html}</span>`;
+
+    // A box is shaped by its row's height rather than by anything the cell says, so a sheet has
+    // only a handful of distinct ones however many cells it holds. `classFor`, not `cellClassFor`:
+    // a box is not a cell, and must not count towards the style folded into the `td` default.
+    return `<span class="${classes.classFor(parts.join(";"))}">${html}</span>`;
 }
 
 /** Whether a cell's text is turned at all, in any of the ways Univer can turn it. */
@@ -973,7 +977,7 @@ function rotatesByTransform(rotation: ITextRotation | null | undefined): boolean
  * turn and drop everything above and below it. Filling the cell takes the placement away from the
  * cell's alignments, so the box carries them itself.
  */
-function turnedBox(html: string, height: number, style: IStyleData | null): string {
+function turnedBox(html: string, height: number, style: IStyleData | null, classes: StyleClasses): string {
     if (!html) return html;
 
     const parts = [
@@ -984,7 +988,8 @@ function turnedBox(html: string, height: number, style: IStyleData | null): stri
     ];
     if (height > 0) parts.push(`height:${px(height)}px`);
     parts.push(CELL_LINE_HEIGHT);
-    return `<span style="${parts.join(";")}">${html}</span>`;
+
+    return `<span class="${classes.classFor(parts.join(";"))}">${html}</span>`;
 }
 
 /** Where a turned cell puts its text down the cell, following the cell's vertical alignment. */
@@ -1228,11 +1233,11 @@ function formatCellValue(cell: ICellData | undefined, style: IStyleData | null):
  * the `td` itself, which would take the background and borders with it, and images anchored in the
  * cell stay upright as they do in the editor.
  */
-function rotate(html: string, style: IStyleData | null): string {
+function rotate(html: string, style: IStyleData | null, classes: StyleClasses): string {
     if (!html) return html;
 
     const css = rotationCss(style?.tr, style?.vt);
-    return css ? `<span style="${css}">${html}</span>` : html;
+    return css ? `<span class="${classes.classFor(css)}">${html}</span>` : html;
 }
 
 /**
