@@ -659,10 +659,14 @@ describe("renderSpreadsheetToHtml", () => {
         it("holds text to its own edge when the neighbour beside it holds a value", () => {
             expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { v: "next", t: 1 } }), 0)).toEqual([0, 0]);
 
-            // Nothing in the way, so the stylesheets are left to spill the cell as the editor does.
+            // A cell that carries only formatting does not extend the grid, so there is no column
+            // beside these to run into.
             expect(room(row({ 0: { v: "a long label", t: 1 } }), 0)).toEqual([0, 0]);
-            expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { s: { bl: 1 } } }), 0)).toEqual([0, 88]);
-            expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { v: "", t: 1 } }), 0)).toEqual([0, 88]);
+            expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { s: { bl: 1 } } }), 0)).toEqual([0, 0]);
+            expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { v: "", t: 1 } }), 0)).toEqual([0, 0]);
+
+            // With a column of content beyond it, the empty one between is room to run across.
+            expect(room(row({ 0: { v: "a long label", t: 1 }, 2: { v: "next", t: 1 } }), 0)).toEqual([0, 88]);
         });
 
         it("gives the text the width of the empty cells it may run across", () => {
@@ -1930,6 +1934,59 @@ describe("renderSpreadsheetToHtml", () => {
 
         expect(html).toContain('<img class="spreadsheet-floating-image"');
         expect(html).not.toContain(`<span class="spreadsheet-floating-image"`);
+    });
+
+    it("bounds the grid by the cells that hold something, not the ones that only carry formatting", () => {
+        // A fill applied across whole rows leaves formatting far past the data. Rendering out to it
+        // would cost a cell per column for a band drawn as one rectangle.
+        const html = renderSpreadsheetToHtml(JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1",
+                        name: "Sheet1",
+                        hidden: 0,
+                        mergeData: [],
+                        cellData: {
+                            "0": { "0": { v: "a", t: 1 }, "1": { v: "b", t: 1 }, "500": { s: { bg: { rgb: "#FFE699" } } } },
+                            "1": { "0": { v: "c", t: 1 }, "500": { s: { bg: { rgb: "#FFE699" } } } }
+                        },
+                        rowData: {},
+                        columnData: {}
+                    }
+                }
+            }
+        }));
+
+        expect((html.match(/<td/g) ?? []).length).toBe(4);
+        expect(html).toContain(`<col span="2" style="width:88px">`);
+    });
+
+    it("falls back to every cell for a sheet that is nothing but formatting", () => {
+        const html = renderSpreadsheetToHtml(JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1",
+                        name: "Sheet1",
+                        hidden: 0,
+                        mergeData: [],
+                        cellData: { "0": { "0": { s: { bg: { rgb: "#FFE699" } } }, "1": { s: { bg: { rgb: "#FFE699" } } } } },
+                        rowData: {},
+                        columnData: {}
+                    }
+                }
+            }
+        }));
+
+        expect((html.match(/<td/g) ?? []).length).toBe(2);
+        expect(html).toContain("background-color:#FFE699");
     });
 
     it("renders a floating image absolutely positioned in a per-sheet wrapper", () => {

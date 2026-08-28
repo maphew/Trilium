@@ -474,10 +474,15 @@ export interface Bounds {
 }
 
 /**
- * Computes the inclusive bounding rectangle of all populated cells, extended to cover
- * any merged ranges. Returns `null` when there are no cells and no merges (empty sheet).
+ * Computes the inclusive bounding rectangle of all populated cells, extended to cover any merged
+ * ranges. Returns `null` when there are no cells and no merges (empty sheet). Pass `counts` to
+ * bound the rectangle by a subset of the cells, such as only the ones holding something.
  */
-export function computeBounds(cellData: CellMatrix, mergeData: IRange[] = []): Bounds | null {
+export function computeBounds(
+    cellData: CellMatrix,
+    mergeData: IRange[] = [],
+    counts?: (cell: ICellData) => boolean
+): Bounds | null {
     let minRow = Infinity;
     let maxRow = -Infinity;
     let minCol = Infinity;
@@ -488,6 +493,8 @@ export function computeBounds(cellData: CellMatrix, mergeData: IRange[] = []): B
         const cols = cellData[row];
         for (const colStr of Object.keys(cols)) {
             const col = Number(colStr);
+            if (counts && !counts(cols[col])) continue;
+
             if (minRow > row) minRow = row;
             if (maxRow < row) maxRow = row;
             if (minCol > col) minCol = col;

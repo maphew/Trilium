@@ -294,9 +294,15 @@ function trackIndexAtPx(targetPx: number, count: number | undefined, size: (inde
 function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | null>, images: PlacedImage[]): string {
     const { cellData, mergeData = [], columnData = {}, rowData = {} } = sheet;
 
-    // Determine the actual bounds (only cells with data), then extend them to cover any floating
-    // images that reach past the data so the grid encloses them like the editor does.
-    const bounds = computeBounds(cellData, mergeData);
+    // A sheet often carries formatting far past its data: a fill applied to whole rows leaves tens
+    // of thousands of empty cells, each of which would become a `td` the browser has to lay out for
+    // a band it draws as one rectangle. The grid is bounded by the cells that hold something, and
+    // falls back to every cell for a sheet that is nothing but formatting. Then it is extended to
+    // cover any floating image that reaches past the data, so the grid encloses it as the editor does.
+    // A merge widens it as before, except one applied to entire rows or columns, which would
+    // pull the sheet back out to the far edge of the grid.
+    const bounds = computeBounds(cellData, boundingMerges(mergeData, sheet), holdsSomething)
+        ?? computeBounds(cellData, mergeData);
     const { maxRow, maxCol } = extendBoundsForImages(sheet, bounds?.maxRow ?? -1, bounds?.maxCol ?? -1, images);
     if (maxRow < 0 || maxCol < 0) {
         return "<p>Empty sheet.</p>";
@@ -731,6 +737,29 @@ function cellPadding(style: IStyleData | null): Required<IPaddingData> {
         b: side(padding?.b, DEFAULT_CELL_PADDING.b),
         l: side(padding?.l, DEFAULT_CELL_PADDING.l)
     };
+}
+
+/**
+ * The merges that say something about how far a sheet reaches. One spanning the whole width or
+ * height of the grid was applied to entire rows or columns, which is a formatting gesture rather
+ * than a statement that the sheet runs to the last column Excel has, so it is left out and clamped
+ * into the content instead.
+ */
+function boundingMerges(mergeData: IRange[], sheet: IWorksheetData): IRange[] {
+    const lastColumn = (sheet.columnCount ?? 0) - 1;
+    const lastRow = (sheet.rowCount ?? 0) - 1;
+
+    return mergeData.filter((range) =>
+        !(lastColumn > 0 && range.startColumn === 0 && range.endColumn >= lastColumn)
+        && !(lastRow > 0 && range.startRow === 0 && range.endRow >= lastRow));
+}
+
+/**
+ * Whether a cell holds something of its own, which is what the rendered grid is bounded by. A
+ * formula counts even when its result is blank, since the cell is part of the sheet's data.
+ */
+function holdsSomething(cell: ICellData): boolean {
+    return Boolean(cell.f) || hasContent(cell);
 }
 
 /** Whether a cell shows anything. A cell carrying only a style is empty, as it is in the editor. */
