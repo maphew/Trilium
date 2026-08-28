@@ -149,7 +149,19 @@ export interface IStyleData {
     tr?: ITextRotation | null;
     bd?: IBorderData | null;
     n?: INumberFormat | null;
+    pd?: IPaddingData | null;
 }
+
+/** Cell padding in px. Univer leaves out the sides it does not set; see `DEFAULT_CELL_PADDING`. */
+export interface IPaddingData {
+    t?: number;
+    r?: number;
+    b?: number;
+    l?: number;
+}
+
+/** The padding Univer lays a cell out with when its style names none. */
+export const DEFAULT_CELL_PADDING = { t: 0, r: 2, b: 2, l: 2 };
 
 export interface INumberFormat {
     pattern?: string | null;
@@ -190,6 +202,10 @@ export interface IRange {
 export interface IRowData {
     h?: number;
     hd?: number;
+    /** Height Univer measured for a row that sizes itself to its content. */
+    ah?: number;
+    /** Whether the row sizes itself to its content. Absent counts as yes. */
+    ia?: number;
 }
 
 export interface IColumnData {

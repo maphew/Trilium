@@ -15,6 +15,8 @@ import { format as formatNumfmt, formatColor as formatNumfmtColor } from "numfmt
 import {
     BorderStyle,
     type CellDocumentSegment,
+    DEFAULT_CELL_PADDING,
+    type IPaddingData,
     type CellMatrix,
     CellValueType,
     computeBounds,
@@ -29,6 +31,7 @@ import {
     type IColumnData,
     isFiniteNumber,
     type IRange,
+    type IRowData,
     type ISheetDrawing,
     type IStyleData,
     type ITextRotation,
@@ -213,29 +216,49 @@ function extendBoundsForImages(sheet: IWorksheetData, maxRow: number, maxCol: nu
     }
     if (bottomPx <= 0 && rightPx <= 0) return { maxRow, maxCol };
 
+    const defaultHeight = sheet.defaultRowHeight ?? 24;
+    const defaultWidth = sheet.defaultColumnWidth ?? 88;
     return {
-        maxRow: Math.max(maxRow, trackIndexAtPx(bottomPx, sheet.defaultRowHeight ?? 24, sheet.rowCount, (i) => sheet.rowData?.[i])),
-        maxCol: Math.max(maxCol, trackIndexAtPx(rightPx, sheet.defaultColumnWidth ?? 88, sheet.columnCount, (i) => sheet.columnData?.[i]))
+        maxRow: Math.max(maxRow, trackIndexAtPx(bottomPx, sheet.rowCount, (i) => {
+            const meta = sheet.rowData?.[i];
+            return meta?.hd ? 0 : rowHeight(meta, defaultHeight);
+        })),
+        maxCol: Math.max(maxCol, trackIndexAtPx(rightPx, sheet.columnCount, (i) => {
+            const meta = sheet.columnData?.[i];
+            return meta?.hd ? 0 : (isFiniteNumber(meta?.w) ? meta.w : defaultWidth);
+        }))
     };
 }
 
 /**
- * Returns the 0-based index of the last row/column needed to reach `targetPx` from the sheet
- * origin, walking the per-track sizes (`h`/`w`, hidden tracks contributing 0) and falling back to
- * `defaultSize`. Bounded by `count` (or a large cap) so a zero/degenerate size can't loop forever.
+ * A row's rendered height. Univer keeps the height it measured for a self-sizing row in `ah` and
+ * uses that unless the row was sized by hand (`ia === 0`), where `h` wins (`getRowHeight` in
+ * `@univerjs/core`). Reading only `h` leaves a self-sizing row at the sheet default, which shortens
+ * the grid and pulls the floating images, placed in the editor's coordinates, out of line with it.
  */
-function trackIndexAtPx(targetPx: number, defaultSize: number, count: number | undefined, meta: (index: number) => { hd?: number; h?: number; w?: number } | undefined): number {
-    if (targetPx <= 0 || defaultSize <= 0) return 0;
+function rowHeight(meta: IRowData | undefined, defaultHeight: number): number {
+    const measured = meta?.ah;
+    if ((meta?.ia == null || meta.ia === 1) && isFiniteNumber(measured)) return measured;
+
+    const height = meta?.h;
+    return isFiniteNumber(height) ? height : defaultHeight;
+}
+
+/**
+ * Returns the 0-based index of the last row/column needed to reach `targetPx` from the sheet
+ * origin, walking the per-track sizes. Bounded by `count` (or a large cap) so a degenerate size
+ * can't loop forever, and an axis whose tracks all measure zero extends by nothing at all.
+ */
+function trackIndexAtPx(targetPx: number, count: number | undefined, size: (index: number) => number): number {
+    if (targetPx <= 0) return 0;
     const cap = isFiniteNumber(count) && count > 0 ? count : 100000;
     let cumulative = 0;
     let index = 0;
     while (cumulative < targetPx && index < cap) {
-        const track = meta(index);
-        const size = track?.h ?? track?.w;
-        cumulative += track?.hd ? 0 : (isFiniteNumber(size) ? size : defaultSize);
+        cumulative += size(index);
         index++;
     }
-    return index - 1;
+    return cumulative > 0 ? index - 1 : 0;
 }
 
 // #endregion
@@ -280,12 +303,16 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
     lines.push("</colgroup>");
 
     const defaultHeight = sheet.defaultRowHeight ?? 24;
+    const heights: number[] = [];
+    for (let row = minRow; row <= maxRow; row++) {
+        heights[row] = rowData[row]?.hd ? 0 : rowHeight(rowData[row], defaultHeight);
+    }
 
     for (let row = minRow; row <= maxRow; row++) {
         const rowMeta = rowData[row];
         if (rowMeta?.hd) continue;
 
-        const height = isFiniteNumber(rowMeta?.h) ? rowMeta.h : defaultHeight;
+        const height = heights[row];
         // Univer leaves a cell at the bottom of its row unless it sets `vt`, while HTML centres it.
         // The row carries that default because a `td` inherits `vertical-align`, so a cell that
         // sets its own still wins.
@@ -302,10 +329,15 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
             const cell = cellData[row]?.[col];
             const cellStyle = mergeAwareStyle(resolveCellStyle(cell?.s, styles), mergeInfo, row, col, cellData, styles);
             const bound = spillBound(cell, cellStyle, col, mergeInfo, neighbours);
+            const padding = cellPadding(cellStyle);
+            const boxHeight = spannedHeight(heights, row, mergeInfo?.endRow ?? row)
+                - padding.t - padding.b - collapsedBorderHeight(cellStyle);
             const declarations = [buildCssText(cellStyle, cell)];
-            if (bound && !bound.before && !bound.after) declarations.push("overflow:hidden");
+            if (hasContent(cell)) {
+                declarations.push(`padding:${px(padding.t)}px ${px(padding.r)}px ${px(padding.b)}px ${px(padding.l)}px`);
+            }
             const cssText = declarations.filter(Boolean).join(";");
-            const value = spill(rotate(formatCellValue(cell, cellStyle), cellStyle?.tr), bound)
+            const value = cellBox(rotate(formatCellValue(cell, cellStyle), cellStyle?.tr), bound, boxHeight)
                 + (cell ? renderCellImages(cell) : "");
 
             const attrs: string[] = [];
@@ -510,8 +542,9 @@ interface SpillBound {
  * The room a cell's text has before it reaches a cell that shows something. A spreadsheet runs text
  * across the empty cells beside it and cuts it at the first occupied one, and keeps a number, a
  * boolean or a cell set to CLIP inside its own edges (the overflow check in
- * `@univerjs/engine-render`, and `WrapStrategy` in `@univerjs/core`). Returns `null` when nothing
- * stops the text, which is what the stylesheets already do by letting a cell spill.
+ * `@univerjs/engine-render`, and `WrapStrategy` in `@univerjs/core`). Text that nothing stops is
+ * given the room to the edge of the sheet, since the box that carries it clips both axes at once
+ * and so always needs a width. Returns `null` only when there is nothing to bound.
  */
 function spillBound(
     cell: ICellData | undefined,
@@ -534,7 +567,6 @@ function spillBound(
         ? null
         : spillRoom(merge?.endColumn ?? col, 1, neighbours);
 
-    if (!before?.stopped && !after?.stopped) return null;
     return { before: before?.width ?? 0, after: after?.width ?? 0 };
 }
 
@@ -566,17 +598,53 @@ function cellShownAt(col: number, neighbours: RowNeighbours): ICellData | undefi
 }
 
 /**
- * Widens a cell's text box by the room it has on either side and clips it there, so the text runs
- * across the empty cells beside it and stops at the one holding a value. The negative margins
- * cancel the extra width, leaving the table's own geometry untouched.
+ * Wraps a cell's text in the box that fixes its size. An HTML row grows to whatever it holds, while
+ * a spreadsheet row is exactly as tall as it says and clips what does not fit, so without this the
+ * grid drifts from the geometry the sheet declares and every absolutely placed image drifts with
+ * it. The box also carries the room the text has to run sideways, widened by it and clipped there,
+ * with the negative margins cancelling the extra width so the table's own layout is untouched.
  */
-function spill(html: string, bound: SpillBound | null): string {
-    if (!html || !bound || (!bound.before && !bound.after)) return html;
+function cellBox(html: string, bound: SpillBound | null, height: number): string {
+    if (!html) return html;
 
-    const parts = ["display:inline-block", `width:calc(100% + ${px(bound.before + bound.after)}px)`, "overflow:hidden"];
-    if (bound.before) parts.push(`margin-left:${px(-bound.before)}px`);
-    if (bound.after) parts.push(`margin-right:${px(-bound.after)}px`);
+    const parts = ["display:block", "overflow:hidden"];
+    if (height > 0) parts.push(`max-height:${px(height)}px`);
+    if (bound && (bound.before || bound.after)) {
+        parts.push(`width:calc(100% + ${px(bound.before + bound.after)}px)`);
+        if (bound.before) parts.push(`margin-left:${px(-bound.before)}px`);
+        if (bound.after) parts.push(`margin-right:${px(-bound.after)}px`);
+    }
     return `<span style="${parts.join(";")}">${html}</span>`;
+}
+
+/** The height a cell covers, summing the rows a `rowspan` reaches across. */
+function spannedHeight(heights: number[], from: number, to: number): number {
+    let total = 0;
+    for (let row = from; row <= to; row++) total += heights[row] ?? 0;
+    return total;
+}
+
+/**
+ * The height a cell's own borders take from its row. Under `border-collapse` a border is shared
+ * with the cell across it, so each side keeps half, and the sheet's row heights count the gridline
+ * as drawn inside the row rather than added to it.
+ */
+function collapsedBorderHeight(style: IStyleData | null): number {
+    const half = (border: IBorderStyleData | null | undefined) =>
+        (!border || border.s === BorderStyle.NONE ? 0 : Number.parseFloat(borderStyleToWidth(border.s)) / 2);
+    return half(style?.bd?.t) + half(style?.bd?.b);
+}
+
+/** The padding a cell is laid out with, which the box has to leave room for inside the row. */
+function cellPadding(style: IStyleData | null): Required<IPaddingData> {
+    const padding = style?.pd;
+    const side = (value: number | undefined, fallback: number) => (isFiniteNumber(value) ? value : fallback);
+    return {
+        t: side(padding?.t, DEFAULT_CELL_PADDING.t),
+        r: side(padding?.r, DEFAULT_CELL_PADDING.r),
+        b: side(padding?.b, DEFAULT_CELL_PADDING.b),
+        l: side(padding?.l, DEFAULT_CELL_PADDING.l)
+    };
 }
 
 /** Whether a cell shows anything. A cell carrying only a style is empty, as it is in the editor. */
@@ -730,15 +798,19 @@ function rotate(html: string, rotation: ITextRotation | null | undefined): strin
  * counter-clockwise and CSS turns clockwise, so the sign flips.
  */
 function rotationCss(rotation: ITextRotation | null | undefined): string | null {
+    // `vertical-align` keeps the turned text off the line box's baseline, whose descender gap
+    // would otherwise add height the row has to absorb.
+    const ROTATED = "display:inline-block;vertical-align:top";
+
     if (!rotation) return null;
     // Stacked text: upright characters reading downwards.
-    if (rotation.v) return "display:inline-block;writing-mode:vertical-rl;text-orientation:upright";
+    if (rotation.v) return `${ROTATED};writing-mode:vertical-rl;text-orientation:upright`;
 
     const angle = isFiniteNumber(rotation.a) ? rotation.a : 0;
     if (angle === 0) return null;
-    if (angle === 90) return "display:inline-block;writing-mode:vertical-rl;transform:rotate(180deg)";
-    if (angle === -90) return "display:inline-block;writing-mode:vertical-rl";
-    return `display:inline-block;transform:rotate(${px(-angle)}deg)`;
+    if (angle === 90) return `${ROTATED};writing-mode:vertical-rl;transform:rotate(180deg)`;
+    if (angle === -90) return `${ROTATED};writing-mode:vertical-rl`;
+    return `${ROTATED};transform:rotate(${px(-angle)}deg)`;
 }
 
 /**

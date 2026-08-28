@@ -2,6 +2,18 @@ import { describe, expect, it } from "vitest";
 import { renderSpreadsheetToHtml } from "./render_to_html.js";
 import { BorderStyle, HorizontalAlign, WrapStrategy } from "./workbook_model.js";
 
+/**
+ * The markup with the box model stripped: each cell's sizing box and the padding it is measured
+ * against, leaving the content and the cell's own theming.
+ */
+function unboxed(html: string): string {
+    return html
+        .replace(/<td([^>]*)><span style="display:block;overflow:hidden[^"]*">([\s\S]*?)<\/span><\/td>/g, "<td$1>$2</td>")
+        .replace(/padding:[^;"]*;?/g, "")
+        .replace(/;"/g, '"')
+        .replace(/ style=""/g, "");
+}
+
 describe("renderSpreadsheetToHtml", () => {
     it("renders a basic spreadsheet with values and styles", () => {
         const input = JSON.stringify({
@@ -513,22 +525,22 @@ describe("renderSpreadsheetToHtml", () => {
 
         // A quarter turn either way becomes a vertical writing mode, so the row can grow to fit it.
         expect(rotated({ a: 90 })).toContain(
-            `<span style="display:inline-block;writing-mode:vertical-rl;transform:rotate(180deg)">Days left</span>`);
+            `<span style="display:inline-block;vertical-align:top;writing-mode:vertical-rl;transform:rotate(180deg)">Days left</span>`);
         expect(rotated({ a: -90 })).toContain(
-            `<span style="display:inline-block;writing-mode:vertical-rl">Days left</span>`);
+            `<span style="display:inline-block;vertical-align:top;writing-mode:vertical-rl">Days left</span>`);
 
         // Stacked text reads downwards with upright characters.
         expect(rotated({ v: 1 })).toContain(
-            `<span style="display:inline-block;writing-mode:vertical-rl;text-orientation:upright">Days left</span>`);
+            `<span style="display:inline-block;vertical-align:top;writing-mode:vertical-rl;text-orientation:upright">Days left</span>`);
 
         // Any other angle turns the glyphs; CSS rotates clockwise, so the sign flips.
         expect(rotated({ a: 45 })).toContain(
-            `<span style="display:inline-block;transform:rotate(-45deg)">Days left</span>`);
+            `<span style="display:inline-block;vertical-align:top;transform:rotate(-45deg)">Days left</span>`);
         expect(rotated({ a: -30.5 })).toContain(`transform:rotate(30.5deg)`);
     });
 
     it("leaves a cell unwrapped when it has no rotation to apply", () => {
-        const plain = (s: unknown) => renderSpreadsheetToHtml(singleCellWorkbook({ v: "Days left", t: 1, s }));
+        const plain = (s: unknown) => unboxed(renderSpreadsheetToHtml(singleCellWorkbook({ v: "Days left", t: 1, s })));
 
         expect(plain({})).toContain("<td>Days left</td>");
         expect(plain({ tr: { a: 0, v: 0 } })).toContain("<td>Days left</td>");
@@ -549,7 +561,7 @@ describe("renderSpreadsheetToHtml", () => {
             }
         }));
 
-        expect(html).toContain(`Days left</span><img class="spreadsheet-cell-image"`);
+        expect(html).toContain(`Days left</span></span><img class="spreadsheet-cell-image"`);
     });
 
     describe("overflow into neighbouring cells", () => {
@@ -599,9 +611,9 @@ describe("renderSpreadsheetToHtml", () => {
             expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { v: "next", t: 1 } }), 0)).toEqual([0, 0]);
 
             // Nothing in the way, so the stylesheets are left to spill the cell as the editor does.
-            expect(room(row({ 0: { v: "a long label", t: 1 } }), 0)).toBeNull();
-            expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { s: { bl: 1 } } }), 0)).toBeNull();
-            expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { v: "", t: 1 } }), 0)).toBeNull();
+            expect(room(row({ 0: { v: "a long label", t: 1 } }), 0)).toEqual([0, 0]);
+            expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { s: { bl: 1 } } }), 0)).toEqual([0, 88]);
+            expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { v: "", t: 1 } }), 0)).toEqual([0, 88]);
         });
 
         it("gives the text the width of the empty cells it may run across", () => {
@@ -621,11 +633,11 @@ describe("renderSpreadsheetToHtml", () => {
         it("follows the alignment to decide which side the text spills towards", () => {
             const rightAligned = { t: 1, s: { ht: HorizontalAlign.RIGHT } };
             expect(room(row({ 0: { v: "before", t: 1 }, 1: { v: "x", ...rightAligned } }), 1)).toEqual([0, 0]);
-            expect(room(row({ 1: { v: "x", ...rightAligned }, 2: { v: "after", t: 1 } }), 1)).toBeNull();
+            expect(room(row({ 1: { v: "x", ...rightAligned }, 2: { v: "after", t: 1 } }), 1)).toEqual([88, 0]);
 
             const centered = { t: 1, s: { ht: HorizontalAlign.CENTER } };
             expect(room(row({ 0: { v: "before", t: 1 }, 1: { v: "x", ...centered } }), 1)).toEqual([0, 0]);
-            expect(room(row({ 1: { v: "x", ...centered } }), 1)).toBeNull();
+            expect(room(row({ 1: { v: "x", ...centered } }), 1)).toEqual([88, 0]);
 
             // Stopped on the right, with the empty column on its left still open to it.
             expect(room(row({ 1: { v: "x", ...centered }, 2: { v: "after", t: 1 } }), 1)).toEqual([88, 0]);
@@ -636,7 +648,7 @@ describe("renderSpreadsheetToHtml", () => {
             expect(room(row({ 0: { v: true, t: 3 } }), 0)).toEqual([0, 0]);
             expect(room(row({ 0: { v: "a long label", t: 1, s: { tb: WrapStrategy.CLIP } } }), 0)).toEqual([0, 0]);
 
-            expect(room(row({ 0: { v: "a long label", t: 1, s: { tb: WrapStrategy.WRAP } }, 1: { v: "next", t: 1 } }), 0)).toBeNull();
+            expect(room(row({ 0: { v: "a long label", t: 1, s: { tb: WrapStrategy.WRAP } }, 1: { v: "next", t: 1 } }), 0)).toEqual([0, 0]);
             expect(room(row({ 0: { s: { bl: 1 } }, 1: { v: "next", t: 1 } }), 0)).toBeNull();
         });
 
@@ -644,13 +656,13 @@ describe("renderSpreadsheetToHtml", () => {
             const long = { v: "a long label", t: 1 };
 
             // A hidden column reaches nobody, so the cell steps over it in both directions.
-            expect(room(row({ 0: long, 1: { v: "next", t: 1 } }, { columnData: { 1: { hd: 1 } } }), 0)).toBeNull();
+            expect(room(row({ 0: long, 1: { v: "next", t: 1 } }, { columnData: { 1: { hd: 1 } } }), 0)).toEqual([0, 0]);
             expect(room(row({ 0: long, 1: {}, 2: { v: "next", t: 1 } }, { columnData: { 1: { hd: 1 } } }), 0)).toEqual([0, 0]);
 
             // A merged cell starts looking past the last column its own range covers.
             const merged = [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 1 }];
             expect(room(row({ 0: long, 1: {}, 2: { v: "next", t: 1 } }, { mergeData: merged }), 0)).toEqual([0, 0]);
-            expect(room(row({ 0: long, 1: {} }, { mergeData: merged }), 0)).toBeNull();
+            expect(room(row({ 0: long, 1: {} }, { mergeData: merged }), 0)).toEqual([0, 0]);
         });
 
         it("reads a column a merge spans into as holding that range's content", () => {
@@ -660,7 +672,7 @@ describe("renderSpreadsheetToHtml", () => {
                 { mergeData: [{ startRow: 0, endRow: 1, startColumn: 0, endColumn: 0 }] }
             ));
 
-            expect(html.split("</tr>")[1]).toContain(`<td style="text-align:right;overflow:hidden">x</td>`);
+            expect(unboxed(html).split("</tr>")[1]).toContain(`<td style="text-align:right">x</td>`);
         });
 
         it("counts a cell whose text lives only in its rich-text document as occupied", () => {
@@ -887,7 +899,7 @@ describe("renderSpreadsheetToHtml", () => {
         const html = renderSpreadsheetToHtml(input);
         expect(html).toContain("noStyle");
         // Missing style id resolves to null -> no inline style attribute.
-        expect(html).toContain("<td>noStyle</td>");
+        expect(unboxed(html)).toContain("<td>noStyle</td>");
     });
 
     it("renders bold, italic and underline inline styles", () => {
@@ -953,7 +965,7 @@ describe("renderSpreadsheetToHtml", () => {
     it("omits text-align for an unknown horizontal alignment", () => {
         const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x", s: { ht: 9 } }));
         expect(html).not.toContain("text-align");
-        expect(html).toContain("<td>x</td>");
+        expect(unboxed(html)).toContain("<td>x</td>");
     });
 
     it("wraps a cell whose style enables the wrap strategy", () => {
@@ -1009,7 +1021,7 @@ describe("renderSpreadsheetToHtml", () => {
     it("omits vertical-align for an unknown vertical alignment", () => {
         const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x", s: { vt: 9 } }));
         // The cell contributes none, so it falls back to the row's.
-        expect(html).toContain("<td>x</td>");
+        expect(unboxed(html)).toContain("<td>x</td>");
         expect(html).toContain(`<tr style="height:24px;vertical-align:bottom">`);
     });
 
@@ -1017,10 +1029,10 @@ describe("renderSpreadsheetToHtml", () => {
         // Univer leaves a cell at the bottom of its row unless it sets `vt`, unlike HTML.
         const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x" }));
         expect(html).toContain(`<tr style="height:24px;vertical-align:bottom">`);
-        expect(html).toContain("<td>x</td>");
+        expect(unboxed(html)).toContain("<td>x</td>");
 
         const middle = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x", s: { vt: 2 } }));
-        expect(middle).toContain(`<td style="vertical-align:middle">x</td>`);
+        expect(unboxed(middle)).toContain(`<td style="vertical-align:middle">x</td>`);
     });
 
     it("renders borders on all four sides with the correct Univer widths and styles", () => {
@@ -1165,8 +1177,8 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain("color:#ff0000");
         expect(html).toContain("byId");
         // null style id and empty style object -> no styling of their own.
-        expect(html).toContain(`<td style="overflow:hidden">nulled</td>`);
-        expect(html).toContain("<td>emptyStyle</td>");
+        expect(unboxed(html)).toContain("<td>nulled</td>");
+        expect(unboxed(html)).toContain("<td>emptyStyle</td>");
     });
 
     it("skips hidden rows and hidden columns", () => {
@@ -1227,6 +1239,37 @@ describe("renderSpreadsheetToHtml", () => {
         const html = renderSpreadsheetToHtml(input);
         expect(html).toContain('<col style="width:200px">');
         expect(html).toContain('<tr style="height:50px;vertical-align:bottom">');
+    });
+
+    it("takes a self-sizing row's height from the height Univer measured for it", () => {
+        const html = renderSpreadsheetToHtml(JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1",
+                        name: "Sheet1",
+                        hidden: 0,
+                        mergeData: [],
+                        cellData: { "0": { "0": { v: "a" } }, "1": { "0": { v: "b" } }, "2": { "0": { v: "c" } }, "3": { "0": { v: "d" } } },
+                        rowData: {
+                            // Measured with no `ia`, and measured while explicitly self-sizing.
+                            "0": { ah: 34 },
+                            "1": { ah: 40, h: 20, ia: 1 },
+                            // Sized by hand, so the measurement is ignored even when both are there.
+                            "2": { ah: 24, h: 99, ia: 0 },
+                            "3": { h: 55, ia: 0 }
+                        },
+                        columnData: {}
+                    }
+                }
+            }
+        }));
+
+        const heights = [...html.matchAll(/<tr style="height:([\d.]+)px/g)].map((match) => Number(match[1]));
+        expect(heights).toEqual([34, 40, 99, 55]);
     });
 
     it("falls back to default column width and row height when absent", () => {
@@ -1292,29 +1335,29 @@ describe("renderSpreadsheetToHtml", () => {
         const html = renderSpreadsheetToHtml(input);
         // Column 1 between A and C has no cell -> empty <td>.
         expect(html).toContain("<td></td>");
-        expect(html).toContain("<td>C</td>");
+        expect(unboxed(html)).toContain("<td>C</td>");
         // A may run across the empty column, so its text carries the room it has.
-        expect(html).toContain(`<td><span style="display:inline-block;width:calc(100% + 88px);overflow:hidden;margin-right:-88px">A</span></td>`);
+        expect(html).toContain(`<td style="padding:0px 2px 2px 2px"><span style="display:block;overflow:hidden;max-height:22px;width:calc(100% + 88px);margin-right:-88px">A</span></td>`);
     });
 
     it("renders numeric cell values", () => {
         const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2 }));
-        expect(html).toContain(">42</td>");
+        expect(unboxed(html)).toContain(">42</td>");
     });
 
     it("aligns a cell by its value type when it sets no alignment of its own", () => {
         // Univer right-aligns numbers and centers booleans; text keeps the table default.
-        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2 }))).toContain(`<td style="text-align:right;overflow:hidden">`);
-        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: true, t: 3 }))).toContain(`<td style="text-align:center;overflow:hidden">`);
-        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: "A", t: 1 }))).toContain("<td>A</td>");
+        expect(unboxed(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2 })))).toContain(`<td style="text-align:right">`);
+        expect(unboxed(renderSpreadsheetToHtml(singleCellWorkbook({ v: true, t: 3 })))).toContain(`<td style="text-align:center">`);
+        expect(unboxed(renderSpreadsheetToHtml(singleCellWorkbook({ v: "A", t: 1 })))).toContain("<td>A</td>");
 
         // A number formatted and styled by the workbook still gets the fallback alignment.
-        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2, s: { bl: 1 } })))
-            .toContain(`<td style="text-align:right;font-weight:bold;overflow:hidden">`);
+        expect(unboxed(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2, s: { bl: 1 } }))))
+            .toContain(`<td style="text-align:right;font-weight:bold">`);
 
         // An explicit alignment wins over the fallback.
-        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2, s: { ht: HorizontalAlign.LEFT } })))
-            .toContain(`<td style="text-align:left;overflow:hidden">`);
+        expect(unboxed(renderSpreadsheetToHtml(singleCellWorkbook({ v: 42, t: 2, s: { ht: HorizontalAlign.LEFT } }))))
+            .toContain(`<td style="text-align:left">`);
     });
 
     it("emits colspan only for a purely horizontal merge", () => {
@@ -1373,7 +1416,7 @@ describe("renderSpreadsheetToHtml", () => {
         const html = renderSpreadsheetToHtml(
             singleCellWorkbook({ v: 1234.5, t: 2, s: { n: { pattern: "#,##0.00" } } })
         );
-        expect(html).toContain(">1,234.50</td>");
+        expect(unboxed(html)).toContain(">1,234.50</td>");
         expect(html).not.toContain("1234.5<");
     });
 
@@ -1473,7 +1516,7 @@ describe("renderSpreadsheetToHtml", () => {
         const html = renderSpreadsheetToHtml(
             singleCellWorkbook({ v: "n/a", t: 1, s: { n: { pattern: "#,##0.00" } } })
         );
-        expect(html).toContain("<td>n/a</td>");
+        expect(unboxed(html)).toContain("<td>n/a</td>");
     });
 
     it("falls back to the raw value for an invalid pattern instead of throwing", () => {
@@ -1487,7 +1530,7 @@ describe("renderSpreadsheetToHtml", () => {
 
     it("renders an unformatted number when no pattern is set", () => {
         const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: 1234.5, t: 2 }));
-        expect(html).toContain(">1234.5</td>");
+        expect(unboxed(html)).toContain(">1234.5</td>");
     });
 
     it("marks the table with show-gridlines when the sheet has gridlines enabled", () => {
