@@ -48,7 +48,8 @@
     "scripting-error": "Ошибка запуска скрипта заметки",
     "unhandled-error": {
       "details-button": "Подробнее...",
-      "details-title": "Техническая информация"
+      "details-title": "Техническая информация",
+      "details-intro": "Приложение продолжает работать, и ваши заметки не пострадали. Если проблема повторяется, сообщите о ней на GitHub, вставив информацию, указанную ниже."
     }
   },
   "add_link": {
@@ -62,7 +63,7 @@
     "link_title_mirrors": "название ссылки отражает текущий заголовок заметки",
     "anchor": "Якорь (необязательно)",
     "anchor_none": "Нет (ссылка на заметку)",
-    "edit_link": "Редактировать",
+    "edit_link": "Редактировать ссылку",
     "button_edit_link": "Сохранить ссылку"
   },
   "branch_prefix": {
@@ -389,7 +390,8 @@
     "shrinkImagesTooltip": "Уменьшает размер импортируемых изображений, что может незначительно снизить их качество. Не применяется к импортируемым файлам <code>.zip</code>, содержащим метаданные Trilium, изображения в которых, как предполагается, уже сжаты.",
     "codeImportedAsCode": "Импортировать распознанные файлы кода (например, <code>.json</code>) в виде заметок типа \"код\", если это неясно из метаданных",
     "importZipRecommendation": "При импорте ZIP файла иерархия заметок будет отражена в структуре папок внутри архива.",
-    "spreadsheetImportedAsSpreadsheet": "Импортировать файлы CSV и Excel в виде редактируемых таблиц, а не как отдельные файлы"
+    "spreadsheetImportedAsSpreadsheet": "Импортировать файлы CSV и Excel в виде редактируемых таблиц, а не как отдельные файлы",
+    "throttled": "Сервис ограничивает количество запросов; импорт ожидает возобновления доступа…"
   },
   "markdown_import": {
     "dialog_title": "Импорт Markdown",
@@ -428,7 +430,8 @@
     "no_deleted_notes_erasure_hint": "Удаленные заметки хранятся {{- duration}}, после чего удаляются навсегда.",
     "confirm_undelete_to_default_location": "Родитель этой заметки больше не существует, поэтому её нельзя восстановить в исходное местоположение. Может быть, лучше восстановить её в местоположение по умолчанию для новых заметок?",
     "undeleted_to_default_location": "Первоначальное местоположение больше не существует, поэтому заметка была восстановлена под названием \"{{- title}}\".",
-    "undelete_failed": "Не удалось восстановить заметку — возможно, она была безвозвратно стёрта."
+    "undelete_failed": "Не удалось восстановить заметку — возможно, она была безвозвратно стёрта.",
+    "deleted_notes_settings": "Настройки удаленных заметок"
   },
   "sort_child_notes": {
     "sort_children_by": "Сортировать дочерние заметки по...",
@@ -1077,7 +1080,9 @@
     "switch_to_desktop_version": "Переключиться на версию для компьютера",
     "new-version-available": "Доступно обновление",
     "download-update": "Обновить до {{latestVersion}}",
-    "search_notes": "Поиск заметок"
+    "search_notes": "Поиск заметок",
+    "show_deleted_notes": "Показать удалённые заметки",
+    "show_space_usage": "Показать использование места"
   },
   "zpetne_odkazy": {
     "relation": "отношение",
@@ -1432,9 +1437,9 @@
     "existing_backups": "Существующие резервные копии",
     "automatic_backup": "Автоматическое резервное копирование",
     "automatic_backup_description": "Trilium может автоматически создавать резервную копию базы данных:",
-    "enable_daily_backup": "Включить ежедневное резервное копирование",
-    "enable_weekly_backup": "Включить еженедельное резервное копирование",
-    "enable_monthly_backup": "Включить ежемесячное резервное копирование",
+    "enable_daily_backup": "Ежедневное резервное копирование",
+    "enable_weekly_backup": "Еженедельное резервное копирование",
+    "enable_monthly_backup": "Ежемесячное резервное копирование",
     "date-and-time": "Дата и время",
     "no_backup_yet": "нет резервных копий",
     "database_backed_up_to": "Резервная копия базы данных создана в {{- backupFilePath}}",
@@ -1466,12 +1471,12 @@
     "no_tokens_yet": "Токенов пока нет. Нажмите кнопку выше, чтобы создать токен."
   },
   "multi_factor_authentication": {
-    "oauth_title": "OAuth/OpenID",
+    "oauth_title": "OpenID Connect",
     "oauth_user_account": "Имя учётной записи",
     "oauth_user_email": "Адрес электронной почты",
-    "oauth_description": "OpenID - это стандартизированный способ входа на веб-сайты с использованием учётной записи другого сервиса, например Google, для подтверждения личности. По умолчанию эмитентом является Google, но вы можете выбрать любого другого поставщика OpenID. Подробнее см. <a href=\"#root/_hidden/_help/_help_Otzi9La2YAUX/_help_WOcw2SLH6tbX/_help_7DAiwaf8Z7Rz\">здесь</a>. Чтобы настроить службу OpenID через Google, следуйте этим <a href=\"https://developers.google.com/identity/openid-connect/openid-connect\">инструкциям</a>.",
+    "oauth_description": "OpenID Connect - это стандартизированный способ входа с использованием учётной записи другого сервиса, например Google, для подтверждения личности. По умолчанию эмитентом является Google, но вы можете выбрать любого другого поставщика OpenID Connect. Подробнее см. <a href=\"#root/_hidden/_help/_help_Otzi9La2YAUX/_help_WOcw2SLH6tbX/_help_7DAiwaf8Z7Rz\">здесь</a>. Чтобы настроить службу OpenID Connect через Google, следуйте этим <a href=\"https://developers.google.com/identity/openid-connect/openid-connect\">инструкциям</a>.",
     "recovery_keys_regenerate": "Регенерация кодов восстановления",
-    "oauth_missing_vars": "Отсутствуют настройки: {{-variables}}",
+    "oauth_missing_vars": "Осталось настроить: {{-variables}}",
     "oauth_user_not_logged_in": "Не выполнен вход!",
     "recovery_keys_error": "Ошибка генерации кодов восстановления",
     "recovery_keys_no_key_set": "Коды восстановления не установлены",
@@ -1921,13 +1926,13 @@
     "note_erasure_timeout_title": "Срок окончательного удаления заметок",
     "erase_notes_after": "Стереть заметки через",
     "manual_erasing_description": "Запустить стирание вручную, игнорируя указанный выше тайм-аут.",
-    "erase_deleted_notes_now": "Окончательно удалить заметки, помеченные к удалению сейчас",
+    "erase_deleted_notes_now": "Стереть удалённые заметки",
     "deleted_notes_erased": "Заметки, помеченные к удалению были окончательно удалены.",
     "description": "Удалённые заметки сначала только помечаются как удалённые и могут быть восстановлены из последних изменений. По истечении заданного времени они стираются безвозвратно.",
     "erase_notes_after_description": "Время, по истечении которого удалённые заметки стираются безвозвратно."
   },
   "attachment_erasure_timeout": {
-    "erase_unused_attachments_now": "Удалить неиспользуемые вложения прямо сейчас",
+    "erase_unused_attachments_now": "Стереть неиспользуемые вложения",
     "attachment_erasure_timeout": "Тайм-аут удаления вложения",
     "erase_attachments_after": "Удалять неиспользуемые вложения через",
     "unused_attachments_erased": "Неиспользуемые вложения были удалены.",
@@ -2751,16 +2756,21 @@
     "import_count_many": "Импортировать {{count}} разделов",
     "attach_source": "Добавить оригинальный HTML (отладка)",
     "device_cancel": "Отменить вход",
-    "refresh": "Обновить"
+    "refresh": "Обновить",
+    "disconnect": "Отключить",
+    "load_failed": "Не удалось загрузить ваши записные книжки OneNote.",
+    "no_notebooks": "В этой учётной записи не найдено ни одной записной книжек."
   },
   "notion_import": {
-    "import": "Импорт"
+    "import": "Импорт",
+    "description": "Из экспорта HTML"
   },
   "keep_import": {
     "import": "Импорт"
   },
   "anytype_import": {
-    "import": "Импорт"
+    "import": "Импорт",
+    "description": "Из экспорта JSON"
   },
   "obsidian_import": {
     "import": "Импорт"
@@ -3048,5 +3058,8 @@
       "first_image": "Первое изображение",
       "last_image": "Последнее изображение"
     }
+  },
+  "shortcut_hints": {
+    "show_button": "Показать подсказки по сочетаниям клавиш"
   }
 }
