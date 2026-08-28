@@ -88,13 +88,17 @@
     table-layout: fixed;
 }
 
-.office-preview-body .spreadsheet-table td {
+/* The context is in :where() so this stays a default: the renderer emits a cell's own styling
+   as `.spreadsheet-table .sst-*` rules, which have to win over it. */
+:where(.office-preview-body .spreadsheet-table) td {
     padding: 2px 4px;
     white-space: nowrap;
     overflow: visible;
 }
 
-.office-preview-body .spreadsheet-table.show-gridlines td:not(.has-fill) {
+/* The context is in :where() so this stays a default: the renderer emits a cell's own styling
+   as `.spreadsheet-table .sst-*` rules, which have to win over it. */
+:where(.office-preview-body .spreadsheet-table.show-gridlines) td:not(.has-fill) {
     border: 1px solid var(--spreadsheet-gridline-color, var(--main-border-color));
 }
 

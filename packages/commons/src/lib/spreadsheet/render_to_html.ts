@@ -41,7 +41,8 @@ import {
 
 /**
  * Parses the raw JSON content of a spreadsheet note and renders it as HTML.
- * Returns an HTML string containing one `<table>` per visible sheet.
+ * Returns an HTML string containing one `<table>` per visible sheet, preceded by a `<style>`
+ * holding the cell styling (see {@link StyleClasses}) when the workbook has any.
  */
 export function renderSpreadsheetToHtml(jsonContent: string): string {
     const { ok, data } = parseWorkbookData(jsonContent);
@@ -60,17 +61,78 @@ export function renderSpreadsheetToHtml(jsonContent: string): string {
         return "<p>Empty spreadsheet.</p>";
     }
 
+    const classes = new StyleClasses();
     const parts: string[] = [];
     for (const sheet of visibleSheets) {
         if (visibleSheets.length > 1) {
             parts.push(`<h3>${escapeHtml(sheet.name)}</h3>`);
         }
         const images = placeFloatingImages(sheet, getFloatingDrawings(workbook, sheet.id));
-        const table = renderSheet(sheet, workbook.styles ?? {}, images);
+        const table = renderSheet(sheet, workbook.styles ?? {}, images, classes);
         parts.push(wrapWithFloatingImages(table, images));
     }
 
-    return parts.join("\n");
+    // The stylesheet is only complete once every sheet has been rendered, so it is built last
+    // and put in front, where a consumer that has to lift it out finds it without a parse.
+    const stylesheet = classes.toStylesheet();
+    return stylesheet ? `${stylesheet}\n${parts.join("\n")}` : parts.join("\n");
+}
+
+/**
+ * Collects the declarations a render emits and hands back a class for each distinct one, so a
+ * style shared by thousands of cells is written once in a `<style>` instead of on every cell.
+ * Workbooks have very few distinct cell styles (Excel itself stores them in a shared table), so
+ * this trades a per-cell `style` attribute for a short class name.
+ *
+ * Class names are derived from the declarations, not from a counter: the same style yields the
+ * same name in every document, so two spreadsheets rendered onto one page share a rule rather
+ * than colliding, and nothing has to be threaded through the renderer to keep names unique.
+ * Every rule is scoped under `.spreadsheet-table`, so a name that happened to match an
+ * application class still cannot reach anything outside a rendered sheet.
+ */
+class StyleClasses {
+    private readonly names = new Map<string, string>();
+
+    /** Returns the class for `declarations`, or "" when there is nothing to style. */
+    classFor(declarations: string): string {
+        if (!declarations) return "";
+
+        let name = this.names.get(declarations);
+        if (!name) {
+            name = `sst-${hashDeclarations(declarations)}`;
+            this.names.set(declarations, name);
+        }
+        return name;
+    }
+
+    /** Builds the `<style>` element for everything collected, or "" when nothing was. */
+    toStylesheet(): string {
+        if (this.names.size === 0) return "";
+
+        const rules: string[] = [];
+        for (const [declarations, name] of this.names) {
+            rules.push(`.spreadsheet-table .${name}{${declarations}}`);
+        }
+
+        // The declarations cannot contain `<` or `/`: colors are validated against a pattern and
+        // every other author-supplied value goes through `sanitizeCssValue`, which strips both.
+        // That is what keeps a cell's styling from closing this element or its rule.
+        return `<style>${rules.join("")}</style>`;
+    }
+}
+
+/**
+ * Hashes a declaration string (FNV-1a, base36) for use in a class name. A collision would show
+ * one style where another was meant, never a wrong document, and 32 bits is far more than the
+ * handful of distinct styles a workbook carries.
+ */
+function hashDeclarations(declarations: string): string {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < declarations.length; i++) {
+        hash ^= declarations.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(36);
 }
 
 // #region Images
@@ -240,7 +302,7 @@ function trackIndexAtPx(targetPx: number, defaultSize: number, count: number | u
 
 // #endregion
 
-function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | null>, images: PlacedImage[]): string {
+function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | null>, images: PlacedImage[], classes: StyleClasses): string {
     const { cellData, mergeData = [], columnData = {}, rowData = {} } = sheet;
 
     // Determine the actual bounds (only cells with data), then extend them to cover any floating
@@ -275,7 +337,7 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
 
     lines.push("<colgroup>");
     for (const width of colWidths) {
-        lines.push(`<col style="width:${px(width)}px">`);
+        lines.push(`<col class="${classes.classFor(`width:${px(width)}px`)}">`);
     }
     lines.push("</colgroup>");
 
@@ -289,7 +351,7 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
         // Univer leaves a cell at the bottom of its row unless it sets `vt`, while HTML centres it.
         // The row carries that default because a `td` inherits `vertical-align`, so a cell that
         // sets its own still wins.
-        lines.push(`<tr style="height:${height}px;vertical-align:bottom">`);
+        lines.push(`<tr class="${classes.classFor(`height:${height}px;vertical-align:bottom`)}">`);
 
         const neighbours: RowNeighbours = { row, minCol, maxCol, cellData, columnData, mergeMap };
 
@@ -310,8 +372,8 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
             const attrs: string[] = [];
             // Cells with a background fill carry `has-fill` so the stylesheet can suppress
             // gridlines under the fill, matching the editor (a fill covers the grid).
-            if (cellStyle?.bg?.rgb) attrs.push(`class="has-fill"`);
-            if (cssText) attrs.push(`style="${cssText}"`);
+            const names = [cellStyle?.bg?.rgb ? "has-fill" : "", classes.classFor(cssText)].filter(Boolean);
+            if (names.length) attrs.push(`class="${names.join(" ")}"`);
             if (mergeInfo) {
                 if (mergeInfo.rowSpan > 1) attrs.push(`rowspan="${mergeInfo.rowSpan}"`);
                 if (mergeInfo.colSpan > 1) attrs.push(`colspan="${mergeInfo.colSpan}"`);

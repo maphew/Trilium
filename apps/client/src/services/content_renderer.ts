@@ -364,7 +364,14 @@ async function renderOffice(entity: FNote | FAttachment, $renderedContent: JQuer
     $renderedContent.append($content);
 
     try {
-        $body.html(await renderOfficeToHtml(entityType, entityId));
+        const { css, html } = await renderOfficeToHtml(entityType, entityId);
+        $body.html(html);
+        if (css) {
+            // Built as an element with its text set, never parsed as markup, so a cell's styling
+            // cannot escape the rule it belongs to. It sits inside the preview body, so the
+            // browser drops it along with the rest when this note is closed.
+            $body.prepend($("<style>").text(css));
+        }
     } catch (e) {
         console.warn("Failed to render office document preview:", getErrorMessage(e));
         $scroll.remove();

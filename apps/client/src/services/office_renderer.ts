@@ -9,14 +9,44 @@ import server from "./server.js";
  * The route sends the fragment as the response body, so it is fetched as text rather than
  * through a JSON envelope.
  *
+ * A spreadsheet fragment starts with a `<style>` holding the cell styling, which the sanitizer
+ * would strip. It is split off first and returned separately so the caller can attach it as an
+ * element rather than as markup, keeping it clear of the sanitizer without reaching the DOM as
+ * text. Every rule it carries is scoped under `.spreadsheet-table` by the renderer.
+ *
  * Throws if the document is too large, unsupported, or conversion fails — callers should
  * catch and fall back to the usual download / open-externally affordance.
  */
-export async function renderOfficeToHtml(entityType: "notes" | "attachments", entityId: string): Promise<string> {
+export async function renderOfficeToHtml(entityType: "notes" | "attachments", entityId: string): Promise<OfficePreview> {
     // `raw` keeps the response a plain string; the route sends the fragment as the body.
-    const html = await server.get<string>(`${entityType}/${entityId}/office-preview`, undefined, true);
+    const body = await server.get<string>(`${entityType}/${entityId}/office-preview`, undefined, true);
+    const { css, html } = splitStylesheet(body);
 
-    return stripLinkColors(sanitizeNoteContentHtml(html));
+    return { css, html: stripLinkColors(sanitizeNoteContentHtml(html)) };
+}
+
+export interface OfficePreview {
+    /** The rules the fragment's classes refer to, or "" when it carries none. */
+    css: string;
+    /** The sanitized markup. */
+    html: string;
+}
+
+/**
+ * Splits a leading `<style>` off the fragment. The renderer always emits it first, so this reads
+ * a bounded prefix instead of parsing the document — which for a spreadsheet runs to megabytes.
+ */
+function splitStylesheet(body: string): OfficePreview {
+    if (!body.startsWith("<style>")) {
+        return { css: "", html: body };
+    }
+
+    const end = body.indexOf("</style>");
+    if (end < 0) {
+        return { css: "", html: body };
+    }
+
+    return { css: body.slice("<style>".length, end), html: body.slice(end + "</style>".length).trimStart() };
 }
 
 /**

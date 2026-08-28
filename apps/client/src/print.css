@@ -305,7 +305,9 @@ span[style] {
    than a box-shadow because print engines routinely drop shadows. At 0.5pt it is narrower
    than every real cell border (>= 1px from the workbook data), so under border-collapse
    the custom border always wins the conflict and is never clobbered. */
-.spreadsheet-table.show-gridlines td:not(.has-fill) {
+/* The context is in :where() so this stays a default: the renderer emits a cell's own styling
+   as `.spreadsheet-table .sst-*` rules, which have to win over it. */
+:where(.spreadsheet-table.show-gridlines) td:not(.has-fill) {
     border: 0.5pt solid var(--spreadsheet-gridline-color, #ccc);
 }
 

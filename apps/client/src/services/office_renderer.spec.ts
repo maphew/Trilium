@@ -15,7 +15,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("renderOfficeToHtml", () => {
     it("fetches the server-rendered note preview and returns sanitized output", async () => {
-        const html = await renderOfficeToHtml("notes", "n1");
+        const { html } = await renderOfficeToHtml("notes", "n1");
 
         expect(serverGet).toHaveBeenCalledWith("notes/n1/office-preview", undefined, true);
         expect(sanitizeNoteContentHtml).toHaveBeenCalledWith("<h1>Doc</h1>");
@@ -34,7 +34,7 @@ describe("renderOfficeToHtml", () => {
                 + '<span style="color: #000080">keep</span></p>'
         );
 
-        const html = await renderOfficeToHtml("notes", "n1");
+        const { html } = await renderOfficeToHtml("notes", "n1");
 
         // The default hyperlink character style's color is gone (both on runs inside the
         // link and on the <a> itself)...
@@ -52,7 +52,7 @@ describe("renderOfficeToHtml", () => {
             '<p><a href="https://triliumnotes.org/"><span style="color:#ea7500;">Trilium</span></a></p>'
         );
 
-        const html = await renderOfficeToHtml("notes", "n1");
+        const { html } = await renderOfficeToHtml("notes", "n1");
 
         expect(html).toContain("#ea7500");
     });
@@ -61,5 +61,26 @@ describe("renderOfficeToHtml", () => {
         serverGet.mockRejectedValueOnce(new Error("500: conversion failed"));
         await expect(renderOfficeToHtml("notes", "n1")).rejects.toThrow(/conversion failed/);
         expect(sanitizeNoteContentHtml).not.toHaveBeenCalled();
+    });
+
+    it("splits a leading stylesheet off the fragment, keeping it clear of the sanitizer", async () => {
+        serverGet.mockResolvedValueOnce(
+            '<style>.spreadsheet-table .sst-1{font-weight:bold}</style>\n<table><td class="sst-1">x</td></table>');
+
+        const { css, html } = await renderOfficeToHtml("notes", "n1");
+
+        expect(css).toBe(".spreadsheet-table .sst-1{font-weight:bold}");
+        expect(sanitizeNoteContentHtml).toHaveBeenCalledWith('<table><td class="sst-1">x</td></table>');
+        expect(html).not.toContain("<style>");
+    });
+
+    it("returns no stylesheet for a fragment that carries none, or an unterminated one", async () => {
+        serverGet.mockResolvedValueOnce("<p>plain</p>");
+        expect((await renderOfficeToHtml("notes", "n1")).css).toBe("");
+
+        serverGet.mockResolvedValueOnce("<style>.a{b:c}");
+        const truncated = await renderOfficeToHtml("notes", "n1");
+        expect(truncated.css).toBe("");
+        expect(sanitizeNoteContentHtml).toHaveBeenCalledWith("<style>.a{b:c}");
     });
 });

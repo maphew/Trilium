@@ -142,7 +142,9 @@ body.type-webView {
    A real data border at the same 1px width ties the gridline under collapse and wins by
    source order, so heavier (>=2px) and filled-cell borders always show; an unfilled cell's
    own 1px border may cede its top/left edge to a neighbour's gridline — fine for a faint grid. */
-.spreadsheet-table.show-gridlines td:not(.has-fill) {
+/* The context is in :where() so this stays a default: the renderer emits a cell's own styling
+   as `.spreadsheet-table .sst-*` rules, which have to win over it. */
+:where(.spreadsheet-table.show-gridlines) td:not(.has-fill) {
     border: 1px solid var(--spreadsheet-gridline-color, var(--background-highlight));
 }
 

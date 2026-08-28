@@ -1,5 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { renderSpreadsheetToHtml } from "./render_to_html.js";
+import { renderSpreadsheetToHtml as renderRaw } from "./render_to_html.js";
+
+/**
+ * Renders, then expands the emitted `<style>` back into `style` attributes, so a test asserts on
+ * the declarations a cell resolves to rather than on generated class names. What the renderer
+ * actually emits is covered by the "style deduplication" block, which uses `renderRaw`.
+ */
+function renderSpreadsheetToHtml(jsonContent: string): string {
+    return withInlineStyles(renderRaw(jsonContent));
+}
+
+function withInlineStyles(html: string): string {
+    const stylesheet = /^<style>([\s\S]*?)<\/style>\n/.exec(html);
+    if (!stylesheet) return html;
+
+    const declarations = new Map<string, string>();
+    for (const rule of stylesheet[1].matchAll(/\.spreadsheet-table \.([\w-]+)\{([^}]*)\}/g)) {
+        declarations.set(rule[1], rule[2]);
+    }
+
+    return html.slice(stylesheet[0].length).replace(/ class="([^"]*)"/g, (_whole, names: string) => {
+        const kept: string[] = [];
+        const css: string[] = [];
+        for (const name of names.split(" ")) {
+            const declaration = declarations.get(name);
+            if (declaration) css.push(declaration);
+            else kept.push(name);
+        }
+        return (kept.length ? ` class="${kept.join(" ")}"` : "") + (css.length ? ` style="${css.join(";")}"` : "");
+    });
+}
 import { BorderStyle, HorizontalAlign, WrapStrategy } from "./workbook_model.js";
 
 describe("renderSpreadsheetToHtml", () => {
@@ -376,9 +406,11 @@ describe("renderSpreadsheetToHtml", () => {
             }
         });
 
-        const html = renderSpreadsheetToHtml(input);
+        const html = renderRaw(input);
         expect(html).not.toContain("<script>");
-        expect(html).not.toContain("</style>");
+        // The value cannot close the stylesheet it is written into: exactly the one this
+        // renderer emits, and nothing after it that a font name smuggled in.
+        expect(html.match(/<\/style>/g)).toHaveLength(1);
         expect(html).toContain("font-family:Arial");
     });
 
@@ -2174,5 +2206,65 @@ describe("renderSpreadsheetToHtml", () => {
         expect((html.match(/<td/g) ?? []).length).toBe(1);
         expect(html).toContain("Title");
         expect(html).not.toContain("Empty sheet");
+    });
+});
+
+describe("style deduplication", () => {
+    const gridWorkbook = (cellData: Record<string, unknown>) => JSON.stringify({
+        version: 1,
+        workbook: {
+            sheetOrder: ["s1"],
+            styles: {},
+            sheets: {
+                s1: {
+                    id: "s1", name: "Sheet1", hidden: 0, rowCount: 1000, columnCount: 20,
+                    mergeData: [], cellData, rowData: {}, columnData: {}
+                }
+            }
+        }
+    });
+
+    it("writes a style shared by many cells once, and puts the stylesheet in front", () => {
+        // One per row, so no cell has an occupied neighbour and none of them clips: the three
+        // resolve to the same declarations.
+        const bold = { v: "x", t: 1, s: { bl: 1 } };
+        const html = renderRaw(gridWorkbook({ "0": { "0": bold }, "1": { "0": bold }, "2": { "0": bold } }));
+
+        expect(html.startsWith("<style>")).toBe(true);
+        // One rule for the three bold cells, not three copies of the declaration.
+        expect(html.match(/font-weight:bold/g)).toHaveLength(1);
+
+        const name = /\.spreadsheet-table \.(sst-[\w-]+)\{font-weight:bold\}/.exec(html)?.[1];
+        expect(name).toBeTruthy();
+        expect(html.match(new RegExp(`class="${name}"`, "g"))).toHaveLength(3);
+    });
+
+    it("scopes every rule under the table so a class cannot reach the rest of the page", () => {
+        const html = renderRaw(gridWorkbook({ "0": { "0": { v: "x", t: 1, s: { bl: 1 } } } }));
+        const stylesheet = /^<style>([\s\S]*?)<\/style>/.exec(html)?.[1] ?? "";
+
+        expect(stylesheet).toBeTruthy();
+        for (const rule of stylesheet.split("}").filter(Boolean)) {
+            expect(rule).toMatch(/^\.spreadsheet-table \.sst-/);
+        }
+    });
+
+    it("names a class after its declarations, so two documents share rather than collide", () => {
+        const one = renderRaw(gridWorkbook({ "0": { "0": { v: "a", t: 1, s: { bl: 1 } } } }));
+        const other = renderRaw(gridWorkbook({ "0": { "0": { v: "b", t: 1, s: { bl: 1 } } } }));
+
+        const nameIn = (html: string) => /\.spreadsheet-table \.(sst-[\w-]+)\{font-weight:bold\}/.exec(html)?.[1];
+        expect(nameIn(one)).toBe(nameIn(other));
+        // A different declaration gets a different name.
+        const italic = renderRaw(gridWorkbook({ "0": { "0": { v: "a", t: 1, s: { it: 1 } } } }));
+        expect(nameIn(one)).not.toBe(/\.spreadsheet-table \.(sst-[\w-]+)\{font-style/.exec(italic)?.[1]);
+    });
+
+    it("keeps has-fill alongside the generated class, and emits no stylesheet for an empty sheet", () => {
+        const html = renderRaw(gridWorkbook({ "0": { "0": { v: "x", t: 1, s: { bg: { rgb: "#FFE699" } } } } }));
+        expect(html).toMatch(/<td class="has-fill sst-[\w-]+"/);
+
+        expect(renderRaw(JSON.stringify({ version: 1, workbook: { sheetOrder: [], styles: {}, sheets: {} } })))
+            .not.toContain("<style>");
     });
 });
