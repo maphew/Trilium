@@ -1968,6 +1968,36 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain(`<col span="2" style="width:88px">`);
     });
 
+    it("lets a merged banner widen the grid unless it was applied to entire rows", () => {
+        const banner = (endColumn: number, columnCount: number) => renderSpreadsheetToHtml(JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1",
+                        name: "Sheet1",
+                        hidden: 0,
+                        mergeData: [{ startRow: 0, endRow: 0, startColumn: 0, endColumn }],
+                        cellData: { "0": { "0": { v: "Banner", t: 1 } }, "1": { "0": { v: "a", t: 1 }, "3": { v: "d", t: 1 } } },
+                        rowData: {},
+                        columnData: {},
+                        rowCount: 1000,
+                        columnCount
+                    }
+                }
+            }
+        }));
+
+        // Merged by hand: the sheet declares only the columns it uses, so the banner keeps its span.
+        expect(banner(25, 26)).toContain(`colspan="26"`);
+
+        // Applied to entire rows: the sheet declares every column Excel has, and the banner is
+        // clamped into the content rather than carrying the grid out to meet it.
+        expect(banner(16383, 16384)).toContain(`colspan="4"`);
+    });
+
     it("counts a border as structure the grid has to reach, but not a fill", () => {
         const beyond = (style: unknown) => renderSpreadsheetToHtml(JSON.stringify({
             version: 1,

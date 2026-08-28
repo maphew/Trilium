@@ -757,19 +757,26 @@ function cellPadding(style: IStyleData | null): Required<IPaddingData> {
 }
 
 /**
- * The merges that say something about how far a sheet reaches. One spanning the whole width or
- * height of the grid was applied to entire rows or columns, which is a formatting gesture rather
- * than a statement that the sheet runs to the last column Excel has, so it is left out and clamped
- * into the content instead.
+ * The merges that say something about how far a sheet reaches. One applied to entire rows or columns
+ * is a formatting gesture rather than a statement that the sheet runs that far, so it is left out
+ * and clamped into the content instead.
+ *
+ * Across, that gesture is recognised by the sheet declaring every column Excel has: a banner merged
+ * by hand stops well short of that, and keeps widening the grid as any other merge does. Down, the
+ * same test is not available, because a sheet's row count is capped at the rows it uses rather than
+ * carried over from the file, so a merge reaching the last declared row is taken as the gesture.
  */
 function boundingMerges(mergeData: IRange[], sheet: IWorksheetData): IRange[] {
-    const lastColumn = (sheet.columnCount ?? 0) - 1;
+    const columnCount = sheet.columnCount ?? 0;
     const lastRow = (sheet.rowCount ?? 0) - 1;
 
     return mergeData.filter((range) =>
-        !(lastColumn > 0 && range.startColumn === 0 && range.endColumn >= lastColumn)
+        !(columnCount >= EXCEL_COLUMN_COUNT && range.startColumn === 0 && range.endColumn >= columnCount - 1)
         && !(lastRow > 0 && range.startRow === 0 && range.endRow >= lastRow));
 }
+
+/** The columns an Excel sheet has, which only a sheet formatted across all of them declares. */
+const EXCEL_COLUMN_COUNT = 16384;
 
 /**
  * Whether a cell holds something the grid has to reach, which is what it is bounded by. A formula
