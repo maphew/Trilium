@@ -2245,8 +2245,20 @@ describe("style deduplication", () => {
 
         expect(stylesheet).toBeTruthy();
         for (const rule of stylesheet.split("}").filter(Boolean)) {
-            expect(rule).toMatch(/^\.spreadsheet-table \.sst-/);
+            // Cell rules, and the gridline rule whose context sits in :where(); neither can
+            // match anything outside a rendered sheet.
+            expect(rule).toMatch(/^(\.spreadsheet-table \.sst-|:where\(\.spreadsheet-table)/);
         }
+    });
+
+    it("emits the gridline rule only for a workbook that asks for gridlines", () => {
+        const cells = { "0": { "0": { v: "x", t: 1 } } };
+        const withGridlines = renderRaw(gridWorkbook(cells));
+        expect(withGridlines).toContain(":where(.spreadsheet-table.show-gridlines) td:not(.has-fill)");
+
+        const off = JSON.parse(gridWorkbook(cells));
+        off.workbook.sheets.s1.showGridlines = 0;
+        expect(renderRaw(JSON.stringify(off))).not.toContain("show-gridlines");
     });
 
     it("names a class after its declarations, so two documents share rather than collide", () => {

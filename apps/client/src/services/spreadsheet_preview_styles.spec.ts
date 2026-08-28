@@ -55,4 +55,24 @@ describe("spreadsheet preview styling", () => {
         expect(plainCss.borderTopStyle).toBe("solid");
         expect(plainCss.paddingLeft).toBe("4px");
     });
+
+    it("draws gridlines from the host's color, which a sheet's own gridline color overrides", () => {
+        // The stylesheet resolves the host color to var(--main-border-color); happy-dom cannot
+        // resolve a custom property whose value is itself a var(), so the token is substituted
+        // here. The rule under test — the renderer's own — is used exactly as it ships.
+        document.head.innerHTML = `<style>${spreadsheetRulesFrom("content_renderer.css")}
+            .office-preview-body .spreadsheet-table { --spreadsheet-gridline-color: #aabbcc; }</style>`;
+
+        const gridlineColor = (gridlinesColor?: string) => {
+            const workbook = JSON.parse(WORKBOOK);
+            if (gridlinesColor) workbook.workbook.sheets.s1.gridlinesColor = gridlinesColor;
+            document.body.innerHTML =
+                `<div class="ck-content office-preview-body">${renderSpreadsheetToHtml(JSON.stringify(workbook))}</div>`;
+            // The second cell styles nothing of its own, so what it shows is the gridline.
+            return getComputedStyle(document.querySelectorAll("td")[1]).borderTopColor;
+        };
+
+        expect(gridlineColor()).toBe("#aabbcc");
+        expect(gridlineColor("#00FF00")).toBe("#00FF00");
+    });
 });

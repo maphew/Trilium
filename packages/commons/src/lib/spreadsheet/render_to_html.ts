@@ -74,9 +74,33 @@ export function renderSpreadsheetToHtml(jsonContent: string): string {
 
     // The stylesheet is only complete once every sheet has been rendered, so it is built last
     // and put in front, where a consumer that has to lift it out finds it without a parse.
-    const stylesheet = classes.toStylesheet();
+    const stylesheet = buildStylesheet(visibleSheets, classes);
     return stylesheet ? `${stylesheet}\n${parts.join("\n")}` : parts.join("\n");
 }
+
+/**
+ * Builds the `<style>` a render is preceded by: the gridline rule when any sheet asks for
+ * gridlines, then one rule per distinct cell style. Returns "" when there is nothing to write.
+ */
+function buildStylesheet(sheets: IWorksheetData[], classes: StyleClasses): string {
+    const gridlines = sheets.some((sheet) => sheet.showGridlines !== 0) ? GRIDLINE_RULE : "";
+    const rules = gridlines + classes.toRules();
+
+    return rules ? `<style>${rules}</style>` : "";
+}
+
+/**
+ * Gridlines for the sheets that enable them. Drawn as a real border rather than a box-shadow so
+ * they sit in the same border-collapse model as the cells' own borders and line up with them, and
+ * skipped on filled cells because a fill covers the grid, as it does in the editor. The selector's
+ * context is in `:where()` so a cell's own border, emitted as a `.sst-*` rule, outranks it.
+ *
+ * Hosts set `--spreadsheet-gridline-color`, and `--spreadsheet-gridline-width` where a hairline is
+ * wanted (print). A sheet carrying its own gridline color sets the first on the table element,
+ * which shadows the host's for that sheet.
+ */
+const GRIDLINE_RULE = ":where(.spreadsheet-table.show-gridlines) td:not(.has-fill)"
+    + "{border:var(--spreadsheet-gridline-width,1px) solid var(--spreadsheet-gridline-color,#ccc)}";
 
 /**
  * Collects the declarations a render emits and hands back a class for each distinct one, so a
@@ -105,19 +129,19 @@ class StyleClasses {
         return name;
     }
 
-    /** Builds the `<style>` element for everything collected, or "" when nothing was. */
-    toStylesheet(): string {
-        if (this.names.size === 0) return "";
-
+    /**
+     * Builds a rule per distinct style collected, or "" when none was.
+     *
+     * The declarations cannot contain `<` or `/`: colors are validated against a pattern and every
+     * other author-supplied value goes through `sanitizeCssValue`, which strips both. That is what
+     * keeps a cell's styling from closing its rule, or the element these rules are written into.
+     */
+    toRules(): string {
         const rules: string[] = [];
         for (const [declarations, name] of this.names) {
             rules.push(`.spreadsheet-table .${name}{${declarations}}`);
         }
-
-        // The declarations cannot contain `<` or `/`: colors are validated against a pattern and
-        // every other author-supplied value goes through `sanitizeCssValue`, which strips both.
-        // That is what keeps a cell's styling from closing this element or its rule.
-        return `<style>${rules.join("")}</style>`;
+        return rules.join("");
     }
 }
 
