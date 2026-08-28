@@ -325,8 +325,11 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
     lines.push(buildTableTag(sheet, totalWidth));
 
     lines.push("<colgroup>");
-    for (const width of colWidths) {
-        lines.push(`<col style="width:${px(width)}px">`);
+    for (let index = 0; index < colWidths.length;) {
+        let span = 1;
+        while (index + span < colWidths.length && colWidths[index + span] === colWidths[index]) span++;
+        lines.push(`<col${span > 1 ? ` span="${span}"` : ""} style="width:${px(colWidths[index])}px">`);
+        index += span;
     }
     lines.push("</colgroup>");
 

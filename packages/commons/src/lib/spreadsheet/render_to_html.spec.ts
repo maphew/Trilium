@@ -1980,9 +1980,9 @@ describe("renderSpreadsheetToHtml", () => {
                 urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 0, top: 0, width: 200, height: 10 })
             ])
         );
-        // Default 88px columns: the image right edge at 200px reaches column 2, so 3 columns emit.
-        const colCount = (html.match(/<col /g) ?? []).length;
-        expect(colCount).toBe(3);
+        // Default 88px columns: the image right edge at 200px reaches column 2, so 3 columns emit,
+        // as one `col` spanning them since they share a width.
+        expect(html).toContain(`<col span="3" style="width:88px">`);
     });
 
     it("does not shrink the grid when a floating image fits within the data bounds", () => {
@@ -2214,8 +2214,8 @@ describe("renderSpreadsheetToHtml", () => {
     it("renders leading empty columns so the grid starts at the sheet origin", () => {
         // Data only at column 2 -> columns 0 and 1 must still be emitted.
         const html = renderSpreadsheetToHtml(cellAtWorkbook(0, 2));
-        const colCount = (html.match(/<col /g) ?? []).length;
-        expect(colCount).toBe(3);
+        // Three columns of the same width, so one `col` spans them.
+        expect(html).toContain(`<col span="3" style="width:88px">`);
     });
 
     it("extends bounds to cover a merge range that exceeds the cell data", () => {
