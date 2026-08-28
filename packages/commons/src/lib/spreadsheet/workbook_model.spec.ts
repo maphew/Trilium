@@ -140,6 +140,21 @@ describe("getCellDocumentSegments", () => {
         ]);
     });
 
+    it("ignores a range whose offsets describe no span", () => {
+        const segmentsFor = (startIndex: number, endIndex: number) => getCellDocumentSegments({
+            p: {
+                body: {
+                    dataStream: "Pen\r\n",
+                    customRanges: [{ startIndex, endIndex, properties: { url: "https://example.com" } }]
+                }
+            }
+        });
+
+        // Reversed offsets, then a range starting past the end of the stream.
+        expect(segmentsFor(2, 0)).toEqual([{ text: "Pen" }]);
+        expect(segmentsFor(9, 12)).toEqual([{ text: "Pen" }]);
+    });
+
     it("keeps the trailing terminator out of a run that ends the document", () => {
         expect(getCellDocumentSegments({
             p: {
