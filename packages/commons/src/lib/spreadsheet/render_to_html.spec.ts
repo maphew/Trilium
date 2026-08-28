@@ -2028,6 +2028,36 @@ describe("renderSpreadsheetToHtml", () => {
         expect(tall(1048575, 1000)).toContain(`rowspan="2"`);
     });
 
+    it("gives up half an edge to a bordered neighbour when sizing a cell's box", () => {
+        // Under border-collapse the wider of two facing borders wins the shared edge, so a cell with
+        // none of its own still loses half of its neighbour's. A cell that fills its row exactly,
+        // which a turned one does, is a border's half too tall without this.
+        const html = renderSpreadsheetToHtml(JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1",
+                        name: "Sheet1",
+                        hidden: 0,
+                        mergeData: [],
+                        rowData: { "0": { h: 40 }, "1": { h: 24 } },
+                        columnData: {},
+                        cellData: {
+                            "0": { "0": { v: "turned", t: 1, s: { tr: { a: 90 } } } },
+                            "1": { "0": { v: "bordered", t: 1, s: { bd: { t: { s: BorderStyle.MEDIUM } } } } }
+                        }
+                    }
+                }
+            }
+        }));
+
+        // 40 less the 2px of padding, less half of the neighbour's 2px border.
+        expect(html).toContain("height:37px");
+    });
+
     it("counts a border as structure the grid has to reach, but not a fill", () => {
         const beyond = (style: unknown) => renderSpreadsheetToHtml(JSON.stringify({
             version: 1,

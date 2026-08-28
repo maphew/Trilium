@@ -368,7 +368,8 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
             const bound = spillBound(cell, cellStyle, col, mergeInfo, neighbours);
             const padding = cellPadding(cellStyle);
             const boxHeight = spannedHeight(heights, row, mergeInfo?.endRow ?? row)
-                - padding.t - padding.b - collapsedBorderHeight(cellStyle);
+                - padding.t - padding.b
+                - collapsedBorderHeight(cellStyle, row, mergeInfo?.endRow ?? row, col, rowData, cellData, styles);
             const declarations = [buildCssText(cellStyle, cell)];
             if (hasContent(cell)) {
                 declarations.push(`padding:${px(padding.t)}px ${px(padding.r)}px ${px(padding.b)}px ${px(padding.l)}px`);
@@ -734,14 +735,35 @@ function spannedHeight(heights: number[], from: number, to: number): number {
 }
 
 /**
- * The height a cell's own borders take from its row. Under `border-collapse` a border is shared
- * with the cell across it, so each side keeps half, and the sheet's row heights count the gridline
- * as drawn inside the row rather than added to it.
+ * The height a cell's borders take from its row. Under `border-collapse` an edge is shared with the
+ * cell across it and the wider of the two borders wins, so a cell with none of its own still gives
+ * up half an edge to a bordered neighbour. Reading only the cell's own borders leaves a cell that
+ * fills its row exactly, which a turned one does, a border's half taller than the row it sits in.
  */
-function collapsedBorderHeight(style: IStyleData | null): number {
-    const half = (border: IBorderStyleData | null | undefined) =>
-        (!border || border.s === BorderStyle.NONE ? 0 : Number.parseFloat(borderStyleToWidth(border.s)) / 2);
-    return half(style?.bd?.t) + half(style?.bd?.b);
+function collapsedBorderHeight(
+    style: IStyleData | null,
+    row: number,
+    endRow: number,
+    col: number,
+    rowData: Record<number, IRowData>,
+    cellData: CellMatrix,
+    styles: Record<string, IStyleData | null>
+): number {
+    const width = (border: IBorderStyleData | null | undefined) =>
+        (!border || border.s === BorderStyle.NONE ? 0 : Number.parseFloat(borderStyleToWidth(border.s)));
+
+    const above = resolveCellStyle(cellData[renderedRow(row, -1, rowData)]?.[col]?.s, styles);
+    const below = resolveCellStyle(cellData[renderedRow(endRow, 1, rowData)]?.[col]?.s, styles);
+
+    return (Math.max(width(style?.bd?.t), width(above?.bd?.b))
+        + Math.max(width(style?.bd?.b), width(below?.bd?.t))) / 2;
+}
+
+/** The row an edge is shared with: the nearest one that is drawn, since a hidden row draws nothing. */
+function renderedRow(from: number, step: -1 | 1, rowData: Record<number, IRowData>): number {
+    let row = from + step;
+    while (row >= 0 && rowData[row]?.hd) row += step;
+    return row;
 }
 
 /** The padding a cell is laid out with, which the box has to leave room for inside the row. */
