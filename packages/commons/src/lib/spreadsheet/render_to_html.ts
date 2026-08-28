@@ -291,7 +291,7 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
         // sets its own still wins.
         lines.push(`<tr style="height:${height}px;vertical-align:bottom">`);
 
-        const neighbours: RowNeighbours = { row, minCol, maxCol, cellData, columnData, mergeMap };
+        const neighbours: RowNeighbours = { row, minCol, maxCol, cellData, columnData, mergeMap, defaultWidth };
 
         for (let col = minCol; col <= maxCol; col++) {
             if (columnData[col]?.hd) continue;
@@ -301,10 +301,11 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
 
             const cell = cellData[row]?.[col];
             const cellStyle = mergeAwareStyle(resolveCellStyle(cell?.s, styles), mergeInfo, row, col, cellData, styles);
+            const bound = spillBound(cell, cellStyle, col, mergeInfo, neighbours);
             const declarations = [buildCssText(cellStyle, cell)];
-            if (clipsOverflow(cell, cellStyle, col, mergeInfo, neighbours)) declarations.push("overflow:hidden");
+            if (bound && !bound.before && !bound.after) declarations.push("overflow:hidden");
             const cssText = declarations.filter(Boolean).join(";");
-            const value = rotate(formatCellValue(cell, cellStyle), cellStyle?.tr)
+            const value = spill(rotate(formatCellValue(cell, cellStyle), cellStyle?.tr), bound)
                 + (cell ? renderCellImages(cell) : "");
 
             const attrs: string[] = [];
@@ -496,52 +497,86 @@ interface RowNeighbours {
     cellData: CellMatrix;
     columnData: Record<number, IColumnData>;
     mergeMap: Map<string, MergeInfo>;
+    defaultWidth: number;
+}
+
+/** How far a cell's text may run past its own edges, in px on each side. */
+interface SpillBound {
+    before: number;
+    after: number;
 }
 
 /**
- * Whether a cell has to clip its text at its own edge. A spreadsheet spills text into a
- * neighbouring cell only while that neighbour is empty, and never spills a number or a boolean
- * (the overflow check in `@univerjs/engine-render`). The stylesheets let every cell spill, so
- * without this a long value is drawn over the value beside it. The spill direction follows the
- * alignment, and a wrapped cell never spills to begin with.
+ * The room a cell's text has before it reaches a cell that shows something. A spreadsheet runs text
+ * across the empty cells beside it and cuts it at the first occupied one, and keeps a number, a
+ * boolean or a cell set to CLIP inside its own edges (the overflow check in
+ * `@univerjs/engine-render`, and `WrapStrategy` in `@univerjs/core`). Returns `null` when nothing
+ * stops the text, which is what the stylesheets already do by letting a cell spill.
  */
-function clipsOverflow(
+function spillBound(
     cell: ICellData | undefined,
     style: IStyleData | null,
     col: number,
     merge: MergeOrigin | undefined,
     neighbours: RowNeighbours
-): boolean {
-    if (!hasContent(cell) || style?.tb === WrapStrategy.WRAP) return false;
-    if (cell?.t === CellValueType.NUMBER || cell?.t === CellValueType.BOOLEAN) return true;
-
-    // Rightwards, a merged cell starts looking past the last column its own range covers.
-    const before = () => neighbourHasContent(col, -1, neighbours);
-    const after = () => neighbourHasContent(merge?.endColumn ?? col, 1, neighbours);
-    switch (style?.ht) {
-        case HorizontalAlign.RIGHT: return before();
-        case HorizontalAlign.CENTER: return before() || after();
-        default: return after();
+): SpillBound | null {
+    if (!hasContent(cell) || style?.tb === WrapStrategy.WRAP) return null;
+    if (cell?.t === CellValueType.NUMBER || cell?.t === CellValueType.BOOLEAN || style?.tb === WrapStrategy.CLIP) {
+        return { before: 0, after: 0 };
     }
+
+    // Text runs the way its alignment points; rightwards a merged cell starts past its own range.
+    const align = style?.ht;
+    const before = align === HorizontalAlign.RIGHT || align === HorizontalAlign.CENTER
+        ? spillRoom(col, -1, neighbours)
+        : null;
+    const after = align === HorizontalAlign.RIGHT
+        ? null
+        : spillRoom(merge?.endColumn ?? col, 1, neighbours);
+
+    if (!before?.stopped && !after?.stopped) return null;
+    return { before: before?.width ?? 0, after: after?.width ?? 0 };
 }
 
 /**
- * Whether the cell rendered beside `from` shows anything. Adjacency follows the rendered row, not
- * the cell matrix: hidden columns are stepped over because nothing of them reaches the page, and a
- * column a merge covers reports that range's anchor, whose text is what fills the space there.
+ * The rendered width beside `from`, and whether a cell showing something is what ended it. The walk
+ * follows the rendered row: a hidden column takes up no width because nothing of it reaches the
+ * page, and a column a merge covers shows that range's anchor.
  */
-function neighbourHasContent(from: number, step: -1 | 1, neighbours: RowNeighbours): boolean {
-    const { row, minCol, maxCol, cellData, columnData, mergeMap } = neighbours;
+function spillRoom(from: number, step: -1 | 1, neighbours: RowNeighbours): { width: number; stopped: boolean } {
+    const { minCol, maxCol, columnData, defaultWidth } = neighbours;
 
+    let width = 0;
     for (let col = from + step; col >= minCol && col <= maxCol; col += step) {
         if (columnData[col]?.hd) continue;
+        if (hasContent(cellShownAt(col, neighbours))) return { width, stopped: true };
 
-        const info = mergeMap.get(cellKey(row, col));
-        return hasContent(info?.kind === "member"
-            ? cellData[info.anchorRow]?.[info.anchorColumn]
-            : cellData[row]?.[col]);
+        const columnWidth = columnData[col]?.w;
+        width += isFiniteNumber(columnWidth) ? columnWidth : defaultWidth;
     }
-    return false;
+    return { width, stopped: false };
+}
+
+/** The cell filling `col` in this row: a column a merge covers shows the range's anchor. */
+function cellShownAt(col: number, neighbours: RowNeighbours): ICellData | undefined {
+    const { row, cellData, mergeMap } = neighbours;
+
+    const info = mergeMap.get(cellKey(row, col));
+    return info?.kind === "member" ? cellData[info.anchorRow]?.[info.anchorColumn] : cellData[row]?.[col];
+}
+
+/**
+ * Widens a cell's text box by the room it has on either side and clips it there, so the text runs
+ * across the empty cells beside it and stops at the one holding a value. The negative margins
+ * cancel the extra width, leaving the table's own geometry untouched.
+ */
+function spill(html: string, bound: SpillBound | null): string {
+    if (!html || !bound || (!bound.before && !bound.after)) return html;
+
+    const parts = ["display:inline-block", `width:calc(100% + ${px(bound.before + bound.after)}px)`, "overflow:hidden"];
+    if (bound.before) parts.push(`margin-left:${px(-bound.before)}px`);
+    if (bound.after) parts.push(`margin-right:${px(-bound.after)}px`);
+    return `<span style="${parts.join(";")}">${html}</span>`;
 }
 
 /** Whether a cell shows anything. A cell carrying only a style is empty, as it is in the editor. */

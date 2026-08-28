@@ -581,52 +581,76 @@ describe("renderSpreadsheetToHtml", () => {
             return grid({ "0": cells }, extra);
         }
 
-        /** Whether the workbook's cell at `column` clips its text. The render always starts at A1. */
-        function clips(json: string, column: number): boolean {
-            const cells = renderSpreadsheetToHtml(json).match(/<td[^>]*>/g) ?? [];
-            return (cells[column] ?? "").includes("overflow:hidden");
+        /**
+         * The px of room the workbook's cell at `column` is given on each side, `[0, 0]` when it is
+         * held to its own edges, and `null` when nothing bounds it. The render always starts at A1.
+         */
+        function room(json: string, column: number): [number, number] | null {
+            const cells = renderSpreadsheetToHtml(json).match(/<td[^>]*>(?:<span style="[^"]*">)?/g) ?? [];
+            const cell = cells[column] ?? "";
+            if (!cell.includes("width:calc")) return cell.includes("overflow:hidden") ? [0, 0] : null;
+
+            const before = /margin-left:-([\d.]+)px/.exec(cell)?.[1] ?? "0";
+            const after = /margin-right:-([\d.]+)px/.exec(cell)?.[1] ?? "0";
+            return [Number(before), Number(after)];
         }
 
-        it("clips text only when the neighbour it would spill over holds a value", () => {
-            const occupied = row({ 0: { v: "a long label", t: 1 }, 1: { v: "next", t: 1 } });
-            expect(clips(occupied, 0)).toBe(true);
+        it("holds text to its own edge when the neighbour beside it holds a value", () => {
+            expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { v: "next", t: 1 } }), 0)).toEqual([0, 0]);
 
-            // An empty neighbour, or one carrying only a style, is spilled over as in the editor.
-            expect(clips(row({ 0: { v: "a long label", t: 1 } }), 0)).toBe(false);
-            expect(clips(row({ 0: { v: "a long label", t: 1 }, 1: { s: { bl: 1 } } }), 0)).toBe(false);
-            expect(clips(row({ 0: { v: "a long label", t: 1 }, 1: { v: "", t: 1 } }), 0)).toBe(false);
+            // Nothing in the way, so the stylesheets are left to spill the cell as the editor does.
+            expect(room(row({ 0: { v: "a long label", t: 1 } }), 0)).toBeNull();
+            expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { s: { bl: 1 } } }), 0)).toBeNull();
+            expect(room(row({ 0: { v: "a long label", t: 1 }, 1: { v: "", t: 1 } }), 0)).toBeNull();
+        });
+
+        it("gives the text the width of the empty cells it may run across", () => {
+            const long = { v: "a long label", t: 1 };
+            const widths = { 1: { w: 30 }, 2: { w: 50 } };
+
+            // Two empty columns, then a value: the text runs over both and is cut before the value.
+            expect(room(row({ 0: long, 3: { v: "next", t: 1 } }, { columnData: widths }), 0)).toEqual([0, 80]);
+
+            // A hidden column between them contributes nothing, since none of it reaches the page.
+            expect(room(
+                row({ 0: long, 3: { v: "next", t: 1 } }, { columnData: { ...widths, 2: { w: 50, hd: 1 } } }),
+                0
+            )).toEqual([0, 30]);
         });
 
         it("follows the alignment to decide which side the text spills towards", () => {
             const rightAligned = { t: 1, s: { ht: HorizontalAlign.RIGHT } };
-            expect(clips(row({ 0: { v: "before", t: 1 }, 1: { v: "x", ...rightAligned } }), 1)).toBe(true);
-            expect(clips(row({ 1: { v: "x", ...rightAligned }, 2: { v: "after", t: 1 } }), 1)).toBe(false);
+            expect(room(row({ 0: { v: "before", t: 1 }, 1: { v: "x", ...rightAligned } }), 1)).toEqual([0, 0]);
+            expect(room(row({ 1: { v: "x", ...rightAligned }, 2: { v: "after", t: 1 } }), 1)).toBeNull();
 
             const centered = { t: 1, s: { ht: HorizontalAlign.CENTER } };
-            expect(clips(row({ 0: { v: "before", t: 1 }, 1: { v: "x", ...centered } }), 1)).toBe(true);
-            expect(clips(row({ 1: { v: "x", ...centered }, 2: { v: "after", t: 1 } }), 1)).toBe(true);
-            expect(clips(row({ 1: { v: "x", ...centered } }), 1)).toBe(false);
+            expect(room(row({ 0: { v: "before", t: 1 }, 1: { v: "x", ...centered } }), 1)).toEqual([0, 0]);
+            expect(room(row({ 1: { v: "x", ...centered } }), 1)).toBeNull();
+
+            // Stopped on the right, with the empty column on its left still open to it.
+            expect(room(row({ 1: { v: "x", ...centered }, 2: { v: "after", t: 1 } }), 1)).toEqual([88, 0]);
         });
 
-        it("never spills a number, and never clips a wrapped or empty cell", () => {
-            expect(clips(row({ 0: { v: 42, t: 2 } }), 0)).toBe(true);
-            expect(clips(row({ 0: { v: true, t: 3 } }), 0)).toBe(true);
+        it("never spills a number, a boolean or a clipped cell, and never bounds a wrapped one", () => {
+            expect(room(row({ 0: { v: 42, t: 2 } }), 0)).toEqual([0, 0]);
+            expect(room(row({ 0: { v: true, t: 3 } }), 0)).toEqual([0, 0]);
+            expect(room(row({ 0: { v: "a long label", t: 1, s: { tb: WrapStrategy.CLIP } } }), 0)).toEqual([0, 0]);
 
-            expect(clips(row({ 0: { v: "a long label", t: 1, s: { tb: WrapStrategy.WRAP } }, 1: { v: "next", t: 1 } }), 0)).toBe(false);
-            expect(clips(row({ 0: { s: { bl: 1 } }, 1: { v: "next", t: 1 } }), 0)).toBe(false);
+            expect(room(row({ 0: { v: "a long label", t: 1, s: { tb: WrapStrategy.WRAP } }, 1: { v: "next", t: 1 } }), 0)).toBeNull();
+            expect(room(row({ 0: { s: { bl: 1 } }, 1: { v: "next", t: 1 } }), 0)).toBeNull();
         });
 
         it("judges adjacency on the rendered row rather than the cell matrix", () => {
             const long = { v: "a long label", t: 1 };
 
             // A hidden column reaches nobody, so the cell steps over it in both directions.
-            expect(clips(row({ 0: long, 1: { v: "next", t: 1 } }, { columnData: { 1: { hd: 1 } } }), 0)).toBe(false);
-            expect(clips(row({ 0: long, 1: {}, 2: { v: "next", t: 1 } }, { columnData: { 1: { hd: 1 } } }), 0)).toBe(true);
+            expect(room(row({ 0: long, 1: { v: "next", t: 1 } }, { columnData: { 1: { hd: 1 } } }), 0)).toBeNull();
+            expect(room(row({ 0: long, 1: {}, 2: { v: "next", t: 1 } }, { columnData: { 1: { hd: 1 } } }), 0)).toEqual([0, 0]);
 
             // A merged cell starts looking past the last column its own range covers.
             const merged = [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 1 }];
-            expect(clips(row({ 0: long, 1: {}, 2: { v: "next", t: 1 } }, { mergeData: merged }), 0)).toBe(true);
-            expect(clips(row({ 0: long, 1: {} }, { mergeData: merged }), 0)).toBe(false);
+            expect(room(row({ 0: long, 1: {}, 2: { v: "next", t: 1 } }, { mergeData: merged }), 0)).toEqual([0, 0]);
+            expect(room(row({ 0: long, 1: {} }, { mergeData: merged }), 0)).toBeNull();
         });
 
         it("reads a column a merge spans into as holding that range's content", () => {
@@ -644,7 +668,7 @@ describe("renderSpreadsheetToHtml", () => {
                 0: { v: "a long label", t: 1 },
                 1: { p: { body: { dataStream: "linked\r\n" } } }
             });
-            expect(clips(html, 0)).toBe(true);
+            expect(room(html, 0)).toEqual([0, 0]);
         });
     });
 
@@ -1267,9 +1291,10 @@ describe("renderSpreadsheetToHtml", () => {
         });
         const html = renderSpreadsheetToHtml(input);
         // Column 1 between A and C has no cell -> empty <td>.
-        expect(html).toContain("<td>A</td>");
         expect(html).toContain("<td></td>");
         expect(html).toContain("<td>C</td>");
+        // A may run across the empty column, so its text carries the room it has.
+        expect(html).toContain(`<td><span style="display:inline-block;width:calc(100% + 88px);overflow:hidden;margin-right:-88px">A</span></td>`);
     });
 
     it("renders numeric cell values", () => {

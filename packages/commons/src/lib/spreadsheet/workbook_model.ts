@@ -225,7 +225,12 @@ export const enum VerticalAlign {
     BOTTOM = 3
 }
 
+// Wrap strategies (from UniversJS). OVERFLOW runs long text across the empty cells beside it,
+// CLIP cuts it at the cell edge, and WRAP breaks it inside the cell.
 export const enum WrapStrategy {
+    UNSPECIFIED = 0,
+    OVERFLOW = 1,
+    CLIP = 2,
     WRAP = 3
 }
 
