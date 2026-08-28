@@ -101,17 +101,21 @@ function updateAttachment(req: FileRequest<{ attachmentId: string }>) {
  * Converts an office document note/attachment to an embeddable HTML fragment for the
  * inline preview shown by the client. The returned HTML is unsanitized — the client
  * sanitizes it before injecting it into the DOM.
+ *
+ * The fragment is sent as the response body rather than wrapped in a JSON object: a
+ * spreadsheet preview runs to megabytes, and an envelope would escape every attribute
+ * quote and make the client parse the whole document before it can use it.
  */
 async function getNoteOfficePreview(req: Request<{ noteId: string }>) {
     const note = becca.getNoteOrThrow(req.params.noteId);
 
-    return { html: await convertOfficeToHtml(note.getContent(), note.mime) };
+    return await convertOfficeToHtml(note.getContent(), note.mime);
 }
 
 async function getAttachmentOfficePreview(req: Request<{ attachmentId: string }>) {
     const attachment = becca.getAttachmentOrThrow(req.params.attachmentId);
 
-    return { html: await convertOfficeToHtml(attachment.getContent(), attachment.mime) };
+    return await convertOfficeToHtml(attachment.getContent(), attachment.mime);
 }
 
 function openPartialInt(noteOrAttachment: BNote | BAttachment, req: Request, res: Response) {

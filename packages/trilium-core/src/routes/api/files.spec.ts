@@ -361,12 +361,12 @@ describe("Files API (core)", () => {
         it("converts an RTF file note to an embeddable HTML fragment", async () => {
             const noteId = await createRtfNote();
 
-            const res = await api.get<{ html: string }>(`/api/notes/${noteId}/office-preview`);
+            const res = await api.get<string>(`/api/notes/${noteId}/office-preview`);
             expect(res.status).toBe(200);
-            expect(res.body.html).toContain("Hello");
-            expect(res.body.html).toContain("World");
+            expect(res.body).toContain("Hello");
+            expect(res.body).toContain("World");
             // fragment mode — no full standalone document wrapper
-            expect(res.body.html).not.toContain("<html");
+            expect(res.body).not.toContain("<html");
         });
 
         it("converts an RTF attachment to an embeddable HTML fragment", async () => {
@@ -377,9 +377,9 @@ describe("Files API (core)", () => {
             expect(save.status).toBe(204);
             const list = await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`);
 
-            const res = await api.get<{ html: string }>(`/api/attachments/${list.body[0].attachmentId}/office-preview`);
+            const res = await api.get<string>(`/api/attachments/${list.body[0].attachmentId}/office-preview`);
             expect(res.status).toBe(200);
-            expect(res.body.html).toContain("Hello");
+            expect(res.body).toContain("Hello");
         });
 
         it("rejects an unsupported MIME type with 400", async () => {
@@ -407,16 +407,16 @@ describe("Files API (core)", () => {
 
             const noteId = await createXlsxNote(xlsxBuffer);
 
-            const res = await api.get<{ html: string }>(`/api/notes/${noteId}/office-preview`);
+            const res = await api.get<string>(`/api/notes/${noteId}/office-preview`);
             expect(res.status).toBe(200);
-            expect(res.body.html).toContain("Merged header");
+            expect(res.body).toContain("Merged header");
             // Native-renderer features officeparser's grid lacks: merged cells,
             // number formatting (numfmt) and inline borders...
-            expect(res.body.html).toContain('colspan="2"');
-            expect(res.body.html).toContain("1,234.50");
-            expect(res.body.html).toContain("border");
+            expect(res.body).toContain('colspan="2"');
+            expect(res.body).toContain("1,234.50");
+            expect(res.body).toContain("border");
             // ...and none of officeparser's class-styled A/B/C header chrome.
-            expect(res.body.html).not.toContain("excel-col-header");
+            expect(res.body).not.toContain("excel-col-header");
         });
     });
 });

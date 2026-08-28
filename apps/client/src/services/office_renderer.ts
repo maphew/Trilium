@@ -6,11 +6,15 @@ import server from "./server.js";
  * ODT/ODS/ODP, RTF and EPUB) and sanitizes it before it ever touches the DOM. The conversion
  * itself happens server-side (officeparser) via the office-preview route.
  *
+ * The route sends the fragment as the response body, so it is fetched as text rather than
+ * through a JSON envelope.
+ *
  * Throws if the document is too large, unsupported, or conversion fails — callers should
  * catch and fall back to the usual download / open-externally affordance.
  */
 export async function renderOfficeToHtml(entityType: "notes" | "attachments", entityId: string): Promise<string> {
-    const { html } = await server.get<{ html: string }>(`${entityType}/${entityId}/office-preview`);
+    // `raw` keeps the response a plain string; the route sends the fragment as the body.
+    const html = await server.get<string>(`${entityType}/${entityId}/office-preview`, undefined, true);
 
     return stripLinkColors(sanitizeNoteContentHtml(html));
 }

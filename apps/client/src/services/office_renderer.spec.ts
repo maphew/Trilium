@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Mock collaborators before importing the SUT. ---
-const serverGet = vi.fn(async (_url: string) => ({ html: "<h1>Doc</h1>" }));
-vi.mock("./server.js", () => ({ default: { get: (url: string) => serverGet(url) } }));
+const serverGet = vi.fn(async (_url: string, _componentId?: string, _raw?: boolean) => "<h1>Doc</h1>");
+vi.mock("./server.js", () => ({
+    default: { get: (url: string, componentId?: string, raw?: boolean) => serverGet(url, componentId, raw) }
+}));
 
 const sanitizeNoteContentHtml = vi.fn((s: string) => `SANITIZED:${s}`);
 vi.mock("./sanitize_content.js", () => ({ sanitizeNoteContentHtml: (s: string) => sanitizeNoteContentHtml(s) }));
@@ -15,22 +17,22 @@ describe("renderOfficeToHtml", () => {
     it("fetches the server-rendered note preview and returns sanitized output", async () => {
         const html = await renderOfficeToHtml("notes", "n1");
 
-        expect(serverGet).toHaveBeenCalledWith("notes/n1/office-preview");
+        expect(serverGet).toHaveBeenCalledWith("notes/n1/office-preview", undefined, true);
         expect(sanitizeNoteContentHtml).toHaveBeenCalledWith("<h1>Doc</h1>");
         expect(html).toBe("SANITIZED:<h1>Doc</h1>");
     });
 
     it("builds the attachment URL variant", async () => {
         await renderOfficeToHtml("attachments", "a9");
-        expect(serverGet).toHaveBeenCalledWith("attachments/a9/office-preview");
+        expect(serverGet).toHaveBeenCalledWith("attachments/a9/office-preview", undefined, true);
     });
 
     it("strips default hyperlink colors so the theme's link color applies, keeping other styling", async () => {
-        serverGet.mockResolvedValueOnce({
-            html: '<p><a href="https://example.com"><span style="color: #000080; font-family: Arial"><u>x</u></span></a>'
+        serverGet.mockResolvedValueOnce(
+            '<p><a href="https://example.com"><span style="color: #000080; font-family: Arial"><u>x</u></span></a>'
                 + '<a href="#b" style="color: #0563C1">y</a>'
                 + '<span style="color: #000080">keep</span></p>'
-        });
+        );
 
         const html = await renderOfficeToHtml("notes", "n1");
 
@@ -46,9 +48,9 @@ describe("renderOfficeToHtml", () => {
     });
 
     it("keeps a link color the author chose, as text notes do", async () => {
-        serverGet.mockResolvedValueOnce({
-            html: '<p><a href="https://triliumnotes.org/"><span style="color:#ea7500;">Trilium</span></a></p>'
-        });
+        serverGet.mockResolvedValueOnce(
+            '<p><a href="https://triliumnotes.org/"><span style="color:#ea7500;">Trilium</span></a></p>'
+        );
 
         const html = await renderOfficeToHtml("notes", "n1");
 
