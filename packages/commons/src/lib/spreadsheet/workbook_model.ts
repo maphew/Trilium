@@ -256,15 +256,22 @@ export interface WorkbookParseResult {
 }
 
 /**
- * Parses the raw JSON content of a spreadsheet note. `ok` is `false` only when the content
- * is not valid JSON; valid-but-empty JSON (e.g. `null`, `{}`) returns `ok: true` with the
- * parsed value, so callers can distinguish an unparseable payload from a structurally empty
- * one. Callers should additionally check `data.workbook?.sheets` and report an empty/invalid
- * workbook in their own format.
+ * Reads the content of a spreadsheet note. `ok` is `false` only when a string is not valid
+ * JSON; valid-but-empty JSON (e.g. `null`, `{}`) returns `ok: true` with the parsed value, so
+ * callers can distinguish an unparseable payload from a structurally empty one. Callers should
+ * additionally check `data.workbook?.sheets` and report an empty/invalid workbook in their own
+ * format.
+ *
+ * Already-parsed data is passed through, so a caller holding a workbook — the XLSX preview,
+ * which gets one from `parseXlsxToWorkbook` — does not serialize it just to have it parsed back.
  */
-export function parseWorkbookData(jsonContent: string): WorkbookParseResult {
+export function parseWorkbookData(content: string | PersistedData): WorkbookParseResult {
+    if (typeof content !== "string") {
+        return { ok: true, data: content };
+    }
+
     try {
-        return { ok: true, data: JSON.parse(jsonContent) };
+        return { ok: true, data: JSON.parse(content) };
     } catch {
         return { ok: false, data: null };
     }

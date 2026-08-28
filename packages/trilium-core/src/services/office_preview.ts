@@ -68,7 +68,8 @@ export async function convertOfficeToHtml(content: string | Uint8Array, mime: st
 
 /**
  * Renders an `.xlsx` workbook through the native spreadsheet pipeline: the same
- * parse-to-Univer-JSON step the importer uses, then the shared/print HTML renderer.
+ * parse-to-Univer-JSON step the importer uses, then the shared/print HTML renderer, which
+ * takes the parsed workbook directly.
  * Dynamically imported so exceljs only loads when an `.xlsx` is actually previewed,
  * keeping it out of the core barrel (and the standalone/browser bundle).
  */
@@ -80,7 +81,5 @@ async function convertXlsxToHtml(buffer: Uint8Array): Promise<string> {
 
     const workbook = await parseXlsxToWorkbook(buffer);
 
-    // The renderer consumes the persisted note-content shape, which is the stringified
-    // parse result (see importSpreadsheet in the import service).
-    return renderSpreadsheetToHtml(JSON.stringify(workbook));
+    return renderSpreadsheetToHtml(workbook);
 }

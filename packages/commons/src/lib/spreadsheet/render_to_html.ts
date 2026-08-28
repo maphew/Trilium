@@ -34,18 +34,19 @@ import {
     type ITextRotation,
     type IWorksheetData,
     parseWorkbookData,
+    type PersistedData,
     resolveCellStyle,
     VerticalAlign,
     WrapStrategy
 } from "./workbook_model.js";
 
 /**
- * Parses the raw JSON content of a spreadsheet note and renders it as HTML.
- * Returns an HTML string containing one `<table>` per visible sheet, preceded by a `<style>`
- * holding the cell styling (see {@link StyleClasses}) when the workbook has any.
+ * Renders a spreadsheet note as HTML, from either its raw JSON content or an already-parsed
+ * workbook. Returns an HTML string containing one `<table>` per visible sheet, preceded by a
+ * `<style>` holding the cell styling (see {@link StyleClasses}) when the workbook has any.
  */
-export function renderSpreadsheetToHtml(jsonContent: string): string {
-    const { ok, data } = parseWorkbookData(jsonContent);
+export function renderSpreadsheetToHtml(content: string | PersistedData): string {
+    const { ok, data } = parseWorkbookData(content);
     if (!ok) {
         return "<p>Unable to parse spreadsheet data.</p>";
     }

@@ -39,6 +39,28 @@ function withInlineStyles(html: string): string {
 import { BorderStyle, HorizontalAlign, WrapStrategy } from "./workbook_model.js";
 
 describe("renderSpreadsheetToHtml", () => {
+    it("accepts an already-parsed workbook as well as its JSON", () => {
+        // The XLSX preview holds the workbook `parseXlsxToWorkbook` returns, so it renders it
+        // directly instead of serializing it for the renderer to parse back.
+        const data = {
+            version: 1,
+            workbook: {
+                sheetOrder: ["sheet1"],
+                styles: { boldStyle: { bl: 1 } },
+                sheets: {
+                    sheet1: {
+                        id: "sheet1",
+                        name: "Sheet1",
+                        cellData: { 0: { 0: { v: "Hello", t: 1, s: "boldStyle" } } }
+                    }
+                }
+            }
+        };
+
+        expect(renderRaw(data)).toBe(renderRaw(JSON.stringify(data)));
+        expect(renderRaw(data)).toContain("Hello");
+    });
+
     it("renders a basic spreadsheet with values and styles", () => {
         const input = JSON.stringify({
             version: 1,

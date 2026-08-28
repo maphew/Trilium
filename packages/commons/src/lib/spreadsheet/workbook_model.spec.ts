@@ -7,6 +7,8 @@ import {
     getFloatingDrawings,
     type IWorkbookData,
     normalizeDataStream,
+    parseWorkbookData,
+    type PersistedData,
     SHEET_DATA_VALIDATION_RESOURCE,
     SHEET_DRAWING_RESOURCE
 } from "./workbook_model.js";
@@ -15,6 +17,27 @@ import {
 function workbookWithResource(name: string, data: string): IWorkbookData {
     return { sheetOrder: ["sheet1"], sheets: {}, resources: [{ name, data }] };
 }
+
+describe("parseWorkbookData", () => {
+    it("parses a JSON string and reports unparseable content", () => {
+        expect(parseWorkbookData('{"version":1}')).toEqual({ ok: true, data: { version: 1 } });
+        // Valid JSON that holds no workbook still parses; only broken JSON is `ok: false`.
+        expect(parseWorkbookData("null")).toEqual({ ok: true, data: null });
+        expect(parseWorkbookData("{")).toEqual({ ok: false, data: null });
+    });
+
+    it("passes an already-parsed workbook through without serializing it", () => {
+        const data: PersistedData = {
+            version: 1,
+            workbook: { sheetOrder: ["sheet1"], sheets: { sheet1: { id: "sheet1", name: "Sheet1", cellData: {} } } }
+        };
+
+        const result = parseWorkbookData(data);
+
+        expect(result.ok).toBe(true);
+        expect(result.data).toBe(data);
+    });
+});
 
 describe("getFloatingDrawings", () => {
     it("returns the sheet's drawings in their stored z-order", () => {
