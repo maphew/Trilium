@@ -337,8 +337,10 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
                 declarations.push(`padding:${px(padding.t)}px ${px(padding.r)}px ${px(padding.b)}px ${px(padding.l)}px`);
             }
             const cssText = declarations.filter(Boolean).join(";");
-            const value = cellBox(rotate(formatCellValue(cell, cellStyle), cellStyle?.tr), bound, boxHeight)
-                + (cell ? renderCellImages(cell) : "");
+            const text = rotate(formatCellValue(cell, cellStyle), cellStyle);
+            const value = (isTurned(cellStyle?.tr)
+                ? turnedBox(text, boxHeight, cellStyle)
+                : cellBox(text, bound, boxHeight)) + (cell ? renderCellImages(cell) : "");
 
             const attrs: string[] = [];
             // Cells with a background fill carry `has-fill` so the stylesheet can suppress
@@ -554,7 +556,10 @@ function spillBound(
     neighbours: RowNeighbours
 ): SpillBound | null {
     if (!hasContent(cell) || style?.tb === WrapStrategy.WRAP) return null;
-    if (cell?.t === CellValueType.NUMBER || cell?.t === CellValueType.BOOLEAN || style?.tb === WrapStrategy.CLIP) {
+
+    // Turned text stays in its own cell, as do a number, a boolean and a cell set to CLIP.
+    if (cell?.t === CellValueType.NUMBER || cell?.t === CellValueType.BOOLEAN
+        || style?.tb === WrapStrategy.CLIP || isTurned(style?.tr)) {
         return { before: 0, after: 0 };
     }
 
@@ -615,6 +620,56 @@ function cellBox(html: string, bound: SpillBound | null, height: number): string
         if (bound.after) parts.push(`margin-right:${px(-bound.after)}px`);
     }
     return `<span style="${parts.join(";")}">${html}</span>`;
+}
+
+/** Whether a cell's text is turned at all, in any of the ways Univer can turn it. */
+function isTurned(rotation: ITextRotation | null | undefined): boolean {
+    if (!rotation) return false;
+    return Boolean(rotation.v) || (isFiniteNumber(rotation.a) && rotation.a !== 0);
+}
+
+/**
+ * Whether a rotation is painted by a transform rather than laid out, which is every angle other
+ * than a quarter turn. Only those hang from a cell edge; a quarter turn is a writing mode, which
+ * the cell's own alignments already place.
+ */
+function rotatesByTransform(rotation: ITextRotation | null | undefined): boolean {
+    if (!rotation || rotation.v) return false;
+
+    const angle = isFiniteNumber(rotation.a) ? rotation.a : 0;
+    return angle !== 0 && angle !== 90 && angle !== -90;
+}
+
+/**
+ * The box a turned cell's text sits in. It fills the cell rather than hugging the text, so what it
+ * clips is the cell itself: a box only as tall as the text's own line would cut a band across the
+ * turn and drop everything above and below it. Filling the cell takes the placement away from the
+ * cell's alignments, so the box carries them itself.
+ */
+function turnedBox(html: string, height: number, style: IStyleData | null): string {
+    if (!html) return html;
+
+    const parts = [
+        "display:flex",
+        "overflow:hidden",
+        `align-items:${turnedAlign(style?.vt)}`,
+        `justify-content:${turnedJustify(style)}`
+    ];
+    if (height > 0) parts.push(`height:${px(height)}px`);
+    return `<span style="${parts.join(";")}">${html}</span>`;
+}
+
+/** Where a turned cell puts its text down the cell, following the cell's vertical alignment. */
+function turnedAlign(verticalAlign: number | null | undefined): string {
+    if (verticalAlign === VerticalAlign.MIDDLE) return "center";
+    return verticalAlign === VerticalAlign.TOP ? "flex-start" : "flex-end";
+}
+
+/** Where it puts it across the cell: the cell's own alignment when it states one, else the side the turn is anchored to. */
+function turnedJustify(style: IStyleData | null): string {
+    const align = style?.ht ?? (tiltAnchor(style) === "right" ? HorizontalAlign.RIGHT : HorizontalAlign.LEFT);
+    if (align === HorizontalAlign.CENTER) return "center";
+    return align === HorizontalAlign.RIGHT ? "flex-end" : "flex-start";
 }
 
 /** The height a cell covers, summing the rows a `rowspan` reaches across. */
@@ -784,20 +839,21 @@ function formatCellValue(cell: ICellData | undefined, style: IStyleData | null):
  * the `td` itself, which would take the background and borders with it, and images anchored in the
  * cell stay upright as they do in the editor.
  */
-function rotate(html: string, rotation: ITextRotation | null | undefined): string {
+function rotate(html: string, style: IStyleData | null): string {
     if (!html) return html;
 
-    const css = rotationCss(rotation);
+    const css = rotationCss(style?.tr, style?.vt);
     return css ? `<span style="${css}">${html}</span>` : html;
 }
 
 /**
- * The CSS for Univer's text rotation. A quarter turn and stacked text become a vertical writing
- * mode, which gives the text a real vertical box the row grows to fit; any other angle falls back
- * to a transform, which turns the glyphs without reserving room for them. Excel measures the angle
- * counter-clockwise and CSS turns clockwise, so the sign flips.
+ * The CSS for Univer's text rotation. Univer measures the angle the way CSS turns, clockwise from
+ * the horizontal, so a negative angle lifts the text and a positive one drops it. A quarter turn
+ * and stacked text become a vertical writing mode, which gives the text a real vertical box the row
+ * grows to fit; any other angle falls back to a transform, which turns the glyphs without reserving
+ * room for them.
  */
-function rotationCss(rotation: ITextRotation | null | undefined): string | null {
+function rotationCss(rotation: ITextRotation | null | undefined, verticalAlign: number | null | undefined): string | null {
     // `vertical-align` keeps the turned text off the line box's baseline, whose descender gap
     // would otherwise add height the row has to absorb.
     const ROTATED = "display:inline-block;vertical-align:top";
@@ -808,9 +864,35 @@ function rotationCss(rotation: ITextRotation | null | undefined): string | null 
 
     const angle = isFiniteNumber(rotation.a) ? rotation.a : 0;
     if (angle === 0) return null;
-    if (angle === 90) return `${ROTATED};writing-mode:vertical-rl;transform:rotate(180deg)`;
-    if (angle === -90) return `${ROTATED};writing-mode:vertical-rl`;
-    return `${ROTATED};transform:rotate(${px(-angle)}deg)`;
+    if (angle === -90) return `${ROTATED};writing-mode:vertical-rl;transform:rotate(180deg)`;
+    if (angle === 90) return `${ROTATED};writing-mode:vertical-rl`;
+
+    // A middle-aligned cell turns its text about the centre, which leaves the shape centred.
+    if (verticalAlign === VerticalAlign.MIDDLE) return `${ROTATED};transform:rotate(${px(angle)}deg)`;
+
+    // Otherwise the text hangs from the cell edge it is aligned to, turning about the end of the
+    // string that meets it: lifting text meets the bottom with its start and the top with its end.
+    // Turning about that corner swings the text's own line height past it, so the shift takes that
+    // back; `lh` is the line height itself, which keeps the correction right at any font size.
+    const swing = Math.round(Math.sin(Math.abs(angle) * (Math.PI / 180)) * 1000) / 1000;
+    const fromTop = verticalAlign === VerticalAlign.TOP;
+    const lifts = angle < 0;
+    const origin = `${lifts === fromTop ? "right" : "left"} ${fromTop ? "top" : "bottom"}`;
+    return `${ROTATED};transform:translateX(calc(1lh * ${lifts === fromTop ? -swing : swing})) rotate(${px(angle)}deg)`
+        + `;transform-origin:${origin}`;
+}
+
+/**
+ * The side of its cell turned text is anchored to, or `null` when the cell has no turned text. The
+ * string meets the cell edge it is aligned to with one of its ends, and which end that is flips
+ * between an alignment to the top and one to the bottom or the middle.
+ */
+function tiltAnchor(style: IStyleData | null): "left" | "right" | null {
+    const rotation = style?.tr;
+    if (!rotatesByTransform(rotation) || !isFiniteNumber(rotation?.a)) return null;
+
+    const lifts = rotation.a < 0;
+    return lifts === (style?.vt === VerticalAlign.TOP) ? "right" : "left";
 }
 
 /**

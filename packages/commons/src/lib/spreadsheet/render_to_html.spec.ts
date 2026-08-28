@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderSpreadsheetToHtml } from "./render_to_html.js";
-import { BorderStyle, HorizontalAlign, WrapStrategy } from "./workbook_model.js";
+import { BorderStyle, HorizontalAlign, VerticalAlign, WrapStrategy } from "./workbook_model.js";
 
 /**
  * The markup with the box model stripped: each cell's sizing box and the padding it is measured
@@ -524,19 +524,68 @@ describe("renderSpreadsheetToHtml", () => {
         const rotated = (tr: unknown) => renderSpreadsheetToHtml(singleCellWorkbook({ v: "Days left", t: 1, s: { tr } }));
 
         // A quarter turn either way becomes a vertical writing mode, so the row can grow to fit it.
-        expect(rotated({ a: 90 })).toContain(
-            `<span style="display:inline-block;vertical-align:top;writing-mode:vertical-rl;transform:rotate(180deg)">Days left</span>`);
+        // Univer measures the angle the way CSS turns, so -90 lifts the text and reads upwards.
         expect(rotated({ a: -90 })).toContain(
+            `<span style="display:inline-block;vertical-align:top;writing-mode:vertical-rl;transform:rotate(180deg)">Days left</span>`);
+        expect(rotated({ a: 90 })).toContain(
             `<span style="display:inline-block;vertical-align:top;writing-mode:vertical-rl">Days left</span>`);
 
         // Stacked text reads downwards with upright characters.
         expect(rotated({ v: 1 })).toContain(
             `<span style="display:inline-block;vertical-align:top;writing-mode:vertical-rl;text-orientation:upright">Days left</span>`);
 
-        // Any other angle turns the glyphs; CSS rotates clockwise, so the sign flips.
+        // Any other angle turns the glyphs about a bottom corner of the cell, shifted by the line
+        // height the turn would otherwise swing past that corner: lifting text from the bottom
+        // left, dropping text from the bottom right.
+        expect(rotated({ a: -45 })).toContain(
+            `transform:translateX(calc(1lh * 0.707)) rotate(-45deg);transform-origin:left bottom">Days left</span>`);
         expect(rotated({ a: 45 })).toContain(
-            `<span style="display:inline-block;vertical-align:top;transform:rotate(-45deg)">Days left</span>`);
-        expect(rotated({ a: -30.5 })).toContain(`transform:rotate(30.5deg)`);
+            `transform:translateX(calc(1lh * -0.707)) rotate(45deg);transform-origin:right bottom">Days left</span>`);
+        expect(rotated({ a: -30.5 })).toContain(`transform:translateX(calc(1lh * 0.508)) rotate(-30.5deg)`);
+    });
+
+    it("anchors turned text to the cell edge the string meets", () => {
+        const tilted = (s: Record<string, unknown>) => renderSpreadsheetToHtml(singleCellWorkbook({ v: "Days left", t: 1, s }));
+
+        // Against the bottom, lifting text meets the edge with its start, dropping text with its end.
+        expect(tilted({ tr: { a: -45 } })).toContain("align-items:flex-end;justify-content:flex-start");
+        expect(tilted({ tr: { a: 45 } })).toContain("align-items:flex-end;justify-content:flex-end");
+
+        // Against the top the ends swap over; a middle-aligned cell keeps the bottom's sides.
+        expect(tilted({ tr: { a: -45 }, vt: VerticalAlign.TOP })).toContain("align-items:flex-start;justify-content:flex-end");
+        expect(tilted({ tr: { a: 45 }, vt: VerticalAlign.TOP })).toContain("align-items:flex-start;justify-content:flex-start");
+        expect(tilted({ tr: { a: 45 }, vt: VerticalAlign.MIDDLE })).toContain("align-items:center;justify-content:flex-end");
+
+        // A cell that states its own alignment keeps it.
+        expect(tilted({ tr: { a: 45 }, ht: HorizontalAlign.CENTER })).toContain("justify-content:center");
+    });
+
+    it("turns text about the cell edge it hangs from", () => {
+        const tilted = (a: number, vt?: number) =>
+            renderSpreadsheetToHtml(singleCellWorkbook({ v: "Days left", t: 1, s: { tr: { a }, vt } }));
+
+        expect(tilted(-45)).toContain(`translateX(calc(1lh * 0.707)) rotate(-45deg);transform-origin:left bottom`);
+        expect(tilted(45)).toContain(`translateX(calc(1lh * -0.707)) rotate(45deg);transform-origin:right bottom`);
+
+        expect(tilted(-45, VerticalAlign.TOP)).toContain(`translateX(calc(1lh * -0.707)) rotate(-45deg);transform-origin:right top`);
+        expect(tilted(45, VerticalAlign.TOP)).toContain(`translateX(calc(1lh * 0.707)) rotate(45deg);transform-origin:left top`);
+
+        // Turning about the centre needs no correction and leaves the shape centred in the cell.
+        expect(tilted(45, VerticalAlign.MIDDLE)).toContain(`transform:rotate(45deg)">Days left</span>`);
+    });
+
+    it("holds turned text inside its own cell", () => {
+        const rotated = (a: number) => renderSpreadsheetToHtml(singleCellWorkbook({ v: "Days left", t: 1, s: { tr: { a } } }));
+
+        // Every turn sits in a box that fills the cell, so the cell is what cuts an overrun. A box
+        // only as tall as the text would clip a band across the turn instead.
+        for (const angle of [45, -45, 90, -90]) {
+            expect(rotated(angle), `${angle} degrees`).toContain(`<span style="display:flex;overflow:hidden`);
+            expect(rotated(angle), `${angle} degrees`).toContain("height:22px");
+        }
+
+        // An untouched cell keeps the box that only caps it, so its own alignment still places it.
+        expect(rotated(0)).toContain(`<span style="display:block;overflow:hidden;max-height:22px">`);
     });
 
     it("leaves a cell unwrapped when it has no rotation to apply", () => {
@@ -641,6 +690,12 @@ describe("renderSpreadsheetToHtml", () => {
 
             // Stopped on the right, with the empty column on its left still open to it.
             expect(room(row({ 1: { v: "x", ...centered }, 2: { v: "after", t: 1 } }), 1)).toEqual([88, 0]);
+        });
+
+        it("keeps turned text in its own cell rather than running it into a neighbour", () => {
+            const turned = { v: "a long label", t: 1, s: { tr: { a: 45 } } };
+            expect(room(row({ 0: turned }), 0)).toEqual([0, 0]);
+            expect(room(row({ 0: turned, 1: {} }), 0)).toEqual([0, 0]);
         });
 
         it("never spills a number, a boolean or a clipped cell, and never bounds a wrapped one", () => {

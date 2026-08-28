@@ -28,7 +28,8 @@ const WORKBOOK = {
                     "0": { ah: 30 },
                     "1": { h: 40 },
                     "2": { h: 24 },
-                    "3": { h: 24 }
+                    "3": { h: 24 },
+                    "4": { h: 60 }
                 },
                 columnData: { "0": { w: 90 }, "1": { w: 90 } },
                 cellData: {
@@ -39,6 +40,11 @@ const WORKBOOK = {
                     "1": {
                         "0": { v: "turned a quarter turn", t: 1, s: { tr: { a: 90 } } },
                         "1": { v: "stacked", t: 1, s: { tr: { a: 0, v: 1 } } }
+                    },
+                    // A transform paints outside its layout box but must not move the row.
+                    "4": {
+                        "0": { v: "tilted up", t: 1, s: { tr: { a: 45 } } },
+                        "1": { v: "tilted down", t: 1, s: { tr: { a: -45 } } }
                     },
                     "2": {
                         "0": { v: "bordered", t: 1, s: { bd: { t: { s: 1 }, b: { s: 1 } } } },
@@ -74,7 +80,7 @@ test("prints the grid at the row heights the sheet declares", async ({ page, con
             }));
         });
 
-        expect(rows.length).toBe(4);
+        expect(rows.length).toBe(5);
 
         let expectedTop = 0;
         for (const [index, row] of rows.entries()) {
