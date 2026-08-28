@@ -301,7 +301,7 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
     // cover any floating image that reaches past the data, so the grid encloses it as the editor does.
     // A merge widens it as before, except one applied to entire rows or columns, which would
     // pull the sheet back out to the far edge of the grid.
-    const bounds = computeBounds(cellData, boundingMerges(mergeData, sheet), holdsSomething)
+    const bounds = computeBounds(cellData, boundingMerges(mergeData, sheet), (cell) => holdsSomething(cell, styles))
         ?? computeBounds(cellData, mergeData);
     const { maxRow, maxCol } = extendBoundsForImages(sheet, bounds?.maxRow ?? -1, bounds?.maxCol ?? -1, images);
     if (maxRow < 0 || maxCol < 0) {
@@ -571,7 +571,7 @@ interface RowNeighbours {
     defaultWidth: number;
 }
 
-/** How far a cell's text may run past its own edges, in px on each side. */
+/** How far a cell's text can run past its own edges, in px on each side. */
 interface SpillBound {
     before: number;
     after: number;
@@ -772,11 +772,17 @@ function boundingMerges(mergeData: IRange[], sheet: IWorksheetData): IRange[] {
 }
 
 /**
- * Whether a cell holds something of its own, which is what the rendered grid is bounded by. A
- * formula counts even when its result is blank, since the cell is part of the sheet's data.
+ * Whether a cell holds something the grid has to reach, which is what it is bounded by. A formula
+ * counts even when its result is blank, since the cell is part of the sheet's data, and so does a
+ * border: an empty bordered cell is a drawn box, a form or a table outline someone means to keep.
+ * A fill does not, because it comes from colouring whole rows, which would carry the grid out to
+ * the far edge for a band nobody reads.
  */
-function holdsSomething(cell: ICellData): boolean {
-    return Boolean(cell.f) || hasContent(cell);
+function holdsSomething(cell: ICellData, styles: Record<string, IStyleData | null>): boolean {
+    if (cell.f || hasContent(cell)) return true;
+
+    const borders = resolveCellStyle(cell.s, styles)?.bd;
+    return Boolean(borders && (borders.t?.s || borders.r?.s || borders.b?.s || borders.l?.s));
 }
 
 /** Whether a cell shows anything. A cell carrying only a style is empty, as it is in the editor. */

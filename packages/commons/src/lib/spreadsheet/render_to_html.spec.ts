@@ -669,7 +669,7 @@ describe("renderSpreadsheetToHtml", () => {
             expect(room(row({ 0: { v: "a long label", t: 1 }, 2: { v: "next", t: 1 } }), 0)).toEqual([0, 88]);
         });
 
-        it("gives the text the width of the empty cells it may run across", () => {
+        it("gives the text the width of the empty cells it can run across", () => {
             const long = { v: "a long label", t: 1 };
             const widths = { 1: { w: 30 }, 2: { w: 50 } };
 
@@ -1398,7 +1398,7 @@ describe("renderSpreadsheetToHtml", () => {
         // Column 1 between A and C has no cell -> empty <td>.
         expect(html).toContain("<td></td>");
         expect(unboxed(html)).toContain("<td>C</td>");
-        // A may run across the empty column, so its text carries the room it has.
+        // A can run across the empty column, so its text carries the room it has.
         expect(html).toContain(`<td style="padding:0px 2px 2px 2px"><span style="display:block;overflow:hidden;max-height:22px;width:calc(100% + 88px);margin-right:-88px;line-height:normal">A</span></td>`);
     });
 
@@ -1966,6 +1966,36 @@ describe("renderSpreadsheetToHtml", () => {
 
         expect((html.match(/<td/g) ?? []).length).toBe(4);
         expect(html).toContain(`<col span="2" style="width:88px">`);
+    });
+
+    it("counts a border as structure the grid has to reach, but not a fill", () => {
+        const beyond = (style: unknown) => renderSpreadsheetToHtml(JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1",
+                        name: "Sheet1",
+                        hidden: 0,
+                        mergeData: [],
+                        cellData: { "0": { "0": { v: "a", t: 1 } }, "1": { "3": { s: style } } },
+                        rowData: {},
+                        columnData: {}
+                    }
+                }
+            }
+        }));
+
+        // An empty bordered cell is a drawn box someone means to keep, so the grid reaches it.
+        const bordered = beyond({ bd: { t: { s: BorderStyle.THIN }, b: { s: BorderStyle.THIN } } });
+        expect((bordered.match(/<td/g) ?? []).length).toBe(8);
+        expect(bordered).toContain("border-top");
+
+        // A fill comes from colouring whole rows, so it does not carry the grid out to meet it.
+        expect((beyond({ bg: { rgb: "#FFE699" } }).match(/<td/g) ?? []).length).toBe(1);
+        expect((beyond({ bd: { t: { s: BorderStyle.NONE } } }).match(/<td/g) ?? []).length).toBe(1);
     });
 
     it("falls back to every cell for a sheet that is nothing but formatting", () => {
