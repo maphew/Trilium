@@ -1303,6 +1303,14 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain('<tr style="height:50px;vertical-align:bottom">');
     });
 
+    it("lays a cell out with the padding it states", () => {
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x", t: 1, s: { pd: { t: 3, r: 6, b: 5, l: 6 } } }));
+
+        expect(html).toContain(`<td style="padding:3px 6px 5px 6px">`);
+        // The box is measured against that padding rather than the default.
+        expect(html).toContain("max-height:16px");
+    });
+
     it("takes a self-sizing row's height from the height Univer measured for it", () => {
         const html = renderSpreadsheetToHtml(JSON.stringify({
             version: 1,
@@ -1929,6 +1937,16 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain(`<img style="position:absolute;left:-4px;top:-8px;width:110px;height:70px"`);
     });
 
+    it("treats a crop side the drawing leaves out as no inset", () => {
+        const html = renderSpreadsheetToHtml(workbookWithFloatingDrawings([{
+            ...urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 0, top: 0, width: 100, height: 50 }),
+            srcRect: { left: 4 }
+        }]));
+
+        // Only the left is cut, so the image grows by that alone and is pulled back by it.
+        expect(html).toContain(`<img style="position:absolute;left:-4px;top:0px;width:104px;height:50px"`);
+    });
+
     it("leaves a drawing whose crop takes nothing as a bare image", () => {
         const html = renderSpreadsheetToHtml(workbookWithFloatingDrawings([{
             ...urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 0, top: 0, width: 100, height: 50 }),
@@ -2322,6 +2340,20 @@ describe("renderSpreadsheetToHtml", () => {
             )
         );
         expect((html.match(/<tr/g) ?? []).length).toBe(1);
+    });
+
+    it("counts hidden and explicitly sized columns when extending the grid sideways", () => {
+        // The column axis has to read the same way as the row one: a hidden column takes none of
+        // the image's reach, and a column with a width of its own is counted at it.
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings(
+                [urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 0, top: 0, width: 200, height: 10 })],
+                { columnData: { "0": { hd: 1 }, "1": { w: 100 }, "2": { w: 100 } } }
+            )
+        );
+        // Column 0 contributes nothing and columns 1-2 contribute 100px each, so the image ends on
+        // column 2 and the grid grows to three, of which the hidden one is not emitted.
+        expect(html).toContain(`<col span="2" style="width:100px">`);
     });
 
     it("counts hidden and explicitly sized tracks correctly when extending the grid", () => {

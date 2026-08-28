@@ -602,23 +602,20 @@ function spillBound(
     }
 
     // Text runs the way its alignment points; rightwards a merged cell starts past its own range.
-    const align = style?.ht;
-    const before = align === HorizontalAlign.RIGHT || align === HorizontalAlign.CENTER
-        ? spillRoom(col, -1, neighbours)
-        : null;
-    const after = align === HorizontalAlign.RIGHT
-        ? null
-        : spillRoom(merge?.endColumn ?? col, 1, neighbours);
+    const leftwards = () => spillRoom(col, -1, neighbours).width;
+    const rightwards = () => spillRoom(merge?.endColumn ?? col, 1, neighbours).width;
 
     // Centred text has to stay centred on its own cell, so the room it is given is the same on
     // both sides: growing one side further would carry the middle of the text away from the
     // middle of the cell, which is where the editor keeps it.
-    if (align === HorizontalAlign.CENTER) {
-        const room = Math.min(before?.width ?? 0, after?.width ?? 0);
+    if (style?.ht === HorizontalAlign.CENTER) {
+        const room = Math.min(leftwards(), rightwards());
         return { before: room, after: room };
     }
 
-    return { before: before?.width ?? 0, after: after?.width ?? 0 };
+    return style?.ht === HorizontalAlign.RIGHT
+        ? { before: leftwards(), after: 0 }
+        : { before: 0, after: rightwards() };
 }
 
 /**
@@ -688,10 +685,8 @@ function isTurned(rotation: ITextRotation | null | undefined): boolean {
  * the cell's own alignments already place.
  */
 function rotatesByTransform(rotation: ITextRotation | null | undefined): boolean {
-    if (!rotation || rotation.v) return false;
-
-    const angle = isFiniteNumber(rotation.a) ? rotation.a : 0;
-    return angle !== 0 && angle !== 90 && angle !== -90;
+    if (!rotation || rotation.v || !isFiniteNumber(rotation.a)) return false;
+    return rotation.a !== 0 && rotation.a !== 90 && rotation.a !== -90;
 }
 
 /**
@@ -730,7 +725,7 @@ function turnedJustify(style: IStyleData | null): string {
 /** The height a cell covers, summing the rows a `rowspan` reaches across. */
 function spannedHeight(heights: number[], from: number, to: number): number {
     let total = 0;
-    for (let row = from; row <= to; row++) total += heights[row] ?? 0;
+    for (let row = from; row <= to; row++) total += heights[row];
     return total;
 }
 
