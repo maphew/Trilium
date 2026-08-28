@@ -271,8 +271,26 @@ export interface Bounds {
 }
 
 /**
- * Computes the inclusive bounding rectangle of all populated cells, extended to cover
- * any merged ranges. Returns `null` when there are no cells and no merges (empty sheet).
+ * Excel's hard sheet limits. A merge reaching the last row or column is one made across an
+ * entire row or column ("Merge & Center" over a whole row), not a merge sized to its content.
+ */
+const EXCEL_MAX_ROWS = 1048576;
+const EXCEL_MAX_COLUMNS = 16384;
+
+/**
+ * Computes the inclusive bounding rectangle a renderer has to emit. Returns `null` when
+ * there are no cells and no merges (empty sheet).
+ *
+ * Two kinds of cell are deliberately kept out of the rectangle, because both let a sheet
+ * whose real content is small produce a grid of millions of cells:
+ *
+ * - Populated cells behind a merge. Excel writes the merge's fill onto every cell it covers,
+ *   so "Merge & Center" across an entire row leaves 16,384 styled cells in `cellData`. Only
+ *   the merge origin renders, so the rest must not stretch the rectangle.
+ * - The far end of a merge made across an entire row or column, which reaches Excel's sheet
+ *   limit. Such a merge is clamped back to the populated cells rather than stretching the
+ *   rectangle to 16,384 columns. Its origin still counts, and callers clamp the resulting span
+ *   to the rectangle, so the merge still reaches the far edge of what gets rendered.
  */
 export function computeBounds(cellData: CellMatrix, mergeData: IRange[] = []): Bounds | null {
     let minRow = Infinity;
@@ -280,11 +298,14 @@ export function computeBounds(cellData: CellMatrix, mergeData: IRange[] = []): B
     let minCol = Infinity;
     let maxCol = -Infinity;
 
+    const covered = mergeCoverage(mergeData);
+
     for (const rowStr of Object.keys(cellData)) {
         const row = Number(rowStr);
         const cols = cellData[row];
         for (const colStr of Object.keys(cols)) {
             const col = Number(colStr);
+            if (covered(row, col)) continue;
             if (minRow > row) minRow = row;
             if (maxRow < row) maxRow = row;
             if (minCol > col) minCol = col;
@@ -294,13 +315,49 @@ export function computeBounds(cellData: CellMatrix, mergeData: IRange[] = []): B
 
     for (const range of mergeData) {
         if (minRow > range.startRow) minRow = range.startRow;
-        if (maxRow < range.endRow) maxRow = range.endRow;
         if (minCol > range.startColumn) minCol = range.startColumn;
-        if (maxCol < range.endColumn) maxCol = range.endColumn;
+        // The origin always renders, so it extends the rectangle even for a whole-row merge.
+        if (maxRow < range.startRow) maxRow = range.startRow;
+        if (maxCol < range.startColumn) maxCol = range.startColumn;
+
+        if (maxRow < range.endRow && range.endRow < EXCEL_MAX_ROWS - 1) maxRow = range.endRow;
+        if (maxCol < range.endColumn && range.endColumn < EXCEL_MAX_COLUMNS - 1) maxCol = range.endColumn;
     }
 
     if (minRow > maxRow) return null;
     return { minRow, maxRow, minCol, maxCol };
+}
+
+/**
+ * Builds a predicate telling whether a cell is covered by a merge without being its origin.
+ * Merges are usually few, so each cell is tested against the ranges directly; the bounding box
+ * of all merges short-circuits the common case of a cell nowhere near one.
+ */
+function mergeCoverage(mergeData: IRange[]): (row: number, col: number) => boolean {
+    if (mergeData.length === 0) return () => false;
+
+    let top = Infinity;
+    let bottom = -Infinity;
+    let left = Infinity;
+    let right = -Infinity;
+    for (const range of mergeData) {
+        if (top > range.startRow) top = range.startRow;
+        if (bottom < range.endRow) bottom = range.endRow;
+        if (left > range.startColumn) left = range.startColumn;
+        if (right < range.endColumn) right = range.endColumn;
+    }
+
+    return (row, col) => {
+        if (row < top || row > bottom || col < left || col > right) return false;
+
+        for (const range of mergeData) {
+            if (row === range.startRow && col === range.startColumn) continue;
+            if (row >= range.startRow && row <= range.endRow && col >= range.startColumn && col <= range.endColumn) {
+                return true;
+            }
+        }
+        return false;
+    };
 }
 
 /** Checks that a value is a finite number (guards against stringified payloads from JSON). */

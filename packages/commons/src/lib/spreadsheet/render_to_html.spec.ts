@@ -1766,4 +1766,80 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain('rowspan="4"');
         expect(html).toContain('colspan="4"');
     });
+
+    it("keeps a merge across an entire row from stretching the grid to Excel's column limit", () => {
+        // Excel writes a full-row merge's fill onto all 16,384 cells it covers, so the sheet
+        // carries styled cells far past its real content (3 columns here).
+        const banner: Record<string, unknown> = { "0": { v: "Title" } };
+        for (let col = 1; col < 16384; col++) {
+            banner[String(col)] = { s: { bg: { rgb: "#FFE699" } } };
+        }
+        const input = JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1",
+                        name: "Sheet1",
+                        hidden: 0,
+                        rowCount: 1000,
+                        columnCount: 16384,
+                        mergeData: [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 16383 }],
+                        cellData: {
+                            "0": banner,
+                            "1": { "0": { v: "a" }, "1": { v: "b" }, "2": { v: "c" } }
+                        },
+                        rowData: {},
+                        columnData: {}
+                    }
+                }
+            }
+        });
+
+        const html = renderSpreadsheetToHtml(input);
+
+        // Three content columns, not 16,384: the banner cell plus the three data cells.
+        expect((html.match(/<col /g) ?? []).length).toBe(3);
+        expect((html.match(/<td/g) ?? []).length).toBe(4);
+        // The banner still spans the full width of what is rendered.
+        expect(html).toContain('colspan="3"');
+        expect(html).toContain("Title");
+        expect(html).toContain("<td>c</td>");
+    });
+
+    it("renders a full-row merge that is a sheet's only content", () => {
+        // Nothing outside the merge, so the clamped grid is the origin cell alone.
+        const banner: Record<string, unknown> = { "0": { v: "Title" } };
+        for (let col = 1; col < 16384; col++) {
+            banner[String(col)] = { s: { bg: { rgb: "#FFE699" } } };
+        }
+        const input = JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1",
+                        name: "Sheet1",
+                        hidden: 0,
+                        rowCount: 1000,
+                        columnCount: 16384,
+                        mergeData: [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 16383 }],
+                        cellData: { "0": banner },
+                        rowData: {},
+                        columnData: {}
+                    }
+                }
+            }
+        });
+
+        const html = renderSpreadsheetToHtml(input);
+
+        expect((html.match(/<td/g) ?? []).length).toBe(1);
+        expect(html).toContain("Title");
+        expect(html).not.toContain("Empty sheet");
+    });
 });
