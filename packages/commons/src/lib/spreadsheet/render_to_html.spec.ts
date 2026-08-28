@@ -1908,6 +1908,30 @@ describe("renderSpreadsheetToHtml", () => {
 
     // #region Floating images (SHEET_DRAWING_PLUGIN resource)
 
+    it("shows a cropped drawing through its box, with the whole image held inside", () => {
+        const cropped = {
+            ...urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 10, top: 20, width: 100, height: 50 }),
+            srcRect: { left: 4, top: 8, right: 6, bottom: 12 }
+        };
+        const html = renderSpreadsheetToHtml(workbookWithFloatingDrawings([cropped]));
+
+        // The box stays the drawing's own size and clips; the image inside grows by the insets and
+        // is pulled back by them, so the visible window is the part the editor shows.
+        expect(html).toContain(`<span class="spreadsheet-floating-image" style="position:absolute;left:10px;top:20px;`
+            + `width:100px;height:50px;display:block;overflow:hidden">`);
+        expect(html).toContain(`<img style="position:absolute;left:-4px;top:-8px;width:110px;height:70px"`);
+    });
+
+    it("leaves a drawing whose crop takes nothing as a bare image", () => {
+        const html = renderSpreadsheetToHtml(workbookWithFloatingDrawings([{
+            ...urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 0, top: 0, width: 100, height: 50 }),
+            srcRect: { left: 0, top: 0, right: 0, bottom: 0 }
+        }]));
+
+        expect(html).toContain('<img class="spreadsheet-floating-image"');
+        expect(html).not.toContain(`<span class="spreadsheet-floating-image"`);
+    });
+
     it("renders a floating image absolutely positioned in a per-sheet wrapper", () => {
         const html = renderSpreadsheetToHtml(
             workbookWithFloatingDrawings([

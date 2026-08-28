@@ -32,6 +32,7 @@ import {
     isFiniteNumber,
     type IRange,
     type IRowData,
+    type ISourceRect,
     type ISheetDrawing,
     type IStyleData,
     type ITextRotation,
@@ -87,6 +88,8 @@ interface PlacedImage {
     height: number;
     /** CSS `transform` value for rotation/flip, or "" when the image is upright and unflipped. */
     transform: string;
+    /** How far the image runs past each edge of the box, when only part of it is shown. */
+    crop: Required<ISourceRect> | null;
 }
 
 /**
@@ -110,10 +113,20 @@ function placeFloatingImages(sheet: IWorksheetData, drawings: ISheetDrawing[]): 
             top: toFinite(drawing.transform.top) - headerHeight,
             width: toFinite(drawing.transform.width),
             height: toFinite(drawing.transform.height),
-            transform: cssTransform(drawing.transform)
+            transform: cssTransform(drawing.transform),
+            crop: cropInsets(drawing.srcRect)
         });
     }
     return placed;
+}
+
+/** A drawing's crop insets, or `null` when the whole image is shown. */
+function cropInsets(srcRect: ISourceRect | null | undefined): Required<ISourceRect> | null {
+    if (!srcRect) return null;
+
+    const side = (value: number | undefined) => (isFiniteNumber(value) ? value : 0);
+    const insets = { left: side(srcRect.left), top: side(srcRect.top), right: side(srcRect.right), bottom: side(srcRect.bottom) };
+    return insets.left || insets.top || insets.right || insets.bottom ? insets : null;
 }
 
 /**
@@ -146,8 +159,23 @@ function wrapWithFloatingImages(tableHtml: string, images: PlacedImage[]): strin
     for (const image of images) {
         maxBottom = Math.max(maxBottom, image.top + image.height);
         const transform = image.transform ? `;transform:${image.transform}` : "";
+        const box = `position:absolute;left:${px(image.left)}px;top:${px(image.top)}px`
+            + `;width:${px(image.width)}px;height:${px(image.height)}px${transform}`;
+        const src = escapeHtml(image.src);
+
+        if (!image.crop) {
+            tags.push(`<img class="spreadsheet-floating-image" style="${box}" src="${src}" alt="">`);
+            continue;
+        }
+
+        // A cropped drawing keeps the box as its window and holds the whole image inside it,
+        // enlarged by the insets and pulled back by them, which is how the editor draws it.
+        const { left, top, right, bottom } = image.crop;
         tags.push(
-            `<img class="spreadsheet-floating-image" style="position:absolute;left:${px(image.left)}px;top:${px(image.top)}px;width:${px(image.width)}px;height:${px(image.height)}px${transform}" src="${escapeHtml(image.src)}" alt="">`
+            `<span class="spreadsheet-floating-image" style="${box};display:block;overflow:hidden">`
+            + `<img style="position:absolute;left:${px(-left)}px;top:${px(-top)}px`
+            + `;width:${px(image.width + left + right)}px;height:${px(image.height + top + bottom)}px" src="${src}" alt="">`
+            + `</span>`
         );
     }
 

@@ -107,6 +107,19 @@ export interface ISheetDrawing {
     transform?: IDrawingTransform | null;
     /** Cell-anchored extent (top-left/bottom-right), used by the XLSX emitter's two-cell anchor. */
     sheetTransform?: ISheetDrawingAnchor | null;
+    /** How much of the image is cropped away, in px of the drawing's own box on each side. */
+    srcRect?: ISourceRect | null;
+}
+
+/**
+ * A drawing's crop. Univer draws the whole image enlarged by these insets and offset by them, with
+ * the drawing's box as the window onto it, so each value is how far past that edge the image runs.
+ */
+export interface ISourceRect {
+    left?: number;
+    top?: number;
+    right?: number;
+    bottom?: number;
 }
 
 export interface ISheetDrawingAnchor {
