@@ -2759,3 +2759,109 @@ describe("dark mode", () => {
         expect(html).toContain("background-color:light-dark(#DBDBDB,#242424)");
     });
 });
+/**
+ * The renderer builds a cell's declarations once per style and reuses them across the cells that
+ * share it. These cover what the reuse has to keep apart: two cells sharing a style still differ
+ * wherever the declarations depend on the cell rather than on the style alone. Each asserts on one
+ * cell at a time, since the `td` default completes the other rules with `inherit` and which style
+ * is folded depends on the sheet.
+ */
+describe("reuse of a style across cells", () => {
+    const workbook = (styles: Record<string, unknown>, cellData: Record<string, Record<string, unknown>>, mergeData: unknown[] = []) =>
+        JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"], styles,
+                sheets: {
+                    s1: {
+                        id: "s1", name: "S", hidden: 0, rowCount: 5, columnCount: 5, showGridlines: 0,
+                        mergeData, cellData, rowData: {}, columnData: {}
+                    }
+                }
+            }
+        });
+
+    /** The rendered cells in document order, with their sizing box and padding stripped. */
+    function cells(input: string): string[] {
+        return [...unboxed(renderSpreadsheetToHtml(input)).matchAll(/<td[^>]*>[\s\S]*?<\/td>/g)].map(([cell]) => cell);
+    }
+
+    it("keeps the alignment a value type implies, which the style does not carry", () => {
+        // Univer aligns a number right and a string left when the style sets none, so two cells on
+        // one style still align differently. The number comes first, so a reuse blind to the value
+        // type would align the string right as well.
+        const [number, string] = cells(workbook(
+            { st1: { ff: "Arial" } },
+            { "0": { "0": { v: 5, t: 2, s: "st1" }, "1": { v: "x", t: 1, s: "st1" } } }
+        ));
+
+        expect(number).toContain("text-align:right");
+        expect(string).not.toContain("text-align:right");
+    });
+
+    it("colors each value by its own number-format section", () => {
+        // `[Red]` applies to the negative section alone, so the color follows the value rather than
+        // the style the two cells share.
+        const [positive, negative] = cells(workbook(
+            { st1: { n: { pattern: "#,##0;[Red]#,##0" } } },
+            { "0": { "0": { v: 5, t: 2, s: "st1" }, "1": { v: -5, t: 2, s: "st1" } } }
+        ));
+
+        expect(positive).not.toContain("color:red");
+        expect(negative).toContain("color:red");
+    });
+
+    it("keeps a merged range's composed border off the cells that share its style", () => {
+        // A range takes its right border from the cell in its last column, so the anchor renders
+        // declarations its style does not resolve to on its own.
+        const [anchor, plain] = cells(workbook(
+            { st1: { bl: 1 }, edge: { bd: { r: { s: BorderStyle.THIN, cl: { rgb: "#ff0000" } } } } },
+            {
+                "0": { "0": { v: "merged", t: 1, s: "st1" }, "1": { v: "", t: 1, s: "edge" } },
+                "1": { "0": { v: "plain", t: 1, s: "st1" } }
+            },
+            [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 1 }]
+        ));
+
+        expect(anchor).toContain("border-right:1px solid #ff0000");
+        expect(plain).not.toContain("border-right");
+    });
+
+    it("tells two inline styles apart, which carry no shared id to reuse by", () => {
+        const [bold, italic] = cells(workbook(
+            {},
+            { "0": { "0": { v: "a", t: 1, s: { bl: 1 } }, "1": { v: "b", t: 1, s: { it: 1 } } } }
+        ));
+
+        expect(bold).toContain("font-weight:bold");
+        expect(bold).not.toContain("font-style:italic");
+        expect(italic).toContain("font-style:italic");
+        expect(italic).not.toContain("font-weight:bold");
+    });
+
+    it("darkens each color to its own dark half", () => {
+        // An inversion is reused per color within a render and between renders, so two fills must
+        // not collapse onto whichever was asked for first.
+        const input = workbook(
+            { pale: { bg: { rgb: "#FFE699" } }, grey: { bg: { rgb: "#DBDBDB" } } },
+            { "0": { "0": { v: "a", t: 1, s: "pale" }, "1": { v: "b", t: 1, s: "grey" } } }
+        );
+        const html = renderRaw(input);
+
+        expect(html).toContain("background-color:light-dark(#FFE699,#543b00)");
+        expect(html).toContain("background-color:light-dark(#DBDBDB,#242424)");
+        expect(renderRaw(input)).toBe(html);
+    });
+
+    it("escapes every character that has to be escaped, each on its own", () => {
+        // One character per cell: a cell holding all five would still be escaped by a check that
+        // recognised only one of them.
+        const raw = ["&", "<", ">", "\"", "'"];
+        const rendered = cells(workbook({}, {
+            "0": Object.fromEntries(raw.map((character, index) => [String(index), { v: character, t: 1 }]))
+        }));
+
+        expect(rendered.map((cell) => /<td[^>]*>([\s\S]*)<\/td>/.exec(cell)?.[1]))
+            .toEqual(["&amp;", "&lt;", "&gt;", "&quot;", "&#39;"]);
+    });
+});

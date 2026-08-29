@@ -530,6 +530,8 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
 
     // Build a set of cells that are hidden by merges (non-origin cells).
     const mergeMap = buildMergeMap(mergeData, minRow, maxRow, minCol, maxCol);
+    const merged = mergeMap.size > 0;
+    const cssCache = new Map<string, string>();
 
     // Visible column widths, reused for the colgroup and the table's fixed total width.
     const defaultWidth = sheet.defaultColumnWidth ?? 88;
@@ -575,7 +577,7 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
         for (let col = minCol; col <= maxCol; col++) {
             if (columnData[col]?.hd) continue;
 
-            const mergeInfo = mergeMap.get(cellKey(row, col));
+            const mergeInfo = merged ? mergeMap.get(cellKey(row, col)) : undefined;
             if (mergeInfo?.kind === "member") continue;
 
             const cell = cellData[row]?.[col];
@@ -585,11 +587,10 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
             const boxHeight = spannedHeight(heights, row, mergeInfo?.endRow ?? row)
                 - padding.t - padding.b
                 - collapsedBorderHeight(cellStyle, row, mergeInfo?.endRow ?? row, col, rowData, cellData, styles);
-            const declarations = [buildCssText(cellStyle, cell)];
-            if (hasContent(cell)) {
-                declarations.push(`padding:${px(padding.t)}px ${px(padding.r)}px ${px(padding.b)}px ${px(padding.l)}px`);
-            }
-            const cssText = declarations.filter(Boolean).join(";");
+            const base = cssTextFor(cellStyle, cell, mergeInfo, cssCache);
+            const cssText = hasContent(cell)
+                ? `${base ? `${base};` : ""}padding:${px(padding.t)}px ${px(padding.r)}px ${px(padding.b)}px ${px(padding.l)}px`
+                : base;
             const text = rotate(formatCellValue(cell, cellStyle), cellStyle, classes);
             const value = (isTurned(cellStyle?.tr)
                 ? turnedBox(text, boxHeight, cellStyle, classes)
@@ -771,6 +772,18 @@ function themedDeclarations(property: string, color: string, build: (color: stri
  * the two implementations agreeing to the byte.
  */
 function invertColor(color: string): string | null {
+    let inverted = INVERTED_COLORS.get(color);
+    if (inverted === undefined) {
+        inverted = invertColorUncached(color);
+        INVERTED_COLORS.set(color, inverted);
+    }
+    return inverted;
+}
+
+/** A workbook draws from a handful of colors, and every cell using one asks for the same answer. */
+const INVERTED_COLORS = new Map<string, string | null>();
+
+function invertColorUncached(color: string): string | null {
     const rgb = parseColor(color);
     if (!rgb) return null;
 
@@ -800,6 +813,33 @@ function parseColor(color: string): [number, number, number] | null {
 // #endregion
 
 // #region Style resolution
+
+/**
+ * `buildCssText` for a cell, reusing the result across the cells that share a style. Beyond the
+ * style, the declarations depend on the cell's value type (`defaultHorizontalAlign`) and, where the
+ * style carries a number format, on the value itself (`resolvePatternColor`). So a formatted cell,
+ * a cell whose style is written inline rather than shared, and a merge origin (whose borders
+ * `mergeAwareStyle` rewrites per range) are all built every time.
+ */
+function cssTextFor(
+    style: IStyleData | null,
+    cell: ICellData | undefined,
+    merge: MergeOrigin | undefined,
+    cache: Map<string, string>
+): string {
+    const shared = cell?.s;
+    if (merge || style?.n?.pattern || (shared !== undefined && typeof shared !== "string")) {
+        return buildCssText(style, cell);
+    }
+
+    const key = `${shared ?? ""}|${cell?.t ?? ""}`;
+    let cssText = cache.get(key);
+    if (cssText === undefined) {
+        cssText = buildCssText(style, cell);
+        cache.set(key, cssText);
+    }
+    return cssText;
+}
 
 function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     const parts: string[] = [];
@@ -939,7 +979,7 @@ function spillRoom(from: number, step: -1 | 1, neighbours: RowNeighbours): { wid
 function cellShownAt(col: number, neighbours: RowNeighbours): ICellData | undefined {
     const { row, cellData, mergeMap } = neighbours;
 
-    const info = mergeMap.get(cellKey(row, col));
+    const info = mergeMap.size ? mergeMap.get(cellKey(row, col)) : undefined;
     return info?.kind === "member" ? cellData[info.anchorRow]?.[info.anchorColumn] : cellData[row]?.[col];
 }
 
@@ -1350,13 +1390,16 @@ function resolvePatternColor(style: IStyleData | null, cell: ICellData | undefin
 }
 
 function escapeHtml(text: string): string {
+    if (!ESCAPABLE.test(text)) return text;
+
     return text
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
-    ;
 }
+
+const ESCAPABLE = /[&<>"']/;
 
 // #endregion
