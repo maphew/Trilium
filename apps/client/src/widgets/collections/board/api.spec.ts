@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import FAttribute from "../../../entities/fattribute";
+import { executeBulkActions } from "../../../services/bulk_action";
 import FNote from "../../../entities/fnote";
 import froca from "../../../services/froca";
 import noteAttributeCache from "../../../services/note_attribute_cache";
@@ -13,6 +14,11 @@ import { BOARD_TEMPLATE_ID, getStatusDefinition } from "./columns";
 vi.mock("../../../services/bulk_action", () => ({
     executeBulkActions: vi.fn(async () => {})
 }));
+
+/** Makes the next bulk action fail, as an offline or rejecting server does. */
+function failNextBulkAction() {
+    vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
+}
 
 vi.mock("../../../services/i18n", () => ({
     // i18next is never initialised under test, so the real `t` yields nothing and the alias would
@@ -148,6 +154,38 @@ describe("BoardApi column mutations", () => {
         // A name is only held back while its removal is still landing, never against a column the
         // user deliberately creates under it again.
         await api.addNewColumn("To Do");
+        expect([ ...pendingRenames ]).toEqual([ [ "Done", "Shipped" ] ]);
+    });
+
+    /**
+     * A record left behind by a write that never landed goes on being applied: the column would show
+     * under a name nothing carries, or stay hidden though it is still there.
+     */
+    it("keeps no record of a rename or a deletion the server refused", async () => {
+        const { api, saved, pendingRenames } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]
+        );
+
+        failNextBulkAction();
+        await expect(api.renameColumn("Done", "Shipped")).rejects.toThrow("offline");
+
+        failNextBulkAction();
+        await expect(api.removeColumn("To Do")).rejects.toThrow("offline");
+
+        expect([ ...pendingRenames ]).toEqual([]);
+        expect(saved).toHaveLength(0);
+    });
+
+    it("restores the record of an earlier rename when a later one is refused", async () => {
+        const { api, pendingRenames } = createApi({ columns: [ { value: "Done" } ] }, [ "Done" ]);
+
+        await api.renameColumn("Done", "Shipped");
+
+        // The refused rename re-pointed the first one on its way in, which has to be put back.
+        failNextBulkAction();
+        await expect(api.renameColumn("Shipped", "Delivered")).rejects.toThrow("offline");
+
         expect([ ...pendingRenames ]).toEqual([ [ "Done", "Shipped" ] ]);
     });
 

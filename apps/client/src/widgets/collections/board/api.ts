@@ -78,28 +78,27 @@ export default class BoardApi {
     }
 
     async removeColumn(column: string) {
-        this.retireColumn(column);
-
         // Remove the value from the notes.
         const noteIds = this.byColumn?.get(column)?.map(item => item.note.noteId) || [];
 
         const action: BulkAction = this.isRelationMode
             ? { name: "deleteRelation", relationName: this.statusAttribute }
             : { name: "deleteLabel", labelName: this.statusAttribute };
-        await executeBulkActions(noteIds, [ action ], { silent: true });
+        await this.retiredWhile(column, undefined,
+            () => executeBulkActions(noteIds, [ action ], { silent: true }));
+
         this.storeColumns((this.viewConfig?.columns ?? []).filter(col => col.value !== column));
     }
 
     async renameColumn(oldValue: string, newValue: string) {
-        this.retireColumn(oldValue, newValue);
-
         const noteIds = this.byColumn?.get(oldValue)?.map(item => item.note.noteId) || [];
 
         // Change the value in the notes.
         const action: BulkAction = this.isRelationMode
             ? { name: "updateRelationTarget", relationName: this.statusAttribute, targetNoteId: newValue }
             : { name: "updateLabelValue", labelName: this.statusAttribute, labelValue: newValue };
-        await executeBulkActions(noteIds, [ action ], { silent: true });
+        await this.retiredWhile(oldValue, newValue,
+            () => executeBulkActions(noteIds, [ action ], { silent: true }));
 
         // Rename the column in the persisted data.
         this.storeColumns((this.viewConfig?.columns ?? [])
@@ -166,6 +165,30 @@ export default class BoardApi {
         ]);
 
         return newColumns;
+    }
+
+    /**
+     * Runs the write that moves a column, with the record of it in place from the start so that a
+     * refresh in the middle reads the sources as they are about to be.
+     *
+     * Taken back out if the write does not land: left in, a rename nothing carries would keep the
+     * column under the name it failed to take, and a deletion that failed would keep hiding a column
+     * that is still there, cards and all. The record is restored rather than merely dropped, since
+     * {@link retireColumn} may have re-pointed an earlier one that has not landed either.
+     */
+    private async retiredWhile<T>(oldValue: string, newValue: string | undefined, write: () => Promise<T>) {
+        const restore = new Map(this.pendingRenames);
+        this.retireColumn(oldValue, newValue);
+
+        try {
+            return await write();
+        } catch (e) {
+            this.pendingRenames.clear();
+            for (const [ from, to ] of restore) {
+                this.pendingRenames.set(from, to);
+            }
+            throw e;
+        }
     }
 
     /**
