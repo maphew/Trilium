@@ -19,12 +19,6 @@ function withInlineStyles(html: string): string {
     for (const rule of stylesheet[1].matchAll(/\.spreadsheet-table(?::where\(\.[\w-]+\))? \.([\w-]+)\{([^}]*)\}/g)) {
         declarations.set(rule[1], withoutThemedColors(rule[2]));
     }
-    // The renderer folds the commonest cell style into a `td` default, leaving those cells without
-    // a class; every other rule sets what the default does, so a classed cell resolves to its rule
-    // alone. Putting the default back on the bare cells is what the browser works out.
-    const fallback = withoutThemedColors(
-        /\.spreadsheet-table(?::where\(\.[\w-]+\))? td\{([^}]*)\}/.exec(stylesheet[1])?.[1] ?? "");
-
     const body = html.slice(stylesheet[0].length).replace(/ class="([^"]*)"/g, (_whole, names: string) => {
         const kept: string[] = [];
         const css: string[] = [];
@@ -36,7 +30,7 @@ function withInlineStyles(html: string): string {
         return (kept.length ? ` class="${kept.join(" ")}"` : "") + (css.length ? ` style="${css.join(";")}"` : "");
     });
 
-    return fallback ? body.replace(/<td(?=[ >])(?![^>]*style=")/g, `<td style="${fallback}"`) : body;
+    return body;
 }
 
 /**
@@ -2584,12 +2578,10 @@ describe("style deduplication", () => {
         const html = renderRaw(gridWorkbook(rows(bold, bold, bold, italic)));
 
         expect(html.startsWith("<style>")).toBe(true);
-        // One rule for the three bold cells, not three copies of the declaration. Being the
-        // commonest style they carry, it is written as the folded `td` default.
+        // One rule for the three bold cells, not three copies of the declaration.
         expect(html.match(/font-weight:bold/g)).toHaveLength(1);
-        expect(html).toMatch(/\.spreadsheet-table:where\(\.sstd-[\w-]+\) td\{[^}]*font-weight:bold/);
 
-        // The minority style keeps a class, used by the one cell that has it.
+        // The minority style gets its own rule, used by the one cell that has it.
         const name = /\.spreadsheet-table(?::where\(\.[\w-]+\))? \.(sst-[\w-]+)\{font-style:italic/.exec(html)?.[1];
         expect(name).toBeTruthy();
         expect(html.match(new RegExp(`class="${name}"`, "g"))).toHaveLength(1);
@@ -2600,8 +2592,8 @@ describe("style deduplication", () => {
 
         expect(stylesheet).toBeTruthy();
         for (const rule of stylesheet.split("}").map((r) => r.trim()).filter(Boolean)) {
-            // Cell rules, the folded `td` default, and the gridline rule whose context sits in
-            // :where(); none of them can match anything outside a rendered sheet.
+            // Cell rules, and the gridline rule whose context sits in :where(); neither can
+            // match anything outside a rendered sheet.
             expect(rule).toMatch(/^(\.spreadsheet-table(:where\(\.[\w-]+\))? (\.sst-|td\{)|:where\(\.spreadsheet-table)/);
         }
     });
@@ -2637,70 +2629,6 @@ describe("style deduplication", () => {
 
         expect(renderRaw(JSON.stringify({ version: 1, workbook: { sheetOrder: [], styles: {}, sheets: {} } })))
             .not.toContain("<style>");
-    });
-
-    describe("folding the commonest style into a td default", () => {
-        it("drops the class from the cells that used it, keeping it on the rest", () => {
-            const html = renderRaw(gridWorkbook(rows(bold, bold, bold, italic)));
-
-            expect(html).toMatch(/\.spreadsheet-table:where\(\.sstd-[\w-]+\) td\{[^}]*font-weight:bold/);
-            // Three bare cells for the folded style, one still classed for the other.
-            expect(html.match(/<td>/g)).toHaveLength(3);
-            expect(html.match(/<td class="sst-[\w-]+">/g)).toHaveLength(1);
-        });
-
-        it("completes a rule that leaves an inherited property the default sets unset", () => {
-            // The default sets font-weight; the italic cell says nothing about it, and would
-            // otherwise come out bold. font-weight is inherited, so `inherit` restores exactly
-            // what no declaration at all would have computed to.
-            const html = renderRaw(gridWorkbook(rows(bold, bold, italic)));
-
-            expect(html).toMatch(/\.spreadsheet-table:where\(\.sstd-[\w-]+\) td\{[^}]*font-weight:bold/);
-            expect(html).toMatch(
-                /\.spreadsheet-table:where\(\.sstd-[\w-]+\) \.sst-[\w-]+\{[^}]*font-style:italic[^}]*font-weight:inherit\}/);
-        });
-
-        it("scopes a completed rule, so two workbooks sharing a style do not collide", () => {
-            // Both fold something different, and both complete the same italic style — which is
-            // named after the declarations it started with, so the two would otherwise write one
-            // selector twice with different bodies.
-            const red = { v: "x", t: 1, s: { cl: { rgb: "#FF0000" } } };
-            const italicRule = (html: string) =>
-                [...html.matchAll(/(\.spreadsheet-table[^{]*\.sst-[\w-]+)\{([^}]*)\}/g)]
-                    .find((match) => match[2].includes("font-style:italic"));
-
-            const bolds = italicRule(renderRaw(gridWorkbook(rows(bold, bold, bold, italic))));
-            const reds = italicRule(renderRaw(gridWorkbook(rows(red, red, red, italic))));
-
-            expect(bolds?.[2]).toContain("font-weight:inherit");
-            expect(reds?.[2]).toContain("color:inherit");
-            // Same class, different rule: the selectors have to tell them apart.
-            expect(bolds?.[0]).not.toBe(reds?.[0]);
-            expect(bolds?.[0]).toMatch(/\.spreadsheet-table:where\(\.sstd-[\w-]+\) \.sst-/);
-        });
-
-        it("declines when a rule would inherit a property that cannot be reset", () => {
-            // A background fill dominates, and no value means "as if never declared" for it, so
-            // the bold cell could not be kept from picking the fill up. Nothing is folded.
-            const filled = { v: "x", t: 1, s: { bg: { rgb: "#FFE699" } } };
-            const html = renderRaw(gridWorkbook(rows(filled, filled, filled, bold)));
-
-            expect(html).not.toMatch(/\.spreadsheet-table(?::where\(\.[\w-]+\))? td\{/);
-            expect(html).toMatch(/<td class="has-fill sst-[\w-]+"/);
-        });
-
-        it("declines when a cell styles nothing, having no rule to complete", () => {
-            // A cell holding nothing takes neither a style nor the padding a cell with content
-            // gets, so it carries no class and would take the default whole. Here one sits in the
-            // gap between two bold cells, inside the bounds their content sets.
-            const html = renderRaw(gridWorkbook({
-                "0": { "0": bold, "2": bold },
-                "1": { "0": bold }
-            }));
-
-            expect(html).not.toMatch(/\.spreadsheet-table(?::where\(\.[\w-]+\))? td\{/);
-            expect(html).toContain("<td></td>");
-        });
     });
 });
 
@@ -2762,9 +2690,7 @@ describe("dark mode", () => {
 /**
  * The renderer builds a cell's declarations once per style and reuses them across the cells that
  * share it. These cover what the reuse has to keep apart: two cells sharing a style still differ
- * wherever the declarations depend on the cell rather than on the style alone. Each asserts on one
- * cell at a time, since the `td` default completes the other rules with `inherit` and which style
- * is folded depends on the sheet.
+ * wherever the declarations depend on the cell rather than on the style alone.
  */
 describe("reuse of a style across cells", () => {
     const workbook = (styles: Record<string, unknown>, cellData: Record<string, Record<string, unknown>>, mergeData: unknown[] = []) =>
