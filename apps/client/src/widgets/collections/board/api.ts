@@ -190,6 +190,11 @@ export default class BoardApi {
         this.updateColumn(column, { color: color ?? undefined });
     }
 
+    /** Whether a column is archived, which the board shows only while archived notes are shown. */
+    isColumnArchived(column: string) {
+        return !!this.viewConfig?.columns?.find(col => col.value === column)?.archived;
+    }
+
     /**
      * Archives a column or brings it back. An archived one is shown only while the board is set to
      * show archived notes, and greyed out where it is.

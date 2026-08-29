@@ -145,9 +145,14 @@ export function openNoteContextMenu(api: Api, event: ContextMenuEvent, note: FNo
             {
                 title: t("board_view.move-to"),
                 uiIcon: "bx bx-transfer",
+                // Archived columns are offered like any other, since moving a card into one is a
+                // fair thing to want; the badge is there so it is not a surprise when it goes.
                 items: api.columns.map(columnToMoveTo => ({
                     title: columnToMoveTo,
                     enabled: columnToMoveTo !== column,
+                    badges: api.isColumnArchived(columnToMoveTo)
+                        ? [ { title: t("board_view.archived-badge") } ]
+                        : undefined,
                     handler: () => api.changeColumn(note.noteId, columnToMoveTo)
                 })),
             },

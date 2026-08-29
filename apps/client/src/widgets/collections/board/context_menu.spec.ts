@@ -4,8 +4,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import contextMenu, { ContextMenuEvent } from "../../../menus/context_menu";
 import dialog from "../../../services/dialog";
+import FNote from "../../../entities/fnote";
+import { buildNote } from "../../../test/easy-froca";
 import BoardApi from "./api";
-import { openColumnContextMenu } from "./context_menu";
+import { openColumnContextMenu, openNoteContextMenu } from "./context_menu";
+
+// The card menu opens with the shared link items, which reach for the active note context.
+vi.mock("../../../menus/link_context_menu", () => ({
+    default: { getItems: () => [], handleLinkContextMenuItem: () => {} }
+}));
 
 describe("Board column context menu", () => {
     let container: HTMLElement | undefined;
@@ -174,5 +181,36 @@ describe("Board column context menu", () => {
 
         await act(async () => picker.querySelector<HTMLElement>(".color-cell-reset")?.click());
         expect(api.setColumnColor).toHaveBeenLastCalledWith("To Do", null);
+    });
+});
+
+describe("Board item context menu", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it("marks the archived columns it offers to move a card to", () => {
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        const api = {
+            columns: [ "To Do", "Done" ],
+            isColumnArchived: (column: string) => column === "Done"
+        } as unknown as BoardApi;
+        const event = {
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            pageX: 0,
+            pageY: 0
+        } as ContextMenuEvent;
+
+        openNoteContextMenu(api, event, buildNote({ title: "Card" }) as FNote, "branchId", "To Do");
+
+        const items = show.mock.calls.at(-1)?.[0].items ?? [];
+        const moveTo = items.find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
+        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
+
+        // Presence rather than wording: i18next is never initialised under test, so every title is
+        // undefined and asserting the text would prove nothing.
+        expect((moveTo.items ?? [])
+            .map(item => !!(item && "badges" in item && item.badges?.length)))
+            .toEqual([ false, true ]);
     });
 });
