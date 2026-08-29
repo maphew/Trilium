@@ -411,6 +411,22 @@ describe("BoardApi card operations", () => {
             .toHaveBeenCalledWith([ first.branch.branchId ], third.branch.branchId);
     });
 
+    /**
+     * Nothing waits for the board to redraw between two keystrokes, so the column map the API holds
+     * still shows the target as it was before the first card arrived.
+     */
+    it("sends each card past the one it sent before, without waiting for a redraw", async () => {
+        const { api, items } = createBoardWithCards();
+        const [ first, second ] = items;
+
+        await api.moveToColumnEnd(first.note.noteId, first.branch.branchId, "To Do");
+        expect(branches.moveAfterBranch).not.toHaveBeenCalled();
+
+        await api.moveToColumnEnd(second.note.noteId, second.branch.branchId, "To Do");
+        expect(branches.moveAfterBranch)
+            .toHaveBeenLastCalledWith([ second.branch.branchId ], first.branch.branchId);
+    });
+
     it("moves nothing for a card dropped where it is, or one it cannot find", async () => {
         const { api, items } = createBoardWithCards();
         const [ first ] = items;

@@ -120,6 +120,7 @@ export default function Column({
 
     return (
         <div
+            data-column={column}
             className={clsx("board-column", {
                 "drag-over": dropTarget === column && draggedCard?.fromColumn !== column,
                 // The class the themes key a hue off, worn here as anywhere else that carries one.

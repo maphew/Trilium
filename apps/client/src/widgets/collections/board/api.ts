@@ -18,6 +18,8 @@ import { ColumnMap } from "./data";
 export default class BoardApi {
 
     private isRelationMode: boolean;
+    /** The branch last sent to the end of each column, by {@link moveToColumnEnd}. */
+    private sentToColumnEnd = new Map<string, string>();
     statusAttribute: string;
 
     constructor(
@@ -477,6 +479,30 @@ export default class BoardApi {
             return attributes.removeOwnedRelationByName(note, this.statusAttribute);
         }
         return attributes.removeOwnedLabelByName(note, this.statusAttribute);
+    }
+
+    /**
+     * Moves a card to the end of another column, where a new one would go.
+     *
+     * {@link moveWithinBoard} leaves a card crossing columns where the tree already had it, which
+     * is where a drop between two cards wants it. A card sent across by the keyboard is aimed at no
+     * card in particular, so it goes where the reader would look for it.
+     */
+    async moveToColumnEnd(noteId: string, branchId: string, targetColumn: string) {
+        // What is already at the end, as far as this instance can know: nothing waits for the board
+        // to redraw between two keystrokes, so the column map still shows the target as it was
+        // before the card the last press sent. Anything sent since is remembered here instead, and
+        // the memory lasts exactly as long as the map it stands in for, both being rebuilt by the
+        // refresh that catches up.
+        const last = this.sentToColumnEnd.get(targetColumn)
+            ?? (this.byColumn?.get(targetColumn) ?? []).at(-1)?.branch.branchId;
+
+        await this.changeColumn(noteId, targetColumn);
+        if (last && last !== branchId) {
+            await branches.moveAfterBranch([ branchId ], last);
+        }
+
+        this.sentToColumnEnd.set(targetColumn, branchId);
     }
 
     async moveWithinBoard(noteId: string, sourceBranchId: string, sourceIndex: number, targetIndex: number, sourceColumn: string, targetColumn: string) {

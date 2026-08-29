@@ -105,6 +105,7 @@ function Card({
     return (
         <div
             className={`board-note ${colorClass} ${isDragging ? 'dragging' : ''} ${isEditing ? "editing" : ""} ${isArchived ? "archived" : ""}`}
+            data-note-id={note.noteId}
             draggable
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}

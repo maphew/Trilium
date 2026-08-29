@@ -21,6 +21,7 @@ import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition } from "./columns";
 import Column from "./column";
 import { ColumnMap, getBoardData } from "./data";
+import { useBoardKeyboard } from "./keyboard";
 
 export interface BoardViewData {
     columns?: BoardColumnData[];
@@ -168,6 +169,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             includeArchived || !storedColumns.get(column)?.archived),
         [ columns, storedColumns, includeArchived ]);
 
+    const containerRef = useRef<HTMLDivElement>(null);
+
     const boardDragState = useMemo<BoardDragState>(() => ({
         branchIdToEdit,
         columnNameToEdit,
@@ -233,6 +236,14 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         setColumnDropPosition(null);
     }, [ api, columns, shownColumns ]);
 
+    const handleKeyDown = useBoardKeyboard({
+        containerRef,
+        columns: shownColumns,
+        byColumn,
+        api,
+        moveColumn: handleColumnDrop
+    });
+
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         // The column list is read off the definition, which may be edited from the attribute panel,
         // another split, or a synced instance. Re-reading it re-runs the refresh through the effect.
@@ -278,7 +289,9 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             <BoardActionsContext.Provider value={boardActions}>
                 <BoardDragStateContext.Provider value={boardDragState}>
                     {byColumn && columns && <div
+                        ref={containerRef}
                         className="board-view-container"
+                        onKeyDown={handleKeyDown}
                         onDragOver={handleColumnDragOver}
                         onDrop={handleContainerDrop}
                         onWheel={onWheelHorizontalScroll}
