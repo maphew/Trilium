@@ -20,7 +20,7 @@ overrides:
   preact: 10.29.8
   roughjs: 4.6.6
   '@types/express-serve-static-core': 5.1.3
-  node-abi: 4.33.0
+  node-abi: 4.34.0
   flat@<5.0.1: '>=5.0.1'
   debug@>=3.2.0 <3.2.7: '>=3.2.7'
   nanoid@<3.3.8: '>=3.3.8'
@@ -9797,8 +9797,8 @@ packages:
   nice-try@1.0.5:
     resolution: {integrity: sha512-1nh45deeb5olNY7eX82BkPO7SSxR5SSYJiPTrTdFUVYwAl8CKMA5N9PjTYkHiRjisVcxcQ1HXdLhx2qxxJzLNQ==}
 
-  node-abi@4.33.0:
-    resolution: {integrity: sha512-vLBWCKb+7LWsX+TbfzWOkw0W81m377tyx3hOweBTjO43CXZnRGS1/JPWs20fr0PgZyDXk6ROYrylsEycK8raDA==}
+  node-abi@4.34.0:
+    resolution: {integrity: sha512-4Oy5Q6/Ftna9sXyrkdnKypfvm9uWRpxUPvlw4oA192QNMN39aq8k4l36TUUUU/ONw7ivGVi402Ud+UBPVDYh6A==}
     engines: {node: '>=22.12.0'}
 
   node-addon-api@8.9.0:
@@ -14048,7 +14048,7 @@ snapshots:
       detect-libc: 2.1.2
       fs-extra: 10.1.0
       got: 11.8.6
-      node-abi: 4.33.0
+      node-abi: 4.34.0
       node-api-version: 0.2.1
       ora: 5.4.1
       read-binary-file-arch: 1.0.6(supports-color@10.2.2)
@@ -23200,7 +23200,7 @@ snapshots:
 
   nice-try@1.0.5: {}
 
-  node-abi@4.33.0:
+  node-abi@4.34.0:
     dependencies:
       semver: 7.8.5
 
