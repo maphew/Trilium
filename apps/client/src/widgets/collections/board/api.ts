@@ -113,6 +113,45 @@ export default class BoardApi {
         return true;
     }
 
+    /**
+     * Puts a new column beside an existing one, and hands back the name it was given for the caller
+     * to open its title editor with.
+     *
+     * Named rather than left blank: a column is known by its value, so until it has one there is
+     * nothing to place it by, nothing to store and nothing to rename. The stock name is numbered
+     * where it is already taken, so adding several in a row cannot silently do nothing.
+     */
+    async insertColumn(relativeTo: string, direction: "before" | "after") {
+        const stored = this.viewConfig?.columns ?? [];
+        const taken = new Set([ ...this.columns, ...stored.map(col => col.value) ]);
+
+        const stockName = t("board_view.new-column");
+        let name = stockName;
+        for (let suffix = 2; taken.has(name); suffix++) {
+            name = `${stockName} ${suffix}`;
+        }
+
+        // Placed by the stored order rather than the derived one, which lags a column just added:
+        // `columns` is rebuilt only when the view re-renders, while the config is written here.
+        // Columns the config does not know yet keep their derived places, at the end.
+        const order = stored.map(col => col.value);
+        for (const derived of this.columns) {
+            if (!order.includes(derived)) {
+                order.push(derived);
+            }
+        }
+
+        const neighbour = order.indexOf(relativeTo);
+        order.splice(
+            neighbour < 0 ? order.length : neighbour + (direction === "after" ? 1 : 0), 0, name);
+
+        // Entries carry more than their name, so each is moved rather than rebuilt.
+        const byValue = new Map(stored.map(col => [ col.value, col ]));
+        this.storeColumns(order.map(value => byValue.get(value) ?? { value }));
+
+        return name;
+    }
+
     async removeColumn(column: string) {
         // Remove the value from the notes.
         const noteIds = this.byColumn?.get(column)?.map(item => item.note.noteId) || [];

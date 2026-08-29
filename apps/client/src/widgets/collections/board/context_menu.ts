@@ -19,6 +19,8 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
     onEditTitle: () => void;
     /** Opens the column's own new-item editor, the same one its button opens. */
     onNewItem: () => void;
+    /** Puts a new column on one side of this one and opens its title editor. */
+    onAddColumn: (direction: "before" | "after") => void;
 }) {
     event.preventDefault();
     event.stopPropagation();
@@ -50,6 +52,20 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                         await api.addExistingItem(column.value, noteId);
                     }
                 }
+            },
+            {
+                title: t("board_view.add-new-column"),
+                uiIcon: "bx bx-columns",
+                items: [
+                    {
+                        title: t("board_view.add-column-before"),
+                        handler: () => column.onAddColumn("before")
+                    },
+                    {
+                        title: t("board_view.add-column-after"),
+                        handler: () => column.onAddColumn("after")
+                    }
+                ]
             },
             { kind: "separator" },
             column.archived

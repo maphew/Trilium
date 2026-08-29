@@ -91,6 +91,38 @@ describe("BoardApi column mutations", () => {
         expect(saved).toHaveLength(0);
     });
 
+    it("puts a new column on either side of the one it is given", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]
+        );
+
+        expect(await api.insertColumn("To Do", "after")).toBe("board_view.new-column");
+        expect(saved.at(-1)?.columns?.map(col => col.value))
+            .toEqual([ "To Do", "board_view.new-column", "Done" ]);
+
+        // The second is placed against the config just written, not the list the view still shows.
+        expect(await api.insertColumn("Done", "before")).toBe("board_view.new-column 2");
+        expect(saved.at(-1)?.columns?.map(col => col.value)).toEqual([
+            "To Do", "board_view.new-column", "board_view.new-column 2", "Done"
+        ]);
+    });
+
+    it("keeps the icon of a column it puts one beside", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do", icon: "bx bx-list-ul", color: "#e64d4d" } ] },
+            [ "To Do" ]
+        );
+
+        await api.insertColumn("To Do", "before");
+
+        expect(saved.at(-1)?.columns)
+            .toEqual([
+                { value: "board_view.new-column" },
+                { value: "To Do", icon: "bx bx-list-ul", color: "#e64d4d" }
+            ]);
+    });
+
     it("keeps the icon of every column it reorders", () => {
         const { api, saved } = createApi(
             { columns: [ { value: "To Do", icon: "bx bx-list-ul" }, { value: "Done" } ] },

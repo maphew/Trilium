@@ -71,7 +71,10 @@ export default function Column({
             color,
             archived,
             onEditTitle: () => setColumnNameToEdit(column),
-            onNewItem: () => setIsCreatingNewItem(true)
+            onNewItem: () => setIsCreatingNewItem(true),
+            onAddColumn: async (direction) => {
+                setColumnNameToEdit(await api.insertColumn(column, direction));
+            }
         });
     }, [ api, column, color, archived, setColumnNameToEdit ]);
 

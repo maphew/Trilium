@@ -31,6 +31,33 @@ describe("Board data", () => {
         expect(noteIds.length).toBe(3);
     });
     /**
+     * A column inserted or dragged is written to the attachment at once and to the definition a
+     * round trip later. The refresh in between must not put it back where the definition says.
+     */
+    it("leaves a column just placed where the board put it, writing nothing back", async () => {
+        const board = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            children: [
+                { title: "First", "#status": "To Do" },
+                { title: "Second", "#status": "Done" }
+            ]
+        });
+
+        const data = await getBoardData(
+            board,
+            "status",
+            { columns: [ { value: "To Do" }, { value: "New column" }, { value: "Done" } ] },
+            false,
+            [ "To Do", "Done" ]
+        );
+
+        expect(data.columns).toEqual([ "To Do", "New column", "Done" ]);
+        expect(data.newPersistedData).toBeUndefined();
+    });
+
+    /**
      * The notes, the view config and the definition are written one at a time, so a refresh in
      * between reads a source that still offers the old value. Resolution being additive, what it
      * picks up there is persisted and can never be dropped again, leaving an empty column behind.

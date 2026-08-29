@@ -24,7 +24,8 @@ describe("Board column context menu", () => {
         column: { color?: string, archived?: boolean } = {},
         callbacks: {
             onEditTitle?: () => void,
-            onNewItem?: () => void
+            onNewItem?: () => void,
+            onAddColumn?: (direction: "before" | "after") => void
         } = {}
     ) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
@@ -39,7 +40,8 @@ describe("Board column context menu", () => {
             value: "To Do",
             ...column,
             onEditTitle: callbacks.onEditTitle ?? (() => {}),
-            onNewItem: callbacks.onNewItem ?? (() => {})
+            onNewItem: callbacks.onNewItem ?? (() => {}),
+            onAddColumn: callbacks.onAddColumn ?? (() => {})
         });
 
         // The spy outlives one call, so it is the menu just opened that is read back.
@@ -98,8 +100,23 @@ describe("Board column context menu", () => {
         const titled = openMenu({} as BoardApi).filter(item => item && "uiIcon" in item);
         expect(titled.map(item => "uiIcon" in item ? item.uiIcon : undefined))
             .toEqual([
-                "bx bx-edit-alt", "bx bx-plus", "bx bx-link", "bx bx-archive", "bx bx-trash"
+                "bx bx-edit-alt", "bx bx-plus", "bx bx-link", "bx bx-columns",
+                "bx bx-archive", "bx bx-trash"
             ]);
+    });
+
+    it("offers both sides to put a new column on", () => {
+        const onAddColumn = vi.fn();
+        const parent = openMenu({} as BoardApi, {}, { onAddColumn })
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-columns");
+        if (!parent || !("items" in parent)) throw new Error("expected an add-column entry");
+
+        const sides = parent.items ?? [];
+        expect(sides).toHaveLength(2);
+        for (const side of sides) {
+            if (side && "handler" in side) side.handler?.(side, {} as never);
+        }
+        expect(onAddColumn.mock.calls.flat()).toEqual([ "before", "after" ]);
     });
 
     it("opens the column's new-item editor, the same one its button opens", () => {

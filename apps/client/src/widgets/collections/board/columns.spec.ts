@@ -44,6 +44,22 @@ describe("resolveBoardColumns", () => {
         )).toEqual([ "Todo" ]);
     });
 
+    /**
+     * The definition is written a round trip after the config, so right after an insert or a
+     * reorder it still holds the old order. Leading with it there would put the new column behind
+     * every option it lists, and the refresh would persist that.
+     */
+    it("takes the order from the board's own list once that accounts for every column", () => {
+        expect(resolveBoardColumns(
+            [ "To Do", "Done" ],
+            [ "To Do", "New column", "Done" ],
+            [ "To Do", "Done" ]
+        )).toEqual([ "To Do", "New column", "Done" ]);
+
+        expect(resolveBoardColumns([ "To Do", "Done" ], [ "Done", "To Do" ], [ "To Do", "Done" ]))
+            .toEqual([ "Done", "To Do" ]);
+    });
+
     it("keeps a renamed column in the slot the old name held", () => {
         expect(resolveBoardColumns(
             [ "To Do", "Doing", "Done" ],

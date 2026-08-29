@@ -71,7 +71,10 @@ export default function NotePickerDialog() {
             show={shown}
             stackable
         >
-            <FormGroup name="note-picker-note" label={opts.current?.message ?? t("note_picker.label")}>
+            <FormGroup
+                name="note-picker-note"
+                label={opts.current?.message ?? t("note_picker.label")}
+            >
                 <NoteAutocomplete
                     inputRef={inputRef}
                     onChange={setSuggestion}
