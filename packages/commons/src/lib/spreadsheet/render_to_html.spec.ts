@@ -2630,6 +2630,27 @@ describe("style deduplication", () => {
         expect(renderRaw(JSON.stringify({ version: 1, workbook: { sheetOrder: [], styles: {}, sheets: {} } })))
             .not.toContain("<style>");
     });
+
+    it("writes no stylesheet for a sheet that renders nothing to style", () => {
+        // A visible sheet holding no cells never reaches its colgroup or its rows, so nothing
+        // asks for a class; with gridlines off there is no rule to write either, and the
+        // document is the empty-sheet notice on its own.
+        const html = renderRaw(JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1", name: "Sheet1", hidden: 0, rowCount: 10, columnCount: 5,
+                        showGridlines: 0, mergeData: [], cellData: {}, rowData: {}, columnData: {}
+                    }
+                }
+            }
+        }));
+
+        expect(html).toBe("<p>Empty sheet.</p>");
+    });
 });
 
 describe("dark mode", () => {
