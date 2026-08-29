@@ -3,6 +3,7 @@ import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import contextMenu, { ContextMenuEvent } from "../../../menus/context_menu";
+import branches from "../../../services/branches";
 import dialog from "../../../services/dialog";
 import FNote from "../../../entities/fnote";
 import { buildNote } from "../../../test/easy-froca";
@@ -160,6 +161,23 @@ describe("Board column context menu", () => {
         expect(api.addExistingItem).not.toHaveBeenCalled();
     });
 
+    it("asks before deleting a column, and drops it only once agreed", async () => {
+        const api = { removeColumn: vi.fn(async () => {}) } as unknown as BoardApi;
+        const confirm = vi.spyOn(dialog, "confirm").mockResolvedValue(false);
+
+        const entry = openMenu(api)
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-trash");
+        if (!entry || !("handler" in entry)) throw new Error("expected a delete entry");
+
+        await entry.handler?.(entry, {} as never);
+        expect(confirm).toHaveBeenCalled();
+        expect(api.removeColumn).not.toHaveBeenCalled();
+
+        confirm.mockResolvedValue(true);
+        await entry.handler?.(entry, {} as never);
+        expect(api.removeColumn).toHaveBeenCalledWith("To Do");
+    });
+
     it("shows the column's own colour as the selected one", async () => {
         const api = { setColumnColor: vi.fn() } as unknown as BoardApi;
         const picker = await openPicker(api, "#4d99e6");
@@ -187,12 +205,67 @@ describe("Board column context menu", () => {
 describe("Board item context menu", () => {
     afterEach(() => vi.restoreAllMocks());
 
-    it("marks the archived columns it offers to move a card to", () => {
-        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+
+    it("inserts a card on either side of the one it was opened on", () => {
+        const api = {
+            columns: [],
+            isColumnArchived: () => false,
+            insertRowAtPosition: vi.fn(async () => {})
+        } as unknown as BoardApi;
+        const items = openItemMenu(api);
+
+        for (const icon of [ "bx bx-list-plus", "bx bx-empty" ]) {
+            const entry = items.find(item => item && "uiIcon" in item && item.uiIcon === icon);
+            if (!entry || !("handler" in entry)) throw new Error(`expected a ${icon} entry`);
+            entry.handler?.(entry, {} as never);
+        }
+
+        expect(vi.mocked(api.insertRowAtPosition).mock.calls.map(call => call[2]))
+            .toEqual([ "before", "after" ]);
+    });
+
+    it("moves the card to the column picked, leaving the one it is in unselectable", () => {
         const api = {
             columns: [ "To Do", "Done" ],
-            isColumnArchived: (column: string) => column === "Done"
+            isColumnArchived: () => false,
+            changeColumn: vi.fn(async () => {})
         } as unknown as BoardApi;
+
+        const moveTo = openItemMenu(api)
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
+        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
+
+        const sides = moveTo.items ?? [];
+        expect(sides.map(item => item && "enabled" in item ? item.enabled : undefined))
+            .toEqual([ false, true ]);
+
+        const done = sides[1];
+        if (done && "handler" in done) done.handler?.(done, {} as never);
+        expect(api.changeColumn).toHaveBeenCalledWith(expect.any(String), "Done");
+    });
+
+    it("takes the card off the board, and deletes it outright", () => {
+        const api = {
+            columns: [],
+            isColumnArchived: () => false,
+            removeFromBoard: vi.fn()
+        } as unknown as BoardApi;
+        const deleteNotes = vi.spyOn(branches, "deleteNotes").mockResolvedValue(false);
+
+        for (const icon of [ "bx bx-task-x", "bx bx-trash" ]) {
+            const entry = openItemMenu(api)
+                .find(item => item && "uiIcon" in item && item.uiIcon === icon);
+            if (!entry || !("handler" in entry)) throw new Error(`expected a ${icon} entry`);
+            entry.handler?.(entry, {} as never);
+        }
+
+        expect(api.removeFromBoard).toHaveBeenCalled();
+        expect(deleteNotes).toHaveBeenCalledWith([ "branchId" ], false, false);
+    });
+
+    /** Opens the menu a card offers, and hands back what it was given to show. */
+    function openItemMenu(api: BoardApi) {
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
         const event = {
             preventDefault: () => {},
             stopPropagation: () => {},
@@ -202,8 +275,16 @@ describe("Board item context menu", () => {
 
         openNoteContextMenu(api, event, buildNote({ title: "Card" }) as FNote, "branchId", "To Do");
 
-        const items = show.mock.calls.at(-1)?.[0].items ?? [];
-        const moveTo = items.find(item =>
+        return show.mock.calls.at(-1)?.[0].items ?? [];
+    }
+
+    it("marks the archived columns it offers to move a card to", () => {
+        const api = {
+            columns: [ "To Do", "Done" ],
+            isColumnArchived: (column: string) => column === "Done"
+        } as unknown as BoardApi;
+
+        const moveTo = openItemMenu(api).find(item =>
             item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
         if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
 

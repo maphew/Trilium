@@ -2,15 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import FAttribute from "../../../entities/fattribute";
 import branches from "../../../services/branches";
+import attributes from "../../../services/attributes";
 import { executeBulkActions } from "../../../services/bulk_action";
 import dialog from "../../../services/dialog";
 import FNote from "../../../entities/fnote";
 import froca from "../../../services/froca";
+import note_create from "../../../services/note_create";
 import noteAttributeCache from "../../../services/note_attribute_cache";
 import server from "../../../services/server";
 import { buildNote } from "../../../test/easy-froca";
 import { BoardViewData } from ".";
 import BoardApi from "./api";
+import { ColumnMap } from "./data";
 import { BOARD_TEMPLATE_ID, getStatusDefinition } from "./columns";
 
 vi.mock("../../../services/bulk_action", () => ({
@@ -23,7 +26,15 @@ function failNextBulkAction() {
 }
 
 vi.mock("../../../services/branches", () => ({
-    default: { cloneNoteToParentNote: vi.fn(async () => {}) }
+    default: {
+        cloneNoteToParentNote: vi.fn(async () => {}),
+        moveBeforeBranch: vi.fn(async () => {}),
+        moveAfterBranch: vi.fn(async () => {})
+    }
+}));
+
+vi.mock("../../../services/note_create", () => ({
+    default: { createNote: vi.fn(async () => ({ note: null, branch: null })) }
 }));
 
 vi.mock("../../../services/dialog", () => ({
@@ -40,23 +51,25 @@ function createApi(
     viewConfig: BoardViewData,
     columns: string[],
     parentNote?: FNote,
-    statusAttribute = "status"
+    statusAttribute = "status",
+    byColumn: ColumnMap = new Map()
 ) {
     const board = parentNote ?? buildNote({ title: "Board" });
     const saved: BoardViewData[] = [];
+    const editing: (string | undefined)[] = [];
     const pendingRenames = new Map<string, string | undefined>();
     const api = new BoardApi(
-        new Map(),
+        byColumn,
         columns,
         board,
         statusAttribute,
         viewConfig,
         (newConfig) => saved.push(newConfig),
-        () => {},
+        (branchId) => editing.push(branchId),
         pendingRenames,
         getStatusDefinition(board, statusAttribute)
     );
-    return { api, saved, pendingRenames };
+    return { api, saved, editing, pendingRenames };
 }
 
 describe("BoardApi column mutations", () => {
@@ -345,6 +358,158 @@ describe("BoardApi column mutations", () => {
  * `_template_board` no longer defines the status label, so a board created afterwards has no
  * definition at all until the board view writes one from the columns it resolved.
  */
+describe("BoardApi card operations", () => {
+    beforeEach(() => {
+        vi.mocked(branches.moveBeforeBranch).mockClear();
+        vi.mocked(branches.moveAfterBranch).mockClear();
+        vi.mocked(note_create.createNote).mockClear();
+    });
+
+    /** A board whose second column holds three cards to move among. */
+    function createBoardWithCards() {
+        const board = buildNote({
+            title: "Board",
+            children: [
+                { title: "First", "#status": "Done" },
+                { title: "Second", "#status": "Done" },
+                { title: "Third", "#status": "Done" }
+            ]
+        });
+
+        const items = board.getChildBranches().flatMap(branch => {
+            const note = froca.getNoteFromCache(branch.noteId);
+            return note ? [ { branch, note } ] : [];
+        });
+        const byColumn: ColumnMap = new Map([ [ "To Do", [] ], [ "Done", items ] ]);
+
+        return { ...createApi({}, [ "To Do", "Done" ], board, "status", byColumn), items };
+    }
+
+    it("files a card moved to another column before the one it was dropped on", async () => {
+        const { api, items } = createBoardWithCards();
+        const [ first ] = items;
+
+        // The target column is empty, so there is nothing to place it against.
+        await api.moveWithinBoard(first.note.noteId, first.branch.branchId, 0, 1, "Done", "To Do");
+        expect(branches.moveBeforeBranch).not.toHaveBeenCalled();
+
+        await api.moveWithinBoard(first.note.noteId, first.branch.branchId, 0, 1, "To Do", "Done");
+        expect(branches.moveBeforeBranch)
+            .toHaveBeenCalledWith([ first.branch.branchId ], items[1].branch.branchId);
+    });
+
+    it("reorders within a column, and places past the last card after it", async () => {
+        const { api, items } = createBoardWithCards();
+        const [ first, , third ] = items;
+
+        await api.moveWithinBoard(first.note.noteId, first.branch.branchId, 0, 2, "Done", "Done");
+        expect(branches.moveBeforeBranch)
+            .toHaveBeenCalledWith([ first.branch.branchId ], third.branch.branchId);
+
+        await api.moveWithinBoard(first.note.noteId, first.branch.branchId, 0, 3, "Done", "Done");
+        expect(branches.moveAfterBranch)
+            .toHaveBeenCalledWith([ first.branch.branchId ], third.branch.branchId);
+    });
+
+    it("moves nothing for a card dropped where it is, or one it cannot find", async () => {
+        const { api, items } = createBoardWithCards();
+        const [ first ] = items;
+
+        await api.moveWithinBoard(first.note.noteId, first.branch.branchId, 1, 1, "Done", "Done");
+        await api.moveWithinBoard("missingNote", "missingBranch", 0, 2, "Done", "Done");
+
+        expect(branches.moveBeforeBranch).not.toHaveBeenCalled();
+        expect(branches.moveAfterBranch).not.toHaveBeenCalled();
+    });
+
+    it("takes a card off the board by removing the value it is grouped by", async () => {
+        const { api, items } = createBoardWithCards();
+        const removeLabel = vi.spyOn(attributes, "removeOwnedLabelByName").mockReturnValue(true);
+
+        await api.removeFromBoard(items[0].note.noteId);
+        expect(removeLabel).toHaveBeenCalledWith(items[0].note, "status");
+
+        // A note the cache has never heard of is left alone rather than throwing.
+        await api.removeFromBoard("missingNote");
+        expect(removeLabel).toHaveBeenCalledTimes(1);
+    });
+
+    it("takes a card off a relation board by removing that relation", async () => {
+        const board = buildNote({ title: "Board", children: [ { title: "Card" } ] });
+        const { api } = createApi({}, [], board, "~status");
+        const removeRelation = vi.spyOn(attributes, "removeOwnedRelationByName")
+            .mockReturnValue(true);
+
+        await api.removeFromBoard(board.getChildNoteIds()[0]);
+        expect(removeRelation).toHaveBeenCalledWith(expect.anything(), "status");
+    });
+
+    it("trims the title it renames a card to", async () => {
+        const { api, items } = createBoardWithCards();
+        const put = vi.spyOn(server, "put").mockResolvedValue(undefined);
+
+        await api.renameCard(items[0].note.noteId, "  Fresh title  ");
+
+        expect(put).toHaveBeenCalledWith(
+            "notes/" + items[0].note.noteId + "/title", { title: "Fresh title" });
+    });
+
+    it("inserts a card beside another and opens its title for editing", async () => {
+        const { api, editing, items } = createBoardWithCards();
+        const created = buildNote({ title: "Created" });
+        vi.spyOn(server, "put").mockResolvedValue(undefined);
+        vi.mocked(note_create.createNote).mockResolvedValue({
+            note: created, branch: { branchId: "createdBranch" }
+        } as never);
+
+        const note = await api.insertRowAtPosition("Done", items[0].branch.branchId, "after");
+
+        expect(note).toBe(created);
+        expect(note_create.createNote).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ targetBranchId: items[0].branch.branchId, target: "after" }));
+        expect(editing).toEqual([ "createdBranch" ]);
+    });
+
+    it("reports a card it could not create rather than filing nothing", async () => {
+        const { api, items } = createBoardWithCards();
+        vi.mocked(note_create.createNote).mockResolvedValue({ note: null, branch: null } as never);
+
+        await expect(api.insertRowAtPosition("Done", items[0].branch.branchId, "after"))
+            .rejects.toThrow("Failed to create note");
+    });
+
+    it("creates a card in a column, and reports a failure without throwing", async () => {
+        const { api } = createBoardWithCards();
+        const created = buildNote({ title: "Created" });
+        const put = vi.spyOn(server, "put").mockResolvedValue(undefined);
+        vi.mocked(note_create.createNote).mockResolvedValue({
+            note: created, branch: { branchId: "createdBranch" }
+        } as never);
+
+        await api.createNewItem("Done", "Created");
+        expect(put).toHaveBeenCalledWith(
+            "notes/" + created.noteId + "/set-attribute",
+            expect.objectContaining({ name: "status", value: "Done" }),
+            undefined);
+
+        // The board has already drawn the card, so a failure here is logged rather than thrown.
+        const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+        vi.mocked(note_create.createNote).mockRejectedValueOnce(new Error("offline"));
+        await expect(api.createNewItem("Done", "Another")).resolves.toBeUndefined();
+        expect(logged).toHaveBeenCalled();
+    });
+
+    it("hands the editing state straight through to the board", () => {
+        const { api, editing } = createBoardWithCards();
+
+        api.startEditing("someBranch");
+        api.dismissEditingTitle();
+
+        expect(editing).toEqual([ "someBranch", undefined ]);
+    });
+});
+
 describe("BoardApi.addExistingItem", () => {
     let put: ReturnType<typeof vi.spyOn>;
 
