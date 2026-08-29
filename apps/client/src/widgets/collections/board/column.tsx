@@ -56,6 +56,7 @@ export default function Column({
     isInRelationMode: boolean
 } & DragContext) {
     const [ isVisible, setVisible ] = useState(true);
+    const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
     const { setColumnNameToEdit } = useContext(BoardActionsContext);
     const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
     const isEditing = (columnNameToEdit === column);
@@ -69,7 +70,8 @@ export default function Column({
             value: column,
             color,
             archived,
-            onEditTitle: () => setColumnNameToEdit(column)
+            onEditTitle: () => setColumnNameToEdit(column),
+            onNewNote: () => setIsCreatingNewItem(true)
         });
     }, [ api, column, color, archived, setColumnNameToEdit ]);
 
@@ -206,29 +208,42 @@ export default function Column({
                     <div className="board-drop-placeholder show" />
                 )}
 
-                <AddNewItem api={api} column={column} />
+                <AddNewItem
+                    api={api}
+                    column={column}
+                    isCreating={isCreatingNewItem}
+                    setIsCreating={setIsCreatingNewItem}
+                />
             </div>
         </div>
     );
 }
 
-function AddNewItem({ column, api }: { column: string, api: BoardApi }) {
-    const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
-    const addItemCallback = useCallback(() => setIsCreatingNewItem(true), []);
+/**
+ * The editor a new card is named in, opened by the button below the column or by its menu. The
+ * state is the column's rather than this component's, since the menu is raised from the header.
+ */
+function AddNewItem({ column, api, isCreating, setIsCreating }: {
+    column: string,
+    api: BoardApi,
+    isCreating: boolean,
+    setIsCreating: (isCreating: boolean) => void
+}) {
+    const addItemCallback = useCallback(() => setIsCreating(true), [ setIsCreating ]);
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
-        if (!isCreatingNewItem && e.key === "Enter") {
-            setIsCreatingNewItem(true);
+        if (!isCreating && e.key === "Enter") {
+            setIsCreating(true);
         }
-    }, []);
+    }, [ isCreating, setIsCreating ]);
 
     return (
         <div
-            className={`board-new-item ${isCreatingNewItem ? "editing" : ""}`}
+            className={`board-new-item ${isCreating ? "editing" : ""}`}
             onClick={addItemCallback}
             onKeyDown={handleKeyDown}
             tabIndex={300}
         >
-            {!isCreatingNewItem ? (
+            {!isCreating ? (
                 <>
                     <Icon icon="bx bx-plus" />{" "}
                     {t("board_view.new-item")}
@@ -237,7 +252,7 @@ function AddNewItem({ column, api }: { column: string, api: BoardApi }) {
                 <TitleEditor
                     placeholder={t("board_view.new-item-placeholder")}
                     save={(title) => api.createNewItem(column, title)}
-                    dismiss={() => setIsCreatingNewItem(false)}
+                    dismiss={() => setIsCreating(false)}
                     mode="multiline" isNewItem
                 />
             )}

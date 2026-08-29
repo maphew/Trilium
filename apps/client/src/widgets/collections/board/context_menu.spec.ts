@@ -21,7 +21,7 @@ describe("Board column context menu", () => {
     function openMenu(
         api: BoardApi,
         column: { color?: string, archived?: boolean } = {},
-        onEditTitle = () => {}
+        callbacks: { onEditTitle?: () => void, onNewNote?: () => void } = {}
     ) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
         const event = {
@@ -31,7 +31,12 @@ describe("Board column context menu", () => {
             pageY: 0
         } as ContextMenuEvent;
 
-        openColumnContextMenu(api, event, { value: "To Do", ...column, onEditTitle });
+        openColumnContextMenu(api, event, {
+            value: "To Do",
+            ...column,
+            onEditTitle: callbacks.onEditTitle ?? (() => {}),
+            onNewNote: callbacks.onNewNote ?? (() => {})
+        });
 
         // The spy outlives one call, so it is the menu just opened that is read back.
         return show.mock.calls.at(-1)?.[0].items ?? [];
@@ -58,7 +63,7 @@ describe("Board column context menu", () => {
 
     it("offers the title editor, which the retired header button used to open", () => {
         const onEditTitle = vi.fn();
-        const items = openMenu({} as BoardApi, {}, onEditTitle);
+        const items = openMenu({} as BoardApi, {}, { onEditTitle });
 
         // Found by its icon: i18next is never initialised under test, so every title is undefined.
         const entry = items.find(item =>
@@ -85,10 +90,20 @@ describe("Board column context menu", () => {
         expect(api.setColumnArchived).toHaveBeenLastCalledWith("To Do", false);
     });
 
-    it("puts archiving above deleting, so the safe way out leads", () => {
+    it("orders the entries, keeping the safe way out ahead of deleting", () => {
         const titled = openMenu({} as BoardApi).filter(item => item && "uiIcon" in item);
         expect(titled.map(item => "uiIcon" in item ? item.uiIcon : undefined))
-            .toEqual([ "bx bx-edit-alt", "bx bx-archive", "bx bx-trash" ]);
+            .toEqual([ "bx bx-edit-alt", "bx bx-plus", "bx bx-archive", "bx bx-trash" ]);
+    });
+
+    it("opens the column's new-item editor, the same one its button opens", () => {
+        const onNewNote = vi.fn();
+        const entry = openMenu({} as BoardApi, {}, { onNewNote })
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-plus");
+        if (!entry || !("handler" in entry)) throw new Error("expected a new-item entry");
+
+        entry.handler?.(entry, {} as never);
+        expect(onNewNote).toHaveBeenCalled();
     });
 
     it("shows the column's own colour as the selected one", async () => {

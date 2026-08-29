@@ -8,6 +8,7 @@ import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import Component from "../../../components/component";
+import contextMenu from "../../../menus/context_menu";
 import froca from "../../../services/froca";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
@@ -346,6 +347,32 @@ describe("Board column rename", () => {
         expect([ ...shown.querySelectorAll(".board-column") ]
             .map(column => column.classList.contains("board-column-archived")))
             .toEqual([ false, true, false ]);
+    });
+
+    /**
+     * The editor belongs to the column rather than to the button below it, so the header's menu
+     * can raise the same one instead of a second way of making a card.
+     */
+    it("opens the new-item editor from the menu, as the button below the column does", async () => {
+        const { container } = await setup();
+        const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
+        expect(column.querySelector(".board-new-item textarea")).toBeNull();
+
+        // Raised the way the header raises it, then the entry is invoked as the menu would.
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        column.querySelector("h3")?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+
+        const entry = (show.mock.calls.at(-1)?.[0].items ?? [])
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-plus");
+        if (!entry || !("handler" in entry)) throw new Error("expected a new-item entry");
+
+        await act(async () => {
+            entry.handler?.(entry, {} as never);
+            await flush();
+        });
+        expect(column.querySelector(".board-new-item.editing textarea")).toBeTruthy();
+
+        show.mockRestore();
     });
 
     it("keeps the cards of the renamed column under it", async () => {

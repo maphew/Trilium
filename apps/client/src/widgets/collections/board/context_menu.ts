@@ -17,6 +17,8 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
     archived?: boolean;
     /** Puts the title into its inline editor, the menu being the only way there besides F2. */
     onEditTitle: () => void;
+    /** Opens the column's own new-item editor, the same one its button opens. */
+    onNewNote: () => void;
 }) {
     event.preventDefault();
     event.stopPropagation();
@@ -30,6 +32,13 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                 uiIcon: "bx bx-edit-alt",
                 handler: column.onEditTitle
             },
+            { kind: "separator" },
+            {
+                title: t("board_view.new-item"),
+                uiIcon: "bx bx-plus",
+                handler: column.onNewNote
+            },
+            { kind: "separator" },
             column.archived
                 ? {
                     title: t("board_view.unarchive-column"),
