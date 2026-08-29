@@ -75,6 +75,20 @@ describe("Board card", () => {
         expect(openInPopup).toHaveBeenCalledTimes(2);
     });
 
+    it("opens the note once for a double click, not once per click of it", async () => {
+        const { first } = await renderBoard();
+        const openInPopup = vi.spyOn(appContext, "triggerCommand").mockReturnValue(undefined);
+        const element = card(first);
+
+        // What a browser sends for a double click: the same event twice, counted by `detail`.
+        await act(async () => {
+            element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+            element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 2 }));
+        });
+
+        expect(openInPopup).toHaveBeenCalledTimes(1);
+    });
+
     it("puts its title into the editor from its button and from F2, and saves it", async () => {
         const { first } = await renderBoard();
         const put = vi.spyOn(server, "put").mockResolvedValue(undefined);
