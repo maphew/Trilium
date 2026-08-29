@@ -146,6 +146,17 @@ describe("getNoteIcon", () => {
         expect(icon).toBe("bx bx-trip");
     });
 
+    it("marks every spreadsheet format as a spreadsheet", () => {
+        for (const mime of [
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.oasis.opendocument.spreadsheet",
+            "application/vnd.ms-excel",
+            "text/csv"
+        ]) {
+            expect(getNoteIcon(buildArgs({ type: "file", mime }))).toBe("bx bx-spreadsheet");
+        }
+    });
+
     it("falls back to the file icon for a file note with an unmapped mime", () => {
         const icon = getNoteIcon(buildArgs({ type: "file", mime: "text/plain" }));
         expect(icon).toBe("bx bx-file");
@@ -199,6 +210,8 @@ describe("getMimeIcon", () => {
         expect(getMimeIcon("image/gif")).toBe("bx bxs-file-gif");
         expect(getMimeIcon("image/png")).toBe("bx bx-image");
         expect(getMimeIcon("application/gpx+xml")).toBe("bx bx-trip");
+        expect(getMimeIcon("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")).toBe("bx bx-spreadsheet");
+        expect(getMimeIcon("text/csv")).toBe("bx bx-spreadsheet");
         expect(getMimeIcon("text/plain")).toBe("bx bx-file");
     });
 

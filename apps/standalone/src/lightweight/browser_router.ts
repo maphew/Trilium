@@ -111,6 +111,21 @@ function textResponse(text: string, status = 200, extraHeaders: Record<string, s
 }
 
 /**
+ * Builds the response for a handler's return value, mirroring the server's `send`: a string
+ * body goes out as-is (the office preview answers with an HTML fragment, which an envelope
+ * would escape), anything else is JSON. An error keeps text/plain so the client reads the
+ * message rather than a JSON-quoted copy of it.
+ */
+function sendResult(response: unknown, status: number): BrowserResponse {
+    if (typeof response === "string") {
+        return status >= 400
+            ? textResponse(response, status)
+            : textResponse(response, status, { "content-type": "text/html; charset=utf-8" });
+    }
+    return jsonResponse(response, status);
+}
+
+/**
  * Browser router class that handles route registration and dispatching.
  */
 export class BrowserRouter {
@@ -274,7 +289,7 @@ export class BrowserRouter {
         // Handle [statusCode, response] format
         if (Array.isArray(result) && result.length > 0 && Number.isInteger(result[0])) {
             const [statusCode, response] = result;
-            return jsonResponse(response, statusCode);
+            return sendResult(response, statusCode);
         }
 
         // Handle undefined (no content) - 204 should have no body
@@ -286,8 +301,7 @@ export class BrowserRouter {
             };
         }
 
-        // Default: JSON response with 200
-        return jsonResponse(result, 200);
+        return sendResult(result, 200);
     }
 
     /**

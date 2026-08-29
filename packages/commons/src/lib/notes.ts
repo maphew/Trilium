@@ -83,6 +83,11 @@ const FILE_MIME_MAPPINGS: Record<string, string> = {
     "application/vnd.oasis.opendocument.text": "bx bxs-file-doc",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "bx bxs-file-doc",
     "application/gpx+xml": "bx bx-trip",
+    // Workbooks kept as file notes or attachments, which `convertOfficeToHtml` previews as a grid.
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "bx bx-spreadsheet",
+    "application/vnd.oasis.opendocument.spreadsheet": "bx bx-spreadsheet",
+    "application/vnd.ms-excel": "bx bx-spreadsheet",
+    "text/csv": "bx bx-spreadsheet",
 };
 
 const IMAGE_MIME_MAPPINGS: Record<string, string> = {

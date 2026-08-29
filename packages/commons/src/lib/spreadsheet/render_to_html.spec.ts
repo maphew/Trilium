@@ -1,6 +1,46 @@
 import { describe, expect, it } from "vitest";
-import { renderSpreadsheetToHtml } from "./render_to_html.js";
+import { renderSpreadsheetToHtml as renderRaw } from "./render_to_html.js";
 import { BorderStyle, HorizontalAlign, VerticalAlign, WrapStrategy } from "./workbook_model.js";
+
+/**
+ * Renders, then expands the emitted `<style>` back into `style` attributes, so a test asserts on
+ * the declarations a cell resolves to rather than on generated class names. What the renderer
+ * actually emits is covered by the "style deduplication" block, which uses `renderRaw`.
+ */
+function renderSpreadsheetToHtml(jsonContent: string): string {
+    return withInlineStyles(renderRaw(jsonContent));
+}
+
+function withInlineStyles(html: string): string {
+    const stylesheet = /^<style>([\s\S]*?)<\/style>\n/.exec(html);
+    if (!stylesheet) return html;
+
+    const declarations = new Map<string, string>();
+    for (const rule of stylesheet[1].matchAll(/\.spreadsheet-table(?::where\(\.[\w-]+\))? \.([\w-]+)\{([^}]*)\}/g)) {
+        declarations.set(rule[1], withoutThemedColors(rule[2]));
+    }
+    const body = html.slice(stylesheet[0].length).replace(/ class="([^"]*)"/g, (_whole, names: string) => {
+        const kept: string[] = [];
+        const css: string[] = [];
+        for (const name of names.split(" ")) {
+            const declaration = declarations.get(name);
+            if (declaration) css.push(declaration);
+            else kept.push(name);
+        }
+        return (kept.length ? ` class="${kept.join(" ")}"` : "") + (css.length ? ` style="${css.join(";")}"` : "");
+    });
+
+    return body;
+}
+
+/**
+ * Drops the `light-dark()` declaration each color is followed by, leaving the plain one in front
+ * of it — which is what a light theme renders, and what every assertion here is written against.
+ * The pairing itself is covered by the "dark mode" block, reading what is actually emitted.
+ */
+function withoutThemedColors(declarations: string): string {
+    return declarations.split(";").filter((part) => !part.includes("light-dark(")).join(";");
+}
 
 /**
  * The markup with the box model stripped: each cell's sizing box and the padding it is measured
@@ -15,6 +55,28 @@ function unboxed(html: string): string {
 }
 
 describe("renderSpreadsheetToHtml", () => {
+    it("accepts an already-parsed workbook as well as its JSON", () => {
+        // The XLSX preview holds the workbook `parseXlsxToWorkbook` returns, so it renders it
+        // directly instead of serializing it for the renderer to parse back.
+        const data = {
+            version: 1,
+            workbook: {
+                sheetOrder: ["sheet1"],
+                styles: { boldStyle: { bl: 1 } },
+                sheets: {
+                    sheet1: {
+                        id: "sheet1",
+                        name: "Sheet1",
+                        cellData: { 0: { 0: { v: "Hello", t: 1, s: "boldStyle" } } }
+                    }
+                }
+            }
+        };
+
+        expect(renderRaw(data)).toBe(renderRaw(JSON.stringify(data)));
+        expect(renderRaw(data)).toContain("Hello");
+    });
+
     it("renders a basic spreadsheet with values and styles", () => {
         const input = JSON.stringify({
             version: 1,
@@ -388,9 +450,11 @@ describe("renderSpreadsheetToHtml", () => {
             }
         });
 
-        const html = renderSpreadsheetToHtml(input);
+        const html = renderRaw(input);
         expect(html).not.toContain("<script>");
-        expect(html).not.toContain("</style>");
+        // The value cannot close the stylesheet it is written into: exactly the one this
+        // renderer emits, and nothing after it that a font name smuggled in.
+        expect(html.match(/<\/style>/g)).toHaveLength(1);
         expect(html).toContain("font-family:Arial");
     });
 
@@ -1527,6 +1591,36 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain("color:red");
     });
 
+    it("gives a filled cell the color Excel shows an automatic font in", () => {
+        // The fill comes from the workbook, the surrounding text color from the theme, so a pale
+        // fill would be unreadable wherever that theme is dark.
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x", t: 1, s: { bg: { rgb: "#FFE699" } } }));
+
+        expect(html).toContain("background-color:#FFE699");
+        expect(html).toContain("color:#000");
+    });
+
+    it("leaves a filled cell's own text color alone, and an unfilled cell with none", () => {
+        const own = renderSpreadsheetToHtml(
+            singleCellWorkbook({ v: "x", t: 1, s: { bg: { rgb: "#203864" }, cl: { rgb: "#FFFFFF" } } })
+        );
+        expect(own).toContain("color:#FFFFFF");
+        expect(own).not.toContain("color:#000");
+
+        // With no fill there is nothing absolute to read against, so the cell goes on inheriting.
+        expect(renderSpreadsheetToHtml(singleCellWorkbook({ v: "x", t: 1, s: { bl: 1 } })))
+            .not.toContain("color:");
+    });
+
+    it("lets a number format's color win over a fill's automatic one", () => {
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({
+            v: -8800.2, t: 2, s: { bg: { rgb: "#FFE699" }, n: { pattern: "#,##0.00;[Red]#,##0.00" } }
+        }));
+
+        expect(html).toContain("color:red");
+        expect(html).not.toContain("color:#000");
+    });
+
     it("does not apply the pattern color to a positive value", () => {
         const html = renderSpreadsheetToHtml(
             singleCellWorkbook({ v: 12.5, t: 2, s: { n: { pattern: "#,##0.00;[Red]#,##0.00" } } })
@@ -1607,7 +1701,7 @@ describe("renderSpreadsheetToHtml", () => {
         const html = renderSpreadsheetToHtml(
             singleCellWorkbook({ v: "x" }, { showGridlines: 1 })
         );
-        expect(html).toContain('<table class="spreadsheet-table show-gridlines" style="width:88px">');
+        expect(html).toMatch(/<table class="spreadsheet-table[^"]*\bshow-gridlines\b[^"]*" style="width:88px">/);
     });
 
     it("emits an explicit fixed table width summing the visible column widths", () => {
@@ -1679,14 +1773,14 @@ describe("renderSpreadsheetToHtml", () => {
     it("shows gridlines by default when showGridlines is absent (editor default)", () => {
         // singleCellWorkbook does not set showGridlines.
         const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x" }));
-        expect(html).toContain("spreadsheet-table show-gridlines");
+        expect(html).toMatch(/<table class="spreadsheet-table[^"]*\bshow-gridlines\b/);
     });
 
     it("omits show-gridlines when the sheet hides gridlines", () => {
         const html = renderSpreadsheetToHtml(
             singleCellWorkbook({ v: "x" }, { showGridlines: 0 })
         );
-        expect(html).toContain('<table class="spreadsheet-table" style="width:88px">');
+        expect(html).toMatch(/<table class="spreadsheet-table[^"]*" style="width:88px">/);
         expect(html).not.toContain("show-gridlines");
     });
 
@@ -2457,5 +2551,333 @@ describe("renderSpreadsheetToHtml", () => {
         // The merge origin (1,1) spans a 4x4 area extending beyond the single data cell at (2,2).
         expect(html).toContain('rowspan="4"');
         expect(html).toContain('colspan="4"');
+    });
+});
+
+describe("style deduplication", () => {
+    const gridWorkbook = (cellData: Record<string, unknown>) => JSON.stringify({
+        version: 1,
+        workbook: {
+            sheetOrder: ["s1"],
+            styles: {},
+            sheets: {
+                s1: {
+                    id: "s1", name: "Sheet1", hidden: 0, rowCount: 1000, columnCount: 20,
+                    mergeData: [], cellData, rowData: {}, columnData: {}
+                }
+            }
+        }
+    });
+
+    // One cell per row, so none has an occupied neighbour and none of them clips.
+    const rows = (...cells: unknown[]) => Object.fromEntries(cells.map((cell, row) => [String(row), { "0": cell }]));
+    const bold = { v: "x", t: 1, s: { bl: 1 } };
+    const italic = { v: "y", t: 1, s: { it: 1 } };
+
+    it("writes a style shared by many cells once, and puts the stylesheet in front", () => {
+        const html = renderRaw(gridWorkbook(rows(bold, bold, bold, italic)));
+
+        expect(html.startsWith("<style>")).toBe(true);
+        // One rule for the three bold cells, not three copies of the declaration.
+        expect(html.match(/font-weight:bold/g)).toHaveLength(1);
+
+        // The minority style gets its own rule, used by the one cell that has it.
+        const name = /\.spreadsheet-table(?::where\(\.[\w-]+\))? \.(sst-[\w-]+)\{font-style:italic/.exec(html)?.[1];
+        expect(name).toBeTruthy();
+        expect(html.match(new RegExp(`class="${name}"`, "g"))).toHaveLength(1);
+    });
+
+    it("scopes every rule under the table so a class cannot reach the rest of the page", () => {
+        const stylesheet = /^<style>([\s\S]*?)<\/style>/.exec(renderRaw(gridWorkbook(rows(bold, italic))))?.[1] ?? "";
+
+        expect(stylesheet).toBeTruthy();
+        for (const rule of stylesheet.split("}").map((r) => r.trim()).filter(Boolean)) {
+            // Cell rules, and the gridline rule whose context sits in :where(); neither can
+            // match anything outside a rendered sheet.
+            expect(rule).toMatch(/^(\.spreadsheet-table(:where\(\.[\w-]+\))? (\.sst-|td\{)|:where\(\.spreadsheet-table)/);
+        }
+    });
+
+    it("emits the gridline rule only for a workbook that asks for gridlines", () => {
+        const cells = { "0": { "0": { v: "x", t: 1 } } };
+        const withGridlines = renderRaw(gridWorkbook(cells));
+        expect(withGridlines).toContain(":where(.spreadsheet-table.show-gridlines) td:not(.has-fill)");
+
+        const off = JSON.parse(gridWorkbook(cells));
+        off.workbook.sheets.s1.showGridlines = 0;
+        expect(renderRaw(JSON.stringify(off))).not.toContain("show-gridlines");
+    });
+
+    it("names a class after its declarations, so two documents share rather than collide", () => {
+        // Bold dominates in both, so italic is the one left carrying a class.
+        const nameIn = (html: string) =>
+            /\.spreadsheet-table(?::where\(\.[\w-]+\))? \.(sst-[\w-]+)\{font-style:italic/.exec(html)?.[1];
+        const one = renderRaw(gridWorkbook(rows(bold, bold, italic)));
+        const other = renderRaw(gridWorkbook(rows(bold, bold, italic, bold)));
+
+        expect(nameIn(one)).toBeTruthy();
+        expect(nameIn(one)).toBe(nameIn(other));
+        // A different declaration gets a different name.
+        const underlined = renderRaw(gridWorkbook(rows(bold, bold, { v: "y", t: 1, s: { ul: { s: 1 } } })));
+        expect(nameIn(one)).not.toBe(
+            /\.spreadsheet-table(?::where\(\.[\w-]+\))? \.(sst-[\w-]+)\{text-decoration/.exec(underlined)?.[1]);
+    });
+
+    it("keeps has-fill alongside the generated class, and emits no stylesheet for an empty sheet", () => {
+        const filled = { v: "x", t: 1, s: { bg: { rgb: "#FFE699" } } };
+        expect(renderRaw(gridWorkbook(rows(bold, bold, filled)))).toMatch(/<td class="has-fill sst-[\w-]+"/);
+
+        expect(renderRaw(JSON.stringify({ version: 1, workbook: { sheetOrder: [], styles: {}, sheets: {} } })))
+            .not.toContain("<style>");
+    });
+
+    it("writes no stylesheet for a sheet that renders nothing to style", () => {
+        // A visible sheet holding no cells never reaches its colgroup or its rows, so nothing
+        // asks for a class; with gridlines off there is no rule to write either, and the
+        // document is the empty-sheet notice on its own.
+        const html = renderRaw(JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1", name: "Sheet1", hidden: 0, rowCount: 10, columnCount: 5,
+                        showGridlines: 0, mergeData: [], cellData: {}, rowData: {}, columnData: {}
+                    }
+                }
+            }
+        }));
+
+        expect(html).toBe("<p>Empty sheet.</p>");
+    });
+});
+
+describe("dark mode", () => {
+    const cellWorkbook = (cell: Record<string, unknown>) => JSON.stringify({
+        version: 1,
+        workbook: {
+            sheetOrder: ["s1"], styles: {},
+            sheets: {
+                s1: {
+                    id: "s1", name: "S", hidden: 0, rowCount: 5, columnCount: 5, showGridlines: 0,
+                    mergeData: [], cellData: { "0": { "0": cell } }, rowData: {}, columnData: {}
+                }
+            }
+        }
+    });
+
+    it("pairs a fill and its text with what a dark theme shows instead", () => {
+        const html = renderRaw(cellWorkbook({ v: "x", t: 1, s: { bg: { rgb: "#FFE699" } } }));
+
+        // Pale yellow darkens to brown rather than to the blue a plain 255-c would give, and the
+        // automatic font colour it sits on flips the other way.
+        expect(html).toContain("background-color:light-dark(#FFE699,#543b00)");
+        expect(html).toContain("color:light-dark(#000,#ffffff)");
+    });
+
+    it("pairs a border colour too, as Univer inverts every colour it paints", () => {
+        const html = renderRaw(cellWorkbook({
+            v: "x", t: 1, s: { bd: { t: { s: 1, cl: { rgb: "#203864" } }, b: { s: 1 } } }
+        }));
+
+        expect(html).toContain("border-top:1px solid light-dark(#203864,#a2bae6)");
+        // A border with no colour of its own defaults to black, which inverts to white.
+        expect(html).toContain("border-bottom:1px solid light-dark(#000,#ffffff)");
+    });
+
+    it("inverts a named colour a number format asks for", () => {
+        const html = renderRaw(cellWorkbook({
+            v: -8800.2, t: 2, s: { n: { pattern: "#,##0.00;[Red]#,##0.00" } }
+        }));
+
+        expect(html).toContain("color:light-dark(red,#ff5555)");
+    });
+
+    it("leaves a colour it cannot read alone rather than dropping it", () => {
+        // sanitizeCssColor passes rgb() through, and nothing in a workbook produces one, so it has
+        // no dark half; emitting it unpaired is better than emitting nothing.
+        const html = renderRaw(cellWorkbook({ v: "x", t: 1, s: { cl: { rgb: "rgb(1,2,3)" } } }));
+
+        expect(html).toContain("color:rgb(1,2,3)");
+        expect(html).not.toContain("light-dark(rgb");
+    });
+
+    it("inverts a grey to its exact complement", () => {
+        const html = renderRaw(cellWorkbook({ v: "x", t: 1, s: { bg: { rgb: "#DBDBDB" } } }));
+        expect(html).toContain("background-color:light-dark(#DBDBDB,#242424)");
+    });
+});
+/**
+ * The renderer builds a cell's declarations once per style and reuses them across the cells that
+ * share it. These cover what the reuse has to keep apart: two cells sharing a style still differ
+ * wherever the declarations depend on the cell rather than on the style alone.
+ */
+describe("reuse of a style across cells", () => {
+    const workbook = (styles: Record<string, unknown>, cellData: Record<string, Record<string, unknown>>, mergeData: unknown[] = []) =>
+        JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"], styles,
+                sheets: {
+                    s1: {
+                        id: "s1", name: "S", hidden: 0, rowCount: 5, columnCount: 5, showGridlines: 0,
+                        mergeData, cellData, rowData: {}, columnData: {}
+                    }
+                }
+            }
+        });
+
+    /** The rendered cells in document order, with their sizing box and padding stripped. */
+    function cells(input: string): string[] {
+        return [...unboxed(renderSpreadsheetToHtml(input)).matchAll(/<td[^>]*>[\s\S]*?<\/td>/g)].map(([cell]) => cell);
+    }
+
+    it("keeps the alignment a value type implies, which the style does not carry", () => {
+        // Univer aligns a number right and a string left when the style sets none, so two cells on
+        // one style still align differently. The number comes first, so a reuse blind to the value
+        // type would align the string right as well.
+        const [number, string] = cells(workbook(
+            { st1: { ff: "Arial" } },
+            { "0": { "0": { v: 5, t: 2, s: "st1" }, "1": { v: "x", t: 1, s: "st1" } } }
+        ));
+
+        expect(number).toContain("text-align:right");
+        expect(string).not.toContain("text-align:right");
+    });
+
+    it("colors each value by its own number-format section", () => {
+        // `[Red]` applies to the negative section alone, so the color follows the value rather than
+        // the style the two cells share.
+        const [positive, negative] = cells(workbook(
+            { st1: { n: { pattern: "#,##0;[Red]#,##0" } } },
+            { "0": { "0": { v: 5, t: 2, s: "st1" }, "1": { v: -5, t: 2, s: "st1" } } }
+        ));
+
+        expect(positive).not.toContain("color:red");
+        expect(negative).toContain("color:red");
+    });
+
+    it("keeps a merged range's composed border off the cells that share its style", () => {
+        // A range takes its right border from the cell in its last column, so the anchor renders
+        // declarations its style does not resolve to on its own.
+        const [anchor, plain] = cells(workbook(
+            { st1: { bl: 1 }, edge: { bd: { r: { s: BorderStyle.THIN, cl: { rgb: "#ff0000" } } } } },
+            {
+                "0": { "0": { v: "merged", t: 1, s: "st1" }, "1": { v: "", t: 1, s: "edge" } },
+                "1": { "0": { v: "plain", t: 1, s: "st1" } }
+            },
+            [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 1 }]
+        ));
+
+        expect(anchor).toContain("border-right:1px solid #ff0000");
+        expect(plain).not.toContain("border-right");
+    });
+
+    it("tells two inline styles apart, which carry no shared id to reuse by", () => {
+        const [bold, italic] = cells(workbook(
+            {},
+            { "0": { "0": { v: "a", t: 1, s: { bl: 1 } }, "1": { v: "b", t: 1, s: { it: 1 } } } }
+        ));
+
+        expect(bold).toContain("font-weight:bold");
+        expect(bold).not.toContain("font-style:italic");
+        expect(italic).toContain("font-style:italic");
+        expect(italic).not.toContain("font-weight:bold");
+    });
+
+    it("darkens each color to its own dark half", () => {
+        // An inversion is reused per color within a render and between renders, so two fills must
+        // not collapse onto whichever was asked for first.
+        const input = workbook(
+            { pale: { bg: { rgb: "#FFE699" } }, grey: { bg: { rgb: "#DBDBDB" } } },
+            { "0": { "0": { v: "a", t: 1, s: "pale" }, "1": { v: "b", t: 1, s: "grey" } } }
+        );
+        const html = renderRaw(input);
+
+        expect(html).toContain("background-color:light-dark(#FFE699,#543b00)");
+        expect(html).toContain("background-color:light-dark(#DBDBDB,#242424)");
+        expect(renderRaw(input)).toBe(html);
+    });
+
+    it("escapes every character that has to be escaped, each on its own", () => {
+        // One character per cell: a cell holding all five would still be escaped by a check that
+        // recognised only one of them.
+        const raw = ["&", "<", ">", "\"", "'"];
+        const rendered = cells(workbook({}, {
+            "0": Object.fromEntries(raw.map((character, index) => [String(index), { v: character, t: 1 }]))
+        }));
+
+        expect(rendered.map((cell) => /<td[^>]*>([\s\S]*)<\/td>/.exec(cell)?.[1]))
+            .toEqual(["&amp;", "&lt;", "&gt;", "&quot;", "&#39;"]);
+    });
+});
+
+describe("trimmed rendering", () => {
+    const bigWorkbook = () => {
+        const cellData: Record<string, Record<string, unknown>> = {};
+        for (let row = 0; row < 60; row++) {
+            cellData[row] = {};
+            for (let col = 0; col < 40; col++) cellData[row][col] = { v: `r${row}c${col}`, t: 1 };
+        }
+        return JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1", "s2"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1", name: "First", hidden: 0, rowCount: 100, columnCount: 50,
+                        mergeData: [], cellData, rowData: {}, columnData: {}
+                    },
+                    s2: {
+                        id: "s2", name: "Second", hidden: 0, rowCount: 10, columnCount: 5,
+                        mergeData: [], cellData: { "0": { "0": { v: "elsewhere", t: 1 } } },
+                        rowData: {}, columnData: {}
+                    }
+                }
+            }
+        });
+    };
+
+    it("keeps the corner of the first sheet and drops the rest", () => {
+        const full = renderRaw(bigWorkbook());
+        const trimmed = renderRaw(bigWorkbook(), { trim: true });
+
+        // 60x40 plus the second sheet's one cell, down to the 20x15 corner a card has room for.
+        expect((full.match(/<td/g) ?? []).length).toBe(60 * 40 + 1);
+        expect((trimmed.match(/<td/g) ?? []).length).toBe(20 * 15);
+        expect(trimmed).toContain("r0c0");
+        expect(trimmed).toContain("r19c14");
+        expect(trimmed).not.toContain("r20c0");
+        expect(trimmed).not.toContain("r0c15");
+        expect(trimmed.length).toBeLessThan(full.length / 5);
+    });
+
+    it("renders only the first visible sheet, without its heading", () => {
+        const trimmed = renderRaw(bigWorkbook(), { trim: true });
+
+        expect(trimmed).not.toContain("elsewhere");
+        // One sheet needs no heading to tell it apart.
+        expect(trimmed).not.toContain("<h3>");
+        expect((trimmed.match(/<table/g) ?? []).length).toBe(1);
+    });
+
+    it("leaves a sheet smaller than the corner alone", () => {
+        const small = JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"], styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1", name: "S", hidden: 0, rowCount: 10, columnCount: 5,
+                        mergeData: [], cellData: { "0": { "0": { v: "a", t: 1 }, "1": { v: "b", t: 1 } } },
+                        rowData: {}, columnData: {}
+                    }
+                }
+            }
+        });
+
+        expect(renderRaw(small, { trim: true })).toBe(renderRaw(small));
     });
 });

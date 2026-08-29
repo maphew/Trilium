@@ -3518,6 +3518,8 @@
     "read_only_auto_description": "This note was set automatically to read-only mode for performance reasons. This automatic limit is adjustable from settings.\n\nClick to edit it temporarily.",
     "read_only_temporarily_disabled": "Temporarily editable",
     "read_only_temporarily_disabled_description": "This note is currently editable, but it is normally read-only. The note will go back to being read-only as soon as you navigate to another note.\n\nClick to re-enable read-only mode.",
+    "office_preview": "Preview",
+    "office_preview_description": "This document is shown as a read-only preview, so it cannot be edited here.\n\nTo change it, download the file, edit it in an external application and upload it back as a new revision.",
     "shared_publicly": "Shared publicly",
     "shared_locally": "Shared locally",
     "shared_copy_to_clipboard": "Copy link to clipboard",

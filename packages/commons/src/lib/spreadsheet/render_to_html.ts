@@ -12,6 +12,7 @@
 
 import { format as formatNumfmt, formatColor as formatNumfmtColor } from "numfmt";
 
+import { fnv1a } from "../utils.js";
 import {
     BorderStyle,
     type CellDocumentSegment,
@@ -24,6 +25,7 @@ import {
     getCellDocumentText,
     getFloatingDrawings,
     getVisibleSheets,
+    hasContent,
     HorizontalAlign,
     type IBorderData,
     type IBorderStyleData,
@@ -38,17 +40,19 @@ import {
     type ITextRotation,
     type IWorksheetData,
     parseWorkbookData,
+    type PersistedData,
     resolveCellStyle,
     VerticalAlign,
     WrapStrategy
 } from "./workbook_model.js";
 
 /**
- * Parses the raw JSON content of a spreadsheet note and renders it as HTML.
- * Returns an HTML string containing one `<table>` per visible sheet.
+ * Renders a spreadsheet note as HTML, from either its raw JSON content or an already-parsed
+ * workbook. Returns an HTML string containing one `<table>` per visible sheet, preceded by a
+ * `<style>` holding the cell styling (see {@link StyleClasses}) when the workbook has any.
  */
-export function renderSpreadsheetToHtml(jsonContent: string): string {
-    const { ok, data } = parseWorkbookData(jsonContent);
+export function renderSpreadsheetToHtml(content: string | PersistedData, options: SpreadsheetRenderOptions = {}): string {
+    const { ok, data } = parseWorkbookData(content);
     if (!ok) {
         return "<p>Unable to parse spreadsheet data.</p>";
     }
@@ -64,17 +68,113 @@ export function renderSpreadsheetToHtml(jsonContent: string): string {
         return "<p>Empty spreadsheet.</p>";
     }
 
+    // A trimmed render answers a card, which shows a few rows of one sheet: the rest is weight
+    // nobody sees. Floating images are left out with it — they are positioned in absolute pixels
+    // from A1, so one anchored past the corner would hang off a grid that no longer reaches it.
+    const sheets = options.trim ? visibleSheets.slice(0, 1) : visibleSheets;
+
+    const classes = new StyleClasses();
     const parts: string[] = [];
-    for (const sheet of visibleSheets) {
-        if (visibleSheets.length > 1) {
+    for (const sheet of sheets) {
+        if (sheets.length > 1) {
             parts.push(`<h3>${escapeHtml(sheet.name)}</h3>`);
         }
-        const images = placeFloatingImages(sheet, getFloatingDrawings(workbook, sheet.id));
-        const table = renderSheet(sheet, workbook.styles ?? {}, images);
+        const images = options.trim ? [] : placeFloatingImages(sheet, getFloatingDrawings(workbook, sheet.id));
+        const table = renderSheet(sheet, workbook.styles ?? {}, images, classes, options);
         parts.push(wrapWithFloatingImages(table, images));
     }
 
-    return parts.join("\n");
+    // The stylesheet is only complete once every sheet has been rendered, so it is built last
+    // and put in front, where a consumer that has to lift it out finds it without a parse.
+    const stylesheet = buildStylesheet(sheets, classes);
+    const body = parts.join("\n");
+
+    return stylesheet ? `${stylesheet}\n${body}` : body;
+}
+
+export interface SpreadsheetRenderOptions {
+    /**
+     * Renders only the top-left corner of the first visible sheet, for a preview shown in a card
+     * or a list rather than opened. A workbook that fills a card runs to megabytes otherwise, of
+     * which a card shows the first handful of rows.
+     */
+    trim?: boolean;
+}
+
+/** How much of a sheet a trimmed render keeps — comfortably more than a card has room for. */
+const TRIMMED_ROWS = 20;
+const TRIMMED_COLUMNS = 15;
+
+/**
+ * Builds the `<style>` a render is preceded by: the gridline rule when any sheet asks for
+ * gridlines, then one rule per distinct style. Returns "" when there is nothing to write.
+ */
+function buildStylesheet(sheets: IWorksheetData[], classes: StyleClasses): string {
+    const rules = sheets.some((sheet) => sheet.showGridlines !== 0) ? [GRIDLINE_RULE] : [];
+    rules.push(...classes.toRules());
+
+    return rules.length ? `<style>\n${rules.join("\n")}\n</style>` : "";
+}
+
+/**
+ * Gridlines for the sheets that enable them. Drawn as a real border rather than a box-shadow so
+ * they sit in the same border-collapse model as the cells' own borders and line up with them, and
+ * skipped on filled cells because a fill covers the grid, as it does in the editor. The selector's
+ * context is in `:where()` so a cell's own border, emitted as a `.sst-*` rule, outranks it.
+ *
+ * Hosts set `--spreadsheet-gridline-color`, and `--spreadsheet-gridline-width` where a hairline is
+ * wanted (print). A sheet carrying its own gridline color sets the first on the table element,
+ * which shadows the host's for that sheet.
+ */
+const GRIDLINE_RULE = ":where(.spreadsheet-table.show-gridlines) td:not(.has-fill)"
+    + "{border:var(--spreadsheet-gridline-width,1px) solid var(--spreadsheet-gridline-color,#ccc)}";
+
+/**
+ * Collects the declarations a render emits and hands back a class for each distinct one, so a
+ * style shared by thousands of cells is written once in a `<style>` instead of on every cell.
+ * Workbooks have very few distinct cell styles (Excel itself stores them in a shared table), so
+ * this trades a per-cell `style` attribute for a short class name.
+ *
+ * Class names are derived from the declarations, not from a counter: the same style yields the
+ * same name in every document, so two spreadsheets rendered onto one page share a rule rather
+ * than colliding, and nothing has to be threaded through the renderer to keep names unique.
+ * Every rule is scoped under `.spreadsheet-table`, so a name that happened to match an
+ * application class still cannot reach anything outside a rendered sheet.
+ */
+class StyleClasses {
+    private readonly names = new Map<string, string>();
+
+    /**
+     * Returns the class for `declarations`, or "" when there is nothing to style.
+     *
+     * A hash collision would show one style where another was meant, never a wrong document, and
+     * 32 bits is far more than the handful of distinct styles a workbook carries.
+     */
+    classFor(declarations: string): string {
+        if (!declarations) return "";
+
+        let name = this.names.get(declarations);
+        if (!name) {
+            name = `sst-${fnv1a(declarations).toString(36)}`;
+            this.names.set(declarations, name);
+        }
+        return name;
+    }
+
+    /**
+     * Builds a rule per distinct style collected.
+     *
+     * The declarations cannot contain `<` or `/`: colors are validated against a pattern and every
+     * other author-supplied value goes through `sanitizeCssValue`, which strips both. That is what
+     * keeps a cell's styling from closing its rule, or the element these rules are written into.
+     */
+    toRules(): string[] {
+        const rules: string[] = [];
+        for (const [declarations, name] of this.names) {
+            rules.push(`.spreadsheet-table .${name}{${declarations}}`);
+        }
+        return rules;
+    }
 }
 
 // #region Images
@@ -291,7 +391,7 @@ function trackIndexAtPx(targetPx: number, count: number | undefined, size: (inde
 
 // #endregion
 
-function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | null>, images: PlacedImage[]): string {
+function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | null>, images: PlacedImage[], classes: StyleClasses, options: SpreadsheetRenderOptions = {}): string {
     const { cellData, mergeData = [], columnData = {}, rowData = {} } = sheet;
 
     // A sheet often carries formatting far past its data: a fill applied to whole rows leaves tens
@@ -303,7 +403,11 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
     // pull the sheet back out to the far edge of the grid.
     const bounds = computeBounds(cellData, boundingMerges(mergeData, sheet), (cell) => holdsSomething(cell, styles))
         ?? computeBounds(cellData, mergeData);
-    const { maxRow, maxCol } = extendBoundsForImages(sheet, bounds?.maxRow ?? -1, bounds?.maxCol ?? -1, images);
+    const extended = extendBoundsForImages(sheet, bounds?.maxRow ?? -1, bounds?.maxCol ?? -1, images);
+    // A trimmed render keeps the corner a card has room for. The cap applies last, so it bounds
+    // whatever the data, a merge or an image asked for rather than competing with them.
+    const maxRow = options.trim ? Math.min(extended.maxRow, TRIMMED_ROWS - 1) : extended.maxRow;
+    const maxCol = options.trim ? Math.min(extended.maxCol, TRIMMED_COLUMNS - 1) : extended.maxCol;
     if (maxRow < 0 || maxCol < 0) {
         return "<p>Empty sheet.</p>";
     }
@@ -316,6 +420,8 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
 
     // Build a set of cells that are hidden by merges (non-origin cells).
     const mergeMap = buildMergeMap(mergeData, minRow, maxRow, minCol, maxCol);
+    const merged = mergeMap.size > 0;
+    const cssCache = new Map<string, string>();
 
     // Visible column widths, reused for the colgroup and the table's fixed total width.
     const defaultWidth = sheet.defaultColumnWidth ?? 88;
@@ -330,14 +436,14 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
     const lines: string[] = [];
     lines.push(buildTableTag(sheet, totalWidth));
 
-    lines.push("<colgroup>");
+    const cols: string[] = [];
     for (let index = 0; index < colWidths.length;) {
         let span = 1;
         while (index + span < colWidths.length && colWidths[index + span] === colWidths[index]) span++;
-        lines.push(`<col${span > 1 ? ` span="${span}"` : ""} style="width:${px(colWidths[index])}px">`);
+        cols.push(`<col${span > 1 ? ` span="${span}"` : ""} class="${classes.classFor(`width:${px(colWidths[index])}px`)}">`);
         index += span;
     }
-    lines.push("</colgroup>");
+    lines.push(`<colgroup>${cols.join("")}</colgroup>`);
 
     const defaultHeight = sheet.defaultRowHeight ?? 24;
     const heights: number[] = [];
@@ -353,14 +459,15 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
         // Univer leaves a cell at the bottom of its row unless it sets `vt`, while HTML centres it.
         // The row carries that default because a `td` inherits `vertical-align`, so a cell that
         // sets its own still wins.
-        lines.push(`<tr style="height:${height}px;vertical-align:bottom">`);
+        const rowClass = classes.classFor(`height:${height}px;vertical-align:bottom`);
 
         const neighbours: RowNeighbours = { row, minCol, maxCol, cellData, columnData, mergeMap, defaultWidth };
+        const cells: string[] = [];
 
         for (let col = minCol; col <= maxCol; col++) {
             if (columnData[col]?.hd) continue;
 
-            const mergeInfo = mergeMap.get(cellKey(row, col));
+            const mergeInfo = merged ? mergeMap.get(cellKey(row, col)) : undefined;
             if (mergeInfo?.kind === "member") continue;
 
             const cell = cellData[row]?.[col];
@@ -370,30 +477,32 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
             const boxHeight = spannedHeight(heights, row, mergeInfo?.endRow ?? row)
                 - padding.t - padding.b
                 - collapsedBorderHeight(cellStyle, row, mergeInfo?.endRow ?? row, col, rowData, cellData, styles);
-            const declarations = [buildCssText(cellStyle, cell)];
-            if (hasContent(cell)) {
-                declarations.push(`padding:${px(padding.t)}px ${px(padding.r)}px ${px(padding.b)}px ${px(padding.l)}px`);
-            }
-            const cssText = declarations.filter(Boolean).join(";");
-            const text = rotate(formatCellValue(cell, cellStyle), cellStyle);
+            const base = cssTextFor(cellStyle, cell, mergeInfo, cssCache);
+            const cssText = hasContent(cell)
+                ? `${base ? `${base};` : ""}padding:${px(padding.t)}px ${px(padding.r)}px ${px(padding.b)}px ${px(padding.l)}px`
+                : base;
+            const text = rotate(formatCellValue(cell, cellStyle), cellStyle, classes);
             const value = (isTurned(cellStyle?.tr)
-                ? turnedBox(text, boxHeight, cellStyle)
-                : cellBox(text, bound, boxHeight)) + (cell ? renderCellImages(cell) : "");
+                ? turnedBox(text, boxHeight, cellStyle, classes)
+                : cellBox(text, bound, boxHeight, classes)) + (cell ? renderCellImages(cell) : "");
 
             const attrs: string[] = [];
             // Cells with a background fill carry `has-fill` so the stylesheet can suppress
             // gridlines under the fill, matching the editor (a fill covers the grid).
-            if (cellStyle?.bg?.rgb) attrs.push(`class="has-fill"`);
-            if (cssText) attrs.push(`style="${cssText}"`);
+            const names = [cellStyle?.bg?.rgb ? "has-fill" : "", classes.classFor(cssText)].filter(Boolean);
+            if (names.length) attrs.push(`class="${names.join(" ")}"`);
             if (mergeInfo) {
                 if (mergeInfo.rowSpan > 1) attrs.push(`rowspan="${mergeInfo.rowSpan}"`);
                 if (mergeInfo.colSpan > 1) attrs.push(`colspan="${mergeInfo.colSpan}"`);
             }
 
-            lines.push(`<td${attrs.length ? " " + attrs.join(" ") : ""}>${value}</td>`);
+            cells.push(`<td${attrs.length ? " " + attrs.join(" ") : ""}>${value}</td>`);
         }
 
-        lines.push("</tr>");
+        // A row on one line: it reads like the grid it came from, and drops a newline per cell,
+        // which on a large sheet is tens of thousands of them. Whitespace between cells has no
+        // effect on a table's layout, so nothing depends on the newlines being there.
+        lines.push(`<tr class="${rowClass}">${cells.join("")}</tr>`);
     }
 
     lines.push("</table>");
@@ -504,7 +613,123 @@ function buildMergeMap(mergeData: IRange[], minRow: number, maxRow: number, minC
 
 // #endregion
 
+// #region Dark mode
+
+/**
+ * What Excel renders an automatic font in. `parse_from_xlsx` drops that default so a cell can
+ * take the editor's themed text color; static HTML has no such default to fall back on.
+ */
+const AUTOMATIC_TEXT_COLOR = "#000";
+
+/** The CSS values of the color names `numfmt` answers with for a `[Red]`-style pattern. */
+const NAMED_COLORS: Record<string, string> = {
+    black: "#000000", blue: "#0000ff", cyan: "#00ffff", green: "#008000",
+    magenta: "#ff00ff", red: "#ff0000", white: "#ffffff", yellow: "#ffff00"
+};
+
+/**
+ * The declarations setting `property` to `color`: the color as it stands, then again paired with
+ * what a dark theme shows instead, for the browser to choose between by `color-scheme` — which the
+ * client sets from `--theme-style` and the share theme sets outright. Print declares none and so
+ * takes the light half, which is what belongs on paper.
+ *
+ * The plain declaration comes first and is never dropped. A browser that does not know
+ * `light-dark()` discards the second and renders as it always did, which matters as far down as
+ * the iOS 15 the mobile app still builds for: an unrecognised value takes its whole declaration
+ * with it, so a cell would lose the fill or border entirely rather than merely fail to darken.
+ *
+ * `build` wraps the color in whatever else the property needs, a border's width and style.
+ */
+function themedDeclarations(property: string, color: string, build: (color: string) => string = (it) => it): string[] {
+    const declarations = [`${property}:${build(color)}`];
+
+    const inverted = invertColor(color);
+    if (inverted) declarations.push(`${property}:${build(`light-dark(${color},${inverted})`)}`);
+
+    return declarations;
+}
+
+/**
+ * Inverts a color the way Univer does on a dark theme, so a preview matches the editor
+ * (`invertColorByMatrix`, which its canvas color service runs over every color it paints).
+ *
+ * Each channel keeps a third of its own value and loses two thirds of the other two, then gains
+ * one. That inverts lightness while leaving the channel ordering — the hue — alone: a pale yellow
+ * fill comes back dark brown rather than the blue a plain `255 - c` would give, and a dark fill
+ * comes back pale. A grey inverts to its exact complement either way.
+ *
+ * The coefficients are Univer's own rounded literals rather than exact thirds, which is what keeps
+ * the two implementations agreeing to the byte.
+ */
+function invertColor(color: string): string | null {
+    let inverted = INVERTED_COLORS.get(color);
+    if (inverted === undefined) {
+        inverted = invertColorUncached(color);
+        INVERTED_COLORS.set(color, inverted);
+    }
+    return inverted;
+}
+
+/** A workbook draws from a handful of colors, and every cell using one asks for the same answer. */
+const INVERTED_COLORS = new Map<string, string | null>();
+
+function invertColorUncached(color: string): string | null {
+    const rgb = parseColor(color);
+    if (!rgb) return null;
+
+    const [r, g, b] = rgb.map((channel) => channel / 255);
+    const inverted = [
+        0.333 * r - 0.667 * g - 0.667 * b + 1,
+        -0.667 * r + 0.333 * g - 0.667 * b + 1,
+        -0.667 * r - 0.667 * g + 0.333 * b + 1
+    ];
+
+    return `#${inverted
+        .map((channel) => Math.round(Math.min(1, Math.max(0, channel)) * 255))
+        .map((channel) => channel.toString(16).padStart(2, "0"))
+        .join("")}`;
+}
+
+/** Reads `#rgb`, `#rrggbb` and the named colors, which is every form the renderer emits. */
+function parseColor(color: string): [number, number, number] | null {
+    const named = NAMED_COLORS[color.toLowerCase()];
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(named ?? color)?.[1];
+    if (!hex) return null;
+
+    const pairs = hex.length === 3 ? [...hex].map((c) => c + c) : [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)];
+    return pairs.map((pair) => Number.parseInt(pair, 16)) as [number, number, number];
+}
+
+// #endregion
+
 // #region Style resolution
+
+/**
+ * `buildCssText` for a cell, reusing the result across the cells that share a style. Beyond the
+ * style, the declarations depend on the cell's value type (`defaultHorizontalAlign`) and, where the
+ * style carries a number format, on the value itself (`resolvePatternColor`). So a formatted cell,
+ * a cell whose style is written inline rather than shared, and a merge origin (whose borders
+ * `mergeAwareStyle` rewrites per range) are all built every time.
+ */
+function cssTextFor(
+    style: IStyleData | null,
+    cell: ICellData | undefined,
+    merge: MergeOrigin | undefined,
+    cache: Map<string, string>
+): string {
+    const shared = cell?.s;
+    if (merge || style?.n?.pattern || (shared !== undefined && typeof shared !== "string")) {
+        return buildCssText(style, cell);
+    }
+
+    const key = `${shared ?? ""}|${cell?.t ?? ""}`;
+    let cssText = cache.get(key);
+    if (cssText === undefined) {
+        cssText = buildCssText(style, cell);
+        cache.set(key, cssText);
+    }
+    return cssText;
+}
 
 function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     const parts: string[] = [];
@@ -531,13 +756,16 @@ function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     }
     if (style.fs && isFiniteNumber(style.fs)) parts.push(`font-size:${style.fs}pt`);
     if (style.ff) parts.push(`font-family:${sanitizeCssValue(style.ff)}`);
-    if (style.bg?.rgb) parts.push(`background-color:${sanitizeCssColor(style.bg.rgb)}`);
+    if (style.bg?.rgb) parts.push(...themedDeclarations("background-color", sanitizeCssColor(style.bg.rgb)));
 
     // A color produced by the number-format pattern (e.g. `[Red]` for negatives) takes
-    // precedence over the cell's own text color, matching Univer's rendering.
+    // precedence over the cell's own text color, matching Univer's rendering. A filled cell that
+    // sets neither falls back to the color Excel shows an automatic font in, rather than to the
+    // surrounding text color: the fill comes from the workbook while that color comes from the
+    // theme around it, so a pale fill is unreadable wherever the theme is dark.
     const patternColor = resolvePatternColor(style, cell);
-    const textColor = patternColor ?? style.cl?.rgb;
-    if (textColor) parts.push(`color:${sanitizeCssColor(textColor)}`);
+    const textColor = patternColor ?? style.cl?.rgb ?? (style.bg?.rgb ? AUTOMATIC_TEXT_COLOR : undefined);
+    if (textColor) parts.push(...themedDeclarations("color", sanitizeCssColor(textColor)));
 
     if (style.vt != null) {
         const valign = verticalAlignToCss(style.vt);
@@ -641,7 +869,7 @@ function spillRoom(from: number, step: -1 | 1, neighbours: RowNeighbours): { wid
 function cellShownAt(col: number, neighbours: RowNeighbours): ICellData | undefined {
     const { row, cellData, mergeMap } = neighbours;
 
-    const info = mergeMap.get(cellKey(row, col));
+    const info = mergeMap.size ? mergeMap.get(cellKey(row, col)) : undefined;
     return info?.kind === "member" ? cellData[info.anchorRow]?.[info.anchorColumn] : cellData[row]?.[col];
 }
 
@@ -659,7 +887,7 @@ const CELL_LINE_HEIGHT = "line-height:normal";
  * it. The box also carries the room the text has to run sideways, widened by it and clipped there,
  * with the negative margins cancelling the extra width so the table's own layout is untouched.
  */
-function cellBox(html: string, bound: SpillBound | null, height: number): string {
+function cellBox(html: string, bound: SpillBound | null, height: number, classes: StyleClasses): string {
     if (!html) return html;
 
     const parts = ["display:block", "overflow:hidden"];
@@ -670,7 +898,10 @@ function cellBox(html: string, bound: SpillBound | null, height: number): string
         if (bound.after) parts.push(`margin-right:${px(-bound.after)}px`);
     }
     parts.push(CELL_LINE_HEIGHT);
-    return `<span style="${parts.join(";")}">${html}</span>`;
+
+    // A box is shaped by its row's height rather than by anything the cell says, so a sheet has
+    // only a handful of distinct ones however many cells it holds.
+    return `<span class="${classes.classFor(parts.join(";"))}">${html}</span>`;
 }
 
 /** Whether a cell's text is turned at all, in any of the ways Univer can turn it. */
@@ -695,7 +926,7 @@ function rotatesByTransform(rotation: ITextRotation | null | undefined): boolean
  * turn and drop everything above and below it. Filling the cell takes the placement away from the
  * cell's alignments, so the box carries them itself.
  */
-function turnedBox(html: string, height: number, style: IStyleData | null): string {
+function turnedBox(html: string, height: number, style: IStyleData | null, classes: StyleClasses): string {
     if (!html) return html;
 
     const parts = [
@@ -706,7 +937,8 @@ function turnedBox(html: string, height: number, style: IStyleData | null): stri
     ];
     if (height > 0) parts.push(`height:${px(height)}px`);
     parts.push(CELL_LINE_HEIGHT);
-    return `<span style="${parts.join(";")}">${html}</span>`;
+
+    return `<span class="${classes.classFor(parts.join(";"))}">${html}</span>`;
 }
 
 /** Where a turned cell puts its text down the cell, following the cell's vertical alignment. */
@@ -813,13 +1045,6 @@ function holdsSomething(cell: ICellData, styles: Record<string, IStyleData | nul
     return Boolean(borders && (borders.t?.s || borders.r?.s || borders.b?.s || borders.l?.s));
 }
 
-/** Whether a cell shows anything. A cell carrying only a style is empty, as it is in the editor. */
-function hasContent(cell: ICellData | undefined): boolean {
-    if (!cell) return false;
-    if (cell.v != null && cell.v !== "") return true;
-    return getCellDocumentText(cell) !== "";
-}
-
 /**
  * The alignment Univer falls back to for a cell that sets none: numbers to the right, booleans
  * centered, everything else left (`_horizontalHandler` in `@univerjs/engine-render`). Returns
@@ -854,7 +1079,7 @@ function appendBorderCss(parts: string[], property: string, border: IBorderStyle
     const width = borderStyleToWidth(border.s);
     const color = sanitizeCssColor(border.cl?.rgb ?? "#000");
     const style = borderStyleToCss(border.s);
-    parts.push(`${property}:${width} ${style} ${color}`);
+    parts.push(...themedDeclarations(property, color, (it) => `${width} ${style} ${it}`));
 }
 
 function borderStyleToWidth(style: number | undefined): string {
@@ -950,11 +1175,11 @@ function formatCellValue(cell: ICellData | undefined, style: IStyleData | null):
  * the `td` itself, which would take the background and borders with it, and images anchored in the
  * cell stay upright as they do in the editor.
  */
-function rotate(html: string, style: IStyleData | null): string {
+function rotate(html: string, style: IStyleData | null, classes: StyleClasses): string {
     if (!html) return html;
 
     const css = rotationCss(style?.tr, style?.vt);
-    return css ? `<span style="${css}">${html}</span>` : html;
+    return css ? `<span class="${classes.classFor(css)}">${html}</span>` : html;
 }
 
 /**
@@ -1047,13 +1272,16 @@ function resolvePatternColor(style: IStyleData | null, cell: ICellData | undefin
 }
 
 function escapeHtml(text: string): string {
+    if (!ESCAPABLE.test(text)) return text;
+
     return text
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
-    ;
 }
+
+const ESCAPABLE = /[&<>"']/;
 
 // #endregion

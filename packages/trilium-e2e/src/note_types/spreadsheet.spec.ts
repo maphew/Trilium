@@ -60,6 +60,14 @@ const WORKBOOK = {
     }
 };
 
+/**
+ * The heights the workbook above states, in order. Read from here rather than back out of the
+ * markup: the renderer writes a row's height into the stylesheet it emits, so the `tr` carries a
+ * class and not a `style` attribute, and a test that read one would be asserting the DOM agrees
+ * with itself rather than that the sheet's own numbers survived.
+ */
+const DECLARED_HEIGHTS = [30, 40, 24, 24, 60];
+
 test("prints the grid at the row heights the sheet declares", async ({ page, context }) => {
     const app = new App(page, context);
     await app.goto();
@@ -74,19 +82,19 @@ test("prints the grid at the row heights the sheet declares", async ({ page, con
             const table = document.querySelector(".spreadsheet-table");
             const base = table?.getBoundingClientRect().top ?? 0;
             return [...(table?.querySelectorAll("tr") ?? [])].map((row) => ({
-                declared: Number.parseFloat((row as HTMLElement).style.height),
                 top: row.getBoundingClientRect().top - base,
                 rendered: row.getBoundingClientRect().height
             }));
         });
 
-        expect(rows.length).toBe(5);
+        expect(rows.length).toBe(DECLARED_HEIGHTS.length);
 
         let expectedTop = 0;
         for (const [index, row] of rows.entries()) {
-            expect(row.rendered, `row ${index} keeps the height it declares`).toBeCloseTo(row.declared, 0);
+            const declared = DECLARED_HEIGHTS[index];
+            expect(row.rendered, `row ${index} keeps the height it declares`).toBeCloseTo(declared, 0);
             expect(row.top, `row ${index} starts where the rows above it end`).toBeCloseTo(expectedTop, 0);
-            expectedTop += row.declared;
+            expectedTop += declared;
         }
     } finally {
         await deleteNote(app, noteId);
