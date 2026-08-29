@@ -2,6 +2,7 @@
  * Regression test for #10689: a newly added board column is persisted but not rendered until the
  * view is re-entered, and a subsequent column reorder then deletes it again.
  */
+import $ from "jquery";
 import { render } from "preact";
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { act } from "preact/test-utils";
@@ -13,6 +14,7 @@ import server from "../../../services/server";
 import toast from "../../../services/toast";
 import FBranch from "../../../entities/fbranch";
 import froca from "../../../services/froca";
+import { executeBulkActions } from "../../../services/bulk_action";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
@@ -22,7 +24,9 @@ import { DEFAULT_COLUMN_ICON } from "./columns";
 // which is what makes the old column empty rather than merely renamed.
 vi.mock("../../../services/i18n", () => ({
     // i18next is never initialised under test, so a stock name the board writes would be undefined.
-    t: (key: string) => key
+    t: (key: string) => key,
+    // Awaited by whatever waits for the catalogue; a mock without it rejects where it is read.
+    translationsInitializedPromise: $.Deferred().resolve()
 }));
 
 vi.mock("../../../services/bulk_action", () => ({
@@ -243,7 +247,11 @@ describe("Board column rename", () => {
 
     /** Renames the middle column, so a slot that is not the last one has to survive. */
     async function renameSecondColumn(container: HTMLElement, newName: string) {
-        const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
+        return renameColumnAt(container, 1, newName);
+    }
+
+    async function renameColumnAt(container: HTMLElement, index: number, newName: string) {
+        const column = container.querySelectorAll<HTMLElement>(".board-column")[index];
         await act(async () => {
             startEditingTitle(column);
             await flush();
@@ -478,6 +486,102 @@ describe("Board column rename", () => {
         expect(slot?.querySelector<HTMLTextAreaElement>("textarea")?.value).toBe("");
     });
 
+    /**
+     * Both boards record the very same rename, so the failing one cannot tell its own record from
+     * the live one by looking at it. Each board keeps a map of its own, and the undo writes into
+     * the one it recorded itself in, which nothing reads any more.
+     */
+    it("does not undo the next board's identical rename when the last one fails", async () => {
+        const { container } = await setup();
+
+        // Both renames are held open, so both records are live when the first one fails.
+        let rejectFirst: (reason: Error) => void = () => {};
+        let resolveSecond: () => void = () => {};
+        vi.mocked(executeBulkActions)
+            .mockImplementationOnce(() => new Promise((_r, reject) => { rejectFirst = reject; }))
+            .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; }));
+
+        // "Done" on both boards, so neither record can be told from the other by its contents.
+        await renameColumnAt(container, 2, "Renamed");
+
+        const other = buildNote({
+            title: "Other board",
+            "#collection": "",
+            "#viewType": "board",
+            children: [
+                { title: "Fourth", "#status": "Doing" },
+                { title: "Fifth", "#status": "Done" }
+            ]
+        });
+        const showOther = async () => {
+            await act(async () => {
+                render(
+                    <ParentComponent.Provider value={new Component()}>
+                        <Harness
+                            note={other}
+                            noteIds={[ ...other.getChildNoteIds() ]}
+                            initialConfig={{ columns: [ { value: "Doing" }, { value: "Done" } ] }}
+                        />
+                    </ParentComponent.Provider>,
+                    container
+                );
+                await flush();
+            });
+            await act(async () => { await flush(); });
+        };
+
+        await showOther();
+        await renameColumnAt(container, 1, "Renamed");
+
+        await act(async () => {
+            rejectFirst(new Error("offline"));
+            await flush();
+        });
+
+        // Rendered again, which is what reads the record the failed rename could have taken away.
+        await showOther();
+        expect(columnTitles(container)).toEqual([ "Doing", "Renamed" ]);
+
+        resolveSecond();
+    });
+
+    it("says so when what was typed could not be saved", async () => {
+        const { container } = await setup();
+        const error = vi.spyOn(toast, "showError").mockImplementation(() => {});
+        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
+
+        await renameSecondColumn(container, "Renamed");
+        await act(async () => { await flush(); });
+
+        expect(error).toHaveBeenCalledWith("board_view.save-error");
+    });
+
+    it("lets an IME finish composing before taking the Enter as a save", async () => {
+        const { container } = await setup();
+        const header = container.querySelectorAll<HTMLElement>(".board-column h3")[1];
+
+        await act(async () => {
+            startEditingTitle(header.closest(".board-column") as HTMLElement);
+            await flush();
+        });
+
+        const input = header.querySelector<HTMLInputElement>("input");
+        if (!input) throw new Error("expected the title editor");
+
+        // The Enter that commits a CJK conversion must not also close the editor.
+        await act(async () => {
+            input.focus();
+            input.value = "Composing";
+            input.dispatchEvent(new KeyboardEvent("keydown", {
+                key: "Enter", isComposing: true, bubbles: true, cancelable: true
+            }));
+            await flush();
+        });
+
+        expect(header.querySelector("input")).toBeTruthy();
+        expect(saved).toHaveLength(0);
+    });
+
     it("keeps the cards of the renamed column under it", async () => {
         const { container } = await setup();
 
@@ -703,7 +807,8 @@ describe("Board grouped by a relation", () => {
             await flush();
         });
 
-        // The note picker, not the plain text box a label column is renamed through.
+        // The note picker, not the plain text box a label column is renamed through. Dismissing it
+        // is the autocomplete's own jQuery binding, which does not answer keys under happy-dom.
         expect(header?.querySelector("input.note-autocomplete")).toBeTruthy();
     });
 

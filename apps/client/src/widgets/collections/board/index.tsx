@@ -119,16 +119,27 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ definitionRevision, setDefinitionRevision ] = useState(0);
     // A ref rather than state: `api` is rebuilt on every refresh, and the map has to outlive those
     // instances to cover a rename (see BoardApi#retireColumn). Mutating it must not re-render.
-    const pendingRenamesRef = useRef(new Map<string, string | undefined>());
+    const pendingRenamesRef = useRef({ board: "", renames: new Map<string, string | undefined>() });
     /** Names each refresh, so one the board has moved on from is discarded rather than applied. */
     const refreshSeqRef = useRef(0);
+
+    // A pending rename belongs to the board and the grouping it was made on, and `NoteList` renders
+    // the view unkeyed, so moving to another board reuses this instance. The map is replaced rather
+    // than emptied: a write still in flight holds the map it recorded itself in, and undoing into
+    // one nobody reads is what keeps it off a board that has since recorded the very same rename.
+    // Done while rendering, so the `api` built below is handed the map the refresh will read.
+    const boardIdentity = `${parentNote.noteId}|${statusAttributeWithPrefix}`;
+    if (pendingRenamesRef.current.board !== boardIdentity) {
+        pendingRenamesRef.current = { board: boardIdentity, renames: new Map() };
+        refreshSeqRef.current++;
+    }
     const statusDefinition = useMemo(
         () => getStatusDefinition(parentNote, statusAttributeWithPrefix),
         [ parentNote, statusAttributeWithPrefix, definitionRevision ]);
     const api = useMemo(() => {
         return new Api(
             byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {},
-            saveConfig, setBranchIdToEdit, pendingRenamesRef.current, statusDefinition);
+            saveConfig, setBranchIdToEdit, pendingRenamesRef.current.renames, statusDefinition);
     }, [ byColumn, columns, parentNote, statusAttributeWithPrefix, viewConfig, saveConfig, setBranchIdToEdit, statusDefinition ]);
     // Every member is one of useState's own setters, so this value is built once and never changes
     // identity -- a drag cannot reach anything that reads only this.
@@ -174,12 +185,12 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
 
         getBoardData(
             parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived,
-            statusDefinition?.options ?? [], pendingRenamesRef.current)
+            statusDefinition?.options ?? [], pendingRenamesRef.current.renames)
             .then(({ byColumn, columns, newPersistedData, isInRelationMode, settledRenames }) => {
                 if (refreshId !== refreshSeqRef.current) return;
 
                 for (const settled of settledRenames) {
-                    pendingRenamesRef.current.delete(settled);
+                    pendingRenamesRef.current.renames.delete(settled);
                 }
 
                 setByColumn(byColumn);
@@ -201,15 +212,6 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                     .catch((e) => console.error("Failed to sync the board columns to the attribute definition:", e));
             });
     }
-
-    // A pending rename belongs to the board and the grouping it was made on. `NoteList` renders the
-    // view unkeyed, so moving to another board reuses this instance and the ref would otherwise
-    // carry the rename over and rewrite a column of the same name there. Declared ahead of the
-    // refresh below, which is what makes it run first when both fire on the same change.
-    useEffect(() => {
-        pendingRenamesRef.current.clear();
-        refreshSeqRef.current++;
-    }, [ parentNote, statusAttributeWithPrefix ]);
 
     useEffect(refresh, [ parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition ]);
 
@@ -454,7 +456,13 @@ export function TitleEditor({
 
     const onBlur = (newValue: string) => {
         if (!shouldDismiss.current && newValue.trim() && (newValue !== currentValue || isNewItem)) {
-            save(newValue);
+            // The editor is closing either way, and what a save writes has already been put back by
+            // whatever could not write it; all that is left is to say so rather than to reject
+            // unhandled, which is what a save reaching nobody used to do.
+            Promise.resolve(save(newValue)).catch((e) => {
+                console.error("Failed to save what the board editor was given:", e);
+                toast.showError(t("board_view.save-error"));
+            });
             dismissOnNextRefreshRef.current = true;
         } else {
             dismiss();

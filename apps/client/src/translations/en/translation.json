@@ -3374,6 +3374,7 @@
     "column-menu": "Column menu",
     "column-already-exists": "This column already exists on the board.",
     "column-definition-save-error": "The columns were saved on the board, but could not be saved to the status attribute.",
+    "save-error": "The change could not be saved.",
     "status-alias": "Status"
   },
   "dashboard_view": {
