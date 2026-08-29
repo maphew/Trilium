@@ -1,3 +1,9 @@
+/* Defaults for a theme that sets none of its own; the light values, the app's own default look. */
+:where(:root) {
+  --board-column-with-hue-background-saturation: 26%;
+  --board-column-with-hue-background-lightness: 86%;
+}
+
 .board-view {
   position: relative;
   height: 100%;
@@ -48,6 +54,15 @@ body.mobile .board-view-container .board-add-column {
     scroll-snap-align: center;
 }
 
+/* Ahead of `.drag-over`, which matches just as specifically and has to keep winning. */
+.board-view-container .board-column.with-hue {
+  background-color: hsl(
+    var(--board-column-custom-hue),
+    var(--board-column-with-hue-background-saturation),
+    var(--board-column-with-hue-background-lightness)
+  );
+}
+
 .board-view-container .board-column.drag-over {
   border-color: var(--main-text-color);
   background-color: var(--hover-item-background-color);
@@ -70,12 +85,12 @@ body.mobile .board-view-container .board-add-column {
   align-items: center;
 }
 
-/* The board note's colour class sits on an ancestor and would dress the icon in that note's hue.
-   `initial` rather than `unset`: these inherit, so unsetting lets the ancestor's values back in. */
+/* The column's own hue, or none: an ancestor carries the board note's colour class, which would
+   otherwise dress the icon in that note's hue. `initial` rather than `unset` for the fallback,
+   since this inherits and unsetting lets the ancestor's value back in. The themes re-derive the
+   icon colours from this, keyed on the same selector. */
 .board-view-container .board-column h3 {
-  --note-icon-custom-color: initial;
-  --note-icon-custom-background-color: initial;
-  --note-icon-hover-custom-background-color: initial;
+  --custom-color-hue: var(--board-column-custom-hue, initial);
 }
 
 .board-view-container .board-column h3 > .column-icon {

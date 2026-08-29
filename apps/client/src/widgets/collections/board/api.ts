@@ -106,27 +106,35 @@ export default class BoardApi {
             .map(col => col.value === oldValue ? { ...col, value: newValue } : col));
     }
 
+    /** Stores the icon a column shows, or clears it back to the default when given nothing. */
+    async setColumnIcon(column: string, icon: string | undefined) {
+        this.updateColumn(column, { icon });
+    }
+
+    /** Stores the colour a column is tinted with, or clears it when given nothing. */
+    async setColumnColor(column: string, color: string | null) {
+        this.updateColumn(column, { color: color ?? undefined });
+    }
+
     /**
-     * Stores the icon a column shows, or clears it back to the default when given nothing.
+     * Writes properties onto a column, dropping each one given as nothing so that it goes back to
+     * its default rather than being stored empty.
      *
      * The column may have no stored entry at all: one resolved from the definition or from a value
-     * a note carries is shown without ever being written, so picking an icon for it creates one.
+     * a note carries is shown without ever being written, so the first pick for it creates one.
      */
-    async setColumnIcon(column: string, icon: string | undefined) {
+    private updateColumn(column: string, patch: Partial<BoardColumnData>) {
         const columns = this.viewConfig?.columns ?? [];
-        const withIcon = (stored: BoardColumnData) => {
-            const updated = { ...stored };
-            if (icon) {
-                updated.icon = icon;
-            } else {
-                delete updated.icon;
-            }
+        const patched = (stored: BoardColumnData): BoardColumnData => {
+            const updated = { ...stored, ...patch };
+            if (!updated.icon) delete updated.icon;
+            if (!updated.color) delete updated.color;
             return updated;
         };
 
         this.storeColumns(columns.some(col => col.value === column)
-            ? columns.map(col => col.value === column ? withIcon(col) : col)
-            : [ ...columns, withIcon({ value: column }) ]);
+            ? columns.map(col => col.value === column ? patched(col) : col)
+            : [ ...columns, patched({ value: column }) ]);
     }
 
     reorderColumn(fromIndex: number, toIndex: number) {

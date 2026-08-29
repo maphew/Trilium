@@ -30,6 +30,8 @@ export interface BoardColumnData {
     value: string;
     /** The icon class shown before the title, absent until one is picked. */
     icon?: string;
+    /** The CSS colour the column is tinted with, absent until one is picked. */
+    color?: string;
 }
 
 interface CardDrag {
@@ -137,8 +139,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     ]);
 
     // Read off the config rather than off `columns`, which the resolver hands back as names alone.
-    const columnIcons = useMemo(
-        () => new Map((viewConfig?.columns ?? []).map(({ value, icon }) => [ value, icon ])),
+    const storedColumns = useMemo(
+        () => new Map((viewConfig?.columns ?? []).map(stored => [ stored.value, stored ])),
         [ viewConfig ]);
 
     const boardDragState = useMemo<BoardDragState>(() => ({
@@ -255,7 +257,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     api={api}
                                     parentNote={parentNote}
                                     column={column}
-                                    icon={columnIcons.get(column)}
+                                    icon={storedColumns.get(column)?.icon}
+                                    color={storedColumns.get(column)?.color}
                                     columnIndex={index}
                                     columnItems={byColumn.get(column)}
                                     isDraggingColumn={draggedColumn?.column === column}

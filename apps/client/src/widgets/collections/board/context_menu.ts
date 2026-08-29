@@ -1,3 +1,5 @@
+import { useState } from "preact/hooks";
+
 import FNote from "../../../entities/fnote";
 import NoteColorPicker from "../../../menus/custom-items/NoteColorPicker";
 import contextMenu, { ContextMenuEvent } from "../../../menus/context_menu";
@@ -6,9 +8,12 @@ import branches from "../../../services/branches";
 import dialog from "../../../services/dialog";
 import { getArchiveMenuItem } from "../../../menus/context_menu_utils";
 import { t } from "../../../services/i18n";
+import ColorPicker from "../../react/ColorPicker";
 import Api from "./api";
 
-export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column: string) {
+export function openColumnContextMenu(
+    api: Api, event: ContextMenuEvent, column: string, color?: string
+) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -27,9 +32,34 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
 
                     await api.removeColumn(column);
                 }
+            },
+            { kind: "separator" },
+            {
+                kind: "custom",
+                componentFn: () => ColumnColorPicker({ api, column, color })
             }
         ],
         selectMenuItemHandler() {}
+    });
+}
+
+/**
+ * The colour a column is tinted with, picked the way a note's is.
+ *
+ * It holds the pick rather than reading it back from the board, since the menu is rendered once and
+ * the board redrawing underneath does not reach it. `note-color-picker` is what the menu styles the
+ * row through, so the class is worn here too.
+ */
+function ColumnColorPicker({ api, column, color }: { api: Api, column: string, color?: string }) {
+    const [ currentColor, setCurrentColor ] = useState(color ?? null);
+
+    return ColorPicker({
+        className: "note-color-picker",
+        currentValue: currentColor,
+        onChange: (picked) => {
+            setCurrentColor(picked);
+            api.setColumnColor(column, picked);
+        }
     });
 }
 

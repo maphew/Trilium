@@ -1,11 +1,13 @@
+import clsx from "clsx";
 import { Fragment } from "preact";
-import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
 import { ContextMenuEvent } from "../../../menus/context_menu";
 import branches from "../../../services/branches";
+import { getHue, parseColor } from "../../../services/css_class_manager";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { DragData, TREE_CLIPBOARD_TYPE } from "../../note_tree";
@@ -28,6 +30,7 @@ export default function Column({
     column,
     columnIndex,
     icon,
+    color,
     isDraggingColumn,
     columnItems,
     api,
@@ -39,6 +42,8 @@ export default function Column({
     columnItems?: { note: FNote, branch: FBranch }[];
     /** The stored icon class, absent until one is picked. Unused in relation mode. */
     icon?: string,
+    /** The stored CSS colour, absent until one is picked. */
+    color?: string,
     isDraggingColumn: boolean,
     api: BoardApi,
     parentNote: FNote,
@@ -60,8 +65,14 @@ export default function Column({
     }, [column]);
 
     const handleContextMenu = useCallback((e: ContextMenuEvent) => {
-        openColumnContextMenu(api, e, column);
-    }, [ api, column ]);
+        openColumnContextMenu(api, e, column, color);
+    }, [ api, column, color ]);
+
+    // A fully desaturated colour has no hue to tint with, and leaves the column plain.
+    const hue = useMemo(() => {
+        const parsed = color ? parseColor(color) : undefined;
+        return parsed ? getHue(parsed) : undefined;
+    }, [ color ]);
 
     const handleTitleKeyDown = useCallback((e: KeyboardEvent) => {
         if (e.key === "F2") {
@@ -97,12 +108,17 @@ export default function Column({
 
     return (
         <div
-            className={`board-column ${dropTarget === column && draggedCard?.fromColumn !== column ? 'drag-over' : ''}`}
+            className={clsx("board-column", {
+                "drag-over": dropTarget === column && draggedCard?.fromColumn !== column,
+                // The class the themes key a hue off, worn here as anywhere else that carries one.
+                "with-hue": hue !== undefined
+            })}
             onDragOver={isAnyColumnDragging ? handleColumnDragOver : handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             style={{
-                display: !isVisible ? "none" : undefined
+                display: !isVisible ? "none" : undefined,
+                "--board-column-custom-hue": hue
             }}
         >
             <h3

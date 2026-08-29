@@ -110,6 +110,20 @@ describe("BoardApi column mutations", () => {
         expect(saved.at(-1)?.columns).toEqual([ { value: "To Do" } ]);
     });
 
+    it("stores a colour beside the icon, without either clearing the other", async () => {
+        const { api, saved } = createApi({ columns: [ { value: "To Do" } ] }, [ "To Do" ]);
+
+        await api.setColumnIcon("To Do", "bx bx-list-ul");
+        await api.setColumnColor("To Do", "#e64d4d");
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "To Do", icon: "bx bx-list-ul", color: "#e64d4d" }
+        ]);
+
+        // Clearing one leaves the other where it is.
+        await api.setColumnColor("To Do", null);
+        expect(saved.at(-1)?.columns).toEqual([ { value: "To Do", icon: "bx bx-list-ul" } ]);
+    });
+
     it("keeps the icon of a column it renames", async () => {
         const { api, saved } = createApi(
             { columns: [ { value: "Done", icon: "bx bx-check" } ] }, [ "Done" ]);

@@ -299,6 +299,26 @@ describe("Board column rename", () => {
         expect(column.querySelector("h3 > .column-icon button")?.className).toContain("bx bx-run");
     });
 
+    it("tints only the columns given a colour that has a hue", async () => {
+        const { container } = await setup({
+            columns: [
+                { value: "To Do", color: "#4d99e6" },
+                { value: "Doing", color: "#808080" },
+                { value: "Done" }
+            ]
+        });
+
+        const columns = [ ...container.querySelectorAll<HTMLElement>(".board-column") ];
+        const hues = columns
+            .map(column => column.style.getPropertyValue("--board-column-custom-hue"));
+
+        expect(Math.round(Number(hues[0]))).toBe(210);
+        // Grey has no hue of its own, leaving the column as plain as one with no colour.
+        expect(hues.slice(1)).toEqual([ "", "" ]);
+        expect(columns.map(column => column.classList.contains("with-hue")))
+            .toEqual([ true, false, false ]);
+    });
+
     it("keeps the cards of the renamed column under it", async () => {
         const { container } = await setup();
 
