@@ -1,6 +1,8 @@
 import clsx from "clsx";
 import { Fragment } from "preact";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+    useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState
+} from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 
 import FBranch from "../../../entities/fbranch";
@@ -214,6 +216,7 @@ export default function Column({
                 <AddNewItem
                     api={api}
                     column={column}
+                    itemCount={columnItems?.length ?? 0}
                     isCreating={isCreatingNewItem}
                     setIsCreating={setIsCreatingNewItem}
                 />
@@ -226,24 +229,64 @@ export default function Column({
  * The editor a new card is named in, opened by the button below the column or by its menu. The
  * state is the column's rather than this component's, since the menu is raised from the header.
  */
-function AddNewItem({ column, api, isCreating, setIsCreating }: {
+function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
     column: string,
     api: BoardApi,
+    /** How many cards stand above it, which is what moves it out of view as they come and go. */
+    itemCount: number,
     isCreating: boolean,
     setIsCreating: (isCreating: boolean) => void
 }) {
-    const addItemCallback = useCallback(() => setIsCreating(true), [ setIsCreating ]);
-    const handleKeyDown = useCallback((e: KeyboardEvent) => {
-        if (!isCreating && e.key === "Enter") {
-            setIsCreating(true);
+    const [ initialTitle, setInitialTitle ] = useState("");
+    const slotRef = useRef<HTMLDivElement>(null);
+
+    // Reaching the button means reaching the end of the column, so what is under it comes into view
+    // with it. The browser scrolls only far enough to show the button itself.
+    const scrollToEnd = useCallback(() => {
+        const content = slotRef.current?.closest(".board-column-content");
+        if (content) {
+            content.scrollTop = content.scrollHeight;
         }
-    }, [ isCreating, setIsCreating ]);
+    }, []);
+
+    // A card added lands above the button and pushes it out of sight, and the editor stands taller
+    // than the button it replaces. Neither raises a focus event, so whatever is focused in here has
+    // to be followed back into view.
+    useLayoutEffect(() => {
+        if (slotRef.current?.contains(document.activeElement)) {
+            scrollToEnd();
+        }
+    }, [ itemCount, isCreating, scrollToEnd ]);
+
+    const open = useCallback((title: string) => {
+        setInitialTitle(title);
+        setIsCreating(true);
+    }, [ setIsCreating ]);
+
+    const handleKeyDown = useCallback((e: KeyboardEvent) => {
+        if (isCreating) return;
+
+        if (e.key === "Enter") {
+            open("");
+            return;
+        }
+
+        // Typing on the button starts the note off with what was typed, rather than asking for it
+        // twice. A printable key is one whose name is the character itself, which no modified press
+        // and none of the named keys are.
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            open(e.key);
+        }
+    }, [ isCreating, open ]);
 
     return (
         <div
+            ref={slotRef}
             className={`board-new-item ${isCreating ? "editing" : ""}`}
-            onClick={addItemCallback}
+            onClick={() => open("")}
             onKeyDown={handleKeyDown}
+            onFocus={scrollToEnd}
             tabIndex={300}
         >
             {!isCreating ? (
@@ -253,10 +296,12 @@ function AddNewItem({ column, api, isCreating, setIsCreating }: {
                 </>
             ) : (
                 <TitleEditor
+                    currentValue={initialTitle}
                     placeholder={t("board_view.new-item-placeholder")}
                     save={(title) => api.createNewItem(column, title)}
                     dismiss={() => setIsCreating(false)}
                     mode="multiline" isNewItem
+                    selectOnFocus={false}
                 />
             )}
         </div>

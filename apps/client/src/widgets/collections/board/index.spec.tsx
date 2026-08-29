@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import Component from "../../../components/component";
 import contextMenu from "../../../menus/context_menu";
+import FBranch from "../../../entities/fbranch";
 import froca from "../../../services/froca";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
@@ -71,6 +72,21 @@ function Harness({ note, noteIds, initialConfig }: { note: ReturnType<typeof bui
             onReady={() => {}}
         />
     );
+}
+
+/** Files a fresh note under the board, the way an import or another client's write reaches it. */
+function addCard(board: ReturnType<typeof buildNote>, status: string) {
+    const card = buildNote({ title: "Added", "#status": status });
+    const branchId = `${board.noteId}_${card.noteId}`;
+
+    froca.branches[branchId] = new FBranch(froca, {
+        branchId,
+        notePosition: 100,
+        fromSearchNote: false,
+        noteId: card.noteId,
+        parentNoteId: board.noteId
+    });
+    board.addChild(card.noteId, branchId, false);
 }
 
 /** Opens the title editor the way the keyboard does, the menu entry needing a rendered menu. */
@@ -204,7 +220,11 @@ describe("Board column rename", () => {
         await act(async () => {
             render(
                 <ParentComponent.Provider value={new Component()}>
-                    <Harness note={note} noteIds={note.getChildNoteIds()} initialConfig={config} />
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={config}
+                    />
                 </ParentComponent.Provider>,
                 mountPoint
             );
@@ -271,7 +291,7 @@ describe("Board column rename", () => {
                 <ParentComponent.Provider value={new Component()}>
                     <Harness
                         note={other}
-                        noteIds={other.getChildNoteIds()}
+                        noteIds={[ ...other.getChildNoteIds() ]}
                         initialConfig={{ columns: [ { value: "Doing" }, { value: "Shipped" } ] }}
                     />
                 </ParentComponent.Provider>,
@@ -373,6 +393,82 @@ describe("Board column rename", () => {
         expect(column.querySelector(".board-new-item.editing textarea")).toBeTruthy();
 
         show.mockRestore();
+    });
+
+    it("scrolls the column to its end when the new-item button takes focus", async () => {
+        const { note, container } = await setup();
+        const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
+        const content = column.querySelector<HTMLElement>(".board-column-content");
+        if (!content) throw new Error("expected a scrollable column body");
+
+        // happy-dom lays nothing out, so the scrollable height has to be stood in for.
+        Object.defineProperty(content, "scrollHeight", { value: 500, configurable: true });
+        expect(content.scrollTop).toBe(0);
+
+        await act(async () => {
+            column.querySelector<HTMLElement>(".board-new-item")?.focus();
+            await flush();
+        });
+
+        expect(content.scrollTop).toBe(500);
+
+        // The card just made lands above the button, pushing it out of sight again. Nothing is
+        // focused afresh by that, so only the effect watching the count brings it back.
+        Object.defineProperty(content, "scrollHeight", { value: 900, configurable: true });
+        addCard(note, "Doing");
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={DEFAULT_CONFIG}
+                    />
+                </ParentComponent.Provider>,
+                container
+            );
+            await flush();
+        });
+        await act(async () => { await flush(); });
+
+        expect(columnTitles(container)).toEqual([ "To Do", "Doing", "Done" ]);
+        expect(content.scrollTop).toBe(900);
+    });
+
+    it("starts the new item off with the character typed on its button", async () => {
+        const { container } = await setup();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.dispatchEvent(new KeyboardEvent("keydown", { key: "R", bubbles: true }));
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        expect(editor?.value).toBe("R");
+        // After the character rather than over it, so the next key carries on.
+        expect([ editor?.selectionStart, editor?.selectionEnd ]).toEqual([ 1, 1 ]);
+    });
+
+    it("opens the new item empty for Enter, and ignores keys that are not characters", async () => {
+        const { container } = await setup();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        for (const key of [ "Tab", "ArrowRight", "F2" ]) {
+            await act(async () => {
+                slot?.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+                await flush();
+            });
+        }
+        expect(slot?.querySelector("textarea")).toBeNull();
+
+        await act(async () => {
+            slot?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+        expect(slot?.querySelector<HTMLTextAreaElement>("textarea")?.value).toBe("");
     });
 
     it("keeps the cards of the renamed column under it", async () => {

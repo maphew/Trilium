@@ -391,13 +391,21 @@ function AddNewColumn({ api, isInRelationMode }: { api: BoardApi, isInRelationMo
     );
 }
 
-export function TitleEditor({ currentValue, placeholder, save, dismiss, mode, isNewItem }: {
+export function TitleEditor({
+    currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true
+}: {
     currentValue?: string;
     placeholder?: string;
     save: (newValue: string) => void | Promise<void>;
     dismiss: () => void;
     isNewItem?: boolean;
     mode?: "normal" | "multiline" | "relation";
+    /**
+     * Whether opening the editor selects what is already in it, which is what a rename wants. An
+     * editor opened part-typed puts the caret after the text instead, so the next key carries on
+     * rather than replacing it.
+     */
+    selectOnFocus?: boolean;
 }) {
     const inputRef = useRef<any>(null);
     const focusElRef = useRef<Element>(null);
@@ -407,7 +415,13 @@ export function TitleEditor({ currentValue, placeholder, save, dismiss, mode, is
     useEffect(() => {
         focusElRef.current = document.activeElement !== document.body ? document.activeElement : null;
         inputRef.current?.focus();
-        inputRef.current?.select();
+
+        if (selectOnFocus) {
+            inputRef.current?.select();
+        } else {
+            const end = inputRef.current?.value.length ?? 0;
+            inputRef.current?.setSelectionRange(end, end);
+        }
     }, [ inputRef ]);
 
     useEffect(() => {
