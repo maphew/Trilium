@@ -18,7 +18,7 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
     /** Puts the title into its inline editor, the menu being the only way there besides F2. */
     onEditTitle: () => void;
     /** Opens the column's own new-item editor, the same one its button opens. */
-    onNewNote: () => void;
+    onNewItem: () => void;
 }) {
     event.preventDefault();
     event.stopPropagation();
@@ -36,7 +36,20 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
             {
                 title: t("board_view.new-item"),
                 uiIcon: "bx bx-plus",
-                handler: column.onNewNote
+                handler: column.onNewItem
+            },
+            {
+                title: t("board_view.add-existing-item"),
+                uiIcon: "bx bx-link",
+                async handler() {
+                    const noteId = await dialog.chooseNote({
+                        title: t("board_view.add-existing-item-title"),
+                        okLabel: t("board_view.add-existing-item-ok")
+                    });
+                    if (noteId) {
+                        await api.addExistingItem(column.value, noteId);
+                    }
+                }
             },
             { kind: "separator" },
             column.archived

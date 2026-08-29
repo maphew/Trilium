@@ -71,7 +71,7 @@ export default function Column({
             color,
             archived,
             onEditTitle: () => setColumnNameToEdit(column),
-            onNewNote: () => setIsCreatingNewItem(true)
+            onNewItem: () => setIsCreatingNewItem(true)
         });
     }, [ api, column, color, archived, setColumnNameToEdit ]);
 

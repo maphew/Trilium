@@ -3,6 +3,7 @@ import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import contextMenu, { ContextMenuEvent } from "../../../menus/context_menu";
+import dialog from "../../../services/dialog";
 import BoardApi from "./api";
 import { openColumnContextMenu } from "./context_menu";
 
@@ -21,7 +22,10 @@ describe("Board column context menu", () => {
     function openMenu(
         api: BoardApi,
         column: { color?: string, archived?: boolean } = {},
-        callbacks: { onEditTitle?: () => void, onNewNote?: () => void } = {}
+        callbacks: {
+            onEditTitle?: () => void,
+            onNewItem?: () => void
+        } = {}
     ) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
         const event = {
@@ -35,7 +39,7 @@ describe("Board column context menu", () => {
             value: "To Do",
             ...column,
             onEditTitle: callbacks.onEditTitle ?? (() => {}),
-            onNewNote: callbacks.onNewNote ?? (() => {})
+            onNewItem: callbacks.onNewItem ?? (() => {})
         });
 
         // The spy outlives one call, so it is the menu just opened that is read back.
@@ -93,17 +97,43 @@ describe("Board column context menu", () => {
     it("orders the entries, keeping the safe way out ahead of deleting", () => {
         const titled = openMenu({} as BoardApi).filter(item => item && "uiIcon" in item);
         expect(titled.map(item => "uiIcon" in item ? item.uiIcon : undefined))
-            .toEqual([ "bx bx-edit-alt", "bx bx-plus", "bx bx-archive", "bx bx-trash" ]);
+            .toEqual([
+                "bx bx-edit-alt", "bx bx-plus", "bx bx-link", "bx bx-archive", "bx bx-trash"
+            ]);
     });
 
     it("opens the column's new-item editor, the same one its button opens", () => {
-        const onNewNote = vi.fn();
-        const entry = openMenu({} as BoardApi, {}, { onNewNote })
+        const onNewItem = vi.fn();
+        const entry = openMenu({} as BoardApi, {}, { onNewItem })
             .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-plus");
         if (!entry || !("handler" in entry)) throw new Error("expected a new-item entry");
 
         entry.handler?.(entry, {} as never);
-        expect(onNewNote).toHaveBeenCalled();
+        expect(onNewItem).toHaveBeenCalled();
+    });
+
+    it("asks for a note, then adds the one chosen to the column", async () => {
+        const api = { addExistingItem: vi.fn(async () => true) } as unknown as BoardApi;
+        vi.spyOn(dialog, "chooseNote").mockResolvedValue("pickedNote");
+
+        const entry = openMenu(api)
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-link");
+        if (!entry || !("handler" in entry)) throw new Error("expected an add-existing entry");
+
+        await entry.handler?.(entry, {} as never);
+        expect(api.addExistingItem).toHaveBeenCalledWith("To Do", "pickedNote");
+    });
+
+    it("adds nothing when no note is chosen", async () => {
+        const api = { addExistingItem: vi.fn(async () => true) } as unknown as BoardApi;
+        vi.spyOn(dialog, "chooseNote").mockResolvedValue(null);
+
+        const entry = openMenu(api)
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-link");
+        if (!entry || !("handler" in entry)) throw new Error("expected an add-existing entry");
+
+        await entry.handler?.(entry, {} as never);
+        expect(api.addExistingItem).not.toHaveBeenCalled();
     });
 
     it("shows the column's own colour as the selected one", async () => {

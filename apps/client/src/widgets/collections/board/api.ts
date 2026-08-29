@@ -5,6 +5,7 @@ import FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
 import branches from "../../../services/branches";
 import { executeBulkActions } from "../../../services/bulk_action";
+import dialog from "../../../services/dialog";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import note_create from "../../../services/note_create";
@@ -53,6 +54,41 @@ export default class BoardApi {
         } catch (error) {
             console.error("Failed to create new item:", error);
         }
+    }
+
+    /**
+     * Puts a note that already exists into a column, cloning it onto the board unless it is already
+     * somewhere beneath it.
+     *
+     * A note that already carries a value for the label the board groups by is on some other board
+     * grouped the same way, or is about to look like it: the value is the note's, not the board's,
+     * so writing ours moves it there too. Worth knowing but not worth refusing, since a note
+     * tracked on two boards is a fair thing to want.
+     *
+     * @returns whether the note was added, `false` when the user backed out.
+     */
+    async addExistingItem(column: string, noteId: string) {
+        const note = await froca.getNote(noteId, true);
+        if (!note) return false;
+
+        const isAlreadyOnBoard = note.hasAncestor(this.parentNote.noteId);
+        const currentValue = this.isRelationMode
+            ? note.getRelationValue(this.statusAttribute)
+            : note.getLabelValue(this.statusAttribute);
+
+        if (!isAlreadyOnBoard && currentValue) {
+            const confirmed = await dialog.confirm(t("board_view.existing-item-conflict", {
+                label: this.statusAttribute
+            }));
+            if (!confirmed) return false;
+        }
+
+        if (!isAlreadyOnBoard) {
+            await branches.cloneNoteToParentNote(noteId, this.parentNote.noteId);
+        }
+
+        await this.changeColumn(noteId, column);
+        return true;
     }
 
     async changeColumn(noteId: string, newColumn: string) {

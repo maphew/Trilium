@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import FAttribute from "../../../entities/fattribute";
+import branches from "../../../services/branches";
 import { executeBulkActions } from "../../../services/bulk_action";
+import dialog from "../../../services/dialog";
 import FNote from "../../../entities/fnote";
 import froca from "../../../services/froca";
 import noteAttributeCache from "../../../services/note_attribute_cache";
@@ -19,6 +21,14 @@ vi.mock("../../../services/bulk_action", () => ({
 function failNextBulkAction() {
     vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
 }
+
+vi.mock("../../../services/branches", () => ({
+    default: { cloneNoteToParentNote: vi.fn(async () => {}) }
+}));
+
+vi.mock("../../../services/dialog", () => ({
+    default: { confirm: vi.fn(async () => true) }
+}));
 
 vi.mock("../../../services/i18n", () => ({
     // i18next is never initialised under test, so the real `t` yields nothing and the alias would
@@ -280,6 +290,79 @@ describe("BoardApi column mutations", () => {
  * `_template_board` no longer defines the status label, so a board created afterwards has no
  * definition at all until the board view writes one from the columns it resolved.
  */
+describe("BoardApi.addExistingItem", () => {
+    let put: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+        put = vi.spyOn(server, "put").mockResolvedValue(undefined);
+        vi.mocked(branches.cloneNoteToParentNote).mockClear();
+        vi.mocked(dialog.confirm).mockClear().mockResolvedValue(true);
+    });
+
+    /**
+     * A board holding `insider` a level down, alongside an unrelated `outsider`.
+     *
+     * The ids are generated rather than fixed: `buildNote` appends to the note attribute cache
+     * under the id given, so one reused across tests carries the previous test's attributes.
+     */
+    function createBoardWith(outsiderAttributes: Record<string, string> = {}) {
+        const board = buildNote({
+            title: "Board",
+            children: [
+                { title: "Branch", children: [ { title: "Insider", "#status": "To Do" } ] }
+            ]
+        });
+        const outsider = buildNote({ title: "Outsider", ...outsiderAttributes });
+        const branch = froca.getNoteFromCache(board.getChildNoteIds()[0]);
+
+        return {
+            api: createApi({ columns: [ { value: "To Do" } ] }, [ "To Do" ], board).api,
+            boardId: board.noteId,
+            insiderId: branch?.getChildNoteIds()[0] ?? "",
+            outsiderId: outsider.noteId
+        };
+    }
+
+    it("clones a note from outside the board, then files it in the column", async () => {
+        const { api, boardId, outsiderId } = createBoardWith();
+
+        expect(await api.addExistingItem("To Do", outsiderId)).toBe(true);
+        expect(branches.cloneNoteToParentNote).toHaveBeenCalledWith(outsiderId, boardId);
+
+        const [ url, body ] = put.mock.calls.at(-1) ?? [];
+        expect(url).toBe(`notes/${outsiderId}/set-attribute`);
+        expect(body).toMatchObject({ type: "label", name: "status", value: "To Do" });
+    });
+
+    // The board shows its whole subtree, so a grandchild is already on it.
+    it("only changes the column of a note already under the board", async () => {
+        const { api, insiderId } = createBoardWith();
+
+        expect(await api.addExistingItem("To Do", insiderId)).toBe(true);
+        expect(branches.cloneNoteToParentNote).not.toHaveBeenCalled();
+    });
+
+    it("warns before taking a note that carries the grouping label from elsewhere", async () => {
+        const { api, outsiderId } = createBoardWith({ "#status": "Done" });
+
+        expect(await api.addExistingItem("To Do", outsiderId)).toBe(true);
+        expect(dialog.confirm).toHaveBeenCalledTimes(1);
+
+        vi.mocked(dialog.confirm).mockResolvedValue(false);
+        vi.mocked(branches.cloneNoteToParentNote).mockClear();
+
+        expect(await api.addExistingItem("To Do", outsiderId)).toBe(false);
+        expect(branches.cloneNoteToParentNote).not.toHaveBeenCalled();
+    });
+
+    it("does not warn for a note that carries no value of its own", async () => {
+        const { api, outsiderId } = createBoardWith();
+
+        await api.addExistingItem("To Do", outsiderId);
+        expect(dialog.confirm).not.toHaveBeenCalled();
+    });
+});
+
 describe("BoardApi.syncColumnsToDefinition", () => {
     let put: ReturnType<typeof vi.spyOn>;
 
