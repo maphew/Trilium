@@ -11,8 +11,10 @@ export type ColumnMap = Map<string, {
 /**
  * @param definitionOptions the choices the board's group-by definition offers, empty when it has no
  *                          select definition of its own to lead the column order.
- * @param pendingRenames the columns the board is in the middle of renaming or deleting, cleared
- *                       here once no source lists them any more.
+ * @param pendingRenames the columns the board is in the middle of renaming or deleting. Read
+ *                       only: which of them have landed comes back as `settledRenames`, for the
+ *                       caller to drop once it knows the answer is still about the board it asked
+ *                       about.
  */
 export async function getBoardData(
     parentNote: FNote,
@@ -20,7 +22,7 @@ export async function getBoardData(
     persistedData: BoardViewData,
     includeArchived: boolean,
     definitionOptions: string[] = [],
-    pendingRenames: Map<string, string | undefined> = new Map()
+    pendingRenames: ReadonlyMap<string, string | undefined> = new Map()
 ) {
     const byColumn: ColumnMap = new Map();
 
@@ -34,7 +36,9 @@ export async function getBoardData(
 
     // A value no source lists any more has finished being renamed, and holding it back further
     // would only block a column created under the same name.
-    prunePendingRenames(pendingRenames, [ definitionOptions, persistedColumns, discoveredValues ]);
+    const settledRenames = [ ...pendingRenames.keys() ].filter(oldValue =>
+        ![ definitionOptions, persistedColumns, discoveredValues ]
+            .some(source => source.includes(oldValue)));
 
     // A card the bulk action has not reached yet is still filed under the old value, and belongs to
     // the column that replaced it rather than to one `columns` no longer lists.
@@ -57,6 +61,7 @@ export async function getBoardData(
     return {
         byColumn,
         columns,
+        settledRenames,
         newPersistedData: hasChanges
             ? {
                 ...persistedData,
@@ -89,15 +94,6 @@ function indexColumnsByResolvedName(
     }
 
     return byName;
-}
-
-/** Drops every pending rename whose old value none of the given column sources lists any more. */
-function prunePendingRenames(pendingRenames: Map<string, string | undefined>, sources: string[][]) {
-    for (const oldValue of [ ...pendingRenames.keys() ]) {
-        if (!sources.some(source => source.includes(oldValue))) {
-            pendingRenames.delete(oldValue);
-        }
-    }
 }
 
 /** Moves the cards of a renamed column over to its new name, keeping the order they were in. */

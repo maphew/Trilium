@@ -158,8 +158,8 @@ describe("BoardApi column mutations", () => {
     });
 
     /**
-     * A record left behind by a write that never landed goes on being applied: the column would show
-     * under a name nothing carries, or stay hidden though it is still there.
+     * A record left behind by a write that never landed goes on being applied: the column would
+     * show under a name nothing carries, or stay hidden though it is still there.
      */
     it("keeps no record of a rename or a deletion the server refused", async () => {
         const { api, saved, pendingRenames } = createApi(
@@ -187,6 +187,50 @@ describe("BoardApi column mutations", () => {
         await expect(api.renameColumn("Shipped", "Delivered")).rejects.toThrow("offline");
 
         expect([ ...pendingRenames ]).toEqual([ [ "Done", "Shipped" ] ]);
+    });
+
+    /**
+     * Two mutations can be in flight at once, so an undo has to take back what its own call did and
+     * nothing else: the record of a mutation still running, or one that has already failed, is not
+     * this one's to put back.
+     */
+    it("takes back only its own record when overlapping mutations fail", async () => {
+        const { api, pendingRenames } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]
+        );
+
+        // Both start before either finishes, and both are refused.
+        failNextBulkAction();
+        failNextBulkAction();
+        const first = api.renameColumn("Done", "Shipped");
+        const second = api.removeColumn("To Do");
+
+        await expect(first).rejects.toThrow("offline");
+        await expect(second).rejects.toThrow("offline");
+        expect([ ...pendingRenames ]).toEqual([]);
+    });
+
+    it("leaves a mutation still in flight alone when another one fails", async () => {
+        const { api, pendingRenames } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]
+        );
+
+        let releaseSecond = () => {};
+        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
+        vi.mocked(executeBulkActions).mockImplementationOnce(
+            () => new Promise<void>((resolve) => { releaseSecond = resolve; }));
+
+        const failing = api.renameColumn("Done", "Shipped");
+        const running = api.removeColumn("To Do");
+
+        await expect(failing).rejects.toThrow("offline");
+        // The deletion is still going; its record must have survived the other one's undo.
+        expect([ ...pendingRenames ]).toEqual([ [ "To Do", undefined ] ]);
+
+        releaseSecond();
+        await running;
     });
 
     it("follows a rename through when the one before it has not landed yet", async () => {

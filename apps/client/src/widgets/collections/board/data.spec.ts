@@ -61,7 +61,7 @@ describe("Board data", () => {
 
             expect(data.columns).toEqual([ "To Do", "Shipped" ]);
             expect(data.newPersistedData).toBeUndefined();
-            expect([ ...pending.keys() ]).toEqual([ "Done" ]);
+            expect(data.settledRenames).toEqual([]);
         });
 
         it("is not resolved back from a view config that has not caught up", async () => {
@@ -172,9 +172,9 @@ describe("Board data", () => {
             ]);
         });
 
-        it("is forgotten once every source has caught up, freeing the name", async () => {
+        it("is reported as settled once every source has caught up, freeing the name", async () => {
             const pending = new Map([ [ "Done", "Shipped" ] ]);
-            await getBoardData(
+            const data = await getBoardData(
                 buildBoard(),
                 "status",
                 { columns: [ { value: "To Do" }, { value: "Shipped" } ] },
@@ -183,7 +183,10 @@ describe("Board data", () => {
                 pending
             );
 
-            expect(pending.size).toBe(0);
+            // Reported rather than dropped here: only the caller knows whether the board it asked
+            // about is still the one on screen.
+            expect(data.settledRenames).toEqual([ "Done" ]);
+            expect(pending.size).toBe(1);
         });
     });
 });

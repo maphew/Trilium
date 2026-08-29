@@ -116,6 +116,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // A ref rather than state: `api` is rebuilt on every refresh, and the map has to outlive those
     // instances to cover a rename (see BoardApi#retireColumn). Mutating it must not re-render.
     const pendingRenamesRef = useRef(new Map<string, string | undefined>());
+    /** Names each refresh, so one the board has moved on from is discarded rather than applied. */
+    const refreshSeqRef = useRef(0);
     const statusDefinition = useMemo(
         () => getStatusDefinition(parentNote, statusAttributeWithPrefix),
         [ parentNote, statusAttributeWithPrefix, definitionRevision ]);
@@ -153,10 +155,21 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     }), [ branchIdToEdit, columnNameToEdit, draggedCard, draggedColumn, dropPosition, dropTarget ]);
 
     function refresh() {
+        // `getBoardData` reads notes, so refreshes can resolve out of order and one issued for the
+        // board the user has left can arrive after the next board's. What it has to say is about
+        // sources no longer on screen, the pending renames it reports as settled included.
+        const refreshId = ++refreshSeqRef.current;
+
         getBoardData(
             parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived,
             statusDefinition?.options ?? [], pendingRenamesRef.current)
-            .then(({ byColumn, columns, newPersistedData, isInRelationMode }) => {
+            .then(({ byColumn, columns, newPersistedData, isInRelationMode, settledRenames }) => {
+                if (refreshId !== refreshSeqRef.current) return;
+
+                for (const settled of settledRenames) {
+                    pendingRenamesRef.current.delete(settled);
+                }
+
                 setByColumn(byColumn);
                 setIsRelationMode(isInRelationMode);
                 setColumns(columns);
@@ -183,6 +196,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // refresh below, which is what makes it run first when both fire on the same change.
     useEffect(() => {
         pendingRenamesRef.current.clear();
+        refreshSeqRef.current++;
     }, [ parentNote, statusAttributeWithPrefix ]);
 
     useEffect(refresh, [ parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition ]);

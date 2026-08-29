@@ -172,21 +172,18 @@ export default class BoardApi {
      * refresh in the middle reads the sources as they are about to be.
      *
      * Taken back out if the write does not land: left in, a rename nothing carries would keep the
-     * column under the name it failed to take, and a deletion that failed would keep hiding a column
-     * that is still there, cards and all. The record is restored rather than merely dropped, since
-     * {@link retireColumn} may have re-pointed an earlier one that has not landed either.
+     * column under the name it failed to take, and a deletion that failed would keep hiding one
+     * that is still there, cards and all.
      */
-    private async retiredWhile<T>(oldValue: string, newValue: string | undefined, write: () => Promise<T>) {
-        const restore = new Map(this.pendingRenames);
-        this.retireColumn(oldValue, newValue);
+    private async retiredWhile<T>(
+        oldValue: string, newValue: string | undefined, write: () => Promise<T>
+    ) {
+        const undoRetirement = this.retireColumn(oldValue, newValue);
 
         try {
             return await write();
         } catch (e) {
-            this.pendingRenames.clear();
-            for (const [ from, to ] of restore) {
-                this.pendingRenames.set(from, to);
-            }
+            undoRetirement();
             throw e;
         }
     }
@@ -198,22 +195,47 @@ export default class BoardApi {
      * {@link getBoardData} clears the record once no source lists the old value.
      *
      * @param newValue the name that replaced it, or `undefined` where the column was deleted.
+     * @returns a function putting back exactly the records this call touched. Restoring a copy of
+     *          the whole map instead would take back the records of another mutation still in
+     *          flight, and put back those of one that has already failed.
      */
     private retireColumn(oldValue: string, newValue?: string) {
+        const touched: { key: string, previous?: string, wasRecorded: boolean }[] = [];
+        const remember = (key: string) => touched.push({
+            key,
+            previous: this.pendingRenames.get(key),
+            // A deletion is recorded as `undefined`, which is not the same as no record at all.
+            wasRecorded: this.pendingRenames.has(key)
+        });
+
         // A rename of a column whose own rename has not landed yet has to be followed through, or
         // the old value the stale sources still carry would resolve to a name that is itself gone.
         for (const [ from, to ] of this.pendingRenames) {
             if (to === oldValue) {
+                remember(from);
                 this.pendingRenames.set(from, newValue);
             }
         }
 
+        remember(oldValue);
         this.pendingRenames.set(oldValue, newValue);
+
         if (newValue) {
             // Covers a rename back to a name still pending, whose record the loop above just turned
             // into one mapping the name to itself.
+            remember(newValue);
             this.pendingRenames.delete(newValue);
         }
+
+        return () => {
+            for (const { key, previous, wasRecorded } of touched.reverse()) {
+                if (wasRecorded) {
+                    this.pendingRenames.set(key, previous);
+                } else {
+                    this.pendingRenames.delete(key);
+                }
+            }
+        };
     }
 
     /**
