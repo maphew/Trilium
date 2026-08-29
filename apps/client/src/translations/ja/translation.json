@@ -674,7 +674,6 @@
     "new-item-placeholder": "ノートのタイトルを入力...",
     "add-column-placeholder": "列名を入力...",
     "edit-note-title": "クリックしてノートのタイトルを編集",
-    "edit-column-title": "クリックして列のタイトルを編集",
     "column-already-exists": "この列は既にボード上に存在します。",
     "column-definition-save-error": "列はボード上に保存されましたが、ステータス属性には保存できませんでした。",
     "status-alias": "ステータス"

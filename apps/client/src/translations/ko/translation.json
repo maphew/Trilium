@@ -3171,7 +3171,6 @@
     "add-column": "열 추가",
     "add-column-placeholder": "열 이름을 입력하세요...",
     "edit-note-title": "노트 제목 편집 클릭",
-    "edit-column-title": "칼럼 제목 편집 클릭",
     "column-already-exists": "이 칼럼은 이미 게시판에 존재합니다.",
     "column-definition-save-error": "열은 보드에 저장했지만 상태 속성에는 저장하지 못했습니다.",
     "status-alias": "상태"
