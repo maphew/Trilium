@@ -28,6 +28,8 @@ export interface BoardViewData {
 
 export interface BoardColumnData {
     value: string;
+    /** The icon class shown before the title, absent until one is picked. */
+    icon?: string;
 }
 
 interface CardDrag {
@@ -133,6 +135,11 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         setBranchIdToEdit, setColumnNameToEdit, setDraggedCard,
         setDraggedColumn, setDropPosition, setDropTarget
     ]);
+
+    // Read off the config rather than off `columns`, which the resolver hands back as names alone.
+    const columnIcons = useMemo(
+        () => new Map((viewConfig?.columns ?? []).map(({ value, icon }) => [ value, icon ])),
+        [ viewConfig ]);
 
     const boardDragState = useMemo<BoardDragState>(() => ({
         branchIdToEdit,
@@ -248,6 +255,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     api={api}
                                     parentNote={parentNote}
                                     column={column}
+                                    icon={columnIcons.get(column)}
                                     columnIndex={index}
                                     columnItems={byColumn.get(column)}
                                     isDraggingColumn={draggedColumn?.column === column}

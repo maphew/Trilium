@@ -14,6 +14,9 @@ export const BOARD_TEMPLATE_ID = "_template_board";
 /** The label a board groups by when `#board:groupBy` does not name one. */
 export const DEFAULT_GROUP_BY = "status";
 
+/** The icon a column shows until one is picked for it. */
+export const DEFAULT_COLUMN_ICON = "bx bx-circle";
+
 export interface BoardStatusDefinition {
     /** The definition attribute, wherever it is owned. */
     attribute: FAttribute;

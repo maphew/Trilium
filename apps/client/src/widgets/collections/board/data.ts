@@ -1,7 +1,7 @@
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
 import { resolveBoardColumns } from "./columns";
-import { BoardViewData } from "./index";
+import { BoardColumnData, BoardViewData } from "./index";
 
 export type ColumnMap = Map<string, {
     branch: FBranch;
@@ -52,15 +52,43 @@ export async function getBoardData(
     // or every refresh would save.
     const hasChanges = persistedColumns.length !== columns.length
         || persistedColumns.some((value, index) => columns[index] !== value);
+    const storedColumns = indexColumnsByResolvedName(persistedData, pendingRenames);
 
     return {
         byColumn,
         columns,
         newPersistedData: hasChanges
-            ? { ...persistedData, columns: columns.map(value => ({ value })) }
+            ? {
+                ...persistedData,
+                columns: columns.map(value => storedColumns.get(value) ?? { value })
+            }
             : undefined,
         isInRelationMode: groupByColumn.startsWith("~")
     };
+}
+
+/**
+ * The stored column entries, each under the name it now resolves to.
+ *
+ * An entry holds more than the name, so rebuilding the config from the resolved names alone would
+ * drop the icon of every column on any refresh that rewrites it. A rename carries the entry across
+ * to the new name, the same substitution {@link resolveBoardColumns} makes.
+ */
+function indexColumnsByResolvedName(
+    persistedData: BoardViewData,
+    pendingRenames: ReadonlyMap<string, string | undefined>
+) {
+    const byName = new Map<string, BoardColumnData>();
+
+    for (const column of persistedData.columns ?? []) {
+        const { value } = column;
+        const name = pendingRenames.has(value) ? pendingRenames.get(value) : value;
+        if (name) {
+            byName.set(name, { ...column, value: name });
+        }
+    }
+
+    return byName;
 }
 
 /** Drops every pending rename whose old value none of the given column sources lists any more. */

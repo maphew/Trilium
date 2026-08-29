@@ -75,6 +75,50 @@ describe("BoardApi column mutations", () => {
         expect(saved).toHaveLength(0);
     });
 
+    it("keeps the icon of every column it reorders", () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do", icon: "bx bx-list-ul" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]
+        );
+
+        api.reorderColumn(0, 2);
+
+        expect(saved.at(-1)?.columns)
+            .toEqual([ { value: "Done" }, { value: "To Do", icon: "bx bx-list-ul" } ]);
+    });
+
+    it("stores an icon, creating the entry a resolved column may not have yet", async () => {
+        const { api, saved } = createApi({ columns: [ { value: "To Do" } ] }, [ "To Do", "Done" ]);
+
+        await api.setColumnIcon("To Do", "bx bx-list-ul");
+        expect(saved.at(-1)?.columns).toEqual([ { value: "To Do", icon: "bx bx-list-ul" } ]);
+
+        // "Done" is resolved from the definition, so nothing has written it down yet.
+        await api.setColumnIcon("Done", "bx bx-check");
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "To Do", icon: "bx bx-list-ul" },
+            { value: "Done", icon: "bx bx-check" }
+        ]);
+    });
+
+    it("clears the icon back to the default rather than storing an empty one", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do", icon: "bx bx-list-ul" } ] }, [ "To Do" ]);
+
+        await api.setColumnIcon("To Do", undefined);
+
+        expect(saved.at(-1)?.columns).toEqual([ { value: "To Do" } ]);
+    });
+
+    it("keeps the icon of a column it renames", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "Done", icon: "bx bx-check" } ] }, [ "Done" ]);
+
+        await api.renameColumn("Done", "Shipped");
+
+        expect(saved.at(-1)?.columns).toEqual([ { value: "Shipped", icon: "bx bx-check" } ]);
+    });
+
     it("records what each column it renames away or deletes became", async () => {
         const { api, pendingRenames } = createApi(
             { columns: [ { value: "To Do" }, { value: "Done" } ] },

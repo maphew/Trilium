@@ -70,6 +70,29 @@ body.mobile .board-view-container .board-add-column {
   align-items: center;
 }
 
+/* The board note's colour class sits on an ancestor and would dress the icon in that note's hue.
+   `initial` rather than `unset`: these inherit, so unsetting lets the ancestor's values back in. */
+.board-view-container .board-column h3 {
+  --note-icon-custom-color: initial;
+  --note-icon-custom-background-color: initial;
+  --note-icon-hover-custom-background-color: initial;
+}
+
+.board-view-container .board-column h3 > .column-icon {
+  /* Sized down from the note header's button, whose scale suits a toolbar rather than a heading. */
+  --note-icon-size: 1.15em;
+  --note-icon-container-padding-size: 0.15em;
+
+  flex-shrink: 0;
+  margin-inline-end: 0.4em;
+}
+
+.board-view-container .board-column h3 > .column-icon button.note-icon {
+  /* Cap height rather than the glyph box, so the icon sits on the title's own line. */
+  line-height: 1;
+  color: inherit;
+}
+
 .board-view-container .board-column h3 a {
   text-decoration: none;
   color: inherit;

@@ -106,6 +106,29 @@ export default class BoardApi {
             .map(col => col.value === oldValue ? { ...col, value: newValue } : col));
     }
 
+    /**
+     * Stores the icon a column shows, or clears it back to the default when given nothing.
+     *
+     * The column may have no stored entry at all: one resolved from the definition or from a value
+     * a note carries is shown without ever being written, so picking an icon for it creates one.
+     */
+    async setColumnIcon(column: string, icon: string | undefined) {
+        const columns = this.viewConfig?.columns ?? [];
+        const withIcon = (stored: BoardColumnData) => {
+            const updated = { ...stored };
+            if (icon) {
+                updated.icon = icon;
+            } else {
+                delete updated.icon;
+            }
+            return updated;
+        };
+
+        this.storeColumns(columns.some(col => col.value === column)
+            ? columns.map(col => col.value === column ? withIcon(col) : col)
+            : [ ...columns, withIcon({ value: column }) ]);
+    }
+
     reorderColumn(fromIndex: number, toIndex: number) {
         if (!this.columns || fromIndex === toIndex) return;
 
@@ -124,8 +147,15 @@ export default class BoardApi {
         // `columns` is derived render state and can lag behind the persisted config (it is rebuilt
         // only once the view re-renders), so anything it hasn't caught up with yet is kept at the
         // end instead of being dropped from the config.
+        const storedColumns = new Map(
+            (this.viewConfig?.columns ?? []).map(col => [ col.value, col ]));
         const missingColumns = (this.viewConfig?.columns ?? []).filter(col => !newColumns.includes(col.value));
-        this.storeColumns([ ...newColumns.map(value => ({ value })), ...missingColumns ]);
+        this.storeColumns([
+            // Reordering moves the entries, so each keeps the icon it holds rather than being
+            // rebuilt from its name.
+            ...newColumns.map(value => storedColumns.get(value) ?? { value }),
+            ...missingColumns
+        ]);
 
         return newColumns;
     }

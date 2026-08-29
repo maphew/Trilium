@@ -3353,6 +3353,7 @@
     "add-column-placeholder": "Enter column name...",
     "edit-note-title": "Click to edit note title",
     "edit-column-title": "Click to edit column title",
+    "change-column-icon": "Change column icon",
     "column-already-exists": "This column already exists on the board.",
     "column-definition-save-error": "The columns were saved on the board, but could not be saved to the status attribute.",
     "status-alias": "Status"

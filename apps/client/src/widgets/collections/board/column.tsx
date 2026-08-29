@@ -10,10 +10,12 @@ import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { DragData, TREE_CLIPBOARD_TYPE } from "../../note_tree";
 import Icon from "../../react/Icon";
+import { IconPickerButton } from "../../react/IconPicker";
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
 import Card, { CARD_CLIPBOARD_TYPE, CardDragData } from "./card";
+import { DEFAULT_COLUMN_ICON } from "./columns";
 import { openColumnContextMenu } from "./context_menu";
 
 interface DragContext {
@@ -25,6 +27,7 @@ interface DragContext {
 export default function Column({
     column,
     columnIndex,
+    icon,
     isDraggingColumn,
     columnItems,
     api,
@@ -34,6 +37,8 @@ export default function Column({
     isInRelationMode
 }: {
     columnItems?: { note: FNote, branch: FBranch }[];
+    /** The stored icon class, absent until one is picked. Unused in relation mode. */
+    icon?: string,
     isDraggingColumn: boolean,
     api: BoardApi,
     parentNote: FNote,
@@ -109,6 +114,18 @@ export default function Column({
                 onKeyDown={handleTitleKeyDown}
                 tabIndex={300}
             >
+                {/* In relation mode the column is a note, and NoteLink already shows that note's
+                    own icon, which is not the board's to change. */}
+                {!isInRelationMode && (
+                    <IconPickerButton
+                        className="column-icon"
+                        icon={icon ?? DEFAULT_COLUMN_ICON}
+                        title={t("board_view.change-column-icon")}
+                        onSelect={(picked) => api.setColumnIcon(column, picked)}
+                        onReset={icon ? () => api.setColumnIcon(column, undefined) : undefined}
+                    />
+                )}
+
                 {!isEditing ? (
                     <>
                         <span className="title">

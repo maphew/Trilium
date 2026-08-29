@@ -145,6 +145,33 @@ describe("Board data", () => {
             expect(data.byColumn.get("Shipped")?.map(item => item.note.title)).toEqual([ "First" ]);
         });
 
+        it("keeps the icon of a column whose entry the rewrite moves to its new name", async () => {
+            const board = buildNote({
+                title: "Board",
+                "#collection": "",
+                "#viewType": "board",
+                children: [
+                    { title: "First", "#status": "To Do" },
+                    { title: "Second", "#status": "Shipped" }
+                ]
+            });
+
+            // The config still names the column as it was, the window the rewrite lands in.
+            const data = await getBoardData(
+                board,
+                "status",
+                { columns: [ { value: "To Do" }, { value: "Done", icon: "bx bx-check" } ] },
+                false,
+                [],
+                new Map([ [ "Done", "Shipped" ] ])
+            );
+
+            expect(data.newPersistedData?.columns).toEqual([
+                { value: "To Do" },
+                { value: "Shipped", icon: "bx bx-check" }
+            ]);
+        });
+
         it("is forgotten once every source has caught up, freeing the name", async () => {
             const pending = new Map([ [ "Done", "Shipped" ] ]);
             await getBoardData(

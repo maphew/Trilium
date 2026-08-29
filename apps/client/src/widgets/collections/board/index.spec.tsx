@@ -12,6 +12,7 @@ import froca from "../../../services/froca";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
+import { DEFAULT_COLUMN_ICON } from "./columns";
 
 // Stands in for the server: by the time the bulk action resolves, the notes carry the new value,
 // which is what makes the old column empty rather than merely renamed.
@@ -69,6 +70,12 @@ function Harness({ note, noteIds, initialConfig }: { note: ReturnType<typeof bui
             onReady={() => {}}
         />
     );
+}
+
+/** The icon class each column header wears, which is the class its picker button carries. */
+function columnIcons(container: HTMLElement) {
+    return [ ...container.querySelectorAll(".board-column h3 > .column-icon button") ]
+        .map(el => [ ...el.classList ].filter(name => name.startsWith("bx")).join(" "));
 }
 
 function columnTitles(container: HTMLElement) {
@@ -164,7 +171,11 @@ describe("Board column rename", () => {
         }
     });
 
-    async function setup() {
+    const DEFAULT_CONFIG: BoardViewData = {
+        columns: [ { value: "To Do" }, { value: "Doing" }, { value: "Done" } ]
+    };
+
+    async function setup(config: BoardViewData = DEFAULT_CONFIG) {
         const note = buildNote({
             title: "Board",
             "#collection": "",
@@ -172,9 +183,9 @@ describe("Board column rename", () => {
             "#label:status(inheritable)":
                 "promoted,alias=Status,single,select,options=To Do;Doing;Done",
             children: [
-                { id: "rcard1", title: "First", "#status": "To Do" },
-                { id: "rcard2", title: "Second", "#status": "Doing" },
-                { id: "rcard3", title: "Third", "#status": "Done" }
+                { title: "First", "#status": "To Do" },
+                { title: "Second", "#status": "Doing" },
+                { title: "Third", "#status": "Done" }
             ]
         });
 
@@ -185,13 +196,7 @@ describe("Board column rename", () => {
         await act(async () => {
             render(
                 <ParentComponent.Provider value={new Component()}>
-                    <Harness
-                        note={note}
-                        noteIds={[ "rcard1", "rcard2", "rcard3" ]}
-                        initialConfig={{
-                            columns: [ { value: "To Do" }, { value: "Doing" }, { value: "Done" } ]
-                        }}
-                    />
+                    <Harness note={note} noteIds={note.getChildNoteIds()} initialConfig={config} />
                 </ParentComponent.Provider>,
                 mountPoint
             );
@@ -248,8 +253,8 @@ describe("Board column rename", () => {
             "#label:status(inheritable)":
                 "promoted,alias=Status,single,select,options=Doing;Shipped",
             children: [
-                { id: "ocard1", title: "Fourth", "#status": "Doing" },
-                { id: "ocard2", title: "Fifth", "#status": "Shipped" }
+                { title: "Fourth", "#status": "Doing" },
+                { title: "Fifth", "#status": "Shipped" }
             ]
         });
 
@@ -258,7 +263,7 @@ describe("Board column rename", () => {
                 <ParentComponent.Provider value={new Component()}>
                     <Harness
                         note={other}
-                        noteIds={[ "ocard1", "ocard2" ]}
+                        noteIds={other.getChildNoteIds()}
                         initialConfig={{ columns: [ { value: "Doing" }, { value: "Shipped" } ] }}
                     />
                 </ParentComponent.Provider>,
@@ -269,6 +274,29 @@ describe("Board column rename", () => {
         await act(async () => { await flush(); });
 
         expect(columnTitles(container)).toEqual([ "Doing", "Shipped" ]);
+    });
+
+    it("shows each column's icon, defaulting it, and keeps it while editing", async () => {
+        const { container } = await setup({
+            columns: [
+                { value: "To Do" },
+                { value: "Doing", icon: "bx bx-run" },
+                { value: "Done" }
+            ]
+        });
+
+        expect(columnIcons(container))
+            .toEqual([ DEFAULT_COLUMN_ICON, "bx bx-run", DEFAULT_COLUMN_ICON ]);
+
+        // The editor covers the title and its button, so the icon is still the one on the left.
+        const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
+        await act(async () => {
+            column.querySelector<HTMLElement>("h3 .edit-icon")?.click();
+            await flush();
+        });
+
+        expect(column.querySelector("h3 input")).toBeTruthy();
+        expect(column.querySelector("h3 > .column-icon button")?.className).toContain("bx bx-run");
     });
 
     it("keeps the cards of the renamed column under it", async () => {
