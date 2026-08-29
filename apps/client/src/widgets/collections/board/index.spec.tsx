@@ -72,6 +72,12 @@ function Harness({ note, noteIds, initialConfig }: { note: ReturnType<typeof bui
     );
 }
 
+/** Opens the title editor the way the keyboard does, the menu entry needing a rendered menu. */
+function startEditingTitle(column: HTMLElement) {
+    column.querySelector("h3")
+        ?.dispatchEvent(new KeyboardEvent("keydown", { key: "F2", bubbles: true }));
+}
+
 /** The icon class each column header wears, which is the class its picker button carries. */
 function columnIcons(container: HTMLElement) {
     return [ ...container.querySelectorAll(".board-column h3 > .column-icon button") ]
@@ -210,7 +216,7 @@ describe("Board column rename", () => {
     async function renameSecondColumn(container: HTMLElement, newName: string) {
         const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
         await act(async () => {
-            column.querySelector<HTMLElement>("h3 .edit-icon")?.click();
+            startEditingTitle(column);
             await flush();
         });
 
@@ -291,7 +297,7 @@ describe("Board column rename", () => {
         // The editor covers the title and its button, so the icon is still the one on the left.
         const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
         await act(async () => {
-            column.querySelector<HTMLElement>("h3 .edit-icon")?.click();
+            startEditingTitle(column);
             await flush();
         });
 

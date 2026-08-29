@@ -11,6 +11,7 @@ import { getHue, parseColor } from "../../../services/css_class_manager";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { DragData, TREE_CLIPBOARD_TYPE } from "../../note_tree";
+import ActionButton from "../../react/ActionButton";
 import Icon from "../../react/Icon";
 import { IconPickerButton } from "../../react/IconPicker";
 import NoteLink from "../../react/NoteLink";
@@ -60,13 +61,13 @@ export default function Column({
         column, columnIndex, columnItems, isEditing, api, parentNote
     });
 
-    const handleEdit = useCallback(() => {
-        setColumnNameToEdit(column);
-    }, [column]);
-
-    const handleContextMenu = useCallback((e: ContextMenuEvent) => {
-        openColumnContextMenu(api, e, column, color);
-    }, [ api, column, color ]);
+    const openMenu = useCallback((e: ContextMenuEvent) => {
+        openColumnContextMenu(api, e, {
+            value: column,
+            color,
+            onEditTitle: () => setColumnNameToEdit(column)
+        });
+    }, [ api, column, color, setColumnNameToEdit ]);
 
     // A fully desaturated colour has no hue to tint with, and leaves the column plain.
     const hue = useMemo(() => {
@@ -126,7 +127,7 @@ export default function Column({
                 draggable
                 onDragStart={handleColumnDragStart}
                 onDragEnd={handleColumnDragEnd}
-                onContextMenu={handleContextMenu}
+                onContextMenu={openMenu}
                 onKeyDown={handleTitleKeyDown}
                 tabIndex={300}
             >
@@ -151,10 +152,16 @@ export default function Column({
                         </span>
                         <span className="counter-badge">{columnItems?.length ?? 0}</span>
                         <div className="spacer" />
-                        <span
-                            className="edit-icon icon bx bx-edit-alt"
-                            title={t("board_view.edit-column-title")}
-                            onClick={handleEdit}
+                        <ActionButton
+                            className="column-menu"
+                            icon="bx bx-dots-vertical-rounded"
+                            text={t("board_view.column-menu")}
+                            onClick={(e) => {
+                                // The header is the column's drag handle and opens this same menu
+                                // on a right click; neither should also fire from the button.
+                                e.stopPropagation();
+                                openMenu(e);
+                            }}
                         />
                     </>
                 ) : (

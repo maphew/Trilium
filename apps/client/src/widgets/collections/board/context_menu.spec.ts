@@ -18,8 +18,7 @@ describe("Board column context menu", () => {
         }
     });
 
-    /** Renders the colour picker the menu offers for a column already carrying `color`. */
-    async function openPicker(api: BoardApi, color?: string) {
+    function openMenu(api: BoardApi, color?: string, onEditTitle = () => {}) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
         const event = {
             preventDefault: () => {},
@@ -28,9 +27,14 @@ describe("Board column context menu", () => {
             pageY: 0
         } as ContextMenuEvent;
 
-        openColumnContextMenu(api, event, "To Do", color);
+        openColumnContextMenu(api, event, { value: "To Do", color, onEditTitle });
 
-        const items = show.mock.calls[0][0].items ?? [];
+        return show.mock.calls[0][0].items ?? [];
+    }
+
+    /** Renders the colour picker the menu offers for a column already carrying `color`. */
+    async function openPicker(api: BoardApi, color?: string) {
+        const items = openMenu(api, color);
         const custom = items.find(item => item && "kind" in item && item.kind === "custom");
         if (!custom || !("componentFn" in custom)) {
             throw new Error("expected a colour picker in the menu");
@@ -46,6 +50,19 @@ describe("Board column context menu", () => {
 
         return element;
     }
+
+    it("offers the title editor, which the retired header button used to open", () => {
+        const onEditTitle = vi.fn();
+        const items = openMenu({} as BoardApi, undefined, onEditTitle);
+
+        // Found by its icon: i18next is never initialised under test, so every title is undefined.
+        const entry = items.find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-edit-alt");
+        if (!entry || !("handler" in entry)) throw new Error("expected an edit-title entry");
+
+        entry.handler?.(entry, {} as never);
+        expect(onEditTitle).toHaveBeenCalled();
+    });
 
     it("shows the column's own colour as the selected one", async () => {
         const api = { setColumnColor: vi.fn() } as unknown as BoardApi;

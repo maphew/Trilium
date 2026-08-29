@@ -11,9 +11,12 @@ import { t } from "../../../services/i18n";
 import ColorPicker from "../../react/ColorPicker";
 import Api from "./api";
 
-export function openColumnContextMenu(
-    api: Api, event: ContextMenuEvent, column: string, color?: string
-) {
+export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column: {
+    value: string;
+    color?: string;
+    /** Puts the title into its inline editor, the menu being the only way there besides F2. */
+    onEditTitle: () => void;
+}) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -21,6 +24,11 @@ export function openColumnContextMenu(
         x: event.pageX,
         y: event.pageY,
         items: [
+            {
+                title: t("board_view.edit-column-title"),
+                uiIcon: "bx bx-edit-alt",
+                handler: column.onEditTitle
+            },
             {
                 title: t("board_view.delete-column"),
                 uiIcon: "bx bx-trash",
@@ -30,13 +38,13 @@ export function openColumnContextMenu(
                         return;
                     }
 
-                    await api.removeColumn(column);
+                    await api.removeColumn(column.value);
                 }
             },
             { kind: "separator" },
             {
                 kind: "custom",
-                componentFn: () => ColumnColorPicker({ api, column, color })
+                componentFn: () => ColumnColorPicker({ api, ...column })
             }
         ],
         selectMenuItemHandler() {}
@@ -50,7 +58,7 @@ export function openColumnContextMenu(
  * the board redrawing underneath does not reach it. `note-color-picker` is what the menu styles the
  * row through, so the class is worn here too.
  */
-function ColumnColorPicker({ api, column, color }: { api: Api, column: string, color?: string }) {
+function ColumnColorPicker({ api, value, color }: { api: Api, value: string, color?: string }) {
     const [ currentColor, setCurrentColor ] = useState(color ?? null);
 
     return ColorPicker({
@@ -58,7 +66,7 @@ function ColumnColorPicker({ api, column, color }: { api: Api, column: string, c
         currentValue: currentColor,
         onChange: (picked) => {
             setCurrentColor(picked);
-            api.setColumnColor(column, picked);
+            api.setColumnColor(value, picked);
         }
     });
 }

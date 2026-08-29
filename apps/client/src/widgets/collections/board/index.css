@@ -168,6 +168,12 @@ body.mobile .board-view-container .board-add-column {
   cursor: pointer;
 }
 
+.board-view-container .board-column h3 > .column-menu {
+  flex-shrink: 0;
+  margin-inline-start: 0.25em;
+  color: var(--muted-text-color);
+}
+
 .board-view-container .board-column > .board-column-content {
   flex-grow: 1;
   overflow-x: hidden;
@@ -175,7 +181,6 @@ body.mobile .board-view-container .board-add-column {
   padding: 0.5em;
 }
 
-.board-view-container .board-column h3:hover .edit-icon,
 .board-view-container .board-note:hover .edit-icon {
   opacity: 1;
 }
