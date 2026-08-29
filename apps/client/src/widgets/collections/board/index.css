@@ -117,6 +117,7 @@ body.mobile .board-view-container .board-add-column {
 }
 
 .board-view-container .board-column h3 .counter-badge {
+  flex-shrink: 0;
   background-color: var(--muted-text-color);
   color: var(--main-background-color);
   border-radius: 12px;

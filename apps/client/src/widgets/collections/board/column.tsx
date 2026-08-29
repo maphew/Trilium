@@ -150,8 +150,8 @@ export default function Column({
                                 ? <NoteLink notePath={column} showNoteIcon />
                                 : column}
                         </span>
-                        <span className="counter-badge">{columnItems?.length ?? 0}</span>
                         <div className="spacer" />
+                        <span className="counter-badge">{columnItems?.length ?? 0}</span>
                         <ActionButton
                             className="column-menu"
                             icon="bx bx-dots-vertical-rounded"
