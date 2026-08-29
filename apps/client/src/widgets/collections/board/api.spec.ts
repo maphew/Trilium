@@ -28,6 +28,7 @@ function createApi(
 ) {
     const board = parentNote ?? buildNote({ title: "Board" });
     const saved: BoardViewData[] = [];
+    const pendingRenames = new Map<string, string | undefined>();
     const api = new BoardApi(
         new Map(),
         columns,
@@ -36,9 +37,10 @@ function createApi(
         viewConfig,
         (newConfig) => saved.push(newConfig),
         () => {},
+        pendingRenames,
         getStatusDefinition(board, statusAttribute)
     );
-    return { api, saved };
+    return { api, saved, pendingRenames };
 }
 
 describe("BoardApi column mutations", () => {
@@ -71,6 +73,37 @@ describe("BoardApi column mutations", () => {
         const { api, saved } = createApi({ columns: [ { value: "To Do" } ] }, [ "To Do" ]);
         expect(await api.addNewColumn("To Do")).toBe(false);
         expect(saved).toHaveLength(0);
+    });
+
+    it("records what each column it renames away or deletes became", async () => {
+        const { api, pendingRenames } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]
+        );
+
+        await api.renameColumn("Done", "Shipped");
+        expect([ ...pendingRenames ]).toEqual([ [ "Done", "Shipped" ] ]);
+
+        await api.removeColumn("To Do");
+        expect([ ...pendingRenames ]).toEqual([ [ "Done", "Shipped" ], [ "To Do", undefined ] ]);
+
+        // A name is only held back while its removal is still landing, never against a column the
+        // user deliberately creates under it again.
+        await api.addNewColumn("To Do");
+        expect([ ...pendingRenames ]).toEqual([ [ "Done", "Shipped" ] ]);
+    });
+
+    it("follows a rename through when the one before it has not landed yet", async () => {
+        const { api, pendingRenames } = createApi({ columns: [ { value: "Done" } ] }, [ "Done" ]);
+
+        await api.renameColumn("Done", "Shipped");
+        await api.renameColumn("Shipped", "Delivered");
+        expect([ ...pendingRenames ])
+            .toEqual([ [ "Done", "Delivered" ], [ "Shipped", "Delivered" ] ]);
+
+        // Renaming back to a name still pending leaves nothing mapping it to itself.
+        await api.renameColumn("Delivered", "Done");
+        expect([ ...pendingRenames ]).toEqual([ [ "Shipped", "Done" ], [ "Delivered", "Done" ] ]);
     });
 
     /**

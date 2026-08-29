@@ -109,11 +109,16 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ columnNameToEdit, setColumnNameToEdit ] = useState<string>();
     /** Bumped when the definition changes, since it is read off the note rather than held in state. */
     const [ definitionRevision, setDefinitionRevision ] = useState(0);
+    // A ref rather than state: `api` is rebuilt on every refresh, and the map has to outlive those
+    // instances to cover a rename (see BoardApi#retireColumn). Mutating it must not re-render.
+    const pendingRenamesRef = useRef(new Map<string, string | undefined>());
     const statusDefinition = useMemo(
         () => getStatusDefinition(parentNote, statusAttributeWithPrefix),
         [ parentNote, statusAttributeWithPrefix, definitionRevision ]);
     const api = useMemo(() => {
-        return new Api(byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {}, saveConfig, setBranchIdToEdit, statusDefinition );
+        return new Api(
+            byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {},
+            saveConfig, setBranchIdToEdit, pendingRenamesRef.current, statusDefinition);
     }, [ byColumn, columns, parentNote, statusAttributeWithPrefix, viewConfig, saveConfig, setBranchIdToEdit, statusDefinition ]);
     // Every member is one of useState's own setters, so this value is built once and never changes
     // identity -- a drag cannot reach anything that reads only this.
@@ -139,7 +144,9 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     }), [ branchIdToEdit, columnNameToEdit, draggedCard, draggedColumn, dropPosition, dropTarget ]);
 
     function refresh() {
-        getBoardData(parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived, statusDefinition?.options ?? [])
+        getBoardData(
+            parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived,
+            statusDefinition?.options ?? [], pendingRenamesRef.current)
             .then(({ byColumn, columns, newPersistedData, isInRelationMode }) => {
                 setByColumn(byColumn);
                 setIsRelationMode(isInRelationMode);

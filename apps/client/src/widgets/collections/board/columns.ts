@@ -99,17 +99,26 @@ export function canStoreColumnsInDefinition(statusDefinition: BoardStatusDefinit
  * arranged before it had a definition, or a value a note still holds after the option behind it was
  * renamed away, both keep their place rather than taking their notes with them. Blank entries are
  * dropped and the comparison is exact, since two columns differing only in case are two columns.
+ *
+ * @param pendingRenames what the board has just renamed each column to, or `undefined` where it
+ *                       deleted one. The three sources are written one at a time, and a refresh in
+ *                       between would otherwise resolve the old value back and persist it, past
+ *                       which nothing here can drop it again. Substituted rather than skipped, so a
+ *                       renamed column keeps the slot the old name holds in a source still carrying
+ *                       it, rather than dropping behind every option the definition leads with.
  */
 export function resolveBoardColumns(
     definitionOptions: string[],
     persistedColumns: string[],
-    discoveredValues: string[]
+    discoveredValues: string[],
+    pendingRenames: ReadonlyMap<string, string | undefined> = new Map()
 ): string[] {
     const columns: string[] = [];
     const seen = new Set<string>();
 
     for (const candidate of [ ...definitionOptions, ...persistedColumns, ...discoveredValues ]) {
-        const value = candidate.trim();
+        const trimmed = candidate.trim();
+        const value = pendingRenames.has(trimmed) ? pendingRenames.get(trimmed) : trimmed;
         if (!value || seen.has(value)) continue;
         seen.add(value);
         columns.push(value);

@@ -11,13 +11,16 @@ export type ColumnMap = Map<string, {
 /**
  * @param definitionOptions the choices the board's group-by definition offers, empty when it has no
  *                          select definition of its own to lead the column order.
+ * @param pendingRenames the columns the board is in the middle of renaming or deleting, cleared
+ *                       here once no source lists them any more.
  */
 export async function getBoardData(
     parentNote: FNote,
     groupByColumn: string,
     persistedData: BoardViewData,
     includeArchived: boolean,
-    definitionOptions: string[] = []
+    definitionOptions: string[] = [],
+    pendingRenames: Map<string, string | undefined> = new Map()
 ) {
     const byColumn: ColumnMap = new Map();
 
@@ -25,7 +28,17 @@ export async function getBoardData(
     await recursiveGroupBy(parentNote.getChildBranches(), byColumn, groupByColumn, includeArchived, new Set<string>());
 
     const persistedColumns = (persistedData.columns ?? []).map(c => c.value);
-    const columns = resolveBoardColumns(definitionOptions, persistedColumns, [ ...byColumn.keys() ]);
+    const discoveredValues = [ ...byColumn.keys() ];
+    const columns = resolveBoardColumns(
+        definitionOptions, persistedColumns, discoveredValues, pendingRenames);
+
+    // A value no source lists any more has finished being renamed, and holding it back further
+    // would only block a column created under the same name.
+    prunePendingRenames(pendingRenames, [ definitionOptions, persistedColumns, discoveredValues ]);
+
+    // A card the bulk action has not reached yet is still filed under the old value, and belongs to
+    // the column that replaced it rather than to one `columns` no longer lists.
+    regroupRenamedCards(byColumn, pendingRenames);
 
     // A column the notes have nothing in is still a column, so every resolved one gets an entry.
     for (const column of columns) {
@@ -48,6 +61,29 @@ export async function getBoardData(
             : undefined,
         isInRelationMode: groupByColumn.startsWith("~")
     };
+}
+
+/** Drops every pending rename whose old value none of the given column sources lists any more. */
+function prunePendingRenames(pendingRenames: Map<string, string | undefined>, sources: string[][]) {
+    for (const oldValue of [ ...pendingRenames.keys() ]) {
+        if (!sources.some(source => source.includes(oldValue))) {
+            pendingRenames.delete(oldValue);
+        }
+    }
+}
+
+/** Moves the cards of a renamed column over to its new name, keeping the order they were in. */
+function regroupRenamedCards(
+    byColumn: ColumnMap,
+    pendingRenames: ReadonlyMap<string, string | undefined>
+) {
+    for (const [ oldValue, newValue ] of pendingRenames) {
+        const items = byColumn.get(oldValue);
+        if (!items || !newValue) continue;
+
+        byColumn.delete(oldValue);
+        byColumn.set(newValue, [ ...(byColumn.get(newValue) ?? []), ...items ]);
+    }
 }
 
 async function recursiveGroupBy(branches: FBranch[], byColumn: ColumnMap, groupByColumn: string, includeArchived: boolean, seenNoteIds: Set<string>) {

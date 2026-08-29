@@ -30,4 +30,112 @@ describe("Board data", () => {
         const noteIds = [...data.byColumn.values()].flat().map(item => item.note.noteId);
         expect(noteIds.length).toBe(3);
     });
+    /**
+     * The notes, the view config and the definition are written one at a time, so a refresh in
+     * between reads a source that still offers the old value. Resolution being additive, anything it
+     * picks up there is persisted and can never be dropped again, leaving an empty column behind.
+     */
+    describe("a column being renamed or deleted", () => {
+        function buildBoard() {
+            return buildNote({
+                title: "Board",
+                "#collection": "",
+                "#viewType": "board",
+                children: [
+                    { title: "First", "#status": "To Do" },
+                    { title: "Second", "#status": "Shipped" }
+                ]
+            });
+        }
+
+        it("is not resolved back from a definition that has not caught up", async () => {
+            const pending = new Map([ [ "Done", "Shipped" ] ]);
+            const data = await getBoardData(
+                buildBoard(),
+                "status",
+                { columns: [ { value: "To Do" }, { value: "Shipped" } ] },
+                false,
+                [ "To Do", "Done" ],
+                pending
+            );
+
+            expect(data.columns).toEqual([ "To Do", "Shipped" ]);
+            expect(data.newPersistedData).toBeUndefined();
+            expect([ ...pending.keys() ]).toEqual([ "Done" ]);
+        });
+
+        it("is not resolved back from a view config that has not caught up", async () => {
+            const pending = new Map([ [ "Done", "Shipped" ] ]);
+            const data = await getBoardData(
+                buildBoard(),
+                "status",
+                { columns: [ { value: "To Do" }, { value: "Done" }, { value: "Shipped" } ] },
+                false,
+                [],
+                pending
+            );
+
+            expect(data.columns).toEqual([ "To Do", "Shipped" ]);
+            expect(data.newPersistedData?.columns?.map(c => c.value)).toEqual([ "To Do", "Shipped" ]);
+        });
+
+        it("keeps the renamed column where the old name stood", async () => {
+            const board = buildNote({
+                title: "Board",
+                "#collection": "",
+                "#viewType": "board",
+                children: [
+                    { title: "First", "#status": "To Do" },
+                    { title: "Second", "#status": "In Progress" },
+                    { title: "Third", "#status": "Done" }
+                ]
+            });
+
+            const data = await getBoardData(
+                board,
+                "status",
+                { columns: [ { value: "To Do" }, { value: "In Progress" }, { value: "Done" } ] },
+                false,
+                [ "To Do", "Doing", "Done" ],
+                new Map([ [ "Doing", "In Progress" ] ])
+            );
+
+            expect(data.columns).toEqual([ "To Do", "In Progress", "Done" ]);
+        });
+
+        it("files a card the bulk action has not reached under its new column", async () => {
+            const board = buildNote({
+                title: "Board",
+                "#collection": "",
+                "#viewType": "board",
+                children: [
+                    { title: "First", "#status": "Shipped" },
+                    { title: "Second", "#status": "Done" }
+                ]
+            });
+
+            const data = await getBoardData(
+                board, "status", { columns: [ { value: "Shipped" } ] }, false, [],
+                new Map([ [ "Done", "Shipped" ] ])
+            );
+
+            expect(data.columns).toEqual([ "Shipped" ]);
+            expect(data.byColumn.get("Shipped")?.map(item => item.note.title))
+                .toEqual([ "First", "Second" ]);
+        });
+
+        it("is forgotten once every source has caught up, so the name can be used again", async () => {
+            const pending = new Map([ [ "Done", "Shipped" ] ]);
+            await getBoardData(
+                buildBoard(),
+                "status",
+                { columns: [ { value: "To Do" }, { value: "Shipped" } ] },
+                false,
+                [ "To Do", "Shipped" ],
+                pending
+            );
+
+            expect(pending.size).toBe(0);
+        });
+    });
 });

@@ -34,6 +34,34 @@ describe("resolveBoardColumns", () => {
         expect(resolveBoardColumns([ "", "  " ], [ " Todo " ], [ "todo" ]))
             .toEqual([ "Todo", "todo" ]);
     });
+
+    it("drops a deleted column whichever source still offers it", () => {
+        expect(resolveBoardColumns(
+            [ "Todo", "Done" ],
+            [ "Todo", "Done" ],
+            [ "Todo", "Done" ],
+            new Map([ [ "Done", undefined ] ])
+        )).toEqual([ "Todo" ]);
+    });
+
+    it("keeps a renamed column in the slot the old name held", () => {
+        expect(resolveBoardColumns(
+            [ "To Do", "Doing", "Done" ],
+            [ "To Do", "In Progress", "Done" ],
+            [ "To Do", "In Progress", "Done" ],
+            new Map([ [ "Doing", "In Progress" ] ])
+        )).toEqual([ "To Do", "In Progress", "Done" ]);
+    });
+
+    it("renames in place in a source that has caught up too, without listing it twice", () => {
+        expect(resolveBoardColumns([ "Doing" ], [ "In Progress" ], [ "In Progress" ],
+            new Map([ [ "Doing", "In Progress" ] ]))).toEqual([ "In Progress" ]);
+    });
+
+    it("substitutes by exact value, so a column differing only in case is untouched", () => {
+        expect(resolveBoardColumns([ "Done", "done" ], [], [],
+            new Map([ [ "Done", undefined ] ]))).toEqual([ "done" ]);
+    });
 });
 
 describe("getStatusDefinition", () => {

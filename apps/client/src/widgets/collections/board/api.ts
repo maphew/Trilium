@@ -27,6 +27,7 @@ export default class BoardApi {
         private viewConfig: BoardViewData,
         private saveConfig: (newConfig: BoardViewData) => void,
         private setBranchIdToEdit: (branchId: string | undefined) => void,
+        private pendingRenames: Map<string, string | undefined> = new Map(),
         private statusDefinition?: BoardStatusDefinition
     ) {
         this.isRelationMode = statusAttribute.startsWith("~");
@@ -71,11 +72,14 @@ export default class BoardApi {
 
         // Add the new column to persisted data if it doesn't exist
         if (columns.some(col => col.value === columnName)) return false;
+        this.pendingRenames.delete(columnName);
         this.storeColumns([ ...columns, { value: columnName } ]);
         return true;
     }
 
     async removeColumn(column: string) {
+        this.retireColumn(column);
+
         // Remove the value from the notes.
         const noteIds = this.byColumn?.get(column)?.map(item => item.note.noteId) || [];
 
@@ -87,6 +91,8 @@ export default class BoardApi {
     }
 
     async renameColumn(oldValue: string, newValue: string) {
+        this.retireColumn(oldValue, newValue);
+
         const noteIds = this.byColumn?.get(oldValue)?.map(item => item.note.noteId) || [];
 
         // Change the value in the notes.
@@ -122,6 +128,31 @@ export default class BoardApi {
         this.storeColumns([ ...newColumns.map(value => ({ value })), ...missingColumns ]);
 
         return newColumns;
+    }
+
+    /**
+     * Records what a column became, so that `resolveBoardColumns` reads whichever of the notes, the
+     * view config and the definition has not been written yet as though it already were. That must
+     * be said outright: a value the board just renamed and one added from elsewhere look the same.
+     * {@link getBoardData} clears the record once no source lists the old value.
+     *
+     * @param newValue the name that replaced it, or `undefined` where the column was deleted.
+     */
+    private retireColumn(oldValue: string, newValue?: string) {
+        // A rename of a column whose own rename has not landed yet has to be followed through, or
+        // the old value the stale sources still carry would resolve to a name that is itself gone.
+        for (const [ from, to ] of this.pendingRenames) {
+            if (to === oldValue) {
+                this.pendingRenames.set(from, newValue);
+            }
+        }
+
+        this.pendingRenames.set(oldValue, newValue);
+        if (newValue) {
+            // Covers a rename back to a name still pending, whose record the loop above just turned
+            // into one mapping the name to itself.
+            this.pendingRenames.delete(newValue);
+        }
     }
 
     /**

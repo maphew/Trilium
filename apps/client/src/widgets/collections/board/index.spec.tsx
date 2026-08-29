@@ -5,12 +5,29 @@
 import { render } from "preact";
 import { useCallback, useState } from "preact/hooks";
 import { act } from "preact/test-utils";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import Component from "../../../components/component";
+import froca from "../../../services/froca";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
+
+// Stands in for the server: by the time the bulk action resolves, the notes carry the new value,
+// which is what makes the old column empty rather than merely renamed.
+vi.mock("../../../services/bulk_action", () => ({
+    executeBulkActions: vi.fn(async (noteIds: string[], actions: { name: string, labelName?: string, labelValue?: string }[]) => {
+        for (const noteId of noteIds) {
+            for (const attribute of froca.getNoteFromCache(noteId)?.getAttributes() ?? []) {
+                for (const action of actions) {
+                    if (action.name === "updateLabelValue" && attribute.name === action.labelName) {
+                        attribute.value = action.labelValue ?? "";
+                    }
+                }
+            }
+        }
+    })
+}));
 
 /** Drains the async chain inside `refresh()` (getBoardData → setByColumn/setColumns). */
 async function flush() {
@@ -123,5 +140,97 @@ describe("Board column creation", () => {
 
         expect(saved.at(-1)?.columns?.map(c => c.value)).toEqual([ "To Do", "Done", "In Progress" ]);
         expect(columnTitles(container)).toEqual([ "To Do", "Done", "In Progress" ]);
+    });
+});
+
+describe("Board column rename", () => {
+    let container: HTMLElement | undefined;
+
+    afterEach(() => {
+        saved.length = 0;
+        if (container) {
+            render(null, container);
+            container.remove();
+            container = undefined;
+        }
+    });
+
+    async function setup() {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status(inheritable)":
+                "promoted,alias=Status,single,select,options=To Do;Doing;Done",
+            children: [
+                { id: "rcard1", title: "First", "#status": "To Do" },
+                { id: "rcard2", title: "Second", "#status": "Doing" },
+                { id: "rcard3", title: "Third", "#status": "Done" }
+            ]
+        });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ "rcard1", "rcard2", "rcard3" ]}
+                        initialConfig={{
+                            columns: [ { value: "To Do" }, { value: "Doing" }, { value: "Done" } ]
+                        }}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+        });
+        await act(async () => { await flush(); });
+
+        return { note, container: mountPoint };
+    }
+
+    /** Renames the middle column, so a slot that is not the last one has to survive. */
+    async function renameSecondColumn(container: HTMLElement, newName: string) {
+        const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
+        await act(async () => {
+            column.querySelector<HTMLElement>("h3 .edit-icon")?.click();
+            await flush();
+        });
+
+        const input = column.querySelector<HTMLInputElement>("h3 input");
+        if (!input) throw new Error("expected an inline editor for the column title");
+
+        await act(async () => {
+            input.focus();
+            input.value = newName;
+            input.blur();
+            await flush();
+        });
+        await act(async () => { await flush(); });
+    }
+
+    it("does not leave the old name behind as an empty column", async () => {
+        const { container } = await setup();
+        expect(columnTitles(container)).toEqual([ "To Do", "Doing", "Done" ]);
+
+        await renameSecondColumn(container, "In Progress");
+
+        expect(columnTitles(container)).toEqual([ "To Do", "In Progress", "Done" ]);
+        expect(saved.at(-1)?.columns?.map(c => c.value))
+            .toEqual([ "To Do", "In Progress", "Done" ]);
+    });
+
+    it("keeps the cards of the renamed column under it", async () => {
+        const { container } = await setup();
+
+        await renameSecondColumn(container, "In Progress");
+
+        const cards = [ ...container.querySelectorAll<HTMLElement>(".board-column") ]
+            .map(column => [ ...column.querySelectorAll(".board-note .title") ]
+                .map(el => el.textContent));
+        expect(cards).toEqual([ [ "First" ], [ "Second" ], [ "Third" ] ]);
     });
 });
