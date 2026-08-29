@@ -399,6 +399,9 @@
     --board-column-with-hue-background-saturation: 14%;
     --board-column-with-hue-background-lightness: 23%;
 
+    --board-item-background-saturation: 21%;
+    --board-item-background-lightness: 32%;
+
     --space-usage-donut-selected-saturation: 90%;
     --space-usage-donut-selected-lightness: 80%;
 }
