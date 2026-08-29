@@ -1,7 +1,7 @@
 /* Defaults for a theme that sets none of its own; the light values, the app's own default look. */
 :where(:root) {
-  --board-column-with-hue-background-saturation: 26%;
-  --board-column-with-hue-background-lightness: 86%;
+  --board-column-background-saturation: 26%;
+  --board-column-background-lightness: 86%;
 
   --board-item-background-saturation: 100%;
   --board-item-background-lightness: 96%;
@@ -41,11 +41,19 @@ body.mobile .board-view-container {
 }
 
 .board-view-container .board-column {
+  /* No hue of its own: the same lightness, drained of colour. */
+  --board-column-hue: 0;
+  --board-column-saturation: 0%;
+
   width: 250px;
   flex-shrink: 0;
   border: 2px solid transparent;
   border-radius: 8px;
-  background-color: var(--accented-background-color);
+  background-color: hsl(
+    var(--board-column-hue),
+    var(--board-column-saturation),
+    var(--board-column-background-lightness)
+  );
   transition: border-color 0.2s ease;
   overflow-y: auto;
   max-height: 100%;
@@ -63,13 +71,9 @@ body.mobile .board-view-container .board-add-column {
     scroll-snap-align: center;
 }
 
-/* Ahead of `.drag-over`, which matches just as specifically and has to keep winning. */
 .board-view-container .board-column.with-hue {
-  background-color: hsl(
-    var(--board-column-custom-hue),
-    var(--board-column-with-hue-background-saturation),
-    var(--board-column-with-hue-background-lightness)
-  );
+  --board-column-hue: var(--board-column-custom-hue);
+  --board-column-saturation: var(--board-column-background-saturation);
 }
 
 .board-view-container .board-column.drag-over {
@@ -225,21 +229,30 @@ body.mobile .board-view-container .board-add-column {
   --board-item-hue: var(--custom-color-hue);
 }
 
+/* Whatever has a hue to show is painted with it; the rest keeps the saturation above. */
 .board-view-container .board-column.with-hue .board-note,
 .board-view-container .board-note.with-hue {
+  --board-item-saturation: var(--board-item-background-saturation);
+  --board-item-hover-saturation: var(--board-item-hover-background-saturation);
+}
+
+.board-view-container .board-note {
+  /* Overridden above by anything carrying a hue; without one the item is drained of colour. */
+  --board-item-hue: 0;
+  --board-item-saturation: 0%;
+  --board-item-hover-saturation: 0%;
+
   background-color: hsl(
     var(--board-item-hue),
-    var(--board-item-background-saturation),
+    var(--board-item-saturation),
     var(--board-item-background-lightness)
   );
 }
 
-/* Each selector adds `:hover` to the one above it, so it outweighs the state it is taking over. */
-.board-view-container .board-column.with-hue .board-note:hover,
-.board-view-container .board-note.with-hue:hover {
+.board-view-container .board-note:hover {
   background-color: hsl(
     var(--board-item-hue),
-    var(--board-item-hover-background-saturation),
+    var(--board-item-hover-saturation),
     var(--board-item-hover-background-lightness)
   );
 }

@@ -395,8 +395,8 @@
     --space-usage-donut-hover-saturation: 57%;
     --space-usage-donut-hover-lightness: 68%;
 
-    --board-column-with-hue-background-saturation: 26%;
-    --board-column-with-hue-background-lightness: 86%;
+    --board-column-background-saturation: 26%;
+    --board-column-background-lightness: 86%;
 
     --board-item-background-saturation: 100%;
     --board-item-background-lightness: 96%;
