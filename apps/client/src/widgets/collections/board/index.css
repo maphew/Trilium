@@ -7,7 +7,10 @@
   --board-item-background-lightness: 96%;
 
   --board-item-hover-background-saturation: 100%;
-  --board-item-hover-background-lightness: 96%;
+  --board-item-hover-background-lightness: 98.5%;
+
+  --board-focus-outline-saturation: 55%;
+  --board-focus-outline-lightness: 45%;
 }
 
 .board-view {
@@ -245,8 +248,28 @@ body.mobile .board-view-container .board-add-column {
   margin-top: 0;
 }
 
+/* The outline of whatever is focused within, taking the hue of the nearest thing that has one: the
+   column for its header and buttons, the card for itself and what it holds. */
+.board-view-container .board-column.with-hue {
+  --board-focus-outline-color: hsl(
+    var(--board-column-custom-hue),
+    var(--board-focus-outline-saturation),
+    var(--board-focus-outline-lightness)
+  );
+}
+
+.board-view-container .board-column.with-hue .board-note,
+.board-view-container .board-note.with-hue {
+  --board-focus-outline-color: hsl(
+    var(--board-item-hue),
+    var(--board-focus-outline-saturation),
+    var(--board-focus-outline-lightness)
+  );
+}
+
 .board-view-container :focus {
-  outline: 3px solid var(--input-focus-outline-color);
+  /* Falls back where nothing around carries a hue, which is every board until one is coloured. */
+  outline: 3px solid var(--board-focus-outline-color, var(--input-focus-outline-color));
   outline-offset: 0;
 }
 

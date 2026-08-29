@@ -404,6 +404,9 @@
     --board-item-hover-background-saturation: 100%;
     --board-item-hover-background-lightness: 98.5%;
 
+    --board-focus-outline-saturation: 50%;
+    --board-focus-outline-lightness: 34%;
+
     --space-usage-donut-selected-saturation: 35%;
     --space-usage-donut-selected-lightness: 45%;
 
