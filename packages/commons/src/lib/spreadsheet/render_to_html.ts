@@ -51,7 +51,7 @@ import {
  * workbook. Returns an HTML string containing one `<table>` per visible sheet, preceded by a
  * `<style>` holding the cell styling (see {@link StyleClasses}) when the workbook has any.
  */
-export function renderSpreadsheetToHtml(content: string | PersistedData): string {
+export function renderSpreadsheetToHtml(content: string | PersistedData, options: SpreadsheetRenderOptions = {}): string {
     const { ok, data } = parseWorkbookData(content);
     if (!ok) {
         return "<p>Unable to parse spreadsheet data.</p>";
@@ -68,24 +68,42 @@ export function renderSpreadsheetToHtml(content: string | PersistedData): string
         return "<p>Empty spreadsheet.</p>";
     }
 
+    // A trimmed render answers a card, which shows a few rows of one sheet: the rest is weight
+    // nobody sees. Floating images are left out with it — they are positioned in absolute pixels
+    // from A1, so one anchored past the corner would hang off a grid that no longer reaches it.
+    const sheets = options.trim ? visibleSheets.slice(0, 1) : visibleSheets;
+
     const classes = new StyleClasses();
     const parts: string[] = [];
-    for (const sheet of visibleSheets) {
-        if (visibleSheets.length > 1) {
+    for (const sheet of sheets) {
+        if (sheets.length > 1) {
             parts.push(`<h3>${escapeHtml(sheet.name)}</h3>`);
         }
-        const images = placeFloatingImages(sheet, getFloatingDrawings(workbook, sheet.id));
-        const table = renderSheet(sheet, workbook.styles ?? {}, images, classes);
+        const images = options.trim ? [] : placeFloatingImages(sheet, getFloatingDrawings(workbook, sheet.id));
+        const table = renderSheet(sheet, workbook.styles ?? {}, images, classes, options);
         parts.push(wrapWithFloatingImages(table, images));
     }
 
     // The stylesheet is only complete once every sheet has been rendered, so it is built last
     // and put in front, where a consumer that has to lift it out finds it without a parse.
-    const stylesheet = buildStylesheet(visibleSheets, classes);
+    const stylesheet = buildStylesheet(sheets, classes);
     const body = parts.join("\n");
 
     return stylesheet ? `${stylesheet}\n${body}` : body;
 }
+
+export interface SpreadsheetRenderOptions {
+    /**
+     * Renders only the top-left corner of the first visible sheet, for a preview shown in a card
+     * or a list rather than opened. A workbook that fills a card runs to megabytes otherwise, of
+     * which a card shows the first handful of rows.
+     */
+    trim?: boolean;
+}
+
+/** How much of a sheet a trimmed render keeps — comfortably more than a card has room for. */
+const TRIMMED_ROWS = 20;
+const TRIMMED_COLUMNS = 15;
 
 /**
  * Builds the `<style>` a render is preceded by: the gridline rule when any sheet asks for
@@ -373,7 +391,7 @@ function trackIndexAtPx(targetPx: number, count: number | undefined, size: (inde
 
 // #endregion
 
-function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | null>, images: PlacedImage[], classes: StyleClasses): string {
+function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | null>, images: PlacedImage[], classes: StyleClasses, options: SpreadsheetRenderOptions = {}): string {
     const { cellData, mergeData = [], columnData = {}, rowData = {} } = sheet;
 
     // A sheet often carries formatting far past its data: a fill applied to whole rows leaves tens
@@ -385,7 +403,11 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
     // pull the sheet back out to the far edge of the grid.
     const bounds = computeBounds(cellData, boundingMerges(mergeData, sheet), (cell) => holdsSomething(cell, styles))
         ?? computeBounds(cellData, mergeData);
-    const { maxRow, maxCol } = extendBoundsForImages(sheet, bounds?.maxRow ?? -1, bounds?.maxCol ?? -1, images);
+    const extended = extendBoundsForImages(sheet, bounds?.maxRow ?? -1, bounds?.maxCol ?? -1, images);
+    // A trimmed render keeps the corner a card has room for. The cap applies last, so it bounds
+    // whatever the data, a merge or an image asked for rather than competing with them.
+    const maxRow = options.trim ? Math.min(extended.maxRow, TRIMMED_ROWS - 1) : extended.maxRow;
+    const maxCol = options.trim ? Math.min(extended.maxCol, TRIMMED_COLUMNS - 1) : extended.maxCol;
     if (maxRow < 0 || maxCol < 0) {
         return "<p>Empty sheet.</p>";
     }

@@ -17,9 +17,14 @@ import server from "./server.js";
  * Throws if the document is too large, unsupported, or conversion fails — callers should
  * catch and fall back to the usual download / open-externally affordance.
  */
-export async function renderOfficeToHtml(entityType: "notes" | "attachments", entityId: string): Promise<OfficePreview> {
+export async function renderOfficeToHtml(
+    entityType: "notes" | "attachments",
+    entityId: string,
+    { trim }: { trim?: boolean } = {}
+): Promise<OfficePreview> {
     // `raw` keeps the response a plain string; the route sends the fragment as the body.
-    const body = await server.get<string>(`${entityType}/${entityId}/office-preview`, undefined, true);
+    const url = `${entityType}/${entityId}/office-preview${trim ? "?trim=1" : ""}`;
+    const body = await server.get<string>(url, undefined, true);
     const { css, html } = splitStylesheet(body);
     const sanitized = sanitizeNoteContentHtml(html);
 

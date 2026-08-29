@@ -382,6 +382,24 @@ describe("Files API (core)", () => {
             expect(res.body).toContain("Hello");
         });
 
+        it("answers with the corner of a workbook when the caller asks to trim it", async () => {
+            const wb = new ExcelJS.Workbook();
+            const sheet = wb.addWorksheet("Data");
+            for (let row = 1; row <= 60; row++) {
+                for (let col = 1; col <= 40; col++) sheet.getCell(row, col).value = `r${row}c${col}`;
+            }
+            const noteId = await createXlsxNote(Buffer.from(await wb.xlsx.writeBuffer()));
+
+            const whole = await api.get<string>(`/api/notes/${noteId}/office-preview`);
+            const corner = await api.get<string>(`/api/notes/${noteId}/office-preview?trim=1`);
+
+            expect(corner.status).toBe(200);
+            expect((corner.body.match(/<td/g) ?? []).length).toBe(20 * 15);
+            expect(corner.body).toContain("r1c1");
+            expect(corner.body).not.toContain("r60c40");
+            expect(corner.body.length).toBeLessThan(whole.body.length / 5);
+        });
+
         it("rejects an unsupported MIME type with 400", async () => {
             const { noteId } = await createTextNote(api, { content: "<p>not office</p>" });
 

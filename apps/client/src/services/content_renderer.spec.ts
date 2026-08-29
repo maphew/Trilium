@@ -406,7 +406,7 @@ describe("getRenderedContent office rendering", () => {
         note.mime = DOCX;
         const { type, $renderedContent } = await getRenderedContent(note);
         expect(type).toBe("office");
-        expect(renderOfficeToHtml).toHaveBeenCalledWith("notes", note.noteId);
+        expect(renderOfficeToHtml).toHaveBeenCalledWith("notes", note.noteId, { trim: undefined });
         // the padded body sits inside a dedicated, unpadded scroll host
         expect($renderedContent.find(".office-preview-scroll > .office-preview-body").html()).toContain("converted");
         // the file remains downloadable / openable
@@ -452,7 +452,7 @@ describe("getRenderedContent office rendering", () => {
         const att = buildAttachment({ role: "file", mime: "application/vnd.oasis.opendocument.spreadsheet" });
         const { type, $renderedContent } = await getRenderedContent(att);
         expect(type).toBe("office");
-        expect(renderOfficeToHtml).toHaveBeenCalledWith("attachments", att.attachmentId);
+        expect(renderOfficeToHtml).toHaveBeenCalledWith("attachments", att.attachmentId, { trim: undefined });
         expect($renderedContent.find(".file-footer").length).toBe(0);
     });
 });

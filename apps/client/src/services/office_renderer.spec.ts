@@ -118,4 +118,13 @@ describe("renderOfficeToHtml", () => {
         expect(html).not.toContain("#000080");
         expect(html).toContain('<a href="#a">x</a>');
     });
+
+    it("asks the route to trim when the caller wants a card-sized preview", async () => {
+        await renderOfficeToHtml("notes", "n1", { trim: true });
+        expect(serverGet).toHaveBeenCalledWith("notes/n1/office-preview?trim=1", undefined, true);
+
+        // Left off otherwise, so the whole document and the corner never share a cache entry.
+        await renderOfficeToHtml("notes", "n1");
+        expect(serverGet).toHaveBeenLastCalledWith("notes/n1/office-preview", undefined, true);
+    });
 });

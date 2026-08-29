@@ -2791,3 +2791,72 @@ describe("reuse of a style across cells", () => {
             .toEqual(["&amp;", "&lt;", "&gt;", "&quot;", "&#39;"]);
     });
 });
+
+describe("trimmed rendering", () => {
+    const bigWorkbook = () => {
+        const cellData: Record<string, Record<string, unknown>> = {};
+        for (let row = 0; row < 60; row++) {
+            cellData[row] = {};
+            for (let col = 0; col < 40; col++) cellData[row][col] = { v: `r${row}c${col}`, t: 1 };
+        }
+        return JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1", "s2"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1", name: "First", hidden: 0, rowCount: 100, columnCount: 50,
+                        mergeData: [], cellData, rowData: {}, columnData: {}
+                    },
+                    s2: {
+                        id: "s2", name: "Second", hidden: 0, rowCount: 10, columnCount: 5,
+                        mergeData: [], cellData: { "0": { "0": { v: "elsewhere", t: 1 } } },
+                        rowData: {}, columnData: {}
+                    }
+                }
+            }
+        });
+    };
+
+    it("keeps the corner of the first sheet and drops the rest", () => {
+        const full = renderRaw(bigWorkbook());
+        const trimmed = renderRaw(bigWorkbook(), { trim: true });
+
+        // 60x40 plus the second sheet's one cell, down to the 20x15 corner a card has room for.
+        expect((full.match(/<td/g) ?? []).length).toBe(60 * 40 + 1);
+        expect((trimmed.match(/<td/g) ?? []).length).toBe(20 * 15);
+        expect(trimmed).toContain("r0c0");
+        expect(trimmed).toContain("r19c14");
+        expect(trimmed).not.toContain("r20c0");
+        expect(trimmed).not.toContain("r0c15");
+        expect(trimmed.length).toBeLessThan(full.length / 5);
+    });
+
+    it("renders only the first visible sheet, without its heading", () => {
+        const trimmed = renderRaw(bigWorkbook(), { trim: true });
+
+        expect(trimmed).not.toContain("elsewhere");
+        // One sheet needs no heading to tell it apart.
+        expect(trimmed).not.toContain("<h3>");
+        expect((trimmed.match(/<table/g) ?? []).length).toBe(1);
+    });
+
+    it("leaves a sheet smaller than the corner alone", () => {
+        const small = JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"], styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1", name: "S", hidden: 0, rowCount: 10, columnCount: 5,
+                        mergeData: [], cellData: { "0": { "0": { v: "a", t: 1 }, "1": { v: "b", t: 1 } } },
+                        rowData: {}, columnData: {}
+                    }
+                }
+            }
+        });
+
+        expect(renderRaw(small, { trim: true })).toBe(renderRaw(small));
+    });
+});
