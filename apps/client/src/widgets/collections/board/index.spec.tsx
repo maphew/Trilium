@@ -5,10 +5,12 @@
 import { render } from "preact";
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { act } from "preact/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import Component from "../../../components/component";
 import contextMenu from "../../../menus/context_menu";
+import server from "../../../services/server";
+import toast from "../../../services/toast";
 import FBranch from "../../../entities/fbranch";
 import froca from "../../../services/froca";
 import { buildNote } from "../../../test/easy-froca";
@@ -18,6 +20,11 @@ import { DEFAULT_COLUMN_ICON } from "./columns";
 
 // Stands in for the server: by the time the bulk action resolves, the notes carry the new value,
 // which is what makes the old column empty rather than merely renamed.
+vi.mock("../../../services/i18n", () => ({
+    // i18next is never initialised under test, so a stock name the board writes would be undefined.
+    t: (key: string) => key
+}));
+
 vi.mock("../../../services/bulk_action", () => ({
     executeBulkActions: vi.fn(async (
         noteIds: string[],
@@ -481,4 +488,260 @@ describe("Board column rename", () => {
                 .map(el => el.textContent));
         expect(cards).toEqual([ [ "First" ], [ "Second" ], [ "Third" ] ]);
     });
+});
+
+describe("Board editors and menus", () => {
+    let container: HTMLElement | undefined;
+
+    beforeEach(() => {
+        saved.length = 0;
+        vi.restoreAllMocks();
+        vi.spyOn(server, "put").mockResolvedValue(undefined);
+    });
+
+    afterEach(() => {
+        if (container) {
+            render(null, container);
+            container.remove();
+            container = undefined;
+        }
+    });
+
+    it("opens the add-column editor with Enter, and names the column typed into it", async () => {
+        const board = await renderBoard();
+        const slot = board.querySelector<HTMLElement>(".board-add-column");
+
+        await act(async () => {
+            slot?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        const input = slot?.querySelector<HTMLInputElement>("input");
+        if (!input) throw new Error("expected the column-name editor");
+
+        await act(async () => {
+            input.focus();
+            input.value = "Blocked";
+            input.blur();
+            await flush();
+        });
+        await act(async () => { await flush(); });
+
+        expect(saved.at(-1)?.columns?.map(column => column.value))
+            .toEqual([ "To Do", "Done", "Blocked" ]);
+    });
+
+    it("says so rather than adding a column the board already has", async () => {
+        const board = await renderBoard();
+        const message = vi.spyOn(toast, "showMessage").mockImplementation(() => {});
+
+        await addColumnNamed(board, "Done");
+
+        expect(message).toHaveBeenCalled();
+        expect(saved).toHaveLength(0);
+    });
+
+    it("leaves the title alone when the editor is dismissed with Escape", async () => {
+        const board = await renderBoard();
+        const header = board.querySelectorAll<HTMLElement>(".board-column h3")[0];
+
+        await act(async () => {
+            header.focus();
+            header.dispatchEvent(new KeyboardEvent("keydown", { key: "F2", bubbles: true }));
+            await flush();
+        });
+
+        const input = header.querySelector<HTMLInputElement>("input");
+        if (!input) throw new Error("expected the title editor");
+
+        await act(async () => {
+            input.focus();
+            input.value = "Renamed away";
+            input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+            await flush();
+        });
+        await act(async () => { await flush(); });
+
+        expect(saved).toHaveLength(0);
+        expect(columnTitles(board)).toEqual([ "To Do", "Done" ]);
+    });
+
+    it("opens the column menu from its button as well as from a right click", async () => {
+        const board = await renderBoard();
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+
+        await act(async () => {
+            board.querySelector<HTMLElement>(".board-column .column-menu")?.click();
+            await flush();
+        });
+
+        expect(show).toHaveBeenCalled();
+    });
+
+    it("puts a column beside another from the menu, ready to be named", async () => {
+        const board = await renderBoard();
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+
+        board.querySelector(".board-column h3")
+            ?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+
+        const parent = (show.mock.calls.at(-1)?.[0].items ?? [])
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-columns");
+        if (!parent || !("items" in parent)) throw new Error("expected an add-column entry");
+
+        const after = (parent.items ?? [])[1];
+        if (!after || !("handler" in after)) throw new Error("expected an after entry");
+
+        await act(async () => {
+            after.handler?.(after, {} as never);
+            await flush();
+        });
+        await act(async () => { await flush(); });
+
+        expect(saved.at(-1)?.columns?.map(column => column.value))
+            .toEqual([ "To Do", "board_view.new-column", "Done" ]);
+        // The column it made is the one waiting to be named.
+        expect(board.querySelectorAll(".board-column")[1].querySelector("input")).toBeTruthy();
+    });
+
+    it("keeps a wheel inside a scrolling column from also scrolling the board", async () => {
+        const board = await renderBoard();
+        const content = board.querySelector<HTMLElement>(".board-column-content");
+        if (!content) throw new Error("expected a scrollable column body");
+
+        Object.defineProperty(content, "scrollHeight", { value: 900, configurable: true });
+        Object.defineProperty(content, "clientHeight", { value: 300, configurable: true });
+
+        let reachedBoard = false;
+        board.addEventListener("wheel", () => { reachedBoard = true; });
+        await act(async () => {
+            content.dispatchEvent(new Event("wheel", { bubbles: true }));
+            await flush();
+        });
+
+        expect(reachedBoard).toBe(false);
+    });
+
+    /** Types a name into the add-column editor and commits it by blurring. */
+    async function addColumnNamed(board: HTMLElement, name: string) {
+        const slot = board.querySelector<HTMLElement>(".board-add-column");
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const input = slot?.querySelector<HTMLInputElement>("input");
+        if (!input) throw new Error("expected the column-name editor");
+
+        await act(async () => {
+            input.focus();
+            input.value = name;
+            input.blur();
+            await flush();
+        });
+        await act(async () => { await flush(); });
+    }
+
+    async function renderBoard() {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            children: [
+                { title: "First", "#status": "To Do" },
+                { title: "Second", "#status": "Done" }
+            ]
+        });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={{ columns: [ { value: "To Do" }, { value: "Done" } ] }}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+        });
+        await act(async () => { await flush(); });
+
+        return mountPoint;
+    }
+});
+
+describe("Board grouped by a relation", () => {
+    let container: HTMLElement | undefined;
+
+    afterEach(() => {
+        if (container) {
+            render(null, container);
+            container.remove();
+            container = undefined;
+        }
+    });
+
+    it("names its columns with a link to the note each stands for", async () => {
+        const { board } = await renderRelationBoard();
+
+        // The note's own icon is what a relation column shows, so it offers no picker of its own.
+        expect(board.querySelector(".board-column h3 a")).toBeTruthy();
+        expect(board.querySelector(".board-column h3 > .column-icon")).toBeNull();
+    });
+
+    it("picks a note rather than typing a name when a column is renamed", async () => {
+        const { board } = await renderRelationBoard();
+        const header = board.querySelector<HTMLElement>(".board-column h3");
+
+        await act(async () => {
+            header?.dispatchEvent(new KeyboardEvent("keydown", { key: "F2", bubbles: true }));
+            await flush();
+        });
+
+        // The note picker, not the plain text box a label column is renamed through.
+        expect(header?.querySelector("input.note-autocomplete")).toBeTruthy();
+    });
+
+    async function renderRelationBoard() {
+        const target = buildNote({ title: "In progress" });
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#board:groupBy": "~status",
+            children: [ { title: "First", "~status": target.noteId } ]
+        });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <BoardView
+                        note={note}
+                        notePath={`root/${note.noteId}`}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        highlightedTokens={null}
+                        viewConfig={{ columns: [ { value: target.noteId } ] }}
+                        saveConfig={() => {}}
+                        media="screen"
+                        onReady={() => {}}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+        });
+        await act(async () => { await flush(); });
+        // The link resolves its note path before it renders, which lands a tick later.
+        await act(async () => { await flush(); });
+
+        return { board: mountPoint, target };
+    }
 });

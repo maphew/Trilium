@@ -1,6 +1,6 @@
 /**
  * The board's drag and drop, which is hand-rolled on the HTML5 events rather than a library: a card
- * moved within the board, and a note dragged in from the tree, which is cloned or moved depending on
+ * moved within the board, and a note dragged in from the tree, cloned or moved depending on
  * whether the board already holds it.
  */
 import { render } from "preact";
@@ -107,11 +107,12 @@ describe("Board drag and drop", () => {
         await drag(columns[0], "dragover", { types: [ TREE_CLIPBOARD_TYPE ] }, 0);
         await drag(columns[0], "drop", {
             types: [ TREE_CLIPBOARD_TYPE ],
-            data: { text: JSON.stringify([ { noteId: stranger.noteId, branchId: "strangerBranch" } ]) }
+            data: { text: JSON.stringify([ { noteId: stranger.noteId, branchId: "far" } ]) }
         });
 
         // Dropped above every card, so it goes in as the first rather than after one.
-        expect(branches.cloneNoteToParentNote).toHaveBeenCalledWith(stranger.noteId, expect.any(String));
+        expect(branches.cloneNoteToParentNote)
+            .toHaveBeenCalledWith(stranger.noteId, expect.any(String));
         expect(branches.cloneNoteAfter).not.toHaveBeenCalled();
     });
 
@@ -122,7 +123,7 @@ describe("Board drag and drop", () => {
         await drag(columns[0], "dragover", { types: [ TREE_CLIPBOARD_TYPE ] }, 120);
         await drag(columns[0], "drop", {
             types: [ TREE_CLIPBOARD_TYPE ],
-            data: { text: JSON.stringify([ { noteId: stranger.noteId, branchId: "strangerBranch" } ]) }
+            data: { text: JSON.stringify([ { noteId: stranger.noteId, branchId: "far" } ]) }
         });
 
         expect(branches.cloneNoteAfter).toHaveBeenCalled();
@@ -135,7 +136,7 @@ describe("Board drag and drop", () => {
         await drag(columns[0], "dragover", { types: [ TREE_CLIPBOARD_TYPE ] }, 120);
         await drag(columns[0], "drop", {
             types: [ TREE_CLIPBOARD_TYPE ],
-            data: { text: JSON.stringify([ { noteId: cards[0].noteId, branchId: cards[0].branchId } ]) }
+            data: { text: JSON.stringify([ { ...cards[0] } ]) }
         });
 
         expect(branches.moveAfterBranch).toHaveBeenCalled();
@@ -157,7 +158,7 @@ describe("Board drag and drop", () => {
         expect(branches.moveAfterBranch).not.toHaveBeenCalled();
     });
 
-    /** A board of one column holding two cards, each given a height the pointer can be placed in. */
+    /** A board of one column of two cards, each given a height the pointer can be placed in. */
     async function renderBoard() {
         const note = buildNote({
             title: "Board",
@@ -213,8 +214,8 @@ describe("Board drag and drop", () => {
         clipboard: { types: string[], data?: Record<string, string> },
         clientY = 0
     ) {
-        // happy-dom defines no `ondragover`/`ondrop` on elements, and Preact falls back to the prop's
-        // own casing when the DOM does not know the lowercase one. A `dragover` would reach nothing.
+        // happy-dom defines no `ondragover`/`ondrop` on elements, and Preact falls back to the
+        // prop's own casing where the DOM knows no lowercase one. A `dragover` reaches nothing.
         const known = `on${type}` in document.createElement("div");
         const event = new Event(known ? type : PREACT_DRAG_EVENTS[type], {
             bubbles: true,

@@ -83,6 +83,8 @@ interface BoardDragState {
 // Both defaults are the honest identity value rather than a stand-in, which is what lets consumers
 // read these with a plain useContext(): no non-null assertion, and no guard for a provider that is
 // structurally always there. Nothing is being dragged, and the setters have nothing to set.
+/* v8 ignore next 8 -- the board always provides these, so nothing but a consumer mounted outside
+   it would ever call one; they exist so that consumers need no guard. */
 export const BoardActionsContext = createContext<BoardActions>({
     setBranchIdToEdit: () => undefined,
     setColumnNameToEdit: () => undefined,
