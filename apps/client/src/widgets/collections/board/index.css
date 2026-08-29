@@ -5,6 +5,9 @@
 
   --board-item-background-saturation: 100%;
   --board-item-background-lightness: 96%;
+
+  --board-item-hover-background-saturation: 100%;
+  --board-item-hover-background-lightness: 96%;
 }
 
 .board-view {
@@ -226,6 +229,16 @@ body.mobile .board-view-container .board-add-column {
     var(--board-item-hue),
     var(--board-item-background-saturation),
     var(--board-item-background-lightness)
+  );
+}
+
+/* Each selector adds `:hover` to the one above it, so it outweighs the state it is taking over. */
+.board-view-container .board-column.with-hue .board-note:hover,
+.board-view-container .board-note.with-hue:hover {
+  background-color: hsl(
+    var(--board-item-hue),
+    var(--board-item-hover-background-saturation),
+    var(--board-item-hover-background-lightness)
   );
 }
 

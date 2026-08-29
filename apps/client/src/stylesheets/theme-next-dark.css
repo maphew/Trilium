@@ -402,6 +402,9 @@
     --board-item-background-saturation: 21%;
     --board-item-background-lightness: 32%;
 
+    --board-item-hover-background-saturation: 25%;
+    --board-item-hover-background-lightness: 35%;
+
     --space-usage-donut-selected-saturation: 90%;
     --space-usage-donut-selected-lightness: 80%;
 }
