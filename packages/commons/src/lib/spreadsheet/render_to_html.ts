@@ -12,6 +12,7 @@
 
 import { format as formatNumfmt, formatColor as formatNumfmtColor } from "numfmt";
 
+import { fnv1a } from "../utils.js";
 import {
     BorderStyle,
     type CellDocumentSegment,
@@ -125,13 +126,18 @@ const GRIDLINE_RULE = ":where(.spreadsheet-table.show-gridlines) td:not(.has-fil
 class StyleClasses {
     private readonly names = new Map<string, string>();
 
-    /** Returns the class for `declarations`, or "" when there is nothing to style. */
+    /**
+     * Returns the class for `declarations`, or "" when there is nothing to style.
+     *
+     * A hash collision would show one style where another was meant, never a wrong document, and
+     * 32 bits is far more than the handful of distinct styles a workbook carries.
+     */
     classFor(declarations: string): string {
         if (!declarations) return "";
 
         let name = this.names.get(declarations);
         if (!name) {
-            name = `sst-${hashDeclarations(declarations)}`;
+            name = `sst-${fnv1a(declarations).toString(36)}`;
             this.names.set(declarations, name);
         }
         return name;
@@ -151,20 +157,6 @@ class StyleClasses {
         }
         return rules;
     }
-}
-
-/**
- * Hashes a declaration string (FNV-1a, base36) for use in a class name. A collision would show
- * one style where another was meant, never a wrong document, and 32 bits is far more than the
- * handful of distinct styles a workbook carries.
- */
-function hashDeclarations(declarations: string): string {
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < declarations.length; i++) {
-        hash ^= declarations.charCodeAt(i);
-        hash = Math.imul(hash, 0x01000193);
-    }
-    return (hash >>> 0).toString(36);
 }
 
 // #region Images
