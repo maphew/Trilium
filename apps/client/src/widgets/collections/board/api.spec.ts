@@ -288,6 +288,29 @@ describe("BoardApi column mutations", () => {
         await running;
     });
 
+    /**
+     * The later rename re-points the record the earlier one left, taking the key over. An undo that
+     * reverted it anyway would strip a rename still running of the record it needs.
+     */
+    it("leaves a key a later rename has taken over alone when the earlier one fails", async () => {
+        const { api, pendingRenames } = createApi({ columns: [ { value: "Done" } ] }, [ "Done" ]);
+
+        let releaseSecond = () => {};
+        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
+        vi.mocked(executeBulkActions).mockImplementationOnce(
+            () => new Promise<void>((resolve) => { releaseSecond = resolve; }));
+
+        const failing = api.renameColumn("Done", "Shipped");
+        const running = api.renameColumn("Shipped", "Delivered");
+
+        await expect(failing).rejects.toThrow("offline");
+        expect([ ...pendingRenames ])
+            .toEqual([ [ "Done", "Delivered" ], [ "Shipped", "Delivered" ] ]);
+
+        releaseSecond();
+        await running;
+    });
+
     it("follows a rename through when the one before it has not landed yet", async () => {
         const { api, pendingRenames } = createApi({ columns: [ { value: "Done" } ] }, [ "Done" ]);
 

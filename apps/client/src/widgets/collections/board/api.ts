@@ -289,35 +289,55 @@ export default class BoardApi {
      *          flight, and put back those of one that has already failed.
      */
     private retireColumn(oldValue: string, newValue?: string) {
-        const touched: { key: string, previous?: string, wasRecorded: boolean }[] = [];
-        const remember = (key: string) => touched.push({
-            key,
-            previous: this.pendingRenames.get(key),
-            // A deletion is recorded as `undefined`, which is not the same as no record at all.
-            wasRecorded: this.pendingRenames.has(key)
-        });
+        // A deletion is recorded as `undefined`, which is not the same as no record at all, so each
+        // key is remembered as a value and whether it was there — before this call and after it.
+        const touched: {
+            key: string;
+            previous?: string;
+            wasRecorded: boolean;
+            left?: string;
+            leftRecorded: boolean;
+        }[] = [];
+
+        const write = (key: string, value: string | undefined, record: boolean) => {
+            touched.push({
+                key,
+                previous: this.pendingRenames.get(key),
+                wasRecorded: this.pendingRenames.has(key),
+                left: record ? value : undefined,
+                leftRecorded: record
+            });
+
+            if (record) {
+                this.pendingRenames.set(key, value);
+            } else {
+                this.pendingRenames.delete(key);
+            }
+        };
 
         // A rename of a column whose own rename has not landed yet has to be followed through, or
         // the old value the stale sources still carry would resolve to a name that is itself gone.
         for (const [ from, to ] of this.pendingRenames) {
             if (to === oldValue) {
-                remember(from);
-                this.pendingRenames.set(from, newValue);
+                write(from, newValue, true);
             }
         }
 
-        remember(oldValue);
-        this.pendingRenames.set(oldValue, newValue);
+        write(oldValue, newValue, true);
 
         if (newValue) {
             // Covers a rename back to a name still pending, whose record the loop above just turned
             // into one mapping the name to itself.
-            remember(newValue);
-            this.pendingRenames.delete(newValue);
+            write(newValue, undefined, false);
         }
 
         return () => {
-            for (const { key, previous, wasRecorded } of touched.reverse()) {
+            for (const { key, previous, wasRecorded, left, leftRecorded } of touched.reverse()) {
+                // Only what this call still owns is put back. A later rename may have taken the key
+                // over on its way past, and that record belongs to a write of its own.
+                if (this.pendingRenames.has(key) !== leftRecorded) continue;
+                if (leftRecorded && this.pendingRenames.get(key) !== left) continue;
+
                 if (wasRecorded) {
                     this.pendingRenames.set(key, previous);
                 } else {
