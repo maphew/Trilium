@@ -116,6 +116,14 @@ export default class BoardApi {
     }
 
     /**
+     * Archives a column or brings it back. An archived one is shown only while the board is set to
+     * show archived notes, and greyed out where it is.
+     */
+    async setColumnArchived(column: string, archived: boolean) {
+        this.updateColumn(column, { archived });
+    }
+
+    /**
      * Writes properties onto a column, dropping each one given as nothing so that it goes back to
      * its default rather than being stored empty.
      *
@@ -128,6 +136,7 @@ export default class BoardApi {
             const updated = { ...stored, ...patch };
             if (!updated.icon) delete updated.icon;
             if (!updated.color) delete updated.color;
+            if (!updated.archived) delete updated.archived;
             return updated;
         };
 

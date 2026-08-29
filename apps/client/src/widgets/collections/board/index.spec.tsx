@@ -181,11 +181,12 @@ describe("Board column rename", () => {
         columns: [ { value: "To Do" }, { value: "Doing" }, { value: "Done" } ]
     };
 
-    async function setup(config: BoardViewData = DEFAULT_CONFIG) {
+    async function setup(config: BoardViewData = DEFAULT_CONFIG, includeArchived = false) {
         const note = buildNote({
             title: "Board",
             "#collection": "",
             "#viewType": "board",
+            ...(includeArchived ? { "#includeArchived": "true" } : {}),
             "#label:status(inheritable)":
                 "promoted,alias=Status,single,select,options=To Do;Doing;Done",
             children: [
@@ -323,6 +324,28 @@ describe("Board column rename", () => {
         expect(hues.slice(1)).toEqual([ "", "" ]);
         expect(columns.map(column => column.classList.contains("with-hue")))
             .toEqual([ true, false, false ]);
+    });
+
+    it("hides an archived column, unless the board is set to show archived notes", async () => {
+        const archivedConfig: BoardViewData = {
+            columns: [ { value: "To Do" }, { value: "Doing", archived: true }, { value: "Done" } ]
+        };
+
+        const { container: hidden } = await setup(archivedConfig);
+        expect(columnTitles(hidden)).toEqual([ "To Do", "Done" ]);
+
+        // The column is only out of sight; nothing has been written out of the config.
+        expect(saved.every(config => config.columns?.some(col => col.value === "Doing")))
+            .toBe(true);
+
+        render(null, hidden);
+        hidden.remove();
+
+        const { container: shown } = await setup(archivedConfig, true);
+        expect(columnTitles(shown)).toEqual([ "To Do", "Doing", "Done" ]);
+        expect([ ...shown.querySelectorAll(".board-column") ]
+            .map(column => column.classList.contains("board-column-archived")))
+            .toEqual([ false, true, false ]);
     });
 
     it("keeps the cards of the renamed column under it", async () => {

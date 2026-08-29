@@ -290,6 +290,10 @@ body.mobile .board-view-container .board-add-column {
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.15s ease, margin-top 0.2s ease;
 }
 
+.board-view-container .board-column.board-column-archived {
+  opacity: 0.5;
+}
+
 .board-view-container .board-note.archived {
   opacity: 0.5;
 }

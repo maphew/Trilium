@@ -32,6 +32,7 @@ export default function Column({
     columnIndex,
     icon,
     color,
+    archived,
     isDraggingColumn,
     columnItems,
     api,
@@ -45,6 +46,8 @@ export default function Column({
     icon?: string,
     /** The stored CSS colour, absent until one is picked. */
     color?: string,
+    /** Whether the column is archived. Only ever rendered while archived notes are shown. */
+    archived?: boolean,
     isDraggingColumn: boolean,
     api: BoardApi,
     parentNote: FNote,
@@ -65,9 +68,10 @@ export default function Column({
         openColumnContextMenu(api, e, {
             value: column,
             color,
+            archived,
             onEditTitle: () => setColumnNameToEdit(column)
         });
-    }, [ api, column, color, setColumnNameToEdit ]);
+    }, [ api, column, color, archived, setColumnNameToEdit ]);
 
     // A fully desaturated colour has no hue to tint with, and leaves the column plain.
     const hue = useMemo(() => {
@@ -112,7 +116,8 @@ export default function Column({
             className={clsx("board-column", {
                 "drag-over": dropTarget === column && draggedCard?.fromColumn !== column,
                 // The class the themes key a hue off, worn here as anywhere else that carries one.
-                "with-hue": hue !== undefined
+                "with-hue": hue !== undefined,
+                "board-column-archived": archived
             })}
             onDragOver={isAnyColumnDragging ? handleColumnDragOver : handleDragOver}
             onDragLeave={handleDragLeave}

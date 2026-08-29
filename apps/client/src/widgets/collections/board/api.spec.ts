@@ -130,6 +130,19 @@ describe("BoardApi column mutations", () => {
         expect(saved.at(-1)?.columns).toEqual([ { value: "To Do", icon: "bx bx-list-ul" } ]);
     });
 
+    it("archives a column and brings it back, storing nothing once it is not", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do", icon: "bx bx-list-ul" } ] }, [ "To Do" ]);
+
+        await api.setColumnArchived("To Do", true);
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "To Do", icon: "bx bx-list-ul", archived: true }
+        ]);
+
+        await api.setColumnArchived("To Do", false);
+        expect(saved.at(-1)?.columns).toEqual([ { value: "To Do", icon: "bx bx-list-ul" } ]);
+    });
+
     it("keeps the icon of a column it renames", async () => {
         const { api, saved } = createApi(
             { columns: [ { value: "Done", icon: "bx bx-check" } ] }, [ "Done" ]);

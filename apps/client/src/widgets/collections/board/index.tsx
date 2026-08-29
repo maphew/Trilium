@@ -32,6 +32,8 @@ export interface BoardColumnData {
     icon?: string;
     /** The CSS colour the column is tinted with, absent until one is picked. */
     color?: string;
+    /** Whether the column is archived, absent while it is not. */
+    archived?: boolean;
 }
 
 interface CardDrag {
@@ -145,6 +147,14 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         () => new Map((viewConfig?.columns ?? []).map(stored => [ stored.value, stored ])),
         [ viewConfig ]);
 
+    // Filtered here rather than in the resolution, which is what gets written back: dropped there,
+    // an archived column would be erased from the config and the definition instead of kept out of
+    // sight. `columnDropPosition` indexes this list, so a drag places columns as they are shown.
+    const shownColumns = useMemo(
+        () => (columns ?? []).filter(column =>
+            includeArchived || !storedColumns.get(column)?.archived),
+        [ columns, storedColumns, includeArchived ]);
+
     const boardDragState = useMemo<BoardDragState>(() => ({
         branchIdToEdit,
         columnNameToEdit,
@@ -201,15 +211,23 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
 
     useEffect(refresh, [ parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition ]);
 
+    // The drag reports where the column landed among the ones on screen, which is not where it
+    // landed among them all once some are archived and hidden. Translated here so a reorder leaves
+    // every hidden column where it was rather than herding them to the end.
     const handleColumnDrop = useCallback((fromIndex: number, toIndex: number) => {
-        const newColumns = api.reorderColumn(fromIndex, toIndex);
+        const allColumns = columns ?? [];
+        const dropBefore = shownColumns[toIndex];
+        const newColumns = api.reorderColumn(
+            allColumns.indexOf(shownColumns[fromIndex]),
+            dropBefore === undefined ? allColumns.length : allColumns.indexOf(dropBefore));
+
         if (newColumns) {
             setColumns(newColumns);
         }
         setDraggedColumn(null);
         setDraggedCard(null);
         setColumnDropPosition(null);
-    }, [api]);
+    }, [ api, columns, shownColumns ]);
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         // The column list is read off the definition, which may be edited from the attribute panel,
@@ -261,7 +279,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                         onDrop={handleContainerDrop}
                         onWheel={onWheelHorizontalScroll}
                     >
-                        {columns.map((column, index) => (
+                        {shownColumns.map((column, index) => (
                             <>
                                 {columnDropPosition === index && (
                                     <div className="column-drop-placeholder show" />
@@ -273,6 +291,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     column={column}
                                     icon={storedColumns.get(column)?.icon}
                                     color={storedColumns.get(column)?.color}
+                                    archived={storedColumns.get(column)?.archived}
                                     columnIndex={index}
                                     columnItems={byColumn.get(column)}
                                     isDraggingColumn={draggedColumn?.column === column}
@@ -281,7 +300,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                 />
                             </>
                         ))}
-                        {columnDropPosition === columns?.length && draggedColumn && (
+                        {columnDropPosition === shownColumns.length && draggedColumn && (
                             <div className="column-drop-placeholder show" />
                         )}
 

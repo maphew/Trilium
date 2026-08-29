@@ -14,6 +14,7 @@ import Api from "./api";
 export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column: {
     value: string;
     color?: string;
+    archived?: boolean;
     /** Puts the title into its inline editor, the menu being the only way there besides F2. */
     onEditTitle: () => void;
 }) {
@@ -29,6 +30,17 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                 uiIcon: "bx bx-edit-alt",
                 handler: column.onEditTitle
             },
+            column.archived
+                ? {
+                    title: t("board_view.unarchive-column"),
+                    uiIcon: "bx bx-archive-out",
+                    handler: () => api.setColumnArchived(column.value, false)
+                }
+                : {
+                    title: t("board_view.archive-column"),
+                    uiIcon: "bx bx-archive",
+                    handler: () => api.setColumnArchived(column.value, true)
+                },
             {
                 title: t("board_view.delete-column"),
                 uiIcon: "bx bx-trash",

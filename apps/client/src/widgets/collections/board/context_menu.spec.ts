@@ -18,7 +18,11 @@ describe("Board column context menu", () => {
         }
     });
 
-    function openMenu(api: BoardApi, color?: string, onEditTitle = () => {}) {
+    function openMenu(
+        api: BoardApi,
+        column: { color?: string, archived?: boolean } = {},
+        onEditTitle = () => {}
+    ) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
         const event = {
             preventDefault: () => {},
@@ -27,14 +31,15 @@ describe("Board column context menu", () => {
             pageY: 0
         } as ContextMenuEvent;
 
-        openColumnContextMenu(api, event, { value: "To Do", color, onEditTitle });
+        openColumnContextMenu(api, event, { value: "To Do", ...column, onEditTitle });
 
-        return show.mock.calls[0][0].items ?? [];
+        // The spy outlives one call, so it is the menu just opened that is read back.
+        return show.mock.calls.at(-1)?.[0].items ?? [];
     }
 
     /** Renders the colour picker the menu offers for a column already carrying `color`. */
     async function openPicker(api: BoardApi, color?: string) {
-        const items = openMenu(api, color);
+        const items = openMenu(api, { color });
         const custom = items.find(item => item && "kind" in item && item.kind === "custom");
         if (!custom || !("componentFn" in custom)) {
             throw new Error("expected a colour picker in the menu");
@@ -53,7 +58,7 @@ describe("Board column context menu", () => {
 
     it("offers the title editor, which the retired header button used to open", () => {
         const onEditTitle = vi.fn();
-        const items = openMenu({} as BoardApi, undefined, onEditTitle);
+        const items = openMenu({} as BoardApi, {}, onEditTitle);
 
         // Found by its icon: i18next is never initialised under test, so every title is undefined.
         const entry = items.find(item =>
@@ -62,6 +67,28 @@ describe("Board column context menu", () => {
 
         entry.handler?.(entry, {} as never);
         expect(onEditTitle).toHaveBeenCalled();
+    });
+
+    it("offers to archive a column, and to bring back one already archived", () => {
+        const api = { setColumnArchived: vi.fn() } as unknown as BoardApi;
+
+        const archive = openMenu(api).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-archive");
+        if (!archive || !("handler" in archive)) throw new Error("expected an archive entry");
+        archive.handler?.(archive, {} as never);
+        expect(api.setColumnArchived).toHaveBeenLastCalledWith("To Do", true);
+
+        const unarchive = openMenu(api, { archived: true }).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-archive-out");
+        if (!unarchive || !("handler" in unarchive)) throw new Error("expected an unarchive entry");
+        unarchive.handler?.(unarchive, {} as never);
+        expect(api.setColumnArchived).toHaveBeenLastCalledWith("To Do", false);
+    });
+
+    it("puts archiving above deleting, so the safe way out leads", () => {
+        const titled = openMenu({} as BoardApi).filter(item => item && "uiIcon" in item);
+        expect(titled.map(item => "uiIcon" in item ? item.uiIcon : undefined))
+            .toEqual([ "bx bx-edit-alt", "bx bx-archive", "bx bx-trash" ]);
     });
 
     it("shows the column's own colour as the selected one", async () => {
