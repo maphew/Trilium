@@ -52,6 +52,10 @@
    reliably part of the scrollable area across browsers. */
 .office-preview-body {
     padding: 15px;
+
+    img {
+        max-width: 100%;
+    }
 }
 
 .office-preview-scroll {
