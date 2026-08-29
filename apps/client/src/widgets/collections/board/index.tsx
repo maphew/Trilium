@@ -16,7 +16,7 @@ import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import { ViewModeProps } from "../interface";
-import Api from "./api";
+import Api, { PendingColumnWrites } from "./api";
 import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition } from "./columns";
 import Column from "./column";
@@ -120,7 +120,10 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ definitionRevision, setDefinitionRevision ] = useState(0);
     // A ref rather than state: `api` is rebuilt on every refresh, and the map has to outlive those
     // instances to cover a rename (see BoardApi#retireColumn). Mutating it must not re-render.
-    const pendingRenamesRef = useRef({ board: "", renames: new Map<string, string | undefined>() });
+    const pendingRenamesRef = useRef<{ board: string, writes: PendingColumnWrites }>({
+        board: "",
+        writes: { renames: new Map(), owners: new Map() }
+    });
     /** Names each refresh, so one the board has moved on from is discarded rather than applied. */
     const refreshSeqRef = useRef(0);
 
@@ -131,7 +134,10 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // Done while rendering, so the `api` built below is handed the map the refresh will read.
     const boardIdentity = `${parentNote.noteId}|${statusAttributeWithPrefix}`;
     if (pendingRenamesRef.current.board !== boardIdentity) {
-        pendingRenamesRef.current = { board: boardIdentity, renames: new Map() };
+        pendingRenamesRef.current = {
+            board: boardIdentity,
+            writes: { renames: new Map(), owners: new Map() }
+        };
         refreshSeqRef.current++;
     }
     const statusDefinition = useMemo(
@@ -140,7 +146,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const api = useMemo(() => {
         return new Api(
             byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {},
-            saveConfig, setBranchIdToEdit, pendingRenamesRef.current.renames, statusDefinition);
+            saveConfig, setBranchIdToEdit, pendingRenamesRef.current.writes, statusDefinition);
     }, [ byColumn, columns, parentNote, statusAttributeWithPrefix, viewConfig, saveConfig, setBranchIdToEdit, statusDefinition ]);
     // Every member is one of useState's own setters, so this value is built once and never changes
     // identity -- a drag cannot reach anything that reads only this.
@@ -188,12 +194,12 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
 
         getBoardData(
             parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived,
-            statusDefinition?.options ?? [], pendingRenamesRef.current.renames)
+            statusDefinition?.options ?? [], pendingRenamesRef.current.writes.renames)
             .then(({ byColumn, columns, newPersistedData, isInRelationMode, settledRenames }) => {
                 if (refreshId !== refreshSeqRef.current) return;
 
                 for (const settled of settledRenames) {
-                    pendingRenamesRef.current.renames.delete(settled);
+                    pendingRenamesRef.current.writes.renames.delete(settled);
                 }
 
                 setByColumn(byColumn);

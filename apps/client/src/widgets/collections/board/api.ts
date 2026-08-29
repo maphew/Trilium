@@ -15,6 +15,18 @@ import { BoardColumnData, BoardViewData } from ".";
 import { type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_GROUP_BY } from "./columns";
 import { ColumnMap } from "./data";
 
+/**
+ * The columns a board has in flight, and which write put each record there.
+ *
+ * The owner is what tells two writes apart, since what they leave behind need not: two readers of
+ * one board, or one reader twice over, can ask for the very same rename or deletion, and a record
+ * read only by name and value would then be given up by whichever of them failed first.
+ */
+export interface PendingColumnWrites {
+    renames: Map<string, string | undefined>;
+    owners: Map<string, object>;
+}
+
 export default class BoardApi {
 
     private isRelationMode: boolean;
@@ -30,7 +42,7 @@ export default class BoardApi {
         private viewConfig: BoardViewData,
         private saveConfig: (newConfig: BoardViewData) => void,
         private setBranchIdToEdit: (branchId: string | undefined) => void,
-        private pendingRenames: Map<string, string | undefined> = new Map(),
+        private pending: PendingColumnWrites = { renames: new Map(), owners: new Map() },
         private statusDefinition?: BoardStatusDefinition
     ) {
         this.isRelationMode = statusAttribute.startsWith("~");
@@ -110,7 +122,7 @@ export default class BoardApi {
 
         // Add the new column to persisted data if it doesn't exist
         if (columns.some(col => col.value === columnName)) return false;
-        this.pendingRenames.delete(columnName);
+        this.pending.renames.delete(columnName);
         this.storeColumns([ ...columns, { value: columnName } ]);
         return true;
     }
@@ -291,35 +303,39 @@ export default class BoardApi {
      *          flight, and put back those of one that has already failed.
      */
     private retireColumn(oldValue: string, newValue?: string) {
-        // A deletion is recorded as `undefined`, which is not the same as no record at all, so each
-        // key is remembered as a value and whether it was there — before this call and after it.
+        const { renames, owners } = this.pending;
+        // Stands for this call alone, so that the undo can tell its own records from any other
+        // write's, however alike the two look from the outside.
+        const owner = {};
+
+        // A deletion is recorded as `undefined`, which is not the same as no record at all, so what
+        // was there before is remembered as a value and whether there was one.
         const touched: {
             key: string;
             previous?: string;
             wasRecorded: boolean;
-            left?: string;
-            leftRecorded: boolean;
+            previousOwner?: object;
         }[] = [];
 
         const write = (key: string, value: string | undefined, record: boolean) => {
             touched.push({
                 key,
-                previous: this.pendingRenames.get(key),
-                wasRecorded: this.pendingRenames.has(key),
-                left: record ? value : undefined,
-                leftRecorded: record
+                previous: renames.get(key),
+                wasRecorded: renames.has(key),
+                previousOwner: owners.get(key)
             });
 
             if (record) {
-                this.pendingRenames.set(key, value);
+                renames.set(key, value);
             } else {
-                this.pendingRenames.delete(key);
+                renames.delete(key);
             }
+            owners.set(key, owner);
         };
 
         // A rename of a column whose own rename has not landed yet has to be followed through, or
         // the old value the stale sources still carry would resolve to a name that is itself gone.
-        for (const [ from, to ] of this.pendingRenames) {
+        for (const [ from, to ] of renames) {
             if (to === oldValue) {
                 write(from, newValue, true);
             }
@@ -334,16 +350,21 @@ export default class BoardApi {
         }
 
         return () => {
-            for (const { key, previous, wasRecorded, left, leftRecorded } of touched.reverse()) {
-                // Only what this call still owns is put back. A later rename may have taken the key
-                // over on its way past, and that record belongs to a write of its own.
-                if (this.pendingRenames.has(key) !== leftRecorded) continue;
-                if (leftRecorded && this.pendingRenames.get(key) !== left) continue;
+            for (const { key, previous, wasRecorded, previousOwner } of touched.reverse()) {
+                // Another write has taken the key over since, and its record is not this one's to
+                // put back.
+                if (owners.get(key) !== owner) continue;
 
                 if (wasRecorded) {
-                    this.pendingRenames.set(key, previous);
+                    renames.set(key, previous);
                 } else {
-                    this.pendingRenames.delete(key);
+                    renames.delete(key);
+                }
+
+                if (previousOwner) {
+                    owners.set(key, previousOwner);
+                } else {
+                    owners.delete(key);
                 }
             }
         };

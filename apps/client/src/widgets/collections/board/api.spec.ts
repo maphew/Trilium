@@ -12,7 +12,7 @@ import noteAttributeCache from "../../../services/note_attribute_cache";
 import server from "../../../services/server";
 import { buildNote } from "../../../test/easy-froca";
 import { BoardViewData } from ".";
-import BoardApi from "./api";
+import BoardApi, { PendingColumnWrites } from "./api";
 import { ColumnMap } from "./data";
 import { BOARD_TEMPLATE_ID, getStatusDefinition } from "./columns";
 
@@ -57,7 +57,7 @@ function createApi(
     const board = parentNote ?? buildNote({ title: "Board" });
     const saved: BoardViewData[] = [];
     const editing: (string | undefined)[] = [];
-    const pendingRenames = new Map<string, string | undefined>();
+    const pending: PendingColumnWrites = { renames: new Map(), owners: new Map() };
     const api = new BoardApi(
         byColumn,
         columns,
@@ -66,10 +66,10 @@ function createApi(
         viewConfig,
         (newConfig) => saved.push(newConfig),
         (branchId) => editing.push(branchId),
-        pendingRenames,
+        pending,
         getStatusDefinition(board, statusAttribute)
     );
-    return { api, saved, editing, pendingRenames };
+    return { api, saved, editing, pendingRenames: pending.renames };
 }
 
 describe("BoardApi column mutations", () => {
@@ -319,6 +319,32 @@ describe("BoardApi column mutations", () => {
         await expect(failing).rejects.toThrow("offline");
         expect([ ...pendingRenames ])
             .toEqual([ [ "Done", "Delivered" ], [ "Shipped", "Delivered" ] ]);
+
+        releaseSecond();
+        await running;
+    });
+
+    /**
+     * Two writes can ask for exactly the same thing, and what they leave behind is then the same
+     * record. Only the owner tells them apart, so the one that fails cannot take back the other's.
+     */
+    it("leaves an identical record made by another write alone when one fails", async () => {
+        const { api, pendingRenames } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]
+        );
+
+        let releaseSecond = () => {};
+        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
+        vi.mocked(executeBulkActions).mockImplementationOnce(
+            () => new Promise<void>((resolve) => { releaseSecond = resolve; }));
+
+        // The same column, deleted twice over before either has answered.
+        const failing = api.removeColumn("Done");
+        const running = api.removeColumn("Done");
+
+        await expect(failing).rejects.toThrow("offline");
+        expect([ ...pendingRenames ]).toEqual([ [ "Done", undefined ] ]);
 
         releaseSecond();
         await running;
