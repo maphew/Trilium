@@ -378,6 +378,13 @@ export function getCellDocumentText(cell: ICellData | undefined): string {
     return getCellDocumentSegments(cell).map((segment) => segment.text).join("");
 }
 
+/** Whether a cell shows anything. A cell carrying only a style is empty, as it is in the editor. */
+export function hasContent(cell: ICellData | undefined): boolean {
+    if (!cell) return false;
+    if (cell.v != null && cell.v !== "") return true;
+    return getCellDocumentText(cell) !== "";
+}
+
 /**
  * Builds the rich-text document Univer stores for a hyperlinked cell: the text terminated by a
  * paragraph and a section break, plus one custom range covering it. `rangeId` identifies the link

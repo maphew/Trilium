@@ -24,6 +24,7 @@ import {
     getCellDocumentText,
     getFloatingDrawings,
     getVisibleSheets,
+    hasContent,
     HorizontalAlign,
     type IBorderData,
     type IBorderStyleData,
@@ -1154,13 +1155,6 @@ function holdsSomething(cell: ICellData, styles: Record<string, IStyleData | nul
 
     const borders = resolveCellStyle(cell.s, styles)?.bd;
     return Boolean(borders && (borders.t?.s || borders.r?.s || borders.b?.s || borders.l?.s));
-}
-
-/** Whether a cell shows anything. A cell carrying only a style is empty, as it is in the editor. */
-function hasContent(cell: ICellData | undefined): boolean {
-    if (!cell) return false;
-    if (cell.v != null && cell.v !== "") return true;
-    return getCellDocumentText(cell) !== "";
 }
 
 /**
