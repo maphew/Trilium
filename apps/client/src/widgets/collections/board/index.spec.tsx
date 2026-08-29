@@ -3,7 +3,7 @@
  * view is re-entered, and a subsequent column reorder then deletes it again.
  */
 import { render } from "preact";
-import { useCallback, useState } from "preact/hooks";
+import { useCallback, useEffect, useState } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -16,7 +16,10 @@ import BoardView, { BoardViewData } from ".";
 // Stands in for the server: by the time the bulk action resolves, the notes carry the new value,
 // which is what makes the old column empty rather than merely renamed.
 vi.mock("../../../services/bulk_action", () => ({
-    executeBulkActions: vi.fn(async (noteIds: string[], actions: { name: string, labelName?: string, labelValue?: string }[]) => {
+    executeBulkActions: vi.fn(async (
+        noteIds: string[],
+        actions: { name: string, labelName?: string, labelValue?: string }[]
+    ) => {
         for (const noteId of noteIds) {
             for (const attribute of froca.getNoteFromCache(noteId)?.getAttributes() ?? []) {
                 for (const action of actions) {
@@ -47,6 +50,12 @@ function Harness({ note, noteIds, initialConfig }: { note: ReturnType<typeof bui
         saved.push(config);
         setState({ config });
     }, []);
+
+    // `useViewModeConfig` restores the config of whichever note it is handed, so a board shown
+    // after another starts from its own. The board itself is not remounted, which is the point.
+    useEffect(() => {
+        setState({ config: initialConfig });
+    }, [ note ]);
 
     return (
         <BoardView
@@ -221,6 +230,45 @@ describe("Board column rename", () => {
         expect(columnTitles(container)).toEqual([ "To Do", "In Progress", "Done" ]);
         expect(saved.at(-1)?.columns?.map(c => c.value))
             .toEqual([ "To Do", "In Progress", "Done" ]);
+    });
+
+    /**
+     * `NoteList` renders the view unkeyed, so the board the user moves to is the same component
+     * instance. A rename still pending on the one they left must not rewrite a column here that
+     * happens to carry the old name.
+     */
+    it("does not carry a pending rename over to the next board", async () => {
+        const { container } = await setup();
+        await renameSecondColumn(container, "In Progress");
+
+        const other = buildNote({
+            title: "Other board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status(inheritable)":
+                "promoted,alias=Status,single,select,options=Doing;Shipped",
+            children: [
+                { id: "ocard1", title: "Fourth", "#status": "Doing" },
+                { id: "ocard2", title: "Fifth", "#status": "Shipped" }
+            ]
+        });
+
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={other}
+                        noteIds={[ "ocard1", "ocard2" ]}
+                        initialConfig={{ columns: [ { value: "Doing" }, { value: "Shipped" } ] }}
+                    />
+                </ParentComponent.Provider>,
+                container
+            );
+            await flush();
+        });
+        await act(async () => { await flush(); });
+
+        expect(columnTitles(container)).toEqual([ "Doing", "Shipped" ]);
     });
 
     it("keeps the cards of the renamed column under it", async () => {

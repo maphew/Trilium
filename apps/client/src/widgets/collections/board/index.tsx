@@ -168,6 +168,14 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             });
     }
 
+    // A pending rename belongs to the board and the grouping it was made on. `NoteList` renders the
+    // view unkeyed, so moving to another board reuses this instance and the ref would otherwise
+    // carry the rename over and rewrite a column of the same name there. Declared ahead of the
+    // refresh below, which is what makes it run first when both fire on the same change.
+    useEffect(() => {
+        pendingRenamesRef.current.clear();
+    }, [ parentNote, statusAttributeWithPrefix ]);
+
     useEffect(refresh, [ parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition ]);
 
     const handleColumnDrop = useCallback((fromIndex: number, toIndex: number) => {

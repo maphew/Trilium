@@ -86,7 +86,7 @@ export default class BoardApi {
         const action: BulkAction = this.isRelationMode
             ? { name: "deleteRelation", relationName: this.statusAttribute }
             : { name: "deleteLabel", labelName: this.statusAttribute };
-        await executeBulkActions(noteIds, [ action ]);
+        await executeBulkActions(noteIds, [ action ], { silent: true });
         this.storeColumns((this.viewConfig?.columns ?? []).filter(col => col.value !== column));
     }
 
@@ -99,7 +99,7 @@ export default class BoardApi {
         const action: BulkAction = this.isRelationMode
             ? { name: "updateRelationTarget", relationName: this.statusAttribute, targetNoteId: newValue }
             : { name: "updateLabelValue", labelName: this.statusAttribute, labelValue: newValue };
-        await executeBulkActions(noteIds, [ action ]);
+        await executeBulkActions(noteIds, [ action ], { silent: true });
 
         // Rename the column in the persisted data.
         this.storeColumns((this.viewConfig?.columns ?? [])

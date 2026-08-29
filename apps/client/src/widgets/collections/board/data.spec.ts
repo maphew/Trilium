@@ -32,7 +32,7 @@ describe("Board data", () => {
     });
     /**
      * The notes, the view config and the definition are written one at a time, so a refresh in
-     * between reads a source that still offers the old value. Resolution being additive, anything it
+     * between reads a source that still offers the old value. Resolution being additive, what it
      * picks up there is persisted and can never be dropped again, leaving an empty column behind.
      */
     describe("a column being renamed or deleted", () => {
@@ -76,7 +76,8 @@ describe("Board data", () => {
             );
 
             expect(data.columns).toEqual([ "To Do", "Shipped" ]);
-            expect(data.newPersistedData?.columns?.map(c => c.value)).toEqual([ "To Do", "Shipped" ]);
+            expect(data.newPersistedData?.columns?.map(c => c.value))
+                .toEqual([ "To Do", "Shipped" ]);
         });
 
         it("keeps the renamed column where the old name stood", async () => {
@@ -124,7 +125,27 @@ describe("Board data", () => {
                 .toEqual([ "First", "Second" ]);
         });
 
-        it("is forgotten once every source has caught up, so the name can be used again", async () => {
+        it("does not fold the cards of a deleted column into another one", async () => {
+            const board = buildNote({
+                title: "Board",
+                "#collection": "",
+                "#viewType": "board",
+                children: [
+                    { title: "First", "#status": "Shipped" },
+                    { title: "Second", "#status": "Done" }
+                ]
+            });
+
+            const data = await getBoardData(
+                board, "status", { columns: [ { value: "Shipped" } ] }, false, [],
+                new Map([ [ "Done", undefined ] ])
+            );
+
+            expect(data.columns).toEqual([ "Shipped" ]);
+            expect(data.byColumn.get("Shipped")?.map(item => item.note.title)).toEqual([ "First" ]);
+        });
+
+        it("is forgotten once every source has caught up, freeing the name", async () => {
             const pending = new Map([ [ "Done", "Shipped" ] ]);
             await getBoardData(
                 buildBoard(),
