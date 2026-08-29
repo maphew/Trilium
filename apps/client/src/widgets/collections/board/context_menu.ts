@@ -28,13 +28,13 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
         y: event.pageY,
         items: [
             {
-                title: t("board_view.edit-column-title"),
+                title: t("board_view.rename-column"),
                 uiIcon: "bx bx-edit-alt",
                 handler: column.onEditTitle
             },
             { kind: "separator" },
             {
-                title: t("board_view.new-item"),
+                title: t("board_view.add-new-item"),
                 uiIcon: "bx bx-plus",
                 handler: column.onNewItem
             },
