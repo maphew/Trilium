@@ -16,7 +16,7 @@ import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import { ViewModeProps } from "../interface";
-import Api, { PendingColumnWrites } from "./api";
+import Api, { PendingColumnWrites, settleColumn } from "./api";
 import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition } from "./columns";
 import Column from "./column";
@@ -122,7 +122,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // instances to cover a rename (see BoardApi#retireColumn). Mutating it must not re-render.
     const pendingRenamesRef = useRef<{ board: string, writes: PendingColumnWrites }>({
         board: "",
-        writes: { renames: new Map(), owners: new Map() }
+        writes: { renames: new Map(), claims: new Map() }
     });
     /** Names each refresh, so one the board has moved on from is discarded rather than applied. */
     const refreshSeqRef = useRef(0);
@@ -136,7 +136,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     if (pendingRenamesRef.current.board !== boardIdentity) {
         pendingRenamesRef.current = {
             board: boardIdentity,
-            writes: { renames: new Map(), owners: new Map() }
+            writes: { renames: new Map(), claims: new Map() }
         };
         refreshSeqRef.current++;
     }
@@ -199,7 +199,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                 if (refreshId !== refreshSeqRef.current) return;
 
                 for (const settled of settledRenames) {
-                    pendingRenamesRef.current.writes.renames.delete(settled);
+                    settleColumn(pendingRenamesRef.current.writes, settled);
                 }
 
                 setByColumn(byColumn);

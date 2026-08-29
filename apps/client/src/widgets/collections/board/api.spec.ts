@@ -57,7 +57,7 @@ function createApi(
     const board = parentNote ?? buildNote({ title: "Board" });
     const saved: BoardViewData[] = [];
     const editing: (string | undefined)[] = [];
-    const pending: PendingColumnWrites = { renames: new Map(), owners: new Map() };
+    const pending: PendingColumnWrites = { renames: new Map(), claims: new Map() };
     const api = new BoardApi(
         byColumn,
         columns,
@@ -322,6 +322,33 @@ describe("BoardApi column mutations", () => {
 
         releaseSecond();
         await running;
+    });
+
+    /**
+     * Both writes ask for the same thing and both fail, the earlier one first. Its undo rightly
+     * leaves the record alone, the later write still having it; the later undo must then take the
+     * record away rather than put back what the earlier one left, which nothing is going to answer
+     * for any more.
+     */
+    it("leaves no record behind when two identical writes both fail", async () => {
+        const { api, pendingRenames } = createApi({ columns: [ { value: "Done" } ] }, [ "Done" ]);
+
+        let failSecond = (_: Error) => {};
+        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
+        vi.mocked(executeBulkActions).mockImplementationOnce(
+            () => new Promise<void>((_, reject) => { failSecond = reject; }));
+
+        const first = api.renameColumn("Done", "Shipped");
+        const second = api.renameColumn("Done", "Shipped");
+
+        await expect(first).rejects.toThrow("offline");
+        expect([ ...pendingRenames ]).toEqual([ [ "Done", "Shipped" ] ]);
+
+        failSecond(new Error("offline"));
+        await expect(second).rejects.toThrow("offline");
+
+        // Neither rename landed, so the board has to read the column as it stands.
+        expect([ ...pendingRenames ]).toEqual([]);
     });
 
     /**

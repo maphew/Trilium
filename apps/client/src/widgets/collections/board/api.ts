@@ -15,16 +15,35 @@ import { BoardColumnData, BoardViewData } from ".";
 import { type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_GROUP_BY } from "./columns";
 import { ColumnMap } from "./data";
 
+/** One write's claim on a column, held until that write lands or is taken back. */
+interface ColumnClaim {
+    /**
+     * Stands for the write that made the claim, since what two writes leave behind need not tell
+     * them apart: one board read twice over can ask for the very same rename or deletion.
+     */
+    owner: object;
+    value: string | undefined;
+    /** Whether a record is left at all, as against the column being left to read as it stands. */
+    records: boolean;
+}
+
 /**
- * The columns a board has in flight, and which write put each record there.
+ * The columns a board has in flight.
  *
- * The owner is what tells two writes apart, since what they leave behind need not: two readers of
- * one board, or one reader twice over, can ask for the very same rename or deletion, and a record
- * read only by name and value would then be given up by whichever of them failed first.
+ * Every write claims the columns it touches, and `renames` is what the last claim on each says.
+ * Claims are kept rather than a value and its predecessor because writes finish in any order: one
+ * taken back from under another leaves the one above it standing, and a column with no claims left
+ * has no record at all, whichever of the two failed first.
  */
 export interface PendingColumnWrites {
     renames: Map<string, string | undefined>;
-    owners: Map<string, object>;
+    claims: Map<string, ColumnClaim[]>;
+}
+
+/** Drops the record of a column the board now reads the same way from every source. */
+export function settleColumn(pending: PendingColumnWrites, column: string) {
+    pending.renames.delete(column);
+    pending.claims.delete(column);
 }
 
 export default class BoardApi {
@@ -42,7 +61,7 @@ export default class BoardApi {
         private viewConfig: BoardViewData,
         private saveConfig: (newConfig: BoardViewData) => void,
         private setBranchIdToEdit: (branchId: string | undefined) => void,
-        private pending: PendingColumnWrites = { renames: new Map(), owners: new Map() },
+        private pending: PendingColumnWrites = { renames: new Map(), claims: new Map() },
         private statusDefinition?: BoardStatusDefinition
     ) {
         this.isRelationMode = statusAttribute.startsWith("~");
@@ -122,7 +141,7 @@ export default class BoardApi {
 
         // Add the new column to persisted data if it doesn't exist
         if (columns.some(col => col.value === columnName)) return false;
-        this.pending.renames.delete(columnName);
+        settleColumn(this.pending, columnName);
         this.storeColumns([ ...columns, { value: columnName } ]);
         return true;
     }
@@ -298,39 +317,29 @@ export default class BoardApi {
      * {@link getBoardData} clears the record once no source lists the old value.
      *
      * @param newValue the name that replaced it, or `undefined` where the column was deleted.
-     * @returns a function putting back exactly the records this call touched. Restoring a copy of
-     *          the whole map instead would take back the records of another mutation still in
-     *          flight, and put back those of one that has already failed.
+     * @returns a function taking back exactly the claims this call made, leaving those of any write
+     *          still in flight to say what the column reads as.
      */
     private retireColumn(oldValue: string, newValue?: string) {
-        const { renames, owners } = this.pending;
-        // Stands for this call alone, so that the undo can tell its own records from any other
-        // write's, however alike the two look from the outside.
+        const { renames, claims } = this.pending;
         const owner = {};
+        const touched: string[] = [];
 
-        // A deletion is recorded as `undefined`, which is not the same as no record at all, so what
-        // was there before is remembered as a value and whether there was one.
-        const touched: {
-            key: string;
-            previous?: string;
-            wasRecorded: boolean;
-            previousOwner?: object;
-        }[] = [];
-
-        const write = (key: string, value: string | undefined, record: boolean) => {
-            touched.push({
-                key,
-                previous: renames.get(key),
-                wasRecorded: renames.has(key),
-                previousOwner: owners.get(key)
-            });
-
-            if (record) {
-                renames.set(key, value);
+        // The last claim on a column is the one the board reads, so this runs after every claim
+        // made and every claim taken back. A column no write claims any longer has no record.
+        const restate = (key: string) => {
+            const claim = claims.get(key)?.at(-1);
+            if (claim?.records) {
+                renames.set(key, claim.value);
             } else {
                 renames.delete(key);
             }
-            owners.set(key, owner);
+        };
+
+        const write = (key: string, value: string | undefined, records: boolean) => {
+            claims.set(key, [ ...claims.get(key) ?? [], { owner, value, records } ]);
+            touched.push(key);
+            restate(key);
         };
 
         // A rename of a column whose own rename has not landed yet has to be followed through, or
@@ -350,22 +359,16 @@ export default class BoardApi {
         }
 
         return () => {
-            for (const { key, previous, wasRecorded, previousOwner } of touched.reverse()) {
-                // Another write has taken the key over since, and its record is not this one's to
-                // put back.
-                if (owners.get(key) !== owner) continue;
+            for (const key of touched) {
+                const stack = claims.get(key);
+                const at = stack?.findIndex(claim => claim.owner === owner) ?? -1;
+                if (!stack || at < 0) continue;
 
-                if (wasRecorded) {
-                    renames.set(key, previous);
-                } else {
-                    renames.delete(key);
+                stack.splice(at, 1);
+                if (!stack.length) {
+                    claims.delete(key);
                 }
-
-                if (previousOwner) {
-                    owners.set(key, previousOwner);
-                } else {
-                    owners.delete(key);
-                }
+                restate(key);
             }
         };
     }
