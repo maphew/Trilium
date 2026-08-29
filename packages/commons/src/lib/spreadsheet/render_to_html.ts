@@ -225,8 +225,13 @@ class StyleClasses {
         for (const [declarations, name] of this.names) {
             if (fold?.declarations === declarations) continue;
 
+            // A completed rule says something only true of the workbook that folded it, while its
+            // name comes from the declarations it started with — so two workbooks sharing a style
+            // would write one selector twice with different bodies. Completed rules take the same
+            // scope the default does; the rest stay global, which is what lets them be shared.
             const completion = fold?.completions.get(declarations);
-            rules.push(`.spreadsheet-table .${name}{${declarations}${completion ? `;${completion}` : ""}}`);
+            const scope = completion ? `:where(.${fold?.scope})` : "";
+            rules.push(`.spreadsheet-table${scope} .${name}{${declarations}${completion ? `;${completion}` : ""}}`);
         }
         return rules;
     }

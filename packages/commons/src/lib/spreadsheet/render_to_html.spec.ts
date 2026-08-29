@@ -16,7 +16,7 @@ function withInlineStyles(html: string): string {
     if (!stylesheet) return html;
 
     const declarations = new Map<string, string>();
-    for (const rule of stylesheet[1].matchAll(/\.spreadsheet-table \.([\w-]+)\{([^}]*)\}/g)) {
+    for (const rule of stylesheet[1].matchAll(/\.spreadsheet-table(?::where\(\.[\w-]+\))? \.([\w-]+)\{([^}]*)\}/g)) {
         declarations.set(rule[1], withoutThemedColors(rule[2]));
     }
     // The renderer folds the commonest cell style into a `td` default, leaving those cells without
@@ -2590,7 +2590,7 @@ describe("style deduplication", () => {
         expect(html).toMatch(/\.spreadsheet-table:where\(\.sstd-[\w-]+\) td\{[^}]*font-weight:bold/);
 
         // The minority style keeps a class, used by the one cell that has it.
-        const name = /\.spreadsheet-table \.(sst-[\w-]+)\{font-style:italic/.exec(html)?.[1];
+        const name = /\.spreadsheet-table(?::where\(\.[\w-]+\))? \.(sst-[\w-]+)\{font-style:italic/.exec(html)?.[1];
         expect(name).toBeTruthy();
         expect(html.match(new RegExp(`class="${name}"`, "g"))).toHaveLength(1);
     });
@@ -2618,7 +2618,8 @@ describe("style deduplication", () => {
 
     it("names a class after its declarations, so two documents share rather than collide", () => {
         // Bold dominates in both, so italic is the one left carrying a class.
-        const nameIn = (html: string) => /\.spreadsheet-table \.(sst-[\w-]+)\{font-style:italic/.exec(html)?.[1];
+        const nameIn = (html: string) =>
+            /\.spreadsheet-table(?::where\(\.[\w-]+\))? \.(sst-[\w-]+)\{font-style:italic/.exec(html)?.[1];
         const one = renderRaw(gridWorkbook(rows(bold, bold, italic)));
         const other = renderRaw(gridWorkbook(rows(bold, bold, italic, bold)));
 
@@ -2626,7 +2627,8 @@ describe("style deduplication", () => {
         expect(nameIn(one)).toBe(nameIn(other));
         // A different declaration gets a different name.
         const underlined = renderRaw(gridWorkbook(rows(bold, bold, { v: "y", t: 1, s: { ul: { s: 1 } } })));
-        expect(nameIn(one)).not.toBe(/\.spreadsheet-table \.(sst-[\w-]+)\{text-decoration/.exec(underlined)?.[1]);
+        expect(nameIn(one)).not.toBe(
+            /\.spreadsheet-table(?::where\(\.[\w-]+\))? \.(sst-[\w-]+)\{text-decoration/.exec(underlined)?.[1]);
     });
 
     it("keeps has-fill alongside the generated class, and emits no stylesheet for an empty sheet", () => {
@@ -2654,7 +2656,27 @@ describe("style deduplication", () => {
             const html = renderRaw(gridWorkbook(rows(bold, bold, italic)));
 
             expect(html).toMatch(/\.spreadsheet-table:where\(\.sstd-[\w-]+\) td\{[^}]*font-weight:bold/);
-            expect(html).toMatch(/\.spreadsheet-table \.sst-[\w-]+\{[^}]*font-style:italic[^}]*font-weight:inherit\}/);
+            expect(html).toMatch(
+                /\.spreadsheet-table:where\(\.sstd-[\w-]+\) \.sst-[\w-]+\{[^}]*font-style:italic[^}]*font-weight:inherit\}/);
+        });
+
+        it("scopes a completed rule, so two workbooks sharing a style do not collide", () => {
+            // Both fold something different, and both complete the same italic style — which is
+            // named after the declarations it started with, so the two would otherwise write one
+            // selector twice with different bodies.
+            const red = { v: "x", t: 1, s: { cl: { rgb: "#FF0000" } } };
+            const italicRule = (html: string) =>
+                [...html.matchAll(/(\.spreadsheet-table[^{]*\.sst-[\w-]+)\{([^}]*)\}/g)]
+                    .find((match) => match[2].includes("font-style:italic"));
+
+            const bolds = italicRule(renderRaw(gridWorkbook(rows(bold, bold, bold, italic))));
+            const reds = italicRule(renderRaw(gridWorkbook(rows(red, red, red, italic))));
+
+            expect(bolds?.[2]).toContain("font-weight:inherit");
+            expect(reds?.[2]).toContain("color:inherit");
+            // Same class, different rule: the selectors have to tell them apart.
+            expect(bolds?.[0]).not.toBe(reds?.[0]);
+            expect(bolds?.[0]).toMatch(/\.spreadsheet-table:where\(\.sstd-[\w-]+\) \.sst-/);
         });
 
         it("declines when a rule would inherit a property that cannot be reset", () => {
