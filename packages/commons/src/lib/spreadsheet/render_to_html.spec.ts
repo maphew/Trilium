@@ -22,7 +22,8 @@ function withInlineStyles(html: string): string {
     // The renderer folds the commonest cell style into a `td` default, leaving those cells without
     // a class; every other rule sets what the default does, so a classed cell resolves to its rule
     // alone. Putting the default back on the bare cells is what the browser works out.
-    const fallback = withoutThemedColors(/\.spreadsheet-table td\{([^}]*)\}/.exec(stylesheet[1])?.[1] ?? "");
+    const fallback = withoutThemedColors(
+        /\.spreadsheet-table(?::where\(\.[\w-]+\))? td\{([^}]*)\}/.exec(stylesheet[1])?.[1] ?? "");
 
     const body = html.slice(stylesheet[0].length).replace(/ class="([^"]*)"/g, (_whole, names: string) => {
         const kept: string[] = [];
@@ -1706,7 +1707,7 @@ describe("renderSpreadsheetToHtml", () => {
         const html = renderSpreadsheetToHtml(
             singleCellWorkbook({ v: "x" }, { showGridlines: 1 })
         );
-        expect(html).toContain('<table class="spreadsheet-table show-gridlines" style="width:88px">');
+        expect(html).toMatch(/<table class="spreadsheet-table[^"]*\bshow-gridlines\b[^"]*" style="width:88px">/);
     });
 
     it("emits an explicit fixed table width summing the visible column widths", () => {
@@ -1778,14 +1779,14 @@ describe("renderSpreadsheetToHtml", () => {
     it("shows gridlines by default when showGridlines is absent (editor default)", () => {
         // singleCellWorkbook does not set showGridlines.
         const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x" }));
-        expect(html).toContain("spreadsheet-table show-gridlines");
+        expect(html).toMatch(/<table class="spreadsheet-table[^"]*\bshow-gridlines\b/);
     });
 
     it("omits show-gridlines when the sheet hides gridlines", () => {
         const html = renderSpreadsheetToHtml(
             singleCellWorkbook({ v: "x" }, { showGridlines: 0 })
         );
-        expect(html).toContain('<table class="spreadsheet-table" style="width:88px">');
+        expect(html).toMatch(/<table class="spreadsheet-table[^"]*" style="width:88px">/);
         expect(html).not.toContain("show-gridlines");
     });
 
@@ -2586,7 +2587,7 @@ describe("style deduplication", () => {
         // One rule for the three bold cells, not three copies of the declaration. Being the
         // commonest style they carry, it is written as the folded `td` default.
         expect(html.match(/font-weight:bold/g)).toHaveLength(1);
-        expect(html).toMatch(/\.spreadsheet-table td\{[^}]*font-weight:bold/);
+        expect(html).toMatch(/\.spreadsheet-table:where\(\.sstd-[\w-]+\) td\{[^}]*font-weight:bold/);
 
         // The minority style keeps a class, used by the one cell that has it.
         const name = /\.spreadsheet-table \.(sst-[\w-]+)\{font-style:italic/.exec(html)?.[1];
@@ -2601,7 +2602,7 @@ describe("style deduplication", () => {
         for (const rule of stylesheet.split("}").map((r) => r.trim()).filter(Boolean)) {
             // Cell rules, the folded `td` default, and the gridline rule whose context sits in
             // :where(); none of them can match anything outside a rendered sheet.
-            expect(rule).toMatch(/^(\.spreadsheet-table (\.sst-|td\{)|:where\(\.spreadsheet-table)/);
+            expect(rule).toMatch(/^(\.spreadsheet-table(:where\(\.[\w-]+\))? (\.sst-|td\{)|:where\(\.spreadsheet-table)/);
         }
     });
 
@@ -2640,7 +2641,7 @@ describe("style deduplication", () => {
         it("drops the class from the cells that used it, keeping it on the rest", () => {
             const html = renderRaw(gridWorkbook(rows(bold, bold, bold, italic)));
 
-            expect(html).toMatch(/\.spreadsheet-table td\{[^}]*font-weight:bold/);
+            expect(html).toMatch(/\.spreadsheet-table:where\(\.sstd-[\w-]+\) td\{[^}]*font-weight:bold/);
             // Three bare cells for the folded style, one still classed for the other.
             expect(html.match(/<td>/g)).toHaveLength(3);
             expect(html.match(/<td class="sst-[\w-]+">/g)).toHaveLength(1);
@@ -2652,7 +2653,7 @@ describe("style deduplication", () => {
             // what no declaration at all would have computed to.
             const html = renderRaw(gridWorkbook(rows(bold, bold, italic)));
 
-            expect(html).toMatch(/\.spreadsheet-table td\{[^}]*font-weight:bold/);
+            expect(html).toMatch(/\.spreadsheet-table:where\(\.sstd-[\w-]+\) td\{[^}]*font-weight:bold/);
             expect(html).toMatch(/\.spreadsheet-table \.sst-[\w-]+\{[^}]*font-style:italic[^}]*font-weight:inherit\}/);
         });
 
@@ -2662,7 +2663,7 @@ describe("style deduplication", () => {
             const filled = { v: "x", t: 1, s: { bg: { rgb: "#FFE699" } } };
             const html = renderRaw(gridWorkbook(rows(filled, filled, filled, bold)));
 
-            expect(html).not.toContain(".spreadsheet-table td{");
+            expect(html).not.toMatch(/\.spreadsheet-table(?::where\(\.[\w-]+\))? td\{/);
             expect(html).toMatch(/<td class="has-fill sst-[\w-]+"/);
         });
 
@@ -2675,7 +2676,7 @@ describe("style deduplication", () => {
                 "1": { "0": bold }
             }));
 
-            expect(html).not.toContain(".spreadsheet-table td{");
+            expect(html).not.toMatch(/\.spreadsheet-table(?::where\(\.[\w-]+\))? td\{/);
             expect(html).toContain("<td></td>");
         });
     });

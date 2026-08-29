@@ -81,20 +81,21 @@ export function renderSpreadsheetToHtml(content: string | PersistedData): string
     // and put in front, where a consumer that has to lift it out finds it without a parse.
     const fold = classes.fold();
     const stylesheet = buildStylesheet(visibleSheets, classes, fold);
-    const body = fold ? dropFoldedClass(parts.join("\n"), fold.className) : parts.join("\n");
+    const body = fold ? applyFold(parts.join("\n"), fold) : parts.join("\n");
 
     return stylesheet ? `${stylesheet}\n${body}` : body;
 }
 
 /**
- * Removes the class the `td` default now carries from the cells that were given it. Rows and
- * columns keep theirs: the default reaches cells only, and a track never shares a cell's
- * declarations (one sizes itself, the other styles its contents).
+ * Marks the tables the `td` default applies to, and takes the class it replaces off the cells that
+ * were given it. Rows and columns keep theirs: the default reaches cells only, and a track never
+ * shares a cell's declarations (one sizes itself, the other styles its contents).
  */
-function dropFoldedClass(html: string, className: string): string {
+function applyFold(html: string, fold: Fold): string {
     return html
-        .replaceAll(`<td class="${className}"`, "<td")
-        .replaceAll(`<td class="has-fill ${className}"`, `<td class="has-fill"`);
+        .replaceAll(`<table class="spreadsheet-table`, `<table class="spreadsheet-table ${fold.scope}`)
+        .replaceAll(`<td class="${fold.className}"`, "<td")
+        .replaceAll(`<td class="has-fill ${fold.className}"`, `<td class="has-fill"`);
 }
 
 /**
@@ -105,8 +106,9 @@ function dropFoldedClass(html: string, className: string): string {
 function buildStylesheet(sheets: IWorksheetData[], classes: StyleClasses, fold: Fold | null): string {
     const rules = sheets.some((sheet) => sheet.showGridlines !== 0) ? [GRIDLINE_RULE] : [];
     // After the gridline rule, so a folded border wins the way a cell's own border does, and
-    // before the class rules, which are more specific and override it per cell.
-    if (fold) rules.push(`.spreadsheet-table td{${fold.declarations}}`);
+    // before the class rules, which are more specific and override it per cell. The scope sits in
+    // `:where()` so it costs no specificity, leaving those two comparisons as they were.
+    if (fold) rules.push(`.spreadsheet-table:where(.${fold.scope}) td{${fold.declarations}}`);
     rules.push(...classes.toRules(fold));
 
     return rules.length ? `<style>\n${rules.join("\n")}\n</style>` : "";
@@ -200,7 +202,12 @@ class StyleClasses {
             if (missing.length) completions.set(other, missing.join(";"));
         }
 
-        return { declarations, className: this.nameFor(declarations), completions };
+        return {
+            declarations,
+            className: this.nameFor(declarations),
+            scope: `sstd-${hashDeclarations(declarations)}`,
+            completions
+        };
     }
 
     /**
@@ -239,6 +246,14 @@ interface Fold {
     declarations: string;
     /** The class the folded cells would otherwise carry, which is stripped from them. */
     className: string;
+    /**
+     * The class this document's tables take, which the default is scoped to. Two workbooks shown
+     * together each add their own stylesheet to the one page, so an unscoped `.spreadsheet-table
+     * td` rule would style the other's cells as well — and the cells it folded have no class of
+     * their own left to say otherwise. Deriving it from the declarations keeps the sharing that
+     * every other rule here relies on: two workbooks folding the same style scope to one class.
+     */
+    scope: string;
     /** Declarations of other rules, mapped to what has to be appended to keep them intact. */
     completions: Map<string, string>;
 }

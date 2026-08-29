@@ -113,4 +113,35 @@ describe("spreadsheet preview styling", () => {
         expect(getComputedStyle(classed).fontStyle).toBe("italic");
         expect(getComputedStyle(classed).fontWeight).not.toBe("bold");
     });
+
+    it("keeps one workbook's folded default off another shown beside it", () => {
+        // Split view puts two previews on one page, each adding its own stylesheet. The folded
+        // cells have no class left to say which default is theirs, so the rule has to name it.
+        const sheet = (cell: Record<string, unknown>) => JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"], styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1", name: "S", hidden: 0, rowCount: 10, columnCount: 5, showGridlines: 0,
+                        mergeData: [], cellData: { "0": { "0": cell }, "1": { "0": cell } },
+                        rowData: {}, columnData: {}
+                    }
+                }
+            }
+        });
+
+        document.head.innerHTML = "";
+        document.body.innerHTML =
+            `<div id="bold">${renderSpreadsheetToHtml(sheet({ v: "a", t: 1, s: { bl: 1 } }))}</div>`
+            + `<div id="italic">${renderSpreadsheetToHtml(sheet({ v: "b", t: 1, s: { it: 1 } }))}</div>`;
+
+        const bold = getComputedStyle(document.querySelector("#bold td") as Element);
+        const italic = getComputedStyle(document.querySelector("#italic td") as Element);
+
+        expect(bold.fontWeight).toBe("bold");
+        expect(bold.fontStyle).not.toBe("italic");
+        expect(italic.fontStyle).toBe("italic");
+        expect(italic.fontWeight).not.toBe("bold");
+    });
 });
