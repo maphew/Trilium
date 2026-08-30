@@ -412,7 +412,7 @@
     "multiSelectNote": "複数選択に上/下のノートを追加",
     "selectAllNotes": "現在のレベルのノートをすべて選択",
     "selectNote": "ノートを選択",
-    "copyNotes": "アクティブなノート（または現在の選択範囲）をクリップボードにコピーする (<a class=\"external\" href=\"https://triliumnext.github.io/Docs/Wiki/cloning-notes.html#cloning-notes\">クローン</a>に使用)",
+    "copyNotes": "アクティブなノート（または現在の選択範囲）をクリップボードにコピーする ( <a class=\"external\" href=\"https://triliumnext.github.io/Docs/Wiki/cloning-notes.html#cloning-notes\">クローン</a> に使用)",
     "cutNotes": "アクティブなノート（または現在の選択範囲）をクリップボードに切り取り（ノートの移動に使用）",
     "pasteNotes": "ノートをサブノートとしてアクティブノートに貼り付ける（コピーされたか切り取りされたかに よって、移動またはクローンになる）",
     "deleteNotes": "ノート/サブツリーを削除",
@@ -1158,7 +1158,7 @@
   },
   "custom_date_time_format": {
     "title": "日付/時刻の形式",
-    "description": "<shortcut />またはツールバーから挿入される日付と時刻のフォーマットをカスタマイズする。 利用可能なトークンについては <doc>Day.js ドキュメント</doc> を参照してください。",
+    "description": "<shortcut /> またはツールバーから挿入される日付と時刻のフォーマットをカスタマイズする。 利用可能なトークンについては <doc>Day.js ドキュメント</doc> を参照してください。",
     "format_string": "書式文字列",
     "formatted_time": "日付/時刻の形式",
     "description_short": "ツールバーから挿入する日付と時刻の形式をカスタマイズできます。",
@@ -1390,7 +1390,7 @@
     "other_notes_with_name": "{{attributeType}} の名前が「{{attributeName}}」であるその他のノート",
     "color_type": "色",
     "share_description": "説明用に HTML メタタグに追加するテキストを定義します。",
-    "title_template": "このノートの子として作成されるノートのデフォルトのタイトルです。値は JavaScript 文字列として評価されるため、\n                        挿入された <code>now</code> および <code>parentNote</code> 変数を介して動的なコンテンツを追加できます。例: \n                         \n                        <ul> \n                            <li><code>${parentNote.getLabelValue('authorName')} の文学作品</code></li> \n                            <li><code>${now.format('YYYY-MM-DD HH:mm:ss')} のログ</code></li> \n                        </ul> \n                        \n                        詳細については <a href=\"https://triliumnext.github.io/Docs/Wiki/default-note-title.html\"> Wikiの詳細 </a> 、および <a href=\"https://zadam.github.io/trilium/backend_api/Note.html\">parentNote</a> と <a href=\"https://day.js.org/docs/en/display/format\">now</a> の API ドキュメントを参照してください。",
+    "title_template": "このノートの子として作成されるノートのデフォルトのタイトルです。値は JavaScript 文字列として評価されるため \n                        挿入された <code>now</code> および <code>parentNote</code> 変数を介して動的なコンテンツを追加できます。例:\n                         \n                        <ul>\n                            <li><code>${parentNote.getLabelValue('authorName')}の文学作品</code></li>\n                            <li><code>${now.format('YYYY-MM-DD HH:mm:ss')}のログ</code></li>\n                        </ul>\n                        \n                        詳細については <a href=\"https://triliumnext.github.io/Docs/Wiki/default-note-title.html\"> Wiki の詳細 </a> 、および <a href=\"https://zadam.github.io/trilium/backend_api/Note.html\">parentNote</a> と <a href=\"https://day.js.org/docs/en/display/format\">now</a> の API ドキュメントを参照してください。",
     "run_on_note_title_change": "ノートのタイトルが変更されたときに実行されます（ノートの作成も含む）。",
     "run_on_note_content_change": "ノートの内容が変更されたときに実行されます（ノートの作成も含む）。",
     "run_on_note_change": "ノートが変更されたときに実行されます（ノートの作成も含む）。内容の変更は含まれません。",
@@ -1593,7 +1593,7 @@
   },
   "open-help-page": "ヘルプページを開く",
   "shared_info": {
-    "help_link": "ヘルプについては、<a href=\"https://triliumnext.github.io/Docs/Wiki/sharing.html\">wiki</a>をご覧ください。",
+    "help_link": "ヘルプについては、 <a href=\"https://triliumnext.github.io/Docs/Wiki/sharing.html\">wiki</a> をご覧ください。",
     "shared_locally": "このノートは {{- link}} でローカルに共有されています。",
     "shared_publicly": "このノートは {{- link}} で一般公開されています。"
   },
@@ -2032,7 +2032,7 @@
     "example_new_title": "<code>NEW: ${note.title}</code> - 一致したノートの名前の前に 'NEW: ' を付ける",
     "example_date_prefix": "<code>${note.dateCreatedObj.format('MM-DD:')}: ${note.title}</code> - マッチしたノートの前にノートの作成月日を付ける",
     "api_docs": "詳細については、 <a href='https://zadam.github.io/trilium/backend_api/Note.html'>note</a> および <a href='https://day.js.org/docs/en/display/format'>dateCreatedObj / utcDateCreatedObj properties</a> の API ドキュメントを参照してください。",
-    "evaluated_as_js_string": "与えられた値はJavaScript文字列として評価されるため、注入された<code>note</code>変数（noteは名前が変更されます）を介して動的なコンテンツで強化できます。例:",
+    "evaluated_as_js_string": "与えられた値は JavaScript 文字列として評価されるため、注入された <code>note</code> 変数（noteは名前が変更されます）を介して動的なコンテンツで強化できます。例:",
     "click_help_icon": "右側のヘルプアイコンをクリックすると、すべてのオプションが表示されます"
   },
   "electron_integration": {
