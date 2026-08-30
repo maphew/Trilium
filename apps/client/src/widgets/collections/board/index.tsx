@@ -127,6 +127,10 @@ const BOARD_HINTS: ShortcutHintDefinition = [
         titleKey: "board_view.hints.editing",
         hints: [
             { keys: [ "Enter", "Shift+Enter" ], labelKey: "board_view.hints.insert_item" },
+            {
+                keys: [ "Ctrl+Enter", "Ctrl+Shift+Enter" ],
+                labelKey: "board_view.hints.insert_column"
+            },
             { keys: [ "Space" ], labelKey: "board_view.hints.open_item" },
             { keys: [ "F2" ], labelKey: "board_view.hints.rename" }
         ]
@@ -303,7 +307,10 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         columns: shownColumns,
         byColumn,
         api,
-        moveColumn: handleColumnDrop
+        moveColumn: handleColumnDrop,
+        insertColumn: useCallback(async (relativeTo: string, direction: "before" | "after") => {
+            setColumnNameToEdit(await api.insertColumn(relativeTo, direction));
+        }, [ api ])
     });
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {

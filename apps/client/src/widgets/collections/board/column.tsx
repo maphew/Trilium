@@ -267,7 +267,7 @@ function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (isCreating) return;
 
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && !e.ctrlKey) {
             open("");
             return;
         }

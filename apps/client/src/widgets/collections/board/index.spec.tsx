@@ -317,6 +317,10 @@ describe("Board column rename", () => {
             { keys: [ "Left", "Right" ], labelKey: "board_view.hints.navigate_columns" },
             { keys: [ "Home", "End" ], labelKey: "board_view.hints.first_last_item" },
             { keys: [ "Enter", "Shift+Enter" ], labelKey: "board_view.hints.insert_item" },
+            {
+                keys: [ "Ctrl+Enter", "Ctrl+Shift+Enter" ],
+                labelKey: "board_view.hints.insert_column"
+            },
             { keys: [ "Space" ], labelKey: "board_view.hints.open_item" },
             { keys: [ "F2" ], labelKey: "board_view.hints.rename" },
             { keys: [ "Ctrl+Up", "Ctrl+Down" ], labelKey: "board_view.hints.move_item" },

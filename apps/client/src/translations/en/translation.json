@@ -3382,6 +3382,7 @@
       "first_last_item": "First / last item of the column",
       "editing": "Editing",
       "insert_item": "Insert item below / above",
+      "insert_column": "Insert column after / before",
       "open_item": "Open item",
       "rename": "Rename item or column",
       "moving": "Moving",

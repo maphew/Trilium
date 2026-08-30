@@ -56,6 +56,8 @@ export interface BoardKeyboardOptions {
     api: BoardApi;
     /** Moves a column to sit before the given position, as a drag onto that position would. */
     moveColumn: (fromIndex: number, toIndex: number) => void;
+    /** Puts a new column beside the given one and opens its title editor, as the menu does. */
+    insertColumn: (relativeTo: string, direction: "before" | "after") => void;
 }
 
 /**
@@ -74,7 +76,7 @@ export interface BoardKeyboardOptions {
  * focused on whichever column took its place.
  */
 export function useBoardKeyboard({
-    containerRef, columns, byColumn, api, moveColumn
+    containerRef, columns, byColumn, api, moveColumn, insertColumn
 }: BoardKeyboardOptions) {
     const pendingFocus = useRef<PendingFocus | null>(null);
 
@@ -111,7 +113,11 @@ export function useBoardKeyboard({
     return useCallback((e: KeyboardEvent) => {
         const container = containerRef.current;
         const target = e.target as HTMLElement | null;
-        if (!container || e.metaKey || e.shiftKey) return;
+        if (!container || e.metaKey) return;
+
+        // Shift is left to whatever else answers for it, bar the one key where it names the other
+        // direction of something the board already does.
+        if (e.shiftKey && !(e.ctrlKey && e.key === "Enter")) return;
 
         // An editor is open on the thing that is focused, and every key belongs to it.
         if (target?.closest("input, textarea")) return;
@@ -124,6 +130,14 @@ export function useBoardKeyboard({
         if (!spot) return;
 
         if (e.ctrlKey) {
+            // A column beside the one focus is in, wherever inside it focus sits. The button that
+            // adds a column stands beside none, and is the plain way to add one at the end anyway.
+            if (e.key === "Enter" && !e.altKey && spot.kind !== "add-column") {
+                take(e);
+                insertColumn(columns[spot.column], e.shiftKey ? "before" : "after");
+                return;
+            }
+
             // A header holds no card, so the key carries the column it heads. Alt says so from
             // anywhere within a column, for a reader who is standing on one of its cards.
             const carriesColumn = e.altKey || spot.kind === "header";
@@ -174,7 +188,7 @@ export function useBoardKeyboard({
                 api.openNote(item.note.noteId);
             }
         }
-    }, [ containerRef, columns, byColumn, api, moveColumn ]);
+    }, [ containerRef, columns, byColumn, api, moveColumn, insertColumn ]);
 }
 
 /** Keeps a key the board has answered from also reaching whatever else is bound to it. */

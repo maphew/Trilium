@@ -404,6 +404,24 @@ describe("Board keyboard", () => {
             expect(focusedName(board)).toBe("To Do");
         });
 
+        it("puts a new column after the one focus is in, and before it with Shift", async () => {
+            const board = await renderBoard();
+
+            focusCard(board, 1, 0);
+            press(board, "Enter", { ctrlKey: true });
+            await act(async () => { await flush(); });
+            expect(saved.at(-1)?.columns?.map(column => column.value))
+                .toEqual([ "To Do", "Doing", "board_view.new-column", "Done" ]);
+
+            focusHeader(board, 0);
+            press(board, "Enter", { ctrlKey: true, shiftKey: true });
+            await act(async () => { await flush(); });
+            expect(saved.at(-1)?.columns?.map(column => column.value))
+                .toEqual([
+                    "board_view.new-column 2", "To Do", "Doing", "board_view.new-column", "Done"
+                ]);
+        });
+
         it("sends a column to either end with Ctrl, Alt and Home or End", async () => {
             const board = await renderBoard();
 
@@ -476,13 +494,14 @@ describe("Board keyboard", () => {
     function press(
         board: HTMLElement,
         key: string,
-        options: { altKey?: boolean, ctrlKey?: boolean } = {}
+        options: { altKey?: boolean, ctrlKey?: boolean, shiftKey?: boolean } = {}
     ) {
         act(() => {
             document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", {
                 key,
                 altKey: options.altKey ?? false,
                 ctrlKey: options.ctrlKey ?? false,
+                shiftKey: options.shiftKey ?? false,
                 bubbles: true,
                 cancelable: true
             }));
