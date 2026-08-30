@@ -14,7 +14,7 @@ import { buildNote } from "../../../test/easy-froca";
 import { BoardViewData } from ".";
 import BoardApi, { PendingColumnWrites } from "./api";
 import { ColumnMap } from "./data";
-import { BOARD_TEMPLATE_ID, getStatusDefinition } from "./columns";
+import { BOARD_TEMPLATE_ID, DEFAULT_COLUMN_ICON, getStatusDefinition } from "./columns";
 
 vi.mock("../../../services/bulk_action", () => ({
     executeBulkActions: vi.fn(async () => {})
@@ -169,6 +169,24 @@ describe("BoardApi column mutations", () => {
         await api.setColumnIcon("To Do", undefined);
 
         expect(saved.at(-1)?.columns).toEqual([ { value: "To Do" } ]);
+    });
+
+    it("reads back the icon a column carries, falling back to the default", async () => {
+        const { api } = createApi(
+            { columns: [ { value: "To Do", icon: "bx bx-list-ul" }, { value: "Done" } ] },
+            [ "To Do", "Done", "Backlog" ]);
+
+        expect(api.getColumnIcon("To Do")).toBe("bx bx-list-ul");
+        expect(api.getColumnIcon("Done")).toBe(DEFAULT_COLUMN_ICON);
+        // Resolved from the definition, so it has no stored entry at all.
+        expect(api.getColumnIcon("Backlog")).toBe(DEFAULT_COLUMN_ICON);
+    });
+
+    it("reads a relation column's icon off the note the column is", async () => {
+        const column = buildNote({ title: "Done", "#iconClass": "bx bx-check" });
+        const { api } = createApi({ columns: [] }, [ column.noteId ], undefined, "~status");
+
+        expect(api.getColumnIcon(column.noteId)).toContain("bx bx-check");
     });
 
     it("stores a colour beside the icon, without either clearing the other", async () => {
