@@ -1359,7 +1359,6 @@
     "serif-system-fonts": "Системные шрифты с засечками",
     "monospace-system-fonts": "Моноширинные системные шрифты",
     "handwriting-system-fonts": "Шрифты системы рукописного ввода",
-    "not_all_fonts_available": "Не все перечисленные шрифты могут быть доступны в вашей системе",
     "preview": "Предпросмотр",
     "monospace_font_description": "Используется для заметок кода и блоков кода",
     "size_relative_to_general": "Размер относительно общего размера шрифта",

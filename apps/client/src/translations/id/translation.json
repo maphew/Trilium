@@ -1585,7 +1585,6 @@
     "monospace_font": "Teks monospace",
     "monospace_font_description": "Digunakan untuk catatan kode dan blok kode",
     "size_relative_to_general": "Ukuran bersifat relatif terhadap ukuran font umum",
-    "not_all_fonts_available": "Tidak semua font yang tercantum mungkin tersedia di sistem Anda",
     "apply_changes": "Muat ulang untuk menerapkan perubahan",
     "generic-fonts": "Font generik",
     "sans-serif-system-fonts": "Font sistem sans-serif",
