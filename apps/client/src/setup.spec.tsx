@@ -491,12 +491,16 @@ describe("getNetworkAddresses, deciding whose word to trust for this device's ad
         expect(serverMock.get).not.toHaveBeenCalledWith("network-addresses");
     });
 
-    it("distrusts its own loopback address and asks the server instead, as Pocket Trilium's webview would hit", async () => {
-        // Pocket Trilium runs a full Trilium server locally on the phone and shows it through a plain
-        // webview, no Electron API, but `location.hostname` is still 127.0.0.1 because the page never
-        // left the device. Trusting `location.host` here would hand the user back their own loopback
-        // address instead of one another device could actually reach.
+    it("distrusts its own loopback address and asks the server instead, as a webview on the same device would hit", async () => {
         vi.stubGlobal("location", { protocol: "http:", host: "127.0.0.1:8080", hostname: "127.0.0.1" });
+        mockRoutes({ "network-addresses": { addresses: [ "http://192.168.1.20:8080" ], reachableOnNetwork: true } });
+
+        expect(await getNetworkAddresses()).toEqual({ addresses: [ "http://192.168.1.20:8080" ], reachableOnNetwork: true });
+        expect(serverMock.get).toHaveBeenCalledWith("network-addresses");
+    });
+
+    it("distrusts a bracketed IPv6 loopback address the same way", async () => {
+        vi.stubGlobal("location", { protocol: "http:", host: "[::1]:8080", hostname: "[::1]" });
         mockRoutes({ "network-addresses": { addresses: [ "http://192.168.1.20:8080" ], reachableOnNetwork: true } });
 
         expect(await getNetworkAddresses()).toEqual({ addresses: [ "http://192.168.1.20:8080" ], reachableOnNetwork: true });
