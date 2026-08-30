@@ -17,6 +17,7 @@ import server from "../../../services/server";
 import utils from "../../../services/utils";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
+import BoardApi from "./api";
 import BoardView from ".";
 
 // The card menu opens with the shared link items, which reach for the active note context.
@@ -63,16 +64,31 @@ describe("Board card", () => {
         expect(cardIcon(first)).toContain("bx-bug");
     });
 
-    it("opens the note it stands for, by click and by Enter", async () => {
+    it("opens the note it stands for when clicked", async () => {
         const { first } = await renderBoard();
         const openInPopup = vi.spyOn(appContext, "triggerCommand").mockReturnValue(undefined);
 
         await act(async () => { card(first).click(); });
+
         expect(openInPopup)
             .toHaveBeenCalledWith("openInPopup", { noteIdOrPath: first });
+    });
+
+    /** Enter adds a card where a spreadsheet would add a row, and Shift puts it above instead. */
+    it("adds a card under the focused one for Enter, and over it for Shift and Enter", async () => {
+        const insert = vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
+            .mockResolvedValue(undefined as never);
+        const openInPopup = vi.spyOn(appContext, "triggerCommand").mockReturnValue(undefined);
+        const { first } = await renderBoard();
 
         await act(async () => { press(card(first), "Enter"); });
-        expect(openInPopup).toHaveBeenCalledTimes(2);
+        expect(insert).toHaveBeenLastCalledWith("To Do", expect.any(String), "after");
+
+        await act(async () => { press(card(first), "Enter", { shiftKey: true }); });
+        expect(insert).toHaveBeenLastCalledWith("To Do", expect.any(String), "before");
+
+        // The card it was pressed on stays where it is; Space is what opens one.
+        expect(openInPopup).not.toHaveBeenCalled();
     });
 
     it("opens the note once for a double click, not once per click of it", async () => {
@@ -144,8 +160,8 @@ describe("Board card", () => {
     });
 
     /** Presses a key on a card, which listens for them to open and to rename. */
-    function press(target: HTMLElement, key: string) {
-        target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    function press(target: HTMLElement, key: string, init: KeyboardEventInit = {}) {
+        target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, ...init }));
     }
 
     /**

@@ -67,7 +67,7 @@ export interface BoardKeyboardOptions {
  *
  * One handler on the board rather than one per element, because every key here is about the board
  * as a whole: where the next thing is, and where what is focused should go. The per-element
- * handlers keep what is theirs (F2 to rename, Enter to open, typing to start a card).
+ * handlers keep what is theirs (F2 to rename, Enter to add a card, typing to start one).
  *
  * Focus follows what is under it rather than where it sits: a card moved to another column is
  * drawn as a new element, and columns are drawn unkeyed, so a header would otherwise be left
