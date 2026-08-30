@@ -3968,5 +3968,9 @@
       "invalid-symbol": "o símbolo markdown deve ter um caractere, exceto \"[\", \" \", \"X\" e \"]\"",
       "duplicate-symbol": "símbolo markdown duplicado"
     }
+  },
+  "note_picker": {
+    "label": "Nota",
+    "ok": "Escolha"
   }
 }
