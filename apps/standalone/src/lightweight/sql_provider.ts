@@ -703,9 +703,11 @@ export interface SahPoolReleaseWait {
  * Resolves `true` once every pool file accepts a (immediately closed) probe access handle, and
  * without waiting when the pool does not exist yet or the OPFS API is missing — in both cases
  * `installSahPool()` is the one with the authoritative answer. Resolves `false` when a file is
- * still held after `deadlineMs`.
+ * still locked after `deadlineMs`.
  */
-export async function waitForSahPoolRelease({ deadlineMs = 15_000, pollMs = 150, getRoot }: SahPoolReleaseWait = {}): Promise<boolean> {
+export async function waitForSahPoolRelease(
+    { deadlineMs = 15_000, pollMs = 150, getRoot }: SahPoolReleaseWait = {}
+): Promise<boolean> {
     if (!getRoot) {
         if (!navigator?.storage?.getDirectory) {
             return true;
@@ -734,7 +736,10 @@ export async function waitForSahPoolRelease({ deadlineMs = 15_000, pollMs = 150,
             return true;
         }
         if (!announced) {
-            console.log(`[BrowserSqlProvider] Pool file "${heldFile}" is still held, usually by the worker of the page this one replaced — waiting for its release...`);
+            console.log(
+                `[BrowserSqlProvider] Pool file "${heldFile}" is still held, usually by the `
+                + "worker of the page this one replaced — waiting for its release..."
+            );
             announced = true;
         }
         if (Date.now() >= deadline) {
@@ -753,8 +758,14 @@ async function findHeldPoolFile(dir: FileSystemDirectoryHandle): Promise<string 
         try {
             const probe = await (handle as FileSystemFileHandle).createSyncAccessHandle();
             probe.close();
-        } catch {
-            return name;
+        } catch (e) {
+            // `createSyncAccessHandle()` throws NoModificationAllowedError for exactly the case
+            // worth waiting out: a lock another context holds. Every other failure is a broken
+            // environment that waiting cannot fix, and reporting it as held would keep the boot
+            // from starting at all.
+            if ((e as DOMException)?.name === "NoModificationAllowedError") {
+                return name;
+            }
         }
     }
     return null;

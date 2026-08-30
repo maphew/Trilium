@@ -232,9 +232,11 @@ async function initialize(): Promise<void> {
             // A reload starts this worker while the browser is still releasing the previous
             // worker's exclusive OPFS access handles, so the boot waits for the database pool
             // to be free — before the log service, whose own OPFS file is held the same way.
-            const poolReleased = await waitForSahPoolRelease();
-            if (!poolReleased) {
-                console.warn("[Worker] The SAHPool files are still held by another context; opening the database is expected to fail.");
+            // Running installSahPool() against files another context still holds is worse than
+            // not booting: installOpfsSAHPoolVfs() answers the acquisition failure by deleting
+            // the pool directory, and a lock covering only part of it takes the rest with it.
+            if (!await waitForSahPoolRelease()) {
+                throw opfsAccessError("another context still holds the database files");
             }
 
             // Initialize log service as early as possible so subsequent
@@ -247,20 +249,12 @@ async function initialize(): Promise<void> {
             logService.info("[Worker] Initializing SQLite WASM...");
             await sqlProvider!.initWasm();
 
-            // A failure here ends the boot: throwing from initialize() reaches the page as
-            // WORKER_ERROR and error-overlay.ts paints it. Opening an in-memory database
-            // instead would boot an empty instance whose notes vanish on the next reload.
+            // A failure past the wait is a broken environment rather than a transient, so it
+            // ends the boot: throwing from initialize() reaches the page as WORKER_ERROR.
             try {
                 await sqlProvider!.installSahPool();
             } catch (e) {
-                const reason = e instanceof Error ? e.message : String(e);
-                throw new Error(
-                    "The notes database could not be opened, because the browser did not grant "
-                    + `exclusive access to its persistent storage (OPFS): ${reason}\n\n`
-                    + "Close any other window running Trilium and reload this page. Your notes are "
-                    + "not affected. If the browser does not support OPFS sync access handles at "
-                    + "all, Trilium cannot run in it."
-                );
+                throw opfsAccessError(e instanceof Error ? e.message : String(e));
             }
 
             // Integration test mode is baked in at build time via the
@@ -282,7 +276,7 @@ async function initialize(): Promise<void> {
                 // the fixture, and subsequent inits in the same test reuse it.
                 await loadTestDatabase(dbName);
             } else {
-                logService.info("[Worker] Loading persistent database from SAHPool (WAL mode)...");
+                logService.info("[Worker] Loading persistent database from SAHPool (WAL)...");
                 sqlProvider!.loadFromSahPool(dbName);
             }
 
@@ -409,6 +403,21 @@ async function initialize(): Promise<void> {
     })();
 
     return initPromise;
+}
+
+/**
+ * The startup error for a database the browser will not grant exclusive OPFS access to, painted
+ * by `error-overlay.ts`. Opening an in-memory database instead would boot an empty instance
+ * whose notes vanish on the next reload.
+ */
+function opfsAccessError(reason: string): Error {
+    return new Error(
+        "The notes database could not be opened, because the browser did not grant exclusive "
+        + `access to its persistent storage (OPFS): ${reason}\n\n`
+        + "Close any other window running Trilium and reload this page. Your notes are not "
+        + "affected. If the browser does not support OPFS sync access handles at all, Trilium "
+        + "cannot run in it."
+    );
 }
 
 /**

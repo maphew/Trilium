@@ -541,8 +541,10 @@ describe("BrowserSqlProvider error and defensive paths", () => {
 });
 
 describe("waitForSahPoolRelease", () => {
+    type FakeEntry = { kind: string; createSyncAccessHandle?: () => Promise<{ close(): void }> };
+
     /** A fake OPFS root holding `.opfs-sahpool/.opaque` with the given entries. */
-    function fakeRootWith(entries: [string, { kind: string; createSyncAccessHandle?: () => Promise<{ close(): void }> }][]) {
+    function fakeRootWith(entries: [string, FakeEntry][]) {
         const opaque = {
             async *entries() {
                 yield* entries;
@@ -589,7 +591,7 @@ describe("waitForSahPoolRelease", () => {
         expect(closed).toEqual(["pool-1", "pool-2"]);
     });
 
-    it("waits for a held file's release, and reports one still held at the deadline", async () => {
+    it("waits for a held file, and reports one still held at the deadline", async () => {
         let denials = 3;
         const eventuallyReleased = {
             kind: "file",
@@ -618,5 +620,20 @@ describe("waitForSahPoolRelease", () => {
             pollMs: 1,
             deadlineMs: 25
         })).resolves.toBe(false);
+    });
+
+    it("treats a probe failure other than a held lock as nothing to wait for", async () => {
+        const broken = {
+            kind: "file",
+            createSyncAccessHandle: async () => {
+                throw new DOMException("gone", "NotFoundError");
+            }
+        };
+
+        await expect(waitForSahPoolRelease({
+            getRoot: fakeRootWith([["pool-1", broken]]),
+            pollMs: 1,
+            deadlineMs: 25
+        })).resolves.toBe(true);
     });
 });
