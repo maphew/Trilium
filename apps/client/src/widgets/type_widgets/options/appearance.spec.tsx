@@ -109,7 +109,7 @@ describe("the font settings", () => {
         mocks.userFonts = [
             { noteId: "fontNoteA1", title: "Iosevka", blobId: "b1" },
             { noteId: "fontNoteB2", title: "Inter", blobId: "b2" },
-            // Two notes may well carry the same name; each is its own entry, told apart by its note.
+            // Two notes can carry the same name; each is its own entry, told apart by its note.
             { noteId: "fontNoteC3", title: "Inter", blobId: "b3" }
         ];
         open();

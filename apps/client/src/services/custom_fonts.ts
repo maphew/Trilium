@@ -1,6 +1,7 @@
 import { customFontFamily, customFontNoteId, type UserFont } from "@triliumnext/commons";
 
 import froca from "./froca.js";
+import type LoadResults from "./load_results.js";
 import options from "./options.js";
 import server from "./server.js";
 import { logError } from "./ws.js";
@@ -8,8 +9,14 @@ import { logError } from "./ws.js";
 /** The font options that can name one of the user's own fonts. */
 const FONT_FAMILY_OPTIONS = [ "mainFontFamily", "treeFontFamily", "detailFontFamily", "monospaceFontFamily" ] as const;
 
+/** A face registered with the document, and the file it was built from. */
+interface RegisteredFont {
+    face: FontFace;
+    blobId: string;
+}
+
 /** The faces registered for the fonts the options currently name, by the note each is stored in. */
-const registeredFonts = new Map<string, FontFace>();
+const registeredFonts = new Map<string, RegisteredFont>();
 
 /**
  * Registers the user's own fonts that the font options name, so the families the fonts stylesheet
@@ -21,11 +28,9 @@ const registeredFonts = new Map<string, FontFace>();
  * touches `$` as it loads.
  */
 export async function applyCustomFontsFromOptions() {
-    const wanted = new Set(FONT_FAMILY_OPTIONS
-        .map((optionName) => customFontNoteId(options.get(optionName)))
-        .filter((noteId) => noteId !== null));
+    const wanted = namedFontNoteIds();
 
-    for (const [ noteId, face ] of registeredFonts) {
+    for (const [ noteId, { face } ] of registeredFonts) {
         if (!wanted.has(noteId)) {
             document.fonts.delete(face);
             registeredFonts.delete(noteId);
@@ -33,24 +38,49 @@ export async function applyCustomFontsFromOptions() {
     }
 
     await Promise.all([ ...wanted ].map(async (noteId) => {
-        if (registeredFonts.has(noteId)) return;
-
         const note = await froca.getNote(noteId);
         if (!note) return;
 
+        // What is already registered is checked by blob, not by note: a file replaced through a new
+        // revision has to be fetched again, under the same family the stylesheet already names.
+        const blobId = note.blobId ?? "";
+        if (registeredFonts.get(noteId)?.blobId === blobId) return;
+
         try {
-            const face = await registerFontNote(noteId, customFontFamily(noteId), note.blobId ?? "");
-            // A concurrent call may have registered the same note, or the option may have moved on
-            // while the bytes were being fetched; either way this face is one too many.
-            if (registeredFonts.has(noteId)) {
+            const face = await registerFontNote(noteId, customFontFamily(noteId), blobId);
+            const current = registeredFonts.get(noteId);
+            // A concurrent call might have registered this same file while the bytes were being
+            // fetched, in which case this face is one too many.
+            if (current?.blobId === blobId) {
                 document.fonts.delete(face);
-            } else {
-                registeredFonts.set(noteId, face);
+                return;
             }
+
+            // The face built from the file this note held before goes only now that its replacement
+            // is registered, so nothing renders in the fallback family in between.
+            if (current) {
+                document.fonts.delete(current.face);
+            }
+            registeredFonts.set(noteId, { face, blobId });
         } catch (e) {
             logError(`Could not load the font stored in note '${noteId}': ${e}`);
         }
     }));
+}
+
+/**
+ * Whether a reload touched the file of a font the options name. Replacing that file leaves the
+ * options themselves untouched, so nothing else in the reload says that the faces have to be built
+ * again.
+ */
+export function hasCustomFontContentChanged(loadResults: LoadResults) {
+    for (const noteId of namedFontNoteIds()) {
+        if (loadResults.isNoteContentReloaded(noteId)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /** The fonts the user offers to the font picker: the file notes labelled `#customFont`. */
@@ -82,4 +112,11 @@ export async function registerFontNote(noteId: string, family: string, version: 
     document.fonts.add(face);
 
     return face;
+}
+
+/** The notes the font options name, without the families the browser resolves for itself. */
+function namedFontNoteIds() {
+    return new Set(FONT_FAMILY_OPTIONS
+        .map((optionName) => customFontNoteId(options.get(optionName)))
+        .filter((noteId) => noteId !== null));
 }

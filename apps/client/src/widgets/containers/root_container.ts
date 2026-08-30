@@ -2,7 +2,7 @@ import { LOCALES, OptionNames } from "@triliumnext/commons";
 
 import { EventData } from "../../components/app_context.js";
 import { getEnabledExperimentalFeatureIds } from "../../services/experimental_features.js";
-import { applyCustomFontsFromOptions } from "../../services/custom_fonts.js";
+import { applyCustomFontsFromOptions, hasCustomFontContentChanged } from "../../services/custom_fonts.js";
 import { applyFontsFromOptions } from "../../services/font.js";
 import options from "../../services/options.js";
 import { applyThemeFromOptions, updateColorSchemeClasses, updateThemeCapabilities } from "../../services/theme.js";
@@ -75,6 +75,10 @@ export default class RootContainer extends FlexContainer<BasicWidget> {
 
         if (FONT_OPTIONS.some((optionName) => loadResults.isOptionReloaded(optionName))) {
             applyFontsFromOptions();
+            void applyCustomFontsFromOptions();
+        } else if (hasCustomFontContentChanged(loadResults)) {
+            // The options still name the same fonts, so the stylesheet they are served as holds; only
+            // the faces their files were loaded into have to be built again.
             void applyCustomFontsFromOptions();
         }
 

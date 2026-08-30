@@ -10,7 +10,8 @@ vi.mock("./froca.js", () => ({ default: { getNote: async (noteId: string) => moc
 vi.mock("./ws.js", () => ({ logError: vi.fn() }));
 vi.mock("./server.js", () => ({ default: { get: vi.fn() } }));
 
-const { applyCustomFontsFromOptions, registerFontNote } = await import("./custom_fonts.js");
+const { applyCustomFontsFromOptions, hasCustomFontContentChanged, registerFontNote } = await import("./custom_fonts.js");
+const { default: LoadResults } = await import("./load_results.js");
 
 /** The faces `document.fonts` holds, as the stub below sees them. */
 let registeredFaces: Set<FontFace>;
@@ -102,6 +103,21 @@ describe("applyCustomFontsFromOptions", () => {
         expect(families()).toEqual([ "trilium-font-fontNoteE5" ]);
     });
 
+    it("loads the file again once a new revision replaces it, dropping the face built from the old one", async () => {
+        mocks.options = { mainFontFamily: "customFont:fontNoteF6" };
+        mocks.notes = { fontNoteF6: { blobId: "blobF" } };
+        await applyCustomFontsFromOptions();
+        const staleFace = [ ...registeredFaces ][0];
+
+        mocks.notes = { fontNoteF6: { blobId: "blobF2" } };
+        await applyCustomFontsFromOptions();
+
+        expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain("v=blobF2");
+        // One face under the family the stylesheet names, built from the file the note holds now.
+        expect(families()).toEqual([ "trilium-font-fontNoteF6" ]);
+        expect(registeredFaces.has(staleFace)).toBe(false);
+    });
+
     it("carries on where the note is gone or its file will not load", async () => {
         mocks.options = { mainFontFamily: "customFont:goneNote001" };
         await expect(applyCustomFontsFromOptions()).resolves.toBeUndefined();
@@ -111,5 +127,28 @@ describe("applyCustomFontsFromOptions", () => {
         fetchMock.mockResolvedValue(new Response(new Uint8Array([ 0xff, 0xff ])));
         await expect(applyCustomFontsFromOptions()).resolves.toBeUndefined();
         expect(families()).toEqual([]);
+    });
+});
+
+describe("hasCustomFontContentChanged", () => {
+    /** A reload carrying a content change for each of `noteIds`. */
+    function reloadOf(...noteIds: string[]) {
+        const loadResults = new LoadResults([]);
+        for (const noteId of noteIds) {
+            loadResults.addNoteContent(noteId, "someComponent");
+        }
+
+        return loadResults;
+    }
+
+    it("answers only for the notes whose fonts the app is rendering with", async () => {
+        mocks.options = { mainFontFamily: "customFont:fontNoteH8" };
+        mocks.notes = { fontNoteH8: { blobId: "blobH" } };
+        await applyCustomFontsFromOptions();
+
+        expect(hasCustomFontContentChanged(reloadOf("fontNoteH8"))).toBe(true);
+        // A note holding no font the options name, and a reload that changed no content at all.
+        expect(hasCustomFontContentChanged(reloadOf("someOtherNote"))).toBe(false);
+        expect(hasCustomFontContentChanged(reloadOf())).toBe(false);
     });
 });
