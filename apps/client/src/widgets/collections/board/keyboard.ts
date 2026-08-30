@@ -114,7 +114,16 @@ export function useBoardKeyboard({
         element?.focus();
     });
 
-    return useCallback((e: KeyboardEvent) => {
+    /**
+     * Puts focus on a column's heading once the board has drawn it again, for a move made from
+     * somewhere other than the keyboard. The columns are drawn unkeyed, so an element held onto
+     * across the move would be left standing over whichever column took the old one's place.
+     */
+    const focusColumn = useCallback((column: string) => {
+        pendingFocus.current = { intent: { column, part: "header" } };
+    }, []);
+
+    const onKeyDown = useCallback((e: KeyboardEvent) => {
         const container = containerRef.current;
         const target = e.target as HTMLElement | null;
         if (!container || e.metaKey) return;
@@ -239,6 +248,8 @@ export function useBoardKeyboard({
             }
         }
     }, [ containerRef, columns, byColumn, api, moveColumn, insertColumn ]);
+
+    return { onKeyDown, focusColumn };
 }
 
 /** What to put focus on once a card goes: the one under it, the one over it, or the column. */

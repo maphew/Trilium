@@ -2,7 +2,7 @@ import { useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
 import NoteColorPicker from "../../../menus/custom-items/NoteColorPicker";
-import contextMenu, { ContextMenuEvent } from "../../../menus/context_menu";
+import contextMenu, { ContextMenuEvent, MenuItem } from "../../../menus/context_menu";
 import link_context_menu from "../../../menus/link_context_menu";
 import branches from "../../../services/branches";
 import dialog from "../../../services/dialog";
@@ -11,8 +11,13 @@ import { t } from "../../../services/i18n";
 import ColorPicker from "../../react/ColorPicker";
 import Api from "./api";
 
-export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column: {
+/** What the column menu is opened for: the column itself, and what it can be asked to do. */
+interface ColumnMenuTarget {
     value: string;
+    /** The columns as drawn, in the order they stand. */
+    columns: string[];
+    /** Where this column stands among them. */
+    index: number;
     color?: string;
     archived?: boolean;
     /** Puts the title into its inline editor, the menu being the only way there besides F2. */
@@ -21,7 +26,12 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
     onNewItem: () => void;
     /** Puts a new column on one side of this one and opens its title editor. */
     onAddColumn: (direction: "before" | "after") => void;
-}) {
+    /** Moves this column to sit before the given position among the columns as drawn. */
+    onMoveColumn: (toIndex: number) => void;
+}
+
+export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column: ColumnMenuTarget) {
+
     event.preventDefault();
     event.stopPropagation();
 
@@ -71,6 +81,12 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                 ]
             },
             { kind: "separator" },
+            {
+                title: t("board_view.move-column"),
+                uiIcon: "bx bx-horizontal-left",
+                items: buildMoveColumnItems(api, column)
+            },
+            { kind: "separator" },
             column.archived
                 ? {
                     title: t("board_view.unarchive-column"),
@@ -96,6 +112,41 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
         ],
         selectMenuItemHandler() {}
     });
+}
+
+/**
+ * Where a column can be sent, each place named by what the column would come to stand after.
+ *
+ * A place is left out where sending it there would leave the board as it stands: the column itself,
+ * the one it already follows, and the head of the board for a column already at the head.
+ */
+function buildMoveColumnItems(api: Api, column: ColumnMenuTarget): MenuItem<string>[] {
+    const head: MenuItem<string>[] = column.index > 0
+        ? [ {
+            title: t("board_view.move-column-first"),
+            uiIcon: "bx bx-chevrons-left",
+            handler: () => column.onMoveColumn(0)
+        } ]
+        : [];
+
+    const after = column.columns.flatMap<MenuItem<string>>((name, index) => {
+        if (index === column.index || index === column.index - 1) {
+            return [];
+        }
+
+        return [ {
+            title: t("board_view.move-column-after", { column: name }),
+            uiIcon: api.getColumnIcon(name),
+            iconColorClass: api.getColumnColorClass(name),
+            badges: api.isColumnArchived(name)
+                ? [ { title: t("board_view.archived-badge") } ]
+                : undefined,
+            // A column is placed before a position, so standing after `name` means the one past it.
+            handler: () => column.onMoveColumn(index + 1)
+        } ];
+    });
+
+    return [ ...head, ...after ];
 }
 
 /**

@@ -30,11 +30,12 @@ describe("Board column context menu", () => {
 
     function openMenu(
         api: BoardApi,
-        column: { color?: string, archived?: boolean } = {},
+        column: { color?: string, archived?: boolean, columns?: string[], index?: number } = {},
         callbacks: {
             onEditTitle?: () => void,
             onNewItem?: () => void,
-            onAddColumn?: (direction: "before" | "after") => void
+            onAddColumn?: (direction: "before" | "after") => void,
+            onMoveColumn?: (toIndex: number) => void
         } = {}
     ) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
@@ -47,10 +48,13 @@ describe("Board column context menu", () => {
 
         openColumnContextMenu(api, event, {
             value: "To Do",
+            columns: [ "To Do" ],
+            index: 0,
             ...column,
             onEditTitle: callbacks.onEditTitle ?? (() => {}),
             onNewItem: callbacks.onNewItem ?? (() => {}),
-            onAddColumn: callbacks.onAddColumn ?? (() => {})
+            onAddColumn: callbacks.onAddColumn ?? (() => {}),
+            onMoveColumn: callbacks.onMoveColumn ?? (() => {})
         });
 
         // The spy outlives one call, so it is the menu just opened that is read back.
@@ -110,8 +114,41 @@ describe("Board column context menu", () => {
         expect(titled.map(item => "uiIcon" in item ? item.uiIcon : undefined))
             .toEqual([
                 "bx bx-edit-alt", "bx bx-plus", "bx bx-link", "bx bx-columns",
-                "bx bx-archive", "bx bx-trash"
+                "bx bx-horizontal-left", "bx bx-archive", "bx bx-trash"
             ]);
+    });
+
+    /** Every place offered has to actually move the column, or the menu promises nothing. */
+    it("offers only the places that would move the column", () => {
+        const api = {
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            isColumnArchived: () => false
+        } as unknown as BoardApi;
+
+        /** Where each entry would send the column, in the order the submenu offers them. */
+        const places = (index: number) => {
+            const moved: number[] = [];
+            const menu = openMenu(api, { columns: [ "To Do", "Doing", "Done" ], index }, {
+                onMoveColumn: (toIndex) => moved.push(toIndex)
+            });
+            const entry = menu.find(item =>
+                item && "uiIcon" in item && item.uiIcon === "bx bx-horizontal-left");
+            if (!entry || !("items" in entry)) throw new Error("expected a move-column entry");
+
+            for (const item of entry.items ?? []) {
+                if (item && "handler" in item) item.handler?.(item, {} as never);
+            }
+            return moved;
+        };
+
+        // A column is placed before a position, so following the one at an index means past it.
+        // From the head: no head to move to, and nothing for itself or the column it already leads.
+        expect(places(0)).toEqual([ 2, 3 ]);
+        // From the middle: the head, and past the tail. Following "To Do" is where it already is.
+        expect(places(1)).toEqual([ 0, 3 ]);
+        // From the tail: the head, and following "To Do".
+        expect(places(2)).toEqual([ 0, 1 ]);
     });
 
     it("offers both sides to put a new column on", () => {
