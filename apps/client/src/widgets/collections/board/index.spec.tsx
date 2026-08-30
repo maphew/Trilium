@@ -248,15 +248,17 @@ describe("Board column rename", () => {
     }
 
     /**
-     * What a second tab on the same board sees. The record is shared, so the column being
-     * deleted is resolved away here too; persisting that answer would put a deletion on disk
-     * the notes have not given yet, and the tab making the write persists it once it lands.
+     * What a second tab on the same board sees while the first is writing. The record is shared, so
+     * the column being carried is resolved away here too; putting that on disk would commit an
+     * answer the notes have not given, and the tab making the write persists it once it lands.
      */
-    it("leaves the stored columns alone while a write on the board is still settling", async () => {
+    it("leaves the stored columns alone while a write on the board is running", async () => {
         const { note } = await setup();
         saved.length = 0;
 
-        getPendingWrites(`${note.noteId}|status`).renames.set("Done", undefined);
+        const writes = getPendingWrites(`${note.noteId}|status`);
+        writes.renames.set("Done", undefined);
+        writes.inFlight = 1;
 
         const second = document.createElement("div");
         document.body.appendChild(second);
@@ -275,6 +277,38 @@ describe("Board column rename", () => {
         await act(async () => { await flush(); });
 
         expect(saved).toEqual([]);
+        second.remove();
+    });
+
+    /**
+     * A record outlasts the write that made it wherever the definition keeps naming the old value,
+     * which a board that cannot write its own definition does for good. The board still has to
+     * bring what it can reach into line, so only a running write holds persistence back.
+     */
+    it("persists again once the write has landed, even with its record left standing", async () => {
+        const { note } = await setup();
+        saved.length = 0;
+
+        // The record stands, and no write is running.
+        getPendingWrites(`${note.noteId}|status`).renames.set("Done", undefined);
+
+        const second = document.createElement("div");
+        document.body.appendChild(second);
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={DEFAULT_CONFIG}
+                    />
+                </ParentComponent.Provider>,
+                second
+            );
+        });
+        await act(async () => { await flush(); });
+
+        expect(saved.at(-1)?.columns?.map(column => column.value)).toEqual([ "To Do", "Doing" ]);
         second.remove();
     });
 

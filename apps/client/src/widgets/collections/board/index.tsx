@@ -178,7 +178,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // instances to cover a rename (see BoardApi#retireColumn). Mutating it must not re-render.
     const pendingRenamesRef = useRef<{ board: string, writes: PendingColumnWrites }>({
         board: "",
-        writes: { renames: new Map(), claims: new Map() }
+        writes: { renames: new Map(), claims: new Map(), inFlight: 0 }
     });
     /** Names each refresh, so one the board has moved on from is discarded rather than applied. */
     const refreshSeqRef = useRef(0);
@@ -263,10 +263,11 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                 setIsRelationMode(isInRelationMode);
                 setColumns(columns);
 
-                // A column a write is still settling has already been taken out of `columns`, and
-                // the two writes below would put that answer on disk before the notes have given
-                // it. The write that made the record persists the outcome itself once it lands.
-                if (pendingRenamesRef.current.writes.renames.size) {
+                // A column a write is carrying has already been taken out of `columns`, and the
+                // two writes below would put that answer on disk before the notes have given it.
+                // Only while the write runs: its record can outlast it, and the board still has to
+                // bring the definition into line afterwards.
+                if (pendingRenamesRef.current.writes.inFlight) {
                     return;
                 }
 

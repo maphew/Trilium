@@ -42,6 +42,14 @@ interface ColumnClaim {
 export interface PendingColumnWrites {
     renames: Map<string, string | undefined>;
     claims: Map<string, ColumnClaim[]>;
+    /**
+     * How many writes are running on the board right now.
+     *
+     * Counted apart from the records because a record outlives its write: it is given up only once
+     * no source names the old value, and a definition the board cannot write keeps naming it for
+     * good. What must not be put on disk is an answer no write has given yet, which is this.
+     */
+    inFlight: number;
 }
 
 /** Drops the record of a column the board now reads the same way from every source. */
@@ -74,7 +82,7 @@ export function getPendingWrites(board: string) {
         return existing;
     }
 
-    const writes: PendingColumnWrites = { renames: new Map(), claims: new Map() };
+    const writes: PendingColumnWrites = { renames: new Map(), claims: new Map(), inFlight: 0 };
     pendingWritesByBoard.set(board, writes);
     return writes;
 }
@@ -94,7 +102,8 @@ export default class BoardApi {
         private viewConfig: BoardViewData,
         private saveConfig: (newConfig: BoardViewData) => void,
         private setBranchIdToEdit: (branchId: string | undefined) => void,
-        private pending: PendingColumnWrites = { renames: new Map(), claims: new Map() },
+        private pending: PendingColumnWrites =
+            { renames: new Map(), claims: new Map(), inFlight: 0 },
         private statusDefinition?: BoardStatusDefinition
     ) {
         this.isRelationMode = statusAttribute.startsWith("~");
@@ -390,12 +399,15 @@ export default class BoardApi {
         oldValue: string, newValue: string | undefined, write: () => Promise<T>
     ) {
         const undoRetirement = this.retireColumn(oldValue, newValue);
+        this.pending.inFlight++;
 
         try {
             return await write();
         } catch (e) {
             undoRetirement();
             throw e;
+        } finally {
+            this.pending.inFlight--;
         }
     }
 

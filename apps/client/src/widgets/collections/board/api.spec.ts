@@ -59,7 +59,8 @@ function createApi(
     const board = parentNote ?? buildNote({ title: "Board" });
     const saved: BoardViewData[] = [];
     const editing: (string | undefined)[] = [];
-    const pending: PendingColumnWrites = { renames: new Map(), claims: new Map() };
+    const pending: PendingColumnWrites =
+        { renames: new Map(), claims: new Map(), inFlight: 0 };
     const api = new BoardApi(
         byColumn,
         columns,
