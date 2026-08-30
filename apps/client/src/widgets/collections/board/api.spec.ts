@@ -189,6 +189,15 @@ describe("BoardApi column mutations", () => {
         expect(api.getColumnIcon(column.noteId)).toContain("bx bx-check");
     });
 
+    it("reads back the colour a column carries as the classes that tint with it", async () => {
+        const { api } = createApi(
+            { columns: [ { value: "To Do", color: "#e64d4d" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]);
+
+        expect(api.getColumnColorClass("To Do")).toContain("use-note-color");
+        expect(api.getColumnColorClass("Done")).toBe("");
+    });
+
     it("stores a colour beside the icon, without either clearing the other", async () => {
         const { api, saved } = createApi({ columns: [ { value: "To Do" } ] }, [ "To Do" ]);
 

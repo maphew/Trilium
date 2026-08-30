@@ -150,6 +150,7 @@ export function openNoteContextMenu(api: Api, event: ContextMenuEvent, note: FNo
                 items: api.columns.map(columnToMoveTo => ({
                     title: columnToMoveTo,
                     uiIcon: api.getColumnIcon(columnToMoveTo),
+                    iconColorClass: api.getColumnColorClass(columnToMoveTo),
                     enabled: columnToMoveTo !== column,
                     badges: api.isColumnArchived(columnToMoveTo)
                         ? [ { title: t("board_view.archived-badge") } ]

@@ -5,6 +5,7 @@ import FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
 import branches from "../../../services/branches";
 import { executeBulkActions } from "../../../services/bulk_action";
+import cssClassManager from "../../../services/css_class_manager";
 import dialog from "../../../services/dialog";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
@@ -236,6 +237,15 @@ export default class BoardApi {
 
         return this.viewConfig?.columns?.find(col => col.value === column)?.icon
             ?? DEFAULT_COLUMN_ICON;
+    }
+
+    /**
+     * The classes tinting anything that stands in for a column with the colour picked for it, empty
+     * while it carries none. The colour is stored per column in both modes, unlike the icon.
+     */
+    getColumnColorClass(column: string) {
+        const color = this.viewConfig?.columns?.find(col => col.value === column)?.color;
+        return cssClassManager.createClassForColor(color ?? null);
     }
 
     /** Whether a column is archived, which the board shows only while archived notes are shown. */
