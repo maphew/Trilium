@@ -364,14 +364,17 @@ describe("Board item context menu", () => {
 
         const columns = statusItems(api);
 
-        expect(columns.map(item => item && "title" in item ? item.title : undefined))
-            .toEqual([ "To Do", "Done" ]);
+        // Each name sits in a box of its own, which is what the stylesheet sizes.
+        expect(columns.map(item => item && "title" in item ? item.title : undefined)).toEqual([
+            '<span class="board-column-name">To Do</span>',
+            '<span class="board-column-name">Done</span>'
+        ]);
         // The tick goes at the trailing edge, leaving each column's own icon where it stands.
         expect(columns.map(item => item && "trailingIcon" in item ? item.trailingIcon : undefined))
             .toEqual([ "bx bx-check", undefined ]);
         // And carries the class the stylesheet weights it by.
         expect(columns.map(item => item && "className" in item ? item.className : undefined))
-            .toEqual([ "board-current-column", undefined ]);
+            .toEqual([ "board-column-item board-current-column", "board-column-item" ]);
 
         const done = columns[1];
         if (done && "handler" in done) done.handler?.(done, {} as never);
@@ -410,9 +413,25 @@ describe("Board item context menu", () => {
         } as unknown as BoardApi;
 
         const [ column ] = statusItems(api);
+        const title = column && "title" in column ? column.title : "";
 
-        expect(column && "title" in column ? column.title : undefined)
-            .toBe("Done &lt;button id&#x3D;&quot;planted&quot;&gt;press&lt;&#x2F;button&gt;");
+        // The name sits in a box of its own, which is what the width is set on, and nothing of the
+        // name itself is left as markup.
+        expect(title).toBe('<span class="board-column-name">'
+            + "Done &lt;button id&#x3D;&quot;planted&quot;&gt;press&lt;&#x2F;button&gt;</span>");
+    });
+
+    it("names every column entry for the stylesheet to size", () => {
+        const api = {
+            columns: [ "To Do", "Done" ],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => ""
+        } as unknown as BoardApi;
+
+        expect(statusItems(api)
+            .map(item => item && "className" in item ? item.className : undefined))
+            .toEqual([ "board-column-item board-current-column", "board-column-item" ]);
     });
 
     it("shows each column with the icon and colour it carries", () => {

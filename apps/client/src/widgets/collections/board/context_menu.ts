@@ -182,16 +182,18 @@ function buildColumnItems(
     api: Api, note: FNote, column: string, onFocusCard: (noteId: string) => void
 ): MenuItem<CommandNames>[] {
     return api.columns.map((name) => ({
-        // The menu reads a title as markup, and a column is named by the reader, so what a crafted
-        // name would plant there is escaped into the text it is meant to be. Every other title the
-        // board builds from a name goes through `t()`, which escapes what it interpolates.
-        title: escapeHtml(name),
+        // The menu reads a title as markup, which is what puts the name in a box of its own: a
+        // bare run of text inside the item's flex row is an anonymous box, and nothing can be said
+        // about its width. What a crafted name would plant there is escaped into the text it is
+        // meant to be; every other title the board builds from a name goes through `t()`, which
+        // escapes what it interpolates.
+        title: `<span class="board-column-name">${escapeHtml(name)}</span>`,
         uiIcon: api.getColumnIcon(name),
         iconColorClass: api.getColumnColorClass(name),
         // The one it is already under is shown rather than hidden, so the list reads as the whole
         // set of columns and says which of them this card belongs to.
         trailingIcon: name === column ? "bx bx-check" : undefined,
-        className: name === column ? "board-current-column" : undefined,
+        className: name === column ? "board-column-item board-current-column" : "board-column-item",
         badges: api.isColumnArchived(name)
             ? [ { title: t("board_view.archived-badge") } ]
             : undefined,

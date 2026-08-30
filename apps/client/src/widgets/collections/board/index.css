@@ -482,8 +482,16 @@ body.mobile .board-view-container .board-add-column {
   word-wrap: break-word;
 }
 
-/* The menu is drawn outside the board, so the column a card is already under is named rather than
-   reached through `.board-view`. */
+/* The menu is drawn outside the board, so the columns it lists are named rather than reached
+   through `.board-view`. */
 .dropdown-item.board-current-column {
     font-weight: 600;
+}
+
+.dropdown-item.board-column-item .board-column-name {
+    display: block;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
