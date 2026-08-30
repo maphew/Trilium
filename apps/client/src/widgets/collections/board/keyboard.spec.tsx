@@ -12,6 +12,7 @@ import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
 import attributes from "../../../services/attributes";
 import branches from "../../../services/branches";
+import contextMenu from "../../../menus/context_menu";
 import froca from "../../../services/froca";
 import server from "../../../services/server";
 import { buildNote } from "../../../test/easy-froca";
@@ -27,6 +28,11 @@ vi.mock("../../../services/branches", () => ({
         cloneNoteAfter: vi.fn(async () => {}),
         deleteNotes: vi.fn(async () => {})
     }
+}));
+
+// The card menu opens with the link items on top, which want a tab manager this spec has none of.
+vi.mock("../../../menus/link_context_menu", () => ({
+    default: { getItems: () => [], handleLinkContextMenuItem: vi.fn() }
 }));
 
 vi.mock("../../../services/i18n", () => ({
@@ -171,6 +177,37 @@ describe("Board keyboard", () => {
 
             editor.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
             expect(document.activeElement).toBe(editor);
+        });
+    });
+
+    describe("the menu key", () => {
+        it("asks the focused card and header for their own menus", async () => {
+            const board = await renderBoard();
+            const show = vi.spyOn(contextMenu, "show").mockResolvedValue(undefined);
+
+            focusCard(board, 0, 0);
+            press(board, "ContextMenu");
+            expect(show).toHaveBeenCalledTimes(1);
+            // The card menu, which is the only one offering to take a note off the board.
+            expect(show.mock.calls[0][0].items.some(item =>
+                item && "title" in item && item.title === "board_view.remove-from-board"
+            )).toBe(true);
+
+            focusHeader(board, 0);
+            press(board, "ContextMenu");
+            expect(show).toHaveBeenCalledTimes(2);
+            expect(show.mock.calls[1][0].items.some(item =>
+                item && "title" in item && item.title === "board_view.rename-column")).toBe(true);
+        });
+
+        it("leaves the key alone where nothing focused has a menu", async () => {
+            const board = await renderBoard();
+            const show = vi.spyOn(contextMenu, "show").mockResolvedValue(undefined);
+
+            focusButton(board, 0);
+            press(board, "ContextMenu");
+
+            expect(show).not.toHaveBeenCalled();
         });
     });
 

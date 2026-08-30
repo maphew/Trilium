@@ -194,6 +194,15 @@ export function useBoardKeyboard({
             return;
         }
 
+        if (e.key === "ContextMenu" && (spot.kind === "item" || spot.kind === "header")) {
+            const element = document.activeElement;
+            if (!(element instanceof HTMLElement)) return;
+
+            take(e);
+            askForMenu(element);
+            return;
+        }
+
         if (e.key === "Delete" && spot.kind === "header" && !e.shiftKey) {
             take(e);
 
@@ -243,6 +252,22 @@ function neighbourOf(
     return next
         ? findCard(container, next.note.noteId)
         : findInColumn(container, column, "add-item");
+}
+
+/**
+ * Asks the focused card or header for its menu the way a right click does, rather than by opening
+ * one here: both already answer for `contextmenu`, and what each menu offers is theirs to say.
+ *
+ * The press is taken first, so the browser sends no `contextmenu` of its own and the menu is not
+ * opened twice. Where it opens is named here, a key press carrying no position of its own.
+ */
+function askForMenu(element: HTMLElement) {
+    const { left, bottom } = element.getBoundingClientRect();
+    element.dispatchEvent(new MouseEvent("contextmenu", {
+        bubbles: true,
+        clientX: left,
+        clientY: bottom
+    }));
 }
 
 /** Keeps a key the board has answered from also reaching whatever else is bound to it. */
