@@ -1834,7 +1834,6 @@
     "note_tree_font": "Testo dell'albero Note",
     "note_detail_font": "Testo del documento",
     "monospace_font": "Testo monospazio",
-    "not_all_fonts_available": "Non tutti i caratteri elencati potrebbero essere disponibili sul tuo sistema",
     "generic-fonts": "Caratteri generici",
     "sans-serif-system-fonts": "Caratteri di sistema sans-serif",
     "serif-system-fonts": "Caratteri di sistema Serif",

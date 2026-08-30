@@ -1771,7 +1771,6 @@
     "monospace_font": "고정폭 텍스트",
     "monospace_font_description": "코드 노트 및 코드 블록에 사용됩니다",
     "size_relative_to_general": "크기는 일반적인 글꼴 크기에 상대적입니다",
-    "not_all_fonts_available": "모든 나열된 글꼴이 시스템에서 사용 가능할 수는 없습니다",
     "apply_changes": "변경 사항을 적용하려면 다시 불러오기",
     "generic-fonts": "일반 글꼴",
     "sans-serif-system-fonts": "산세리프 시스템 폰트",
