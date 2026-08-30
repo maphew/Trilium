@@ -225,6 +225,7 @@ describe("Board item context menu", () => {
         const api = {
             columns: [],
             isColumnArchived: () => false,
+            columnIcon: () => "bx bx-circle",
             insertRowAtPosition: vi.fn(async () => {})
         } as unknown as BoardApi;
         const items = openItemMenu(api);
@@ -243,6 +244,7 @@ describe("Board item context menu", () => {
         const api = {
             columns: [ "To Do", "Done" ],
             isColumnArchived: () => false,
+            columnIcon: () => "bx bx-circle",
             changeColumn: vi.fn(async () => {})
         } as unknown as BoardApi;
 
@@ -263,6 +265,7 @@ describe("Board item context menu", () => {
         const api = {
             columns: [],
             isColumnArchived: () => false,
+            columnIcon: () => "bx bx-circle",
             removeFromBoard: vi.fn()
         } as unknown as BoardApi;
         const deleteNotes = vi.spyOn(branches, "deleteNotes").mockResolvedValue(false);
@@ -278,10 +281,27 @@ describe("Board item context menu", () => {
         expect(deleteNotes).toHaveBeenCalledWith([ "branchId" ], false, false);
     });
 
+    it("shows each column with the icon its header wears", () => {
+        const api = {
+            columns: [ "To Do", "Done" ],
+            isColumnArchived: () => false,
+            columnIcon: (column: string) =>
+                column === "To Do" ? "bx bx-list-ul" : "bx bx-check"
+        } as unknown as BoardApi;
+
+        const moveTo = openItemMenu(api).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
+        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
+
+        expect((moveTo.items ?? []).map(item => item && "uiIcon" in item ? item.uiIcon : null))
+            .toEqual([ "bx bx-list-ul", "bx bx-check" ]);
+    });
+
     it("copies a card into the board, after the one it was made from", async () => {
         const api = {
             columns: [ "To Do" ],
             isColumnArchived: () => false,
+            columnIcon: () => "bx bx-circle",
             duplicateItem: vi.fn(async () => {})
         } as unknown as BoardApi;
 
@@ -316,7 +336,8 @@ describe("Board item context menu", () => {
     it("names the whole-way keys on the ends, and nothing on the columns beside", () => {
         const api = {
             columns: [ "To Do", "Doing", "Done", "Shipped" ],
-            isColumnArchived: () => false
+            isColumnArchived: () => false,
+            columnIcon: () => "bx bx-circle"
         } as unknown as BoardApi;
 
         const moveTo = openItemMenu(api, "Doing").find(item =>
@@ -330,7 +351,8 @@ describe("Board item context menu", () => {
     it("leaves the end a card already stands in bare", () => {
         const api = {
             columns: [ "To Do", "Doing", "Done" ],
-            isColumnArchived: () => false
+            isColumnArchived: () => false,
+            columnIcon: () => "bx bx-circle"
         } as unknown as BoardApi;
 
         const moveTo = openItemMenu(api, "To Do").find(item =>
@@ -345,7 +367,8 @@ describe("Board item context menu", () => {
     it("counts the end over an archived column rather than onto it", () => {
         const api = {
             columns: [ "To Do", "Doing", "Parked" ],
-            isColumnArchived: (column: string) => column === "Parked"
+            isColumnArchived: (column: string) => column === "Parked",
+            columnIcon: () => "bx bx-circle"
         } as unknown as BoardApi;
 
         const moveTo = openItemMenu(api, "To Do").find(item =>
@@ -359,7 +382,8 @@ describe("Board item context menu", () => {
     it("marks the archived columns it offers to move a card to", () => {
         const api = {
             columns: [ "To Do", "Done" ],
-            isColumnArchived: (column: string) => column === "Done"
+            isColumnArchived: (column: string) => column === "Done",
+            columnIcon: () => "bx bx-circle"
         } as unknown as BoardApi;
 
         const moveTo = openItemMenu(api).find(item =>

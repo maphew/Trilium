@@ -169,6 +169,7 @@ export function openNoteContextMenu(api: Api, event: ContextMenuEvent, note: FNo
                 // fair thing to want; the badge is there so it is not a surprise when it goes.
                 items: api.columns.map(columnToMoveTo => ({
                     title: columnToMoveTo,
+                    uiIcon: api.columnIcon(columnToMoveTo),
                     enabled: columnToMoveTo !== column,
                     shortcut: endColumnKey(api, column, columnToMoveTo),
                     badges: api.isColumnArchived(columnToMoveTo)

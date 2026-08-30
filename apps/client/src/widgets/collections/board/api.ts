@@ -13,7 +13,9 @@ import server from "../../../services/server";
 import ws from "../../../services/ws";
 import toast from "../../../services/toast";
 import { BoardColumnData, BoardViewData } from ".";
-import { type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_GROUP_BY } from "./columns";
+import {
+    type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_COLUMN_ICON, DEFAULT_GROUP_BY
+} from "./columns";
 import { ColumnMap } from "./data";
 
 /** One write's claim on a column, held until that write lands or is taken back. */
@@ -279,6 +281,21 @@ export default class BoardApi {
     /** Stores the colour a column is tinted with, or clears it when given nothing. */
     async setColumnColor(column: string, color: string | null) {
         this.updateColumn(column, { color: color ?? undefined });
+    }
+
+    /**
+     * The icon a column shows in its header, for anywhere else standing for the same column.
+     *
+     * In relation mode the column is a note and wears that note's own icon, which the board does
+     * not keep and cannot set. Everywhere else the stock icon stands in for a column given none.
+     */
+    columnIcon(column: string) {
+        if (this.isRelationMode) {
+            return froca.getNoteFromCache(column)?.getIcon() ?? DEFAULT_COLUMN_ICON;
+        }
+
+        const stored = this.viewConfig?.columns?.find(col => col.value === column)?.icon;
+        return stored || DEFAULT_COLUMN_ICON;
     }
 
     /** Whether a column is archived, which the board shows only while archived notes are shown. */

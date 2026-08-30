@@ -933,3 +933,17 @@ describe("duplicating a card", () => {
         expect(branches.moveAfterBranch).toHaveBeenCalledWith([ "copyBranch" ], "card1Branch");
     });
 });
+
+describe("the icon a column wears", () => {
+    it("gives each column its own, and the stock one to a column given none", () => {
+        const { api } = createApi(
+            { columns: [ { value: "To Do", icon: "bx bx-list-ul" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]
+        );
+
+        expect(api.columnIcon("To Do")).toBe("bx bx-list-ul");
+        expect(api.columnIcon("Done")).toBe("bx bx-circle");
+        // One the board has never heard of is still owed an icon.
+        expect(api.columnIcon("Elsewhere")).toBe("bx bx-circle");
+    });
+});
