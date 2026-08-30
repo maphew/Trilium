@@ -137,7 +137,11 @@ function buildMoveColumnItems(api: Api, column: ColumnMenuTarget): MenuItem<stri
         }
 
         return [ {
-            title: t("board_view.move-column-after", { column: name }),
+            // Boxed the way the status list boxes its names, so a long one is cut rather than
+            // widening the menu. What `t()` interpolates it has already escaped.
+            title: `<span class="board-column-name">`
+                + `${t("board_view.move-column-after", { column: name })}</span>`,
+            className: "board-column-item",
             uiIcon: api.getColumnIcon(name),
             iconColorClass: api.getColumnColorClass(name),
             badges: api.isColumnArchived(name)

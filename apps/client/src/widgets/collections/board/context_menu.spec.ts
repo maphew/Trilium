@@ -151,6 +151,31 @@ describe("Board column context menu", () => {
         expect(places(2)).toEqual([ 0, 1 ]);
     });
 
+    it("boxes the column names it offers to move past, as the status list does", () => {
+        const api = {
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            isColumnArchived: () => false
+        } as unknown as BoardApi;
+
+        const menu = openMenu(api, { columns: [ "To Do", "Doing", "Done" ], index: 2 });
+        const entry = menu.find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-horizontal-left");
+        if (!entry || !("items" in entry)) throw new Error("expected a move-column entry");
+
+        // The head of the board carries no name, so only the ones naming a column are boxed.
+        const after = (entry.items ?? []).slice(1);
+        expect(after).toHaveLength(1);
+
+        // i18next is never initialised under test, so what it interpolates comes back undefined;
+        // the box around it is what this is about.
+        for (const item of after) {
+            expect(item && "title" in item ? item.title : "")
+                .toMatch(/^<span class="board-column-name">.*<\/span>$/);
+            expect(item).toMatchObject({ className: "board-column-item" });
+        }
+    });
+
     it("offers both sides to put a new column on", () => {
         const onAddColumn = vi.fn();
         const parent = openMenu({} as BoardApi, {}, { onAddColumn })
