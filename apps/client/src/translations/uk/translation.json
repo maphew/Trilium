@@ -1158,7 +1158,6 @@
     "note_tree_font": "Шрифт Дерева нотатки",
     "note_detail_font": "Шрифт деталей нотатки",
     "monospace_font": "Monospace (кодовий) шрифт",
-    "not_all_fonts_available": "Не всі перелічені шрифти можуть бути доступні у вашій системі.",
     "generic-fonts": "Загальні шрифти",
     "sans-serif-system-fonts": "Системні шрифти Sans-serif",
     "serif-system-fonts": "Системні шрифти Serif",

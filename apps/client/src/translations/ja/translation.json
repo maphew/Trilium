@@ -1001,7 +1001,6 @@
     "note_tree_font": "ノートツリー テキスト",
     "note_detail_font": "ドキュメント テキスト",
     "monospace_font": "等幅フォント",
-    "not_all_fonts_available": "リストにあるすべてのフォントが、お使いのシステムで利用できるとは限りません",
     "generic-fonts": "一般的なフォント",
     "sans-serif-system-fonts": "サンセリフのシステムフォント",
     "serif-system-fonts": "セリフのシステムフォント",

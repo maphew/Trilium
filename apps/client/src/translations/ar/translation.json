@@ -576,7 +576,6 @@
     "preview": "معاينة",
     "custom_fonts": "استخدام خطوط مخصصة",
     "apply_changes": "إعادة التحميل لتطبيق التغييرات",
-    "not_all_fonts_available": "قد لا تكون جميع الخطوط المدرجة متوفرة على نظامك",
     "monospace_font_description": "يُستخدم لملاحظات الكود وكتل الكود.",
     "size_relative_to_general": "الحجم يعتمد نسبيًا على حجم الخط العام"
   },

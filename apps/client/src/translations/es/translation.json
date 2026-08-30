@@ -1413,7 +1413,6 @@
     "note_tree_font": "Texto del árbol de notas",
     "note_detail_font": "Texto del documento",
     "monospace_font": "Texto monoespacio",
-    "not_all_fonts_available": "Es posible que no todas las fuentes enumeradas estén disponibles en su sistema",
     "generic-fonts": "Fuentes genéricas",
     "sans-serif-system-fonts": "Fuentes Sans-serif del sistema",
     "serif-system-fonts": "Fuentes Serif del sistema",

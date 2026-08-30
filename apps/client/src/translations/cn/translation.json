@@ -1397,7 +1397,6 @@
     "note_tree_font": "笔记树字体",
     "note_detail_font": "文档字体",
     "monospace_font": "等宽字体",
-    "not_all_fonts_available": "并非所有列出的字体都可能在你的系统上可用",
     "generic-fonts": "通用字体",
     "sans-serif-system-fonts": "无衬线系统字体",
     "serif-system-fonts": "衬线系统字体",
