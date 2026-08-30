@@ -97,6 +97,7 @@ let removeBackupLeftovers: typeof import('./lightweight/backup_provider').remove
 let StandaloneInAppHelpProvider: typeof import('./lightweight/in_app_help_provider').default;
 let translationProvider: typeof import('./lightweight/translation_provider').default;
 let createConfiguredRouter: typeof import('./lightweight/browser_routes').createConfiguredRouter;
+let waitForSahPoolRelease: typeof import('./lightweight/sql_provider').waitForSahPoolRelease;
 
 // Instance state
 let sqlProvider: InstanceType<typeof BrowserSqlProvider> | null = null;
@@ -129,11 +130,7 @@ function assertSqliteMagic(buffer: Uint8Array, source: string): void {
  * Load the test fixture database for integration tests.
  * Seeds from the fixture if not already present.
  */
-async function loadTestDatabase(sahPoolAvailable: boolean, dbName: string): Promise<void> {
-    if (!sahPoolAvailable) {
-        throw new Error("SAHPool is required for integration tests.");
-    }
-
+async function loadTestDatabase(dbName: string): Promise<void> {
     const poolFiles = sqlProvider!.sahPool!.getFileNames();
     if (!poolFiles.includes(dbName)) {
         console.log("[Worker] Integration test mode: seeding fixture database into SAHPool...");
@@ -191,6 +188,7 @@ async function loadModules(): Promise<void> {
     ]);
 
     BrowserSqlProvider = sqlModule.default;
+    waitForSahPoolRelease = sqlModule.waitForSahPoolRelease;
     WorkerMessagingProvider = messagingModule.default;
     BrowserExecutionContext = clsModule.default;
     BrowserCryptoProvider = cryptoModule.default;
@@ -231,6 +229,14 @@ async function initialize(): Promise<void> {
             // First, load all modules dynamically
             await loadModules();
 
+            // A reload starts this worker while the browser is still releasing the previous
+            // worker's exclusive OPFS access handles, so the boot waits for the database pool
+            // to be free — before the log service, whose own OPFS file is held the same way.
+            const poolReleased = await waitForSahPoolRelease();
+            if (!poolReleased) {
+                console.warn("[Worker] The SAHPool files are still held by another context; opening the database is expected to fail.");
+            }
+
             // Initialize log service as early as possible so subsequent
             // initialization steps are persisted to the OPFS log file.
             const logService = new StandaloneLogService();
@@ -241,13 +247,20 @@ async function initialize(): Promise<void> {
             logService.info("[Worker] Initializing SQLite WASM...");
             await sqlProvider!.initWasm();
 
-            // Try to install the SAHPool VFS (preferred: supports WAL, much faster)
-            let sahPoolAvailable = false;
+            // A failure here ends the boot: throwing from initialize() reaches the page as
+            // WORKER_ERROR and error-overlay.ts paints it. Opening an in-memory database
+            // instead would boot an empty instance whose notes vanish on the next reload.
             try {
                 await sqlProvider!.installSahPool();
-                sahPoolAvailable = true;
             } catch (e) {
-                logService.info(`[Worker] SAHPool VFS not available, will fall back to in-memory: ${e}`);
+                const reason = e instanceof Error ? e.message : String(e);
+                throw new Error(
+                    "The notes database could not be opened, because the browser did not grant "
+                    + `exclusive access to its persistent storage (OPFS): ${reason}\n\n`
+                    + "Close any other window running Trilium and reload this page. Your notes are "
+                    + "not affected. If the browser does not support OPFS sync access handles at "
+                    + "all, Trilium cannot run in it."
+                );
             }
 
             // Integration test mode is baked in at build time via the
@@ -267,15 +280,10 @@ async function initialize(): Promise<void> {
                 // Playwright gives each test a fresh BrowserContext, which means a
                 // fresh OPFS — so on the first worker init of a test we seed from
                 // the fixture, and subsequent inits in the same test reuse it.
-                await loadTestDatabase(sahPoolAvailable, dbName);
-            } else if (sahPoolAvailable) {
-                logService.info("[Worker] SAHPool available, loading persistent database (WAL mode)...");
-                sqlProvider!.loadFromSahPool(dbName);
+                await loadTestDatabase(dbName);
             } else {
-                // SAHPool only needs a Worker + OPFS API, so reaching this
-                // branch means the environment lacks OPFS entirely.
-                logService.info("[Worker] OPFS not available, using in-memory database (data will not persist)");
-                sqlProvider!.loadFromMemory();
+                logService.info("[Worker] Loading persistent database from SAHPool (WAL mode)...");
+                sqlProvider!.loadFromSahPool(dbName);
             }
 
             logService.info("[Worker] Database loaded");
