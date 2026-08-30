@@ -7,13 +7,18 @@ import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import type LoadResults from "../../../services/load_results";
 import { isIMEComposing } from "../../../services/shortcuts";
+import type { ShortcutHintDefinition } from "../../../services/shortcut_hints";
 import toast from "../../../services/toast";
+import { isMobile } from "../../../services/utils";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import FormTextArea from "../../react/FormTextArea";
 import FormTextBox from "../../react/FormTextBox";
-import { useNoteLabelBoolean, useNoteLabelWithDefault, useTriliumEvent } from "../../react/hooks";
+import {
+    useContextualShortcutHints, useNoteLabelBoolean, useNoteLabelWithDefault, useTriliumEvent
+} from "../../react/hooks";
 import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
+import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import { ViewModeProps } from "../interface";
 import Api, {
@@ -104,6 +109,43 @@ export const BoardDragStateContext = createContext<BoardDragState>({
     dropTarget: null
 });
 
+/**
+ * What the board answers with when asked for contextual keyboard help. Every entry is a key the
+ * board handles itself (see `keyboard.ts` and the card and column handlers), none of them
+ * rebindable, so each is listed literally rather than through a registered action.
+ */
+const BOARD_HINTS: ShortcutHintDefinition = [
+    {
+        titleKey: "board_view.hints.navigation",
+        hints: [
+            { keys: [ "Up", "Down" ], labelKey: "board_view.hints.navigate_items" },
+            { keys: [ "Left", "Right" ], labelKey: "board_view.hints.navigate_columns" },
+            { keys: [ "Home", "End" ], labelKey: "board_view.hints.first_last_item" }
+        ]
+    },
+    {
+        titleKey: "board_view.hints.editing",
+        hints: [
+            { keys: [ "Enter", "Shift+Enter" ], labelKey: "board_view.hints.insert_item" },
+            { keys: [ "Space" ], labelKey: "board_view.hints.open_item" },
+            { keys: [ "F2" ], labelKey: "board_view.hints.rename" }
+        ]
+    },
+    {
+        titleKey: "board_view.hints.moving",
+        hints: [
+            { keys: [ "Ctrl+Up", "Ctrl+Down" ], labelKey: "board_view.hints.move_item" },
+            { keys: [ "Ctrl+Left", "Ctrl+Right" ], labelKey: "board_view.hints.move_across" },
+            { keys: [ "Ctrl+Home", "Ctrl+End" ], labelKey: "board_view.hints.move_to_edge" },
+            { keys: [ "Ctrl+PageUp", "Ctrl+PageDown" ], labelKey: "board_view.hints.move_within" },
+            {
+                keys: [ "Ctrl+Alt+Left", "Ctrl+Alt+Right" ],
+                labelKey: "board_view.hints.move_column"
+            }
+        ]
+    }
+];
+
 export default function BoardView({ note: parentNote, noteIds, viewConfig, saveConfig }: ViewModeProps<BoardViewData>) {
     const [ statusAttributeWithPrefix ] = useNoteLabelWithDefault(parentNote, "board:groupBy", DEFAULT_GROUP_BY);
     const [ includeArchived ] = useNoteLabelBoolean(parentNote, "includeArchived");
@@ -134,6 +176,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // here, so that another view of the same board reads the same record; moving to another board
     // takes up that board's own, leaving a write still in flight to undo into the one it recorded
     // itself in. Done while rendering, so the `api` below is handed the map the refresh reads.
+    useContextualShortcutHints(BOARD_HINTS);
     const boardIdentity = `${parentNote.noteId}|${statusAttributeWithPrefix}`;
     if (pendingRenamesRef.current.board !== boardIdentity) {
         pendingRenamesRef.current = {
@@ -338,6 +381,12 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                         )}
 
                         <AddNewColumn api={api} isInRelationMode={isInRelationMode} />
+                        {!isMobile() && (
+                            <ShortcutHintButton
+                                className="board-shortcut-hint-button"
+                                placement="bottom-end"
+                            />
+                        )}
                     </div>}
                 </BoardDragStateContext.Provider>
             </BoardActionsContext.Provider>

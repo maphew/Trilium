@@ -8,7 +8,9 @@ import { ColumnMap } from "./data";
 const NAVIGATION_KEYS = [ "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End" ];
 
 /** With Ctrl, these carry the focused card: a step, a column across, or all the way to an end. */
-const ITEM_MOVE_KEYS = [ "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown" ];
+const ITEM_MOVE_KEYS = [
+    "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End"
+];
 
 /** With Ctrl and Alt, these carry the column focus is in, from wherever inside it focus sits. */
 const COLUMN_MOVE_KEYS = [ "ArrowLeft", "ArrowRight", "PageUp", "PageDown" ];
@@ -275,9 +277,12 @@ function move(
     const { noteId } = item.note;
     const { branchId } = item.branch;
 
-    if (key === "ArrowLeft" || key === "ArrowRight") {
-        const target = columns[spot.column + (key === "ArrowRight" ? 1 : -1)];
-        if (!target) return false;
+    if (key === "ArrowLeft" || key === "ArrowRight" || key === "Home" || key === "End") {
+        // Home and End carry the card the whole way, the way they carry the cursor within a column.
+        const target = key === "Home" ? columns[0]
+            : key === "End" ? columns[columns.length - 1]
+            : columns[spot.column + (key === "ArrowRight" ? 1 : -1)];
+        if (!target || target === column) return false;
 
         return { intent: { noteId }, done: api.moveToColumnEnd(noteId, branchId, target) };
     }

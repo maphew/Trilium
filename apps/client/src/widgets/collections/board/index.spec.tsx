@@ -18,6 +18,7 @@ import { executeBulkActions } from "../../../services/bulk_action";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
+import { collectShortcutHints } from "../../../services/shortcut_hints";
 import { getPendingWrites } from "./api";
 import { DEFAULT_COLUMN_ICON } from "./columns";
 
@@ -275,6 +276,58 @@ describe("Board column rename", () => {
 
         expect(saved).toEqual([]);
         second.remove();
+    });
+
+    it("offers its keys as contextual shortcut hints", async () => {
+        const host = new Component();
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            children: [ { title: "First", "#status": "To Do" } ]
+        });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={host}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={DEFAULT_CONFIG}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+        });
+        await act(async () => { await flush(); });
+
+        const sections = collectShortcutHints(host);
+
+        expect(sections.map(section => section.titleKey)).toEqual([
+            "board_view.hints.navigation",
+            "board_view.hints.editing",
+            "board_view.hints.moving"
+        ]);
+        // Every key the board answers for is spoken for, and none it does not.
+        expect(sections.flatMap(section => section.hints)).toEqual([
+            { keys: [ "Up", "Down" ], labelKey: "board_view.hints.navigate_items" },
+            { keys: [ "Left", "Right" ], labelKey: "board_view.hints.navigate_columns" },
+            { keys: [ "Home", "End" ], labelKey: "board_view.hints.first_last_item" },
+            { keys: [ "Enter", "Shift+Enter" ], labelKey: "board_view.hints.insert_item" },
+            { keys: [ "Space" ], labelKey: "board_view.hints.open_item" },
+            { keys: [ "F2" ], labelKey: "board_view.hints.rename" },
+            { keys: [ "Ctrl+Up", "Ctrl+Down" ], labelKey: "board_view.hints.move_item" },
+            { keys: [ "Ctrl+Left", "Ctrl+Right" ], labelKey: "board_view.hints.move_across" },
+            { keys: [ "Ctrl+Home", "Ctrl+End" ], labelKey: "board_view.hints.move_to_edge" },
+            { keys: [ "Ctrl+PageUp", "Ctrl+PageDown" ], labelKey: "board_view.hints.move_within" },
+            {
+                keys: [ "Ctrl+Alt+Left", "Ctrl+Alt+Right" ],
+                labelKey: "board_view.hints.move_column"
+            }
+        ]);
     });
 
     /** Renames the middle column, so a slot that is not the last one has to survive. */

@@ -335,6 +335,31 @@ describe("Board keyboard", () => {
             expect(focusedName(board)).toBe("Done");
         });
 
+        it("carries a card the whole way with Ctrl and Home or End", async () => {
+            const board = await renderBoard();
+            focusCard(board, 1, 0);
+            const moved = noteOf(board, "Second");
+
+            press(board, "Home", { ctrlKey: true });
+            setStatus(moved, "To Do");
+            await redraw();
+            expect(columnOf(board, "Second")).toBe(0);
+
+            press(board, "End", { ctrlKey: true });
+            setStatus(moved, "Done");
+            await redraw();
+            expect(columnOf(board, "Second")).toBe(2);
+        });
+
+        it("does not move a card already in the column Home or End would send it to", async () => {
+            const board = await renderBoard();
+            focusCard(board, 0, 0);
+
+            press(board, "Home", { ctrlKey: true });
+
+            expect(columnOf(board, "First")).toBe(0);
+        });
+
         it("does nothing at the edges it cannot move past", async () => {
             const board = await renderBoard();
 
