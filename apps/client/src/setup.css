@@ -141,10 +141,30 @@ body.setup {
             overflow: auto;
 
             >.back-button {
-                position: absolute;
+                /* `.page` is the element that scrolls (`overflow: auto` above), not
+                   `.setup-container`, so `absolute` positioned this against the
+                   non-scrolling outer container and left it pinned on screen while
+                   the content scrolled underneath it. `sticky` keeps it reserved in
+                   normal flow, pushing later content below it instead of under it,
+                   while still sticking to the top of the scrollable area on scroll,
+                   the same technique `.page > footer` below already uses to stick to
+                   the bottom. */
+                position: sticky;
                 top: calc(1em + env(safe-area-inset-top));
                 inset-inline-start: 1em;
+                align-self: flex-start;
+                z-index: 1;
                 color: var(--muted-text-color);
+                /* Sticking means later content scrolls up underneath this button, the same as
+                   `.page > footer` below sticking to the bottom. Without a background of its own
+                   that content would show through and read as overlapping text; give it the same
+                   fill footer uses, dropped the same way in the effects theme where the card
+                   itself has none to match. */
+                background: var(--main-background-color);
+
+                body.background-effects & {
+                    background: transparent;
+                }
 
                 body.desktop & {
                     inset-inline-start: 2em;
@@ -411,8 +431,23 @@ body.setup .bx-spin {
 .page.sync-from-desktop {
     .card-columns {
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
         gap: 1.5rem;
+
+        @media (min-width: 700px) {
+            flex-direction: row;
+
+            /* `.tn-card` opts into `container-type: inline-size` (Card.css) so its own contents
+               can be laid out by the room the card is given rather than by the viewport, but
+               that same size containment zeroes its intrinsic width contribution as a flex item.
+               `.ip-addresses` has an explicit min-width to fall back on; this, the instructions
+               card, does not, so uncontained it collapsed to 0 width and rendered on top of
+               `.ip-addresses` instead of beside it. Giving it a flex-basis of its own fixes that
+               regardless of its own (zeroed) content size. */
+            > :first-child {
+                flex: 1;
+            }
+        }
     }
 
     .sync-from-desktop-waiting {
