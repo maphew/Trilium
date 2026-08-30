@@ -191,6 +191,26 @@ describe("Generating CSS for untrusted manifests", () => {
         expect(css).not.toContain(".un.un evil");
     });
 
+    it("keeps non-ASCII icon keys, which are valid CSS class names", () => {
+        const css = generateCssFor({
+            "un-caf\u00e9": { glyph: "\ue9c2", terms: [ "coffee" ] },
+            "un-\u56fe\u6807": { glyph: "\ue9c3", terms: [ "icon" ] }
+        });
+
+        expect(css).toContain(`.un.un-caf\u00e9::before { content: "\ue9c2"; }`);
+        expect(css).toContain(`.un.un-\u56fe\u6807::before { content: "\ue9c3"; }`);
+    });
+
+    it("keeps emoji glyphs and keys, whose surrogate pairs sit above U+0080", () => {
+        const css = generateCssFor({
+            "utf-grinning-face": { glyph: "\u{1F600}", terms: [ "grinning face" ] },
+            "utf-\u{1F600}": { glyph: "\u{1F600}", terms: [ "grinning face" ] }
+        });
+
+        expect(css).toContain(`.un.utf-grinning-face::before { content: "\u{1F600}"; }`);
+        expect(css).toContain(`.un.utf-\u{1F600}::before { content: "\u{1F600}"; }`);
+    });
+
     it("escapes a glyph so it cannot end the style element it is served in", () => {
         const css = generateCssFor({
             "un-evil": { glyph: `</style><script>alert(1)</script>`, terms: [ "evil" ] }

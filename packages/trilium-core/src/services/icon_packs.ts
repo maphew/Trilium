@@ -20,11 +20,12 @@ const MIME_TO_CSS_FORMAT_MAPPINGS: Record<typeof PREFERRED_MIME_TYPE[number], st
 };
 
 /**
- * Charset a pack's prefix and each of its icon keys must match. Both are interpolated into
- * a CSS class selector, so anything outside it would need escaping there — and a key holding
- * `</style>` would end the inline `<style>` element the stylesheet is served in.
+ * Character set a pack's prefix and each of its icon keys must match. Both are interpolated
+ * into a CSS class selector, which takes letters, digits, `-`, `_` and any code point at or
+ * above U+0080 unescaped. Anything else has to be rejected: a key holding `</style>` ends the
+ * inline `<style>` element that `generateCss()` output is served in.
  */
-const CSS_CLASS_NAME_PATTERN = /^[a-zA-Z0-9-_]+$/;
+const CSS_CLASS_NAME_PATTERN = /^[a-zA-Z0-9_\u0080-\uFFFF-]+$/;
 
 export const MIME_TO_EXTENSION_MAPPINGS: Record<string, string> = {
     "font/ttf": "ttf",
@@ -126,9 +127,8 @@ export function processIconPack(iconPackNote: BNote): ProcessedIconPack | undefi
         return;
     }
 
-    // Ensure prefix is alphanumeric only, dashes and underscores.
     if (!CSS_CLASS_NAME_PATTERN.test(prefix)) {
-        getLog().error(`Icon pack has invalid 'iconPack' prefix (only alphanumeric characters, dashes and underscores are allowed): ${iconPackNote.title} (${iconPackNote.noteId})`);
+        getLog().error(`Icon pack has invalid 'iconPack' prefix (only letters, digits, dashes, underscores and non-ASCII characters are allowed): ${iconPackNote.title} (${iconPackNote.noteId})`);
         return;
     }
 
@@ -165,7 +165,7 @@ export function generateCss({ manifest, fontMime, builtin, fontAttachmentId, pre
         const iconDeclarations: string[] = [];
         for (const [ key, mapping ] of Object.entries(manifest.icons)) {
             if (!CSS_CLASS_NAME_PATTERN.test(key)) {
-                getLog().error(`Skipping icon '${key}' of icon pack '${prefix}': keys allow only alphanumeric characters, dashes and underscores.`);
+                getLog().error(`Skipping icon '${key}' of icon pack '${prefix}': keys allow only letters, digits, dashes, underscores and non-ASCII characters.`);
                 continue;
             }
 
