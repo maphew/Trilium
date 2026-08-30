@@ -5,7 +5,7 @@ import { getEnabledExperimentalFeatureIds } from "../../services/experimental_fe
 import { applyCustomFontsFromOptions, hasCustomFontContentChanged } from "../../services/custom_fonts.js";
 import { applyFontsFromOptions } from "../../services/font.js";
 import options from "../../services/options.js";
-import { applyThemeFromOptions, updateColorSchemeClasses, updateThemeCapabilities } from "../../services/theme.js";
+import { applyThemeFromOptions, onEffectiveThemeStyleChange, updateColorSchemeClasses, updateThemeCapabilities } from "../../services/theme.js";
 import utils, { isIOS, isMobile } from "../../services/utils.js";
 import type BasicWidget from "../basic_widget.js";
 import FlexContainer from "./flex_container.js";
@@ -106,10 +106,9 @@ export default class RootContainer extends FlexContainer<BasicWidget> {
     }
 
     #initTheme() {
-        const colorSchemeChangeObserver = matchMedia("(prefers-color-scheme: dark)");
-        colorSchemeChangeObserver.addEventListener("change", () => this.#updateColorScheme());
+        onEffectiveThemeStyleChange(() => this.#updateColorScheme());
         this.#updateColorScheme();
-        
+
         document.body.setAttribute("data-theme-id", options.get("theme"));
     }
 
