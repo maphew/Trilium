@@ -119,7 +119,7 @@ describe("Board keyboard", () => {
                 // Even at an edge it moves nothing from: the board owns the key while focused.
                 focusCard(board, 0, 0);
                 press(board, "ArrowLeft", { ctrlKey: true });
-                press(board, "PageDown", { ctrlKey: true });
+                press(board, "End", { ctrlKey: true });
                 press(board, "ArrowRight", { ctrlKey: true, altKey: true });
                 press(board, " ");
 
@@ -335,29 +335,16 @@ describe("Board keyboard", () => {
             expect(focusedName(board)).toBe("Done");
         });
 
-        it("carries a card the whole way with Ctrl and Home or End", async () => {
+        it("sends a card to either end of its column with Ctrl and Home or End", async () => {
             const board = await renderBoard();
-            focusCard(board, 1, 0);
-            const moved = noteOf(board, "Second");
+            focusCard(board, 0, 1);
 
             press(board, "Home", { ctrlKey: true });
-            setStatus(moved, "To Do");
-            await redraw();
-            expect(columnOf(board, "Second")).toBe(0);
+            expect(branches.moveBeforeBranch).toHaveBeenCalled();
 
-            press(board, "End", { ctrlKey: true });
-            setStatus(moved, "Done");
-            await redraw();
-            expect(columnOf(board, "Second")).toBe(2);
-        });
-
-        it("does not move a card already in the column Home or End would send it to", async () => {
-            const board = await renderBoard();
             focusCard(board, 0, 0);
-
-            press(board, "Home", { ctrlKey: true });
-
-            expect(columnOf(board, "First")).toBe(0);
+            press(board, "End", { ctrlKey: true });
+            expect(branches.moveAfterBranch).toHaveBeenCalled();
         });
 
         it("does nothing at the edges it cannot move past", async () => {
@@ -365,7 +352,7 @@ describe("Board keyboard", () => {
 
             focusCard(board, 0, 0);
             press(board, "ArrowUp", { ctrlKey: true });
-            press(board, "PageUp", { ctrlKey: true });
+            press(board, "Home", { ctrlKey: true });
             press(board, "ArrowLeft", { ctrlKey: true });
 
             focusButton(board, 1);
@@ -417,17 +404,17 @@ describe("Board keyboard", () => {
             expect(focusedName(board)).toBe("To Do");
         });
 
-        it("sends a column to either end with the page keys", async () => {
+        it("sends a column to either end with Ctrl, Alt and Home or End", async () => {
             const board = await renderBoard();
 
             focusHeader(board, 1);
-            press(board, "PageUp", { ctrlKey: true, altKey: true });
+            press(board, "Home", { ctrlKey: true, altKey: true });
             await act(async () => { await flush(); });
             expect(saved.at(-1)?.columns?.map(column => column.value))
                 .toEqual([ "Doing", "To Do", "Done" ]);
 
             focusHeader(board, 0);
-            press(board, "PageDown", { ctrlKey: true, altKey: true });
+            press(board, "End", { ctrlKey: true, altKey: true });
             await act(async () => { await flush(); });
             expect(saved.at(-1)?.columns?.map(column => column.value))
                 .toEqual([ "To Do", "Done", "Doing" ]);

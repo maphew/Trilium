@@ -7,13 +7,11 @@ import { ColumnMap } from "./data";
 /** Plain, these walk the board. */
 const NAVIGATION_KEYS = [ "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End" ];
 
-/** With Ctrl, these carry the focused card: a step, a column across, or all the way to an end. */
-const ITEM_MOVE_KEYS = [
-    "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End"
-];
+/** With Ctrl, these carry the focused card: a step, a column across, or to an end of its own. */
+const ITEM_MOVE_KEYS = [ "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End" ];
 
 /** With Ctrl and Alt, these carry the column focus is in, from wherever inside it focus sits. */
-const COLUMN_MOVE_KEYS = [ "ArrowLeft", "ArrowRight", "PageUp", "PageDown" ];
+const COLUMN_MOVE_KEYS = [ "ArrowLeft", "ArrowRight", "Home", "End" ];
 
 /**
  * A place on the board that can hold focus.
@@ -277,12 +275,9 @@ function move(
     const { noteId } = item.note;
     const { branchId } = item.branch;
 
-    if (key === "ArrowLeft" || key === "ArrowRight" || key === "Home" || key === "End") {
-        // Home and End carry the card the whole way, the way they carry the cursor within a column.
-        const target = key === "Home" ? columns[0]
-            : key === "End" ? columns[columns.length - 1]
-            : columns[spot.column + (key === "ArrowRight" ? 1 : -1)];
-        if (!target || target === column) return false;
+    if (key === "ArrowLeft" || key === "ArrowRight") {
+        const target = columns[spot.column + (key === "ArrowRight" ? 1 : -1)];
+        if (!target) return false;
 
         return { intent: { noteId }, done: api.moveToColumnEnd(noteId, branchId, target) };
     }
@@ -291,8 +286,8 @@ function move(
     // A card is placed before a position too, so moving one down means passing the one below it.
     const to = key === "ArrowUp" && spot.item > 0 ? spot.item - 1
         : key === "ArrowDown" && spot.item < last ? spot.item + 2
-        : key === "PageUp" && spot.item > 0 ? 0
-        : key === "PageDown" && spot.item < last ? items.length
+        : key === "Home" && spot.item > 0 ? 0
+        : key === "End" && spot.item < last ? items.length
         : null;
 
     if (to === null) return false;
@@ -320,8 +315,8 @@ function shiftColumn(
     // A column is placed before a position, so passing one to the right means passing two.
     const to = key === "ArrowRight" && spot.column < last ? spot.column + 2
         : key === "ArrowLeft" && spot.column > 0 ? spot.column - 1
-        : key === "PageDown" && spot.column < last ? columns.length
-        : key === "PageUp" && spot.column > 0 ? 0
+        : key === "End" && spot.column < last ? columns.length
+        : key === "Home" && spot.column > 0 ? 0
         : null;
 
     if (to === null) return false;

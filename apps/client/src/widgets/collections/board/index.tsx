@@ -135,12 +135,15 @@ const BOARD_HINTS: ShortcutHintDefinition = [
         titleKey: "board_view.hints.moving",
         hints: [
             { keys: [ "Ctrl+Up", "Ctrl+Down" ], labelKey: "board_view.hints.move_item" },
+            { keys: [ "Ctrl+Home", "Ctrl+End" ], labelKey: "board_view.hints.move_within" },
             { keys: [ "Ctrl+Left", "Ctrl+Right" ], labelKey: "board_view.hints.move_across" },
-            { keys: [ "Ctrl+Home", "Ctrl+End" ], labelKey: "board_view.hints.move_to_edge" },
-            { keys: [ "Ctrl+PageUp", "Ctrl+PageDown" ], labelKey: "board_view.hints.move_within" },
             {
                 keys: [ "Ctrl+Alt+Left", "Ctrl+Alt+Right" ],
                 labelKey: "board_view.hints.move_column"
+            },
+            {
+                keys: [ "Ctrl+Alt+Home", "Ctrl+Alt+End" ],
+                labelKey: "board_view.hints.move_column_to_edge"
             }
         ]
     }

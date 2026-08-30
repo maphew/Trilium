@@ -3386,10 +3386,10 @@
       "rename": "Rename item or column",
       "moving": "Moving",
       "move_item": "Move item up / down",
-      "move_across": "Move to the previous / next column",
-      "move_to_edge": "Move to the first / last column",
       "move_within": "Move to the top / bottom of the column",
-      "move_column": "Move the column left / right"
+      "move_across": "Move to the previous / next column",
+      "move_column": "Move the column left / right",
+      "move_column_to_edge": "Move the column to the far left / right"
     },
     "status-alias": "Status"
   },
