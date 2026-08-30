@@ -308,6 +308,16 @@ export default class BoardApi {
         return cssClassManager.createClassForColor(color ?? null);
     }
 
+    /**
+     * What to call the field the board groups by, for a heading standing over its columns.
+     *
+     * The promoted alias is what a card shows the field as, so it is the name a reader already
+     * knows. A board whose definition gives none, or none of its own, falls back to the stock word.
+     */
+    getStatusLabel() {
+        return this.statusDefinition?.definition.promotedAlias || t("board_view.status-header");
+    }
+
     /** Whether a column is archived, which the board shows only while archived notes are shown. */
     isColumnArchived(column: string) {
         return !!this.viewConfig?.columns?.find(col => col.value === column)?.archived;

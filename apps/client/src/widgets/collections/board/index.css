@@ -481,3 +481,9 @@ body.mobile .board-view-container .board-add-column {
   max-width: 200px;
   word-wrap: break-word;
 }
+
+/* The menu is drawn outside the board, so the column a card is already under is named rather than
+   reached through `.board-view`. */
+.dropdown-item.board-current-column {
+    font-weight: 600;
+}

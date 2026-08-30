@@ -26,7 +26,8 @@ function Card({
     column,
     index,
     isDragging,
-    isEditing
+    isEditing,
+    onFocusCard
 }: {
     api: BoardApi,
     note: FNote,
@@ -38,7 +39,9 @@ function Card({
      * Passed down rather than derived here from the drag state's `branchIdToEdit`, so that a card
      * subscribes only to the board's stable context and a drag leaves it off the render path.
      */
-    isEditing: boolean
+    isEditing: boolean,
+    /** Puts focus back on this card once a change of column has drawn it under another one. */
+    onFocusCard: (noteId: string) => void
 }) {
     const { setBranchIdToEdit, setDraggedCard } = useContext(BoardActionsContext);
     const colorClass = note.getColorClass() || '';
@@ -70,8 +73,8 @@ function Card({
     }, [setDraggedCard]);
 
     const handleContextMenu = useCallback((e: ContextMenuEvent) => {
-        openNoteContextMenu(api, e, note, branch.branchId, column);
-    }, [ api, note, branch, column ]);
+        openNoteContextMenu(api, e, note, branch.branchId, column, onFocusCard);
+    }, [ api, note, branch, column, onFocusCard ]);
 
     const handleOpen = useCallback((e: MouseEvent) => {
         // A double click is one gesture, and its second click would open the note over itself: the

@@ -279,26 +279,22 @@ describe("Board item context menu", () => {
             .toEqual([ "before", "after" ]);
     });
 
-    it("moves the card to the column picked, leaving the one it is in unselectable", () => {
+    it("copies a card into the board, after the one it was made from", async () => {
         const api = {
-            columns: [ "To Do", "Done" ],
+            columns: [ "To Do" ],
             isColumnArchived: () => false,
             getColumnIcon: () => DEFAULT_COLUMN_ICON,
             getColumnColorClass: () => "",
-            changeColumn: vi.fn(async () => {})
+            duplicateItem: vi.fn(async () => {})
         } as unknown as BoardApi;
 
-        const moveTo = openItemMenu(api)
-            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
-        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
+        const entry = openItemMenu(api).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-outline");
+        if (!entry || !("handler" in entry)) throw new Error("expected a duplicate entry");
 
-        const sides = moveTo.items ?? [];
-        expect(sides.map(item => item && "enabled" in item ? item.enabled : undefined))
-            .toEqual([ false, true ]);
+        await entry.handler?.(entry, {} as never);
 
-        const done = sides[1];
-        if (done && "handler" in done) done.handler?.(done, {} as never);
-        expect(api.changeColumn).toHaveBeenCalledWith(expect.any(String), "Done");
+        expect(api.duplicateItem).toHaveBeenCalledWith(expect.any(String), "branchId");
     });
 
     it("takes the card off the board, and deletes it outright", () => {
@@ -322,26 +318,8 @@ describe("Board item context menu", () => {
         expect(deleteNotes).toHaveBeenCalledWith([ "branchId" ], false, false);
     });
 
-    it("copies a card into the board, after the one it was made from", async () => {
-        const api = {
-            columns: [ "To Do" ],
-            isColumnArchived: () => false,
-            getColumnIcon: () => DEFAULT_COLUMN_ICON,
-            getColumnColorClass: () => "",
-            duplicateItem: vi.fn(async () => {})
-        } as unknown as BoardApi;
-
-        const entry = openItemMenu(api).find(item =>
-            item && "uiIcon" in item && item.uiIcon === "bx bx-outline");
-        if (!entry || !("handler" in entry)) throw new Error("expected a duplicate entry");
-
-        await entry.handler?.(entry, {} as never);
-
-        expect(api.duplicateItem).toHaveBeenCalledWith(expect.any(String), "branchId");
-    });
-
     /** Opens the menu a card offers, and hands back what it was given to show. */
-    function openItemMenu(api: BoardApi, column = "To Do") {
+    function openItemMenu(api: BoardApi, column = "To Do", focusCard = vi.fn()) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
         const event = {
             preventDefault: () => {},
@@ -350,84 +328,76 @@ describe("Board item context menu", () => {
             pageY: 0
         } as ContextMenuEvent;
 
-        openNoteContextMenu(api, event, buildNote({ title: "Card" }) as FNote, "branchId", column);
+        // Every item menu asks what the board calls its grouping field; a test says so only when
+        // that is what it is about.
+        const withDefaults = Object.assign({ getStatusLabel: () => "Status" }, api);
+        openNoteContextMenu(
+            withDefaults, event, buildNote({ title: "Card" }) as FNote, "branchId", column,
+            focusCard);
 
         return show.mock.calls.at(-1)?.[0].items ?? [];
     }
 
+    /** Reads the run of column entries the menu puts under its Status header. */
+    function statusItems(api: BoardApi, column = "To Do") {
+        const items = openItemMenu(api, column);
+        const header = items.findIndex(item => item && "kind" in item && item.kind === "header");
+        if (header < 0) throw new Error("expected a Status header");
+
+        const rest = items.slice(header + 1);
+        const end = rest.findIndex(item => item && "kind" in item && item.kind === "separator");
+        return rest.slice(0, end < 0 ? rest.length : end);
+    }
+
     /**
-     * The whole-way keys land on the same two entries wherever the card stands, so the menu names
-     * them. The one-column keys land somewhere different for every card and are left unnamed.
+     * The columns stand in the menu itself rather than behind a submenu, so a card is filed in one
+     * press. The one it is already under is shown too, ticked, so the list reads as the whole set.
      */
-    it("names the whole-way keys on the ends, and nothing on the columns beside", () => {
-        const api = {
-            columns: [ "To Do", "Doing", "Done", "Shipped" ],
-            isColumnArchived: () => false,
-            getColumnIcon: () => DEFAULT_COLUMN_ICON,
-            getColumnColorClass: () => ""
-        } as unknown as BoardApi;
-
-        const moveTo = openItemMenu(api, "Doing").find(item =>
-            item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
-        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
-
-        expect((moveTo.items ?? []).map(item => item && "shortcut" in item ? item.shortcut : null))
-            .toEqual([ "Ctrl+Shift+Left", undefined, undefined, "Ctrl+Shift+Right" ]);
-    });
-
-    it("leaves the end a card already stands in bare", () => {
-        const api = {
-            columns: [ "To Do", "Doing", "Done" ],
-            isColumnArchived: () => false,
-            getColumnIcon: () => DEFAULT_COLUMN_ICON,
-            getColumnColorClass: () => ""
-        } as unknown as BoardApi;
-
-        const moveTo = openItemMenu(api, "To Do").find(item =>
-            item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
-        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
-
-        expect((moveTo.items ?? []).map(item => item && "shortcut" in item ? item.shortcut : null))
-            .toEqual([ undefined, undefined, "Ctrl+Shift+Right" ]);
-    });
-
-    /** A hidden column is not one the keys reach, so the end is the last column drawn. */
-    it("counts the end over an archived column rather than onto it", () => {
-        const api = {
-            columns: [ "To Do", "Doing", "Parked" ],
-            isColumnArchived: (column: string) => column === "Parked",
-            getColumnIcon: () => DEFAULT_COLUMN_ICON,
-            getColumnColorClass: () => ""
-        } as unknown as BoardApi;
-
-        const moveTo = openItemMenu(api, "To Do").find(item =>
-            item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
-        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
-
-        expect((moveTo.items ?? []).map(item => item && "shortcut" in item ? item.shortcut : null))
-            .toEqual([ undefined, "Ctrl+Shift+Right", undefined ]);
-    });
-
-    it("marks the archived columns it offers to move a card to", () => {
+    it("offers every column under a Status header, ticking the one the card is under", () => {
         const api = {
             columns: [ "To Do", "Done" ],
-            isColumnArchived: (column: string) => column === "Done",
+            isColumnArchived: () => false,
             getColumnIcon: () => DEFAULT_COLUMN_ICON,
             getColumnColorClass: () => "",
+            changeColumn: vi.fn(async () => {})
         } as unknown as BoardApi;
 
-        const moveTo = openItemMenu(api).find(item =>
-            item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
-        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
+        const columns = statusItems(api);
 
-        // Presence rather than wording: i18next is never initialised under test, so every title is
-        // undefined and asserting the text would prove nothing.
-        expect((moveTo.items ?? [])
-            .map(item => !!(item && "badges" in item && item.badges?.length)))
-            .toEqual([ false, true ]);
+        expect(columns.map(item => item && "title" in item ? item.title : undefined))
+            .toEqual([ "To Do", "Done" ]);
+        // The tick goes at the trailing edge, leaving each column's own icon where it stands.
+        expect(columns.map(item => item && "trailingIcon" in item ? item.trailingIcon : undefined))
+            .toEqual([ "bx bx-check", undefined ]);
+        // And carries the class the stylesheet weights it by.
+        expect(columns.map(item => item && "className" in item ? item.className : undefined))
+            .toEqual([ "board-current-column", undefined ]);
+
+        const done = columns[1];
+        if (done && "handler" in done) done.handler?.(done, {} as never);
+        expect(api.changeColumn).toHaveBeenCalledWith(expect.any(String), "Done");
     });
 
-    it("shows each column it offers to move a card to with the icon and colour it carries", () => {
+    /** The card is drawn afresh under the column it lands in, so focus is asked for by name. */
+    it("keeps focus on the card it files, as a move by keyboard does", () => {
+        const api = {
+            columns: [ "To Do", "Done" ],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            changeColumn: vi.fn(async () => {})
+        } as unknown as BoardApi;
+        const focusCard = vi.fn();
+
+        const items = openItemMenu(api, "To Do", focusCard);
+        const header = items.findIndex(item => item && "kind" in item && item.kind === "header");
+        const done = items[header + 2];
+        if (done && "handler" in done) done.handler?.(done, {} as never);
+
+        expect(focusCard).toHaveBeenCalledWith(expect.any(String));
+    });
+
+    it("shows each column with the icon and colour it carries", () => {
         const api = {
             columns: [ "To Do", "Done" ],
             isColumnArchived: () => false,
@@ -436,14 +406,25 @@ describe("Board item context menu", () => {
             getColumnColorClass: (column: string) => column === "Done" ? "use-note-color" : ""
         } as unknown as BoardApi;
 
-        const moveTo = openItemMenu(api).find(item =>
-            item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
-        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
+        const columns = statusItems(api);
 
-        expect((moveTo.items ?? []).map(item => item && "uiIcon" in item ? item.uiIcon : undefined))
+        expect(columns.map(item => item && "uiIcon" in item ? item.uiIcon : undefined))
             .toEqual([ DEFAULT_COLUMN_ICON, "bx bx-check-circle" ]);
-        expect((moveTo.items ?? [])
+        expect(columns
             .map(item => item && "iconColorClass" in item ? item.iconColorClass : undefined))
             .toEqual([ "", "use-note-color" ]);
+    });
+
+    it("marks the archived columns among them", () => {
+        const api = {
+            columns: [ "To Do", "Done" ],
+            isColumnArchived: (column: string) => column === "Done",
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => ""
+        } as unknown as BoardApi;
+
+        expect(statusItems(api)
+            .map(item => !!(item && "badges" in item && item.badges?.length)))
+            .toEqual([ false, true ]);
     });
 });

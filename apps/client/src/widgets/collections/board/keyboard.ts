@@ -123,6 +123,15 @@ export function useBoardKeyboard({
         pendingFocus.current = { intent: { column, part: "header" } };
     }, []);
 
+    /**
+     * Puts focus back on a card once the board has drawn it again, for a move made from somewhere
+     * other than the keyboard. A card crossing columns is drawn afresh under the new one, so the
+     * element it was is gone by the time the move lands.
+     */
+    const focusCard = useCallback((noteId: string) => {
+        pendingFocus.current = { intent: { noteId } };
+    }, []);
+
     const onKeyDown = useCallback((e: KeyboardEvent) => {
         const container = containerRef.current;
         const target = e.target as HTMLElement | null;
@@ -249,7 +258,7 @@ export function useBoardKeyboard({
         }
     }, [ containerRef, columns, byColumn, api, moveColumn, insertColumn ]);
 
-    return { onKeyDown, focusColumn };
+    return { onKeyDown, focusColumn, focusCard };
 }
 
 /** What to put focus on once a card goes: the one under it, the one over it, or the column. */

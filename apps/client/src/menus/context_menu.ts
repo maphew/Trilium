@@ -62,6 +62,15 @@ export interface MenuCommandItem<T> {
     keyboardShortcut?: KeyboardActionNames;
     spellingSuggestion?: string;
     checked?: boolean;
+    /** Classes put on the item itself, for a menu styling one of its entries differently. */
+    className?: string;
+    /**
+     * An icon shown at the trailing edge of the item, where a shortcut would go.
+     *
+     * Unlike {@link checked}, which takes the place of {@link uiIcon}, this leaves the item's own
+     * icon standing — for a list where that icon is what tells one entry from another.
+     */
+    trailingIcon?: string;
     columns?: number;
 }
 
@@ -345,8 +354,14 @@ class ContextMenu {
             $link.append($("<kbd>").text(item.shortcut));
         }
 
+        if ("trailingIcon" in item && item.trailingIcon) {
+            $link.append($("<span>")
+                .addClass([ item.trailingIcon, "tn-icon", "menu-trailing-icon" ]));
+        }
+
         const $item = $("<li>")
             .addClass("dropdown-item")
+            .addClass("className" in item ? item.className ?? "" : "")
             .append($link)
             .on("contextmenu", (e) => false)
             // important to use mousedown instead of click since the former does not change focus

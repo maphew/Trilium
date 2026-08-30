@@ -960,3 +960,36 @@ describe("duplicating a card", () => {
         expect(branches.moveAfterBranch).toHaveBeenCalledWith([ "copyBranch" ], "card1Branch");
     });
 });
+
+describe("what the board calls the field it groups by", () => {
+    it("uses the promoted alias, and the stock word where the definition gives none", () => {
+        const named = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status": "promoted,alias=Stage,single,select,options=To Do"
+        });
+        const bare = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status": "promoted,single,select,options=To Do"
+        });
+
+        expect(createApi({}, [], named).api.getStatusLabel()).toBe("Stage");
+        // i18next is never initialised under test, so the fallback comes back as its key.
+        expect(createApi({}, [], bare).api.getStatusLabel()).toBe("board_view.status-header");
+    });
+
+    /** Handed back by the parser for a bare , which names nothing. */
+    it("falls back where the alias is empty", () => {
+        const empty = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status": "promoted,alias=,single,select,options=To Do"
+        });
+
+        expect(createApi({}, [], empty).api.getStatusLabel()).toBe("board_view.status-header");
+    });
+});

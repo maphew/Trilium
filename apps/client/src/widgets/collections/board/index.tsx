@@ -309,7 +309,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         setColumnDropPosition(null);
     }, [ api, columns, shownColumns ]);
 
-    const { onKeyDown: handleKeyDown, focusColumn } = useBoardKeyboard({
+    const { onKeyDown: handleKeyDown, focusColumn, focusCard } = useBoardKeyboard({
         containerRef,
         columns: shownColumns,
         byColumn,
@@ -389,6 +389,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     columns={shownColumns}
                                     onMoveColumn={handleColumnDrop}
                                     onFocusColumn={focusColumn}
+                                    onFocusCard={focusCard}
                                     columnItems={byColumn.get(column)}
                                     isDraggingColumn={draggedColumn?.column === column}
                                     onColumnHover={handleColumnHover}

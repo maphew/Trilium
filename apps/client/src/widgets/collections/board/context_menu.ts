@@ -2,6 +2,7 @@ import { useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
 import NoteColorPicker from "../../../menus/custom-items/NoteColorPicker";
+import type { CommandNames } from "../../../components/app_context";
 import contextMenu, { ContextMenuEvent, MenuItem } from "../../../menus/context_menu";
 import link_context_menu from "../../../menus/link_context_menu";
 import branches from "../../../services/branches";
@@ -170,27 +171,40 @@ function ColumnColorPicker({ api, value, color }: { api: Api, value: string, col
 }
 
 /**
- * The key that reaches `target` from `from`, for the two ends of the board and no others: `Ctrl`
- * and `Shift` with an arrow sends a card the whole way, and the entry that answers for it is the
- * same one wherever the card stands. `Ctrl` with an arrow moves a card one column and is left
- * unnamed here, the entry it would land on being a different one for every card.
+ * The columns a card can be filed under, standing in the menu itself rather than behind a submenu:
+ * moving a card is what a board is for, and a submenu puts every column a step further away.
  *
- * Counted over the columns the board draws. An archived column is listed in the menu but stands off
- * screen unless the board is showing archived notes, and a key that walks the board steps over it.
+ * Archived columns are offered like any other, since filing a card under one is a fair thing to
+ * want; the badge is there so it is not a surprise when the card goes out of sight.
  */
-function endColumnKey(api: Api, from: string, target: string) {
-    const drawn = api.columns.filter((name) => !api.isColumnArchived(name));
-    const at = drawn.indexOf(from);
-    if (at < 0) {
-        return undefined;
-    }
-
-    if (target === drawn[0] && at > 0) return "Ctrl+Shift+Left";
-    if (target === drawn[drawn.length - 1] && at < drawn.length - 1) return "Ctrl+Shift+Right";
-    return undefined;
+function buildColumnItems(
+    api: Api, note: FNote, column: string, onFocusCard: (noteId: string) => void
+): MenuItem<CommandNames>[] {
+    return api.columns.map((name) => ({
+        title: name,
+        uiIcon: api.getColumnIcon(name),
+        iconColorClass: api.getColumnColorClass(name),
+        // The one it is already under is shown rather than hidden, so the list reads as the whole
+        // set of columns and says which of them this card belongs to.
+        trailingIcon: name === column ? "bx bx-check" : undefined,
+        className: name === column ? "board-current-column" : undefined,
+        badges: api.isColumnArchived(name)
+            ? [ { title: t("board_view.archived-badge") } ]
+            : undefined,
+        handler: () => {
+            // Asked for before the write: the card is drawn afresh under the column
+            // it lands in, so the element the menu was opened from will be gone.
+            onFocusCard(note.noteId);
+            api.changeColumn(note.noteId, name);
+        }
+    }));
 }
 
-export function openNoteContextMenu(api: Api, event: ContextMenuEvent, note: FNote, branchId: string, column: string) {
+export function openNoteContextMenu(
+    api: Api, event: ContextMenuEvent, note: FNote, branchId: string, column: string,
+    /** Puts focus back on the card once a change of column has drawn it under another one. */
+    onFocusCard: (noteId: string) => void
+) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -212,24 +226,9 @@ export function openNoteContextMenu(api: Api, event: ContextMenuEvent, note: FNo
                 shortcut: "Enter",
                 handler: () => api.insertRowAtPosition(column, branchId, "after")
             },
+            { kind: "header", title: api.getStatusLabel() },
+            ...buildColumnItems(api, note, column, onFocusCard),
             { kind: "separator" },
-            {
-                title: t("board_view.move-to"),
-                uiIcon: "bx bx-transfer",
-                // Archived columns are offered like any other, since moving a card into one is a
-                // fair thing to want; the badge is there so it is not a surprise when it goes.
-                items: api.columns.map(columnToMoveTo => ({
-                    title: columnToMoveTo,
-                    uiIcon: api.getColumnIcon(columnToMoveTo),
-                    iconColorClass: api.getColumnColorClass(columnToMoveTo),
-                    enabled: columnToMoveTo !== column,
-                    shortcut: endColumnKey(api, column, columnToMoveTo),
-                    badges: api.isColumnArchived(columnToMoveTo)
-                        ? [ { title: t("board_view.archived-badge") } ]
-                        : undefined,
-                    handler: () => api.changeColumn(note.noteId, columnToMoveTo)
-                })),
-            },
             {
                 title: t("board_view.duplicate-item"),
                 uiIcon: "bx bx-outline",

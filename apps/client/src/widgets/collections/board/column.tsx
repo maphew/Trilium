@@ -35,6 +35,7 @@ export default function Column({
     columns,
     onMoveColumn,
     onFocusColumn,
+    onFocusCard,
     icon,
     color,
     archived,
@@ -63,7 +64,8 @@ export default function Column({
     columns: string[],
     /** Moves a column to sit before the given position, as a drag onto that position would. */
     onMoveColumn: (fromIndex: number, toIndex: number) => void,
-    onFocusColumn: (column: string) => void
+    onFocusColumn: (column: string) => void,
+    onFocusCard: (noteId: string) => void
 } & DragContext) {
     const [ isVisible, setVisible ] = useState(true);
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
@@ -225,6 +227,7 @@ export default function Column({
                                 index={index}
                                 isDragging={draggedCard?.noteId === note.noteId}
                                 isEditing={branch.branchId === branchIdToEdit}
+                                onFocusCard={onFocusCard}
                             />
                         </Fragment>
                     );
