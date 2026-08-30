@@ -1,5 +1,6 @@
 /* Defaults for a theme that sets none of its own; the light values, the app's own default look. */
 :where(:root) {
+  --board-column-background: #e7e7e7;
   --board-column-background-saturation: 26%;
   --board-column-background-lightness: 86%;
 
@@ -11,6 +12,8 @@
 
   --board-focus-outline-saturation: 55%;
   --board-focus-outline-lightness: 45%;
+  /* Follows the theme of its own accord, so neither theme has to name it again. */
+  --board-focus-outline-plain-color: var(--link-color);
 }
 
 .board-view {
@@ -41,19 +44,13 @@ body.mobile .board-view-container {
 }
 
 .board-view-container .board-column {
-  /* No hue of its own: the same lightness, drained of colour. */
-  --board-column-hue: 0;
-  --board-column-saturation: 0%;
-
   width: 250px;
   flex-shrink: 0;
   border: 2px solid transparent;
   border-radius: 8px;
-  background-color: hsl(
-    var(--board-column-hue),
-    var(--board-column-saturation),
-    var(--board-column-background-lightness)
-  );
+  /* A column with no colour of its own is painted rather than composed: the tinted shades come
+     from one lightness, which does not answer for a plain one as well. */
+  background-color: var(--board-column-background);
   transition: border-color 0.2s ease;
   overflow-y: auto;
   max-height: 100%;
@@ -72,8 +69,11 @@ body.mobile .board-view-container .board-add-column {
 }
 
 .board-view-container .board-column.with-hue {
-  --board-column-hue: var(--board-column-custom-hue);
-  --board-column-saturation: var(--board-column-background-saturation);
+  background-color: hsl(
+    var(--board-column-custom-hue),
+    var(--board-column-background-saturation),
+    var(--board-column-background-lightness)
+  );
 }
 
 .board-view-container .board-column.drag-over {
@@ -281,8 +281,9 @@ body.mobile .board-view-container .board-add-column {
 }
 
 .board-view-container :focus {
-  /* Falls back where nothing around carries a hue, which is every board until one is coloured. */
-  outline: 3px solid var(--board-focus-outline-color, var(--input-focus-outline-color));
+  /* The plain colour stands where nothing around carries a hue, which is every board until one
+     is coloured. */
+  outline: 3px solid var(--board-focus-outline-color, var(--board-focus-outline-plain-color));
   outline-offset: 0;
 }
 
@@ -480,4 +481,18 @@ body.mobile .board-view-container .board-add-column {
   font-size: 0.9em;
   max-width: 200px;
   word-wrap: break-word;
+}
+
+/* The menu is drawn outside the board, so the columns it lists are named rather than reached
+   through `.board-view`. */
+.dropdown-item.board-current-column {
+    font-weight: 600;
+}
+
+.dropdown-item.board-column-item .board-column-name {
+    display: block;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }

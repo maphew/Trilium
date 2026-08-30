@@ -1,17 +1,21 @@
 import { RefObject } from "preact";
 import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
+import branches from "../../../services/branches";
 import BoardApi from "./api";
 import { ColumnMap } from "./data";
+
+/** Sideways, and with Ctrl, these carry the focused card the whole way rather than one column. */
+const CARD_END_KEYS = [ "ArrowLeft", "ArrowRight" ];
 
 /** Plain, these walk the board. */
 const NAVIGATION_KEYS = [ "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End" ];
 
-/** With Ctrl, these carry the focused card: a step, a column across, or all the way to an end. */
-const ITEM_MOVE_KEYS = [ "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown" ];
+/** With Ctrl, these carry the focused card: a step, a column across, or to an end of its own. */
+const ITEM_MOVE_KEYS = [ "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End" ];
 
 /** With Ctrl and Alt, these carry the column focus is in, from wherever inside it focus sits. */
-const COLUMN_MOVE_KEYS = [ "ArrowLeft", "ArrowRight", "PageUp", "PageDown" ];
+const COLUMN_MOVE_KEYS = [ "ArrowLeft", "ArrowRight", "Home", "End" ];
 
 /**
  * A place on the board that can hold focus.
@@ -56,6 +60,8 @@ export interface BoardKeyboardOptions {
     api: BoardApi;
     /** Moves a column to sit before the given position, as a drag onto that position would. */
     moveColumn: (fromIndex: number, toIndex: number) => void;
+    /** Puts a new column beside the given one and opens its title editor, as the menu does. */
+    insertColumn: (relativeTo: string, direction: "before" | "after") => void;
 }
 
 /**
@@ -67,14 +73,14 @@ export interface BoardKeyboardOptions {
  *
  * One handler on the board rather than one per element, because every key here is about the board
  * as a whole: where the next thing is, and where what is focused should go. The per-element
- * handlers keep what is theirs (F2 to rename, Enter to open, typing to start a card).
+ * handlers keep what is theirs (F2 to rename, Enter to add a card, typing to start one).
  *
  * Focus follows what is under it rather than where it sits: a card moved to another column is
  * drawn as a new element, and columns are drawn unkeyed, so a header would otherwise be left
  * focused on whichever column took its place.
  */
 export function useBoardKeyboard({
-    containerRef, columns, byColumn, api, moveColumn
+    containerRef, columns, byColumn, api, moveColumn, insertColumn
 }: BoardKeyboardOptions) {
     const pendingFocus = useRef<PendingFocus | null>(null);
 
@@ -108,10 +114,32 @@ export function useBoardKeyboard({
         element?.focus();
     });
 
-    return useCallback((e: KeyboardEvent) => {
+    /**
+     * Puts focus on a column's heading once the board has drawn it again, for a move made from
+     * somewhere other than the keyboard. The columns are drawn unkeyed, so an element held onto
+     * across the move would be left standing over whichever column took the old one's place.
+     */
+    const focusColumn = useCallback((column: string) => {
+        pendingFocus.current = { intent: { column, part: "header" } };
+    }, []);
+
+    /**
+     * Puts focus back on a card once the board has drawn it again, for a move made from somewhere
+     * other than the keyboard. A card crossing columns is drawn afresh under the new one, so the
+     * element it was is gone by the time the move lands.
+     */
+    const focusCard = useCallback((noteId: string) => {
+        pendingFocus.current = { intent: { noteId } };
+    }, []);
+
+    const onKeyDown = useCallback((e: KeyboardEvent) => {
         const container = containerRef.current;
         const target = e.target as HTMLElement | null;
-        if (!container || e.metaKey || e.shiftKey) return;
+        if (!container || e.metaKey) return;
+
+        // Shift is left to whatever else answers for it, bar the keys where it names the other
+        // direction, the harder form, or the further reach of something the board already does.
+        if (e.shiftKey && !shiftIsOurs(e)) return;
 
         // An editor is open on the thing that is focused, and every key belongs to it.
         if (target?.closest("input, textarea")) return;
@@ -124,9 +152,20 @@ export function useBoardKeyboard({
         if (!spot) return;
 
         if (e.ctrlKey) {
+            // A column beside the one focus is in, wherever inside it focus sits. The button that
+            // adds a column stands beside none, and is the plain way to add one at the end anyway.
+            if (e.key === "Enter" && !e.altKey && spot.kind !== "add-column") {
+                take(e);
+                insertColumn(columns[spot.column], e.shiftKey ? "before" : "after");
+                return;
+            }
+
             // A header holds no card, so the key carries the column it heads. Alt says so from
             // anywhere within a column, for a reader who is standing on one of its cards.
             const carriesColumn = e.altKey || spot.kind === "header";
+
+            // Shift says how far a card goes, and a column has no such reach of its own.
+            if (e.shiftKey && carriesColumn) return;
 
             // Taken whether or not it leads anywhere: a card already at the end of its column is no
             // reason to let the key mean something else instead.
@@ -141,7 +180,7 @@ export function useBoardKeyboard({
                 return;
             }
 
-            const moved = move(spot, e.key, { columns, byColumn, api });
+            const moved = move(spot, e.key, { columns, byColumn, api }, e.shiftKey);
             if (moved) {
                 const pending: PendingFocus = { intent: moved.intent };
                 pendingFocus.current = pending;
@@ -173,8 +212,94 @@ export function useBoardKeyboard({
                 take(e);
                 api.openNote(item.note.noteId);
             }
+            return;
         }
-    }, [ containerRef, columns, byColumn, api, moveColumn ]);
+
+        if (e.key === "ContextMenu" && (spot.kind === "item" || spot.kind === "header")) {
+            const element = document.activeElement;
+            if (!(element instanceof HTMLElement)) return;
+
+            take(e);
+            askForMenu(element);
+            return;
+        }
+
+        if (e.key === "Delete" && spot.kind === "header" && !e.shiftKey) {
+            take(e);
+
+            // Where focus goes once the column is gone, taken up only if it does go. Shift is left
+            // unanswered here: escalating a column would take every note in it, which nothing else
+            // on the board offers.
+            const neighbour = columns[spot.column + 1] ?? columns[spot.column - 1];
+            api.confirmAndRemoveColumn(columns[spot.column]).then((removed) => {
+                if (removed && neighbour) {
+                    pendingFocus.current = { intent: { column: neighbour, part: "header" } };
+                }
+            });
+            return;
+        }
+
+        if (e.key === "Delete" && spot.kind === "item") {
+            const item = itemAt(columns, byColumn, spot);
+            if (!item) return;
+            take(e);
+
+            // Straight away rather than through `pendingFocus`, which waits for a redraw: until the
+            // card goes, focus is still on it, and a redraw arriving first would read that as the
+            // reader having chosen where to be and let the intent go.
+            neighbourOf(container, columns, byColumn, spot)?.focus();
+
+            if (e.shiftKey) {
+                // The note itself, with the confirmation deleting one anywhere else asks for.
+                branches.deleteNotes([ item.branch.branchId ], false, false);
+            } else {
+                api.removeFromBoard(item.note.noteId);
+            }
+        }
+    }, [ containerRef, columns, byColumn, api, moveColumn, insertColumn ]);
+
+    return { onKeyDown, focusColumn, focusCard };
+}
+
+/** What to put focus on once a card goes: the one under it, the one over it, or the column. */
+function neighbourOf(
+    container: HTMLElement,
+    columns: string[],
+    byColumn: ColumnMap | undefined,
+    spot: Extract<Spot, { kind: "item" }>
+) {
+    const column = columns[spot.column];
+    const items = byColumn?.get(column) ?? [];
+    const next = items[spot.item + 1] ?? items[spot.item - 1];
+
+    return next
+        ? findCard(container, next.note.noteId)
+        : findInColumn(container, column, "add-item");
+}
+
+/**
+ * Asks the focused card or header for its menu the way a right click does, rather than by opening
+ * one here: both already answer for `contextmenu`, and what each menu offers is theirs to say.
+ *
+ * The press is taken first, so the browser sends no `contextmenu` of its own and the menu is not
+ * opened twice. Where it opens is named here, a key press carrying no position of its own.
+ */
+function askForMenu(element: HTMLElement) {
+    const { left, bottom } = element.getBoundingClientRect();
+    element.dispatchEvent(new MouseEvent("contextmenu", {
+        bubbles: true,
+        clientX: left,
+        clientY: bottom
+    }));
+}
+
+/** Whether Shift on this press is the board's to answer for, rather than the application's. */
+function shiftIsOurs(e: KeyboardEvent) {
+    if (e.key === "Enter" || e.key === "Delete") {
+        return true;
+    }
+
+    return e.ctrlKey && CARD_END_KEYS.includes(e.key);
 }
 
 /** Keeps a key the board has answered from also reaching whatever else is bound to it. */
@@ -265,7 +390,9 @@ function entryOf(container: HTMLElement, column: number): Spot {
 function move(
     spot: Spot,
     key: string,
-    { columns, byColumn, api }: Pick<BoardKeyboardOptions, "columns" | "byColumn" | "api">
+    { columns, byColumn, api }: Pick<BoardKeyboardOptions, "columns" | "byColumn" | "api">,
+    /** Whether the card goes the whole way rather than one place. */
+    toEnd = false
 ): { intent: FocusIntent; done: Promise<unknown> } | false {
     const item = itemAt(columns, byColumn, spot);
     if (!item || spot.kind !== "item") return false;
@@ -276,8 +403,11 @@ function move(
     const { branchId } = item.branch;
 
     if (key === "ArrowLeft" || key === "ArrowRight") {
-        const target = columns[spot.column + (key === "ArrowRight" ? 1 : -1)];
-        if (!target) return false;
+        const target = toEnd
+            ? columns[key === "ArrowRight" ? columns.length - 1 : 0]
+            : columns[spot.column + (key === "ArrowRight" ? 1 : -1)];
+        // Only the whole way can ask for the column a card already stands in.
+        if (!target || target === column) return false;
 
         return { intent: { noteId }, done: api.moveToColumnEnd(noteId, branchId, target) };
     }
@@ -286,8 +416,8 @@ function move(
     // A card is placed before a position too, so moving one down means passing the one below it.
     const to = key === "ArrowUp" && spot.item > 0 ? spot.item - 1
         : key === "ArrowDown" && spot.item < last ? spot.item + 2
-        : key === "PageUp" && spot.item > 0 ? 0
-        : key === "PageDown" && spot.item < last ? items.length
+        : key === "Home" && spot.item > 0 ? 0
+        : key === "End" && spot.item < last ? items.length
         : null;
 
     if (to === null) return false;
@@ -315,8 +445,8 @@ function shiftColumn(
     // A column is placed before a position, so passing one to the right means passing two.
     const to = key === "ArrowRight" && spot.column < last ? spot.column + 2
         : key === "ArrowLeft" && spot.column > 0 ? spot.column - 1
-        : key === "PageDown" && spot.column < last ? columns.length
-        : key === "PageUp" && spot.column > 0 ? 0
+        : key === "End" && spot.column < last ? columns.length
+        : key === "Home" && spot.column > 0 ? 0
         : null;
 
     if (to === null) return false;

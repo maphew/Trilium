@@ -11,9 +11,12 @@ import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import note_create from "../../../services/note_create";
 import server from "../../../services/server";
+import ws from "../../../services/ws";
 import toast from "../../../services/toast";
 import { BoardColumnData, BoardViewData } from ".";
-import { type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_COLUMN_ICON, DEFAULT_GROUP_BY } from "./columns";
+import {
+    type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_COLUMN_ICON, DEFAULT_GROUP_BY
+} from "./columns";
 import { ColumnMap } from "./data";
 
 /** One write's claim on a column, held until that write lands or is taken back. */
@@ -39,12 +42,49 @@ interface ColumnClaim {
 export interface PendingColumnWrites {
     renames: Map<string, string | undefined>;
     claims: Map<string, ColumnClaim[]>;
+    /**
+     * How many writes are running on the board right now.
+     *
+     * Counted apart from the records because a record outlives its write: it is given up only once
+     * no source names the old value, and a definition the board cannot write keeps naming it for
+     * good. What must not be put on disk is an answer no write has given yet, which is this.
+     */
+    inFlight: number;
 }
 
 /** Drops the record of a column the board now reads the same way from every source. */
 export function settleColumn(pending: PendingColumnWrites, column: string) {
     pending.renames.delete(column);
     pending.claims.delete(column);
+}
+
+/**
+ * The writes in flight on each board, by the note it is and the label it groups by.
+ *
+ * Shared by every view of one board rather than held per view, because what a record stands in for
+ * is shared too: the notes, the definition and the attachment. A second tab open on the same board
+ * refreshes on the same entity changes, and one that knew nothing of a deletion under way would
+ * resolve the column from whichever source still carries it and write it back.
+ */
+const pendingWritesByBoard = new Map<string, PendingColumnWrites>();
+
+/**
+ * The record every view of one board writes into, made on first use and kept for good.
+ *
+ * Never dropped, however empty: a view is handed the record once, when it first draws a board, and
+ * holds that object for as long as it is mounted. Dropping an empty one would hand the next view a
+ * different record, and the two would stop hearing about each other's writes. What is left behind
+ * is one string and two empty maps per board opened.
+ */
+export function getPendingWrites(board: string) {
+    const existing = pendingWritesByBoard.get(board);
+    if (existing) {
+        return existing;
+    }
+
+    const writes: PendingColumnWrites = { renames: new Map(), claims: new Map(), inFlight: 0 };
+    pendingWritesByBoard.set(board, writes);
+    return writes;
 }
 
 export default class BoardApi {
@@ -62,7 +102,8 @@ export default class BoardApi {
         private viewConfig: BoardViewData,
         private saveConfig: (newConfig: BoardViewData) => void,
         private setBranchIdToEdit: (branchId: string | undefined) => void,
-        private pending: PendingColumnWrites = { renames: new Map(), claims: new Map() },
+        private pending: PendingColumnWrites =
+            { renames: new Map(), claims: new Map(), inFlight: 0 },
         private statusDefinition?: BoardStatusDefinition
     ) {
         this.isRelationMode = statusAttribute.startsWith("~");
@@ -186,6 +227,28 @@ export default class BoardApi {
         return name;
     }
 
+    /**
+     * Asks before taking a column off the board, the grouping label going from every card in it.
+     * Both the menu and the Delete key come through here, so the question is put once and the same
+     * way, and a refusal from the server is reported rather than passing for a deletion.
+     *
+     * @returns whether the column went, for a caller with something to do afterwards.
+     */
+    async confirmAndRemoveColumn(column: string) {
+        if (!await dialog.confirm(t("board_view.delete-column-confirmation"))) {
+            return false;
+        }
+
+        try {
+            await this.removeColumn(column);
+            return true;
+        } catch (e) {
+            console.error("Failed to delete the board column:", e);
+            toast.showError(t("board_view.save-error"));
+            return false;
+        }
+    }
+
     async removeColumn(column: string) {
         // Remove the value from the notes.
         const noteIds = this.byColumn?.get(column)?.map(item => item.note.noteId) || [];
@@ -246,6 +309,16 @@ export default class BoardApi {
     getColumnColorClass(column: string) {
         const color = this.viewConfig?.columns?.find(col => col.value === column)?.color;
         return cssClassManager.createClassForColor(color ?? null);
+    }
+
+    /**
+     * What to call the field the board groups by, for a heading standing over its columns.
+     *
+     * The promoted alias is what a card shows the field as, so it is the name a reader already
+     * knows. A board whose definition gives none, or none of its own, falls back to the stock word.
+     */
+    getStatusLabel() {
+        return this.statusDefinition?.definition.promotedAlias || t("board_view.status-header");
     }
 
     /** Whether a column is archived, which the board shows only while archived notes are shown. */
@@ -326,12 +399,15 @@ export default class BoardApi {
         oldValue: string, newValue: string | undefined, write: () => Promise<T>
     ) {
         const undoRetirement = this.retireColumn(oldValue, newValue);
+        this.pending.inFlight++;
 
         try {
             return await write();
         } catch (e) {
             undoRetirement();
             throw e;
+        } finally {
+            this.pending.inFlight--;
         }
     }
 
@@ -519,6 +595,22 @@ export default class BoardApi {
 
     renameCard(noteId: string, newTitle: string) {
         return server.put(`notes/${noteId}/title`, { title: newTitle.trim() });
+    }
+
+    /**
+     * Copies a card into the board, the way the tree duplicates a note, and puts the copy straight
+     * after the one it was made from.
+     *
+     * The copy carries the original's attributes, the grouping label among them, so it lands in the
+     * same column without being told to. The wait is what makes the move possible: the branch is
+     * named by the server and has to be in froca before it can be placed.
+     */
+    async duplicateItem(noteId: string, branchId: string) {
+        const { branch } = await server.post<{ branch: { branchId: string } }>(
+            `notes/${noteId}/duplicate/${this.parentNote.noteId}`);
+
+        await ws.waitForMaxKnownEntityChangeId();
+        await branches.moveAfterBranch([ branch.branchId ], branchId);
     }
 
     removeFromBoard(noteId: string) {

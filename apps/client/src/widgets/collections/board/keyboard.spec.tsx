@@ -10,11 +10,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
+import attributes from "../../../services/attributes";
 import branches from "../../../services/branches";
+import contextMenu from "../../../menus/context_menu";
 import froca from "../../../services/froca";
 import server from "../../../services/server";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
+import BoardApi from "./api";
 import BoardView, { BoardViewData } from ".";
 
 vi.mock("../../../services/branches", () => ({
@@ -22,8 +25,14 @@ vi.mock("../../../services/branches", () => ({
         moveBeforeBranch: vi.fn(async () => {}),
         moveAfterBranch: vi.fn(async () => {}),
         cloneNoteToParentNote: vi.fn(async () => {}),
-        cloneNoteAfter: vi.fn(async () => {})
+        cloneNoteAfter: vi.fn(async () => {}),
+        deleteNotes: vi.fn(async () => {})
     }
+}));
+
+// The card menu opens with the link items on top, which want a tab manager this spec has none of.
+vi.mock("../../../menus/link_context_menu", () => ({
+    default: { getItems: () => [], handleLinkContextMenuItem: vi.fn() }
 }));
 
 vi.mock("../../../services/i18n", () => ({
@@ -39,6 +48,7 @@ describe("Board keyboard", () => {
         saved.length = 0;
         vi.restoreAllMocks();
         // A mocked module is not a spy, so restoring leaves its calls where the last test left.
+        vi.mocked(branches.deleteNotes).mockClear();
         vi.mocked(branches.moveBeforeBranch).mockClear();
         vi.mocked(branches.moveAfterBranch).mockClear();
         vi.spyOn(server, "put").mockResolvedValue(undefined);
@@ -119,7 +129,7 @@ describe("Board keyboard", () => {
                 // Even at an edge it moves nothing from: the board owns the key while focused.
                 focusCard(board, 0, 0);
                 press(board, "ArrowLeft", { ctrlKey: true });
-                press(board, "PageDown", { ctrlKey: true });
+                press(board, "End", { ctrlKey: true });
                 press(board, "ArrowRight", { ctrlKey: true, altKey: true });
                 press(board, " ");
 
@@ -167,6 +177,111 @@ describe("Board keyboard", () => {
 
             editor.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
             expect(document.activeElement).toBe(editor);
+        });
+    });
+
+    describe("the menu key", () => {
+        it("asks the focused card and header for their own menus", async () => {
+            const board = await renderBoard();
+            const show = vi.spyOn(contextMenu, "show").mockResolvedValue(undefined);
+
+            focusCard(board, 0, 0);
+            press(board, "ContextMenu");
+            expect(show).toHaveBeenCalledTimes(1);
+            // The card menu, which is the only one offering to take a note off the board.
+            expect(show.mock.calls[0][0].items.some(item =>
+                item && "title" in item && item.title === "board_view.remove-from-board"
+            )).toBe(true);
+
+            focusHeader(board, 0);
+            press(board, "ContextMenu");
+            expect(show).toHaveBeenCalledTimes(2);
+            expect(show.mock.calls[1][0].items.some(item =>
+                item && "title" in item && item.title === "board_view.rename-column")).toBe(true);
+        });
+
+        it("leaves the key alone where nothing focused has a menu", async () => {
+            const board = await renderBoard();
+            const show = vi.spyOn(contextMenu, "show").mockResolvedValue(undefined);
+
+            focusButton(board, 0);
+            press(board, "ContextMenu");
+
+            expect(show).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("taking a card off the board", () => {
+        it("strips the grouping label with Delete, leaving the note where it is", async () => {
+            const board = await renderBoard();
+            const removed = noteOf(board, "First");
+            const strip = vi.spyOn(attributes, "removeOwnedLabelByName").mockReturnValue(true);
+            focusCard(board, 0, 0);
+
+            press(board, "Delete");
+
+            expect(strip)
+                .toHaveBeenCalledWith(expect.objectContaining({ noteId: removed }), "status");
+            expect(branches.deleteNotes).not.toHaveBeenCalled();
+        });
+
+        it("deletes the note itself with Shift and Delete", async () => {
+            const board = await renderBoard();
+            const strip = vi.spyOn(attributes, "removeOwnedLabelByName").mockReturnValue(true);
+            focusCard(board, 0, 0);
+
+            press(board, "Delete", { shiftKey: true });
+
+            expect(branches.deleteNotes).toHaveBeenCalledWith(
+                [ branchOf(board, "First") ], false, false);
+            expect(strip).not.toHaveBeenCalled();
+        });
+
+        /**
+         * The card is about to go, so focus is handed on as the key is pressed rather than left to
+         * the redraw: until the card goes it still holds focus, and a redraw reaching the board
+         * first would take that for the reader having chosen where to be.
+         */
+        it("hands focus to the card below the one that goes, before it goes", async () => {
+            const board = await renderBoard();
+            vi.spyOn(attributes, "removeOwnedLabelByName").mockReturnValue(true);
+            const removed = noteOf(board, "First");
+            focusCard(board, 0, 0);
+
+            press(board, "Delete");
+            expect(focusedName(board)).toBe("Second");
+
+            setStatus(removed, "");
+            await redraw();
+            expect(focusedName(board)).toBe("Second");
+        });
+
+        it("takes the whole column off the board from its header, asking first", async () => {
+            const board = await renderBoard();
+            const strip = vi.spyOn(attributes, "removeOwnedLabelByName").mockReturnValue(true);
+            const remove = vi.spyOn(BoardApi.prototype, "confirmAndRemoveColumn")
+                .mockResolvedValue(true);
+            focusHeader(board, 0);
+
+            press(board, "Delete");
+
+            expect(remove).toHaveBeenCalledWith("To Do");
+            // The cards in it are the column'"'"'s to take, not this key'"'"'s.
+            expect(strip).not.toHaveBeenCalled();
+            expect(branches.deleteNotes).not.toHaveBeenCalled();
+        });
+
+        /** Escalating a column would take every note in it, which nothing else here offers. */
+        it("leaves Shift and Delete on a header unanswered", async () => {
+            const board = await renderBoard();
+            const remove = vi.spyOn(BoardApi.prototype, "confirmAndRemoveColumn")
+                .mockResolvedValue(true);
+            focusHeader(board, 0);
+
+            press(board, "Delete", { shiftKey: true });
+
+            expect(remove).not.toHaveBeenCalled();
+            expect(branches.deleteNotes).not.toHaveBeenCalled();
         });
     });
 
@@ -335,12 +450,50 @@ describe("Board keyboard", () => {
             expect(focusedName(board)).toBe("Done");
         });
 
+        it("sends a card to either end of its column with Ctrl and Home or End", async () => {
+            const board = await renderBoard();
+            focusCard(board, 0, 1);
+
+            press(board, "Home", { ctrlKey: true });
+            expect(branches.moveBeforeBranch).toHaveBeenCalled();
+
+            focusCard(board, 0, 0);
+            press(board, "End", { ctrlKey: true });
+            expect(branches.moveAfterBranch).toHaveBeenCalled();
+        });
+
+        it("sends a card the whole way with Ctrl, Shift and a sideways arrow", async () => {
+            const board = await renderBoard();
+            focusCard(board, 1, 0);
+            const moved = noteOf(board, "Second");
+
+            press(board, "ArrowRight", { ctrlKey: true, shiftKey: true });
+            setStatus(moved, "Done");
+            await redraw();
+            expect(columnOf(board, "Second")).toBe(2);
+
+            press(board, "ArrowLeft", { ctrlKey: true, shiftKey: true });
+            setStatus(moved, "To Do");
+            await redraw();
+            expect(columnOf(board, "Second")).toBe(0);
+        });
+
+        it("moves no card already standing at the end it is sent to", async () => {
+            const board = await renderBoard();
+            focusCard(board, 0, 0);
+
+            press(board, "ArrowLeft", { ctrlKey: true, shiftKey: true });
+
+            expect(branches.moveAfterBranch).not.toHaveBeenCalled();
+            expect(columnOf(board, "First")).toBe(0);
+        });
+
         it("does nothing at the edges it cannot move past", async () => {
             const board = await renderBoard();
 
             focusCard(board, 0, 0);
             press(board, "ArrowUp", { ctrlKey: true });
-            press(board, "PageUp", { ctrlKey: true });
+            press(board, "Home", { ctrlKey: true });
             press(board, "ArrowLeft", { ctrlKey: true });
 
             focusButton(board, 1);
@@ -392,17 +545,35 @@ describe("Board keyboard", () => {
             expect(focusedName(board)).toBe("To Do");
         });
 
-        it("sends a column to either end with the page keys", async () => {
+        it("puts a new column after the one focus is in, and before it with Shift", async () => {
+            const board = await renderBoard();
+
+            focusCard(board, 1, 0);
+            press(board, "Enter", { ctrlKey: true });
+            await act(async () => { await flush(); });
+            expect(saved.at(-1)?.columns?.map(column => column.value))
+                .toEqual([ "To Do", "Doing", "board_view.new-column", "Done" ]);
+
+            focusHeader(board, 0);
+            press(board, "Enter", { ctrlKey: true, shiftKey: true });
+            await act(async () => { await flush(); });
+            expect(saved.at(-1)?.columns?.map(column => column.value))
+                .toEqual([
+                    "board_view.new-column 2", "To Do", "Doing", "board_view.new-column", "Done"
+                ]);
+        });
+
+        it("sends a column to either end with Ctrl, Alt and Home or End", async () => {
             const board = await renderBoard();
 
             focusHeader(board, 1);
-            press(board, "PageUp", { ctrlKey: true, altKey: true });
+            press(board, "Home", { ctrlKey: true, altKey: true });
             await act(async () => { await flush(); });
             expect(saved.at(-1)?.columns?.map(column => column.value))
                 .toEqual([ "Doing", "To Do", "Done" ]);
 
             focusHeader(board, 0);
-            press(board, "PageDown", { ctrlKey: true, altKey: true });
+            press(board, "End", { ctrlKey: true, altKey: true });
             await act(async () => { await flush(); });
             expect(saved.at(-1)?.columns?.map(column => column.value))
                 .toEqual([ "To Do", "Done", "Doing" ]);
@@ -464,13 +635,14 @@ describe("Board keyboard", () => {
     function press(
         board: HTMLElement,
         key: string,
-        options: { altKey?: boolean, ctrlKey?: boolean } = {}
+        options: { altKey?: boolean, ctrlKey?: boolean, shiftKey?: boolean } = {}
     ) {
         act(() => {
             document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", {
                 key,
                 altKey: options.altKey ?? false,
                 ctrlKey: options.ctrlKey ?? false,
+                shiftKey: options.shiftKey ?? false,
                 bubbles: true,
                 cancelable: true
             }));

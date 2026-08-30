@@ -32,6 +32,10 @@ interface DragContext {
 export default function Column({
     column,
     columnIndex,
+    columns,
+    onMoveColumn,
+    onFocusColumn,
+    onFocusCard,
     icon,
     color,
     archived,
@@ -55,7 +59,13 @@ export default function Column({
     parentNote: FNote,
     onColumnHover?: (index: number, mouseX: number, rect: DOMRect) => void,
     isAnyColumnDragging?: boolean,
-    isInRelationMode: boolean
+    isInRelationMode: boolean,
+    /** The columns as drawn, which is what the menu offers to place this one among. */
+    columns: string[],
+    /** Moves a column to sit before the given position, as a drag onto that position would. */
+    onMoveColumn: (fromIndex: number, toIndex: number) => void,
+    onFocusColumn: (column: string) => void,
+    onFocusCard: (noteId: string) => void
 } & DragContext) {
     const [ isVisible, setVisible ] = useState(true);
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
@@ -70,15 +80,26 @@ export default function Column({
     const openMenu = useCallback((e: ContextMenuEvent) => {
         openColumnContextMenu(api, e, {
             value: column,
+            columns,
+            index: columnIndex,
             color,
             archived,
             onEditTitle: () => setColumnNameToEdit(column),
             onNewItem: () => setIsCreatingNewItem(true),
             onAddColumn: async (direction) => {
                 setColumnNameToEdit(await api.insertColumn(column, direction));
+            },
+            onMoveColumn: (toIndex) => {
+                onMoveColumn(columnIndex, toIndex);
+                // Asked for by name: the move draws the board again, and the heading the menu was
+                // opened from is the one left standing over another column afterwards.
+                onFocusColumn(column);
             }
         });
-    }, [ api, column, color, archived, setColumnNameToEdit ]);
+    }, [
+        api, column, color, archived, columns, columnIndex,
+        setColumnNameToEdit, onMoveColumn, onFocusColumn
+    ]);
 
     // A fully desaturated colour has no hue to tint with, and leaves the column plain.
     const hue = useMemo(() => {
@@ -158,7 +179,14 @@ export default function Column({
 
                 {!isEditing ? (
                     <>
-                        <span className="title">
+                        <span
+                            className="title"
+                            // In relation mode the title is a link to the note the column stands
+                            // for, and the first of the two clicks has already followed it.
+                            onDblClick={isInRelationMode
+                                ? undefined
+                                : () => setColumnNameToEdit(column)}
+                        >
                             {isInRelationMode
                                 ? <NoteLink notePath={column} showNoteIcon />
                                 : column}
@@ -206,6 +234,7 @@ export default function Column({
                                 index={index}
                                 isDragging={draggedCard?.noteId === note.noteId}
                                 isEditing={branch.branchId === branchIdToEdit}
+                                onFocusCard={onFocusCard}
                             />
                         </Fragment>
                     );
@@ -267,7 +296,7 @@ function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (isCreating) return;
 
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && !e.ctrlKey) {
             open("");
             return;
         }

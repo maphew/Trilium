@@ -5,14 +5,16 @@ import branches from "../../../services/branches";
 import attributes from "../../../services/attributes";
 import { executeBulkActions } from "../../../services/bulk_action";
 import dialog from "../../../services/dialog";
+import toast from "../../../services/toast";
 import FNote from "../../../entities/fnote";
 import froca from "../../../services/froca";
 import note_create from "../../../services/note_create";
 import noteAttributeCache from "../../../services/note_attribute_cache";
 import server from "../../../services/server";
+import ws from "../../../services/ws";
 import { buildNote } from "../../../test/easy-froca";
 import { BoardViewData } from ".";
-import BoardApi, { PendingColumnWrites } from "./api";
+import BoardApi, { getPendingWrites, PendingColumnWrites } from "./api";
 import { ColumnMap } from "./data";
 import { BOARD_TEMPLATE_ID, DEFAULT_COLUMN_ICON, getStatusDefinition } from "./columns";
 
@@ -57,7 +59,8 @@ function createApi(
     const board = parentNote ?? buildNote({ title: "Board" });
     const saved: BoardViewData[] = [];
     const editing: (string | undefined)[] = [];
-    const pending: PendingColumnWrites = { renames: new Map(), claims: new Map() };
+    const pending: PendingColumnWrites =
+        { renames: new Map(), claims: new Map(), inFlight: 0 };
     const api = new BoardApi(
         byColumn,
         columns,
@@ -69,7 +72,7 @@ function createApi(
         pending,
         getStatusDefinition(board, statusAttribute)
     );
-    return { api, saved, editing, pendingRenames: pending.renames };
+    return { api, board, saved, editing, pendingRenames: pending.renames };
 }
 
 describe("BoardApi column mutations", () => {
@@ -888,3 +891,106 @@ function buildBoard(
 
     return board;
 }
+
+describe("pending writes shared between the views of a board", () => {
+    /**
+     * Two tabs on one board read the same notes, definition and attachment, so a write in flight on
+     * one has to be a write in flight on the other. A view with a record of its own would resolve a
+     * column being deleted elsewhere out of the sources that still carry it, and write it back.
+     */
+    it("hands every view of one board the same record, and another board its own", () => {
+        const writes = getPendingWrites("board1|status");
+
+        expect(getPendingWrites("board1|status")).toBe(writes);
+        expect(getPendingWrites("board1|priority")).not.toBe(writes);
+        expect(getPendingWrites("board2|status")).not.toBe(writes);
+    });
+
+    /**
+     * A view is handed the record once and holds it while it is mounted, so a record dropped for
+     * being empty would leave the views that already have it talking to nobody.
+     */
+    it("keeps a board's record after the writes on it have all landed", () => {
+        const writes = getPendingWrites("board3|status");
+        writes.renames.set("Done", undefined);
+        writes.renames.delete("Done");
+
+        expect(getPendingWrites("board3|status")).toBe(writes);
+    });
+});
+
+describe("removing a column with the question put first", () => {
+    it("drops it only once agreed, and says so when the write is refused", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]
+        );
+        const confirm = vi.spyOn(dialog, "confirm").mockResolvedValue(false);
+        const error = vi.spyOn(toast, "showError").mockReturnValue(undefined);
+
+        expect(await api.confirmAndRemoveColumn("Done")).toBe(false);
+        expect(confirm).toHaveBeenCalled();
+        expect(saved).toEqual([]);
+
+        confirm.mockResolvedValue(true);
+        expect(await api.confirmAndRemoveColumn("Done")).toBe(true);
+        expect(saved.at(-1)?.columns?.map(column => column.value)).toEqual([ "To Do" ]);
+        expect(error).not.toHaveBeenCalled();
+
+        // A refusal from the server is reported rather than passing for a deletion.
+        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
+        expect(await api.confirmAndRemoveColumn("To Do")).toBe(false);
+        expect(error).toHaveBeenCalledWith("board_view.save-error");
+    });
+});
+
+describe("duplicating a card", () => {
+    it("copies it into the board and puts the copy straight after the original", async () => {
+        const { api, board } = createApi({ columns: [ { value: "To Do" } ] }, [ "To Do" ]);
+        const post = vi.spyOn(server, "post")
+            .mockResolvedValue({ branch: { branchId: "copyBranch" } } as never);
+        // The global ws stub carries no such method, so it is put there the way bulk_action does.
+        const wait = vi.fn(async () => {});
+        ws.waitForMaxKnownEntityChangeId = wait as typeof ws.waitForMaxKnownEntityChangeId;
+
+        await api.duplicateItem("card1", "card1Branch");
+
+        expect(post).toHaveBeenCalledWith(`notes/card1/duplicate/${board.noteId}`);
+        // Waited for, since the branch the server names has to be in froca before it can be moved.
+        expect(wait).toHaveBeenCalled();
+        expect(branches.moveAfterBranch).toHaveBeenCalledWith([ "copyBranch" ], "card1Branch");
+    });
+});
+
+describe("what the board calls the field it groups by", () => {
+    it("uses the promoted alias, and the stock word where the definition gives none", () => {
+        const named = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status": "promoted,alias=Stage,single,select,options=To Do"
+        });
+        const bare = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status": "promoted,single,select,options=To Do"
+        });
+
+        expect(createApi({}, [], named).api.getStatusLabel()).toBe("Stage");
+        // i18next is never initialised under test, so the fallback comes back as its key.
+        expect(createApi({}, [], bare).api.getStatusLabel()).toBe("board_view.status-header");
+    });
+
+    /** Handed back by the parser for a bare , which names nothing. */
+    it("falls back where the alias is empty", () => {
+        const empty = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status": "promoted,alias=,single,select,options=To Do"
+        });
+
+        expect(createApi({}, [], empty).api.getStatusLabel()).toBe("board_view.status-header");
+    });
+});

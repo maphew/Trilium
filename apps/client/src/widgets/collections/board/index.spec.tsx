@@ -18,6 +18,8 @@ import { executeBulkActions } from "../../../services/bulk_action";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
+import { collectShortcutHints } from "../../../services/shortcut_hints";
+import { getPendingWrites } from "./api";
 import { DEFAULT_COLUMN_ICON } from "./columns";
 
 // Stands in for the server: by the time the bulk action resolves, the notes carry the new value,
@@ -244,6 +246,196 @@ describe("Board column rename", () => {
 
         return { note, container: mountPoint };
     }
+
+    /**
+     * What a second tab on the same board sees while the first is writing. The record is shared, so
+     * the column being carried is resolved away here too; putting that on disk would commit an
+     * answer the notes have not given, and the tab making the write persists it once it lands.
+     */
+    it("leaves the stored columns alone while a write on the board is running", async () => {
+        const { note } = await setup();
+        saved.length = 0;
+
+        const writes = getPendingWrites(`${note.noteId}|status`);
+        writes.renames.set("Done", undefined);
+        writes.inFlight = 1;
+
+        const second = document.createElement("div");
+        document.body.appendChild(second);
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={DEFAULT_CONFIG}
+                    />
+                </ParentComponent.Provider>,
+                second
+            );
+        });
+        await act(async () => { await flush(); });
+
+        expect(saved).toEqual([]);
+        second.remove();
+    });
+
+    /**
+     * A record outlasts the write that made it wherever the definition keeps naming the old value,
+     * which a board that cannot write its own definition does for good. The board still has to
+     * bring what it can reach into line, so only a running write holds persistence back.
+     */
+    it("persists again once the write has landed, even with its record left standing", async () => {
+        const { note } = await setup();
+        saved.length = 0;
+
+        // The record stands, and no write is running.
+        getPendingWrites(`${note.noteId}|status`).renames.set("Done", undefined);
+
+        const second = document.createElement("div");
+        document.body.appendChild(second);
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={DEFAULT_CONFIG}
+                    />
+                </ParentComponent.Provider>,
+                second
+            );
+        });
+        await act(async () => { await flush(); });
+
+        expect(saved.at(-1)?.columns?.map(column => column.value)).toEqual([ "To Do", "Doing" ]);
+        second.remove();
+    });
+
+    it("offers its keys as contextual shortcut hints", async () => {
+        const host = new Component();
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            children: [ { title: "First", "#status": "To Do" } ]
+        });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={host}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={DEFAULT_CONFIG}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+        });
+        await act(async () => { await flush(); });
+
+        const sections = collectShortcutHints(host);
+
+        expect(sections.map(section => section.titleKey)).toEqual([
+            "board_view.hints.navigation",
+            "board_view.hints.editing",
+            "board_view.hints.moving"
+        ]);
+        // Every key the board answers for is spoken for, and none it does not.
+        expect(sections.flatMap(section => section.hints)).toEqual([
+            { keys: [ "Up", "Down" ], labelKey: "board_view.hints.navigate_items" },
+            { keys: [ "Left", "Right" ], labelKey: "board_view.hints.navigate_columns" },
+            { keys: [ "Home", "End" ], labelKey: "board_view.hints.first_last_item" },
+            { keys: [ "Enter", "Shift+Enter" ], labelKey: "board_view.hints.insert_item" },
+            {
+                keys: [ "Ctrl+Enter", "Ctrl+Shift+Enter" ],
+                labelKey: "board_view.hints.insert_column"
+            },
+            { keys: [ "Space" ], labelKey: "board_view.hints.open_item" },
+            { keys: [ "F2" ], labelKey: "board_view.hints.rename" },
+            { keys: [ "Delete" ], labelKey: "board_view.hints.remove_item" },
+            { keys: [ "Shift+Delete" ], labelKey: "board_view.hints.delete_item" },
+            { keys: [ "Delete" ], labelKey: "board_view.hints.remove_column" },
+            { keys: [ "Ctrl+Up", "Ctrl+Down" ], labelKey: "board_view.hints.move_item" },
+            { keys: [ "Ctrl+Home", "Ctrl+End" ], labelKey: "board_view.hints.move_within" },
+            { keys: [ "Ctrl+Left", "Ctrl+Right" ], labelKey: "board_view.hints.move_across" },
+            {
+                keys: [ "Ctrl+Shift+Left", "Ctrl+Shift+Right" ],
+                labelKey: "board_view.hints.move_to_end_column"
+            },
+            {
+                keys: [ "Ctrl+Alt+Left", "Ctrl+Alt+Right" ],
+                labelKey: "board_view.hints.move_column"
+            },
+            {
+                keys: [ "Ctrl+Alt+Home", "Ctrl+Alt+End" ],
+                labelKey: "board_view.hints.move_column_to_edge"
+            }
+        ]);
+    });
+
+    /**
+     * A view is handed its record when it first draws the board and holds it while it is mounted.
+     * A record dropped for being empty would leave this view reading one nothing writes into, and
+     * a column another tab is deleting would come back.
+     */
+    it("keeps a drawn view on the record later writes go into", async () => {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status(inheritable)":
+                "promoted,alias=Status,single,select,options=To Do;Doing;Done",
+            children: [ { title: "First", "#status": "To Do" } ]
+        });
+        const host = new Component();
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+
+        // A fresh list each time, so the refresh the board hangs off runs again.
+        const draw = async () => {
+            await act(async () => {
+                render(
+                    <ParentComponent.Provider value={host}>
+                        <Harness
+                            note={note}
+                            noteIds={[ ...note.getChildNoteIds() ]}
+                            initialConfig={DEFAULT_CONFIG}
+                        />
+                    </ParentComponent.Provider>,
+                    mountPoint
+                );
+            });
+            await act(async () => { await flush(); });
+        };
+
+        await draw();
+        expect(columnTitles(mountPoint)).toEqual([ "To Do", "Doing", "Done" ]);
+
+        // What another tab deleting a column leaves behind, after this view has been drawing.
+        getPendingWrites(`${note.noteId}|status`).renames.set("Done", undefined);
+        await draw();
+
+        expect(columnTitles(mountPoint)).toEqual([ "To Do", "Doing" ]);
+    });
+
+    it("opens the title editor when the title is double clicked", async () => {
+        const { container } = await setup();
+        const [ first ] = [ ...container.querySelectorAll<HTMLElement>(".board-column") ];
+
+        await act(async () => {
+            first.querySelector(".title")
+                ?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+        });
+
+        expect(first.querySelector("h3")?.classList.contains("editing")).toBe(true);
+        expect(first.querySelector("h3 input")).not.toBeNull();
+    });
 
     /** Renames the middle column, so a slot that is not the last one has to survive. */
     async function renameSecondColumn(container: HTMLElement, newName: string) {

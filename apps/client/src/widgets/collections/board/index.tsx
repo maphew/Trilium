@@ -7,16 +7,21 @@ import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import type LoadResults from "../../../services/load_results";
 import { isIMEComposing } from "../../../services/shortcuts";
+import type { ShortcutHintDefinition } from "../../../services/shortcut_hints";
 import toast from "../../../services/toast";
+import { isMobile } from "../../../services/utils";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import FormTextArea from "../../react/FormTextArea";
 import FormTextBox from "../../react/FormTextBox";
-import { useNoteLabelBoolean, useNoteLabelWithDefault, useTriliumEvent } from "../../react/hooks";
+import {
+    useContextualShortcutHints, useNoteLabelBoolean, useNoteLabelWithDefault, useTriliumEvent
+} from "../../react/hooks";
 import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
+import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import { ViewModeProps } from "../interface";
-import Api, { PendingColumnWrites, settleColumn } from "./api";
+import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
 import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition } from "./columns";
 import Column from "./column";
@@ -102,6 +107,57 @@ export const BoardDragStateContext = createContext<BoardDragState>({
     dropTarget: null
 });
 
+/**
+ * What the board answers with when asked for contextual keyboard help. Every entry is a key the
+ * board handles itself (see `keyboard.ts` and the card and column handlers), none of them
+ * rebindable, so each is listed literally rather than through a registered action.
+ */
+const BOARD_HINTS: ShortcutHintDefinition = [
+    {
+        titleKey: "board_view.hints.navigation",
+        hints: [
+            { keys: [ "Up", "Down" ], labelKey: "board_view.hints.navigate_items" },
+            { keys: [ "Left", "Right" ], labelKey: "board_view.hints.navigate_columns" },
+            { keys: [ "Home", "End" ], labelKey: "board_view.hints.first_last_item" }
+        ]
+    },
+    {
+        titleKey: "board_view.hints.editing",
+        hints: [
+            { keys: [ "Enter", "Shift+Enter" ], labelKey: "board_view.hints.insert_item" },
+            {
+                keys: [ "Ctrl+Enter", "Ctrl+Shift+Enter" ],
+                labelKey: "board_view.hints.insert_column"
+            },
+            { keys: [ "Space" ], labelKey: "board_view.hints.open_item" },
+            { keys: [ "F2" ], labelKey: "board_view.hints.rename" },
+            { keys: [ "Delete" ], labelKey: "board_view.hints.remove_item" },
+            { keys: [ "Shift+Delete" ], labelKey: "board_view.hints.delete_item" },
+            { keys: [ "Delete" ], labelKey: "board_view.hints.remove_column" }
+        ]
+    },
+    {
+        titleKey: "board_view.hints.moving",
+        hints: [
+            { keys: [ "Ctrl+Up", "Ctrl+Down" ], labelKey: "board_view.hints.move_item" },
+            { keys: [ "Ctrl+Home", "Ctrl+End" ], labelKey: "board_view.hints.move_within" },
+            { keys: [ "Ctrl+Left", "Ctrl+Right" ], labelKey: "board_view.hints.move_across" },
+            {
+                keys: [ "Ctrl+Shift+Left", "Ctrl+Shift+Right" ],
+                labelKey: "board_view.hints.move_to_end_column"
+            },
+            {
+                keys: [ "Ctrl+Alt+Left", "Ctrl+Alt+Right" ],
+                labelKey: "board_view.hints.move_column"
+            },
+            {
+                keys: [ "Ctrl+Alt+Home", "Ctrl+Alt+End" ],
+                labelKey: "board_view.hints.move_column_to_edge"
+            }
+        ]
+    }
+];
+
 export default function BoardView({ note: parentNote, noteIds, viewConfig, saveConfig }: ViewModeProps<BoardViewData>) {
     const [ statusAttributeWithPrefix ] = useNoteLabelWithDefault(parentNote, "board:groupBy", DEFAULT_GROUP_BY);
     const [ includeArchived ] = useNoteLabelBoolean(parentNote, "includeArchived");
@@ -122,21 +178,22 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // instances to cover a rename (see BoardApi#retireColumn). Mutating it must not re-render.
     const pendingRenamesRef = useRef<{ board: string, writes: PendingColumnWrites }>({
         board: "",
-        writes: { renames: new Map(), claims: new Map() }
+        writes: { renames: new Map(), claims: new Map(), inFlight: 0 }
     });
     /** Names each refresh, so one the board has moved on from is discarded rather than applied. */
     const refreshSeqRef = useRef(0);
 
     // A pending rename belongs to the board and the grouping it was made on, and `NoteList` renders
-    // the view unkeyed, so moving to another board reuses this instance. The map is replaced rather
-    // than emptied: a write still in flight holds the map it recorded itself in, and undoing into
-    // one nobody reads is what keeps it off a board that has since recorded the very same rename.
-    // Done while rendering, so the `api` built below is handed the map the refresh will read.
+    // the view unkeyed, so moving to another board reuses this instance. Looked up rather than made
+    // here, so that another view of the same board reads the same record; moving to another board
+    // takes up that board's own, leaving a write still in flight to undo into the one it recorded
+    // itself in. Done while rendering, so the `api` below is handed the map the refresh reads.
+    useContextualShortcutHints(BOARD_HINTS);
     const boardIdentity = `${parentNote.noteId}|${statusAttributeWithPrefix}`;
     if (pendingRenamesRef.current.board !== boardIdentity) {
         pendingRenamesRef.current = {
             board: boardIdentity,
-            writes: { renames: new Map(), claims: new Map() }
+            writes: getPendingWrites(boardIdentity)
         };
         refreshSeqRef.current++;
     }
@@ -206,6 +263,14 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                 setIsRelationMode(isInRelationMode);
                 setColumns(columns);
 
+                // A column a write is carrying has already been taken out of `columns`, and the
+                // two writes below would put that answer on disk before the notes have given it.
+                // Only while the write runs: its record can outlast it, and the board still has to
+                // bring the definition into line afterwards.
+                if (pendingRenamesRef.current.writes.inFlight) {
+                    return;
+                }
+
                 if (newPersistedData) {
                     viewConfig = { ...newPersistedData };
                     saveConfig(newPersistedData);
@@ -242,12 +307,15 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         setColumnDropPosition(null);
     }, [ api, columns, shownColumns ]);
 
-    const handleKeyDown = useBoardKeyboard({
+    const { onKeyDown: handleKeyDown, focusColumn, focusCard } = useBoardKeyboard({
         containerRef,
         columns: shownColumns,
         byColumn,
         api,
-        moveColumn: handleColumnDrop
+        moveColumn: handleColumnDrop,
+        insertColumn: useCallback(async (relativeTo: string, direction: "before" | "after") => {
+            setColumnNameToEdit(await api.insertColumn(relativeTo, direction));
+        }, [ api ])
     });
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
@@ -316,6 +384,10 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     color={storedColumns.get(column)?.color}
                                     archived={storedColumns.get(column)?.archived}
                                     columnIndex={index}
+                                    columns={shownColumns}
+                                    onMoveColumn={handleColumnDrop}
+                                    onFocusColumn={focusColumn}
+                                    onFocusCard={focusCard}
                                     columnItems={byColumn.get(column)}
                                     isDraggingColumn={draggedColumn?.column === column}
                                     onColumnHover={handleColumnHover}
@@ -328,6 +400,12 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                         )}
 
                         <AddNewColumn api={api} isInRelationMode={isInRelationMode} />
+                        {!isMobile() && (
+                            <ShortcutHintButton
+                                className="board-shortcut-hint-button"
+                                placement="bottom-end"
+                            />
+                        )}
                     </div>}
                 </BoardDragStateContext.Provider>
             </BoardActionsContext.Provider>
