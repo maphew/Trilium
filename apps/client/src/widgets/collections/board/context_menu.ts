@@ -9,6 +9,7 @@ import branches from "../../../services/branches";
 import dialog from "../../../services/dialog";
 import { getArchiveMenuItem } from "../../../menus/context_menu_utils";
 import { t } from "../../../services/i18n";
+import { escapeHtml } from "../../../services/utils";
 import ColorPicker from "../../react/ColorPicker";
 import Api from "./api";
 
@@ -181,7 +182,10 @@ function buildColumnItems(
     api: Api, note: FNote, column: string, onFocusCard: (noteId: string) => void
 ): MenuItem<CommandNames>[] {
     return api.columns.map((name) => ({
-        title: name,
+        // The menu reads a title as markup, and a column is named by the reader, so what a crafted
+        // name would plant there is escaped into the text it is meant to be. Every other title the
+        // board builds from a name goes through `t()`, which escapes what it interpolates.
+        title: escapeHtml(name),
         uiIcon: api.getColumnIcon(name),
         iconColorClass: api.getColumnColorClass(name),
         // The one it is already under is shown rather than hidden, so the list reads as the whole

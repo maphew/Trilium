@@ -397,6 +397,24 @@ describe("Board item context menu", () => {
         expect(focusCard).toHaveBeenCalledWith(expect.any(String));
     });
 
+    /**
+     * A column is named by the reader, and the menu reads a title as markup, so a crafted name
+     * would otherwise plant whatever it liked in the menu.
+     */
+    it("escapes a column name rather than letting it stand as markup", () => {
+        const api = {
+            columns: [ "Done <button id=\"planted\">press</button>" ],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => ""
+        } as unknown as BoardApi;
+
+        const [ column ] = statusItems(api);
+
+        expect(column && "title" in column ? column.title : undefined)
+            .toBe("Done &lt;button id&#x3D;&quot;planted&quot;&gt;press&lt;&#x2F;button&gt;");
+    });
+
     it("shows each column with the icon and colour it carries", () => {
         const api = {
             columns: [ "To Do", "Done" ],
