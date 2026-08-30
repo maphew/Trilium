@@ -194,6 +194,21 @@ export function useBoardKeyboard({
             return;
         }
 
+        if (e.key === "Delete" && spot.kind === "header" && !e.shiftKey) {
+            take(e);
+
+            // Where focus goes once the column is gone, taken up only if it does go. Shift is left
+            // unanswered here: escalating a column would take every note in it, which nothing else
+            // on the board offers.
+            const neighbour = columns[spot.column + 1] ?? columns[spot.column - 1];
+            api.confirmAndRemoveColumn(columns[spot.column]).then((removed) => {
+                if (removed && neighbour) {
+                    pendingFocus.current = { intent: { column: neighbour, part: "header" } };
+                }
+            });
+            return;
+        }
+
         if (e.key === "Delete" && spot.kind === "item") {
             const item = itemAt(columns, byColumn, spot);
             if (!item) return;

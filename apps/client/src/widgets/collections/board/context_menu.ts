@@ -8,7 +8,6 @@ import branches from "../../../services/branches";
 import dialog from "../../../services/dialog";
 import { getArchiveMenuItem } from "../../../menus/context_menu_utils";
 import { t } from "../../../services/i18n";
-import toast from "../../../services/toast";
 import ColorPicker from "../../react/ColorPicker";
 import Api from "./api";
 
@@ -83,19 +82,7 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
             {
                 title: t("board_view.delete-column"),
                 uiIcon: "bx bx-trash",
-                async handler() {
-                    const confirmed = await dialog.confirm(t("board_view.delete-column-confirmation"));
-                    if (!confirmed) {
-                        return;
-                    }
-
-                    try {
-                        await api.removeColumn(column.value);
-                    } catch (e) {
-                        console.error("Failed to delete the board column:", e);
-                        toast.showError(t("board_view.save-error"));
-                    }
-                }
+                handler: () => api.confirmAndRemoveColumn(column.value)
             },
             { kind: "separator" },
             {

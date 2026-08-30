@@ -5,6 +5,7 @@ import branches from "../../../services/branches";
 import attributes from "../../../services/attributes";
 import { executeBulkActions } from "../../../services/bulk_action";
 import dialog from "../../../services/dialog";
+import toast from "../../../services/toast";
 import FNote from "../../../entities/fnote";
 import froca from "../../../services/froca";
 import note_create from "../../../services/note_create";
@@ -886,5 +887,30 @@ describe("pending writes shared between the views of a board", () => {
         writes.renames.delete("Done");
         releasePendingWrites("board3|status");
         expect(getPendingWrites("board3|status")).not.toBe(writes);
+    });
+});
+
+describe("removing a column with the question put first", () => {
+    it("drops it only once agreed, and says so when the write is refused", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]
+        );
+        const confirm = vi.spyOn(dialog, "confirm").mockResolvedValue(false);
+        const error = vi.spyOn(toast, "showError").mockReturnValue(undefined);
+
+        expect(await api.confirmAndRemoveColumn("Done")).toBe(false);
+        expect(confirm).toHaveBeenCalled();
+        expect(saved).toEqual([]);
+
+        confirm.mockResolvedValue(true);
+        expect(await api.confirmAndRemoveColumn("Done")).toBe(true);
+        expect(saved.at(-1)?.columns?.map(column => column.value)).toEqual([ "To Do" ]);
+        expect(error).not.toHaveBeenCalled();
+
+        // A refusal from the server is reported rather than passing for a deletion.
+        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
+        expect(await api.confirmAndRemoveColumn("To Do")).toBe(false);
+        expect(error).toHaveBeenCalledWith("board_view.save-error");
     });
 });

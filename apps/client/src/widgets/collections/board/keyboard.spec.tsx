@@ -16,6 +16,7 @@ import froca from "../../../services/froca";
 import server from "../../../services/server";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
+import BoardApi from "./api";
 import BoardView, { BoardViewData } from ".";
 
 vi.mock("../../../services/branches", () => ({
@@ -218,14 +219,31 @@ describe("Board keyboard", () => {
             expect(focusedName(board)).toBe("Second");
         });
 
-        it("does nothing on a header, which stands for no card", async () => {
+        it("takes the whole column off the board from its header, asking first", async () => {
             const board = await renderBoard();
             const strip = vi.spyOn(attributes, "removeOwnedLabelByName").mockReturnValue(true);
+            const remove = vi.spyOn(BoardApi.prototype, "confirmAndRemoveColumn")
+                .mockResolvedValue(true);
             focusHeader(board, 0);
 
             press(board, "Delete");
 
+            expect(remove).toHaveBeenCalledWith("To Do");
+            // The cards in it are the column'"'"'s to take, not this key'"'"'s.
             expect(strip).not.toHaveBeenCalled();
+            expect(branches.deleteNotes).not.toHaveBeenCalled();
+        });
+
+        /** Escalating a column would take every note in it, which nothing else here offers. */
+        it("leaves Shift and Delete on a header unanswered", async () => {
+            const board = await renderBoard();
+            const remove = vi.spyOn(BoardApi.prototype, "confirmAndRemoveColumn")
+                .mockResolvedValue(true);
+            focusHeader(board, 0);
+
+            press(board, "Delete", { shiftKey: true });
+
+            expect(remove).not.toHaveBeenCalled();
             expect(branches.deleteNotes).not.toHaveBeenCalled();
         });
     });

@@ -3387,6 +3387,7 @@
       "rename": "Rename item or column",
       "remove_item": "Remove item from the board",
       "delete_item": "Delete the note",
+      "remove_column": "Remove column (on a selected column header)",
       "moving": "Moving",
       "move_item": "Move item up / down",
       "move_within": "Move to the top / bottom of the column",

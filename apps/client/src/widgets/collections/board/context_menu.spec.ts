@@ -161,21 +161,17 @@ describe("Board column context menu", () => {
         expect(api.addExistingItem).not.toHaveBeenCalled();
     });
 
-    it("asks before deleting a column, and drops it only once agreed", async () => {
-        const api = { removeColumn: vi.fn(async () => {}) } as unknown as BoardApi;
-        const confirm = vi.spyOn(dialog, "confirm").mockResolvedValue(false);
+    /** The asking lives on the api, so the Delete key puts the same question the same way. */
+    it("hands a column deletion to the api, which is what asks", async () => {
+        const api = { confirmAndRemoveColumn: vi.fn(async () => true) } as unknown as BoardApi;
 
         const entry = openMenu(api)
             .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-trash");
         if (!entry || !("handler" in entry)) throw new Error("expected a delete entry");
 
         await entry.handler?.(entry, {} as never);
-        expect(confirm).toHaveBeenCalled();
-        expect(api.removeColumn).not.toHaveBeenCalled();
 
-        confirm.mockResolvedValue(true);
-        await entry.handler?.(entry, {} as never);
-        expect(api.removeColumn).toHaveBeenCalledWith("To Do");
+        expect(api.confirmAndRemoveColumn).toHaveBeenCalledWith("To Do");
     });
 
     it("shows the column's own colour as the selected one", async () => {

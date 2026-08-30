@@ -220,6 +220,28 @@ export default class BoardApi {
         return name;
     }
 
+    /**
+     * Asks before taking a column off the board, the grouping label going from every card in it.
+     * Both the menu and the Delete key come through here, so the question is put once and the same
+     * way, and a refusal from the server is reported rather than passing for a deletion.
+     *
+     * @returns whether the column went, for a caller with something to do afterwards.
+     */
+    async confirmAndRemoveColumn(column: string) {
+        if (!await dialog.confirm(t("board_view.delete-column-confirmation"))) {
+            return false;
+        }
+
+        try {
+            await this.removeColumn(column);
+            return true;
+        } catch (e) {
+            console.error("Failed to delete the board column:", e);
+            toast.showError(t("board_view.save-error"));
+            return false;
+        }
+    }
+
     async removeColumn(column: string) {
         // Remove the value from the notes.
         const noteIds = this.byColumn?.get(column)?.map(item => item.note.noteId) || [];
