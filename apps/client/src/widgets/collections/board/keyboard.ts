@@ -1,8 +1,12 @@
 import { RefObject } from "preact";
 import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
+import branches from "../../../services/branches";
 import BoardApi from "./api";
 import { ColumnMap } from "./data";
+
+/** The keys the board answers for with Shift held down; every other Shift press is left alone. */
+const SHIFT_KEYS = [ "Enter", "Delete" ];
 
 /** Plain, these walk the board. */
 const NAVIGATION_KEYS = [ "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End" ];
@@ -115,9 +119,9 @@ export function useBoardKeyboard({
         const target = e.target as HTMLElement | null;
         if (!container || e.metaKey) return;
 
-        // Shift is left to whatever else answers for it, bar the one key where it names the other
-        // direction of something the board already does.
-        if (e.shiftKey && !(e.ctrlKey && e.key === "Enter")) return;
+        // Shift is left to whatever else answers for it, bar the keys where it names the other
+        // direction, or the harder form, of something the board already does.
+        if (e.shiftKey && !SHIFT_KEYS.includes(e.key)) return;
 
         // An editor is open on the thing that is focused, and every key belongs to it.
         if (target?.closest("input, textarea")) return;
@@ -187,8 +191,43 @@ export function useBoardKeyboard({
                 take(e);
                 api.openNote(item.note.noteId);
             }
+            return;
+        }
+
+        if (e.key === "Delete" && spot.kind === "item") {
+            const item = itemAt(columns, byColumn, spot);
+            if (!item) return;
+            take(e);
+
+            // Straight away rather than through `pendingFocus`, which waits for a redraw: until the
+            // card goes, focus is still on it, and a redraw arriving first would read that as the
+            // reader having chosen where to be and let the intent go.
+            neighbourOf(container, columns, byColumn, spot)?.focus();
+
+            if (e.shiftKey) {
+                // The note itself, with the confirmation deleting one anywhere else asks for.
+                branches.deleteNotes([ item.branch.branchId ], false, false);
+            } else {
+                api.removeFromBoard(item.note.noteId);
+            }
         }
     }, [ containerRef, columns, byColumn, api, moveColumn, insertColumn ]);
+}
+
+/** What to put focus on once a card goes: the one under it, the one over it, or the column. */
+function neighbourOf(
+    container: HTMLElement,
+    columns: string[],
+    byColumn: ColumnMap | undefined,
+    spot: Extract<Spot, { kind: "item" }>
+) {
+    const column = columns[spot.column];
+    const items = byColumn?.get(column) ?? [];
+    const next = items[spot.item + 1] ?? items[spot.item - 1];
+
+    return next
+        ? findCard(container, next.note.noteId)
+        : findInColumn(container, column, "add-item");
 }
 
 /** Keeps a key the board has answered from also reaching whatever else is bound to it. */

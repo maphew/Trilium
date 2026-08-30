@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
+import attributes from "../../../services/attributes";
 import branches from "../../../services/branches";
 import froca from "../../../services/froca";
 import server from "../../../services/server";
@@ -22,7 +23,8 @@ vi.mock("../../../services/branches", () => ({
         moveBeforeBranch: vi.fn(async () => {}),
         moveAfterBranch: vi.fn(async () => {}),
         cloneNoteToParentNote: vi.fn(async () => {}),
-        cloneNoteAfter: vi.fn(async () => {})
+        cloneNoteAfter: vi.fn(async () => {}),
+        deleteNotes: vi.fn(async () => {})
     }
 }));
 
@@ -39,6 +41,7 @@ describe("Board keyboard", () => {
         saved.length = 0;
         vi.restoreAllMocks();
         // A mocked module is not a spy, so restoring leaves its calls where the last test left.
+        vi.mocked(branches.deleteNotes).mockClear();
         vi.mocked(branches.moveBeforeBranch).mockClear();
         vi.mocked(branches.moveAfterBranch).mockClear();
         vi.spyOn(server, "put").mockResolvedValue(undefined);
@@ -167,6 +170,63 @@ describe("Board keyboard", () => {
 
             editor.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
             expect(document.activeElement).toBe(editor);
+        });
+    });
+
+    describe("taking a card off the board", () => {
+        it("strips the grouping label with Delete, leaving the note where it is", async () => {
+            const board = await renderBoard();
+            const removed = noteOf(board, "First");
+            const strip = vi.spyOn(attributes, "removeOwnedLabelByName").mockReturnValue(true);
+            focusCard(board, 0, 0);
+
+            press(board, "Delete");
+
+            expect(strip)
+                .toHaveBeenCalledWith(expect.objectContaining({ noteId: removed }), "status");
+            expect(branches.deleteNotes).not.toHaveBeenCalled();
+        });
+
+        it("deletes the note itself with Shift and Delete", async () => {
+            const board = await renderBoard();
+            const strip = vi.spyOn(attributes, "removeOwnedLabelByName").mockReturnValue(true);
+            focusCard(board, 0, 0);
+
+            press(board, "Delete", { shiftKey: true });
+
+            expect(branches.deleteNotes).toHaveBeenCalledWith(
+                [ branchOf(board, "First") ], false, false);
+            expect(strip).not.toHaveBeenCalled();
+        });
+
+        /**
+         * The card is about to go, so focus is handed on as the key is pressed rather than left to
+         * the redraw: until the card goes it still holds focus, and a redraw reaching the board
+         * first would take that for the reader having chosen where to be.
+         */
+        it("hands focus to the card below the one that goes, before it goes", async () => {
+            const board = await renderBoard();
+            vi.spyOn(attributes, "removeOwnedLabelByName").mockReturnValue(true);
+            const removed = noteOf(board, "First");
+            focusCard(board, 0, 0);
+
+            press(board, "Delete");
+            expect(focusedName(board)).toBe("Second");
+
+            setStatus(removed, "");
+            await redraw();
+            expect(focusedName(board)).toBe("Second");
+        });
+
+        it("does nothing on a header, which stands for no card", async () => {
+            const board = await renderBoard();
+            const strip = vi.spyOn(attributes, "removeOwnedLabelByName").mockReturnValue(true);
+            focusHeader(board, 0);
+
+            press(board, "Delete");
+
+            expect(strip).not.toHaveBeenCalled();
+            expect(branches.deleteNotes).not.toHaveBeenCalled();
         });
     });
 

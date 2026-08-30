@@ -3385,6 +3385,8 @@
       "insert_column": "Insert column after / before",
       "open_item": "Open item",
       "rename": "Rename item or column",
+      "remove_item": "Remove item from the board",
+      "delete_item": "Delete the note",
       "moving": "Moving",
       "move_item": "Move item up / down",
       "move_within": "Move to the top / bottom of the column",
