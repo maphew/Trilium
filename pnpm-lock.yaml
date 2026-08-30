@@ -1242,8 +1242,8 @@ importers:
         specifier: 4.0.1
         version: 4.0.1
       codemirror-lang-hcl:
-        specifier: 0.1.0
-        version: 0.1.0
+        specifier: 0.2.0
+        version: 0.2.0
       codemirror-lang-mermaid:
         specifier: 0.5.0
         version: 0.5.0
@@ -6683,8 +6683,8 @@ packages:
   codemirror-lang-elixir@4.0.1:
     resolution: {integrity: sha512-z6W/XB4b7TZrp9EZYBGVq93vQfvKbff+1iM8YZaVErL0dguBAeLmVRlEv1NuDZHOP1qjJ3NwyibkUkNWn7q9VQ==}
 
-  codemirror-lang-hcl@0.1.0:
-    resolution: {integrity: sha512-duwKEaQDhkJWad4YQ9pv4282BS6hCdR+gS/qTAj3f9bypXNNZ42bIN43h9WK3DjyZRENtVlUQdrQM1sA44wHmA==}
+  codemirror-lang-hcl@0.2.0:
+    resolution: {integrity: sha512-vUPb1AVNz3adfzSSCk4r/NUF60LZxsoikRq74mhgoId7ZYrq2+QTegIyEgUc4Qb3226HDoi+03e/8Nfh+PqGcQ==}
 
   codemirror-lang-mermaid@0.5.0:
     resolution: {integrity: sha512-Taw/2gPCyNArQJCxIP/HSUif+3zrvD+6Ugt7KJZ2dUKou/8r3ZhcfG8krNTZfV2iu8AuGnymKuo7bLPFyqsh/A==}
@@ -19529,7 +19529,7 @@ snapshots:
       '@codemirror/language': 6.12.4
       lezer-elixir: 1.1.3
 
-  codemirror-lang-hcl@0.1.0:
+  codemirror-lang-hcl@0.2.0:
     dependencies:
       '@codemirror/language': 6.12.4
       '@lezer/highlight': 1.2.3
