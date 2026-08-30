@@ -2446,7 +2446,6 @@
   },
   "board_view": {
     "delete-note": "删除笔记...",
-    "move-to": "移动到",
     "insert-above": "在上方插入",
     "insert-below": "在下方插入",
     "delete-column": "删除列...",

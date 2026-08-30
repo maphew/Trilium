@@ -670,7 +670,6 @@
     "remove-from-board": "ボードから削除",
     "archive-note": "アーカイブノート",
     "unarchive-note": "ノートのアーカイブを解除",
-    "move-to": "移動先",
     "new-item-placeholder": "ノートのタイトルを入力...",
     "add-column-placeholder": "列名を入力...",
     "edit-note-title": "クリックしてノートのタイトルを編集",
