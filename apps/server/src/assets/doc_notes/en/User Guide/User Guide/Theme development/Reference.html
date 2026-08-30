@@ -140,8 +140,11 @@ body.electron:not(.native-titlebar) {
     background-color: var(--workspace-tab-background-color);
 }</code></pre>
   <h2>Custom fonts</h2>
-  <p>Currently the only way to include a custom font is to use&nbsp;<a href="#root/_help_d3fAXQ2diepH">Custom resource providers</a>.
-    Basically import a font into Trilium and assign it <code spellcheck="false">#customResourceProvider=fonts/myfont.ttf</code> and
+  <p>The recommended way of using customized fonts is to import a font directly
+    in Trilium. See&nbsp;<a class="reference-link" href="#root/_help_w4rMEhJsALlA">Personalizing the font</a>&nbsp;for
+    information on how to do so.</p>
+  <p>Alternatively, for a theme providing its own font, <a href="#root/_help_d3fAXQ2diepH">Custom resource providers</a> can
+    be used: Import a font into Trilium and assign it <code spellcheck="false">#customResourceProvider=fonts/myfont.ttf</code> and
     then import the font in CSS via <code spellcheck="false">/custom/fonts/myfont.ttf</code>.
     Use <code spellcheck="false">../../../custom/fonts/myfont.ttf</code> if you
     run your Trilium server on a different path than <code spellcheck="false">/</code>.</p>

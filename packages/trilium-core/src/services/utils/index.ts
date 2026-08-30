@@ -1,3 +1,5 @@
+import { isFontMimeType } from "@triliumnext/commons/src/lib/font_mimes.js";
+
 import { getCrypto } from "../encryption/crypto";
 import { getPlatform } from "../platform";
 import { sanitizeFileName } from "../sanitizer";
@@ -294,7 +296,9 @@ export function escapeRegExp(str: string) {
 export function removeFileExtension(filePath: string, mime?: string) {
     const extension = extname(filePath).toLowerCase();
 
-    if (mime?.startsWith("video/") || mime?.startsWith("audio/")) {
+    // Dropped by media type rather than by extension: what these carry after the dot is the
+    // format the file is in, which the note's own mime already records.
+    if (mime?.startsWith("video/") || mime?.startsWith("audio/") || isFontMimeType(mime)) {
         return filePath.substring(0, filePath.length - extension.length);
     }
 

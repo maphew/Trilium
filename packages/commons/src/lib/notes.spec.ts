@@ -141,6 +141,13 @@ describe("getNoteIcon", () => {
         expect(icon).toBe("bx bxs-file-pdf");
     });
 
+    it("marks a font file as a font, whichever media type it arrived under", () => {
+        expect(getNoteIcon(buildArgs({ type: "file", mime: "font/woff2" }))).toBe("bx bx-font");
+        expect(getNoteIcon(buildArgs({ type: "file", mime: "application/x-font-ttf" }))).toBe("bx bx-font");
+        // EOT is no font Trilium can draw, so it stays a plain file.
+        expect(getNoteIcon(buildArgs({ type: "file", mime: "application/vnd.ms-fontobject" }))).toBe("bx bx-file");
+    });
+
     it("marks a GPX track as the journey it holds rather than as a file", () => {
         const icon = getNoteIcon(buildArgs({ type: "file", mime: "application/gpx+xml" }));
         expect(icon).toBe("bx bx-trip");

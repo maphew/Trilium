@@ -581,6 +581,7 @@
     "app_css": "Marks CSS notes which are loaded into the Trilium application and can thus be used to modify Trilium's looks.",
     "app_theme": "Marks CSS notes which are full Trilium themes and are thus available in Trilium options.",
     "app_theme_base": "Set to \"next\", \"next-light\", or \"next-dark\" to use the corresponding TriliumNext theme (auto, light or dark) as the base for a custom theme, instead of the legacy one.",
+    "custom_font": "Marks font files which are offered in the font picker in Trilium options, under the note's own title.",
     "css_class": "Value of this label is then added as CSS class to the node representing given note in the tree. This can be useful for advanced theming. Can be used in template notes.",
     "icon_class": "Value of this label is added as a CSS class to the icon on the tree which can help visually distinguish the notes in the tree. Example might be bx bx-home - icons are taken from boxicons. Can be used in template notes.",
     "page_size": "Number of items per page in note listing.",
@@ -1615,6 +1616,15 @@
     "unit_kmh": "{{value}} km/h",
     "unit_mph": "{{value}} mph"
   },
+  "font_preview": {
+    "pangram": "The quick brown fox jumps over the lazy dog",
+    "specimen_placeholder": "Type to preview your own text…",
+    "size": "Preview size",
+    "size_pixels": "{{size}} px",
+    "in_picker": "In font picker",
+    "offer_in_picker": "Offer this font in the appearance settings",
+    "remove_from_picker": "Stop offering this font in the appearance settings"
+  },
   "media": {
     "play": "Play",
     "activate": "Play {{- title}}",
@@ -1804,7 +1814,7 @@
   "fonts": {
     "theme_defined": "Theme defined",
     "fonts": "Fonts",
-    "custom_fonts": "Use custom fonts",
+    "custom_fonts": "Use different fonts",
     "main_font": "Interface text",
     "font_family": "Font family",
     "size": "Size",
@@ -1816,9 +1826,10 @@
     "monospace_ligatures": "Programming ligatures",
     "monospace_ligatures_description": "Renders character pairs such as != and -> as single symbols (≠, →), if the monospace font supports it. The text itself is unchanged.",
     "size_relative_to_general": "Size is relative to the general font size",
-    "not_all_fonts_available": "Not all listed fonts may be available on your system",
+    "custom_fonts_description": "Replaces the theme's fonts. Not all listed fonts are available on every device; a font uploaded into Trilium can be added from its own note.",
     "apply_changes": "Reload to apply changes",
     "generic-fonts": "Generic fonts",
+    "user-fonts": "Custom fonts",
     "sans-serif-system-fonts": "Sans-serif system fonts",
     "serif-system-fonts": "Serif system fonts",
     "monospace-system-fonts": "Monospace system fonts",

@@ -1039,6 +1039,16 @@ describe("#removeFileExtension (media types)", () => {
         expect(utils.removeFileExtension("clip.mov", "video/quicktime")).toBe("clip");
         expect(utils.removeFileExtension("song.flac", "audio/flac")).toBe("song");
     });
+
+    it("strips the extension for the fonts Trilium draws, and leaves the rest alone", () => {
+        expect(utils.removeFileExtension("Iosevka-Regular.ttf", "font/ttf")).toBe("Iosevka-Regular");
+        expect(utils.removeFileExtension("Inter.woff2", "font/woff2")).toBe("Inter");
+        expect(utils.removeFileExtension("Legacy.ttf", "application/x-font-ttf")).toBe("Legacy");
+        // Neither an EOT nor a font arriving as an opaque binary is one Trilium can draw, so the
+        // name it was uploaded under is all there is to say what it holds.
+        expect(utils.removeFileExtension("Old.eot", "application/vnd.ms-fontobject")).toBe("Old.eot");
+        expect(utils.removeFileExtension("Mystery.ttf", "application/octet-stream")).toBe("Mystery.ttf");
+    });
 });
 
 describe("#compareVersions", () => {
