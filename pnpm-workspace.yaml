@@ -4,9 +4,6 @@ packages:
 
 nodeLinker: hoisted
 
-# pnpm v11 enabled this by default; @electron/rebuild pulls @electron/node-gyp via git.
-blockExoticSubdeps: false
-
 # pnpm v11 introduced a 1-day default release age; keep at 0 so Renovate-driven
 # updates and regular installs aren't stalled.
 minimumReleaseAge: 0
@@ -15,6 +12,12 @@ minimumReleaseAge: 0
 pmOnFail: ignore
 
 overrides:
+  # @electron/rebuild 3.7.x (via electron-forge 7) pins @electron/node-gyp to a GitHub
+  # tarball, which fails wherever only registry.npmjs.org is reachable and trips pnpm's
+  # blockExoticSubdeps default. Vanilla node-gyp >= 11.2 carries the fork's fixes, and
+  # rebuild's one import of it is API-compatible -- rebuild 4.0.1 made the identical
+  # swap (electron/rebuild#1185); electron-forge 7 still pins rebuild 3.7.x.
+  "@electron/node-gyp": "npm:node-gyp@^11.2.0"
   # CodeMirror 6 is a swarm of packages that peer-depend on a shared runtime
   # (view/state/language/...) and rely on single-instance object identity for
   # facets to work. A partial bump leaves two copies in the tree, which breaks
