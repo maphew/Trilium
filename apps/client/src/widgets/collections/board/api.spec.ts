@@ -14,7 +14,7 @@ import server from "../../../services/server";
 import ws from "../../../services/ws";
 import { buildNote } from "../../../test/easy-froca";
 import { BoardViewData } from ".";
-import BoardApi, { getPendingWrites, PendingColumnWrites, releasePendingWrites } from "./api";
+import BoardApi, { getPendingWrites, PendingColumnWrites } from "./api";
 import { ColumnMap } from "./data";
 import { BOARD_TEMPLATE_ID, DEFAULT_COLUMN_ICON, getStatusDefinition } from "./columns";
 
@@ -905,16 +905,16 @@ describe("pending writes shared between the views of a board", () => {
         expect(getPendingWrites("board2|status")).not.toBe(writes);
     });
 
-    it("keeps a board's record while a write is on it, and forgets it once none is", () => {
+    /**
+     * A view is handed the record once and holds it while it is mounted, so a record dropped for
+     * being empty would leave the views that already have it talking to nobody.
+     */
+    it("keeps a board's record after the writes on it have all landed", () => {
         const writes = getPendingWrites("board3|status");
         writes.renames.set("Done", undefined);
-
-        releasePendingWrites("board3|status");
-        expect(getPendingWrites("board3|status")).toBe(writes);
-
         writes.renames.delete("Done");
-        releasePendingWrites("board3|status");
-        expect(getPendingWrites("board3|status")).not.toBe(writes);
+
+        expect(getPendingWrites("board3|status")).toBe(writes);
     });
 });
 

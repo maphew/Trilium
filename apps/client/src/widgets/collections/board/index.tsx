@@ -21,9 +21,7 @@ import NoteAutocomplete from "../../react/NoteAutocomplete";
 import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import { ViewModeProps } from "../interface";
-import Api, {
-    getPendingWrites, PendingColumnWrites, releasePendingWrites, settleColumn
-} from "./api";
+import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
 import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition } from "./columns";
 import Column from "./column";
@@ -260,7 +258,6 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                 for (const settled of settledRenames) {
                     settleColumn(pendingRenamesRef.current.writes, settled);
                 }
-                releasePendingWrites(pendingRenamesRef.current.board);
 
                 setByColumn(byColumn);
                 setIsRelationMode(isInRelationMode);

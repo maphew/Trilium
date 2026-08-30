@@ -344,6 +344,52 @@ describe("Board column rename", () => {
         ]);
     });
 
+    /**
+     * A view is handed its record when it first draws the board and holds it while it is mounted.
+     * A record dropped for being empty would leave this view reading one nothing writes into, and
+     * a column another tab is deleting would come back.
+     */
+    it("keeps a drawn view on the record later writes go into", async () => {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status(inheritable)":
+                "promoted,alias=Status,single,select,options=To Do;Doing;Done",
+            children: [ { title: "First", "#status": "To Do" } ]
+        });
+        const host = new Component();
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+
+        // A fresh list each time, so the refresh the board hangs off runs again.
+        const draw = async () => {
+            await act(async () => {
+                render(
+                    <ParentComponent.Provider value={host}>
+                        <Harness
+                            note={note}
+                            noteIds={[ ...note.getChildNoteIds() ]}
+                            initialConfig={DEFAULT_CONFIG}
+                        />
+                    </ParentComponent.Provider>,
+                    mountPoint
+                );
+            });
+            await act(async () => { await flush(); });
+        };
+
+        await draw();
+        expect(columnTitles(mountPoint)).toEqual([ "To Do", "Doing", "Done" ]);
+
+        // What another tab deleting a column leaves behind, after this view has been drawing.
+        getPendingWrites(`${note.noteId}|status`).renames.set("Done", undefined);
+        await draw();
+
+        expect(columnTitles(mountPoint)).toEqual([ "To Do", "Doing" ]);
+    });
+
     /** Renames the middle column, so a slot that is not the last one has to survive. */
     async function renameSecondColumn(container: HTMLElement, newName: string) {
         return renameColumnAt(container, 1, newName);

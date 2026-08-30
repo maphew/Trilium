@@ -60,7 +60,14 @@ export function settleColumn(pending: PendingColumnWrites, column: string) {
  */
 const pendingWritesByBoard = new Map<string, PendingColumnWrites>();
 
-/** The record every view of one board writes into, made on first use. */
+/**
+ * The record every view of one board writes into, made on first use and kept for good.
+ *
+ * Never dropped, however empty: a view is handed the record once, when it first draws a board, and
+ * holds that object for as long as it is mounted. Dropping an empty one would hand the next view a
+ * different record, and the two would stop hearing about each other's writes. What is left behind
+ * is one string and two empty maps per board opened.
+ */
 export function getPendingWrites(board: string) {
     const existing = pendingWritesByBoard.get(board);
     if (existing) {
@@ -70,19 +77,6 @@ export function getPendingWrites(board: string) {
     const writes: PendingColumnWrites = { renames: new Map(), claims: new Map() };
     pendingWritesByBoard.set(board, writes);
     return writes;
-}
-
-/**
- * Forgets a board no write is left on, an empty record saying the same as none at all.
- *
- * Kept while anything is still claimed: a write in flight holds the record it made itself in, and
- * one dropped here would leave its undo writing into an object nothing reads.
- */
-export function releasePendingWrites(board: string) {
-    const writes = pendingWritesByBoard.get(board);
-    if (writes && !writes.renames.size && !writes.claims.size) {
-        pendingWritesByBoard.delete(board);
-    }
 }
 
 export default class BoardApi {

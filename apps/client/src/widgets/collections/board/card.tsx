@@ -91,9 +91,8 @@ function Card({
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (e.key === "Enter" && !e.ctrlKey) {
-            // Enter makes a card rather than opening one, the way a row is made in a spreadsheet;
-            // Space is what opens. Shift puts the new card above, the reversal Shift stands for
-            // wherever else it pairs with a key.
+            // Enter adds a card the way it adds a row in a spreadsheet, and Space is what opens
+            // one. Shift adds it above instead of below.
             e.preventDefault();
             api.insertRowAtPosition(column, branch.branchId, e.shiftKey ? "before" : "after");
         } else if (e.key === "F2") {
