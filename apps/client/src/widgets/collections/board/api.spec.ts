@@ -11,6 +11,7 @@ import froca from "../../../services/froca";
 import note_create from "../../../services/note_create";
 import noteAttributeCache from "../../../services/note_attribute_cache";
 import server from "../../../services/server";
+import ws from "../../../services/ws";
 import { buildNote } from "../../../test/easy-froca";
 import { BoardViewData } from ".";
 import BoardApi, { getPendingWrites, PendingColumnWrites, releasePendingWrites } from "./api";
@@ -70,7 +71,7 @@ function createApi(
         pending,
         getStatusDefinition(board, statusAttribute)
     );
-    return { api, saved, editing, pendingRenames: pending.renames };
+    return { api, board, saved, editing, pendingRenames: pending.renames };
 }
 
 describe("BoardApi column mutations", () => {
@@ -912,5 +913,23 @@ describe("removing a column with the question put first", () => {
         vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
         expect(await api.confirmAndRemoveColumn("To Do")).toBe(false);
         expect(error).toHaveBeenCalledWith("board_view.save-error");
+    });
+});
+
+describe("duplicating a card", () => {
+    it("copies it into the board and puts the copy straight after the original", async () => {
+        const { api, board } = createApi({ columns: [ { value: "To Do" } ] }, [ "To Do" ]);
+        const post = vi.spyOn(server, "post")
+            .mockResolvedValue({ branch: { branchId: "copyBranch" } } as never);
+        // The global ws stub carries no such method, so it is put there the way bulk_action does.
+        const wait = vi.fn(async () => {});
+        ws.waitForMaxKnownEntityChangeId = wait as typeof ws.waitForMaxKnownEntityChangeId;
+
+        await api.duplicateItem("card1", "card1Branch");
+
+        expect(post).toHaveBeenCalledWith(`notes/card1/duplicate/${board.noteId}`);
+        // Waited for, since the branch the server names has to be in froca before it can be moved.
+        expect(wait).toHaveBeenCalled();
+        expect(branches.moveAfterBranch).toHaveBeenCalledWith([ "copyBranch" ], "card1Branch");
     });
 });

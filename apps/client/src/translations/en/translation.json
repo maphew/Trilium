@@ -3348,6 +3348,7 @@
     "archive-note": "Archive note",
     "unarchive-note": "Unarchive note",
     "move-to": "Move to",
+    "duplicate-item": "Duplicate",
     "insert-above": "Insert above",
     "insert-below": "Insert below",
     "delete-column": "Delete column...",

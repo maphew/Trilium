@@ -278,6 +278,22 @@ describe("Board item context menu", () => {
         expect(deleteNotes).toHaveBeenCalledWith([ "branchId" ], false, false);
     });
 
+    it("copies a card into the board, after the one it was made from", async () => {
+        const api = {
+            columns: [ "To Do" ],
+            isColumnArchived: () => false,
+            duplicateItem: vi.fn(async () => {})
+        } as unknown as BoardApi;
+
+        const entry = openItemMenu(api).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-outline");
+        if (!entry || !("handler" in entry)) throw new Error("expected a duplicate entry");
+
+        await entry.handler?.(entry, {} as never);
+
+        expect(api.duplicateItem).toHaveBeenCalledWith(expect.any(String), "branchId");
+    });
+
     /** Opens the menu a card offers, and hands back what it was given to show. */
     function openItemMenu(api: BoardApi, column = "To Do") {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});

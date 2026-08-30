@@ -10,6 +10,7 @@ import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import note_create from "../../../services/note_create";
 import server from "../../../services/server";
+import ws from "../../../services/ws";
 import toast from "../../../services/toast";
 import { BoardColumnData, BoardViewData } from ".";
 import { type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_GROUP_BY } from "./columns";
@@ -551,6 +552,22 @@ export default class BoardApi {
 
     renameCard(noteId: string, newTitle: string) {
         return server.put(`notes/${noteId}/title`, { title: newTitle.trim() });
+    }
+
+    /**
+     * Copies a card into the board, the way the tree duplicates a note, and puts the copy straight
+     * after the one it was made from.
+     *
+     * The copy carries the original's attributes, the grouping label among them, so it lands in the
+     * same column without being told to. The wait is what makes the move possible: the branch is
+     * named by the server and has to be in froca before it can be placed.
+     */
+    async duplicateItem(noteId: string, branchId: string) {
+        const { branch } = await server.post<{ branch: { branchId: string } }>(
+            `notes/${noteId}/duplicate/${this.parentNote.noteId}`);
+
+        await ws.waitForMaxKnownEntityChangeId();
+        await branches.moveAfterBranch([ branch.branchId ], branchId);
     }
 
     removeFromBoard(noteId: string) {

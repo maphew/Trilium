@@ -177,6 +177,11 @@ export function openNoteContextMenu(api: Api, event: ContextMenuEvent, note: FNo
                     handler: () => api.changeColumn(note.noteId, columnToMoveTo)
                 })),
             },
+            {
+                title: t("board_view.duplicate-item"),
+                uiIcon: "bx bx-outline",
+                handler: () => api.duplicateItem(note.noteId, branchId)
+            },
             { kind: "separator" },
             getArchiveMenuItem(note),
             {
