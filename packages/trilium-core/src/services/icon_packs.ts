@@ -5,7 +5,7 @@ import type BNote from "../becca/entities/bnote";
 import boxiconsManifest from "./icon_pack_boxicons-v2.json" with { type: "json" };
 import { getLog } from "./log";
 import search from "./search/services/search";
-import { escapeCssString, safeExtractMessageAndStackFromError } from "./utils/index";
+import { decodeCssEscapes, escapeCssString, safeExtractMessageAndStackFromError } from "./utils/index";
 
 const PREFERRED_MIME_TYPE = [
     "font/woff2",
@@ -169,7 +169,7 @@ export function generateCss({ manifest, fontMime, builtin, fontAttachmentId, pre
                 continue;
             }
 
-            const glyph = escapeCssString(String(mapping.glyph ?? ""));
+            const glyph = escapeCssString(decodeCssEscapes(String(mapping.glyph ?? "")));
             iconDeclarations.push(`.${prefix}.${key}::before { content: "${glyph}"; }`);
         }
 

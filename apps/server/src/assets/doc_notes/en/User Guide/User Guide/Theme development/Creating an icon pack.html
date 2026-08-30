@@ -98,7 +98,9 @@
 <aside class="admonition note">
   <ul>
     <li>You can supply glyph as the escaped <code spellcheck="false">\uXXXX</code> sequence
-      or as the actual UTF‑8 character.</li>
+      or as the actual UTF‑8 character. The CSS form (<code spellcheck="false">\ea3f</code>,
+      as written in a stylesheet's <code spellcheck="false">content</code>) is accepted
+      too, so glyphs copied out of the font's own CSS work as they stand.</li>
     <li>It is also possible to use the unescaped glyph inside the JSON. It will
       appear strange (e.g. ), but it will be rendered properly regardless.</li>
     <li>The manifest keys (e.g. <code spellcheck="false">ph-acorn</code>) should
@@ -184,7 +186,10 @@ processIconPack("light");</code></pre>
   </p>
   <p>The Unicode escape syntax is different in CSS (<code spellcheck="false">"\ea3f"</code>)
     when compared to JSON (<code spellcheck="false">"\uea3f"</code>). Notice
-    how the JSON escape is <code spellcheck="false">\u</code> and not <code spellcheck="false">\</code>.</p>
+    how the JSON escape is <code spellcheck="false">\u</code> and not <code spellcheck="false">\</code>.
+    Both forms are accepted: keep the CSS escape by writing the backslash itself
+    as <code spellcheck="false">"\\ea3f"</code> in the JSON, or convert it to the
+    JSON escape <code spellcheck="false">"\uea3f"</code>.</p>
   <p>As a more compact alternative, provide the un-escaped character directly,
     as UTF-8 is supported.</p>
 </aside>

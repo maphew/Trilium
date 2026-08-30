@@ -235,6 +235,22 @@ export function escapeCssString(value: string): string {
 }
 
 /**
+ * Decodes the CSS escape sequences (`\30 `, `\f015`) an icon pack manifest carries when its
+ * glyphs were copied out of a stylesheet instead of written as characters. Callers pass the
+ * result to `escapeCssString()`, which re-escapes a decoded `<` or `"` rather than emitting
+ * it raw, so decoding widens the accepted input without widening the output. A backslash
+ * that starts no hex sequence stays literal text. Code points CSS resolves to U+FFFD — zero,
+ * surrogates, and anything past the Unicode range — resolve to it here too.
+ */
+export function decodeCssEscapes(value: string): string {
+    return value.replace(/\\([0-9a-fA-F]{1,6})(?:\r\n|[ \t\n\f\r])?/g, (_, hex: string) => {
+        const codePoint = parseInt(hex, 16);
+        const isSurrogate = codePoint >= 0xD800 && codePoint <= 0xDFFF;
+        return (codePoint === 0 || codePoint > 0x10FFFF || isSurrogate) ? "\uFFFD" : String.fromCodePoint(codePoint);
+    });
+}
+
+/**
  * Escapes the `</style` sequences in `stylesheet` so it can be embedded in an inline
  * `<style>` element without ending it early. `\3c ` is the CSS escape for `<`, so a
  * sequence inside a string keeps its value; generated CSS carries none anywhere else.

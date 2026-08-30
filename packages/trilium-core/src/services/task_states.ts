@@ -7,7 +7,7 @@ import BAttribute from "../becca/entities/battribute.js";
 import type BNote from "../becca/entities/bnote.js";
 import { getIconPacks } from "./icon_packs.js";
 import noteService from "./notes.js";
-import { escapeCssString } from "./utils/index.js";
+import { decodeCssEscapes, escapeCssString } from "./utils/index.js";
 
 /**
  * Returns the task states from the `_taskStates` hidden subtree, in note order.
@@ -186,7 +186,7 @@ export function generateTaskStateCss(): string {
         const hue = color ? computeHue(color) : undefined;
 
         rules.push(`[data-trilium-task-state="${name}"], .tn-task-checkbox[data-trilium-task-state="${name}"] {
-            --task-state-glyph: "${escapeCssString(resolved.glyph)}";
+            --task-state-glyph: "${escapeCssString(decodeCssEscapes(resolved.glyph))}";
             --task-state-glyph-font-family: "${escapeCssString(resolved.fontFamily)}";
             --task-state-color: ${color || "inherit"};
             --task-state-hue: ${hue ?? "unset"};

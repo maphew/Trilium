@@ -1091,6 +1091,38 @@ describe("#escapeCssString", () => {
     });
 });
 
+describe("#decodeCssEscapes", () => {
+    it("decodes a hex escape with or without its terminating space", () => {
+        expect(utils.decodeCssEscapes("\\30 ")).toBe("0");
+        expect(utils.decodeCssEscapes("\\f015")).toBe("\uf015");
+        expect(utils.decodeCssEscapes("\\1F600")).toBe("\u{1F600}");
+        expect(utils.decodeCssEscapes("\\61\\62")).toBe("ab");
+    });
+
+    it("resolves the code points CSS maps to the replacement character", () => {
+        expect(utils.decodeCssEscapes("\\0")).toBe("\uFFFD");
+        expect(utils.decodeCssEscapes("\\d800 ")).toBe("\uFFFD");
+        expect(utils.decodeCssEscapes("\\ffffff")).toBe("\uFFFD");
+    });
+
+    it("leaves text carrying no hex escape untouched", () => {
+        expect(utils.decodeCssEscapes("")).toBe("");
+        expect(utils.decodeCssEscapes("\uf015")).toBe("\uf015");
+        expect(utils.decodeCssEscapes("</style>")).toBe("</style>");
+        expect(utils.decodeCssEscapes("\\")).toBe("\\");
+    });
+
+    it("cannot widen what the generated stylesheet emits, since escaping follows it", () => {
+        // A glyph spelling `</style>` as escapes decodes to the markup, then escapes back to it.
+        const smuggled = "\\3c /style\\3e ";
+        expect(utils.decodeCssEscapes(smuggled)).toBe("</style>");
+        expect(utils.escapeCssString(utils.decodeCssEscapes(smuggled))).toBe("\\3c /style\\3e ");
+
+        // A backslash reaching the output would let the glyph end its own CSS string.
+        expect(utils.escapeCssString(utils.decodeCssEscapes("\\5c "))).toBe("\\5c ");
+    });
+});
+
 describe("#escapeInlineStylesheet", () => {
     it("escapes every closing style tag, whatever its casing", () => {
         const escaped = utils.escapeInlineStylesheet(`.a::before { content: "</style><SCRIPT>x</STYLE>"; }`);
