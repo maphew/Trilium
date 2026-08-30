@@ -145,6 +145,10 @@ const BOARD_HINTS: ShortcutHintDefinition = [
             { keys: [ "Ctrl+Home", "Ctrl+End" ], labelKey: "board_view.hints.move_within" },
             { keys: [ "Ctrl+Left", "Ctrl+Right" ], labelKey: "board_view.hints.move_across" },
             {
+                keys: [ "Ctrl+Shift+Left", "Ctrl+Shift+Right" ],
+                labelKey: "board_view.hints.move_to_end_column"
+            },
+            {
                 keys: [ "Ctrl+Alt+Left", "Ctrl+Alt+Right" ],
                 labelKey: "board_view.hints.move_column"
             },

@@ -5,8 +5,8 @@ import branches from "../../../services/branches";
 import BoardApi from "./api";
 import { ColumnMap } from "./data";
 
-/** The keys the board answers for with Shift held down; every other Shift press is left alone. */
-const SHIFT_KEYS = [ "Enter", "Delete" ];
+/** Sideways, and with Ctrl, these carry the focused card the whole way rather than one column. */
+const CARD_END_KEYS = [ "ArrowLeft", "ArrowRight" ];
 
 /** Plain, these walk the board. */
 const NAVIGATION_KEYS = [ "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End" ];
@@ -120,8 +120,8 @@ export function useBoardKeyboard({
         if (!container || e.metaKey) return;
 
         // Shift is left to whatever else answers for it, bar the keys where it names the other
-        // direction, or the harder form, of something the board already does.
-        if (e.shiftKey && !SHIFT_KEYS.includes(e.key)) return;
+        // direction, the harder form, or the further reach of something the board already does.
+        if (e.shiftKey && !shiftIsOurs(e)) return;
 
         // An editor is open on the thing that is focused, and every key belongs to it.
         if (target?.closest("input, textarea")) return;
@@ -146,6 +146,9 @@ export function useBoardKeyboard({
             // anywhere within a column, for a reader who is standing on one of its cards.
             const carriesColumn = e.altKey || spot.kind === "header";
 
+            // Shift says how far a card goes, and a column has no such reach of its own.
+            if (e.shiftKey && carriesColumn) return;
+
             // Taken whether or not it leads anywhere: a card already at the end of its column is no
             // reason to let the key mean something else instead.
             if (!(carriesColumn ? COLUMN_MOVE_KEYS : ITEM_MOVE_KEYS).includes(e.key)) return;
@@ -159,7 +162,7 @@ export function useBoardKeyboard({
                 return;
             }
 
-            const moved = move(spot, e.key, { columns, byColumn, api });
+            const moved = move(spot, e.key, { columns, byColumn, api }, e.shiftKey);
             if (moved) {
                 const pending: PendingFocus = { intent: moved.intent };
                 pendingFocus.current = pending;
@@ -270,6 +273,15 @@ function askForMenu(element: HTMLElement) {
     }));
 }
 
+/** Whether Shift on this press is the board's to answer for, rather than the application's. */
+function shiftIsOurs(e: KeyboardEvent) {
+    if (e.key === "Enter" || e.key === "Delete") {
+        return true;
+    }
+
+    return e.ctrlKey && CARD_END_KEYS.includes(e.key);
+}
+
 /** Keeps a key the board has answered from also reaching whatever else is bound to it. */
 function take(e: KeyboardEvent) {
     e.preventDefault();
@@ -358,7 +370,9 @@ function entryOf(container: HTMLElement, column: number): Spot {
 function move(
     spot: Spot,
     key: string,
-    { columns, byColumn, api }: Pick<BoardKeyboardOptions, "columns" | "byColumn" | "api">
+    { columns, byColumn, api }: Pick<BoardKeyboardOptions, "columns" | "byColumn" | "api">,
+    /** Whether the card goes the whole way rather than one place. */
+    toEnd = false
 ): { intent: FocusIntent; done: Promise<unknown> } | false {
     const item = itemAt(columns, byColumn, spot);
     if (!item || spot.kind !== "item") return false;
@@ -369,8 +383,11 @@ function move(
     const { branchId } = item.branch;
 
     if (key === "ArrowLeft" || key === "ArrowRight") {
-        const target = columns[spot.column + (key === "ArrowRight" ? 1 : -1)];
-        if (!target) return false;
+        const target = toEnd
+            ? columns[key === "ArrowRight" ? columns.length - 1 : 0]
+            : columns[spot.column + (key === "ArrowRight" ? 1 : -1)];
+        // Only the whole way can ask for the column a card already stands in.
+        if (!target || target === column) return false;
 
         return { intent: { noteId }, done: api.moveToColumnEnd(noteId, branchId, target) };
     }

@@ -32,6 +32,7 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
             {
                 title: t("board_view.rename-column"),
                 uiIcon: "bx bx-edit-alt",
+                shortcut: "F2",
                 handler: column.onEditTitle
             },
             { kind: "separator" },
@@ -59,10 +60,12 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                 items: [
                     {
                         title: t("board_view.add-column-before"),
+                        shortcut: "Ctrl+Shift+Enter",
                         handler: () => column.onAddColumn("before")
                     },
                     {
                         title: t("board_view.add-column-after"),
+                        shortcut: "Ctrl+Enter",
                         handler: () => column.onAddColumn("after")
                     }
                 ]
@@ -82,6 +85,7 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
             {
                 title: t("board_view.delete-column"),
                 uiIcon: "bx bx-trash",
+                shortcut: "Delete",
                 handler: () => api.confirmAndRemoveColumn(column.value)
             },
             { kind: "separator" },
@@ -114,6 +118,27 @@ function ColumnColorPicker({ api, value, color }: { api: Api, value: string, col
     });
 }
 
+/**
+ * The key that reaches `target` from `from`, for the two ends of the board and no others: `Ctrl`
+ * and `Shift` with an arrow sends a card the whole way, and the entry that answers for it is the
+ * same one wherever the card stands. `Ctrl` with an arrow moves a card one column and is left
+ * unnamed here, the entry it would land on being a different one for every card.
+ *
+ * Counted over the columns the board draws. An archived column is listed in the menu but stands off
+ * screen unless the board is showing archived notes, and a key that walks the board steps over it.
+ */
+function endColumnKey(api: Api, from: string, target: string) {
+    const drawn = api.columns.filter((name) => !api.isColumnArchived(name));
+    const at = drawn.indexOf(from);
+    if (at < 0) {
+        return undefined;
+    }
+
+    if (target === drawn[0] && at > 0) return "Ctrl+Shift+Left";
+    if (target === drawn[drawn.length - 1] && at < drawn.length - 1) return "Ctrl+Shift+Right";
+    return undefined;
+}
+
 export function openNoteContextMenu(api: Api, event: ContextMenuEvent, note: FNote, branchId: string, column: string) {
     event.preventDefault();
     event.stopPropagation();
@@ -127,11 +152,13 @@ export function openNoteContextMenu(api: Api, event: ContextMenuEvent, note: FNo
             {
                 title: t("board_view.insert-above"),
                 uiIcon: "bx bx-list-plus",
+                shortcut: "Shift+Enter",
                 handler: () => api.insertRowAtPosition(column, branchId, "before")
             },
             {
                 title: t("board_view.insert-below"),
                 uiIcon: "bx bx-empty",
+                shortcut: "Enter",
                 handler: () => api.insertRowAtPosition(column, branchId, "after")
             },
             { kind: "separator" },
@@ -143,6 +170,7 @@ export function openNoteContextMenu(api: Api, event: ContextMenuEvent, note: FNo
                 items: api.columns.map(columnToMoveTo => ({
                     title: columnToMoveTo,
                     enabled: columnToMoveTo !== column,
+                    shortcut: endColumnKey(api, column, columnToMoveTo),
                     badges: api.isColumnArchived(columnToMoveTo)
                         ? [ { title: t("board_view.archived-badge") } ]
                         : undefined,
@@ -154,11 +182,13 @@ export function openNoteContextMenu(api: Api, event: ContextMenuEvent, note: FNo
             {
                 title: t("board_view.remove-from-board"),
                 uiIcon: "bx bx-task-x",
+                shortcut: "Delete",
                 handler: () => api.removeFromBoard(note.noteId)
             },
             {
                 title: t("board_view.delete-note"),
                 uiIcon: "bx bx-trash",
+                shortcut: "Shift+Delete",
                 handler: () => branches.deleteNotes([ branchId ], false, false)
             },
             { kind: "separator" },

@@ -161,6 +161,25 @@ describe("Board column context menu", () => {
         expect(api.addExistingItem).not.toHaveBeenCalled();
     });
 
+    /** The keys are the board's own, so they are written out rather than looked up as actions. */
+    it("names the key beside each column entry that has one", () => {
+        const items = openMenu({} as unknown as BoardApi);
+        const byIcon = (icon: string) =>
+            items.find(item => item && "uiIcon" in item && item.uiIcon === icon);
+
+        expect(byIcon("bx bx-edit-alt")).toMatchObject({ shortcut: "F2" });
+        expect(byIcon("bx bx-trash")).toMatchObject({ shortcut: "Delete" });
+        // Nothing claims a key it does not answer for.
+        expect(byIcon("bx bx-link")).not.toHaveProperty("shortcut");
+
+        const submenu = byIcon("bx bx-columns");
+        const children = submenu && "items" in submenu ? submenu.items ?? [] : [];
+
+        // Before then after, the order the menu offers them in.
+        expect(children[0]).toMatchObject({ shortcut: "Ctrl+Shift+Enter" });
+        expect(children[1]).toMatchObject({ shortcut: "Ctrl+Enter" });
+    });
+
     /** The asking lives on the api, so the Delete key puts the same question the same way. */
     it("hands a column deletion to the api, which is what asks", async () => {
         const api = { confirmAndRemoveColumn: vi.fn(async () => true) } as unknown as BoardApi;
@@ -260,7 +279,7 @@ describe("Board item context menu", () => {
     });
 
     /** Opens the menu a card offers, and hands back what it was given to show. */
-    function openItemMenu(api: BoardApi) {
+    function openItemMenu(api: BoardApi, column = "To Do") {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
         const event = {
             preventDefault: () => {},
@@ -269,10 +288,57 @@ describe("Board item context menu", () => {
             pageY: 0
         } as ContextMenuEvent;
 
-        openNoteContextMenu(api, event, buildNote({ title: "Card" }) as FNote, "branchId", "To Do");
+        openNoteContextMenu(api, event, buildNote({ title: "Card" }) as FNote, "branchId", column);
 
         return show.mock.calls.at(-1)?.[0].items ?? [];
     }
+
+    /**
+     * The whole-way keys land on the same two entries wherever the card stands, so the menu names
+     * them. The one-column keys land somewhere different for every card and are left unnamed.
+     */
+    it("names the whole-way keys on the ends, and nothing on the columns beside", () => {
+        const api = {
+            columns: [ "To Do", "Doing", "Done", "Shipped" ],
+            isColumnArchived: () => false
+        } as unknown as BoardApi;
+
+        const moveTo = openItemMenu(api, "Doing").find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
+        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
+
+        expect((moveTo.items ?? []).map(item => item && "shortcut" in item ? item.shortcut : null))
+            .toEqual([ "Ctrl+Shift+Left", undefined, undefined, "Ctrl+Shift+Right" ]);
+    });
+
+    it("leaves the end a card already stands in bare", () => {
+        const api = {
+            columns: [ "To Do", "Doing", "Done" ],
+            isColumnArchived: () => false
+        } as unknown as BoardApi;
+
+        const moveTo = openItemMenu(api, "To Do").find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
+        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
+
+        expect((moveTo.items ?? []).map(item => item && "shortcut" in item ? item.shortcut : null))
+            .toEqual([ undefined, undefined, "Ctrl+Shift+Right" ]);
+    });
+
+    /** A hidden column is not one the keys reach, so the end is the last column drawn. */
+    it("counts the end over an archived column rather than onto it", () => {
+        const api = {
+            columns: [ "To Do", "Doing", "Parked" ],
+            isColumnArchived: (column: string) => column === "Parked"
+        } as unknown as BoardApi;
+
+        const moveTo = openItemMenu(api, "To Do").find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
+        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
+
+        expect((moveTo.items ?? []).map(item => item && "shortcut" in item ? item.shortcut : null))
+            .toEqual([ undefined, "Ctrl+Shift+Right", undefined ]);
+    });
 
     it("marks the archived columns it offers to move a card to", () => {
         const api = {

@@ -3392,6 +3392,7 @@
       "move_item": "Move item up / down",
       "move_within": "Move to the top / bottom of the column",
       "move_across": "Move to the previous / next column",
+      "move_to_end_column": "Move to the first / last column",
       "move_column": "Move the column left / right",
       "move_column_to_edge": "Move the column to the far left / right"
     },

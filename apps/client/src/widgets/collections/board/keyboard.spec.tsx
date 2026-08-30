@@ -462,6 +462,32 @@ describe("Board keyboard", () => {
             expect(branches.moveAfterBranch).toHaveBeenCalled();
         });
 
+        it("sends a card the whole way with Ctrl, Shift and a sideways arrow", async () => {
+            const board = await renderBoard();
+            focusCard(board, 1, 0);
+            const moved = noteOf(board, "Second");
+
+            press(board, "ArrowRight", { ctrlKey: true, shiftKey: true });
+            setStatus(moved, "Done");
+            await redraw();
+            expect(columnOf(board, "Second")).toBe(2);
+
+            press(board, "ArrowLeft", { ctrlKey: true, shiftKey: true });
+            setStatus(moved, "To Do");
+            await redraw();
+            expect(columnOf(board, "Second")).toBe(0);
+        });
+
+        it("moves no card already standing at the end it is sent to", async () => {
+            const board = await renderBoard();
+            focusCard(board, 0, 0);
+
+            press(board, "ArrowLeft", { ctrlKey: true, shiftKey: true });
+
+            expect(branches.moveAfterBranch).not.toHaveBeenCalled();
+            expect(columnOf(board, "First")).toBe(0);
+        });
+
         it("does nothing at the edges it cannot move past", async () => {
             const board = await renderBoard();
 
