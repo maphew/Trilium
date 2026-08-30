@@ -46,6 +46,41 @@ export function settleColumn(pending: PendingColumnWrites, column: string) {
     pending.claims.delete(column);
 }
 
+/**
+ * The writes in flight on each board, by the note it is and the label it groups by.
+ *
+ * Shared by every view of one board rather than held per view, because what a record stands in for
+ * is shared too: the notes, the definition and the attachment. A second tab open on the same board
+ * refreshes on the same entity changes, and one that knew nothing of a deletion under way would
+ * resolve the column from whichever source still carries it and write it back.
+ */
+const pendingWritesByBoard = new Map<string, PendingColumnWrites>();
+
+/** The record every view of one board writes into, made on first use. */
+export function getPendingWrites(board: string) {
+    const existing = pendingWritesByBoard.get(board);
+    if (existing) {
+        return existing;
+    }
+
+    const writes: PendingColumnWrites = { renames: new Map(), claims: new Map() };
+    pendingWritesByBoard.set(board, writes);
+    return writes;
+}
+
+/**
+ * Forgets a board no write is left on, an empty record saying the same as none at all.
+ *
+ * Kept while anything is still claimed: a write in flight holds the record it made itself in, and
+ * one dropped here would leave its undo writing into an object nothing reads.
+ */
+export function releasePendingWrites(board: string) {
+    const writes = pendingWritesByBoard.get(board);
+    if (writes && !writes.renames.size && !writes.claims.size) {
+        pendingWritesByBoard.delete(board);
+    }
+}
+
 export default class BoardApi {
 
     private isRelationMode: boolean;

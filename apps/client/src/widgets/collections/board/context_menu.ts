@@ -8,6 +8,7 @@ import branches from "../../../services/branches";
 import dialog from "../../../services/dialog";
 import { getArchiveMenuItem } from "../../../menus/context_menu_utils";
 import { t } from "../../../services/i18n";
+import toast from "../../../services/toast";
 import ColorPicker from "../../react/ColorPicker";
 import Api from "./api";
 
@@ -88,7 +89,12 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                         return;
                     }
 
-                    await api.removeColumn(column.value);
+                    try {
+                        await api.removeColumn(column.value);
+                    } catch (e) {
+                        console.error("Failed to delete the board column:", e);
+                        toast.showError(t("board_view.save-error"));
+                    }
                 }
             },
             { kind: "separator" },

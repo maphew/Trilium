@@ -12,7 +12,7 @@ import noteAttributeCache from "../../../services/note_attribute_cache";
 import server from "../../../services/server";
 import { buildNote } from "../../../test/easy-froca";
 import { BoardViewData } from ".";
-import BoardApi, { PendingColumnWrites } from "./api";
+import BoardApi, { getPendingWrites, PendingColumnWrites, releasePendingWrites } from "./api";
 import { ColumnMap } from "./data";
 import { BOARD_TEMPLATE_ID, getStatusDefinition } from "./columns";
 
@@ -861,3 +861,30 @@ function buildBoard(
 
     return board;
 }
+
+describe("pending writes shared between the views of a board", () => {
+    /**
+     * Two tabs on one board read the same notes, definition and attachment, so a write in flight on
+     * one has to be a write in flight on the other. A view with a record of its own would resolve a
+     * column being deleted elsewhere out of the sources that still carry it, and write it back.
+     */
+    it("hands every view of one board the same record, and another board its own", () => {
+        const writes = getPendingWrites("board1|status");
+
+        expect(getPendingWrites("board1|status")).toBe(writes);
+        expect(getPendingWrites("board1|priority")).not.toBe(writes);
+        expect(getPendingWrites("board2|status")).not.toBe(writes);
+    });
+
+    it("keeps a board's record while a write is on it, and forgets it once none is", () => {
+        const writes = getPendingWrites("board3|status");
+        writes.renames.set("Done", undefined);
+
+        releasePendingWrites("board3|status");
+        expect(getPendingWrites("board3|status")).toBe(writes);
+
+        writes.renames.delete("Done");
+        releasePendingWrites("board3|status");
+        expect(getPendingWrites("board3|status")).not.toBe(writes);
+    });
+});

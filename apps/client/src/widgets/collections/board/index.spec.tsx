@@ -18,6 +18,7 @@ import { executeBulkActions } from "../../../services/bulk_action";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
+import { getPendingWrites } from "./api";
 import { DEFAULT_COLUMN_ICON } from "./columns";
 
 // Stands in for the server: by the time the bulk action resolves, the notes carry the new value,
@@ -244,6 +245,37 @@ describe("Board column rename", () => {
 
         return { note, container: mountPoint };
     }
+
+    /**
+     * What a second tab on the same board sees. The record is shared, so the column being
+     * deleted is resolved away here too; persisting that answer would put a deletion on disk
+     * the notes have not given yet, and the tab making the write persists it once it lands.
+     */
+    it("leaves the stored columns alone while a write on the board is still settling", async () => {
+        const { note } = await setup();
+        saved.length = 0;
+
+        getPendingWrites(`${note.noteId}|status`).renames.set("Done", undefined);
+
+        const second = document.createElement("div");
+        document.body.appendChild(second);
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={DEFAULT_CONFIG}
+                    />
+                </ParentComponent.Provider>,
+                second
+            );
+        });
+        await act(async () => { await flush(); });
+
+        expect(saved).toEqual([]);
+        second.remove();
+    });
 
     /** Renames the middle column, so a slot that is not the last one has to survive. */
     async function renameSecondColumn(container: HTMLElement, newName: string) {

@@ -16,7 +16,9 @@ import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import { ViewModeProps } from "../interface";
-import Api, { PendingColumnWrites, settleColumn } from "./api";
+import Api, {
+    getPendingWrites, PendingColumnWrites, releasePendingWrites, settleColumn
+} from "./api";
 import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition } from "./columns";
 import Column from "./column";
@@ -128,15 +130,15 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const refreshSeqRef = useRef(0);
 
     // A pending rename belongs to the board and the grouping it was made on, and `NoteList` renders
-    // the view unkeyed, so moving to another board reuses this instance. The map is replaced rather
-    // than emptied: a write still in flight holds the map it recorded itself in, and undoing into
-    // one nobody reads is what keeps it off a board that has since recorded the very same rename.
-    // Done while rendering, so the `api` built below is handed the map the refresh will read.
+    // the view unkeyed, so moving to another board reuses this instance. Looked up rather than made
+    // here, so that another view of the same board reads the same record; moving to another board
+    // takes up that board's own, leaving a write still in flight to undo into the one it recorded
+    // itself in. Done while rendering, so the `api` below is handed the map the refresh reads.
     const boardIdentity = `${parentNote.noteId}|${statusAttributeWithPrefix}`;
     if (pendingRenamesRef.current.board !== boardIdentity) {
         pendingRenamesRef.current = {
             board: boardIdentity,
-            writes: { renames: new Map(), claims: new Map() }
+            writes: getPendingWrites(boardIdentity)
         };
         refreshSeqRef.current++;
     }
@@ -201,10 +203,18 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                 for (const settled of settledRenames) {
                     settleColumn(pendingRenamesRef.current.writes, settled);
                 }
+                releasePendingWrites(pendingRenamesRef.current.board);
 
                 setByColumn(byColumn);
                 setIsRelationMode(isInRelationMode);
                 setColumns(columns);
+
+                // A column a write is still settling has already been taken out of `columns`, and
+                // the two writes below would put that answer on disk before the notes have given
+                // it. The write that made the record persists the outcome itself once it lands.
+                if (pendingRenamesRef.current.writes.renames.size) {
+                    return;
+                }
 
                 if (newPersistedData) {
                     viewConfig = { ...newPersistedData };
