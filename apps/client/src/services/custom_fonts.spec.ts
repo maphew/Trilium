@@ -118,6 +118,36 @@ describe("applyCustomFontsFromOptions", () => {
         expect(registeredFaces.has(staleFace)).toBe(false);
     });
 
+    it("keeps the newest file when the load it overtook finishes after it", async () => {
+        mocks.options = { mainFontFamily: "customFont:fontNoteG7" };
+        mocks.notes = { fontNoteG7: { blobId: "blobG1" } };
+
+        // Holds the first file open, so the load for the file replacing it can overtake it.
+        let releaseFirst = () => {};
+        const firstHeld = new Promise<void>((resolve) => {
+            releaseFirst = resolve;
+        });
+        fetchMock.mockImplementationOnce(async () => {
+            await firstHeld;
+            return new Response(new Uint8Array([ 0x00, 0x01, 0x00, 0x00 ]));
+        });
+
+        const overtaken = applyCustomFontsFromOptions();
+        mocks.notes = { fontNoteG7: { blobId: "blobG2" } };
+        await applyCustomFontsFromOptions();
+        const newestFace = [ ...registeredFaces ][0];
+
+        releaseFirst();
+        await overtaken;
+
+        // The face built from the file the note holds now, not the one it held when the slower load
+        // set out to fetch it. Compared by identity: every face here carries the same family, and
+        // the stub files are byte-identical, so a structural match would hold either way.
+        expect([ ...registeredFaces ]).toHaveLength(1);
+        expect([ ...registeredFaces ][0]).toBe(newestFace);
+        expect(families()).toEqual([ "trilium-font-fontNoteG7" ]);
+    });
+
     it("carries on where the note is gone or its file will not load", async () => {
         mocks.options = { mainFontFamily: "customFont:goneNote001" };
         await expect(applyCustomFontsFromOptions()).resolves.toBeUndefined();

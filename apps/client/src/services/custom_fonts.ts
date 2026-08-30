@@ -19,6 +19,13 @@ interface RegisteredFont {
 const registeredFonts = new Map<string, RegisteredFont>();
 
 /**
+ * The file each note's in-flight load is fetching. Loads for one note are not ordered — a newer one
+ * can overtake an older — so this is what an older load reads to find that it has been superseded
+ * and must not install the file it went to fetch.
+ */
+const loadingFonts = new Map<string, string>();
+
+/**
  * Registers the user's own fonts that the font options name, so the families the fonts stylesheet
  * declares (see `getFontCss`) resolve to the files those notes hold. Fonts no longer named by any
  * option are unregistered.
@@ -37,6 +44,13 @@ export async function applyCustomFontsFromOptions() {
         }
     }
 
+    // A load still in flight for a font no longer named has nothing left to install.
+    for (const noteId of loadingFonts.keys()) {
+        if (!wanted.has(noteId)) {
+            loadingFonts.delete(noteId);
+        }
+    }
+
     await Promise.all([ ...wanted ].map(async (noteId) => {
         const note = await froca.getNote(noteId);
         if (!note) return;
@@ -45,6 +59,8 @@ export async function applyCustomFontsFromOptions() {
         // revision has to be fetched again, under the same family the stylesheet already names.
         const blobId = note.blobId ?? "";
         if (registeredFonts.get(noteId)?.blobId === blobId) return;
+
+        loadingFonts.set(noteId, blobId);
 
         try {
             const face = await registerFontNote(noteId, customFontFamily(noteId), blobId);
@@ -56,12 +72,21 @@ export async function applyCustomFontsFromOptions() {
                 return;
             }
 
+            // These bytes are no longer the ones to draw with: while they were being fetched, a load
+            // for a file that replaced this one started, or the font stopped being named at all.
+            // Installing them here would put the older file back over the newer.
+            if (loadingFonts.get(noteId) !== blobId) {
+                document.fonts.delete(face);
+                return;
+            }
+
             // The face built from the file this note held before goes only now that its replacement
             // is registered, so nothing renders in the fallback family in between.
             if (current) {
                 document.fonts.delete(current.face);
             }
             registeredFonts.set(noteId, { face, blobId });
+            loadingFonts.delete(noteId);
         } catch (e) {
             logError(`Could not load the font stored in note '${noteId}': ${e}`);
         }
