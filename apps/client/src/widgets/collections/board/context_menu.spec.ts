@@ -8,6 +8,7 @@ import dialog from "../../../services/dialog";
 import FNote from "../../../entities/fnote";
 import { buildNote } from "../../../test/easy-froca";
 import BoardApi from "./api";
+import { DEFAULT_COLUMN_ICON } from "./columns";
 import { openColumnContextMenu, openNoteContextMenu } from "./context_menu";
 
 // The card menu opens with the shared link items, which reach for the active note context.
@@ -225,7 +226,8 @@ describe("Board item context menu", () => {
         const api = {
             columns: [],
             isColumnArchived: () => false,
-            columnIcon: () => "bx bx-circle",
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
             insertRowAtPosition: vi.fn(async () => {})
         } as unknown as BoardApi;
         const items = openItemMenu(api);
@@ -244,7 +246,8 @@ describe("Board item context menu", () => {
         const api = {
             columns: [ "To Do", "Done" ],
             isColumnArchived: () => false,
-            columnIcon: () => "bx bx-circle",
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
             changeColumn: vi.fn(async () => {})
         } as unknown as BoardApi;
 
@@ -265,7 +268,8 @@ describe("Board item context menu", () => {
         const api = {
             columns: [],
             isColumnArchived: () => false,
-            columnIcon: () => "bx bx-circle",
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
             removeFromBoard: vi.fn()
         } as unknown as BoardApi;
         const deleteNotes = vi.spyOn(branches, "deleteNotes").mockResolvedValue(false);
@@ -281,27 +285,12 @@ describe("Board item context menu", () => {
         expect(deleteNotes).toHaveBeenCalledWith([ "branchId" ], false, false);
     });
 
-    it("shows each column with the icon its header wears", () => {
-        const api = {
-            columns: [ "To Do", "Done" ],
-            isColumnArchived: () => false,
-            columnIcon: (column: string) =>
-                column === "To Do" ? "bx bx-list-ul" : "bx bx-check"
-        } as unknown as BoardApi;
-
-        const moveTo = openItemMenu(api).find(item =>
-            item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
-        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
-
-        expect((moveTo.items ?? []).map(item => item && "uiIcon" in item ? item.uiIcon : null))
-            .toEqual([ "bx bx-list-ul", "bx bx-check" ]);
-    });
-
     it("copies a card into the board, after the one it was made from", async () => {
         const api = {
             columns: [ "To Do" ],
             isColumnArchived: () => false,
-            columnIcon: () => "bx bx-circle",
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
             duplicateItem: vi.fn(async () => {})
         } as unknown as BoardApi;
 
@@ -337,7 +326,8 @@ describe("Board item context menu", () => {
         const api = {
             columns: [ "To Do", "Doing", "Done", "Shipped" ],
             isColumnArchived: () => false,
-            columnIcon: () => "bx bx-circle"
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => ""
         } as unknown as BoardApi;
 
         const moveTo = openItemMenu(api, "Doing").find(item =>
@@ -352,7 +342,8 @@ describe("Board item context menu", () => {
         const api = {
             columns: [ "To Do", "Doing", "Done" ],
             isColumnArchived: () => false,
-            columnIcon: () => "bx bx-circle"
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => ""
         } as unknown as BoardApi;
 
         const moveTo = openItemMenu(api, "To Do").find(item =>
@@ -368,7 +359,8 @@ describe("Board item context menu", () => {
         const api = {
             columns: [ "To Do", "Doing", "Parked" ],
             isColumnArchived: (column: string) => column === "Parked",
-            columnIcon: () => "bx bx-circle"
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => ""
         } as unknown as BoardApi;
 
         const moveTo = openItemMenu(api, "To Do").find(item =>
@@ -383,7 +375,8 @@ describe("Board item context menu", () => {
         const api = {
             columns: [ "To Do", "Done" ],
             isColumnArchived: (column: string) => column === "Done",
-            columnIcon: () => "bx bx-circle"
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
         } as unknown as BoardApi;
 
         const moveTo = openItemMenu(api).find(item =>
@@ -395,5 +388,25 @@ describe("Board item context menu", () => {
         expect((moveTo.items ?? [])
             .map(item => !!(item && "badges" in item && item.badges?.length)))
             .toEqual([ false, true ]);
+    });
+
+    it("shows each column it offers to move a card to with the icon and colour it carries", () => {
+        const api = {
+            columns: [ "To Do", "Done" ],
+            isColumnArchived: () => false,
+            getColumnIcon: (column: string) =>
+                column === "Done" ? "bx bx-check-circle" : DEFAULT_COLUMN_ICON,
+            getColumnColorClass: (column: string) => column === "Done" ? "use-note-color" : ""
+        } as unknown as BoardApi;
+
+        const moveTo = openItemMenu(api).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-transfer");
+        if (!moveTo || !("items" in moveTo)) throw new Error("expected a move-to entry");
+
+        expect((moveTo.items ?? []).map(item => item && "uiIcon" in item ? item.uiIcon : undefined))
+            .toEqual([ DEFAULT_COLUMN_ICON, "bx bx-check-circle" ]);
+        expect((moveTo.items ?? [])
+            .map(item => item && "iconColorClass" in item ? item.iconColorClass : undefined))
+            .toEqual([ "", "use-note-color" ]);
     });
 });

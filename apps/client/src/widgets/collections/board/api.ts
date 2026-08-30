@@ -5,6 +5,7 @@ import FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
 import branches from "../../../services/branches";
 import { executeBulkActions } from "../../../services/bulk_action";
+import cssClassManager from "../../../services/css_class_manager";
 import dialog from "../../../services/dialog";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
@@ -284,18 +285,27 @@ export default class BoardApi {
     }
 
     /**
-     * The icon a column shows in its header, for anywhere else standing for the same column.
+     * The icon a column heading shows, for anything else that stands in for the column.
      *
-     * In relation mode the column is a note and wears that note's own icon, which the board does
-     * not keep and cannot set. Everywhere else the stock icon stands in for a column given none.
+     * In relation mode the column is a note, so the icon is that note's own — the same one
+     * `NoteLink` puts in the heading — and `setColumnIcon` is not offered there.
      */
-    columnIcon(column: string) {
+    getColumnIcon(column: string) {
         if (this.isRelationMode) {
-            return froca.getNoteFromCache(column)?.getIcon() ?? DEFAULT_COLUMN_ICON;
+            return froca.getNoteFromCache(column)?.getIcon();
         }
 
-        const stored = this.viewConfig?.columns?.find(col => col.value === column)?.icon;
-        return stored || DEFAULT_COLUMN_ICON;
+        return this.viewConfig?.columns?.find(col => col.value === column)?.icon
+            ?? DEFAULT_COLUMN_ICON;
+    }
+
+    /**
+     * The classes tinting anything that stands in for a column with the colour picked for it, empty
+     * while it carries none. The colour is stored per column in both modes, unlike the icon.
+     */
+    getColumnColorClass(column: string) {
+        const color = this.viewConfig?.columns?.find(col => col.value === column)?.color;
+        return cssClassManager.createClassForColor(color ?? null);
     }
 
     /** Whether a column is archived, which the board shows only while archived notes are shown. */
