@@ -179,7 +179,14 @@ export default function Column({
 
                 {!isEditing ? (
                     <>
-                        <span className="title">
+                        <span
+                            className="title"
+                            // In relation mode the title is a link to the note the column stands
+                            // for, and the first of the two clicks has already followed it.
+                            onDblClick={isInRelationMode
+                                ? undefined
+                                : () => setColumnNameToEdit(column)}
+                        >
                             {isInRelationMode
                                 ? <NoteLink notePath={column} showNoteIcon />
                                 : column}

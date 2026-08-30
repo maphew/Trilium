@@ -390,6 +390,19 @@ describe("Board column rename", () => {
         expect(columnTitles(mountPoint)).toEqual([ "To Do", "Doing" ]);
     });
 
+    it("opens the title editor when the title is double clicked", async () => {
+        const { container } = await setup();
+        const [ first ] = [ ...container.querySelectorAll<HTMLElement>(".board-column") ];
+
+        await act(async () => {
+            first.querySelector(".title")
+                ?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+        });
+
+        expect(first.querySelector("h3")?.classList.contains("editing")).toBe(true);
+        expect(first.querySelector("h3 input")).not.toBeNull();
+    });
+
     /** Renames the middle column, so a slot that is not the last one has to survive. */
     async function renameSecondColumn(container: HTMLElement, newName: string) {
         return renameColumnAt(container, 1, newName);
