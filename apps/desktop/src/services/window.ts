@@ -500,14 +500,17 @@ export function setupWindowing() {
         electron.app.exit();
     });
 
-    electron.ipcMain.on("copy-image-to-clipboard", (_event, buffer: Uint8Array) => {
+    electron.ipcMain.on("copy-image-to-clipboard", async (_event, buffer: Uint8Array) => {
         try {
             const image = electron.nativeImage.createFromBuffer(Buffer.from(buffer));
             if (image.isEmpty()) {
                 getLog().error("copy-image-to-clipboard: nativeImage is empty, unsupported format?");
                 return;
             }
-            electron.clipboard.writeImage(image);
+            // `clipboard.write()` takes MIME-typed payloads, and PNG is the format every
+            // platform clipboard accepts, so the decoded image is re-encoded to PNG.
+            const png = new Uint8Array(image.toPNG());
+            await electron.clipboard.write([new electron.ClipboardItem({ "image/png": new Blob([png], { type: "image/png" }) })]);
         } catch (e) {
             getLog().error(`copy-image-to-clipboard failed: ${coreUtils.safeExtractMessageAndStackFromError(e)}`);
         }
