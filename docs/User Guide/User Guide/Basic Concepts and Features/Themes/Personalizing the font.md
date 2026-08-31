@@ -12,7 +12,15 @@ The font can be personalized for the following areas of the application:
 
 Each area also has its own _Size_. The note tree and document sizes are relative to the interface size, so changing the interface size moves them along with it.
 
-Alongside the named families, the list offers _Theme defined_, which leaves the choice to the current theme, and _System default_, which follows the operating system. Named families are not installed on every device; where one is missing, the text falls back to a font that is.
+The list of fonts contains the following items:
+
+*   **Generic fonts**
+    *   _Theme defined_ which uses the font that is embedded with the current [theme](../Themes.md). For example on the default modern theme, the font is _Inter_. This does not require the font to be installed.
+    *   _System default_ which uses a combination of fonts that works best for the [desktop app](../../Installation%20%26%20Setup/Desktop%20Installation.md). For example on Windows it will use _Segoe UI_.
+    *   Generic font selections for fonts with serifs (e.g. _Times New Roman_\-like), no serifs and monospace.
+*   **Web fonts** which appear on the <a class="reference-link" href="../../Installation%20%26%20Setup/Server%20Installation.md">Server Installation</a>, which is a predefined list of fonts and grouped into Sans-serif, serif, monospace and handwriting. The fonts that are not supported by your system (i.e. not installed) are not displayed.
+*   **System fonts** which appear on the <a class="reference-link" href="../../Installation%20%26%20Setup/Desktop%20Installation.md">Desktop Installation</a>. Unlike the server fonts which are predefined, the system fonts are listed from your operating system.
+*   **Custom fonts**, allowing any font to be used provided it's imported into Trilium. See the section below for more information.
 
 Font changes take effect after a reload; the section offers a _Reload to apply changes_ button once something has been changed.
 

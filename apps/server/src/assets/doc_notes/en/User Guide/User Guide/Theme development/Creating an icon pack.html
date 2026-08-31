@@ -99,8 +99,8 @@
   <ul>
     <li>You can supply glyph as the escaped <code spellcheck="false">\uXXXX</code> sequence
       or as the actual UTF‑8 character. The CSS form (<code spellcheck="false">\ea3f</code>,
-      as written in a stylesheet's <code spellcheck="false">content</code>) is accepted
-      too, so glyphs copied out of the font's own CSS work as they stand.</li>
+      as written in a stylesheet's <code spellcheck="false">content</code>) is
+      accepted too, so glyphs copied out of the font's own CSS work as they stand.</li>
     <li>It is also possible to use the unescaped glyph inside the JSON. It will
       appear strange (e.g. ), but it will be rendered properly regardless.</li>
     <li>The manifest keys (e.g. <code spellcheck="false">ph-acorn</code>) should
@@ -109,7 +109,7 @@
       only letters, digits, hyphens, underscores and non-ASCII characters. Punctuation
       and whitespace (e.g. <code spellcheck="false">ph.acorn</code> or <code spellcheck="false">ph acorn</code>)
       are not usable as class names; icons with such a key are skipped and an
-      error is logged in&nbsp;<a class="reference-link" href="#root/_help_bnyigUA2UK7s">Backend (server) logs</a>,
+      error is logged in <a class="reference-link" href="#root/_help_bnyigUA2UK7s">Backend (server) logs</a>,
       while the rest of the pack still loads.</li>
   </ul>
 </aside>
@@ -188,8 +188,8 @@ processIconPack("light");</code></pre>
     when compared to JSON (<code spellcheck="false">"\uea3f"</code>). Notice
     how the JSON escape is <code spellcheck="false">\u</code> and not <code spellcheck="false">\</code>.
     Both forms are accepted: keep the CSS escape by writing the backslash itself
-    as <code spellcheck="false">"\\ea3f"</code> in the JSON, or convert it to the
-    JSON escape <code spellcheck="false">"\uea3f"</code>.</p>
+    as <code spellcheck="false">"\\ea3f"</code> in the JSON, or convert it to
+    the JSON escape <code spellcheck="false">"\uea3f"</code>.</p>
   <p>As a more compact alternative, provide the un-escaped character directly,
     as UTF-8 is supported.</p>
 </aside>
@@ -208,9 +208,10 @@ processIconPack("light");</code></pre>
   since it also matches the prefix set in the original CSS. So in this case
   it would be <code spellcheck="false">#iconPack=ph</code>.</p>
 <aside class="admonition important">
-  <p>The prefix must consist of only letters, digits, hyphens, underscores and
-    non-ASCII characters. If the prefix doesn't match these constraints, the icon pack will be ignored
-    and an error will be logged in&nbsp;<a class="reference-link" href="#root/_help_bnyigUA2UK7s">Backend (server) logs</a>.</p>
+  <p>The prefix must consist of only letters, digits, hyphens, underscores
+    and non-ASCII characters. If the prefix doesn't match these constraints,
+    the icon pack will be ignored and an error will be logged in&nbsp;<a class="reference-link"
+    href="#root/_help_bnyigUA2UK7s">Backend (server) logs</a>.</p>
 </aside>
 <h2>Creating the Trilium icon pack note</h2>
 <ol>
@@ -275,7 +276,7 @@ processIconPack("light");</code></pre>
   <li>Make sure the prefix consists only of letters, digits, hyphens, underscores
     and non-ASCII characters.</li>
   <li>If the pack loads but individual icons are missing, check the logs for
-    <code spellcheck="false">Skipping icon '&lt;key&gt;' of icon pack</code> —
-    that key uses characters outside the allowed set and needs renaming in the
-    manifest.</li>
+    <code
+    spellcheck="false">Skipping icon '&lt;key&gt;' of icon pack</code>— that key uses characters
+      outside the allowed set and needs renaming in the manifest.</li>
 </ul>
