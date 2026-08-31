@@ -169,3 +169,25 @@ function buildBoard(
 
     return board;
 }
+
+describe("the inbox column", () => {
+    /** A column is its grouping value, and the inbox stands for the cards carrying none. */
+    it("is kept where the board's own list carries it", () => {
+        expect(resolveBoardColumns([ "To Do" ], [ "", "To Do" ], [ "To Do" ]))
+            .toEqual([ "", "To Do" ]);
+    });
+
+    it("is not made by a note carrying no value, nor by a gap in the definition", () => {
+        // `options=To Do;;Done` names nothing in the middle, and an unfiled note names nothing.
+        expect(resolveBoardColumns([ "To Do", "", "Done" ], [ "To Do", "Done" ], [ "", "To Do" ]))
+            .toEqual([ "To Do", "Done" ]);
+    });
+
+    /** Deleting is recorded as `undefined`, which the inbox's own name must not be taken for. */
+    it("is told apart from a column being deleted", () => {
+        const pending = new Map([ [ "Done", undefined ] ]);
+
+        expect(resolveBoardColumns([ "To Do", "Done" ], [ "", "To Do", "Done" ], [], pending))
+            .toEqual([ "", "To Do" ]);
+    });
+});

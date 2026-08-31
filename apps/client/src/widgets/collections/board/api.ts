@@ -15,7 +15,8 @@ import ws from "../../../services/ws";
 import toast from "../../../services/toast";
 import { BoardColumnData, BoardViewData } from ".";
 import {
-    type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_COLUMN_ICON, DEFAULT_GROUP_BY
+    type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_COLUMN_ICON,
+    DEFAULT_GROUP_BY, INBOX_COLUMN, INBOX_COLUMN_ICON
 } from "./columns";
 import { ColumnMap } from "./data";
 
@@ -167,11 +168,34 @@ export default class BoardApi {
     }
 
     async changeColumn(noteId: string, newColumn: string) {
+        if (newColumn === INBOX_COLUMN) {
+            return this.moveToInbox(noteId);
+        }
+
         if (this.isRelationMode) {
             await attributes.setRelation(noteId, this.statusAttribute, newColumn);
         } else {
             await attributes.setLabel(noteId, this.statusAttribute, newColumn);
         }
+    }
+
+    /**
+     * Files a card under the inbox, which means leaving it with no grouping value at all.
+     *
+     * Different from {@link removeFromBoard}, which removes only the value the card owns and may
+     * uncover an inherited one. Reaching the inbox is stricter: an inherited relation would still
+     * point somewhere, so the card would end up in that column instead.
+     */
+    private moveToInbox(noteId: string) {
+        const note = froca.getNoteFromCache(noteId);
+        if (!note) return;
+
+        if (this.isRelationMode && this.isInherited(note, "relation")) {
+            toast.showMessage(t("board_view.inherited-column"), 3000);
+            return;
+        }
+
+        return this.removeFromBoard(noteId);
     }
 
     async addNewColumn(columnName: string) {
@@ -263,6 +287,12 @@ export default class BoardApi {
     }
 
     async renameColumn(oldValue: string, newValue: string) {
+        // A column is identified by the value its cards carry, so a blank name would write an
+        // empty label over every card and leave nothing to group by. The old name is kept.
+        if (!newValue.trim()) {
+            return;
+        }
+
         const noteIds = this.byColumn?.get(oldValue)?.map(item => item.note.noteId) || [];
 
         // Change the value in the notes.
@@ -288,6 +318,32 @@ export default class BoardApi {
     }
 
     /**
+     * The title shown for a column. For most columns this is the grouping value itself; the
+     * inbox has no value, so it uses a name stored in the config.
+     */
+    getColumnTitle(column: string) {
+        const named = this.viewConfig?.columns?.find(col => col.value === column)?.displayName;
+        return named || (column === INBOX_COLUMN ? t("board_view.inbox") : column);
+    }
+
+    /**
+     * Renames a column however that column is named.
+     *
+     * Most columns are identified by the value their cards carry, so renaming writes that value
+     * to every card in the column. The inbox has no value, so it stores a display name instead and
+     * its cards are left untouched.
+     */
+    async setColumnTitle(column: string, title: string) {
+        if (!title.trim()) {
+            return;
+        }
+
+        return column === INBOX_COLUMN
+            ? this.updateColumn(column, { displayName: title.trim() })
+            : this.renameColumn(column, title);
+    }
+
+    /**
      * The icon a column heading shows, for anything else that stands in for the column.
      *
      * In relation mode the column is a note, so the icon is that note's own — the same one
@@ -298,8 +354,12 @@ export default class BoardApi {
             return froca.getNoteFromCache(column)?.getIcon();
         }
 
-        return this.viewConfig?.columns?.find(col => col.value === column)?.icon
-            ?? DEFAULT_COLUMN_ICON;
+        const stored = this.viewConfig?.columns?.find(col => col.value === column)?.icon;
+        if (stored) {
+            return stored;
+        }
+
+        return column === INBOX_COLUMN ? INBOX_COLUMN_ICON : DEFAULT_COLUMN_ICON;
     }
 
     /**
@@ -319,6 +379,29 @@ export default class BoardApi {
      */
     getStatusLabel() {
         return this.statusDefinition?.definition.promotedAlias || t("board_view.status-header");
+    }
+
+    /**
+     * Hides the inbox column by turning off the board's setting. The stored entry is kept, so
+     * its icon, colour and position are restored when it is switched back on.
+     */
+    async disableInbox() {
+        await attributes.setBooleanWithInheritance(this.parentNote, "enableInboxColumn", false);
+    }
+
+    /** The note limit set for a column, absent if disabled. */
+    getColumnLimit(column: string) {
+        return this.viewConfig?.columns?.find(col => col.value === column)?.limit;
+    }
+
+    /** Sets a column's note limit. Pass `undefined` to disable it. */
+    async setColumnLimit(column: string, limit: number | undefined) {
+        await this.updateColumn(column, { limit });
+    }
+
+    /** Whether the inbox also collects notes deeper than the board's direct children. */
+    async setInboxNested(nested: boolean) {
+        await this.updateColumn(INBOX_COLUMN, { nested });
     }
 
     /** Whether a column is archived, which the board shows only while archived notes are shown. */
@@ -348,6 +431,8 @@ export default class BoardApi {
             if (!updated.icon) delete updated.icon;
             if (!updated.color) delete updated.color;
             if (!updated.archived) delete updated.archived;
+            if (!updated.displayName) delete updated.displayName;
+            if (!updated.limit) delete updated.limit;
             return updated;
         };
 
@@ -371,18 +456,34 @@ export default class BoardApi {
 
         newColumns.splice(adjustedToIndex, 0, movedColumn);
 
-        // `columns` is derived render state and can lag behind the persisted config (it is rebuilt
-        // only once the view re-renders), so anything it hasn't caught up with yet is kept at the
-        // end instead of being dropped from the config.
-        const storedColumns = new Map(
-            (this.viewConfig?.columns ?? []).map(col => [ col.value, col ]));
-        const missingColumns = (this.viewConfig?.columns ?? []).filter(col => !newColumns.includes(col.value));
-        this.storeColumns([
-            // Reordering moves the entries, so each keeps the icon it holds rather than being
-            // rebuilt from its name.
-            ...newColumns.map(value => storedColumns.get(value) ?? { value }),
-            ...missingColumns
-        ]);
+        // `columns` is render state: it omits entries the view has yet to catch up with, and any
+        // the board is hiding, such as a disabled inbox. Those are neither dropped nor appended at
+        // the end.
+        const stored = this.viewConfig?.columns ?? [];
+        const storedColumns = new Map(stored.map(col => [ col.value, col ]));
+        // Reordering only moves entries, so each keeps its stored icon instead of being rebuilt
+        // from its name.
+        const reordered: BoardColumnData[] =
+            newColumns.map(value => storedColumns.get(value) ?? { value });
+
+        // A hidden column goes back after the column it followed in the config, not at the index it
+        // held there: the move has shifted the visible columns, so that index points elsewhere now.
+        // Each one becomes the anchor for the next, which keeps a run of them in order.
+        let anchor: string | undefined;
+        for (const column of stored) {
+            if (newColumns.includes(column.value)) {
+                anchor = column.value;
+                continue;
+            }
+
+            const at = anchor === undefined
+                ? 0
+                : reordered.findIndex(entry => entry.value === anchor) + 1;
+            reordered.splice(at, 0, column);
+            anchor = column.value;
+        }
+
+        this.storeColumns(reordered);
 
         return newColumns;
     }
@@ -513,6 +614,9 @@ export default class BoardApi {
             return;
         }
 
+        // The definition lists the values a card can carry; the inbox has no value.
+        columns = columns.filter(column => column !== INBOX_COLUMN);
+
         // A board showing nothing has no column list to describe and must not gain an empty
         // definition; one that already owns one is still emptied, since that is its last column going.
         if (!columns.length && !this.statusDefinition?.isOwned) {
@@ -613,12 +717,33 @@ export default class BoardApi {
         await branches.moveAfterBranch([ branch.branchId ], branchId);
     }
 
+    /** Whether the grouping value comes from another note, such as a template or a parent. */
+    private isInherited(note: FNote, type: "label" | "relation") {
+        return note.getAttributes(type, this.statusAttribute)
+            .some(attribute => attribute.noteId !== note.noteId);
+    }
+
     removeFromBoard(noteId: string) {
         const note = froca.getNoteFromCache(noteId);
         if (!note) return;
         if (this.isRelationMode) {
+            // A relation must point at a note, so an inherited one cannot be shadowed the way a
+            // label is below. It can only be changed on the note that defines it.
+            if (!note.getOwnedAttributes("relation", this.statusAttribute).length
+                    && this.isInherited(note, "relation")) {
+                toast.showMessage(t("board_view.inherited-column"), 3000);
+                return;
+            }
+
             return attributes.removeOwnedRelationByName(note, this.statusAttribute);
         }
+
+        // An inherited value cannot be removed from the card, and removing the owned one would
+        // only uncover it. An owned empty value shadows it instead, which counts as no value.
+        if (this.isInherited(note, "label")) {
+            return attributes.setLabel(noteId, this.statusAttribute, "");
+        }
+
         return attributes.removeOwnedLabelByName(note, this.statusAttribute);
     }
 

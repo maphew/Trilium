@@ -10,6 +10,9 @@
   --board-item-hover-background-saturation: 100%;
   --board-item-hover-background-lightness: 98.5%;
 
+  --board-limit-exceeded-background: #c62828;
+  /* Half opacity: the badge is the main warning, the outline supports it. */
+  --board-limit-exceeded-outline: #c6282880;
   --board-focus-outline-saturation: 55%;
   --board-focus-outline-lightness: 45%;
   /* Follows the theme of its own accord, so neither theme has to name it again. */
@@ -495,4 +498,31 @@ body.mobile .board-view-container .board-add-column {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Outline around a column that is over its limit. */
+.board-view-container .board-column.over-limit {
+  box-shadow: 0 0 0 2px var(--board-limit-exceeded-outline);
+}
+
+/*
+ * Pulses the badge of a column that is over its limit. `filter` is used instead of animating
+ * `background-color`: a filter is composited, while a colour change repaints every frame,
+ * which costs battery and can drop frames on mobile.
+ */
+.board-view-container .board-column h3 .counter-badge.over-limit {
+  background-color: var(--board-limit-exceeded-background);
+  color: white;
+  animation: board-limit-pulse 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes board-limit-pulse {
+  from { filter: saturate(1); }
+  to { filter: saturate(0.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-view-container .board-column h3 .counter-badge.over-limit {
+    animation: none;
+  }
 }
