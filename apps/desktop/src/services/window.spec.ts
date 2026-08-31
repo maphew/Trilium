@@ -34,6 +34,7 @@ const state = vi.hoisted(() => ({
     // controllable nativeImage isEmpty / throw
     nativeImageEmpty: false,
     nativeImageThrow: false,
+    windowStateManage: vi.fn(),
     // when set, every new FakeWebContents reuses this session object
     sharedSession: undefined as undefined | FakeSession
 }));
@@ -199,7 +200,7 @@ vi.mock("electron", () => ({
 }));
 
 vi.mock("electron-window-state", () => ({
-    default: () => ({ x: 0, y: 0, width: 1200, height: 800, manage: vi.fn() })
+    default: () => ({ x: 0, y: 0, width: 1200, height: 800, manage: state.windowStateManage })
 }));
 
 // setupWindowing() installs the WebContents security policy; that behaviour has
@@ -388,12 +389,19 @@ describe("window service", () => {
             expect(opts.frame).toBeUndefined();
         });
 
-        it("creates the window hidden when startHidden is set, visible otherwise", async () => {
+        it("defers window-state restoration for a hidden start until the window is shown", async () => {
             await windowService.createMainWindow(true);
-            expect((state.windows[state.windows.length - 1].opts as Record<string, unknown>).show).toBe(false);
+            const hiddenWindow = state.windows[state.windows.length - 1];
+            expect((hiddenWindow.opts as Record<string, unknown>).show).toBe(false);
+            expect(state.windowStateManage).not.toHaveBeenCalled();
+
+            hiddenWindow.fire("show");
+            expect(state.windowStateManage).toHaveBeenCalledWith(hiddenWindow);
 
             await windowService.createMainWindow();
-            expect((state.windows[state.windows.length - 1].opts as Record<string, unknown>).show).toBe(true);
+            const visibleWindow = state.windows[state.windows.length - 1];
+            expect((visibleWindow.opts as Record<string, unknown>).show).toBe(true);
+            expect(state.windowStateManage).toHaveBeenLastCalledWith(visibleWindow);
         });
 
         it("marks startup metrics for creation, first paint, and load finish", async () => {

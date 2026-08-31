@@ -154,7 +154,12 @@ async function createMainWindow(startHidden = false) {
     mainWindow.once("ready-to-show", () => markStartupMetric("main-window-first-paint"));
     mainWindow.webContents.once("did-finish-load", () => markStartupMetric("main-window-load-finished"));
 
-    mainWindowState.manage(mainWindow);
+    if (startHidden) {
+        const hiddenWindow = mainWindow;
+        hiddenWindow.once("show", () => mainWindowState.manage(hiddenWindow));
+    } else {
+        mainWindowState.manage(mainWindow);
+    }
 
     mainWindow.setMenuBarVisibility(false);
     mainWindow.loadURL(TRILIUM_APP_BASE_URL);
