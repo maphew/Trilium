@@ -540,6 +540,60 @@ describe("Board column rename", () => {
         expect(badgeTooltip(mountPoint, 1)).not.toContain("board_view.card-count-over-limit");
     });
 
+    /**
+     * The badge is what the reader sees; the tooltip follows it through the memoised config. The
+     *  attribute is only the fallback before Bootstrap takes the tooltip over, and Bootstrap
+     * restores its own copy of it on dispose, so it is not what this asserts.
+     */
+    it("follows the count when a card leaves the column", async () => {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status(inheritable)":
+                "promoted,alias=Status,single,select,options=To Do;Done",
+            children: [
+                { title: "First", "#status": "To Do" },
+                { title: "Second", "#status": "To Do" }
+            ]
+        });
+        const host = new Component();
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+
+        const draw = async () => {
+            await act(async () => {
+                render(
+                    <ParentComponent.Provider value={host}>
+                        <Harness
+                            note={note}
+                            noteIds={[ ...note.getChildNoteIds() ]}
+                            initialConfig={{ columns: [ { value: "To Do" }, { value: "Done" } ] }}
+                        />
+                    </ParentComponent.Provider>,
+                    mountPoint
+                );
+            });
+            await act(async () => { await flush(); });
+        };
+
+        const counts = () =>
+            [ ...mountPoint.querySelectorAll(".counter-badge") ].map(el => el.textContent);
+
+        await draw();
+        expect(counts()).toEqual([ "2", "0" ]);
+
+        // What a move leaves behind: the card now carries the other column's value.
+        const [ moved ] = [ ...note.getChildNoteIds() ];
+        for (const attribute of froca.getNoteFromCache(moved)?.getAttributes() ?? []) {
+            if (attribute.name === "status") attribute.value = "Done";
+        }
+        await draw();
+
+        expect(counts()).toEqual([ "1", "1" ]);
+    });
+
     /** Renames the middle column, so a slot that is not the last one has to survive. */
     async function renameSecondColumn(container: HTMLElement, newName: string) {
         return renameColumnAt(container, 1, newName);
