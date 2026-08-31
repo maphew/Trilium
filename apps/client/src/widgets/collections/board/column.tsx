@@ -16,6 +16,7 @@ import { DragData, TREE_CLIPBOARD_TYPE } from "../../note_tree";
 import ActionButton from "../../react/ActionButton";
 import Icon from "../../react/Icon";
 import { IconPickerButton } from "../../react/IconPicker";
+import { useStaticTooltip } from "../../react/hooks";
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
@@ -192,7 +193,7 @@ export default function Column({
                                 : column}
                         </span>
                         <div className="spacer" />
-                        <span className="counter-badge">{columnItems?.length ?? 0}</span>
+                        <CountBadge items={columnItems} />
                         <ActionButton
                             className="column-menu"
                             icon="bx bx-dots-vertical-rounded"
@@ -259,6 +260,27 @@ export default function Column({
  * The editor a new card is named in, opened by the button below the column or by its menu. The
  * state is the column's rather than this component's, since the menu is raised from the header.
  */
+/**
+ * How many cards a column holds, and what they are when hovered.
+ *
+ * The archived ones are among them only while the board is showing archived notes; where it is not,
+ * there are none to count and the badge says how many cards there are and no more.
+ */
+function CountBadge({ items }: { items?: { note: FNote }[] }) {
+    const badgeRef = useRef<HTMLSpanElement>(null);
+    const archived = items?.filter(({ note }) => note.isArchived).length ?? 0;
+    const total = items?.length ?? 0;
+
+    // Named on the element rather than handed to the tooltip, so the count still reads on hover
+    // wherever the scripted tooltip does not come up.
+    const title = archived
+        ? t("board_view.card-count-with-archived", { count: total - archived, archived })
+        : t("board_view.card-count", { count: total });
+    useStaticTooltip(badgeRef);
+
+    return <span ref={badgeRef} className="counter-badge" title={title}>{total}</span>;
+}
+
 function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
     column: string,
     api: BoardApi,

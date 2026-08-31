@@ -26,7 +26,9 @@ import { DEFAULT_COLUMN_ICON } from "./columns";
 // which is what makes the old column empty rather than merely renamed.
 vi.mock("../../../services/i18n", () => ({
     // i18next is never initialised under test, so a stock name the board writes would be undefined.
-    t: (key: string) => key,
+    // What is interpolated is carried along, for the strings a test is about.
+    t: (key: string, opts?: Record<string, unknown>) =>
+        opts ? `${key}:${JSON.stringify(opts)}` : key,
     // Awaited by whatever waits for the catalogue; a mock without it rejects where it is read.
     translationsInitializedPromise: $.Deferred().resolve()
 }));
@@ -435,6 +437,61 @@ describe("Board column rename", () => {
 
         expect(first.querySelector("h3")?.classList.contains("editing")).toBe(true);
         expect(first.querySelector("h3 input")).not.toBeNull();
+    });
+
+    /** The tooltip is set on the element, which is where `useStaticTooltip` reads it back from. */
+    function badgeTooltip(container: HTMLElement, index: number) {
+        const badge = [ ...container.querySelectorAll(".board-column .counter-badge") ][index];
+        // Bootstrap moves the attribute aside once it takes the tooltip over.
+        return badge?.getAttribute("title") ?? badge?.getAttribute("data-bs-original-title");
+    }
+
+    it("counts the cards a column holds, and says so when hovered", async () => {
+        const { container } = await setup();
+
+        expect([ ...container.querySelectorAll(".board-column .counter-badge") ]
+            .map(el => el.textContent)).toEqual([ "1", "1", "1" ]);
+        expect(badgeTooltip(container, 0)).toBe('board_view.card-count:{"count":1}');
+    });
+
+    /**
+     * Archived cards are among a column's only while the board is showing them; where it is not,
+     * there are none to count and the badge says how many cards there are and no more.
+     */
+    it("tells the archived cards apart from the rest where the board shows them", async () => {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#includeArchived": "true",
+            "#label:status(inheritable)":
+                "promoted,alias=Status,single,select,options=To Do",
+            children: [
+                { title: "First", "#status": "To Do" },
+                { title: "Second", "#status": "To Do" },
+                { title: "Old", "#status": "To Do", "#archived": "" }
+            ]
+        });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={{ columns: [ { value: "To Do" } ] }}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+        });
+        await act(async () => { await flush(); });
+
+        expect(badgeTooltip(mountPoint, 0))
+            .toBe('board_view.card-count-with-archived:{"count":2,"archived":1}');
     });
 
     /** Renames the middle column, so a slot that is not the last one has to survive. */
