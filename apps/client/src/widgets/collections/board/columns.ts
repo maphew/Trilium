@@ -17,6 +17,18 @@ export const DEFAULT_GROUP_BY = "status";
 /** The icon a column shows until one is picked for it. */
 export const DEFAULT_COLUMN_ICON = "bx bx-circle";
 
+/**
+ * The value identifying the inbox column: the empty string, which is what a card with no
+ * grouping value has.
+ *
+ * Columns are identified by their grouping value throughout the board, and the inbox collects the
+ * cards that have none. A deleted column is recorded as `undefined`, which is distinct from this.
+ */
+export const INBOX_COLUMN = "";
+
+/** Default icon for the inbox column, used instead of the standard one until another is picked. */
+export const INBOX_COLUMN_ICON = "bx bxs-inbox";
+
 export interface BoardStatusDefinition {
     /** The definition attribute, wherever it is owned. */
     attribute: FAttribute;
@@ -126,7 +138,8 @@ export function resolveBoardColumns(
         for (const candidate of candidates) {
             const trimmed = candidate.trim();
             const value = pendingRenames.has(trimmed) ? pendingRenames.get(trimmed) : trimmed;
-            if (!value || seen.has(value)) continue;
+            // `undefined` means a column is being deleted, which is not the inbox value.
+            if (value === undefined || seen.has(value)) continue;
             seen.add(value);
             columns.push(value);
         }
@@ -134,7 +147,14 @@ export function resolveBoardColumns(
         return columns;
     };
 
-    const columns = resolve([ ...definitionOptions, ...persistedColumns, ...discoveredValues ]);
+    // Only the board's own list can introduce the inbox: an unassigned note is what the inbox
+    // collects rather than a column to create, and a definition with a gap in it
+    // (`options=To Do;;Done`) defines nothing.
+    const columns = resolve([
+        ...definitionOptions.filter(named),
+        ...persistedColumns,
+        ...discoveredValues.filter(named)
+    ]);
     const persisted = resolve(persistedColumns);
 
     // The definition leads on which columns there are, but not on the order once the board's own
@@ -142,4 +162,9 @@ export function resolveBoardColumns(
     // shared with other notes cannot express, and which it lags by a round trip after every insert
     // and reorder. Equal lengths are enough to tell, the attachment being one of the sources above.
     return persisted.length === columns.length ? persisted : columns;
+}
+
+/** Whether a value identifies a column of its own, rather than the absence of one. */
+function named(value: string) {
+    return value.trim() !== INBOX_COLUMN;
 }

@@ -16,11 +16,12 @@ import { DragData, TREE_CLIPBOARD_TYPE } from "../../note_tree";
 import ActionButton from "../../react/ActionButton";
 import Icon from "../../react/Icon";
 import { IconPickerButton } from "../../react/IconPicker";
+import { useStaticTooltip } from "../../react/hooks";
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
 import Card, { CARD_CLIPBOARD_TYPE, CardDragData } from "./card";
-import { DEFAULT_COLUMN_ICON } from "./columns";
+import { DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
 import { openColumnContextMenu } from "./context_menu";
 
 interface DragContext {
@@ -39,6 +40,8 @@ export default function Column({
     icon,
     color,
     archived,
+    nested,
+    limit,
     isDraggingColumn,
     columnItems,
     api,
@@ -54,6 +57,10 @@ export default function Column({
     color?: string,
     /** Whether the column is archived. Only ever rendered while archived notes are shown. */
     archived?: boolean,
+    /** Whether the inbox also collects notes deeper than the board's direct children. */
+    nested?: boolean,
+    /** The note limit, absent if disabled. */
+    limit?: number,
     isDraggingColumn: boolean,
     api: BoardApi,
     parentNote: FNote,
@@ -69,13 +76,16 @@ export default function Column({
 } & DragContext) {
     const [ isVisible, setVisible ] = useState(true);
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
-    const { setColumnNameToEdit } = useContext(BoardActionsContext);
+    const { setColumnNameToEdit, setColumnLimitToEdit } = useContext(BoardActionsContext);
     const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
     const isEditing = (columnNameToEdit === column);
     const editorRef = useRef<HTMLInputElement>(null);
     const { handleColumnDragStart, handleColumnDragEnd, handleDragOver, handleDragLeave, handleDrop } = useDragging({
         column, columnIndex, columnItems, isEditing, api, parentNote
     });
+
+    // Read here rather than in the badge: the column body shows an outline as well.
+    const isOverLimit = limit !== undefined && (columnItems?.length ?? 0) > limit;
 
     const openMenu = useCallback((e: ContextMenuEvent) => {
         openColumnContextMenu(api, e, {
@@ -84,11 +94,13 @@ export default function Column({
             index: columnIndex,
             color,
             archived,
+            nested,
             onEditTitle: () => setColumnNameToEdit(column),
             onNewItem: () => setIsCreatingNewItem(true),
             onAddColumn: async (direction) => {
                 setColumnNameToEdit(await api.insertColumn(column, direction));
             },
+            onSetLimit: () => setColumnLimitToEdit(column),
             onMoveColumn: (toIndex) => {
                 onMoveColumn(columnIndex, toIndex);
                 // Asked for by name: the move draws the board again, and the heading the menu was
@@ -97,8 +109,8 @@ export default function Column({
             }
         });
     }, [
-        api, column, color, archived, columns, columnIndex,
-        setColumnNameToEdit, onMoveColumn, onFocusColumn
+        api, column, color, archived, nested, columns, columnIndex,
+        setColumnNameToEdit, setColumnLimitToEdit, onMoveColumn, onFocusColumn
     ]);
 
     // A fully desaturated colour has no hue to tint with, and leaves the column plain.
@@ -146,7 +158,8 @@ export default function Column({
                 "drag-over": dropTarget === column && draggedCard?.fromColumn !== column,
                 // The class the themes key a hue off, worn here as anywhere else that carries one.
                 "with-hue": hue !== undefined,
-                "board-column-archived": archived
+                "board-column-archived": archived,
+                "over-limit": isOverLimit
             })}
             onDragOver={isAnyColumnDragging ? handleColumnDragOver : handleDragOver}
             onDragLeave={handleDragLeave}
@@ -170,7 +183,7 @@ export default function Column({
                 {!isInRelationMode && (
                     <IconPickerButton
                         className="column-icon"
-                        icon={icon ?? DEFAULT_COLUMN_ICON}
+                        icon={api.getColumnIcon(column) ?? DEFAULT_COLUMN_ICON}
                         title={t("board_view.change-column-icon")}
                         onSelect={(picked) => api.setColumnIcon(column, picked)}
                         onReset={icon ? () => api.setColumnIcon(column, undefined) : undefined}
@@ -189,10 +202,10 @@ export default function Column({
                         >
                             {isInRelationMode
                                 ? <NoteLink notePath={column} showNoteIcon />
-                                : column}
+                                : api.getColumnTitle(column)}
                         </span>
                         <div className="spacer" />
-                        <span className="counter-badge">{columnItems?.length ?? 0}</span>
+                        <CountBadge items={columnItems} limit={limit} isOver={isOverLimit} />
                         <ActionButton
                             className="column-menu"
                             icon="bx bx-dots-vertical-rounded"
@@ -207,10 +220,12 @@ export default function Column({
                     </>
                 ) : (
                     <TitleEditor
-                        currentValue={column}
-                        save={newTitle => api.renameColumn(column, newTitle)}
+                        currentValue={api.getColumnTitle(column)}
+                        save={newTitle => api.setColumnTitle(column, newTitle)}
                         dismiss={() => setColumnNameToEdit(undefined)}
-                        mode={isInRelationMode ? "relation" : "normal"}
+                        // The inbox is renamed as text even on a relation board, where every
+                        // other column is renamed by picking a note.
+                        mode={isInRelationMode && column !== INBOX_COLUMN ? "relation" : "normal"}
                     />
                 )}
             </h3>
@@ -335,6 +350,48 @@ function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
                 />
             )}
         </div>
+    );
+}
+
+/**
+ * How many cards a column holds, with a breakdown on hover.
+ *
+ * Archived cards are only included while the board is showing archived notes. Otherwise there are
+ * none to count and the badge reports the total alone.
+ */
+function CountBadge({ items, limit, isOver }: {
+    items?: { note: FNote }[],
+    limit?: number,
+    /** Whether the column is over its limit. The column body is outlined as well. */
+    isOver?: boolean
+}) {
+    const badgeRef = useRef<HTMLSpanElement>(null);
+    const archived = items?.filter(({ note }) => note.isArchived).length ?? 0;
+    const total = items?.length ?? 0;
+
+    const counts = archived
+        ? t("board_view.card-count-with-archived", { count: total - archived, archived })
+        : t("board_view.card-count", { count: total });
+    const warning = t("board_view.card-count-over-limit");
+
+    // The tooltip gets its own markup, since a title attribute cannot show a bold line. The
+    // attribute keeps a plain version as a fallback. Memoised because `useStaticTooltip`
+    // rebuilds the tooltip whenever the config changes identity.
+    const tooltip = useMemo(() => ({
+        html: true,
+        title: isOver ? `${counts}<br><strong>${warning}</strong>` : counts
+    }), [ counts, warning, isOver ]);
+    useStaticTooltip(badgeRef, tooltip);
+
+    return (
+        <span
+            ref={badgeRef}
+            className={clsx("counter-badge", { "over-limit": isOver })}
+            title={isOver ? `${counts}
+${warning}` : counts}
+        >
+            {limit === undefined ? total : `${total}/${limit}`}
+        </span>
     );
 }
 

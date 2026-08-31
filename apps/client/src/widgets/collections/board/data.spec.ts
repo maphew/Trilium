@@ -217,3 +217,98 @@ describe("Board data", () => {
         });
     });
 });
+
+describe("the inbox column", () => {
+    const INBOX = { columns: [ { value: "" }, { value: "To Do" } ] };
+
+    it("gathers the cards carrying no value, where the board keeps one", async () => {
+        const board = buildNote({
+            title: "Board",
+            children: [
+                { title: "Filed", "#status": "To Do" },
+                { title: "Unfiled" }
+            ]
+        });
+
+        const { byColumn, columns } = await getBoardData(
+            board, "status", INBOX, false, [], new Map(), true);
+
+        expect(columns).toEqual([ "", "To Do" ]);
+        expect(byColumn.get("")?.map(item => item.note.title)).toEqual([ "Unfiled" ]);
+    });
+
+    it("leaves them off a board whose inbox is switched off", async () => {
+        const board = buildNote({
+            title: "Board",
+            children: [
+                { title: "Filed", "#status": "To Do" },
+                { title: "Unfiled" }
+            ]
+        });
+
+        const { byColumn, columns } = await getBoardData(
+            board, "status", { columns: [ { value: "To Do" } ] }, false, [], new Map(), false);
+
+        expect(columns).toEqual([ "To Do" ]);
+        expect(byColumn.has("")).toBe(false);
+    });
+
+
+    /** Switching it on is what puts it on the board, at the head of it. */
+    it("puts the column at the head of a board that has never had one", async () => {
+        const board = buildNote({
+            title: "Board",
+            children: [ { title: "Filed", "#status": "To Do" }, { title: "Unfiled" } ]
+        });
+
+        const { columns, newPersistedData, byColumn } = await getBoardData(
+            board, "status", { columns: [ { value: "To Do" } ] }, false, [], new Map(), true);
+
+        expect(columns).toEqual([ "", "To Do" ]);
+        expect(byColumn.get("")?.map(item => item.note.title)).toEqual([ "Unfiled" ]);
+        // Written down, so what it is given from here on has somewhere to live.
+        expect(newPersistedData?.columns?.map(column => column.value)).toEqual([ "", "To Do" ]);
+    });
+
+    /**
+     * The toggle decides what is shown, not what is stored. Dropping the entry while the toggle is
+     * off would rewrite the attachment without it, and its icon, colour and place would be gone by
+     * the time it is switched back on.
+     */
+    it("keeps the stored entry while it gathers nothing", async () => {
+        const board = buildNote({ title: "Board", children: [ { title: "Unfiled" } ] });
+        const stored = { columns: [ { value: "", icon: "bx bx-inbox" }, { value: "To Do" } ] };
+
+        const { byColumn, columns, newPersistedData } = await getBoardData(
+            board, "status", stored, false, [], new Map(), false);
+
+        // Still a column as far as the board is concerned, and empty.
+        expect(columns).toEqual([ "", "To Do" ]);
+        expect(byColumn.get("")).toEqual([]);
+        // Nothing is rewritten, so what the entry carries is still there to come back to.
+        expect(newPersistedData).toBeUndefined();
+    });
+
+    /**
+     * A note below the board's own children is a card's child. The inbox reaches that far only
+     * where it is told to, which is why the switch is off to begin with.
+     */
+    it("reaches past the board's own children only when told to", async () => {
+        const board = buildNote({
+            title: "Board",
+            children: [
+                { title: "Filed", "#status": "To Do", children: [ { title: "Deep" } ] },
+                { title: "Unfiled" }
+            ]
+        });
+
+        const shallow = await getBoardData(board, "status", INBOX, false, [], new Map(), true);
+        expect(shallow.byColumn.get("")?.map(item => item.note.title)).toEqual([ "Unfiled" ]);
+
+        const nested = await getBoardData(
+            board, "status", { columns: [ { value: "", nested: true }, { value: "To Do" } ] },
+            false, [], new Map(), true);
+        expect(nested.byColumn.get("")?.map(item => item.note.title).sort())
+            .toEqual([ "Deep", "Unfiled" ]);
+    });
+});

@@ -26,7 +26,9 @@ import { DEFAULT_COLUMN_ICON } from "./columns";
 // which is what makes the old column empty rather than merely renamed.
 vi.mock("../../../services/i18n", () => ({
     // i18next is never initialised under test, so a stock name the board writes would be undefined.
-    t: (key: string) => key,
+    // What is interpolated is carried along, for the strings a test is about.
+    t: (key: string, opts?: Record<string, unknown>) =>
+        opts ? `${key}:${JSON.stringify(opts)}` : key,
     // Awaited by whatever waits for the catalogue; a mock without it rejects where it is read.
     translationsInitializedPromise: $.Deferred().resolve()
 }));
@@ -435,6 +437,161 @@ describe("Board column rename", () => {
 
         expect(first.querySelector("h3")?.classList.contains("editing")).toBe(true);
         expect(first.querySelector("h3 input")).not.toBeNull();
+    });
+
+    /** The tooltip is set on the element, which is where `useStaticTooltip` reads it back from. */
+    function badgeTooltip(container: HTMLElement, index: number) {
+        const badge = [ ...container.querySelectorAll(".board-column .counter-badge") ][index];
+        // Bootstrap moves the attribute aside once it takes the tooltip over.
+        return badge?.getAttribute("title") ?? badge?.getAttribute("data-bs-original-title");
+    }
+
+    it("counts the cards a column holds, and says so when hovered", async () => {
+        const { container } = await setup();
+
+        expect([ ...container.querySelectorAll(".board-column .counter-badge") ]
+            .map(el => el.textContent)).toEqual([ "1", "1", "1" ]);
+        expect(badgeTooltip(container, 0)).toBe('board_view.card-count:{"count":1}');
+    });
+
+    /**
+     * Archived cards are among a column's only while the board is showing them; where it is not,
+     * there are none to count and the badge says how many cards there are and no more.
+     */
+    it("tells the archived cards apart from the rest where the board shows them", async () => {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#includeArchived": "true",
+            "#label:status(inheritable)":
+                "promoted,alias=Status,single,select,options=To Do",
+            children: [
+                { title: "First", "#status": "To Do" },
+                { title: "Second", "#status": "To Do" },
+                { title: "Old", "#status": "To Do", "#archived": "" }
+            ]
+        });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={{ columns: [ { value: "To Do" } ] }}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+        });
+        await act(async () => { await flush(); });
+
+        expect(badgeTooltip(mountPoint, 0))
+            .toBe('board_view.card-count-with-archived:{"count":2,"archived":1}');
+    });
+
+    /** A column told how much it should hold says so, and says when it is holding more. */
+    it("shows the limit beside the count, and marks a column over it", async () => {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status(inheritable)":
+                "promoted,alias=Status,single,select,options=To Do;Done",
+            children: [
+                { title: "First", "#status": "To Do" },
+                { title: "Second", "#status": "To Do" },
+                { title: "Third", "#status": "Done" }
+            ]
+        });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={{ columns: [
+                            { value: "To Do", limit: 1 }, { value: "Done", limit: 4 }
+                        ] }}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+        });
+        await act(async () => { await flush(); });
+
+        const badges = [ ...mountPoint.querySelectorAll(".board-column .counter-badge") ];
+        expect(badges.map(el => el.textContent)).toEqual([ "2/1", "1/4" ]);
+        // Only the one holding more than it should is marked, badge and body alike.
+        expect(badges.map(el => el.classList.contains("over-limit"))).toEqual([ true, false ]);
+        expect([ ...mountPoint.querySelectorAll(".board-column") ]
+            .map(el => el.classList.contains("over-limit"))).toEqual([ true, false ]);
+
+        // The one over its limit says so on hover, on a line of its own.
+        expect(badgeTooltip(mountPoint, 0)).toContain("board_view.card-count-over-limit");
+        expect(badgeTooltip(mountPoint, 1)).not.toContain("board_view.card-count-over-limit");
+    });
+
+    /**
+     * The badge is what the reader sees; the tooltip follows it through the memoised config. The
+     *  attribute is only the fallback before Bootstrap takes the tooltip over, and Bootstrap
+     * restores its own copy of it on dispose, so it is not what this asserts.
+     */
+    it("follows the count when a card leaves the column", async () => {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status(inheritable)":
+                "promoted,alias=Status,single,select,options=To Do;Done",
+            children: [
+                { title: "First", "#status": "To Do" },
+                { title: "Second", "#status": "To Do" }
+            ]
+        });
+        const host = new Component();
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+
+        const draw = async () => {
+            await act(async () => {
+                render(
+                    <ParentComponent.Provider value={host}>
+                        <Harness
+                            note={note}
+                            noteIds={[ ...note.getChildNoteIds() ]}
+                            initialConfig={{ columns: [ { value: "To Do" }, { value: "Done" } ] }}
+                        />
+                    </ParentComponent.Provider>,
+                    mountPoint
+                );
+            });
+            await act(async () => { await flush(); });
+        };
+
+        const counts = () =>
+            [ ...mountPoint.querySelectorAll(".counter-badge") ].map(el => el.textContent);
+
+        await draw();
+        expect(counts()).toEqual([ "2", "0" ]);
+
+        // What a move leaves behind: the card now carries the other column's value.
+        const [ moved ] = [ ...note.getChildNoteIds() ];
+        for (const attribute of froca.getNoteFromCache(moved)?.getAttributes() ?? []) {
+            if (attribute.name === "status") attribute.value = "Done";
+        }
+        await draw();
+
+        expect(counts()).toEqual([ "1", "1" ]);
     });
 
     /** Renames the middle column, so a slot that is not the last one has to survive. */
