@@ -12,6 +12,7 @@ import { getCustomFonts, registerFontNote } from "../../../services/custom_fonts
 import { filterAvailableFamilies, listSystemFonts, quoteFamily, type SystemFont } from "../../../services/font";
 import { t } from "../../../services/i18n";
 import { isElectron } from "../../../services/utils";
+import Button from "../../react/Button";
 import { Card, OptionCardSection } from "../../react/Card";
 import { filterTokens, matchesFilter } from "../../react/filter";
 import FormList, { FormListHeader, FormListItem } from "../../react/FormList";
@@ -21,6 +22,7 @@ import Icon from "../../react/Icon";
 import Modal from "../../react/Modal";
 import NoItems from "../../react/NoItems";
 import SegmentedChoice from "../../react/SegmentedChoice";
+import { renderShortcutKbds } from "../../react/shortcut_kbd";
 import Slider from "../../react/Slider";
 import SettingsSearch from "./components/SettingsSearch";
 
@@ -100,7 +102,8 @@ const FONT_TARGETS: FontTarget[] = [
         key: "main",
         label: t("fonts.main_font"),
         shortLabel: t("fonts.main_font_short"),
-        themeVariable: "var(--main-font-family)"
+        themeVariable: "var(--main-font-family)",
+        Preview: InterfacePreview
     },
     {
         key: "tree",
@@ -473,6 +476,37 @@ function DocumentPreview() {
                     }}
                 />
             </p>
+        </div>
+    );
+}
+
+/**
+ * A menu and the buttons under it, built from the components the interface is built from rather
+ * than mocked up, so what is previewed cannot drift from what it previews. The font is set for the
+ * small text beside an icon, the shortcut in its `kbd`, and the label on a button — none of which a
+ * line of specimen text stands in for.
+ *
+ * The labels are entries that already exist elsewhere in the interface, which is both what makes
+ * them realistic and what keeps them from costing the catalogue anything.
+ */
+function InterfacePreview() {
+    return (
+        // Inert: a specimen of the interface rather than any part of it, and a menu that answered
+        // to being pressed would be a menu the user has to work out is not one.
+        <div className="font-preview-interface" inert>
+            <FormList>
+                <FormListItem icon="bx bx-link-external">
+                    {t("tree-context-menu.open-in-a-new-tab")}
+                    <span className="keyboard-shortcut">{renderShortcutKbds("CommandOrControl+Enter")}</span>
+                </FormListItem>
+                <FormListItem icon="bx bx-dock-right">{t("tree-context-menu.open-in-a-new-split")}</FormListItem>
+                <FormListItem icon="bx bx-trash" disabled>{t("tree-context-menu.delete")}</FormListItem>
+            </FormList>
+
+            <div className="font-preview-interface-buttons">
+                <Button text={t("confirm.cancel")} />
+                <Button text={t("confirm.ok")} kind="primary" />
+            </div>
         </div>
     );
 }

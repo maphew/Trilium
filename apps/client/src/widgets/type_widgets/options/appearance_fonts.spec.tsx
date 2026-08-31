@@ -334,6 +334,22 @@ describe("the font settings", () => {
         expect(catalogue.fonts.document_preview_body).toContain("<em>");
     });
 
+    it("shows the interface on the components the interface is made of", async () => {
+        // The picker opens on the interface font, so this is what it lands on.
+        await openPicker();
+
+        // Real menu entries, a real shortcut and a real button rather than markup standing in for
+        // them: what is previewed cannot then drift from what it previews.
+        const preview = document.querySelector(".font-preview-interface");
+        expect(preview?.querySelectorAll(".dropdown-item")).toHaveLength(3);
+        expect(preview?.querySelector("kbd")).not.toBeNull();
+        expect(preview?.querySelectorAll(".font-preview-interface-buttons button")).toHaveLength(2);
+
+        // A specimen rather than a menu: one that answered to being pressed would have to be
+        // worked out as not being one.
+        expect(preview?.hasAttribute("inert")).toBe(true);
+    });
+
     it("shows the code sample on a surface the ligature setting reaches", async () => {
         await openPicker();
         await act(async () => pickerTargets()[3].click());

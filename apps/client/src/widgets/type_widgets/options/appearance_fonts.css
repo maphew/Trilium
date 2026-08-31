@@ -183,6 +183,24 @@ pre.font-preview-code {
     padding: 0;
 }
 
+.font-preview-interface {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+
+    /* The menu is a specimen, so it takes the room its entries need rather than the width it would
+       have as a dropdown. */
+    .dropdownWrapper {
+        max-width: 100%;
+    }
+
+    .font-preview-interface-buttons {
+        display: flex;
+        gap: 8px;
+    }
+}
+
 /* Sized in em, so the heading keeps its proportion to the text under it as the slider moves. */
 .font-preview-document {
     h3 {
