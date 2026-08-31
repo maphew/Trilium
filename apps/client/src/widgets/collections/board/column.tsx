@@ -113,7 +113,7 @@ export default function Column({
     }, [ color ]);
 
     const handleTitleKeyDown = useCallback((e: KeyboardEvent) => {
-        if (e.key === "F2" && column !== INBOX_COLUMN) {
+        if (e.key === "F2") {
             setColumnNameToEdit(column);
         }
     }, [ column ]);
@@ -188,7 +188,7 @@ export default function Column({
                             className="title"
                             // In relation mode the title is a link to the note the column stands
                             // for, and the first of the two clicks has already followed it.
-                            onDblClick={isInRelationMode || column === INBOX_COLUMN
+                            onDblClick={isInRelationMode
                                 ? undefined
                                 : () => setColumnNameToEdit(column)}
                         >
@@ -212,10 +212,12 @@ export default function Column({
                     </>
                 ) : (
                     <TitleEditor
-                        currentValue={column}
-                        save={newTitle => api.renameColumn(column, newTitle)}
+                        currentValue={api.getColumnTitle(column)}
+                        save={newTitle => api.setColumnTitle(column, newTitle)}
                         dismiss={() => setColumnNameToEdit(undefined)}
-                        mode={isInRelationMode ? "relation" : "normal"}
+                        // The inbox is named in words even on a board grouped by a relation, where
+                        // every other column is named by the note it stands for.
+                        mode={isInRelationMode && column !== INBOX_COLUMN ? "relation" : "normal"}
                     />
                 )}
             </h3>

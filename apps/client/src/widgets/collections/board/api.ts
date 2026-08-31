@@ -306,7 +306,25 @@ export default class BoardApi {
      * inbox: that one stands for the cards carrying no value, so it has a name of its own.
      */
     getColumnTitle(column: string) {
-        return column === INBOX_COLUMN ? t("board_view.inbox") : column;
+        const named = this.viewConfig?.columns?.find(col => col.value === column)?.displayName;
+        return named || (column === INBOX_COLUMN ? t("board_view.inbox") : column);
+    }
+
+    /**
+     * Renames a column however that column is named.
+     *
+     * A column is ordinarily known by the value its cards carry, so renaming it writes that value
+     * across them. The inbox stands for the cards carrying none, so it holds a name of its own
+     * instead and the cards are left alone.
+     */
+    async setColumnTitle(column: string, title: string) {
+        if (!title.trim()) {
+            return;
+        }
+
+        return column === INBOX_COLUMN
+            ? this.updateColumn(column, { displayName: title.trim() })
+            : this.renameColumn(column, title);
     }
 
     /**
@@ -388,6 +406,7 @@ export default class BoardApi {
             if (!updated.icon) delete updated.icon;
             if (!updated.color) delete updated.color;
             if (!updated.archived) delete updated.archived;
+            if (!updated.displayName) delete updated.displayName;
             return updated;
         };
 

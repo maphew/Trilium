@@ -45,6 +45,11 @@ export interface BoardColumnData {
      * any other column, which stands for a value a note carries wherever it stands.
      */
     nested?: boolean;
+    /**
+     * What the column is called, for one that is not named by the value its cards carry. Renaming
+     * any other column writes the value itself, so it needs none.
+     */
+    displayName?: string;
 }
 
 interface CardDrag {

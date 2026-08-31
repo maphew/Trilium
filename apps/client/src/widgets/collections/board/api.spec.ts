@@ -1102,3 +1102,44 @@ describe("the icon the inbox column wears", () => {
         expect(api.getColumnIcon("")).toBe("bx bx-star");
     });
 });
+
+describe("renaming a column that names itself", () => {
+    /** The inbox stands for the cards carrying no value, so its name is its own, not theirs. */
+    it("writes the inbox a name of its own and leaves its cards alone", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "", icon: "bx bxs-inbox" }, { value: "To Do" } ] },
+            [ "", "To Do" ]
+        );
+        vi.mocked(executeBulkActions).mockClear();
+
+        await api.setColumnTitle("", "Unsorted");
+
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "", icon: "bx bxs-inbox", displayName: "Unsorted" },
+            { value: "To Do" }
+        ]);
+        expect(api.getColumnTitle("")).toBe("Unsorted");
+        // Its cards carry no value, so there is none to write across them.
+        expect(executeBulkActions).not.toHaveBeenCalled();
+    });
+
+    it("renames any other column by the value its cards carry", async () => {
+        const { api } = createApi(
+            { columns: [ { value: "" }, { value: "To Do" } ] }, [ "", "To Do" ]);
+        vi.mocked(executeBulkActions).mockClear();
+
+        await api.setColumnTitle("To Do", "Doing");
+
+        expect(executeBulkActions).toHaveBeenCalled();
+    });
+
+    it("leaves either kind alone when given nothing", async () => {
+        const { api, saved } = createApi({ columns: [ { value: "" } ] }, [ "" ]);
+        vi.mocked(executeBulkActions).mockClear();
+
+        await api.setColumnTitle("", "   ");
+
+        expect(saved).toEqual([]);
+        expect(api.getColumnTitle("")).toBe("board_view.inbox");
+    });
+});

@@ -45,12 +45,12 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
         x: event.pageX,
         y: event.pageY,
         items: [
-            ...(isInbox ? [] : [ {
+            {
                 title: t("board_view.rename-column"),
                 uiIcon: "bx bx-edit-alt",
                 shortcut: "F2",
                 handler: column.onEditTitle
-            } ]),
+            },
             ...(isInbox ? [ {
                 title: t("board_view.inbox-nested"),
                 uiIcon: "bx bx-subdirectory-right",

@@ -115,10 +115,10 @@ describe("Board column context menu", () => {
     });
 
     /**
-     * The inbox stands for the cards carrying no value, so it has no name to rename and nothing to
-     * archive; it is put away by the board's own setting instead.
+     * The inbox holds a name of its own, so it is renamed like any other column; what it has not is
+     * anything to archive, and it is put away by the board's own setting instead.
      */
-    it("offers the inbox neither a rename nor an archive, and puts it away instead", () => {
+    it("offers the inbox no archive, and puts it away instead", () => {
         const api = {
             getColumnIcon: () => DEFAULT_COLUMN_ICON,
             getColumnColorClass: () => "",
@@ -131,7 +131,7 @@ describe("Board column context menu", () => {
         const icons = items.filter(item => item && "uiIcon" in item)
             .map(item => "uiIcon" in item ? item.uiIcon : undefined);
 
-        expect(icons).not.toContain("bx bx-edit-alt");
+        expect(icons).toContain("bx bx-edit-alt");
         expect(icons).not.toContain("bx bx-archive");
 
         const remove = items.find(item =>
