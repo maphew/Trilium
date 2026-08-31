@@ -1,4 +1,4 @@
-import { render } from "preact";
+import $ from "jquery";
 import { useState } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
@@ -6,25 +6,61 @@ import { describe, expect, it, vi } from "vitest";
 import FNote from "../entities/fnote";
 import { renderInto } from "../test/render";
 
-const shownNote = vi.hoisted(() => ({ current: undefined as FNote | undefined }));
+const { dropdownInstances, getOrCreateInstance } = vi.hoisted(() => {
+    const dropdownInstances: Array<{
+        show: ReturnType<typeof vi.fn>;
+        hide: ReturnType<typeof vi.fn>;
+        update: ReturnType<typeof vi.fn>;
+        dispose: ReturnType<typeof vi.fn>;
+        _menu: HTMLElement | null;
+    }> = [];
+    const instancesByToggle = new Map<HTMLElement, typeof dropdownInstances[number]>();
+    const getOrCreateInstance = vi.fn((toggle: HTMLElement) => {
+        let instance = instancesByToggle.get(toggle);
+        if (!instance) {
+            instance = {
+                show: vi.fn(),
+                hide: vi.fn(),
+                update: vi.fn(),
+                dispose: vi.fn(),
+                _menu: null
+            };
+            instancesByToggle.set(toggle, instance);
+            dropdownInstances.push(instance);
+        }
+        return instance;
+    });
+    return { dropdownInstances, getOrCreateInstance };
+});
+
+vi.mock("bootstrap", () => ({
+    Dropdown: { getOrCreateInstance },
+    Tooltip: class {}
+}));
+
+const noteContext = vi.hoisted(() => ({
+    initialNote: undefined as FNote | undefined,
+    setNote: undefined as ((note: FNote) => void) | undefined
+}));
+const tooltipStub = vi.hoisted(() => ({ showTooltip: vi.fn(), hideTooltip: vi.fn() }));
 
 vi.mock("./react/hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("./react/hooks")>()),
-    useNoteContext: () => ({ note: shownNote.current, viewScope: { viewMode: "default" } }),
-    useNoteLabel: () => [ undefined ]
+    useNoteContext: () => {
+        const [ note, setNote ] = useState(noteContext.initialNote);
+        noteContext.setNote = setNote;
+        return { note, viewScope: { viewMode: "default" } };
+    },
+    useNoteLabel: () => [ undefined ],
+    useStaticTooltip: () => {},
+    useTooltip: () => tooltipStub
 }));
 
-vi.mock("./react/IconPicker", () => ({
-    IconPickerButton: () => {
-        const [ shown, setShown ] = useState(false);
-        return (
-            <div>
-                <button className="picker-toggle" onClick={() => setShown(true)}>
-                    Open picker
-                </button>
-                {shown && <div className="picker">Picker</div>}
-            </div>
-        );
+vi.mock("../services/server", () => ({
+    default: {
+        get: vi.fn(async (url: string) => url === "other/icon-usage"
+            ? { iconClassToCountMap: {} }
+            : [])
     }
 }));
 
@@ -37,28 +73,57 @@ vi.mock("../services/attributes", () => ({
 
 import NoteIcon from "./note_icon";
 
+class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+}
+globalThis.ResizeObserver = globalThis.ResizeObserver
+    ?? (ResizeObserverStub as unknown as typeof ResizeObserver);
+
 describe("NoteIcon", () => {
     it("closes an open icon picker when the active note changes", () => {
-        shownNote.current = buildNote("note-a");
+        glob.iconRegistry = { sources: [] };
+        noteContext.initialNote = buildNote("note-a");
         const container = renderInto(<NoteIcon />);
-        const toggle = container.querySelector<HTMLButtonElement>(".picker-toggle");
+        const toggle = container.querySelector<HTMLButtonElement>("button");
+        const dropdown = container.querySelector<HTMLElement>(".dropdown");
         expect(toggle).not.toBeNull();
+        expect(dropdown).not.toBeNull();
+        const pickerDropdown = dropdownInstances[0];
+        expect(pickerDropdown).toBeTruthy();
 
-        act(() => toggle?.click());
-        expect(container.querySelector(".picker")).not.toBeNull();
+        void act(() => {
+            toggle?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+        });
+        void act(() => {
+            $(dropdown as HTMLElement).trigger("show.bs.dropdown");
+        });
+        expect(document.body.querySelector(".tn-dropdown-portal .icon-picker")).not.toBeNull();
 
-        shownNote.current = buildNote("note-b");
-        act(() => render(<NoteIcon />, container));
+        void act(() => noteContext.setNote?.(buildNote("note-a", "bx-updated")));
 
-        expect(container.querySelector(".picker")).toBeNull();
+        expect(container.querySelector("button")).toBe(toggle);
+        expect(toggle?.classList.contains("bx-updated")).toBe(true);
+        expect(toggle?.classList.contains("show")).toBe(true);
+        expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+        expect(pickerDropdown?.dispose).not.toHaveBeenCalled();
+        expect(document.body.querySelector(".tn-dropdown-portal .icon-picker")).not.toBeNull();
+
+        void act(() => noteContext.setNote?.(buildNote("note-b")));
+
+        expect(container.querySelector("button")?.classList.contains("bx-note-b")).toBe(true);
+        expect(container.querySelector("button")).not.toBe(toggle);
+        expect(pickerDropdown?.dispose).toHaveBeenCalledTimes(1);
+        expect(document.body.querySelector(".tn-dropdown-portal .icon-picker")).toBeNull();
     });
 });
 
-function buildNote(noteId: string) {
+function buildNote(noteId: string, icon = `bx-${noteId}`) {
     return {
         noteId,
         isMetadataReadOnly: false,
-        getIcon: () => "bx bx-note",
+        getIcon: () => icon,
         getOwnedLabels: () => [],
         hasOwnedLabel: () => false
     } as unknown as FNote;
