@@ -2,10 +2,11 @@ import "./appearance_fonts.css";
 
 import { customFontFamily, customFontNoteId, customFontOption, FontFamily, OptionNames, SYSTEM_MONOSPACE_FONT_STACK, SYSTEM_SANS_SERIF_FONT_STACK, UserFont } from "@triliumnext/commons";
 import clsx from "clsx";
-import { Fragment } from "preact";
+import { ComponentChildren, Fragment } from "preact";
 import { createPortal } from "preact/compat";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
+import FNote from "../../../entities/fnote";
 import { getCustomFonts, registerFontNote } from "../../../services/custom_fonts";
 import { filterAvailableFamilies, listSystemFonts, quoteFamily, type SystemFont } from "../../../services/font";
 import { t } from "../../../services/i18n";
@@ -14,7 +15,8 @@ import { Card, OptionCardSection } from "../../react/Card";
 import { filterTokens, matchesFilter } from "../../react/filter";
 import FormList, { FormListHeader, FormListItem } from "../../react/FormList";
 import FormToggle from "../../react/FormToggle";
-import { useNoteTitle, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
+import { useChildNotes, useNoteTitle, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
+import Icon from "../../react/Icon";
 import Modal from "../../react/Modal";
 import NoItems from "../../react/NoItems";
 import Slider from "../../react/Slider";
@@ -316,8 +318,57 @@ function Font({ label, description, sizeDescription, groups, fontFamilyOption, f
                 onFontSizeChange={(size) => setFontSize(String(size))}
                 getFontFamily={getFontFamily}
                 sizeDescription={sizeDescription}
+                preview={fontFamilyOption === "treeFontFamily" ? <TreePreview /> : undefined}
             />
         </>
+    );
+}
+
+/**
+ * The head of the user's own tree, which is what the font is being chosen for: a tree font is
+ * judged on whether titles hold up at the density rows are stacked at, and a line of specimen text
+ * says nothing about that.
+ *
+ * Falls back to {@link PREVIEW_TEXT} on a tree with nothing in it, which is a database that has
+ * just been made.
+ */
+function TreePreview() {
+    const roots = useChildNotes("root").slice(0, TREE_PREVIEW_ROOTS);
+    // The first root is drawn open, so the rows below it carry the indentation a tree is read by.
+    const children = useChildNotes(roots.at(0)?.noteId).slice(0, TREE_PREVIEW_CHILDREN);
+
+    if (!roots.length) {
+        return <>{PREVIEW_TEXT}</>;
+    }
+
+    return (
+        <div className="font-preview-tree">
+            {roots.map((note, index) => (
+                <Fragment key={note.noteId}>
+                    <TreePreviewRow note={note} expanded={index === 0 && children.length > 0} />
+                    {index === 0 && children.map((child) => (
+                        <TreePreviewRow key={child.noteId} note={child} nested />
+                    ))}
+                </Fragment>
+            ))}
+        </div>
+    );
+}
+
+const TREE_PREVIEW_ROOTS = 3;
+const TREE_PREVIEW_CHILDREN = 3;
+
+function TreePreviewRow({ note, expanded, nested }: { note: FNote; expanded?: boolean; nested?: boolean }) {
+    // A row with nothing under it keeps the space the others spend on the expander, so the icons
+    // stay in one column rather than stepping in and out with each note's own children.
+    const expander = note.hasChildren() ? (expanded ? "bx bx-chevron-down" : "bx bx-chevron-right") : "";
+
+    return (
+        <div className={clsx("font-preview-tree-row", nested && "nested")}>
+            <Icon className="font-preview-tree-expander" icon={expander} />
+            <Icon icon={note.getIcon()} />
+            <span className="font-preview-tree-title">{note.title}</span>
+        </div>
     );
 }
 
@@ -334,9 +385,11 @@ interface FontPickerModalProps {
     onFontSizeChange: (value: number) => void;
     getFontFamily: (value: string) => string | undefined;
     sizeDescription?: string;
+    /** What the chosen font is shown on, where a line of specimen text is not what it is set in. */
+    preview?: ComponentChildren;
 }
 
-function FontPickerModal({ show, onHidden, title, groups, fontFamily, fontSize, onFontFamilyChange, onFontSizeChange, getFontFamily, sizeDescription }: FontPickerModalProps) {
+function FontPickerModal({ show, onHidden, title, groups, fontFamily, fontSize, onFontFamilyChange, onFontSizeChange, getFontFamily, sizeDescription, preview }: FontPickerModalProps) {
     const [ query, setQuery ] = useState("");
     const searchRef = useRef<HTMLInputElement>(null);
     const matching = useMemo(() => filterFontGroups(groups, query), [ groups, query ]);
@@ -412,7 +465,7 @@ function FontPickerModal({ show, onHidden, title, groups, fontFamily, fontSize, 
                             fontSize: `${fontSize}%`
                         }}
                     >
-                        {PREVIEW_TEXT}
+                        {preview ?? PREVIEW_TEXT}
                     </div>
                 </div>
             </div>
