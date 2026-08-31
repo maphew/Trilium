@@ -98,6 +98,30 @@ jobs:
           name: release-desktop-${{ matrix.os.name }}-${{ matrix.arch }}
           path: apps/desktop/upload/*.*
 
+  flatpak_sources:
+    name: Generate Flatpak sources
+    needs:
+      - sanity-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install flatpak-node-generator
+        run: pipx install 'git+https://github.com/flatpak/flatpak-builder-tools.git#subdirectory=node'
+
+      - name: Generate the sources
+        run: node --experimental-strip-types ./scripts/generate-flatpak-sources.mts
+
+      - name: Upload the artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-flatpak-sources
+          path: upload/generated-sources.json
+
   build_server:
     name: Build Linux Server
     needs:
@@ -133,6 +157,7 @@ jobs:
     needs:
       - make-electron
       - build_server
+      - flatpak_sources
     steps:
       - run: mkdir upload
 
