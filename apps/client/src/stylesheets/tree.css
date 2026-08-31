@@ -283,6 +283,19 @@ span.fancytree-node:hover .add-note-button {
 }
 
 /*
+ * Both hit modes name the same place to drop into, so both draw on the boundary between the two
+ * rows: the title above's bottom edge moves down to reach it, the title below's top edge moves up.
+ * The distance is measured per row by publishDropMarkerShift() in note_tree.ts.
+ */
+#fancytree-drop-marker.fancytree-drop-after {
+    --drop-marker-shift: var(--tree-drop-marker-shift, 0px);
+}
+
+#fancytree-drop-marker.fancytree-drop-before {
+    --drop-marker-shift: calc(-1 * var(--tree-drop-marker-shift, 0px));
+}
+
+/*
  * The line, and the ring capping the end it is measured from. Both are drawn by pseudo-elements so
  * the marker's own box stays at zero height: dnd5 positions that box, and a border on it would
  * carry the line half its thickness off the edge.
@@ -292,7 +305,7 @@ span.fancytree-node:hover .add-note-button {
     content: "";
     position: absolute;
     inset-inline: 0;
-    top: -1px;
+    top: calc(-1px + var(--drop-marker-shift, 0px));
     height: 2px;
     border-radius: 1px;
     background: var(--muted-text-color);
@@ -303,7 +316,7 @@ span.fancytree-node:hover .add-note-button {
     content: "";
     position: absolute;
     inset-inline-start: -2px;
-    top: -4px;
+    top: calc(-4px + var(--drop-marker-shift, 0px));
     box-sizing: border-box;
     width: 8px;
     height: 8px;
