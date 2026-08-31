@@ -51,7 +51,11 @@ export default function ColumnLimitDialog({ api, column, onClose }: {
             onHidden={onClose}
             footer={<>
                 <Button text={t("modal.cancel")} onClick={onClose} />
-                <Button text={t("board_view.set-limit-ok")} keyboardShortcut="Enter" kind="primary" />
+                <Button
+                    text={t("board_view.set-limit-ok")}
+                    keyboardShortcut="Enter"
+                    kind="primary"
+                />
             </>}
         >
             <div className="board-column-limit-fields">

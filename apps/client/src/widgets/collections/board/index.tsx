@@ -43,13 +43,13 @@ export interface BoardColumnData {
     /** Whether the column is archived, absent while it is not. */
     archived?: boolean;
     /**
-     * Whether the inbox column gathers notes below the board's own children as well. Meaningless on
-     * any other column, which stands for a value a note carries wherever it stands.
+     * Whether the inbox column also collects notes below the board's direct children. Has no
+     * meaning on any other column, which is defined by a grouping value instead.
      */
     nested?: boolean;
     /**
-     * What the column is called, for one that is not named by the value its cards carry. Renaming
-     * any other column writes the value itself, so it needs none.
+     * The column's display name, used only by columns that are not identified by a grouping
+     * value. Renaming any other column writes the value itself, so it needs none.
      */
     displayName?: string;
     /** The note limit, absent if disabled. */
@@ -215,9 +215,9 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         };
         refreshSeqRef.current++;
     }
-    // Resolution keeps the inbox on the strength of the config alone, so its icon, colour and place
-    // survive the toggle being off; what the toggle decides is whether the board shows it and
-    // offers it. Rewriting the attachment without it would be what loses those settings.
+    // The inbox is resolved from the config alone, so its icon, colour and position survive the
+    // toggle being off. The toggle only decides whether the board shows and offers it: dropping it
+    // during resolution would rewrite the attachment without it and lose those settings.
     const usableColumns = useMemo(
         () => (columns ?? []).filter(column => column !== INBOX_COLUMN || inboxEnabled),
         [ columns, inboxEnabled ]);
@@ -323,8 +323,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // landed among them all once some are archived and hidden. Translated here so a reorder leaves
     // every hidden column where it was rather than herding them to the end.
     const handleColumnDrop = useCallback((fromIndex: number, toIndex: number) => {
-        // The list the api holds, which is the one it reorders: a column the board is not showing
-        // at all is in neither, so counting in `columns` would leave the two a place apart.
+        // The list the api holds, which is also the one it reorders. A column the board is not
+        // showing is in neither, so indexing into `columns` would be off by one.
         const allColumns = api.columns;
         const dropBefore = shownColumns[toIndex];
         const newColumns = api.reorderColumn(

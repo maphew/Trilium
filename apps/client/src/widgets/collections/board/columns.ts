@@ -18,15 +18,15 @@ export const DEFAULT_GROUP_BY = "status";
 export const DEFAULT_COLUMN_ICON = "bx bx-circle";
 
 /**
- * The value the inbox column is known by: the one a card carries when it carries none.
+ * The value identifying the inbox column: the empty string, which is what a card with no
+ * grouping value has.
  *
- * A column is its grouping value everywhere on the board, and what the inbox gathers is the notes
- * with no value at all, so the empty string is the value it stands for. It is told apart from a
- * column being deleted, which is recorded as `undefined` rather than as an empty name.
+ * Columns are identified by their grouping value throughout the board, and the inbox collects the
+ * cards that have none. A deleted column is recorded as `undefined`, which is distinct from this.
  */
 export const INBOX_COLUMN = "";
 
-/** What the inbox column wears until one is picked for it, in place of the stock column icon. */
+/** Default icon for the inbox column, used instead of the standard one until another is picked. */
 export const INBOX_COLUMN_ICON = "bx bxs-inbox";
 
 export interface BoardStatusDefinition {
@@ -85,7 +85,7 @@ export function getStatusDefinition(parentNote: FNote, groupBy: string): BoardSt
  * Having none at all is the ordinary case for a board created now, and the answer is yes: the
  * definition the board writes is its own from the start.
  */
-/** Whether a value names a column of its own, as against standing for the notes carrying none. */
+/** Whether a value identifies a column of its own, rather than the absence of one. */
 function named(value: string) {
     return value.trim() !== INBOX_COLUMN;
 }
@@ -143,7 +143,7 @@ export function resolveBoardColumns(
         for (const candidate of candidates) {
             const trimmed = candidate.trim();
             const value = pendingRenames.has(trimmed) ? pendingRenames.get(trimmed) : trimmed;
-            // `undefined` is a column being deleted, which is not the same as the inbox's own name.
+            // `undefined` means a column is being deleted, which is not the inbox value.
             if (value === undefined || seen.has(value)) continue;
             seen.add(value);
             columns.push(value);
@@ -152,9 +152,9 @@ export function resolveBoardColumns(
         return columns;
     };
 
-    // The board's own list is the only source that can bring the inbox: a note carrying no value is
-    // what the inbox gathers rather than a column to make, and a definition written with a gap in
-    // it (`options=To Do;;Done`) names nothing.
+    // Only the board's own list can introduce the inbox: an unassigned note is what the inbox
+    // collects rather than a column to create, and a definition with a gap in it
+    // (`options=To Do;;Done`) defines nothing.
     const columns = resolve([
         ...definitionOptions.filter(named),
         ...persistedColumns,

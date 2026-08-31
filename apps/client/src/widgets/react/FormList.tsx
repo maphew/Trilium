@@ -174,7 +174,7 @@ export function FormListToggleableItem({
     title: string;
     currentValue: boolean;
     helpPage?: string;
-    /** What the setting does, shown on hover. Unlike {@link helpPage} it opens nothing. */
+    /** What the setting does, shown on hover. Unlike {@link helpPage}, it opens nothing. */
     helpTooltip?: string;
     onChange(newValue: boolean): void | Promise<void>;
 }) {

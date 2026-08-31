@@ -179,12 +179,11 @@ export default class BoardApi {
     }
 
     /**
-     * Files a card under the inbox, which is to say leaves it carrying no value at all.
+     * Files a card under the inbox, which means leaving it with no grouping value at all.
      *
-     * Told apart from {@link removeFromBoard}, which takes away what the card owns and is content
-     * to uncover whatever that was covering. Landing in the inbox is a stronger thing to ask: a
-     * relation the card takes from elsewhere would still be pointing somewhere afterwards, and the
-     * card would arrive in that column instead of the one it was aimed at.
+     * Different from {@link removeFromBoard}, which removes only the value the card owns and may
+     * uncover an inherited one. Reaching the inbox is stricter: an inherited relation would still
+     * point somewhere, so the card would end up in that column instead.
      */
     private moveToInbox(noteId: string) {
         const note = froca.getNoteFromCache(noteId);
@@ -287,9 +286,8 @@ export default class BoardApi {
     }
 
     async renameColumn(oldValue: string, newValue: string) {
-        // A column is known by the value its cards carry, so a blank name is not a name: it would
-        // write an empty label over every card in the column and leave nothing to group them by.
-        // The editor is simply left as it was.
+        // A column is identified by the value its cards carry, so a blank name would write an
+        // empty label over every card and leave nothing to group by. The old name is kept.
         if (!newValue.trim()) {
             return;
         }
@@ -319,8 +317,8 @@ export default class BoardApi {
     }
 
     /**
-     * What a column is called on screen, which is the value its cards carry everywhere but the
-     * inbox: that one stands for the cards carrying no value, so it has a name of its own.
+     * The title shown for a column. For most columns this is the grouping value itself; the
+     * inbox has no value, so it uses a name stored in the config.
      */
     getColumnTitle(column: string) {
         const named = this.viewConfig?.columns?.find(col => col.value === column)?.displayName;
@@ -330,9 +328,9 @@ export default class BoardApi {
     /**
      * Renames a column however that column is named.
      *
-     * A column is ordinarily known by the value its cards carry, so renaming it writes that value
-     * across them. The inbox stands for the cards carrying none, so it holds a name of its own
-     * instead and the cards are left alone.
+     * Most columns are identified by the value their cards carry, so renaming writes that value
+     * to every card in the column. The inbox has no value, so it stores a display name instead and
+     * its cards are left untouched.
      */
     async setColumnTitle(column: string, title: string) {
         if (!title.trim()) {
@@ -383,9 +381,8 @@ export default class BoardApi {
     }
 
     /**
-     * Puts the inbox column away, which is a matter of the board's own setting rather than of the
-     * column: the stored entry stays where it is, so its icon, colour and place are waiting when it
-     * is switched back on.
+     * Hides the inbox column by turning off the board's setting. The stored entry is kept, so
+     * its icon, colour and position are restored when it is switched back on.
      */
     async disableInbox() {
         await attributes.setBooleanWithInheritance(this.parentNote, "enableInboxColumn", false);
@@ -401,7 +398,7 @@ export default class BoardApi {
         await this.updateColumn(column, { limit });
     }
 
-    /** Whether the inbox reaches past the board's own children, down to the children of cards. */
+    /** Whether the inbox also collects notes deeper than the board's direct children. */
     async setInboxNested(nested: boolean) {
         await this.updateColumn(INBOX_COLUMN, { nested });
     }
@@ -458,12 +455,12 @@ export default class BoardApi {
 
         newColumns.splice(adjustedToIndex, 0, movedColumn);
 
-        // `columns` is derived render state and carries neither what it has yet to catch up with
-        // nor what the board is not showing, an inbox switched off among it. Each of those keeps
-        // the place it holds in the config rather than being herded to the end or dropped.
+        // `columns` is render state: it omits entries the view has yet to catch up with, and any
+        // the board is hiding, such as a disabled inbox. Each keeps its index in the config
+        // instead of being appended at the end or dropped.
         const stored = this.viewConfig?.columns ?? [];
         const storedColumns = new Map(stored.map(col => [ col.value, col ]));
-        // Reordering moves the entries, so each keeps the icon it holds rather than being rebuilt
+        // Reordering only moves entries, so each keeps its stored icon instead of being rebuilt
         // from its name.
         const reordered: BoardColumnData[] =
             newColumns.map(value => storedColumns.get(value) ?? { value });
@@ -605,7 +602,7 @@ export default class BoardApi {
             return;
         }
 
-        // The definition lists the values a card can carry, and the inbox stands for carrying none.
+        // The definition lists the values a card can carry; the inbox has no value.
         columns = columns.filter(column => column !== INBOX_COLUMN);
 
         // A board showing nothing has no column list to describe and must not gain an empty
@@ -708,7 +705,7 @@ export default class BoardApi {
         await branches.moveAfterBranch([ branch.branchId ], branchId);
     }
 
-    /** Whether the value the card is grouped by stands on another note: a template or a parent. */
+    /** Whether the grouping value comes from another note, such as a template or a parent. */
     private isInherited(note: FNote, type: "label" | "relation") {
         return note.getAttributes(type, this.statusAttribute)
             .some(attribute => attribute.noteId !== note.noteId);
@@ -718,9 +715,8 @@ export default class BoardApi {
         const note = froca.getNoteFromCache(noteId);
         if (!note) return;
         if (this.isRelationMode) {
-            // A relation points at a note, so there is no empty one to cover an inherited value
-            // with the way a label is covered below. Where the card takes its column from a
-            // template or an ancestor, that is the only place it can be changed.
+            // A relation must point at a note, so an inherited one cannot be shadowed the way a
+            // label is below. It can only be changed on the note that defines it.
             if (!note.getOwnedAttributes("relation", this.statusAttribute).length
                     && this.isInherited(note, "relation")) {
                 toast.showMessage(t("board_view.inherited-column"), 3000);
@@ -730,9 +726,8 @@ export default class BoardApi {
             return attributes.removeOwnedRelationByName(note, this.statusAttribute);
         }
 
-        // A value the card takes from a template or an ancestor is not the card's to remove, and
-        // taking away the one it owns would only uncover what that was covering. An empty value of
-        // its own covers it instead, which reads as carrying none.
+        // An inherited value cannot be removed from the card, and removing the owned one would
+        // only uncover it. An owned empty value shadows it instead, which counts as no value.
         if (this.isInherited(note, "label")) {
             return attributes.setLabel(noteId, this.statusAttribute, "");
         }

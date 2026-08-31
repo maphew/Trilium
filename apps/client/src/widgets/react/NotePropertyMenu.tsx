@@ -16,7 +16,7 @@ export interface ClickContext {
     triggerCommand: NoteContextAwareWidget["triggerCommand"];
 }
 
-/** Carried by a property of any kind, for one whose label does not say enough on its own. */
+/** Available on a property of any kind, for one whose label needs explaining. */
 export interface PropertyHelp {
     /** What the property does, shown on hover beside its label. */
     helpTooltip?: string;
@@ -114,7 +114,7 @@ export function isPropertyVisible(property: BookProperty, note: FNote): boolean 
     return !("isVisible" in property) || (property.isVisible?.(note) ?? true);
 }
 
-/** A property's label, and beside it the explanation the property carries, where it carries one. */
+/** A property's label, followed by its explanation when it has one. */
 function PropertyLabel({ property }: { property: BookProperty & { label: string } }) {
     return (
         <>

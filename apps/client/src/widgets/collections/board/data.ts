@@ -23,20 +23,20 @@ export async function getBoardData(
     includeArchived: boolean,
     definitionOptions: string[] = [],
     pendingRenames: ReadonlyMap<string, string | undefined> = new Map(),
-    /** Whether the board is set to keep an inbox, which is what decides if one gathers anything. */
+    /** Whether the board keeps an inbox, which decides whether unassigned notes are collected. */
     inboxEnabled = false
 ) {
     const byColumn: ColumnMap = new Map();
     const storedColumnValues = (persistedData.columns ?? []).map(c => c.value);
-    // Switching the inbox on is what puts it on the board, at the head of it. From then on the
-    // entry is the board's own: it keeps whatever icon, colour and place it is given, and switching
-    // the inbox off leaves it there rather than taking it away.
+    // Turning the inbox on adds it to the board, at the front. After that the entry belongs to
+    // the config: it keeps its icon, colour and position, and turning the inbox off leaves it in
+    // place.
     const persistedColumns = inboxEnabled && !storedColumnValues.includes(INBOX_COLUMN)
         ? [ INBOX_COLUMN, ...storedColumnValues ]
         : storedColumnValues;
 
-    // Only a board that keeps an inbox has anywhere to put a note carrying no value; on any other
-    // one such a note is not on the board at all, as it has always been.
+    // Only a board with an inbox has somewhere to put an unassigned note; on any other board such
+    // a note is not shown at all, as before.
     const inbox = inboxEnabled
         ? { nested: !!persistedData.columns?.find(col => col.value === INBOX_COLUMN)?.nested }
         : undefined;
@@ -127,8 +127,8 @@ function regroupRenamedCards(
 }
 
 /**
- * @param inbox where the board keeps the notes carrying no value, absent where it keeps none.
- * @param depth how far below the board the branches stand, the board's own children being 0.
+ * @param inbox where unassigned notes are collected, absent if the board has no inbox.
+ * @param depth how deep below the board the branches are, the board's own children being 0.
  */
 async function recursiveGroupBy(
     branches: FBranch[], byColumn: ColumnMap, groupByColumn: string, includeArchived: boolean,
@@ -144,9 +144,8 @@ async function recursiveGroupBy(
                 seenNoteIds, inbox, depth + 1);
         }
 
-        // A note carrying no value goes to the inbox, where the board keeps one and is set to reach
-        // this far down. Anything deeper than the board's own children is a card's child, which the
-        // inbox gathers only when it is told to.
+        // A note with no value goes to the inbox, if the board has one and reaches this deep.
+        // Anything below the board's own children is a card's child, collected only when nested.
         const value = note.getLabelOrRelation(groupByColumn);
         const group = value || (inbox && (depth === 0 || inbox.nested) ? INBOX_COLUMN : undefined);
         if (group === undefined || seenNoteIds.has(note.noteId)) {

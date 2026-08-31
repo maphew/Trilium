@@ -57,7 +57,7 @@ export default function Column({
     color?: string,
     /** Whether the column is archived. Only ever rendered while archived notes are shown. */
     archived?: boolean,
-    /** Whether the inbox reaches past the board's own children. Meaningless on any other column. */
+    /** Whether the inbox also collects notes deeper than the board's direct children. */
     nested?: boolean,
     /** The note limit, absent if disabled. */
     limit?: number,
@@ -223,8 +223,8 @@ export default function Column({
                         currentValue={api.getColumnTitle(column)}
                         save={newTitle => api.setColumnTitle(column, newTitle)}
                         dismiss={() => setColumnNameToEdit(undefined)}
-                        // The inbox is named in words even on a board grouped by a relation, where
-                        // every other column is named by the note it stands for.
+                        // The inbox is renamed as text even on a relation board, where every
+                        // other column is renamed by picking a note.
                         mode={isInRelationMode && column !== INBOX_COLUMN ? "relation" : "normal"}
                     />
                 )}
@@ -275,15 +275,15 @@ export default function Column({
  * state is the column's rather than this component's, since the menu is raised from the header.
  */
 /**
- * How many cards a column holds, and what they are when hovered.
+ * How many cards a column holds, with a breakdown on hover.
  *
- * The archived ones are among them only while the board is showing archived notes; where it is not,
- * there are none to count and the badge says how many cards there are and no more.
+ * Archived cards are only included while the board is showing archived notes. Otherwise there are
+ * none to count and the badge reports the total alone.
  */
 function CountBadge({ items, limit, isOver }: {
     items?: { note: FNote }[],
     limit?: number,
-    /** Whether the column is over its limit. The column body shows this too. */
+    /** Whether the column is over its limit. The column body is outlined as well. */
     isOver?: boolean
 }) {
     const badgeRef = useRef<HTMLSpanElement>(null);

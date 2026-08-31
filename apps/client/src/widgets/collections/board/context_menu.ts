@@ -23,7 +23,7 @@ interface ColumnMenuTarget {
     index: number;
     color?: string;
     archived?: boolean;
-    /** Whether the inbox reaches past the board's own children. Meaningless on any other column. */
+    /** Whether the inbox also collects notes deeper than the board's direct children. */
     nested?: boolean;
     /** Puts the title into its inline editor, the menu being the only way there besides F2. */
     onEditTitle: () => void;
@@ -33,7 +33,7 @@ interface ColumnMenuTarget {
     onAddColumn: (direction: "before" | "after") => void;
     /** Moves this column to sit before the given position among the columns as drawn. */
     onMoveColumn: (toIndex: number) => void;
-    /** Asks how many cards the column is meant to hold. */
+    /** Opens the dialog that sets the column's note limit. */
     onSetLimit: () => void;
 }
 
