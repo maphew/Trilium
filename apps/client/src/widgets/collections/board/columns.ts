@@ -26,6 +26,9 @@ export const DEFAULT_COLUMN_ICON = "bx bx-circle";
  */
 export const INBOX_COLUMN = "";
 
+/** What the inbox column wears until one is picked for it, in place of the stock column icon. */
+export const INBOX_COLUMN_ICON = "bx bxs-inbox";
+
 export interface BoardStatusDefinition {
     /** The definition attribute, wherever it is owned. */
     attribute: FAttribute;

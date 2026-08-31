@@ -175,7 +175,7 @@ export default function Column({
                 {!isInRelationMode && (
                     <IconPickerButton
                         className="column-icon"
-                        icon={icon ?? DEFAULT_COLUMN_ICON}
+                        icon={api.getColumnIcon(column) ?? DEFAULT_COLUMN_ICON}
                         title={t("board_view.change-column-icon")}
                         onSelect={(picked) => api.setColumnIcon(column, picked)}
                         onReset={icon ? () => api.setColumnIcon(column, undefined) : undefined}

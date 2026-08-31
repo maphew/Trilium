@@ -1084,3 +1084,21 @@ describe("reordering columns the board is not showing all of", () => {
         ]);
     });
 });
+
+describe("the icon the inbox column wears", () => {
+    it("is an inbox until one is picked for it", () => {
+        const { api } = createApi(
+            { columns: [ { value: "" }, { value: "To Do" } ] }, [ "", "To Do" ]);
+
+        expect(api.getColumnIcon("")).toBe("bx bxs-inbox");
+        // Every other column keeps the stock one.
+        expect(api.getColumnIcon("To Do")).toBe(DEFAULT_COLUMN_ICON);
+    });
+
+    it("gives way to the one picked for it", () => {
+        const { api } = createApi(
+            { columns: [ { value: "", icon: "bx bx-star" } ] }, [ "" ]);
+
+        expect(api.getColumnIcon("")).toBe("bx bx-star");
+    });
+});

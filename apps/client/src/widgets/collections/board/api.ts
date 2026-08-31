@@ -16,7 +16,7 @@ import toast from "../../../services/toast";
 import { BoardColumnData, BoardViewData } from ".";
 import {
     type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_COLUMN_ICON, DEFAULT_GROUP_BY
-, INBOX_COLUMN } from "./columns";
+, INBOX_COLUMN, INBOX_COLUMN_ICON } from "./columns";
 import { ColumnMap } from "./data";
 
 /** One write's claim on a column, held until that write lands or is taken back. */
@@ -320,8 +320,12 @@ export default class BoardApi {
             return froca.getNoteFromCache(column)?.getIcon();
         }
 
-        return this.viewConfig?.columns?.find(col => col.value === column)?.icon
-            ?? DEFAULT_COLUMN_ICON;
+        const stored = this.viewConfig?.columns?.find(col => col.value === column)?.icon;
+        if (stored) {
+            return stored;
+        }
+
+        return column === INBOX_COLUMN ? INBOX_COLUMN_ICON : DEFAULT_COLUMN_ICON;
     }
 
     /**
