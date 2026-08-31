@@ -94,8 +94,39 @@ describe("listSystemFontFamilies", () => {
         return { family, style, fullName: `${family} ${style}`, postscriptName: `${family}-${style}` };
     }
 
+    /**
+     * Stands in for the canvas the probe draws on, since happy-dom has none. `paints` decides, per
+     * family and character, whether any pixel ends up covered — in a browser a character the family
+     * does not cover falls back to one that does and paints, so only a character it claims and
+     * cannot rasterize comes back blank.
+     */
+    function stubProbeCanvas(paints: (family: string, character: string) => boolean) {
+        vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation((() => {
+            const drawn = { font: "", character: "" };
+
+            return {
+                canvas: { width: 40, height: 40 },
+                clearRect: () => {},
+                fillText: (character: string) => {
+                    drawn.character = character;
+                },
+                getImageData: () => {
+                    const family = drawn.font.match(/"(.+)"/)?.[1] ?? "";
+                    return { data: new Uint8ClampedArray([ 0, 0, 0, paints(family, drawn.character) ? 255 : 0 ]) };
+                },
+                get font() {
+                    return drawn.font;
+                },
+                set font(value: string) {
+                    drawn.font = value;
+                }
+            };
+        }) as never);
+    }
+
     afterEach(() => {
         vi.unstubAllGlobals();
+        vi.restoreAllMocks();
     });
 
     it("returns nothing where the runtime does not expose the API", async () => {
@@ -120,5 +151,29 @@ describe("listSystemFontFamilies", () => {
         });
 
         expect(await listSystemFontFamilies()).toEqual([]);
+    });
+
+    it("leaves out a family the engine measures but will not draw", async () => {
+        vi.stubGlobal("queryLocalFonts", async () => [ face("Inter", "Regular"), face("Unifont", "Regular") ]);
+        stubProbeCanvas((family) => family !== "Unifont");
+
+        // Offering it would let the interface be set in a font that renders nothing at all.
+        expect(await listSystemFontFamilies()).toEqual([ "Inter" ]);
+    });
+
+    it("leaves out a family that draws one of the two scripts and not the other", async () => {
+        vi.stubGlobal("queryLocalFonts", async () => [ face("Inter", "Regular"), face("Latin Only", "Regular") ]);
+        // Each character is drawn on its own for this: probed as one string, the Latin one painting
+        // would be enough to pass a family that cannot draw a word of Japanese.
+        stubProbeCanvas((family, character) => !(family === "Latin Only" && character === "日"));
+
+        expect(await listSystemFontFamilies()).toEqual([ "Inter" ]);
+    });
+
+    it("keeps every family where there is no canvas to judge them on", async () => {
+        vi.stubGlobal("queryLocalFonts", async () => [ face("Inter", "Regular"), face("Unifont", "Regular") ]);
+        vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+
+        expect(await listSystemFontFamilies()).toEqual([ "Inter", "Unifont" ]);
     });
 });
