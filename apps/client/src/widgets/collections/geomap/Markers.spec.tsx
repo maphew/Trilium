@@ -22,7 +22,7 @@ import LoadResults from "../../../services/load_results";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import { CLUSTER_COUNT_LAYER, CLUSTER_LAYER } from "./clusters";
-import { ParentMap } from "./map";
+import { MapStyleLoaded, ParentMap } from "./map";
 import Markers, { formatLocation, MARKER_LAYER, MARKER_SOURCE, parseLocation, SELECTION_LAYER } from "./Markers";
 
 vi.mock("../../../services/icon_glyphs", () => ({
@@ -199,29 +199,69 @@ describe("Markers", () => {
     });
 
     /** Renders into the same container, so calling it again is a re-render with fresh props. */
-    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, parent: Component, look?: { hideLabels?: boolean, isDarkTheme?: boolean, clustered?: boolean, placing?: boolean, opensNotes?: boolean, selectedNoteId?: string | null }) {
+    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, parent: Component, look?: { hideLabels?: boolean, isDarkTheme?: boolean, clustered?: boolean, placing?: boolean, opensNotes?: boolean, selectedNoteId?: string | null, styleLoaded?: boolean }) {
         return act(async () => {
             render(
                 <ParentComponent.Provider value={parent}>
                     <ParentMap.Provider value={map as never}>
-                        <Markers
-                            notes={notes}
-                            hideLabels={look?.hideLabels ?? false}
-                            isDarkTheme={look?.isDarkTheme ?? false}
-                            clustered={look?.clustered ?? false}
-                            placing={look?.placing ?? false}
-                            // What these tests are about, so on unless a case says otherwise. The geo
-                            // map itself passes false, a marker being opened into the detail pane
-                            // there instead (see index.tsx).
-                            opensNotes={look?.opensNotes ?? true}
-                            selectedNoteId={look?.selectedNoteId ?? null}
-                        />
+                        <MapStyleLoaded.Provider value={look?.styleLoaded ?? true}>
+                            <Markers
+                                notes={notes}
+                                hideLabels={look?.hideLabels ?? false}
+                                isDarkTheme={look?.isDarkTheme ?? false}
+                                clustered={look?.clustered ?? false}
+                                placing={look?.placing ?? false}
+                                // What these tests are about, so on unless a case says otherwise. The geo
+                                // map itself passes false, a marker being opened into the detail pane
+                                // there instead (see index.tsx).
+                                opensNotes={look?.opensNotes ?? true}
+                                selectedNoteId={look?.selectedNoteId ?? null}
+                            />
+                        </MapStyleLoaded.Provider>
                     </ParentMap.Provider>
                 </ParentComponent.Provider>,
                 container as HTMLElement
             );
         });
     }
+
+    it("puts the layer up when the style loaded before this component could listen for it", async () => {
+        // A raster basemap is handed to MapLibre as an object, which loads it one animation frame
+        // later; Preact runs this component's effects a frame and a macrotask after the map is
+        // built. `style.load` has therefore already fired, and fires only once per style. The map
+        // here answers `isStyleLoaded()` false as a real one does while its tiles are still
+        // arriving, so the context is the only thing left to go on (#11209).
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const map = fakeMap();
+        const parent = new Component();
+
+        await mount([ note ], map, parent);
+        await act(async () => { await settle(); });
+
+        expect(map.isStyleLoaded()).toBe(false);
+        expect(map.getLayer(MARKER_LAYER)).toBeTruthy();
+        expect(map.getSource(MARKER_SOURCE)).toBeTruthy();
+        expect(map.lastFeatures).toHaveLength(1);
+    });
+
+    it("waits for the style before putting the layer up", async () => {
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const map = fakeMap();
+        const parent = new Component();
+
+        await mount([ note ], map, parent, { styleLoaded: false });
+        await act(async () => { await settle(); });
+
+        expect(map.getLayer(MARKER_LAYER)).toBeFalsy();
+        expect(map.calls.addSource).toBe(0);
+
+        // The style loads, which the context reports rather than the event.
+        await mount([ note ], map, parent, { styleLoaded: true });
+        await act(async () => { await settle(); });
+
+        expect(map.getLayer(MARKER_LAYER)).toBeTruthy();
+        expect(map.lastFeatures).toHaveLength(1);
+    });
 
     it("redraws rather than rebuilds when a note changes", async () => {
         const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });

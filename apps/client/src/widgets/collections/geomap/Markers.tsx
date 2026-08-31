@@ -8,7 +8,7 @@ import { getReadableTextColor } from "../../../services/css_class_manager";
 import { renderIconImage } from "../../../services/icon_glyphs";
 import { useTriliumEvent } from "../../react/hooks";
 import { CLUSTER_LAYERS, CLUSTER_SOURCE_OPTIONS, installClusterLayers, UNCLUSTERED_ONLY, useClusterExpansion } from "./clusters";
-import { ParentMap } from "./map";
+import { MapStyleLoaded, ParentMap } from "./map";
 
 export { GEO_LOCATION_ATTRIBUTE as LOCATION_ATTRIBUTE } from "@triliumnext/commons";
 export const MARKER_LAYER = "points-layer";
@@ -145,10 +145,11 @@ interface MarkersProps {
 export default function Markers({ notes, hideLabels, isDarkTheme, clustered, placing, opensNotes, selectedNoteId }: MarkersProps) {
     const map = useContext(ParentMap);
     const version = useNoteChangeVersion(notes);
-    // Whether the style has finished loading at least once. Held outside the effects because either
-    // may run after the style has loaded, and one that does has no other way to learn that it did —
-    // `style.load` fires once per style and is long gone.
-    const styleLoaded = useRef(false);
+    // Whether there is a loaded style to add to. Read from the context rather than worked out here:
+    // a raster basemap is handed to MapLibre as an object, which loads it one animation frame later,
+    // and this component's effects run a frame and a macrotask after the map is built — so
+    // `style.load` has already fired by the time a listener could be attached (see MapStyleLoaded).
+    const styleLoaded = useContext(MapStyleLoaded);
     // The markers last built, kept where both effects can reach them: the layer has to be able to
     // fill itself again the moment it is rebuilt, without waiting on a fresh build.
     const markerData = useRef<Awaited<ReturnType<typeof buildMarkerData>>>();
@@ -177,7 +178,7 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
      */
     const install = useCallback(() => {
         const data = markerData.current;
-        if (!map || !data || !styleLoaded.current) return;
+        if (!map || !data || !styleLoaded) return;
         const { features, images } = data;
 
         for (const [ id, image ] of images) {
@@ -266,7 +267,7 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
             type: "FeatureCollection",
             features
         });
-    }, [ map, clustered ]);
+    }, [ map, clustered, styleLoaded ]);
 
     // The layer, which stands for as long as the map does. Neither editing a note nor changing the
     // look of a title comes through here: taking the layer down and putting it back is what made
@@ -274,11 +275,6 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
     // and the markers only returned once all of them had been built again.
     useEffect(() => {
         if (!map) return;
-
-        function onStyleLoad() {
-            styleLoaded.current = true;
-            install();
-        }
 
         // A style belongs to a map, so a map that has been removed has none — and asking a removed
         // map for a layer is not a no-op but a crash, since every such call goes through the style
@@ -292,24 +288,17 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
         }
         map.on("remove", onMapRemove);
 
-        // Listened for before the markers are built, not after. Building them is asynchronous, so
-        // nothing says whether it finishes before or after the style loads, and `style.load` is a
-        // one-shot event: a listener attached after it has fired is never called at all.
-        // `isStyleLoaded()` is no safety net either, since it answers for the tiles as much as for
-        // the style — on a map whose tiles are slow, or refused, it stays false long after the
-        // style itself is ready to be added to. Lose that toss with both and the markers are never
-        // added, which is what used to happen to a map big enough to be worth drawing.
-        map.on("style.load", onStyleLoad);
-        if (map.isStyleLoaded()) {
-            styleLoaded.current = true;
-        }
+        // Every later style load, which takes the source, the layers and the images with it: a style
+        // is a world of its own, and an image is not even part of one. Whether the *first* style has
+        // loaded is `styleLoaded`, which `install` reads.
+        map.on("style.load", install);
 
         // Whatever was last built goes straight back on, so a rebuilt layer is never empty while it
         // waits for a build it does not need.
         install();
 
         return () => {
-            map.off("style.load", onStyleLoad);
+            map.off("style.load", install);
             map.off("remove", onMapRemove);
             if (mapRemoved) return;
 
