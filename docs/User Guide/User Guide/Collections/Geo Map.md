@@ -40,6 +40,10 @@ By default the map will be empty and will show the entire world.
 
 The position on the map and the zoom are saved inside the map note and restored when visiting again the note.
 
+A map that has no position saved yet is framed around the markers it contains when you open it, so they are all in view without having to go looking for them. A map that contains no markers shows the whole world instead.
+
+In practice this applies to maps whose markers were added externally, by a script or through <a class="reference-link" href="../Advanced%20Usage/ETAPI%20(REST%20API).md">ETAPI (REST API)</a>. When you add markers yourself you have already moved the map to reach the place you are marking, and that movement saves a position.
+
 ## Searching the map
 
 The search bar at the top-left of the map searches in two places. It always searches the notes that are already on the map. It can also search for places online, but only when you ask it to.
@@ -92,7 +96,7 @@ A panel then opens with the place's full address and its coordinates: in the top
 
 ### Keeping a place as a marker
 
-Press _Add as marker_ in that panel to keep the place. A child note is created under the map. It takes the name of the place, and its `#geolocation` attribute is already set. The note opens beside the map, so you can edit it straight away. The temporary pin disappears, because the place is now a marker like any other.
+Press _Add as marker_ in that panel to keep the place. A child note is created under the map. It takes the name of the place, as well as the icon, which matches the kind of place it is. Its `#geolocation` attribute is already set. The note opens beside the map, so you can edit it straight away. The temporary pin disappears, because the place is now a marker like any other.
 
 The button is not offered on a map that cannot be edited, where the panel can still be read.
 

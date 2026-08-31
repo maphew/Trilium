@@ -7,20 +7,26 @@ import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import type LoadResults from "../../../services/load_results";
 import { isIMEComposing } from "../../../services/shortcuts";
+import type { ShortcutHintDefinition } from "../../../services/shortcut_hints";
 import toast from "../../../services/toast";
+import { isMobile } from "../../../services/utils";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import FormTextArea from "../../react/FormTextArea";
 import FormTextBox from "../../react/FormTextBox";
-import { useNoteLabelBoolean, useNoteLabelWithDefault, useTriliumEvent } from "../../react/hooks";
+import {
+    useContextualShortcutHints, useNoteLabelBoolean, useNoteLabelWithDefault, useTriliumEvent
+} from "../../react/hooks";
 import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
+import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import { ViewModeProps } from "../interface";
-import Api from "./api";
+import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
 import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition } from "./columns";
 import Column from "./column";
 import { ColumnMap, getBoardData } from "./data";
+import { useBoardKeyboard } from "./keyboard";
 
 export interface BoardViewData {
     columns?: BoardColumnData[];
@@ -28,6 +34,12 @@ export interface BoardViewData {
 
 export interface BoardColumnData {
     value: string;
+    /** The icon class shown before the title, absent until one is picked. */
+    icon?: string;
+    /** The CSS colour the column is tinted with, absent until one is picked. */
+    color?: string;
+    /** Whether the column is archived, absent while it is not. */
+    archived?: boolean;
 }
 
 interface CardDrag {
@@ -77,6 +89,8 @@ interface BoardDragState {
 // Both defaults are the honest identity value rather than a stand-in, which is what lets consumers
 // read these with a plain useContext(): no non-null assertion, and no guard for a provider that is
 // structurally always there. Nothing is being dragged, and the setters have nothing to set.
+/* v8 ignore next 8 -- the board always provides these, so nothing but a consumer mounted outside
+   it would ever call one; they exist so that consumers need no guard. */
 export const BoardActionsContext = createContext<BoardActions>({
     setBranchIdToEdit: () => undefined,
     setColumnNameToEdit: () => undefined,
@@ -92,6 +106,57 @@ export const BoardDragStateContext = createContext<BoardDragState>({
     dropPosition: null,
     dropTarget: null
 });
+
+/**
+ * What the board answers with when asked for contextual keyboard help. Every entry is a key the
+ * board handles itself (see `keyboard.ts` and the card and column handlers), none of them
+ * rebindable, so each is listed literally rather than through a registered action.
+ */
+const BOARD_HINTS: ShortcutHintDefinition = [
+    {
+        titleKey: "board_view.hints.navigation",
+        hints: [
+            { keys: [ "Up", "Down" ], labelKey: "board_view.hints.navigate_items" },
+            { keys: [ "Left", "Right" ], labelKey: "board_view.hints.navigate_columns" },
+            { keys: [ "Home", "End" ], labelKey: "board_view.hints.first_last_item" }
+        ]
+    },
+    {
+        titleKey: "board_view.hints.editing",
+        hints: [
+            { keys: [ "Enter", "Shift+Enter" ], labelKey: "board_view.hints.insert_item" },
+            {
+                keys: [ "Ctrl+Enter", "Ctrl+Shift+Enter" ],
+                labelKey: "board_view.hints.insert_column"
+            },
+            { keys: [ "Space" ], labelKey: "board_view.hints.open_item" },
+            { keys: [ "F2" ], labelKey: "board_view.hints.rename" },
+            { keys: [ "Delete" ], labelKey: "board_view.hints.remove_item" },
+            { keys: [ "Shift+Delete" ], labelKey: "board_view.hints.delete_item" },
+            { keys: [ "Delete" ], labelKey: "board_view.hints.remove_column" }
+        ]
+    },
+    {
+        titleKey: "board_view.hints.moving",
+        hints: [
+            { keys: [ "Ctrl+Up", "Ctrl+Down" ], labelKey: "board_view.hints.move_item" },
+            { keys: [ "Ctrl+Home", "Ctrl+End" ], labelKey: "board_view.hints.move_within" },
+            { keys: [ "Ctrl+Left", "Ctrl+Right" ], labelKey: "board_view.hints.move_across" },
+            {
+                keys: [ "Ctrl+Shift+Left", "Ctrl+Shift+Right" ],
+                labelKey: "board_view.hints.move_to_end_column"
+            },
+            {
+                keys: [ "Ctrl+Alt+Left", "Ctrl+Alt+Right" ],
+                labelKey: "board_view.hints.move_column"
+            },
+            {
+                keys: [ "Ctrl+Alt+Home", "Ctrl+Alt+End" ],
+                labelKey: "board_view.hints.move_column_to_edge"
+            }
+        ]
+    }
+];
 
 export default function BoardView({ note: parentNote, noteIds, viewConfig, saveConfig }: ViewModeProps<BoardViewData>) {
     const [ statusAttributeWithPrefix ] = useNoteLabelWithDefault(parentNote, "board:groupBy", DEFAULT_GROUP_BY);
@@ -109,11 +174,36 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ columnNameToEdit, setColumnNameToEdit ] = useState<string>();
     /** Bumped when the definition changes, since it is read off the note rather than held in state. */
     const [ definitionRevision, setDefinitionRevision ] = useState(0);
+    // A ref rather than state: `api` is rebuilt on every refresh, and the map has to outlive those
+    // instances to cover a rename (see BoardApi#retireColumn). Mutating it must not re-render.
+    const pendingRenamesRef = useRef<{ board: string, writes: PendingColumnWrites }>({
+        board: "",
+        writes: { renames: new Map(), claims: new Map(), inFlight: 0 }
+    });
+    /** Names each refresh, so one the board has moved on from is discarded rather than applied. */
+    const refreshSeqRef = useRef(0);
+
+    // A pending rename belongs to the board and the grouping it was made on, and `NoteList` renders
+    // the view unkeyed, so moving to another board reuses this instance. Looked up rather than made
+    // here, so that another view of the same board reads the same record; moving to another board
+    // takes up that board's own, leaving a write still in flight to undo into the one it recorded
+    // itself in. Done while rendering, so the `api` below is handed the map the refresh reads.
+    useContextualShortcutHints(BOARD_HINTS);
+    const boardIdentity = `${parentNote.noteId}|${statusAttributeWithPrefix}`;
+    if (pendingRenamesRef.current.board !== boardIdentity) {
+        pendingRenamesRef.current = {
+            board: boardIdentity,
+            writes: getPendingWrites(boardIdentity)
+        };
+        refreshSeqRef.current++;
+    }
     const statusDefinition = useMemo(
         () => getStatusDefinition(parentNote, statusAttributeWithPrefix),
         [ parentNote, statusAttributeWithPrefix, definitionRevision ]);
     const api = useMemo(() => {
-        return new Api(byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {}, saveConfig, setBranchIdToEdit, statusDefinition );
+        return new Api(
+            byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {},
+            saveConfig, setBranchIdToEdit, pendingRenamesRef.current.writes, statusDefinition);
     }, [ byColumn, columns, parentNote, statusAttributeWithPrefix, viewConfig, saveConfig, setBranchIdToEdit, statusDefinition ]);
     // Every member is one of useState's own setters, so this value is built once and never changes
     // identity -- a drag cannot reach anything that reads only this.
@@ -129,6 +219,21 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         setDraggedColumn, setDropPosition, setDropTarget
     ]);
 
+    // Read off the config rather than off `columns`, which the resolver hands back as names alone.
+    const storedColumns = useMemo(
+        () => new Map((viewConfig?.columns ?? []).map(stored => [ stored.value, stored ])),
+        [ viewConfig ]);
+
+    // Filtered here rather than in the resolution, which is what gets written back: dropped there,
+    // an archived column would be erased from the config and the definition instead of kept out of
+    // sight. `columnDropPosition` indexes this list, so a drag places columns as they are shown.
+    const shownColumns = useMemo(
+        () => (columns ?? []).filter(column =>
+            includeArchived || !storedColumns.get(column)?.archived),
+        [ columns, storedColumns, includeArchived ]);
+
+    const containerRef = useRef<HTMLDivElement>(null);
+
     const boardDragState = useMemo<BoardDragState>(() => ({
         branchIdToEdit,
         columnNameToEdit,
@@ -139,11 +244,32 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     }), [ branchIdToEdit, columnNameToEdit, draggedCard, draggedColumn, dropPosition, dropTarget ]);
 
     function refresh() {
-        getBoardData(parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived, statusDefinition?.options ?? [])
-            .then(({ byColumn, columns, newPersistedData, isInRelationMode }) => {
+        // `getBoardData` reads notes, so refreshes can resolve out of order and one issued for the
+        // board the user has left can arrive after the next board's. What it has to say is about
+        // sources no longer on screen, the pending renames it reports as settled included.
+        const refreshId = ++refreshSeqRef.current;
+
+        getBoardData(
+            parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived,
+            statusDefinition?.options ?? [], pendingRenamesRef.current.writes.renames)
+            .then(({ byColumn, columns, newPersistedData, isInRelationMode, settledRenames }) => {
+                if (refreshId !== refreshSeqRef.current) return;
+
+                for (const settled of settledRenames) {
+                    settleColumn(pendingRenamesRef.current.writes, settled);
+                }
+
                 setByColumn(byColumn);
                 setIsRelationMode(isInRelationMode);
                 setColumns(columns);
+
+                // A column a write is carrying has already been taken out of `columns`, and the
+                // two writes below would put that answer on disk before the notes have given it.
+                // Only while the write runs: its record can outlast it, and the board still has to
+                // bring the definition into line afterwards.
+                if (pendingRenamesRef.current.writes.inFlight) {
+                    return;
+                }
 
                 if (newPersistedData) {
                     viewConfig = { ...newPersistedData };
@@ -163,15 +289,34 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
 
     useEffect(refresh, [ parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition ]);
 
+    // The drag reports where the column landed among the ones on screen, which is not where it
+    // landed among them all once some are archived and hidden. Translated here so a reorder leaves
+    // every hidden column where it was rather than herding them to the end.
     const handleColumnDrop = useCallback((fromIndex: number, toIndex: number) => {
-        const newColumns = api.reorderColumn(fromIndex, toIndex);
+        const allColumns = columns ?? [];
+        const dropBefore = shownColumns[toIndex];
+        const newColumns = api.reorderColumn(
+            allColumns.indexOf(shownColumns[fromIndex]),
+            dropBefore === undefined ? allColumns.length : allColumns.indexOf(dropBefore));
+
         if (newColumns) {
             setColumns(newColumns);
         }
         setDraggedColumn(null);
         setDraggedCard(null);
         setColumnDropPosition(null);
-    }, [api]);
+    }, [ api, columns, shownColumns ]);
+
+    const { onKeyDown: handleKeyDown, focusColumn, focusCard } = useBoardKeyboard({
+        containerRef,
+        columns: shownColumns,
+        byColumn,
+        api,
+        moveColumn: handleColumnDrop,
+        insertColumn: useCallback(async (relativeTo: string, direction: "before" | "after") => {
+            setColumnNameToEdit(await api.insertColumn(relativeTo, direction));
+        }, [ api ])
+    });
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         // The column list is read off the definition, which may be edited from the attribute panel,
@@ -218,12 +363,14 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             <BoardActionsContext.Provider value={boardActions}>
                 <BoardDragStateContext.Provider value={boardDragState}>
                     {byColumn && columns && <div
+                        ref={containerRef}
                         className="board-view-container"
+                        onKeyDown={handleKeyDown}
                         onDragOver={handleColumnDragOver}
                         onDrop={handleContainerDrop}
                         onWheel={onWheelHorizontalScroll}
                     >
-                        {columns.map((column, index) => (
+                        {shownColumns.map((column, index) => (
                             <>
                                 {columnDropPosition === index && (
                                     <div className="column-drop-placeholder show" />
@@ -233,7 +380,14 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     api={api}
                                     parentNote={parentNote}
                                     column={column}
+                                    icon={storedColumns.get(column)?.icon}
+                                    color={storedColumns.get(column)?.color}
+                                    archived={storedColumns.get(column)?.archived}
                                     columnIndex={index}
+                                    columns={shownColumns}
+                                    onMoveColumn={handleColumnDrop}
+                                    onFocusColumn={focusColumn}
+                                    onFocusCard={focusCard}
                                     columnItems={byColumn.get(column)}
                                     isDraggingColumn={draggedColumn?.column === column}
                                     onColumnHover={handleColumnHover}
@@ -241,11 +395,17 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                 />
                             </>
                         ))}
-                        {columnDropPosition === columns?.length && draggedColumn && (
+                        {columnDropPosition === shownColumns.length && draggedColumn && (
                             <div className="column-drop-placeholder show" />
                         )}
 
                         <AddNewColumn api={api} isInRelationMode={isInRelationMode} />
+                        {!isMobile() && (
+                            <ShortcutHintButton
+                                className="board-shortcut-hint-button"
+                                placement="bottom-end"
+                            />
+                        )}
                     </div>}
                 </BoardDragStateContext.Provider>
             </BoardActionsContext.Provider>
@@ -332,13 +492,21 @@ function AddNewColumn({ api, isInRelationMode }: { api: BoardApi, isInRelationMo
     );
 }
 
-export function TitleEditor({ currentValue, placeholder, save, dismiss, mode, isNewItem }: {
+export function TitleEditor({
+    currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true
+}: {
     currentValue?: string;
     placeholder?: string;
     save: (newValue: string) => void | Promise<void>;
     dismiss: () => void;
     isNewItem?: boolean;
     mode?: "normal" | "multiline" | "relation";
+    /**
+     * Whether opening the editor selects what is already in it, which is what a rename wants. An
+     * editor opened part-typed puts the caret after the text instead, so the next key carries on
+     * rather than replacing it.
+     */
+    selectOnFocus?: boolean;
 }) {
     const inputRef = useRef<any>(null);
     const focusElRef = useRef<Element>(null);
@@ -348,7 +516,13 @@ export function TitleEditor({ currentValue, placeholder, save, dismiss, mode, is
     useEffect(() => {
         focusElRef.current = document.activeElement !== document.body ? document.activeElement : null;
         inputRef.current?.focus();
-        inputRef.current?.select();
+
+        if (selectOnFocus) {
+            inputRef.current?.select();
+        } else {
+            const end = inputRef.current?.value.length ?? 0;
+            inputRef.current?.setSelectionRange(end, end);
+        }
     }, [ inputRef ]);
 
     useEffect(() => {
@@ -379,7 +553,13 @@ export function TitleEditor({ currentValue, placeholder, save, dismiss, mode, is
 
     const onBlur = (newValue: string) => {
         if (!shouldDismiss.current && newValue.trim() && (newValue !== currentValue || isNewItem)) {
-            save(newValue);
+            // The editor is closing either way, and what a save writes has already been put back by
+            // whatever could not write it; all that is left is to say so rather than to reject
+            // unhandled, which is what a save reaching nobody used to do.
+            Promise.resolve(save(newValue)).catch((e) => {
+                console.error("Failed to save what the board editor was given:", e);
+                toast.showError(t("board_view.save-error"));
+            });
             dismissOnNextRefreshRef.current = true;
         } else {
             dismiss();

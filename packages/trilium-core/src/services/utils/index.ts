@@ -1,3 +1,5 @@
+import { isFontMimeType } from "@triliumnext/commons/src/lib/font_mimes.js";
+
 import { getCrypto } from "../encryption/crypto";
 import { getPlatform } from "../platform";
 import { sanitizeFileName } from "../sanitizer";
@@ -222,6 +224,42 @@ export function toMap<T extends Record<string, any>>(list: T[], key: keyof T) {
 export const escapeHtml = escape;
 
 /**
+ * Escapes `value` for use inside a double-quoted CSS string, one hex escape per character.
+ * Covers the markup characters alongside the quote and the backslash, because the HTML
+ * parser ends a `<style>` element at `</style` no matter what CSS quoting says: an
+ * unescaped value carrying that sequence closes the element, and everything after it in
+ * the response is parsed as markup rather than as stylesheet content.
+ */
+export function escapeCssString(value: string): string {
+    return value.replace(/["'\\<>&\u0000-\u001F\u007F]/g, (char) => `\\${char.charCodeAt(0).toString(16)} `);
+}
+
+/**
+ * Decodes the CSS escape sequences (`\30 `, `\f015`) an icon pack manifest carries when its
+ * glyphs were copied out of a stylesheet instead of written as characters. Callers pass the
+ * result to `escapeCssString()`, which re-escapes a decoded `<` or `"` rather than emitting
+ * it raw, so decoding widens the accepted input without widening the output. A backslash
+ * that starts no hex sequence stays literal text. Code points CSS resolves to U+FFFD — zero,
+ * surrogates, and anything past the Unicode range — resolve to it here too.
+ */
+export function decodeCssEscapes(value: string): string {
+    return value.replace(/\\([0-9a-fA-F]{1,6})(?:\r\n|[ \t\n\f\r])?/g, (_, hex: string) => {
+        const codePoint = parseInt(hex, 16);
+        const isSurrogate = codePoint >= 0xD800 && codePoint <= 0xDFFF;
+        return (codePoint === 0 || codePoint > 0x10FFFF || isSurrogate) ? "\uFFFD" : String.fromCodePoint(codePoint);
+    });
+}
+
+/**
+ * Escapes the `</style` sequences in `stylesheet` so it can be embedded in an inline
+ * `<style>` element without ending it early. `\3c ` is the CSS escape for `<`, so a
+ * sequence inside a string keeps its value; generated CSS carries none anywhere else.
+ */
+export function escapeInlineStylesheet(stylesheet: string): string {
+    return stylesheet.replace(/<(?=\/style)/gi, "\\3c ");
+}
+
+/**
  * Decodes the five HTML entities (and their numeric short forms) that the
  * former `unescape` npm dependency handled in its default mode: `&`, `<`, `>`,
  * `"` and `'`. Entities outside this set (other numeric/hex codes, named
@@ -274,7 +312,9 @@ export function escapeRegExp(str: string) {
 export function removeFileExtension(filePath: string, mime?: string) {
     const extension = extname(filePath).toLowerCase();
 
-    if (mime?.startsWith("video/") || mime?.startsWith("audio/")) {
+    // Dropped by media type rather than by extension: what these carry after the dot is the
+    // format the file is in, which the note's own mime already records.
+    if (mime?.startsWith("video/") || mime?.startsWith("audio/") || isFontMimeType(mime)) {
         return filePath.substring(0, filePath.length - extension.length);
     }
 

@@ -47,6 +47,12 @@ export interface MenuCommandItem<T> {
      * If not set, no icon is displayed and the item will appear shifted slightly to the left if there are other items with icons. To avoid this, use `bx bx-empty`.
      */
     uiIcon?: string;
+    /**
+     * Classes tinting {@link uiIcon} with the colour of whatever the item stands for, as
+     * `cssClassManager.createClassForColor()` and `FNote#getColorClass()` return them. Only the
+     * icon is tinted, the label staying readable against the highlight.
+     */
+    iconColorClass?: string;
     badges?: MenuItemBadge[];
     templateNoteId?: string;
     enabled?: boolean;
@@ -56,6 +62,15 @@ export interface MenuCommandItem<T> {
     keyboardShortcut?: KeyboardActionNames;
     spellingSuggestion?: string;
     checked?: boolean;
+    /** Classes put on the item itself, for a menu styling one of its entries differently. */
+    className?: string;
+    /**
+     * An icon shown at the trailing edge of the item, where a shortcut would go.
+     *
+     * Unlike {@link checked}, which takes the place of {@link uiIcon}, this leaves the item's own
+     * icon standing — for a list where that icon is what tells one entry from another.
+     */
+    trailingIcon?: string;
     columns?: number;
 }
 
@@ -292,6 +307,9 @@ class ContextMenu {
             const icon = (item.checked ? "bx bx-check" : item.uiIcon);
             if (icon) {
                 $icon.addClass([icon, "tn-icon"]);
+                if (item.iconColorClass) {
+                    $icon.addClass(item.iconColorClass);
+                }
             } else {
                 $icon.append("&nbsp;");
             }
@@ -336,8 +354,14 @@ class ContextMenu {
             $link.append($("<kbd>").text(item.shortcut));
         }
 
+        if ("trailingIcon" in item && item.trailingIcon) {
+            $link.append($("<span>")
+                .addClass([ item.trailingIcon, "tn-icon", "menu-trailing-icon" ]));
+        }
+
         const $item = $("<li>")
             .addClass("dropdown-item")
+            .addClass("className" in item ? item.className ?? "" : "")
             .append($link)
             .on("contextmenu", (e) => false)
             // important to use mousedown instead of click since the former does not change focus

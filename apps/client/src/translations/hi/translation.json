@@ -1171,7 +1171,6 @@
     "note_tree_font": "नोट ट्री फ़ॉन्ट",
     "note_detail_font": "नोट डिटेल फ़ॉन्ट",
     "monospace_font": "मोनोस्पेस (कोड) फ़ॉन्ट",
-    "not_all_fonts_available": "हो सकता है कि लिस्ट में दिए गए सभी फ़ॉन्ट्स आपके सिस्टम पर न हों।",
     "generic-fonts": "सामान्य फ़ॉन्ट्स",
     "sans-serif-system-fonts": "Sans-serif सिस्टम फ़ॉन्ट्स",
     "serif-system-fonts": "Serif सिस्टम फ़ॉन्ट्स",
@@ -2131,7 +2130,6 @@
     "remove-from-board": "बोर्ड से हटाएं",
     "archive-note": "नोट आर्काइव करें",
     "unarchive-note": "नोट आर्काइव से निकालें",
-    "move-to": "इसमें ले जाएं",
     "insert-above": "ऊपर जोड़ें",
     "insert-below": "नीचे जोड़ें",
     "delete-column": "कॉलम डिलीट करें",
@@ -2141,7 +2139,6 @@
     "add-column": "कॉलम जोड़ें",
     "add-column-placeholder": "कॉलम का नाम लिखें..।",
     "edit-note-title": "टाइटल बदलने के लिए क्लिक करें",
-    "edit-column-title": "कॉलम का नाम बदलने के लिए क्लिक करें",
     "column-already-exists": "यह कॉलम बोर्ड पर पहले से है।"
   },
   "presentation_view": {

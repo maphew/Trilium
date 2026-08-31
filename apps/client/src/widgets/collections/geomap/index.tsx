@@ -24,7 +24,7 @@ import Map, { DEFAULT_ZOOM, GeoMouseEvent } from "./map";
 import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
 import MapToolbar from "./MapToolbar";
 import type { GeoSearchResult } from "./geocoding";
-import Markers, { DEFAULT_MARKER_COLOR, LOCATION_ATTRIBUTE } from "./Markers";
+import Markers, { DEFAULT_MARKER_COLOR, FitToNotes, LOCATION_ATTRIBUTE } from "./Markers";
 import PlaceMarker from "./PlaceMarker";
 import PlacePanel from "./PlacePanel";
 import Pois from "./Pois";
@@ -33,7 +33,15 @@ import { NOTE_ZOOM, type SearchResult } from "./results";
 import SearchBox from "./SearchBox";
 import Tooltips from "./Tooltips";
 
-const DEFAULT_COORDINATES: [number, number] = [3.878638227135724, 446.6630455551659];
+/**
+ * Where a map stands when there is nothing to stand it on: no view has been saved and no note it
+ * holds has a place. Latitude first, as {@link MapData} holds a centre.
+ *
+ * A little north of the equator on the prime meridian, which at {@link DEFAULT_ZOOM} is most of the
+ * inhabited world. A map that holds located notes never opens here — it frames them instead (see
+ * {@link FitToNotes}).
+ */
+const DEFAULT_COORDINATES: [number, number] = [20, 0];
 
 /**
  * The instruction toast that says what the map is waiting for. One id for both kinds of placement:
@@ -395,9 +403,14 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 />
                 <Tooltips selectedNoteId={selection?.noteId ?? null} paneMaximized={paneMaximized} />
                 {/* The preview under the pointer while a click is armed to mean a place — the note
-                    being moved wearing its own pin, a note to be created wearing the pin it will be
-                    given (see api.ts). */}
-                {placement && <GhostPin note={placement.mode === "move" ? notes.find((n) => n.noteId === placement.noteId) : undefined} />}
+                    being moved wearing its own pin, a note to be created wearing the one the map
+                    would give it (see GhostPin). */}
+                {placement && <GhostPin
+                    parentNote={note}
+                    note={placement.mode === "move"
+                        ? notes.find((n) => n.noteId === placement.noteId)
+                        : undefined}
+                />}
                 <DetailPane
                     notes={notes} parentNote={note} placing={!!placement} isReadOnly={isReadOnly}
                     selection={selection} onSelect={selectNote} onRelocate={startMarkerRelocation}
@@ -415,6 +428,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                     raising the quick editor over the pane that had just opened behind it. */}
                 <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} placing={!!placement} opensNotes={false} selectedNoteId={selection?.noteId ?? null} />
                 {notes.map(note => <NoteGpxTrackWrapper note={note} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} />)}
+                <FitToNotes notes={notes} enabled={!viewConfig?.view} />
             </Map>}
         </div>
     );

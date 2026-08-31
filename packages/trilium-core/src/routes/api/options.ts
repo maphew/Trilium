@@ -1,6 +1,6 @@
 
 
-import type { OptionNames } from "@triliumnext/commons";
+import type { OptionNames, UserFont } from "@triliumnext/commons";
 import type { Request } from "express";
 
 import attributeService from "../../services/attributes.js";
@@ -282,6 +282,27 @@ function getUserThemes() {
     return ret;
 }
 
+function getUserFonts() {
+    const notes = searchService.searchNotes("#customFont", { ignoreHoistedNote: true });
+    const ret: UserFont[] = [];
+
+    for (const note of notes) {
+        // A font whose bytes cannot be read — a protected note outside a protected session — has
+        // nothing to offer the picker.
+        if (!note.isContentAvailable()) {
+            continue;
+        }
+
+        ret.push({
+            noteId: note.noteId,
+            title: note.getTitleOrProtected(),
+            blobId: note.blobId ?? ""
+        });
+    }
+
+    return ret;
+}
+
 /** Check if an option can be read by the client (GET responses). */
 function isReadable(name: string) {
     return (ALLOWED_OPTIONS as Set<string>).has(name)
@@ -300,5 +321,6 @@ export default {
     getOptions,
     updateOption,
     updateOptions,
-    getUserThemes
+    getUserThemes,
+    getUserFonts
 };

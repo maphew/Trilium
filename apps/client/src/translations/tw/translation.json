@@ -1201,7 +1201,6 @@
     "note_tree_font": "筆記樹字型",
     "note_detail_font": "文件字型",
     "monospace_font": "等寬字型",
-    "not_all_fonts_available": "並非所有列出的字型都在您的系統上可用",
     "generic-fonts": "通用字型",
     "sans-serif-system-fonts": "無襯線系統字型",
     "serif-system-fonts": "襯線系統字型",
@@ -2105,7 +2104,6 @@
   },
   "board_view": {
     "delete-note": "刪除筆記…",
-    "move-to": "移動至",
     "insert-above": "在上方插入",
     "insert-below": "在下方插入",
     "delete-column": "刪除行",
@@ -2118,7 +2116,6 @@
     "new-item-placeholder": "輸入筆記標題…",
     "add-column-placeholder": "輸入行名…",
     "edit-note-title": "點擊以編輯筆記標題",
-    "edit-column-title": "點擊以編輯行標題",
     "column-already-exists": "此列已在看板上。"
   },
   "command_palette": {

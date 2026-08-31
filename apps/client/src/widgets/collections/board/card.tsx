@@ -26,7 +26,8 @@ function Card({
     column,
     index,
     isDragging,
-    isEditing
+    isEditing,
+    onFocusCard
 }: {
     api: BoardApi,
     note: FNote,
@@ -38,7 +39,9 @@ function Card({
      * Passed down rather than derived here from the drag state's `branchIdToEdit`, so that a card
      * subscribes only to the board's stable context and a drag leaves it off the render path.
      */
-    isEditing: boolean
+    isEditing: boolean,
+    /** Puts focus back on this card once a change of column has drawn it under another one. */
+    onFocusCard: (noteId: string) => void
 }) {
     const { setBranchIdToEdit, setDraggedCard } = useContext(BoardActionsContext);
     const colorClass = note.getColorClass() || '';
@@ -70,10 +73,14 @@ function Card({
     }, [setDraggedCard]);
 
     const handleContextMenu = useCallback((e: ContextMenuEvent) => {
-        openNoteContextMenu(api, e, note, branch.branchId, column);
-    }, [ api, note, branch, column ]);
+        openNoteContextMenu(api, e, note, branch.branchId, column, onFocusCard);
+    }, [ api, note, branch, column, onFocusCard ]);
 
-    const handleOpen = useCallback(() => {
+    const handleOpen = useCallback((e: MouseEvent) => {
+        // A double click is one gesture, and its second click would open the note over itself: the
+        // popup already standing is taken as the one to stack on, and closing that leaves neither.
+        if (e.detail > 1) return;
+
         api.openNote(note.noteId);
     }, [ api, note ]);
 
@@ -83,12 +90,15 @@ function Card({
     }, [ setBranchIdToEdit, branch ]);
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
-        if (e.key === "Enter") {
-            api.openNote(note.noteId);
+        if (e.key === "Enter" && !e.ctrlKey) {
+            // Enter adds a card the way it adds a row in a spreadsheet, and Space is what opens
+            // one. Shift adds it above instead of below.
+            e.preventDefault();
+            api.insertRowAtPosition(column, branch.branchId, e.shiftKey ? "before" : "after");
         } else if (e.key === "F2") {
             setBranchIdToEdit(branch.branchId);
         }
-    }, [ setBranchIdToEdit, note ]);
+    }, [ api, column, branch, setBranchIdToEdit ]);
 
     useEffect(() => {
         editorRef.current?.focus();
@@ -105,6 +115,7 @@ function Card({
     return (
         <div
             className={`board-note ${colorClass} ${isDragging ? 'dragging' : ''} ${isEditing ? "editing" : ""} ${isArchived ? "archived" : ""}`}
+            data-note-id={note.noteId}
             draggable
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}

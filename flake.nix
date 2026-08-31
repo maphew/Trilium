@@ -31,26 +31,46 @@
         # with an attribute error instead of falling through to the pinned binary below.
         electronFromNixpkgs = pkgs."electron_${lib.versions.major electronVersion}" or null;
 
-        # nixpkgs lags behind the Electron version pinned in apps/desktop/package.json
-        # (electron_43 is still 43.1.0), and its source build cannot be bumped without
+        # nixpkgs lags behind the Electron version pinned in apps/desktop/package.json —
+        # often by a whole major — and its source build cannot be bumped without
         # upstream's Chromium dependency hashes. Build the exact pinned version from
         # Electron's official binary release instead, reusing the nixpkgs builder.
         #
         # Don't refresh these by hand — `pnpm chore:update-flake-electron` rewrites both
         # bindings from the release's SHASUMS256.txt, and the update-nix-flake workflow
         # opens a PR whenever apps/desktop/package.json moves ahead of the pin.
-        pinnedElectronVersion = "43.4.1";
+        pinnedElectronVersion = "44.0.0";
         pinnedElectronHashes = {
-          x86_64-linux = "79d4efd69f0ccf1fc11891ea5075329c7b3faddad79a08d9fb395bbd63169acf";
-          armv7l-linux = "2875860d6b7cb2e8a0142fb87f9f7be50a382a87a24bf15a0861f20ba53dc400";
-          aarch64-linux = "9e2b5cfbd387e138f06c7bb19b399bb3ee487dbb4110215df097d94e80431892";
-          x86_64-darwin = "4fd0f1826660a94216a0633600a3c3e2cd87ee9e4bc6f0e1edf717ad8e30c10b";
-          aarch64-darwin = "fe3cac8cbfd9ba1739fac6c69166cf30848741f93cbe251d800ae6ef7cebb64b";
-          headers = "0q7l48q2l4srmkw67l1bhk3qbybnqamcr5z8yrsnbxk8aazqjshv";
+          x86_64-linux = "d65286d812719f2b4c1a1b806a80f288a1058c89c7b058dae1e03ab25e499446";
+          aarch64-linux = "74b6f18bc29c0d52cf8e963c45d476800419097c6f3d53b27c5df335207e52bb";
+          aarch64-darwin = "076d79742986e1b100b69ebecc691cb07368045e54c9087cef631b8622b76a80";
+          headers = "0jz1ybp3y9dmv1v39jixf8nnhypi18kjibr763wz44m1adx7q9x3";
         };
         mkElectronBin = pkgs.callPackage (
           pkgs.path + "/pkgs/development/tools/electron/binary/generic.nix"
         ) { };
+
+        # The nixpkgs Linux builder rewrites the rpath of Electron's ANGLE libraries with
+        # an unguarded `patchelf ... lib*GL*`. Electron 44 links ANGLE into the main binary
+        # and ships no libEGL.so/libGLESv2.so, so the glob expands to nothing and patchelf
+        # exits with "missing filename". Let that one command tolerate an empty match; it
+        # still patches the libraries on releases that do ship them.
+        angleLibGlob = "$out/libexec/electron/lib*GL*";
+        tolerateMissingAngleLibs =
+          drv:
+          drv.overrideAttrs (prev: {
+            postFixup = lib.throwIf (!lib.hasInfix angleLibGlob prev.postFixup) ''
+              The nixpkgs Electron builder no longer runs patchelf over ${angleLibGlob};
+              drop tolerateMissingAngleLibs from flake.nix.
+            '' (builtins.replaceStrings [ angleLibGlob ] [ "${angleLibGlob} || true" ] prev.postFixup);
+          });
+
+        # Guarded on Linux because only that branch of the builder defines postFixup.
+        pinnedElectron =
+          let
+            bin = mkElectronBin pinnedElectronVersion pinnedElectronHashes;
+          in
+          if stdenv.hostPlatform.isLinux then tolerateMissingAngleLibs bin else bin;
 
         electron =
           if electronFromNixpkgs != null && electronFromNixpkgs.version == electronVersion then
@@ -59,7 +79,7 @@
             lib.throwIf (pinnedElectronVersion != electronVersion) ''
               flake.nix pins Electron ${pinnedElectronVersion}, but apps/desktop/package.json wants ${electronVersion}.
               Refresh pinnedElectronVersion/pinnedElectronHashes in flake.nix, or drop the override if nixpkgs ships ${electronVersion}.
-            '' (mkElectronBin pinnedElectronVersion pinnedElectronHashes);
+            '' pinnedElectron;
 
         nodejs = pkgs.nodejs_24;
         # pnpm creates an overly long PATH env variable for child processes.
@@ -100,7 +120,7 @@
           makeBinaryWrapper
           makeDesktopItem
           makeShellWrapper
-removeReferencesTo
+          removeReferencesTo
           stdenv
           wrapGAppsHook3
           xcodebuild
@@ -196,7 +216,7 @@ removeReferencesTo
 
             extraNativeBuildInputs =
               [
-nodejs.python
+                nodejs.python
                 removeReferencesTo
               ]
               ++ lib.optionals (app == "desktop" || app == "edit-docs") [
@@ -293,7 +313,7 @@ nodejs.python
               --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --enable-wayland-ime=true}}" \
               --set-default ELECTRON_IS_DEV 0 \
               --set TRILIUM_RESOURCE_DIR $out/opt/trilium \
-              --add-flags $out/opt/trilium/main.cjs
+              --add-flags $out/opt/trilium/main.mjs
           '';
         };
 
@@ -319,7 +339,7 @@ nodejs.python
             mkdir -p $out/{bin,opt/trilium-server}
             cp --archive apps/server/dist/* $out/opt/trilium-server
             makeWrapper ${lib.getExe nodejs} $out/bin/trilium-server \
-              --add-flags $out/opt/trilium-server/main.cjs
+              --add-flags $out/opt/trilium-server/main.mjs
           '';
         };
 

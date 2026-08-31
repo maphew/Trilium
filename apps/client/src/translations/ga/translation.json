@@ -1441,7 +1441,6 @@
     "note_tree_font": "Téacs crann nótaí",
     "note_detail_font": "Téacs an doiciméid",
     "monospace_font": "Téacs aonspáis",
-    "not_all_fonts_available": "B’fhéidir nach bhfuil na clónna uile atá liostaithe ar fáil ar do chóras",
     "generic-fonts": "Clónna ginearálta",
     "sans-serif-system-fonts": "Clónna córais Sans-serif",
     "serif-system-fonts": "Clónna córais Serif",
@@ -2371,7 +2370,21 @@
     "marker-color": "Dath marcóra",
     "copy-coordinates": "Cóipeáil comhordanáidí",
     "expand-details": "Leathnaigh an nóta chun an léarscáil a líonadh",
-    "restore-details": "Cuir an nóta ar ais in aice leis an léarscáil"
+    "restore-details": "Cuir an nóta ar ais in aice leis an léarscáil",
+    "search": "Cuardaigh",
+    "search-placeholder": "Cuardaigh áit",
+    "search-online": "Cuardaigh ar líne le haghaidh \"{{- query}}\"",
+    "searching-online": "Ag cuardach ar líne…",
+    "no-places-found": "Níor aimsíodh aon áiteanna",
+    "search-failed": "Níorbh fhéidir áiteanna a chuardach",
+    "results-nearby": "In aice láimhe",
+    "results-far": "I bhfad i gcéin",
+    "add-place-as-marker": "Cuir leis mar mharcóir",
+    "previous-result": "Toradh roimhe seo",
+    "next-result": "An chéad toradh eile",
+    "result-position": "Toradh {{index}} de {{total}}, cliceáil chun filleadh air",
+    "results-on-map": "Ar an léarscáil seo",
+    "go-to-coordinates": "Téigh go dtí {{- coordinates}}"
   },
   "geo-map-context": {
     "open-location": "Oscail suíomh",
@@ -2508,7 +2521,8 @@
     "vector_dark": "Veicteoir (Dorcha)",
     "show-scale": "Taispeáin scála",
     "show-labels": "Taispeáin ainmneacha marcóirí",
-    "cluster-markers": "Grúpáil marcóirí in aice láimhe"
+    "cluster-markers": "Grúpáil marcóirí in aice láimhe",
+    "presentation-theme": "Téama"
   },
   "table_context_menu": {
     "delete_row": "Scrios an tsraith"
@@ -2518,7 +2532,6 @@
     "remove-from-board": "Bain den bhord",
     "archive-note": "Nóta cartlainne",
     "unarchive-note": "Nóta díchartlannaithe",
-    "move-to": "Bog go",
     "insert-above": "Cuir isteach thuas",
     "insert-below": "Cuir isteach thíos",
     "delete-column": "Scrios colún",
@@ -2528,7 +2541,6 @@
     "add-column": "Cuir Colún leis",
     "add-column-placeholder": "Cuir isteach ainm an cholúin...",
     "edit-note-title": "Cliceáil chun teideal an nóta a chur in eagar",
-    "edit-column-title": "Cliceáil chun teideal an cholúin a chur in eagar",
     "column-already-exists": "Tá an colún seo ann cheana féin ar an mbord.",
     "column-definition-save-error": "Sábháladh na colúin ar an mbord, ach níorbh fhéidir iad a shábháil san tréith stádais.",
     "status-alias": "Stádas"

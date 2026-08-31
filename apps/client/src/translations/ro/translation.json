@@ -868,7 +868,6 @@
     "fonts": "Fonturi",
     "main_font": "Fontul principal",
     "monospace_font": "Fontul monospace (pentru cod)",
-    "not_all_fonts_available": "Nu toate fonturile listate aici pot fi disponibile pe acest sistem.",
     "note_detail_font": "Fontul pentru detaliile notițelor",
     "note_tree_font": "Fontul arborelui de notițe",
     "size": "Mărime",
@@ -2451,7 +2450,6 @@
   },
   "board_view": {
     "delete-note": "Șterge notița...",
-    "move-to": "Mută la",
     "insert-above": "Inserează deasupra",
     "insert-below": "Inserează dedesubt",
     "delete-column": "Șterge coloana",
@@ -2464,7 +2462,6 @@
     "new-item-placeholder": "Introduceți titlul notiței...",
     "add-column-placeholder": "Introduceți denumirea coloanei...",
     "edit-note-title": "Clic pentru a edita titlul notiței",
-    "edit-column-title": "Clic pentru a edita titlul coloanei",
     "column-already-exists": "Această coloană deja există.",
     "column-definition-save-error": "Coloanele au fost salvate pe tablă, dar nu au putut fi salvate în atributul de stare.",
     "status-alias": "Stare"

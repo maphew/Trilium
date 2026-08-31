@@ -203,6 +203,7 @@ function IconPickerModalButton({ icon, title, className, disabled, onSelect, onR
                     show={modalShown} onHidden={() => setModalShown(false)}
                     className="icon-switcher note-icon-widget"
                     scrollable
+                    stackable
                 >
                     {/* As many icons as the screen has room for, rather than the twelve a menu is
                         built for (see the CSS, which gives the grid the rest of the screen). */}

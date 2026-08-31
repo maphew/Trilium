@@ -2,13 +2,13 @@
 
 @font-face {
     font-family: Montserrat;
-    src: url(../fonts/Montserrat-Light.ttf);
+    src: url(../fonts/Montserrat-Light.woff2) format("woff2");
     font-weight: normal;
 }
 
 @font-face {
     font-family: Montserrat;
-    src: url(../fonts/Montserrat-SemiBold.ttf);
+    src: url(../fonts/Montserrat-SemiBold.woff2) format("woff2");
     font-weight: bold;
 }
 
@@ -548,6 +548,7 @@ body.mobile .dropdown .dropdown-submenu {
 }
 
 .dropdown-item span.keyboard-shortcut,
+.dropdown-item span.menu-trailing-icon,
 .dropdown-item *:not(.keyboard-shortcut) > kbd {
     flex-grow: 1;
     text-align: end;
@@ -591,6 +592,11 @@ body.mobile .dropdown .dropdown-submenu {
 
 .dropdown-item .destructive-action-icon {
     color: var(--dropdown-item-icon-destructive-color);
+}
+
+.dropdown-item .tn-icon.use-note-color {
+    --menu-item-icon-color: var(--custom-color);
+    color: var(--custom-color, inherit);
 }
 
 .dropdown-item > span:not([class]) {

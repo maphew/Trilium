@@ -290,12 +290,19 @@ describe("isPermissionAllowed", () => {
         expect(isPermissionAllowed("app", "clipboard-sanitized-write")).toBe(true);
         expect(isPermissionAllowed("app", "fullscreen")).toBe(true);
         expect(isPermissionAllowed("app", "notifications")).toBe(true);
+        // The Excalidraw canvas opens and saves files through the File System
+        // Access API instead of `electronApi`.
+        expect(isPermissionAllowed("app", "fileSystem")).toBe(true);
+        // Lets the appearance settings list the fonts installed on this device.
+        expect(isPermissionAllowed("app", "local-fonts")).toBe(true);
 
         // Guest session: only fullscreen (embedded video players). Remote
         // pages must not show OS notifications appearing to come from Trilium.
         expect(isPermissionAllowed("guest", "fullscreen")).toBe(true);
         expect(isPermissionAllowed("guest", "clipboard-sanitized-write")).toBe(false);
         expect(isPermissionAllowed("guest", "notifications")).toBe(false);
+        expect(isPermissionAllowed("guest", "fileSystem")).toBe(false);
+        expect(isPermissionAllowed("guest", "local-fonts")).toBe(false);
 
         // Everything else is denied everywhere.
         for (const permission of ["media", "geolocation", "midi", "hid", "serial", "usb", "pointerLock", "clipboard-read", "openExternal"]) {
@@ -310,10 +317,14 @@ describe("isPermissionAllowedForOrigin", () => {
         // The app shell itself keeps its grants.
         expect(isPermissionAllowedForOrigin("app", "notifications", "trilium-app://app")).toBe(true);
         expect(isPermissionAllowedForOrigin("app", "clipboard-sanitized-write", "trilium-app://app/some/path")).toBe(true);
+        expect(isPermissionAllowedForOrigin("app", "fileSystem", "trilium-app://app")).toBe(true);
 
         // A remote <iframe> sharing the default session does not.
         expect(isPermissionAllowedForOrigin("app", "notifications", "https://www.youtube-nocookie.com/embed/x")).toBe(false);
         expect(isPermissionAllowedForOrigin("app", "clipboard-sanitized-write", "https://evil.example")).toBe(false);
+        expect(isPermissionAllowedForOrigin("app", "fileSystem", "https://evil.example")).toBe(false);
+        // The installed font list is a fingerprinting surface, so an embed does not get to read it.
+        expect(isPermissionAllowedForOrigin("app", "local-fonts", "https://evil.example")).toBe(false);
         // Another host under our own scheme is not the app shell.
         expect(isPermissionAllowedForOrigin("app", "notifications", "trilium-app://evil")).toBe(false);
         // A missing / unparseable origin is treated as untrusted.
