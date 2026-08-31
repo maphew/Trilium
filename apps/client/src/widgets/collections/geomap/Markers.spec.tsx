@@ -23,7 +23,7 @@ import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import { CLUSTER_COUNT_LAYER, CLUSTER_LAYER } from "./clusters";
 import { MapStyleLoaded, ParentMap } from "./map";
-import Markers, { formatLocation, MARKER_LAYER, MARKER_SOURCE, parseLocation, SELECTION_LAYER } from "./Markers";
+import Markers, { FitToNotes, formatLocation, MARKER_LAYER, MARKER_SOURCE, parseLocation, SELECTION_LAYER } from "./Markers";
 
 vi.mock("../../../services/icon_glyphs", () => ({
     renderIconImage: vi.fn(async () => "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")
@@ -52,6 +52,7 @@ function fakeMap() {
     const listeners = new Map<string, Set<Listener>>();
     const calls = { addLayer: 0, removeLayer: 0, addSource: 0, removeSource: 0, setData: 0 };
     const properties = new Map<string, unknown>();
+    const fits: { bounds: unknown, options: unknown }[] = [];
     const canvas = { style: {} as Record<string, string> };
     let lastFeatures: unknown[] = [];
     let removed = false;
@@ -145,7 +146,10 @@ function fakeMap() {
         setPaintProperty(id: string, name: string, value: unknown) { properties.set(`${id}/${name}`, value); },
         // Filed with the properties: what a layer's filter has been repointed to is read the same
         // way as what it has been repainted with.
-        setFilter(id: string, filter: unknown) { properties.set(`${id}/filter`, filter); }
+        setFilter(id: string, filter: unknown) { properties.set(`${id}/filter`, filter); },
+        /** Every framing the map has been asked for, in the order it was asked. */
+        get fits() { return fits; },
+        fitBounds(bounds: unknown, options: unknown) { fits.push({ bounds, options }); }
     };
 }
 
@@ -697,5 +701,86 @@ describe("reading and writing a place", () => {
 
         expect(coordinates && formatLocation(coordinates)).toBe("48.855654, 2.365493");
         expect(coordinates && formatLocation(coordinates, 15)).toBe("48.855653506551015, 2.365492536863660");
+    });
+});
+
+describe("framing a map around its notes", () => {
+    let container: HTMLElement;
+
+    beforeEach(() => {
+        container = document.createElement("div");
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        render(null, container);
+        container.remove();
+    });
+
+    function mountFit(notes: FNote[], map: ReturnType<typeof fakeMap>, enabled = true) {
+        return act(async () => {
+            render(
+                <ParentMap.Provider value={map as never}>
+                    <FitToNotes notes={notes} enabled={enabled} />
+                </ParentMap.Provider>,
+                container
+            );
+        });
+    }
+
+    const PARIS = buildNote({ title: "Paris", "#geolocation": "48.8566,2.3522" });
+    const BERLIN = buildNote({ title: "Berlin", "#geolocation": "52.52,13.405" });
+    const UNPLACED = buildNote({ title: "Somewhere in particular" });
+
+    it("frames the notes that have a place, and leaves out the ones that have none", async () => {
+        const map = fakeMap();
+
+        await mountFit([ PARIS, UNPLACED, BERLIN ], map);
+
+        expect(map.fits).toHaveLength(1);
+        expect(map.fits[0].bounds).toEqual([ [ 2.3522, 48.8566 ], [ 13.405, 52.52 ] ]);
+        // A single note would otherwise fit at whatever zoom solves a box with no width, and a map
+        // that flew to its own notes would show the stock view first.
+        expect(map.fits[0].options).toMatchObject({ maxZoom: expect.any(Number), animate: false });
+    });
+
+    it("leaves a map that has a saved view exactly where the reader put it", async () => {
+        const map = fakeMap();
+
+        await mountFit([ PARIS, BERLIN ], map, false);
+
+        expect(map.fits).toHaveLength(0);
+    });
+
+    it("does not move a map that holds nothing with a place", async () => {
+        const map = fakeMap();
+
+        await mountFit([ UNPLACED ], map);
+        await mountFit([], map);
+
+        expect(map.fits).toHaveLength(0);
+    });
+
+    it("frames once, so a note arriving later cannot pull the camera back", async () => {
+        const map = fakeMap();
+
+        await mountFit([ PARIS ], map);
+        expect(map.fits).toHaveLength(1);
+
+        // The reader has since moved the map; a note gaining a place must not undo that.
+        await mountFit([ PARIS, BERLIN ], map);
+        expect(map.fits).toHaveLength(1);
+    });
+
+    it("waits for the notes rather than framing an empty map and giving up", async () => {
+        const map = fakeMap();
+
+        // The collection has not loaded yet, which is what every map looks like on its first render.
+        await mountFit([], map);
+        expect(map.fits).toHaveLength(0);
+
+        await mountFit([ PARIS, BERLIN ], map);
+        expect(map.fits).toHaveLength(1);
+        expect(map.fits[0].bounds).toEqual([ [ 2.3522, 48.8566 ], [ 13.405, 52.52 ] ]);
     });
 });

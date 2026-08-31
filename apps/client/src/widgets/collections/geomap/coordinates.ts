@@ -1,6 +1,6 @@
 /**
- * Reading a point out of what was typed into the search bar, so a pair of coordinates can be gone
- * to as directly as a place can be searched for.
+ * Points on the map: reading one out of what a reader typed, writing one back, and boxing a set of
+ * them so the camera can be pointed at all of them at once.
  *
  * The forms understood are the ones a reader arrives with: a bare pair, as both Google Maps and
  * OpenStreetMap hand over when asked for a place's coordinates and as `#geolocation` holds them;
@@ -68,4 +68,47 @@ export function parseCoordinates(query: string): [number, number] | null {
  */
 export function formatCoordinates([ lng, lat ]: [number, number]) {
     return `${lat}, ${lng}`;
+}
+
+/** The corners of a box, as `fitBounds` wants them: south-west first, north-east second. */
+export type Bounds = [[number, number], [number, number]];
+
+/**
+ * The box a set of `[lng, lat]` points fits into, or `null` where there are no points.
+ *
+ * Longitude is read in two frames at once, because it is a circle wearing a seam: points either
+ * side of ±180° are a stroll apart on the ground, and their raw minimum and maximum span nearly the
+ * whole world. The same longitudes are therefore also read with the seam moved to 0° — each western
+ * value pushed a turn east — and the shifted frame answers where it draws the narrower box.
+ *
+ * Only a box wider than half the world is reconsidered, that being the width a crossing of the seam
+ * produces. Anything narrower is already whole, and the two widths are then equal to within what
+ * floating point does to them, which is enough to send a set of points in Florida round the far
+ * side of the world. The shifted answer may name longitudes past 180°, which `fitBounds` takes in
+ * stride.
+ *
+ * Takes an iterable so a caller with many points — a GPX track holds thousands — can yield them as
+ * they are read rather than gather them into an array first.
+ */
+export function boundsOf(points: Iterable<number[]>): Bounds | null {
+    let west = Infinity, south = Infinity, east = -Infinity, north = -Infinity;
+    let westShifted = Infinity, eastShifted = -Infinity;
+
+    for (const [ lng, lat ] of points) {
+        west = Math.min(west, lng);
+        south = Math.min(south, lat);
+        east = Math.max(east, lng);
+        north = Math.max(north, lat);
+
+        const shifted = lng < 0 ? lng + 360 : lng;
+        westShifted = Math.min(westShifted, shifted);
+        eastShifted = Math.max(eastShifted, shifted);
+    }
+
+    if (!Number.isFinite(west)) return null;
+
+    const spansHalfTheWorld = east - west > 180;
+    return spansHalfTheWorld && eastShifted - westShifted < east - west
+        ? [ [ westShifted, south ], [ eastShifted, north ] ]
+        : [ [ west, south ], [ east, north ] ];
 }

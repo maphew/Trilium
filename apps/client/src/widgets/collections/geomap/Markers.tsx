@@ -8,7 +8,9 @@ import { getReadableTextColor } from "../../../services/css_class_manager";
 import { renderIconImage } from "../../../services/icon_glyphs";
 import { useTriliumEvent } from "../../react/hooks";
 import { CLUSTER_LAYERS, CLUSTER_SOURCE_OPTIONS, installClusterLayers, UNCLUSTERED_ONLY, useClusterExpansion } from "./clusters";
+import { boundsOf } from "./coordinates";
 import { MapStyleLoaded, ParentMap } from "./map";
+import { NOTE_ZOOM } from "./results";
 
 export { GEO_LOCATION_ATTRIBUTE as LOCATION_ATTRIBUTE } from "@triliumnext/commons";
 export const MARKER_LAYER = "points-layer";
@@ -106,6 +108,9 @@ const SELECTION_GLOW_PAINT = {
 
 /** The glow's reach in screen pixels, a little wider than the grown pin standing over it. */
 const SELECTION_GLOW_RADIUS = 18;
+
+/** Air left around the notes a map is framed around, so no pin sits on the viewport's edge. */
+const FIT_PADDING = 48;
 
 /**
  * Every note that carries a location, drawn as one symbol layer.
@@ -452,6 +457,57 @@ function useMarkerOpening(map: MapLibreGLMap | null, enabled: boolean) {
             onLeave();
         };
     }, [ map, enabled ]);
+}
+
+/**
+ * Points the camera at the notes a map holds, on a map that has never been positioned.
+ *
+ * A map opened at the stock view stands over an ocean, and its notes are found by panning until
+ * they turn up — which is what a map filled in by a script asks of every reader who opens it.
+ * Framing them is what the reader would do by hand, done once and saved as any other view is.
+ *
+ * Only where `enabled`, which the view above passes as "no view has been saved": where one has, it
+ * is where the reader put the map and is never overruled. Only once per map besides, so a note
+ * gaining a place while the map is open cannot pull the camera off wherever the reader has since
+ * moved it.
+ *
+ * The framing is a camera move like any other, so the `moveend` behind it saves the view — the next
+ * open reads it back rather than working it out again.
+ *
+ * A component rather than an effect in the view above, so the map is read from the context every
+ * other layer reads it from. Nothing is drawn.
+ */
+export function FitToNotes({ notes, enabled }: { notes: FNote[], enabled: boolean }) {
+    const map = useContext(ParentMap);
+    const framed = useRef(false);
+
+    useEffect(() => {
+        if (!map || !enabled || framed.current) return;
+
+        const bounds = boundsOf(locationsOf(notes));
+        if (!bounds) return;
+
+        framed.current = true;
+        // One note draws a box with no width, which fits at whatever zoom the camera can be solved
+        // for — the whole world, in practice. `maxZoom` stands it on its street instead, at the
+        // level the detail pane goes to a marker at.
+        //
+        // Not animated: this is where the map opens, not somewhere it is taken. Flying would show
+        // the stock view first and swoop off it every time a map is opened for the first time.
+        map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: NOTE_ZOOM, animate: false });
+    }, [ map, notes, enabled ]);
+
+    return null;
+}
+
+/** Every place a map's notes stand, in the `[lng, lat]` a box is drawn from. */
+function* locationsOf(notes: FNote[]) {
+    for (const note of notes) {
+        const location = parseLocation(note.getLabelValue(GEO_LOCATION_ATTRIBUTE));
+        if (location) {
+            yield location;
+        }
+    }
 }
 
 /**
