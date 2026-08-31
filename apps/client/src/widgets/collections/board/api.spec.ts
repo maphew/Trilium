@@ -432,7 +432,8 @@ describe("BoardApi column mutations", () => {
 
         api.reorderColumn(0, 2);
 
-        expect(saved.at(-1)?.columns?.map(col => col.value)).toEqual([ "Done", "To Do", "In Progress" ]);
+        // "In Progress" followed "Done" before the move and still does.
+        expect(saved.at(-1)?.columns?.map(col => col.value)).toEqual([ "Done", "In Progress", "To Do" ]);
     });
 });
 
@@ -443,6 +444,8 @@ describe("BoardApi column mutations", () => {
  */
 describe("BoardApi card operations", () => {
     beforeEach(() => {
+        // Spies outlive a test otherwise, and one standing in for a write is read by the next.
+        vi.restoreAllMocks();
         vi.mocked(branches.moveBeforeBranch).mockClear();
         vi.mocked(branches.moveAfterBranch).mockClear();
         vi.mocked(note_create.createNote).mockClear();
@@ -533,6 +536,27 @@ describe("BoardApi card operations", () => {
         expect(removeLabel).toHaveBeenCalledTimes(1);
     });
 
+    /**
+     * A value the card takes from an ancestor is not the card's to remove, and the board reads the
+     * value it ends up with rather than the one it owns.
+     */
+    it("covers a value the card inherits rather than uncovering it", async () => {
+        const board = buildNote({
+            title: "Board",
+            "#status(inheritable)": "Done",
+            children: [ { title: "Card" } ]
+        });
+        const [ cardId ] = [ ...board.getChildNoteIds() ];
+        const { api } = createApi({}, [], board);
+        const removeLabel = vi.spyOn(attributes, "removeOwnedLabelByName").mockReturnValue(true);
+        const setLabel = vi.spyOn(attributes, "setLabel").mockResolvedValue(undefined as never);
+
+        await api.removeFromBoard(cardId);
+
+        expect(setLabel).toHaveBeenCalledWith(cardId, "status", "");
+        expect(removeLabel).not.toHaveBeenCalled();
+    });
+
     it("takes a card off a relation board by removing that relation", async () => {
         const board = buildNote({ title: "Board", children: [ { title: "Card" } ] });
         const { api } = createApi({}, [], board, "~status");
@@ -541,6 +565,27 @@ describe("BoardApi card operations", () => {
 
         await api.removeFromBoard(board.getChildNoteIds()[0]);
         expect(removeRelation).toHaveBeenCalledWith(expect.anything(), "status");
+    });
+
+    /**
+     * A relation points at a note, so there is no empty one to cover an inherited value with. The
+     * card cannot leave its column here, and saying so beats appearing to do nothing.
+     */
+    it("says why a card cannot leave a column it takes from elsewhere", async () => {
+        const board = buildNote({
+            title: "Board",
+            "~status(inheritable)": "root",
+            children: [ { title: "Card" } ]
+        });
+        const { api } = createApi({}, [], board, "~status");
+        const removeRelation = vi.spyOn(attributes, "removeOwnedRelationByName")
+            .mockReturnValue(true);
+        const message = vi.spyOn(toast, "showMessage").mockReturnValue(undefined);
+
+        await api.removeFromBoard(board.getChildNoteIds()[0]);
+
+        expect(message).toHaveBeenCalledWith("board_view.inherited-column", 3000);
+        expect(removeRelation).not.toHaveBeenCalled();
     });
 
     it("trims the title it renames a card to", async () => {
@@ -992,5 +1037,189 @@ describe("what the board calls the field it groups by", () => {
         });
 
         expect(createApi({}, [], empty).api.getStatusLabel()).toBe("board_view.status-header");
+    });
+});
+
+describe("renaming a column to nothing", () => {
+    /**
+     * The value a column carries is what its cards are grouped by, so an empty name would write an
+     * empty label over all of them and take the column with it.
+     */
+    it("leaves the column and its cards alone", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]
+        );
+        // A module mock outlives a test, so what earlier ones asked for is cleared first.
+        vi.mocked(executeBulkActions).mockClear();
+
+        await api.renameColumn("Done", "");
+        await api.renameColumn("Done", "   ");
+
+        expect(executeBulkActions).not.toHaveBeenCalled();
+        expect(saved).toEqual([]);
+    });
+});
+
+describe("reordering columns the board is not showing all of", () => {
+    /**
+     * A column the config keeps but the board does not show, such as a disabled inbox, is missing
+     * from the list the reorder counts in. It is kept rather than dropped or moved to the end.
+     */
+    it("keeps a stored column the render list does not carry", () => {
+        const { api, saved } = createApi(
+            { columns: [
+                { value: "", icon: "bx bx-inbox" }, { value: "To Do" }, { value: "Done" }
+            ] },
+            [ "To Do", "Done" ]
+        );
+
+        // "Done" before "To Do", counted among the two the board shows.
+        api.reorderColumn(1, 0);
+
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "", icon: "bx bx-inbox" },
+            { value: "Done" },
+            { value: "To Do" }
+        ]);
+    });
+
+    /**
+     * The hidden column follows the same column it followed before. Reinserting it at the index it
+     * held in the config would place it between whichever columns the move left there.
+     */
+    it("keeps a hidden column beside the column it followed", () => {
+        const { api, saved } = createApi(
+            { columns: [
+                { value: "To Do" }, { value: "" }, { value: "Done" }
+            ] },
+            [ "To Do", "Done" ]
+        );
+
+        // "Done" before "To Do", counted among the two the board shows.
+        api.reorderColumn(1, 0);
+
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "Done" },
+            { value: "To Do" },
+            { value: "" }
+        ]);
+    });
+
+    it("keeps a run of hidden columns in order behind the same column", () => {
+        const { api, saved } = createApi(
+            { columns: [
+                { value: "To Do" }, { value: "" }, { value: "Archived" }, { value: "Done" }
+            ] },
+            [ "To Do", "Done" ]
+        );
+
+        api.reorderColumn(1, 0);
+
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "Done" },
+            { value: "To Do" },
+            { value: "" },
+            { value: "Archived" }
+        ]);
+    });
+});
+
+describe("the icon the inbox column wears", () => {
+    it("is an inbox until one is picked for it", () => {
+        const { api } = createApi(
+            { columns: [ { value: "" }, { value: "To Do" } ] }, [ "", "To Do" ]);
+
+        expect(api.getColumnIcon("")).toBe("bx bxs-inbox");
+        // Every other column keeps the stock one.
+        expect(api.getColumnIcon("To Do")).toBe(DEFAULT_COLUMN_ICON);
+    });
+
+    it("gives way to the one picked for it", () => {
+        const { api } = createApi(
+            { columns: [ { value: "", icon: "bx bx-star" } ] }, [ "" ]);
+
+        expect(api.getColumnIcon("")).toBe("bx bx-star");
+    });
+});
+
+describe("renaming a column that names itself", () => {
+    /** The inbox stands for the cards carrying no value, so its name is its own, not theirs. */
+    it("writes the inbox a name of its own and leaves its cards alone", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "", icon: "bx bxs-inbox" }, { value: "To Do" } ] },
+            [ "", "To Do" ]
+        );
+        vi.mocked(executeBulkActions).mockClear();
+
+        await api.setColumnTitle("", "Unsorted");
+
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "", icon: "bx bxs-inbox", displayName: "Unsorted" },
+            { value: "To Do" }
+        ]);
+        expect(api.getColumnTitle("")).toBe("Unsorted");
+        // Its cards carry no value, so there is none to write across them.
+        expect(executeBulkActions).not.toHaveBeenCalled();
+    });
+
+    it("renames any other column by the value its cards carry", async () => {
+        const { api } = createApi(
+            { columns: [ { value: "" }, { value: "To Do" } ] }, [ "", "To Do" ]);
+        vi.mocked(executeBulkActions).mockClear();
+
+        await api.setColumnTitle("To Do", "Doing");
+
+        expect(executeBulkActions).toHaveBeenCalled();
+    });
+
+    it("leaves either kind alone when given nothing", async () => {
+        const { api, saved } = createApi({ columns: [ { value: "" } ] }, [ "" ]);
+        vi.mocked(executeBulkActions).mockClear();
+
+        await api.setColumnTitle("", "   ");
+
+        expect(saved).toEqual([]);
+        expect(api.getColumnTitle("")).toBe("board_view.inbox");
+    });
+});
+
+describe("filing a card under the inbox", () => {
+    /**
+     * Landing in the inbox means carrying no value at all. A relation the card takes from elsewhere
+     * would still point somewhere once the owned one goes, so the card would arrive in that column
+     * rather than the inbox: it is refused and said so, instead of moved somewhere unasked.
+     */
+    it("refuses a relation card that would still point somewhere", async () => {
+        const board = buildNote({
+            title: "Board",
+            "~status(inheritable)": "root",
+            children: [ { title: "Card", "~status": "root" } ]
+        });
+        const { api } = createApi({}, [], board, "~status");
+        const removeRelation = vi.spyOn(attributes, "removeOwnedRelationByName")
+            .mockReturnValue(true);
+        const message = vi.spyOn(toast, "showMessage").mockReturnValue(undefined);
+
+        await api.changeColumn(board.getChildNoteIds()[0], "");
+
+        expect(message).toHaveBeenCalledWith("board_view.inherited-column", 3000);
+        expect(removeRelation).not.toHaveBeenCalled();
+    });
+
+    /** Taking the card off the board is a lesser thing to ask, and still takes what it owns. */
+    it("still removes what such a card owns when it is taken off the board", async () => {
+        const board = buildNote({
+            title: "Board",
+            "~status(inheritable)": "root",
+            children: [ { title: "Card", "~status": "root" } ]
+        });
+        const { api } = createApi({}, [], board, "~status");
+        const removeRelation = vi.spyOn(attributes, "removeOwnedRelationByName")
+            .mockReturnValue(true);
+
+        await api.removeFromBoard(board.getChildNoteIds()[0]);
+
+        expect(removeRelation).toHaveBeenCalled();
     });
 });

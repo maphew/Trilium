@@ -30,12 +30,16 @@ describe("Board column context menu", () => {
 
     function openMenu(
         api: BoardApi,
-        column: { color?: string, archived?: boolean, columns?: string[], index?: number } = {},
+        column: {
+            value?: string, color?: string, archived?: boolean,
+            columns?: string[], index?: number, nested?: boolean
+        } = {},
         callbacks: {
             onEditTitle?: () => void,
             onNewItem?: () => void,
             onAddColumn?: (direction: "before" | "after") => void,
-            onMoveColumn?: (toIndex: number) => void
+            onMoveColumn?: (toIndex: number) => void,
+            onSetLimit?: () => void
         } = {}
     ) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
@@ -46,7 +50,9 @@ describe("Board column context menu", () => {
             pageY: 0
         } as ContextMenuEvent;
 
-        openColumnContextMenu(api, event, {
+        // Every column menu asks what a column is called; a test says so only when that matters.
+        const withDefaults = Object.assign({ getColumnTitle: (name: string) => name }, api);
+        openColumnContextMenu(withDefaults, event, {
             value: "To Do",
             columns: [ "To Do" ],
             index: 0,
@@ -54,7 +60,8 @@ describe("Board column context menu", () => {
             onEditTitle: callbacks.onEditTitle ?? (() => {}),
             onNewItem: callbacks.onNewItem ?? (() => {}),
             onAddColumn: callbacks.onAddColumn ?? (() => {}),
-            onMoveColumn: callbacks.onMoveColumn ?? (() => {})
+            onMoveColumn: callbacks.onMoveColumn ?? (() => {}),
+            onSetLimit: callbacks.onSetLimit ?? (() => {})
         });
 
         // The spy outlives one call, so it is the menu just opened that is read back.
@@ -109,12 +116,57 @@ describe("Board column context menu", () => {
         expect(api.setColumnArchived).toHaveBeenLastCalledWith("To Do", false);
     });
 
+    /**
+     * The inbox holds a name of its own, so it is renamed like any other column; what it has not is
+     * anything to archive, and it is put away by the board's own setting instead.
+     */
+    it("offers the inbox no archive, and puts it away instead", () => {
+        const api = {
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            isColumnArchived: () => false,
+            disableInbox: vi.fn(async () => {}),
+            setInboxNested: vi.fn(async () => {})
+        } as unknown as BoardApi;
+
+        const items = openMenu(api, { value: "", columns: [ "", "To Do" ], index: 0 });
+        const icons = items.filter(item => item && "uiIcon" in item)
+            .map(item => "uiIcon" in item ? item.uiIcon : undefined);
+
+        expect(icons).toContain("bx bx-edit-alt");
+        expect(icons).not.toContain("bx bx-archive");
+
+        const remove = items.find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-trash");
+        if (!remove || !("handler" in remove)) throw new Error("expected a remove entry");
+        remove.handler?.(remove, {} as never);
+        expect(api.disableInbox).toHaveBeenCalled();
+    });
+
+    it("offers the inbox nesting as a state it shows, and writes the other one", () => {
+        const api = {
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            isColumnArchived: () => false,
+            setInboxNested: vi.fn(async () => {})
+        } as unknown as BoardApi;
+
+        const items = openMenu(api, { value: "", columns: [ "", "To Do" ], index: 0 });
+        const nesting = items.find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-subdirectory-right");
+        if (!nesting || !("handler" in nesting)) throw new Error("expected a nesting entry");
+
+        expect(nesting).toMatchObject({ checked: false });
+        nesting.handler?.(nesting, {} as never);
+        expect(api.setInboxNested).toHaveBeenCalledWith(true);
+    });
+
     it("orders the entries, keeping the safe way out ahead of deleting", () => {
         const titled = openMenu({} as BoardApi).filter(item => item && "uiIcon" in item);
         expect(titled.map(item => "uiIcon" in item ? item.uiIcon : undefined))
             .toEqual([
-                "bx bx-edit-alt", "bx bx-plus", "bx bx-link", "bx bx-columns",
-                "bx bx-horizontal-left", "bx bx-archive", "bx bx-trash"
+                "bx bx-edit-alt", "bx bx-tachometer", "bx bx-plus", "bx bx-link",
+                "bx bx-columns", "bx bx-horizontal-left", "bx bx-archive", "bx bx-trash"
             ]);
     });
 
@@ -355,7 +407,8 @@ describe("Board item context menu", () => {
 
         // Every item menu asks what the board calls its grouping field; a test says so only when
         // that is what it is about.
-        const withDefaults = Object.assign({ getStatusLabel: () => "Status" }, api);
+        const withDefaults = Object.assign(
+            { getStatusLabel: () => "Status", getColumnTitle: (name: string) => name }, api);
         openNoteContextMenu(
             withDefaults, event, buildNote({ title: "Card" }) as FNote, "branchId", column,
             focusCard);

@@ -1,6 +1,7 @@
 import "./index.css";
 
 import { createContext, TargetedKeyboardEvent } from "preact";
+import { createPortal } from "preact/compat";
 import { Dispatch, StateUpdater, useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
@@ -23,8 +24,9 @@ import { onWheelHorizontalScroll } from "../../widget_utils";
 import { ViewModeProps } from "../interface";
 import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
 import BoardApi from "./api";
-import { DEFAULT_GROUP_BY, getStatusDefinition } from "./columns";
+import { DEFAULT_GROUP_BY, getStatusDefinition, INBOX_COLUMN } from "./columns";
 import Column from "./column";
+import ColumnLimitDialog from "./column_limit";
 import { ColumnMap, getBoardData } from "./data";
 import { useBoardKeyboard } from "./keyboard";
 
@@ -40,6 +42,18 @@ export interface BoardColumnData {
     color?: string;
     /** Whether the column is archived, absent while it is not. */
     archived?: boolean;
+    /**
+     * Whether the inbox column also collects notes below the board's direct children. Has no
+     * meaning on any other column, which is defined by a grouping value instead.
+     */
+    nested?: boolean;
+    /**
+     * The column's display name, used only by columns that are not identified by a grouping
+     * value. Renaming any other column writes the value itself, so it needs none.
+     */
+    displayName?: string;
+    /** The note limit, absent if disabled. */
+    limit?: number;
 }
 
 interface CardDrag {
@@ -70,6 +84,7 @@ interface ColumnDrag {
 interface BoardActions {
     setBranchIdToEdit: Dispatch<StateUpdater<string | undefined>>;
     setColumnNameToEdit: Dispatch<StateUpdater<string | undefined>>;
+    setColumnLimitToEdit: Dispatch<StateUpdater<string | undefined>>;
     setDraggedCard: Dispatch<StateUpdater<CardDrag | null>>;
     setDraggedColumn: (column: ColumnDrag | null) => void;
     setDropPosition: (position: ColumnDrag | null) => void;
@@ -89,11 +104,12 @@ interface BoardDragState {
 // Both defaults are the honest identity value rather than a stand-in, which is what lets consumers
 // read these with a plain useContext(): no non-null assertion, and no guard for a provider that is
 // structurally always there. Nothing is being dragged, and the setters have nothing to set.
-/* v8 ignore next 8 -- the board always provides these, so nothing but a consumer mounted outside
+/* v8 ignore next 9 -- the board always provides these, so nothing but a consumer mounted outside
    it would ever call one; they exist so that consumers need no guard. */
 export const BoardActionsContext = createContext<BoardActions>({
     setBranchIdToEdit: () => undefined,
     setColumnNameToEdit: () => undefined,
+    setColumnLimitToEdit: () => undefined,
     setDraggedCard: () => undefined,
     setDraggedColumn: () => undefined,
     setDropPosition: () => undefined,
@@ -161,6 +177,7 @@ const BOARD_HINTS: ShortcutHintDefinition = [
 export default function BoardView({ note: parentNote, noteIds, viewConfig, saveConfig }: ViewModeProps<BoardViewData>) {
     const [ statusAttributeWithPrefix ] = useNoteLabelWithDefault(parentNote, "board:groupBy", DEFAULT_GROUP_BY);
     const [ includeArchived ] = useNoteLabelBoolean(parentNote, "includeArchived");
+    const [ inboxEnabled ] = useNoteLabelBoolean(parentNote, "enableInboxColumn");
     const [ byColumn, setByColumn ] = useState<ColumnMap>();
     const [ columns, setColumns ] = useState<string[]>();
     const [ isInRelationMode, setIsRelationMode ] = useState(false);
@@ -172,6 +189,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ columnHoverIndex, setColumnHoverIndex ] = useState<number | null>(null);
     const [ branchIdToEdit, setBranchIdToEdit ] = useState<string>();
     const [ columnNameToEdit, setColumnNameToEdit ] = useState<string>();
+    const [ columnLimitToEdit, setColumnLimitToEdit ] = useState<string>();
     /** Bumped when the definition changes, since it is read off the note rather than held in state. */
     const [ definitionRevision, setDefinitionRevision ] = useState(0);
     // A ref rather than state: `api` is rebuilt on every refresh, and the map has to outlive those
@@ -197,25 +215,35 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         };
         refreshSeqRef.current++;
     }
+    // The inbox is resolved from the config alone, so its icon, colour and position survive the
+    // toggle being off. The toggle only decides whether the board shows and offers it: dropping it
+    // during resolution would rewrite the attachment without it and lose those settings.
+    const usableColumns = useMemo(
+        () => (columns ?? []).filter(column => column !== INBOX_COLUMN || inboxEnabled),
+        [ columns, inboxEnabled ]);
     const statusDefinition = useMemo(
         () => getStatusDefinition(parentNote, statusAttributeWithPrefix),
         [ parentNote, statusAttributeWithPrefix, definitionRevision ]);
     const api = useMemo(() => {
         return new Api(
-            byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {},
+            byColumn, usableColumns, parentNote, statusAttributeWithPrefix, viewConfig ?? {},
             saveConfig, setBranchIdToEdit, pendingRenamesRef.current.writes, statusDefinition);
-    }, [ byColumn, columns, parentNote, statusAttributeWithPrefix, viewConfig, saveConfig, setBranchIdToEdit, statusDefinition ]);
+    }, [
+        byColumn, usableColumns, parentNote, statusAttributeWithPrefix, viewConfig,
+        saveConfig, setBranchIdToEdit, statusDefinition
+    ]);
     // Every member is one of useState's own setters, so this value is built once and never changes
     // identity -- a drag cannot reach anything that reads only this.
     const boardActions = useMemo<BoardActions>(() => ({
         setBranchIdToEdit,
         setColumnNameToEdit,
+        setColumnLimitToEdit,
         setDraggedCard,
         setDraggedColumn,
         setDropPosition,
         setDropTarget
     }), [
-        setBranchIdToEdit, setColumnNameToEdit, setDraggedCard,
+        setBranchIdToEdit, setColumnNameToEdit, setColumnLimitToEdit, setDraggedCard,
         setDraggedColumn, setDropPosition, setDropTarget
     ]);
 
@@ -228,9 +256,9 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // an archived column would be erased from the config and the definition instead of kept out of
     // sight. `columnDropPosition` indexes this list, so a drag places columns as they are shown.
     const shownColumns = useMemo(
-        () => (columns ?? []).filter(column =>
+        () => usableColumns.filter(column =>
             includeArchived || !storedColumns.get(column)?.archived),
-        [ columns, storedColumns, includeArchived ]);
+        [ usableColumns, storedColumns, includeArchived ]);
 
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -251,7 +279,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
 
         getBoardData(
             parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived,
-            statusDefinition?.options ?? [], pendingRenamesRef.current.writes.renames)
+            statusDefinition?.options ?? [], pendingRenamesRef.current.writes.renames, inboxEnabled)
             .then(({ byColumn, columns, newPersistedData, isInRelationMode, settledRenames }) => {
                 if (refreshId !== refreshSeqRef.current) return;
 
@@ -287,13 +315,17 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             });
     }
 
-    useEffect(refresh, [ parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition ]);
+    useEffect(refresh, [
+        parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition, inboxEnabled
+    ]);
 
     // The drag reports where the column landed among the ones on screen, which is not where it
     // landed among them all once some are archived and hidden. Translated here so a reorder leaves
     // every hidden column where it was rather than herding them to the end.
     const handleColumnDrop = useCallback((fromIndex: number, toIndex: number) => {
-        const allColumns = columns ?? [];
+        // The list the api holds, which is also the one it reorders. A column the board is not
+        // showing is in neither, so indexing into `columns` would be off by one.
+        const allColumns = api.columns;
         const dropBefore = shownColumns[toIndex];
         const newColumns = api.reorderColumn(
             allColumns.indexOf(shownColumns[fromIndex]),
@@ -305,7 +337,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         setDraggedColumn(null);
         setDraggedCard(null);
         setColumnDropPosition(null);
-    }, [ api, columns, shownColumns ]);
+    }, [ api, shownColumns ]);
 
     const { onKeyDown: handleKeyDown, focusColumn, focusCard } = useBoardKeyboard({
         containerRef,
@@ -383,6 +415,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     icon={storedColumns.get(column)?.icon}
                                     color={storedColumns.get(column)?.color}
                                     archived={storedColumns.get(column)?.archived}
+                                    nested={storedColumns.get(column)?.nested}
+                                    limit={storedColumns.get(column)?.limit}
                                     columnIndex={index}
                                     columns={shownColumns}
                                     onMoveColumn={handleColumnDrop}
@@ -400,6 +434,17 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                         )}
 
                         <AddNewColumn api={api} isInRelationMode={isInRelationMode} />
+                        {/* Out of the board and onto the page: the dialog is positioned against
+                            the window, and Bootstrap puts its backdrop on the body, so a stacking
+                            context above the board would trap it underneath. */}
+                        {createPortal(
+                            <ColumnLimitDialog
+                                api={api}
+                                column={columnLimitToEdit}
+                                onClose={() => setColumnLimitToEdit(undefined)}
+                            />,
+                            document.body
+                        )}
                         {!isMobile() && (
                             <ShortcutHintButton
                                 className="board-shortcut-hint-button"
