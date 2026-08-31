@@ -739,7 +739,7 @@
     "is_hidden": "Keeps a task state out of the pickers, without deleting it or the notes already in it.",
     "max_nesting_depth": "How many levels of children a table shows. Notes cannot be reordered while it is set.",
     "include_archived": "Includes archived notes in this collection, which are otherwise left out.",
-    "enable_inbox_column": "For board collections, shows an “Inbox” column listing every descendant note that is not assigned to a column.",
+    "enable_inbox_column": "For board collections, shows the inbox column, which lists all child notes that are not assigned to a board column.",
     "calendar_view": "Which view a calendar opens in: <code>timeGridDay</code>, <code>timeGridWeek</code>, <code>dayGridMonth</code>, <code>multiMonthYear</code> or <code>listMonth</code>.",
     "calendar_initial_date": "The date a calendar opens on. Opens on today when unset.",
     "calendar_hide_weekends": "Hides Saturday and Sunday from the calendar. Applies whatever its value.",
@@ -3348,8 +3348,8 @@
     "new-column-relation": "Relation"
   },
   "book_properties_config": {
-    "board-inbox-column": "Inbox column",
-    "board-inbox-column-help": "Shows the inbox column, which lists the notes descendant to this board that were not assigned to a board column.",
+    "board-inbox-column": "Show inbox column",
+    "board-inbox-column-help": "Shows the inbox column, which lists the child notes that are not assigned to a column.",
     "hide-weekends": "Hide weekends",
     "display-week-numbers": "Display week numbers",
     "map-style": "Map style",
