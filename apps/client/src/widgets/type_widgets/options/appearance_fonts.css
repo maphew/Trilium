@@ -84,6 +84,14 @@ body.desktop .modal.font-picker-modal {
 
         .dropdown-item {
             font-size: 14px;
+
+            /* Each row names a family the browser has to resolve to lay the row out, and the list
+               runs to every family the device has. Skipping the rows out of view keeps that off the
+               first open, which costs ~250ms of blocked main thread at 90 families and grows with
+               the count. `auto` holds each row's height once measured, which this list needs: every
+               family sets its label at its own. */
+            content-visibility: auto;
+            contain-intrinsic-size: auto 30px;
         }
     }
 
