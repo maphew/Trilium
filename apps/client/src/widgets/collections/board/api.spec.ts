@@ -1059,3 +1059,28 @@ describe("renaming a column to nothing", () => {
         expect(saved).toEqual([]);
     });
 });
+
+describe("reordering columns the board is not showing all of", () => {
+    /**
+     * A column the board keeps but does not show, an inbox switched off among them, is in the
+     * config and not in the list the reorder counts in. It keeps the place it holds rather than
+     * being herded to the end.
+     */
+    it("leaves a stored column the render list does not carry where it stands", () => {
+        const { api, saved } = createApi(
+            { columns: [
+                { value: "", icon: "bx bx-inbox" }, { value: "To Do" }, { value: "Done" }
+            ] },
+            [ "To Do", "Done" ]
+        );
+
+        // "Done" before "To Do", counted among the two the board shows.
+        api.reorderColumn(1, 0);
+
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "", icon: "bx bx-inbox" },
+            { value: "Done" },
+            { value: "To Do" }
+        ]);
+    });
+});

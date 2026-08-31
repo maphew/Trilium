@@ -310,7 +310,9 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // landed among them all once some are archived and hidden. Translated here so a reorder leaves
     // every hidden column where it was rather than herding them to the end.
     const handleColumnDrop = useCallback((fromIndex: number, toIndex: number) => {
-        const allColumns = columns ?? [];
+        // The list the api holds, which is the one it reorders: a column the board is not showing
+        // at all is in neither, so counting in `columns` would leave the two a place apart.
+        const allColumns = api.columns;
         const dropBefore = shownColumns[toIndex];
         const newColumns = api.reorderColumn(
             allColumns.indexOf(shownColumns[fromIndex]),
@@ -322,7 +324,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         setDraggedColumn(null);
         setDraggedCard(null);
         setColumnDropPosition(null);
-    }, [ api, columns, shownColumns ]);
+    }, [ api, shownColumns ]);
 
     const { onKeyDown: handleKeyDown, focusColumn, focusCard } = useBoardKeyboard({
         containerRef,

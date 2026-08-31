@@ -407,18 +407,23 @@ export default class BoardApi {
 
         newColumns.splice(adjustedToIndex, 0, movedColumn);
 
-        // `columns` is derived render state and can lag behind the persisted config (it is rebuilt
-        // only once the view re-renders), so anything it hasn't caught up with yet is kept at the
-        // end instead of being dropped from the config.
-        const storedColumns = new Map(
-            (this.viewConfig?.columns ?? []).map(col => [ col.value, col ]));
-        const missingColumns = (this.viewConfig?.columns ?? []).filter(col => !newColumns.includes(col.value));
-        this.storeColumns([
-            // Reordering moves the entries, so each keeps the icon it holds rather than being
-            // rebuilt from its name.
-            ...newColumns.map(value => storedColumns.get(value) ?? { value }),
-            ...missingColumns
-        ]);
+        // `columns` is derived render state and carries neither what it has yet to catch up with
+        // nor what the board is not showing, an inbox switched off among it. Each of those keeps
+        // the place it holds in the config rather than being herded to the end or dropped.
+        const stored = this.viewConfig?.columns ?? [];
+        const storedColumns = new Map(stored.map(col => [ col.value, col ]));
+        // Reordering moves the entries, so each keeps the icon it holds rather than being rebuilt
+        // from its name.
+        const reordered: BoardColumnData[] =
+            newColumns.map(value => storedColumns.get(value) ?? { value });
+
+        for (const [ index, column ] of stored.entries()) {
+            if (!newColumns.includes(column.value)) {
+                reordered.splice(index, 0, column);
+            }
+        }
+
+        this.storeColumns(reordered);
 
         return newColumns;
     }
@@ -665,7 +670,8 @@ export default class BoardApi {
             // A relation points at a note, so there is no empty one to cover an inherited value
             // with the way a label is covered below. Where the card takes its column from a
             // template or an ancestor, that is the only place it can be changed.
-            if (this.isInherited(note, "relation")) {
+            if (!note.getOwnedAttributes("relation", this.statusAttribute).length
+                    && this.isInherited(note, "relation")) {
                 toast.showMessage(t("board_view.inherited-column"), 3000);
                 return;
             }
