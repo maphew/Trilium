@@ -16,7 +16,7 @@ import toast from "../../../services/toast";
 import { BoardColumnData, BoardViewData } from ".";
 import {
     type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_COLUMN_ICON, DEFAULT_GROUP_BY
-} from "./columns";
+, INBOX_COLUMN } from "./columns";
 import { ColumnMap } from "./data";
 
 /** One write's claim on a column, held until that write lands or is taken back. */
@@ -167,6 +167,13 @@ export default class BoardApi {
     }
 
     async changeColumn(noteId: string, newColumn: string) {
+        // The inbox is where the cards carrying no value stand, so filing one there takes its value
+        // away rather than writing an empty one. Every path comes through here: the drag, the
+        // keyboard, and the menu.
+        if (newColumn === INBOX_COLUMN) {
+            return this.removeFromBoard(noteId);
+        }
+
         if (this.isRelationMode) {
             await attributes.setRelation(noteId, this.statusAttribute, newColumn);
         } else {
@@ -295,6 +302,15 @@ export default class BoardApi {
     }
 
     /**
+     * What a column is called on screen, which is the value its cards carry everywhere but the
+     * inbox: that one stands for the cards carrying no value, so it has a name of its own and
+     * cannot be renamed.
+     */
+    getColumnTitle(column: string) {
+        return column === INBOX_COLUMN ? t("board_view.inbox") : column;
+    }
+
+    /**
      * The icon a column heading shows, for anything else that stands in for the column.
      *
      * In relation mode the column is a note, so the icon is that note's own — the same one
@@ -326,6 +342,20 @@ export default class BoardApi {
      */
     getStatusLabel() {
         return this.statusDefinition?.definition.promotedAlias || t("board_view.status-header");
+    }
+
+    /**
+     * Puts the inbox column away, which is a matter of the board's own setting rather than of the
+     * column: the stored entry stays where it is, so its icon, colour and place are waiting when it
+     * is switched back on.
+     */
+    async disableInbox() {
+        await attributes.setBooleanWithInheritance(this.parentNote, "enableInboxColumn", false);
+    }
+
+    /** Whether the inbox reaches past the board's own children, down to the children of cards. */
+    async setInboxNested(nested: boolean) {
+        await this.updateColumn(INBOX_COLUMN, { nested });
     }
 
     /** Whether a column is archived, which the board shows only while archived notes are shown. */
@@ -519,6 +549,9 @@ export default class BoardApi {
         if (this.isRelationMode || !canStoreColumnsInDefinition(this.statusDefinition)) {
             return;
         }
+
+        // The definition lists the values a card can carry, and the inbox stands for carrying none.
+        columns = columns.filter(column => column !== INBOX_COLUMN);
 
         // A board showing nothing has no column list to describe and must not gain an empty
         // definition; one that already owns one is still emptied, since that is its last column going.

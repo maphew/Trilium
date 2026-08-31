@@ -30,7 +30,10 @@ describe("Board column context menu", () => {
 
     function openMenu(
         api: BoardApi,
-        column: { color?: string, archived?: boolean, columns?: string[], index?: number } = {},
+        column: {
+            value?: string, color?: string, archived?: boolean,
+            columns?: string[], index?: number, nested?: boolean
+        } = {},
         callbacks: {
             onEditTitle?: () => void,
             onNewItem?: () => void,
@@ -46,7 +49,9 @@ describe("Board column context menu", () => {
             pageY: 0
         } as ContextMenuEvent;
 
-        openColumnContextMenu(api, event, {
+        // Every column menu asks what a column is called; a test says so only when that matters.
+        const withDefaults = Object.assign({ getColumnTitle: (name: string) => name }, api);
+        openColumnContextMenu(withDefaults, event, {
             value: "To Do",
             columns: [ "To Do" ],
             index: 0,
@@ -107,6 +112,51 @@ describe("Board column context menu", () => {
         if (!unarchive || !("handler" in unarchive)) throw new Error("expected an unarchive entry");
         unarchive.handler?.(unarchive, {} as never);
         expect(api.setColumnArchived).toHaveBeenLastCalledWith("To Do", false);
+    });
+
+    /**
+     * The inbox stands for the cards carrying no value, so it has no name to rename and nothing to
+     * archive; it is put away by the board's own setting instead.
+     */
+    it("offers the inbox neither a rename nor an archive, and puts it away instead", () => {
+        const api = {
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            isColumnArchived: () => false,
+            disableInbox: vi.fn(async () => {}),
+            setInboxNested: vi.fn(async () => {})
+        } as unknown as BoardApi;
+
+        const items = openMenu(api, { value: "", columns: [ "", "To Do" ], index: 0 });
+        const icons = items.filter(item => item && "uiIcon" in item)
+            .map(item => "uiIcon" in item ? item.uiIcon : undefined);
+
+        expect(icons).not.toContain("bx bx-edit-alt");
+        expect(icons).not.toContain("bx bx-archive");
+
+        const remove = items.find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-trash");
+        if (!remove || !("handler" in remove)) throw new Error("expected a remove entry");
+        remove.handler?.(remove, {} as never);
+        expect(api.disableInbox).toHaveBeenCalled();
+    });
+
+    it("offers the inbox nesting as a state it shows, and writes the other one", () => {
+        const api = {
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            isColumnArchived: () => false,
+            setInboxNested: vi.fn(async () => {})
+        } as unknown as BoardApi;
+
+        const items = openMenu(api, { value: "", columns: [ "", "To Do" ], index: 0 });
+        const nesting = items.find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-subdirectory-right");
+        if (!nesting || !("handler" in nesting)) throw new Error("expected a nesting entry");
+
+        expect(nesting).toMatchObject({ checked: false });
+        nesting.handler?.(nesting, {} as never);
+        expect(api.setInboxNested).toHaveBeenCalledWith(true);
     });
 
     it("orders the entries, keeping the safe way out ahead of deleting", () => {
@@ -355,7 +405,8 @@ describe("Board item context menu", () => {
 
         // Every item menu asks what the board calls its grouping field; a test says so only when
         // that is what it is about.
-        const withDefaults = Object.assign({ getStatusLabel: () => "Status" }, api);
+        const withDefaults = Object.assign(
+            { getStatusLabel: () => "Status", getColumnTitle: (name: string) => name }, api);
         openNoteContextMenu(
             withDefaults, event, buildNote({ title: "Card" }) as FNote, "branchId", column,
             focusCard);

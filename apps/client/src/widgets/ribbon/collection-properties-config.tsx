@@ -148,7 +148,14 @@ export const bookPropertiesConfig: Record<ViewTypeOptions, BookConfig> = {
         ]
     },
     board: {
-        properties: []
+        properties: [
+            {
+                label: t("book_properties_config.board-inbox-column"),
+                type: "checkbox",
+                icon: "bx bx-inbox",
+                bindToLabel: "enableInboxColumn"
+            }
+        ]
     },
     presentation: {
         properties: [

@@ -17,6 +17,15 @@ export const DEFAULT_GROUP_BY = "status";
 /** The icon a column shows until one is picked for it. */
 export const DEFAULT_COLUMN_ICON = "bx bx-circle";
 
+/**
+ * The value the inbox column is known by: the one a card carries when it carries none.
+ *
+ * A column is its grouping value everywhere on the board, and what the inbox gathers is the notes
+ * with no value at all, so the empty string is the value it stands for. It is told apart from a
+ * column being deleted, which is recorded as `undefined` rather than as an empty name.
+ */
+export const INBOX_COLUMN = "";
+
 export interface BoardStatusDefinition {
     /** The definition attribute, wherever it is owned. */
     attribute: FAttribute;
@@ -73,6 +82,11 @@ export function getStatusDefinition(parentNote: FNote, groupBy: string): BoardSt
  * Having none at all is the ordinary case for a board created now, and the answer is yes: the
  * definition the board writes is its own from the start.
  */
+/** Whether a value names a column of its own, as against standing for the notes carrying none. */
+function named(value: string) {
+    return value.trim() !== INBOX_COLUMN;
+}
+
 export function canStoreColumnsInDefinition(statusDefinition: BoardStatusDefinition | undefined): boolean {
     if (!statusDefinition) {
         // Nothing defines the label yet, so a definition the board creates is its own.
@@ -126,7 +140,8 @@ export function resolveBoardColumns(
         for (const candidate of candidates) {
             const trimmed = candidate.trim();
             const value = pendingRenames.has(trimmed) ? pendingRenames.get(trimmed) : trimmed;
-            if (!value || seen.has(value)) continue;
+            // `undefined` is a column being deleted, which is not the same as the inbox's own name.
+            if (value === undefined || seen.has(value)) continue;
             seen.add(value);
             columns.push(value);
         }
@@ -134,7 +149,14 @@ export function resolveBoardColumns(
         return columns;
     };
 
-    const columns = resolve([ ...definitionOptions, ...persistedColumns, ...discoveredValues ]);
+    // The board's own list is the only source that can bring the inbox: a note carrying no value is
+    // what the inbox gathers rather than a column to make, and a definition written with a gap in
+    // it (`options=To Do;;Done`) names nothing.
+    const columns = resolve([
+        ...definitionOptions.filter(named),
+        ...persistedColumns,
+        ...discoveredValues.filter(named)
+    ]);
     const persisted = resolve(persistedColumns);
 
     // The definition leads on which columns there are, but not on the order once the board's own

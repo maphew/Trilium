@@ -1,6 +1,6 @@
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
-import { resolveBoardColumns } from "./columns";
+import { INBOX_COLUMN, resolveBoardColumns } from "./columns";
 import { BoardColumnData, BoardViewData } from "./index";
 
 export type ColumnMap = Map<string, {
@@ -22,14 +22,30 @@ export async function getBoardData(
     persistedData: BoardViewData,
     includeArchived: boolean,
     definitionOptions: string[] = [],
-    pendingRenames: ReadonlyMap<string, string | undefined> = new Map()
+    pendingRenames: ReadonlyMap<string, string | undefined> = new Map(),
+    /** Whether the board is set to keep an inbox, which is what decides if one gathers anything. */
+    inboxEnabled = false
 ) {
     const byColumn: ColumnMap = new Map();
+    const storedColumnValues = (persistedData.columns ?? []).map(c => c.value);
+    // Switching the inbox on is what puts it on the board, at the head of it. From then on the
+    // entry is the board's own: it keeps whatever icon, colour and place it is given, and switching
+    // the inbox off leaves it there rather than taking it away.
+    const persistedColumns = inboxEnabled && !storedColumnValues.includes(INBOX_COLUMN)
+        ? [ INBOX_COLUMN, ...storedColumnValues ]
+        : storedColumnValues;
+
+    // Only a board that keeps an inbox has anywhere to put a note carrying no value; on any other
+    // one such a note is not on the board at all, as it has always been.
+    const inbox = inboxEnabled
+        ? { nested: !!persistedData.columns?.find(col => col.value === INBOX_COLUMN)?.nested }
+        : undefined;
 
     // First, scan all notes to find what columns actually exist
-    await recursiveGroupBy(parentNote.getChildBranches(), byColumn, groupByColumn, includeArchived, new Set<string>());
+    await recursiveGroupBy(
+        parentNote.getChildBranches(), byColumn, groupByColumn, includeArchived,
+        new Set<string>(), inbox, 0);
 
-    const persistedColumns = (persistedData.columns ?? []).map(c => c.value);
     const discoveredValues = [ ...byColumn.keys() ];
     const columns = resolveBoardColumns(
         definitionOptions, persistedColumns, discoveredValues, pendingRenames);
@@ -54,8 +70,8 @@ export async function getBoardData(
     // The attachment mirrors the resolved list, so a board whose columns now come from its definition
     // stays readable by anything still reading the attachment. Written only when it actually differs,
     // or every refresh would save.
-    const hasChanges = persistedColumns.length !== columns.length
-        || persistedColumns.some((value, index) => columns[index] !== value);
+    const hasChanges = storedColumnValues.length !== columns.length
+        || storedColumnValues.some((value, index) => columns[index] !== value);
     const storedColumns = indexColumnsByResolvedName(persistedData, pendingRenames);
 
     return {
@@ -88,7 +104,7 @@ function indexColumnsByResolvedName(
     for (const column of persistedData.columns ?? []) {
         const { value } = column;
         const name = pendingRenames.has(value) ? pendingRenames.get(value) : value;
-        if (name) {
+        if (name !== undefined) {
             byName.set(name, { ...column, value: name });
         }
     }
@@ -110,17 +126,30 @@ function regroupRenamedCards(
     }
 }
 
-async function recursiveGroupBy(branches: FBranch[], byColumn: ColumnMap, groupByColumn: string, includeArchived: boolean, seenNoteIds: Set<string>) {
+/**
+ * @param inbox where the board keeps the notes carrying no value, absent where it keeps none.
+ * @param depth how far below the board the branches stand, the board's own children being 0.
+ */
+async function recursiveGroupBy(
+    branches: FBranch[], byColumn: ColumnMap, groupByColumn: string, includeArchived: boolean,
+    seenNoteIds: Set<string>, inbox: { nested: boolean } | undefined, depth: number
+) {
     for (const branch of branches) {
         const note = await branch.getNote();
         if (!note || (!includeArchived && note.isArchived)) continue;
 
         if (note.type !== "search" && note.hasChildren()) {
-            await recursiveGroupBy(note.getChildBranches(), byColumn, groupByColumn, includeArchived, seenNoteIds);
+            await recursiveGroupBy(
+                note.getChildBranches(), byColumn, groupByColumn, includeArchived,
+                seenNoteIds, inbox, depth + 1);
         }
 
-        const group = note.getLabelOrRelation(groupByColumn);
-        if (!group || seenNoteIds.has(note.noteId)) {
+        // A note carrying no value goes to the inbox, where the board keeps one and is set to reach
+        // this far down. Anything deeper than the board's own children is a card's child, which the
+        // inbox gathers only when it is told to.
+        const value = note.getLabelOrRelation(groupByColumn);
+        const group = value || (inbox && (depth === 0 || inbox.nested) ? INBOX_COLUMN : undefined);
+        if (group === undefined || seenNoteIds.has(note.noteId)) {
             continue;
         }
 

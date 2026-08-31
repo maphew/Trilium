@@ -23,7 +23,7 @@ import { onWheelHorizontalScroll } from "../../widget_utils";
 import { ViewModeProps } from "../interface";
 import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
 import BoardApi from "./api";
-import { DEFAULT_GROUP_BY, getStatusDefinition } from "./columns";
+import { DEFAULT_GROUP_BY, getStatusDefinition, INBOX_COLUMN } from "./columns";
 import Column from "./column";
 import { ColumnMap, getBoardData } from "./data";
 import { useBoardKeyboard } from "./keyboard";
@@ -40,6 +40,11 @@ export interface BoardColumnData {
     color?: string;
     /** Whether the column is archived, absent while it is not. */
     archived?: boolean;
+    /**
+     * Whether the inbox column gathers notes below the board's own children as well. Meaningless on
+     * any other column, which stands for a value a note carries wherever it stands.
+     */
+    nested?: boolean;
 }
 
 interface CardDrag {
@@ -161,6 +166,7 @@ const BOARD_HINTS: ShortcutHintDefinition = [
 export default function BoardView({ note: parentNote, noteIds, viewConfig, saveConfig }: ViewModeProps<BoardViewData>) {
     const [ statusAttributeWithPrefix ] = useNoteLabelWithDefault(parentNote, "board:groupBy", DEFAULT_GROUP_BY);
     const [ includeArchived ] = useNoteLabelBoolean(parentNote, "includeArchived");
+    const [ inboxEnabled ] = useNoteLabelBoolean(parentNote, "enableInboxColumn");
     const [ byColumn, setByColumn ] = useState<ColumnMap>();
     const [ columns, setColumns ] = useState<string[]>();
     const [ isInRelationMode, setIsRelationMode ] = useState(false);
@@ -197,14 +203,23 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         };
         refreshSeqRef.current++;
     }
+    // Resolution keeps the inbox on the strength of the config alone, so its icon, colour and place
+    // survive the toggle being off; what the toggle decides is whether the board shows it and
+    // offers it. Rewriting the attachment without it would be what loses those settings.
+    const usableColumns = useMemo(
+        () => (columns ?? []).filter(column => column !== INBOX_COLUMN || inboxEnabled),
+        [ columns, inboxEnabled ]);
     const statusDefinition = useMemo(
         () => getStatusDefinition(parentNote, statusAttributeWithPrefix),
         [ parentNote, statusAttributeWithPrefix, definitionRevision ]);
     const api = useMemo(() => {
         return new Api(
-            byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {},
+            byColumn, usableColumns, parentNote, statusAttributeWithPrefix, viewConfig ?? {},
             saveConfig, setBranchIdToEdit, pendingRenamesRef.current.writes, statusDefinition);
-    }, [ byColumn, columns, parentNote, statusAttributeWithPrefix, viewConfig, saveConfig, setBranchIdToEdit, statusDefinition ]);
+    }, [
+        byColumn, usableColumns, parentNote, statusAttributeWithPrefix, viewConfig,
+        saveConfig, setBranchIdToEdit, statusDefinition
+    ]);
     // Every member is one of useState's own setters, so this value is built once and never changes
     // identity -- a drag cannot reach anything that reads only this.
     const boardActions = useMemo<BoardActions>(() => ({
@@ -228,9 +243,9 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // an archived column would be erased from the config and the definition instead of kept out of
     // sight. `columnDropPosition` indexes this list, so a drag places columns as they are shown.
     const shownColumns = useMemo(
-        () => (columns ?? []).filter(column =>
+        () => usableColumns.filter(column =>
             includeArchived || !storedColumns.get(column)?.archived),
-        [ columns, storedColumns, includeArchived ]);
+        [ usableColumns, storedColumns, includeArchived ]);
 
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -251,7 +266,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
 
         getBoardData(
             parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived,
-            statusDefinition?.options ?? [], pendingRenamesRef.current.writes.renames)
+            statusDefinition?.options ?? [], pendingRenamesRef.current.writes.renames, inboxEnabled)
             .then(({ byColumn, columns, newPersistedData, isInRelationMode, settledRenames }) => {
                 if (refreshId !== refreshSeqRef.current) return;
 
@@ -287,7 +302,9 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             });
     }
 
-    useEffect(refresh, [ parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition ]);
+    useEffect(refresh, [
+        parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition, inboxEnabled
+    ]);
 
     // The drag reports where the column landed among the ones on screen, which is not where it
     // landed among them all once some are archived and hidden. Translated here so a reorder leaves
@@ -383,6 +400,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     icon={storedColumns.get(column)?.icon}
                                     color={storedColumns.get(column)?.color}
                                     archived={storedColumns.get(column)?.archived}
+                                    nested={storedColumns.get(column)?.nested}
                                     columnIndex={index}
                                     columns={shownColumns}
                                     onMoveColumn={handleColumnDrop}

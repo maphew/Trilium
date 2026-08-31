@@ -21,7 +21,7 @@ import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
 import Card, { CARD_CLIPBOARD_TYPE, CardDragData } from "./card";
-import { DEFAULT_COLUMN_ICON } from "./columns";
+import { DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
 import { openColumnContextMenu } from "./context_menu";
 
 interface DragContext {
@@ -40,6 +40,7 @@ export default function Column({
     icon,
     color,
     archived,
+    nested,
     isDraggingColumn,
     columnItems,
     api,
@@ -55,6 +56,8 @@ export default function Column({
     color?: string,
     /** Whether the column is archived. Only ever rendered while archived notes are shown. */
     archived?: boolean,
+    /** Whether the inbox reaches past the board's own children. Meaningless on any other column. */
+    nested?: boolean,
     isDraggingColumn: boolean,
     api: BoardApi,
     parentNote: FNote,
@@ -85,6 +88,7 @@ export default function Column({
             index: columnIndex,
             color,
             archived,
+            nested,
             onEditTitle: () => setColumnNameToEdit(column),
             onNewItem: () => setIsCreatingNewItem(true),
             onAddColumn: async (direction) => {
@@ -98,7 +102,7 @@ export default function Column({
             }
         });
     }, [
-        api, column, color, archived, columns, columnIndex,
+        api, column, color, archived, nested, columns, columnIndex,
         setColumnNameToEdit, onMoveColumn, onFocusColumn
     ]);
 
@@ -109,7 +113,8 @@ export default function Column({
     }, [ color ]);
 
     const handleTitleKeyDown = useCallback((e: KeyboardEvent) => {
-        if (e.key === "F2") {
+        // The inbox has no name of its own to edit, its cards being the ones carrying none.
+        if (e.key === "F2" && column !== INBOX_COLUMN) {
             setColumnNameToEdit(column);
         }
     }, [ column ]);
@@ -184,13 +189,13 @@ export default function Column({
                             className="title"
                             // In relation mode the title is a link to the note the column stands
                             // for, and the first of the two clicks has already followed it.
-                            onDblClick={isInRelationMode
+                            onDblClick={isInRelationMode || column === INBOX_COLUMN
                                 ? undefined
                                 : () => setColumnNameToEdit(column)}
                         >
                             {isInRelationMode
                                 ? <NoteLink notePath={column} showNoteIcon />
-                                : column}
+                                : api.getColumnTitle(column)}
                         </span>
                         <div className="spacer" />
                         <CountBadge items={columnItems} />

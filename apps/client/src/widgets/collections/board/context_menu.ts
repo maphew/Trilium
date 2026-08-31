@@ -12,6 +12,7 @@ import { t } from "../../../services/i18n";
 import { escapeHtml } from "../../../services/utils";
 import ColorPicker from "../../react/ColorPicker";
 import Api from "./api";
+import { INBOX_COLUMN } from "./columns";
 
 /** What the column menu is opened for: the column itself, and what it can be asked to do. */
 interface ColumnMenuTarget {
@@ -22,6 +23,8 @@ interface ColumnMenuTarget {
     index: number;
     color?: string;
     archived?: boolean;
+    /** Whether the inbox reaches past the board's own children. Meaningless on any other column. */
+    nested?: boolean;
     /** Puts the title into its inline editor, the menu being the only way there besides F2. */
     onEditTitle: () => void;
     /** Opens the column's own new-item editor, the same one its button opens. */
@@ -33,6 +36,9 @@ interface ColumnMenuTarget {
 }
 
 export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column: ColumnMenuTarget) {
+    // The inbox stands for the cards carrying no value, so it has no name to rename and nothing to
+    // archive: it is put away by its own setting instead, which is what its delete entry does.
+    const isInbox = column.value === INBOX_COLUMN;
 
     event.preventDefault();
     event.stopPropagation();
@@ -41,12 +47,18 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
         x: event.pageX,
         y: event.pageY,
         items: [
-            {
+            ...(isInbox ? [] : [ {
                 title: t("board_view.rename-column"),
                 uiIcon: "bx bx-edit-alt",
                 shortcut: "F2",
                 handler: column.onEditTitle
-            },
+            } ]),
+            ...(isInbox ? [ {
+                title: t("board_view.inbox-nested"),
+                uiIcon: "bx bx-subdirectory-right",
+                checked: !!column.nested,
+                handler: () => api.setInboxNested(!column.nested)
+            } ] : []),
             { kind: "separator" },
             {
                 title: t("board_view.add-new-item"),
@@ -89,7 +101,7 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                 items: buildMoveColumnItems(api, column)
             },
             { kind: "separator" },
-            column.archived
+            ...(isInbox ? [] : [ column.archived
                 ? {
                     title: t("board_view.unarchive-column"),
                     uiIcon: "bx bx-archive-out",
@@ -99,13 +111,20 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                     title: t("board_view.archive-column"),
                     uiIcon: "bx bx-archive",
                     handler: () => api.setColumnArchived(column.value, true)
+                } ]),
+            isInbox
+                ? {
+                    title: t("board_view.inbox-remove"),
+                    uiIcon: "bx bx-trash",
+                    shortcut: "Delete",
+                    handler: () => api.disableInbox()
+                }
+                : {
+                    title: t("board_view.delete-column"),
+                    uiIcon: "bx bx-trash",
+                    shortcut: "Delete",
+                    handler: () => api.confirmAndRemoveColumn(column.value)
                 },
-            {
-                title: t("board_view.delete-column"),
-                uiIcon: "bx bx-trash",
-                shortcut: "Delete",
-                handler: () => api.confirmAndRemoveColumn(column.value)
-            },
             { kind: "separator" },
             {
                 kind: "custom",
@@ -136,11 +155,13 @@ function buildMoveColumnItems(api: Api, column: ColumnMenuTarget): MenuItem<stri
             return [];
         }
 
+        const title = api.getColumnTitle(name);
+
         return [ {
             // Boxed the way the status list boxes its names, so a long one is cut rather than
             // widening the menu. What `t()` interpolates it has already escaped.
             title: `<span class="board-column-name">`
-                + `${t("board_view.move-column-after", { column: name })}</span>`,
+                + `${t("board_view.move-column-after", { column: title })}</span>`,
             className: "board-column-item",
             uiIcon: api.getColumnIcon(name),
             iconColorClass: api.getColumnColorClass(name),
@@ -191,7 +212,7 @@ function buildColumnItems(
         // about its width. What a crafted name would plant there is escaped into the text it is
         // meant to be; every other title the board builds from a name goes through `t()`, which
         // escapes what it interpolates.
-        title: `<span class="board-column-name">${escapeHtml(name)}</span>`,
+        title: `<span class="board-column-name">${escapeHtml(api.getColumnTitle(name))}</span>`,
         uiIcon: api.getColumnIcon(name),
         iconColorClass: api.getColumnColorClass(name),
         // The one it is already under is shown rather than hidden, so the list reads as the whole

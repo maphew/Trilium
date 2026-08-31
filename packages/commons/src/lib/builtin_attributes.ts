@@ -268,6 +268,7 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "isHidden", valueType: "boolean" },
     { type: "label", name: "maxNestingDepth", valueType: "number", hasUserValue: true },
     { type: "label", name: "includeArchived", valueType: "boolean", hasUserValue: true },
+    { type: "label", name: "enableInboxColumn", valueType: "boolean", hasUserValue: true },
     // FullCalendar's own view names, which is what the calendar hands back when the view is switched.
     { type: "label", name: "calendar:view", valueType: "select", hasUserValue: true, selectOptions: [
         "timeGridDay", "timeGridWeek", "dayGridMonth", "multiMonthYear", "listMonth"

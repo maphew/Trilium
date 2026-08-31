@@ -3347,6 +3347,7 @@
     "new-column-relation": "Relation"
   },
   "book_properties_config": {
+    "board-inbox-column": "Inbox column",
     "hide-weekends": "Hide weekends",
     "display-week-numbers": "Display week numbers",
     "map-style": "Map style",
@@ -3375,6 +3376,9 @@
     "archive-column": "Archive column",
     "unarchive-column": "Unarchive column",
     "archived-badge": "Archived",
+    "inbox": "Inbox",
+    "inbox-nested": "Include nested notes",
+    "inbox-remove": "Remove inbox column",
     "card-count_one": "{{count}} item",
     "card-count_other": "{{count}} items",
     "card-count-with-archived_one": "{{count}} active item, {{archived}} archived",
