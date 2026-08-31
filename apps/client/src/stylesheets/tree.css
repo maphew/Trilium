@@ -30,7 +30,7 @@ span.fancytree-node.fancytree-hide {
 .fancytree-node {
     display: flex;
     align-items: center;
-    height: 38px;
+    height: 2.4em;
     padding: 4px;
     border: 1px solid transparent;
     border-radius: 5px;
@@ -276,8 +276,10 @@ span.fancytree-node:hover .add-note-button {
     width: 100px;
     /* marker is by default position: relative which doesn't make sense */
     position: absolute !important;
-    /* heaving a height helps with positioning since the algorithm calculating "top" takes it into account */
-    height: 19px;
+    /* dnd5 anchors the marker by its own vertical centre (`my: "left center"`) on the target
+       title's top or bottom edge, so any height offsets the line by half of it. At zero the
+       centre is the edge, which holds whatever height a row or its font takes. */
+    height: 0;
 }
 
 #fancytree-drop-marker.fancytree-drop-after {
