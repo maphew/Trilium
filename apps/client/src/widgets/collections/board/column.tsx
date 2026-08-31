@@ -113,7 +113,6 @@ export default function Column({
     }, [ color ]);
 
     const handleTitleKeyDown = useCallback((e: KeyboardEvent) => {
-        // The inbox has no name of its own to edit, its cards being the ones carrying none.
         if (e.key === "F2" && column !== INBOX_COLUMN) {
             setColumnNameToEdit(column);
         }

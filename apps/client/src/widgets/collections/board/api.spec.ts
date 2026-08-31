@@ -443,6 +443,8 @@ describe("BoardApi column mutations", () => {
  */
 describe("BoardApi card operations", () => {
     beforeEach(() => {
+        // Spies outlive a test otherwise, and one standing in for a write is read by the next.
+        vi.restoreAllMocks();
         vi.mocked(branches.moveBeforeBranch).mockClear();
         vi.mocked(branches.moveAfterBranch).mockClear();
         vi.mocked(note_create.createNote).mockClear();
@@ -531,6 +533,27 @@ describe("BoardApi card operations", () => {
         // A note the cache has never heard of is left alone rather than throwing.
         await api.removeFromBoard("missingNote");
         expect(removeLabel).toHaveBeenCalledTimes(1);
+    });
+
+    /**
+     * A value the card takes from an ancestor is not the card's to remove, and the board reads the
+     * value it ends up with rather than the one it owns.
+     */
+    it("covers a value the card inherits rather than uncovering it", async () => {
+        const board = buildNote({
+            title: "Board",
+            "#status(inheritable)": "Done",
+            children: [ { title: "Card" } ]
+        });
+        const [ cardId ] = [ ...board.getChildNoteIds() ];
+        const { api } = createApi({}, [], board);
+        const removeLabel = vi.spyOn(attributes, "removeOwnedLabelByName").mockReturnValue(true);
+        const setLabel = vi.spyOn(attributes, "setLabel").mockResolvedValue(undefined as never);
+
+        await api.removeFromBoard(cardId);
+
+        expect(setLabel).toHaveBeenCalledWith(cardId, "status", "");
+        expect(removeLabel).not.toHaveBeenCalled();
     });
 
     it("takes a card off a relation board by removing that relation", async () => {

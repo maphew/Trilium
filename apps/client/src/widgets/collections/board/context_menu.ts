@@ -36,8 +36,6 @@ interface ColumnMenuTarget {
 }
 
 export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column: ColumnMenuTarget) {
-    // The inbox stands for the cards carrying no value, so it has no name to rename and nothing to
-    // archive: it is put away by its own setting instead, which is what its delete entry does.
     const isInbox = column.value === INBOX_COLUMN;
 
     event.preventDefault();

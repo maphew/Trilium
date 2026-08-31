@@ -303,8 +303,7 @@ export default class BoardApi {
 
     /**
      * What a column is called on screen, which is the value its cards carry everywhere but the
-     * inbox: that one stands for the cards carrying no value, so it has a name of its own and
-     * cannot be renamed.
+     * inbox: that one stands for the cards carrying no value, so it has a name of its own.
      */
     getColumnTitle(column: string) {
         return column === INBOX_COLUMN ? t("board_view.inbox") : column;
@@ -659,6 +658,16 @@ export default class BoardApi {
         if (this.isRelationMode) {
             return attributes.removeOwnedRelationByName(note, this.statusAttribute);
         }
+
+        // A value the card takes from a template or an ancestor is not the card's to remove, and
+        // taking away the one it owns would only uncover what that was covering. An empty value of
+        // its own covers it instead, which reads as carrying none.
+        const inherited = note.getAttributes("label", this.statusAttribute)
+            .some(attribute => attribute.noteId !== noteId);
+        if (inherited) {
+            return attributes.setLabel(noteId, this.statusAttribute, "");
+        }
+
         return attributes.removeOwnedLabelByName(note, this.statusAttribute);
     }
 
