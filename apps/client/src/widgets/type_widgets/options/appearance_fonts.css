@@ -46,6 +46,16 @@ body.desktop .modal.font-picker-modal {
     .modal-sidebar {
         width: 280px;
     }
+
+    /* The title is hidden beside a sidebar (see `style.css`) and grows to fill the header, which
+       would push the switcher against the close button. */
+    .modal-header > .modal-title {
+        flex-grow: 0;
+    }
+
+    .font-picker-targets {
+        margin-inline-end: auto;
+    }
 }
 
 .modal.font-picker-modal {

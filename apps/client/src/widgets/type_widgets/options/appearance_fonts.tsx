@@ -19,6 +19,7 @@ import { useChildNotes, useNoteTitle, useTriliumOption, useTriliumOptionBool } f
 import Icon from "../../react/Icon";
 import Modal from "../../react/Modal";
 import NoItems from "../../react/NoItems";
+import SegmentedChoice from "../../react/SegmentedChoice";
 import Slider from "../../react/Slider";
 import SettingsSearch from "./components/SettingsSearch";
 
@@ -75,11 +76,64 @@ const FONT_FAMILIES: FontGroup[] = [
     }
 ];
 
+type FontTargetKey = "main" | "tree" | "detail" | "monospace";
+
+/** One of the areas a font is set for, as the card row and the picker draw it. */
+interface FontTarget {
+    key: FontTargetKey;
+    /** Names the area on the card. */
+    label: string;
+    /** Names it in the picker, whose dialog is already about fonts. */
+    shortLabel: string;
+    description?: string;
+    sizeDescription?: string;
+    /** What the theme sets for the area, which the `theme` entry is drawn in. */
+    themeVariable: string;
+    isMonospace?: boolean;
+    /** What the chosen font is shown on, where a line of specimen text is not what it is set in. */
+    Preview?: () => ComponentChildren;
+}
+
+const FONT_TARGETS: FontTarget[] = [
+    {
+        key: "main",
+        label: t("fonts.main_font"),
+        shortLabel: t("fonts.main_font_short"),
+        themeVariable: "var(--main-font-family)"
+    },
+    {
+        key: "tree",
+        label: t("fonts.note_tree_font"),
+        shortLabel: t("fonts.note_tree_font_short"),
+        sizeDescription: t("fonts.size_relative_to_general"),
+        themeVariable: "var(--tree-font-family)",
+        Preview: TreePreview
+    },
+    {
+        key: "detail",
+        label: t("fonts.note_detail_font"),
+        shortLabel: t("fonts.note_detail_font_short"),
+        sizeDescription: t("fonts.size_relative_to_general"),
+        themeVariable: "var(--detail-font-family)"
+    },
+    {
+        key: "monospace",
+        label: t("fonts.monospace_font"),
+        shortLabel: t("fonts.monospace_font_short"),
+        description: t("fonts.monospace_font_description"),
+        themeVariable: "var(--monospace-font-family)",
+        isMonospace: true
+    }
+];
+
 export default function Fonts() {
     const [ overrideThemeFonts, setOverrideThemeFonts ] = useTriliumOptionBool("overrideThemeFonts");
     const [ ligaturesEnabled, setLigaturesEnabled ] = useTriliumOptionBool("monospaceLigaturesEnabled");
     const isEnabled = overrideThemeFonts === true;
     const fontGroups = useFontGroups();
+    const fontOptions = useFontOptions();
+    const [ pickerTarget, setPickerTarget ] = useState(FONT_TARGETS[0]);
+    const [ pickerShown, setPickerShown ] = useState(false);
 
     return (
         <Card className="appearance-fonts" heading={t("fonts.fonts")}>
@@ -91,15 +145,37 @@ export default function Fonts() {
                 // is there to be set is the whole reason for turning it on, and a switch with
                 // nothing under it says nothing about what it would bring.
                 subSectionsVisible
-                subSections={[
-                    <Font key="main" label={t("fonts.main_font")} groups={fontGroups} fontFamilyOption="mainFontFamily" fontSizeOption="mainFontSize" disabled={!isEnabled} />,
-                    <Font key="tree" label={t("fonts.note_tree_font")} groups={fontGroups} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="treeFontFamily" fontSizeOption="treeFontSize" disabled={!isEnabled} />,
-                    <Font key="detail" label={t("fonts.note_detail_font")} groups={fontGroups} sizeDescription={t("fonts.size_relative_to_general")} fontFamilyOption="detailFontFamily" fontSizeOption="detailFontSize" disabled={!isEnabled} />,
-                    <Font key="monospace" label={t("fonts.monospace_font")} groups={fontGroups} description={t("fonts.monospace_font_description")} fontFamilyOption="monospaceFontFamily" fontSizeOption="monospaceFontSize" disabled={!isEnabled} isMonospace />
-                ]}
+                subSections={FONT_TARGETS.map((target) => (
+                    <FontRow
+                        key={target.key}
+                        target={target}
+                        option={fontOptions[target.key]}
+                        groups={fontGroups}
+                        disabled={!isEnabled}
+                        onOpen={() => {
+                            setPickerTarget(target);
+                            setPickerShown(true);
+                        }}
+                    />
+                ))}
             >
                 <FormToggle currentValue={overrideThemeFonts} onChange={setOverrideThemeFonts} />
             </OptionCardSection>
+
+            {/*
+              * One picker for all four areas rather than one apiece: the areas are set against each
+              * other — a tree size is a percentage of the interface size — and the list it is
+              * chosen from runs to every family the device has, which is not worth rebuilding to
+              * look at the next area.
+              */}
+            <FontPickerModal
+                show={pickerShown}
+                onHidden={() => setPickerShown(false)}
+                target={pickerTarget}
+                onTargetChange={setPickerTarget}
+                option={fontOptions[pickerTarget.key]}
+                groups={fontGroups}
+            />
 
             {/*
               * Deliberately not nested under `overrideThemeFonts` like the fonts above: the
@@ -242,86 +318,86 @@ function useSystemFonts(): SystemFont[] {
     return fonts;
 }
 
-interface FontProps {
-    label: string;
-    description?: string;
-    sizeDescription?: string;
-    /** The picker's groups, the user's own fonts among them (see {@link useFontGroups}). */
-    groups: FontGroup[];
-    fontFamilyOption: OptionNames;
-    fontSizeOption: OptionNames;
-    disabled?: boolean;
-    isMonospace?: boolean;
+/** The family and the size that make up one area's font, as both the card and the picker read them. */
+interface FontOption {
+    family: string;
+    size: number;
+    setFamily: (family: string) => void;
+    setSize: (size: number) => void;
 }
 
-function Font({ label, description, sizeDescription, groups, fontFamilyOption, fontSizeOption, disabled, isMonospace }: FontProps) {
-    const [ fontFamily, setFontFamily ] = useTriliumOption(fontFamilyOption);
-    const [ fontSize, setFontSize ] = useTriliumOption(fontSizeOption);
-    const [ showModal, setShowModal ] = useState(false);
+/**
+ * Every area's font, so that the picker can be handed whichever area it is on. The options are
+ * named here and nowhere else: {@link useTriliumOption} reads its option once and holds what it
+ * read, so a picker calling it with a changing name would keep showing the previous area's font.
+ */
+function useFontOptions(): Record<FontTargetKey, FontOption> {
+    return {
+        main: useFontOption("mainFontFamily", "mainFontSize"),
+        tree: useFontOption("treeFontFamily", "treeFontSize"),
+        detail: useFontOption("detailFontFamily", "detailFontSize"),
+        monospace: useFontOption("monospaceFontFamily", "monospaceFontSize")
+    };
+}
 
+function useFontOption(familyOption: OptionNames, sizeOption: OptionNames): FontOption {
+    const [ family, saveFamily ] = useTriliumOption(familyOption);
+    const [ size, saveSize ] = useTriliumOption(sizeOption);
+
+    return {
+        family: family ?? "",
+        size: parseInt(size ?? "100", 10),
+        setFamily: (newFamily) => void saveFamily(newFamily),
+        setSize: (newSize) => void saveSize(String(newSize))
+    };
+}
+
+interface FontRowProps {
+    target: FontTarget;
+    option: FontOption;
+    /** The picker's groups, the user's own fonts among them (see {@link useFontGroups}). */
+    groups: FontGroup[];
+    disabled?: boolean;
+    onOpen: () => void;
+}
+
+function FontRow({ target, option: { family, size }, groups, disabled, onOpen }: FontRowProps) {
     // One of the user's own fonts is named by the note holding it, so its own title says what is
     // set — read from the cache rather than waited for from the listing, and it follows a rename.
-    const customFontTitle = useNoteTitle(customFontNoteId(fontFamily) ?? undefined, undefined);
+    const customFontTitle = useNoteTitle(customFontNoteId(family) ?? undefined, undefined);
 
-    // Find the current font entry to display
-    const currentFont = groups
-        .flatMap(group => group.items)
-        .find(item => item.value === fontFamily);
-    const displayLabel = customFontTitle ?? currentFont?.label ?? currentFont?.value ?? fontFamily ?? "";
-
-    // Map option name to CSS variable
-    const themeCssVariable = {
-        mainFontFamily: "var(--main-font-family)",
-        treeFontFamily: "var(--tree-font-family)",
-        detailFontFamily: "var(--detail-font-family)",
-        monospaceFontFamily: "var(--monospace-font-family)"
-    }[fontFamilyOption] ?? "inherit";
-
-    // Get the CSS font-family value for preview
-    const getFontFamily = (value: string) => {
-        if (value === "theme") {
-            // Use the theme's CSS variable for this font option
-            return themeCssVariable;
-        }
-        if (value === "system") {
-            // Use the appropriate system font stack
-            return isMonospace ? SYSTEM_MONOSPACE_FONT_STACK : SYSTEM_SANS_SERIF_FONT_STACK;
-        }
-        // One of the user's own fonts names the note it is stored in, not a family the browser
-        // could resolve; the family it was registered under is built from the same id.
-        const noteId = customFontNoteId(value);
-        return noteId ? customFontFamily(noteId) : quoteFamily(value);
-    };
+    const entry = groups.flatMap((group) => group.items).find((item) => item.value === family);
+    const name = customFontTitle ?? entry?.label ?? entry?.value ?? family;
 
     return (
-        <>
-            <OptionCardSection
-                className={clsx("font-option", disabled && "disabled")}
-                label={label}
-                description={description}
-                onAction={disabled ? undefined : () => setShowModal(true)}
-            >
-                <span className="font-option-preview">
-                    <span className="font-option-specimen" style={{ fontFamily: getFontFamily(fontFamily ?? ""), fontSize: `${fontSize}%` }}>{displayLabel}</span>
-                    <span className="tn-card-chevron" />
-                </span>
-            </OptionCardSection>
-
-            <FontPickerModal
-                show={showModal}
-                onHidden={() => setShowModal(false)}
-                title={label}
-                groups={groups}
-                fontFamily={fontFamily ?? ""}
-                fontSize={parseInt(fontSize ?? "100", 10)}
-                onFontFamilyChange={setFontFamily}
-                onFontSizeChange={(size) => setFontSize(String(size))}
-                getFontFamily={getFontFamily}
-                sizeDescription={sizeDescription}
-                preview={fontFamilyOption === "treeFontFamily" ? <TreePreview /> : undefined}
-            />
-        </>
+        <OptionCardSection
+            className={clsx("font-option", disabled && "disabled")}
+            label={target.label}
+            description={target.description}
+            onAction={disabled ? undefined : onOpen}
+        >
+            <span className="font-option-preview">
+                <span className="font-option-specimen" style={{ fontFamily: cssFontFamily(target, family), fontSize: `${size}%` }}>{name}</span>
+                <span className="tn-card-chevron" />
+            </span>
+        </OptionCardSection>
     );
+}
+
+/** What CSS is given to draw an entry, whose value is not always a family the browser can resolve. */
+function cssFontFamily(target: FontTarget, value: string): string {
+    if (value === "theme") {
+        return target.themeVariable;
+    }
+
+    if (value === "system") {
+        return target.isMonospace ? SYSTEM_MONOSPACE_FONT_STACK : SYSTEM_SANS_SERIF_FONT_STACK;
+    }
+
+    // One of the user's own fonts names the note it is stored in; the family it was registered
+    // under is built from the same id.
+    const noteId = customFontNoteId(value);
+    return noteId ? customFontFamily(noteId) : quoteFamily(value);
 }
 
 /**
@@ -377,27 +453,23 @@ const PREVIEW_TEXT = "The quick brown fox jumps over the lazy dog. 0123456789";
 interface FontPickerModalProps {
     show: boolean;
     onHidden: () => void;
-    title: string;
+    /** The area being set, which stays put as the dialog fades out so it does not change name. */
+    target: FontTarget;
+    onTargetChange: (target: FontTarget) => void;
+    option: FontOption;
     groups: FontGroup[];
-    fontFamily: string;
-    fontSize: number;
-    onFontFamilyChange: (value: string) => void;
-    onFontSizeChange: (value: number) => void;
-    getFontFamily: (value: string) => string | undefined;
-    sizeDescription?: string;
-    /** What the chosen font is shown on, where a line of specimen text is not what it is set in. */
-    preview?: ComponentChildren;
 }
 
-function FontPickerModal({ show, onHidden, title, groups, fontFamily, fontSize, onFontFamilyChange, onFontSizeChange, getFontFamily, sizeDescription, preview }: FontPickerModalProps) {
+function FontPickerModal({ show, onHidden, target, onTargetChange, option: { family, size, setFamily, setSize }, groups }: FontPickerModalProps) {
     const [ query, setQuery ] = useState("");
     const searchRef = useRef<HTMLInputElement>(null);
     const matching = useMemo(() => filterFontGroups(groups, query), [ groups, query ]);
+    const { Preview } = target;
 
     return createPortal(
         <Modal
             className="font-picker-modal"
-            title={title}
+            title={t("fonts.fonts")}
             size="lg"
             show={show}
             // The list runs to every family the device has, so the search is what the dialog opens on.
@@ -407,6 +479,17 @@ function FontPickerModal({ show, onHidden, title, groups, fontFamily, fontSize, 
                 onHidden();
             }}
             stackable
+            // Beside a sidebar the header carries no title (see `style.css`), so the areas go there:
+            // the switch is between what the dialog is setting, not between what it holds.
+            header={
+                <SegmentedChoice
+                    className="font-picker-targets"
+                    options={FONT_TARGETS.map(({ key, shortLabel }) => ({ value: key, label: shortLabel }))}
+                    currentValue={target.key}
+                    onChange={(key) => onTargetChange(FONT_TARGETS.find((candidate) => candidate.key === key) ?? target)}
+                    collapseOnMobile
+                />
+            }
             sidebar={<>
                 <SettingsSearch
                     inputRef={searchRef}
@@ -423,11 +506,11 @@ function FontPickerModal({ show, onHidden, title, groups, fontFamily, fontSize, 
                                 {group.items.map(item => (
                                     <FormListItem
                                         key={item.value}
-                                        onClick={() => onFontFamilyChange(item.value)}
-                                        checked={fontFamily === item.value}
-                                        selected={fontFamily === item.value}
+                                        onClick={() => setFamily(item.value)}
+                                        checked={family === item.value}
+                                        selected={family === item.value}
                                     >
-                                        <span style={{ fontFamily: getFontFamily(item.value) }}>
+                                        <span style={{ fontFamily: cssFontFamily(target, item.value) }}>
                                             {item.label ?? item.value}
                                         </span>
                                     </FormListItem>
@@ -445,15 +528,15 @@ function FontPickerModal({ show, onHidden, title, groups, fontFamily, fontSize, 
                     <label>{t("fonts.size")}</label>
                     <div className="font-size-slider">
                         <Slider
-                            value={fontSize}
-                            onChange={onFontSizeChange}
+                            value={size}
+                            onChange={setSize}
                             min={50}
                             max={200}
                             step={5}
                         />
-                        <span className="font-size-value">{fontSize}%</span>
+                        <span className="font-size-value">{size}%</span>
                     </div>
-                    {sizeDescription && <small className="font-size-description">{sizeDescription}</small>}
+                    {target.sizeDescription && <small className="font-size-description">{target.sizeDescription}</small>}
                 </div>
 
                 <div className="font-preview">
@@ -461,11 +544,11 @@ function FontPickerModal({ show, onHidden, title, groups, fontFamily, fontSize, 
                     <div
                         className="font-preview-text"
                         style={{
-                            fontFamily: getFontFamily(fontFamily),
-                            fontSize: `${fontSize}%`
+                            fontFamily: cssFontFamily(target, family),
+                            fontSize: `${size}%`
                         }}
                     >
-                        {preview ?? PREVIEW_TEXT}
+                        {Preview ? <Preview /> : PREVIEW_TEXT}
                     </div>
                 </div>
             </div>

@@ -93,6 +93,12 @@ async function openPicker() {
 /** The generic entries, which head every list and are never measured against the device. */
 const GENERIC_LABELS = [ "fonts.theme_defined", "fonts.system-default", "fonts.serif", "fonts.sans-serif", "fonts.monospace" ];
 
+/** The entry the picker shows as set, which is the one the area it is on names. */
+const selectedFont = () => document.querySelector(".font-picker-list .dropdown-item.selected")?.textContent?.trim();
+
+/** The areas the picker can be switched between, in the order they are offered. */
+const pickerTargets = () => [ ...document.querySelectorAll<HTMLElement>(".font-picker-targets button") ];
+
 /** Types into the picker's search box, as the user would. */
 function searchFonts(query: string) {
     const search = document.querySelector<HTMLInputElement>(".font-picker-modal .settings-search input");
@@ -270,6 +276,34 @@ describe("the font settings", () => {
         await act(async () => clear?.click());
         expect(listedFonts()).toContain("Arial");
         expect(listedHeaders()).toContain("fonts.generic-fonts");
+    });
+
+    it("switches between the areas without leaving the picker", async () => {
+        mocks.electron = false;
+        mocks.stored = { overrideThemeFonts: true, mainFontFamily: "Arial", detailFontFamily: "Georgia" };
+        open();
+        await act(async () => {});
+        await act(async () => (fontRows()[0] as HTMLElement).click());
+
+        expect(pickerTargets().map((target) => target.textContent?.trim())).toEqual([
+            "fonts.main_font_short",
+            "fonts.note_tree_font_short",
+            "fonts.note_detail_font_short",
+            "fonts.monospace_font_short"
+        ]);
+        expect(selectedFont()).toBe("Arial");
+        // The interface size is the one the others are measured against, so it has nothing to say.
+        expect(document.querySelector(".font-picker-modal .font-size-description")).toBeNull();
+
+        // The list the areas are set from is the expensive part of the dialog, so it stays as it is
+        // — the search included, which is where the user left it.
+        await act(async () => searchFonts("g"));
+        await act(async () => pickerTargets()[2].click());
+
+        expect(selectedFont()).toBe("Georgia");
+        expect(document.querySelector<HTMLInputElement>(".font-picker-modal .settings-search input")?.value).toBe("g");
+        // The whole dialog followed the area, not only the list.
+        expect(document.querySelector(".font-picker-modal .font-size-description")?.textContent).toBe("fonts.size_relative_to_general");
     });
 
     it("leaves ligatures alone, since they come from the theme's own font", () => {
