@@ -274,48 +274,6 @@ export default function Column({
  * The editor a new card is named in, opened by the button below the column or by its menu. The
  * state is the column's rather than this component's, since the menu is raised from the header.
  */
-/**
- * How many cards a column holds, with a breakdown on hover.
- *
- * Archived cards are only included while the board is showing archived notes. Otherwise there are
- * none to count and the badge reports the total alone.
- */
-function CountBadge({ items, limit, isOver }: {
-    items?: { note: FNote }[],
-    limit?: number,
-    /** Whether the column is over its limit. The column body is outlined as well. */
-    isOver?: boolean
-}) {
-    const badgeRef = useRef<HTMLSpanElement>(null);
-    const archived = items?.filter(({ note }) => note.isArchived).length ?? 0;
-    const total = items?.length ?? 0;
-
-    const counts = archived
-        ? t("board_view.card-count-with-archived", { count: total - archived, archived })
-        : t("board_view.card-count", { count: total });
-    const warning = t("board_view.card-count-over-limit");
-
-    // The tooltip gets its own markup, since a title attribute cannot show a bold line. The
-    // attribute keeps a plain version as a fallback. Memoised because `useStaticTooltip`
-    // rebuilds the tooltip whenever the config changes identity.
-    const tooltip = useMemo(() => ({
-        html: true,
-        title: isOver ? `${counts}<br><strong>${warning}</strong>` : counts
-    }), [ counts, warning, isOver ]);
-    useStaticTooltip(badgeRef, tooltip);
-
-    return (
-        <span
-            ref={badgeRef}
-            className={clsx("counter-badge", { "over-limit": isOver })}
-            title={isOver ? `${counts}
-${warning}` : counts}
-        >
-            {limit === undefined ? total : `${total}/${limit}`}
-        </span>
-    );
-}
-
 function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
     column: string,
     api: BoardApi,
@@ -392,6 +350,48 @@ function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
                 />
             )}
         </div>
+    );
+}
+
+/**
+ * How many cards a column holds, with a breakdown on hover.
+ *
+ * Archived cards are only included while the board is showing archived notes. Otherwise there are
+ * none to count and the badge reports the total alone.
+ */
+function CountBadge({ items, limit, isOver }: {
+    items?: { note: FNote }[],
+    limit?: number,
+    /** Whether the column is over its limit. The column body is outlined as well. */
+    isOver?: boolean
+}) {
+    const badgeRef = useRef<HTMLSpanElement>(null);
+    const archived = items?.filter(({ note }) => note.isArchived).length ?? 0;
+    const total = items?.length ?? 0;
+
+    const counts = archived
+        ? t("board_view.card-count-with-archived", { count: total - archived, archived })
+        : t("board_view.card-count", { count: total });
+    const warning = t("board_view.card-count-over-limit");
+
+    // The tooltip gets its own markup, since a title attribute cannot show a bold line. The
+    // attribute keeps a plain version as a fallback. Memoised because `useStaticTooltip`
+    // rebuilds the tooltip whenever the config changes identity.
+    const tooltip = useMemo(() => ({
+        html: true,
+        title: isOver ? `${counts}<br><strong>${warning}</strong>` : counts
+    }), [ counts, warning, isOver ]);
+    useStaticTooltip(badgeRef, tooltip);
+
+    return (
+        <span
+            ref={badgeRef}
+            className={clsx("counter-badge", { "over-limit": isOver })}
+            title={isOver ? `${counts}
+${warning}` : counts}
+        >
+            {limit === undefined ? total : `${total}/${limit}`}
+        </span>
     );
 }
 

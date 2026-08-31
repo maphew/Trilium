@@ -15,8 +15,9 @@ import ws from "../../../services/ws";
 import toast from "../../../services/toast";
 import { BoardColumnData, BoardViewData } from ".";
 import {
-    type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_COLUMN_ICON, DEFAULT_GROUP_BY
-, INBOX_COLUMN, INBOX_COLUMN_ICON } from "./columns";
+    type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_COLUMN_ICON,
+    DEFAULT_GROUP_BY, INBOX_COLUMN, INBOX_COLUMN_ICON
+} from "./columns";
 import { ColumnMap } from "./data";
 
 /** One write's claim on a column, held until that write lands or is taken back. */

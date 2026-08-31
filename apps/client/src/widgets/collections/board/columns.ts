@@ -85,11 +85,6 @@ export function getStatusDefinition(parentNote: FNote, groupBy: string): BoardSt
  * Having none at all is the ordinary case for a board created now, and the answer is yes: the
  * definition the board writes is its own from the start.
  */
-/** Whether a value identifies a column of its own, rather than the absence of one. */
-function named(value: string) {
-    return value.trim() !== INBOX_COLUMN;
-}
-
 export function canStoreColumnsInDefinition(statusDefinition: BoardStatusDefinition | undefined): boolean {
     if (!statusDefinition) {
         // Nothing defines the label yet, so a definition the board creates is its own.
@@ -167,4 +162,9 @@ export function resolveBoardColumns(
     // shared with other notes cannot express, and which it lags by a round trip after every insert
     // and reorder. Equal lengths are enough to tell, the attachment being one of the sources above.
     return persisted.length === columns.length ? persisted : columns;
+}
+
+/** Whether a value identifies a column of its own, rather than the absence of one. */
+function named(value: string) {
+    return value.trim() !== INBOX_COLUMN;
 }
