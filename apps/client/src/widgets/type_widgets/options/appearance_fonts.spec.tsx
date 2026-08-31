@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,6 +21,14 @@ vi.mock("../../../services/utils", async (importOriginal) => ({
 }));
 
 vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
+
+// The real i18n is not initialized under test, so `Trans` would render the bare key and drop what
+// it wires in; the stub renders the components themselves, which is what the sample is answering for.
+vi.mock("react-i18next", () => ({
+    Trans: ({ i18nKey, components }: { i18nKey: string, components: Record<string, preact.VNode> }) => (
+        <span data-i18n-key={i18nKey}>{Object.values(components)}</span>
+    )
+}));
 
 // The picker asks for the user's own fonts and registers each one it is given; only the list is of
 // interest here, so the registration is stood in for.
@@ -304,6 +315,23 @@ describe("the font settings", () => {
         expect(document.querySelector<HTMLInputElement>(".font-picker-modal .settings-search input")?.value).toBe("g");
         // The whole dialog followed the area, not only the list.
         expect(document.querySelector(".font-picker-modal .font-size-description")?.textContent).toBe("fonts.size_relative_to_general");
+    });
+
+    it("sets the document sample's emphasis in the faces a family may not have", async () => {
+        await openPicker();
+        await act(async () => pickerTargets()[2].click());
+
+        // A family missing a bold or an italic has one sheared out of its upright by the browser,
+        // which is what the runs are there to show.
+        const sample = document.querySelector(".font-preview-document p");
+        expect(sample?.querySelector("strong")).not.toBeNull();
+        expect(sample?.querySelector("em")).not.toBeNull();
+
+        // The two halves have to name the same tags: the sentence carries them, the components map
+        // above answers for them, and a tag named in one alone renders as text in the paragraph.
+        const catalogue = JSON.parse(readFileSync(join(__dirname, "..", "..", "..", "translations", "en", "translation.json"), "utf-8"));
+        expect(catalogue.fonts.document_preview_body).toContain("<strong>");
+        expect(catalogue.fonts.document_preview_body).toContain("<em>");
     });
 
     it("leaves ligatures alone, since they come from the theme's own font", () => {

@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { ComponentChildren, Fragment } from "preact";
 import { createPortal } from "preact/compat";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { Trans } from "react-i18next";
 
 import FNote from "../../../entities/fnote";
 import { getCustomFonts, registerFontNote } from "../../../services/custom_fonts";
@@ -453,12 +454,24 @@ function TreePreviewRow({ note, expanded, nested }: { note: FNote; expanded?: bo
  * A heading over a paragraph, which is the shape the font is being chosen for. One line says
  * nothing about how a reading font behaves at length: the spacing between the lines, and the weight
  * a heading takes against the text under it.
+ *
+ * The paragraph carries a bold and an italic run, which a family missing either of those faces
+ * cannot draw: the browser shears and thickens the upright one instead, and notes are written in
+ * both often enough that a font that fails at them is the wrong font to have chosen.
  */
 function DocumentPreview() {
     return (
         <div className="font-preview-document">
             <h3>{t("fonts.document_preview_heading")}</h3>
-            <p>{t("fonts.document_preview_body")}</p>
+            <p>
+                <Trans
+                    i18nKey="fonts.document_preview_body"
+                    components={{
+                        strong: <strong />,
+                        em: <em />
+                    }}
+                />
+            </p>
         </div>
     );
 }
