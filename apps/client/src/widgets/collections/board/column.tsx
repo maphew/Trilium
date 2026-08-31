@@ -41,6 +41,7 @@ export default function Column({
     color,
     archived,
     nested,
+    limit,
     isDraggingColumn,
     columnItems,
     api,
@@ -58,6 +59,8 @@ export default function Column({
     archived?: boolean,
     /** Whether the inbox reaches past the board's own children. Meaningless on any other column. */
     nested?: boolean,
+    /** The note limit, absent if disabled. */
+    limit?: number,
     isDraggingColumn: boolean,
     api: BoardApi,
     parentNote: FNote,
@@ -73,13 +76,16 @@ export default function Column({
 } & DragContext) {
     const [ isVisible, setVisible ] = useState(true);
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
-    const { setColumnNameToEdit } = useContext(BoardActionsContext);
+    const { setColumnNameToEdit, setColumnLimitToEdit } = useContext(BoardActionsContext);
     const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
     const isEditing = (columnNameToEdit === column);
     const editorRef = useRef<HTMLInputElement>(null);
     const { handleColumnDragStart, handleColumnDragEnd, handleDragOver, handleDragLeave, handleDrop } = useDragging({
         column, columnIndex, columnItems, isEditing, api, parentNote
     });
+
+    // Read here rather than in the badge: the column body shows an outline as well.
+    const isOverLimit = limit !== undefined && (columnItems?.length ?? 0) > limit;
 
     const openMenu = useCallback((e: ContextMenuEvent) => {
         openColumnContextMenu(api, e, {
@@ -94,6 +100,7 @@ export default function Column({
             onAddColumn: async (direction) => {
                 setColumnNameToEdit(await api.insertColumn(column, direction));
             },
+            onSetLimit: () => setColumnLimitToEdit(column),
             onMoveColumn: (toIndex) => {
                 onMoveColumn(columnIndex, toIndex);
                 // Asked for by name: the move draws the board again, and the heading the menu was
@@ -103,7 +110,7 @@ export default function Column({
         });
     }, [
         api, column, color, archived, nested, columns, columnIndex,
-        setColumnNameToEdit, onMoveColumn, onFocusColumn
+        setColumnNameToEdit, setColumnLimitToEdit, onMoveColumn, onFocusColumn
     ]);
 
     // A fully desaturated colour has no hue to tint with, and leaves the column plain.
@@ -151,7 +158,8 @@ export default function Column({
                 "drag-over": dropTarget === column && draggedCard?.fromColumn !== column,
                 // The class the themes key a hue off, worn here as anywhere else that carries one.
                 "with-hue": hue !== undefined,
-                "board-column-archived": archived
+                "board-column-archived": archived,
+                "over-limit": isOverLimit
             })}
             onDragOver={isAnyColumnDragging ? handleColumnDragOver : handleDragOver}
             onDragLeave={handleDragLeave}
@@ -197,7 +205,7 @@ export default function Column({
                                 : api.getColumnTitle(column)}
                         </span>
                         <div className="spacer" />
-                        <CountBadge items={columnItems} />
+                        <CountBadge items={columnItems} limit={limit} isOver={isOverLimit} />
                         <ActionButton
                             className="column-menu"
                             icon="bx bx-dots-vertical-rounded"
@@ -272,19 +280,40 @@ export default function Column({
  * The archived ones are among them only while the board is showing archived notes; where it is not,
  * there are none to count and the badge says how many cards there are and no more.
  */
-function CountBadge({ items }: { items?: { note: FNote }[] }) {
+function CountBadge({ items, limit, isOver }: {
+    items?: { note: FNote }[],
+    limit?: number,
+    /** Whether the column is over its limit. The column body shows this too. */
+    isOver?: boolean
+}) {
     const badgeRef = useRef<HTMLSpanElement>(null);
     const archived = items?.filter(({ note }) => note.isArchived).length ?? 0;
     const total = items?.length ?? 0;
 
-    // Named on the element rather than handed to the tooltip, so the count still reads on hover
-    // wherever the scripted tooltip does not come up.
-    const title = archived
+    const counts = archived
         ? t("board_view.card-count-with-archived", { count: total - archived, archived })
         : t("board_view.card-count", { count: total });
-    useStaticTooltip(badgeRef);
+    const warning = t("board_view.card-count-over-limit");
 
-    return <span ref={badgeRef} className="counter-badge" title={title}>{total}</span>;
+    // The tooltip gets its own markup, since a title attribute cannot show a bold line. The
+    // attribute keeps a plain version as a fallback. Memoised because `useStaticTooltip`
+    // rebuilds the tooltip whenever the config changes identity.
+    const tooltip = useMemo(() => ({
+        html: true,
+        title: isOver ? `${counts}<br><strong>${warning}</strong>` : counts
+    }), [ counts, warning, isOver ]);
+    useStaticTooltip(badgeRef, tooltip);
+
+    return (
+        <span
+            ref={badgeRef}
+            className={clsx("counter-badge", { "over-limit": isOver })}
+            title={isOver ? `${counts}
+${warning}` : counts}
+        >
+            {limit === undefined ? total : `${total}/${limit}`}
+        </span>
+    );
 }
 
 function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {

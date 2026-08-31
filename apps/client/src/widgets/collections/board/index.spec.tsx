@@ -494,6 +494,52 @@ describe("Board column rename", () => {
             .toBe('board_view.card-count-with-archived:{"count":2,"archived":1}');
     });
 
+    /** A column told how much it should hold says so, and says when it is holding more. */
+    it("shows the limit beside the count, and marks a column over it", async () => {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            "#label:status(inheritable)":
+                "promoted,alias=Status,single,select,options=To Do;Done",
+            children: [
+                { title: "First", "#status": "To Do" },
+                { title: "Second", "#status": "To Do" },
+                { title: "Third", "#status": "Done" }
+            ]
+        });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={{ columns: [
+                            { value: "To Do", limit: 1 }, { value: "Done", limit: 4 }
+                        ] }}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+        });
+        await act(async () => { await flush(); });
+
+        const badges = [ ...mountPoint.querySelectorAll(".board-column .counter-badge") ];
+        expect(badges.map(el => el.textContent)).toEqual([ "2/1", "1/4" ]);
+        // Only the one holding more than it should is marked, badge and body alike.
+        expect(badges.map(el => el.classList.contains("over-limit"))).toEqual([ true, false ]);
+        expect([ ...mountPoint.querySelectorAll(".board-column") ]
+            .map(el => el.classList.contains("over-limit"))).toEqual([ true, false ]);
+
+        // The one over its limit says so on hover, on a line of its own.
+        expect(badgeTooltip(mountPoint, 0)).toContain("board_view.card-count-over-limit");
+        expect(badgeTooltip(mountPoint, 1)).not.toContain("board_view.card-count-over-limit");
+    });
+
     /** Renames the middle column, so a slot that is not the last one has to survive. */
     async function renameSecondColumn(container: HTMLElement, newName: string) {
         return renameColumnAt(container, 1, newName);

@@ -38,7 +38,8 @@ describe("Board column context menu", () => {
             onEditTitle?: () => void,
             onNewItem?: () => void,
             onAddColumn?: (direction: "before" | "after") => void,
-            onMoveColumn?: (toIndex: number) => void
+            onMoveColumn?: (toIndex: number) => void,
+            onSetLimit?: () => void
         } = {}
     ) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
@@ -59,7 +60,8 @@ describe("Board column context menu", () => {
             onEditTitle: callbacks.onEditTitle ?? (() => {}),
             onNewItem: callbacks.onNewItem ?? (() => {}),
             onAddColumn: callbacks.onAddColumn ?? (() => {}),
-            onMoveColumn: callbacks.onMoveColumn ?? (() => {})
+            onMoveColumn: callbacks.onMoveColumn ?? (() => {}),
+            onSetLimit: callbacks.onSetLimit ?? (() => {})
         });
 
         // The spy outlives one call, so it is the menu just opened that is read back.
@@ -163,8 +165,8 @@ describe("Board column context menu", () => {
         const titled = openMenu({} as BoardApi).filter(item => item && "uiIcon" in item);
         expect(titled.map(item => "uiIcon" in item ? item.uiIcon : undefined))
             .toEqual([
-                "bx bx-edit-alt", "bx bx-plus", "bx bx-link", "bx bx-columns",
-                "bx bx-horizontal-left", "bx bx-archive", "bx bx-trash"
+                "bx bx-edit-alt", "bx bx-tachometer", "bx bx-plus", "bx bx-link",
+                "bx bx-columns", "bx bx-horizontal-left", "bx bx-archive", "bx bx-trash"
             ]);
     });
 

@@ -391,6 +391,16 @@ export default class BoardApi {
         await attributes.setBooleanWithInheritance(this.parentNote, "enableInboxColumn", false);
     }
 
+    /** The note limit set for a column, absent if disabled. */
+    getColumnLimit(column: string) {
+        return this.viewConfig?.columns?.find(col => col.value === column)?.limit;
+    }
+
+    /** Sets a column's note limit. Pass `undefined` to disable it. */
+    async setColumnLimit(column: string, limit: number | undefined) {
+        await this.updateColumn(column, { limit });
+    }
+
     /** Whether the inbox reaches past the board's own children, down to the children of cards. */
     async setInboxNested(nested: boolean) {
         await this.updateColumn(INBOX_COLUMN, { nested });
@@ -424,6 +434,7 @@ export default class BoardApi {
             if (!updated.color) delete updated.color;
             if (!updated.archived) delete updated.archived;
             if (!updated.displayName) delete updated.displayName;
+            if (!updated.limit) delete updated.limit;
             return updated;
         };
 

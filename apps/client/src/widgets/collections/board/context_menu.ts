@@ -33,6 +33,8 @@ interface ColumnMenuTarget {
     onAddColumn: (direction: "before" | "after") => void;
     /** Moves this column to sit before the given position among the columns as drawn. */
     onMoveColumn: (toIndex: number) => void;
+    /** Asks how many cards the column is meant to hold. */
+    onSetLimit: () => void;
 }
 
 export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column: ColumnMenuTarget) {
@@ -50,6 +52,11 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                 uiIcon: "bx bx-edit-alt",
                 shortcut: "F2",
                 handler: column.onEditTitle
+            },
+            {
+                title: t("board_view.set-limit"),
+                uiIcon: "bx bx-tachometer",
+                handler: column.onSetLimit
             },
             ...(isInbox ? [ {
                 title: t("board_view.inbox-nested"),
