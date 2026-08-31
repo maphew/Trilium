@@ -124,7 +124,8 @@ const FONT_TARGETS: FontTarget[] = [
         shortLabel: t("fonts.monospace_font_short"),
         description: t("fonts.monospace_font_description"),
         themeVariable: "var(--monospace-font-family)",
-        isMonospace: true
+        isMonospace: true,
+        Preview: CodePreview
     }
 ];
 
@@ -474,6 +475,21 @@ function DocumentPreview() {
             </p>
         </div>
     );
+}
+
+/** The plot names set `0` against `O` and `1` against `l`; the operators are ligature pairs. */
+const CODE_PREVIEW = `const PLOTS = ["01", "10", "11"];
+
+/** Days until a stem in \`plot\` rooted, or null if it never did. */
+function rootedAfter(log, plot = PLOTS[0]) {
+    const entry = log.find(({ id }) => id === plot);
+    if (!entry || entry.days <= 0) return null;
+
+    return \`\${entry.days} days => \${entry.roots ?? 0} roots\`;
+}`;
+
+function CodePreview() {
+    return <pre className="font-preview-code">{CODE_PREVIEW}</pre>;
 }
 
 const PREVIEW_TEXT = "The quick brown fox jumps over the lazy dog. 0123456789";

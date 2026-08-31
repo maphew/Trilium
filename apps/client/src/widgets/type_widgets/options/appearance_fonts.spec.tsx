@@ -334,6 +334,20 @@ describe("the font settings", () => {
         expect(catalogue.fonts.document_preview_body).toContain("<em>");
     });
 
+    it("shows the code sample on a surface the ligature setting reaches", async () => {
+        await openPicker();
+        await act(async () => pickerTargets()[3].click());
+
+        // `pre` is what `style.css` turns ligatures off on, so the sample answers to the setting
+        // sitting under the fonts; it is also what keeps the indentation the sample is written in.
+        const sample = document.querySelector(".font-preview-code");
+        expect(sample?.tagName).toBe("PRE");
+        // The pairs a family with programming ligatures draws as one glyph, which is what there is
+        // to look at when that setting is turned off and on.
+        expect(sample?.textContent).toContain("=>");
+        expect(sample?.textContent).toContain("<=");
+    });
+
     it("leaves ligatures alone, since they come from the theme's own font", () => {
         open();
 

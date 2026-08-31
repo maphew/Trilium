@@ -179,6 +179,10 @@ body.desktop .modal.font-picker-modal {
     line-height: 1.6;
 }
 
+pre.font-preview-code {
+    padding: 0;
+}
+
 /* Sized in em, so the heading keeps its proportion to the text under it as the slider moves. */
 .font-preview-document {
     h3 {
