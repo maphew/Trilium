@@ -1143,3 +1143,43 @@ describe("renaming a column that names itself", () => {
         expect(api.getColumnTitle("")).toBe("board_view.inbox");
     });
 });
+
+describe("filing a card under the inbox", () => {
+    /**
+     * Landing in the inbox means carrying no value at all. A relation the card takes from elsewhere
+     * would still point somewhere once the owned one goes, so the card would arrive in that column
+     * rather than the inbox: it is refused and said so, instead of moved somewhere unasked.
+     */
+    it("refuses a relation card that would still point somewhere", async () => {
+        const board = buildNote({
+            title: "Board",
+            "~status(inheritable)": "root",
+            children: [ { title: "Card", "~status": "root" } ]
+        });
+        const { api } = createApi({}, [], board, "~status");
+        const removeRelation = vi.spyOn(attributes, "removeOwnedRelationByName")
+            .mockReturnValue(true);
+        const message = vi.spyOn(toast, "showMessage").mockReturnValue(undefined);
+
+        await api.changeColumn(board.getChildNoteIds()[0], "");
+
+        expect(message).toHaveBeenCalledWith("board_view.inherited-column", 3000);
+        expect(removeRelation).not.toHaveBeenCalled();
+    });
+
+    /** Taking the card off the board is a lesser thing to ask, and still takes what it owns. */
+    it("still removes what such a card owns when it is taken off the board", async () => {
+        const board = buildNote({
+            title: "Board",
+            "~status(inheritable)": "root",
+            children: [ { title: "Card", "~status": "root" } ]
+        });
+        const { api } = createApi({}, [], board, "~status");
+        const removeRelation = vi.spyOn(attributes, "removeOwnedRelationByName")
+            .mockReturnValue(true);
+
+        await api.removeFromBoard(board.getChildNoteIds()[0]);
+
+        expect(removeRelation).toHaveBeenCalled();
+    });
+});

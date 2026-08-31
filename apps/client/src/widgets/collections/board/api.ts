@@ -167,11 +167,8 @@ export default class BoardApi {
     }
 
     async changeColumn(noteId: string, newColumn: string) {
-        // The inbox is where the cards carrying no value stand, so filing one there takes its value
-        // away rather than writing an empty one. Every path comes through here: the drag, the
-        // keyboard, and the menu.
         if (newColumn === INBOX_COLUMN) {
-            return this.removeFromBoard(noteId);
+            return this.moveToInbox(noteId);
         }
 
         if (this.isRelationMode) {
@@ -179,6 +176,26 @@ export default class BoardApi {
         } else {
             await attributes.setLabel(noteId, this.statusAttribute, newColumn);
         }
+    }
+
+    /**
+     * Files a card under the inbox, which is to say leaves it carrying no value at all.
+     *
+     * Told apart from {@link removeFromBoard}, which takes away what the card owns and is content
+     * to uncover whatever that was covering. Landing in the inbox is a stronger thing to ask: a
+     * relation the card takes from elsewhere would still be pointing somewhere afterwards, and the
+     * card would arrive in that column instead of the one it was aimed at.
+     */
+    private moveToInbox(noteId: string) {
+        const note = froca.getNoteFromCache(noteId);
+        if (!note) return;
+
+        if (this.isRelationMode && this.isInherited(note, "relation")) {
+            toast.showMessage(t("board_view.inherited-column"), 3000);
+            return;
+        }
+
+        return this.removeFromBoard(noteId);
     }
 
     async addNewColumn(columnName: string) {
