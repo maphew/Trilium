@@ -263,6 +263,13 @@ export default class BoardApi {
     }
 
     async renameColumn(oldValue: string, newValue: string) {
+        // A column is known by the value its cards carry, so a blank name is not a name: it would
+        // write an empty label over every card in the column and leave nothing to group them by.
+        // The editor is simply left as it was.
+        if (!newValue.trim()) {
+            return;
+        }
+
         const noteIds = this.byColumn?.get(oldValue)?.map(item => item.note.noteId) || [];
 
         // Change the value in the notes.

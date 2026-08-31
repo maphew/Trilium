@@ -994,3 +994,24 @@ describe("what the board calls the field it groups by", () => {
         expect(createApi({}, [], empty).api.getStatusLabel()).toBe("board_view.status-header");
     });
 });
+
+describe("renaming a column to nothing", () => {
+    /**
+     * The value a column carries is what its cards are grouped by, so an empty name would write an
+     * empty label over all of them and take the column with it.
+     */
+    it("leaves the column and its cards alone", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ "To Do", "Done" ]
+        );
+        // A module mock outlives a test, so what earlier ones asked for is cleared first.
+        vi.mocked(executeBulkActions).mockClear();
+
+        await api.renameColumn("Done", "");
+        await api.renameColumn("Done", "   ");
+
+        expect(executeBulkActions).not.toHaveBeenCalled();
+        expect(saved).toEqual([]);
+    });
+});
