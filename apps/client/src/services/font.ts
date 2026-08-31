@@ -39,3 +39,25 @@ export function applyFontsFromOptions() {
     // If the new stylesheet fails to load, keep the previous one rather than dropping fonts entirely.
     newLink.addEventListener("error", () => newLink.remove(), { once: true });
 }
+
+/**
+ * The font families installed on this device, sorted, for the font picker to offer. Deduplicated by
+ * family: `queryLocalFonts()` reports one entry per face, so a family with four weights arrives four
+ * times.
+ *
+ * Empty wherever the runtime does not answer — the API is Chromium-only, needs a secure context, and
+ * rejects while the `local-fonts` permission is denied. Callers fall back to the stock list, which is
+ * what every runtime other than the desktop app gets.
+ */
+export async function listSystemFontFamilies(): Promise<string[]> {
+    if (typeof window.queryLocalFonts !== "function") {
+        return [];
+    }
+
+    try {
+        const faces = await window.queryLocalFonts();
+        return [ ...new Set(faces.map(({ family }) => family)) ].sort((a, b) => a.localeCompare(b));
+    } catch {
+        return [];
+    }
+}

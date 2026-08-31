@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { applyFontsFromOptions, createFontStylesheetLink } from "./font.js";
+import { applyFontsFromOptions, createFontStylesheetLink, listSystemFontFamilies } from "./font.js";
 
 function fontLinkHrefs() {
     return Array.from(document.head.querySelectorAll<HTMLLinkElement>("link[data-font-stylesheet]"))
@@ -85,5 +85,40 @@ describe("font service", () => {
         expect(hrefs).toHaveLength(2);
         expect(hrefs[0]).toMatch(VERSIONED_HREF);
         expect(hrefs[1]).toBe("style.css");
+    });
+});
+
+describe("listSystemFontFamilies", () => {
+    /** One face as `queryLocalFonts()` reports it — a family arrives once per weight and slant. */
+    function face(family: string, style: string): FontData {
+        return { family, style, fullName: `${family} ${style}`, postscriptName: `${family}-${style}` };
+    }
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it("returns nothing where the runtime does not expose the API", async () => {
+        expect(window.queryLocalFonts).toBeUndefined();
+        expect(await listSystemFontFamilies()).toEqual([]);
+    });
+
+    it("reduces the faces to sorted, deduplicated families", async () => {
+        vi.stubGlobal("queryLocalFonts", async () => [
+            face("Inter", "Regular"),
+            face("Inter", "Bold"),
+            face("Adwaita Mono", "Regular"),
+            face("Inter", "Italic")
+        ]);
+
+        expect(await listSystemFontFamilies()).toEqual([ "Adwaita Mono", "Inter" ]);
+    });
+
+    it("returns nothing when the query is refused, so the picker keeps the stock list", async () => {
+        vi.stubGlobal("queryLocalFonts", async () => {
+            throw new DOMException("denied", "NotAllowedError");
+        });
+
+        expect(await listSystemFontFamilies()).toEqual([]);
     });
 });

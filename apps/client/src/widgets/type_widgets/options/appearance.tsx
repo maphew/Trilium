@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import zoomService from "../../../components/zoom";
 import { ColorScheme, resolveColorScheme, THEME_FAMILY_SCHEMES } from "../../../services/color_scheme";
 import { getCustomFonts, registerFontNote } from "../../../services/custom_fonts";
+import { listSystemFontFamilies } from "../../../services/font";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import { isElectron, isMobile, reloadFrontendApp } from "../../../services/utils";
@@ -83,17 +84,21 @@ interface FontGroup {
     items: FontFamilyEntry[];
 }
 
+/** Families the browser resolves for itself, so they hold wherever Trilium runs. */
+const GENERIC_FONTS: FontGroup = {
+    title: t("fonts.generic-fonts"),
+    items: [
+        { value: "theme", label: t("fonts.theme_defined") },
+        { value: "system", label: t("fonts.system-default") },
+        { value: "serif", label: t("fonts.serif") },
+        { value: "sans-serif", label: t("fonts.sans-serif") },
+        { value: "monospace", label: t("fonts.monospace") }
+    ]
+};
+
+/** Named families, offered where the device's own fonts cannot be listed (see {@link useFontGroups}). */
 const FONT_FAMILIES: FontGroup[] = [
-    {
-        title: t("fonts.generic-fonts"),
-        items: [
-            { value: "theme", label: t("fonts.theme_defined") },
-            { value: "system", label: t("fonts.system-default") },
-            { value: "serif", label: t("fonts.serif") },
-            { value: "sans-serif", label: t("fonts.sans-serif") },
-            { value: "monospace", label: t("fonts.monospace") }
-        ]
-    },
+    GENERIC_FONTS,
     {
         title: t("fonts.sans-serif-system-fonts"),
         items: [{ value: "Arial" }, { value: "Verdana" }, { value: "Helvetica" }, { value: "Tahoma" }, { value: "Trebuchet MS" }, { value: "Microsoft YaHei" }]
@@ -494,9 +499,13 @@ function Fonts() {
  * The picker's groups, with the fonts the user labelled `#customFont` appended. Those are also
  * registered with the document for as long as the page is open, so the picker draws each specimen
  * in the font it names.
+ *
+ * Where the device's own fonts can be listed, they stand in for the named families: the stock list
+ * is a guess at what a device has, and half of it does not resolve on any given one.
  */
 function useFontGroups(): FontGroup[] {
     const [ customFonts, setCustomFonts ] = useState<UserFont[]>([]);
+    const systemFonts = useSystemFontFamilies();
 
     useEffect(() => {
         let cancelled = false;
@@ -530,13 +539,45 @@ function useFontGroups(): FontGroup[] {
         };
     }, []);
 
-    // Ahead of the stock families: a font the user went and added is the one they are looking for.
-    return useMemo(() => (customFonts.length
-        ? [ {
-            title: t("fonts.user-fonts"),
-            items: customFonts.map(({ noteId, title }) => ({ value: customFontOption(noteId), label: title }))
-        }, ...FONT_FAMILIES ]
-        : FONT_FAMILIES), [ customFonts ]);
+    return useMemo(() => {
+        const stockGroups = systemFonts.length
+            ? [ GENERIC_FONTS, { title: t("fonts.system-fonts"), items: systemFonts.map((value) => ({ value })) } ]
+            : FONT_FAMILIES;
+
+        // Ahead of the rest: a font the user went and added is the one they are looking for.
+        return customFonts.length
+            ? [ {
+                title: t("fonts.user-fonts"),
+                items: customFonts.map(({ noteId, title }) => ({ value: customFontOption(noteId), label: title }))
+            }, ...stockGroups ]
+            : stockGroups;
+    }, [ customFonts, systemFonts ]);
+}
+
+/**
+ * The families installed on this device, empty everywhere but the desktop app. The API behind
+ * {@link listSystemFontFamilies} also exists in a browser served over HTTPS, where reading it would
+ * cost the user a permission prompt for a list the desktop app can have for free — so the ask is
+ * kept to the one runtime that grants it itself (see the `local-fonts` entry in
+ * `web_contents_security.ts`).
+ */
+function useSystemFontFamilies(): string[] {
+    const [ families, setFamilies ] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (!isElectron()) return;
+
+        let cancelled = false;
+        void listSystemFontFamilies().then((found) => {
+            if (!cancelled) setFamilies(found);
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    return families;
 }
 
 interface FontProps {

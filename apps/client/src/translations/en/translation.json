@@ -1830,6 +1830,7 @@
     "apply_changes": "Reload to apply changes",
     "generic-fonts": "Generic fonts",
     "user-fonts": "Custom fonts",
+    "system-fonts": "System fonts",
     "sans-serif-system-fonts": "Sans-serif system fonts",
     "serif-system-fonts": "Serif system fonts",
     "monospace-system-fonts": "Monospace system fonts",

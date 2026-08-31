@@ -6,7 +6,8 @@ const mocks = vi.hoisted(() => ({
     electron: true,
     mobile: false,
     stored: {} as Record<string, string | boolean>,
-    userFonts: [] as { noteId: string; title: string; blobId: string }[]
+    userFonts: [] as { noteId: string; title: string; blobId: string }[],
+    systemFonts: [] as string[]
 }));
 
 // Both the desktop card and the illustrated layout choices turn on which kind of client this is.
@@ -40,6 +41,12 @@ vi.mock("../../../services/custom_fonts", () => ({
     registerFontNote: async (_noteId: string, family: string) => ({ family })
 }));
 
+// happy-dom exposes no `queryLocalFonts`, so what the desktop app would find is stood in for.
+vi.mock("../../../services/font", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../../services/font")>()),
+    listSystemFontFamilies: async () => mocks.systemFonts
+}));
+
 // useNoteTitle names the font a font option points at; the listing above is what the picker lists.
 vi.mock("../../react/hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../react/hooks")>()),
@@ -57,6 +64,7 @@ beforeEach(() => {
     mocks.mobile = false;
     mocks.stored = {};
     mocks.userFonts = [];
+    mocks.systemFonts = [];
     Object.defineProperty(document, "fonts", {
         configurable: true,
         value: { add: vi.fn(), delete: vi.fn() }
@@ -146,6 +154,37 @@ describe("the font settings", () => {
         const headers = [ ...document.querySelectorAll(".font-picker-list .dropdown-header") ].map((header) => header.textContent);
         expect(headers).not.toContain("fonts.user-fonts");
         expect(headers).toContain("fonts.generic-fonts");
+    });
+
+    it("offers the fonts installed on the device in place of the guessed families", async () => {
+        mocks.stored = { overrideThemeFonts: true };
+        mocks.systemFonts = [ "Adwaita Mono", "Inter" ];
+        open();
+        await act(async () => {});
+        await act(async () => (fontRows()[0] as HTMLElement).click());
+
+        const headers = [ ...document.querySelectorAll(".font-picker-list .dropdown-header") ].map((header) => header.textContent);
+        expect(headers).toContain("fonts.system-fonts");
+        // The named families are a guess at what a device has, and go once there is an answer.
+        expect(headers).not.toContain("fonts.sans-serif-system-fonts");
+        // The generics resolve wherever Trilium runs, so they stay.
+        expect(headers).toContain("fonts.generic-fonts");
+
+        const listed = [ ...document.querySelectorAll(".font-picker-list .dropdown-item") ].map((item) => item.textContent?.trim());
+        expect(listed).toEqual(expect.arrayContaining([ "Adwaita Mono", "Inter" ]));
+    });
+
+    it("keeps the named families on a server build, which cannot ask what the device has", async () => {
+        mocks.electron = false;
+        mocks.stored = { overrideThemeFonts: true };
+        mocks.systemFonts = [ "Inter" ];
+        open();
+        await act(async () => {});
+        await act(async () => (fontRows()[0] as HTMLElement).click());
+
+        const headers = [ ...document.querySelectorAll(".font-picker-list .dropdown-header") ].map((header) => header.textContent);
+        expect(headers).not.toContain("fonts.system-fonts");
+        expect(headers).toContain("fonts.sans-serif-system-fonts");
     });
 
     it("leaves ligatures alone, since they come from the theme's own font", () => {
