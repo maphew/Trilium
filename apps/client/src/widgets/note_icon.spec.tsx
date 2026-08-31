@@ -4,6 +4,7 @@ import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
 import FNote from "../entities/fnote";
+import attributes from "../services/attributes";
 import { renderInto } from "../test/render";
 import { ReactWrappedWidget } from "./basic_widget";
 
@@ -44,6 +45,12 @@ const noteContext = vi.hoisted(() => ({
     setNote: undefined as ((note: FNote) => void) | undefined
 }));
 const tooltipStub = vi.hoisted(() => ({ showTooltip: vi.fn(), hideTooltip: vi.fn() }));
+const iconPickerProps = vi.hoisted(() => ({
+    current: undefined as undefined | {
+        onSelect(icon: string): void;
+        onReset?: () => void;
+    }
+}));
 
 vi.mock("./react/hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("./react/hooks")>()),
@@ -72,6 +79,18 @@ vi.mock("../services/attributes", () => ({
     }
 }));
 
+vi.mock("./react/IconPicker", async (importOriginal) => {
+    const original = await importOriginal<typeof import("./react/IconPicker")>();
+    return {
+        ...original,
+        IconPickerButton: (props: Parameters<typeof original.IconPickerButton>[0]) => {
+            iconPickerProps.current = props;
+            const OriginalIconPickerButton = original.IconPickerButton;
+            return <OriginalIconPickerButton {...props} />;
+        }
+    };
+});
+
 import NoteIcon from "./note_icon";
 
 class ResizeObserverStub {
@@ -83,6 +102,31 @@ globalThis.ResizeObserver = globalThis.ResizeObserver
     ?? (ResizeObserverStub as unknown as typeof ResizeObserver);
 
 describe("NoteIcon", () => {
+    it("writes and resets the active note icon", () => {
+        vi.mocked(attributes.setLabel).mockClear();
+        vi.mocked(attributes.removeAttributeById).mockClear();
+
+        noteContext.initialNote = undefined;
+        renderInto(<NoteIcon />);
+        iconPickerProps.current?.onSelect("bx-ignored");
+        expect(attributes.setLabel).not.toHaveBeenCalled();
+
+        const iconLabel = { noteId: "note-a", attributeId: "icon-a", name: "iconClass" };
+        const unrelatedLabel = { noteId: "note-a", attributeId: "other-a", name: "other" };
+        noteContext.initialNote = buildNote("note-a", "bx-note-a", [ iconLabel, unrelatedLabel ]);
+        renderInto(<NoteIcon />);
+        iconPickerProps.current?.onSelect("bx-star");
+        iconPickerProps.current?.onReset?.();
+        expect(attributes.setLabel).toHaveBeenLastCalledWith("note-a", "iconClass", "bx-star");
+        expect(attributes.removeAttributeById).toHaveBeenCalledOnce();
+        expect(attributes.removeAttributeById).toHaveBeenCalledWith("note-a", "icon-a");
+
+        noteContext.initialNote = buildNote("note-b", "bx-note-b", [], true);
+        renderInto(<NoteIcon />);
+        iconPickerProps.current?.onSelect("bx-moon");
+        expect(attributes.setLabel).toHaveBeenLastCalledWith("note-b", "workspaceIconClass", "bx-moon");
+    });
+
     it("stays in the legacy widget tree when the active note changes", () => {
         glob.iconRegistry = { sources: [] };
         noteContext.initialNote = buildNote("note-a");
@@ -141,12 +185,17 @@ describe("NoteIcon", () => {
     });
 });
 
-function buildNote(noteId: string, icon = `bx-${noteId}`) {
+function buildNote(
+    noteId: string,
+    icon = `bx-${noteId}`,
+    iconLabels: Array<{ noteId: string; attributeId: string; name: string }> = [],
+    isWorkspace = false
+) {
     return {
         noteId,
         isMetadataReadOnly: false,
         getIcon: () => icon,
-        getOwnedLabels: () => [],
-        hasOwnedLabel: () => false
+        getOwnedLabels: () => iconLabels,
+        hasOwnedLabel: (name: string) => isWorkspace && name === "workspace"
     } as unknown as FNote;
 }
