@@ -1818,7 +1818,6 @@
   },
   "board_view": {
     "delete-note": "Видалити нотатку...",
-    "move-to": "Перемістити до",
     "insert-above": "Вставити вище",
     "insert-below": "Вставити нижче",
     "delete-column": "Видалити стовпець",

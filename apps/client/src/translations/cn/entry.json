@@ -33,7 +33,7 @@
         "sync-from-desktop-step1": "打开你桌面端的 Trilium Notes。",
         "sync-from-desktop-step2": "在 Trilium 菜单中，点击选项。",
         "sync-from-desktop-step3": "在笔记树中点击“同步”分类。",
-        "sync-from-desktop-step4": "将服务器实例地址改为右侧列出的地址之一，然后点击保存。",
+        "sync-from-desktop-step4": "将服务器实例地址改为右侧列出的地址之一（在窄屏上则显示为下方列出的地址之一），然后点击保存。",
         "sync-from-desktop-step5": "点击“测试同步”按钮，确认连接是否成功。",
         "sync-from-desktop-warning": "请确保两台设备处于同一网络。",
         "sync-from-desktop-waiting": "正在等待连接…",

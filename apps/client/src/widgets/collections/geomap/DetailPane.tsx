@@ -18,6 +18,7 @@ import { useLegacyComponentElement, useNoteColorClass, useNoteLabel, useStaticTo
 import Modal from "../../react/Modal";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { removeFromMap } from "./api";
+import { type Bounds, boundsOf } from "./coordinates";
 import { GPX_MIME, trackHitLayers, trackSourceId } from "./GpxTrack";
 import { ParentMap } from "./map";
 import { formatLocation, LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
@@ -350,54 +351,29 @@ function featureFocus(feature: MapGeoJSONFeature): PaneFocus | undefined {
  * its flags stand on its line, and another journey's ground — or a waypoint hung off in a third
  * place — is exactly what focusing one track is meant to leave out of frame.
  *
- * Longitude is read in two frames at once, because it is a circle wearing a seam: a track across
- * the antimeridian holds points either side of ±180° that are a stroll apart on the ground, and
- * their raw minimum and maximum span nearly the whole world. The same longitudes are therefore
- * also read with the seam moved to 0° — each western value pushed a turn east — and the shifted
- * frame answers where it draws the narrower box.
- *
- * Only a box wider than half the world is reconsidered, that being the width a crossing of the seam
- * produces. Anything narrower is already whole, and the two widths are then equal to within what
- * floating point does to them, which is enough to send a track in Florida round the far side of the
- * world. The shifted answer may name longitudes past 180°, which `fitBounds` takes in stride.
+ * The seam at ±180° is {@link boundsOf}'s to deal with, which the points are yielded to as they are
+ * read: a long ride holds thousands of them.
  */
-async function trackBounds(map: MapLibreGLMap, noteId: string, track?: number): Promise<[[number, number], [number, number]] | null> {
+async function trackBounds(map: MapLibreGLMap, noteId: string, track?: number): Promise<Bounds | null> {
     const data = await map.getSource<GeoJSONSource>(trackSourceId(noteId))?.getData();
     if (!data || data.type !== "FeatureCollection") return null;
+    const { features } = data;
 
-    let west = Infinity, south = Infinity, east = -Infinity, north = -Infinity;
-    let westShifted = Infinity, eastShifted = -Infinity;
-    const extend = ([ lng, lat ]: number[]) => {
-        west = Math.min(west, lng);
-        south = Math.min(south, lat);
-        east = Math.max(east, lng);
-        north = Math.max(north, lat);
+    function* points() {
+        for (const { geometry, properties } of features) {
+            if (track !== undefined && properties?.track !== track) continue;
 
-        const shifted = lng < 0 ? lng + 360 : lng;
-        westShifted = Math.min(westShifted, shifted);
-        eastShifted = Math.max(eastShifted, shifted);
-    };
-
-    for (const { geometry, properties } of data.features) {
-        if (track !== undefined && properties?.track !== track) continue;
-
-        if (geometry.type === "Point") {
-            extend(geometry.coordinates);
-        } else if (geometry.type === "MultiLineString") {
-            for (const line of geometry.coordinates) {
-                for (const point of line) {
-                    extend(point);
+            if (geometry.type === "Point") {
+                yield geometry.coordinates;
+            } else if (geometry.type === "MultiLineString") {
+                for (const line of geometry.coordinates) {
+                    yield* line;
                 }
             }
         }
     }
 
-    if (!Number.isFinite(west)) return null;
-
-    const spansHalfTheWorld = east - west > 180;
-    return spansHalfTheWorld && eastShifted - westShifted < east - west
-        ? [ [ westShifted, south ], [ eastShifted, north ] ]
-        : [ [ west, south ], [ east, north ] ];
+    return boundsOf(points());
 }
 
 /**

@@ -197,8 +197,8 @@
     "dark_theme": "Тёмная",
     "layout-horizontal-description": "панель запуска находится под панелью вкладок, панель вкладок теперь занимает всю ширину.",
     "layout-vertical-description": "панель запуска находится слева (по умолчанию)",
-    "modern_themes": "Современные",
-    "legacy_themes": "Устаревшие",
+    "modern_themes": "Современная",
+    "legacy_themes": "Устаревшая",
     "custom_themes": "Пользовательские",
     "recommended": "Рекомендуется",
     "color_scheme": "Цветовая схема",
@@ -227,7 +227,10 @@
     "close_all_tabs": "Закрыть все вкладки",
     "close_other_tabs": "Закрыть остальные вкладки",
     "add_new_tab": "Добавить новую вкладку",
-    "close_right_tabs": "Закрыть вкладки справа"
+    "close_right_tabs": "Закрыть вкладки справа",
+    "pin_tab": "Закрепить вкладку",
+    "unpin_tab": "Открепить вкладку",
+    "pinned_prefix": "Закреплена: "
   },
   "table_view": {
     "new-row": "Новая строка",
@@ -596,7 +599,26 @@
     "relation_type": "Отношение",
     "definition": "Определение атрибута",
     "no_other_notes_title": "Нет других заметок с {{attributeType}} \"{{attributeName}}\".",
-    "show_all_in_search": "Показать все в поиске"
+    "show_all_in_search": "Показать все в поиске",
+    "calendar_view": "В каком режиме открывается календарь: <code>timeGridDay</code>, <code>timeGridWeek</code>, <code>dayGridMonth</code>, <code>multiMonthYear</code> или <code>listMonth</code>.",
+    "view_type": "Задает способ отображения дочерних заметок этой заметки, например, в виде сетки, списка, таблицы или календаря.",
+    "calendar_hide_weekends": "Скрывает субботу и воскресенье в календаре. Применяется в зависимости от значения.",
+    "calendar_week_numbers": "Отображает номер недели в календаре. Применяется в зависимости от значения.",
+    "start_date": "Дата начала мероприятия, указывается в формате <code>YYYY-MM-DD</code>, определяет его место в календаре.",
+    "calendar_recurrence": "Указывает метку, по которой событие считывает правило повторения, вместо <code>#recurrence</code>.",
+    "calendar_initial_date": "Дата, на которую открывается календарь. Если не задана, открывается на сегодняшней.",
+    "calendar_slot_duration": "Длительность каждого временного интервала календаря, в формате <code>HH:MM:SS</code>. По умолчанию — 15 минут.",
+    "calendar_slot_label_interval": "Частота указания временных меток в календаре в формате <code>HH:MM:SS</code>. По умолчанию — 1 час.",
+    "calendar_title": "Указывает атрибут, от которого мероприятие получает название, вместо названия заметки. Это может быть метка или отношение, написанное без <code>#</code> или <code>~</code>.",
+    "calendar_displayed_attributes": "Имена атрибутов, разделённые запятыми, значения которых отображаются в мероприятии. Отношение отображается в виде названия заметки, на которую оно указывает.",
+    "calendar_start_date": "Указывает метку, по которой мероприятие считывает дату начала, вместо <code>#startDate</code>. Пишется без <code>#</code>.",
+    "calendar_end_date": "Указывает метку, по которой мероприятие считывает дату окончания, вместо <code>#endDate</code>.",
+    "calendar_start_time": "Указывает метку, по которой мероприятие считывает время начала, вместо <code>#startTime</code>.",
+    "calendar_end_time": "Указывает метку, по которой мероприятие считывает время окончания, вместо <code>#endTime</code>.",
+    "end_date": "Дата окончания мероприятия, если оно длится несколько дней. Включая день окончания.",
+    "start_time": "Время начала мероприятия, в формате <code>HH:MM</code> в 24-часовом формате. Без него мероприятие длится весь день.",
+    "end_time": "Время окончания мероприятия, связанно с <code>#endDate</code>, если она есть, иначе с <code>#startDate</code>.",
+    "recurrence": "Строка CalDAV <code>RRULE</code>, обеспечивающая повторение мероприятия. Начало отсчитывается от <code>#startDate</code> и <code>#startTime</code>, поэтому правило не учитывает <code>DTSTART</code>."
   },
   "command_palette": {
     "configure_launch_bar_description": "Откройте конфигурацию панели запуска, чтобы добавить или удалить элементы.",
@@ -611,16 +633,19 @@
     "show_attachments_title": "Показать вложения",
     "export_note_description": "Экспортировать текущую заметку",
     "export_note_title": "Экспортировать заметку",
-    "tree-action-name": "Дерево: {{name}}"
+    "tree-action-name": "Дерево: {{name}}",
+    "pin_tab_description": "Всегда оставлять вкладку с этой заметкой открытой в начале панели вкладок, и защитить её от случайного закрытия",
+    "pin_tab_title": "Закрепить вкладку",
+    "unpin_tab_title": "Открепить вкладку",
+    "unpin_tab_description": "Открепить эту вкладку, чтобы её можно было закрыть и свободно перемещать"
   },
   "board_view": {
     "add-column": "Добавить столбец",
     "new-item": "Добавить",
     "delete-column-confirmation": "Вы уверены, что хотите удалить этот столбец? Соответствующий атрибут также будет удалён из заметок этого столбца.",
-    "delete-column": "Удалить столбец",
+    "delete-column": "Удалить столбец...",
     "insert-below": "Вставить ниже",
     "insert-above": "Вставить выше",
-    "move-to": "Переместить",
     "delete-note": "Удалить заметку...",
     "remove-from-board": "Удалить с канбан-доски",
     "archive-note": "Архивировать заметку",
@@ -628,7 +653,12 @@
     "edit-note-title": "Нажмите, чтобы изменить название заметки",
     "add-column-placeholder": "Введите имя столбца...",
     "new-item-placeholder": "Введите название заметки...",
-    "column-already-exists": "Такая колонка уже добавлена на доску."
+    "column-already-exists": "Такая колонка уже добавлена на доску.",
+    "rename-column": "Переименовать столбец",
+    "hints": {
+      "rename": "Переименовать элемент или столбец",
+      "navigation": "Навигация"
+    }
   },
   "table_context_menu": {
     "delete_row": "Удалить строку"
@@ -642,7 +672,8 @@
     "hide-weekends": "Скрыть выходные",
     "raster": "Растр",
     "show-scale": "Показать масштаб",
-    "show-labels": "Показать названия маркеров"
+    "show-labels": "Показать названия маркеров",
+    "presentation-theme": "Тема"
   },
   "editorfeatures": {
     "note_completion_enabled": "Включить автодополнение",
@@ -674,7 +705,10 @@
   },
   "svg": {
     "export_to_png": "Диаграмму не может быть экспортирована в PNG.",
-    "export_to_svg": "Не удалось экспортировать диаграмму в SVG."
+    "export_to_svg": "Не удалось экспортировать диаграмму в SVG.",
+    "zoom_in": "Приблизить",
+    "reset_zoom": "Сбросить масштаб",
+    "zoom_out": "Отдалить"
   },
   "png_export_button": {
     "button_title": "Экспортировать диаграмму как PNG"
@@ -716,14 +750,47 @@
   "geo-map-context": {
     "add-note": "Добавить маркер в этом месте",
     "remove-from-map": "Удалить с карты",
-    "open-location": "Открыть местоположение"
+    "open-location": "Открыть местоположение",
+    "move-marker": "Переместить в другое место",
+    "remove-from-map-confirmation": "Вы уверены, что хотите удалить заметку \"{{title}}\" с карты?",
+    "delete-note": "Удалить заметку",
+    "delete-note-confirmation": "Вы уверены, что хотите удалить заметку \"{{title}}\"? Трек строится на основе собственной заметки, поэтому его нельзя удалить с карты отдельно."
   },
   "geo-map": {
     "unable-to-load-map": "Не удалось загрузить карту.",
     "create-child-note-instruction": "Щелкните по карте, чтобы создать новую заметку в этом месте, или нажмите Escape, чтобы закрыть ее.",
     "create-child-note-title": "Создать новую дочернюю заметку и добавить ее на карту",
     "add-marker-cancel": "Отмена",
-    "create-child-note-cancel": "Отменить добавление заметки"
+    "create-child-note-cancel": "Отменить добавление заметки",
+    "create-child-note-toast-title": "Новая заметка",
+    "expand-details": "Развернуть заметку на всю карту",
+    "restore-details": "Вернуть заметку обратно рядом с картой",
+    "add-marker": "Добавить маркер",
+    "add-gpx-track": "Добавить GPS-трек из GPX-файла",
+    "move-marker-instruction": "Щелкните по карте, чтобы переместить маркер в это место, или нажмите Escape, чтобы отменить.",
+    "move-marker-toast-title": "Переместить маркер",
+    "webgl-unavailable": "Эта карта не может быть отрисована, поскольку WebGL недоступен. Убедитесь, что аппаратное ускорение включено и что ваши графические драйверы обновлены.",
+    "zoom-in": "Приблизить",
+    "zoom-out": "Отдалить",
+    "enter-3d": "Переключиться в 3D\nУдерживайте Ctrl и перетаскивайте, чтобы наклонять карту",
+    "exit-3d": "Переключиться в плоский режим",
+    "close-details": "Закрыть",
+    "marker-color": "Цвет маркера",
+    "copy-coordinates": "Копировать координаты",
+    "search": "Поиск",
+    "search-placeholder": "Поиск места",
+    "search-online": "Найти в интернете \"{{- query}}\"",
+    "searching-online": "Поиск в интернете…",
+    "no-places-found": "Места не найдены",
+    "search-failed": "Поиск мест не удался",
+    "results-nearby": "Рядом",
+    "results-far": "Далеко",
+    "add-place-as-marker": "Добавить как маркер",
+    "previous-result": "Предыдущий результат",
+    "next-result": "Следующий результат",
+    "result-position": "Результат {{index}} из {{total}}, нажмите, чтобы вернуться к нему",
+    "results-on-map": "На этой карте",
+    "go-to-coordinates": "Перейти в {{- coordinates}}"
   },
   "note_tooltip": {
     "quick-edit": "Быстрое редактирование",
@@ -1022,7 +1089,7 @@
     "wed": "Ср",
     "thu": "Чт",
     "fri": "Пт",
-    "sat": "Сбт",
+    "sat": "Сб",
     "sun": "Вс",
     "january": "Январь",
     "february": "Февраль",
@@ -1066,23 +1133,30 @@
       "end_time": "Время окончания"
     },
     "recurrence": {
-      "repeats": "Повторяется",
+      "repeats": "Повторяемость",
       "frequency": "Частота",
       "does_not_repeat": "Не повторяется",
-      "none": "Отсутствует",
+      "none": "Никогда",
       "daily": "Ежедневно",
       "weekly": "Еженедельно",
       "monthly": "Ежемесячно",
       "yearly": "Ежегодно",
-      "custom": "Пользовательский",
-      "repeat_every": "Повторять каждый",
-      "unit_days": "дней",
-      "unit_weeks": "недель",
-      "unit_months": "месяцев",
+      "custom": "Пользовательская",
+      "repeat_every": "Повторять каждый(-ую)",
+      "unit_days": "день",
+      "unit_weeks": "неделю",
+      "unit_months": "месяц",
       "on_days": "По дням",
       "ends": "Заканчивается",
-      "never": "Никогда"
-    }
+      "never": "Никогда",
+      "until": "На дате",
+      "count": "После",
+      "times": "раз",
+      "custom_rule": "Правило",
+      "custom_hint": "Правило повторения iCalendar (RRULE), которое содержит больше информации, чем поля выше. Его удаление останавливает повторение.",
+      "unit_years": "год"
+    },
+    "restore_details": "Вернуть мероприятие на его место в календаре"
   },
   "global_menu": {
     "menu": "Меню",
@@ -1092,7 +1166,7 @@
     "logout": "Выход",
     "toggle_fullscreen": "На весь экран",
     "zoom_out": "Уменьшить масштаб",
-    "zoom_in": "Увеличить масштаб",
+    "zoom_in": "Приблизить",
     "configure_launchbar": "Настроить панель запуска",
     "reload_frontend": "Перезагрузить интерфейс",
     "show_help": "Показать справку",
@@ -1687,7 +1761,7 @@
     "button_title": "Показать кнопки"
   },
   "relation_map_buttons": {
-    "zoom_in_title": "Увеличить масштаб",
+    "zoom_in_title": "Приблизить",
     "zoom_out_title": "Уменьшить масштаб",
     "reset_pan_zoom_title": "Сбросить панорамирование и масштабирование",
     "create_child_note_title": "Создать дочернюю заметку и добавить ее в карту"
@@ -1729,7 +1803,9 @@
     "upload_attachments": "Загрузка вложений",
     "owning_note": "Заметка-владелец: ",
     "open_help_page": "Открыть справку по вложениям",
-    "no_attachments": "Заметка не содержит вложений."
+    "no_attachments": "Заметка не содержит вложений.",
+    "no_user_attachments": "Данная заметка не содержит собственных вложений.\nВложения, сгенерированные Trilium, приведены ниже.",
+    "system_group": "Сгенерированы Trilium ({{amount}})"
   },
   "protected_session": {
     "wrong_password": "Неверный пароль.",
@@ -1987,7 +2063,10 @@
   },
   "image": {
     "copied-to-clipboard": "Ссылка на изображение скопирована в буфер обмена. Её можно вставить в любую текстовую заметку.",
-    "cannot-copy": "Не удалось скопировать ссылку на изображение в буфер обмена."
+    "cannot-copy": "Не удалось скопировать ссылку на изображение в буфер обмена.",
+    "image-copied-to-clipboard": "Изображение скопировано в буфер обмена.",
+    "cannot-copy-image": "Не удалось скопировать изображение в буфер обмена.",
+    "cannot-download": "Не удалось скачать изображение."
   },
   "abstract_bulk_action": {
     "remove_this_search_action": "Удалить это действие поиска"
@@ -2043,7 +2122,11 @@
   },
   "attachment_detail_2": {
     "unrecognized_role": "Нераспознанная роль вложения '{{role}}'.",
-    "link_copied": "Ссылка на вложение скопирована в буфер обмена."
+    "link_copied": "Ссылка на вложение скопирована в буфер обмена.",
+    "deletion_badge": "Будет удалено через {{time}}",
+    "deletion_badge_soon": "Скоро будет удалено",
+    "deletion_badge_tooltip": "Это вложение будет удалено автоматически, поскольку оно не связано с содержимым заметки. Чтобы сохранить его, добавьте ссылку на вложение обратно в содержимое или конвертируйте вложение в заметку.",
+    "kind_and_size": "{{role}} · {{size}}"
   },
   "note_title": {
     "placeholder": "введите здесь название заметки...",
@@ -2248,7 +2331,22 @@
     "set-custom-color": "Установить другой цвет"
   },
   "calendar_view": {
-    "delete_note": "Удалить заметку..."
+    "delete_note": "Удалить заметку...",
+    "event_color": "Цвет мероприятия",
+    "remove_from_calendar": "Удалить из календаря",
+    "remove_from_calendar_confirmation": "Вы уверены, что хотите удалить мероприятие \"{{title}}\" из календаря?",
+    "new_event": "Новое мероприятие",
+    "draft_title_placeholder": "Добавьте название",
+    "create_event": "Создать",
+    "time_slots": "Временные интервалы",
+    "slot_duration": "Продолжительность",
+    "minutes_one": "{{count}} минута",
+    "minutes_few": "{{count}} минуты",
+    "minutes_many": "{{count}} минут",
+    "hours_one": "{{count}} час",
+    "hours_few": "{{count}} часа",
+    "hours_many": "{{count}} часов",
+    "slot_label_interval": "Метки интервалов"
   },
   "presentation_view": {
     "start-presentation": "Начать презентацию",
@@ -2375,7 +2473,31 @@
     "exit-picture-in-picture": "Выйти из «картинки в картинке»",
     "unsupported-format": "Предпросмотр недоступен для этого формата файлов:\n{{mime}}",
     "zoom-to-fit": "Растянуть на весь экран",
-    "zoom-reset": "Сбросить масштаб"
+    "zoom-reset": "Сбросить масштаб до заполнения",
+    "next-video": "Следующее видео: {{- title}}",
+    "next-audio": "Следующее аудио: {{- title}}",
+    "previous-audio": "Предыдущее аудио: {{- title}}",
+    "hints": {
+      "next": "Следующее",
+      "playback": "Воспроизведение",
+      "play_pause": "Воспроизведение/Пауза",
+      "back_10s": "Назад на 10 сек",
+      "forward_10s": "Вперёд на 10 сек",
+      "jump_start": "Перейти в начало",
+      "jump_end": "Перейти в конец",
+      "mute": "Выключить звук",
+      "fullscreen": "На весь экран",
+      "navigation": "Навигация",
+      "previous": "Предыдущее"
+    },
+    "activate": "Воспроизвести {{- title}}",
+    "play-mode-next": "Воспроизвести следующее",
+    "seek": "Перемотка",
+    "previous-video": "Предыдущее видео: {{- title}}",
+    "forward-10s": "Вперёд на 10 сек",
+    "play-mode-title": "Режим воспроизведения: {{mode}}",
+    "play-mode-once": "Воспроизвести один раз",
+    "play-mode-loop": "Повтор"
   },
   "llm_chat": {
     "placeholder": "Введите сообщение...",
@@ -2420,7 +2542,15 @@
     "empty_state": "Начать общение",
     "history": "История чата",
     "recent_chats": "Недавние чаты",
-    "no_chats": "Нет предыдущих чатов"
+    "no_chats": "Нет предыдущих чатов",
+    "rename": "Переименовать",
+    "rename_title": "Переименовать чат",
+    "rename_message": "Введите новое имя для этого чата:",
+    "more_actions": "Другие действия",
+    "view_all_chats": "Просмотреть все чаты",
+    "delete": "Удалить",
+    "delete_chat": "Удалить чат",
+    "delete_confirm": "Удалить этот чат? Это нельзя отменить."
   },
   "mermaid": {
     "placeholder": "Введите содержимое диаграммы Mermaid или выберите один из примеров ниже.",
@@ -2462,7 +2592,59 @@
     "moveUp": "Передвинуть выше",
     "moveDown": "Передвинуть ниже",
     "clickTips": "Пожалуйста, нажмите на целевой узел",
-    "summary": "Сводка"
+    "summary": "Сводка",
+    "zoom-in": "Приблизить",
+    "zoom-out": "Отдалить",
+    "reset-zoom": "Сбросить масштаб",
+    "font-size-small": "S",
+    "font-size-medium": "M",
+    "font-size-large": "L",
+    "font-size-extra-large": "XL",
+    "icons": "Иконки",
+    "add-icon": "Добавить иконку",
+    "change-icon": "Изменить эту икону",
+    "clear-icon": "Удалить иконку",
+    "image": "Изображение",
+    "add-image": "Добавить изображение",
+    "change-image": "Заменить изображение",
+    "remove-image": "Удалить изображение",
+    "image-shape-original": "Оригинальное",
+    "image-shape-square": "Квадратное",
+    "image-shape-wide": "Широкое",
+    "images-differ": "Выбранные узлы содержат разные изображения. Чтобы заменить изображения, сначала удалите их.",
+    "image-upload-failed": "Не удалось загрузить изображение \"{{name}}\".",
+    "node-link": "Ссылка",
+    "add-link": "Добавить ссылку",
+    "choose-link": "Связать этот узел с заметкой или страницей",
+    "clear-link": "Удалить ссылку",
+    "link-mixed": "Различные ссылки",
+    "links-differ": "Выбранные узлы имеют различные ссылки.",
+    "tab-format": "Форматирование",
+    "hide-panel": "Скрыть эту панель",
+    "memo": "Памятка",
+    "memo-placeholder": "Напишите памятку...",
+    "memos-differ": "Выбранные узлы содержат различные памятки, поэтому эту можно только прочитать.",
+    "tags": "Тэги",
+    "tags-placeholder": "Введите тег и нажмите Enter",
+    "tags-differ": "Выбранные узлы имеют различные теги, поэтому их можно только прочитать.",
+    "add-tag": "Добавить этот тег",
+    "remove-tag": "Удалить этот тег",
+    "center-map": "Центрировать карту",
+    "direction-left": "Ветви слева",
+    "direction-right": "Ветки справа",
+    "direction-side": "Ветки с обеих сторон",
+    "direction-down": "Ветки вниз",
+    "icons-differ": "Выбранные узлы имеют различные иконки, поэтому их можно только прочитать.",
+    "draw-arrow": "Нарисовать стрелку к…",
+    "draw-arrow-bidirectional": "Нарисовать двустороннюю стрелку к…",
+    "new-topic": "Новая тема",
+    "new-node": "Новый узел",
+    "new-summary": "Сводка",
+    "custom-link": "Пользовательская ссылка",
+    "text-color": "Текст",
+    "background-color": "Фон",
+    "branch-color": "Ветка",
+    "font-size": "Размер"
   },
   "llm": {
     "add_provider": "Добавить провайдера",
@@ -2709,7 +2891,9 @@
   },
   "common": {
     "save": "Сохранить",
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "fullscreen": "На весь экран",
+    "exit_fullscreen": "Выйти из полноэкранного режима"
   },
   "spreadsheet": {
     "read-only": "Эта заметка доступна только для чтения."
@@ -2777,7 +2961,22 @@
       "text-snippet": "Фрагмент текста",
       "import-markdown-from-the-clipboard": "Импортировать Markdown из буфера обмена",
       "markdown-import": "Импорт Markdown",
-      "markdown-import-from-clipboard": "Импорт Markdown из буфера обмена"
+      "markdown-import-from-clipboard": "Импорт Markdown из буфера обмена",
+      "applies-to-the-current-paragraph": "Применяется к текущему параграфу.",
+      "card": "Карточка",
+      "cut-selection-into-a-sub-note": "Вырезать выделенный фрагмент в под-заметку",
+      "display-mode": "Режим отображения",
+      "display-the-content-of-another-note-in-this-note": "Отобразить содержимое другой заметки в этой заметке",
+      "drag-to-reposition-the-collapsible-block": "Перетащите блок, чтобы изменить его положение",
+      "edit-title": "Изменить заголовок",
+      "inline": "Встроенная",
+      "indent": "Отступ",
+      "include-note": "Вставить заметку",
+      "increase-the-indentation-of-the-current-block": "Увеличить отступ текущего блока.",
+      "remove-anchor": "Удалить якорь",
+      "medium": "Средний",
+      "full": "Полный",
+      "expandable": "Разворачиваемый"
     },
     "task-state-dropped-title": "Недопустимые состояния задачи",
     "task-state-dropped-configure": "Настроить состояния задач"
@@ -3066,7 +3265,7 @@
     "set-custom-color": "Установить пользовательский цвет"
   },
   "image_buttons": {
-    "zoom_in": "Увеличить масштаб",
+    "zoom_in": "Приблизить",
     "zoom_out": "Уменьшить масштаб",
     "reset_zoom": "Сбросить масштаб"
   },
@@ -3081,8 +3280,8 @@
     "loading_error": "Произошла ошибка при загрузке изображения.",
     "hints": {
       "zoom": "Масштабирование",
-      "zoom_in": "Увеличить масштаб",
-      "zoom_out": "Уменьшить масштаб",
+      "zoom_in": "Приблизить",
+      "zoom_out": "Отдалить",
       "reset_zoom": "Сбросить масштаб",
       "pan": "Панорамирование",
       "pan_up": "Вверх",
@@ -3099,5 +3298,39 @@
   },
   "shortcut_hints": {
     "show_button": "Показать подсказки по сочетаниям клавиш"
+  },
+  "compress-images": "Сжать изображения",
+  "compress-image": "Сжать изображение",
+  "show-help": "Показать руководство",
+  "keyboard_shortcut_keys": {
+    "ctrl": "Ctrl",
+    "alt": "Alt",
+    "shift": "Shift",
+    "meta": "Meta",
+    "enter": "Enter",
+    "escape": "Esc",
+    "delete": "Delete",
+    "backspace": "Backspace",
+    "space": "Пробел",
+    "tab": "Tab",
+    "home": "Home",
+    "end": "End",
+    "page_up": "Page Up",
+    "page_down": "Page Down",
+    "insert": "Insert"
+  },
+  "time_interval": {
+    "seconds_one": "{{count}} секунда",
+    "seconds_few": "{{count}} секунды",
+    "seconds_many": "{{count}} секунд",
+    "minutes_one": "{{count}} минута",
+    "minutes_few": "{{count}} минуты",
+    "minutes_many": "{{count}} минут",
+    "hours_one": "{{count}} час",
+    "hours_few": "{{count}} часа",
+    "hours_many": "{{count}} часов",
+    "days_one": "{{count}} день",
+    "days_few": "{{count}} дня",
+    "days_many": "{{count}} дней"
   }
 }

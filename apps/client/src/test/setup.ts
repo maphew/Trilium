@@ -52,6 +52,11 @@ function mockServer() {
             return [];
         }
 
+        // Asked for by the icon picker as it opens, to sort the icons a note already wears first.
+        if (url === "other/icon-usage") {
+            return { iconClassToCountMap: {} };
+        }
+
         if (url === "tree") {
             return {
                 branches: [],

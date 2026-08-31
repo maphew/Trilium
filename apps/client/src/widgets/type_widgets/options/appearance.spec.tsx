@@ -5,8 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
     electron: true,
     mobile: false,
-    stored: {} as Record<string, string | boolean>,
-    userFonts: [] as { noteId: string; title: string; blobId: string }[]
+    stored: {} as Record<string, string | boolean>
 }));
 
 // Both the desktop card and the illustrated layout choices turn on which kind of client this is.
@@ -33,17 +32,12 @@ vi.mock("../../../services/server", () => ({
 
 vi.mock("./components/OptionsPageHeader", () => ({ default: () => <div className="header-stub" /> }));
 
-// The font picker asks for the user's own fonts and registers each one it is given; only the list
-// is of interest here, so the registration is stood in for.
-vi.mock("../../../services/custom_fonts", () => ({
-    getCustomFonts: async () => mocks.userFonts,
-    registerFontNote: async (_noteId: string, family: string) => ({ family })
-}));
+// The fonts card reaches for the user's own fonts and the device's as it mounts, and is covered by
+// `appearance_fonts.spec.tsx`; here only its place on the page matters.
+vi.mock("./appearance_fonts", () => ({ default: () => <div className="fonts-stub" /> }));
 
-// useNoteTitle names the font a font option points at; the listing above is what the picker lists.
 vi.mock("../../react/hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../react/hooks")>()),
-    useNoteTitle: (noteId: string | undefined) => mocks.userFonts.find((font) => font.noteId === noteId)?.title,
     useTriliumOption: (name: string) => [ String(mocks.stored[name] ?? ""), vi.fn() ],
     useTriliumOptionBool: (name: string) => [ mocks.stored[name] === true, vi.fn() ]
 }));
@@ -56,11 +50,6 @@ beforeEach(() => {
     mocks.electron = true;
     mocks.mobile = false;
     mocks.stored = {};
-    mocks.userFonts = [];
-    Object.defineProperty(document, "fonts", {
-        configurable: true,
-        value: { add: vi.fn(), delete: vi.fn() }
-    });
     host = document.body.appendChild(document.createElement("div"));
 });
 
@@ -80,83 +69,6 @@ function open() {
     });
 }
 
-const fontRows = () => [ ...host.querySelectorAll(".font-option") ];
-
-describe("the font settings", () => {
-    it("keeps the fonts on show with custom fonts off, greyed rather than gone", () => {
-        open();
-
-        // What turning the switch on would put in force is the whole reason for turning it on.
-        expect(fontRows()).toHaveLength(4);
-        expect(fontRows().every((row) => row.className.includes("disabled"))).toBe(true);
-    });
-
-    it("brings them within reach once custom fonts are on", () => {
-        mocks.stored = { overrideThemeFonts: true };
-        open();
-
-        expect(fontRows()).toHaveLength(4);
-        expect(fontRows().some((row) => row.className.includes("disabled"))).toBe(false);
-    });
-
-    it("nests them under the switch that governs them", () => {
-        open();
-        expect(fontRows().every((row) => row.className.includes("tn-card-section-nested"))).toBe(true);
-    });
-
-    it("offers the fonts the user labelled #customFont, one entry per note", async () => {
-        mocks.stored = { overrideThemeFonts: true };
-        mocks.userFonts = [
-            { noteId: "fontNoteA1", title: "Iosevka", blobId: "b1" },
-            { noteId: "fontNoteB2", title: "Inter", blobId: "b2" },
-            // Two notes can carry the same name; each is its own entry, told apart by its note.
-            { noteId: "fontNoteC3", title: "Inter", blobId: "b3" }
-        ];
-        open();
-        await act(async () => {});
-
-        await act(async () => (fontRows()[0] as HTMLElement).click());
-
-        const picker = document.querySelector(".font-picker-list");
-        const headers = [ ...(picker?.querySelectorAll(".dropdown-header") ?? []) ].map((header) => header.textContent);
-        // Ahead of the stock families, which the user has to scroll past otherwise.
-        expect(headers[0]).toBe("fonts.user-fonts");
-
-        // Each is named by its note's own title, and stands for the note rather than for a family.
-        const listed = [ ...(picker?.querySelectorAll(".dropdown-item") ?? []) ].map((item) => item.textContent?.trim());
-        expect(listed.filter((entry) => entry === "Inter")).toHaveLength(2);
-        expect(listed).toContain("Iosevka");
-    });
-
-    it("names a set custom font by its note's title, not by the reference the option holds", async () => {
-        mocks.stored = { overrideThemeFonts: true, mainFontFamily: "customFont:fontNoteA1" };
-        mocks.userFonts = [ { noteId: "fontNoteA1", title: "Iosevka", blobId: "b1" } ];
-        open();
-        await act(async () => {});
-
-        expect(fontRows()[0].querySelector(".font-option-specimen")?.textContent).toBe("Iosevka");
-    });
-
-    it("lists only the built-in families when the user has labelled no fonts", async () => {
-        mocks.stored = { overrideThemeFonts: true };
-        open();
-        await act(async () => {});
-        await act(async () => (fontRows()[0] as HTMLElement).click());
-
-        const headers = [ ...document.querySelectorAll(".font-picker-list .dropdown-header") ].map((header) => header.textContent);
-        expect(headers).not.toContain("fonts.user-fonts");
-        expect(headers).toContain("fonts.generic-fonts");
-    });
-
-    it("leaves ligatures alone, since they come from the theme's own font", () => {
-        open();
-
-        // Not nested under custom fonts: the setting is needed exactly when those are off.
-        const ligatures = host.querySelector("input.switch-toggle[id^='monospace-ligatures-enabled-']");
-        expect(ligatures?.closest(".tn-card-option")?.className).not.toContain("tn-card-section-nested");
-        expect((ligatures as HTMLInputElement | null)?.disabled).toBe(false);
-    });
-});
 
 describe("the layout choices", () => {
     it("gives each an illustrated card of its own, side by side", () => {

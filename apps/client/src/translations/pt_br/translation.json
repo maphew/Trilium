@@ -2278,7 +2278,6 @@
   },
   "board_view": {
     "delete-note": "Deletar nota...",
-    "move-to": "Mover para",
     "insert-above": "Inserir acima",
     "insert-below": "Inserir abaixo",
     "delete-column": "Excluir coluna",

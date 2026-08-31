@@ -219,7 +219,6 @@
     "hide_child_notes": "Ukryj notatki podrzędne w derzwie"
   },
   "board_view": {
-    "move-to": "Przenieś do",
     "insert-above": "Wstaw powyżej",
     "insert-below": "Wstaw poniżej",
     "delete-column": "Usuń kolumnę",
