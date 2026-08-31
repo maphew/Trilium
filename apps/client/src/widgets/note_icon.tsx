@@ -29,6 +29,7 @@ export default function NoteIcon() {
 
     return (
         <IconPickerButton
+            key={note?.noteId}
             icon={icon ?? "bx bx-empty"}
             title={t("note_icon.change_note_icon")}
             disabled={isDisabled}
