@@ -101,27 +101,29 @@ const FONT_FAMILIES: FontGroup[] = [
     GENERIC_FONTS,
     {
         title: t("fonts.sans-serif-system-fonts"),
-        items: [{ value: "Arial" }, { value: "Verdana" }, { value: "Helvetica" }, { value: "Tahoma" }, { value: "Trebuchet MS" }, { value: "Microsoft YaHei" }]
-    },
-    {
-        title: t("fonts.serif-system-fonts"),
-        items: [{ value: "Times New Roman" }, { value: "Georgia" }, { value: "Garamond" }]
-    },
-    {
-        title: t("fonts.monospace-system-fonts"),
         items: [
-            { value: "Courier New" },
-            { value: "Brush Script MT" },
+            { value: "Arial" },
+            { value: "Verdana" },
+            { value: "Helvetica" },
+            { value: "Tahoma" },
+            { value: "Trebuchet MS" },
             { value: "Impact" },
-            { value: "American Typewriter" },
-            { value: "Andalé Mono" },
-            { value: "Lucida Console" },
-            { value: "Monaco" }
+            { value: "Microsoft YaHei" }
         ]
     },
     {
+        title: t("fonts.serif-system-fonts"),
+        items: [{ value: "Times New Roman" }, { value: "Georgia" }, { value: "Garamond" }, { value: "American Typewriter" }]
+    },
+    {
+        title: t("fonts.monospace-system-fonts"),
+        // "Andale Mono" carries no accent: the accented spelling matches no installed family, so CSS
+        // falls through to the generic default.
+        items: [{ value: "Courier New" }, { value: "Andale Mono" }, { value: "Lucida Console" }, { value: "Monaco" }]
+    },
+    {
         title: t("fonts.handwriting-system-fonts"),
-        items: [{ value: "Bradley Hand" }, { value: "Luminari" }, { value: "Comic Sans MS" }]
+        items: [{ value: "Bradley Hand" }, { value: "Brush Script MT" }, { value: "Comic Sans MS" }, { value: "Luminari" }]
     }
 ];
 
