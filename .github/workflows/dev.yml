@@ -35,6 +35,7 @@ jobs:
       server: ${{ steps.filter.outputs.server }}
       standalone: ${{ steps.filter.outputs.standalone }}
       ckeditor5: ${{ steps.filter.outputs.ckeditor5 }}
+      flatpak: ${{ steps.filter.outputs.flatpak }}
     steps:
       - uses: actions/checkout@v7
 
@@ -93,6 +94,33 @@ jobs:
               - *workspace
               - 'packages/ckeditor5/**'
               - 'packages/commons/**'
+            # The flatpak sources file is derived from the lockfile alone; the
+            # root package.json pins the pnpm (and thus store) version the
+            # generation script asserts on.
+            flatpak:
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'scripts/generate-flatpak-sources.mts'
+              - '.github/actions/generate-flatpak-sources/**'
+              - '.github/workflows/dev.yml'
+
+  flatpak_sources:
+    name: Check Flatpak sources generation
+    runs-on: ubuntu-latest
+    needs: changes
+    env:
+      AFFECTED: ${{ needs.changes.outputs.flatpak }}
+    steps:
+      - name: Checkout the repository
+        if: env.AFFECTED == 'true'
+        uses: actions/checkout@v7
+
+      # Exists to fail early: the release workflow runs the same action and
+      # blocks publishing on it, so a generator break should surface on the PR
+      # that causes it, not on the next tag.
+      - name: Generate the sources
+        if: env.AFFECTED == 'true'
+        uses: ./.github/actions/generate-flatpak-sources
 
   test_dev:
     name: Test development

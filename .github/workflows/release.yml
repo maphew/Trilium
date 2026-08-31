@@ -106,15 +106,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-
-      - name: Install flatpak-node-generator
-        run: pipx install 'git+https://github.com/flatpak/flatpak-builder-tools.git#subdirectory=node'
-
       - name: Generate the sources
-        run: node --experimental-strip-types ./scripts/generate-flatpak-sources.mts
+        uses: ./.github/actions/generate-flatpak-sources
 
       - name: Upload the artifact
         uses: actions/upload-artifact@v7
