@@ -3348,6 +3348,7 @@
   },
   "book_properties_config": {
     "board-inbox-column": "Inbox column",
+    "board-inbox-column-help": "Shows the inbox column, which lists the notes descendant to this board that were not assigned to a board column.",
     "hide-weekends": "Hide weekends",
     "display-week-numbers": "Display week numbers",
     "map-style": "Map style",
