@@ -432,7 +432,8 @@ describe("BoardApi column mutations", () => {
 
         api.reorderColumn(0, 2);
 
-        expect(saved.at(-1)?.columns?.map(col => col.value)).toEqual([ "Done", "To Do", "In Progress" ]);
+        // "In Progress" followed "Done" before the move and still does.
+        expect(saved.at(-1)?.columns?.map(col => col.value)).toEqual([ "Done", "In Progress", "To Do" ]);
     });
 });
 
@@ -1062,11 +1063,10 @@ describe("renaming a column to nothing", () => {
 
 describe("reordering columns the board is not showing all of", () => {
     /**
-     * A column the board keeps but does not show, an inbox switched off among them, is in the
-     * config and not in the list the reorder counts in. It keeps the place it holds rather than
-     * being herded to the end.
+     * A column the config keeps but the board does not show, such as a disabled inbox, is missing
+     * from the list the reorder counts in. It is kept rather than dropped or moved to the end.
      */
-    it("leaves a stored column the render list does not carry where it stands", () => {
+    it("keeps a stored column the render list does not carry", () => {
         const { api, saved } = createApi(
             { columns: [
                 { value: "", icon: "bx bx-inbox" }, { value: "To Do" }, { value: "Done" }
@@ -1081,6 +1081,46 @@ describe("reordering columns the board is not showing all of", () => {
             { value: "", icon: "bx bx-inbox" },
             { value: "Done" },
             { value: "To Do" }
+        ]);
+    });
+
+    /**
+     * The hidden column follows the same column it followed before. Reinserting it at the index it
+     * held in the config would place it between whichever columns the move left there.
+     */
+    it("keeps a hidden column beside the column it followed", () => {
+        const { api, saved } = createApi(
+            { columns: [
+                { value: "To Do" }, { value: "" }, { value: "Done" }
+            ] },
+            [ "To Do", "Done" ]
+        );
+
+        // "Done" before "To Do", counted among the two the board shows.
+        api.reorderColumn(1, 0);
+
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "Done" },
+            { value: "To Do" },
+            { value: "" }
+        ]);
+    });
+
+    it("keeps a run of hidden columns in order behind the same column", () => {
+        const { api, saved } = createApi(
+            { columns: [
+                { value: "To Do" }, { value: "" }, { value: "Archived" }, { value: "Done" }
+            ] },
+            [ "To Do", "Done" ]
+        );
+
+        api.reorderColumn(1, 0);
+
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "Done" },
+            { value: "To Do" },
+            { value: "" },
+            { value: "Archived" }
         ]);
     });
 });

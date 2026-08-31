@@ -457,8 +457,8 @@ export default class BoardApi {
         newColumns.splice(adjustedToIndex, 0, movedColumn);
 
         // `columns` is render state: it omits entries the view has yet to catch up with, and any
-        // the board is hiding, such as a disabled inbox. Each keeps its index in the config
-        // instead of being appended at the end or dropped.
+        // the board is hiding, such as a disabled inbox. Those are neither dropped nor appended at
+        // the end.
         const stored = this.viewConfig?.columns ?? [];
         const storedColumns = new Map(stored.map(col => [ col.value, col ]));
         // Reordering only moves entries, so each keeps its stored icon instead of being rebuilt
@@ -466,10 +466,21 @@ export default class BoardApi {
         const reordered: BoardColumnData[] =
             newColumns.map(value => storedColumns.get(value) ?? { value });
 
-        for (const [ index, column ] of stored.entries()) {
-            if (!newColumns.includes(column.value)) {
-                reordered.splice(index, 0, column);
+        // A hidden column goes back after the column it followed in the config, not at the index it
+        // held there: the move has shifted the visible columns, so that index points elsewhere now.
+        // Each one becomes the anchor for the next, which keeps a run of them in order.
+        let anchor: string | undefined;
+        for (const column of stored) {
+            if (newColumns.includes(column.value)) {
+                anchor = column.value;
+                continue;
             }
+
+            const at = anchor === undefined
+                ? 0
+                : reordered.findIndex(entry => entry.value === anchor) + 1;
+            reordered.splice(at, 0, column);
+            anchor = column.value;
         }
 
         this.storeColumns(reordered);
