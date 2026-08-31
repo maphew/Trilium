@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { applyFontsFromOptions, createFontStylesheetLink, listSystemFontFamilies } from "./font.js";
+import { applyFontsFromOptions, createFontStylesheetLink, listSystemFonts } from "./font.js";
 
 function fontLinkHrefs() {
     return Array.from(document.head.querySelectorAll<HTMLLinkElement>("link[data-font-stylesheet]"))
@@ -88,7 +88,7 @@ describe("font service", () => {
     });
 });
 
-describe("listSystemFontFamilies", () => {
+describe("listSystemFonts", () => {
     /** One face as `queryLocalFonts()` reports it — a family arrives once per weight and slant. */
     function face(family: string, style: string): FontData {
         return { family, style, fullName: `${family} ${style}`, postscriptName: `${family}-${style}` };
@@ -100,9 +100,10 @@ describe("listSystemFontFamilies", () => {
      * does not cover falls back to one that does and paints, so only a character it claims and
      * cannot rasterize comes back blank.
      */
-    function stubProbeCanvas(paints: (family: string, character: string) => boolean) {
+    function stubProbeCanvas(paints: (family: string, character: string) => boolean, monospace: (family: string) => boolean = () => false) {
         vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation((() => {
             const drawn = { font: "", character: "" };
+            const familyOf = () => drawn.font.match(/"(.+)"/)?.[1] ?? "";
 
             return {
                 canvas: { width: 40, height: 40 },
@@ -110,9 +111,10 @@ describe("listSystemFontFamilies", () => {
                 fillText: (character: string) => {
                     drawn.character = character;
                 },
+                // A proportional family advances the widest letter further than the narrowest.
+                measureText: (text: string) => ({ width: monospace(familyOf()) || text === "W" ? 10 : 6 }),
                 getImageData: () => {
-                    const family = drawn.font.match(/"(.+)"/)?.[1] ?? "";
-                    return { data: new Uint8ClampedArray([ 0, 0, 0, paints(family, drawn.character) ? 255 : 0 ]) };
+                    return { data: new Uint8ClampedArray([ 0, 0, 0, paints(familyOf(), drawn.character) ? 255 : 0 ]) };
                 },
                 get font() {
                     return drawn.font;
@@ -131,18 +133,22 @@ describe("listSystemFontFamilies", () => {
 
     it("returns nothing where the runtime does not expose the API", async () => {
         expect(window.queryLocalFonts).toBeUndefined();
-        expect(await listSystemFontFamilies()).toEqual([]);
+        expect(await listSystemFonts()).toEqual([]);
     });
 
-    it("reduces the faces to sorted, deduplicated families", async () => {
+    it("reduces the faces to sorted, deduplicated families, told apart by advance width", async () => {
         vi.stubGlobal("queryLocalFonts", async () => [
             face("Inter", "Regular"),
             face("Inter", "Bold"),
             face("Adwaita Mono", "Regular"),
             face("Inter", "Italic")
         ]);
+        stubProbeCanvas(() => true, (family) => family.endsWith("Mono"));
 
-        expect(await listSystemFontFamilies()).toEqual([ "Adwaita Mono", "Inter" ]);
+        expect(await listSystemFonts()).toEqual([
+            { family: "Adwaita Mono", monospace: true },
+            { family: "Inter", monospace: false }
+        ]);
     });
 
     it("returns nothing when the query is refused, so the picker keeps the stock list", async () => {
@@ -150,7 +156,7 @@ describe("listSystemFontFamilies", () => {
             throw new DOMException("denied", "NotAllowedError");
         });
 
-        expect(await listSystemFontFamilies()).toEqual([]);
+        expect(await listSystemFonts()).toEqual([]);
     });
 
     it("leaves out a family the engine measures but will not draw", async () => {
@@ -158,7 +164,7 @@ describe("listSystemFontFamilies", () => {
         stubProbeCanvas((family) => family !== "Unifont");
 
         // Offering it would let the interface be set in a font that renders nothing at all.
-        expect(await listSystemFontFamilies()).toEqual([ "Inter" ]);
+        expect(await listSystemFonts()).toEqual([ { family: "Inter", monospace: false } ]);
     });
 
     it("leaves out a family that draws one of the two scripts and not the other", async () => {
@@ -167,13 +173,17 @@ describe("listSystemFontFamilies", () => {
         // would be enough to pass a family that cannot draw a word of Japanese.
         stubProbeCanvas((family, character) => !(family === "Latin Only" && character === "日"));
 
-        expect(await listSystemFontFamilies()).toEqual([ "Inter" ]);
+        expect(await listSystemFonts()).toEqual([ { family: "Inter", monospace: false } ]);
     });
 
     it("keeps every family where there is no canvas to judge them on", async () => {
         vi.stubGlobal("queryLocalFonts", async () => [ face("Inter", "Regular"), face("Unifont", "Regular") ]);
         vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
 
-        expect(await listSystemFontFamilies()).toEqual([ "Inter", "Unifont" ]);
+        // Nothing is judged and nothing is told apart, so every family stays and none is monospace.
+        expect(await listSystemFonts()).toEqual([
+            { family: "Inter", monospace: false },
+            { family: "Unifont", monospace: false }
+        ]);
     });
 });

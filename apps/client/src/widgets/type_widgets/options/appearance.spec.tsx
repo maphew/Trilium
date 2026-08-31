@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
     mobile: false,
     stored: {} as Record<string, string | boolean>,
     userFonts: [] as { noteId: string; title: string; blobId: string }[],
-    systemFonts: [] as string[]
+    systemFonts: [] as { family: string; monospace: boolean }[]
 }));
 
 // Both the desktop card and the illustrated layout choices turn on which kind of client this is.
@@ -44,7 +44,7 @@ vi.mock("../../../services/custom_fonts", () => ({
 // happy-dom exposes no `queryLocalFonts`, so what the desktop app would find is stood in for.
 vi.mock("../../../services/font", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../../services/font")>()),
-    listSystemFontFamilies: async () => mocks.systemFonts
+    listSystemFonts: async () => mocks.systemFonts
 }));
 
 // useNoteTitle names the font a font option points at; the listing above is what the picker lists.
@@ -158,13 +158,18 @@ describe("the font settings", () => {
 
     it("offers the fonts installed on the device in place of the guessed families", async () => {
         mocks.stored = { overrideThemeFonts: true };
-        mocks.systemFonts = [ "Adwaita Mono", "Inter" ];
+        mocks.systemFonts = [
+            { family: "Adwaita Mono", monospace: true },
+            { family: "Inter", monospace: false }
+        ];
         open();
         await act(async () => {});
         await act(async () => (fontRows()[0] as HTMLElement).click());
 
         const headers = [ ...document.querySelectorAll(".font-picker-list .dropdown-header") ].map((header) => header.textContent);
-        expect(headers).toContain("fonts.system-fonts");
+        // Split by the one thing a browser can tell about an installed family.
+        expect(headers).toContain("fonts.proportional-system-fonts");
+        expect(headers).toContain("fonts.monospace-system-fonts");
         // The named families are a guess at what a device has, and go once there is an answer.
         expect(headers).not.toContain("fonts.sans-serif-system-fonts");
         // The generics resolve wherever Trilium runs, so they stay.
@@ -177,13 +182,13 @@ describe("the font settings", () => {
     it("keeps the named families on a server build, which cannot ask what the device has", async () => {
         mocks.electron = false;
         mocks.stored = { overrideThemeFonts: true };
-        mocks.systemFonts = [ "Inter" ];
+        mocks.systemFonts = [ { family: "Inter", monospace: false } ];
         open();
         await act(async () => {});
         await act(async () => (fontRows()[0] as HTMLElement).click());
 
         const headers = [ ...document.querySelectorAll(".font-picker-list .dropdown-header") ].map((header) => header.textContent);
-        expect(headers).not.toContain("fonts.system-fonts");
+        expect(headers).not.toContain("fonts.proportional-system-fonts");
         expect(headers).toContain("fonts.sans-serif-system-fonts");
     });
 
@@ -196,6 +201,18 @@ describe("the font settings", () => {
         expect((ligatures as HTMLInputElement | null)?.disabled).toBe(false);
     });
 });
+
+    it("heads only the half of the split that has fonts in it", async () => {
+        mocks.stored = { overrideThemeFonts: true };
+        mocks.systemFonts = [ { family: "Inter", monospace: false } ];
+        open();
+        await act(async () => {});
+        await act(async () => (fontRows()[0] as HTMLElement).click());
+
+        const headers = [ ...document.querySelectorAll(".font-picker-list .dropdown-header") ].map((header) => header.textContent);
+        expect(headers).toContain("fonts.proportional-system-fonts");
+        expect(headers).not.toContain("fonts.monospace-system-fonts");
+    });
 
 describe("the layout choices", () => {
     it("gives each an illustrated card of its own, side by side", () => {

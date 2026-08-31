@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import zoomService from "../../../components/zoom";
 import { ColorScheme, resolveColorScheme, THEME_FAMILY_SCHEMES } from "../../../services/color_scheme";
 import { getCustomFonts, registerFontNote } from "../../../services/custom_fonts";
-import { listSystemFontFamilies } from "../../../services/font";
+import { listSystemFonts, type SystemFont } from "../../../services/font";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import { isElectron, isMobile, reloadFrontendApp } from "../../../services/utils";
@@ -507,7 +507,7 @@ function Fonts() {
  */
 function useFontGroups(): FontGroup[] {
     const [ customFonts, setCustomFonts ] = useState<UserFont[]>([]);
-    const systemFonts = useSystemFontFamilies();
+    const systemFonts = useSystemFonts();
 
     useEffect(() => {
         let cancelled = false;
@@ -542,9 +542,7 @@ function useFontGroups(): FontGroup[] {
     }, []);
 
     return useMemo(() => {
-        const stockGroups = systemFonts.length
-            ? [ GENERIC_FONTS, { title: t("fonts.system-fonts"), items: systemFonts.map((value) => ({ value })) } ]
-            : FONT_FAMILIES;
+        const stockGroups = systemFonts.length ? installedFontGroups(systemFonts) : FONT_FAMILIES;
 
         // Ahead of the rest: a font the user went and added is the one they are looking for.
         return customFonts.length
@@ -557,21 +555,41 @@ function useFontGroups(): FontGroup[] {
 }
 
 /**
- * The families installed on this device, empty everywhere but the desktop app. The API behind
- * {@link listSystemFontFamilies} also exists in a browser served over HTTPS, where reading it would
- * cost the user a permission prompt for a list the desktop app can have for free — so the ask is
- * kept to the one runtime that grants it itself (see the `local-fonts` entry in
- * `web_contents_security.ts`).
+ * The generic families, then the installed ones split by advance width. Serif and sans-serif cannot
+ * be told apart from a browser — nothing reports a face's style — so this is as far as the grouping
+ * goes, and an empty half is left out rather than headed.
  */
-function useSystemFontFamilies(): string[] {
-    const [ families, setFamilies ] = useState<string[]>([]);
+function installedFontGroups(systemFonts: SystemFont[]): FontGroup[] {
+    const groups = [ GENERIC_FONTS ];
+    const named: [ string, SystemFont[] ][] = [
+        [ t("fonts.proportional-system-fonts"), systemFonts.filter(({ monospace }) => !monospace) ],
+        [ t("fonts.monospace-system-fonts"), systemFonts.filter(({ monospace }) => monospace) ]
+    ];
+
+    for (const [ title, fonts ] of named) {
+        if (fonts.length) {
+            groups.push({ title, items: fonts.map(({ family }) => ({ value: family })) });
+        }
+    }
+
+    return groups;
+}
+
+/**
+ * The fonts installed on this device, empty everywhere but the desktop app. The API behind
+ * {@link listSystemFonts} also exists in a browser served over HTTPS, where reading it would cost
+ * the user a permission prompt for a list the desktop app can have for free — so the ask is kept to
+ * the one runtime that grants it itself (see the `local-fonts` entry in `web_contents_security.ts`).
+ */
+function useSystemFonts(): SystemFont[] {
+    const [ fonts, setFonts ] = useState<SystemFont[]>([]);
 
     useEffect(() => {
         if (!isElectron()) return;
 
         let cancelled = false;
-        void listSystemFontFamilies().then((found) => {
-            if (!cancelled) setFamilies(found);
+        void listSystemFonts().then((found) => {
+            if (!cancelled) setFonts(found);
         });
 
         return () => {
@@ -579,7 +597,7 @@ function useSystemFontFamilies(): string[] {
         };
     }, []);
 
-    return families;
+    return fonts;
 }
 
 interface FontProps {

@@ -145,7 +145,7 @@ export function hardenWebviewPreferences(webPreferences: Electron.WebPreferences
  *   hands out a handle for a file the user picked in an OS dialog, so the grant
  *   cannot reach anything the user did not choose.
  *   `local-fonts` lets the appearance settings offer the fonts installed on
- *   this device (see `listSystemFontFamilies`); Chromium routes it through the
+ *   this device (see `listSystemFonts`); Chromium routes it through the
  *   *check* handler rather than the request handler, so granting it here is
  *   what keeps the picker from falling back to the stock list.
  * - `guest`: the `<webview>` partition hosting arbitrary remote pages from
