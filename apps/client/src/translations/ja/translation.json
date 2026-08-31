@@ -691,7 +691,33 @@
     "rename-column": "列の名前を変更",
     "change-column-icon": "列のアイコンを変更",
     "column-menu": "列メニュー",
-    "save-error": "変更を保存できませんでした。"
+    "save-error": "変更を保存できませんでした。",
+    "status-header": "ステータス",
+    "duplicate-item": "複製",
+    "move-column": "列を移動",
+    "move-column-first": "先頭の列として",
+    "move-column-after": "{{column}} の後ろに",
+    "hints": {
+      "navigation": "ナビゲーション",
+      "navigate_items": "項目間を移動",
+      "navigate_columns": "列間を移動",
+      "first_last_item": "列の先頭 / 最後の項目",
+      "editing": "編集",
+      "insert_item": "下 / 上 に項目を挿入",
+      "insert_column": "後ろ / 前 に列を挿入",
+      "open_item": "項目を開く",
+      "rename": "項目または列の名前を変更",
+      "remove_item": "ボードから項目を削除",
+      "delete_item": "ノートを削除",
+      "remove_column": "列を削除（選択した列ヘッダーに対して））",
+      "moving": "移動",
+      "move_item": "項目を上 / 下 に移動",
+      "move_within": "列の 先頭 / 末尾 に移動",
+      "move_across": "前 / 次 の列に移動",
+      "move_to_end_column": "最初 / 最後 の列に移動",
+      "move_column": "列を 左 / 右 に移動",
+      "move_column_to_edge": "列を 一番左 / 一番右 に移動"
+    }
   },
   "code_buttons": {
     "execute_button_title": "スクリプトを実行",
@@ -1010,13 +1036,15 @@
     "monospace": "等幅",
     "system-default": "システムのデフォルト",
     "theme_defined": "テーマが定義されました",
-    "custom_fonts": "カスタムフォントを使用",
+    "custom_fonts": "別のフォントを使用する",
     "preview": "プレビュー",
     "monospace_font_description": "コードノートとコードブロックに使用されます",
     "size_relative_to_general": "サイズは一般的なフォントサイズを基準としています",
     "apply_changes": "変更を適用するには再読み込みしてください",
     "monospace_ligatures": "プログラミング用合字",
-    "monospace_ligatures_description": "等幅フォントが対応している場合、!= や -> といった文字の組み合わせを単一の記号（≠、→）として表示します。テキスト自体は変更されません。"
+    "monospace_ligatures_description": "等幅フォントが対応している場合、!= や -> といった文字の組み合わせを単一の記号（≠、→）として表示します。テキスト自体は変更されません。",
+    "custom_fonts_description": "テーマのフォントを置き換えます。リストにあるすべてのフォントがすべてのデバイスで使用できるわけではありません。Trilium にアップロードしたフォントは、そのフォントのノートから追加できます。",
+    "user-fonts": "カスタムフォント"
   },
   "max_content_width": {
     "title": "コンテンツ幅",
@@ -1558,7 +1586,8 @@
     "map_dark_style": "<code>map:style</code> で指定されたカスタムスタイルがダーク系であることを地図に伝えます。これにより、その上に表示されるマーカーのタイトルが明るい色で描画されるようになります。コレクションのプロパティで提供されるスタイルには、その情報が既に含まれているため、このような指定は不要です。",
     "map_cluster": "近接して描画されるマーカーをまとめ、番号付きの吹き出しとして表示します。この吹き出しはクリックすると開きます。",
     "ai_quick_action": "このノートをテキストエディタの AI アシスタントメニューの指示として表示されます。タイトルがアクション名になり、内容がプロンプトになります。",
-    "template_new_note_default_parent": "テンプレートノートに設定した場合: テンプレートから作成されたノート（例: @補完機能によるもの）は、明示的に別の場所が選択されない限り、対象のノートの配下に配置されます。"
+    "template_new_note_default_parent": "テンプレートノートに設定した場合: テンプレートから作成されたノート（例: @補完機能によるもの）は、明示的に別の場所が選択されない限り、対象のノートの配下に配置されます。",
+    "custom_font": "Trilium のオプションにあるフォント選択画面で、ノートのタイトルの下に表示されるフォントファイルを指定します。"
   },
   "link_context_menu": {
     "open_note_in_popup": "クイック編集",
@@ -4011,5 +4040,14 @@
     "title": "ノートを選択",
     "label": "ノート",
     "ok": "選択"
+  },
+  "font_preview": {
+    "pangram": "The quick brown fox jumps over the lazy dog",
+    "specimen_placeholder": "テキストを入力してプレビュー…",
+    "size": "プレビューサイズ",
+    "size_pixels": "{{size}} px",
+    "in_picker": "フォント選択画面に表示",
+    "offer_in_picker": "外観設定でこのフォントを使用可能にする",
+    "remove_from_picker": "外観設定でこのフォントを使用不可にする"
   }
 }
