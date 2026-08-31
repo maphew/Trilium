@@ -32,7 +32,7 @@
         "sync-from-desktop-step1": "Trilium Notes のデスクトップ版を開いてください。",
         "sync-from-desktop-step2": "Trilium メニューから「オプション」をクリックします。",
         "sync-from-desktop-step3": "ノートツリーの「同期」カテゴリをクリックします。",
-        "sync-from-desktop-step4": "サーバーインスタンスアドレスを右側のいずれかのアドレスに変更し、「保存」をクリックします。",
+        "sync-from-desktop-step4": "サーバーインスタンスのアドレスを、右側（画面幅が狭い場合は下側）に表示されているいずれかのアドレスに変更し、[保存] をクリックします。",
         "sync-from-desktop-step5": "\"同期テスト\" ボタンをクリックして、接続が成功したことを確認します。",
         "sync-from-desktop-warning": "両方のデバイスが同じネットワークに接続されていることを確認してください。",
         "sync-from-desktop-waiting": "接続を待機中...",
