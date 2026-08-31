@@ -16,7 +16,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -29,10 +29,21 @@ const PNPM_MAJOR = 11;
 // defaults to v10 (per-package JSON index files), which pnpm 11 would not find.
 const STORE_VERSION = "v11";
 
+interface Source {
+    dest?: string;
+    url?: string;
+    [key: string]: unknown;
+}
+
 export function main() {
     checkPnpm(readFileSync(PACKAGE_JSON_PATH, "utf-8"));
     generateSources();
-    console.log(`Wrote ${relative(ROOT, OUTPUT_PATH)}`);
+
+    const sources: Source[] = JSON.parse(readFileSync(OUTPUT_PATH, "utf-8"));
+    const kept = filterSources(sources);
+    writeFileSync(OUTPUT_PATH, `${JSON.stringify(kept, null, 4)}\n`);
+    console.log(`Wrote ${relative(ROOT, OUTPUT_PATH)}: `
+        + `${kept.length} sources, ${sources.length - kept.length} dropped.`);
 }
 
 export function checkPnpm(packageJson: string) {
@@ -45,6 +56,36 @@ export function checkPnpm(packageJson: string) {
             + `one succeeds here and only fails later, inside the build sandbox.`
         );
     }
+}
+
+/**
+ * Drops the Playwright browser archives (~500 MB). They are only reachable from the e2e
+ * suites, which the sandbox build never runs, and Playwright's install script -- the one
+ * reader of this cache -- never executes there either, since the offline store disables
+ * all lifecycle scripts. `--no-devel` is not the answer: the generator does not support
+ * it for pnpm lockfile v9, and the build needs the other devDependencies anyway (Vite,
+ * esbuild and tsx are the build toolchain).
+ *
+ * The generator is installed from its master branch, so the checks guard against its
+ * output drifting: a filter that no longer matches would quietly reship the archives,
+ * and a collapsed count or missing Electron zip would only fail the flatpak build much
+ * later, inside the sandbox.
+ */
+export function filterSources(sources: Source[]): Source[] {
+    const kept = sources.filter((s) => !s.dest?.startsWith("flatpak-node/cache/ms-playwright"));
+
+    if (kept.length === sources.length) {
+        throw new Error("Found no Playwright sources to drop. "
+            + "Did flatpak-node-generator change its cache paths?");
+    }
+    if (kept.length < 2000) {
+        throw new Error(`Only ${kept.length} sources left, expected around 2500.`);
+    }
+    if (!kept.some((s) => /electron-v[\d.]+-linux-x64\.zip$/.test(s.url ?? ""))) {
+        throw new Error("No linux-x64 Electron zip among the sources. "
+            + "The flatpak manifest unpacks it in place of the never-run Electron install script.");
+    }
+    return kept;
 }
 
 function generateSources() {
