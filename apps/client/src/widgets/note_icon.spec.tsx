@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import FNote from "../entities/fnote";
 import { renderInto } from "../test/render";
+import { ReactWrappedWidget } from "./basic_widget";
 
 const { dropdownInstances, getOrCreateInstance } = vi.hoisted(() => {
     const dropdownInstances: Array<{
@@ -82,6 +83,27 @@ globalThis.ResizeObserver = globalThis.ResizeObserver
     ?? (ResizeObserverStub as unknown as typeof ResizeObserver);
 
 describe("NoteIcon", () => {
+    it("stays in the legacy widget tree when the active note changes", () => {
+        glob.iconRegistry = { sources: [] };
+        noteContext.initialNote = buildNote("note-a");
+        const widget = new ReactWrappedWidget(<NoteIcon />);
+        widget.doRender();
+        const liveContainer = document.createElement("div");
+        document.body.appendChild(liveContainer);
+        liveContainer.append(...widget.$widget.get());
+
+        try {
+            expect(liveContainer.querySelector("button")).not.toBeNull();
+
+            void act(() => noteContext.setNote?.(buildNote("note-b")));
+
+            expect(liveContainer.querySelector("button")?.classList.contains("bx-note-b")).toBe(true);
+        } finally {
+            widget.cleanup();
+            liveContainer.remove();
+        }
+    });
+
     it("closes an open icon picker when the active note changes", () => {
         glob.iconRegistry = { sources: [] };
         noteContext.initialNote = buildNote("note-a");
@@ -90,7 +112,7 @@ describe("NoteIcon", () => {
         const dropdown = container.querySelector<HTMLElement>(".dropdown");
         expect(toggle).not.toBeNull();
         expect(dropdown).not.toBeNull();
-        const pickerDropdown = dropdownInstances[0];
+        const pickerDropdown = dropdownInstances.at(-1);
         expect(pickerDropdown).toBeTruthy();
 
         void act(() => {
