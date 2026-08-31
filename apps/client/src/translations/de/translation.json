@@ -2380,7 +2380,6 @@
   },
   "board_view": {
     "delete-note": "Notiz löschen...",
-    "move-to": "Verschieben zu",
     "insert-above": "Oberhalb einfügen",
     "insert-below": "Unterhalb einfügen",
     "delete-column": "Spalte entfernen",

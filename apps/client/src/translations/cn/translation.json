@@ -628,7 +628,8 @@
     "map_dark_style": "告知地理地图：<code>map:style</code> 中给定的自定义样式为深色样式，因此标记标题将以浅色绘制。集合属性中提供的样式本身即表明这一点，无需此类标注。",
     "map_cluster": "将彼此靠近的标记聚合成单个带编号的气泡，点击即可展开。",
     "ai_quick_action": "将这篇笔记作为指令提供给文本编辑器的 AI 助手菜单。标题为操作命名，内容为提示词。",
-    "template_new_note_default_parent": "设置在模板笔记上：从该模板创建的笔记（如通过 @ 补全）会放置在目标笔记下，除非显式选择了其他位置。"
+    "template_new_note_default_parent": "设置在模板笔记上：从该模板创建的笔记（如通过 @ 补全）会放置在目标笔记下，除非显式选择了其他位置。",
+    "custom_font": "标记在 Trilium 选项的字体选择器中提供的字体文件，置于笔记自身标题之下。"
   },
   "attribute_editor": {
     "help_text_body1": "要添加标签，只需输入例如 <code>#rock</code> ；或者如果你还想同时添加数值，则可输入例如 <code>#year = 2020</code>",
@@ -1406,13 +1407,15 @@
     "sans-serif": "无衬线",
     "monospace": "等宽",
     "system-default": "系统默认",
-    "custom_fonts": "使用自定义字体",
+    "custom_fonts": "使用不同字体",
     "preview": "预览",
     "monospace_font_description": "用于代码注释和代码块",
     "size_relative_to_general": "大小相对于一般字体大小",
     "apply_changes": "重新加载以应用更改",
     "monospace_ligatures": "代码连字（ligatures）",
-    "monospace_ligatures_description": "如果等宽字体支持，将 != 和 -> 等字符对渲染为单个符号（≠、→）。文本本身不会改变。"
+    "monospace_ligatures_description": "如果等宽字体支持，将 != 和 -> 等字符对渲染为单个符号（≠、→）。文本本身不会改变。",
+    "custom_fonts_description": "替换主题的字体。并非所有列出的字体在每个设备上都可用；上传到 Trilium 的字体可从其自身笔记中添加。",
+    "user-fonts": "自定义字体"
   },
   "max_content_width": {
     "title": "内容宽度",
@@ -2446,7 +2449,6 @@
   },
   "board_view": {
     "delete-note": "删除笔记...",
-    "move-to": "移动到",
     "insert-above": "在上方插入",
     "insert-below": "在下方插入",
     "delete-column": "删除列...",
@@ -2477,7 +2479,33 @@
     "rename-column": "重命名列",
     "change-column-icon": "更改列图标",
     "column-menu": "列菜单",
-    "save-error": "无法保存更改。"
+    "save-error": "无法保存更改。",
+    "status-header": "状态",
+    "duplicate-item": "创建副本",
+    "move-column": "移动列",
+    "move-column-first": "作为第一列",
+    "move-column-after": "移到「{{column}}」之后",
+    "hints": {
+      "navigation": "导航",
+      "navigate_items": "在项目之间导航",
+      "navigate_columns": "在列之间导航",
+      "first_last_item": "列的第一 / 最后一个项目",
+      "editing": "编辑",
+      "insert_item": "在下方 / 上方插入项目",
+      "insert_column": "在之后 / 之前插入列",
+      "open_item": "打开项目",
+      "rename": "重命名项目或列",
+      "remove_item": "从看板移除项目",
+      "delete_item": "删除笔记",
+      "remove_column": "移除列（在选中的列标题上）",
+      "moving": "移动",
+      "move_item": "上 / 下移动项目",
+      "move_within": "移动到列的顶部 / 底部",
+      "move_across": "移动到上一列 / 下一列",
+      "move_to_end_column": "移动到第一列 / 最后一列",
+      "move_column": "左 / 右移动列",
+      "move_column_to_edge": "将列移动到最左 / 最右"
+    }
   },
   "command_palette": {
     "tree-action-name": "树形：{{name}}",
@@ -4012,5 +4040,14 @@
     "title": "选择笔记",
     "label": "笔记",
     "ok": "选择"
+  },
+  "font_preview": {
+    "pangram": "敏捷的棕色狐狸跳过懒狗",
+    "specimen_placeholder": "输入文字以预览效果…",
+    "size": "预览大小",
+    "size_pixels": "{{size}} px",
+    "in_picker": "在字体选择器中",
+    "offer_in_picker": "在外观设置中提供此字体",
+    "remove_from_picker": "不在外观设置中提供此字体"
   }
 }

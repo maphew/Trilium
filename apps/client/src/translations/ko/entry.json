@@ -58,7 +58,7 @@
         "sync-from-desktop-step1": "데스크톱 인스턴스인 Trilium Notes를 열어보세요.",
         "sync-from-desktop-step2": "Trilium 메뉴에서 옵션을 클릭하세요.",
         "sync-from-desktop-step3": "노트 트리에서 동기화 카테고리를 클릭하세요.",
-        "sync-from-desktop-step4": "서버 인스턴스 주소를 오른쪽 주소 중 하나로 변경한 후 저장을 클릭하세요.",
+        "sync-from-desktop-step4": "서버 인스턴스 주소를 오른쪽(좁은 화면에서는 아래쪽)에 있는 주소 중 하나로 변경한 다음 저장을 클릭하세요.",
         "sync-from-desktop-step5": "\"테스트 동기화\" 버튼을 클릭하여 연결 성공 여부를 확인하세요.",
         "sync-from-desktop-warning": "두 기기가 같은 네트워크에 연결되어 있는지 확인하세요.",
         "sync-from-desktop-waiting": "연결을 기다리며...",

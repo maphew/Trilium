@@ -2104,7 +2104,6 @@
   },
   "board_view": {
     "delete-note": "刪除筆記…",
-    "move-to": "移動至",
     "insert-above": "在上方插入",
     "insert-below": "在下方插入",
     "delete-column": "刪除行",
