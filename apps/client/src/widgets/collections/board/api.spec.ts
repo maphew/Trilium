@@ -566,6 +566,27 @@ describe("BoardApi card operations", () => {
         expect(removeRelation).toHaveBeenCalledWith(expect.anything(), "status");
     });
 
+    /**
+     * A relation points at a note, so there is no empty one to cover an inherited value with. The
+     * card cannot leave its column here, and saying so beats appearing to do nothing.
+     */
+    it("says why a card cannot leave a column it takes from elsewhere", async () => {
+        const board = buildNote({
+            title: "Board",
+            "~status(inheritable)": "root",
+            children: [ { title: "Card" } ]
+        });
+        const { api } = createApi({}, [], board, "~status");
+        const removeRelation = vi.spyOn(attributes, "removeOwnedRelationByName")
+            .mockReturnValue(true);
+        const message = vi.spyOn(toast, "showMessage").mockReturnValue(undefined);
+
+        await api.removeFromBoard(board.getChildNoteIds()[0]);
+
+        expect(message).toHaveBeenCalledWith("board_view.inherited-column", 3000);
+        expect(removeRelation).not.toHaveBeenCalled();
+    });
+
     it("trims the title it renames a card to", async () => {
         const { api, items } = createBoardWithCards();
         const put = vi.spyOn(server, "put").mockResolvedValue(undefined);

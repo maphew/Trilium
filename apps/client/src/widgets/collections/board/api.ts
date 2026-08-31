@@ -652,19 +652,31 @@ export default class BoardApi {
         await branches.moveAfterBranch([ branch.branchId ], branchId);
     }
 
+    /** Whether the value the card is grouped by stands on another note: a template or a parent. */
+    private isInherited(note: FNote, type: "label" | "relation") {
+        return note.getAttributes(type, this.statusAttribute)
+            .some(attribute => attribute.noteId !== note.noteId);
+    }
+
     removeFromBoard(noteId: string) {
         const note = froca.getNoteFromCache(noteId);
         if (!note) return;
         if (this.isRelationMode) {
+            // A relation points at a note, so there is no empty one to cover an inherited value
+            // with the way a label is covered below. Where the card takes its column from a
+            // template or an ancestor, that is the only place it can be changed.
+            if (this.isInherited(note, "relation")) {
+                toast.showMessage(t("board_view.inherited-column"), 3000);
+                return;
+            }
+
             return attributes.removeOwnedRelationByName(note, this.statusAttribute);
         }
 
         // A value the card takes from a template or an ancestor is not the card's to remove, and
         // taking away the one it owns would only uncover what that was covering. An empty value of
         // its own covers it instead, which reads as carrying none.
-        const inherited = note.getAttributes("label", this.statusAttribute)
-            .some(attribute => attribute.noteId !== noteId);
-        if (inherited) {
+        if (this.isInherited(note, "label")) {
             return attributes.setLabel(noteId, this.statusAttribute, "");
         }
 

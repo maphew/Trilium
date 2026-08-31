@@ -3379,6 +3379,7 @@
     "unarchive-column": "Unarchive column",
     "archived-badge": "Archived",
     "inbox": "Inbox",
+    "inherited-column": "This card takes its column from a template or a parent note, which is where it can be changed.",
     "inbox-nested": "Include nested notes",
     "inbox-remove": "Remove inbox column",
     "card-count_one": "{{count}} item",
