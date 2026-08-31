@@ -334,6 +334,23 @@ describe("the font settings", () => {
         expect(catalogue.fonts.document_preview_body).toContain("<em>");
     });
 
+    it("offers the size as a number to type as well as a slider to drag", async () => {
+        mocks.stored = { overrideThemeFonts: true, mainFontSize: "120" };
+        open();
+        await act(async () => {});
+        await act(async () => (fontRows()[0] as HTMLElement).click());
+
+        const slider = document.querySelector<HTMLInputElement>(".font-picker-modal .slider");
+        const box = document.querySelector<HTMLInputElement>(".font-picker-modal .font-size-value");
+        expect(slider?.value).toBe("120");
+        expect(box?.value).toBe("120");
+
+        // The same bounds on both, so a size that can be typed is one the slider can reach back to.
+        expect(box?.min).toBe(slider?.min);
+        expect(box?.max).toBe(slider?.max);
+        expect(box?.step).toBe(slider?.step);
+    });
+
     it("shows the interface on the components the interface is made of", async () => {
         // The picker opens on the interface font, so this is what it lands on.
         await openPicker();

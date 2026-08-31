@@ -147,9 +147,14 @@ body.desktop .modal.font-picker-modal {
         flex: 1;
     }
 
+    /* The pair sizes itself (see `theme-next/forms.css`), so the slider takes what is left. */
+    .tn-number-unit-pair {
+        flex: 0 0 auto;
+    }
+
+    /* Dragging the slider runs the number through every value between: proportional digits would
+       shuffle its width the whole way. */
     .font-size-value {
-        min-width: 50px;
-        text-align: right;
         font-variant-numeric: tabular-nums;
     }
 }

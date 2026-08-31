@@ -16,6 +16,7 @@ import Button from "../../react/Button";
 import { Card, OptionCardSection } from "../../react/Card";
 import { filterTokens, matchesFilter } from "../../react/filter";
 import FormList, { FormListHeader, FormListItem } from "../../react/FormList";
+import { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
 import { useChildNotes, useNoteTitle, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import Icon from "../../react/Icon";
@@ -528,6 +529,11 @@ function CodePreview() {
 
 const PREVIEW_TEXT = "The quick brown fox jumps over the lazy dog. 0123456789";
 
+/** Percentages, of the interface size for the tree and the document and of nothing for itself. */
+const FONT_SIZE_MIN = 50;
+const FONT_SIZE_MAX = 200;
+const FONT_SIZE_STEP = 5;
+
 interface FontPickerModalProps {
     show: boolean;
     onHidden: () => void;
@@ -608,11 +614,20 @@ function FontPickerModal({ show, onHidden, target, onTargetChange, option: { fam
                         <Slider
                             value={size}
                             onChange={setSize}
-                            min={50}
-                            max={200}
-                            step={5}
+                            min={FONT_SIZE_MIN}
+                            max={FONT_SIZE_MAX}
+                            step={FONT_SIZE_STEP}
                         />
-                        <span className="font-size-value">{size}%</span>
+                        {/* The same control the zoom factor is set by, so a size can be typed and
+                            read back rather than only dragged to. */}
+                        <FormTextBoxWithUnit
+                            className="font-size-value"
+                            type="number"
+                            min={FONT_SIZE_MIN} max={FONT_SIZE_MAX} step={FONT_SIZE_STEP}
+                            currentValue={String(size)}
+                            onChange={(value) => setSize(parseInt(value, 10))}
+                            unit={t("units.percentage")}
+                        />
                     </div>
                     {target.sizeDescription && <small className="font-size-description">{target.sizeDescription}</small>}
                 </div>
