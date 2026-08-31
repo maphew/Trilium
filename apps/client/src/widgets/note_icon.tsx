@@ -30,7 +30,7 @@ export default function NoteIcon() {
     return (
         // ReactWrappedWidget moves this root out of its render container. Keep it stable so a keyed
         // picker replacement is inserted into the live layout rather than the detached container.
-        <div style={{ display: "contents" }}>
+        <div className="note-icon-root">
             <IconPickerButton
                 key={note?.noteId}
                 icon={icon ?? "bx bx-empty"}
