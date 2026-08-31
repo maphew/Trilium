@@ -106,6 +106,29 @@ export function filterAvailableFamilies(candidates: string[]): string[] {
 }
 
 /**
+ * A family name as it is named to CSS, whether in a stylesheet, a `style` attribute or a canvas
+ * `font`. Unquoted, a name has to be a sequence of identifiers, so one beginning with a digit —
+ * Windows ships `8514oem` — is invalid and takes the whole declaration with it. A name carrying a
+ * quote would close the string early and leave the rest of it to be read as CSS.
+ *
+ * The generics are left alone: quoted, they stop naming a browser default and start asking for a
+ * font that happens to be called "monospace".
+ */
+export function quoteFamily(family: string): string {
+    if (!family || GENERIC_FAMILIES.has(family)) {
+        return family;
+    }
+
+    return `"${family.replace(/[\\"]/g, "\\$&")}"`;
+}
+
+/** The keywords that name a browser default instead of a font, which only read as one unquoted. */
+const GENERIC_FAMILIES = new Set([
+    "serif", "sans-serif", "monospace", "cursive", "fantasy", "math", "emoji", "fangsong",
+    "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace", "ui-rounded"
+]);
+
+/**
  * Whether naming `family` changes how text is laid out. Asked of each generic in turn, because a
  * family can share its metrics with one of them and still be present: Arial resolves to the same
  * face as the default sans-serif on a Linux box, so it measures identically against that one while
@@ -116,7 +139,7 @@ function isAvailable(context: CanvasRenderingContext2D, family: string): boolean
         context.font = `${PROBE_FONT_SIZE}px ${fallback}`;
         const fellBack = context.measureText(AVAILABILITY_TEXT).width;
 
-        context.font = `${PROBE_FONT_SIZE}px "${family}", ${fallback}`;
+        context.font = `${PROBE_FONT_SIZE}px ${quoteFamily(family)}, ${fallback}`;
         if (context.measureText(AVAILABILITY_TEXT).width !== fellBack) {
             return true;
         }
@@ -154,7 +177,7 @@ function rendersText(context: CanvasRenderingContext2D, family: string): boolean
 
     for (const character of PROBE_CHARACTERS) {
         context.clearRect(0, 0, width, height);
-        context.font = `${PROBE_FONT_SIZE}px "${family}"`;
+        context.font = `${PROBE_FONT_SIZE}px ${quoteFamily(family)}`;
         context.fillText(character, 0, PROBE_FONT_SIZE * 1.5);
 
         if (!isAnythingPainted(context.getImageData(0, 0, width, height))) {
@@ -171,7 +194,7 @@ function rendersText(context: CanvasRenderingContext2D, family: string): boolean
  * nothing reports whether a face is serif or sans, so the picker groups by this alone.
  */
 function isMonospace(context: CanvasRenderingContext2D, family: string): boolean {
-    context.font = `${PROBE_FONT_SIZE}px "${family}"`;
+    context.font = `${PROBE_FONT_SIZE}px ${quoteFamily(family)}`;
 
     return context.measureText("i").width === context.measureText("W").width;
 }

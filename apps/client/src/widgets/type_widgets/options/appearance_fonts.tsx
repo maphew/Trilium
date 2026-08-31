@@ -7,7 +7,7 @@ import { createPortal } from "preact/compat";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { getCustomFonts, registerFontNote } from "../../../services/custom_fonts";
-import { filterAvailableFamilies, listSystemFonts, type SystemFont } from "../../../services/font";
+import { filterAvailableFamilies, listSystemFonts, quoteFamily, type SystemFont } from "../../../services/font";
 import { t } from "../../../services/i18n";
 import { isElectron } from "../../../services/utils";
 import { Card, OptionCardSection } from "../../react/Card";
@@ -288,7 +288,7 @@ function Font({ label, description, sizeDescription, groups, fontFamilyOption, f
         // One of the user's own fonts names the note it is stored in, not a family the browser
         // could resolve; the family it was registered under is built from the same id.
         const noteId = customFontNoteId(value);
-        return noteId ? customFontFamily(noteId) : value;
+        return noteId ? customFontFamily(noteId) : quoteFamily(value);
     };
 
     return (

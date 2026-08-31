@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { applyFontsFromOptions, createFontStylesheetLink, filterAvailableFamilies, listSystemFonts } from "./font.js";
+import { applyFontsFromOptions, createFontStylesheetLink, filterAvailableFamilies, listSystemFonts, quoteFamily } from "./font.js";
 
 function fontLinkHrefs() {
     return Array.from(document.head.querySelectorAll<HTMLLinkElement>("link[data-font-stylesheet]"))
@@ -239,5 +239,31 @@ describe("filterAvailableFamilies", () => {
         vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
 
         expect(filterAvailableFamilies([ "Garamond", "Luminari" ])).toEqual([ "Garamond", "Luminari" ]);
+    });
+});
+
+/*
+ * Read off the function rather than off anything it is written into: happy-dom drops the quotes as
+ * it parses a declaration, so `style.fontFamily` reads the same either way and an assertion made
+ * through the DOM would hold with the quoting gone.
+ */
+describe("quoteFamily", () => {
+    it("quotes what could not be read unquoted, and leaves the generics as they are", () => {
+        // A name beginning with a digit is no identifier, and unquoted takes the whole declaration
+        // with it. Windows ships this one; queryLocalFonts() reports whatever is installed.
+        expect(quoteFamily("8514oem")).toBe(`"8514oem"`);
+        expect(quoteFamily("Trebuchet MS")).toBe(`"Trebuchet MS"`);
+
+        // A generic names a browser default, which quoting would turn into a request for a font
+        // that happens to be called "monospace".
+        expect(quoteFamily("monospace")).toBe("monospace");
+        expect(quoteFamily("ui-sans-serif")).toBe("ui-sans-serif");
+
+        // The quote would close the string early and leave the rest of it as CSS to be read.
+        expect(quoteFamily(`Fo"o`)).toBe(`"Fo\\"o"`);
+        expect(quoteFamily("Fo\\o")).toBe(`"Fo\\\\o"`);
+
+        // No family is named, and naming an empty one would be no better.
+        expect(quoteFamily("")).toBe("");
     });
 });
