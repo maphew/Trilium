@@ -282,10 +282,33 @@ span.fancytree-node:hover .add-note-button {
     height: 0;
 }
 
-#fancytree-drop-marker.fancytree-drop-after {
-    border-bottom: 1px solid var(--muted-text-color);
+/*
+ * The line, and the ring capping the end it is measured from. Both are drawn by pseudo-elements so
+ * the marker's own box stays at zero height: dnd5 positions that box, and a border on it would
+ * carry the line half its thickness off the edge.
+ */
+#fancytree-drop-marker.fancytree-drop-after::before,
+#fancytree-drop-marker.fancytree-drop-before::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: -1px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--muted-text-color);
 }
 
-#fancytree-drop-marker.fancytree-drop-before {
-    border-top: 1px solid var(--muted-text-color);
+#fancytree-drop-marker.fancytree-drop-after::after,
+#fancytree-drop-marker.fancytree-drop-before::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: -2px;
+    top: -4px;
+    box-sizing: border-box;
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--muted-text-color);
+    border-radius: 50%;
+    /* Hollow, so the row beneath reads through it rather than being covered by a dot. */
+    background: var(--main-background-color);
 }
