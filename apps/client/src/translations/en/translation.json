@@ -1826,7 +1826,7 @@
     "monospace_ligatures": "Programming ligatures",
     "monospace_ligatures_description": "Renders character pairs such as != and -> as single symbols (≠, →), if the monospace font supports it. The text itself is unchanged.",
     "size_relative_to_general": "Size is relative to the general font size",
-    "custom_fonts_description": "Replaces the theme's fonts. Not all listed fonts are available on every device; a font uploaded into Trilium can be added from its own note.",
+    "custom_fonts_description": "Replaces the theme's fonts. A font uploaded into Trilium can be added from its own note.",
     "apply_changes": "Reload to apply changes",
     "generic-fonts": "Generic fonts",
     "user-fonts": "Custom fonts",

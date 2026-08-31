@@ -6,7 +6,9 @@ const mocks = vi.hoisted(() => ({
     electron: true,
     stored: {} as Record<string, string | boolean>,
     userFonts: [] as { noteId: string; title: string; blobId: string }[],
-    systemFonts: [] as { family: string; monospace: boolean }[]
+    systemFonts: [] as { family: string; monospace: boolean }[],
+    /** The stock families this device can render, or `null` to let every one of them through. */
+    availableFamilies: null as string[] | null
 }));
 
 // Only the desktop app can be asked what fonts the device has.
@@ -27,7 +29,8 @@ vi.mock("../../../services/custom_fonts", () => ({
 // happy-dom exposes no `queryLocalFonts`, so what the desktop app would find is stood in for.
 vi.mock("../../../services/font", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../../services/font")>()),
-    listSystemFonts: async () => mocks.systemFonts
+    listSystemFonts: async () => mocks.systemFonts,
+    filterAvailableFamilies: (families: string[]) => mocks.availableFamilies ?? families
 }));
 
 // useNoteTitle names the font a font option points at; the listing above is what the picker lists.
@@ -47,6 +50,7 @@ beforeEach(() => {
     mocks.stored = {};
     mocks.userFonts = [];
     mocks.systemFonts = [];
+    mocks.availableFamilies = null;
     Object.defineProperty(document, "fonts", {
         configurable: true,
         value: { add: vi.fn(), delete: vi.fn() }
@@ -85,6 +89,9 @@ async function openPicker() {
     await act(async () => {});
     await act(async () => (fontRows()[0] as HTMLElement).click());
 }
+
+/** The generic entries, which head every list and are never measured against the device. */
+const GENERIC_LABELS = [ "fonts.theme_defined", "fonts.system-default", "fonts.serif", "fonts.sans-serif", "fonts.monospace" ];
 
 /** Types into the picker's search box, as the user would. */
 function searchFonts(query: string) {
@@ -207,6 +214,24 @@ describe("the font settings", () => {
         const headers = [ ...document.querySelectorAll(".font-picker-list .dropdown-header") ].map((header) => header.textContent);
         expect(headers).not.toContain("fonts.proportional-system-fonts");
         expect(headers).toContain("fonts.sans-serif-system-fonts");
+    });
+
+    it("narrows the named families to the ones the device can render", async () => {
+        mocks.electron = false;
+        mocks.stored = { overrideThemeFonts: true };
+        // Nothing from the serif or handwriting groups, so both go entirely.
+        mocks.availableFamilies = [ "Arial", "Verdana", "Courier New" ];
+        open();
+        await act(async () => {});
+        await act(async () => (fontRows()[0] as HTMLElement).click());
+
+        expect(listedFonts()).toEqual([ ...GENERIC_LABELS, "Arial", "Verdana", "Courier New" ]);
+        // A group left with nothing goes, its header with it; the generics are never measured.
+        expect(listedHeaders()).toEqual([
+            "fonts.generic-fonts",
+            "fonts.sans-serif-system-fonts",
+            "fonts.monospace-system-fonts"
+        ]);
     });
 
     it("narrows the list to the fonts matching what is searched for", async () => {

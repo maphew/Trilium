@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { applyFontsFromOptions, createFontStylesheetLink, listSystemFonts } from "./font.js";
+import { applyFontsFromOptions, createFontStylesheetLink, filterAvailableFamilies, listSystemFonts } from "./font.js";
 
 function fontLinkHrefs() {
     return Array.from(document.head.querySelectorAll<HTMLLinkElement>("link[data-font-stylesheet]"))
@@ -185,5 +185,59 @@ describe("listSystemFonts", () => {
             { family: "Inter", monospace: false },
             { family: "Unifont", monospace: false }
         ]);
+    });
+});
+
+describe("filterAvailableFamilies", () => {
+    /**
+     * Stands in for the canvas the measurement runs on. `installed` decides which families the
+     * device has; anything else falls back, and measures exactly as the generic it fell back to.
+     */
+    function stubMeasuring(installed: Record<string, number>) {
+        vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation((() => {
+            const generics = { monospace: 100, serif: 110, "sans-serif": 120 };
+            let font = "";
+
+            return {
+                canvas: { width: 40, height: 40 },
+                measureText: () => {
+                    const family = font.match(/"(.+?)"/)?.[1];
+                    const fallback = font.replace(/^\d+px\s*/, "").split(", ").pop() ?? "";
+                    // Without a family named, the width is the generic's own.
+                    return { width: family && family in installed ? installed[family] : generics[fallback as keyof typeof generics] };
+                },
+                get font() {
+                    return font;
+                },
+                set font(value: string) {
+                    font = value;
+                }
+            };
+        }) as never);
+    }
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it("keeps the families the device has and drops the ones it falls back from", () => {
+        stubMeasuring({ Georgia: 130, "Comic Sans MS": 140 });
+
+        expect(filterAvailableFamilies([ "Georgia", "Garamond", "Comic Sans MS", "Luminari" ]))
+            .toEqual([ "Georgia", "Comic Sans MS" ]);
+    });
+
+    it("keeps a family that measures as one generic but not the others", () => {
+        // Arial resolves to the same face as the default sans-serif, so it is told apart only by
+        // the other two. A single fallback would report it missing.
+        stubMeasuring({ Arial: 120 });
+
+        expect(filterAvailableFamilies([ "Arial" ])).toEqual([ "Arial" ]);
+    });
+
+    it("keeps everything where there is no canvas to measure on", () => {
+        vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+
+        expect(filterAvailableFamilies([ "Garamond", "Luminari" ])).toEqual([ "Garamond", "Luminari" ]);
     });
 });

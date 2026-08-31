@@ -7,7 +7,7 @@ import { createPortal } from "preact/compat";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { getCustomFonts, registerFontNote } from "../../../services/custom_fonts";
-import { listSystemFonts, type SystemFont } from "../../../services/font";
+import { filterAvailableFamilies, listSystemFonts, type SystemFont } from "../../../services/font";
 import { t } from "../../../services/i18n";
 import { isElectron } from "../../../services/utils";
 import { Card, OptionCardSection } from "../../react/Card";
@@ -160,7 +160,7 @@ function useFontGroups(): FontGroup[] {
     }, []);
 
     return useMemo(() => {
-        const stockGroups = systemFonts.length ? installedFontGroups(systemFonts) : FONT_FAMILIES;
+        const stockGroups = systemFonts.length ? installedFontGroups(systemFonts) : availableStockGroups();
 
         // Ahead of the rest: a font the user went and added is the one they are looking for.
         return customFonts.length
@@ -170,6 +170,28 @@ function useFontGroups(): FontGroup[] {
             }, ...stockGroups ]
             : stockGroups;
     }, [ customFonts, systemFonts ]);
+}
+
+/**
+ * The stock groups, with the families this device cannot render left out and any group they empty
+ * left out with them. The generic families always stay: the browser resolves those itself.
+ *
+ * The list is a guess at what a device holds, which is why every runtime that cannot enumerate its
+ * fonts has to be told which of the guesses landed.
+ */
+function availableStockGroups(): FontGroup[] {
+    const named = FONT_FAMILIES.filter((group) => group !== GENERIC_FONTS);
+    const available = new Set(filterAvailableFamilies(named.flatMap((group) => group.items.map(({ value }) => value))));
+
+    const groups = [ GENERIC_FONTS ];
+    for (const group of named) {
+        const items = group.items.filter(({ value }) => available.has(value));
+        if (items.length) {
+            groups.push({ ...group, items });
+        }
+    }
+
+    return groups;
 }
 
 /**

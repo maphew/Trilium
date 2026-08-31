@@ -89,6 +89,48 @@ const PROBE_CHARACTERS = [ "A", "日" ];
 /** Big enough that a light glyph still covers a pixel once it is rasterized. */
 const PROBE_FONT_SIZE = 20;
 
+/**
+ * The families of `candidates` this device can render, for a list of guesses to be narrowed to what
+ * is actually there. Everything is kept where there is no canvas to measure on.
+ *
+ * Used where the fonts cannot be enumerated outright — that is, everywhere but the desktop app, so
+ * the stock list stops offering families the browser would only fall back from.
+ */
+export function filterAvailableFamilies(candidates: string[]): string[] {
+    const context = createProbeContext();
+    if (!context) {
+        return candidates;
+    }
+
+    return candidates.filter((family) => isAvailable(context, family));
+}
+
+/**
+ * Whether naming `family` changes how text is laid out. Asked of each generic in turn, because a
+ * family can share its metrics with one of them and still be present: Arial resolves to the same
+ * face as the default sans-serif on a Linux box, so it measures identically against that one while
+ * differing from serif and monospace.
+ */
+function isAvailable(context: CanvasRenderingContext2D, family: string): boolean {
+    for (const fallback of FALLBACK_FAMILIES) {
+        context.font = `${PROBE_FONT_SIZE}px ${fallback}`;
+        const fellBack = context.measureText(AVAILABILITY_TEXT).width;
+
+        context.font = `${PROBE_FONT_SIZE}px "${family}", ${fallback}`;
+        if (context.measureText(AVAILABILITY_TEXT).width !== fellBack) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/** The generics a candidate is measured against, one of which every fallback lands on. */
+const FALLBACK_FAMILIES = [ "monospace", "serif", "sans-serif" ];
+
+/** Wide and narrow letters together, so a family carrying its own metrics shifts the advance. */
+const AVAILABILITY_TEXT = "mmmmmmmmmmlli";
+
 /** The surface every family is drawn on, or `null` where the runtime offers no canvas. */
 function createProbeContext() {
     const canvas = document.createElement("canvas");
