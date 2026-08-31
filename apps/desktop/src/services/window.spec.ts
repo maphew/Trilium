@@ -389,19 +389,52 @@ describe("window service", () => {
             expect(opts.frame).toBeUndefined();
         });
 
-        it("defers window-state restoration for a hidden start until the window is shown", async () => {
+        it("restores hidden state before reveal and does not manage a window that stays hidden", async () => {
+            await windowService.createMainWindow(true);
+            const closedWindow = state.windows[state.windows.length - 1];
+
+            closedWindow.fire("closed");
+            expect(state.windowStateManage).not.toHaveBeenCalled();
+
             await windowService.createMainWindow(true);
             const hiddenWindow = state.windows[state.windows.length - 1];
             expect((hiddenWindow.opts as Record<string, unknown>).show).toBe(false);
             expect(state.windowStateManage).not.toHaveBeenCalled();
 
-            hiddenWindow.fire("show");
+            windowService.showAndFocusWindow(hiddenWindow as never);
+            expect(state.windowStateManage).toHaveBeenCalledOnce();
             expect(state.windowStateManage).toHaveBeenCalledWith(hiddenWindow);
+            expect(state.windowStateManage.mock.invocationCallOrder[0])
+                .toBeLessThan(hiddenWindow.show.mock.invocationCallOrder[0]);
+
+            hiddenWindow.fire("show");
+            expect(state.windowStateManage).toHaveBeenCalledOnce();
 
             await windowService.createMainWindow();
             const visibleWindow = state.windows[state.windows.length - 1];
             expect((visibleWindow.opts as Record<string, unknown>).show).toBe(true);
             expect(state.windowStateManage).toHaveBeenLastCalledWith(visibleWindow);
+        });
+
+        it("uses the show event as a one-time fallback", async () => {
+            await windowService.createMainWindow(true);
+            const hiddenWindow = state.windows[state.windows.length - 1];
+
+            hiddenWindow.fire("show");
+            hiddenWindow.fire("show");
+
+            expect(state.windowStateManage).toHaveBeenCalledOnce();
+            expect(state.windowStateManage).toHaveBeenCalledWith(hiddenWindow);
+        });
+
+        it("manages state once when restoration emits show synchronously", async () => {
+            await windowService.createMainWindow(true);
+            const hiddenWindow = state.windows[state.windows.length - 1];
+            state.windowStateManage.mockImplementationOnce(() => hiddenWindow.fire("show"));
+
+            windowService.showAndFocusWindow(hiddenWindow as never);
+
+            expect(state.windowStateManage).toHaveBeenCalledOnce();
         });
 
         it("marks startup metrics for creation, first paint, and load finish", async () => {
@@ -717,6 +750,18 @@ describe("window service", () => {
         it("restores, shows and focuses a minimized window", async () => {
             await windowService.createMainWindow();
             const win = state.windows[state.windows.length - 1];
+            win.isMinimized.mockReturnValue(true);
+
+            windowService.showAndFocusWindow(win as never);
+
+            expect(win.restore).toHaveBeenCalled();
+            expect(win.show).toHaveBeenCalled();
+            expect(win.focus).toHaveBeenCalled();
+            expect(win.restore.mock.invocationCallOrder[0])
+                .toBeLessThan(win.show.mock.invocationCallOrder[0]);
+            expect(win.show.mock.invocationCallOrder[0])
+                .toBeLessThan(win.focus.mock.invocationCallOrder[0]);
+
             win.fire("focus");
             expect(windowService.getLastFocusedWindow()).toBe(win);
             expect(windowService.getAllWindows()).toContain(win);
@@ -821,6 +866,7 @@ describe("window service", () => {
             const win = state.windows[state.windows.length - 1];
             fireOn("show-window", makeEvent());
             expect(win.show).toHaveBeenCalled();
+            expect(win.focus).not.toHaveBeenCalled();
 
             state.fromWebContentsResult = "null";
             fireOn("show-window", makeEvent());
@@ -841,6 +887,7 @@ describe("window service", () => {
             win.isVisible.mockReturnValue(false);
             fireOn("toggle-all-windows", makeEvent());
             expect(win.show).toHaveBeenCalled();
+            expect(win.focus).not.toHaveBeenCalled();
         });
 
         it("get-available-spellchecker-languages returns the list", () => {

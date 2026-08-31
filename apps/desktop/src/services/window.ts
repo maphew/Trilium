@@ -38,6 +38,7 @@ let setupWindow: BrowserWindow | null;
 let allWindows: BrowserWindow[] = []; // Used to store all windows, sorted by the order of focus.
 const loadedSpellcheckSessions = new WeakSet<Session>();
 const exportRevealSessions = new WeakSet<Session>();
+const deferredWindowStateManagers = new WeakMap<BrowserWindow, () => void>();
 
 // Set to `true` once the app is genuinely quitting (via `before-quit`, which fires
 // for every real quit path: Cmd+Q, the tray "Quit" item, the app menu, OS shutdown).
@@ -156,7 +157,14 @@ async function createMainWindow(startHidden = false) {
 
     if (startHidden) {
         const hiddenWindow = mainWindow;
-        hiddenWindow.once("show", () => mainWindowState.manage(hiddenWindow));
+        const manageWindowState = () => {
+            if (deferredWindowStateManagers.delete(hiddenWindow)) {
+                mainWindowState.manage(hiddenWindow);
+            }
+        };
+        deferredWindowStateManagers.set(hiddenWindow, manageWindowState);
+        // This event is a fallback for a reveal that does not use showWindow().
+        hiddenWindow.once("show", manageWindowState);
     } else {
         mainWindowState.manage(mainWindow);
     }
@@ -446,6 +454,13 @@ async function registerGlobalShortcuts() {
     }
 }
 
+function showWindow(window: BrowserWindow) {
+    // electron-window-state can reveal a hidden maximized window while it restores state.
+    // Restore immediately before an intentional reveal so the window starts hidden.
+    deferredWindowStateManagers.get(window)?.();
+    window.show();
+}
+
 function showAndFocusWindow(window: BrowserWindow) {
     /* v8 ignore next -- defensive guard; every caller passes a non-null window narrowed beforehand */
     if (!window) return;
@@ -454,7 +469,7 @@ function showAndFocusWindow(window: BrowserWindow) {
         window.restore();
     }
 
-    window.show();
+    showWindow(window);
     window.focus();
 }
 
@@ -524,7 +539,10 @@ export function setupWindowing() {
     electron.ipcMain.handle("read-clipboard-text", () => electron.clipboard.readText());
 
     electron.ipcMain.on("show-window", (event) => {
-        electron.BrowserWindow.fromWebContents(event.sender)?.show();
+        const window = electron.BrowserWindow.fromWebContents(event.sender);
+        if (window) {
+            showWindow(window);
+        }
     });
 
     electron.ipcMain.handle("clear-cache", async (event) => {
@@ -534,9 +552,12 @@ export function setupWindowing() {
     electron.ipcMain.on("toggle-all-windows", () => {
         const windows = electron.BrowserWindow.getAllWindows();
         const isVisible = windows.every((w) => w.isVisible());
-        const action = isVisible ? "hide" : "show";
         for (const win of windows) {
-            win[action]();
+            if (isVisible) {
+                win.hide();
+            } else {
+                showWindow(win);
+            }
         }
     });
 
@@ -671,6 +692,7 @@ export default {
     createSetupWindow,
     closeSetupWindow,
     registerGlobalShortcuts,
+    showAndFocusWindow,
     getMainWindow,
     getLastFocusedWindow,
     getAllWindows
