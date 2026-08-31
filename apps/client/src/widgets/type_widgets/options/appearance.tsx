@@ -4,7 +4,7 @@ import { customFontFamily, customFontNoteId, customFontOption, FontFamily, Optio
 import clsx from "clsx";
 import { Fragment } from "preact";
 import { createPortal } from "preact/compat";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import zoomService from "../../../components/zoom";
 import { ColorScheme, resolveColorScheme, THEME_FAMILY_SCHEMES } from "../../../services/color_scheme";
@@ -16,6 +16,7 @@ import { isElectron, isMobile, reloadFrontendApp } from "../../../services/utils
 import { VerticalLayoutIcon } from "../../buttons/global_menu";
 import { Card, CardSection, OptionCardSection } from "../../react/Card";
 import Dropdown from "../../react/Dropdown";
+import { filterTokens, matchesFilter } from "../../react/filter";
 import FormList, { FormListHeader, FormListItem } from "../../react/FormList";
 import { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
@@ -23,6 +24,7 @@ import HelpButton from "../../react/HelpButton";
 import { useNoteTitle, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import Modal from "../../react/Modal";
+import NoItems from "../../react/NoItems";
 import SegmentedChoice, { SegmentedChoiceOption } from "../../react/SegmentedChoice";
 import Slider from "../../react/Slider";
 import OptionsPageHeader from "./components/OptionsPageHeader";
@@ -30,6 +32,7 @@ import PlatformIndicator from "./components/PlatformIndicator";
 import RadioWithIllustration from "./components/RadioWithIllustration";
 import RelatedSettings from "./components/RelatedSettings";
 import RestartAction from "./components/RestartAction";
+import SettingsSearch from "./components/SettingsSearch";
 
 const MIN_CONTENT_WIDTH = 640;
 
@@ -697,35 +700,55 @@ interface FontPickerModalProps {
 }
 
 function FontPickerModal({ show, onHidden, title, groups, fontFamily, fontSize, onFontFamilyChange, onFontSizeChange, getFontFamily, sizeDescription }: FontPickerModalProps) {
+    const [ query, setQuery ] = useState("");
+    const searchRef = useRef<HTMLInputElement>(null);
+    const matching = useMemo(() => filterFontGroups(groups, query), [ groups, query ]);
+
     return createPortal(
         <Modal
             className="font-picker-modal"
             title={title}
             size="lg"
             show={show}
-            onHidden={onHidden}
+            // The list runs to every family the device has, so the search is what the dialog opens on.
+            onShown={() => searchRef.current?.focus()}
+            onHidden={() => {
+                setQuery("");
+                onHidden();
+            }}
             stackable
-            sidebar={
-                <FormList fullHeight wrapperClassName="font-picker-list">
-                    {groups.map(group => (
-                        <Fragment key={group.title}>
-                            <FormListHeader text={group.title} />
-                            {group.items.map(item => (
-                                <FormListItem
-                                    key={item.value}
-                                    onClick={() => onFontFamilyChange(item.value)}
-                                    checked={fontFamily === item.value}
-                                    selected={fontFamily === item.value}
-                                >
-                                    <span style={{ fontFamily: getFontFamily(item.value) }}>
-                                        {item.label ?? item.value}
-                                    </span>
-                                </FormListItem>
-                            ))}
-                        </Fragment>
-                    ))}
-                </FormList>
-            }
+            sidebar={<>
+                <SettingsSearch
+                    inputRef={searchRef}
+                    query={query}
+                    onChange={setQuery}
+                    placeholder={t("fonts.search_placeholder")}
+                />
+
+                {matching.length > 0 ? (
+                    <FormList fullHeight wrapperClassName="font-picker-list">
+                        {matching.map(group => (
+                            <Fragment key={group.title}>
+                                <FormListHeader text={group.title} />
+                                {group.items.map(item => (
+                                    <FormListItem
+                                        key={item.value}
+                                        onClick={() => onFontFamilyChange(item.value)}
+                                        checked={fontFamily === item.value}
+                                        selected={fontFamily === item.value}
+                                    >
+                                        <span style={{ fontFamily: getFontFamily(item.value) }}>
+                                            {item.label ?? item.value}
+                                        </span>
+                                    </FormListItem>
+                                ))}
+                            </Fragment>
+                        ))}
+                    </FormList>
+                ) : (
+                    <NoItems className="font-picker-empty" icon="bx bx-search" text={t("fonts.no_fonts_found")} size="small" />
+                )}
+            </>}
         >
             <div className="font-picker-settings">
                 <div className="font-size-control">
@@ -759,6 +782,35 @@ function FontPickerModal({ show, onHidden, title, groups, fontFamily, fontSize, 
         </Modal>,
         document.body
     );
+}
+
+/**
+ * The groups narrowed to the fonts matching `query`, those left with nothing dropped. A group whose
+ * own title matches keeps all of its fonts, so a search for "monospace" offers every monospace
+ * family rather than only the generic entry named after them.
+ */
+function filterFontGroups(groups: FontGroup[], query: string): FontGroup[] {
+    const tokens = filterTokens(query);
+    if (tokens.length === 0) {
+        return groups;
+    }
+
+    const matching: FontGroup[] = [];
+    for (const group of groups) {
+        if (matchesFilter(tokens, group.title)) {
+            matching.push(group);
+            continue;
+        }
+
+        // A user font is named by the note holding it; the value is that note's id, which is no
+        // name to search by.
+        const items = group.items.filter((item) => matchesFilter(tokens, item.label ?? item.value));
+        if (items.length > 0) {
+            matching.push({ ...group, items });
+        }
+    }
+
+    return matching;
 }
 
 function ElectronIntegration() {

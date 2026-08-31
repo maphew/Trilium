@@ -89,6 +89,29 @@ function open() {
 }
 
 const fontRows = () => [ ...host.querySelectorAll(".font-option") ];
+const listedFonts = () => [ ...document.querySelectorAll(".font-picker-list .dropdown-item") ].map((item) => item.textContent?.trim());
+const listedHeaders = () => [ ...document.querySelectorAll(".font-picker-list .dropdown-header") ].map((header) => header.textContent);
+
+/**
+ * Opens the picker of the first font on a server build, where the list is the stock one — the
+ * families it holds are known, which is what a search can be checked against.
+ */
+async function openPicker() {
+    mocks.electron = false;
+    mocks.stored = { overrideThemeFonts: true };
+    open();
+    await act(async () => {});
+    await act(async () => (fontRows()[0] as HTMLElement).click());
+}
+
+/** Types into the picker's search box, as the user would. */
+function searchFonts(query: string) {
+    const search = document.querySelector<HTMLInputElement>(".font-picker-modal .settings-search input");
+    if (!search) throw new Error("the font picker has no search box");
+
+    search.value = query;
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+}
 
 describe("the font settings", () => {
     it("keeps the fonts on show with custom fonts off, greyed rather than gone", () => {
@@ -179,6 +202,18 @@ describe("the font settings", () => {
         expect(listed).toEqual(expect.arrayContaining([ "Adwaita Mono", "Inter" ]));
     });
 
+    it("heads only the half of the split that has fonts in it", async () => {
+        mocks.stored = { overrideThemeFonts: true };
+        mocks.systemFonts = [ { family: "Inter", monospace: false } ];
+        open();
+        await act(async () => {});
+        await act(async () => (fontRows()[0] as HTMLElement).click());
+
+        const headers = [ ...document.querySelectorAll(".font-picker-list .dropdown-header") ].map((header) => header.textContent);
+        expect(headers).toContain("fonts.proportional-system-fonts");
+        expect(headers).not.toContain("fonts.monospace-system-fonts");
+    });
+
     it("keeps the named families on a server build, which cannot ask what the device has", async () => {
         mocks.electron = false;
         mocks.stored = { overrideThemeFonts: true };
@@ -192,6 +227,44 @@ describe("the font settings", () => {
         expect(headers).toContain("fonts.sans-serif-system-fonts");
     });
 
+    it("narrows the list to the fonts matching what is searched for", async () => {
+        await openPicker();
+        await act(async () => searchFonts("georgia"));
+
+        expect(listedFonts()).toEqual([ "Georgia" ]);
+        // The groups left with nothing go, their headers with them.
+        expect(listedHeaders()).toEqual([ "fonts.serif-system-fonts" ]);
+    });
+
+    it("keeps a whole group whose own name is searched for", async () => {
+        await openPicker();
+        await act(async () => searchFonts("handwriting"));
+
+        // The group is what was asked for, so its fonts no longer have to match on their own.
+        expect(listedFonts()).toEqual([ "Bradley Hand", "Brush Script MT", "Comic Sans MS", "Luminari" ]);
+    });
+
+    it("says so when nothing matches, rather than leaving an empty list", async () => {
+        await openPicker();
+        await act(async () => searchFonts("Nonesuch"));
+
+        expect(document.querySelector(".font-picker-list")).toBeNull();
+        expect(document.querySelector(".font-picker-empty")?.textContent).toContain("fonts.no_fonts_found");
+    });
+
+    it("brings the whole list back when the search is cleared", async () => {
+        await openPicker();
+        await act(async () => searchFonts("georgia"));
+
+        // The field is the settings' own, so it comes with the button that empties it.
+        const clear = document.querySelector<HTMLElement>(".font-picker-modal .settings-search-clear");
+        expect(clear).not.toBeNull();
+
+        await act(async () => clear?.click());
+        expect(listedFonts()).toContain("Arial");
+        expect(listedHeaders()).toContain("fonts.generic-fonts");
+    });
+
     it("leaves ligatures alone, since they come from the theme's own font", () => {
         open();
 
@@ -201,18 +274,6 @@ describe("the font settings", () => {
         expect((ligatures as HTMLInputElement | null)?.disabled).toBe(false);
     });
 });
-
-    it("heads only the half of the split that has fonts in it", async () => {
-        mocks.stored = { overrideThemeFonts: true };
-        mocks.systemFonts = [ { family: "Inter", monospace: false } ];
-        open();
-        await act(async () => {});
-        await act(async () => (fontRows()[0] as HTMLElement).click());
-
-        const headers = [ ...document.querySelectorAll(".font-picker-list .dropdown-header") ].map((header) => header.textContent);
-        expect(headers).toContain("fonts.proportional-system-fonts");
-        expect(headers).not.toContain("fonts.monospace-system-fonts");
-    });
 
 describe("the layout choices", () => {
     it("gives each an illustrated card of its own, side by side", () => {

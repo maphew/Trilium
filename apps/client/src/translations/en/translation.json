@@ -1838,7 +1838,9 @@
     "serif": "Serif",
     "sans-serif": "Sans Serif",
     "monospace": "Monospace",
-    "system-default": "System default"
+    "system-default": "System default",
+    "search_placeholder": "Search fonts",
+    "no_fonts_found": "No font matches what you are looking for."
   },
   "max_content_width": {
     "title": "Content Width",
