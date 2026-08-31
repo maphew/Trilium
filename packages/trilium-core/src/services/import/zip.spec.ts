@@ -545,6 +545,21 @@ describe("processNoteContent", () => {
         expect(note?.mime).toBe("text/csv");
     });
 
+    it("drops the extension of a font or a recording in a plain archive, as a single-file import does", async () => {
+        const zipBuffer = await createZipBuffer({
+            "Iosevka-Regular.ttf": Buffer.from("\0\u0001\0\0"),
+            "Interview.mp3": Buffer.from("ID3"),
+            // Nothing records that this is a spreadsheet but its name, so the name keeps it.
+            "Numbers.ods": Buffer.from("PK")
+        });
+        const { rootNote } = await testImportBuffer(zipBuffer, "import-font-zip", {});
+        const titleOf = (mime: string) => rootNote.getChildNotes().find((note) => note.mime === mime)?.title;
+
+        expect(titleOf("font/ttf")).toBe("Iosevka-Regular");
+        expect(titleOf("audio/mpeg")).toBe("Interview");
+        expect(titleOf("application/vnd.oasis.opendocument.spreadsheet")).toBe("Numbers.ods");
+    });
+
     it("skips macOS resource-fork entries and reports an archive that holds nothing else", async () => {
         // A zip zipped on macOS carries a __MACOSX/ sidecar for every real entry. With nothing but
         // those, no note is ever created and the import has no root to hand back.

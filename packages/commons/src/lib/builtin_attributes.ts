@@ -89,6 +89,8 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "appThemeBase", valueType: "select", selectOptions: [
         "next", "next-light", "next-dark"
     ] },
+    // Offers a font file note in the font picker, under the note's own title.
+    { type: "label", name: "customFont", valueType: "boolean" },
     { type: "label", name: "hidePromotedAttributes", valueType: "boolean" },
     { type: "label", name: "readOnly", valueType: "boolean" },
     { type: "label", name: "autoReadOnlyDisabled", valueType: "boolean" },

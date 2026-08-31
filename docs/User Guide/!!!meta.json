@@ -4099,6 +4099,41 @@
                                             "dataFileName": "Icon Packs_image.png"
                                         }
                                     ]
+                                },
+                                {
+                                    "isClone": false,
+                                    "noteId": "w4rMEhJsALlA",
+                                    "notePath": [
+                                        "pOsGYCXsbNQG",
+                                        "gh7bpGYxajRS",
+                                        "Wy267RK4M69c",
+                                        "w4rMEhJsALlA"
+                                    ],
+                                    "title": "Personalizing the font",
+                                    "notePosition": 30,
+                                    "prefix": null,
+                                    "isExpanded": false,
+                                    "type": "text",
+                                    "mime": "text/html",
+                                    "attributes": [
+                                        {
+                                            "type": "label",
+                                            "name": "iconClass",
+                                            "value": "bx bx-font",
+                                            "isInheritable": false,
+                                            "position": 80
+                                        },
+                                        {
+                                            "type": "label",
+                                            "name": "shareAlias",
+                                            "value": "fonts",
+                                            "isInheritable": false,
+                                            "position": 90
+                                        }
+                                    ],
+                                    "format": "markdown",
+                                    "dataFileName": "Personalizing the font.md",
+                                    "attachments": []
                                 }
                             ]
                         },

@@ -2,6 +2,7 @@
  * @module notes Common logic for notes (across front-end and back-end)
  */
 
+import { isFontMimeType } from "./font_mimes.js";
 import { MIME_TYPES_DICT } from "./mime_type.js";
 import { NoteType } from "./rows.js";
 
@@ -170,6 +171,7 @@ export function getMimeIcon(mime: string | undefined | null): string {
 function getFileMimeIcon(mime: string): string {
     if (mime.startsWith("video/")) return "bx bx-video";
     if (mime.startsWith("audio/")) return "bx bx-music";
+    if (isFontMimeType(mime)) return "bx bx-font";
     return lookUpMime(FILE_MIME_MAPPINGS, mime) ?? NOTE_TYPE_ICONS.file;
 }
 

@@ -211,6 +211,16 @@ describe("Generating CSS for untrusted manifests", () => {
         expect(css).toContain(`.un.utf-\u{1F600}::before { content: "\u{1F600}"; }`);
     });
 
+    it("resolves CSS escape sequences in glyphs, which packs copied from a stylesheet carry", () => {
+        const css = generateCssFor({
+            "fa-0": { glyph: "\\30 ", terms: [ "0" ] },
+            "fa-house": { glyph: "\\f015", terms: [ "house" ] }
+        });
+
+        expect(css).toContain(`.un.fa-0::before { content: "0"; }`);
+        expect(css).toContain(`.un.fa-house::before { content: "\uf015"; }`);
+    });
+
     it("escapes a glyph so it cannot end the style element it is served in", () => {
         const css = generateCssFor({
             "un-evil": { glyph: `</style><script>alert(1)</script>`, terms: [ "evil" ] }

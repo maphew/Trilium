@@ -805,7 +805,8 @@
     "map_dark_style": "<code>map:style</code> 에 지정된 사용자 지정 스타일이 어두운 스타일임을 지리 지도에 알려, 그 위에 표시되는 마커 제목을 밝게 그리도록 합니다. 컬렉션 속성에서 제공하는 스타일은 자체적으로 이를 나타내므로 이러한 레이블이 필요하지 않습니다.",
     "map_cluster": "서로 가까이 표시되는 마커를 하나의 숫자 원으로 묶으며, 클릭하면 펼쳐집니다.",
     "ai_quick_action": "이 노트를 텍스트 편집기의 AI 어시스턴트 메뉴에 지시문으로 제공합니다. 제목은 작업 이름이 되고, 내용은 프롬프트가 됩니다.",
-    "template_new_note_default_parent": "템플릿 노트에 설정합니다. 템플릿에서 생성된 노트(예: @ 자동 완성 사용)는 다른 위치를 명시적으로 선택하지 않는 한 대상 노트 아래에 배치됩니다."
+    "template_new_note_default_parent": "템플릿 노트에 설정합니다. 템플릿에서 생성된 노트(예: @ 자동 완성 사용)는 다른 위치를 명시적으로 선택하지 않는 한 대상 노트 아래에 배치됩니다.",
+    "custom_font": "Trilium 옵션의 글꼴 선택기에 표시할 글꼴 파일을 지정합니다. 노트 자체 제목 아래에 표시됩니다."
   },
   "attribute_editor": {
     "help_text_body1": "레이블을 추가하려면 예를 들어 <code>#rock</code> 값을 입력합니다. 값도 함께 추가하려면 예를 들어 <code>#year = 2020</code> 값을 입력합니다",
@@ -1761,7 +1762,7 @@
   "fonts": {
     "theme_defined": "테마 지정",
     "fonts": "글꼴",
-    "custom_fonts": "사용자 지정 글꼴 사용",
+    "custom_fonts": "다른 글꼴 사용",
     "main_font": "인터페이스 텍스트",
     "font_family": "글꼴 계열",
     "size": "크기",
@@ -1771,7 +1772,6 @@
     "monospace_font": "고정폭 텍스트",
     "monospace_font_description": "코드 노트 및 코드 블록에 사용됩니다",
     "size_relative_to_general": "크기는 일반적인 글꼴 크기에 상대적입니다",
-    "not_all_fonts_available": "모든 나열된 글꼴이 시스템에서 사용 가능할 수는 없습니다",
     "apply_changes": "변경 사항을 적용하려면 다시 불러오기",
     "generic-fonts": "일반 글꼴",
     "sans-serif-system-fonts": "산세리프 시스템 폰트",
@@ -1783,7 +1783,9 @@
     "monospace": "고정폭",
     "system-default": "시스템 기본 설정",
     "monospace_ligatures": "프로그래밍 합자",
-    "monospace_ligatures_description": "고정폭 글꼴에서 지원하는 경우, !=와 -> 같은 문자 조합을 하나의 기호(≠, →)로 표시합니다. 텍스트 자체는 변경되지 않습니다."
+    "monospace_ligatures_description": "고정폭 글꼴에서 지원하는 경우, !=와 -> 같은 문자 조합을 하나의 기호(≠, →)로 표시합니다. 텍스트 자체는 변경되지 않습니다.",
+    "custom_fonts_description": "테마의 글꼴을 대체합니다. 목록의 모든 글꼴을 모든 기기에서 사용할 수 있는 것은 아니며, Trilium에 업로드한 글꼴은 해당 노트에서 추가할 수 있습니다.",
+    "user-fonts": "사용자 지정 글꼴"
   },
   "max_content_width": {
     "title": "콘텐츠 폭",
@@ -3161,7 +3163,6 @@
     "remove-from-board": "보드에서 제거",
     "archive-note": "노트 보관",
     "unarchive-note": "노트 보관 해제",
-    "move-to": "이동",
     "insert-above": "위에 삽입",
     "insert-below": "아래에 삽입",
     "delete-column": "열 삭제...",
@@ -3189,7 +3190,33 @@
     "rename-column": "열 이름 변경",
     "change-column-icon": "열 아이콘 변경",
     "column-menu": "열 메뉴",
-    "save-error": "변경 사항을 저장할 수 없습니다."
+    "save-error": "변경 사항을 저장할 수 없습니다.",
+    "status-header": "상태",
+    "duplicate-item": "복제",
+    "move-column": "열 이동",
+    "move-column-first": "첫 번째 열로",
+    "move-column-after": "{{column}} 뒤로",
+    "hints": {
+      "navigation": "탐색",
+      "navigate_items": "항목 간 이동",
+      "navigate_columns": "열 간 이동",
+      "first_last_item": "열의 첫 번째 / 마지막 항목",
+      "editing": "편집",
+      "insert_item": "아래 / 위에 항목 삽입",
+      "insert_column": "뒤 / 앞에 열 삽입",
+      "open_item": "항목 열기",
+      "rename": "항목 또는 열 이름 변경",
+      "remove_item": "보드에서 항목 제거",
+      "delete_item": "노트 삭제",
+      "remove_column": "열 제거(선택한 열 머리글에서)",
+      "moving": "이동",
+      "move_item": "항목을 위 / 아래로 이동",
+      "move_within": "열의 맨 위 / 맨 아래로 이동",
+      "move_across": "이전 / 다음 열로 이동",
+      "move_to_end_column": "첫 번째 / 마지막 열로 이동",
+      "move_column": "열을 왼쪽 / 오른쪽으로 이동",
+      "move_column_to_edge": "열을 맨 왼쪽 / 맨 오른쪽으로 이동"
+    }
   },
   "dashboard_view": {
     "refresh-widget": "새로 고침",
@@ -4013,5 +4040,14 @@
     "title": "노트 선택",
     "label": "노트",
     "ok": "선택"
+  },
+  "font_preview": {
+    "pangram": "다람쥐 헌 쳇바퀴에 타고파",
+    "specimen_placeholder": "미리 볼 텍스트를 입력하세요…",
+    "size": "미리보기 크기",
+    "size_pixels": "{{size}} px",
+    "in_picker": "글꼴 선택기에 표시",
+    "offer_in_picker": "이 글꼴을 화면 설정에서 사용할 수 있도록 표시",
+    "remove_from_picker": "이 글꼴을 화면 설정에서 더 이상 표시하지 않기"
   }
 }

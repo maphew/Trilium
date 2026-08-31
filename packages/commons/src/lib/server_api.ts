@@ -740,6 +740,15 @@ export type SimilarNoteResponse = SimilarNote[];
 
 export type SaveSearchNoteResponse = CloneResponse;
 
+/** A font file note carrying `#customFont`, as the font picker in the options lists it. */
+export interface UserFont {
+    noteId: string;
+    /** The name the font is offered under: the note's own title. */
+    title: string;
+    /** Versions the request for the font's bytes, so a replaced file is not served from the cache. */
+    blobId: string;
+}
+
 export interface TemplatesResponse {
     /** The IDs of the user-defined templates, i.e. the notes labelled with `#template`. */
     templateNoteIds: string[];

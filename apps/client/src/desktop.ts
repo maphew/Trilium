@@ -11,7 +11,7 @@ import { t } from "./services/i18n.js";
 import { syncNativeWindowWithTheme } from "./services/native_window.js";
 import noteAutocompleteService from "./services/note_autocomplete.js";
 import noteTooltipService from "./services/note_tooltip.js";
-import { setBackgroundEffectsSuspended } from "./services/theme.js";
+import { onEffectiveThemeStyleChange, setBackgroundEffectsSuspended } from "./services/theme.js";
 import toastService from "./services/toast.js";
 import utils from "./services/utils.js";
 import { preloadCommonNoteTypes } from "./widgets/note_types.js";
@@ -77,7 +77,7 @@ function initOnElectron() {
 
     // With an "auto" theme the effective colors of background effects and the native title bar
     // follow the OS color scheme.
-    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncNativeWindowWithTheme);
+    onEffectiveThemeStyleChange(() => syncNativeWindowWithTheme());
 
     // Clear navigation history on frontend refresh.
     api.navigation.clearNavigationHistory();

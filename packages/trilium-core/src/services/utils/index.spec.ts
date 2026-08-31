@@ -1039,6 +1039,16 @@ describe("#removeFileExtension (media types)", () => {
         expect(utils.removeFileExtension("clip.mov", "video/quicktime")).toBe("clip");
         expect(utils.removeFileExtension("song.flac", "audio/flac")).toBe("song");
     });
+
+    it("strips the extension for the fonts Trilium draws, and leaves the rest alone", () => {
+        expect(utils.removeFileExtension("Iosevka-Regular.ttf", "font/ttf")).toBe("Iosevka-Regular");
+        expect(utils.removeFileExtension("Inter.woff2", "font/woff2")).toBe("Inter");
+        expect(utils.removeFileExtension("Legacy.ttf", "application/x-font-ttf")).toBe("Legacy");
+        // Neither an EOT nor a font arriving as an opaque binary is one Trilium can draw, so the
+        // name it was uploaded under is all there is to say what it holds.
+        expect(utils.removeFileExtension("Old.eot", "application/vnd.ms-fontobject")).toBe("Old.eot");
+        expect(utils.removeFileExtension("Mystery.ttf", "application/octet-stream")).toBe("Mystery.ttf");
+    });
 });
 
 describe("#compareVersions", () => {
@@ -1078,6 +1088,38 @@ describe("#escapeCssString", () => {
 
     it("leaves the private-use glyphs an icon pack actually carries untouched", () => {
         expect(utils.escapeCssString("")).toBe("");
+    });
+});
+
+describe("#decodeCssEscapes", () => {
+    it("decodes a hex escape with or without its terminating space", () => {
+        expect(utils.decodeCssEscapes("\\30 ")).toBe("0");
+        expect(utils.decodeCssEscapes("\\f015")).toBe("\uf015");
+        expect(utils.decodeCssEscapes("\\1F600")).toBe("\u{1F600}");
+        expect(utils.decodeCssEscapes("\\61\\62")).toBe("ab");
+    });
+
+    it("resolves the code points CSS maps to the replacement character", () => {
+        expect(utils.decodeCssEscapes("\\0")).toBe("\uFFFD");
+        expect(utils.decodeCssEscapes("\\d800 ")).toBe("\uFFFD");
+        expect(utils.decodeCssEscapes("\\ffffff")).toBe("\uFFFD");
+    });
+
+    it("leaves text carrying no hex escape untouched", () => {
+        expect(utils.decodeCssEscapes("")).toBe("");
+        expect(utils.decodeCssEscapes("\uf015")).toBe("\uf015");
+        expect(utils.decodeCssEscapes("</style>")).toBe("</style>");
+        expect(utils.decodeCssEscapes("\\")).toBe("\\");
+    });
+
+    it("cannot widen what the generated stylesheet emits, since escaping follows it", () => {
+        // A glyph spelling `</style>` as escapes decodes to the markup, then escapes back to it.
+        const smuggled = "\\3c /style\\3e ";
+        expect(utils.decodeCssEscapes(smuggled)).toBe("</style>");
+        expect(utils.escapeCssString(utils.decodeCssEscapes(smuggled))).toBe("\\3c /style\\3e ");
+
+        // A backslash reaching the output would let the glyph end its own CSS string.
+        expect(utils.escapeCssString(utils.decodeCssEscapes("\\5c "))).toBe("\\5c ");
     });
 });
 
