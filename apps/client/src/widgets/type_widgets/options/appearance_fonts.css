@@ -179,6 +179,19 @@ body.desktop .modal.font-picker-modal {
     line-height: 1.6;
 }
 
+/* Sized in em, so the heading keeps its proportion to the text under it as the slider moves. */
+.font-preview-document {
+    h3 {
+        font-size: 1.5em;
+        font-weight: 600;
+        margin: 0 0 0.4em;
+    }
+
+    p {
+        margin: 0;
+    }
+}
+
 /* Rows at the density the note tree stacks them at, which is what the font has to hold up at.
    Sized in em throughout, so the whole thing follows the size slider rather than only the titles. */
 .font-preview-tree {

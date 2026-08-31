@@ -114,7 +114,8 @@ const FONT_TARGETS: FontTarget[] = [
         label: t("fonts.note_detail_font"),
         shortLabel: t("fonts.note_detail_font_short"),
         sizeDescription: t("fonts.size_relative_to_general"),
-        themeVariable: "var(--detail-font-family)"
+        themeVariable: "var(--detail-font-family)",
+        Preview: DocumentPreview
     },
     {
         key: "monospace",
@@ -444,6 +445,20 @@ function TreePreviewRow({ note, expanded, nested }: { note: FNote; expanded?: bo
             <Icon className="font-preview-tree-expander" icon={expander} />
             <Icon icon={note.getIcon()} />
             <span className="font-preview-tree-title">{note.title}</span>
+        </div>
+    );
+}
+
+/**
+ * A heading over a paragraph, which is the shape the font is being chosen for. One line says
+ * nothing about how a reading font behaves at length: the spacing between the lines, and the weight
+ * a heading takes against the text under it.
+ */
+function DocumentPreview() {
+    return (
+        <div className="font-preview-document">
+            <h3>{t("fonts.document_preview_heading")}</h3>
+            <p>{t("fonts.document_preview_body")}</p>
         </div>
     );
 }
