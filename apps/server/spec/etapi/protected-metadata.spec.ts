@@ -1,4 +1,4 @@
-import { becca, cls, events, password_encryption, protected_session } from "@triliumnext/core";
+import { becca, cls, events, password_encryption, protected_session, revisions } from "@triliumnext/core";
 import { Application } from "express";
 import supertest from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -11,10 +11,12 @@ let token: string;
 const USER = "etapi";
 const PLAINTEXT_TITLE = "Bank account recovery codes";
 const ATTACHMENT_TITLE = "passport-scan.png";
+const REVISION_DESCRIPTION = "before rotating the seed phrase";
 
 describe("etapi protected metadata", () => {
     let noteId: string;
     let attachmentId: string;
+    let revisionId: string;
 
     beforeAll(async () => {
         config.General.noAuthentication = false;
@@ -38,6 +40,12 @@ describe("etapi protected metadata", () => {
         attachmentId = attachmentResponse.body.attachmentId;
         expect(attachmentId).toBeTruthy();
 
+        await supertest(app)
+            .post(`/etapi/notes/${noteId}/revision`)
+            .auth(USER, token, { type: "basic" })
+            .send({ description: REVISION_DESCRIPTION })
+            .expect(204);
+
         const dataKey = await password_encryption.getDataKey("demo1234");
         if (!(dataKey instanceof Uint8Array)) {
             throw new Error("Expected a data key from the fixture password.");
@@ -55,6 +63,15 @@ describe("etapi protected metadata", () => {
                 attachment.isProtected = true;
                 attachment.save();
             }
+
+            revisions.protectRevisions(note);
+
+            const [revision] = note.getRevisions();
+            if (!revision?.revisionId) {
+                throw new Error("Expected the fixture note to have a revision.");
+            }
+            revisionId = revision.revisionId;
+            expect(revision.isProtected).toBe(true);
         });
     });
 
@@ -99,6 +116,28 @@ describe("etapi protected metadata", () => {
 
         expect(response.body.title).toStrictEqual("[protected]");
         expect(response.body.title).not.toContain(ATTACHMENT_TITLE);
+    });
+
+    it("refuses a protected revision read by id", async () => {
+        const response = await supertest(app)
+            .get(`/etapi/revisions/${revisionId}`)
+            .auth(USER, token, { type: "basic" })
+            .expect(400);
+
+        expect(response.body.code).toStrictEqual("REVISION_IS_PROTECTED");
+    });
+
+    it("does not list protected revisions, which the by-id read refuses", async () => {
+        expect(protected_session.default.isProtectedSessionAvailable()).toBe(false);
+
+        const response = await supertest(app)
+            .get(`/etapi/notes/${noteId}/revisions`)
+            .auth(USER, token, { type: "basic" })
+            .expect(200);
+
+        expect(Array.isArray(response.body)).toBe(true);
+        expect(response.body.find((r: { revisionId: string }) => r.revisionId === revisionId)).toBeUndefined();
+        expect(JSON.stringify(response.body)).not.toContain(REVISION_DESCRIPTION);
     });
 });
 

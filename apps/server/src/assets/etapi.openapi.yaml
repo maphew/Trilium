@@ -345,7 +345,9 @@ paths:
               schema:
                   $ref: "#/components/schemas/EntityId"
         get:
-            description: Returns all revisions for a note identified by its ID
+            description: |
+                Returns the revisions of a note identified by its ID. Protected revisions are
+                omitted, since they cannot be read through ETAPI individually either.
             operationId: getNoteRevisions
             responses:
                 "200":
