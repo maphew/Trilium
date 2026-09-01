@@ -843,6 +843,37 @@ paths:
                         application/json; charset=utf-8:
                             schema:
                                 $ref: "#/components/schemas/Error"
+    /calendar/week-first-day/{date}:
+        get:
+            summary: Get the day note starting the week
+            description: |
+                Returns the day note for the first day of the week containing the given date, honouring
+                the configured first day of week. The note is created if it doesn't exist. This returns a
+                day note, not a week note, so unlike /calendar/weeks/{week} it does not require the
+                enableWeekNote label on the calendar root.
+            operationId: getWeekFirstDayNote
+            parameters:
+                - name: date
+                  in: path
+                  required: true
+                  description: Any date within the week, in the format YYYY-MM-DD.
+                  schema:
+                      type: string
+                      format: date
+                  example: 2022-02-22
+            responses:
+                "200":
+                    description: day note starting the week
+                    content:
+                        application/json; charset=utf-8:
+                            schema:
+                                $ref: "#/components/schemas/Note"
+                default:
+                    description: unexpected error
+                    content:
+                        application/json; charset=utf-8:
+                            schema:
+                                $ref: "#/components/schemas/Error"
     /calendar/weeks/{week}:
         get:
             summary: Get a week note
