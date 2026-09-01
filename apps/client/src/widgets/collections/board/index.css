@@ -13,6 +13,11 @@
   --board-limit-exceeded-background: #c62828;
   /* Half opacity: the badge is the main warning, the outline supports it. */
   --board-limit-exceeded-outline: #c6282880;
+  /* Matches the height a normal header takes, so a collapsed column reads as one turned on
+     its side. */
+  --board-collapsed-column-width: 2.25em;
+  --board-collapse-duration: 1s;
+
   --board-focus-outline-saturation: 55%;
   --board-focus-outline-lightness: 45%;
   /* Follows the theme of its own accord, so neither theme has to name it again. */
@@ -54,7 +59,9 @@ body.mobile .board-view-container {
   /* A column with no colour of its own is painted rather than composed: the tinted shades come
      from one lightness, which does not answer for a plain one as well. */
   background-color: var(--board-column-background);
-  transition: border-color 0.2s ease;
+  /* Opening is instant, so a click or a drag reaches the cards at once. Closing is eased below:
+     the transition that runs is the one the element carries once the class has changed. */
+  transition: border-color 0.2s ease, width 0s;
   overflow-y: auto;
   max-height: 100%;
   display: flex;
@@ -525,4 +532,67 @@ body.mobile .board-view-container .board-add-column {
   .board-view-container .board-column h3 .counter-badge.over-limit {
     animation: none;
   }
+}
+
+.board-view-container .board-column.collapsed {
+  width: var(--board-collapsed-column-width);
+  overflow: hidden;
+  /* Width is what the columns beside it are placed against, so easing it is what makes them slide
+     rather than jump. Nothing composited can do this: the shift is the point. */
+  transition: border-color 0.2s ease, width var(--board-collapse-duration) ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-view-container .board-column.collapsed {
+    transition: border-color 0.2s ease;
+  }
+}
+
+/* The strip is the whole column, so what is focused is ringed round the column. Round the header
+   inside it the ring would be clipped, an element's own overflow cutting off its descendants. */
+.board-view-container .board-column.collapsed:focus-within {
+  outline: 3px solid var(--board-focus-outline-color, var(--board-focus-outline-plain-color));
+  outline-offset: 0;
+}
+
+.board-view-container .board-column.collapsed h3:focus {
+  outline: none;
+}
+
+/* The strip's own width, taken at once, so the header stands where it will end up and only the
+   space beside it shrinks. */
+.board-view-container .board-column.collapsed h3 {
+  width: var(--board-collapsed-column-width);
+  flex-direction: column;
+  gap: 0.4em;
+  padding: 0.35em 0;
+  border-bottom: none;
+}
+
+/* The header stacks, so the margins that spaced these out in a row would throw them off centre. */
+.board-view-container .board-column.collapsed h3 > .column-icon,
+.board-view-container .board-column.collapsed h3 > .column-menu,
+.board-view-container .board-column.collapsed h3 > .counter-badge {
+  margin: 0;
+}
+
+/* The title and the count are turned on their side and read from the bottom up. `sideways-lr`
+   says this in one word, but is too new to rely on, so the box is turned the rest of the way
+   instead. The menu button keeps its own orientation. */
+.board-view-container .board-column.collapsed h3 > .title,
+.board-view-container .board-column.collapsed h3 > .counter-badge {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+/* The pill turns with the count, so its padding is swapped to keep it as narrow as the strip. */
+.board-view-container .board-column.collapsed h3 > .counter-badge {
+  padding: 0.6em 0.1em;
+}
+
+.board-view-container .board-column.collapsed h3 > .title {
+  max-height: 12em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

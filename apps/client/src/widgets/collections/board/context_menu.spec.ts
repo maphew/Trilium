@@ -31,15 +31,16 @@ describe("Board column context menu", () => {
     function openMenu(
         api: BoardApi,
         column: {
-            value?: string, color?: string, archived?: boolean,
-            columns?: string[], index?: number, nested?: boolean
+            value?: string, color?: string, archived?: boolean, collapsed?: boolean,
+            canRename?: boolean, columns?: string[], index?: number, nested?: boolean
         } = {},
         callbacks: {
             onEditTitle?: () => void,
             onNewItem?: () => void,
             onAddColumn?: (direction: "before" | "after") => void,
             onMoveColumn?: (toIndex: number) => void,
-            onSetLimit?: () => void
+            onSetLimit?: () => void,
+            onCollapse?: (collapsed: boolean) => void
         } = {}
     ) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
@@ -56,12 +57,14 @@ describe("Board column context menu", () => {
             value: "To Do",
             columns: [ "To Do" ],
             index: 0,
+            canRename: true,
             ...column,
             onEditTitle: callbacks.onEditTitle ?? (() => {}),
             onNewItem: callbacks.onNewItem ?? (() => {}),
             onAddColumn: callbacks.onAddColumn ?? (() => {}),
             onMoveColumn: callbacks.onMoveColumn ?? (() => {}),
-            onSetLimit: callbacks.onSetLimit ?? (() => {})
+            onSetLimit: callbacks.onSetLimit ?? (() => {}),
+            onCollapse: callbacks.onCollapse ?? (() => {})
         });
 
         // The spy outlives one call, so it is the menu just opened that is read back.
@@ -116,6 +119,43 @@ describe("Board column context menu", () => {
         expect(api.setColumnArchived).toHaveBeenLastCalledWith("To Do", false);
     });
 
+    /** One entry that carries the state, rather than two that swap places under the pointer. */
+    it("offers one collapse entry, checked while the column is collapsed", () => {
+        const onCollapse = vi.fn();
+        const entryOf = (collapsed: boolean) => {
+            const found = openMenu({} as BoardApi, { collapsed }, { onCollapse }).find(item =>
+                item && "uiIcon" in item && item.uiIcon === "bx bx-collapse-horizontal");
+            if (!found || !("handler" in found)) throw new Error("expected a collapse entry");
+            return found;
+        };
+
+        // The check sits after the title, the entry keeping its own icon ahead of it.
+        const unchecked = entryOf(false);
+        expect("trailingIcon" in unchecked && unchecked.trailingIcon).toBeUndefined();
+        unchecked.handler?.(unchecked, {} as never);
+        expect(onCollapse).toHaveBeenLastCalledWith(true);
+
+        const checked = entryOf(true);
+        expect("trailingIcon" in checked && checked.trailingIcon).toBe("bx bx-check");
+        checked.handler?.(checked, {} as never);
+        expect(onCollapse).toHaveBeenLastCalledWith(false);
+    });
+
+    /** The strip has no title to edit, so the menu does not offer to edit one either. */
+    it("offers no rename while the column is drawn as a strip", () => {
+        // A column offers no rename only while it is drawn as a strip, which is a stored collapse.
+        const icons = (canRename: boolean) =>
+            openMenu({} as BoardApi, { canRename, collapsed: !canRename })
+            .filter(item => item && "uiIcon" in item)
+            .map(item => item && "uiIcon" in item ? item.uiIcon : undefined);
+
+        expect(icons(true)).toContain("bx bx-edit-alt");
+        expect(icons(false)).not.toContain("bx bx-edit-alt");
+        // Everything else the menu offers is still there.
+        expect(icons(false)).toContain("bx bx-collapse-horizontal");
+        expect(icons(false)).toContain("bx bx-trash");
+    });
+
     /**
      * The inbox holds a name of its own, so it is renamed like any other column; what it has not is
      * anything to archive, and it is put away by the board's own setting instead.
@@ -165,7 +205,8 @@ describe("Board column context menu", () => {
         const titled = openMenu({} as BoardApi).filter(item => item && "uiIcon" in item);
         expect(titled.map(item => "uiIcon" in item ? item.uiIcon : undefined))
             .toEqual([
-                "bx bx-edit-alt", "bx bx-tachometer", "bx bx-plus", "bx bx-link",
+                "bx bx-edit-alt", "bx bx-collapse-horizontal", "bx bx-tachometer",
+                "bx bx-plus", "bx bx-link",
                 "bx bx-columns", "bx bx-horizontal-left", "bx bx-archive", "bx bx-trash"
             ]);
     });

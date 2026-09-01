@@ -40,6 +40,8 @@ export default function Column({
     icon,
     color,
     archived,
+    collapsed,
+    isActive,
     nested,
     limit,
     isDraggingColumn,
@@ -57,6 +59,10 @@ export default function Column({
     color?: string,
     /** Whether the column is archived. Only ever rendered while archived notes are shown. */
     archived?: boolean,
+    /** Whether the column is stored as collapsed. Selecting it opens it without clearing this. */
+    collapsed?: boolean,
+    /** Whether this is the column the reader is working in, which opens it while it is collapsed. */
+    isActive?: boolean,
     /** Whether the inbox also collects notes deeper than the board's direct children. */
     nested?: boolean,
     /** The note limit, absent if disabled. */
@@ -76,7 +82,8 @@ export default function Column({
 } & DragContext) {
     const [ isVisible, setVisible ] = useState(true);
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
-    const { setColumnNameToEdit, setColumnLimitToEdit } = useContext(BoardActionsContext);
+    const { setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn } =
+        useContext(BoardActionsContext);
     const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
     const isEditing = (columnNameToEdit === column);
     const editorRef = useRef<HTMLInputElement>(null);
@@ -86,6 +93,38 @@ export default function Column({
 
     // Read here rather than in the badge: the column body shows an outline as well.
     const isOverLimit = limit !== undefined && (columnItems?.length ?? 0) > limit;
+    const isCollapsed = !!collapsed && !isActive;
+
+    // Reported on the way in only. A column opened by being selected closes when another one is
+    // selected, so nothing here watches for focus leaving: the menu, the icon picker and the limit
+    // dialog all render outside the column, and each would otherwise close it as it opened.
+    const select = useCallback(() => setActiveColumn(column), [ column, setActiveColumn ]);
+
+    // A press on the header may be the start of a drag, which must leave the column as it is: the
+    // strip is what the reader takes hold of to move it. A click settles which one it was, a drag
+    // producing none. Focus arriving while the pointer is down is that same press, so only focus
+    // reached by keyboard opens the column.
+    const isPointerDown = useRef(false);
+    const handlePointerDown = useCallback(() => {
+        isPointerDown.current = true;
+
+        const release = () => {
+            isPointerDown.current = false;
+            controller.abort();
+        };
+        // A drag ends with `dragend` and no `pointerup` at all, so both have to release it.
+        const controller = new AbortController();
+        document.addEventListener("pointerup", release, { signal: controller.signal });
+        document.addEventListener("dragend", release, { signal: controller.signal });
+    }, []);
+
+    // Focus reaching a column closes whichever one was open, and opens nothing: a collapsed column
+    // is walked onto without being disturbed, and is opened by a click or by Space instead.
+    const handleFocusIn = useCallback(() => {
+        if (!isActive) {
+            setActiveColumn(undefined);
+        }
+    }, [ isActive, setActiveColumn ]);
 
     const openMenu = useCallback((e: ContextMenuEvent) => {
         openColumnContextMenu(api, e, {
@@ -94,6 +133,8 @@ export default function Column({
             index: columnIndex,
             color,
             archived,
+            collapsed,
+            canRename: !isCollapsed,
             nested,
             onEditTitle: () => setColumnNameToEdit(column),
             onNewItem: () => setIsCreatingNewItem(true),
@@ -101,6 +142,14 @@ export default function Column({
                 setColumnNameToEdit(await api.insertColumn(column, direction));
             },
             onSetLimit: () => setColumnLimitToEdit(column),
+            onCollapse: (collapse) => {
+                api.setColumnCollapsed(column, collapse);
+                // The menu is opened from the column, which is therefore the open one. Closing it
+                // here is what shows the reader that anything happened.
+                if (collapse) {
+                    setActiveColumn(undefined);
+                }
+            },
             onMoveColumn: (toIndex) => {
                 onMoveColumn(columnIndex, toIndex);
                 // Asked for by name: the move draws the board again, and the heading the menu was
@@ -109,8 +158,8 @@ export default function Column({
             }
         });
     }, [
-        api, column, color, archived, nested, columns, columnIndex,
-        setColumnNameToEdit, setColumnLimitToEdit, onMoveColumn, onFocusColumn
+        api, column, color, archived, collapsed, isCollapsed, nested, columns, columnIndex,
+        setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn, onMoveColumn, onFocusColumn
     ]);
 
     // A fully desaturated colour has no hue to tint with, and leaves the column plain.
@@ -120,10 +169,10 @@ export default function Column({
     }, [ color ]);
 
     const handleTitleKeyDown = useCallback((e: KeyboardEvent) => {
-        if (e.key === "F2") {
+        if (e.key === "F2" && !isCollapsed) {
             setColumnNameToEdit(column);
         }
-    }, [ column ]);
+    }, [ column, isCollapsed ]);
 
     /** Allow using mouse wheel to scroll inside card, while also maintaining column horizontal scrolling. */
     const handleScroll = useCallback((event: JSX.TargetedWheelEvent<HTMLDivElement>) => {
@@ -159,8 +208,12 @@ export default function Column({
                 // The class the themes key a hue off, worn here as anywhere else that carries one.
                 "with-hue": hue !== undefined,
                 "board-column-archived": archived,
-                "over-limit": isOverLimit
+                "over-limit": isOverLimit,
+                collapsed: isCollapsed
             })}
+            onFocusIn={handleFocusIn}
+            onPointerDown={handlePointerDown}
+            onClick={select}
             onDragOver={isAnyColumnDragging ? handleColumnDragOver : handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -178,6 +231,29 @@ export default function Column({
                 onKeyDown={handleTitleKeyDown}
                 tabIndex={300}
             >
+                {isCollapsed ? (
+                    <>
+                        <ActionButton
+                            className="column-menu"
+                            icon="bx bx-dots-vertical-rounded"
+                            text={t("board_view.column-menu")}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                openMenu(e);
+                            }}
+                        />
+                        <CountBadge items={columnItems} limit={limit} isOver={isOverLimit} />
+                        <span className="title">
+                            {isInRelationMode
+                                ? <NoteLink notePath={column} />
+                                : api.getColumnTitle(column)}
+                        </span>
+                        <Icon
+                            className="column-icon"
+                            icon={api.getColumnIcon(column) ?? DEFAULT_COLUMN_ICON}
+                        />
+                    </>
+                ) : (<>
                 {/* In relation mode the column is a note, and NoteLink already shows that note's
                     own icon, which is not the board's to change. */}
                 {!isInRelationMode && (
@@ -228,9 +304,10 @@ export default function Column({
                         mode={isInRelationMode && column !== INBOX_COLUMN ? "relation" : "normal"}
                     />
                 )}
+                </>)}
             </h3>
 
-            <div className="board-column-content" onWheel={handleScroll}>
+            {!isCollapsed && <div className="board-column-content" onWheel={handleScroll}>
                 {(columnItems ?? []).map(({ note, branch }, index) => {
                     const showIndicatorBefore = dropPosition?.column === column &&
                                             dropPosition.index === index &&
@@ -265,7 +342,7 @@ export default function Column({
                     isCreating={isCreatingNewItem}
                     setIsCreating={setIsCreatingNewItem}
                 />
-            </div>
+            </div>}
         </div>
     );
 }
@@ -396,7 +473,8 @@ ${warning}` : counts}
 }
 
 function useDragging({ column, columnIndex, columnItems, isEditing, api, parentNote }: DragContext & { isEditing: boolean, api: BoardApi, parentNote: FNote }) {
-    const { setDraggedColumn, setDropTarget, setDropPosition } = useContext(BoardActionsContext);
+    const { setDraggedColumn, setDropTarget, setDropPosition, setActiveColumn } =
+        useContext(BoardActionsContext);
     const { draggedColumn, dropPosition } = useContext(BoardDragStateContext);
     /** Needed to track if current column is dragged in real-time, since {@link draggedColumn} is populated one render cycle later.  */
     const isDraggingRef = useRef(false);
@@ -407,7 +485,15 @@ function useDragging({ column, columnIndex, columnItems, isEditing, api, parentN
         isDraggingRef.current = true;
         e.dataTransfer!.effectAllowed = 'move';
         e.dataTransfer!.setData('text/plain', column);
-        setDraggedColumn({ column, index: columnIndex });
+
+        const element = (e.currentTarget as HTMLElement).closest<HTMLElement>(".board-column");
+        setDraggedColumn({
+            column,
+            index: columnIndex,
+            size: element
+                ? { width: element.offsetWidth, height: element.offsetHeight }
+                : undefined
+        });
         e.stopPropagation(); // Prevent card drag from interfering
     }, [column, columnIndex, setDraggedColumn, isEditing]);
 
@@ -422,6 +508,9 @@ function useDragging({ column, columnIndex, columnItems, isEditing, api, parentN
 
         e.preventDefault();
         setDropTarget(column);
+        // A collapsed column opens to take the card and stays open afterwards, so the card can be
+        // placed among the ones already there.
+        setActiveColumn(column);
 
         // Calculate drop position based on mouse position
         const cards = Array.from((e.currentTarget as HTMLElement)?.querySelectorAll('.board-note'));
@@ -442,7 +531,7 @@ function useDragging({ column, columnIndex, columnItems, isEditing, api, parentN
         if (!(dropPosition?.column === column && dropPosition.index === newIndex)) {
             setDropPosition({ column, index: newIndex });
         }
-    }, [column, setDropTarget, dropPosition, setDropPosition, isEditing]);
+    }, [column, setDropTarget, setActiveColumn, dropPosition, setDropPosition, isEditing]);
 
     const handleDragLeave = useCallback((e: DragEvent) => {
         const relatedTarget = e.relatedTarget as HTMLElement;
