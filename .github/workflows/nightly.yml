@@ -117,37 +117,6 @@ jobs:
           name: TriliumNotes ${{ matrix.os.name }} ${{ matrix.arch }}
           path: apps/desktop/upload
 
-  nightly-flatpak-sources:
-    if: ${{ github.repository == vars.REPO_MAIN }}
-    name: Generate Flatpak sources
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      # Daily canary for the unpinned flatpak-node-generator: a regression on its
-      # master branch shows up here overnight instead of on the next release tag.
-      - name: Generate the sources
-        uses: ./.github/actions/generate-flatpak-sources
-
-      - name: Publish release
-        uses: softprops/action-gh-release@v3.0.2
-        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
-        with:
-          make_latest: false
-          prerelease: true
-          draft: false
-          fail_on_unmatched_files: true
-          files: upload/generated-sources.json
-          tag_name: nightly
-          name: Nightly Build
-
-      - name: Publish artifacts
-        uses: actions/upload-artifact@v7
-        if: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
-        with:
-          name: TriliumNotes flatpak sources
-          path: upload/generated-sources.json
-
   nightly-mobile:
     if: ${{ github.repository == vars.REPO_MAIN && github.event_name != 'pull_request' }}
     name: Build mobile nightly
