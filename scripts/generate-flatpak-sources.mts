@@ -59,17 +59,9 @@ export function checkPnpm(packageJson: string) {
 }
 
 /**
- * Drops the Playwright browser archives (~500 MB). They are only reachable from the e2e
- * suites, which the sandbox build never runs, and Playwright's install script -- the one
- * reader of this cache -- never executes there either, since the offline store disables
- * all lifecycle scripts. `--no-devel` is not the answer: the generator does not support
- * it for pnpm lockfile v9, and the build needs the other devDependencies anyway (Vite,
- * esbuild and tsx are the build toolchain).
- *
- * The generator is installed from its master branch, so the checks guard against its
- * output drifting: a filter that no longer matches would quietly reship the archives,
- * and a collapsed count or missing Electron zip would only fail the flatpak build much
- * later, inside the sandbox.
+ * Drops the Playwright browser archives: nothing in the sandbox build can reach them,
+ * and the generator supports no `--no-devel` for pnpm lockfile v9. The checks make
+ * generator output drift fail here instead of inside the network-less flatpak build.
  */
 export function filterSources(sources: Source[]): Source[] {
     const kept = sources.filter((s) => !s.dest?.startsWith("flatpak-node/cache/ms-playwright"));
