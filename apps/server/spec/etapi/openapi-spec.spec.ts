@@ -10,18 +10,15 @@ import etapiAttributeRoutes from "../../src/etapi/attributes.js";
 import etapiAuthRoutes from "../../src/etapi/auth.js";
 import etapiBackupRoute from "../../src/etapi/backup.js";
 import etapiBranchRoutes from "../../src/etapi/branches.js";
+import etapiMetricsRoute from "../../src/etapi/metrics.js";
 import etapiNoteRoutes from "../../src/etapi/notes.js";
 import etapiRevisionsRoutes from "../../src/etapi/revisions.js";
 import etapiSpecialNoteRoutes from "../../src/etapi/special_notes.js";
 
 let app: Application;
 
-/**
- * Endpoints served under /etapi that the specification deliberately leaves out: it cannot
- * usefully describe itself, and /etapi/metrics is an operational endpoint rather than part
- * of the note API. Everything else must be documented.
- */
-const UNDOCUMENTED_ROUTES = new Set(["/etapi.openapi.yaml", "/metrics"]);
+/** The specification cannot usefully describe the route serving it. Everything else must be documented. */
+const UNDOCUMENTED_ROUTES = new Set(["/etapi.openapi.yaml"]);
 
 describe("etapi/etapi.openapi.yaml", () => {
     beforeAll(async () => {
@@ -69,6 +66,7 @@ function collectEtapiRoutes() {
     etapiAttributeRoutes.register(router);
     etapiBackupRoute.register(router);
     etapiBranchRoutes.register(router);
+    etapiMetricsRoute.register(router);
     etapiNoteRoutes.register(router);
     etapiRevisionsRoutes.register(router);
     etapiSpecialNoteRoutes.register(router);
