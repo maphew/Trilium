@@ -13,6 +13,11 @@
   --board-limit-exceeded-background: #c62828;
   /* Half opacity: the badge is the main warning, the outline supports it. */
   --board-limit-exceeded-outline: #c6282880;
+  /* Matches the height a normal header takes, so a collapsed column reads as one turned on
+     its side. */
+  --board-collapsed-column-width: 2.25em;
+  --board-collapse-duration: 1s;
+
   --board-focus-outline-saturation: 55%;
   --board-focus-outline-lightness: 45%;
   /* Follows the theme of its own accord, so neither theme has to name it again. */
@@ -54,7 +59,9 @@ body.mobile .board-view-container {
   /* A column with no colour of its own is painted rather than composed: the tinted shades come
      from one lightness, which does not answer for a plain one as well. */
   background-color: var(--board-column-background);
-  transition: border-color 0.2s ease;
+  /* Must stay 0s: the transition that runs is the one carried after the class changes, so this is
+     what makes opening instant while `.collapsed` below eases the close. */
+  transition: border-color 0.2s ease, width 0s;
   overflow-y: auto;
   max-height: 100%;
   display: flex;
@@ -525,4 +532,63 @@ body.mobile .board-view-container .board-add-column {
   .board-view-container .board-column h3 .counter-badge.over-limit {
     animation: none;
   }
+}
+
+.board-view-container .board-column.collapsed {
+  width: var(--board-collapsed-column-width);
+  overflow: hidden;
+  /* Width and not a transform: the columns beside it have to move with it. */
+  transition: border-color 0.2s ease, width var(--board-collapse-duration) ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-view-container .board-column.collapsed {
+    transition: border-color 0.2s ease;
+  }
+}
+
+/* On the column, not the header: `overflow: hidden` above would clip a descendant's outline. */
+.board-view-container .board-column.collapsed:focus-within {
+  outline: 3px solid var(--board-focus-outline-color, var(--board-focus-outline-plain-color));
+  outline-offset: 0;
+}
+
+.board-view-container .board-column.collapsed h3:focus {
+  outline: none;
+}
+
+/* Matches the strip, so the header does not drift sideways while the column narrows. */
+.board-view-container .board-column.collapsed h3 {
+  width: var(--board-collapsed-column-width);
+  flex-direction: column;
+  gap: 0.4em;
+  padding: 0.35em 0;
+  border-bottom: none;
+}
+
+/* The header stacks, so margins meant for a row would throw these off centre. */
+.board-view-container .board-column.collapsed h3 > .column-icon,
+.board-view-container .board-column.collapsed h3 > .column-menu,
+.board-view-container .board-column.collapsed h3 > .counter-badge {
+  margin: 0;
+}
+
+/* Read from the bottom up. `sideways-lr` says this in one word but is too new to rely on, so the
+   box is turned the rest of the way. */
+.board-view-container .board-column.collapsed h3 > .title,
+.board-view-container .board-column.collapsed h3 > .counter-badge {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+/* Swapped: `padding` is physical, so it does not turn with the count. */
+.board-view-container .board-column.collapsed h3 > .counter-badge {
+  padding: 0.6em 0.1em;
+}
+
+.board-view-container .board-column.collapsed h3 > .title {
+  max-height: 12em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

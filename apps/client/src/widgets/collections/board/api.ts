@@ -417,6 +417,16 @@ export default class BoardApi {
         this.updateColumn(column, { archived });
     }
 
+    /** Whether a column is stored as collapsed, which draws it as a strip without its cards. */
+    isColumnCollapsed(column: string) {
+        return !!this.viewConfig?.columns?.find(col => col.value === column)?.collapsed;
+    }
+
+    /** Collapses a column to a strip, or opens it again. */
+    async setColumnCollapsed(column: string, collapsed: boolean) {
+        this.updateColumn(column, { collapsed });
+    }
+
     /**
      * Writes properties onto a column, dropping each one given as nothing so that it goes back to
      * its default rather than being stored empty.
@@ -431,6 +441,7 @@ export default class BoardApi {
             if (!updated.icon) delete updated.icon;
             if (!updated.color) delete updated.color;
             if (!updated.archived) delete updated.archived;
+            if (!updated.collapsed) delete updated.collapsed;
             if (!updated.displayName) delete updated.displayName;
             if (!updated.limit) delete updated.limit;
             return updated;

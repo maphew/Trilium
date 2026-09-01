@@ -62,6 +62,12 @@ export interface BoardKeyboardOptions {
     moveColumn: (fromIndex: number, toIndex: number) => void;
     /** Puts a new column beside the given one and opens its title editor, as the menu does. */
     insertColumn: (relativeTo: string, direction: "before" | "after") => void;
+    /**
+     * Names the column being worked in, which opens it while it is collapsed. A card carried into
+     * a collapsed column has to say so here: the column draws no cards, so there would be nothing
+     * for the focus to land on.
+     */
+    setActiveColumn: (column: string) => void;
 }
 
 /**
@@ -80,7 +86,7 @@ export interface BoardKeyboardOptions {
  * focused on whichever column took its place.
  */
 export function useBoardKeyboard({
-    containerRef, columns, byColumn, api, moveColumn, insertColumn
+    containerRef, columns, byColumn, api, moveColumn, insertColumn, setActiveColumn
 }: BoardKeyboardOptions) {
     const pendingFocus = useRef<PendingFocus | null>(null);
 
@@ -180,7 +186,8 @@ export function useBoardKeyboard({
                 return;
             }
 
-            const moved = move(spot, e.key, { columns, byColumn, api }, e.shiftKey);
+            const moved = move(
+                spot, e.key, { columns, byColumn, api, setActiveColumn }, e.shiftKey);
             if (moved) {
                 const pending: PendingFocus = { intent: moved.intent };
                 pendingFocus.current = pending;
@@ -203,6 +210,26 @@ export function useBoardKeyboard({
             // The plain arrows would otherwise scroll the page past the end of a column.
             take(e);
             walk(container, spot, e.key);
+            return;
+        }
+
+        // Both keys, the collapsed header answering for a button and being announced as one.
+        if ((e.key === " " || e.key === "Enter") && spot.kind === "header") {
+            const column = columns[spot.column];
+            if (!columnsOf(container)[spot.column]?.classList.contains("collapsed")) return;
+
+            take(e);
+            setActiveColumn(column);
+
+            // The cards are drawn only once the column opens, so the first of them is asked for
+            // rather than focused here; the effect above puts focus on it as it appears. The
+            // header gives focus up for that, the effect leaving alone anything the reader is
+            // resting on. A column with no cards keeps it, there being nothing to step onto.
+            const first = byColumn?.get(column)?.[0];
+            if (first) {
+                pendingFocus.current = { intent: { noteId: first.note.noteId } };
+                (document.activeElement as HTMLElement | null)?.blur();
+            }
             return;
         }
 
@@ -256,7 +283,7 @@ export function useBoardKeyboard({
                 api.removeFromBoard(item.note.noteId);
             }
         }
-    }, [ containerRef, columns, byColumn, api, moveColumn, insertColumn ]);
+    }, [ containerRef, columns, byColumn, api, moveColumn, insertColumn, setActiveColumn ]);
 
     return { onKeyDown, focusColumn, focusCard };
 }
@@ -337,7 +364,10 @@ function walk(container: HTMLElement, from: Spot, key: string) {
     const next = destination(container, from, key);
     if (!next) return false;
 
-    elementAt(container, next)?.focus();
+    const element = elementAt(container, next);
+    if (!element) return false;
+
+    element.focus();
     return true;
 }
 
@@ -375,9 +405,16 @@ function destination(container: HTMLElement, from: Spot, key: string): Spot | nu
     return { kind: "item", column: from.column, item: next - 1 };
 }
 
-/** The first thing a column offers on the way in, which is never its header. */
+/** The first thing a column offers on the way in, which is its header only where it is collapsed. */
 function entryOf(container: HTMLElement, column: number): Spot {
-    return cardsOf(columnsOf(container)[column]).length
+    const element = columnsOf(container)[column];
+    // A collapsed column draws neither cards nor the button under them, so walking past it would
+    // otherwise find nothing to land on and skip the column entirely.
+    if (element?.classList.contains("collapsed")) {
+        return { kind: "header", column };
+    }
+
+    return cardsOf(element).length
         ? { kind: "item", column, item: 0 }
         : { kind: "add-item", column };
 }
@@ -390,7 +427,8 @@ function entryOf(container: HTMLElement, column: number): Spot {
 function move(
     spot: Spot,
     key: string,
-    { columns, byColumn, api }: Pick<BoardKeyboardOptions, "columns" | "byColumn" | "api">,
+    { columns, byColumn, api, setActiveColumn }:
+        Pick<BoardKeyboardOptions, "columns" | "byColumn" | "api" | "setActiveColumn">,
     /** Whether the card goes the whole way rather than one place. */
     toEnd = false
 ): { intent: FocusIntent; done: Promise<unknown> } | false {
@@ -408,6 +446,10 @@ function move(
             : columns[spot.column + (key === "ArrowRight" ? 1 : -1)];
         // Only the whole way can ask for the column a card already stands in.
         if (!target || target === column) return false;
+
+        // The card is drawn under the column it lands in, so a collapsed one has to open first for
+        // there to be anything to focus.
+        setActiveColumn(target);
 
         return { intent: { noteId }, done: api.moveToColumnEnd(noteId, branchId, target) };
     }
