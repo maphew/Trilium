@@ -125,6 +125,12 @@ build — Cockpit's external CI hit the identical pair).
   dbus error at startup is benign Chromium probing.
 - Data dir is shared with non-flatpak Trilium; quarantine tests with
   `--env=TRILIUM_DATA_DIR=/tmp/...`.
+- **`--talk-name=org.freedesktop.Notifications` is NOT needed** (verified empirically
+  + docs.flatpak.org/en/latest/electron.html: libnotify ≥0.8 auto-uses the
+  notification portal in sandboxes; modern peers — Signal/Discord/Element — omit it).
+  The tray's `org.kde.StatusNotifierWatcher` HAS no portal equivalent and stays.
+  Audit any finish-arg one-off with `flatpak run --no-talk-name=… <id>`; watch the
+  wire with `dbus-monitor` on both the portal and classic interfaces.
 
 ## Update model (designed, not yet built)
 
