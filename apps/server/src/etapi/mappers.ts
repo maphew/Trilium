@@ -51,7 +51,7 @@ function mapAttachmentToPojo(attachment: BAttachment) {
         ownerId: attachment.ownerId,
         role: attachment.role,
         mime: attachment.mime,
-        title: attachment.title,
+        title: attachment.getTitleOrProtected(),
         position: attachment.position,
         blobId: attachment.blobId,
         dateModified: attachment.dateModified,
