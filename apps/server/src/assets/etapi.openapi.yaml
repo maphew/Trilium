@@ -1081,6 +1081,9 @@ components:
                     readOnly: true
                 title:
                     type: string
+                    description: |
+                        Title of the note. Returned as "[protected]" for protected notes, since ETAPI
+                        cannot open a protected session.
                 type:
                     type: string
                     enum:

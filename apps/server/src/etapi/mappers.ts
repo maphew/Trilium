@@ -4,7 +4,7 @@ function mapNoteToPojo(note: BNote) {
     return {
         noteId: note.noteId,
         isProtected: note.isProtected,
-        title: note.title,
+        title: note.getTitleOrProtected(),
         type: note.type,
         mime: note.mime,
         blobId: note.blobId,
