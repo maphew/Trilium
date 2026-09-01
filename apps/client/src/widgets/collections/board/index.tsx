@@ -330,6 +330,10 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             });
     }
 
+    // The board is not drawn afresh for another note, so the column opened on one would otherwise
+    // still be open on the next, over whatever that board stores for a column of the same name.
+    useEffect(() => setActiveColumn(undefined), [ parentNote ]);
+
     useEffect(refresh, [
         parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition, inboxEnabled
     ]);

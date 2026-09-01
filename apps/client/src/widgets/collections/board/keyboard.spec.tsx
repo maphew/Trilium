@@ -337,13 +337,26 @@ describe("Board keyboard", () => {
             expect(document.activeElement).toBe(columnAt(board, 2).querySelector("h3"));
         });
 
-        it("leaves Space alone on a column that is not collapsed", async () => {
+        it("opens it with Enter too, the header being announced as a button", async () => {
+            const board = await renderBoard("Doing");
+            focusHeader(board, 1);
+
+            press(board, "Enter");
+            await act(async () => { await flush(); });
+
+            expect(columnAt(board, 1).classList.contains("collapsed")).toBe(false);
+            expect(focusedName(board)).toBe("Third");
+        });
+
+        it("leaves Space and Enter alone on a column that is not collapsed", async () => {
             const board = await renderBoard();
             focusHeader(board, 1);
 
             press(board, " ");
+            press(board, "Enter");
 
             expect(document.activeElement).toBe(columnAt(board, 1).querySelector("h3"));
+            expect(columnAt(board, 1).querySelectorAll(".board-note")).toHaveLength(1);
         });
     });
 

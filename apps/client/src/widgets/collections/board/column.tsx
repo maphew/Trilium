@@ -100,24 +100,6 @@ export default function Column({
     // dialog all render outside the column, and each would otherwise close it as it opened.
     const select = useCallback(() => setActiveColumn(column), [ column, setActiveColumn ]);
 
-    // A press on the header may be the start of a drag, which must leave the column as it is: the
-    // strip is what the reader takes hold of to move it. A click settles which one it was, a drag
-    // producing none. Focus arriving while the pointer is down is that same press, so only focus
-    // reached by keyboard opens the column.
-    const isPointerDown = useRef(false);
-    const handlePointerDown = useCallback(() => {
-        isPointerDown.current = true;
-
-        const release = () => {
-            isPointerDown.current = false;
-            controller.abort();
-        };
-        // A drag ends with `dragend` and no `pointerup` at all, so both have to release it.
-        const controller = new AbortController();
-        document.addEventListener("pointerup", release, { signal: controller.signal });
-        document.addEventListener("dragend", release, { signal: controller.signal });
-    }, []);
-
     // Focus reaching a column closes whichever one was open, and opens nothing: a collapsed column
     // is walked onto without being disturbed, and is opened by a click or by Space instead.
     const handleFocusIn = useCallback(() => {
@@ -212,7 +194,8 @@ export default function Column({
                 collapsed: isCollapsed
             })}
             onFocusIn={handleFocusIn}
-            onPointerDown={handlePointerDown}
+            // A click and not a press: a press may be the start of a drag, which must leave the
+            // column as it is, and a drag produces no click.
             onClick={select}
             onDragOver={isAnyColumnDragging ? handleColumnDragOver : handleDragOver}
             onDragLeave={handleDragLeave}
@@ -224,6 +207,11 @@ export default function Column({
         >
             <h3
                 className={`${isEditing ? "editing" : ""}`}
+                // While collapsed the header is what opens the column, so it says so and answers
+                // for the keys a button answers for. Open, it is a heading again and Space does
+                // nothing, so neither is claimed.
+                role={isCollapsed ? "button" : undefined}
+                aria-expanded={isCollapsed ? false : undefined}
                 draggable
                 onDragStart={handleColumnDragStart}
                 onDragEnd={handleColumnDragEnd}

@@ -213,10 +213,10 @@ export function useBoardKeyboard({
             return;
         }
 
-        if (e.key === " " && spot.kind === "header") {
+        // Both keys, the collapsed header answering for a button and being announced as one.
+        if ((e.key === " " || e.key === "Enter") && spot.kind === "header") {
             const column = columns[spot.column];
-            const element = container.querySelector(`.board-column[data-column="${CSS.escape(column)}"]`);
-            if (!element?.classList.contains("collapsed")) return;
+            if (!columnsOf(container)[spot.column]?.classList.contains("collapsed")) return;
 
             take(e);
             setActiveColumn(column);

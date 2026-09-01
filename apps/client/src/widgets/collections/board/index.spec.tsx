@@ -241,6 +241,27 @@ describe("Collapsed board columns", () => {
         expect(isCollapsed(mountPoint, 0)).toBe(false);
     });
 
+    /**
+     * A collapsed column draws none of its cards, so nothing but the header is left to announce.
+     * It says it opens something and what state that is in, rather than reading as a heading with
+     * no way past it.
+     */
+    it("announces the strip as a control that opens the column", async () => {
+        const { mountPoint } = await setup();
+        const header = () => columnAt(mountPoint, 0).querySelector("h3");
+
+        expect(header()?.getAttribute("role")).toBe("button");
+        expect(header()?.getAttribute("aria-expanded")).toBe("false");
+
+        // Open, it is a heading again: Space does nothing there, so no button is promised.
+        await select(mountPoint, 0);
+        expect(header()?.getAttribute("role")).toBeNull();
+        expect(header()?.getAttribute("aria-expanded")).toBeNull();
+
+        // A column that was never collapsed says nothing either way.
+        expect(columnAt(mountPoint, 1).querySelector("h3")?.getAttribute("role")).toBeNull();
+    });
+
     /** The header is walked onto without opening the column, which Space is for. */
     it("leaves the column closed when focus reaches its header", async () => {
         const { mountPoint } = await setup();
@@ -328,6 +349,42 @@ describe("Collapsed board columns", () => {
 
         expect(isCollapsed(mountPoint, 1)).toBe(true);
         expect(saved.at(-1)?.columns?.[1]).toEqual({ value: "Done", collapsed: true });
+    });
+
+    /**
+     * The board is not drawn afresh for another note, so the column opened on one is still named
+     * in its state when the next arrives. A board of its own storing a column under that name
+     * would be drawn open, against what it stores.
+     */
+    it("does not carry an open column over to another board", async () => {
+        const { mountPoint } = await setup();
+
+        await select(mountPoint, 0);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+
+        const other = buildNote({
+            title: "Other board",
+            "#collection": "",
+            "#viewType": "board",
+            children: [ { title: "Fourth", "#status": "To Do" } ]
+        });
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={other}
+                        noteIds={[ ...other.getChildNoteIds() ]}
+                        initialConfig={{ columns: [ { value: "To Do", collapsed: true } ] }}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+            await flush();
+        });
+        await act(async () => { await flush(); });
+
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(cardCount(mountPoint, 0)).toBe(0);
     });
 
     it("offers no icon picker or title editor while collapsed", async () => {
