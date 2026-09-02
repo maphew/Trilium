@@ -170,7 +170,7 @@ function search(
 }
 
 function getSearchString(req: Request<{ searchString?: string }>): string {
-    const searchString = req.query.searchString ?? req.params.searchString;
+    const searchString = req.params.searchString ?? req.query.searchString;
 
     if (typeof searchString !== "string" || searchString.length === 0) {
         throw new ValidationError("Search string must be a string.");
