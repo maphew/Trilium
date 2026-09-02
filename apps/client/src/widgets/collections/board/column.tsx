@@ -18,6 +18,7 @@ import ActionButton from "../../react/ActionButton";
 import Icon from "../../react/Icon";
 import { IconPickerButton } from "../../react/IconPicker";
 import { useStaticTooltip } from "../../react/hooks";
+import { useFlip } from "../../react/flip";
 import { useScrollFade } from "../../react/scroll_fade";
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
@@ -97,6 +98,8 @@ export default function Column({
     const editorRef = useRef<HTMLInputElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const scrollFade = useScrollFade(contentRef);
+    // The gap opening and closing moves the cards below it, which they follow rather than jump to.
+    useFlip(contentRef, { selector: ".board-note" });
     const { handleDragOver, handleDragLeave, handleDrop } = useDragging({
         column, columnIndex, columnItems, isEditing, api, parentNote
     });
