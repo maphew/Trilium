@@ -1171,7 +1171,7 @@ describe("Board column rename", () => {
      * scrolled to and faded in rather than appearing wherever the reader is not looking.
      */
     it("reveals the card the editor just made", async () => {
-        const { container } = await setup();
+        const { note, container } = await setup();
         const card = container.querySelector<HTMLElement>(".board-note");
         const noteId = card?.getAttribute("data-note-id");
         const column = card?.closest<HTMLElement>(".board-column");
@@ -1202,6 +1202,31 @@ describe("Board column rename", () => {
 
         expect(card.classList.contains("appearing")).toBe(true);
         expect(content.scrollTop).toBe(500);
+
+        // Shown once: the card stays the one just made, and a redraw of the column must not play
+        // the reveal again.
+        await act(async () => {
+            card.dispatchEvent(new AnimationEvent("animationend", {
+                animationName: "board-card-appear", bubbles: true
+            }));
+            await flush();
+        });
+        expect(card.classList.contains("appearing")).toBe(false);
+
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={DEFAULT_CONFIG}
+                    />
+                </ParentComponent.Provider>,
+                container
+            );
+            await flush();
+        });
+        expect(card.classList.contains("appearing")).toBe(false);
 
         // The cards that were already there are left alone.
         const others = [ ...container.querySelectorAll(".board-note") ]

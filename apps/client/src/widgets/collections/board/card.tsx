@@ -59,6 +59,9 @@ function Card({
     const editorRef = useRef<HTMLInputElement>(null);
     const cardRef = useRef<HTMLDivElement>(null);
     const [ isArchived ] = useNoteLabelBoolean(note, "archived");
+    // The card stays the one just made until another is, so what has already been shown is
+    // remembered here rather than played again by every redraw of the column.
+    const [ isRevealed, setIsRevealed ] = useState(false);
     const [ title, setTitle ] = useState(note.title);
     // Tracks the `iconClass` label, which an attribute change carries and the note row never does.
     const icon = useNoteIcon(note);
@@ -141,7 +144,12 @@ function Card({
     return (
         <div
             ref={cardRef}
-            className={`board-note ${colorClass} ${isDragging ? 'dragging' : ''} ${isEditing ? "editing" : ""} ${isArchived ? "archived" : ""} ${isNew ? "appearing" : ""}`}
+            className={`board-note ${colorClass} ${isDragging ? 'dragging' : ''} ${isEditing ? "editing" : ""} ${isArchived ? "archived" : ""} ${isNew && !isRevealed ? "appearing" : ""}`}
+            onAnimationEnd={(e) => {
+                if (e.animationName === "board-card-appear") {
+                    setIsRevealed(true);
+                }
+            }}
             data-note-id={note.noteId}
             onContextMenu={handleContextMenu}
             onClick={!isEditing ? handleOpen : undefined}

@@ -234,7 +234,8 @@ body.mobile .board-view-container .board-add-column {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0.5em;
+  /* No padding below: the last card's own gap stands between it and the footer. */
+  padding: 0.5em 0.5em 0;
 }
 
 .board-view-container .board-column > .board-new-item {
@@ -471,6 +472,12 @@ body.mobile .board-view-container .board-add-column {
   padding: 0;
 }
 
+.board-view-container .board-new-item textarea.form-control {
+  /* One line stands exactly as tall as the closed button; typing more grows it from there. */
+  min-height: calc(var(--card-line-height) * 1em + 2 * var(--card-padding));
+  height: calc(var(--card-line-height) * 1em + 2 * var(--card-padding));
+}
+
 .board-view-container .board-note.editing textarea,
 .board-view-container .board-new-item textarea.form-control {
   background: transparent;
@@ -538,7 +545,9 @@ body.mobile .board-view-container .board-add-column {
 }
 
 .board-new-item {
-  padding: 0.25em 0.5em;
+  /* The same box the editor it opens into has, so clicking it changes nothing but its content. */
+  padding: var(--card-padding);
+  line-height: var(--card-line-height);
   border-radius: 5px;
   color: var(--muted-text-color);
   cursor: pointer;
