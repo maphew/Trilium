@@ -156,12 +156,28 @@ test.describe("Exact Search with Leading = Operator", () => {
     });
 
     test("Search APIs accept slash-bearing query text", async ({ page }) => {
+        const noteResponse = await page.request.post(`${BASE_URL}/api/notes/root/children?target=into&targetBranchId=`, {
+            headers: { "x-csrf-token": csrfToken },
+            data: {
+                title: "中/英",
+                content: "Slash-bearing search transport test.",
+                type: "text"
+            }
+        });
+        expect(noteResponse.ok()).toBeTruthy();
+        const noteId = (await noteResponse.json()).note.noteId;
+        createdNoteIds.push(noteId);
+        await page.waitForTimeout(500);
+
         for (const path of [ "quick-search", "search" ] as const) {
             const response = await page.request.get(getSearchUrl(path, "中/英"), {
                 headers: { "x-csrf-token": csrfToken }
             });
 
             expect(response.ok()).toBeTruthy();
+            const data = await response.json();
+            const noteIds = path === "quick-search" ? data.searchResultNoteIds : data;
+            expect(noteIds).toContain(noteId);
         }
     });
 
