@@ -1911,14 +1911,14 @@ paths:
                   $ref: '#/components/schemas/Note'
 
   # Search
-  /api/search/{searchString}:
+  /api/search:
     get:
       tags: [Search]
       summary: Full text search
       operationId: search
       parameters:
         - name: searchString
-          in: path
+          in: query
           required: true
           schema:
             type: string
@@ -1932,14 +1932,14 @@ paths:
                 items:
                   $ref: '#/components/schemas/SearchResult'
                   
-  /api/quick-search/{searchString}:
+  /api/quick-search:
     get:
       tags: [Search]
       summary: Quick search with highlighting
       operationId: quickSearch
       parameters:
         - name: searchString
-          in: path
+          in: query
           required: true
           schema:
             type: string
