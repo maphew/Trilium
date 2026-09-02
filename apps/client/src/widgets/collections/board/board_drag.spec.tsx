@@ -502,7 +502,8 @@ describe("useBoardDrag, carrying a card", () => {
             move(120, 10);
 
             const copy = board.querySelector<HTMLElement>(".board-column.board-drag-preview");
-            expect(copy?.style.height).toBe("150px");
+            expect(copy?.style.maxHeight).toBe("150px");
+            expect(copy?.style.height).toBe("");
             expect(copy?.style.width).toBe("100px");
             expect(column?.style.display).toBe("none");
         });

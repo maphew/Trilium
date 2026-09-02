@@ -18,8 +18,8 @@ const TOUCH_TOLERANCE = 8;
 /** How much a carried card shrinks. Written with the movement, a class could not add to it. */
 const DRAG_SCALE = 0.9;
 
-/** How tall a carried column stands, whatever it holds, so it can be seen past. */
-const COLUMN_DRAG_HEIGHT = 150;
+/** How tall a carried column is allowed to stand, so a full one can be seen past. */
+const COLUMN_DRAG_MAX_HEIGHT = 150;
 
 /** How long a card rests on a column's heading before it counts as standing there. */
 const DWELL_MS = 500;
@@ -477,8 +477,9 @@ function startColumn(target: HTMLElement, container: HTMLElement): ColumnSubject
  * Takes a copy of what is being carried out of the board's flow and hands it back.
  *
  * The copy is positioned against the window, which no ancestor's overflow can clip, and stands
- * inside the board so that the board's own styling still reaches it. A column is cut to a set
- * height, so that a tall one does not cover the board it is being placed on.
+ * inside the board so that the board's own styling still reaches it. A column is capped rather than
+ * given a height, so that a tall one does not cover the board it is being placed on while a short
+ * one still stands as tall as it is.
  */
 function lift(held: Gesture, container: HTMLElement) {
     const rect = held.element.getBoundingClientRect();
@@ -490,12 +491,15 @@ function lift(held: Gesture, container: HTMLElement) {
     // A copy can be used for nothing, and the copy stands outside the column its controls are
     // styled from, so what it offers is taken out rather than left showing.
     preview.querySelector(".edit-icon")?.remove();
+    preview.querySelector(".board-new-item")?.remove();
 
     for (const [ property, value ] of Object.entries({
         left: `${rect.left}px`,
         top: `${rect.top}px`,
         width: `${rect.width}px`,
-        height: held.kind === "column" ? `${COLUMN_DRAG_HEIGHT}px` : `${rect.height}px`
+        ...(held.kind === "column"
+            ? { "max-height": `${COLUMN_DRAG_MAX_HEIGHT}px` }
+            : { height: `${rect.height}px` })
     })) {
         preview.style.setProperty(property, value);
     }

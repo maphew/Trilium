@@ -467,14 +467,17 @@ describe("Board column reordering", () => {
         expect(placeholder?.style.width).toBe("");
     });
 
-    /** A copy of it is carried, cut to a set height so a tall column does not cover the board. */
+    /** A copy of it is carried, capped so a tall column does not cover the board it is placed on. */
     it("carries a copy, hiding the column until it is let go", async () => {
         const { columns, board } = await renderColumns();
 
         await carryColumn(columns[0], 280, { release: false });
         const copy = board.querySelector<HTMLElement>(".board-column.board-drag-preview");
         expect(copy).toBeTruthy();
-        expect(copy?.style.height).toBe("150px");
+        expect(copy?.style.maxHeight).toBe("150px");
+        expect(copy?.style.height).toBe("");
+        // Nothing on the copy can be used, and the footer would stand under cards it cannot add to.
+        expect(copy?.querySelector(".board-new-item")).toBeNull();
         expect(columns[0].style.display).toBe("none");
 
         await columnPointer(board, "pointerup", 280);
