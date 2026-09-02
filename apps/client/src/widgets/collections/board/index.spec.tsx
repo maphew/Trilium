@@ -19,7 +19,7 @@ import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
 import { collectShortcutHints } from "../../../services/shortcut_hints";
-import { getPendingWrites } from "./api";
+import BoardApi, { getPendingWrites } from "./api";
 import { DEFAULT_COLUMN_ICON } from "./columns";
 
 // Stands in for the server: by the time the bulk action resolves, the notes carry the new value,
@@ -311,12 +311,9 @@ describe("Collapsed board columns", () => {
         expect(isCollapsed(mountPoint, 0)).toBe(false);
     });
 
-    it("keeps the collapsed column movable and stored as collapsed", async () => {
+    it("opens a collapsed column without writing anything", async () => {
         const { mountPoint } = await setup();
 
-        // The header is the drag handle whether or not the column is drawn as a strip.
-        expect(columnAt(mountPoint, 0).querySelector("h3")?.getAttribute("draggable"))
-            .toBe("true");
         // Opening it by selection is not a change to the config, so nothing is written at all.
         await select(mountPoint, 0);
         expect(isCollapsed(mountPoint, 0)).toBe(false);
@@ -400,6 +397,82 @@ describe("Collapsed board columns", () => {
         // Both come back with the column.
         await select(mountPoint, 0);
         expect(columnAt(mountPoint, 0).querySelector(".column-icon button")).not.toBeNull();
+    });
+});
+
+describe("A board in a tab the reader is not looking at", () => {
+    let container: HTMLElement | undefined;
+
+    afterEach(() => {
+        saved.length = 0;
+        if (container) {
+            render(null, container);
+            container.remove();
+            container = undefined;
+        }
+    });
+
+    /**
+     * Every mounted board hears every change, so a card renamed once would redraw the board in each
+     * tab it is open in. A board nobody is looking at remembers the change instead.
+     */
+    it("does not redraw for a change while its tab is in the background", async () => {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            children: [
+                { id: "one", title: "First", "#status": "To Do" },
+                { id: "two", title: "Second", "#status": "Done" }
+            ]
+        });
+
+        // The context the board belongs to, reached the way `useNoteContext` reaches it: from the
+        // nearest ancestor carrying one.
+        let active = true;
+        const host = new Component();
+        Object.assign(host, { noteContext: { isActive: () => active } });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+
+        const draw = async () => {
+            await act(async () => {
+                render(
+                    <ParentComponent.Provider value={host}>
+                        <Harness
+                            note={note}
+                            noteIds={[ ...note.getChildNoteIds() ]}
+                            initialConfig={{ columns: [ { value: "To Do" }, { value: "Done" } ] }}
+                        />
+                    </ParentComponent.Provider>,
+                    mountPoint
+                );
+            });
+            await act(async () => { await flush(); });
+        };
+
+        const columnOf = (title: string) => [ ...mountPoint.querySelectorAll(".board-column") ]
+            .find(column => [ ...column.querySelectorAll(".board-note") ]
+                .some(card => card.textContent?.includes(title)))
+            ?.getAttribute("data-column");
+
+        await draw();
+        expect(columnOf("First")).toBe("To Do");
+
+        // The card moves column while the tab is in the background.
+        active = false;
+        for (const attribute of froca.getNoteFromCache("one")?.getAttributes() ?? []) {
+            if (attribute.name === "status") attribute.value = "Done";
+        }
+        await draw();
+        expect(columnOf("First")).toBe("To Do");
+
+        // Looked at again, it catches up with what it missed.
+        active = true;
+        await draw();
+        expect(columnOf("First")).toBe("Done");
     });
 });
 
@@ -1042,26 +1115,130 @@ describe("Board column rename", () => {
         show.mockRestore();
     });
 
-    it("scrolls the column to its end when the new-item button takes focus", async () => {
-        const { note, container } = await setup();
+    it("keeps the new-item slot out of the column's scrolling body", async () => {
+        const { container } = await setup();
         const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
-        const content = column.querySelector<HTMLElement>(".board-column-content");
-        if (!content) throw new Error("expected a scrollable column body");
+        const slot = column.querySelector<HTMLElement>(".board-new-item");
 
-        // happy-dom lays nothing out, so the scrollable height has to be stood in for.
-        Object.defineProperty(content, "scrollHeight", { value: 500, configurable: true });
-        expect(content.scrollTop).toBe(0);
+        expect(slot).toBeTruthy();
+        expect(slot?.closest(".board-column-content")).toBeNull();
+        expect(slot?.parentElement).toBe(column);
+    });
+
+    /**
+     * Cards are added in runs, so the editor stays where it is with an empty field rather than
+     * closing and having to be opened again for the next one.
+     */
+    it("clears the new-item editor on Enter and leaves it open", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
 
         await act(async () => {
-            column.querySelector<HTMLElement>(".board-new-item")?.focus();
+            slot?.click();
             await flush();
         });
 
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        if (!editor) throw new Error("expected the new-item editor to be open");
+
+        editor.value = "First";
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(created).toHaveBeenCalledWith("Doing", "First");
+        expect(slot?.querySelector("textarea")).toBe(editor);
+        expect(editor.value).toBe("");
+        expect(document.activeElement).toBe(editor);
+
+        // The one already saved is not written a second time by the one that follows it.
+        editor.value = "Second";
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(created).toHaveBeenCalledTimes(2);
+        expect(created).toHaveBeenLastCalledWith("Doing", "Second");
+    });
+
+    /**
+     * A card is added at the end of its column, which on a full column is out of sight, so it is
+     * scrolled to and faded in rather than appearing wherever the reader is not looking.
+     */
+    it("reveals the card the editor just made", async () => {
+        const { note, container } = await setup();
+        const card = container.querySelector<HTMLElement>(".board-note");
+        const noteId = card?.getAttribute("data-note-id");
+        const column = card?.closest<HTMLElement>(".board-column");
+        if (!card || !noteId || !column) throw new Error("expected a card to stand in for the new one");
+
+        // happy-dom lays nothing out, so the scrollable height has to be stood in for.
+        const content = column.querySelector<HTMLElement>(".board-column-content");
+        if (!content) throw new Error("expected a scrollable column body");
+        Object.defineProperty(content, "scrollHeight",
+            { value: 500, configurable: true, writable: true });
+        expect(content.scrollTop).toBe(0);
+
+        vi.spyOn(BoardApi.prototype, "createNewItem").mockResolvedValue(noteId);
+
+        const slot = column.querySelector<HTMLElement>(".board-new-item");
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        if (!editor) throw new Error("expected the new-item editor to be open");
+        editor.value = "Fresh";
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(card.classList.contains("appearing")).toBe(true);
         expect(content.scrollTop).toBe(500);
 
-        // The card just made lands above the button, pushing it out of sight again. Nothing is
-        // focused afresh by that, so only the effect watching the count brings it back.
-        Object.defineProperty(content, "scrollHeight", { value: 900, configurable: true });
+        // Shown once: the card stays the one just made, and a redraw of the column must not play
+        // the reveal again.
+        await act(async () => {
+            card.dispatchEvent(new AnimationEvent("animationend", {
+                animationName: "board-card-appear", bubbles: true
+            }));
+            await flush();
+        });
+        expect(card.classList.contains("appearing")).toBe(false);
+
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={DEFAULT_CONFIG}
+                    />
+                </ParentComponent.Provider>,
+                container
+            );
+            await flush();
+        });
+        expect(card.classList.contains("appearing")).toBe(false);
+
+        // The cards that were already there are left alone.
+        const others = [ ...container.querySelectorAll(".board-note") ]
+            .filter(other => other !== card);
+        expect(others.some(other => other.classList.contains("appearing"))).toBe(false);
+    });
+
+    it("reveals a card inserted next to another one, without leaving its place", async () => {
+        const { note, container } = await setup();
+
+        // A second card in the same column, so the one standing in for the insert has a card after
+        // it and the column is brought to it rather than run to its end.
         addCard(note, "Doing");
         await act(async () => {
             render(
@@ -1078,8 +1255,139 @@ describe("Board column rename", () => {
         });
         await act(async () => { await flush(); });
 
-        expect(columnTitles(container)).toEqual([ "To Do", "Doing", "Done" ]);
-        expect(content.scrollTop).toBe(900);
+        const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
+        const [ first, second ] = column.querySelectorAll<HTMLElement>(".board-note");
+        const noteId = first?.getAttribute("data-note-id");
+        if (!first || !second || !noteId) throw new Error("expected a column of two cards");
+
+        const scrolled = vi.fn();
+        Object.defineProperty(first, "scrollIntoView",
+            { value: scrolled, configurable: true, writable: true });
+        const content = column.querySelector<HTMLElement>(".board-column-content");
+        Object.defineProperty(content, "scrollHeight",
+            { value: 500, configurable: true, writable: true });
+        vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
+            .mockResolvedValue({ noteId } as never);
+
+        await act(async () => {
+            second.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(first.classList.contains("appearing")).toBe(true);
+        expect(scrolled).toHaveBeenCalled();
+        expect(content?.scrollTop).toBe(0);
+    });
+
+    /**
+     * The editor an insert opens holds focus while the title is typed; the card takes it once that
+     * editor is done, so the arrow keys carry on from the card just made.
+     */
+    it("leaves an inserted card focused, and a card added in the footer unfocused", async () => {
+        const { container } = await setup();
+        const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
+        const card = column.querySelector<HTMLElement>(".board-note");
+        const noteId = card?.getAttribute("data-note-id");
+        if (!card || !noteId) throw new Error("expected a card in the column");
+
+        vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
+            .mockResolvedValue({ noteId } as never);
+        await act(async () => {
+            card.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(document.activeElement).toBe(card);
+
+        // The footer's own editor keeps focus instead, so a run of cards can be typed into it.
+        vi.spyOn(BoardApi.prototype, "createNewItem").mockResolvedValue(noteId);
+        const slot = column.querySelector<HTMLElement>(".board-new-item");
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        if (!editor) throw new Error("expected the new-item editor to be open");
+        editor.value = "Another";
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(document.activeElement).toBe(editor);
+    });
+
+    /**
+     * The editor used to hand focus back to whatever held it before it opened, which for a card
+     * whose editor was opened for it is a different card: that one lit up on the way past.
+     */
+    it("closes a card editor onto its own card, not the one focus came from", async () => {
+        const { container } = await setup();
+        const columns = container.querySelectorAll<HTMLElement>(".board-column");
+        const from = columns[0].querySelector<HTMLElement>(".board-note");
+        const edited = columns[1].querySelector<HTMLElement>(".board-note");
+        if (!from || !edited) throw new Error("expected a card in each of two columns");
+
+        from.focus();
+        const cameFrom = vi.spyOn(from, "focus");
+
+        await act(async () => {
+            edited.dispatchEvent(new KeyboardEvent("keydown", { key: "F2", bubbles: true }));
+            await flush();
+        });
+
+        const editor = edited.querySelector<HTMLTextAreaElement>("textarea");
+        if (!editor) throw new Error("expected the card editor to be open");
+
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+            await flush();
+        });
+
+        expect(document.activeElement).toBe(edited);
+        expect(cameFrom).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The footer editor stays open between cards, so it is left behind with something typed in it
+     * often enough that saving on the way out would make cards nobody asked for.
+     */
+    it("gives up what is typed in the new-item editor when it loses focus", async () => {
+        const { container } = await setup();
+        // Cleared: the spy outlives the test that first stood it up, and its calls with it.
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        if (!editor) throw new Error("expected the new-item editor to be open");
+
+        editor.value = "Half a thought";
+        await act(async () => {
+            editor.dispatchEvent(new FocusEvent("blur"));
+            editor.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+            await flush();
+        });
+
+        expect(created).not.toHaveBeenCalled();
+        expect(slot?.querySelector("textarea")).toBeNull();
+        expect(slot?.classList.contains("editing")).toBe(false);
+
+        // What was typed is waiting in the editor when it is opened again.
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+        expect(slot?.querySelector<HTMLTextAreaElement>("textarea")?.value)
+            .toBe("Half a thought");
     });
 
     it("starts the new item off with the character typed on its button", async () => {

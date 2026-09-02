@@ -1,7 +1,8 @@
 import clsx from "clsx";
 import { Fragment } from "preact";
+import { flushSync } from "preact/compat";
 import {
-    useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState
+    useCallback, useContext, useEffect, useMemo, useRef, useState
 } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 
@@ -17,10 +18,11 @@ import ActionButton from "../../react/ActionButton";
 import Icon from "../../react/Icon";
 import { IconPickerButton } from "../../react/IconPicker";
 import { useStaticTooltip } from "../../react/hooks";
+import { useScrollFade } from "../../react/scroll_fade";
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
-import Card, { CARD_CLIPBOARD_TYPE, CardDragData } from "./card";
+import Card from "./card";
 import { DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
 import { openColumnContextMenu } from "./context_menu";
 
@@ -44,12 +46,9 @@ export default function Column({
     isActive,
     nested,
     limit,
-    isDraggingColumn,
     columnItems,
     api,
     parentNote,
-    onColumnHover,
-    isAnyColumnDragging,
     isInRelationMode
 }: {
     columnItems?: { note: FNote, branch: FBranch }[];
@@ -67,11 +66,8 @@ export default function Column({
     nested?: boolean,
     /** The note limit, absent if disabled. */
     limit?: number,
-    isDraggingColumn: boolean,
     api: BoardApi,
     parentNote: FNote,
-    onColumnHover?: (index: number, mouseX: number, rect: DOMRect) => void,
-    isAnyColumnDragging?: boolean,
     isInRelationMode: boolean,
     /** The columns as drawn, which is what the menu offers to place this one among. */
     columns: string[],
@@ -80,16 +76,31 @@ export default function Column({
     onFocusColumn: (column: string) => void,
     onFocusCard: (noteId: string) => void
 } & DragContext) {
-    const [ isVisible, setVisible ] = useState(true);
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
+    const [ created, setCreated ] = useState<{ noteId?: string, takesFocus: boolean }>();
+    // A card inserted next to another one is where the reader is working, so it is left focused; one
+    // made in the footer is not, or every card would take focus from the editor still being typed in.
+    const cardInserted = useCallback(
+        (noteId: string | undefined) => setCreated({ noteId, takesFocus: true }), []);
+    const cardAdded = useCallback(
+        (noteId: string | undefined) => setCreated({ noteId, takesFocus: false }), []);
     const { setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn } =
         useContext(BoardActionsContext);
     const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
     const isEditing = (columnNameToEdit === column);
     const editorRef = useRef<HTMLInputElement>(null);
-    const { handleColumnDragStart, handleColumnDragEnd, handleDragOver, handleDragLeave, handleDrop } = useDragging({
+    const contentRef = useRef<HTMLDivElement>(null);
+    const scrollFade = useScrollFade(contentRef);
+    const { handleDragOver, handleDragLeave, handleDrop } = useDragging({
         column, columnIndex, columnItems, isEditing, api, parentNote
     });
+
+    // Measured rather than styled: the gap stands for the card being carried, which is whatever
+    // height its own content gave it. A drag from the note tree carries no card, so the stock
+    // height stands.
+    const gapStyle = draggedCard?.height
+        ? { height: `${draggedCard.height}px` }
+        : undefined;
 
     // Read here rather than in the badge: the column body shows an outline as well.
     const isOverLimit = limit !== undefined && (columnItems?.length ?? 0) > limit;
@@ -171,17 +182,6 @@ export default function Column({
         editorRef.current?.focus();
     }, [ isEditing ]);
 
-    useEffect(() => {
-        setVisible(!isDraggingColumn);
-    }, [ isDraggingColumn ]);
-
-    const handleColumnDragOver = useCallback((e: DragEvent) => {
-        if (!isAnyColumnDragging || !onColumnHover) return;
-        e.preventDefault();
-        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        onColumnHover(columnIndex, e.clientX, rect);
-    }, [isAnyColumnDragging, onColumnHover, columnIndex]);
-
     return (
         <div
             data-column={column}
@@ -197,13 +197,10 @@ export default function Column({
             // A click and not a press: a press may be the start of a drag, which must leave the
             // column as it is, and a drag produces no click.
             onClick={select}
-            onDragOver={isAnyColumnDragging ? handleColumnDragOver : handleDragOver}
+            onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            style={{
-                display: !isVisible ? "none" : undefined,
-                "--board-column-custom-hue": hue
-            }}
+            style={{ "--board-column-custom-hue": hue }}
         >
             <h3
                 className={`${isEditing ? "editing" : ""}`}
@@ -212,9 +209,6 @@ export default function Column({
                 // nothing, so neither is claimed.
                 role={isCollapsed ? "button" : undefined}
                 aria-expanded={isCollapsed ? false : undefined}
-                draggable
-                onDragStart={handleColumnDragStart}
-                onDragEnd={handleColumnDragEnd}
                 onContextMenu={openMenu}
                 onKeyDown={handleTitleKeyDown}
                 tabIndex={300}
@@ -295,16 +289,23 @@ export default function Column({
                 </>)}
             </h3>
 
-            {!isCollapsed && <div className="board-column-content" onWheel={handleScroll}>
+            {!isCollapsed && <div
+                ref={contentRef}
+                className={clsx("board-column-content", scrollFade.className)}
+                style={scrollFade.style}
+                onWheel={handleScroll}
+            >
                 {(columnItems ?? []).map(({ note, branch }, index) => {
+                    // The card being carried is out of the flow, so the gap stands in its own
+                    // place too: held still, which a touch does before it moves, that is where it
+                    // was picked up from.
                     const showIndicatorBefore = dropPosition?.column === column &&
-                                            dropPosition.index === index &&
-                                            draggedCard?.noteId !== note.noteId;
+                                            dropPosition.index === index;
 
                     return (
                         <Fragment key={note.noteId}>
                             {showIndicatorBefore && (
-                                <div className="board-drop-placeholder show" />
+                                <div className="board-drop-placeholder show" style={gapStyle} />
                             )}
                             <Card
                                 api={api}
@@ -312,25 +313,31 @@ export default function Column({
                                 branch={branch}
                                 column={column}
                                 index={index}
+                                statusAttribute={api.statusAttribute}
+                                isNew={note.noteId === created?.noteId}
+                                focusOnArrival={
+                                    note.noteId === created?.noteId && created.takesFocus
+                                }
                                 isDragging={draggedCard?.noteId === note.noteId}
                                 isEditing={branch.branchId === branchIdToEdit}
                                 onFocusCard={onFocusCard}
+                                onCreated={cardInserted}
                             />
                         </Fragment>
                     );
                 })}
                 {dropPosition?.column === column && dropPosition.index === (columnItems?.length ?? 0) && (
-                    <div className="board-drop-placeholder show" />
+                    <div className="board-drop-placeholder show" style={gapStyle} />
                 )}
-
-                <AddNewItem
-                    api={api}
-                    column={column}
-                    itemCount={columnItems?.length ?? 0}
-                    isCreating={isCreatingNewItem}
-                    setIsCreating={setIsCreatingNewItem}
-                />
             </div>}
+
+            {!isCollapsed && <AddNewItem
+                api={api}
+                column={column}
+                isCreating={isCreatingNewItem}
+                setIsCreating={setIsCreatingNewItem}
+                onCreated={cardAdded}
+            />}
         </div>
     );
 }
@@ -339,34 +346,17 @@ export default function Column({
  * The editor a new card is named in, opened by the button below the column or by its menu. The
  * state is the column's rather than this component's, since the menu is raised from the header.
  */
-function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
+function AddNewItem({ column, api, isCreating, setIsCreating, onCreated }: {
     column: string,
     api: BoardApi,
-    /** How many cards stand above it, which is what moves it out of view as they come and go. */
-    itemCount: number,
     isCreating: boolean,
-    setIsCreating: (isCreating: boolean) => void
+    setIsCreating: (isCreating: boolean) => void,
+    /** Names the card just made, which the column reveals once the board has drawn it. */
+    onCreated: (noteId: string | undefined) => void
 }) {
+    // What the editor opens with: empty to begin with, then whatever was typed into it and left
+    // unsaved, so that reaching for something else and coming back does not cost the title.
     const [ initialTitle, setInitialTitle ] = useState("");
-    const slotRef = useRef<HTMLDivElement>(null);
-
-    // Reaching the button means reaching the end of the column, so what is under it comes into view
-    // with it. The browser scrolls only far enough to show the button itself.
-    const scrollToEnd = useCallback(() => {
-        const content = slotRef.current?.closest(".board-column-content");
-        if (content) {
-            content.scrollTop = content.scrollHeight;
-        }
-    }, []);
-
-    // A card added lands above the button and pushes it out of sight, and the editor stands taller
-    // than the button it replaces. Neither raises a focus event, so whatever is focused in here has
-    // to be followed back into view.
-    useLayoutEffect(() => {
-        if (slotRef.current?.contains(document.activeElement)) {
-            scrollToEnd();
-        }
-    }, [ itemCount, isCreating, scrollToEnd ]);
 
     const open = useCallback((title: string) => {
         setInitialTitle(title);
@@ -377,7 +367,7 @@ function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
         if (isCreating) return;
 
         if (e.key === "Enter" && !e.ctrlKey) {
-            open("");
+            setIsCreating(true);
             return;
         }
 
@@ -388,15 +378,13 @@ function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
             e.preventDefault();
             open(e.key);
         }
-    }, [ isCreating, open ]);
+    }, [ isCreating, open, setIsCreating ]);
 
     return (
         <div
-            ref={slotRef}
             className={`board-new-item ${isCreating ? "editing" : ""}`}
-            onClick={() => open("")}
+            onClick={() => flushSync(() => setIsCreating(true))}
             onKeyDown={handleKeyDown}
-            onFocus={scrollToEnd}
             tabIndex={300}
         >
             {!isCreating ? (
@@ -408,10 +396,12 @@ function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
                 <TitleEditor
                     currentValue={initialTitle}
                     placeholder={t("board_view.new-item-placeholder")}
-                    save={(title) => api.createNewItem(column, title)}
+                    save={async (title) => onCreated(await api.createNewItem(column, title))}
                     dismiss={() => setIsCreating(false)}
                     mode="multiline" isNewItem
                     selectOnFocus={false}
+                    saveAndContinue
+                    abandon={setInitialTitle}
                 />
             )}
         </div>
@@ -492,7 +482,8 @@ function useDragging({ column, columnIndex, columnItems, isEditing, api, parentN
 
     const handleDragOver = useCallback((e: DragEvent) => {
         if (isEditing || draggedColumn || isDraggingRef.current) return; // Don't handle card drops when dragging columns
-        if (!e.dataTransfer?.types.includes(CARD_CLIPBOARD_TYPE) && !e.dataTransfer?.types.includes(TREE_CLIPBOARD_TYPE)) return;
+        // Cards are carried by pointer now; what still arrives this way comes from the note tree.
+        if (!e.dataTransfer?.types.includes(TREE_CLIPBOARD_TYPE)) return;
 
         e.preventDefault();
         setDropTarget(column);
@@ -537,19 +528,18 @@ function useDragging({ column, columnIndex, columnItems, isEditing, api, parentN
         setDropTarget(null);
         setDropPosition(null);
 
-        const data = e.dataTransfer?.getData(CARD_CLIPBOARD_TYPE) || e.dataTransfer?.getData("text");
+        const data = e.dataTransfer?.getData("text");
         if (!data) return;
 
-        let draggedCard: CardDragData | DragData[];
+        let dropped: DragData[];
         try {
-            draggedCard = JSON.parse(data);
+            dropped = JSON.parse(data);
         } catch (e) {
             return;
         }
 
-        if (Array.isArray(draggedCard)) {
-            // From note tree.
-            const { noteId, branchId } = draggedCard[0];
+        if (Array.isArray(dropped)) {
+            const { noteId, branchId } = dropped[0];
             const targetNote = await froca.getNote(noteId, true);
             const parentNoteId = parentNote.noteId;
             if (!dropPosition) return;
@@ -571,10 +561,7 @@ function useDragging({ column, columnIndex, columnItems, isEditing, api, parentN
             } else if (targetBranch) {
                 await branches.moveAfterBranch([ branchId ], targetBranch.branchId);
             }
-        } else if (draggedCard && dropPosition) {
-            api.moveWithinBoard(draggedCard.noteId, draggedCard.branchId, draggedCard.index, dropPosition.index, draggedCard.fromColumn, column);
         }
-
     }, [ api, draggedColumn, dropPosition, columnItems, column, setDropTarget, setDropPosition ]);
 
     return { handleColumnDragStart, handleColumnDragEnd, handleDragOver, handleDragLeave, handleDrop };

@@ -631,11 +631,18 @@ describe("BoardApi card operations", () => {
             note: created, branch: { branchId: "createdBranch" }
         } as never);
 
+        // The column goes in with the note. A write of its own would refresh the whole board a
+        // second time, which is what adding a card costs on a board of any size.
         await api.createNewItem("Done", "Created");
-        expect(put).toHaveBeenCalledWith(
-            "notes/" + created.noteId + "/set-attribute",
-            expect.objectContaining({ name: "status", value: "Done" }),
-            undefined);
+        expect(note_create.createNote).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({
+                title: "Created",
+                attributes: [ expect.objectContaining({
+                    type: "label", name: "status", value: "Done"
+                }) ]
+            }));
+        expect(put).not.toHaveBeenCalled();
 
         // The board has already drawn the card, so a failure here is logged rather than thrown.
         const logged = vi.spyOn(console, "error").mockImplementation(() => {});

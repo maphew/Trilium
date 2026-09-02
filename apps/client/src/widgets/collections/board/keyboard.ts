@@ -82,8 +82,8 @@ export interface BoardKeyboardOptions {
  * handlers keep what is theirs (F2 to rename, Enter to add a card, typing to start one).
  *
  * Focus follows what is under it rather than where it sits: a card moved to another column is
- * drawn as a new element, and columns are drawn unkeyed, so a header would otherwise be left
- * focused on whichever column took its place.
+ * drawn as a new element, and a column moved in the page is blurred by the browser, so a header
+ * would otherwise be left focused on nothing.
  */
 export function useBoardKeyboard({
     containerRef, columns, byColumn, api, moveColumn, insertColumn, setActiveColumn
@@ -98,8 +98,8 @@ export function useBoardKeyboard({
         if (!pending || !container) return;
 
         if (!("noteId" in pending.intent)) {
-            // The columns are drawn unkeyed, so what was focused is now over whichever column took
-            // the old one's place. Focus is pointed at the right one and the hold is done with.
+            // Moving a focused element blurs it, so the header is focused again by name once the
+            // board has drawn it in its new place, and the hold is done with.
             const element = findInColumn(container, pending.intent.column, pending.intent.part);
             if (element) {
                 element.focus();
@@ -122,8 +122,8 @@ export function useBoardKeyboard({
 
     /**
      * Puts focus on a column's heading once the board has drawn it again, for a move made from
-     * somewhere other than the keyboard. The columns are drawn unkeyed, so an element held onto
-     * across the move would be left standing over whichever column took the old one's place.
+     * somewhere other than the keyboard. The browser blurs an element it moves, so an element
+     * held onto across the move would be left focused on nothing.
      */
     const focusColumn = useCallback((column: string) => {
         pendingFocus.current = { intent: { column, part: "header" } };
@@ -472,8 +472,8 @@ function move(
 
 /**
  * Moves the column focus is in, answering with what to put focus back on. Whatever was focused
- * stays focused: the columns are drawn unkeyed, so the element would otherwise be left standing
- * over whichever column took the old one's place.
+ * stays focused: the browser blurs an element it moves, so it would otherwise be left focused on
+ * nothing.
  */
 function shiftColumn(
     spot: Spot,

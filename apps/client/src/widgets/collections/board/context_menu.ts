@@ -251,7 +251,9 @@ function buildColumnItems(
 export function openNoteContextMenu(
     api: Api, event: ContextMenuEvent, note: FNote, branchId: string, column: string,
     /** Puts focus back on the card once a change of column has drawn it under another one. */
-    onFocusCard: (noteId: string) => void
+    onFocusCard: (noteId: string) => void,
+    /** Names the card an insert makes, which the column reveals once the board has drawn it. */
+    onCreated: (noteId: string | undefined) => void
 ) {
     event.preventDefault();
     event.stopPropagation();
@@ -267,12 +269,14 @@ export function openNoteContextMenu(
                 uiIcon: "bx bx-list-plus",
                 shortcut: "Shift+Enter",
                 handler: () => api.insertRowAtPosition(column, branchId, "before")
+                    .then(created => onCreated(created?.noteId))
             },
             {
                 title: t("board_view.insert-below"),
                 uiIcon: "bx bx-empty",
                 shortcut: "Enter",
                 handler: () => api.insertRowAtPosition(column, branchId, "after")
+                    .then(created => onCreated(created?.noteId))
             },
             { kind: "header", title: api.getStatusLabel() },
             ...buildColumnItems(api, note, column, onFocusCard),

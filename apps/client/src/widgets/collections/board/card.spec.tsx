@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
 import contextMenu from "../../../menus/context_menu";
+import cssClassManager from "../../../services/css_class_manager";
 import FAttribute from "../../../entities/fattribute";
 import froca from "../../../services/froca";
 import LoadResults from "../../../services/load_results";
@@ -25,12 +26,24 @@ vi.mock("../../../menus/link_context_menu", () => ({
     default: { getItems: () => [], handleLinkContextMenuItem: () => {} }
 }));
 
+/** Counts how often each card has drawn, which is what the memo boundary around it decides. */
+const draws = vi.hoisted(() => new Map<string, number>());
+vi.mock("../../attribute_widgets/UserAttributesList", () => ({
+    default: ({ note }: { note: { noteId: string } }) => {
+        draws.set(note.noteId, (draws.get(note.noteId) ?? 0) + 1);
+        return null;
+    }
+}));
+
 describe("Board card", () => {
     let container: HTMLElement | undefined;
     /** froca is module-level, so ids are kept distinct rather than reset between tests. */
     let idSeed = 0;
 
-    beforeEach(() => vi.restoreAllMocks());
+    beforeEach(() => {
+        vi.restoreAllMocks();
+        draws.clear();
+    });
 
     afterEach(() => {
         if (container) {
@@ -52,6 +65,41 @@ describe("Board card", () => {
 
         expect(cardClasses(first)).toContain("archived");
         expect(cardClasses(second)).not.toContain("archived");
+    });
+
+    /**
+     * A board holds hundreds of cards, so a refresh that redrew all of them would make one card's
+     * move cost the whole board. The api is what this rests on: rebuilt per refresh, as it once was,
+     * it is a new prop on every card and no card can be skipped.
+     */
+    it("leaves the cards a refresh did not change undrawn", async () => {
+        const { component, first, second } = await renderBoard();
+        const before = draws.get(first);
+        expect(before).toBeGreaterThan(0);
+
+        // The last card takes a column of its own, so the first one keeps both its column and its
+        // place in it while the board rebuilds its data.
+        await changeStatus(component, second, "Done");
+
+        expect(columnsOf(container)).toContain("Done");
+        expect(draws.get(first)).toBe(before);
+        expect(draws.get(second)).toBeGreaterThan(before ?? 0);
+    });
+
+    /**
+     * The board does not redraw a card for a colour, and a card whose props have not changed is
+     * skipped by the memo around it, so the card has to hear about the label itself.
+     */
+    it("follows its note's colour", async () => {
+        const { component, first, second } = await renderBoard();
+        const coloured = cssClassManager.createClassForColor("#ff0000");
+
+        expect(cardClasses(first)).not.toContain(coloured);
+
+        await addLabel(component, first, "color", "#ff0000");
+
+        expect(cardClasses(first)).toContain(coloured);
+        expect(cardClasses(second)).not.toContain(coloured);
     });
 
     it("follows its note's icon, which the quick edit popup sets as a label", async () => {
@@ -129,25 +177,6 @@ describe("Board card", () => {
         expect(openInPopup).not.toHaveBeenCalled();
     });
 
-    it("carries its own id and column in the clipboard when a drag starts", async () => {
-        const { first } = await renderBoard();
-        const clipboard: Record<string, string> = {};
-        const dataTransfer = {
-            effectAllowed: "",
-            setData: (type: string, value: string) => { clipboard[type] = value; }
-        };
-
-        await act(async () => { fireDrag(card(first), "dragstart", dataTransfer); });
-
-        expect(JSON.parse(clipboard["trilium/board-card"]))
-            .toMatchObject({ noteId: first, fromColumn: "To Do", index: 0 });
-        expect(dataTransfer.effectAllowed).toBe("move");
-
-        // Dropping it anywhere clears the drag, which is what un-hides the card.
-        await act(async () => { fireDrag(card(first), "dragend", dataTransfer); });
-        expect(card(first).className).not.toContain("dragging");
-    });
-
     it("offers the card menu on a right click", async () => {
         const { first } = await renderBoard();
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
@@ -214,6 +243,35 @@ describe("Board card", () => {
         await settle();
 
         return { note, component, first, second };
+    }
+
+    /** Moves a card to another column the way an edit made anywhere else reaches the board. */
+    async function changeStatus(component: Component, noteId: string, value: string) {
+        const attribute = (noteAttributeCache.attributes[noteId] ?? [])
+            .find(candidate => candidate.name === "status");
+        if (!attribute) throw new Error(`no status label on ${noteId}`);
+        attribute.value = value;
+
+        const entity = {
+            attributeId: attribute.attributeId, noteId, type: "label", name: "status", value,
+            isDeleted: false
+        };
+        const loadResults = new LoadResults([ {
+            entityName: "attributes", entityId: attribute.attributeId, entity, hash: "",
+            isSynced: true, isErased: false
+        } ]);
+        loadResults.addAttribute(attribute.attributeId, "someOtherComponent");
+
+        await act(async () => {
+            await component.handleEvent("entitiesReloaded", { loadResults });
+        });
+        await settle();
+    }
+
+    /** The columns the board is showing, in the order it draws them. */
+    function columnsOf(root: HTMLElement | undefined) {
+        return [ ...root?.querySelectorAll(".board-column") ?? [] ]
+            .map(column => column.getAttribute("data-column"));
     }
 
     /** Adds a label to a note already in froca and announces it the way a websocket message would. */

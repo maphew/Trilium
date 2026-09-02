@@ -9,6 +9,38 @@ export type ColumnMap = Map<string, {
 }[]>;
 
 /**
+ * The columns as they stand once a card has moved, for drawing the outcome before the writes land.
+ *
+ * A card crossing columns is written twice, the value first and the branch after, and each lands a
+ * redraw of its own. The first shows the card in its new column at whatever place its old branch
+ * gives it, which is above every card already there.
+ *
+ * @param index where the card goes, counting the target column as it stands at the moment of the
+ *              drop, the card itself included where it does not leave its column.
+ */
+export function applyCardMove(
+    byColumn: ColumnMap, noteId: string, from: string, to: string, index: number
+): ColumnMap {
+    const source = [ ...(byColumn.get(from) ?? []) ];
+    const at = source.findIndex((item) => item.note.noteId === noteId);
+    if (at < 0) {
+        return byColumn;
+    }
+
+    const [ moved ] = source.splice(at, 1);
+    const next = new Map(byColumn);
+    next.set(from, source);
+
+    const target = from === to ? source : [ ...(byColumn.get(to) ?? []) ];
+    // Taking the card out shifts everything after it up one, so a place beyond where it stood
+    // names one card earlier in the list left behind.
+    target.splice(from === to && index > at ? index - 1 : index, 0, moved);
+    next.set(to, target);
+
+    return next;
+}
+
+/**
  * @param definitionOptions the choices the board's group-by definition offers, empty when it has no
  *                          select definition of its own to lead the column order.
  * @param pendingRenames the columns the board is in the middle of renaming or deleting. Read

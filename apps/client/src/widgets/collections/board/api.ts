@@ -95,18 +95,24 @@ export default class BoardApi {
     private sentToColumnEnd = new Map<string, string>();
     statusAttribute: string;
 
+    /** The config as the board last handed it over, against which a fresh one is recognised. */
+    private viewConfigSource: BoardViewData | undefined;
+    private viewConfig: BoardViewData;
+
     constructor(
         private byColumn: ColumnMap | undefined,
         public columns: string[],
         private parentNote: FNote,
         statusAttribute: string,
-        private viewConfig: BoardViewData,
+        viewConfig: BoardViewData | undefined,
         private saveConfig: (newConfig: BoardViewData) => void,
         private setBranchIdToEdit: (branchId: string | undefined) => void,
         private pending: PendingColumnWrites =
             { renames: new Map(), claims: new Map(), inFlight: 0 },
         private statusDefinition?: BoardStatusDefinition
     ) {
+        this.viewConfigSource = viewConfig;
+        this.viewConfig = viewConfig ?? {};
         this.isRelationMode = statusAttribute.startsWith("~");
 
         if (statusAttribute.startsWith("~") || statusAttribute.startsWith("#")) {
@@ -115,21 +121,72 @@ export default class BoardApi {
         this.statusAttribute = statusAttribute;
     };
 
+    /**
+     * Points the api at the board as it now stands.
+     *
+     * A refresh calls this instead of building a new api, so that the object every card holds keeps
+     * its identity and a move redraws only the cards whose position changed. What the api works out
+     * for itself, such as {@link sentToColumnEnd}, is kept.
+     */
+    update(
+        byColumn: ColumnMap | undefined,
+        columns: string[],
+        parentNote: FNote,
+        statusAttribute: string,
+        viewConfig: BoardViewData | undefined,
+        saveConfig: (newConfig: BoardViewData) => void,
+        setBranchIdToEdit: (branchId: string | undefined) => void,
+        statusDefinition?: BoardStatusDefinition
+    ) {
+        this.byColumn = byColumn;
+        this.columns = columns;
+        this.parentNote = parentNote;
+        // Only a config the board has actually replaced, since `storeColumns` moves this one ahead
+        // of what the board holds and an unrelated render must not take that back.
+        if (viewConfig !== this.viewConfigSource) {
+            this.viewConfigSource = viewConfig;
+            this.viewConfig = viewConfig ?? {};
+        }
+        this.saveConfig = saveConfig;
+        this.setBranchIdToEdit = setBranchIdToEdit;
+        this.statusDefinition = statusDefinition;
+        this.isRelationMode = statusAttribute.startsWith("~");
+        this.statusAttribute = statusAttribute.replace(/^[~#]/, "");
+    }
+
     async createNewItem(column: string, title: string) {
         try {
-            // Create a new note as a child of the parent note
-            const { note: newNote, branch: newBranch } = await note_create.createNote(this.parentNote.noteId, {
+            const { note } = await note_create.createNote(this.parentNote.noteId, {
                 activate: false,
                 title,
-                isProtected: this.parentNote.isProtected
+                isProtected: this.parentNote.isProtected,
+                attributes: this.groupingFor(column)
             });
 
-            if (newNote && newBranch) {
-                await this.changeColumn(newNote.noteId, column);
-            }
+            return note?.noteId;
         } catch (error) {
             console.error("Failed to create new item:", error);
         }
+    }
+
+    /**
+     * What a new card carries so that it lands in the column it was added to.
+     *
+     * Written with the note rather than after it: a write of its own is a second round trip and a
+     * second refresh, which on a large board is most of what adding a card costs. The inbox is the
+     * column held by having no value at all, so it carries nothing.
+     */
+    private groupingFor(column: string) {
+        if (column === INBOX_COLUMN) {
+            return [];
+        }
+
+        return [ {
+            type: this.isRelationMode ? "relation" as const : "label" as const,
+            name: this.statusAttribute,
+            value: column,
+            isInheritable: false
+        } ];
     }
 
     /**
@@ -682,15 +739,14 @@ export default class BoardApi {
             activate: false,
             targetBranchId: relativeToBranchId,
             target: direction,
-            title: t("board_view.new-item")
+            title: t("board_view.new-item"),
+            attributes: this.groupingFor(column)
         });
 
         if (!note || !branch) {
             throw new Error("Failed to create note");
         }
 
-        const { noteId } = note;
-        await this.changeColumn(noteId, column);
         this.startEditing(branch.branchId);
 
         return note;

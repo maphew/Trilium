@@ -1,8 +1,12 @@
 import "./index.css";
 
-import { createContext, TargetedKeyboardEvent } from "preact";
-import { createPortal } from "preact/compat";
-import { Dispatch, StateUpdater, useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import clsx from "clsx";
+
+import { createContext, Fragment, TargetedKeyboardEvent } from "preact";
+import { createPortal, RefObject } from "preact/compat";
+import {
+    Dispatch, StateUpdater, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState
+} from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
@@ -15,19 +19,23 @@ import CollectionProperties from "../../note_bars/CollectionProperties";
 import FormTextArea from "../../react/FormTextArea";
 import FormTextBox from "../../react/FormTextBox";
 import {
-    useContextualShortcutHints, useNoteLabelBoolean, useNoteLabelWithDefault, useTriliumEvent
+    useContextualShortcutHints, useNoteContext, useNoteLabelBoolean, useNoteLabelWithDefault,
+    useTrackedElement, useTriliumEvent
 } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
 import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
+import { useDragPan } from "../../react/drag_pan";
 import { ViewModeProps } from "../interface";
 import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
+import { useBoardDrag } from "./board_drag";
+import { movesColumn } from "./drag_geometry";
 import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition, INBOX_COLUMN } from "./columns";
 import Column from "./column";
 import ColumnLimitDialog from "./column_limit";
-import { ColumnMap, getBoardData } from "./data";
+import { applyCardMove, ColumnMap, getBoardData } from "./data";
 import { useBoardKeyboard } from "./keyboard";
 
 export interface BoardViewData {
@@ -66,6 +74,8 @@ interface CardDrag {
     branchId: string;
     fromColumn: string;
     index: number;
+    /** How tall the card stands, absent for a drag from the note tree, which carries no card. */
+    height?: number;
 }
 
 interface ColumnDrag {
@@ -188,22 +198,25 @@ const BOARD_HINTS: ShortcutHintDefinition = [
 ];
 
 export default function BoardView({ note: parentNote, noteIds, viewConfig, saveConfig }: ViewModeProps<BoardViewData>) {
+    const { noteContext } = useNoteContext();
     const [ statusAttributeWithPrefix ] = useNoteLabelWithDefault(parentNote, "board:groupBy", DEFAULT_GROUP_BY);
     const [ includeArchived ] = useNoteLabelBoolean(parentNote, "includeArchived");
     const [ inboxEnabled ] = useNoteLabelBoolean(parentNote, "enableInboxColumn");
     const [ byColumn, setByColumn ] = useState<ColumnMap>();
     const [ columns, setColumns ] = useState<string[]>();
     const [ isInRelationMode, setIsRelationMode ] = useState(false);
-    const [ draggedCard, setDraggedCard ] = useState<{ noteId: string, branchId: string, fromColumn: string, index: number } | null>(null);
+    const [ draggedCard, setDraggedCard ] = useState<CardDrag | null>(null);
     const [ dropTarget, setDropTarget ] = useState<string | null>(null);
     const [ dropPosition, setDropPosition ] = useState<{ column: string, index: number } | null>(null);
     const [ draggedColumn, setDraggedColumn ] = useState<ColumnDrag | null>(null);
     const [ columnDropPosition, setColumnDropPosition ] = useState<number | null>(null);
-    const [ columnHoverIndex, setColumnHoverIndex ] = useState<number | null>(null);
     const [ branchIdToEdit, setBranchIdToEdit ] = useState<string>();
     const [ columnNameToEdit, setColumnNameToEdit ] = useState<string>();
     const [ columnLimitToEdit, setColumnLimitToEdit ] = useState<string>();
     const [ activeColumn, setActiveColumn ] = useState<string>();
+    // How many card moves are still being written. The board is drawn as they will leave it, so a
+    // redraw from the first of a move's two writes would take that back.
+    const movesInFlight = useRef(0);
     /** Bumped when the definition changes, since it is read off the note rather than held in state. */
     const [ definitionRevision, setDefinitionRevision ] = useState(0);
     // A ref rather than state: `api` is rebuilt on every refresh, and the map has to outlive those
@@ -238,14 +251,24 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const statusDefinition = useMemo(
         () => getStatusDefinition(parentNote, statusAttributeWithPrefix),
         [ parentNote, statusAttributeWithPrefix, definitionRevision ]);
-    const api = useMemo(() => {
-        return new Api(
-            byColumn, usableColumns, parentNote, statusAttributeWithPrefix, viewConfig ?? {},
-            saveConfig, setBranchIdToEdit, pendingRenamesRef.current.writes, statusDefinition);
-    }, [
-        byColumn, usableColumns, parentNote, statusAttributeWithPrefix, viewConfig,
-        saveConfig, setBranchIdToEdit, statusDefinition
-    ]);
+    // One api for as long as the board is shown, pointed at each refresh's data rather than built
+    // again: a new object would be a new prop on every card, and `memo` would then redraw all of
+    // them for a move that touched one. Another board takes a new one, since this instance is
+    // reused across boards and the api holds that board's record of the writes in flight.
+    const apiRef = useRef<{ board: string, api: Api }>();
+    if (!apiRef.current || apiRef.current.board !== boardIdentity) {
+        apiRef.current = {
+            board: boardIdentity,
+            api: new Api(
+                byColumn, usableColumns, parentNote, statusAttributeWithPrefix, viewConfig,
+                saveConfig, setBranchIdToEdit, pendingRenamesRef.current.writes, statusDefinition)
+        };
+    } else {
+        apiRef.current.api.update(
+            byColumn, usableColumns, parentNote, statusAttributeWithPrefix, viewConfig,
+            saveConfig, setBranchIdToEdit, statusDefinition);
+    }
+    const api = apiRef.current.api;
     // Every member is one of useState's own setters, so this value is built once and never changes
     // identity -- a drag cannot reach anything that reads only this.
     const boardActions = useMemo<BoardActions>(() => ({
@@ -287,6 +310,24 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     }), [ branchIdToEdit, columnNameToEdit, draggedCard, draggedColumn, dropPosition, dropTarget ]);
 
     function refresh() {
+        // A move under way has already been drawn where it will land. Held here rather than at each
+        // caller, since a card crossing columns changes both the note and the board's children, and
+        // either of those reaches this by a path of its own.
+        if (movesInFlight.current) {
+            return;
+        }
+
+        // A board in a tab the reader is not looking at draws for nobody, and every mounted board
+        // hears every change: a card renamed once redraws each of them, whichever is on screen. The
+        // change is remembered instead, and drawn once the tab is looked at again. Asked of the
+        // context rather than of the box, which is empty for a board that has not drawn yet.
+        // Only once it has drawn: a board opened straight into a background tab has to draw at
+        // least once, or there is no container to notice the tab being shown and it stays empty.
+        if (byColumn && noteContext && !noteContext.isActive()) {
+            isStale.current = true;
+            return;
+        }
+
         // `getBoardData` reads notes, so refreshes can resolve out of order and one issued for the
         // board the user has left can arrive after the next board's. What it has to say is about
         // sources no longer on screen, the pending renames it reports as settled included.
@@ -296,7 +337,9 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived,
             statusDefinition?.options ?? [], pendingRenamesRef.current.writes.renames, inboxEnabled)
             .then(({ byColumn, columns, newPersistedData, isInRelationMode, settledRenames }) => {
-                if (refreshId !== refreshSeqRef.current) return;
+                if (refreshId !== refreshSeqRef.current) {
+                    return;
+                }
 
                 for (const settled of settledRenames) {
                     settleColumn(pendingRenamesRef.current.writes, settled);
@@ -329,6 +372,125 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                     .catch((e) => console.error("Failed to sync the board columns to the attribute definition:", e));
             });
     }
+
+    // The gesture drives the same state a drag from the note tree does, so the placeholders and the
+    // card's own dimming are drawn from one place whichever brought the card here.
+    const { isDragging: isDraggingItem, remeasure } = useBoardDrag(containerRef, {
+        onCardStart: (card) => setDraggedCard({
+            noteId: card.noteId,
+            branchId: byColumn?.get(card.fromColumn)?.[card.index]?.branch.branchId ?? "",
+            fromColumn: card.fromColumn,
+            index: card.index,
+            height: card.height
+        }),
+        onCardMove: (position, inside) => {
+            setDropTarget(position?.column ?? null);
+            setDropPosition(position);
+            // Answers for what a `dragover` did, for a collapsed column the card is actually over:
+            // one merely passed near keeps to itself, and one already opened stays open, since
+            // closing it under a drag would move every column after it.
+            if (position && inside && storedColumns.get(position.column)?.collapsed) {
+                setActiveColumn(position.column);
+            }
+        },
+        onCardEnd: (card, position) => {
+            const branchId = byColumn?.get(card.fromColumn)?.[card.index]?.branch.branchId;
+            if (position && branchId && byColumn) {
+                // Drawn where it landed at once, and held there until both writes are in: each of
+                // them lands a redraw, and the first would show the card at the top of the column.
+                setByColumn(applyCardMove(
+                    byColumn, card.noteId, card.fromColumn, position.column, position.index));
+                movesInFlight.current++;
+                // Any refresh already on its way is about the board as it stood before the drop,
+                // and would put the card back where it came from as it resolves.
+                refreshSeqRef.current++;
+                api.moveWithinBoard(
+                    card.noteId, branchId, card.index, position.index,
+                    card.fromColumn, position.column)
+                    // Nothing is asked for once the writes are in: `froca` learns of the branch
+                    // move from the server a moment later, so a refresh here reads the new column
+                    // with the old order and puts the card at the top of it. The change reaches the
+                    // board as an entity reload, which settles it once there is something to read.
+                    .finally(() => { movesInFlight.current--; });
+            }
+            setDraggedCard(null);
+            setDropTarget(null);
+            setDropPosition(null);
+            // Asked for by name: the card is drawn again where it landed, and a card that crossed
+            // columns is drawn as a new element, so the one that was focused is gone.
+            focusCard(card.noteId);
+            if (position) {
+                revealColumn(position.column);
+            }
+        },
+        onColumnStart: (column, index, size) => setDraggedColumn({ column, index, size }),
+        onColumnMove: setColumnDropPosition,
+        onColumnEnd: (from, to) => {
+            if (to !== null && movesColumn(from, to)) {
+                handleColumnDrop(from, to);
+            }
+            setDraggedColumn(null);
+            setColumnDropPosition(null);
+        }
+    });
+
+    // A column opened to take the card moves every column after it, which the measurement predates.
+    // Only for a card: a carried column is measured among the columns as they stood when it was
+    // picked up, which is the list the place it would take is counted against, and measuring again
+    // with it out of the flow would count one place fewer than the board has.
+    useLayoutEffect(() => {
+        if (isDraggingItem && !draggedColumn) {
+            remeasure();
+        }
+    }, [ isDraggingItem, draggedColumn, remeasure, activeColumn, shownColumns ]);
+
+    // Only the board's own background, so a press on a column, a card or the button that adds one
+    // is left to whatever it belongs to. Suppressed while a card is carried: the gesture owns the
+    // pointer, and the board must not slide under it.
+    const { isPannable, isPanning } = useDragPan(containerRef, { disabled: isDraggingItem });
+
+    /**
+     * Brings a column to the middle of the screen, for a board that scrolls one column at a time.
+     *
+     * Snapping is off while something is carried, so letting go leaves the board wherever the
+     * gesture took it and the reader looking at two half-columns. Asked for on the next frame: the
+     * board is drawn again around the card that landed, and the column moves with it.
+     */
+    const revealColumn = useCallback((column: string) => {
+        if (!isMobile()) return;
+
+        requestAnimationFrame(() => {
+            const columns = containerRef.current?.querySelectorAll<HTMLElement>(".board-column");
+            for (const element of columns ?? []) {
+                if (element.dataset.column === column) {
+                    element.scrollIntoView({ inline: "center", block: "nearest" });
+                    return;
+                }
+            }
+        });
+    }, []);
+
+    // Whether a change arrived while the board was in a background tab.
+    const isStale = useRef(false);
+    const latestRefresh = useRef(refresh);
+    latestRefresh.current = refresh;
+
+    // Caught up when the board is given a size again, which is what showing its tab does. Keyed on
+    // that rather than on the context becoming active: the board is drawn from what the tab switch
+    // lays out, and a size is the one signal that is certainly in by then.
+    const boardElement = useTrackedElement(containerRef);
+    useEffect(() => {
+        if (!boardElement) return;
+
+        const observer = new ResizeObserver(() => {
+            if (isStale.current && boardElement.getBoundingClientRect().width > 0) {
+                isStale.current = false;
+                latestRefresh.current();
+            }
+        });
+        observer.observe(boardElement);
+        return () => observer.disconnect();
+    }, [ boardElement ]);
 
     // The board is not drawn afresh for another note, so the column opened on one would otherwise
     // still be open on the next, over whatever that board stores for a column of the same name.
@@ -382,38 +544,11 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         }
     });
 
-    const handleColumnDragOver = useCallback((e: DragEvent) => {
-        if (!draggedColumn) return;
-        e.preventDefault();
-    }, [draggedColumn]);
-
-    const handleColumnHover = useCallback((index: number, mouseX: number, columnRect: DOMRect) => {
-        if (!draggedColumn) return;
-
-        const columnMiddle = columnRect.left + columnRect.width / 2;
-
-        // Determine if we should insert before or after this column
-        const insertBefore = mouseX < columnMiddle;
-
-        // Calculate the target position
-        const targetIndex = insertBefore ? index : index + 1;
-
-        setColumnDropPosition(targetIndex);
-    }, [draggedColumn]);
-
     // Measured rather than styled: a collapsed column is a strip, and the placeholder stands in
     // for whichever column is being dragged.
     const placeholderSize = draggedColumn?.size?.width
         ? { width: `${draggedColumn.size.width}px`, height: `${draggedColumn.size.height}px` }
         : undefined;
-
-    const handleContainerDrop = useCallback((e: DragEvent) => {
-        e.preventDefault();
-        if (draggedColumn && columnDropPosition !== null) {
-            handleColumnDrop(draggedColumn.index, columnDropPosition);
-        }
-        setColumnHoverIndex(null);
-    }, [draggedColumn, columnDropPosition, handleColumnDrop]);
 
     return (
         <div className="board-view">
@@ -422,14 +557,26 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                 <BoardDragStateContext.Provider value={boardDragState}>
                     {byColumn && columns && <div
                         ref={containerRef}
-                        className="board-view-container"
+                        className={clsx("board-view-container", {
+                            pannable: isPannable,
+                            panning: isPanning
+                        })}
                         onKeyDown={handleKeyDown}
-                        onDragOver={handleColumnDragOver}
-                        onDrop={handleContainerDrop}
                         onWheel={onWheelHorizontalScroll}
                     >
+                        {/* The columns are keyed by value, so a reorder moves each column's
+                            element with it rather than repurposing elements in place, which would
+                            carry the `collapsed` class from one column to another and run its width
+                            transition on a column that never collapsed.
+
+                            They are wrapped because a moved element is placed before its next
+                            sibling, and the last ones have none: in a parent that also holds the
+                            button, the layer and the overlays, Preact appends them past all three.
+                            The wrapper lays nothing out, so the columns are still the board's own
+                            flex items. */}
+                        <div className="board-columns">
                         {shownColumns.map((column, index) => (
-                            <>
+                            <Fragment key={column}>
                                 {columnDropPosition === index && (
                                     <div
                                         className="column-drop-placeholder show"
@@ -454,17 +601,18 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     onFocusColumn={focusColumn}
                                     onFocusCard={focusCard}
                                     columnItems={byColumn.get(column)}
-                                    isDraggingColumn={draggedColumn?.column === column}
-                                    onColumnHover={handleColumnHover}
-                                    isAnyColumnDragging={!!draggedColumn}
                                 />
-                            </>
+                            </Fragment>
                         ))}
                         {columnDropPosition === shownColumns.length && draggedColumn && (
                             <div className="column-drop-placeholder show" style={placeholderSize} />
                         )}
+                        </div>
 
                         <AddNewColumn api={api} isInRelationMode={isInRelationMode} />
+                        {/* Where what is being carried is put. Preact draws the layer and never
+                            its contents, so the copy is not among the children it places. */}
+                        <div className="board-drag-layer" />
                         {/* Out of the board and onto the page: the dialog is positioned against
                             the window, and Bootstrap puts its backdrop on the body, so a stacking
                             context above the board would trap it underneath. */}
@@ -569,7 +717,8 @@ function AddNewColumn({ api, isInRelationMode }: { api: BoardApi, isInRelationMo
 }
 
 export function TitleEditor({
-    currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true
+    currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true,
+    saveAndContinue = false, returnFocusTo, abandon
 }: {
     currentValue?: string;
     placeholder?: string;
@@ -577,6 +726,22 @@ export function TitleEditor({
     dismiss: () => void;
     isNewItem?: boolean;
     mode?: "normal" | "multiline" | "relation";
+    /**
+     * Whether Enter saves and clears the editor rather than closing it, so that a run of cards can
+     * be typed one after another. Enter is then the only thing that saves: Escape and losing focus
+     * both give up what was typed and close the editor, since an editor that stays open between
+     * cards is left behind often enough that saving on the way out would make cards nobody asked
+     * for.
+     */
+    saveAndContinue?: boolean;
+    /** What was typed and not saved, handed over so that reopening the editor can carry it back. */
+    abandon?: (typed: string) => void;
+    /**
+     * Where focus goes when the editor closes, instead of back to whatever held it before. A card
+     * whose editor was opened for it rather than by it names itself, so that closing does not light
+     * up the card the reader came from on the way.
+     */
+    returnFocusTo?: RefObject<HTMLElement>;
     /**
      * Whether opening the editor selects what is already in it, which is what a rename wants. An
      * editor opened part-typed puts the caret after the text instead, so the next key carries on
@@ -589,7 +754,9 @@ export function TitleEditor({
     const dismissOnNextRefreshRef = useRef(false);
     const shouldDismiss = useRef(false);
 
-    useEffect(() => {
+    // Laid out rather than deferred: with the open drawn synchronously, this puts focus on the
+    // editor inside the press that asked for it, which is what opens a phone's keyboard.
+    useLayoutEffect(() => {
         focusElRef.current = document.activeElement !== document.body ? document.activeElement : null;
         inputRef.current?.focus();
 
@@ -615,12 +782,25 @@ export function TitleEditor({
             return;
         }
 
+        if (e.key === "Enter" && saveAndContinue) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const input = inputRef.current;
+            if (input?.value.trim()) {
+                commit(input.value);
+                input.value = "";
+            }
+            return;
+        }
+
         if (e.key === "Enter" || e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
-            if (focusElRef.current instanceof HTMLElement) {
+            const target = returnFocusTo?.current ?? focusElRef.current;
+            if (target instanceof HTMLElement) {
                 shouldDismiss.current = (e.key === "Escape");
-                focusElRef.current.focus();
+                target.focus();
             } else {
                 dismiss();
             }
@@ -628,19 +808,29 @@ export function TitleEditor({
     };
 
     const onBlur = (newValue: string) => {
+        if (saveAndContinue) {
+            abandon?.(newValue);
+            dismiss();
+            return;
+        }
+
         if (!shouldDismiss.current && newValue.trim() && (newValue !== currentValue || isNewItem)) {
-            // The editor is closing either way, and what a save writes has already been put back by
-            // whatever could not write it; all that is left is to say so rather than to reject
-            // unhandled, which is what a save reaching nobody used to do.
-            Promise.resolve(save(newValue)).catch((e) => {
-                console.error("Failed to save what the board editor was given:", e);
-                toast.showError(t("board_view.save-error"));
-            });
+            commit(newValue);
             dismissOnNextRefreshRef.current = true;
         } else {
             dismiss();
         }
     };
+
+    // The editor is closing either way, and what a save writes has already been put back by
+    // whatever could not write it; all that is left is to say so rather than to reject unhandled,
+    // which is what a save reaching nobody used to do.
+    function commit(newValue: string) {
+        Promise.resolve(save(newValue)).catch((e) => {
+            console.error("Failed to save what the board editor was given:", e);
+            toast.showError(t("board_view.save-error"));
+        });
+    }
 
     if (mode !== "relation") {
         const Element = mode === "multiline" ? FormTextArea : FormTextBox;

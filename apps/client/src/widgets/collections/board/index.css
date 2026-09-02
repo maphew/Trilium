@@ -36,6 +36,12 @@
   --card-padding: 0.6em;
 }
 
+/* Lays nothing out: the columns stay the board's own flex items, and Preact has a parent of its own
+   to move them within. */
+.board-view-container .board-columns {
+  display: contents;
+}
+
 .board-view-container {
   height: 100%;
   display: flex;
@@ -45,10 +51,34 @@
   overflow-x: auto;
 }
 
+/* Only where there is somewhere to pan. The columns set their own, so the grab hand shows over the
+   board's background alone. */
+.board-view-container.pannable {
+  cursor: grab;
+}
+
+.board-view-container.panning {
+  cursor: grabbing;
+}
+
+.board-view-container.pannable .board-column,
+.board-view-container.pannable > .board-add-column {
+  cursor: auto;
+}
+
 body.mobile .board-view-container {
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
+}
+
+/* Both of the above fight a scroll written a frame at a time, which is how the board walks itself
+   along while something is carried to its edge: smooth turns each step into an animation the next
+   step restarts, and snapping pulls the board back to the nearest column. The column's own cards
+   scroll either way, having neither. */
+body.mobile .board-view-container.board-dragging {
+  scroll-snap-type: none;
+  scroll-behavior: auto;
 }
 
 .board-view-container .board-column {
@@ -200,9 +230,19 @@ body.mobile .board-view-container .board-add-column {
 
 .board-view-container .board-column > .board-column-content {
   flex-grow: 1;
+  /* Without this the cards set the floor for the column's height and push the footer past it. */
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0.5em;
+  /* No padding below: the last card's own gap stands between it and the footer. */
+  padding: 0.5em 0.5em 0;
+}
+
+.board-view-container .board-column > .board-new-item {
+  flex-shrink: 0;
+  /* Matches the padding of the scrolling body above, so the footer lines up with the cards. */
+  margin-inline: 0.5em;
+  margin-block-end: 0.5em;
 }
 
 .board-view-container .board-note:hover .edit-icon {
@@ -213,10 +253,8 @@ body.mobile .board-view-container .board-add-column {
 .board-view-container .board-note,
 .board-view-container .board-new-item.editing {
   box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.1);
-  margin: 0.65em 0;
   padding: var(--card-padding);
   border-radius: 5px;
-  cursor: move;
   position: relative;
   background-color: var(--main-background-color);
   opacity: 1;
@@ -229,6 +267,14 @@ body.mobile .board-view-container .board-add-column {
 /* An item takes the hue of the column it stands in... */
 .board-view-container .board-column.with-hue .board-note {
   --board-item-hue: var(--board-column-custom-hue);
+}
+
+/* A carried copy stands in the drag layer rather than in its column, so it is tinted directly. Left
+   above the rules below, which a card with a colour of its own is painted by instead. */
+.board-view-container .board-drag-preview.column-tinted {
+  --board-item-hue: var(--board-column-custom-hue);
+  --board-item-saturation: var(--board-item-background-saturation);
+  --board-item-hover-saturation: var(--board-item-hover-background-saturation);
 }
 
 /* ...and its own wherever it has one, the second selector outweighing the column's rule above
@@ -267,10 +313,6 @@ body.mobile .board-view-container .board-add-column {
   );
 }
 
-.board-view-container .board-note:first-of-type {
-  margin-top: 0;
-}
-
 /* The outline of whatever is focused within, taking the hue of the nearest thing that has one: the
    column for its header and buttons, the card for itself and what it holds. */
 .board-view-container .board-column.with-hue {
@@ -298,7 +340,10 @@ body.mobile .board-view-container .board-add-column {
 }
 
 .board-view-container .board-note {
-  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.15s ease, margin-top 0.2s ease;
+  /* Below only: a top margin would be the first card's to drop, and a drop placeholder standing
+     above it takes that place and moves the card down by it. */
+  margin-block: 0 0.65em;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.15s ease;
 }
 
 .board-view-container .board-column.board-column-archived {
@@ -354,11 +399,81 @@ body.mobile .board-view-container .board-add-column {
   to { opacity: 0; transform: translateY(-10px); }
 }
 
-.board-view-container .board-note.dragging {
-  opacity: 0.5;
-  transform: rotate(5deg);
+/* A click opens the card; only carrying it is a move. */
+.board-view-container .board-note {
+  cursor: pointer;
+}
+
+/* The copy that follows the pointer. Positioned against the window, so the column's own scrolling
+   cannot cut it off, and left out of hit testing so it never stands in front of what it is over.
+   No `transform` here: the gesture writes the movement and the shrink together, and a rule of its
+   own would replace both. */
+/* A carried column is cut to a set height by the gesture, so a tall one does not cover the board
+   it is being placed on; what it holds is clipped rather than reflowed. */
+/* Takes no room and lays nothing out: what it holds is placed against the window, and it stands
+   inside the board so that the board's own styling still reaches it. */
+.board-view-container .board-drag-layer {
+  position: fixed;
+  top: 0;
+  inset-inline-start: 0;
+  width: 0;
+  height: 0;
+}
+
+.board-view-container .board-column.board-drag-preview {
+  overflow: hidden;
+}
+
+/* The card is focused by the press that picks it up and then taken out of the page, which drops the
+   focus; the copy carries the ring on so what is being moved still reads as what is focused. */
+.board-view-container .board-note.board-drag-preview {
+  outline: 3px solid var(--board-focus-outline-color, var(--board-focus-outline-plain-color));
+  outline-offset: 0;
+}
+
+.board-view-container .board-note.board-drag-preview,
+.board-view-container .board-column.board-drag-preview {
+  position: fixed;
+  margin: 0;
+  /* The card's own transition would animate towards each frame's position instead of taking it. */
+  transition: none;
+  will-change: transform;
   z-index: 1000;
+  pointer-events: none;
+  cursor: move;
+  opacity: 0.85;
   box-shadow: 4px 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* While a card is carried, so the page does not take the touch for a scroll. */
+.board-view-container.board-dragging {
+  touch-action: none;
+}
+
+/* Reaching the end of the board or of a column scrolls neither the page nor anything else. */
+.board-view-container,
+.board-view-container .board-column-content {
+  overscroll-behavior: contain;
+}
+
+/* And while something is carried, the end does not spring back either: the copy is positioned
+   against the window, which an overscroll moves on WebKit, taking the copy with it. */
+.board-view-container.board-dragging,
+.board-view-container.board-dragging .board-column-content {
+  overscroll-behavior: none;
+}
+
+/* The gap opening and closing moves content above whatever the browser has anchored to, and it
+   shifts the column to keep that still. The shift moves the card under the pointer, which moves the
+   gap, which shifts the column again: at the foot of a tall column the two chase each other and it
+   never settles on the last place. */
+.board-view-container.board-dragging .board-column-content {
+  overflow-anchor: none;
+}
+
+/* A long press on a card is how it is picked up, not how it is selected or looked up. */
+.board-view-container .board-note {
+  -webkit-touch-callout: none;
 }
 
 .board-view-container .board-note.editing,
@@ -368,6 +483,12 @@ body.mobile .board-view-container .board-add-column {
   display: flex;
   align-items: center;
   padding: 0;
+}
+
+.board-view-container .board-new-item textarea.form-control {
+  /* One line stands exactly as tall as the closed button; typing more grows it from there. */
+  min-height: calc(var(--card-line-height) * 1em + 2 * var(--card-padding));
+  height: calc(var(--card-line-height) * 1em + 2 * var(--card-padding));
 }
 
 .board-view-container .board-note.editing textarea,
@@ -386,14 +507,34 @@ body.mobile .board-view-container .board-add-column {
   resize: none;
 }
 
+/* A card lands at the end of a column the reader may not be looking at, so it announces itself. */
+@keyframes board-card-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.board-view-container .board-note.appearing {
+  animation: board-card-appear 500ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-view-container .board-note.appearing {
+    animation: none;
+  }
+}
+
 .board-drop-placeholder {
   height: 40px;
-  margin: 0.65em 0;
+  /* The gap below is the card's, in em, so it has to be read at the card's own font size. */
+  font-size: var(--card-font-size);
+  margin-block: 0 0.65em;
   padding: 0.5em;
   border-radius: 5px;
   background-color: rgba(0, 0, 0, 0.15);
   opacity: 0;
-  transition: opacity 0.15s ease, height 0.2s ease;
+  /* Opacity only: the height is the carried card's, so any change in it is a mismatch to see
+     rather than a movement to smooth over. */
+  transition: opacity 0.15s ease;
   box-sizing: border-box;
 }
 
@@ -417,12 +558,13 @@ body.mobile .board-view-container .board-add-column {
 }
 
 .board-new-item {
-  margin-top: 0.5em;
-  padding: 0.25em 0.5em;
+  /* The same box the editor it opens into has, so clicking it changes nothing but its content. */
+  padding: var(--card-padding);
+  line-height: var(--card-line-height);
   border-radius: 5px;
   color: var(--muted-text-color);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
   background-color: transparent;
   font-size: var(--card-font-size);
 }
@@ -475,22 +617,6 @@ body.mobile .board-view-container .board-add-column {
   font-size: inherit;
   width: 100%;
   text-align: center;
-}
-
-.board-drag-preview {
-  position: fixed;
-  z-index: 10000;
-  pointer-events: none;
-  opacity: 0.8;
-  transform: rotate(5deg);
-  box-shadow: 4px 8px 16px rgba(0, 0, 0, 0.5);
-  background-color: var(--main-background-color);
-  border: 1px solid var(--main-border-color);
-  border-radius: 5px;
-  padding: 0.5em;
-  font-size: 0.9em;
-  max-width: 200px;
-  word-wrap: break-word;
 }
 
 /* The menu is drawn outside the board, so the columns it lists are named rather than reached
