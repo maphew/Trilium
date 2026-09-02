@@ -178,6 +178,14 @@ test.describe("Exact Search with Leading = Operator", () => {
             const data = await response.json();
             const noteIds = path === "quick-search" ? data.searchResultNoteIds : data;
             expect(noteIds).toContain(noteId);
+
+            const negativeResponse = await page.request.get(getSearchUrl(path, "中/NoSuchTokenQwerty"), {
+                headers: { "x-csrf-token": csrfToken }
+            });
+            expect(negativeResponse.ok()).toBeTruthy();
+            const negativeData = await negativeResponse.json();
+            const negativeNoteIds = path === "quick-search" ? negativeData.searchResultNoteIds : negativeData;
+            expect(negativeNoteIds).not.toContain(noteId);
         }
     });
 
