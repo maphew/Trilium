@@ -251,14 +251,24 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const statusDefinition = useMemo(
         () => getStatusDefinition(parentNote, statusAttributeWithPrefix),
         [ parentNote, statusAttributeWithPrefix, definitionRevision ]);
-    const api = useMemo(() => {
-        return new Api(
-            byColumn, usableColumns, parentNote, statusAttributeWithPrefix, viewConfig ?? {},
-            saveConfig, setBranchIdToEdit, pendingRenamesRef.current.writes, statusDefinition);
-    }, [
-        byColumn, usableColumns, parentNote, statusAttributeWithPrefix, viewConfig,
-        saveConfig, setBranchIdToEdit, statusDefinition
-    ]);
+    // One api for as long as the board is shown, pointed at each refresh's data rather than built
+    // again: a new object would be a new prop on every card, and `memo` would then redraw all of
+    // them for a move that touched one. Another board takes a new one, since this instance is
+    // reused across boards and the api holds that board's record of the writes in flight.
+    const apiRef = useRef<{ board: string, api: Api }>();
+    if (!apiRef.current || apiRef.current.board !== boardIdentity) {
+        apiRef.current = {
+            board: boardIdentity,
+            api: new Api(
+                byColumn, usableColumns, parentNote, statusAttributeWithPrefix, viewConfig,
+                saveConfig, setBranchIdToEdit, pendingRenamesRef.current.writes, statusDefinition)
+        };
+    } else {
+        apiRef.current.api.update(
+            byColumn, usableColumns, parentNote, statusAttributeWithPrefix, viewConfig,
+            saveConfig, setBranchIdToEdit, statusDefinition);
+    }
+    const api = apiRef.current.api;
     // Every member is one of useState's own setters, so this value is built once and never changes
     // identity -- a drag cannot reach anything that reads only this.
     const boardActions = useMemo<BoardActions>(() => ({

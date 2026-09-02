@@ -16,6 +16,7 @@ function Card({
     branch,
     column,
     index,
+    statusAttribute,
     isDragging,
     isEditing,
     onFocusCard
@@ -25,6 +26,11 @@ function Card({
     branch: FBranch,
     column: string,
     index: number,
+    /**
+     * The label the board groups by, so that a card is not left reading it off `api`. The api keeps
+     * one identity for the life of the board, which a `memo` comparison cannot see through.
+     */
+    statusAttribute: string,
     isDragging: boolean,
     /**
      * Passed down rather than derived here from the drag state's `branchIdToEdit`, so that a card
@@ -107,7 +113,7 @@ function Card({
                         title={t("board_view.edit-note-title")}
                         onClick={handleEdit}
                     />
-                    <UserAttributesDisplay note={note} ignoredAttributes={[api.statusAttribute]} />
+                    <UserAttributesDisplay note={note} ignoredAttributes={[statusAttribute]} />
                 </>
             ) : (
                 <TitleEditor
@@ -132,7 +138,8 @@ function Card({
  * re-renders a context consumer whatever its memo boundary says, so subscribing there would make
  * the comparison below unreachable. `isEditing` and `isDragging` arrive as props for that reason.
  *
- * Note that `api` is rebuilt whenever the board's data is, so a refresh still re-renders every card
- * regardless. This bails out on the drag and edit redraws, not on those.
+ * `api` keeps one identity for as long as the board is mounted, so a refresh reaches only the cards
+ * whose own props changed. Anything a card reads off the api while rendering has to arrive as a prop
+ * instead, which is why `statusAttribute` is one.
  */
 export default memo(Card);

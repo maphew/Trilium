@@ -303,6 +303,7 @@ export default function Column({
                                 branch={branch}
                                 column={column}
                                 index={index}
+                                statusAttribute={api.statusAttribute}
                                 isDragging={draggedCard?.noteId === note.noteId}
                                 isEditing={branch.branchId === branchIdToEdit}
                                 onFocusCard={onFocusCard}
