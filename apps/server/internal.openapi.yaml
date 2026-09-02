@@ -1951,12 +1951,6 @@ paths:
       responses:
         '200':
           description: Search results
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SearchResult'
                   
   /api/quick-search:
     get:
@@ -1998,12 +1992,6 @@ paths:
       responses:
         '200':
           description: Quick search results
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SearchResult'
                   
   /api/search-note/{noteId}:
     get:
