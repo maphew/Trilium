@@ -85,12 +85,15 @@ describe("Search API (core)", () => {
     });
 
     it("keeps path parameters compatible with existing clients", async () => {
-        const full = await api.get<string[]>(`/api/search/${UNIQUE_TOKEN}`);
+        const full = await api.get<string[]>(`/api/search/${UNIQUE_TOKEN}`, {
+            query: { searchString: "" }
+        });
         expect(full.status).toBe(200);
         expect(full.body).toContain(createdNoteId);
 
         const quick = await api.get<{ searchResultNoteIds: string[] }>(
-            `/api/quick-search/${UNIQUE_TOKEN}`
+            `/api/quick-search/${UNIQUE_TOKEN}`,
+            { query: { searchString: "" } }
         );
         expect(quick.status).toBe(200);
         expect(quick.body.searchResultNoteIds).toContain(createdNoteId);
