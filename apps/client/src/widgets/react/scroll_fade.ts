@@ -73,8 +73,9 @@ export function useScrollFade(ref: RefObject<HTMLElement>, options: ScrollFadeOp
     useEffect(() => {
         if (!element) return;
 
-        // Coalesced: a batch of cards arriving fires the observer once per change, and each
-        // measurement reads a layout the last one just invalidated.
+        // Coalesced, for the observers alone: a batch of cards arriving fires one per change, and
+        // each measurement reads a layout the last one just invalidated. A scroll is measured as it
+        // happens, so the fade keeps up with the finger rather than trailing it by a frame.
         const request = () => {
             if (frameRef.current === undefined) {
                 frameRef.current = requestAnimationFrame(() => {
@@ -92,12 +93,12 @@ export function useScrollFade(ref: RefObject<HTMLElement>, options: ScrollFadeOp
         resize.observe(element);
         const mutations = new MutationObserver(request);
         mutations.observe(element, { childList: true, subtree: true, characterData: true });
-        element.addEventListener("scroll", request, { passive: true });
+        element.addEventListener("scroll", measure, { passive: true });
 
         return () => {
             resize.disconnect();
             mutations.disconnect();
-            element.removeEventListener("scroll", request);
+            element.removeEventListener("scroll", measure);
             if (frameRef.current !== undefined) {
                 cancelAnimationFrame(frameRef.current);
                 frameRef.current = undefined;
