@@ -155,6 +155,16 @@ test.describe("Exact Search with Leading = Operator", () => {
         console.log("Note titles:", testResults.map((r: any) => r.noteTitle));
     });
 
+    test("Search APIs accept slash-bearing query text", async ({ page }) => {
+        for (const path of [ "quick-search", "search" ] as const) {
+            const response = await page.request.get(getSearchUrl(path, "中/英"), {
+                headers: { "x-csrf-token": csrfToken }
+            });
+
+            expect(response.ok()).toBeTruthy();
+        }
+    });
+
     test("Quick search with = operator returns only exact matches", async ({ page }) => {
         // Test the /quick-search endpoint WITH the = operator
         const response = await page.request.get(getSearchUrl("quick-search", "=pagio"), {
