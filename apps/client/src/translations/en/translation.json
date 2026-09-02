@@ -3403,6 +3403,7 @@
     "add-column-placeholder": "Enter column name...",
     "edit-note-title": "Click to edit note title",
     "rename-column": "Rename column",
+    "collapse-column": "Collapse column",
     "set-limit": "Set limit...",
     "set-limit-ok": "Set limit",
     "limit-capacity": "Warn for exceeding the column capacity",

@@ -158,8 +158,25 @@ describe("Board drag and drop", () => {
         expect(branches.moveAfterBranch).not.toHaveBeenCalled();
     });
 
+    /**
+     * A collapsed column draws no cards, so the drop has nowhere to place one until it opens. It
+     * stays open after the pointer leaves, which is what lets the card be aimed within it.
+     */
+    it("opens a collapsed column a card is dragged over, and leaves it open", async () => {
+        const { columns } = await renderBoard({ collapsed: true });
+
+        expect(columns[0].classList.contains("collapsed")).toBe(true);
+
+        await drag(columns[0], "dragover", { types: [ CARD_CLIPBOARD_TYPE ] }, 50);
+        expect(columns[0].classList.contains("collapsed")).toBe(false);
+        expect(columns[0].querySelectorAll(".board-note")).toHaveLength(2);
+
+        await drag(columns[0], "dragleave", { types: [ CARD_CLIPBOARD_TYPE ] });
+        expect(columns[0].classList.contains("collapsed")).toBe(false);
+    });
+
     /** A board of one column of two cards, each given a height the pointer can be placed in. */
-    async function renderBoard() {
+    async function renderBoard({ collapsed }: { collapsed?: boolean } = {}) {
         const note = buildNote({
             title: "Board",
             "#collection": "",
@@ -182,7 +199,7 @@ describe("Board drag and drop", () => {
                         notePath={`root/${note.noteId}`}
                         noteIds={[ ...note.getChildNoteIds() ]}
                         highlightedTokens={null}
-                        viewConfig={{ columns: [ { value: "To Do" } ] }}
+                        viewConfig={{ columns: [ { value: "To Do", collapsed } ] }}
                         saveConfig={() => {}}
                         media="screen"
                         onReady={() => {}}
@@ -284,6 +301,35 @@ describe("Board column reordering", () => {
 
         expect(saved.at(-1)?.columns?.map(column => column.value))
             .toEqual([ "To Do", "Done", "Doing" ]);
+    });
+
+    /**
+     * The gap held open while a column is carried stands in for that column, and a collapsed one
+     * is a strip. A placeholder of the stock width would promise a space the column will not fill.
+     */
+    it("holds open a gap the size of the column being dragged", async () => {
+        const { columns, board } = await renderColumns();
+        for (const [ name, value ] of Object.entries({ offsetWidth: 36, offsetHeight: 140 })) {
+            Object.defineProperty(columns[0], name, { value, configurable: true });
+        }
+
+        await dragColumn(columns[0], "dragstart");
+        await dragColumn(columns[2], "dragover", 280);
+
+        const placeholder = board.querySelector<HTMLElement>(".column-drop-placeholder");
+        expect(placeholder?.style.width).toBe("36px");
+        expect(placeholder?.style.height).toBe("140px");
+    });
+
+    /** happy-dom lays nothing out, which is what an element with no size on screen reports too. */
+    it("leaves the gap at its stock size when the column measures nothing", async () => {
+        const { columns, board } = await renderColumns();
+
+        await dragColumn(columns[0], "dragstart");
+        await dragColumn(columns[2], "dragover", 280);
+
+        const placeholder = board.querySelector<HTMLElement>(".column-drop-placeholder");
+        expect(placeholder?.style.width).toBe("");
     });
 
     it("hides the column being dragged, and shows it again once let go", async () => {

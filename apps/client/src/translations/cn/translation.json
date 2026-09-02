@@ -629,7 +629,8 @@
     "map_cluster": "将彼此靠近的标记聚合成单个带编号的气泡，点击即可展开。",
     "ai_quick_action": "将这篇笔记作为指令提供给文本编辑器的 AI 助手菜单。标题为操作命名，内容为提示词。",
     "template_new_note_default_parent": "设置在模板笔记上：从该模板创建的笔记（如通过 @ 补全）会放置在目标笔记下，除非显式选择了其他位置。",
-    "custom_font": "标记在 Trilium 选项的字体选择器中提供的字体文件，置于笔记自身标题之下。"
+    "custom_font": "标记在 Trilium 选项的字体选择器中提供的字体文件，置于笔记自身标题之下。",
+    "enable_inbox_column": "对于看板集合，显示收件箱列，其中列出所有未被分配到看板列的子笔记。"
   },
   "attribute_editor": {
     "help_text_body1": "要添加标签，只需输入例如 <code>#rock</code> ；或者如果你还想同时添加数值，则可输入例如 <code>#year = 2020</code>",
@@ -1399,10 +1400,10 @@
     "note_detail_font": "文档字体",
     "monospace_font": "等宽字体",
     "generic-fonts": "通用字体",
-    "sans-serif-system-fonts": "无衬线系统字体",
-    "serif-system-fonts": "衬线系统字体",
-    "monospace-system-fonts": "等宽系统字体",
-    "handwriting-system-fonts": "手写系统字体",
+    "sans-serif-system-fonts": "无衬线字体",
+    "serif-system-fonts": "衬线字体",
+    "monospace-system-fonts": "等宽字体",
+    "handwriting-system-fonts": "手写字体",
     "serif": "衬线",
     "sans-serif": "无衬线",
     "monospace": "等宽",
@@ -1414,8 +1415,17 @@
     "apply_changes": "重新加载以应用更改",
     "monospace_ligatures": "代码连字（ligatures）",
     "monospace_ligatures_description": "如果等宽字体支持，将 != 和 -> 等字符对渲染为单个符号（≠、→）。文本本身不会改变。",
-    "custom_fonts_description": "替换主题的字体。并非所有列出的字体在每个设备上都可用；上传到 Trilium 的字体可从其自身笔记中添加。",
-    "user-fonts": "自定义字体"
+    "custom_fonts_description": "替换主题的字体。上传到 Trilium 的字体可以从其自身的笔记中添加。",
+    "user-fonts": "自定义字体",
+    "main_font_short": "界面",
+    "note_tree_font_short": "笔记树",
+    "note_detail_font_short": "笔记内容",
+    "monospace_font_short": "等宽",
+    "proportional-system-fonts": "比例字体",
+    "search_placeholder": "搜索字体",
+    "no_fonts_found": "没有符合你搜索条件的字体。",
+    "document_preview_heading": "紫竹梅扦插",
+    "document_preview_body": "从节下方剪下 4 根枝条，插在窗台上的水里；第一批根会在 <strong>9 天</strong> 后长出. 在 <em>阳关充足</em> 处它保持颜色，在阴凉处则会褪为绿色。"
   },
   "max_content_width": {
     "title": "内容宽度",
@@ -2442,7 +2452,9 @@
     "show-scale": "显示比例尺",
     "show-labels": "显示标记名称",
     "cluster-markers": "聚合附近的标记",
-    "presentation-theme": "主题"
+    "presentation-theme": "主题",
+    "board-inbox-column": "显示收件箱列",
+    "board-inbox-column-help": "显示收件箱列，其中列出所有未被分配到某一列的子笔记。"
   },
   "table_context_menu": {
     "delete_row": "删除行"
@@ -2505,7 +2517,18 @@
       "move_to_end_column": "移动到第一列 / 最后一列",
       "move_column": "左 / 右移动列",
       "move_column_to_edge": "将列移动到最左 / 最右"
-    }
+    },
+    "inbox": "收件箱",
+    "inherited-column": "此卡片从模板或父笔记继承其列，可在来源处进行更改。",
+    "inbox-nested": "包含嵌套笔记",
+    "inbox-remove": "移除收件箱列",
+    "card-count_other": "{{count}} 个项目",
+    "card-count-with-archived_other": "{{count}} 个活动项目，{{archived}} 个已归档",
+    "card-count-over-limit": "超出此列设置的笔记上限！",
+    "set-limit": "设置上限...",
+    "set-limit-ok": "设置上限",
+    "limit-capacity": "超出列容量时发出警告",
+    "limit-count": "列中笔记的最大数量"
   },
   "command_palette": {
     "tree-action-name": "树形：{{name}}",

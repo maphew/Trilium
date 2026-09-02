@@ -2942,7 +2942,7 @@ paths:
           schema:
             type: string
             enum: [prometheus, json]
-            default: json
+            default: prometheus
       responses:
         '200':
           description: System metrics
