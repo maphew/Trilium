@@ -728,7 +728,8 @@
     "set-limit": "上限を設定...",
     "set-limit-ok": "上限を設定",
     "limit-capacity": "列の容量超過時に警告する",
-    "limit-count": "列内の最大ノート数"
+    "limit-count": "列内の最大ノート数",
+    "collapse-column": "列を折りたたむ"
   },
   "code_buttons": {
     "execute_button_title": "スクリプトを実行",
@@ -1064,7 +1065,7 @@
     "search_placeholder": "フォント検索",
     "no_fonts_found": "該当するフォントは見つかりませんでした。",
     "document_preview_heading": "パープルハートの挿し木",
-    "document_preview_body": "節の下で茎を4 本切り取り、窓辺の水に挿しておきました。<strong>9 日</strong>後に最初の根が出てきました。<em>日当たりの良い</em> 場所では鮮やかな色を保ち、日陰では緑色に褪せます。"
+    "document_preview_body": "節の下で茎を4本切り取り、窓辺の水に挿しておきました。 <strong>9日</strong> 後に最初の根が出てきました。 <em>日当たりの良い</em> 場所では鮮やかな色を保ち、日陰では緑色に褪せます。"
   },
   "max_content_width": {
     "title": "コンテンツ幅",
@@ -1436,7 +1437,7 @@
     "other_notes_with_name": "{{attributeType}} の名前が「{{attributeName}}」であるその他のノート",
     "color_type": "色",
     "share_description": "説明用に HTML メタタグに追加するテキストを定義します。",
-    "title_template": "このノートの子として作成されるノートのデフォルトのタイトルです。値は JavaScript 文字列として評価されるため \n                        挿入された <code>now</code> および <code>parentNote</code> 変数を介して動的なコンテンツを追加できます。例:\n                         \n                        <ul>\n                            <li><code>${parentNote.getLabelValue('authorName')}の文学作品</code></li>\n                            <li><code>${now.format('YYYY-MM-DD HH:mm:ss')}のログ</code></li>\n                        </ul>\n                        \n                        詳細については <a href=\"https://triliumnext.github.io/Docs/Wiki/default-note-title.html\">Wiki の詳細</a>、および <a href=\"https://zadam.github.io/trilium/backend_api/Note.html\">parentNote</a> と <a href=\"https://day.js.org/docs/en/display/format\">now</a> の API ドキュメントを参照してください。",
+    "title_template": "このノートの子として作成されるノートのデフォルトのタイトルです。値は JavaScript 文字列として評価されるため、\n                        挿入された <code>now</code> および <code>parentNote</code> 変数を介して動的なコンテンツを追加できます。例:\n                         \n                        <ul>\n                            <li><code>${parentNote.getLabelValue('authorName')}の文学作品</code></li>\n                            <li><code>${now.format('YYYY-MM-DD HH:mm:ss')}のログ</code></li>\n                        </ul>\n                        \n                       詳細については、 <a href=\"https://triliumnext.github.io/Docs/Wiki/default-note-title.html\">wiki with details</a> を、 <a href=\"https://zadam.github.io/trilium/backend_api/Note.html\">parentNote</a> と <a href=\"https://day.js.org/docs/en/display/format\">now</a> の API ドキュメントを参照してください。",
     "run_on_note_title_change": "ノートのタイトルが変更されたときに実行されます（ノートの作成も含む）。",
     "run_on_note_content_change": "ノートの内容が変更されたときに実行されます（ノートの作成も含む）。",
     "run_on_note_change": "ノートが変更されたときに実行されます（ノートの作成も含む）。内容の変更は含まれません。",
