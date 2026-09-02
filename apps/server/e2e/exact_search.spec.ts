@@ -156,14 +156,17 @@ test.describe("Exact Search with Leading = Operator", () => {
     });
 
     test("Search APIs accept slash-bearing query text", async ({ page }) => {
-        const noteResponse = await page.request.post(`${BASE_URL}/api/notes/root/children?target=into&targetBranchId=`, {
-            headers: { "x-csrf-token": csrfToken },
-            data: {
-                title: "中/英",
-                content: "Slash-bearing search transport test.",
-                type: "text"
+        const noteResponse = await page.request.post(
+            `${BASE_URL}/api/notes/root/children?target=into&targetBranchId=`,
+            {
+                headers: { "x-csrf-token": csrfToken },
+                data: {
+                    title: "中/英",
+                    content: "Slash-bearing search transport test.",
+                    type: "text"
+                }
             }
-        });
+        );
         expect(noteResponse.ok()).toBeTruthy();
         const noteId = (await noteResponse.json()).note.noteId;
         createdNoteIds.push(noteId);
@@ -179,12 +182,15 @@ test.describe("Exact Search with Leading = Operator", () => {
             const noteIds = path === "quick-search" ? data.searchResultNoteIds : data;
             expect(noteIds).toContain(noteId);
 
-            const negativeResponse = await page.request.get(getSearchUrl(path, "中/NoSuchTokenQwerty"), {
-                headers: { "x-csrf-token": csrfToken }
-            });
+            const negativeResponse = await page.request.get(
+                getSearchUrl(path, "中/NoSuchTokenQwerty"),
+                { headers: { "x-csrf-token": csrfToken } }
+            );
             expect(negativeResponse.ok()).toBeTruthy();
             const negativeData = await negativeResponse.json();
-            const negativeNoteIds = path === "quick-search" ? negativeData.searchResultNoteIds : negativeData;
+            const negativeNoteIds = path === "quick-search"
+                ? negativeData.searchResultNoteIds
+                : negativeData;
             expect(negativeNoteIds).not.toContain(noteId);
         }
     });
