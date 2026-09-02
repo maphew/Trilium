@@ -3,7 +3,7 @@ import "./index.css";
 import clsx from "clsx";
 
 import { createContext, Fragment, TargetedKeyboardEvent } from "preact";
-import { createPortal } from "preact/compat";
+import { createPortal, RefObject } from "preact/compat";
 import {
     Dispatch, StateUpdater, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState
 } from "preact/hooks";
@@ -715,7 +715,7 @@ function AddNewColumn({ api, isInRelationMode }: { api: BoardApi, isInRelationMo
 
 export function TitleEditor({
     currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true,
-    saveAndContinue = false
+    saveAndContinue = false, returnFocusTo
 }: {
     currentValue?: string;
     placeholder?: string;
@@ -728,6 +728,12 @@ export function TitleEditor({
      * be typed one after another. Escape and clicking away still close it.
      */
     saveAndContinue?: boolean;
+    /**
+     * Where focus goes when the editor closes, instead of back to whatever held it before. A card
+     * whose editor was opened for it rather than by it names itself, so that closing does not light
+     * up the card the reader came from on the way.
+     */
+    returnFocusTo?: RefObject<HTMLElement>;
     /**
      * Whether opening the editor selects what is already in it, which is what a rename wants. An
      * editor opened part-typed puts the caret after the text instead, so the next key carries on
@@ -781,9 +787,10 @@ export function TitleEditor({
         if (e.key === "Enter" || e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
-            if (focusElRef.current instanceof HTMLElement) {
+            const target = returnFocusTo?.current ?? focusElRef.current;
+            if (target instanceof HTMLElement) {
                 shouldDismiss.current = (e.key === "Escape");
-                focusElRef.current.focus();
+                target.focus();
             } else {
                 dismiss();
             }

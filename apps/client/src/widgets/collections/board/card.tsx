@@ -20,9 +20,11 @@ function Card({
     index,
     statusAttribute,
     isNew,
+    focusOnArrival,
     isDragging,
     isEditing,
-    onFocusCard
+    onFocusCard,
+    onCreated
 }: {
     api: BoardApi,
     note: FNote,
@@ -34,8 +36,10 @@ function Card({
      * one identity for the life of the board, which a `memo` comparison cannot see through.
      */
     statusAttribute: string,
-    /** Whether this is the card the new-item editor has just made, which is revealed on arrival. */
+    /** Whether this is the card just made, which is revealed on arrival. */
     isNew: boolean,
+    /** Whether the card just made is also left focused, which an insert's is and the footer's is not. */
+    focusOnArrival: boolean,
     isDragging: boolean,
     /**
      * Passed down rather than derived here from the drag state's `branchIdToEdit`, so that a card
@@ -43,7 +47,9 @@ function Card({
      */
     isEditing: boolean,
     /** Puts focus back on this card once a change of column has drawn it under another one. */
-    onFocusCard: (noteId: string) => void
+    onFocusCard: (noteId: string) => void,
+    /** Names the card inserted next to this one, which the column reveals as it draws it. */
+    onCreated: (noteId: string | undefined) => void
 }) {
     const { setBranchIdToEdit } = useContext(BoardActionsContext);
     const colorClass = note.getColorClass() || '';
@@ -64,8 +70,8 @@ function Card({
     });
 
     const handleContextMenu = useCallback((e: ContextMenuEvent) => {
-        openNoteContextMenu(api, e, note, branch.branchId, column, onFocusCard);
-    }, [ api, note, branch, column, onFocusCard ]);
+        openNoteContextMenu(api, e, note, branch.branchId, column, onFocusCard, onCreated);
+    }, [ api, note, branch, column, onFocusCard, onCreated ]);
 
     const handleOpen = useCallback((e: MouseEvent) => {
         // A double click is one gesture, and its second click would open the note over itself: the
@@ -85,30 +91,46 @@ function Card({
             // Enter adds a card the way it adds a row in a spreadsheet, and Space is what opens
             // one. Shift adds it above instead of below.
             e.preventDefault();
-            api.insertRowAtPosition(column, branch.branchId, e.shiftKey ? "before" : "after");
+            api.insertRowAtPosition(column, branch.branchId, e.shiftKey ? "before" : "after")
+                .then(created => onCreated(created?.noteId));
         } else if (e.key === "F2") {
             setBranchIdToEdit(branch.branchId);
         }
-    }, [ api, column, branch, setBranchIdToEdit ]);
+    }, [ api, column, branch, setBranchIdToEdit, onCreated ]);
 
     useEffect(() => {
         editorRef.current?.focus();
     }, [ isEditing ]);
 
+    // An insert opens the new card's title editor, which holds focus while a title is typed. The
+    // card takes it from there, so that the arrow keys carry on from where the reader is.
+    useEffect(() => {
+        if (focusOnArrival && !isEditing) {
+            cardRef.current?.focus();
+        }
+    }, [ focusOnArrival, isEditing ]);
+
     useEffect(() => {
         setTitle(note.title);
     }, [ note ]);
 
-    // A card is added at the end of its column, which on a full column is below the fold. The
-    // column is taken to its end rather than the card into view, so the card lands clear of the
-    // fade the scrolling body draws over its bottom edge.
+    // A new card can be below the fold on a full column. One at the end takes the column to its
+    // end, so it lands clear of the fade the scrolling body draws over its bottom edge; one
+    // inserted between others is only brought into view.
     useLayoutEffect(() => {
         if (!isNew) {
             return;
         }
 
-        const content = cardRef.current?.closest(".board-column-content");
-        if (content) {
+        const card = cardRef.current;
+        const content = card?.closest(".board-column-content");
+        if (!card || !content) {
+            return;
+        }
+
+        if (card.nextElementSibling) {
+            card.scrollIntoView?.({ block: "nearest" });
+        } else {
             content.scrollTop = content.scrollHeight;
         }
     }, [ isNew ]);
@@ -138,6 +160,7 @@ function Card({
                 </>
             ) : (
                 <TitleEditor
+                    returnFocusTo={cardRef}
                     currentValue={note.title}
                     save={newTitle => {
                         api.renameCard(note.noteId, newTitle);

@@ -452,7 +452,7 @@ describe("Board item context menu", () => {
             { getStatusLabel: () => "Status", getColumnTitle: (name: string) => name }, api);
         openNoteContextMenu(
             withDefaults, event, buildNote({ title: "Card" }) as FNote, "branchId", column,
-            focusCard);
+            focusCard, () => {});
 
         return show.mock.calls.at(-1)?.[0].items ?? [];
     }

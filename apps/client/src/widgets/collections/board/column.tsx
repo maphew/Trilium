@@ -76,7 +76,13 @@ export default function Column({
     onFocusCard: (noteId: string) => void
 } & DragContext) {
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
-    const [ createdNoteId, setCreatedNoteId ] = useState<string>();
+    const [ created, setCreated ] = useState<{ noteId?: string, takesFocus: boolean }>();
+    // A card inserted next to another one is where the reader is working, so it is left focused; one
+    // made in the footer is not, or every card would take focus from the editor still being typed in.
+    const cardInserted = useCallback(
+        (noteId: string | undefined) => setCreated({ noteId, takesFocus: true }), []);
+    const cardAdded = useCallback(
+        (noteId: string | undefined) => setCreated({ noteId, takesFocus: false }), []);
     const { setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn } =
         useContext(BoardActionsContext);
     const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
@@ -305,10 +311,14 @@ export default function Column({
                                 column={column}
                                 index={index}
                                 statusAttribute={api.statusAttribute}
-                                isNew={note.noteId === createdNoteId}
+                                isNew={note.noteId === created?.noteId}
+                                focusOnArrival={
+                                    note.noteId === created?.noteId && created.takesFocus
+                                }
                                 isDragging={draggedCard?.noteId === note.noteId}
                                 isEditing={branch.branchId === branchIdToEdit}
                                 onFocusCard={onFocusCard}
+                                onCreated={cardInserted}
                             />
                         </Fragment>
                     );
@@ -323,7 +333,7 @@ export default function Column({
                 column={column}
                 isCreating={isCreatingNewItem}
                 setIsCreating={setIsCreatingNewItem}
-                onCreated={setCreatedNoteId}
+                onCreated={cardAdded}
             />}
         </div>
     );
