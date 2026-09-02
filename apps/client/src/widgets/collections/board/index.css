@@ -450,6 +450,19 @@ body.mobile .board-view-container .board-add-column {
   touch-action: none;
 }
 
+/* Reaching the end of the board or of a column scrolls neither the page nor anything else. */
+.board-view-container,
+.board-view-container .board-column-content {
+  overscroll-behavior: contain;
+}
+
+/* And while something is carried, the end does not spring back either: the copy is positioned
+   against the window, which an overscroll moves on WebKit, taking the copy with it. */
+.board-view-container.board-dragging,
+.board-view-container.board-dragging .board-column-content {
+  overscroll-behavior: none;
+}
+
 /* The gap opening and closing moves content above whatever the browser has anchored to, and it
    shifts the column to keep that still. The shift moves the card under the pointer, which moves the
    gap, which shifts the column again: at the foot of a tall column the two chase each other and it

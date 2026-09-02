@@ -435,11 +435,14 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     });
 
     // A column opened to take the card moves every column after it, which the measurement predates.
+    // Only for a card: a carried column is measured among the columns as they stood when it was
+    // picked up, which is the list the place it would take is counted against, and measuring again
+    // with it out of the flow would count one place fewer than the board has.
     useLayoutEffect(() => {
-        if (isDraggingItem) {
+        if (isDraggingItem && !draggedColumn) {
             remeasure();
         }
-    }, [ isDraggingItem, remeasure, activeColumn, shownColumns ]);
+    }, [ isDraggingItem, draggedColumn, remeasure, activeColumn, shownColumns ]);
 
     // Only the board's own background, so a press on a column, a card or the button that adds one
     // is left to whatever it belongs to. Suppressed while a card is carried: the gesture owns the
@@ -715,7 +718,7 @@ function AddNewColumn({ api, isInRelationMode }: { api: BoardApi, isInRelationMo
 
 export function TitleEditor({
     currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true,
-    saveAndContinue = false, returnFocusTo
+    saveAndContinue = false, returnFocusTo, abandon
 }: {
     currentValue?: string;
     placeholder?: string;
@@ -725,9 +728,14 @@ export function TitleEditor({
     mode?: "normal" | "multiline" | "relation";
     /**
      * Whether Enter saves and clears the editor rather than closing it, so that a run of cards can
-     * be typed one after another. Escape and clicking away still close it.
+     * be typed one after another. Enter is then the only thing that saves: Escape and losing focus
+     * both give up what was typed and close the editor, since an editor that stays open between
+     * cards is left behind often enough that saving on the way out would make cards nobody asked
+     * for.
      */
     saveAndContinue?: boolean;
+    /** What was typed and not saved, handed over so that reopening the editor can carry it back. */
+    abandon?: (typed: string) => void;
     /**
      * Where focus goes when the editor closes, instead of back to whatever held it before. A card
      * whose editor was opened for it rather than by it names itself, so that closing does not light
@@ -746,7 +754,9 @@ export function TitleEditor({
     const dismissOnNextRefreshRef = useRef(false);
     const shouldDismiss = useRef(false);
 
-    useEffect(() => {
+    // Laid out rather than deferred: with the open drawn synchronously, this puts focus on the
+    // editor inside the press that asked for it, which is what opens a phone's keyboard.
+    useLayoutEffect(() => {
         focusElRef.current = document.activeElement !== document.body ? document.activeElement : null;
         inputRef.current?.focus();
 
@@ -798,6 +808,12 @@ export function TitleEditor({
     };
 
     const onBlur = (newValue: string) => {
+        if (saveAndContinue) {
+            abandon?.(newValue);
+            dismiss();
+            return;
+        }
+
         if (!shouldDismiss.current && newValue.trim() && (newValue !== currentValue || isNewItem)) {
             commit(newValue);
             dismissOnNextRefreshRef.current = true;

@@ -19,7 +19,11 @@ export function measureBoard(container: HTMLElement): BoardMeasurement {
     const columns: ColumnBox[] = [];
     const areas = new Map<string, HTMLElement>();
 
-    for (const element of container.querySelectorAll<HTMLElement>(".board-column")) {
+    // The copy being carried is a column too, and measuring again mid-drag would count it as a
+    // place to drop into, one past every place the board actually has.
+    const drawn = container.querySelectorAll<HTMLElement>(".board-column:not(.board-drag-preview)");
+
+    for (const element of drawn) {
         const value = element.dataset.column ?? "";
         const rect = element.getBoundingClientRect();
         const area = element.querySelector<HTMLElement>(".board-column-content");

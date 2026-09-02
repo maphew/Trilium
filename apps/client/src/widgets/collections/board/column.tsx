@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { Fragment } from "preact";
+import { flushSync } from "preact/compat";
 import {
     useCallback, useContext, useEffect, useMemo, useRef, useState
 } from "preact/hooks";
@@ -295,9 +296,11 @@ export default function Column({
                 onWheel={handleScroll}
             >
                 {(columnItems ?? []).map(({ note, branch }, index) => {
+                    // The card being carried is out of the flow, so the gap stands in its own
+                    // place too: held still, which a touch does before it moves, that is where it
+                    // was picked up from.
                     const showIndicatorBefore = dropPosition?.column === column &&
-                                            dropPosition.index === index &&
-                                            draggedCard?.noteId !== note.noteId;
+                                            dropPosition.index === index;
 
                     return (
                         <Fragment key={note.noteId}>
@@ -351,6 +354,8 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated }: {
     /** Names the card just made, which the column reveals once the board has drawn it. */
     onCreated: (noteId: string | undefined) => void
 }) {
+    // What the editor opens with: empty to begin with, then whatever was typed into it and left
+    // unsaved, so that reaching for something else and coming back does not cost the title.
     const [ initialTitle, setInitialTitle ] = useState("");
 
     const open = useCallback((title: string) => {
@@ -362,7 +367,7 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated }: {
         if (isCreating) return;
 
         if (e.key === "Enter" && !e.ctrlKey) {
-            open("");
+            setIsCreating(true);
             return;
         }
 
@@ -373,12 +378,12 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated }: {
             e.preventDefault();
             open(e.key);
         }
-    }, [ isCreating, open ]);
+    }, [ isCreating, open, setIsCreating ]);
 
     return (
         <div
             className={`board-new-item ${isCreating ? "editing" : ""}`}
-            onClick={() => open("")}
+            onClick={() => flushSync(() => setIsCreating(true))}
             onKeyDown={handleKeyDown}
             tabIndex={300}
         >
@@ -396,6 +401,7 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated }: {
                     mode="multiline" isNewItem
                     selectOnFocus={false}
                     saveAndContinue
+                    abandon={setInitialTitle}
                 />
             )}
         </div>

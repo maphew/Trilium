@@ -70,6 +70,21 @@ function place(element: HTMLElement, box: { left: number, top: number, width: nu
 }
 
 describe("measureBoard", () => {
+    it("leaves the copy being carried out of the columns it measures", () => {
+        const board = buildBoard();
+        const carried = board.querySelector<HTMLElement>(".board-column")?.cloneNode(true);
+        if (!(carried instanceof HTMLElement)) throw new Error("expected a column to copy");
+
+        carried.classList.add("board-drag-preview");
+        board.appendChild(carried);
+        place(carried, { left: 500, top: 0, width: 100, height: 400 });
+
+        // One place per column drawn, and none for the copy: counting it would offer a place one
+        // past every place the board has.
+        expect(measureBoard(board).columns).toHaveLength(
+            board.querySelectorAll(".board-column:not(.board-drag-preview)").length);
+    });
+
     it("places the columns past the board's own scrolling", () => {
         const board = buildBoard();
 

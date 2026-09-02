@@ -1349,6 +1349,47 @@ describe("Board column rename", () => {
         expect(cameFrom).not.toHaveBeenCalled();
     });
 
+    /**
+     * The footer editor stays open between cards, so it is left behind with something typed in it
+     * often enough that saving on the way out would make cards nobody asked for.
+     */
+    it("gives up what is typed in the new-item editor when it loses focus", async () => {
+        const { container } = await setup();
+        // Cleared: the spy outlives the test that first stood it up, and its calls with it.
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        if (!editor) throw new Error("expected the new-item editor to be open");
+
+        editor.value = "Half a thought";
+        await act(async () => {
+            editor.dispatchEvent(new FocusEvent("blur"));
+            editor.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+            await flush();
+        });
+
+        expect(created).not.toHaveBeenCalled();
+        expect(slot?.querySelector("textarea")).toBeNull();
+        expect(slot?.classList.contains("editing")).toBe(false);
+
+        // What was typed is waiting in the editor when it is opened again.
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+        expect(slot?.querySelector<HTMLTextAreaElement>("textarea")?.value)
+            .toBe("Half a thought");
+    });
+
     it("starts the new item off with the character typed on its button", async () => {
         const { container } = await setup();
         const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
