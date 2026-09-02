@@ -67,6 +67,17 @@ describe("useFlip", () => {
         expect(items()[1].style.transform).toBe("");
     });
 
+    it("carries a child sideways where that is the way they move", async () => {
+        const { items } = await draw([ "a", "b" ], false, "horizontal");
+        place(items(), [ 0, 180 ], "offsetLeft");
+        await redraw();
+
+        place(items(), [ 0, 360 ], "offsetLeft");
+        await redraw();
+
+        expect(items()[1].style.transform).toBe("translateX(-180px)");
+    });
+
     it("says nothing while it is switched off", async () => {
         const { items } = await draw([ "a", "b" ], true);
         place(items(), [ 0, 40 ]);
@@ -79,14 +90,16 @@ describe("useFlip", () => {
 
     let rerender: () => Promise<void>;
 
-    async function draw(keys: string[], disabled = false) {
+    async function draw(
+        keys: string[], disabled = false, axis: "vertical" | "horizontal" = "vertical"
+    ) {
         const mountPoint = document.createElement("div");
         container = mountPoint;
         document.body.appendChild(mountPoint);
 
         function Harness() {
             const ref = useRef<HTMLDivElement>(null);
-            useFlip(ref, { selector: ".item", disabled });
+            useFlip(ref, { selector: ".item", axis, disabled });
             return (
                 <div ref={ref}>
                     {keys.map(key => <div key={key} className="item">{key}</div>)}
@@ -107,9 +120,11 @@ describe("useFlip", () => {
     }
 
     /** happy-dom reports no offsets of its own, so each child is told where it stands. */
-    function place(items: HTMLElement[], tops: number[]) {
+    function place(
+        items: HTMLElement[], tops: number[], property: "offsetTop" | "offsetLeft" = "offsetTop"
+    ) {
         for (const [ index, item ] of items.entries()) {
-            Object.defineProperty(item, "offsetTop", {
+            Object.defineProperty(item, property, {
                 value: tops[index], configurable: true, writable: true
             });
             if (!Object.getOwnPropertyDescriptor(item, "offsetParent")) {

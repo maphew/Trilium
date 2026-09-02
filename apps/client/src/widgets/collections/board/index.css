@@ -89,9 +89,9 @@ body.mobile .board-view-container.board-dragging {
   /* A column with no colour of its own is painted rather than composed: the tinted shades come
      from one lightness, which does not answer for a plain one as well. */
   background-color: var(--board-column-background);
-  /* Must stay 0s: the transition that runs is the one carried after the class changes, so this is
-     what makes opening instant while `.collapsed` below eases the close. */
-  transition: border-color 0.2s ease, width 0s;
+  /* Width must stay 0s: the transition that runs is the one carried after the class changes, so
+     this is what makes opening instant while `.collapsed` below eases the close. */
+  transition: border-color 0.2s ease, transform 0.2s ease, width 0s;
   overflow-y: auto;
   max-height: 100%;
   display: flex;
@@ -666,7 +666,8 @@ body.mobile .board-view-container .board-add-column {
   width: var(--board-collapsed-column-width);
   overflow: hidden;
   /* Width and not a transform: the columns beside it have to move with it. */
-  transition: border-color 0.2s ease, width var(--board-collapse-duration) ease;
+  transition: border-color 0.2s ease, transform 0.2s ease,
+    width var(--board-collapse-duration) ease;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -27,6 +27,7 @@ import NoteAutocomplete from "../../react/NoteAutocomplete";
 import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import { useDragPan } from "../../react/drag_pan";
+import { useFlip } from "../../react/flip";
 import { ViewModeProps } from "../interface";
 import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
 import { useBoardDrag } from "./board_drag";
@@ -450,6 +451,12 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // is left to whatever it belongs to. Suppressed while a card is carried: the gesture owns the
     // pointer, and the board must not slide under it.
     const { isPannable, isPanning } = useDragPan(containerRef, { disabled: isDraggingItem });
+    // The gap a carried column opens moves the columns beside it, which they follow rather than
+    // jump to. The copy being carried is left out: the gesture writes its transform every frame.
+    useFlip(containerRef, {
+        selector: ".board-column:not(.board-drag-preview), .board-add-column",
+        axis: "horizontal"
+    });
 
     /**
      * Brings a column to the middle of the screen, for a board that scrolls one column at a time.
