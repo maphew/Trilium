@@ -19,7 +19,8 @@ import CollectionProperties from "../../note_bars/CollectionProperties";
 import FormTextArea from "../../react/FormTextArea";
 import FormTextBox from "../../react/FormTextBox";
 import {
-    useContextualShortcutHints, useNoteLabelBoolean, useNoteLabelWithDefault, useTriliumEvent
+    useContextualShortcutHints, useNoteContext, useNoteLabelBoolean, useNoteLabelWithDefault,
+    useTrackedElement, useTriliumEvent
 } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
@@ -197,6 +198,7 @@ const BOARD_HINTS: ShortcutHintDefinition = [
 ];
 
 export default function BoardView({ note: parentNote, noteIds, viewConfig, saveConfig }: ViewModeProps<BoardViewData>) {
+    const { noteContext } = useNoteContext();
     const [ statusAttributeWithPrefix ] = useNoteLabelWithDefault(parentNote, "board:groupBy", DEFAULT_GROUP_BY);
     const [ includeArchived ] = useNoteLabelBoolean(parentNote, "includeArchived");
     const [ inboxEnabled ] = useNoteLabelBoolean(parentNote, "enableInboxColumn");
@@ -302,6 +304,17 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         // caller, since a card crossing columns changes both the note and the board's children, and
         // either of those reaches this by a path of its own.
         if (movesInFlight.current) {
+            return;
+        }
+
+        // A board in a tab the reader is not looking at draws for nobody, and every mounted board
+        // hears every change: a card renamed once redraws each of them, whichever is on screen. The
+        // change is remembered instead, and drawn once the tab is looked at again. Asked of the
+        // context rather than of the box, which is empty for a board that has not drawn yet.
+        // Only once it has drawn: a board opened straight into a background tab has to draw at
+        // least once, or there is no container to notice the tab being shown and it stays empty.
+        if (byColumn && noteContext && !noteContext.isActive()) {
+            isStale.current = true;
             return;
         }
 
@@ -443,6 +456,28 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             }
         });
     }, []);
+
+    // Whether a change arrived while the board was in a background tab.
+    const isStale = useRef(false);
+    const latestRefresh = useRef(refresh);
+    latestRefresh.current = refresh;
+
+    // Caught up when the board is given a size again, which is what showing its tab does. Keyed on
+    // that rather than on the context becoming active: the board is drawn from what the tab switch
+    // lays out, and a size is the one signal that is certainly in by then.
+    const boardElement = useTrackedElement(containerRef);
+    useEffect(() => {
+        if (!boardElement) return;
+
+        const observer = new ResizeObserver(() => {
+            if (isStale.current && boardElement.getBoundingClientRect().width > 0) {
+                isStale.current = false;
+                latestRefresh.current();
+            }
+        });
+        observer.observe(boardElement);
+        return () => observer.disconnect();
+    }, [ boardElement ]);
 
     // The board is not drawn afresh for another note, so the column opened on one would otherwise
     // still be open on the next, over whatever that board stores for a column of the same name.

@@ -400,6 +400,82 @@ describe("Collapsed board columns", () => {
     });
 });
 
+describe("A board in a tab the reader is not looking at", () => {
+    let container: HTMLElement | undefined;
+
+    afterEach(() => {
+        saved.length = 0;
+        if (container) {
+            render(null, container);
+            container.remove();
+            container = undefined;
+        }
+    });
+
+    /**
+     * Every mounted board hears every change, so a card renamed once would redraw the board in each
+     * tab it is open in. A board nobody is looking at remembers the change instead.
+     */
+    it("does not redraw for a change while its tab is in the background", async () => {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            children: [
+                { id: "one", title: "First", "#status": "To Do" },
+                { id: "two", title: "Second", "#status": "Done" }
+            ]
+        });
+
+        // The context the board belongs to, reached the way `useNoteContext` reaches it: from the
+        // nearest ancestor carrying one.
+        let active = true;
+        const host = new Component();
+        Object.assign(host, { noteContext: { isActive: () => active } });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+
+        const draw = async () => {
+            await act(async () => {
+                render(
+                    <ParentComponent.Provider value={host}>
+                        <Harness
+                            note={note}
+                            noteIds={[ ...note.getChildNoteIds() ]}
+                            initialConfig={{ columns: [ { value: "To Do" }, { value: "Done" } ] }}
+                        />
+                    </ParentComponent.Provider>,
+                    mountPoint
+                );
+            });
+            await act(async () => { await flush(); });
+        };
+
+        const columnOf = (title: string) => [ ...mountPoint.querySelectorAll(".board-column") ]
+            .find(column => [ ...column.querySelectorAll(".board-note") ]
+                .some(card => card.textContent?.includes(title)))
+            ?.getAttribute("data-column");
+
+        await draw();
+        expect(columnOf("First")).toBe("To Do");
+
+        // The card moves column while the tab is in the background.
+        active = false;
+        for (const attribute of froca.getNoteFromCache("one")?.getAttributes() ?? []) {
+            if (attribute.name === "status") attribute.value = "Done";
+        }
+        await draw();
+        expect(columnOf("First")).toBe("To Do");
+
+        // Looked at again, it catches up with what it missed.
+        active = true;
+        await draw();
+        expect(columnOf("First")).toBe("Done");
+    });
+});
+
 describe("Board column creation", () => {
     let container: HTMLElement | undefined;
 
