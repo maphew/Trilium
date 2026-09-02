@@ -3,6 +3,10 @@ import App, { getBaseUrl } from "../../../packages/trilium-e2e/src/support/app";
 
 const BASE_URL = getBaseUrl();
 
+function getSearchUrl(path: "search" | "quick-search", searchString: string) {
+    return `${BASE_URL}/api/${path}?searchString=${encodeURIComponent(searchString)}`;
+}
+
 /**
  * E2E tests for exact search functionality using the leading "=" operator.
  *
@@ -126,7 +130,7 @@ test.describe("Exact Search with Leading = Operator", () => {
 
     test("Quick search without = operator returns all partial matches", async ({ page }) => {
         // Test the /quick-search endpoint without the = operator
-        const response = await page.request.get(`${BASE_URL}/api/quick-search/pag`, {
+        const response = await page.request.get(getSearchUrl("quick-search", "pag"), {
             headers: { "x-csrf-token": csrfToken }
         });
 
@@ -153,7 +157,7 @@ test.describe("Exact Search with Leading = Operator", () => {
 
     test("Quick search with = operator returns only exact matches", async ({ page }) => {
         // Test the /quick-search endpoint WITH the = operator
-        const response = await page.request.get(`${BASE_URL}/api/quick-search/=pagio`, {
+        const response = await page.request.get(getSearchUrl("quick-search", "=pagio"), {
             headers: { "x-csrf-token": csrfToken }
         });
 
@@ -185,7 +189,7 @@ test.describe("Exact Search with Leading = Operator", () => {
 
     test("Full search API without = operator returns partial matches", async ({ page }) => {
         // Test the /search endpoint without the = operator
-        const response = await page.request.get(`${BASE_URL}/api/search/pag`, {
+        const response = await page.request.get(getSearchUrl("search", "pag"), {
             headers: { "x-csrf-token": csrfToken }
         });
 
@@ -206,7 +210,7 @@ test.describe("Exact Search with Leading = Operator", () => {
 
     test("Full search API with = operator returns only exact matches", async ({ page }) => {
         // Test the /search endpoint WITH the = operator
-        const response = await page.request.get(`${BASE_URL}/api/search/=pagio`, {
+        const response = await page.request.get(getSearchUrl("search", "=pagio"), {
             headers: { "x-csrf-token": csrfToken }
         });
 
@@ -256,7 +260,7 @@ test.describe("Exact Search with Leading = Operator", () => {
         await page.waitForTimeout(500);
 
         // Search with exact operator
-        const response = await page.request.get(`${BASE_URL}/api/quick-search/=test`, {
+        const response = await page.request.get(getSearchUrl("quick-search", "=test"), {
             headers: { "x-csrf-token": csrfToken }
         });
 
@@ -305,7 +309,7 @@ test.describe("Exact Search with Leading = Operator", () => {
         await page.waitForTimeout(500);
 
         // Search with exact operator in lowercase
-        const response = await page.request.get(`${BASE_URL}/api/quick-search/=exact`, {
+        const response = await page.request.get(getSearchUrl("quick-search", "=exact"), {
             headers: { "x-csrf-token": csrfToken }
         });
 
@@ -376,7 +380,7 @@ test.describe("Exact Search with Leading = Operator", () => {
         await page.waitForTimeout(500);
 
         // Search for exact phrase "exact phrase"
-        const response = await page.request.get(`${BASE_URL}/api/quick-search/='exact phrase'`, {
+        const response = await page.request.get(getSearchUrl("quick-search", "='exact phrase'"), {
             headers: { "x-csrf-token": csrfToken }
         });
 
@@ -431,7 +435,7 @@ test.describe("Exact Search with Leading = Operator", () => {
         await page.waitForTimeout(500);
 
         // Search for exact phrase "test sentence"
-        const response = await page.request.get(`${BASE_URL}/api/quick-search/='test sentence'`, {
+        const response = await page.request.get(getSearchUrl("quick-search", "='test sentence'"), {
             headers: { "x-csrf-token": csrfToken }
         });
 
@@ -480,7 +484,7 @@ test.describe("Exact Search with Leading = Operator", () => {
         await page.waitForTimeout(500);
 
         // Search for "=multi word" without quotes (parser tokenizes as two words)
-        const response = await page.request.get(`${BASE_URL}/api/quick-search/=multi word`, {
+        const response = await page.request.get(getSearchUrl("quick-search", "=multi word"), {
             headers: { "x-csrf-token": csrfToken }
         });
 
