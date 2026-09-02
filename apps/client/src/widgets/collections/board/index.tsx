@@ -452,9 +452,11 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // pointer, and the board must not slide under it.
     const { isPannable, isPanning } = useDragPan(containerRef, { disabled: isDraggingItem });
     // The gap a carried column opens moves the columns beside it, which they follow rather than
-    // jump to. The copy being carried is left out: the gesture writes its transform every frame.
+    // jump to. Two are left out: the copy being carried, whose transform the gesture writes every
+    // frame, and the add-column button, which a new column moves at the same moment as the scroll
+    // that keeps it in view, so sliding it as well reads as a stumble rather than as movement.
     useFlip(containerRef, {
-        selector: ".board-column:not(.board-drag-preview), .board-add-column",
+        selector: ".board-column:not(.board-drag-preview)",
         axis: "horizontal"
     });
 
