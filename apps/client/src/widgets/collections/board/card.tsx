@@ -10,15 +10,6 @@ import { t } from "../../../services/i18n";
 import UserAttributesDisplay from "../../attribute_widgets/UserAttributesList";
 import { useNoteIcon, useNoteLabelBoolean, useTriliumEvent } from "../../react/hooks";
 
-export const CARD_CLIPBOARD_TYPE = "trilium/board-card";
-
-export interface CardDragData {
-    noteId: string;
-    branchId: string;
-    index: number;
-    fromColumn: string;
-}
-
 function Card({
     api,
     note,
@@ -43,11 +34,10 @@ function Card({
     /** Puts focus back on this card once a change of column has drawn it under another one. */
     onFocusCard: (noteId: string) => void
 }) {
-    const { setBranchIdToEdit, setDraggedCard } = useContext(BoardActionsContext);
+    const { setBranchIdToEdit } = useContext(BoardActionsContext);
     const colorClass = note.getColorClass() || '';
     const editorRef = useRef<HTMLInputElement>(null);
     const [ isArchived ] = useNoteLabelBoolean(note, "archived");
-    const [ isVisible, setVisible ] = useState(true);
     const [ title, setTitle ] = useState(note.title);
     // Tracks the `iconClass` label, which an attribute change carries and the note row never does.
     const icon = useNoteIcon(note);
@@ -60,17 +50,6 @@ function Card({
             setTitle(row.title);
         }
     });
-
-    const handleDragStart = useCallback((e: DragEvent) => {
-        e.dataTransfer!.effectAllowed = 'move';
-        const data: CardDragData = { noteId: note.noteId, branchId: branch.branchId, fromColumn: column, index };
-        setDraggedCard(data);
-        e.dataTransfer!.setData(CARD_CLIPBOARD_TYPE, JSON.stringify(data));
-    }, [note.noteId, branch.branchId, column, index]);
-
-    const handleDragEnd = useCallback((e: DragEvent) => {
-        setDraggedCard(null);
-    }, [setDraggedCard]);
 
     const handleContextMenu = useCallback((e: ContextMenuEvent) => {
         openNoteContextMenu(api, e, note, branch.branchId, column, onFocusCard);
@@ -108,23 +87,13 @@ function Card({
         setTitle(note.title);
     }, [ note ]);
 
-    useEffect(() => {
-        setVisible(!isDragging);
-    }, [ isDragging ]);
-
     return (
         <div
             className={`board-note ${colorClass} ${isDragging ? 'dragging' : ''} ${isEditing ? "editing" : ""} ${isArchived ? "archived" : ""}`}
             data-note-id={note.noteId}
-            draggable
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
             onContextMenu={handleContextMenu}
             onClick={!isEditing ? handleOpen : undefined}
             onKeyDown={handleKeyDown}
-            style={{
-                display: !isVisible ? "none" : undefined
-            }}
             tabIndex={300}
         >
             {!isEditing ? (

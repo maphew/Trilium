@@ -311,12 +311,9 @@ describe("Collapsed board columns", () => {
         expect(isCollapsed(mountPoint, 0)).toBe(false);
     });
 
-    it("keeps the collapsed column movable and stored as collapsed", async () => {
+    it("opens a collapsed column without writing anything", async () => {
         const { mountPoint } = await setup();
 
-        // The header is the drag handle whether or not the column is drawn as a strip.
-        expect(columnAt(mountPoint, 0).querySelector("h3")?.getAttribute("draggable"))
-            .toBe("true");
         // Opening it by selection is not a change to the config, so nothing is written at all.
         await select(mountPoint, 0);
         expect(isCollapsed(mountPoint, 0)).toBe(false);

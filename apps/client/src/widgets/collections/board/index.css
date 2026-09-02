@@ -36,6 +36,12 @@
   --card-padding: 0.6em;
 }
 
+/* Lays nothing out: the columns stay the board's own flex items, and Preact has a parent of its own
+   to move them within. */
+.board-view-container .board-columns {
+  display: contents;
+}
+
 .board-view-container {
   height: 100%;
   display: flex;
@@ -55,7 +61,7 @@
   cursor: grabbing;
 }
 
-.board-view-container.pannable > .board-column,
+.board-view-container.pannable .board-column,
 .board-view-container.pannable > .board-add-column {
   cursor: auto;
 }
@@ -64,6 +70,15 @@ body.mobile .board-view-container {
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
+}
+
+/* Both of the above fight a scroll written a frame at a time, which is how the board walks itself
+   along while something is carried to its edge: smooth turns each step into an animation the next
+   step restarts, and snapping pulls the board back to the nearest column. The column's own cards
+   scroll either way, having neither. */
+body.mobile .board-view-container.board-dragging {
+  scroll-snap-type: none;
+  scroll-behavior: auto;
 }
 
 .board-view-container .board-column {
@@ -373,12 +388,55 @@ body.mobile .board-view-container .board-add-column {
   cursor: pointer;
 }
 
-.board-view-container .board-note.dragging {
-  cursor: move;
-  opacity: 0.5;
-  transform: rotate(5deg);
+/* The copy that follows the pointer. Positioned against the window, so the column's own scrolling
+   cannot cut it off, and left out of hit testing so it never stands in front of what it is over.
+   No `transform` here: the gesture writes the movement and the shrink together, and a rule of its
+   own would replace both. */
+/* A carried column is cut to a set height by the gesture, so a tall one does not cover the board
+   it is being placed on; what it holds is clipped rather than reflowed. */
+/* Takes no room and lays nothing out: what it holds is placed against the window, and it stands
+   inside the board so that the board's own styling still reaches it. */
+.board-view-container .board-drag-layer {
+  position: fixed;
+  top: 0;
+  inset-inline-start: 0;
+  width: 0;
+  height: 0;
+}
+
+.board-view-container .board-column.board-drag-preview {
+  overflow: hidden;
+}
+
+/* The card is focused by the press that picks it up and then taken out of the page, which drops the
+   focus; the copy carries the ring on so what is being moved still reads as what is focused. */
+.board-view-container .board-note.board-drag-preview {
+  outline: 3px solid var(--board-focus-outline-color, var(--board-focus-outline-plain-color));
+  outline-offset: 0;
+}
+
+.board-view-container .board-note.board-drag-preview,
+.board-view-container .board-column.board-drag-preview {
+  position: fixed;
+  margin: 0;
+  /* The card's own transition would animate towards each frame's position instead of taking it. */
+  transition: none;
+  will-change: transform;
   z-index: 1000;
+  pointer-events: none;
+  cursor: move;
+  opacity: 0.85;
   box-shadow: 4px 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* While a card is carried, so the page does not take the touch for a scroll. */
+.board-view-container.board-dragging {
+  touch-action: none;
+}
+
+/* A long press on a card is how it is picked up, not how it is selected or looked up. */
+.board-view-container .board-note {
+  -webkit-touch-callout: none;
 }
 
 .board-view-container .board-note.editing,
@@ -495,22 +553,6 @@ body.mobile .board-view-container .board-add-column {
   font-size: inherit;
   width: 100%;
   text-align: center;
-}
-
-.board-drag-preview {
-  position: fixed;
-  z-index: 10000;
-  pointer-events: none;
-  opacity: 0.8;
-  transform: rotate(5deg);
-  box-shadow: 4px 8px 16px rgba(0, 0, 0, 0.5);
-  background-color: var(--main-background-color);
-  border: 1px solid var(--main-border-color);
-  border-radius: 5px;
-  padding: 0.5em;
-  font-size: 0.9em;
-  max-width: 200px;
-  word-wrap: break-word;
 }
 
 /* The menu is drawn outside the board, so the columns it lists are named rather than reached

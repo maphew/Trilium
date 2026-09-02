@@ -2,9 +2,11 @@ import "./index.css";
 
 import clsx from "clsx";
 
-import { createContext, TargetedKeyboardEvent } from "preact";
+import { createContext, Fragment, TargetedKeyboardEvent } from "preact";
 import { createPortal } from "preact/compat";
-import { Dispatch, StateUpdater, useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+    Dispatch, StateUpdater, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState
+} from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
@@ -26,6 +28,8 @@ import { onWheelHorizontalScroll } from "../../widget_utils";
 import { useDragPan } from "../../react/drag_pan";
 import { ViewModeProps } from "../interface";
 import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
+import { useBoardDrag } from "./board_drag";
+import { movesColumn } from "./drag_geometry";
 import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition, INBOX_COLUMN } from "./columns";
 import Column from "./column";
@@ -69,6 +73,8 @@ interface CardDrag {
     branchId: string;
     fromColumn: string;
     index: number;
+    /** How tall the card stands, absent for a drag from the note tree, which carries no card. */
+    height?: number;
 }
 
 interface ColumnDrag {
@@ -197,12 +203,11 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ byColumn, setByColumn ] = useState<ColumnMap>();
     const [ columns, setColumns ] = useState<string[]>();
     const [ isInRelationMode, setIsRelationMode ] = useState(false);
-    const [ draggedCard, setDraggedCard ] = useState<{ noteId: string, branchId: string, fromColumn: string, index: number } | null>(null);
+    const [ draggedCard, setDraggedCard ] = useState<CardDrag | null>(null);
     const [ dropTarget, setDropTarget ] = useState<string | null>(null);
     const [ dropPosition, setDropPosition ] = useState<{ column: string, index: number } | null>(null);
     const [ draggedColumn, setDraggedColumn ] = useState<ColumnDrag | null>(null);
     const [ columnDropPosition, setColumnDropPosition ] = useState<number | null>(null);
-    const [ columnHoverIndex, setColumnHoverIndex ] = useState<number | null>(null);
     const [ branchIdToEdit, setBranchIdToEdit ] = useState<string>();
     const [ columnNameToEdit, setColumnNameToEdit ] = useState<string>();
     const [ columnLimitToEdit, setColumnLimitToEdit ] = useState<string>();
@@ -333,9 +338,86 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             });
     }
 
+    // The gesture drives the same state a drag from the note tree does, so the placeholders and the
+    // card's own dimming are drawn from one place whichever brought the card here.
+    const { isDragging: isDraggingItem, remeasure } = useBoardDrag(containerRef, {
+        onCardStart: (card) => setDraggedCard({
+            noteId: card.noteId,
+            branchId: byColumn?.get(card.fromColumn)?.[card.index]?.branch.branchId ?? "",
+            fromColumn: card.fromColumn,
+            index: card.index,
+            height: card.height
+        }),
+        onCardMove: (position, inside) => {
+            setDropTarget(position?.column ?? null);
+            setDropPosition(position);
+            // Answers for what a `dragover` did, for a collapsed column the card is actually over:
+            // one merely passed near keeps to itself, and one already opened stays open, since
+            // closing it under a drag would move every column after it.
+            if (position && inside && storedColumns.get(position.column)?.collapsed) {
+                setActiveColumn(position.column);
+            }
+        },
+        onCardEnd: (card, position) => {
+            const branchId = byColumn?.get(card.fromColumn)?.[card.index]?.branch.branchId;
+            if (position && branchId) {
+                api.moveWithinBoard(
+                    card.noteId, branchId, card.index, position.index,
+                    card.fromColumn, position.column);
+            }
+            setDraggedCard(null);
+            setDropTarget(null);
+            setDropPosition(null);
+            // Asked for by name: the card is drawn again where it landed, and a card that crossed
+            // columns is drawn as a new element, so the one that was focused is gone.
+            focusCard(card.noteId);
+            if (position) {
+                revealColumn(position.column);
+            }
+        },
+        onColumnStart: (column, index, size) => setDraggedColumn({ column, index, size }),
+        onColumnMove: setColumnDropPosition,
+        onColumnEnd: (from, to) => {
+            if (to !== null && movesColumn(from, to)) {
+                handleColumnDrop(from, to);
+            }
+            setDraggedColumn(null);
+            setColumnDropPosition(null);
+        }
+    });
+
+    // A column opened to take the card moves every column after it, which the measurement predates.
+    useLayoutEffect(() => {
+        if (isDraggingItem) {
+            remeasure();
+        }
+    }, [ isDraggingItem, remeasure, activeColumn, shownColumns ]);
+
     // Only the board's own background, so a press on a column, a card or the button that adds one
-    // is left to whatever it belongs to.
-    const { isPannable, isPanning } = useDragPan(containerRef);
+    // is left to whatever it belongs to. Suppressed while a card is carried: the gesture owns the
+    // pointer, and the board must not slide under it.
+    const { isPannable, isPanning } = useDragPan(containerRef, { disabled: isDraggingItem });
+
+    /**
+     * Brings a column to the middle of the screen, for a board that scrolls one column at a time.
+     *
+     * Snapping is off while something is carried, so letting go leaves the board wherever the
+     * gesture took it and the reader looking at two half-columns. Asked for on the next frame: the
+     * board is drawn again around the card that landed, and the column moves with it.
+     */
+    const revealColumn = useCallback((column: string) => {
+        if (!isMobile()) return;
+
+        requestAnimationFrame(() => {
+            const columns = containerRef.current?.querySelectorAll<HTMLElement>(".board-column");
+            for (const element of columns ?? []) {
+                if (element.dataset.column === column) {
+                    element.scrollIntoView({ inline: "center", block: "nearest" });
+                    return;
+                }
+            }
+        });
+    }, []);
 
     // The board is not drawn afresh for another note, so the column opened on one would otherwise
     // still be open on the next, over whatever that board stores for a column of the same name.
@@ -389,38 +471,11 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         }
     });
 
-    const handleColumnDragOver = useCallback((e: DragEvent) => {
-        if (!draggedColumn) return;
-        e.preventDefault();
-    }, [draggedColumn]);
-
-    const handleColumnHover = useCallback((index: number, mouseX: number, columnRect: DOMRect) => {
-        if (!draggedColumn) return;
-
-        const columnMiddle = columnRect.left + columnRect.width / 2;
-
-        // Determine if we should insert before or after this column
-        const insertBefore = mouseX < columnMiddle;
-
-        // Calculate the target position
-        const targetIndex = insertBefore ? index : index + 1;
-
-        setColumnDropPosition(targetIndex);
-    }, [draggedColumn]);
-
     // Measured rather than styled: a collapsed column is a strip, and the placeholder stands in
     // for whichever column is being dragged.
     const placeholderSize = draggedColumn?.size?.width
         ? { width: `${draggedColumn.size.width}px`, height: `${draggedColumn.size.height}px` }
         : undefined;
-
-    const handleContainerDrop = useCallback((e: DragEvent) => {
-        e.preventDefault();
-        if (draggedColumn && columnDropPosition !== null) {
-            handleColumnDrop(draggedColumn.index, columnDropPosition);
-        }
-        setColumnHoverIndex(null);
-    }, [draggedColumn, columnDropPosition, handleColumnDrop]);
 
     return (
         <div className="board-view">
@@ -434,12 +489,21 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                             panning: isPanning
                         })}
                         onKeyDown={handleKeyDown}
-                        onDragOver={handleColumnDragOver}
-                        onDrop={handleContainerDrop}
                         onWheel={onWheelHorizontalScroll}
                     >
+                        {/* The columns are keyed by value, so a reorder moves each column's
+                            element with it rather than repurposing elements in place, which would
+                            carry the `collapsed` class from one column to another and run its width
+                            transition on a column that never collapsed.
+
+                            They are wrapped because a moved element is placed before its next
+                            sibling, and the last ones have none: in a parent that also holds the
+                            button, the layer and the overlays, Preact appends them past all three.
+                            The wrapper lays nothing out, so the columns are still the board's own
+                            flex items. */}
+                        <div className="board-columns">
                         {shownColumns.map((column, index) => (
-                            <>
+                            <Fragment key={column}>
                                 {columnDropPosition === index && (
                                     <div
                                         className="column-drop-placeholder show"
@@ -464,17 +528,18 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     onFocusColumn={focusColumn}
                                     onFocusCard={focusCard}
                                     columnItems={byColumn.get(column)}
-                                    isDraggingColumn={draggedColumn?.column === column}
-                                    onColumnHover={handleColumnHover}
-                                    isAnyColumnDragging={!!draggedColumn}
                                 />
-                            </>
+                            </Fragment>
                         ))}
                         {columnDropPosition === shownColumns.length && draggedColumn && (
                             <div className="column-drop-placeholder show" style={placeholderSize} />
                         )}
+                        </div>
 
                         <AddNewColumn api={api} isInRelationMode={isInRelationMode} />
+                        {/* Where what is being carried is put. Preact draws the layer and never
+                            its contents, so the copy is not among the children it places. */}
+                        <div className="board-drag-layer" />
                         {/* Out of the board and onto the page: the dialog is positioned against
                             the window, and Bootstrap puts its backdrop on the body, so a stacking
                             context above the board would trap it underneath. */}

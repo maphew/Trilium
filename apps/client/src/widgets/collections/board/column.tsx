@@ -21,7 +21,7 @@ import { useScrollFade } from "../../react/scroll_fade";
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
-import Card, { CARD_CLIPBOARD_TYPE, CardDragData } from "./card";
+import Card from "./card";
 import { DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
 import { openColumnContextMenu } from "./context_menu";
 
@@ -45,12 +45,9 @@ export default function Column({
     isActive,
     nested,
     limit,
-    isDraggingColumn,
     columnItems,
     api,
     parentNote,
-    onColumnHover,
-    isAnyColumnDragging,
     isInRelationMode
 }: {
     columnItems?: { note: FNote, branch: FBranch }[];
@@ -68,11 +65,8 @@ export default function Column({
     nested?: boolean,
     /** The note limit, absent if disabled. */
     limit?: number,
-    isDraggingColumn: boolean,
     api: BoardApi,
     parentNote: FNote,
-    onColumnHover?: (index: number, mouseX: number, rect: DOMRect) => void,
-    isAnyColumnDragging?: boolean,
     isInRelationMode: boolean,
     /** The columns as drawn, which is what the menu offers to place this one among. */
     columns: string[],
@@ -81,7 +75,6 @@ export default function Column({
     onFocusColumn: (column: string) => void,
     onFocusCard: (noteId: string) => void
 } & DragContext) {
-    const [ isVisible, setVisible ] = useState(true);
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
     const { setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn } =
         useContext(BoardActionsContext);
@@ -90,9 +83,16 @@ export default function Column({
     const editorRef = useRef<HTMLInputElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const scrollFade = useScrollFade(contentRef);
-    const { handleColumnDragStart, handleColumnDragEnd, handleDragOver, handleDragLeave, handleDrop } = useDragging({
+    const { handleDragOver, handleDragLeave, handleDrop } = useDragging({
         column, columnIndex, columnItems, isEditing, api, parentNote
     });
+
+    // Measured rather than styled: the gap stands for the card being carried, which is whatever
+    // height its own content gave it. A drag from the note tree carries no card, so the stock
+    // height stands.
+    const gapStyle = draggedCard?.height
+        ? { height: `${draggedCard.height}px` }
+        : undefined;
 
     // Read here rather than in the badge: the column body shows an outline as well.
     const isOverLimit = limit !== undefined && (columnItems?.length ?? 0) > limit;
@@ -174,17 +174,6 @@ export default function Column({
         editorRef.current?.focus();
     }, [ isEditing ]);
 
-    useEffect(() => {
-        setVisible(!isDraggingColumn);
-    }, [ isDraggingColumn ]);
-
-    const handleColumnDragOver = useCallback((e: DragEvent) => {
-        if (!isAnyColumnDragging || !onColumnHover) return;
-        e.preventDefault();
-        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        onColumnHover(columnIndex, e.clientX, rect);
-    }, [isAnyColumnDragging, onColumnHover, columnIndex]);
-
     return (
         <div
             data-column={column}
@@ -200,13 +189,10 @@ export default function Column({
             // A click and not a press: a press may be the start of a drag, which must leave the
             // column as it is, and a drag produces no click.
             onClick={select}
-            onDragOver={isAnyColumnDragging ? handleColumnDragOver : handleDragOver}
+            onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            style={{
-                display: !isVisible ? "none" : undefined,
-                "--board-column-custom-hue": hue
-            }}
+            style={{ "--board-column-custom-hue": hue }}
         >
             <h3
                 className={`${isEditing ? "editing" : ""}`}
@@ -215,9 +201,6 @@ export default function Column({
                 // nothing, so neither is claimed.
                 role={isCollapsed ? "button" : undefined}
                 aria-expanded={isCollapsed ? false : undefined}
-                draggable
-                onDragStart={handleColumnDragStart}
-                onDragEnd={handleColumnDragEnd}
                 onContextMenu={openMenu}
                 onKeyDown={handleTitleKeyDown}
                 tabIndex={300}
@@ -312,7 +295,7 @@ export default function Column({
                     return (
                         <Fragment key={note.noteId}>
                             {showIndicatorBefore && (
-                                <div className="board-drop-placeholder show" />
+                                <div className="board-drop-placeholder show" style={gapStyle} />
                             )}
                             <Card
                                 api={api}
@@ -328,7 +311,7 @@ export default function Column({
                     );
                 })}
                 {dropPosition?.column === column && dropPosition.index === (columnItems?.length ?? 0) && (
-                    <div className="board-drop-placeholder show" />
+                    <div className="board-drop-placeholder show" style={gapStyle} />
                 )}
 
                 <AddNewItem
@@ -500,7 +483,8 @@ function useDragging({ column, columnIndex, columnItems, isEditing, api, parentN
 
     const handleDragOver = useCallback((e: DragEvent) => {
         if (isEditing || draggedColumn || isDraggingRef.current) return; // Don't handle card drops when dragging columns
-        if (!e.dataTransfer?.types.includes(CARD_CLIPBOARD_TYPE) && !e.dataTransfer?.types.includes(TREE_CLIPBOARD_TYPE)) return;
+        // Cards are carried by pointer now; what still arrives this way comes from the note tree.
+        if (!e.dataTransfer?.types.includes(TREE_CLIPBOARD_TYPE)) return;
 
         e.preventDefault();
         setDropTarget(column);
@@ -545,19 +529,18 @@ function useDragging({ column, columnIndex, columnItems, isEditing, api, parentN
         setDropTarget(null);
         setDropPosition(null);
 
-        const data = e.dataTransfer?.getData(CARD_CLIPBOARD_TYPE) || e.dataTransfer?.getData("text");
+        const data = e.dataTransfer?.getData("text");
         if (!data) return;
 
-        let draggedCard: CardDragData | DragData[];
+        let dropped: DragData[];
         try {
-            draggedCard = JSON.parse(data);
+            dropped = JSON.parse(data);
         } catch (e) {
             return;
         }
 
-        if (Array.isArray(draggedCard)) {
-            // From note tree.
-            const { noteId, branchId } = draggedCard[0];
+        if (Array.isArray(dropped)) {
+            const { noteId, branchId } = dropped[0];
             const targetNote = await froca.getNote(noteId, true);
             const parentNoteId = parentNote.noteId;
             if (!dropPosition) return;
@@ -579,10 +562,7 @@ function useDragging({ column, columnIndex, columnItems, isEditing, api, parentN
             } else if (targetBranch) {
                 await branches.moveAfterBranch([ branchId ], targetBranch.branchId);
             }
-        } else if (draggedCard && dropPosition) {
-            api.moveWithinBoard(draggedCard.noteId, draggedCard.branchId, draggedCard.index, dropPosition.index, draggedCard.fromColumn, column);
         }
-
     }, [ api, draggedColumn, dropPosition, columnItems, column, setDropTarget, setDropPosition ]);
 
     return { handleColumnDragStart, handleColumnDragEnd, handleDragOver, handleDragLeave, handleDrop };

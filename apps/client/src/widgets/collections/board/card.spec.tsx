@@ -129,25 +129,6 @@ describe("Board card", () => {
         expect(openInPopup).not.toHaveBeenCalled();
     });
 
-    it("carries its own id and column in the clipboard when a drag starts", async () => {
-        const { first } = await renderBoard();
-        const clipboard: Record<string, string> = {};
-        const dataTransfer = {
-            effectAllowed: "",
-            setData: (type: string, value: string) => { clipboard[type] = value; }
-        };
-
-        await act(async () => { fireDrag(card(first), "dragstart", dataTransfer); });
-
-        expect(JSON.parse(clipboard["trilium/board-card"]))
-            .toMatchObject({ noteId: first, fromColumn: "To Do", index: 0 });
-        expect(dataTransfer.effectAllowed).toBe("move");
-
-        // Dropping it anywhere clears the drag, which is what un-hides the card.
-        await act(async () => { fireDrag(card(first), "dragend", dataTransfer); });
-        expect(card(first).className).not.toContain("dragging");
-    });
-
     it("offers the card menu on a right click", async () => {
         const { first } = await renderBoard();
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});

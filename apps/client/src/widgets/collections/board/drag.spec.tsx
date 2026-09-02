@@ -14,7 +14,6 @@ import { buildNote } from "../../../test/easy-froca";
 import { TREE_CLIPBOARD_TYPE } from "../../note_tree";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
-import { CARD_CLIPBOARD_TYPE } from "./card";
 
 vi.mock("../../../services/branches", () => ({
     default: {
@@ -32,6 +31,15 @@ const PREACT_DRAG_EVENTS = {
     drop: "Drop"
 } as const;
 
+// Hoisted with the mock, which is lifted above everything a test file declares.
+const layout = vi.hoisted(() => ({ onMobile: false }));
+
+// Spread rather than replaced: the board reads far more of this than the one export a test steers.
+vi.mock("../../../services/utils", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../../services/utils")>()),
+    isMobile: () => layout.onMobile
+}));
+
 describe("Board drag and drop", () => {
     let container: HTMLElement | undefined;
 
@@ -45,6 +53,7 @@ describe("Board drag and drop", () => {
     });
 
     afterEach(() => {
+        (document.activeElement as HTMLElement | null)?.blur?.();
         if (container) {
             render(null, container);
             container.remove();
@@ -56,7 +65,7 @@ describe("Board drag and drop", () => {
         const { columns } = await renderBoard();
 
         // Above the middle of the second card, so the drop lands between the two.
-        await drag(columns[0], "dragover", { types: [ CARD_CLIPBOARD_TYPE ] }, 120);
+        await drag(columns[0], "dragover", { types: [ TREE_CLIPBOARD_TYPE ] }, 120);
 
         const placeholders = [ ...columns[0].querySelectorAll(".board-column-content > *") ]
             .map(child => child.className);
@@ -66,7 +75,7 @@ describe("Board drag and drop", () => {
     it("clears the mark once the pointer leaves the column altogether", async () => {
         const { columns } = await renderBoard();
 
-        await drag(columns[0], "dragover", { types: [ CARD_CLIPBOARD_TYPE ] }, 120);
+        await drag(columns[0], "dragover", { types: [ TREE_CLIPBOARD_TYPE ] }, 120);
         expect(columns[0].querySelector(".board-drop-placeholder")).toBeTruthy();
 
         await drag(columns[0], "dragleave", { types: [] });
@@ -79,25 +88,6 @@ describe("Board drag and drop", () => {
         await drag(columns[0], "dragover", { types: [ "text/uri-list" ] }, 120);
 
         expect(columns[0].querySelector(".board-drop-placeholder")).toBeNull();
-    });
-
-    it("moves a card dropped from another column of the same board", async () => {
-        const { columns, cards } = await renderBoard();
-        const payload = {
-            noteId: cards[0].noteId,
-            branchId: cards[0].branchId,
-            fromColumn: "To Do",
-            index: 0
-        };
-
-        await drag(columns[0], "dragover", { types: [ CARD_CLIPBOARD_TYPE ] }, 120);
-        await drag(columns[0], "drop", {
-            types: [ CARD_CLIPBOARD_TYPE ],
-            data: { [CARD_CLIPBOARD_TYPE]: JSON.stringify(payload) }
-        });
-
-        expect(branches.moveBeforeBranch)
-            .toHaveBeenCalledWith([ cards[0].branchId ], cards[1].branchId);
     });
 
     it("clones a note dragged in from the tree, which the board does not hold", async () => {
@@ -147,12 +137,12 @@ describe("Board drag and drop", () => {
     it("does nothing for a drop carrying nothing it can read", async () => {
         const { columns } = await renderBoard();
 
-        await drag(columns[0], "dragover", { types: [ CARD_CLIPBOARD_TYPE ] }, 120);
+        await drag(columns[0], "dragover", { types: [ TREE_CLIPBOARD_TYPE ] }, 120);
         await drag(columns[0], "drop", {
-            types: [ CARD_CLIPBOARD_TYPE ],
-            data: { [CARD_CLIPBOARD_TYPE]: "not json at all" }
+            types: [ TREE_CLIPBOARD_TYPE ],
+            data: { text: "not json at all" }
         });
-        await drag(columns[0], "drop", { types: [ CARD_CLIPBOARD_TYPE ], data: {} });
+        await drag(columns[0], "drop", { types: [ TREE_CLIPBOARD_TYPE ], data: {} });
 
         expect(branches.moveBeforeBranch).not.toHaveBeenCalled();
         expect(branches.moveAfterBranch).not.toHaveBeenCalled();
@@ -167,13 +157,155 @@ describe("Board drag and drop", () => {
 
         expect(columns[0].classList.contains("collapsed")).toBe(true);
 
-        await drag(columns[0], "dragover", { types: [ CARD_CLIPBOARD_TYPE ] }, 50);
+        await drag(columns[0], "dragover", { types: [ TREE_CLIPBOARD_TYPE ] }, 50);
         expect(columns[0].classList.contains("collapsed")).toBe(false);
         expect(columns[0].querySelectorAll(".board-note")).toHaveLength(2);
 
-        await drag(columns[0], "dragleave", { types: [ CARD_CLIPBOARD_TYPE ] });
+        await drag(columns[0], "dragleave", { types: [ TREE_CLIPBOARD_TYPE ] });
         expect(columns[0].classList.contains("collapsed")).toBe(false);
     });
+
+    /**
+     * What the gesture is for: the same move the old clipboard drop made, made by pointer. The
+     * board's own wiring is what this covers, the gesture itself being tested on its own.
+     */
+    it("moves a card carried by pointer to where it was let go", async () => {
+        const { columns, cards } = await renderBoard();
+        const card = columns[0].querySelector<HTMLElement>(".board-note");
+        if (!card) throw new Error("expected a card");
+
+        // The gesture listens from an effect, which Preact defers past the render the board is
+        // drawn by. A reader could not press before that; a test can.
+        await act(async () => { await settle(); });
+
+        // Taken from the first card and let go above the second's middle, so it lands between them.
+        await pointer(card, "pointerdown", 50, 50);
+        await pointer(columns[0], "pointermove", 50, 120);
+        await act(async () => { await settle(); });
+        await pointer(columns[0], "pointerup", 50, 120);
+        await act(async () => { await settle(); });
+
+        expect(branches.moveBeforeBranch)
+            .toHaveBeenCalledWith([ cards[0].branchId ], cards[1].branchId);
+    });
+
+    /**
+     * A board that scrolls one column at a time has its snapping off while something is carried, so
+     * letting go would otherwise leave the reader looking at two half columns.
+     */
+    it("brings the column the card landed in to the middle, on a board that snaps", async () => {
+        layout.onMobile = true;
+        const revealed: { element: Element, options: unknown }[] = [];
+        const original = Element.prototype.scrollIntoView;
+        Element.prototype.scrollIntoView = function (this: Element, options: unknown) {
+            revealed.push({ element: this, options });
+        } as typeof original;
+
+        try {
+            const { columns } = await renderBoard();
+            const card = columns[0].querySelector<HTMLElement>(".board-note");
+            if (!card) throw new Error("expected a card");
+            await act(async () => { await settle(); });
+
+            await pointer(card, "pointerdown", 50, 50);
+            await pointer(columns[0], "pointermove", 50, 120);
+            await pointer(columns[0], "pointerup", 50, 120);
+            await act(async () => { await new Promise(requestAnimationFrame); });
+
+            const landed = revealed.at(-1);
+            expect(landed?.element).toBe(columns[0]);
+            expect(landed?.options).toMatchObject({ inline: "center" });
+        } finally {
+            Element.prototype.scrollIntoView = original;
+            layout.onMobile = false;
+        }
+    });
+
+    /** Nothing is brought anywhere on a board the reader scrolls freely. */
+    it("leaves the board where it is when it does not snap", async () => {
+        const revealed: Element[] = [];
+        const original = Element.prototype.scrollIntoView;
+        Element.prototype.scrollIntoView = function (this: Element) {
+            revealed.push(this);
+        } as typeof original;
+
+        try {
+            const { columns } = await renderBoard();
+            const card = columns[0].querySelector<HTMLElement>(".board-note");
+            if (!card) throw new Error("expected a card");
+            await act(async () => { await settle(); });
+
+            await pointer(card, "pointerdown", 50, 50);
+            await pointer(columns[0], "pointermove", 50, 120);
+            await pointer(columns[0], "pointerup", 50, 120);
+            await act(async () => { await new Promise(requestAnimationFrame); });
+
+            expect(revealed.filter(element =>
+                element.classList.contains("board-column"))).toEqual([]);
+        } finally {
+            Element.prototype.scrollIntoView = original;
+        }
+    });
+
+    /**
+     * The press focuses the card, the card is then taken out of the page, and a card that crossed
+     * columns is drawn as a new element: whichever happened, the focus has to be put back.
+     */
+    it("focuses the card again once it is let go", async () => {
+        const { columns } = await renderBoard();
+        const card = columns[0].querySelector<HTMLElement>(".board-note");
+        if (!card) throw new Error("expected a card");
+        // Twice: the gesture listens from an effect, and the board redraws once more as its own
+        // first refresh lands, which is what tells the effect the container is there.
+        await act(async () => { await settle(); });
+        await act(async () => { await settle(); });
+
+        await pointer(card, "pointerdown", 50, 50);
+        await pointer(columns[0], "pointermove", 50, 120);
+        await pointer(columns[0], "pointerup", 50, 120);
+        await act(async () => { await settle(); });
+
+        expect(document.activeElement?.getAttribute("data-note-id"))
+            .toBe(card.getAttribute("data-note-id"));
+    });
+
+    /** The gap stands in for the card, so it is the height the card was measured at. */
+    it("holds open a gap the height of the card being carried", async () => {
+        const { columns } = await renderBoard();
+        const card = columns[0].querySelector<HTMLElement>(".board-note");
+        if (!card) throw new Error("expected a card");
+        await act(async () => { await settle(); });
+
+        await pointer(card, "pointerdown", 50, 50);
+        await pointer(columns[0], "pointermove", 50, 120);
+
+        const gap = columns[0].querySelector<HTMLElement>(".board-drop-placeholder");
+        expect(gap?.style.height).toBe("100px");
+    });
+
+    function place(
+        element: HTMLElement | null,
+        box: { left: number, top: number, width: number, height: number }
+    ) {
+        if (element) {
+            element.getBoundingClientRect = () => ({
+                ...box, right: box.left + box.width, bottom: box.top + box.height
+            }) as DOMRect;
+        }
+    }
+
+    async function pointer(target: HTMLElement, type: string, clientX: number, clientY: number) {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        for (const [ name, value ] of Object.entries({
+            clientX, clientY, pointerId: 1, button: 0, pointerType: "mouse"
+        })) {
+            Object.defineProperty(event, name, { value, configurable: true });
+        }
+        await act(async () => {
+            target.dispatchEvent(event);
+            await settle();
+        });
+    }
 
     /** A board of one column of two cards, each given a height the pointer can be placed in. */
     async function renderBoard({ collapsed }: { collapsed?: boolean } = {}) {
@@ -214,8 +346,19 @@ describe("Board drag and drop", () => {
         // happy-dom lays nothing out, so the cards are given the geometry the drop maths reads.
         for (const [ index, card ] of [ ...columns[0].querySelectorAll(".board-note") ].entries()) {
             card.getBoundingClientRect = () => ({
-                top: index * 100, height: 100
+                left: 0, top: index * 100, width: 100, height: 100
             }) as DOMRect;
+        }
+
+        // The pointer gesture measures the board itself, so its boxes are declared as well.
+        const board = mountPoint.querySelector<HTMLElement>(".board-view-container");
+        place(board, { left: 0, top: 0, width: 400, height: 400 });
+        Object.defineProperty(board, "scrollLeft", { value: 0, configurable: true });
+        place(columns[0], { left: 0, top: 0, width: 100, height: 400 });
+        const area = columns[0].querySelector<HTMLElement>(".board-column-content");
+        if (area) {
+            place(area, { left: 0, top: 0, width: 100, height: 400 });
+            Object.defineProperty(area, "scrollTop", { value: 0, configurable: true });
         }
 
         const cards = note.getChildBranches()
@@ -272,6 +415,7 @@ describe("Board column reordering", () => {
     });
 
     afterEach(() => {
+        (document.activeElement as HTMLElement | null)?.blur?.();
         if (container) {
             render(null, container);
             container.remove();
@@ -280,24 +424,20 @@ describe("Board column reordering", () => {
     });
 
     it("drops a column to the right of the one it was let go over", async () => {
-        const { columns, board } = await renderColumns();
+        const { columns } = await renderColumns();
 
-        await dragColumn(columns[0], "dragstart");
         // Past the middle of the last column, which spans 200 to 300, so it lands after it.
-        await dragColumn(columns[2], "dragover", 280);
-        await dragColumn(board, "drop");
+        await carryColumn(columns[0], 280);
 
         expect(saved.at(-1)?.columns?.map(column => column.value))
             .toEqual([ "Doing", "Done", "To Do" ]);
     });
 
     it("drops it to the left when let go over the first half of a column", async () => {
-        const { columns, board } = await renderColumns();
+        const { columns } = await renderColumns();
 
-        await dragColumn(columns[2], "dragstart");
         // Short of the middle of the second column, which spans 100 to 200.
-        await dragColumn(columns[1], "dragover", 120);
-        await dragColumn(board, "drop");
+        await carryColumn(columns[2], 120);
 
         expect(saved.at(-1)?.columns?.map(column => column.value))
             .toEqual([ "To Do", "Done", "Doing" ]);
@@ -307,40 +447,164 @@ describe("Board column reordering", () => {
      * The gap held open while a column is carried stands in for that column, and a collapsed one
      * is a strip. A placeholder of the stock width would promise a space the column will not fill.
      */
-    it("holds open a gap the size of the column being dragged", async () => {
-        const { columns, board } = await renderColumns();
-        for (const [ name, value ] of Object.entries({ offsetWidth: 36, offsetHeight: 140 })) {
-            Object.defineProperty(columns[0], name, { value, configurable: true });
-        }
+    it("holds open a gap the size of the column being carried", async () => {
+        const { columns, board } = await renderColumns({ height: 140 });
 
-        await dragColumn(columns[0], "dragstart");
-        await dragColumn(columns[2], "dragover", 280);
+        await carryColumn(columns[0], 280, { release: false });
 
         const placeholder = board.querySelector<HTMLElement>(".column-drop-placeholder");
-        expect(placeholder?.style.width).toBe("36px");
+        expect(placeholder?.style.width).toBe("100px");
         expect(placeholder?.style.height).toBe("140px");
     });
 
     /** happy-dom lays nothing out, which is what an element with no size on screen reports too. */
     it("leaves the gap at its stock size when the column measures nothing", async () => {
-        const { columns, board } = await renderColumns();
+        const { columns, board } = await renderColumns({ width: 0 });
 
-        await dragColumn(columns[0], "dragstart");
-        await dragColumn(columns[2], "dragover", 280);
+        await carryColumn(columns[0], 280, { release: false });
 
         const placeholder = board.querySelector<HTMLElement>(".column-drop-placeholder");
         expect(placeholder?.style.width).toBe("");
     });
 
-    it("hides the column being dragged, and shows it again once let go", async () => {
-        const { columns } = await renderColumns();
+    /** A copy of it is carried, cut to a set height so a tall column does not cover the board. */
+    it("carries a copy, hiding the column until it is let go", async () => {
+        const { columns, board } = await renderColumns();
 
-        await dragColumn(columns[0], "dragstart");
+        await carryColumn(columns[0], 280, { release: false });
+        const copy = board.querySelector<HTMLElement>(".board-column.board-drag-preview");
+        expect(copy).toBeTruthy();
+        expect(copy?.style.height).toBe("150px");
         expect(columns[0].style.display).toBe("none");
 
-        await dragColumn(columns[0], "dragend");
-        expect(columns[0].style.display).not.toBe("none");
+        await columnPointer(board, "pointerup", 280);
+        expect(board.querySelector(".board-drag-preview")).toBeNull();
+        expect(columns[0].style.display).toBe("");
     });
+
+    /**
+     * Let go either side of where it stands, a column lands where it started, and the board is not
+     * written to for a move that moves nothing.
+     */
+    it("saves nothing for a column carried back to where it was", async () => {
+        const { columns } = await renderColumns();
+
+        await carryColumn(columns[1], 120);
+
+        expect(saved).toEqual([]);
+    });
+
+    /** The board's row as it is laid out: the columns' wrapper is `display: contents`. */
+    function laidOut(board: HTMLElement) {
+        return [ ...board.children ].flatMap((child) =>
+            child.classList.contains("board-columns") ? [ ...child.children ] : [ child ]);
+    }
+
+    /**
+     * What a drop leads to: the board is drawn again with the columns in a new order. Their
+     * elements are keyed, so Preact moves them, and it places what it moves against the parent's
+     * own children. Anything among them it is not keeping track of can be stepped over.
+     */
+    it("keeps the button after every column once they are drawn in a new order", async () => {
+        const { board } = await renderColumns();
+        const order = () => laidOut(board)
+            .filter(child => child.classList.contains("board-column")
+                || child.classList.contains("board-add-column"))
+            .map(child => child.getAttribute("data-column") ?? "add");
+
+        expect(order()).toEqual([ "To Do", "Doing", "Done", "add" ]);
+
+        await drawColumns([ "Done", "To Do", "Doing" ]);
+        expect(order()).toEqual([ "Done", "To Do", "Doing", "add" ]);
+
+        await drawColumns([ "Doing", "Done", "To Do" ]);
+        expect(order()).toEqual([ "Doing", "Done", "To Do", "add" ]);
+    });
+
+    /**
+     * The drop changes two things at once: the columns take a new order and the gap held open for
+     * the carried one goes. Both land in a single redraw, which is where the button is placed.
+     */
+    it("keeps the button after every column once a carried one is let go", async () => {
+        const { columns, board } = await renderColumns();
+        const order = () => laidOut(board)
+            .filter(child => (child.classList.contains("board-column")
+                && !child.classList.contains("board-drag-preview"))
+                || child.classList.contains("board-add-column"))
+            .map(child => child.getAttribute("data-column") ?? "add");
+
+        // Past the middle of the last column, so it is let go at the end.
+        await carryColumn(columns[0], 280);
+
+        expect(order()).toEqual([ "Doing", "Done", "To Do", "add" ]);
+    });
+
+    /** The button that adds a column stands at the end, whatever the gap does among the columns. */
+    it("keeps the button that adds a column at the end while one is carried", async () => {
+        const { columns, board } = await renderColumns();
+
+        /** Whether the button stands after every column, the overlays after it being no columns. */
+        const afterEveryColumn = () => {
+            const children = laidOut(board);
+            const button = children.findIndex(child =>
+                child.classList.contains("board-add-column"));
+            // The copy being carried wears the column's classes so the board's styling reaches it,
+            // and is placed against the window rather than among them.
+            const lastColumn = children.findLastIndex(child =>
+                child.classList.contains("board-column")
+                    && !child.classList.contains("board-drag-preview"));
+            return button > lastColumn && button >= 0;
+        };
+
+        expect(afterEveryColumn()).toBe(true);
+
+        // Over each column in turn, so the gap opens at every place among them.
+        await carryColumn(columns[0], 120, { release: false });
+        expect(afterEveryColumn()).toBe(true);
+
+        await columnPointer(board, "pointermove", 220);
+        expect(afterEveryColumn()).toBe(true);
+
+        await columnPointer(board, "pointermove", 280);
+        expect(afterEveryColumn()).toBe(true);
+
+        await columnPointer(board, "pointerup", 280);
+        expect(afterEveryColumn()).toBe(true);
+    });
+
+    /** Takes hold of a column by its heading, carries it to `clientX` and lets it go there. */
+    async function carryColumn(
+        column: HTMLElement,
+        clientX: number,
+        { release = true }: { release?: boolean } = {}
+    ) {
+        const heading = column.querySelector<HTMLElement>("h3");
+        if (!heading) throw new Error("expected a column heading");
+
+        const board = column.closest<HTMLElement>(".board-view-container");
+        if (!board) throw new Error("expected a board");
+
+        // Taken by a point inside the column, so where its middle stands follows the pointer.
+        const { left, width } = column.getBoundingClientRect();
+        await columnPointer(heading, "pointerdown", left + width / 2);
+        await columnPointer(board, "pointermove", clientX);
+        if (release) {
+            await columnPointer(board, "pointerup", clientX);
+        }
+    }
+
+    async function columnPointer(target: HTMLElement, type: string, clientX: number) {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        for (const [ name, value ] of Object.entries({
+            clientX, clientY: 0, pointerId: 1, button: 0, pointerType: "mouse"
+        })) {
+            Object.defineProperty(event, name, { value, configurable: true });
+        }
+        await act(async () => {
+            target.dispatchEvent(event);
+            await settle();
+        });
+    }
 
     it("saves nothing for a column let go where it already was", async () => {
         const { columns, board } = await renderColumns();
@@ -353,7 +617,9 @@ describe("Board column reordering", () => {
     });
 
     /** A board of three columns, each given the geometry the drop maths reads. */
-    async function renderColumns() {
+    let drawColumns: (order: string[]) => Promise<void> = async () => {};
+
+    async function renderColumns({ width = 100, height = 400 } = {}) {
         const note = buildNote({
             title: "Board",
             "#collection": "",
@@ -369,36 +635,44 @@ describe("Board column reordering", () => {
         container = mountPoint;
         document.body.appendChild(mountPoint);
 
-        await act(async () => {
-            render(
-                <ParentComponent.Provider value={new Component()}>
-                    <BoardView
-                        note={note}
-                        notePath={`root/${note.noteId}`}
-                        noteIds={[ ...note.getChildNoteIds() ]}
-                        highlightedTokens={null}
-                        viewConfig={{
-                            columns: [ { value: "To Do" }, { value: "Doing" }, { value: "Done" } ]
-                        }}
-                        saveConfig={(config) => saved.push(config)}
-                        media="screen"
-                        onReady={() => {}}
-                    />
-                </ParentComponent.Provider>,
-                mountPoint
-            );
-        });
-        await settle();
+        drawColumns = async (order: string[]) => {
+            await act(async () => {
+                render(
+                    <ParentComponent.Provider value={new Component()}>
+                        <BoardView
+                            note={note}
+                            notePath={`root/${note.noteId}`}
+                            noteIds={[ ...note.getChildNoteIds() ]}
+                            highlightedTokens={null}
+                            viewConfig={{ columns: order.map(value => ({ value })) }}
+                            saveConfig={(config) => saved.push(config)}
+                            media="screen"
+                            onReady={() => {}}
+                        />
+                    </ParentComponent.Provider>,
+                    mountPoint
+                );
+                await settle();
+            });
+            await act(async () => { await settle(); });
+        };
+
+        await drawColumns([ "To Do", "Doing", "Done" ]);
 
         const columns = [ ...mountPoint.querySelectorAll<HTMLElement>(".board-column") ];
         for (const [ index, column ] of columns.entries()) {
             column.getBoundingClientRect = () => ({
-                left: index * 100, width: 100
+                left: index * 100, top: 0, width, height
             }) as DOMRect;
         }
 
         const board = mountPoint.querySelector<HTMLElement>(".board-view-container");
         if (!board) throw new Error("expected the board container");
+
+        board.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height }) as DOMRect;
+        Object.defineProperty(board, "scrollLeft", { value: 0, configurable: true });
+        // The gesture listens from an effect, which Preact defers past the render.
+        await act(async () => { await settle(); });
 
         return { columns, board };
     }
