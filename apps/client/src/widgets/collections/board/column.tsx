@@ -17,6 +17,7 @@ import ActionButton from "../../react/ActionButton";
 import Icon from "../../react/Icon";
 import { IconPickerButton } from "../../react/IconPicker";
 import { useStaticTooltip } from "../../react/hooks";
+import { useScrollFade } from "../../react/scroll_fade";
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
@@ -87,6 +88,8 @@ export default function Column({
     const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
     const isEditing = (columnNameToEdit === column);
     const editorRef = useRef<HTMLInputElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const scrollFade = useScrollFade(contentRef);
     const { handleColumnDragStart, handleColumnDragEnd, handleDragOver, handleDragLeave, handleDrop } = useDragging({
         column, columnIndex, columnItems, isEditing, api, parentNote
     });
@@ -295,7 +298,12 @@ export default function Column({
                 </>)}
             </h3>
 
-            {!isCollapsed && <div className="board-column-content" onWheel={handleScroll}>
+            {!isCollapsed && <div
+                ref={contentRef}
+                className={clsx("board-column-content", scrollFade.className)}
+                style={scrollFade.style}
+                onWheel={handleScroll}
+            >
                 {(columnItems ?? []).map(({ note, branch }, index) => {
                     const showIndicatorBefore = dropPosition?.column === column &&
                                             dropPosition.index === index &&
