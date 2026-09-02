@@ -457,7 +457,10 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // that keeps it in view, so sliding it as well reads as a stumble rather than as movement.
     useFlip(containerRef, {
         selector: ".board-column:not(.board-drag-preview)",
-        axis: "horizontal"
+        axis: "horizontal",
+        // Except the one just added: it is already announced by the fade and by the board running
+        // to its end, and opening out on top of those is one movement too many.
+        grow: (column) => column.dataset.column !== createdColumn
     });
 
     /**
@@ -710,9 +713,11 @@ function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
         }
 
         const board = slotRef.current?.closest<HTMLElement>(".board-view-container");
-        if (board) {
-            board.scrollLeft = board.scrollWidth;
+        if (!board) {
+            return;
         }
+
+        board.scrollLeft = board.scrollWidth;
     }, [ columnCount, isCreatingNewColumn ]);
 
     const addColumnCallback = useCallback(() => {

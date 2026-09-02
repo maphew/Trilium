@@ -85,6 +85,8 @@ export default function Column({
     // The column stays the one just added until another is, so what has already been shown is
     // remembered here rather than played again by every redraw of the board.
     const [ isRevealed, setIsRevealed ] = useState(false);
+    /** The card the footer made, which arrives without opening out. */
+    const quietlyAdded = created?.takesFocus === false ? created.noteId : undefined;
     // A card inserted next to another one is where the reader is working, so it is left focused; one
     // made in the footer is not, or every card would take focus from the editor still being typed in.
     const cardInserted = useCallback(
@@ -98,8 +100,14 @@ export default function Column({
     const editorRef = useRef<HTMLInputElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const scrollFade = useScrollFade(contentRef);
-    // The gap opening and closing moves the cards below it, which they follow rather than jump to.
-    useFlip(contentRef, { selector: ".board-note" });
+    // The gap opening and closing moves the cards below it, which they follow rather than jump to,
+    // and a card added to the column opens the room it takes rather than appearing in it. Except
+    // the one the footer just made: it is already announced by the fade and by the column running
+    // to its end, and opening out on top of those is one movement too many.
+    useFlip(contentRef, {
+        selector: ".board-note",
+        grow: (card) => card.dataset.noteId !== quietlyAdded
+    });
     const { handleDragOver, handleDragLeave, handleDrop } = useDragging({
         column, columnIndex, columnItems, isEditing, api, parentNote
     });
