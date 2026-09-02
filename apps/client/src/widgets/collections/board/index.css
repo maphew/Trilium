@@ -231,7 +231,6 @@ body.mobile .board-view-container .board-add-column {
   margin: 0.65em 0;
   padding: var(--card-padding);
   border-radius: 5px;
-  cursor: move;
   position: relative;
   background-color: var(--main-background-color);
   opacity: 1;
@@ -369,7 +368,13 @@ body.mobile .board-view-container .board-add-column {
   to { opacity: 0; transform: translateY(-10px); }
 }
 
+/* A click opens the card; only carrying it is a move. */
+.board-view-container .board-note {
+  cursor: pointer;
+}
+
 .board-view-container .board-note.dragging {
+  cursor: move;
   opacity: 0.5;
   transform: rotate(5deg);
   z-index: 1000;
