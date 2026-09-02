@@ -99,7 +99,7 @@ jobs:
           GPG_SIGNING_KEY: ${{ secrets.GPG_SIGN_KEY }}
 
       - name: Publish release
-        uses: softprops/action-gh-release@v3.0.2
+        uses: softprops/action-gh-release@v3.0.3
         if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
         with:
           make_latest: false
@@ -140,7 +140,7 @@ jobs:
           apps/mobile/android/app/build/outputs/apk/release/TriliumNotes-mobile-nightly.apk
 
       - name: Publish release
-        uses: softprops/action-gh-release@v3.0.2
+        uses: softprops/action-gh-release@v3.0.3
         if: ${{ github.ref == 'refs/heads/main' }}
         with:
           make_latest: false
@@ -181,7 +181,7 @@ jobs:
           arch: ${{ matrix.arch }}
 
       - name: Publish release
-        uses: softprops/action-gh-release@v3.0.2
+        uses: softprops/action-gh-release@v3.0.3
         if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
         with:
           make_latest: false
