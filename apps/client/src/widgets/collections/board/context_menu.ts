@@ -23,6 +23,10 @@ interface ColumnMenuTarget {
     index: number;
     color?: string;
     archived?: boolean;
+    /** Whether the column is stored as collapsed, which the menu offers to undo. */
+    collapsed?: boolean;
+    /** Whether the title can be edited, which the strip a collapsed column is drawn as cannot. */
+    canRename: boolean;
     /** Whether the inbox also collects notes deeper than the board's direct children. */
     nested?: boolean;
     /** Puts the title into its inline editor, the menu being the only way there besides F2. */
@@ -35,6 +39,8 @@ interface ColumnMenuTarget {
     onMoveColumn: (toIndex: number) => void;
     /** Opens the dialog that sets the column's note limit. */
     onSetLimit: () => void;
+    /** Collapses the column or opens it for good, the board drawing the change straight away. */
+    onCollapse: (collapsed: boolean) => void;
 }
 
 export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column: ColumnMenuTarget) {
@@ -47,11 +53,17 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
         x: event.pageX,
         y: event.pageY,
         items: [
-            {
+            ...(column.canRename ? [ {
                 title: t("board_view.rename-column"),
                 uiIcon: "bx bx-edit-alt",
                 shortcut: "F2",
                 handler: column.onEditTitle
+            } ] : []),
+            {
+                title: t("board_view.collapse-column"),
+                uiIcon: "bx bx-collapse-horizontal",
+                trailingIcon: column.collapsed ? "bx bx-check" : undefined,
+                handler: () => column.onCollapse(!column.collapsed)
             },
             {
                 title: t("board_view.set-limit"),

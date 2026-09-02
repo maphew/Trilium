@@ -806,7 +806,8 @@
     "map_cluster": "서로 가까이 표시되는 마커를 하나의 숫자 원으로 묶으며, 클릭하면 펼쳐집니다.",
     "ai_quick_action": "이 노트를 텍스트 편집기의 AI 어시스턴트 메뉴에 지시문으로 제공합니다. 제목은 작업 이름이 되고, 내용은 프롬프트가 됩니다.",
     "template_new_note_default_parent": "템플릿 노트에 설정합니다. 템플릿에서 생성된 노트(예: @ 자동 완성 사용)는 다른 위치를 명시적으로 선택하지 않는 한 대상 노트 아래에 배치됩니다.",
-    "custom_font": "Trilium 옵션의 글꼴 선택기에 표시할 글꼴 파일을 지정합니다. 노트 자체 제목 아래에 표시됩니다."
+    "custom_font": "Trilium 옵션의 글꼴 선택기에 표시할 글꼴 파일을 지정합니다. 노트 자체 제목 아래에 표시됩니다.",
+    "enable_inbox_column": "보드 컬렉션에서 받은 편지함 열을 표시합니다. 이 열에는 보드 열에 할당되지 않은 모든 하위 노트가 나열됩니다."
   },
   "attribute_editor": {
     "help_text_body1": "레이블을 추가하려면 예를 들어 <code>#rock</code> 값을 입력합니다. 값도 함께 추가하려면 예를 들어 <code>#year = 2020</code> 값을 입력합니다",
@@ -1774,18 +1775,27 @@
     "size_relative_to_general": "크기는 일반적인 글꼴 크기에 상대적입니다",
     "apply_changes": "변경 사항을 적용하려면 다시 불러오기",
     "generic-fonts": "일반 글꼴",
-    "sans-serif-system-fonts": "산세리프 시스템 폰트",
-    "serif-system-fonts": "세리프 시스템 글꼴",
-    "monospace-system-fonts": "고정폭 시스템 글꼴",
-    "handwriting-system-fonts": "필기 시스템 폰트",
+    "sans-serif-system-fonts": "산세리프 글꼴",
+    "serif-system-fonts": "세리프 글꼴",
+    "monospace-system-fonts": "고정폭 글꼴",
+    "handwriting-system-fonts": "손글씨 글꼴",
     "serif": "세리프",
     "sans-serif": "산세리프",
     "monospace": "고정폭",
     "system-default": "시스템 기본 설정",
     "monospace_ligatures": "프로그래밍 합자",
     "monospace_ligatures_description": "고정폭 글꼴에서 지원하는 경우, !=와 -> 같은 문자 조합을 하나의 기호(≠, →)로 표시합니다. 텍스트 자체는 변경되지 않습니다.",
-    "custom_fonts_description": "테마의 글꼴을 대체합니다. 목록의 모든 글꼴을 모든 기기에서 사용할 수 있는 것은 아니며, Trilium에 업로드한 글꼴은 해당 노트에서 추가할 수 있습니다.",
-    "user-fonts": "사용자 지정 글꼴"
+    "custom_fonts_description": "테마의 글꼴을 대체합니다. Trilium에 업로드한 글꼴은 해당 글꼴의 노트에서 추가할 수 있습니다.",
+    "user-fonts": "사용자 지정 글꼴",
+    "main_font_short": "인터페이스",
+    "note_tree_font_short": "노트 트리",
+    "note_detail_font_short": "문서",
+    "monospace_font_short": "고정폭",
+    "proportional-system-fonts": "비례폭 글꼴",
+    "search_placeholder": "글꼴 검색",
+    "no_fonts_found": "찾으시는 글꼴과 일치하는 항목이 없습니다.",
+    "document_preview_heading": "퍼플 하트 삽목",
+    "document_preview_body": "마디 아래에서 줄기 4개를 잘라 창가의 물에 꽂아 두었으며, 첫 뿌리가 나타난 것은 <strong>9일 후</strong>. <em>직사광선</em> 아래에서는 색을 유지하고 그늘에서는 녹색으로 옅어집니다."
   },
   "max_content_width": {
     "title": "콘텐츠 폭",
@@ -3153,7 +3163,9 @@
     "show-scale": "축척 표시",
     "show-labels": "마커 이름 표시",
     "cluster-markers": "가까운 마커 그룹화",
-    "presentation-theme": "테마"
+    "presentation-theme": "테마",
+    "board-inbox-column": "받은 편지함 열 표시",
+    "board-inbox-column-help": "열에 할당되지 않은 하위 노트를 나열하는 받은 편지함 열을 표시합니다."
   },
   "table_context_menu": {
     "delete_row": "행 삭제"
@@ -3216,7 +3228,18 @@
       "move_to_end_column": "첫 번째 / 마지막 열로 이동",
       "move_column": "열을 왼쪽 / 오른쪽으로 이동",
       "move_column_to_edge": "열을 맨 왼쪽 / 맨 오른쪽으로 이동"
-    }
+    },
+    "inbox": "받은 편지함",
+    "inherited-column": "이 카드는 템플릿 또는 상위 노트에서 열을 상속받으며, 해당 위치에서 변경할 수 있습니다.",
+    "inbox-nested": "중첩된 노트 포함",
+    "inbox-remove": "받은 편지함 열 제거",
+    "card-count-over-limit": "이 열에 설정된 노트 수 제한을 초과했습니다!",
+    "set-limit": "제한 설정...",
+    "set-limit-ok": "제한 설정",
+    "limit-capacity": "열 용량 초과 시 경고",
+    "limit-count": "열의 최대 노트 수",
+    "card-count_other": "{{count}}개 항목",
+    "card-count-with-archived_other": "활성 항목 {{count}}개, 보관된 항목 {{archived}}개"
   },
   "dashboard_view": {
     "refresh-widget": "새로 고침",

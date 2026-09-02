@@ -1061,6 +1061,32 @@ describe("renaming a column to nothing", () => {
     });
 });
 
+describe("collapsing a column", () => {
+    it("stores the flag and clears it rather than storing it false", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] }, [ "To Do", "Done" ]);
+
+        expect(api.isColumnCollapsed("To Do")).toBe(false);
+
+        await api.setColumnCollapsed("To Do", true);
+        expect(saved.at(-1)?.columns).toEqual([ { value: "To Do", collapsed: true }, { value: "Done" } ]);
+
+        await api.setColumnCollapsed("To Do", false);
+        expect(saved.at(-1)?.columns).toEqual([ { value: "To Do" }, { value: "Done" } ]);
+    });
+
+    it("leaves the column's other properties alone", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do", icon: "bx bx-star", limit: 3 } ] }, [ "To Do" ]);
+
+        await api.setColumnCollapsed("To Do", true);
+
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "To Do", icon: "bx bx-star", limit: 3, collapsed: true }
+        ]);
+    });
+});
+
 describe("reordering columns the board is not showing all of", () => {
     /**
      * A column the config keeps but the board does not show, such as a disabled inbox, is missing
