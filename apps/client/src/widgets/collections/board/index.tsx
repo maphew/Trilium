@@ -1,5 +1,7 @@
 import "./index.css";
 
+import clsx from "clsx";
+
 import { createContext, TargetedKeyboardEvent } from "preact";
 import { createPortal } from "preact/compat";
 import { Dispatch, StateUpdater, useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -21,6 +23,7 @@ import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
 import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
+import { useDragPan } from "../../react/drag_pan";
 import { ViewModeProps } from "../interface";
 import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
 import BoardApi from "./api";
@@ -330,6 +333,10 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             });
     }
 
+    // Only the board's own background, so a press on a column, a card or the button that adds one
+    // is left to whatever it belongs to.
+    const { isPannable, isPanning } = useDragPan(containerRef);
+
     // The board is not drawn afresh for another note, so the column opened on one would otherwise
     // still be open on the next, over whatever that board stores for a column of the same name.
     useEffect(() => setActiveColumn(undefined), [ parentNote ]);
@@ -422,7 +429,10 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                 <BoardDragStateContext.Provider value={boardDragState}>
                     {byColumn && columns && <div
                         ref={containerRef}
-                        className="board-view-container"
+                        className={clsx("board-view-container", {
+                            pannable: isPannable,
+                            panning: isPanning
+                        })}
                         onKeyDown={handleKeyDown}
                         onDragOver={handleColumnDragOver}
                         onDrop={handleContainerDrop}

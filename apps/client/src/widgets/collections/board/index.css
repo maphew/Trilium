@@ -45,6 +45,21 @@
   overflow-x: auto;
 }
 
+/* Only where there is somewhere to pan. The columns set their own, so the grab hand shows over the
+   board's background alone. */
+.board-view-container.pannable {
+  cursor: grab;
+}
+
+.board-view-container.panning {
+  cursor: grabbing;
+}
+
+.board-view-container.pannable > .board-column,
+.board-view-container.pannable > .board-add-column {
+  cursor: auto;
+}
+
 body.mobile .board-view-container {
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
