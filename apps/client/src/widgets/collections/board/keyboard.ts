@@ -501,9 +501,12 @@ function reveal(element: HTMLElement) {
         const content = element.closest<HTMLElement>(".board-column-content");
         if (content && !element.nextElementSibling) {
             content.scrollTop = content.scrollHeight;
-        } else {
-            element.scrollIntoView({ block: "nearest", inline: "nearest" });
         }
+
+        // And into view either way, which is what carries the board sideways to the column a card
+        // has just crossed into. Asked for second, so a column already taken to its end is left
+        // where it stands.
+        element.scrollIntoView({ block: "nearest", inline: "nearest" });
     }, FLIP_SETTLE_MS);
 }
 

@@ -118,6 +118,12 @@ describe("Board keyboard", () => {
             const board = await renderBoard();
             const content = board.querySelector<HTMLElement>(".board-column-content");
             if (!content) throw new Error("expected a scrollable column body");
+            const seen = vi.fn();
+            for (const card of board.querySelectorAll(".board-note")) {
+                Object.defineProperty(card, "scrollIntoView", {
+                    value: seen, configurable: true, writable: true
+                });
+            }
             Object.defineProperty(content, "scrollHeight", {
                 value: 640, configurable: true, writable: true
             });
@@ -131,6 +137,8 @@ describe("Board keyboard", () => {
 
             expect(focusedName(board)).toBe("Second");
             expect(content.scrollTop).toBe(640);
+            // And still asked into view, which is what carries the board across to its column.
+            expect(seen).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
         });
 
         it("crosses to the first card of the next column rather than to its header", async () => {
