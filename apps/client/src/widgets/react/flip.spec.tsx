@@ -78,6 +78,35 @@ describe("useFlip", () => {
         expect(items()[1].style.transform).toBe("translateX(-180px)");
     });
 
+    /**
+     * An offset is measured from whatever is positioned above the child, so a change of that is a
+     * different number for the very same place: a column's cards read one way against the column
+     * and another against the box holding them, and the difference is a header's height.
+     */
+    it("leaves alone a child whose offsets are measured from somewhere else", async () => {
+        const { items } = await draw([ "a", "b" ]);
+        place(items(), [ 0, 40 ]);
+        await redraw();
+
+        const [ , second ] = items();
+        Object.defineProperty(second, "offsetParent", {
+            value: document.createElement("div"), configurable: true, writable: true
+        });
+        Object.defineProperty(second, "offsetTop", {
+            value: 115, configurable: true, writable: true
+        });
+        await redraw();
+
+        expect(second.style.transform).toBe("");
+
+        // Read against the same thing twice over, it moves as any other child does.
+        Object.defineProperty(second, "offsetTop", {
+            value: 160, configurable: true, writable: true
+        });
+        await redraw();
+        expect(second.style.transform).toBe("translateY(-45px)");
+    });
+
     it("says nothing while it is switched off", async () => {
         const { items } = await draw([ "a", "b" ], true);
         place(items(), [ 0, 40 ]);

@@ -24,7 +24,7 @@ export function useFlip(
     ref: RefObject<HTMLElement>, { selector, axis = "vertical", disabled }: FlipOptions
 ) {
     // Written after every commit, so what it holds is where the children stood before this one.
-    const seen = useRef(new Map<Element, number>());
+    const seen = useRef(new Map<Element, Place>());
 
     useLayoutEffect(() => {
         const container = ref.current;
@@ -34,7 +34,7 @@ export function useFlip(
         }
 
         const before = seen.current;
-        const now = new Map<Element, number>();
+        const now = new Map<Element, Place>();
         const moved: { child: HTMLElement, by: number }[] = [];
 
         // Read first and write after: a transform written between two reads costs a fresh layout
@@ -46,12 +46,15 @@ export function useFlip(
                 continue;
             }
 
+            const from = child.offsetParent;
             const at = axis === "vertical" ? child.offsetTop : child.offsetLeft;
-            now.set(child, at);
+            now.set(child, { at, from });
 
+            // Only against the same origin: an offset is measured from whatever is positioned above
+            // it, and a change of that is a different number for the very same place.
             const previous = before.get(child);
-            if (!disabled && previous !== undefined && Math.abs(previous - at) >= 1) {
-                moved.push({ child, by: previous - at });
+            if (!disabled && previous?.from === from && Math.abs(previous.at - at) >= 1) {
+                moved.push({ child, by: previous.at - at });
             }
         }
 
@@ -61,6 +64,12 @@ export function useFlip(
             slide(child, by, axis);
         }
     });
+}
+
+/** Where a child stood, and what that was measured from. */
+interface Place {
+    at: number;
+    from: Element | null;
 }
 
 /** Puts a child back where it was, and lets go of it on the next frame. */
