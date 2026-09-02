@@ -513,6 +513,28 @@ describe("BoardApi card operations", () => {
             .toHaveBeenLastCalledWith([ second.branch.branchId ], first.branch.branchId);
     });
 
+    /**
+     * That memory stands in for what the column map does not show yet, so it is worth exactly as
+     * long as the map: kept across a refresh it names a card that is no longer last, and the next
+     * one is filed behind it rather than at the end.
+     */
+    it("forgets what it sent to a column once the board has drawn that column again", async () => {
+        const { api, items } = createBoardWithCards();
+        const [ first, second, third ] = items;
+
+        await api.moveToColumnEnd(first.note.noteId, first.branch.branchId, "To Do");
+
+        // The refresh that catches up, and with it a card that now stands last in that column.
+        api.update(
+            new Map([ [ "To Do", [ first, third ] ], [ "Done", [ second ] ] ]),
+            [ "To Do", "Done" ], first.note.getParentNotes()[0], "status", {}, () => {}, () => {});
+
+        // Behind what the board now shows last, not behind what this sent before it.
+        await api.moveToColumnEnd(second.note.noteId, second.branch.branchId, "To Do");
+        expect(branches.moveAfterBranch)
+            .toHaveBeenLastCalledWith([ second.branch.branchId ], third.branch.branchId);
+    });
+
     it("moves nothing for a card dropped where it is, or one it cannot find", async () => {
         const { api, items } = createBoardWithCards();
         const [ first ] = items;

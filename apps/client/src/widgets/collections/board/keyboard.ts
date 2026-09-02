@@ -2,6 +2,7 @@ import { RefObject } from "preact";
 import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
 import branches from "../../../services/branches";
+import { FLIP_SETTLE_MS } from "../../react/flip";
 import BoardApi from "./api";
 import { ColumnMap } from "./data";
 
@@ -102,7 +103,7 @@ export function useBoardKeyboard({
             // board has drawn it in its new place, and the hold is done with.
             const element = findInColumn(container, pending.intent.column, pending.intent.part);
             if (element) {
-                element.focus();
+                reveal(element);
                 pendingFocus.current = null;
             }
             return;
@@ -117,7 +118,9 @@ export function useBoardKeyboard({
             return;
         }
 
-        element?.focus();
+        if (element) {
+            reveal(element);
+        }
     });
 
     /**
@@ -367,7 +370,7 @@ function walk(container: HTMLElement, from: Spot, key: string) {
     const element = elementAt(container, next);
     if (!element) return false;
 
-    element.focus();
+    reveal(element);
     return true;
 }
 
@@ -468,6 +471,40 @@ function move(
         intent: { noteId },
         done: api.moveWithinBoard(noteId, branchId, spot.item, to, column, column)
     };
+}
+
+/** The reveal waiting to run, so that a newer one takes its place rather than joining it. */
+let pendingReveal: number | undefined;
+
+/**
+ * Focuses an element and brings it into view once it has come to rest.
+ *
+ * A moved element is carried back to where it was and let go, which turns the move into a slide,
+ * and for as long as that slide runs the element is drawn between the two places. The browser
+ * scrolls to where a thing is drawn, so asking any earlier scrolls to where it came from, decides
+ * it is in view already, and leaves the column standing where it was.
+ */
+function reveal(element: HTMLElement) {
+    element.focus({ preventScroll: true });
+
+    // Only the last one asked for: keys pressed faster than a slide runs would otherwise each
+    // scroll to where the card stood at the time, which is nowhere it is by the time they land.
+    window.clearTimeout(pendingReveal);
+    pendingReveal = window.setTimeout(() => {
+        if (!element.isConnected) {
+            return;
+        }
+
+        // The last card takes the column to its end rather than only into view: what stands under
+        // it is the gap it carries and the fade the column draws over its bottom edge, and coming
+        // to rest against those leaves it behind them.
+        const content = element.closest<HTMLElement>(".board-column-content");
+        if (content && !element.nextElementSibling) {
+            content.scrollTop = content.scrollHeight;
+        } else {
+            element.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+    }, FLIP_SETTLE_MS);
 }
 
 /**

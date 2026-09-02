@@ -125,8 +125,7 @@ export default class BoardApi {
      * Points the api at the board as it now stands.
      *
      * A refresh calls this instead of building a new api, so that the object every card holds keeps
-     * its identity and a move redraws only the cards whose position changed. What the api works out
-     * for itself, such as {@link sentToColumnEnd}, is kept.
+     * its identity and a move redraws only the cards whose position changed.
      */
     update(
         byColumn: ColumnMap | undefined,
@@ -138,6 +137,13 @@ export default class BoardApi {
         setBranchIdToEdit: (branchId: string | undefined) => void,
         statusDefinition?: BoardStatusDefinition
     ) {
+        // What was sent to the end of a column stands in for what the map does not show yet, so it
+        // is given up with the map it stands in for. Kept across a refresh, it would name a branch
+        // that is no longer last and put the next card before it.
+        if (byColumn !== this.byColumn) {
+            this.sentToColumnEnd.clear();
+        }
+
         this.byColumn = byColumn;
         this.columns = columns;
         this.parentNote = parentNote;

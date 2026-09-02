@@ -4,8 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "preact/hooks";
 /** How long a slide or a growth takes. Matches the transitions the board's own rules carry. */
 export const FLIP_DURATION_MS = 200;
 
-/** How long after a growth the places it moved are read again, once it has settled. */
-const SETTLE_MS = FLIP_DURATION_MS + 40;
+/** How long until a slide or a growth has run its course and what it moved stands still. */
+export const FLIP_SETTLE_MS = FLIP_DURATION_MS + 40;
 
 /**
  * How far a child moves before it is taken to have moved at all.
@@ -136,7 +136,7 @@ export function useFlip(
         settled.current = window.setTimeout(() => {
             settling.current = false;
             seen.current = read();
-        }, SETTLE_MS);
+        }, FLIP_SETTLE_MS);
     });
 
     useEffect(() => () => window.clearTimeout(settled.current), []);
@@ -204,7 +204,7 @@ function open(element: HTMLElement, size: number, axis: Axis) {
                 element.style.overflow = "";
                 element.style[property] = "";
             }
-        }, SETTLE_MS);
+        }, FLIP_SETTLE_MS);
     });
 }
 
