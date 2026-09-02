@@ -2528,7 +2528,8 @@
     "set-limit": "设置上限...",
     "set-limit-ok": "设置上限",
     "limit-capacity": "超出列容量时发出警告",
-    "limit-count": "列中笔记的最大数量"
+    "limit-count": "列中笔记的最大数量",
+    "collapse-column": "折叠列"
   },
   "command_palette": {
     "tree-action-name": "树形：{{name}}",
