@@ -4,7 +4,8 @@ import { useRef } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type DelayedVisibilityPhase, useDelayedVisibility, useImperativeSearchHighlighlighting, useStaticTooltip, useTooltip } from "./hooks";
+import { buildNote } from "../../test/easy-froca";
+import { type DelayedVisibilityPhase, useDelayedVisibility, useImperativeSearchHighlighlighting, useNoteLabelBoolean, useStaticTooltip, useTooltip } from "./hooks";
 
 /**
  * mark.js delegating to the real implementation, so marking still works, while recording the calls
@@ -465,5 +466,40 @@ describe("useImperativeSearchHighlighlighting", () => {
         expect(target.querySelectorAll(".ck-find-result").length).toBe(0);
         expect(target.querySelector("details")?.open).toBe(false);
         target.remove();
+    });
+});
+
+describe("useNoteLabelBoolean", () => {
+    let container: HTMLElement | undefined;
+
+    afterEach(() => {
+        if (container) {
+            render(null, container);
+            container.remove();
+            container = undefined;
+        }
+    });
+
+    /**
+     * The render that mounts a consumer has already read the label, so forcing another one after it
+     * draws everything twice for a value that has not changed. A board draws this once a card.
+     */
+    it("draws a consumer once for a label that has not changed", async () => {
+        const note = buildNote({ title: "Card", "#archived": "true" });
+        const draws: boolean[] = [];
+
+        function Consumer() {
+            const [ archived ] = useNoteLabelBoolean(note, "archived");
+            draws.push(archived);
+            return <span>{String(archived)}</span>;
+        }
+
+        container = document.body.appendChild(document.createElement("div"));
+        await act(async () => {
+            render(<Consumer />, container as HTMLElement);
+            await new Promise((resolve) => setTimeout(resolve));
+        });
+
+        expect(draws).toEqual([ true ]);
     });
 });
