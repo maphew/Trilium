@@ -10,7 +10,9 @@ import { ContextMenuEvent } from "../../../menus/context_menu";
 import { openNoteContextMenu } from "./context_menu";
 import { t } from "../../../services/i18n";
 import UserAttributesDisplay from "../../attribute_widgets/UserAttributesList";
-import { useNoteIcon, useNoteLabelBoolean, useTriliumEvent } from "../../react/hooks";
+import {
+    useNoteColorClass, useNoteIcon, useNoteLabelBoolean, useTriliumEvent
+} from "../../react/hooks";
 
 function Card({
     api,
@@ -52,7 +54,8 @@ function Card({
     onCreated: (noteId: string | undefined) => void
 }) {
     const { setBranchIdToEdit } = useContext(BoardActionsContext);
-    const colorClass = note.getColorClass() || '';
+    // Tracks the `color` label, which the board does not redraw a card for.
+    const colorClass = useNoteColorClass(note) || "";
     const editorRef = useRef<HTMLInputElement>(null);
     const cardRef = useRef<HTMLDivElement>(null);
     const [ isArchived ] = useNoteLabelBoolean(note, "archived");

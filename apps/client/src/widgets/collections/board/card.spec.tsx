@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
 import contextMenu from "../../../menus/context_menu";
+import cssClassManager from "../../../services/css_class_manager";
 import FAttribute from "../../../entities/fattribute";
 import froca from "../../../services/froca";
 import LoadResults from "../../../services/load_results";
@@ -83,6 +84,22 @@ describe("Board card", () => {
         expect(columnsOf(container)).toContain("Done");
         expect(draws.get(first)).toBe(before);
         expect(draws.get(second)).toBeGreaterThan(before ?? 0);
+    });
+
+    /**
+     * The board does not redraw a card for a colour, and a card whose props have not changed is
+     * skipped by the memo around it, so the card has to hear about the label itself.
+     */
+    it("follows its note's colour", async () => {
+        const { component, first, second } = await renderBoard();
+        const coloured = cssClassManager.createClassForColor("#ff0000");
+
+        expect(cardClasses(first)).not.toContain(coloured);
+
+        await addLabel(component, first, "color", "#ff0000");
+
+        expect(cardClasses(first)).toContain(coloured);
+        expect(cardClasses(second)).not.toContain(coloured);
     });
 
     it("follows its note's icon, which the quick edit popup sets as a label", async () => {
