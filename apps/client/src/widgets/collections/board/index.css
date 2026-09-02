@@ -269,6 +269,14 @@ body.mobile .board-view-container .board-add-column {
   --board-item-hue: var(--board-column-custom-hue);
 }
 
+/* A carried copy stands in the drag layer rather than in its column, so it is tinted directly. Left
+   above the rules below, which a card with a colour of its own is painted by instead. */
+.board-view-container .board-drag-preview.column-tinted {
+  --board-item-hue: var(--board-column-custom-hue);
+  --board-item-saturation: var(--board-item-background-saturation);
+  --board-item-hover-saturation: var(--board-item-hover-background-saturation);
+}
+
 /* ...and its own wherever it has one, the second selector outweighing the column's rule above
    rather than merely following it. A card wears `with-hue` only for a colour of its own, which is
    what tells it apart from one inheriting the hue of the note the board is shown in. */

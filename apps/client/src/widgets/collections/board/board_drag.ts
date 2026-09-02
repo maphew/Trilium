@@ -493,6 +493,15 @@ function lift(held: Gesture, container: HTMLElement) {
     preview.querySelector(".edit-icon")?.remove();
     preview.querySelector(".board-new-item")?.remove();
 
+    // The copy is carried in the drag layer rather than in the column it came from, where the rule
+    // that tints a card no longer reaches it, so the column's hue is put on the copy itself.
+    const hue = held.element.closest<HTMLElement>(".board-column.with-hue")
+        ?.style.getPropertyValue("--board-column-custom-hue");
+    if (held.kind === "card" && hue) {
+        preview.classList.add("column-tinted");
+        preview.style.setProperty("--board-column-custom-hue", hue);
+    }
+
     for (const [ property, value ] of Object.entries({
         left: `${rect.left}px`,
         top: `${rect.top}px`,

@@ -508,6 +508,23 @@ describe("useBoardDrag, carrying a card", () => {
             expect(column?.style.display).toBe("none");
         });
 
+        it("carries the tint of the column a card came from, and none where there is none", () => {
+            setup();
+
+            press(card("n1"), 10, 10);
+            move(60, 10);
+            const tinted = board.querySelector<HTMLElement>(".board-note.board-drag-preview");
+            expect(tinted?.classList.contains("column-tinted")).toBe(true);
+            expect(tinted?.style.getPropertyValue("--board-column-custom-hue")).toBe("210");
+            release(60, 10);
+
+            press(card("n3"), 210, 10);
+            move(260, 10);
+            const plain = board.querySelector<HTMLElement>(".board-note.board-drag-preview");
+            expect(plain?.classList.contains("column-tinted")).toBe(false);
+            release(260, 10);
+        });
+
         it("reports the place it would take, counting the columns as they stand", () => {
             setup();
 
@@ -583,6 +600,11 @@ describe("useBoardDrag, carrying a card", () => {
             const column = document.createElement("div");
             column.className = "board-column";
             column.dataset.column = [ "To Do", "Doing" ][index];
+            // The first column is tinted, the second is not, so a copy can be checked against both.
+            if (index === 0) {
+                column.classList.add("with-hue");
+                column.style.setProperty("--board-column-custom-hue", "210");
+            }
             board.appendChild(column);
             place(column, index * 200, 0, 100, 400);
 
