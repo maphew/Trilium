@@ -3,7 +3,9 @@ import "./scroll_fade.css";
 import clsx from "clsx";
 import { RefObject } from "preact";
 import { CSSProperties } from "preact/compat";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+
+import { useTrackedElement } from "./hooks";
 
 /** Fractional scroll offsets are reported at sub-pixel precision, so an edge is never tested exactly. */
 const EDGE_EPSILON = 1;
@@ -41,13 +43,7 @@ export function useScrollFade(ref: RefObject<HTMLElement>, options: ScrollFadeOp
     const [ overflow, setOverflow ] = useState(0);
     const frameRef = useRef<number>();
 
-    // A ref holds no render of its own, so an effect keyed on one never hears the element arrive.
-    const [ element, setElement ] = useState<HTMLElement | null>(null);
-    useLayoutEffect(() => {
-        if (ref.current !== element) {
-            setElement(ref.current);
-        }
-    });
+    const element = useTrackedElement(ref);
 
     const measure = useCallback(() => {
         if (!element) return;

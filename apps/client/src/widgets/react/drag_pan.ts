@@ -1,7 +1,8 @@
 import { RefObject } from "preact";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { isMobile } from "../../services/utils";
+import { useTrackedElement } from "./hooks";
 
 /** How much of the speed survives each frame once the pointer is up. */
 const FRICTION = 0.94;
@@ -47,15 +48,7 @@ export function useDragPan(ref: RefObject<HTMLElement>, options: DragPanOptions 
     // A ref holds no render of its own, so an effect keyed on one never hears the element arrive.
     // Containers drawn only once their content has loaded are the ordinary case, so the element is
     // tracked in state instead. Set only when it actually changes, so this settles in one pass.
-    // A ref holds no render of its own, so an effect keyed on one never hears the element arrive.
-    // Containers drawn only once their content has loaded are the ordinary case, so the element is
-    // tracked in state instead. Set only when it actually changes, so this settles in one pass.
-    const [ element, setElement ] = useState<HTMLElement | null>(null);
-    useLayoutEffect(() => {
-        if (ref.current !== element) {
-            setElement(ref.current);
-        }
-    });
+    const element = useTrackedElement(ref);
 
     const stopGlide = useCallback(() => {
         if (glideRef.current !== undefined) {
@@ -144,7 +137,10 @@ export function useDragPan(ref: RefObject<HTMLElement>, options: DragPanOptions 
             setPanning(false);
             container.releasePointerCapture?.(event.pointerId);
 
-            if (Math.abs(velocity) > MIN_VELOCITY) {
+            // A cancelled gesture is not a release: the pointer was taken away rather than let go,
+            // so the board stops where it stands instead of carrying the movement on.
+            const cancelled = event.type === "pointercancel";
+            if (!cancelled && Math.abs(velocity) > MIN_VELOCITY) {
                 glide();
             }
         };

@@ -5,7 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DragPanOptions, useDragPan } from "./drag_pan";
 
-vi.mock("../../services/utils", () => ({ isMobile: () => false }));
+// Spread rather than replaced: the hook reaches the shared hooks module, which reads far more of
+// this than the one export under test.
+vi.mock("../../services/utils", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../services/utils")>()),
+    isMobile: () => false
+}));
 
 describe("useDragPan", () => {
     let container: HTMLElement | undefined;
@@ -163,6 +168,21 @@ describe("useDragPan", () => {
         const released = scroller.scrollLeft;
         act(() => { vi.advanceTimersByTime(500); });
         expect(scroller.scrollLeft).toBe(released);
+    });
+
+    /** The pointer was taken away rather than let go, so the movement was never finished. */
+    it("does not glide when the gesture is cancelled", () => {
+        const scroller = setup();
+
+        press(scroller, 400);
+        move(scroller, 300, 16);
+        act(() => { scroller.dispatchEvent(pointer("pointercancel", 300, 0, {})); });
+
+        const cancelled = scroller.scrollLeft;
+        act(() => { vi.advanceTimersByTime(500); });
+
+        expect(scroller.scrollLeft).toBe(cancelled);
+        expect(scroller.className).not.toContain("panning");
     });
 
     it("stops a glide when the next pan starts", () => {
