@@ -2,7 +2,9 @@ import { RefObject } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { useTrackedElement } from "../../react/hooks";
-import { cardInsertionIndex, columnAt, columnCovers, columnInsertionIndex } from "./drag_geometry";
+import {
+    type CardBox, cardInsertionIndex, columnAt, columnCovers, columnInsertionIndex
+} from "./drag_geometry";
 import { type BoardMeasurement, measureBoard, toAreaY, toBoardX } from "./drag_measure";
 import { createEdgeScroller, type ScrollTarget } from "./edge_scroll";
 
@@ -215,7 +217,9 @@ export function useBoardDrag(
             const position = column
                 ? {
                     column: column.value,
-                    index: area ? cardInsertionIndex(column.cards, toAreaY(area, topY)) : 0
+                    index: area
+                        ? placeIn(column.cards, toAreaY(area, topY), held.card, column.value)
+                        : 0
                 }
                 : null;
             // Standing on the column itself, which for a collapsed one is its heading alone: the
@@ -416,12 +420,54 @@ export function useBoardDrag(
      */
     const remeasure = useCallback(() => {
         const held = gesture.current;
-        if (held?.active && container) {
-            held.measurement = measureBoard(container);
+        if (!held?.active || !container) {
+            return;
         }
+
+        const measurement = measureBoard(container);
+        // Each column keeps the cards it was measured with. The board now holds the gap where the
+        // card was, which stands every card below it one place lower, so reading them again would
+        // take the drag's own doing for a move of its own and the places would creep away from the
+        // card with every one it passes.
+        for (const column of measurement.columns) {
+            const before = held.measurement?.columns.find(({ value }) => value === column.value);
+            if (before) {
+                column.cards = before.cards;
+            }
+        }
+
+        held.measurement = measurement;
     }, [ container ]);
 
     return { isDragging, remeasure };
+}
+
+/**
+ * The place a carried card would take in a column, counting that column as the board holds it.
+ *
+ * The cards were measured with the carried one among them, and it leaves the flow the moment it is
+ * picked up, so the column is read here as it is drawn: without that card, and with everything
+ * below it standing where the card's own place used to be. Its height is its own, so the cards
+ * below move by that and not by a card's worth, which is what a column of mixed heights turns on.
+ * The answer is then counted back into the list the board holds, which is what a move names.
+ */
+function placeIn(cards: CardBox[], y: number, card: DraggedCard, column: string): number {
+    const carried = cards[card.index];
+    if (column !== card.fromColumn || !carried) {
+        return cardInsertionIndex(cards, y);
+    }
+
+    const below = cards[card.index + 1];
+    const vacated = below ? below.top - carried.top : carried.height;
+    const drawn = cards
+        .filter((_, index) => index !== card.index)
+        .map((other, index) => index < card.index
+            ? other
+            : { top: other.top - vacated, height: other.height });
+
+    const index = cardInsertionIndex(drawn, y);
+
+    return index >= card.index ? index + 1 : index;
 }
 
 /** Asks an element for its menu the way a right click does, at the place the tap landed. */

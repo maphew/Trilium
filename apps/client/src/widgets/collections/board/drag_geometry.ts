@@ -77,15 +77,23 @@ export function columnCovers(column: ColumnBox, x: number, y: number): boolean {
 }
 
 /**
- * Where a card would be inserted in a column: before the first card the point is above the middle
- * of, or at the end.
+ * Where a card would be inserted in a column: in the place the point falls in, or at the end.
+ *
+ * The line between one place and the next runs through the space between two cards, not through
+ * the middle of a card. What is carried is placed by its top edge, which reaches that space half a
+ * card before its middle does, so a middle would leave the gap trailing what is being carried.
  *
  * @param cards the column's cards, in order.
- * @param y in the content space of the card area holding them.
+ * @param y the top of what is carried, in the content space of the card area holding them.
  */
 export function cardInsertionIndex(cards: CardBox[], y: number): number {
     for (const [ index, card ] of cards.entries()) {
-        if (y < card.top + card.height / 2) {
+        const next = cards[index + 1];
+        const boundary = next
+            ? (card.top + card.height + next.top) / 2
+            : card.top + card.height;
+
+        if (y < boundary) {
             return index;
         }
     }

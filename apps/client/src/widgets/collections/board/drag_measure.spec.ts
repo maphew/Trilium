@@ -146,10 +146,10 @@ describe("reading a point against a measurement", () => {
         const area = areas.get("Doing");
         if (!area) throw new Error("expected a card area");
 
-        // Its one card stands at 10 in the area's content and is 50 tall, so its middle is at 35.
-        // The area is 20 scrolled and starts 40 down the page, so that middle is at 55 on screen.
-        expect(cardInsertionIndex(column?.cards ?? [], toAreaY(area, 50))).toBe(0);
-        expect(cardInsertionIndex(column?.cards ?? [], toAreaY(area, 60))).toBe(1);
+        // Its one card stands at 10 in the area's content and is 50 tall, so its place ends at 60.
+        // The area is 20 scrolled and starts 40 down the page, so that end is at 80 on screen.
+        expect(cardInsertionIndex(column?.cards ?? [], toAreaY(area, 70))).toBe(0);
+        expect(cardInsertionIndex(column?.cards ?? [], toAreaY(area, 90))).toBe(1);
     });
 
     it("reads a point over the same column the same way however far the board is scrolled", () => {

@@ -92,20 +92,21 @@ describe("columnCovers", () => {
 });
 
 describe("cardInsertionIndex", () => {
-    it("places the card before the one it is held over the top half of", () => {
+    it("places the card in the place its top edge has reached", () => {
         const cards = stack(50, 50, 50);
 
         expect(cardInsertionIndex(cards, 0)).toBe(0);
-        expect(cardInsertionIndex(cards, 24)).toBe(0);
-        // Past the first card's middle, so it goes after it.
-        expect(cardInsertionIndex(cards, 26)).toBe(1);
-        expect(cardInsertionIndex(cards, 74)).toBe(1);
-        expect(cardInsertionIndex(cards, 76)).toBe(2);
+        expect(cardInsertionIndex(cards, 49)).toBe(0);
+        // The line between one place and the next runs where one card ends and the next begins.
+        expect(cardInsertionIndex(cards, 51)).toBe(1);
+        expect(cardInsertionIndex(cards, 99)).toBe(1);
+        expect(cardInsertionIndex(cards, 101)).toBe(2);
     });
 
     it("places the card at the end when it is held below them all", () => {
         expect(cardInsertionIndex(stack(50, 50, 50), 500)).toBe(3);
-        expect(cardInsertionIndex(stack(50), 40)).toBe(1);
+        expect(cardInsertionIndex(stack(50), 40)).toBe(0);
+        expect(cardInsertionIndex(stack(50), 60)).toBe(1);
     });
 
     it("places the card first in a column holding none", () => {
@@ -113,18 +114,18 @@ describe("cardInsertionIndex", () => {
         expect(cardInsertionIndex([], 500)).toBe(0);
     });
 
-    /** Cards are not all one height: a tall one's middle is further down than its neighbour's. */
-    it("counts each card's own middle rather than a shared height", () => {
+    /** Cards are not all one height: a tall one's place reaches much further down. */
+    it("counts each card's own height rather than a shared one", () => {
         const cards = stack(20, 200, 20);
 
-        expect(cardInsertionIndex(cards, 9)).toBe(0);
-        expect(cardInsertionIndex(cards, 11)).toBe(1);
-        // The tall card runs from 20 to 220, so its middle is at 120.
-        expect(cardInsertionIndex(cards, 119)).toBe(1);
-        expect(cardInsertionIndex(cards, 121)).toBe(2);
+        expect(cardInsertionIndex(cards, 19)).toBe(0);
+        expect(cardInsertionIndex(cards, 21)).toBe(1);
+        // The tall card runs from 20 to 220, and its place runs with it.
+        expect(cardInsertionIndex(cards, 219)).toBe(1);
+        expect(cardInsertionIndex(cards, 221)).toBe(2);
     });
 
-    /** A point above the first card is still a point above its middle. */
+    /** A point above the first card is above every place it could take. */
     it("places the card first when it is held above the card area", () => {
         expect(cardInsertionIndex(stack(50, 50), -80)).toBe(0);
     });

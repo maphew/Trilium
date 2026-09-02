@@ -178,15 +178,16 @@ describe("Board drag and drop", () => {
         // drawn by. A reader could not press before that; a test can.
         await act(async () => { await settle(); });
 
-        // Taken from the first card and let go above the second's middle, so it lands between them.
-        await pointer(card, "pointerdown", 50, 50);
-        await pointer(columns[0], "pointermove", 50, 120);
+        // The second card, carried up until its top stands above the first, so it lands before it.
+        const second = columns[0].querySelectorAll<HTMLElement>(".board-note")[1];
+        await pointer(second, "pointerdown", 50, 150);
+        await pointer(columns[0], "pointermove", 50, 60);
         await act(async () => { await settle(); });
-        await pointer(columns[0], "pointerup", 50, 120);
+        await pointer(columns[0], "pointerup", 50, 60);
         await act(async () => { await settle(); });
 
         expect(branches.moveBeforeBranch)
-            .toHaveBeenCalledWith([ cards[0].branchId ], cards[1].branchId);
+            .toHaveBeenCalledWith([ cards[1].branchId ], cards[0].branchId);
     });
 
     /**

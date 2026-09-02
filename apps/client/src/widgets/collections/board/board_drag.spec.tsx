@@ -103,19 +103,20 @@ describe("useBoardDrag, carrying a card", () => {
         setup();
 
         press(card("n1"), 50, 60);
-        // Taken 20 below its own top edge, so its top stands at 80 on the page, which is 40 into
-        // the card area: past the first card's middle at 25 and above the second's at 85.
-        move(120, 100);
+        // Taken 20 below its own top edge, so its top stands at 100 on the page, which is 60 into
+        // the card area: below the card that is left standing there once this one is picked up, so
+        // it goes after it rather than before it.
+        move(120, 120);
         act(() => { vi.advanceTimersByTime(20); });
-        expect(calls.move.at(-1)?.position).toEqual({ column: "To Do", index: 1 });
+        expect(calls.move.at(-1)?.position).toEqual({ column: "To Do", index: 2 });
 
         // Still over the same place: nothing is reported again.
         const reported = calls.move.length;
-        move(122, 102);
+        move(122, 122);
         act(() => { vi.advanceTimersByTime(20); });
         expect(calls.move).toHaveLength(reported);
 
-        // Over the second column, below its only card's middle.
+        // Over the second column, below its only card.
         move(320, 200);
         act(() => { vi.advanceTimersByTime(20); });
         expect(calls.move.at(-1)?.position).toEqual({ column: "Doing", index: 1 });
@@ -196,7 +197,7 @@ describe("useBoardDrag, carrying a card", () => {
 
         // Taken by its very bottom, so its top stands 48 above the pointer from here on.
         press(card("n1"), 50, 88);
-        move(50, 150);
+        move(50, 120);
         act(() => { vi.advanceTimersByTime(20); });
         const heldLow = calls.move.at(-1)?.position;
 
@@ -205,7 +206,7 @@ describe("useBoardDrag, carrying a card", () => {
 
         // Taken by its very top: the same pointer place leaves its top far lower down.
         press(card("n1"), 50, 42);
-        move(50, 150);
+        move(50, 120);
         act(() => { vi.advanceTimersByTime(20); });
 
         // One pointer place, two grips, and the card lands where the card is rather than where the
