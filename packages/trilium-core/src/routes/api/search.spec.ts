@@ -85,6 +85,16 @@ describe("Search API (core)", () => {
     });
 
     it("keeps path parameters compatible with existing clients", async () => {
+        const legacyFull = await api.get<string[]>(`/api/search/${UNIQUE_TOKEN}`);
+        expect(legacyFull.status).toBe(200);
+        expect(legacyFull.body).toContain(createdNoteId);
+
+        const legacyQuick = await api.get<{ searchResultNoteIds: string[] }>(
+            `/api/quick-search/${UNIQUE_TOKEN}`
+        );
+        expect(legacyQuick.status).toBe(200);
+        expect(legacyQuick.body.searchResultNoteIds).toContain(createdNoteId);
+
         const full = await api.get<string[]>(`/api/search/${UNIQUE_TOKEN}`, {
             query: { searchString: "" }
         });

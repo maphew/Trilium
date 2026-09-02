@@ -151,7 +151,7 @@ function getSearchString(req: Request<{ searchString?: string }>): string {
     const searchString = req.params.searchString ?? req.query.searchString;
 
     if (typeof searchString !== "string" || searchString.length === 0) {
-        throw new ValidationError("Search string must be a string.");
+        throw new ValidationError("Search string must be a non-empty string.");
     }
 
     return searchString;
