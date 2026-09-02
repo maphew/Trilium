@@ -434,6 +434,14 @@ body.mobile .board-view-container .board-add-column {
   touch-action: none;
 }
 
+/* The gap opening and closing moves content above whatever the browser has anchored to, and it
+   shifts the column to keep that still. The shift moves the card under the pointer, which moves the
+   gap, which shifts the column again: at the foot of a tall column the two chase each other and it
+   never settles on the last place. */
+.board-view-container.board-dragging .board-column-content {
+  overflow-anchor: none;
+}
+
 /* A long press on a card is how it is picked up, not how it is selected or looked up. */
 .board-view-container .board-note {
   -webkit-touch-callout: none;

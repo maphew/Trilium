@@ -150,7 +150,20 @@ export function useBoardDrag(
             // Held from here on, so the gesture keeps the pointer wherever it goes. Taken at the
             // press instead, it would carry the click away from what was pressed.
             container.setPointerCapture?.(held.pointerId);
+
+            // Taking the card out of the flow shortens its column, and a column scrolled near its
+            // foot is clamped to the new end before the gap standing in for the card has been
+            // drawn. Put back on the next frame, by which time it has.
+            const area = held.element.closest<HTMLElement>(".board-column-content");
+            const keptScroll = area?.scrollTop;
             const lifted = lift(held, container);
+            if (area && keptScroll !== undefined) {
+                requestAnimationFrame(() => {
+                    if (area.scrollTop < keptScroll) {
+                        area.scrollTop = keptScroll;
+                    }
+                });
+            }
             held.preview = lifted.preview;
             held.grab = lifted.grab;
             container.classList.add("board-dragging");
