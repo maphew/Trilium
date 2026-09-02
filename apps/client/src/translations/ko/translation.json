@@ -3239,7 +3239,8 @@
     "limit-capacity": "열 용량 초과 시 경고",
     "limit-count": "열의 최대 노트 수",
     "card-count_other": "{{count}}개 항목",
-    "card-count-with-archived_other": "활성 항목 {{count}}개, 보관된 항목 {{archived}}개"
+    "card-count-with-archived_other": "활성 항목 {{count}}개, 보관된 항목 {{archived}}개",
+    "collapse-column": "열 접기"
   },
   "dashboard_view": {
     "refresh-widget": "새로 고침",
