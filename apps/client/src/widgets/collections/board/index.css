@@ -230,9 +230,18 @@ body.mobile .board-view-container .board-add-column {
 
 .board-view-container .board-column > .board-column-content {
   flex-grow: 1;
+  /* Without this the cards set the floor for the column's height and push the footer past it. */
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   padding: 0.5em;
+}
+
+.board-view-container .board-column > .board-new-item {
+  flex-shrink: 0;
+  /* Matches the padding of the scrolling body above, so the footer lines up with the cards. */
+  margin-inline: 0.5em;
+  margin-block-end: 0.5em;
 }
 
 .board-view-container .board-note:hover .edit-icon {
@@ -243,7 +252,7 @@ body.mobile .board-view-container .board-add-column {
 .board-view-container .board-note,
 .board-view-container .board-new-item.editing {
   box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.1);
-  margin: 0.65em 0;
+  margin-block: 0.65em;
   padding: var(--card-padding);
   border-radius: 5px;
   position: relative;
@@ -472,6 +481,22 @@ body.mobile .board-view-container .board-add-column {
   resize: none;
 }
 
+/* A card lands at the end of a column the reader may not be looking at, so it announces itself. */
+@keyframes board-card-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.board-view-container .board-note.appearing {
+  animation: board-card-appear 500ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-view-container .board-note.appearing {
+    animation: none;
+  }
+}
+
 .board-drop-placeholder {
   height: 40px;
   margin: 0.65em 0;
@@ -503,7 +528,6 @@ body.mobile .board-view-container .board-add-column {
 }
 
 .board-new-item {
-  margin-top: 0.5em;
   padding: 0.25em 0.5em;
   border-radius: 5px;
   color: var(--muted-text-color);

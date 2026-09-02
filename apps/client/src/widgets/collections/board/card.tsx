@@ -1,5 +1,7 @@
 import { memo } from "preact/compat";
-import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
+import {
+    useCallback, useContext, useEffect, useLayoutEffect, useRef, useState
+} from "preact/hooks";
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
 import BoardApi from "./api";
@@ -17,6 +19,7 @@ function Card({
     column,
     index,
     statusAttribute,
+    isNew,
     isDragging,
     isEditing,
     onFocusCard
@@ -31,6 +34,8 @@ function Card({
      * one identity for the life of the board, which a `memo` comparison cannot see through.
      */
     statusAttribute: string,
+    /** Whether this is the card the new-item editor has just made, which is revealed on arrival. */
+    isNew: boolean,
     isDragging: boolean,
     /**
      * Passed down rather than derived here from the drag state's `branchIdToEdit`, so that a card
@@ -43,6 +48,7 @@ function Card({
     const { setBranchIdToEdit } = useContext(BoardActionsContext);
     const colorClass = note.getColorClass() || '';
     const editorRef = useRef<HTMLInputElement>(null);
+    const cardRef = useRef<HTMLDivElement>(null);
     const [ isArchived ] = useNoteLabelBoolean(note, "archived");
     const [ title, setTitle ] = useState(note.title);
     // Tracks the `iconClass` label, which an attribute change carries and the note row never does.
@@ -93,9 +99,24 @@ function Card({
         setTitle(note.title);
     }, [ note ]);
 
+    // A card is added at the end of its column, which on a full column is below the fold. The
+    // column is taken to its end rather than the card into view, so the card lands clear of the
+    // fade the scrolling body draws over its bottom edge.
+    useLayoutEffect(() => {
+        if (!isNew) {
+            return;
+        }
+
+        const content = cardRef.current?.closest(".board-column-content");
+        if (content) {
+            content.scrollTop = content.scrollHeight;
+        }
+    }, [ isNew ]);
+
     return (
         <div
-            className={`board-note ${colorClass} ${isDragging ? 'dragging' : ''} ${isEditing ? "editing" : ""} ${isArchived ? "archived" : ""}`}
+            ref={cardRef}
+            className={`board-note ${colorClass} ${isDragging ? 'dragging' : ''} ${isEditing ? "editing" : ""} ${isArchived ? "archived" : ""} ${isNew ? "appearing" : ""}`}
             data-note-id={note.noteId}
             onContextMenu={handleContextMenu}
             onClick={!isEditing ? handleOpen : undefined}

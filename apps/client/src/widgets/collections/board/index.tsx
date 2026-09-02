@@ -714,7 +714,8 @@ function AddNewColumn({ api, isInRelationMode }: { api: BoardApi, isInRelationMo
 }
 
 export function TitleEditor({
-    currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true
+    currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true,
+    saveAndContinue = false
 }: {
     currentValue?: string;
     placeholder?: string;
@@ -722,6 +723,11 @@ export function TitleEditor({
     dismiss: () => void;
     isNewItem?: boolean;
     mode?: "normal" | "multiline" | "relation";
+    /**
+     * Whether Enter saves and clears the editor rather than closing it, so that a run of cards can
+     * be typed one after another. Escape and clicking away still close it.
+     */
+    saveAndContinue?: boolean;
     /**
      * Whether opening the editor selects what is already in it, which is what a rename wants. An
      * editor opened part-typed puts the caret after the text instead, so the next key carries on
@@ -760,6 +766,18 @@ export function TitleEditor({
             return;
         }
 
+        if (e.key === "Enter" && saveAndContinue) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const input = inputRef.current;
+            if (input?.value.trim()) {
+                commit(input.value);
+                input.value = "";
+            }
+            return;
+        }
+
         if (e.key === "Enter" || e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
@@ -774,18 +792,22 @@ export function TitleEditor({
 
     const onBlur = (newValue: string) => {
         if (!shouldDismiss.current && newValue.trim() && (newValue !== currentValue || isNewItem)) {
-            // The editor is closing either way, and what a save writes has already been put back by
-            // whatever could not write it; all that is left is to say so rather than to reject
-            // unhandled, which is what a save reaching nobody used to do.
-            Promise.resolve(save(newValue)).catch((e) => {
-                console.error("Failed to save what the board editor was given:", e);
-                toast.showError(t("board_view.save-error"));
-            });
+            commit(newValue);
             dismissOnNextRefreshRef.current = true;
         } else {
             dismiss();
         }
     };
+
+    // The editor is closing either way, and what a save writes has already been put back by
+    // whatever could not write it; all that is left is to say so rather than to reject unhandled,
+    // which is what a save reaching nobody used to do.
+    function commit(newValue: string) {
+        Promise.resolve(save(newValue)).catch((e) => {
+            console.error("Failed to save what the board editor was given:", e);
+            toast.showError(t("board_view.save-error"));
+        });
+    }
 
     if (mode !== "relation") {
         const Element = mode === "multiline" ? FormTextArea : FormTextBox;

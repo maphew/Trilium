@@ -19,7 +19,7 @@ import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
 import { collectShortcutHints } from "../../../services/shortcut_hints";
-import { getPendingWrites } from "./api";
+import BoardApi, { getPendingWrites } from "./api";
 import { DEFAULT_COLUMN_ICON } from "./columns";
 
 // Stands in for the server: by the time the bulk action resolves, the notes carry the new value,
@@ -1115,44 +1115,98 @@ describe("Board column rename", () => {
         show.mockRestore();
     });
 
-    it("scrolls the column to its end when the new-item button takes focus", async () => {
-        const { note, container } = await setup();
+    it("keeps the new-item slot out of the column's scrolling body", async () => {
+        const { container } = await setup();
         const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
-        const content = column.querySelector<HTMLElement>(".board-column-content");
-        if (!content) throw new Error("expected a scrollable column body");
+        const slot = column.querySelector<HTMLElement>(".board-new-item");
+
+        expect(slot).toBeTruthy();
+        expect(slot?.closest(".board-column-content")).toBeNull();
+        expect(slot?.parentElement).toBe(column);
+    });
+
+    /**
+     * Cards are added in runs, so the editor stays where it is with an empty field rather than
+     * closing and having to be opened again for the next one.
+     */
+    it("clears the new-item editor on Enter and leaves it open", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        if (!editor) throw new Error("expected the new-item editor to be open");
+
+        editor.value = "First";
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(created).toHaveBeenCalledWith("Doing", "First");
+        expect(slot?.querySelector("textarea")).toBe(editor);
+        expect(editor.value).toBe("");
+        expect(document.activeElement).toBe(editor);
+
+        // The one already saved is not written a second time by the one that follows it.
+        editor.value = "Second";
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(created).toHaveBeenCalledTimes(2);
+        expect(created).toHaveBeenLastCalledWith("Doing", "Second");
+    });
+
+    /**
+     * A card is added at the end of its column, which on a full column is out of sight, so it is
+     * scrolled to and faded in rather than appearing wherever the reader is not looking.
+     */
+    it("reveals the card the editor just made", async () => {
+        const { container } = await setup();
+        const card = container.querySelector<HTMLElement>(".board-note");
+        const noteId = card?.getAttribute("data-note-id");
+        const column = card?.closest<HTMLElement>(".board-column");
+        if (!card || !noteId || !column) throw new Error("expected a card to stand in for the new one");
 
         // happy-dom lays nothing out, so the scrollable height has to be stood in for.
-        Object.defineProperty(content, "scrollHeight", { value: 500, configurable: true });
+        const content = column.querySelector<HTMLElement>(".board-column-content");
+        if (!content) throw new Error("expected a scrollable column body");
+        Object.defineProperty(content, "scrollHeight",
+            { value: 500, configurable: true, writable: true });
         expect(content.scrollTop).toBe(0);
 
+        vi.spyOn(BoardApi.prototype, "createNewItem").mockResolvedValue(noteId);
+
+        const slot = column.querySelector<HTMLElement>(".board-new-item");
         await act(async () => {
-            column.querySelector<HTMLElement>(".board-new-item")?.focus();
+            slot?.click();
             await flush();
         });
 
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        if (!editor) throw new Error("expected the new-item editor to be open");
+        editor.value = "Fresh";
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(card.classList.contains("appearing")).toBe(true);
         expect(content.scrollTop).toBe(500);
 
-        // The card just made lands above the button, pushing it out of sight again. Nothing is
-        // focused afresh by that, so only the effect watching the count brings it back.
-        Object.defineProperty(content, "scrollHeight", { value: 900, configurable: true });
-        addCard(note, "Doing");
-        await act(async () => {
-            render(
-                <ParentComponent.Provider value={new Component()}>
-                    <Harness
-                        note={note}
-                        noteIds={[ ...note.getChildNoteIds() ]}
-                        initialConfig={DEFAULT_CONFIG}
-                    />
-                </ParentComponent.Provider>,
-                container
-            );
-            await flush();
-        });
-        await act(async () => { await flush(); });
-
-        expect(columnTitles(container)).toEqual([ "To Do", "Doing", "Done" ]);
-        expect(content.scrollTop).toBe(900);
+        // The cards that were already there are left alone.
+        const others = [ ...container.querySelectorAll(".board-note") ]
+            .filter(other => other !== card);
+        expect(others.some(other => other.classList.contains("appearing"))).toBe(false);
     });
 
     it("starts the new item off with the character typed on its button", async () => {

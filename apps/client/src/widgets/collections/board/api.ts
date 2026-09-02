@@ -156,12 +156,14 @@ export default class BoardApi {
 
     async createNewItem(column: string, title: string) {
         try {
-            await note_create.createNote(this.parentNote.noteId, {
+            const { note } = await note_create.createNote(this.parentNote.noteId, {
                 activate: false,
                 title,
                 isProtected: this.parentNote.isProtected,
                 attributes: this.groupingFor(column)
             });
+
+            return note?.noteId;
         } catch (error) {
             console.error("Failed to create new item:", error);
         }

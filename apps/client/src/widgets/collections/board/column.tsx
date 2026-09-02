@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { Fragment } from "preact";
 import {
-    useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState
+    useCallback, useContext, useEffect, useMemo, useRef, useState
 } from "preact/hooks";
 import { JSX } from "preact/jsx-runtime";
 
@@ -76,6 +76,7 @@ export default function Column({
     onFocusCard: (noteId: string) => void
 } & DragContext) {
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
+    const [ createdNoteId, setCreatedNoteId ] = useState<string>();
     const { setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn } =
         useContext(BoardActionsContext);
     const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
@@ -304,6 +305,7 @@ export default function Column({
                                 column={column}
                                 index={index}
                                 statusAttribute={api.statusAttribute}
+                                isNew={note.noteId === createdNoteId}
                                 isDragging={draggedCard?.noteId === note.noteId}
                                 isEditing={branch.branchId === branchIdToEdit}
                                 onFocusCard={onFocusCard}
@@ -314,15 +316,15 @@ export default function Column({
                 {dropPosition?.column === column && dropPosition.index === (columnItems?.length ?? 0) && (
                     <div className="board-drop-placeholder show" style={gapStyle} />
                 )}
-
-                <AddNewItem
-                    api={api}
-                    column={column}
-                    itemCount={columnItems?.length ?? 0}
-                    isCreating={isCreatingNewItem}
-                    setIsCreating={setIsCreatingNewItem}
-                />
             </div>}
+
+            {!isCollapsed && <AddNewItem
+                api={api}
+                column={column}
+                isCreating={isCreatingNewItem}
+                setIsCreating={setIsCreatingNewItem}
+                onCreated={setCreatedNoteId}
+            />}
         </div>
     );
 }
@@ -331,34 +333,15 @@ export default function Column({
  * The editor a new card is named in, opened by the button below the column or by its menu. The
  * state is the column's rather than this component's, since the menu is raised from the header.
  */
-function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
+function AddNewItem({ column, api, isCreating, setIsCreating, onCreated }: {
     column: string,
     api: BoardApi,
-    /** How many cards stand above it, which is what moves it out of view as they come and go. */
-    itemCount: number,
     isCreating: boolean,
-    setIsCreating: (isCreating: boolean) => void
+    setIsCreating: (isCreating: boolean) => void,
+    /** Names the card just made, which the column reveals once the board has drawn it. */
+    onCreated: (noteId: string | undefined) => void
 }) {
     const [ initialTitle, setInitialTitle ] = useState("");
-    const slotRef = useRef<HTMLDivElement>(null);
-
-    // Reaching the button means reaching the end of the column, so what is under it comes into view
-    // with it. The browser scrolls only far enough to show the button itself.
-    const scrollToEnd = useCallback(() => {
-        const content = slotRef.current?.closest(".board-column-content");
-        if (content) {
-            content.scrollTop = content.scrollHeight;
-        }
-    }, []);
-
-    // A card added lands above the button and pushes it out of sight, and the editor stands taller
-    // than the button it replaces. Neither raises a focus event, so whatever is focused in here has
-    // to be followed back into view.
-    useLayoutEffect(() => {
-        if (slotRef.current?.contains(document.activeElement)) {
-            scrollToEnd();
-        }
-    }, [ itemCount, isCreating, scrollToEnd ]);
 
     const open = useCallback((title: string) => {
         setInitialTitle(title);
@@ -384,11 +367,9 @@ function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
 
     return (
         <div
-            ref={slotRef}
             className={`board-new-item ${isCreating ? "editing" : ""}`}
             onClick={() => open("")}
             onKeyDown={handleKeyDown}
-            onFocus={scrollToEnd}
             tabIndex={300}
         >
             {!isCreating ? (
@@ -400,10 +381,11 @@ function AddNewItem({ column, api, itemCount, isCreating, setIsCreating }: {
                 <TitleEditor
                     currentValue={initialTitle}
                     placeholder={t("board_view.new-item-placeholder")}
-                    save={(title) => api.createNewItem(column, title)}
+                    save={async (title) => onCreated(await api.createNewItem(column, title))}
                     dismiss={() => setIsCreating(false)}
                     mode="multiline" isNewItem
                     selectOnFocus={false}
+                    saveAndContinue
                 />
             )}
         </div>
