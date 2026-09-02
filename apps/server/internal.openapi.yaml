@@ -1922,6 +1922,7 @@ paths:
           required: true
           schema:
             type: string
+            minLength: 1
       responses:
         '200':
           description: Search results
@@ -1931,6 +1932,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SearchResult'
+        '400':
+          description: Missing or empty search string
                   
   /api/quick-search:
     get:
@@ -1943,6 +1946,7 @@ paths:
           required: true
           schema:
             type: string
+            minLength: 1
       responses:
         '200':
           description: Quick search results
@@ -1952,6 +1956,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SearchResult'
+        '400':
+          description: Missing or empty search string
                   
   /api/search-note/{noteId}:
     get:

@@ -107,7 +107,7 @@ function getSearchResultDetails(req: Request<{ noteId: string }>): SearchResultD
     };
 }
 
-function quickSearch(req: Request) {
+function quickSearch(req: Request<{ searchString?: string }>) {
     const searchString = getSearchString(req);
 
     const searchContext = new SearchContext({
@@ -134,7 +134,7 @@ function quickSearch(req: Request) {
     };
 }
 
-function search(req: Request) {
+function search(req: Request<{ searchString?: string }>) {
     const searchString = getSearchString(req);
 
     const searchContext = new SearchContext({
@@ -147,12 +147,14 @@ function search(req: Request) {
     return searchService.findResultsWithQuery(searchString, searchContext).map((sr) => sr.noteId);
 }
 
-function getSearchString(req: Request): string {
-    if (typeof req.query.searchString !== "string" || req.query.searchString.length === 0) {
+function getSearchString(req: Request<{ searchString?: string }>): string {
+    const searchString = req.query.searchString ?? req.params.searchString;
+
+    if (typeof searchString !== "string" || searchString.length === 0) {
         throw new ValidationError("Search string must be a string.");
     }
 
-    return req.query.searchString;
+    return searchString;
 }
 
 function getRelatedNotes(req: Request) {

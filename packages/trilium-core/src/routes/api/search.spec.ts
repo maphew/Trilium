@@ -84,6 +84,18 @@ describe("Search API (core)", () => {
         }
     });
 
+    it("keeps path parameters compatible with existing clients", async () => {
+        const full = await api.get<string[]>(`/api/search/${UNIQUE_TOKEN}`);
+        expect(full.status).toBe(200);
+        expect(full.body).toContain(createdNoteId);
+
+        const quick = await api.get<{ searchResultNoteIds: string[] }>(
+            `/api/quick-search/${UNIQUE_TOKEN}`
+        );
+        expect(quick.status).toBe(200);
+        expect(quick.body.searchResultNoteIds).toContain(createdNoteId);
+    });
+
     it("lists template note ids including a freshly-labelled template", async () => {
         const { noteId } = await createTextNote(api, { title: "A template note" });
         await api.post(`/api/notes/${noteId}/attributes`, {
