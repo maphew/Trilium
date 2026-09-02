@@ -43,6 +43,11 @@ export interface BoardColumnData {
     /** Whether the column is archived, absent while it is not. */
     archived?: boolean;
     /**
+     * Whether the column is drawn as a strip, with its cards left out. Selecting the column opens
+     * it again until another one is selected, which does not change this.
+     */
+    collapsed?: boolean;
+    /**
      * Whether the inbox column also collects notes below the board's direct children. Has no
      * meaning on any other column, which is defined by a grouping value instead.
      */
@@ -66,6 +71,8 @@ interface CardDrag {
 interface ColumnDrag {
     column: string;
     index: number;
+    /** What the column measures, so the gap held open for it is the size it will land in. */
+    size?: { width: number, height: number };
 }
 
 /**
@@ -85,6 +92,11 @@ interface BoardActions {
     setBranchIdToEdit: Dispatch<StateUpdater<string | undefined>>;
     setColumnNameToEdit: Dispatch<StateUpdater<string | undefined>>;
     setColumnLimitToEdit: Dispatch<StateUpdater<string | undefined>>;
+    /**
+     * Names the column the reader is working in. A collapsed column is drawn open while it holds
+     * this, so selecting another one is the only thing that closes it again.
+     */
+    setActiveColumn: Dispatch<StateUpdater<string | undefined>>;
     setDraggedCard: Dispatch<StateUpdater<CardDrag | null>>;
     setDraggedColumn: (column: ColumnDrag | null) => void;
     setDropPosition: (position: ColumnDrag | null) => void;
@@ -104,12 +116,13 @@ interface BoardDragState {
 // Both defaults are the honest identity value rather than a stand-in, which is what lets consumers
 // read these with a plain useContext(): no non-null assertion, and no guard for a provider that is
 // structurally always there. Nothing is being dragged, and the setters have nothing to set.
-/* v8 ignore next 9 -- the board always provides these, so nothing but a consumer mounted outside
+/* v8 ignore next 10 -- the board always provides these, so nothing but a consumer mounted outside
    it would ever call one; they exist so that consumers need no guard. */
 export const BoardActionsContext = createContext<BoardActions>({
     setBranchIdToEdit: () => undefined,
     setColumnNameToEdit: () => undefined,
     setColumnLimitToEdit: () => undefined,
+    setActiveColumn: () => undefined,
     setDraggedCard: () => undefined,
     setDraggedColumn: () => undefined,
     setDropPosition: () => undefined,
@@ -184,12 +197,13 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ draggedCard, setDraggedCard ] = useState<{ noteId: string, branchId: string, fromColumn: string, index: number } | null>(null);
     const [ dropTarget, setDropTarget ] = useState<string | null>(null);
     const [ dropPosition, setDropPosition ] = useState<{ column: string, index: number } | null>(null);
-    const [ draggedColumn, setDraggedColumn ] = useState<{ column: string, index: number } | null>(null);
+    const [ draggedColumn, setDraggedColumn ] = useState<ColumnDrag | null>(null);
     const [ columnDropPosition, setColumnDropPosition ] = useState<number | null>(null);
     const [ columnHoverIndex, setColumnHoverIndex ] = useState<number | null>(null);
     const [ branchIdToEdit, setBranchIdToEdit ] = useState<string>();
     const [ columnNameToEdit, setColumnNameToEdit ] = useState<string>();
     const [ columnLimitToEdit, setColumnLimitToEdit ] = useState<string>();
+    const [ activeColumn, setActiveColumn ] = useState<string>();
     /** Bumped when the definition changes, since it is read off the note rather than held in state. */
     const [ definitionRevision, setDefinitionRevision ] = useState(0);
     // A ref rather than state: `api` is rebuilt on every refresh, and the map has to outlive those
@@ -238,13 +252,14 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         setBranchIdToEdit,
         setColumnNameToEdit,
         setColumnLimitToEdit,
+        setActiveColumn,
         setDraggedCard,
         setDraggedColumn,
         setDropPosition,
         setDropTarget
     }), [
-        setBranchIdToEdit, setColumnNameToEdit, setColumnLimitToEdit, setDraggedCard,
-        setDraggedColumn, setDropPosition, setDropTarget
+        setBranchIdToEdit, setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn,
+        setDraggedCard, setDraggedColumn, setDropPosition, setDropTarget
     ]);
 
     // Read off the config rather than off `columns`, which the resolver hands back as names alone.
@@ -315,6 +330,10 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             });
     }
 
+    // The board is not drawn afresh for another note, so the column opened on one would otherwise
+    // still be open on the next, over whatever that board stores for a column of the same name.
+    useEffect(() => setActiveColumn(undefined), [ parentNote ]);
+
     useEffect(refresh, [
         parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition, inboxEnabled
     ]);
@@ -341,6 +360,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
 
     const { onKeyDown: handleKeyDown, focusColumn, focusCard } = useBoardKeyboard({
         containerRef,
+        setActiveColumn,
         columns: shownColumns,
         byColumn,
         api,
@@ -381,6 +401,12 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         setColumnDropPosition(targetIndex);
     }, [draggedColumn]);
 
+    // Measured rather than styled: a collapsed column is a strip, and the placeholder stands in
+    // for whichever column is being dragged.
+    const placeholderSize = draggedColumn?.size?.width
+        ? { width: `${draggedColumn.size.width}px`, height: `${draggedColumn.size.height}px` }
+        : undefined;
+
     const handleContainerDrop = useCallback((e: DragEvent) => {
         e.preventDefault();
         if (draggedColumn && columnDropPosition !== null) {
@@ -405,7 +431,10 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                         {shownColumns.map((column, index) => (
                             <>
                                 {columnDropPosition === index && (
-                                    <div className="column-drop-placeholder show" />
+                                    <div
+                                        className="column-drop-placeholder show"
+                                        style={placeholderSize}
+                                    />
                                 )}
                                 <Column
                                     isInRelationMode={isInRelationMode}
@@ -415,6 +444,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     icon={storedColumns.get(column)?.icon}
                                     color={storedColumns.get(column)?.color}
                                     archived={storedColumns.get(column)?.archived}
+                                    collapsed={storedColumns.get(column)?.collapsed}
+                                    isActive={activeColumn === column}
                                     nested={storedColumns.get(column)?.nested}
                                     limit={storedColumns.get(column)?.limit}
                                     columnIndex={index}
@@ -430,7 +461,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                             </>
                         ))}
                         {columnDropPosition === shownColumns.length && draggedColumn && (
-                            <div className="column-drop-placeholder show" />
+                            <div className="column-drop-placeholder show" style={placeholderSize} />
                         )}
 
                         <AddNewColumn api={api} isInRelationMode={isInRelationMode} />

@@ -717,7 +717,18 @@
       "move_to_end_column": "最初 / 最後 の列に移動",
       "move_column": "列を 左 / 右 に移動",
       "move_column_to_edge": "列を 一番左 / 一番右 に移動"
-    }
+    },
+    "inbox": "インボックス",
+    "inherited-column": "このカードは、テンプレートまたは親ノートから列情報を取得するため、そこで変更できます。",
+    "inbox-nested": "ネストされたノートを含める",
+    "inbox-remove": "インボックス列を削除",
+    "card-count_other": "{{count}} 件のアイテム",
+    "card-count-with-archived_other": "{{count}} 件のアクティブなアイテム、{{archived}} 件のアーカイブ済み",
+    "card-count-over-limit": "この列に設定されているノート数の上限を超えています！",
+    "set-limit": "上限を設定...",
+    "set-limit-ok": "上限を設定",
+    "limit-capacity": "列の容量超過時に警告する",
+    "limit-count": "列内の最大ノート数"
   },
   "code_buttons": {
     "execute_button_title": "スクリプトを実行",
@@ -1027,10 +1038,10 @@
     "note_detail_font": "ドキュメント テキスト",
     "monospace_font": "等幅フォント",
     "generic-fonts": "一般的なフォント",
-    "sans-serif-system-fonts": "サンセリフのシステムフォント",
-    "serif-system-fonts": "セリフのシステムフォント",
-    "monospace-system-fonts": "等幅のシステムフォント",
-    "handwriting-system-fonts": "手書きのシステムフォント",
+    "sans-serif-system-fonts": "サンセリフ フォント (ゴシック体)",
+    "serif-system-fonts": "セリフ フォント (明朝体)",
+    "monospace-system-fonts": "モノスペース フォント (等幅フォント)",
+    "handwriting-system-fonts": "手書き風 フォント",
     "serif": "セリフ",
     "sans-serif": "サンセリフ",
     "monospace": "等幅",
@@ -1043,8 +1054,17 @@
     "apply_changes": "変更を適用するには再読み込みしてください",
     "monospace_ligatures": "プログラミング用合字",
     "monospace_ligatures_description": "等幅フォントが対応している場合、!= や -> といった文字の組み合わせを単一の記号（≠、→）として表示します。テキスト自体は変更されません。",
-    "custom_fonts_description": "テーマのフォントを置き換えます。リストにあるすべてのフォントがすべてのデバイスで使用できるわけではありません。Trilium にアップロードしたフォントは、そのフォントのノートから追加できます。",
-    "user-fonts": "カスタムフォント"
+    "custom_fonts_description": "テーマのフォントを置き換えます。Trilium にアップロードされたフォントは、そのフォント自身のノートから追加できます。",
+    "user-fonts": "カスタムフォント",
+    "main_font_short": "インターフェース",
+    "note_tree_font_short": "ノートツリー",
+    "note_detail_font_short": "ドキュメント",
+    "monospace_font_short": "モノスペース",
+    "proportional-system-fonts": "プロポーショナルフォント（可変幅フォント）",
+    "search_placeholder": "フォント検索",
+    "no_fonts_found": "該当するフォントは見つかりませんでした。",
+    "document_preview_heading": "パープルハートの挿し木",
+    "document_preview_body": "節の下で茎を4 本切り取り、窓辺の水に挿しておきました。<strong>9 日</strong>後に最初の根が出てきました。<em>日当たりの良い</em> 場所では鮮やかな色を保ち、日陰では緑色に褪せます。"
   },
   "max_content_width": {
     "title": "コンテンツ幅",
@@ -1587,7 +1607,8 @@
     "map_cluster": "近接して描画されるマーカーをまとめ、番号付きの吹き出しとして表示します。この吹き出しはクリックすると開きます。",
     "ai_quick_action": "このノートをテキストエディタの AI アシスタントメニューの指示として表示されます。タイトルがアクション名になり、内容がプロンプトになります。",
     "template_new_note_default_parent": "テンプレートノートに設定した場合: テンプレートから作成されたノート（例: @補完機能によるもの）は、明示的に別の場所が選択されない限り、対象のノートの配下に配置されます。",
-    "custom_font": "Trilium のオプションにあるフォント選択画面で、ノートのタイトルの下に表示されるフォントファイルを指定します。"
+    "custom_font": "Trilium のオプションにあるフォント選択画面で、ノートのタイトルの下に表示されるフォントファイルを指定します。",
+    "enable_inbox_column": "ボードコレクションの場合、インボックス列が表示され、ボード列に割り当てられていないすべての子ノートが一覧表示されます。"
   },
   "link_context_menu": {
     "open_note_in_popup": "クイック編集",
@@ -2410,7 +2431,9 @@
     "vector_dark": "Vector （ダーク）",
     "show-labels": "マーカー名を表示",
     "cluster-markers": "近くのマーカーをグループ化",
-    "presentation-theme": "テーマ"
+    "presentation-theme": "テーマ",
+    "board-inbox-column": "インボックス列を表示",
+    "board-inbox-column-help": "インボックス列を表示します。この列には、どの列にも割り当てられていない子ノートが一覧表示されます。"
   },
   "call_to_action": {
     "next_theme_title": "新しいTriliumテーマをお試しください",

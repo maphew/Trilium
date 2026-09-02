@@ -120,6 +120,289 @@ function columnTitles(container: HTMLElement) {
     return [ ...container.querySelectorAll(".board-column h3 .title") ].map(el => el.textContent);
 }
 
+describe("Collapsed board columns", () => {
+    let container: HTMLElement | undefined;
+
+    afterEach(() => {
+        saved.length = 0;
+        if (container) {
+            render(null, container);
+            container.remove();
+            container = undefined;
+        }
+    });
+
+    /** A board whose first column is stored collapsed and holds two cards. */
+    async function setup() {
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            children: [
+                { id: "card1", title: "First", "#status": "To Do" },
+                { id: "card2", title: "Second", "#status": "To Do" },
+                { id: "card3", title: "Third", "#status": "Done" }
+            ]
+        });
+        const host = new Component();
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={host}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={{ columns: [
+                            { value: "To Do", collapsed: true }, { value: "Done" }
+                        ] }}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+        });
+        await act(async () => { await flush(); });
+
+        return { mountPoint };
+    }
+
+    const columnAt = (container: HTMLElement, index: number) =>
+        [ ...container.querySelectorAll(".board-column") ][index] as HTMLElement;
+
+    const isCollapsed = (container: HTMLElement, index: number) =>
+        columnAt(container, index).classList.contains("collapsed");
+
+    const cardCount = (container: HTMLElement, index: number) =>
+        columnAt(container, index).querySelectorAll(".board-note").length;
+
+    /** Selects a column the way a click on it does, press and release included. */
+    async function select(container: HTMLElement, index: number) {
+        const column = columnAt(container, index);
+        await act(async () => {
+            column.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+            document.dispatchEvent(new Event("pointerup", { bubbles: true }));
+            column.dispatchEvent(new Event("click", { bubbles: true }));
+        });
+    }
+
+    /** Takes hold of the header and drags it, which is how a column is moved. */
+    async function dragHeader(container: HTMLElement, index: number) {
+        const header = columnAt(container, index).querySelector("h3");
+        await act(async () => {
+            header?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+            header?.dispatchEvent(new Event("focusin", { bubbles: true }));
+            header?.dispatchEvent(new Event("dragstart", { bubbles: true }));
+        });
+    }
+
+    it("draws a stored collapsed column as a strip without its cards", async () => {
+        const { mountPoint } = await setup();
+
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(cardCount(mountPoint, 0)).toBe(0);
+        // The count is what the strip reports in place of the cards.
+        expect(columnAt(mountPoint, 0).querySelector(".counter-badge")?.textContent).toBe("2");
+
+        // Every other column is untouched.
+        expect(isCollapsed(mountPoint, 1)).toBe(false);
+        expect(cardCount(mountPoint, 1)).toBe(1);
+    });
+
+    it("opens the column when it is selected and closes it when another one is", async () => {
+        const { mountPoint } = await setup();
+
+        await select(mountPoint, 0);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+        expect(cardCount(mountPoint, 0)).toBe(2);
+
+        await select(mountPoint, 1);
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(cardCount(mountPoint, 0)).toBe(0);
+    });
+
+    /**
+     * The strip is what the reader takes hold of to move the column, so opening it under the
+     * pointer would both hide what is being dragged and drag the opened column instead.
+     */
+    it("stays closed while its header is dragged", async () => {
+        const { mountPoint } = await setup();
+
+        await dragHeader(mountPoint, 0);
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+
+        // The drag ends without a `pointerup`, and the column still opens on the next click.
+        await act(async () => {
+            columnAt(mountPoint, 0).querySelector("h3")
+                ?.dispatchEvent(new Event("dragend", { bubbles: true }));
+        });
+        await select(mountPoint, 0);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+    });
+
+    /**
+     * A collapsed column draws none of its cards, so nothing but the header is left to announce.
+     * It says it opens something and what state that is in, rather than reading as a heading with
+     * no way past it.
+     */
+    it("announces the strip as a control that opens the column", async () => {
+        const { mountPoint } = await setup();
+        const header = () => columnAt(mountPoint, 0).querySelector("h3");
+
+        expect(header()?.getAttribute("role")).toBe("button");
+        expect(header()?.getAttribute("aria-expanded")).toBe("false");
+
+        // Open, it is a heading again: Space does nothing there, so no button is promised.
+        await select(mountPoint, 0);
+        expect(header()?.getAttribute("role")).toBeNull();
+        expect(header()?.getAttribute("aria-expanded")).toBeNull();
+
+        // A column that was never collapsed says nothing either way.
+        expect(columnAt(mountPoint, 1).querySelector("h3")?.getAttribute("role")).toBeNull();
+    });
+
+    /** The header is walked onto without opening the column, which Space is for. */
+    it("leaves the column closed when focus reaches its header", async () => {
+        const { mountPoint } = await setup();
+
+        await act(async () => {
+            columnAt(mountPoint, 0).querySelector("h3")
+                ?.dispatchEvent(new Event("focusin", { bubbles: true }));
+        });
+
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+    });
+
+    it("closes an open column when focus reaches another one", async () => {
+        const { mountPoint } = await setup();
+
+        await select(mountPoint, 0);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+
+        await act(async () => {
+            columnAt(mountPoint, 1).querySelector("h3")
+                ?.dispatchEvent(new Event("focusin", { bubbles: true }));
+        });
+
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+    });
+
+    /**
+     * The limit dialog, the icon picker and the context menu all render outside the column, so
+     * focus leaving it is not a reason to close it. Only another column being selected is.
+     */
+    it("stays open while a control rendered outside it is used", async () => {
+        const { mountPoint } = await setup();
+
+        await select(mountPoint, 0);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+
+        // What opening a portalled dialog does to the column: focus goes somewhere else entirely.
+        const elsewhere = document.createElement("button");
+        document.body.appendChild(elsewhere);
+        await act(async () => {
+            columnAt(mountPoint, 0)
+                .dispatchEvent(new Event("focusout", { bubbles: true }));
+            elsewhere.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+        });
+        elsewhere.remove();
+
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+    });
+
+    it("keeps the collapsed column movable and stored as collapsed", async () => {
+        const { mountPoint } = await setup();
+
+        // The header is the drag handle whether or not the column is drawn as a strip.
+        expect(columnAt(mountPoint, 0).querySelector("h3")?.getAttribute("draggable"))
+            .toBe("true");
+        // Opening it by selection is not a change to the config, so nothing is written at all.
+        await select(mountPoint, 0);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+        expect(saved).toEqual([]);
+    });
+
+    /**
+     * The menu is opened from the column, so that column is the open one. Storing the flag alone
+     * would change nothing on screen and leave the reader with no sign the entry did anything.
+     */
+    it("closes the column as soon as the menu entry collapses it", async () => {
+        const { mountPoint } = await setup();
+        const column = columnAt(mountPoint, 1);
+        expect(isCollapsed(mountPoint, 1)).toBe(false);
+
+        await select(mountPoint, 1);
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        column.querySelector("h3")
+            ?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+
+        const entry = (show.mock.calls.at(-1)?.[0].items ?? []).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-collapse-horizontal");
+        if (!entry || !("handler" in entry)) throw new Error("expected a collapse entry");
+
+        await act(async () => {
+            entry.handler?.(entry, {} as never);
+            await flush();
+        });
+        show.mockRestore();
+
+        expect(isCollapsed(mountPoint, 1)).toBe(true);
+        expect(saved.at(-1)?.columns?.[1]).toEqual({ value: "Done", collapsed: true });
+    });
+
+    /**
+     * The board is not drawn afresh for another note, so the column opened on one is still named
+     * in its state when the next arrives. A board of its own storing a column under that name
+     * would be drawn open, against what it stores.
+     */
+    it("does not carry an open column over to another board", async () => {
+        const { mountPoint } = await setup();
+
+        await select(mountPoint, 0);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+
+        const other = buildNote({
+            title: "Other board",
+            "#collection": "",
+            "#viewType": "board",
+            children: [ { title: "Fourth", "#status": "To Do" } ]
+        });
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={other}
+                        noteIds={[ ...other.getChildNoteIds() ]}
+                        initialConfig={{ columns: [ { value: "To Do", collapsed: true } ] }}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+            await flush();
+        });
+        await act(async () => { await flush(); });
+
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(cardCount(mountPoint, 0)).toBe(0);
+    });
+
+    it("offers no icon picker or title editor while collapsed", async () => {
+        const { mountPoint } = await setup();
+        const collapsed = columnAt(mountPoint, 0);
+
+        expect(collapsed.querySelector(".column-icon button")).toBeNull();
+
+        startEditingTitle(collapsed);
+        await act(async () => { await flush(); });
+        expect(collapsed.querySelector("input")).toBeNull();
+
+        // Both come back with the column.
+        await select(mountPoint, 0);
+        expect(columnAt(mountPoint, 0).querySelector(".column-icon button")).not.toBeNull();
+    });
+});
+
 describe("Board column creation", () => {
     let container: HTMLElement | undefined;
 

@@ -285,7 +285,112 @@ describe("Board keyboard", () => {
         });
     });
 
+    describe("walking a board with a collapsed column", () => {
+        const columnAt = (board: HTMLElement, index: number) =>
+            [ ...board.querySelectorAll<HTMLElement>(".board-column") ][index];
+
+        /**
+         * A collapsed column draws neither cards nor the button under them, so the walk has only
+         * its header to land on. Landing nowhere would carry focus straight past the column.
+         */
+        it("lands on a collapsed column's header instead of passing it", async () => {
+            const board = await renderBoard("Doing");
+            focusCard(board, 0, 0);
+
+            press(board, "ArrowRight");
+
+            expect(document.activeElement).toBe(columnAt(board, 1).querySelector("h3"));
+            // Landing on it is not opening it.
+            expect(columnAt(board, 1).classList.contains("collapsed")).toBe(true);
+        });
+
+        it("walks back out of a collapsed header the way it came", async () => {
+            const board = await renderBoard("Doing");
+            focusCard(board, 0, 0);
+
+            press(board, "ArrowRight");
+            press(board, "ArrowLeft");
+
+            expect(focusedName(board)).toBe("First");
+        });
+
+        it("opens the column with Space and steps onto its first card", async () => {
+            const board = await renderBoard("Doing");
+            focusHeader(board, 1);
+
+            press(board, " ");
+            await act(async () => { await flush(); });
+
+            expect(columnAt(board, 1).classList.contains("collapsed")).toBe(false);
+            expect(focusedName(board)).toBe("Third");
+        });
+
+        /** Nothing to step onto, so the column opens and focus stays where it was. */
+        it("opens an empty column with Space and leaves focus on its header", async () => {
+            const board = await renderBoard("Done");
+            focusHeader(board, 2);
+
+            press(board, " ");
+            await act(async () => { await flush(); });
+
+            expect(columnAt(board, 2).classList.contains("collapsed")).toBe(false);
+            expect(document.activeElement).toBe(columnAt(board, 2).querySelector("h3"));
+        });
+
+        it("opens it with Enter too, the header being announced as a button", async () => {
+            const board = await renderBoard("Doing");
+            focusHeader(board, 1);
+
+            press(board, "Enter");
+            await act(async () => { await flush(); });
+
+            expect(columnAt(board, 1).classList.contains("collapsed")).toBe(false);
+            expect(focusedName(board)).toBe("Third");
+        });
+
+        it("leaves Space and Enter alone on a column that is not collapsed", async () => {
+            const board = await renderBoard();
+            focusHeader(board, 1);
+
+            press(board, " ");
+            press(board, "Enter");
+
+            expect(document.activeElement).toBe(columnAt(board, 1).querySelector("h3"));
+            expect(columnAt(board, 1).querySelectorAll(".board-note")).toHaveLength(1);
+        });
+    });
+
     describe("moving what is focused", () => {
+        /**
+         * A collapsed column draws no cards, so the card carried into it would have nothing to be
+         * focused on. The column has to open as part of the move.
+         */
+        it("opens a collapsed column a card is carried into, and focuses the card there", async () => {
+            const board = await renderBoard("Doing");
+            const columnAt = (index: number) =>
+                [ ...board.querySelectorAll<HTMLElement>(".board-column") ][index];
+
+            expect(columnAt(1).classList.contains("collapsed")).toBe(true);
+
+            focusCard(board, 0, 0);
+            const moved = noteOf(board, "First");
+
+            press(board, "ArrowRight", { ctrlKey: true });
+            await redraw();
+
+            // Open from the moment the move is asked for, not once the write has landed.
+            expect(columnAt(1).classList.contains("collapsed")).toBe(false);
+
+            setStatus(moved, "Doing");
+            await redraw();
+
+            expect(columnAt(1).classList.contains("collapsed")).toBe(false);
+            expect(columnAt(1).querySelectorAll(".board-note")).toHaveLength(2);
+            // The card that moved is what focus rests on, as for any other cross-column move.
+            expect(columnOf(board, "First")).toBe(1);
+            expect(focusedName(board)).toBe("First");
+        });
+
         it("moves a card up and down its own column", async () => {
             const board = await renderBoard();
             focusCard(board, 0, 1);
@@ -691,7 +796,7 @@ describe("Board keyboard", () => {
     let boardNote: ReturnType<typeof buildNote>;
 
     /** Two columns of cards, one empty column, and the button that adds another. */
-    async function renderBoard() {
+    async function renderBoard(collapsed?: string) {
         boardNote = buildNote({
             title: "Board",
             "#collection": "",
@@ -716,7 +821,10 @@ describe("Board keyboard", () => {
                         noteIds={[ ...boardNote.getChildNoteIds() ]}
                         highlightedTokens={null}
                         viewConfig={{
-                            columns: [ { value: "To Do" }, { value: "Doing" }, { value: "Done" } ]
+                            columns: [ "To Do", "Doing", "Done" ].map(value => ({
+                                value,
+                                collapsed: value === collapsed ? true : undefined
+                            }))
                         }}
                         saveConfig={(config) => saved.push(config)}
                         media="screen"
