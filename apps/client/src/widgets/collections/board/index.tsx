@@ -34,7 +34,7 @@ import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition, INBOX_COLUMN } from "./columns";
 import Column from "./column";
 import ColumnLimitDialog from "./column_limit";
-import { ColumnMap, getBoardData } from "./data";
+import { applyCardMove, ColumnMap, getBoardData } from "./data";
 import { useBoardKeyboard } from "./keyboard";
 
 export interface BoardViewData {
@@ -212,6 +212,9 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ columnNameToEdit, setColumnNameToEdit ] = useState<string>();
     const [ columnLimitToEdit, setColumnLimitToEdit ] = useState<string>();
     const [ activeColumn, setActiveColumn ] = useState<string>();
+    // How many card moves are still being written. The board is drawn as they will leave it, so a
+    // redraw from the first of a move's two writes would take that back.
+    const movesInFlight = useRef(0);
     /** Bumped when the definition changes, since it is read off the note rather than held in state. */
     const [ definitionRevision, setDefinitionRevision ] = useState(0);
     // A ref rather than state: `api` is rebuilt on every refresh, and the map has to outlive those
@@ -295,6 +298,13 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     }), [ branchIdToEdit, columnNameToEdit, draggedCard, draggedColumn, dropPosition, dropTarget ]);
 
     function refresh() {
+        // A move under way has already been drawn where it will land. Held here rather than at each
+        // caller, since a card crossing columns changes both the note and the board's children, and
+        // either of those reaches this by a path of its own.
+        if (movesInFlight.current) {
+            return;
+        }
+
         // `getBoardData` reads notes, so refreshes can resolve out of order and one issued for the
         // board the user has left can arrive after the next board's. What it has to say is about
         // sources no longer on screen, the pending renames it reports as settled included.
@@ -304,7 +314,9 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived,
             statusDefinition?.options ?? [], pendingRenamesRef.current.writes.renames, inboxEnabled)
             .then(({ byColumn, columns, newPersistedData, isInRelationMode, settledRenames }) => {
-                if (refreshId !== refreshSeqRef.current) return;
+                if (refreshId !== refreshSeqRef.current) {
+                    return;
+                }
 
                 for (const settled of settledRenames) {
                     settleColumn(pendingRenamesRef.current.writes, settled);
@@ -360,10 +372,23 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         },
         onCardEnd: (card, position) => {
             const branchId = byColumn?.get(card.fromColumn)?.[card.index]?.branch.branchId;
-            if (position && branchId) {
+            if (position && branchId && byColumn) {
+                // Drawn where it landed at once, and held there until both writes are in: each of
+                // them lands a redraw, and the first would show the card at the top of the column.
+                setByColumn(applyCardMove(
+                    byColumn, card.noteId, card.fromColumn, position.column, position.index));
+                movesInFlight.current++;
+                // Any refresh already on its way is about the board as it stood before the drop,
+                // and would put the card back where it came from as it resolves.
+                refreshSeqRef.current++;
                 api.moveWithinBoard(
                     card.noteId, branchId, card.index, position.index,
-                    card.fromColumn, position.column);
+                    card.fromColumn, position.column)
+                    // Nothing is asked for once the writes are in: `froca` learns of the branch
+                    // move from the server a moment later, so a refresh here reads the new column
+                    // with the old order and puts the card at the top of it. The change reaches the
+                    // board as an entity reload, which settles it once there is something to read.
+                    .finally(() => { movesInFlight.current--; });
             }
             setDraggedCard(null);
             setDropTarget(null);

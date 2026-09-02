@@ -3,7 +3,62 @@ import { describe, expect, it } from "vitest";
 import FBranch from "../../../entities/fbranch";
 import froca from "../../../services/froca";
 import { buildNote } from "../../../test/easy-froca";
-import { getBoardData } from "./data";
+import { applyCardMove, type ColumnMap, getBoardData } from "./data";
+
+describe("applyCardMove", () => {
+    /** Cards named by their note id, which is all this reads them for. */
+    function board(columns: Record<string, string[]>): ColumnMap {
+        return new Map(Object.entries(columns).map(([ column, ids ]) => [
+            column,
+            ids.map((noteId) => ({ note: { noteId }, branch: { branchId: `b_${noteId}` } }))
+        ])) as unknown as ColumnMap;
+    }
+
+    const names = (map: ColumnMap, column: string) =>
+        (map.get(column) ?? []).map((item) => item.note.noteId);
+
+    it("takes a card out of one column and puts it in another", () => {
+        const next = applyCardMove(board({ A: [ "a1", "a2", "a3" ], B: [ "b1", "b2" ] }),
+            "a2", "A", "B", 1);
+
+        expect(names(next, "A")).toEqual([ "a1", "a3" ]);
+        expect(names(next, "B")).toEqual([ "b1", "a2", "b2" ]);
+    });
+
+    it("puts it at either end of the column it lands in", () => {
+        const start = applyCardMove(board({ A: [ "a1" ], B: [ "b1", "b2" ] }), "a1", "A", "B", 0);
+        expect(names(start, "B")).toEqual([ "a1", "b1", "b2" ]);
+
+        const end = applyCardMove(board({ A: [ "a1" ], B: [ "b1", "b2" ] }), "a1", "A", "B", 2);
+        expect(names(end, "B")).toEqual([ "b1", "b2", "a1" ]);
+    });
+
+    it("puts it in a column holding none", () => {
+        const next = applyCardMove(board({ A: [ "a1" ], B: [] }), "a1", "A", "B", 0);
+
+        expect(names(next, "A")).toEqual([]);
+        expect(names(next, "B")).toEqual([ "a1" ]);
+    });
+
+    /**
+     * The place counts the column as it stood, the card included, so a place beyond where the card
+     * was names one card earlier once it has been taken out.
+     */
+    it("counts a move down its own column against the list it came from", () => {
+        const start = board({ A: [ "a1", "a2", "a3" ] });
+
+        expect(names(applyCardMove(start, "a1", "A", "A", 3), "A")).toEqual([ "a2", "a3", "a1" ]);
+        expect(names(applyCardMove(start, "a1", "A", "A", 2), "A")).toEqual([ "a2", "a1", "a3" ]);
+        expect(names(applyCardMove(start, "a3", "A", "A", 0), "A")).toEqual([ "a3", "a1", "a2" ]);
+        expect(names(applyCardMove(start, "a3", "A", "A", 1), "A")).toEqual([ "a1", "a3", "a2" ]);
+    });
+
+    it("leaves the board alone for a card it does not hold", () => {
+        const start = board({ A: [ "a1" ], B: [] });
+
+        expect(applyCardMove(start, "nope", "A", "B", 0)).toBe(start);
+    });
+});
 
 describe("Board data", () => {
     it("deduplicates cloned notes", async () => {
