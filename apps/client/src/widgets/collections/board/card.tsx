@@ -146,7 +146,7 @@ function Card({
             ref={cardRef}
             className={`board-note ${colorClass} ${isDragging ? 'dragging' : ''} ${isEditing ? "editing" : ""} ${isArchived ? "archived" : ""} ${isNew && !isRevealed ? "appearing" : ""}`}
             onAnimationEnd={(e) => {
-                if (e.animationName === "board-card-appear") {
+                if (e.animationName === "board-item-appear") {
                     setIsRevealed(true);
                 }
             }}

@@ -518,7 +518,7 @@ describe("Board column creation", () => {
         return { note, container: mountPoint };
     }
 
-    /** Clicks "Add column", types a name and blurs the editor, as the user would. */
+    /** Clicks "Add column", types a name and commits it with Enter, as the user would. */
     async function addColumn(container: HTMLElement, name: string) {
         await act(async () => {
             container.querySelector<HTMLElement>(".board-add-column")?.click();
@@ -531,7 +531,7 @@ describe("Board column creation", () => {
         await act(async () => {
             input.focus();
             input.value = name;
-            input.blur();
+            input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
             await flush();
         });
 
@@ -541,6 +541,58 @@ describe("Board column creation", () => {
             await flush();
         });
     }
+
+    /**
+     * A column is added at the right end of the board, past its edge on a board of any width, and
+     * the editor waiting for the next one goes with it.
+     */
+    it("scrolls the board to its end as a column is added", async () => {
+        const { container } = await setup();
+        const board = container.querySelector<HTMLElement>(".board-view-container");
+        const slot = container.querySelector<HTMLElement>(".board-add-column");
+        if (!board || !slot) throw new Error("expected a board with an add-column button");
+
+        // happy-dom lays nothing out, so the width the board scrolls within is stood in for.
+        const widen = (width: number) => Object.defineProperty(board, "scrollWidth", {
+            value: width, configurable: true, writable: true
+        });
+
+        widen(1200);
+        await act(async () => {
+            slot.click();
+            await flush();
+        });
+
+        const input = slot.querySelector<HTMLInputElement>("input");
+        if (!input) throw new Error("expected an inline editor for the new column");
+
+        // The board grows by the column the write adds, and the scroll follows that rather than
+        // the write, which returns before the column is drawn.
+        board.scrollLeft = 0;
+        widen(1450);
+        await act(async () => {
+            input.value = "In Progress";
+            input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+        await act(async () => { await flush(); });
+
+        expect(columnTitles(container)).toEqual([ "To Do", "Done", "In Progress" ]);
+        expect(board.scrollLeft).toBe(1450);
+
+        // And it fades in where it landed, once: a redraw of the board must not play it again.
+        const added = container.querySelectorAll<HTMLElement>(".board-column")[2];
+        expect(added.classList.contains("appearing")).toBe(true);
+        expect(container.querySelectorAll(".board-column.appearing")).toHaveLength(1);
+
+        await act(async () => {
+            added.dispatchEvent(new AnimationEvent("animationend", {
+                animationName: "board-item-appear", bubbles: true
+            }));
+            await flush();
+        });
+        expect(added.classList.contains("appearing")).toBe(false);
+    });
 
     it("renders a newly added column without leaving the view", async () => {
         const { container } = await setup();
@@ -1207,7 +1259,7 @@ describe("Board column rename", () => {
         // the reveal again.
         await act(async () => {
             card.dispatchEvent(new AnimationEvent("animationend", {
-                animationName: "board-card-appear", bubbles: true
+                animationName: "board-item-appear", bubbles: true
             }));
             await flush();
         });
@@ -1390,6 +1442,48 @@ describe("Board column rename", () => {
             .toBe("Half a thought");
     });
 
+    /**
+     * Columns are added in runs as a board is set up, so the editor stays where it is with an empty
+     * field rather than closing and having to be opened again for the next one.
+     */
+    it("clears the add-column editor on Enter, and closes it when it loses focus", async () => {
+        const { container } = await setup();
+        const added = vi.spyOn(BoardApi.prototype, "addNewColumn").mockResolvedValue(true);
+        const slot = container.querySelector<HTMLElement>(".board-add-column");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLInputElement>("input");
+        if (!editor) throw new Error("expected the add-column editor to be open");
+
+        editor.value = "Blocked";
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(added).toHaveBeenCalledWith("Blocked");
+        expect(slot?.querySelector("input")).toBe(editor);
+        expect(editor.value).toBe("");
+        expect(document.activeElement).toBe(editor);
+
+        // Left alone, it goes back to being a button, and nothing is added from what it held.
+        added.mockClear();
+        editor.value = "Half a name";
+        await act(async () => {
+            editor.dispatchEvent(new FocusEvent("blur"));
+            editor.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+            await flush();
+        });
+
+        expect(added).not.toHaveBeenCalled();
+        expect(slot?.querySelector("input")).toBeNull();
+        expect(slot?.classList.contains("editing")).toBe(false);
+    });
+
     it("starts the new item off with the character typed on its button", async () => {
         const { container } = await setup();
         const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
@@ -1566,7 +1660,7 @@ describe("Board editors and menus", () => {
         await act(async () => {
             input.focus();
             input.value = "Blocked";
-            input.blur();
+            input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
             await flush();
         });
         await act(async () => { await flush(); });
@@ -1680,7 +1774,7 @@ describe("Board editors and menus", () => {
         await act(async () => {
             input.focus();
             input.value = name;
-            input.blur();
+            input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
             await flush();
         });
         await act(async () => { await flush(); });

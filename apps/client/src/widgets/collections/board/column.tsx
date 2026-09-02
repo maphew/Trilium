@@ -30,6 +30,8 @@ interface DragContext {
     column: string;
     columnIndex: number,
     columnItems?: { note: FNote, branch: FBranch }[];
+    /** Whether this is the column just added, which is revealed on arrival. */
+    isNew?: boolean;
 }
 
 export default function Column({
@@ -47,6 +49,7 @@ export default function Column({
     nested,
     limit,
     columnItems,
+    isNew,
     api,
     parentNote,
     isInRelationMode
@@ -78,6 +81,9 @@ export default function Column({
 } & DragContext) {
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
     const [ created, setCreated ] = useState<{ noteId?: string, takesFocus: boolean }>();
+    // The column stays the one just added until another is, so what has already been shown is
+    // remembered here rather than played again by every redraw of the board.
+    const [ isRevealed, setIsRevealed ] = useState(false);
     // A card inserted next to another one is where the reader is working, so it is left focused; one
     // made in the footer is not, or every card would take focus from the editor still being typed in.
     const cardInserted = useCallback(
@@ -191,8 +197,14 @@ export default function Column({
                 "with-hue": hue !== undefined,
                 "board-column-archived": archived,
                 "over-limit": isOverLimit,
-                collapsed: isCollapsed
+                collapsed: isCollapsed,
+                appearing: isNew && !isRevealed
             })}
+            onAnimationEnd={(e) => {
+                if (e.animationName === "board-item-appear") {
+                    setIsRevealed(true);
+                }
+            }}
             onFocusIn={handleFocusIn}
             // A click and not a press: a press may be the start of a drag, which must leave the
             // column as it is, and a drag produces no click.

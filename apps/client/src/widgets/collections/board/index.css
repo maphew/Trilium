@@ -507,18 +507,20 @@ body.mobile .board-view-container .board-add-column {
   resize: none;
 }
 
-/* A card lands at the end of a column the reader may not be looking at, so it announces itself. */
-@keyframes board-card-appear {
+/* A card or column lands where the reader may not be looking, so it announces itself. */
+@keyframes board-item-appear {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-.board-view-container .board-note.appearing {
-  animation: board-card-appear 500ms ease-out;
+.board-view-container .board-note.appearing,
+.board-view-container .board-column.appearing {
+  animation: board-item-appear 500ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .board-view-container .board-note.appearing {
+  .board-view-container .board-note.appearing,
+  .board-view-container .board-column.appearing {
     animation: none;
   }
 }

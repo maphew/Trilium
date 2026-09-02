@@ -206,6 +206,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ columns, setColumns ] = useState<string[]>();
     const [ isInRelationMode, setIsRelationMode ] = useState(false);
     const [ draggedCard, setDraggedCard ] = useState<CardDrag | null>(null);
+    /** The column just added, which is revealed once the board has drawn it. */
+    const [ createdColumn, setCreatedColumn ] = useState<string>();
     const [ dropTarget, setDropTarget ] = useState<string | null>(null);
     const [ dropPosition, setDropPosition ] = useState<{ column: string, index: number } | null>(null);
     const [ draggedColumn, setDraggedColumn ] = useState<ColumnDrag | null>(null);
@@ -601,6 +603,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     onFocusColumn={focusColumn}
                                     onFocusCard={focusCard}
                                     columnItems={byColumn.get(column)}
+                                    isNew={column === createdColumn}
                                 />
                             </Fragment>
                         ))}
@@ -609,7 +612,12 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                         )}
                         </div>
 
-                        <AddNewColumn api={api} isInRelationMode={isInRelationMode} />
+                        <AddNewColumn
+                            api={api}
+                            isInRelationMode={isInRelationMode}
+                            columnCount={shownColumns.length}
+                            onCreated={setCreatedColumn}
+                        />
                         {/* Where what is being carried is put. Preact draws the layer and never
                             its contents, so the copy is not among the children it places. */}
                         <div className="board-drag-layer" />
@@ -673,8 +681,30 @@ export function findRefreshReason(loadResults: LoadResults, statusAttribute: str
     return null;
 }
 
-function AddNewColumn({ api, isInRelationMode }: { api: BoardApi, isInRelationMode: boolean }) {
+function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
+    api: BoardApi,
+    isInRelationMode: boolean,
+    /** How many columns stand before this, which is what carries it past the board's edge. */
+    columnCount: number,
+    /** Names the column just made, which the board reveals as it draws it. */
+    onCreated: (column: string) => void
+}) {
     const [ isCreatingNewColumn, setIsCreatingNewColumn ] = useState(false);
+    const slotRef = useRef<HTMLDivElement>(null);
+
+    // Keyed on the count rather than done when the write returns: the column it makes room for is
+    // drawn by a refresh that has yet to run at that point, so the board is not yet as wide as it
+    // is about to be.
+    useLayoutEffect(() => {
+        if (!isCreatingNewColumn) {
+            return;
+        }
+
+        const board = slotRef.current?.closest<HTMLElement>(".board-view-container");
+        if (board) {
+            board.scrollLeft = board.scrollWidth;
+        }
+    }, [ columnCount, isCreatingNewColumn ]);
 
     const addColumnCallback = useCallback(() => {
         setIsCreatingNewColumn(true);
@@ -688,6 +718,7 @@ function AddNewColumn({ api, isInRelationMode }: { api: BoardApi, isInRelationMo
 
     return (
         <div
+            ref={slotRef}
             className={`board-add-column ${isCreatingNewColumn ? "editing" : ""}`}
             onClick={addColumnCallback}
             onKeyDown={keydownCallback}
@@ -703,12 +734,18 @@ function AddNewColumn({ api, isInRelationMode }: { api: BoardApi, isInRelationMo
                         placeholder={t("board_view.add-column-placeholder")}
                         save={async (columnName) => {
                             const created = await api.addNewColumn(columnName);
-                            if (!created) {
+                            if (created) {
+                                onCreated(columnName);
+                            } else {
                                 toast.showMessage(t("board_view.column-already-exists"), undefined, "bx bx-duplicate");
                             }
                         }}
                         dismiss={() => setIsCreatingNewColumn(false)}
                         isNewItem
+                        // Columns are added in runs as a board is set up, so the editor is left
+                        // standing with an empty field. A column named by a note answers for
+                        // itself, since picking one is what closes that editor.
+                        saveAndContinue={!isInRelationMode}
                         mode={isInRelationMode ? "relation" : "normal"}
                     />
                 )}
