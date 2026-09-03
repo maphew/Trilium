@@ -100,7 +100,11 @@ function Harness({ note, noteIds, initialConfig }: { note: ReturnType<typeof bui
 
 /** Files a fresh note under the board, the way an import or another client's write reaches it. */
 function addCard(board: ReturnType<typeof buildNote>, status: string) {
-    const card = buildNote({ title: "Added", "#status": status });
+    return fileCard(board, buildNote({ title: "Added", "#status": status }));
+}
+
+/** Puts a note the test already holds under the board, for one made before it is filed. */
+function fileCard(board: ReturnType<typeof buildNote>, card: ReturnType<typeof buildNote>) {
     const branchId = `${board.noteId}_${card.noteId}`;
 
     froca.branches[branchId] = new FBranch(froca, {
@@ -111,6 +115,7 @@ function addCard(board: ReturnType<typeof buildNote>, status: string) {
         parentNoteId: board.noteId
     });
     board.addChild(card.noteId, branchId, false);
+    return card;
 }
 
 /** Opens the title editor the way the keyboard does, the menu entry needing a rendered menu. */
@@ -1435,14 +1440,70 @@ describe("Board column rename", () => {
     });
 
     /**
+     * The column names the card it just made until it makes another, so what opens out is bounded
+     * in time as well: a card dragged out of the column and back is not the one just made, however
+     * long it has been the last.
+     */
+    it("opens out the card it just made, and not that card once it is old", async () => {
+        for (const [ passed, height ] of [ [ 0, "0px" ], [ 6000, "" ] ] as const) {
+            const { note, container } = await setup();
+            withBoxes();
+
+            try {
+                const card = buildNote({ title: "Made", "#status": "Doing" });
+                vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
+                    .mockResolvedValue({ noteId: card.noteId } as never);
+
+                // Made here, and drawn only by the refresh that follows.
+                const standIn = container.querySelectorAll<HTMLElement>(".board-column")[1]
+                    .querySelector<HTMLElement>(".board-note");
+                await act(async () => {
+                    standIn?.dispatchEvent(new KeyboardEvent("keydown",
+                        { key: "Enter", bubbles: true }));
+                    await flush();
+                });
+
+                vi.setSystemTime(Date.now() + passed);
+                fileCard(note, card);
+                await redraw(note, container);
+
+                const arrived = [ ...container.querySelectorAll<HTMLElement>(".board-note") ]
+                    .find(element => element.getAttribute("data-note-id") === card.noteId);
+                if (!arrived) throw new Error("expected the card just made to be drawn");
+                expect(arrived.style.height).toBe(height);
+            } finally {
+                vi.useRealTimers();
+                dropBoxes();
+                render(null, container);
+            }
+        }
+    });
+
+    /**
      * A card that arrives from somewhere else, a move between columns above all, mounts as a new
      * element in the column that draws it. Only the card the column itself made opens out of
      * nothing; the rest are already where they were put.
      */
     it("opens out only the card the column made, not one that merely arrived", async () => {
         const { note, container } = await setup();
+        withBoxes();
 
-        // happy-dom lays nothing out, and a child with no offset parent is one `useFlip` skips.
+        try {
+            addCard(note, "Doing");
+            await redraw(note, container);
+
+            const arrived = [ ...container.querySelectorAll<HTMLElement>(".board-note") ]
+                .find(card => card.textContent?.includes("Added"));
+            if (!arrived) throw new Error("expected the card that arrived to be drawn");
+            expect(arrived.style.height).toBe("");
+            expect(arrived.style.overflow).toBe("");
+        } finally {
+            dropBoxes();
+        }
+    });
+
+    /** happy-dom lays nothing out, and a child with no offset parent is one `useFlip` skips. */
+    function withBoxes() {
         for (const [ property, read ] of Object.entries({
             offsetParent(this: HTMLElement) { return this.parentElement; },
             offsetHeight() { return 34; },
@@ -1451,35 +1512,31 @@ describe("Board column rename", () => {
             Object.defineProperty(HTMLElement.prototype, property,
                 { configurable: true, get: read as () => unknown });
         }
+    }
 
-        try {
-            addCard(note, "Doing");
-            await act(async () => {
-                render(
-                    <ParentComponent.Provider value={new Component()}>
-                        <Harness
-                            note={note}
-                            noteIds={[ ...note.getChildNoteIds() ]}
-                            initialConfig={DEFAULT_CONFIG}
-                        />
-                    </ParentComponent.Provider>,
-                    container
-                );
-                await flush();
-            });
-            await act(async () => { await flush(); });
-
-            const arrived = [ ...container.querySelectorAll<HTMLElement>(".board-note") ]
-                .find(card => card.textContent?.includes("Added"));
-            if (!arrived) throw new Error("expected the card that arrived to be drawn");
-            expect(arrived.style.height).toBe("");
-            expect(arrived.style.overflow).toBe("");
-        } finally {
-            for (const property of [ "offsetParent", "offsetHeight", "offsetTop" ]) {
-                delete (HTMLElement.prototype as unknown as Record<string, unknown>)[property];
-            }
+    function dropBoxes() {
+        for (const property of [ "offsetParent", "offsetHeight", "offsetTop" ]) {
+            delete (HTMLElement.prototype as unknown as Record<string, unknown>)[property];
         }
-    });
+    }
+
+    /** Draws the board again, which is how a card filed under it reaches the column. */
+    async function redraw(note: ReturnType<typeof buildNote>, container: HTMLElement) {
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={DEFAULT_CONFIG}
+                    />
+                </ParentComponent.Provider>,
+                container
+            );
+            await flush();
+        });
+        await act(async () => { await flush(); });
+    }
 
     it("reveals a card inserted next to another one, without leaving its place", async () => {
         const { note, container } = await setup();
