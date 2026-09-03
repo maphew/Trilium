@@ -2720,7 +2720,8 @@
     "refresh": "重新整理",
     "load_retry": "再試一次",
     "no_notebooks_hint": "此帳戶本身的 OneDrive 所儲存的筆記本才會列出。他人與你分享的筆記本，或是儲存在 SharePoint 或 Teams 網站上的筆記本，均無法匯入。",
-    "import_count_one": "匯入 {{count}} 個分頁"
+    "import_count_one": "匯入 {{count}} 個分頁",
+    "import_count_other": ""
   },
   "notion_import": {
     "name": "Notion",
