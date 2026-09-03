@@ -1531,6 +1531,58 @@ describe("Board column rename", () => {
         }
     });
 
+    /**
+     * The write answers with the card's id, and the refresh that draws the card can land first, so
+     * the column draws it before it knows what it made. That arrival counts all the same, or the
+     * card is the one the column would open out when it comes back.
+     */
+    it("leaves a card drawn before the write answered alone when it comes back", async () => {
+        const { note, container } = await setup();
+        withBoxes();
+
+        try {
+            const card = buildNote({ title: "Early", "#status": "Doing" });
+            let answer: (noteId: string) => void = () => {};
+            vi.spyOn(BoardApi.prototype, "createNewItem")
+                .mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+
+            const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+                .querySelector<HTMLElement>(".board-new-item");
+            await act(async () => {
+                slot?.click();
+                await flush();
+            });
+
+            const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+            if (!editor) throw new Error("expected the new-item editor to be open");
+            editor.value = "Early";
+            await act(async () => {
+                editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+                await flush();
+            });
+
+            // Drawn while the write is still in flight, and only then answered.
+            fileCard(note, card);
+            await redraw(note, container);
+            await act(async () => {
+                answer(card.noteId);
+                await flush();
+            });
+
+            await act(async () => {
+                await new Promise((resolve) => setTimeout(resolve, FLIP_SETTLE_MS + 100));
+            });
+            unfileCard(note, card);
+            await redraw(note, container);
+            fileCard(note, card);
+            await redraw(note, container);
+
+            expect(drawn(container, card.noteId).style.height).toBe("");
+        } finally {
+            dropBoxes();
+        }
+    });
+
     /** The element standing for a note, which a move draws afresh. */
     function drawn(container: HTMLElement, noteId: string) {
         const element = [ ...container.querySelectorAll<HTMLElement>(".board-note") ]
