@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import Component from "../../../components/component";
 import contextMenu from "../../../menus/context_menu";
+import dialog from "../../../services/dialog";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
 import FBranch from "../../../entities/fbranch";
@@ -53,6 +54,14 @@ vi.mock("../../../services/bulk_action", () => ({
 /** Drains the async chain inside `refresh()` (getBoardData → setByColumn/setColumns). */
 async function flush() {
     await new Promise((resolve) => setTimeout(resolve));
+}
+
+/** Fills a field the way typing does, so that what watches the field hears about it. */
+async function type(field: HTMLInputElement | HTMLTextAreaElement, value: string) {
+    await act(async () => {
+        field.value = value;
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
 }
 
 const saved: BoardViewData[] = [];
@@ -1499,6 +1508,72 @@ describe("Board column rename", () => {
         expect(added).not.toHaveBeenCalled();
         expect(slot?.querySelector("input")).toBeNull();
         expect(slot?.classList.contains("editing")).toBe(false);
+    });
+
+    /**
+     * The same as Enter, for a reader who would rather press something: pressing it must not take
+     * focus out of the field first, since losing focus is what closes the editor.
+     */
+    it("makes a card from the button inside the new-item editor, and clears it", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const submit = slot?.querySelector<HTMLElement>(".title-editor-submit");
+        if (!editor || !submit) throw new Error("expected the editor and its button");
+
+        await type(editor, "From the button");
+        await act(async () => {
+            submit.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            await flush();
+        });
+
+        expect(created).toHaveBeenCalledWith("Doing", "From the button");
+        expect(editor.value).toBe("");
+        expect(slot?.querySelector("textarea")).toBe(editor);
+        expect(document.activeElement).toBe(editor);
+    });
+
+    /**
+     * With nothing typed there is nothing to save, so the button reaches for a note that exists
+     * already instead, and goes back to making one as soon as the field holds anything.
+     */
+    it("offers an existing note from the new-item button while the field is empty", async () => {
+        const { container } = await setup();
+        const chosen = vi.spyOn(dialog, "chooseNote").mockResolvedValue("existing");
+        const added = vi.spyOn(BoardApi.prototype, "addExistingItem").mockResolvedValue(true);
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const button = () => slot?.querySelector<HTMLElement>(".title-editor-submit");
+        if (!editor) throw new Error("expected the editor");
+        expect(button()?.className).toContain("bx-folder-open");
+
+        await act(async () => {
+            slot?.querySelector<HTMLElement>(".title-editor-submit")
+                ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            await flush();
+        });
+        expect(chosen).toHaveBeenCalled();
+        expect(added).toHaveBeenCalledWith("Doing", "existing");
+
+        await type(editor, "Typed");
+        expect(button()?.className).toContain("bx-plus-circle");
     });
 
     it("starts the new item off with the character typed on its button", async () => {

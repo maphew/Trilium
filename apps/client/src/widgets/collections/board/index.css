@@ -507,6 +507,40 @@ body.mobile .board-view-container .board-add-column {
   resize: none;
 }
 
+/* The field and the button that submits it, which stands over the field's own end. */
+.board-view-container .title-editor-with-submit {
+  display: flex;
+  flex-grow: 1;
+  position: relative;
+  align-items: center;
+}
+
+/*
+ * Held near the field's foot, where it stays as the field grows a line at a time, except where
+ * centring it would put it there anyway: `min()` takes the smaller of the two, which on a field of
+ * one line is the centred offset and on a taller one is the foot.
+ *
+ * Sized through the icon button's own variables rather than by overriding its box, and in `rem`
+ * rather than `em`: a custom property is worked out where it is used, and this button's font is
+ * itself derived from the size below.
+ */
+.board-view-container .title-editor-with-submit .title-editor-submit {
+  --icon-button-size: 1.6rem;
+  --icon-button-icon-ratio: 0.72;
+
+  position: absolute;
+  inset-inline-end: 0.3rem;
+  inset-block-end: min(calc((100% - var(--icon-button-size)) / 2), 0.4rem);
+  color: var(--muted-text-color);
+}
+
+/* Room for the button, so a long title runs up to it rather than under it. Stated after the rule
+   above, whose shorthand padding would otherwise take this back. */
+.board-view-container .title-editor-with-submit textarea.form-control,
+.board-view-container .title-editor-with-submit input.form-control {
+  padding-inline-end: 2.2em;
+}
+
 /* A card or column lands where the reader may not be looking, so it announces itself. */
 @keyframes board-item-appear {
   from { opacity: 0; }

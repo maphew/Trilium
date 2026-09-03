@@ -26,6 +26,7 @@ import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
 import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
+import ActionButton from "../../react/ActionButton";
 import { useDragPan } from "../../react/drag_pan";
 import { FLIP_SETTLE_MS, useFlip } from "../../react/flip";
 import { ViewModeProps } from "../interface";
@@ -787,6 +788,8 @@ function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
                         // standing with an empty field. A column named by a note answers for
                         // itself, since picking one is what closes that editor.
                         saveAndContinue={!isInRelationMode}
+                        whenEmpty={{ title: t("board_view.add-existing-column") }}
+                        submitTitle={t("board_view.create-new-column")}
                         mode={isInRelationMode ? "relation" : "normal"}
                     />
                 )}
@@ -796,7 +799,7 @@ function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
 
 export function TitleEditor({
     currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true,
-    saveAndContinue = false, returnFocusTo, abandon
+    saveAndContinue = false, returnFocusTo, abandon, whenEmpty, submitTitle
 }: {
     currentValue?: string;
     placeholder?: string;
@@ -815,6 +818,14 @@ export function TitleEditor({
     /** What was typed and not saved, handed over so that reopening the editor can carry it back. */
     abandon?: (typed: string) => void;
     /**
+     * What the button stands for while there is nothing to save. The icon is the same wherever it
+     * is offered; an editor whose caller has nothing to do yet keeps the button, which then does
+     * nothing rather than coming and going as the field is typed into and emptied again.
+     */
+    whenEmpty?: { title: string, onClick?: () => void };
+    /** What the button beside the field makes, for the reader hovering over it. */
+    submitTitle?: string;
+    /**
      * Where focus goes when the editor closes, instead of back to whatever held it before. A card
      * whose editor was opened for it rather than by it names itself, so that closing does not light
      * up the card the reader came from on the way.
@@ -828,6 +839,8 @@ export function TitleEditor({
     selectOnFocus?: boolean;
 }) {
     const inputRef = useRef<any>(null);
+    /** Whether the field holds anything, which is what the button beside it offers to do. */
+    const [ isEmpty, setIsEmpty ] = useState(!currentValue?.trim());
     const focusElRef = useRef<Element>(null);
     const dismissOnNextRefreshRef = useRef(false);
     const shouldDismiss = useRef(false);
@@ -863,12 +876,7 @@ export function TitleEditor({
         if (e.key === "Enter" && saveAndContinue) {
             e.preventDefault();
             e.stopPropagation();
-
-            const input = inputRef.current;
-            if (input?.value.trim()) {
-                commit(input.value);
-                input.value = "";
-            }
+            submit();
             return;
         }
 
@@ -893,6 +901,18 @@ export function TitleEditor({
             dismiss();
         }
     };
+
+    /** Saves what is in the editor and empties it, leaving it open for whatever comes next. */
+    function submit() {
+        const input = inputRef.current;
+        if (input?.value.trim()) {
+            commit(input.value);
+            input.value = "";
+        }
+
+        input?.focus();
+        setIsEmpty(true);
+    }
 
     const onBlur = (newValue: string) => {
         if (saveAndContinue) {
@@ -921,8 +941,7 @@ export function TitleEditor({
 
     if (mode !== "relation") {
         const Element = mode === "multiline" ? FormTextArea : FormTextBox;
-
-        return (
+        const field = (
             <Element
                 inputRef={inputRef}
                 currentValue={currentValue ?? ""}
@@ -931,7 +950,36 @@ export function TitleEditor({
                 rows={mode === "multiline" ? 4 : undefined}
                 onKeyDown={onKeyDown}
                 onBlur={onBlur}
+                onInput={(e) => setIsEmpty(!e.currentTarget.value.trim())}
             />
+        );
+
+        if (!saveAndContinue) {
+            return field;
+        }
+
+        const offered = isEmpty && whenEmpty
+            ? { icon: "bx bx-folder-open", ...whenEmpty }
+            : {
+                icon: "bx bx-plus-circle",
+                title: submitTitle ?? t("board_view.add-new-item"),
+                onClick: submit
+            };
+
+        return (
+            <div className="title-editor-with-submit">
+                {field}
+                {/* The press must not take focus out of the field first: losing it is what closes
+                    the editor, and it would be gone before the click arrived. */}
+                <span onMouseDown={(e) => e.preventDefault()}>
+                    <ActionButton
+                        className="title-editor-submit"
+                        icon={offered.icon}
+                        text={offered.title}
+                        onClick={offered.onClick}
+                    />
+                </span>
+            </div>
         );
     }
     return (

@@ -10,6 +10,7 @@ import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
 import { ContextMenuEvent } from "../../../menus/context_menu";
 import branches from "../../../services/branches";
+import dialog from "../../../services/dialog";
 import { getHue, parseColor } from "../../../services/css_class_manager";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
@@ -404,6 +405,18 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
         setIsCreating(true);
     }, [ setIsCreating ]);
 
+    /** Puts a note that already exists into this column, for a field with nothing typed into it. */
+    const addExistingItem = useCallback(async () => {
+        const noteId = await dialog.chooseNote({
+            title: t("board_view.add-existing-item-title"),
+            okLabel: t("board_view.add-existing-item-ok")
+        });
+
+        if (noteId) {
+            await api.addExistingItem(column, noteId);
+        }
+    }, [ api, column ]);
+
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (isCreating) return;
 
@@ -446,6 +459,11 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
                     selectOnFocus={false}
                     saveAndContinue
                     abandon={setInitialTitle}
+                    whenEmpty={{
+                        title: t("board_view.add-existing-item"),
+                        onClick: addExistingItem
+                    }}
+                    submitTitle={t("board_view.create-new-note")}
                 />
             )}
         </div>
