@@ -718,7 +718,12 @@ body.mobile .column-drop-placeholder {
 .board-view-container .board-column.collapsed {
   width: var(--board-collapsed-column-width);
   overflow: hidden;
-  /* Width and not a transform: the columns beside it have to move with it. */
+}
+
+/* Width and not a transform: the columns beside it have to move with it. The copy being carried is
+   left out, or it would ease towards each frame's position instead of taking it: its `transition:
+   none` above carries no more weight than this rule and stands above it in the file. */
+.board-view-container .board-column.collapsed:not(.board-drag-preview) {
   transition: border-color 0.2s ease, transform 0.2s ease,
     width var(--board-collapse-duration) ease;
 }
@@ -730,7 +735,8 @@ body.mobile .column-drop-placeholder {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .board-view-container .board-column.collapsed {
+  /* Matching the selector above, which it has to outweigh rather than merely follow. */
+  .board-view-container .board-column.collapsed:not(.board-drag-preview) {
     transition: border-color 0.2s ease;
   }
 }

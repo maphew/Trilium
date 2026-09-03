@@ -333,10 +333,14 @@ export function useBoardDrag(
                 && Math.hypot(event.clientX - held.startX, event.clientY - held.startY)
                     <= TOUCH_TOLERANCE;
             const target = held.menuTarget;
+            // A tap on a collapsed column opens it: that is what the strip is for, and its menu is
+            // on the button it carries. Everything else answers a tap with its menu, the long
+            // press that would otherwise open one being how a finger picks something up.
+            const opens = target.closest(".board-column")?.classList.contains("collapsed");
 
             close(event.type === "pointercancel");
 
-            if (tapped) {
+            if (tapped && !opens) {
                 // The browser follows a tap with mouse events for pages that know nothing of touch,
                 // and they land on the menu this is about to open, right under the finger: the
                 // first of them takes the menu straight back off again. Refused at `touchend`,
