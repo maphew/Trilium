@@ -1,4 +1,4 @@
-import { type ColumnBox } from "./drag_geometry";
+import { type CardBox, type ColumnBox } from "./drag_geometry";
 
 /** What a drag measures once at its start, and reads for the rest of the gesture. */
 export interface BoardMeasurement {
@@ -70,9 +70,24 @@ function measureCards(area: HTMLElement | null) {
     }
 
     const top = area.getBoundingClientRect().top - area.scrollTop;
+    const cards: CardBox[] = [];
+    // The gap standing open for the carried card holds the cards under it a place lower than they
+    // are measured to be. What a place is counted against is the column without the drag's own
+    // doing in it, so the room the gap takes is given back to everything below it.
+    let gap = 0;
 
-    return [ ...area.querySelectorAll<HTMLElement>(".board-note") ].map((card) => {
-        const rect = card.getBoundingClientRect();
-        return { top: rect.top - top, height: rect.height };
-    });
+    for (const child of area.children) {
+        const rect = child.getBoundingClientRect();
+
+        if (child.classList.contains("board-drop-placeholder")) {
+            gap += rect.height + Number.parseFloat(getComputedStyle(child).marginBottom || "0");
+            continue;
+        }
+
+        if (child.classList.contains("board-note")) {
+            cards.push({ top: rect.top - top - gap, height: rect.height });
+        }
+    }
+
+    return cards;
 }

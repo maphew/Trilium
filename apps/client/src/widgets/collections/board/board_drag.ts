@@ -425,13 +425,14 @@ export function useBoardDrag(
         }
 
         const measurement = measureBoard(container);
-        // Each column keeps the cards it was measured with. The board now holds the gap where the
-        // card was, which stands every card below it one place lower, so reading them again would
-        // take the drag's own doing for a move of its own and the places would creep away from the
-        // card with every one it passes.
+        // A column that was measured with cards keeps them. The board now holds the gap where the
+        // carried card was, which stands every card below it one place lower, so reading them again
+        // would take the drag's own doing for a move of its own and the places would creep away
+        // from the card with every one it passes. A column measured with none is read afresh: a
+        // collapsed one draws no cards at all until it opens, which is what this runs for.
         for (const column of measurement.columns) {
             const before = held.measurement?.columns.find(({ value }) => value === column.value);
-            if (before) {
+            if (before?.cards.length) {
                 column.cards = before.cards;
             }
         }
