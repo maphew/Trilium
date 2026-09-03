@@ -11,7 +11,7 @@ import { getArchiveMenuItem } from "../../../menus/context_menu_utils";
 import { t } from "../../../services/i18n";
 import { escapeHtml } from "../../../services/utils";
 import ColorPicker from "../../react/ColorPicker";
-import Api, { CardPlacement } from "./api";
+import Api from "./api";
 import { INBOX_COLUMN } from "./columns";
 
 /** What the column menu is opened for: the column itself, and what it can be asked to do. */
@@ -153,9 +153,7 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
 }
 
 /** Offers both ends of a column for the card the button below it is about to create. */
-export function openCreateCardMenu(
-    x: number, y: number, create: (placement: CardPlacement) => void
-) {
+export function openCreateCardMenu(x: number, y: number, create: (atStart: boolean) => void) {
     contextMenu.show({
         x,
         y,
@@ -164,13 +162,42 @@ export function openCreateCardMenu(
                 title: t("board_view.create-at-top"),
                 uiIcon: "bx bx-vertical-top",
                 shortcut: "Shift+Enter",
-                handler: () => create("top")
+                handler: () => create(true)
             },
             {
                 title: t("board_view.create-at-bottom"),
                 uiIcon: "bx bx-vertical-bottom",
                 shortcut: "Enter",
-                handler: () => create("bottom")
+                handler: () => create(false)
+            }
+        ],
+        selectMenuItemHandler() {}
+    });
+}
+
+/**
+ * Offers both ends of the board for the column the button beside the field is about to create.
+ *
+ * Opened leftwards: the button stands at the end of the board, hard against the window's edge,
+ * where a menu drawn from the pointer would be pushed back over the button it came from.
+ */
+export function openCreateColumnMenu(x: number, y: number, create: (atStart: boolean) => void) {
+    contextMenu.show({
+        x,
+        y,
+        orientation: "left",
+        items: [
+            {
+                title: t("board_view.create-column-at-start"),
+                uiIcon: "bx bx-horizontal-left",
+                shortcut: "Shift+Enter",
+                handler: () => create(true)
+            },
+            {
+                title: t("board_view.create-column-at-end"),
+                uiIcon: "bx bx-horizontal-right",
+                shortcut: "Enter",
+                handler: () => create(false)
             }
         ],
         selectMenuItemHandler() {}

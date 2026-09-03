@@ -1495,7 +1495,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(added).toHaveBeenCalledWith("Blocked");
+        expect(added).toHaveBeenCalledWith("Blocked", false);
         expect(slot?.querySelector("input")).toBe(editor);
         expect(editor.value).toBe("");
         expect(document.activeElement).toBe(editor);
@@ -1512,6 +1512,83 @@ describe("Board column rename", () => {
         expect(added).not.toHaveBeenCalled();
         expect(slot?.querySelector("input")).toBeNull();
         expect(slot?.classList.contains("editing")).toBe(false);
+    });
+
+    /**
+     * The button beside the field changes face as the field is typed into, and the field takes its
+     * value from a prop: a render that fed the old one back took the first character with it.
+     */
+    it("keeps what is typed into the add-column field", async () => {
+        const { container } = await setup();
+        const slot = container.querySelector<HTMLElement>(".board-add-column");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLInputElement>("input");
+        if (!editor) throw new Error("expected the add-column editor to be open");
+
+        await type(editor, "B");
+        expect(editor.value).toBe("B");
+
+        await type(editor, "Blocked");
+        expect(editor.value).toBe("Blocked");
+    });
+
+    /** The same two ends a card's button offers, named for a board that runs across. */
+    it("offers both ends of the board from the add-column button", async () => {
+        const { container } = await setup();
+        const added = vi.spyOn(BoardApi.prototype, "addNewColumn").mockResolvedValue(true);
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        const slot = container.querySelector<HTMLElement>(".board-add-column");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLInputElement>("input");
+        const button = slot?.querySelector<HTMLElement>(".title-editor-submit");
+        if (!editor || !button) throw new Error("expected the editor and its button");
+
+        await type(editor, "Blocked");
+        button.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+
+        const opened = show.mock.calls.at(-1)?.[0];
+        const entries = (opened?.items ?? []).flatMap(item =>
+            item && "title" in item && "handler" in item
+                ? [ { title: item.title, icon: "uiIcon" in item ? item.uiIcon : undefined,
+                      shortcut: "shortcut" in item ? item.shortcut : undefined,
+                      handler: item.handler } ]
+                : []);
+        expect(entries.map(entry => [ entry.title, entry.icon, entry.shortcut ])).toEqual([
+            [ "board_view.create-column-at-start", "bx bx-horizontal-left", "Shift+Enter" ],
+            [ "board_view.create-column-at-end", "bx bx-horizontal-right", "Enter" ]
+        ]);
+        // The button stands at the board's right edge, where a menu drawn rightwards is pushed
+        // back over it.
+        expect(opened?.orientation).toBe("left");
+
+        await act(async () => {
+            entries[0]?.handler?.({} as never, {} as never);
+            await flush();
+        });
+        expect(added).toHaveBeenCalledWith("Blocked", true);
+        expect(editor.value).toBe("");
+
+        // Shift+Enter says the same thing from the field itself.
+        added.mockClear();
+        await type(editor, "Also first");
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown",
+                { key: "Enter", shiftKey: true, bubbles: true }));
+            await flush();
+        });
+        expect(added).toHaveBeenCalledWith("Also first", true);
+
+        show.mockRestore();
     });
 
     /**

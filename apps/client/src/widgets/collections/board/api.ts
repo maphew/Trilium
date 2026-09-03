@@ -276,7 +276,12 @@ export default class BoardApi {
         return this.removeFromBoard(noteId);
     }
 
-    async addNewColumn(columnName: string) {
+    /**
+     * Adds a column at one end of the board.
+     *
+     * @param atStart whether it goes at the head of the board rather than after the last column.
+     */
+    async addNewColumn(columnName: string, atStart = false) {
         if (!columnName.trim()) {
             return;
         }
@@ -286,7 +291,26 @@ export default class BoardApi {
         // Add the new column to persisted data if it doesn't exist
         if (columns.some(col => col.value === columnName)) return false;
         settleColumn(this.pending, columnName);
-        this.storeColumns([ ...columns, { value: columnName } ]);
+
+        if (!atStart) {
+            this.storeColumns([ ...columns, { value: columnName } ]);
+            return true;
+        }
+
+        // The whole order has to be written for the column to stand before the others: the stored
+        // list is what the board reads first, and a column missing from it keeps its derived place
+        // at the end whatever is put in front. The inbox holds the head where it has one.
+        const order = columns.map(col => col.value);
+        for (const derived of this.columns) {
+            if (!order.includes(derived)) {
+                order.push(derived);
+            }
+        }
+
+        const byValue = new Map(columns.map(col => [ col.value, col ]));
+        const placed: BoardColumnData[] = order.map(value => byValue.get(value) ?? { value });
+        placed.splice(order[0] === INBOX_COLUMN ? 1 : 0, 0, { value: columnName });
+        this.storeColumns(placed);
         return true;
     }
 

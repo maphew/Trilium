@@ -29,7 +29,7 @@ import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
 import Card from "./card";
 import { DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
-import { openColumnContextMenu } from "./context_menu";
+import { openColumnContextMenu, openCreateCardMenu } from "./context_menu";
 
 interface DragContext {
     column: string;
@@ -450,9 +450,10 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
                 <TitleEditor
                     currentValue={initialTitle}
                     placeholder={t("board_view.new-item-placeholder")}
-                    save={async (title, placement) => {
+                    save={async (title, atStart) => {
                         onCreating();
-                        onCreated(await api.createNewItem(column, title, placement));
+                        onCreated(await api.createNewItem(
+                            column, title, atStart ? "top" : "bottom"));
                     }}
                     dismiss={() => setIsCreating(false)}
                     mode="multiline" isNewItem
@@ -464,7 +465,7 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
                         onClick: addExistingItem
                     }}
                     submitTitle={t("board_view.create-new-note")}
-                    canPlace
+                    openPlacements={openCreateCardMenu}
                 />
             )}
         </div>

@@ -31,14 +31,14 @@ import ActionButton from "../../react/ActionButton";
 import { useDragPan } from "../../react/drag_pan";
 import { FLIP_SETTLE_MS, useFlip } from "../../react/flip";
 import { ViewModeProps } from "../interface";
-import Api, { CardPlacement, getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
+import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
 import { useBoardDrag } from "./board_drag";
 import { movesColumn } from "./drag_geometry";
 import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition, INBOX_COLUMN } from "./columns";
 import Column from "./column";
 import ColumnLimitDialog from "./column_limit";
-import { openCreateCardMenu } from "./context_menu";
+import { openCreateColumnMenu } from "./context_menu";
 import { applyCardMove, ColumnMap, getBoardData } from "./data";
 import { useBoardKeyboard } from "./keyboard";
 
@@ -782,8 +782,8 @@ function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
                 : (
                     <TitleEditor
                         placeholder={t("board_view.add-column-placeholder")}
-                        save={async (columnName) => {
-                            const created = await api.addNewColumn(columnName);
+                        save={async (columnName, atStart) => {
+                            const created = await api.addNewColumn(columnName, atStart);
                             if (created) {
                                 onCreated(columnName);
                             } else {
@@ -796,8 +796,8 @@ function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
                         // standing with an empty field. A column named by a note answers for
                         // itself, since picking one is what closes that editor.
                         saveAndContinue={!isInRelationMode}
-                        whenEmpty={{ title: t("board_view.add-existing-column") }}
                         submitTitle={t("board_view.create-new-column")}
+                        openPlacements={openCreateColumnMenu}
                         mode={isInRelationMode ? "relation" : "normal"}
                     />
                 )}
@@ -807,11 +807,11 @@ function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
 
 export function TitleEditor({
     currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true,
-    saveAndContinue = false, returnFocusTo, abandon, whenEmpty, submitTitle, canPlace
+    saveAndContinue = false, returnFocusTo, abandon, whenEmpty, submitTitle, openPlacements
 }: {
     currentValue?: string;
     placeholder?: string;
-    save: (newValue: string, placement?: CardPlacement) => void | Promise<void>;
+    save: (newValue: string, atStart?: boolean) => void | Promise<void>;
     dismiss: () => void;
     isNewItem?: boolean;
     mode?: "normal" | "multiline" | "relation";
@@ -834,10 +834,11 @@ export function TitleEditor({
     /** What the button beside the field makes, for the reader hovering over it. */
     submitTitle?: string;
     /**
-     * Whether the button also offers which end of the column to make it at: a menu on a right
-     * click or a hold, and Shift+Enter for the top. Only for a `save` that reads the placement.
+     * Opens the menu of which end to make the item at, for a `save` that reads that end. Its
+     * presence is what puts the two ends on the button: a right click or a hold opens the menu,
+     * and Shift+Enter saves at the start without it.
      */
-    canPlace?: boolean;
+    openPlacements?: (x: number, y: number, place: (atStart: boolean) => void) => void;
     /**
      * Where focus goes when the editor closes, instead of back to whatever held it before. A card
      * whose editor was opened for it rather than by it names itself, so that closing does not light
@@ -852,8 +853,13 @@ export function TitleEditor({
     selectOnFocus?: boolean;
 }) {
     const inputRef = useRef<any>(null);
-    /** Whether the field holds anything, which is what the button beside it offers to do. */
-    const [ isEmpty, setIsEmpty ] = useState(!currentValue?.trim());
+    /**
+     * What the field holds, kept here rather than read off the field alone: `FormTextBox` takes its
+     * value as a prop, so a render for anything else, the button beside it changing face included,
+     * writes that prop back over what has been typed.
+     */
+    const [ typed, setTyped ] = useState(currentValue ?? "");
+    const isEmpty = !typed.trim();
     const focusElRef = useRef<Element>(null);
     const dismissOnNextRefreshRef = useRef(false);
     const shouldDismiss = useRef(false);
@@ -896,7 +902,7 @@ export function TitleEditor({
         if (e.key === "Enter" && saveAndContinue) {
             e.preventDefault();
             e.stopPropagation();
-            submit(canPlace && e.shiftKey ? "top" : "bottom");
+            submit(!!openPlacements && e.shiftKey);
             return;
         }
 
@@ -925,31 +931,31 @@ export function TitleEditor({
     /**
      * Saves what is in the editor and empties it, leaving it open for whatever comes next.
      *
-     * @param placement which end of the column to save at, for an editor that offers both.
+     * @param atStart whether to save at the near end, for an editor that offers both.
      * @param typed what to save, for a menu that read the field when it opened rather than now.
      */
-    function submit(placement?: CardPlacement, typed?: string) {
+    function submit(atStart?: boolean, typed?: string) {
         const input = inputRef.current;
         const value = typed ?? input?.value ?? "";
         if (value.trim()) {
-            commit(value, placement);
+            commit(value, atStart);
             if (input) {
                 input.value = "";
             }
         }
 
         input?.focus();
-        setIsEmpty(true);
+        setTyped("");
     }
 
-    /** Offers both ends of the column, saving what the field held when the menu was opened. */
+    /** Offers both ends, saving what the field held when the menu was opened. */
     function openPlacementMenu(e: JSX.TargetedMouseEvent<HTMLElement>) {
         e.preventDefault();
         e.stopPropagation();
         cancelHold();
 
         const typed = inputRef.current?.value ?? "";
-        openCreateCardMenu(e.pageX, e.pageY, (placement) => submit(placement, typed));
+        openPlacements?.(e.pageX, e.pageY, (atStart) => submit(atStart, typed));
     }
 
     /** Opens the same menu for a finger, which has no second button to open it with. */
@@ -964,7 +970,7 @@ export function TitleEditor({
         held.current = window.setTimeout(() => {
             openedByHold.current = true;
             const typed = inputRef.current?.value ?? "";
-            openCreateCardMenu(pageX, pageY, (placement) => submit(placement, typed));
+            openPlacements?.(pageX, pageY, (atStart) => submit(atStart, typed));
         }, HOLD_TO_PLACE_MS);
     }
 
@@ -991,7 +997,7 @@ export function TitleEditor({
             return;
         }
 
-        submit("bottom");
+        submit(false);
     }
 
     const onBlur = (newValue: string) => {
@@ -1012,8 +1018,8 @@ export function TitleEditor({
     // The editor is closing either way, and what a save writes has already been put back by
     // whatever could not write it; all that is left is to say so rather than to reject unhandled,
     // which is what a save reaching nobody used to do.
-    function commit(newValue: string, placement?: CardPlacement) {
-        Promise.resolve(save(newValue, placement)).catch((e) => {
+    function commit(newValue: string, atStart?: boolean) {
+        Promise.resolve(save(newValue, atStart)).catch((e) => {
             console.error("Failed to save what the board editor was given:", e);
             toast.showError(t("board_view.save-error"));
         });
@@ -1024,13 +1030,13 @@ export function TitleEditor({
         const field = (
             <Element
                 inputRef={inputRef}
-                currentValue={currentValue ?? ""}
+                currentValue={typed}
                 placeholder={placeholder}
                 autoComplete="trilium-title-entry" // forces the auto-fill off better than the "off" value.
                 rows={mode === "multiline" ? 4 : undefined}
                 onKeyDown={onKeyDown}
                 onBlur={onBlur}
-                onInput={(e) => setIsEmpty(!e.currentTarget.value.trim())}
+                onInput={(e) => setTyped(e.currentTarget.value)}
             />
         );
 
@@ -1040,7 +1046,7 @@ export function TitleEditor({
 
         // A placement applies only to the button that creates. With nothing typed, the button
         // stands for whatever the caller offers instead.
-        const offersPlacement = !!canPlace && !isEmpty;
+        const offersPlacement = !!openPlacements && !isEmpty;
         const madeBy = submitTitle ?? t("board_view.add-new-item");
         const offered = isEmpty && whenEmpty
             ? { icon: "bx bx-folder-open", title: whenEmpty.title, onClick: whenEmpty.onClick }
