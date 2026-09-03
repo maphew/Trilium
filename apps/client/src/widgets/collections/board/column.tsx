@@ -52,6 +52,7 @@ export default function Column({
     color,
     archived,
     collapsed,
+    keepCollapsed,
     isActive,
     nested,
     limit,
@@ -68,8 +69,10 @@ export default function Column({
     color?: string,
     /** Whether the column is archived. Only ever rendered while archived notes are shown. */
     archived?: boolean,
-    /** Whether the column is stored as collapsed. Selecting it opens it without clearing this. */
+    /** Whether the column is stored as collapsed. A drag opening it does not clear this. */
     collapsed?: boolean,
+    /** Whether the column collapses again once opened, which keeps `collapsed` through an open. */
+    keepCollapsed?: boolean,
     /** Whether this is the column the reader is working in, which opens it while it is collapsed. */
     isActive?: boolean,
     /** Whether the inbox also collects notes deeper than the board's direct children. */
@@ -117,6 +120,7 @@ export default function Column({
     const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
     const isEditing = (columnNameToEdit === column);
     const editorRef = useRef<HTMLInputElement>(null);
+    const headerRef = useRef<HTMLHeadingElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const scrollFade = useScrollFade(contentRef);
     // Cards slide to follow the drop gap opening and closing. Only the card named by `created`
@@ -143,10 +147,47 @@ export default function Column({
     const isOverLimit = limit !== undefined && (columnItems?.length ?? 0) > limit;
     const isCollapsed = !!collapsed && !isActive;
 
+    // Only while the column is open: the strip's own press opens it, which is what it says
+    // instead. Memoised because `useStaticTooltip` rebuilds the tooltip on a new config.
+    const headerTooltip = useMemo(
+        () => ({ title: isCollapsed ? "" : t("board_view.collapse-hint") }), [ isCollapsed ]);
+    useStaticTooltip(headerRef, headerTooltip);
+
     // Reported on the way in only. A column opened by being selected closes when another one is
     // selected, so nothing here watches for focus leaving: the menu, the icon picker and the limit
     // dialog all render outside the column, and each would otherwise close it as it opened.
-    const select = useCallback(() => setActiveColumn(column), [ column, setActiveColumn ]);
+    const select = useCallback(() => {
+        setActiveColumn(column);
+
+        // Opening the strip by hand opens the column for good, unless `keepCollapsed` says it
+        // closes again. A column opened by a card dragged over it goes through `setActiveColumn`
+        // instead, so it keeps the flag.
+        if (isCollapsed && !keepCollapsed) {
+            api.setColumnCollapsed(column, false);
+        }
+    }, [ api, column, isCollapsed, keepCollapsed, setActiveColumn ]);
+
+    /**
+     * Whether the collapse now being drawn is one the reader asked for, which runs faster than a
+     * peek closing: only the peek closes behind the pointer, with the board shifting under it.
+     */
+    const [ isCollapsingByHand, setIsCollapsingByHand ] = useState(false);
+
+    /** Collapses the column, closing the open one so that the change is drawn straight away. */
+    const collapse = useCallback(() => {
+        setIsCollapsingByHand(true);
+        api.setColumnCollapsed(column, true);
+        setActiveColumn(undefined);
+    }, [ api, column, setActiveColumn ]);
+
+    /**
+     * Whether the header was a strip when the press began.
+     *
+     * The first click of a double click on a strip already opens the column, so by the time
+     * `dblclick` arrives the header is a heading and collapsing it again would undo the open. Only
+     * the press that starts a sequence is recorded, which `detail` counts.
+     */
+    const wasCollapsedOnPress = useRef(false);
 
     // Focus reaching a column closes whichever one was open, and opens nothing: a collapsed column
     // is walked onto without being disturbed, and is opened by a click or by Space instead.
@@ -165,6 +206,8 @@ export default function Column({
             archived,
             collapsed,
             canRename: !isCollapsed,
+            isCollapsed,
+            keepCollapsed,
             nested,
             onEditTitle: () => setColumnNameToEdit(column),
             onNewItem: () => setIsCreatingNewItem(true),
@@ -172,11 +215,13 @@ export default function Column({
                 setColumnNameToEdit(await api.insertColumn(column, direction));
             },
             onSetLimit: () => setColumnLimitToEdit(column),
-            onCollapse: (collapse) => {
-                api.setColumnCollapsed(column, collapse);
-                // The menu is opened from the column, which is therefore the open one. Closing it
-                // here is what shows the reader that anything happened.
-                if (collapse) {
+            onCollapse: collapse,
+            onKeepCollapsed: (keep) => {
+                setIsCollapsingByHand(keep);
+                api.setColumnKeepCollapsed(column, keep, !isCollapsed);
+                // Turning it on collapses the column as well, so the open one is closed here for
+                // the same reason `collapse` closes it.
+                if (keep) {
                     setActiveColumn(undefined);
                 }
             },
@@ -188,8 +233,9 @@ export default function Column({
             }
         });
     }, [
-        api, column, color, archived, collapsed, isCollapsed, nested, columns, columnIndex,
-        setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn, onMoveColumn, onFocusColumn
+        api, column, color, archived, collapsed, keepCollapsed, collapse, isCollapsed, nested,
+        columns, columnIndex, setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn,
+        onMoveColumn, onFocusColumn
     ]);
 
     // A fully desaturated colour has no hue to tint with, and leaves the column plain.
@@ -216,6 +262,12 @@ export default function Column({
     }, []);
 
     useEffect(() => {
+        if (!isCollapsed) {
+            setIsCollapsingByHand(false);
+        }
+    }, [ isCollapsed ]);
+
+    useEffect(() => {
         editorRef.current?.focus();
     }, [ isEditing ]);
 
@@ -229,6 +281,7 @@ export default function Column({
                 "board-column-archived": archived,
                 "over-limit": isOverLimit,
                 collapsed: isCollapsed,
+                "quick-collapse": isCollapsingByHand,
                 appearing: isNew && !isRevealed
             })}
             onAnimationEnd={(e) => {
@@ -246,6 +299,7 @@ export default function Column({
             style={{ "--board-column-custom-hue": hue }}
         >
             <h3
+                ref={headerRef}
                 className={`${isEditing ? "editing" : ""}`}
                 // While collapsed the header is what opens the column, so it says so and answers
                 // for the keys a button answers for. Open, it is a heading again and Space does
@@ -253,6 +307,16 @@ export default function Column({
                 role={isCollapsed ? "button" : undefined}
                 aria-expanded={isCollapsed ? false : undefined}
                 onContextMenu={openMenu}
+                onMouseDown={(e) => {
+                    if (e.detail <= 1) {
+                        wasCollapsedOnPress.current = isCollapsed;
+                    }
+                }}
+                onDblClick={() => {
+                    if (!wasCollapsedOnPress.current) {
+                        collapse();
+                    }
+                }}
                 onKeyDown={handleTitleKeyDown}
                 tabIndex={300}
             >
@@ -293,14 +357,7 @@ export default function Column({
 
                 {!isEditing ? (
                     <>
-                        <span
-                            className="title"
-                            // In relation mode the title is a link to the note the column stands
-                            // for, and the first of the two clicks has already followed it.
-                            onDblClick={isInRelationMode
-                                ? undefined
-                                : () => setColumnNameToEdit(column)}
-                        >
+                        <span className="title">
                             {isInRelationMode
                                 ? <NoteLink notePath={column} showNoteIcon />
                                 : api.getColumnTitle(column)}

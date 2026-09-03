@@ -23,8 +23,12 @@ interface ColumnMenuTarget {
     index: number;
     color?: string;
     archived?: boolean;
-    /** Whether the column is stored as collapsed, which the menu offers to undo. */
+    /** Whether the column is stored as collapsed. */
     collapsed?: boolean;
+    /** Whether the column collapses again once it has been opened. */
+    keepCollapsed?: boolean;
+    /** Whether the column is drawn as a strip right now, which is what the menu offers to do. */
+    isCollapsed?: boolean;
     /** Whether the title can be edited, which the strip a collapsed column is drawn as cannot. */
     canRename: boolean;
     /** Whether the inbox also collects notes deeper than the board's direct children. */
@@ -39,8 +43,10 @@ interface ColumnMenuTarget {
     onMoveColumn: (toIndex: number) => void;
     /** Opens the dialog that sets the column's note limit. */
     onSetLimit: () => void;
-    /** Collapses the column or opens it for good, the board drawing the change straight away. */
+    /** Collapses the column, the board drawing the change straight away. */
     onCollapse: (collapsed: boolean) => void;
+    /** Sets whether the column collapses again once it has been opened. */
+    onKeepCollapsed: (keepCollapsed: boolean) => void;
 }
 
 export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column: ColumnMenuTarget) {
@@ -59,11 +65,18 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                 shortcut: "F2",
                 handler: column.onEditTitle
             } ] : []),
-            {
+            // Nothing to collapse while the column is already drawn as a strip.
+            ...(column.isCollapsed ? [] : [ {
                 title: t("board_view.collapse-column"),
                 uiIcon: "bx bx-collapse-horizontal",
-                trailingIcon: column.collapsed ? "bx bx-check" : undefined,
-                handler: () => column.onCollapse(!column.collapsed)
+                handler: () => column.onCollapse(true)
+            } ]),
+            {
+                title: t("board_view.keep-column-collapsed"),
+                uiIcon: "bx bx-lock-alt",
+                // At the trailing edge, the entry keeping its own icon ahead of it.
+                trailingIcon: column.keepCollapsed ? "bx bx-check" : undefined,
+                handler: () => column.onKeepCollapsed(!column.keepCollapsed)
             },
             {
                 title: t("board_view.set-limit"),

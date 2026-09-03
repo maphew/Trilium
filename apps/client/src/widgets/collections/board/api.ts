@@ -537,6 +537,30 @@ export default class BoardApi {
         this.updateColumn(column, { collapsed });
     }
 
+    /** Whether a column collapses again once it has been opened. */
+    isColumnKeptCollapsed(column: string) {
+        return !!this.viewConfig?.columns?.find(col => col.value === column)?.keepCollapsed;
+    }
+
+    /**
+     * Sets whether a column collapses again once it has been opened.
+     *
+     * Turning it on collapses the column as well, so that the entry does something the reader can
+     * see rather than only deciding what happens the next time the column is opened.
+     *
+     * @param isOpen whether the column is drawn open. Turning the flag off then clears `collapsed`
+     *               as well, so the column the reader is looking at stays open.
+     */
+    async setColumnKeepCollapsed(column: string, keepCollapsed: boolean, isOpen = false) {
+        if (keepCollapsed) {
+            this.updateColumn(column, { keepCollapsed: true, collapsed: true });
+            return;
+        }
+
+        this.updateColumn(column,
+            isOpen ? { keepCollapsed: false, collapsed: false } : { keepCollapsed: false });
+    }
+
     /**
      * Writes properties onto a column, dropping each one given as nothing so that it goes back to
      * its default rather than being stored empty.
@@ -552,6 +576,7 @@ export default class BoardApi {
             if (!updated.color) delete updated.color;
             if (!updated.archived) delete updated.archived;
             if (!updated.collapsed) delete updated.collapsed;
+            if (!updated.keepCollapsed) delete updated.keepCollapsed;
             if (!updated.displayName) delete updated.displayName;
             if (!updated.limit) delete updated.limit;
             return updated;

@@ -224,6 +224,11 @@ export function useBoardKeyboard({
             take(e);
             setActiveColumn(column);
 
+            // Opening the strip by hand opens the column for good, as a click on it does.
+            if (!api.isColumnKeptCollapsed(column)) {
+                api.setColumnCollapsed(column, false);
+            }
+
             // The cards are drawn only once the column opens, so the first of them is asked for
             // rather than focused here; the effect above puts focus on it as it appears. The
             // header gives focus up for that, the effect leaving alone anything the reader is

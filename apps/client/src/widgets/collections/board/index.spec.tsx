@@ -143,7 +143,7 @@ describe("Collapsed board columns", () => {
     });
 
     /** A board whose first column is stored collapsed and holds two cards. */
-    async function setup() {
+    async function setup({ keepCollapsed = false } = {}) {
         const note = buildNote({
             title: "Board",
             "#collection": "",
@@ -166,7 +166,10 @@ describe("Collapsed board columns", () => {
                         note={note}
                         noteIds={[ ...note.getChildNoteIds() ]}
                         initialConfig={{ columns: [
-                            { value: "To Do", collapsed: true }, { value: "Done" }
+                            { value: "To Do", collapsed: true, ...(keepCollapsed
+                                ? { keepCollapsed: true }
+                                : {}) },
+                            { value: "Done" }
                         ] }}
                     />
                 </ParentComponent.Provider>,
@@ -221,7 +224,7 @@ describe("Collapsed board columns", () => {
     });
 
     it("opens the column when it is selected and closes it when another one is", async () => {
-        const { mountPoint } = await setup();
+        const { mountPoint } = await setup({ keepCollapsed: true });
 
         await select(mountPoint, 0);
         expect(isCollapsed(mountPoint, 0)).toBe(false);
@@ -285,7 +288,7 @@ describe("Collapsed board columns", () => {
     });
 
     it("closes an open column when focus reaches another one", async () => {
-        const { mountPoint } = await setup();
+        const { mountPoint } = await setup({ keepCollapsed: true });
 
         await select(mountPoint, 0);
         expect(isCollapsed(mountPoint, 0)).toBe(false);
@@ -303,7 +306,7 @@ describe("Collapsed board columns", () => {
      * focus leaving it is not a reason to close it. Only another column being selected is.
      */
     it("stays open while a control rendered outside it is used", async () => {
-        const { mountPoint } = await setup();
+        const { mountPoint } = await setup({ keepCollapsed: true });
 
         await select(mountPoint, 0);
         expect(isCollapsed(mountPoint, 0)).toBe(false);
@@ -321,10 +324,97 @@ describe("Collapsed board columns", () => {
         expect(isCollapsed(mountPoint, 0)).toBe(false);
     });
 
-    it("opens a collapsed column without writing anything", async () => {
+    /**
+     * A column collapsed by hand is opened by hand, the way it is in most boards: the stored flag
+     * goes with the open, so the column does not shut again the moment another one is selected.
+     */
+    it("opens a collapsed column for good, clearing the stored flag", async () => {
         const { mountPoint } = await setup();
 
-        // Opening it by selection is not a change to the config, so nothing is written at all.
+        await select(mountPoint, 0);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+        expect(saved.at(-1)?.columns?.[0]).toEqual({ value: "To Do" });
+
+        // Selecting another one no longer takes it back.
+        await select(mountPoint, 1);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+    });
+
+    /**
+     * A peek closes behind the pointer, with the columns beside it shifting under it, so it eases
+     * shut; a collapse the reader asked for surprises nobody and runs faster.
+     */
+    it("marks a collapse the reader asked for, and leaves a peek closing unmarked", async () => {
+        const { mountPoint } = await setup({ keepCollapsed: true });
+
+        await select(mountPoint, 0);
+        await act(async () => {
+            columnAt(mountPoint, 0).querySelector("h3")
+                ?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, detail: 2 }));
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(columnAt(mountPoint, 0).classList.contains("quick-collapse")).toBe(true);
+
+        // Opened again, what closes it is the peek, which is not the reader asking for it.
+        await select(mountPoint, 0);
+        expect(columnAt(mountPoint, 0).classList.contains("quick-collapse")).toBe(false);
+
+        await select(mountPoint, 1);
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(columnAt(mountPoint, 0).classList.contains("quick-collapse")).toBe(false);
+    });
+
+    /**
+     * The reader is looking at the open column when the entry is unchecked, so the column stays
+     * open: shutting it the moment another one is selected would read as the entry doing nothing.
+     */
+    it("keeps a peeked column open once it is no longer kept collapsed", async () => {
+        const { mountPoint } = await setup({ keepCollapsed: true });
+
+        await select(mountPoint, 0);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        columnAt(mountPoint, 0).querySelector("h3")
+            ?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+        const entry = (show.mock.calls.at(-1)?.[0].items ?? []).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-lock-alt");
+        if (!entry || !("handler" in entry)) throw new Error("expected a keep-collapsed entry");
+
+        await act(async () => {
+            entry.handler?.(entry, {} as never);
+            await flush();
+        });
+        show.mockRestore();
+
+        expect(saved.at(-1)?.columns?.[0]).toEqual({ value: "To Do" });
+        await select(mountPoint, 1);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+    });
+
+    /** The first of the two clicks opens the strip; collapsing it again would undo that. */
+    it("leaves a strip open when it is double clicked open", async () => {
+        const { mountPoint } = await setup();
+        const header = columnAt(mountPoint, 0).querySelector("h3");
+
+        await act(async () => {
+            header?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, detail: 1 }));
+            header?.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+            await flush();
+        });
+        await act(async () => {
+            header?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, detail: 2 }));
+            header?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, detail: 2 }));
+            await flush();
+        });
+
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+    });
+
+    it("keeps the flag through an open where the column is kept collapsed", async () => {
+        const { mountPoint } = await setup({ keepCollapsed: true });
+
         await select(mountPoint, 0);
         expect(isCollapsed(mountPoint, 0)).toBe(false);
         expect(saved).toEqual([]);
@@ -853,17 +943,20 @@ describe("Board column rename", () => {
         expect(columnTitles(mountPoint)).toEqual([ "To Do", "Doing" ]);
     });
 
-    it("opens the title editor when the title is double clicked", async () => {
+    it("collapses the column when its header is double clicked", async () => {
         const { container } = await setup();
         const [ first ] = [ ...container.querySelectorAll<HTMLElement>(".board-column") ];
 
         await act(async () => {
-            first.querySelector(".title")
+            first.querySelector("h3")
                 ?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+            await flush();
         });
 
-        expect(first.querySelector("h3")?.classList.contains("editing")).toBe(true);
-        expect(first.querySelector("h3 input")).not.toBeNull();
+        expect(first.classList.contains("collapsed")).toBe(true);
+        expect(saved.at(-1)?.columns?.[0]).toEqual({ value: "To Do", collapsed: true });
+        // The title editor is left to F2 and to the menu.
+        expect(first.querySelector("h3 input")).toBeNull();
     });
 
     /** The tooltip is set on the element, which is where `useStaticTooltip` reads it back from. */

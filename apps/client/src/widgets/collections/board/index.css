@@ -17,6 +17,7 @@
      its side. */
   --board-collapsed-column-width: 2.25em;
   --board-collapse-duration: 1s;
+  --board-collapse-duration-quick: 0.3s;
 
   --board-focus-outline-saturation: 55%;
   --board-focus-outline-lightness: 45%;
@@ -720,6 +721,12 @@ body.mobile .column-drop-placeholder {
   /* Width and not a transform: the columns beside it have to move with it. */
   transition: border-color 0.2s ease, transform 0.2s ease,
     width var(--board-collapse-duration) ease;
+}
+
+/* A collapse the reader asked for surprises nobody, so it runs faster than a peek closing behind
+   the pointer. */
+.board-view-container .board-column.collapsed.quick-collapse {
+  --board-collapse-duration: var(--board-collapse-duration-quick);
 }
 
 @media (prefers-reduced-motion: reduce) {

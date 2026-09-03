@@ -60,6 +60,12 @@ export interface BoardColumnData {
      */
     collapsed?: boolean;
     /**
+     * Whether the column collapses again after being opened. Without it, opening a collapsed
+     * column by hand clears `collapsed`; a column opened to take a dragged card is unaffected
+     * either way.
+     */
+    keepCollapsed?: boolean;
+    /**
      * Whether the inbox column also collects notes below the board's direct children. Has no
      * meaning on any other column, which is defined by a grouping value instead.
      */
@@ -639,6 +645,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     color={storedColumns.get(column)?.color}
                                     archived={storedColumns.get(column)?.archived}
                                     collapsed={storedColumns.get(column)?.collapsed}
+                                    keepCollapsed={storedColumns.get(column)?.keepCollapsed}
                                     isActive={activeColumn === column}
                                     nested={storedColumns.get(column)?.nested}
                                     limit={storedColumns.get(column)?.limit}

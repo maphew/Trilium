@@ -1165,6 +1165,30 @@ describe("collapsing a column", () => {
         expect(saved.at(-1)?.columns).toEqual([ { value: "To Do" }, { value: "Done" } ]);
     });
 
+    /**
+     * Turning it on collapses the column as well, so the entry does something the reader can see
+     * rather than only deciding what the next open does.
+     */
+    it("collapses the column as it is set to stay collapsed", async () => {
+        const { api, saved } = createApi({ columns: [ { value: "To Do" } ] }, [ "To Do" ]);
+
+        expect(api.isColumnKeptCollapsed("To Do")).toBe(false);
+
+        await api.setColumnKeepCollapsed("To Do", true);
+        expect(saved.at(-1)?.columns)
+            .toEqual([ { value: "To Do", collapsed: true, keepCollapsed: true } ]);
+
+        // Turning it off on a strip leaves the column collapsed: opening it is what clears that.
+        await api.setColumnKeepCollapsed("To Do", false);
+        expect(saved.at(-1)?.columns).toEqual([ { value: "To Do", collapsed: true } ]);
+
+        // Turning it off on a column drawn open keeps it open, rather than letting the next
+        // column selected shut it again.
+        await api.setColumnKeepCollapsed("To Do", true);
+        await api.setColumnKeepCollapsed("To Do", false, true);
+        expect(saved.at(-1)?.columns).toEqual([ { value: "To Do" } ]);
+    });
+
     it("leaves the column's other properties alone", async () => {
         const { api, saved } = createApi(
             { columns: [ { value: "To Do", icon: "bx bx-star", limit: 3 } ] }, [ "To Do" ]);

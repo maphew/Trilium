@@ -380,6 +380,9 @@ describe("Board keyboard", () => {
 
             expect(columnAt(board, 1).classList.contains("collapsed")).toBe(false);
             expect(focusedName(board)).toBe("Third");
+            // Opened by hand, so the column stays open rather than shutting behind the reader.
+            expect(saved.at(-1)?.columns?.find(col => col.value === "Doing")?.collapsed)
+                .toBeUndefined();
         });
 
         /** Nothing to step onto, so the column opens and focus stays where it was. */
