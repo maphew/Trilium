@@ -160,6 +160,9 @@ describe("Board drag and drop", () => {
         await drag(columns[0], "dragover", { types: [ TREE_CLIPBOARD_TYPE ] }, 50);
         expect(columns[0].classList.contains("collapsed")).toBe(false);
         expect(columns[0].querySelectorAll(".board-note")).toHaveLength(2);
+        // At its full width at once, cards and all: the drop is measured as the column opens.
+        expect(columns[0].classList.contains("quick-expand")).toBe(false);
+        expect(columns[0].classList.contains("expanding")).toBe(false);
 
         await drag(columns[0], "dragleave", { types: [ TREE_CLIPBOARD_TYPE ] });
         expect(columns[0].classList.contains("collapsed")).toBe(false);

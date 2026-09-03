@@ -16,8 +16,11 @@
   /* Matches the height a normal header takes, so a collapsed column reads as one turned on
      its side. */
   --board-collapsed-column-width: 2.25em;
+  --board-column-width: 250px;
+  --board-column-border-width: 2px;
   --board-collapse-duration: 1s;
   --board-collapse-duration-quick: 0.3s;
+  --board-expand-duration: 0.2s;
 
   --board-focus-outline-saturation: 55%;
   --board-focus-outline-lightness: 45%;
@@ -83,15 +86,16 @@ body.mobile .board-view-container.board-dragging {
 }
 
 .board-view-container .board-column {
-  width: 250px;
+  width: var(--board-column-width);
   flex-shrink: 0;
-  border: 2px solid transparent;
+  border: var(--board-column-border-width) solid transparent;
   border-radius: 8px;
   /* A column with no colour of its own is painted rather than composed: the tinted shades come
      from one lightness, which does not answer for a plain one as well. */
   background-color: var(--board-column-background);
-  /* Width must stay 0s: the transition that runs is the one carried after the class changes, so
-     this is what makes opening instant while `.collapsed` below eases the close. */
+  /* Width stays 0s here: the transition that runs is the one carried after the class changes, so
+     this is what a column opened to take a dragged card takes, `.collapsed` below easing the close
+     and `.quick-expand` the opens the reader asks for. */
   transition: border-color 0.2s ease, transform 0.2s ease, width 0s;
   overflow-y: auto;
   max-height: 100%;
@@ -100,8 +104,7 @@ body.mobile .board-view-container.board-dragging {
 }
 
 body.mobile .board-view-container .board-column {
-  width: 75vw;
-  max-width: 300px;
+  --board-column-width: min(75vw, 300px);
 }
 
 body.mobile .board-view-container .board-column,
@@ -625,7 +628,9 @@ body.mobile .column-drop-placeholder {
   border-radius: 5px;
   color: var(--muted-text-color);
   cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease,
+    /* Matching the cards above, which fade in beside it. */
+    opacity 0.15s ease;
   background-color: transparent;
   font-size: var(--card-font-size);
 }
@@ -740,10 +745,52 @@ body.mobile .column-drop-placeholder {
   --board-collapse-duration: var(--board-collapse-duration-quick);
 }
 
+/* Opening runs the reverse of that collapse. Left out while a card is carried: a column opened to
+   take one is measured as it opens, and a width still on its way misplaces the gap. */
+.board-view-container .board-column.quick-expand {
+  transition: border-color 0.2s ease, transform 0.2s ease,
+    width var(--board-expand-duration) ease;
+}
+
+/*
+ * The column's contents are pinned at the width it is opening to, and clipped until it gets there.
+ *
+ * Left to stretch, they are laid out again on every frame of the widening: the titles rewrap, which
+ * costs a full layout of every card in the column, and a column of a hundred cards cannot keep up.
+ * The height goes with it, since cards a strip wide are tall enough to take the column to its
+ * limit until they rewrap, and so do the places `useFlip` reads, which turns the settled layout
+ * into a slide.
+ *
+ * They are painted only once the width has arrived. Held in the page rather than left out of it:
+ * the board hands focus to the card a keyboard open steps onto.
+ */
+.board-view-container .board-column.expanding {
+  overflow: hidden;
+}
+
+.board-view-container .board-column.expanding > * {
+  width: calc(var(--board-column-width) - 2 * var(--board-column-border-width));
+}
+
+/* The heading stays where it is, and is revealed with the column; only the cards wait. They fade
+   in as the class is dropped, through the transition each of them already carries: the scrolling
+   body cannot, its own `transition` being the scroll fade's. */
+.board-view-container .board-column.expanding .board-note,
+.board-view-container .board-column.expanding > .board-new-item {
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  /* Matching the selector above, which it has to outweigh rather than merely follow. */
-  .board-view-container .board-column.collapsed:not(.board-drag-preview) {
+  /* Matching the selectors above, which these have to outweigh rather than merely follow. */
+  .board-view-container .board-column.collapsed:not(.board-drag-preview),
+  .board-view-container .board-column.quick-expand {
     transition: border-color 0.2s ease;
+  }
+
+  /* The column is at its width already, so there is nothing for the cards to wait for. */
+  .board-view-container .board-column.expanding .board-note,
+  .board-view-container .board-column.expanding > .board-new-item {
+    opacity: 1;
   }
 }
 

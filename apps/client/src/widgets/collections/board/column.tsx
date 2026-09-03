@@ -26,6 +26,9 @@ import { useScrollFade } from "../../react/scroll_fade";
  * How long `footerQuietUntil` holds for a card `AddNewItem` is making, if the write never answers.
  */
 const FOOTER_QUIET_MS = 5000;
+
+/** How long an open takes. Matches `--board-expand-duration` in the board's own rules. */
+const EXPAND_MS = 200;
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
@@ -146,6 +149,34 @@ export default function Column({
     // Read here rather than in the badge: the column body shows an outline as well.
     const isOverLimit = limit !== undefined && (columnItems?.length ?? 0) > limit;
     const isCollapsed = !!collapsed && !isActive;
+    // A column opened to take a dragged card takes its width at once, and its cards with it.
+    const opensAtOnce = !!draggedCard || dropTarget === column;
+
+    /**
+     * Whether the column is still widening, during which its cards are left unpainted.
+     *
+     * They are laid out again on every frame of the widening, their titles rewrapping as the
+     * column grows, which is what the reader would otherwise watch. Read during the render that
+     * opens the column, so there is no frame where they are painted into a narrow one.
+     *
+     * Unpainted rather than undrawn: the board focuses the card a keyboard open steps onto, and a
+     * card that is not there yet is one it cannot hand focus to.
+     */
+    const [ isExpanding, setIsExpanding ] = useState(false);
+    const [ wasCollapsed, setWasCollapsed ] = useState(isCollapsed);
+    if (wasCollapsed !== isCollapsed) {
+        setWasCollapsed(isCollapsed);
+        setIsExpanding(!isCollapsed && !opensAtOnce);
+    }
+
+    useEffect(() => {
+        if (!isExpanding) {
+            return;
+        }
+
+        const timer = window.setTimeout(() => setIsExpanding(false), EXPAND_MS);
+        return () => window.clearTimeout(timer);
+    }, [ isExpanding ]);
 
     // Only while the column is open: the strip's own press opens it, which is what it says
     // instead. Memoised because `useStaticTooltip` rebuilds the tooltip on a new config.
@@ -282,6 +313,10 @@ export default function Column({
                 "over-limit": isOverLimit,
                 collapsed: isCollapsed,
                 "quick-collapse": isCollapsingByHand,
+                // Opening is drawn for the reader who asked for it. A column opened to take a
+                // dragged card takes its width at once, since the drop is measured as it opens.
+                "quick-expand": !isCollapsed && !opensAtOnce,
+                expanding: isExpanding,
                 appearing: isNew && !isRevealed
             })}
             onAnimationEnd={(e) => {

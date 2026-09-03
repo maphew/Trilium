@@ -902,4 +902,5 @@ describe("Board keyboard", () => {
     function flush() {
         return new Promise((resolve) => setTimeout(resolve));
     }
+
 });

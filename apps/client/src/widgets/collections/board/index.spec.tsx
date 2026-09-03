@@ -341,6 +341,34 @@ describe("Collapsed board columns", () => {
     });
 
     /**
+     * The cards are laid out again on every frame of the widening, so they are held unpainted
+     * until it is over. A column opened to take a dragged card shows them at once.
+     */
+    it("holds the cards unpainted while the column widens", async () => {
+        const { mountPoint } = await setup();
+
+        await select(mountPoint, 0);
+        const column = columnAt(mountPoint, 0);
+        expect(column.classList.contains("expanding")).toBe(true);
+        // Drawn all the same, so the board can hand focus to one of them.
+        expect(cardCount(mountPoint, 0)).toBe(2);
+
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 350));
+        });
+        expect(columnAt(mountPoint, 0).classList.contains("expanding")).toBe(false);
+    });
+
+    /** The reverse of the collapse, for the open the reader asked for. */
+    it("marks an open the reader asked for", async () => {
+        const { mountPoint } = await setup();
+        expect(columnAt(mountPoint, 0).classList.contains("quick-expand")).toBe(false);
+
+        await select(mountPoint, 0);
+        expect(columnAt(mountPoint, 0).classList.contains("quick-expand")).toBe(true);
+    });
+
+    /**
      * A peek closes behind the pointer, with the columns beside it shifting under it, so it eases
      * shut; a collapse the reader asked for surprises nobody and runs faster.
      */
