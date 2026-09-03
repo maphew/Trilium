@@ -1313,6 +1313,53 @@ describe("Board column rename", () => {
         expect(others.some(other => other.classList.contains("appearing"))).toBe(false);
     });
 
+    /**
+     * A card that arrives from somewhere else, a move between columns above all, mounts as a new
+     * element in the column that draws it. Only the card the column itself made opens out of
+     * nothing; the rest are already where they were put.
+     */
+    it("opens out only the card the column made, not one that merely arrived", async () => {
+        const { note, container } = await setup();
+
+        // happy-dom lays nothing out, and a child with no offset parent is one `useFlip` skips.
+        for (const [ property, read ] of Object.entries({
+            offsetParent(this: HTMLElement) { return this.parentElement; },
+            offsetHeight() { return 34; },
+            offsetTop() { return 0; }
+        })) {
+            Object.defineProperty(HTMLElement.prototype, property,
+                { configurable: true, get: read as () => unknown });
+        }
+
+        try {
+            addCard(note, "Doing");
+            await act(async () => {
+                render(
+                    <ParentComponent.Provider value={new Component()}>
+                        <Harness
+                            note={note}
+                            noteIds={[ ...note.getChildNoteIds() ]}
+                            initialConfig={DEFAULT_CONFIG}
+                        />
+                    </ParentComponent.Provider>,
+                    container
+                );
+                await flush();
+            });
+            await act(async () => { await flush(); });
+
+            const arrived = [ ...container.querySelectorAll<HTMLElement>(".board-note") ]
+                .find(card => card.textContent?.includes("Added"));
+            if (!arrived) throw new Error("expected the card that arrived to be drawn");
+            expect(arrived.style.height).toBe("");
+            expect(arrived.style.overflow).toBe("");
+        } finally {
+            for (const property of [ "offsetParent", "offsetHeight", "offsetTop" ]) {
+                delete (HTMLElement.prototype as unknown as Record<string, unknown>)[property];
+            }
+        }
+    });
+
     it("reveals a card inserted next to another one, without leaving its place", async () => {
         const { note, container } = await setup();
 

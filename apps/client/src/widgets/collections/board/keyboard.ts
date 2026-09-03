@@ -473,39 +473,36 @@ function move(
     };
 }
 
-/** The reveal waiting to run, so that a newer one takes its place rather than joining it. */
+/** The pending `reveal()` timer, so a newer call replaces it instead of running alongside it. */
 let pendingReveal: number | undefined;
 
 /**
- * Focuses an element and brings it into view once it has come to rest.
+ * Focuses an element and scrolls to it once it has stopped moving.
  *
- * A moved element is carried back to where it was and let go, which turns the move into a slide,
- * and for as long as that slide runs the element is drawn between the two places. The browser
- * scrolls to where a thing is drawn, so asking any earlier scrolls to where it came from, decides
- * it is in view already, and leaves the column standing where it was.
+ * `useFlip` transforms a moved element back to its old place and releases it, so while that slide
+ * runs the element is painted between the two places. `scrollIntoView` follows what is painted, so
+ * scrolling any earlier targets where the element came from and leaves the column where it was.
  */
 function reveal(element: HTMLElement) {
     element.focus({ preventScroll: true });
 
-    // Only the last one asked for: keys pressed faster than a slide runs would otherwise each
-    // scroll to where the card stood at the time, which is nowhere it is by the time they land.
+    // Only the last call survives: keys pressed faster than a slide runs would otherwise each
+    // scroll to where the card stood when they fired.
     window.clearTimeout(pendingReveal);
     pendingReveal = window.setTimeout(() => {
         if (!element.isConnected) {
             return;
         }
 
-        // The last card takes the column to its end rather than only into view: what stands under
-        // it is the gap it carries and the fade the column draws over its bottom edge, and coming
-        // to rest against those leaves it behind them.
+        // The last card scrolls its column to the end rather than just into view: its own bottom
+        // margin and the fade over the column's bottom edge would otherwise cover it.
         const content = element.closest<HTMLElement>(".board-column-content");
         if (content && !element.nextElementSibling) {
             content.scrollTop = content.scrollHeight;
         }
 
-        // And into view either way, which is what carries the board sideways to the column a card
-        // has just crossed into. Asked for second, so a column already taken to its end is left
-        // where it stands.
+        // Into view either way, which is what scrolls the board sideways to the column a card has
+        // crossed into. Called second, so a column already scrolled to its end stays there.
         element.scrollIntoView({ block: "nearest", inline: "nearest" });
     }, FLIP_SETTLE_MS);
 }

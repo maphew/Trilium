@@ -22,7 +22,9 @@ import { useStaticTooltip } from "../../react/hooks";
 import { FLIP_SETTLE_MS, useFlip } from "../../react/flip";
 import { useScrollFade } from "../../react/scroll_fade";
 
-/** How long a column stays quiet for a card the footer is making, if the write never answers. */
+/**
+ * How long `footerQuietUntil` holds for a card `AddNewItem` is making, if the write never answers.
+ */
 const FOOTER_QUIET_MS = 5000;
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
@@ -86,23 +88,24 @@ export default function Column({
 } & DragContext) {
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
     const [ created, setCreated ] = useState<{ noteId?: string, takesFocus: boolean }>();
-    // The column stays the one just added until another is, so what has already been shown is
-    // remembered here rather than played again by every redraw of the board.
+    // `isNew` stays true until another column is added, so the reveal is recorded here rather than
+    // replayed on every redraw of the board.
     const [ isRevealed, setIsRevealed ] = useState(false);
     /**
-     * When a card the footer is making may still arrive.
+     * Until when a card from `AddNewItem` can still arrive, during which `useFlip` does not grow
+     * it.
      *
-     * Naming the card itself is not enough: the write answers with its id, and the refresh that
-     * draws it can land first, so the card is on the board before there is anything to say it came
-     * from the footer. The column is quiet from the moment the footer is asked instead.
+     * Testing the id is not enough: `createNewItem()` answers with it after the refresh that draws
+     * the card can already have run, so `created` is set too late. `onCreating` sets this before
+     * the write instead.
      */
     const footerQuietUntil = useRef(0);
-    // A card inserted next to another one is where the reader is working, so it is left focused; one
-    // made in the footer is not, or every card would take focus from the editor still being typed in.
+    // An inserted card is left focused, since that is where the work is; a card from the footer is
+    // not, or it would take focus from the editor being typed in.
     const cardInserted = useCallback(
         (noteId: string | undefined) => setCreated({ noteId, takesFocus: true }), []);
     const addingFromFooter = useCallback(() => {
-        // Long enough to cover a write that never answers, and cut short by the one that does.
+        // Long enough for a write that never answers; `cardAdded` shortens it when one does.
         footerQuietUntil.current = Date.now() + FOOTER_QUIET_MS;
     }, []);
     const cardAdded = useCallback((noteId: string | undefined) => {
@@ -116,13 +119,14 @@ export default function Column({
     const editorRef = useRef<HTMLInputElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const scrollFade = useScrollFade(contentRef);
-    // The gap opening and closing moves the cards below it, which they follow rather than jump to,
-    // and a card added to the column opens the room it takes rather than appearing in it. Except
-    // the one the footer just made: it is already announced by the fade and by the column running
-    // to its end, and opening out on top of those is one movement too many.
+    // Cards slide to follow the drop gap opening and closing. Only the card named by `created`
+    // opens out of nothing: a card moved here from another column mounts as a new element too, and
+    // would collapse and reopen after the drop. The footer's own card is excluded as well, by
+    // `footerQuietUntil`: the scroll to the end and the fade already show it.
     useFlip(contentRef, {
         selector: ".board-note",
-        grow: () => Date.now() > footerQuietUntil.current
+        grow: (card) => card.getAttribute("data-note-id") === created?.noteId
+            && Date.now() > footerQuietUntil.current
     });
     const { handleDragOver, handleDragLeave, handleDrop } = useDragging({
         column, columnIndex, columnItems, isEditing, api, parentNote

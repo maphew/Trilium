@@ -121,9 +121,9 @@ function Card({
         setTitle(note.title);
     }, [ note ]);
 
-    // A new card can be out of sight on a full column. One at either end takes the column to that
-    // end, so it lands clear of the fade the scrolling body draws over its edges; one inserted
-    // between others is only brought into view.
+    // A new card can be out of sight on a full column. A card at either end scrolls its column to
+    // that end, clear of the fade `useScrollFade` draws over the edges; one between others is only
+    // scrolled into view.
     useLayoutEffect(() => {
         if (!isNew) {
             return;
@@ -146,8 +146,8 @@ function Card({
         };
 
         bring();
-        // And again once it has opened out: a card asked for while it is still growing is measured
-        // against a column shorter than the one it ends up in, which leaves it over the edge.
+        // Again once the growth has finished: a card scrolled to while `useFlip` is still opening
+        // it out is measured against a shorter column, and ends up past the edge.
         const settled = window.setTimeout(bring, FLIP_SETTLE_MS);
 
         return () => window.clearTimeout(settled);

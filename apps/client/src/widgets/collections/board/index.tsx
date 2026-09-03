@@ -158,7 +158,7 @@ export const BoardDragStateContext = createContext<BoardDragState>({
 /** How long a finger stays on the create button before it offers where to put the card. */
 const HOLD_TO_PLACE_MS = 500;
 
-/** How far a finger can wander during that and still be holding rather than scrolling. */
+/** How far the pointer can move during that and still count as a hold rather than a scroll. */
 const HOLD_SLACK_PX = 10;
 
 const BOARD_HINTS: ShortcutHintDefinition = [
@@ -311,7 +311,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         [ usableColumns, storedColumns, includeArchived ]);
 
     const containerRef = useRef<HTMLDivElement>(null);
-    /** When a column the reader moved may still be settling, which is what a slide is drawn for. */
+    /** Until when a column move can still be settling, which is when `useFlip` slides columns. */
     const columnMovedUntil = useRef(0);
 
     const boardDragState = useMemo<BoardDragState>(() => ({
@@ -479,22 +479,19 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // is left to whatever it belongs to. Suppressed while a card is carried: the gesture owns the
     // pointer, and the board must not slide under it.
     const { isPannable, isPanning } = useDragPan(containerRef, { disabled: isDraggingItem });
-    // The gap a carried column opens moves the columns beside it, which they follow rather than
-    // jump to. Two are left out: the copy being carried, whose transform the gesture writes every
-    // frame, and the add-column button, which a new column moves at the same moment as the scroll
-    // that keeps it in view, so sliding it as well reads as a stumble rather than as movement.
+    // Columns slide to follow the gap a carried column opens. The selector excludes the drag
+    // preview, whose transform `useBoardDrag` writes every frame; `AddNewColumn` is outside the
+    // container, and is moved by the scroll that keeps it in view instead.
     //
-    // Columns are moved, never opened out. A column is its grouping value, so it is drawn afresh
-    // whenever that value changes, and a rename is indistinguishable from an arrival to anything
-    // watching the page. The one column that really does arrive is the one just added, and the fade
-    // and the board running to its end already say so.
+    // No `grow`: a column is its grouping value, so a rename mounts a new element and is
+    // indistinguishable from an arrival. The column just added is shown by `board-item-appear` and
+    // by the scroll to the board's end.
     useFlip(containerRef, {
         selector: ".board-column:not(.board-drag-preview)",
         axis: "horizontal",
-        // Only for a move the reader made. A column is its grouping value, so the board redraws
-        // its columns whenever a value changes, and the order churns for a moment as the three
-        // places that name a column catch up with one another; following that draws a slide for a
-        // rename nobody moved.
+        // Only for a move the reader made, tracked by `columnMovedUntil`. A value change redraws
+        // the columns, and the order churns while the cards, the definition and the stored config
+        // catch up with one another; sliding for that animates a rename as a move.
         disabled: !draggedColumn && Date.now() > columnMovedUntil.current
     });
 
@@ -816,47 +813,43 @@ export function TitleEditor({
     isNewItem?: boolean;
     mode?: "normal" | "multiline" | "relation";
     /**
-     * Whether Enter saves and clears the editor rather than closing it, so that a run of cards can
-     * be typed one after another. Enter is then the only thing that saves: Escape and losing focus
-     * both give up what was typed and close the editor, since an editor that stays open between
-     * cards is left behind often enough that saving on the way out would make cards nobody asked
-     * for.
+     * Whether Enter saves and clears the editor rather than closing it, so a run of cards can be
+     * typed one after another. Enter is then the only thing that saves: Escape and losing focus
+     * discard what was typed and close the editor. An editor left standing between cards is walked
+     * away from often enough that saving on the way out would create cards nobody asked for.
      */
     saveAndContinue?: boolean;
-    /** What was typed and not saved, handed over so that reopening the editor can carry it back. */
+    /** Reports what was typed and not saved, so reopening the editor can restore it. */
     abandon?: (typed: string) => void;
     /**
-     * What the button stands for while there is nothing to save. The icon is the same wherever it
-     * is offered; an editor whose caller has nothing to do yet keeps the button, which then does
-     * nothing rather than coming and going as the field is typed into and emptied again.
+     * What the button does while the field is empty, drawn as `bx bx-folder-open`. Without it no
+     * button is drawn at all until something is typed.
      */
     whenEmpty?: { title: string, onClick?: () => void };
-    /** What the button beside the field makes, for the reader hovering over it. */
+    /** Names what the button creates, shown in its tooltip. */
     submitTitle?: string;
     /**
-     * Opens the menu of which end to make the item at, for a `save` that reads that end. Its
-     * presence is what puts the two ends on the button: a right click or a hold opens the menu,
-     * and Shift+Enter saves at the start without it.
+     * Opens the menu naming which end to create at, for a `save` that reads `atStart`. Passing it
+     * is what gives the button both ends: a right click or a hold opens the menu, Shift+Enter
+     * saves at the start.
      */
     openPlacements?: (x: number, y: number, place: (atStart: boolean) => void) => void;
     /**
      * Where focus goes when the editor closes, instead of back to whatever held it before. A card
-     * whose editor was opened for it rather than by it names itself, so that closing does not light
-     * up the card the reader came from on the way.
+     * whose editor was opened by an insert passes its own element, so closing does not focus the
+     * card the insert was made from.
      */
     returnFocusTo?: RefObject<HTMLElement>;
     /**
-     * Whether opening the editor selects what is already in it, which is what a rename wants. An
-     * editor opened part-typed puts the caret after the text instead, so the next key carries on
-     * rather than replacing it.
+     * Whether opening the editor selects the text already in it, which is what a rename wants. An
+     * editor opened part-typed puts the caret after the text instead, so the next key continues it.
      */
     selectOnFocus?: boolean;
 }) {
     const inputRef = useRef<any>(null);
     /**
-     * What the field holds, kept here rather than read off the field alone: `FormTextBox` takes its
-     * value as a prop, so a render for anything else, the button beside it changing face included,
-     * writes that prop back over what has been typed.
+     * What the field holds. Kept in state because `FormTextBox` takes its value as a prop: any
+     * other render, the button changing icon included, would write a stale prop back over it.
      */
     const [ typed, setTyped ] = useState(currentValue ?? "");
     const isEmpty = !typed.trim();

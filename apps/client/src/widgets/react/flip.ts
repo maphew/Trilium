@@ -1,57 +1,55 @@
 import { RefObject } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "preact/hooks";
 
-/** How long a slide or a growth takes. Matches the transitions the board's own rules carry. */
+/** How long a slide or a growth runs for. Matches the board's own CSS transitions. */
 export const FLIP_DURATION_MS = 200;
 
-/** How long until a slide or a growth has run its course and what it moved stands still. */
+/** How long until a slide or a growth has finished and the element it moved stands still. */
 export const FLIP_SETTLE_MS = FLIP_DURATION_MS + 40;
 
 /**
- * How far a child moves before it is taken to have moved at all.
+ * How far a child must move to count as having moved.
  *
- * Offsets are whole numbers, so a fraction of a pixel anywhere above a list rounds a share of it
- * one pixel either way. Following that draws a wave across every child for a change nobody can see.
+ * `offsetTop` is a whole number, so sub-pixel layout above the list rounds some children one pixel
+ * either way. Animating that draws a wave across the list for a change no one can see.
  */
 const MIN_MOVE_PX = 4;
 
 export interface FlipOptions {
     /** Which children to follow. */
     selector: string;
-    /** Which way they move. Defaults to down the container. */
+    /** The axis the children move along. Defaults to down the container. */
     axis?: "vertical" | "horizontal";
     /**
-     * Whether a child that was not there before opens out of nothing rather than arriving whole.
-     * A predicate answers for one child at a time, for arrivals that announce themselves some
-     * other way and would only be made restless by opening out as well.
+     * Whether a child that was not there before opens out from zero size instead of appearing at
+     * full size. A predicate decides per child, for arrivals already shown some other way.
      */
     grow?: boolean | ((child: HTMLElement) => boolean);
-    /** Whether to leave them where the browser puts them. */
+    /** Whether to leave the children where the browser puts them. */
     disabled?: boolean;
 }
 
 /**
  * Slides a container's children from where they stood to where they now stand, and opens out the
- * ones that were not there at all.
+ * ones that were not there before.
  *
- * The children are drawn in their new places as usual, then carried back to their old ones for a
- * frame and let go, which the transition they already wear turns into a slide. A new child is
- * measured, collapsed to nothing, and let go the same way, so the room it takes is made rather
- * than found and its neighbours are moved by the growth itself.
+ * The children are drawn in their new places, transformed back to the old ones for one frame and
+ * released, which the CSS transition they already carry turns into a slide. A new child is
+ * measured, collapsed to zero size and released the same way, so its neighbours are moved by the
+ * growth rather than jumping.
  *
- * Positions are read as an offset from the page, which neither a scroll nor a transform of a slide
- * still running moves, together with what that offset was measured from: it is taken from whatever
- * is positioned above the child, and a change of that is a different number for the very same
- * place.
+ * A position is read as `offsetTop`/`offsetLeft`, which neither scrolling nor a running slide's
+ * transform changes, together with the `offsetParent` it was measured from: a different
+ * `offsetParent` reports a different number for the same place.
  */
 export function useFlip(
     ref: RefObject<HTMLElement>, { selector, axis = "vertical", grow, disabled }: FlipOptions
 ) {
-    // Written after every commit, so what it holds is where the children stood before this one.
+    // Written after every commit, so it holds where the children stood at the previous one.
     const seen = useRef(new Map<Element, Place>());
-    /** Whether the container has been drawn at all: its first children arrive with it, not into it. */
+    /** Whether the container has been drawn once. Children of the first draw are not arrivals. */
     const drawn = useRef(false);
-    /** Whether a growth is under way, during which the children below it are already in motion. */
+    /** Whether a growth is running, during which the children below it are already moving. */
     const settling = useRef(false);
     const settled = useRef<number>();
 
@@ -59,8 +57,8 @@ export function useFlip(
         const places = new Map<Element, Place>();
 
         for (const child of ref.current?.querySelectorAll<HTMLElement>(selector) ?? []) {
-            // A child out of the flow is remembered as having no place rather than forgotten, so
-            // that coming back is a return and not an arrival.
+            // A child out of the flow keeps an entry with `at: null` rather than none, so that
+            // returning to the flow reads as a move and not as an arrival.
             const from = child.offsetParent;
             places.set(child, from
                 ? { at: axis === "vertical" ? child.offsetTop : child.offsetLeft, from }
@@ -102,9 +100,8 @@ export function useFlip(
                     });
                 }
             } else if (
-                // Not while a growth is running: it moves the children below it over the frames
-                // that follow, and each of those reads them somewhere between where they were and
-                // where they are going, which is a move only in the sense that it is under way.
+                // Not while `settling` is set: a growth moves the children below it over the
+                // frames that follow, so a commit in that window reads them part-way.
                 !settling.current && previous.at !== null && previous.from === place.from
                     && Math.abs(previous.at - place.at) >= MIN_MOVE_PX
             ) {
@@ -112,8 +109,8 @@ export function useFlip(
             }
         }
 
-        // The places as they will settle, so the next commit reads a slide still running as the
-        // place it is sliding into rather than as a move of its own.
+        // Stored as the places they settle at, so the next commit reads a running slide as its
+        // destination rather than as a fresh move.
         seen.current = now;
         drawn.current = true;
 
@@ -122,10 +119,9 @@ export function useFlip(
         }
 
         if (moved.length) {
-            // Read once, to make the browser work out the styles just written before the frame that
-            // takes them away. Without it a child moved in the page can be set back and let go
-            // inside one recalculation, which leaves the transition nothing to start from and the
-            // move is drawn where it lands with nothing in between.
+            // Forces a layout so the browser applies the transforms just written, before the
+            // frame that clears them. Without it both writes land in one style recalculation, the
+            // transition has no starting point, and the move is drawn only at its destination.
             void container.offsetHeight;
         }
 
@@ -140,8 +136,8 @@ export function useFlip(
 
         void container.offsetHeight;
 
-        // Read again once the growth is over, so what follows is measured against where its
-        // neighbours came to rest rather than against wherever it caught them.
+        // Re-read once the growth has finished, so the next commit measures against where the
+        // children came to rest.
         window.clearTimeout(settled.current);
         settled.current = window.setTimeout(() => {
             settling.current = false;
@@ -152,13 +148,13 @@ export function useFlip(
     useEffect(() => () => window.clearTimeout(settled.current), []);
 }
 
-/** Where a child stood, `null` while it was out of the flow, and what that was measured from. */
+/** Where a child stood, `null` while out of the flow, and the `offsetParent` it was read from. */
 interface Place {
     at: number | null;
     from: Element | null;
 }
 
-/** Puts a child back where it was, and lets go of it on the next frame. */
+/** Transforms a child back to where it was, and releases it on the next frame. */
 function slide(element: HTMLElement, offset: number, axis: Axis) {
     if (isStill()) {
         return;
@@ -178,10 +174,10 @@ function slide(element: HTMLElement, offset: number, axis: Axis) {
 }
 
 /**
- * Takes a child down to nothing and lets it out to the size it was measured at.
+ * Collapses a child to zero and releases it to the size it was measured at.
  *
- * The margins go with it: a child of no height still holds the space below it open, which is the
- * part of the jump that would be left.
+ * The margins collapse with it: a child of no height still holds its margins open, which would
+ * leave part of the jump the growth is there to remove.
  */
 function open(element: HTMLElement, size: number, axis: Axis) {
     if (isStill()) {
@@ -204,8 +200,8 @@ function open(element: HTMLElement, size: number, axis: Axis) {
         element.style.transition = `${property} ${FLIP_DURATION_MS}ms ease, `
             + `margin ${FLIP_DURATION_MS}ms ease`;
         element.style[property] = `${size}px`;
-        // Cleared rather than named: what the margins go back to is the stylesheet's to say, and a
-        // change of computed value is what the transition follows either way.
+        // Cleared rather than set to a value: the stylesheet owns what the margins return to, and
+        // the transition follows the computed value either way.
         element.style[margin] = "";
 
         window.setTimeout(() => {
