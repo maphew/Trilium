@@ -1729,7 +1729,10 @@ body.desktop .dropdown-submenu > .dropdown-menu {
     max-width: 300px;
 }
 
+/* Opened on the other side (`submenu-flip-start` added by ContextMenu.repositionSubmenu) when the
+   submenu would overflow the side it opens on. */
 .dropdown-submenu.dropstart > .dropdown-menu,
+.dropdown-submenu > .dropdown-menu.submenu-flip-start,
 body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
     inset-inline-start: auto;
     inset-inline-end: calc(100% - 2px);
