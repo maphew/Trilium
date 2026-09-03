@@ -27,6 +27,19 @@ function failNextBulkAction() {
     vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
 }
 
+/** The same for a column rename, which the server makes in one write of its own. */
+function failNextRename() {
+    vi.spyOn(server, "put").mockRejectedValueOnce(new Error("offline"));
+}
+
+/** Holds the next rename open, answering it only once the returned function is called. */
+function holdNextRename() {
+    let release = () => {};
+    vi.spyOn(server, "put").mockImplementationOnce(
+        () => new Promise<void>((resolve) => { release = resolve; }));
+    return () => release();
+}
+
 vi.mock("../../../services/branches", () => ({
     default: {
         cloneNoteToParentNote: vi.fn(async () => {}),
@@ -86,18 +99,16 @@ describe("BoardApi column mutations", () => {
         const { api, saved } = createApi(viewConfig, [ "To Do", "Done" ]);
 
         await api.addNewColumn("In Progress");
-        await api.renameColumn("Done", "Shipped");
         await api.removeColumn("To Do");
 
-        expect(saved).toHaveLength(3);
+        expect(saved).toHaveLength(2);
         for (const config of saved) {
             expect(config).not.toBe(viewConfig);
             expect(config.columns).not.toBe(viewConfig.columns);
         }
         expect(saved.map(config => config.columns?.map(col => col.value))).toEqual([
             [ "To Do", "Done", "In Progress" ],
-            [ "To Do", "Shipped", "In Progress" ],
-            [ "Shipped", "In Progress" ]
+            [ "Done", "In Progress" ]
         ]);
     });
 
@@ -228,13 +239,24 @@ describe("BoardApi column mutations", () => {
         expect(saved.at(-1)?.columns).toEqual([ { value: "To Do", icon: "bx bx-list-ul" } ]);
     });
 
-    it("keeps the icon of a column it renames", async () => {
+    /**
+     * What the column is drawn with is kept by the server, which renames it in the stored columns
+     * as well as in the cards and the definition. Checked there; asked for here.
+     */
+    it("asks the server to rename the column, rather than writing each place itself", async () => {
+        const put = vi.spyOn(server, "put").mockResolvedValue(undefined);
         const { api, saved } = createApi(
             { columns: [ { value: "Done", icon: "bx bx-check" } ] }, [ "Done" ]);
+        // Cleared: the mock outlives the test that first stood it up, and its calls with it.
+        vi.mocked(executeBulkActions).mockClear();
 
         await api.renameColumn("Done", "Shipped");
 
-        expect(saved.at(-1)?.columns).toEqual([ { value: "Shipped", icon: "bx bx-check" } ]);
+        expect(put).toHaveBeenCalledWith(expect.stringMatching(/board\/rename-column$/), {
+            attribute: "status", isRelation: false, oldValue: "Done", newValue: "Shipped"
+        });
+        expect(saved).toEqual([]);
+        expect(executeBulkActions).not.toHaveBeenCalled();
     });
 
     it("records what each column it renames away or deletes became", async () => {
@@ -265,7 +287,7 @@ describe("BoardApi column mutations", () => {
             [ "To Do", "Done" ]
         );
 
-        failNextBulkAction();
+        failNextRename();
         await expect(api.renameColumn("Done", "Shipped")).rejects.toThrow("offline");
 
         failNextBulkAction();
@@ -281,7 +303,7 @@ describe("BoardApi column mutations", () => {
         await api.renameColumn("Done", "Shipped");
 
         // The refused rename re-pointed the first one on its way in, which has to be put back.
-        failNextBulkAction();
+        failNextRename();
         await expect(api.renameColumn("Shipped", "Delivered")).rejects.toThrow("offline");
 
         expect([ ...pendingRenames ]).toEqual([ [ "Done", "Shipped" ] ]);
@@ -299,7 +321,7 @@ describe("BoardApi column mutations", () => {
         );
 
         // Both start before either finishes, and both are refused.
-        failNextBulkAction();
+        failNextRename();
         failNextBulkAction();
         const first = api.renameColumn("Done", "Shipped");
         const second = api.removeColumn("To Do");
@@ -316,7 +338,7 @@ describe("BoardApi column mutations", () => {
         );
 
         let releaseSecond = () => {};
-        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
+        failNextRename();
         vi.mocked(executeBulkActions).mockImplementationOnce(
             () => new Promise<void>((resolve) => { releaseSecond = resolve; }));
 
@@ -339,9 +361,8 @@ describe("BoardApi column mutations", () => {
         const { api, pendingRenames } = createApi({ columns: [ { value: "Done" } ] }, [ "Done" ]);
 
         let releaseSecond = () => {};
-        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
-        vi.mocked(executeBulkActions).mockImplementationOnce(
-            () => new Promise<void>((resolve) => { releaseSecond = resolve; }));
+        failNextRename();
+        releaseSecond = holdNextRename();
 
         const failing = api.renameColumn("Done", "Shipped");
         const running = api.renameColumn("Shipped", "Delivered");
@@ -364,8 +385,8 @@ describe("BoardApi column mutations", () => {
         const { api, pendingRenames } = createApi({ columns: [ { value: "Done" } ] }, [ "Done" ]);
 
         let failSecond = (_: Error) => {};
-        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
-        vi.mocked(executeBulkActions).mockImplementationOnce(
+        failNextRename();
+        vi.spyOn(server, "put").mockImplementationOnce(
             () => new Promise<void>((_, reject) => { failSecond = reject; }));
 
         const first = api.renameColumn("Done", "Shipped");
@@ -446,6 +467,8 @@ describe("BoardApi card operations", () => {
     beforeEach(() => {
         // Spies outlive a test otherwise, and one standing in for a write is read by the next.
         vi.restoreAllMocks();
+        // Every write the api makes over the wire, answered rather than attempted.
+        vi.spyOn(server, "put").mockResolvedValue(undefined);
         vi.mocked(branches.moveBeforeBranch).mockClear();
         vi.mocked(branches.moveAfterBranch).mockClear();
         vi.mocked(note_create.createNote).mockClear();
@@ -511,6 +534,28 @@ describe("BoardApi card operations", () => {
         await api.moveToColumnEnd(second.note.noteId, second.branch.branchId, "To Do");
         expect(branches.moveAfterBranch)
             .toHaveBeenLastCalledWith([ second.branch.branchId ], first.branch.branchId);
+    });
+
+    /**
+     * That memory stands in for what the column map does not show yet, so it is worth exactly as
+     * long as the map: kept across a refresh it names a card that is no longer last, and the next
+     * one is filed behind it rather than at the end.
+     */
+    it("forgets what it sent to a column once the board has drawn that column again", async () => {
+        const { api, items } = createBoardWithCards();
+        const [ first, second, third ] = items;
+
+        await api.moveToColumnEnd(first.note.noteId, first.branch.branchId, "To Do");
+
+        // The refresh that catches up, and with it a card that now stands last in that column.
+        api.update(
+            new Map([ [ "To Do", [ first, third ] ], [ "Done", [ second ] ] ]),
+            [ "To Do", "Done" ], first.note.getParentNotes()[0], "status", {}, () => {}, () => {});
+
+        // Behind what the board now shows last, not behind what this sent before it.
+        await api.moveToColumnEnd(second.note.noteId, second.branch.branchId, "To Do");
+        expect(branches.moveAfterBranch)
+            .toHaveBeenLastCalledWith([ second.branch.branchId ], third.branch.branchId);
     });
 
     it("moves nothing for a card dropped where it is, or one it cannot find", async () => {
@@ -649,6 +694,44 @@ describe("BoardApi card operations", () => {
         vi.mocked(note_create.createNote).mockRejectedValueOnce(new Error("offline"));
         await expect(api.createNewItem("Done", "Another")).resolves.toBeUndefined();
         expect(logged).toHaveBeenCalled();
+    });
+
+    /**
+     * A column is drawn in the order its notes stand in, so the head of one is the card before its
+     * first, not the first child of the board: the columns share one list between them.
+     */
+    it("makes a card at the head of a column against that column's first card", async () => {
+        const { api, items } = createBoardWithCards();
+        vi.mocked(note_create.createNote).mockResolvedValue({
+            note: buildNote({ title: "Created" }), branch: { branchId: "createdBranch" }
+        } as never);
+
+        await api.createNewItem("Done", "First of all", "top");
+        expect(note_create.createNote).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({
+                target: "before", targetBranchId: items[0].branch.branchId
+            }));
+
+        // An empty column has nothing to be placed against, and the card is simply made.
+        await api.createNewItem("Nowhere", "Only one", "top");
+        expect(note_create.createNote).toHaveBeenLastCalledWith(
+            expect.any(String),
+            expect.not.objectContaining({ target: "before" }));
+    });
+
+    it("sends a card to the head of its column, and leaves one already there alone", async () => {
+        const { api, items } = createBoardWithCards();
+        const moveBefore = vi.spyOn(branches, "moveBeforeBranch").mockResolvedValue(undefined);
+
+        const last = items[items.length - 1];
+        await api.moveToColumnStart(last.note.noteId, last.branch.branchId, "Done");
+        expect(moveBefore).toHaveBeenCalledWith(
+            [ last.branch.branchId ], items[0].branch.branchId);
+
+        moveBefore.mockClear();
+        await api.moveToColumnStart(items[0].note.noteId, items[0].branch.branchId, "Done");
+        expect(moveBefore).not.toHaveBeenCalled();
     });
 
     it("hands the editing state straight through to the board", () => {
@@ -1082,6 +1165,30 @@ describe("collapsing a column", () => {
         expect(saved.at(-1)?.columns).toEqual([ { value: "To Do" }, { value: "Done" } ]);
     });
 
+    /**
+     * Turning it on collapses the column as well, so the entry does something the reader can see
+     * rather than only deciding what the next open does.
+     */
+    it("collapses the column as it is set to stay collapsed", async () => {
+        const { api, saved } = createApi({ columns: [ { value: "To Do" } ] }, [ "To Do" ]);
+
+        expect(api.isColumnKeptCollapsed("To Do")).toBe(false);
+
+        await api.setColumnKeepCollapsed("To Do", true);
+        expect(saved.at(-1)?.columns)
+            .toEqual([ { value: "To Do", collapsed: true, keepCollapsed: true } ]);
+
+        // Turning it off on a strip leaves the column collapsed: opening it is what clears that.
+        await api.setColumnKeepCollapsed("To Do", false);
+        expect(saved.at(-1)?.columns).toEqual([ { value: "To Do", collapsed: true } ]);
+
+        // Turning it off on a column drawn open keeps it open, rather than letting the next
+        // column selected shut it again.
+        await api.setColumnKeepCollapsed("To Do", true);
+        await api.setColumnKeepCollapsed("To Do", false, true);
+        expect(saved.at(-1)?.columns).toEqual([ { value: "To Do" } ]);
+    });
+
     it("leaves the column's other properties alone", async () => {
         const { api, saved } = createApi(
             { columns: [ { value: "To Do", icon: "bx bx-star", limit: 3 } ] }, [ "To Do" ]);
@@ -1199,11 +1306,12 @@ describe("renaming a column that names itself", () => {
     it("renames any other column by the value its cards carry", async () => {
         const { api } = createApi(
             { columns: [ { value: "" }, { value: "To Do" } ] }, [ "", "To Do" ]);
-        vi.mocked(executeBulkActions).mockClear();
+        const put = vi.spyOn(server, "put").mockResolvedValue(undefined);
 
         await api.setColumnTitle("To Do", "Doing");
 
-        expect(executeBulkActions).toHaveBeenCalled();
+        expect(put).toHaveBeenCalledWith(expect.stringMatching(/board\/rename-column$/),
+            expect.objectContaining({ oldValue: "To Do", newValue: "Doing" }));
     });
 
     it("leaves either kind alone when given nothing", async () => {

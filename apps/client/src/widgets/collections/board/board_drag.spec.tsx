@@ -326,6 +326,31 @@ describe("useBoardDrag, carrying a card", () => {
         expect(menus).toEqual([ "heading" ]);
     });
 
+    /**
+     * A finger has no second button, so a tap is what asks for a menu. The strip is the one place
+     * where a tap already means something else: it opens the column, its menu being on the button
+     * the strip carries.
+     */
+    it("leaves a tap on a collapsed column to open it", () => {
+        setup();
+        const heading = board.querySelector<HTMLElement>(".board-column h3");
+        const column = heading?.closest<HTMLElement>(".board-column");
+        if (!heading || !column) throw new Error("expected a heading");
+        column.classList.add("collapsed");
+
+        const menus: string[] = [];
+        const clicks: string[] = [];
+        heading.addEventListener("contextmenu", () => menus.push("heading"));
+        board.addEventListener("click", () => clicks.push("click"));
+
+        press(heading, 10, 10, "touch");
+        release(11, 11, "touch");
+        heading.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+        expect(menus).toEqual([]);
+        expect(clicks).toEqual([ "click" ]);
+    });
+
     it("leaves the click a tap also lands unanswered", () => {
         setup();
         const element = card("n1");

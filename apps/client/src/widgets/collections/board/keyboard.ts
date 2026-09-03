@@ -2,6 +2,7 @@ import { RefObject } from "preact";
 import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
 import branches from "../../../services/branches";
+import { FLIP_SETTLE_MS } from "../../react/flip";
 import BoardApi from "./api";
 import { ColumnMap } from "./data";
 
@@ -102,7 +103,7 @@ export function useBoardKeyboard({
             // board has drawn it in its new place, and the hold is done with.
             const element = findInColumn(container, pending.intent.column, pending.intent.part);
             if (element) {
-                element.focus();
+                reveal(element);
                 pendingFocus.current = null;
             }
             return;
@@ -117,7 +118,9 @@ export function useBoardKeyboard({
             return;
         }
 
-        element?.focus();
+        if (element) {
+            reveal(element);
+        }
     });
 
     /**
@@ -220,6 +223,11 @@ export function useBoardKeyboard({
 
             take(e);
             setActiveColumn(column);
+
+            // Opening the strip by hand opens the column for good, as a click on it does.
+            if (!api.isColumnKeptCollapsed(column)) {
+                api.setColumnCollapsed(column, false);
+            }
 
             // The cards are drawn only once the column opens, so the first of them is asked for
             // rather than focused here; the effect above puts focus on it as it appears. The
@@ -367,7 +375,7 @@ function walk(container: HTMLElement, from: Spot, key: string) {
     const element = elementAt(container, next);
     if (!element) return false;
 
-    element.focus();
+    reveal(element);
     return true;
 }
 
@@ -468,6 +476,40 @@ function move(
         intent: { noteId },
         done: api.moveWithinBoard(noteId, branchId, spot.item, to, column, column)
     };
+}
+
+/** The pending `reveal()` timer, so a newer call replaces it instead of running alongside it. */
+let pendingReveal: number | undefined;
+
+/**
+ * Focuses an element and scrolls to it once it has stopped moving.
+ *
+ * `useFlip` transforms a moved element back to its old place and releases it, so while that slide
+ * runs the element is painted between the two places. `scrollIntoView` follows what is painted, so
+ * scrolling any earlier targets where the element came from and leaves the column where it was.
+ */
+function reveal(element: HTMLElement) {
+    element.focus({ preventScroll: true });
+
+    // Only the last call survives: keys pressed faster than a slide runs would otherwise each
+    // scroll to where the card stood when they fired.
+    window.clearTimeout(pendingReveal);
+    pendingReveal = window.setTimeout(() => {
+        if (!element.isConnected) {
+            return;
+        }
+
+        // The last card scrolls its column to the end rather than just into view: its own bottom
+        // margin and the fade over the column's bottom edge would otherwise cover it.
+        const content = element.closest<HTMLElement>(".board-column-content");
+        if (content && !element.nextElementSibling) {
+            content.scrollTop = content.scrollHeight;
+        }
+
+        // Into view either way, which is what scrolls the board sideways to the column a card has
+        // crossed into. Called second, so a column already scrolled to its end stays there.
+        element.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }, FLIP_SETTLE_MS);
 }
 
 /**

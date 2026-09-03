@@ -160,9 +160,26 @@ describe("Board drag and drop", () => {
         await drag(columns[0], "dragover", { types: [ TREE_CLIPBOARD_TYPE ] }, 50);
         expect(columns[0].classList.contains("collapsed")).toBe(false);
         expect(columns[0].querySelectorAll(".board-note")).toHaveLength(2);
+        // At its full width at once, cards and all: the drop is measured as the column opens.
+        expect(columns[0].classList.contains("quick-expand")).toBe(false);
+        expect(columns[0].classList.contains("expanding")).toBe(false);
 
         await drag(columns[0], "dragleave", { types: [ TREE_CLIPBOARD_TYPE ] });
         expect(columns[0].classList.contains("collapsed")).toBe(false);
+    });
+
+    /**
+     * The drag opens the column, the reader does not, so the stored flag stays as it is: the
+     * column is a strip again once the card has been dropped and another column is selected.
+     */
+    it("writes nothing when a dragged card opens a collapsed column", async () => {
+        const saveConfig = vi.fn();
+        const { columns } = await renderBoard({ collapsed: true, saveConfig });
+
+        await drag(columns[0], "dragover", { types: [ TREE_CLIPBOARD_TYPE ] }, 50);
+
+        expect(columns[0].classList.contains("collapsed")).toBe(false);
+        expect(saveConfig).not.toHaveBeenCalled();
     });
 
     /**
@@ -309,7 +326,9 @@ describe("Board drag and drop", () => {
     }
 
     /** A board of one column of two cards, each given a height the pointer can be placed in. */
-    async function renderBoard({ collapsed }: { collapsed?: boolean } = {}) {
+    async function renderBoard(
+        { collapsed, saveConfig }: { collapsed?: boolean, saveConfig?: () => void } = {}
+    ) {
         const note = buildNote({
             title: "Board",
             "#collection": "",
@@ -333,7 +352,7 @@ describe("Board drag and drop", () => {
                         noteIds={[ ...note.getChildNoteIds() ]}
                         highlightedTokens={null}
                         viewConfig={{ columns: [ { value: "To Do", collapsed } ] }}
-                        saveConfig={() => {}}
+                        saveConfig={saveConfig ?? (() => {})}
                         media="screen"
                         onReady={() => {}}
                     />

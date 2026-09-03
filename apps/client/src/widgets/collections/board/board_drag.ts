@@ -333,10 +333,14 @@ export function useBoardDrag(
                 && Math.hypot(event.clientX - held.startX, event.clientY - held.startY)
                     <= TOUCH_TOLERANCE;
             const target = held.menuTarget;
+            // A tap on a collapsed column opens it: that is what the strip is for, and its menu is
+            // on the button it carries. Everything else answers a tap with its menu, the long
+            // press that would otherwise open one being how a finger picks something up.
+            const opens = target.closest(".board-column")?.classList.contains("collapsed");
 
             close(event.type === "pointercancel");
 
-            if (tapped) {
+            if (tapped && !opens) {
                 // The browser follows a tap with mouse events for pages that know nothing of touch,
                 // and they land on the menu this is about to open, right under the finger: the
                 // first of them takes the menu straight back off again. Refused at `touchend`,
@@ -425,13 +429,14 @@ export function useBoardDrag(
         }
 
         const measurement = measureBoard(container);
-        // Each column keeps the cards it was measured with. The board now holds the gap where the
-        // card was, which stands every card below it one place lower, so reading them again would
-        // take the drag's own doing for a move of its own and the places would creep away from the
-        // card with every one it passes.
+        // A column that was measured with cards keeps them. The board now holds the gap where the
+        // carried card was, which stands every card below it one place lower, so reading them again
+        // would take the drag's own doing for a move of its own and the places would creep away
+        // from the card with every one it passes. A column measured with none is read afresh: a
+        // collapsed one draws no cards at all until it opens, which is what this runs for.
         for (const column of measurement.columns) {
             const before = held.measurement?.columns.find(({ value }) => value === column.value);
-            if (before) {
+            if (before?.cards.length) {
                 column.cards = before.cards;
             }
         }

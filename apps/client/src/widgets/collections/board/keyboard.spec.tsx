@@ -12,6 +12,7 @@ import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
 import attributes from "../../../services/attributes";
 import branches from "../../../services/branches";
+import { FLIP_DURATION_MS, FLIP_SETTLE_MS } from "../../react/flip";
 import contextMenu from "../../../menus/context_menu";
 import froca from "../../../services/froca";
 import server from "../../../services/server";
@@ -60,6 +61,7 @@ describe("Board keyboard", () => {
             container.remove();
             container = undefined;
         }
+        vi.useRealTimers();
     });
 
     describe("moving about", () => {
@@ -82,6 +84,61 @@ describe("Board keyboard", () => {
             // And its header is the start.
             press(board, "ArrowUp");
             expect(focusedName(board)).toBe("To Do");
+        });
+
+        /**
+         * What a move sends focus to is carried back to where it came from and let go, which turns
+         * the move into a slide. The browser scrolls to where a thing is drawn, so a scroll asked
+         * for while that slide runs finds it where it started and leaves the column alone.
+         */
+        it("brings what it focuses into view once the slide it made has run", async () => {
+            const board = await renderBoard();
+            const seen = vi.fn();
+            for (const card of board.querySelectorAll(".board-note")) {
+                Object.defineProperty(card, "scrollIntoView", {
+                    value: seen, configurable: true, writable: true
+                });
+            }
+
+            // Only around the press: the board is drawn with timers of its own to wait for.
+            vi.useFakeTimers();
+            focusHeader(board, 0);
+            press(board, "ArrowDown");
+            expect(seen).not.toHaveBeenCalled();
+
+            // Not while the slide is still running, which is the whole point of the wait.
+            act(() => { vi.advanceTimersByTime(FLIP_DURATION_MS - 20); });
+            expect(seen).not.toHaveBeenCalled();
+
+            act(() => { vi.advanceTimersByTime(FLIP_SETTLE_MS); });
+            expect(seen).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+        });
+
+        it("takes the column to its end for the last card, which a fade stands over", async () => {
+            const board = await renderBoard();
+            const content = board.querySelector<HTMLElement>(".board-column-content");
+            if (!content) throw new Error("expected a scrollable column body");
+            const seen = vi.fn();
+            for (const card of board.querySelectorAll(".board-note")) {
+                Object.defineProperty(card, "scrollIntoView", {
+                    value: seen, configurable: true, writable: true
+                });
+            }
+            Object.defineProperty(content, "scrollHeight", {
+                value: 640, configurable: true, writable: true
+            });
+            content.scrollTop = 0;
+
+            vi.useFakeTimers();
+            focusHeader(board, 0);
+            press(board, "ArrowDown");
+            press(board, "ArrowDown");
+            act(() => { vi.advanceTimersByTime(FLIP_SETTLE_MS + 10); });
+
+            expect(focusedName(board)).toBe("Second");
+            expect(content.scrollTop).toBe(640);
+            // And still asked into view, which is what carries the board across to its column.
+            expect(seen).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
         });
 
         it("crosses to the first card of the next column rather than to its header", async () => {
@@ -323,6 +380,9 @@ describe("Board keyboard", () => {
 
             expect(columnAt(board, 1).classList.contains("collapsed")).toBe(false);
             expect(focusedName(board)).toBe("Third");
+            // Opened by hand, so the column stays open rather than shutting behind the reader.
+            expect(saved.at(-1)?.columns?.find(col => col.value === "Doing")?.collapsed)
+                .toBeUndefined();
         });
 
         /** Nothing to step onto, so the column opens and focus stays where it was. */
@@ -842,4 +902,5 @@ describe("Board keyboard", () => {
     function flush() {
         return new Promise((resolve) => setTimeout(resolve));
     }
+
 });

@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import Component from "../../../components/component";
 import contextMenu from "../../../menus/context_menu";
+import dialog from "../../../services/dialog";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
 import FBranch from "../../../entities/fbranch";
@@ -19,6 +20,7 @@ import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
 import { collectShortcutHints } from "../../../services/shortcut_hints";
+import { FLIP_SETTLE_MS } from "../../react/flip";
 import BoardApi, { getPendingWrites } from "./api";
 import { DEFAULT_COLUMN_ICON } from "./columns";
 
@@ -53,6 +55,14 @@ vi.mock("../../../services/bulk_action", () => ({
 /** Drains the async chain inside `refresh()` (getBoardData → setByColumn/setColumns). */
 async function flush() {
     await new Promise((resolve) => setTimeout(resolve));
+}
+
+/** Fills a field the way typing does, so that what watches the field hears about it. */
+async function type(field: HTMLInputElement | HTMLTextAreaElement, value: string) {
+    await act(async () => {
+        field.value = value;
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
 }
 
 const saved: BoardViewData[] = [];
@@ -91,7 +101,18 @@ function Harness({ note, noteIds, initialConfig }: { note: ReturnType<typeof bui
 
 /** Files a fresh note under the board, the way an import or another client's write reaches it. */
 function addCard(board: ReturnType<typeof buildNote>, status: string) {
-    const card = buildNote({ title: "Added", "#status": status });
+    return fileCard(board, buildNote({ title: "Added", "#status": status }));
+}
+
+/** Takes a card off the board, the way carrying it to another one does. */
+function unfileCard(board: ReturnType<typeof buildNote>, card: ReturnType<typeof buildNote>) {
+    delete froca.branches[`${board.noteId}_${card.noteId}`];
+    delete board.childToBranch[card.noteId];
+    board.children = board.children.filter(noteId => noteId !== card.noteId);
+}
+
+/** Puts a note the test already holds under the board, for one made before it is filed. */
+function fileCard(board: ReturnType<typeof buildNote>, card: ReturnType<typeof buildNote>) {
     const branchId = `${board.noteId}_${card.noteId}`;
 
     froca.branches[branchId] = new FBranch(froca, {
@@ -102,6 +123,7 @@ function addCard(board: ReturnType<typeof buildNote>, status: string) {
         parentNoteId: board.noteId
     });
     board.addChild(card.noteId, branchId, false);
+    return card;
 }
 
 /** Opens the title editor the way the keyboard does, the menu entry needing a rendered menu. */
@@ -124,6 +146,7 @@ describe("Collapsed board columns", () => {
     let container: HTMLElement | undefined;
 
     afterEach(() => {
+        vi.useRealTimers();
         saved.length = 0;
         if (container) {
             render(null, container);
@@ -133,7 +156,7 @@ describe("Collapsed board columns", () => {
     });
 
     /** A board whose first column is stored collapsed and holds two cards. */
-    async function setup() {
+    async function setup({ keepCollapsed = false } = {}) {
         const note = buildNote({
             title: "Board",
             "#collection": "",
@@ -156,7 +179,10 @@ describe("Collapsed board columns", () => {
                         note={note}
                         noteIds={[ ...note.getChildNoteIds() ]}
                         initialConfig={{ columns: [
-                            { value: "To Do", collapsed: true }, { value: "Done" }
+                            { value: "To Do", collapsed: true, ...(keepCollapsed
+                                ? { keepCollapsed: true }
+                                : {}) },
+                            { value: "Done" }
                         ] }}
                     />
                 </ParentComponent.Provider>,
@@ -211,7 +237,7 @@ describe("Collapsed board columns", () => {
     });
 
     it("opens the column when it is selected and closes it when another one is", async () => {
-        const { mountPoint } = await setup();
+        const { mountPoint } = await setup({ keepCollapsed: true });
 
         await select(mountPoint, 0);
         expect(isCollapsed(mountPoint, 0)).toBe(false);
@@ -275,7 +301,7 @@ describe("Collapsed board columns", () => {
     });
 
     it("closes an open column when focus reaches another one", async () => {
-        const { mountPoint } = await setup();
+        const { mountPoint } = await setup({ keepCollapsed: true });
 
         await select(mountPoint, 0);
         expect(isCollapsed(mountPoint, 0)).toBe(false);
@@ -293,7 +319,7 @@ describe("Collapsed board columns", () => {
      * focus leaving it is not a reason to close it. Only another column being selected is.
      */
     it("stays open while a control rendered outside it is used", async () => {
-        const { mountPoint } = await setup();
+        const { mountPoint } = await setup({ keepCollapsed: true });
 
         await select(mountPoint, 0);
         expect(isCollapsed(mountPoint, 0)).toBe(false);
@@ -311,10 +337,125 @@ describe("Collapsed board columns", () => {
         expect(isCollapsed(mountPoint, 0)).toBe(false);
     });
 
-    it("opens a collapsed column without writing anything", async () => {
+    /**
+     * A column collapsed by hand is opened by hand, the way it is in most boards: the stored flag
+     * goes with the open, so the column does not shut again the moment another one is selected.
+     */
+    it("opens a collapsed column for good, clearing the stored flag", async () => {
         const { mountPoint } = await setup();
 
-        // Opening it by selection is not a change to the config, so nothing is written at all.
+        await select(mountPoint, 0);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+        expect(saved.at(-1)?.columns?.[0]).toEqual({ value: "To Do" });
+
+        // Selecting another one no longer takes it back.
+        await select(mountPoint, 1);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+    });
+
+    /**
+     * The cards are laid out again on every frame of the widening, so they are held unpainted
+     * until it is over. A column opened to take a dragged card shows them at once.
+     */
+    it("holds the cards unpainted while the column widens", async () => {
+        const { mountPoint } = await setup();
+
+        await select(mountPoint, 0);
+        const column = columnAt(mountPoint, 0);
+        expect(column.classList.contains("expanding")).toBe(true);
+        // Drawn all the same, so the board can hand focus to one of them.
+        expect(cardCount(mountPoint, 0)).toBe(2);
+
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 350));
+        });
+        expect(columnAt(mountPoint, 0).classList.contains("expanding")).toBe(false);
+    });
+
+    /** The reverse of the collapse, for the open the reader asked for. */
+    it("marks an open the reader asked for", async () => {
+        const { mountPoint } = await setup();
+        expect(columnAt(mountPoint, 0).classList.contains("quick-expand")).toBe(false);
+
+        await select(mountPoint, 0);
+        expect(columnAt(mountPoint, 0).classList.contains("quick-expand")).toBe(true);
+    });
+
+    /**
+     * A peek closes behind the pointer, with the columns beside it shifting under it, so it eases
+     * shut; a collapse the reader asked for surprises nobody and runs faster.
+     */
+    it("marks a collapse the reader asked for, and leaves a peek closing unmarked", async () => {
+        const { mountPoint } = await setup({ keepCollapsed: true });
+
+        await select(mountPoint, 0);
+        await act(async () => {
+            columnAt(mountPoint, 0).querySelector("h3")
+                ?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, detail: 2 }));
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(columnAt(mountPoint, 0).classList.contains("quick-collapse")).toBe(true);
+
+        // Opened again, what closes it is the peek, which is not the reader asking for it.
+        await select(mountPoint, 0);
+        expect(columnAt(mountPoint, 0).classList.contains("quick-collapse")).toBe(false);
+
+        await select(mountPoint, 1);
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(columnAt(mountPoint, 0).classList.contains("quick-collapse")).toBe(false);
+    });
+
+    /**
+     * The reader is looking at the open column when the entry is unchecked, so the column stays
+     * open: shutting it the moment another one is selected would read as the entry doing nothing.
+     */
+    it("keeps a peeked column open once it is no longer kept collapsed", async () => {
+        const { mountPoint } = await setup({ keepCollapsed: true });
+
+        await select(mountPoint, 0);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        columnAt(mountPoint, 0).querySelector("h3")
+            ?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+        const entry = (show.mock.calls.at(-1)?.[0].items ?? []).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-lock-alt");
+        if (!entry || !("handler" in entry)) throw new Error("expected a keep-collapsed entry");
+
+        await act(async () => {
+            entry.handler?.(entry, {} as never);
+            await flush();
+        });
+        show.mockRestore();
+
+        expect(saved.at(-1)?.columns?.[0]).toEqual({ value: "To Do" });
+        await select(mountPoint, 1);
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+    });
+
+    /** The first of the two clicks opens the strip; collapsing it again would undo that. */
+    it("leaves a strip open when it is double clicked open", async () => {
+        const { mountPoint } = await setup();
+        const header = columnAt(mountPoint, 0).querySelector("h3");
+
+        await act(async () => {
+            header?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, detail: 1 }));
+            header?.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+            await flush();
+        });
+        await act(async () => {
+            header?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, detail: 2 }));
+            header?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, detail: 2 }));
+            await flush();
+        });
+
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+    });
+
+    it("keeps the flag through an open where the column is kept collapsed", async () => {
+        const { mountPoint } = await setup({ keepCollapsed: true });
+
         await select(mountPoint, 0);
         expect(isCollapsed(mountPoint, 0)).toBe(false);
         expect(saved).toEqual([]);
@@ -695,31 +836,40 @@ describe("Board column rename", () => {
      * which a board that cannot write its own definition does for good. The board still has to
      * bring what it can reach into line, so only a running write holds persistence back.
      */
-    it("persists again once the write has landed, even with its record left standing", async () => {
+    /**
+     * A board that keeps a column list is left to keep it: written on every refresh instead, a
+     * client reading the board while another changes it resolves a name the change has already
+     * taken away and writes it back as a column of its own.
+     */
+    it("leaves a stored column list alone, and writes one only for a board with none", async () => {
         const { note } = await setup();
         saved.length = 0;
 
-        // The record stands, and no write is running.
-        getPendingWrites(`${note.noteId}|status`).renames.set("Done", undefined);
+        const draw = async (initialConfig: BoardViewData) => {
+            const mountPoint = document.createElement("div");
+            document.body.appendChild(mountPoint);
+            await act(async () => {
+                render(
+                    <ParentComponent.Provider value={new Component()}>
+                        <Harness
+                            note={note}
+                            noteIds={[ ...note.getChildNoteIds() ]}
+                            initialConfig={initialConfig}
+                        />
+                    </ParentComponent.Provider>,
+                    mountPoint
+                );
+            });
+            await act(async () => { await flush(); });
+            mountPoint.remove();
+        };
 
-        const second = document.createElement("div");
-        document.body.appendChild(second);
-        await act(async () => {
-            render(
-                <ParentComponent.Provider value={new Component()}>
-                    <Harness
-                        note={note}
-                        noteIds={[ ...note.getChildNoteIds() ]}
-                        initialConfig={DEFAULT_CONFIG}
-                    />
-                </ParentComponent.Provider>,
-                second
-            );
-        });
-        await act(async () => { await flush(); });
+        await draw(DEFAULT_CONFIG);
+        expect(saved).toEqual([]);
 
-        expect(saved.at(-1)?.columns?.map(column => column.value)).toEqual([ "To Do", "Doing" ]);
-        second.remove();
+        await draw({});
+        expect(saved.at(-1)?.columns?.map(column => column.value))
+            .toEqual([ "To Do", "Doing", "Done" ]);
     });
 
     it("offers its keys as contextual shortcut hints", async () => {
@@ -834,17 +984,20 @@ describe("Board column rename", () => {
         expect(columnTitles(mountPoint)).toEqual([ "To Do", "Doing" ]);
     });
 
-    it("opens the title editor when the title is double clicked", async () => {
+    it("collapses the column when its header is double clicked", async () => {
         const { container } = await setup();
         const [ first ] = [ ...container.querySelectorAll<HTMLElement>(".board-column") ];
 
         await act(async () => {
-            first.querySelector(".title")
+            first.querySelector("h3")
                 ?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+            await flush();
         });
 
-        expect(first.querySelector("h3")?.classList.contains("editing")).toBe(true);
-        expect(first.querySelector("h3 input")).not.toBeNull();
+        expect(first.classList.contains("collapsed")).toBe(true);
+        expect(saved.at(-1)?.columns?.[0]).toEqual({ value: "To Do", collapsed: true });
+        // The title editor is left to F2 and to the menu.
+        expect(first.querySelector("h3 input")).toBeNull();
     });
 
     /** The tooltip is set on the element, which is where `useStaticTooltip` reads it back from. */
@@ -1026,15 +1179,23 @@ describe("Board column rename", () => {
         await act(async () => { await flush(); });
     }
 
-    it("does not leave the old name behind as an empty column", async () => {
+    /**
+     * The cards, the stored columns and the definition are renamed together by the server, so that
+     * no client reads the board while they disagree and writes the old name back. What the board
+     * does from here is ask for that, and write none of the three itself.
+     */
+    it("asks the server to rename the column, and writes nothing of its own", async () => {
         const { container } = await setup();
+        const put = vi.spyOn(server, "put").mockResolvedValue(undefined);
         expect(columnTitles(container)).toEqual([ "To Do", "Doing", "Done" ]);
 
         await renameSecondColumn(container, "In Progress");
 
-        expect(columnTitles(container)).toEqual([ "To Do", "In Progress", "Done" ]);
-        expect(saved.at(-1)?.columns?.map(c => c.value))
-            .toEqual([ "To Do", "In Progress", "Done" ]);
+        expect(put).toHaveBeenCalledWith(expect.stringMatching(/board\/rename-column$/),
+            expect.objectContaining({
+                attribute: "status", oldValue: "Doing", newValue: "In Progress"
+            }));
+        expect(saved).toEqual([]);
     });
 
     /**
@@ -1202,7 +1363,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "First");
+        expect(created).toHaveBeenCalledWith("Doing", "First", "bottom");
         expect(slot?.querySelector("textarea")).toBe(editor);
         expect(editor.value).toBe("");
         expect(document.activeElement).toBe(editor);
@@ -1215,7 +1376,7 @@ describe("Board column rename", () => {
         });
 
         expect(created).toHaveBeenCalledTimes(2);
-        expect(created).toHaveBeenLastCalledWith("Doing", "Second");
+        expect(created).toHaveBeenLastCalledWith("Doing", "Second", "bottom");
     });
 
     /**
@@ -1286,11 +1447,215 @@ describe("Board column rename", () => {
         expect(others.some(other => other.classList.contains("appearing"))).toBe(false);
     });
 
+    /**
+     * The column names the card it just made until it makes another, so what opens out is counted
+     * as well: a card dragged out of the column and back is a card coming back, not one just made.
+     */
+    it("opens out the card it just made once, and not when it comes back", async () => {
+        const { note, container } = await setup();
+        withBoxes();
+
+        try {
+            const card = buildNote({ title: "Made", "#status": "Doing" });
+            vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
+                .mockResolvedValue({ noteId: card.noteId } as never);
+
+            // Made here, and drawn only by the refresh that follows.
+            const standIn = container.querySelectorAll<HTMLElement>(".board-column")[1]
+                .querySelector<HTMLElement>(".board-note");
+            await act(async () => {
+                standIn?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+                await flush();
+            });
+
+            fileCard(note, card);
+            await redraw(note, container);
+            expect(drawn(container, card.noteId).style.height).toBe("0px");
+
+            // Carried off the column and dropped back on it, which draws it afresh both times.
+            unfileCard(note, card);
+            await redraw(note, container);
+            fileCard(note, card);
+            await redraw(note, container);
+
+            expect(drawn(container, card.noteId).style.height).toBe("");
+        } finally {
+            dropBoxes();
+        }
+    });
+
+    /**
+     * The footer's own card never opens out, the scroll to the end and the fade standing for it, so
+     * its arrival is recorded rather than its growth: otherwise it is the one card the column has
+     * made that opens out when it comes back.
+     */
+    it("leaves a card the footer made alone when it comes back", async () => {
+        const { note, container } = await setup();
+        withBoxes();
+
+        try {
+            const card = buildNote({ title: "Footed", "#status": "Doing" });
+            vi.spyOn(BoardApi.prototype, "createNewItem").mockResolvedValue(card.noteId);
+
+            const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+                .querySelector<HTMLElement>(".board-new-item");
+            await act(async () => {
+                slot?.click();
+                await flush();
+            });
+
+            const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+            if (!editor) throw new Error("expected the new-item editor to be open");
+            editor.value = "Footed";
+            await act(async () => {
+                editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+                await flush();
+            });
+
+            fileCard(note, card);
+            await redraw(note, container);
+            expect(drawn(container, card.noteId).style.height).toBe("");
+
+            // Once the quiet window the footer opened has passed, and back on the column.
+            await act(async () => {
+                await new Promise((resolve) => setTimeout(resolve, FLIP_SETTLE_MS + 100));
+            });
+            unfileCard(note, card);
+            await redraw(note, container);
+            fileCard(note, card);
+            await redraw(note, container);
+
+            expect(drawn(container, card.noteId).style.height).toBe("");
+        } finally {
+            dropBoxes();
+        }
+    });
+
+    /**
+     * The write answers with the card's id, and the refresh that draws the card can land first, so
+     * the column draws it before it knows what it made. That arrival counts all the same, or the
+     * card is the one the column would open out when it comes back.
+     */
+    it("leaves a card drawn before the write answered alone when it comes back", async () => {
+        const { note, container } = await setup();
+        withBoxes();
+
+        try {
+            const card = buildNote({ title: "Early", "#status": "Doing" });
+            let answer: (noteId: string) => void = () => {};
+            vi.spyOn(BoardApi.prototype, "createNewItem")
+                .mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+
+            const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+                .querySelector<HTMLElement>(".board-new-item");
+            await act(async () => {
+                slot?.click();
+                await flush();
+            });
+
+            const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+            if (!editor) throw new Error("expected the new-item editor to be open");
+            editor.value = "Early";
+            await act(async () => {
+                editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+                await flush();
+            });
+
+            // Drawn while the write is still in flight, and only then answered.
+            fileCard(note, card);
+            await redraw(note, container);
+            await act(async () => {
+                answer(card.noteId);
+                await flush();
+            });
+
+            await act(async () => {
+                await new Promise((resolve) => setTimeout(resolve, FLIP_SETTLE_MS + 100));
+            });
+            unfileCard(note, card);
+            await redraw(note, container);
+            fileCard(note, card);
+            await redraw(note, container);
+
+            expect(drawn(container, card.noteId).style.height).toBe("");
+        } finally {
+            dropBoxes();
+        }
+    });
+
+    /** The element standing for a note, which a move draws afresh. */
+    function drawn(container: HTMLElement, noteId: string) {
+        const element = [ ...container.querySelectorAll<HTMLElement>(".board-note") ]
+            .find(card => card.getAttribute("data-note-id") === noteId);
+        if (!element) throw new Error(`expected ${noteId} to be drawn`);
+        return element;
+    }
+
+    /**
+     * A card that arrives from somewhere else, a move between columns above all, mounts as a new
+     * element in the column that draws it. Only the card the column itself made opens out of
+     * nothing; the rest are already where they were put.
+     */
+    it("opens out only the card the column made, not one that merely arrived", async () => {
+        const { note, container } = await setup();
+        withBoxes();
+
+        try {
+            addCard(note, "Doing");
+            await redraw(note, container);
+
+            const arrived = [ ...container.querySelectorAll<HTMLElement>(".board-note") ]
+                .find(card => card.textContent?.includes("Added"));
+            if (!arrived) throw new Error("expected the card that arrived to be drawn");
+            expect(arrived.style.height).toBe("");
+            expect(arrived.style.overflow).toBe("");
+        } finally {
+            dropBoxes();
+        }
+    });
+
+    /** happy-dom lays nothing out, and a child with no offset parent is one `useFlip` skips. */
+    function withBoxes() {
+        for (const [ property, read ] of Object.entries({
+            offsetParent(this: HTMLElement) { return this.parentElement; },
+            offsetHeight() { return 34; },
+            offsetTop() { return 0; }
+        })) {
+            Object.defineProperty(HTMLElement.prototype, property,
+                { configurable: true, get: read as () => unknown });
+        }
+    }
+
+    function dropBoxes() {
+        for (const property of [ "offsetParent", "offsetHeight", "offsetTop" ]) {
+            delete (HTMLElement.prototype as unknown as Record<string, unknown>)[property];
+        }
+    }
+
+    /** Draws the board again, which is how a card filed under it reaches the column. */
+    async function redraw(note: ReturnType<typeof buildNote>, container: HTMLElement) {
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={DEFAULT_CONFIG}
+                    />
+                </ParentComponent.Provider>,
+                container
+            );
+            await flush();
+        });
+        await act(async () => { await flush(); });
+    }
+
     it("reveals a card inserted next to another one, without leaving its place", async () => {
         const { note, container } = await setup();
 
-        // A second card in the same column, so the one standing in for the insert has a card after
-        // it and the column is brought to it rather than run to its end.
+        // Two more cards in the same column, so the one standing in for the insert has a card on
+        // either side and the column is brought to it rather than run to either end.
+        addCard(note, "Doing");
         addCard(note, "Doing");
         await act(async () => {
             render(
@@ -1308,12 +1673,14 @@ describe("Board column rename", () => {
         await act(async () => { await flush(); });
 
         const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
-        const [ first, second ] = column.querySelectorAll<HTMLElement>(".board-note");
-        const noteId = first?.getAttribute("data-note-id");
-        if (!first || !second || !noteId) throw new Error("expected a column of two cards");
+        const [ first, middle, last ] = column.querySelectorAll<HTMLElement>(".board-note");
+        const noteId = middle?.getAttribute("data-note-id");
+        if (!first || !middle || !last || !noteId) {
+            throw new Error("expected a column of three cards");
+        }
 
         const scrolled = vi.fn();
-        Object.defineProperty(first, "scrollIntoView",
+        Object.defineProperty(middle, "scrollIntoView",
             { value: scrolled, configurable: true, writable: true });
         const content = column.querySelector<HTMLElement>(".board-column-content");
         Object.defineProperty(content, "scrollHeight",
@@ -1322,11 +1689,11 @@ describe("Board column rename", () => {
             .mockResolvedValue({ noteId } as never);
 
         await act(async () => {
-            second.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            last.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
             await flush();
         });
 
-        expect(first.classList.contains("appearing")).toBe(true);
+        expect(middle.classList.contains("appearing")).toBe(true);
         expect(scrolled).toHaveBeenCalled();
         expect(content?.scrollTop).toBe(0);
     });
@@ -1465,7 +1832,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(added).toHaveBeenCalledWith("Blocked");
+        expect(added).toHaveBeenCalledWith("Blocked", false);
         expect(slot?.querySelector("input")).toBe(editor);
         expect(editor.value).toBe("");
         expect(document.activeElement).toBe(editor);
@@ -1482,6 +1849,283 @@ describe("Board column rename", () => {
         expect(added).not.toHaveBeenCalled();
         expect(slot?.querySelector("input")).toBeNull();
         expect(slot?.classList.contains("editing")).toBe(false);
+    });
+
+    /**
+     * The button beside the field changes face as the field is typed into, and the field takes its
+     * value from a prop: a render that fed the old one back took the first character with it.
+     */
+    it("keeps what is typed into the add-column field", async () => {
+        const { container } = await setup();
+        const slot = container.querySelector<HTMLElement>(".board-add-column");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLInputElement>("input");
+        if (!editor) throw new Error("expected the add-column editor to be open");
+
+        await type(editor, "B");
+        expect(editor.value).toBe("B");
+
+        await type(editor, "Blocked");
+        expect(editor.value).toBe("Blocked");
+    });
+
+    /** The same two ends a card's button offers, named for a board that runs across. */
+    it("offers both ends of the board from the add-column button", async () => {
+        const { container } = await setup();
+        const added = vi.spyOn(BoardApi.prototype, "addNewColumn").mockResolvedValue(true);
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        const slot = container.querySelector<HTMLElement>(".board-add-column");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLInputElement>("input");
+        if (!editor) throw new Error("expected the add-column editor to be open");
+
+        // Nothing typed is nothing to create, so there is no button standing there at all.
+        expect(slot?.querySelector(".title-editor-submit")).toBeNull();
+
+        await type(editor, "Blocked");
+        const button = slot?.querySelector<HTMLElement>(".title-editor-submit");
+        if (!button) throw new Error("expected the button beside the field");
+        button.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+
+        const opened = show.mock.calls.at(-1)?.[0];
+        const entries = (opened?.items ?? []).flatMap(item =>
+            item && "title" in item && "handler" in item
+                ? [ { title: item.title, icon: "uiIcon" in item ? item.uiIcon : undefined,
+                      shortcut: "shortcut" in item ? item.shortcut : undefined,
+                      handler: item.handler } ]
+                : []);
+        expect(entries.map(entry => [ entry.title, entry.icon, entry.shortcut ])).toEqual([
+            [ "board_view.create-column-at-start", "bx bx-horizontal-left", "Shift+Enter" ],
+            [ "board_view.create-column-at-end", "bx bx-horizontal-right", "Enter" ]
+        ]);
+        // The button stands at the board's right edge, where a menu drawn rightwards is pushed
+        // back over it.
+        expect(opened?.orientation).toBe("left");
+
+        await act(async () => {
+            entries[0]?.handler?.({} as never, {} as never);
+            await flush();
+        });
+        expect(added).toHaveBeenCalledWith("Blocked", true);
+        expect(editor.value).toBe("");
+
+        // Shift+Enter says the same thing from the field itself.
+        added.mockClear();
+        await type(editor, "Also first");
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown",
+                { key: "Enter", shiftKey: true, bubbles: true }));
+            await flush();
+        });
+        expect(added).toHaveBeenCalledWith("Also first", true);
+
+        show.mockRestore();
+    });
+
+    /**
+     * The same as Enter, for a reader who would rather press something: pressing it must not take
+     * focus out of the field first, since losing focus is what closes the editor.
+     */
+    it("makes a card from the button inside the new-item editor, and clears it", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const submit = slot?.querySelector<HTMLElement>(".title-editor-submit");
+        if (!editor || !submit) throw new Error("expected the editor and its button");
+
+        await type(editor, "From the button");
+        await act(async () => {
+            submit.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            await flush();
+        });
+
+        expect(created).toHaveBeenCalledWith("Doing", "From the button", "bottom");
+        expect(editor.value).toBe("");
+        expect(slot?.querySelector("textarea")).toBe(editor);
+        expect(document.activeElement).toBe(editor);
+    });
+
+    /**
+     * Cards are made at the end of a column, and at its head for the reader adding what comes next
+     * rather than what comes last. Both ends are reached from the field: Enter for the end, and
+     * Shift+Enter or the button's own menu for the head.
+     */
+    it("makes a card at the head of the column on Shift+Enter", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        if (!editor) throw new Error("expected the new-item editor to be open");
+
+        await type(editor, "On top");
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown",
+                { key: "Enter", shiftKey: true, bubbles: true }));
+            await flush();
+        });
+
+        expect(created).toHaveBeenCalledWith("Doing", "On top", "top");
+        // The field is emptied for the next one, as it is for a card made at the end.
+        expect(editor.value).toBe("");
+    });
+
+    it("offers both ends of the column from the button's own menu", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const button = slot?.querySelector<HTMLElement>(".title-editor-submit");
+        if (!editor || !button) throw new Error("expected the editor and its button");
+
+        // Nothing typed: there is nowhere to put a card that is not being made.
+        button.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+        expect(show).not.toHaveBeenCalled();
+
+        await type(editor, "Either end");
+        button.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+
+        const items = show.mock.calls.at(-1)?.[0].items ?? [];
+        const entries = items.flatMap(item => item && "title" in item && "handler" in item
+            ? [ { title: item.title, shortcut: "shortcut" in item ? item.shortcut : undefined,
+                  handler: item.handler } ]
+            : []);
+        expect(entries.map(entry => [ entry.title, entry.shortcut ])).toEqual([
+            [ "board_view.create-at-top", "Shift+Enter" ],
+            [ "board_view.create-at-bottom", "Enter" ]
+        ]);
+
+        await act(async () => {
+            entries[0]?.handler?.({} as never, {} as never);
+            await flush();
+        });
+        expect(created).toHaveBeenCalledWith("Doing", "Either end", "top");
+        expect(editor.value).toBe("");
+
+        show.mockRestore();
+    });
+
+    /** A finger has no second button, so it holds the create button to reach the same menu. */
+    it("opens the placement menu on a hold, and gives it up for a scroll", async () => {
+        const { container } = await setup();
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const button = slot?.querySelector<HTMLElement>(".title-editor-submit");
+        if (!editor || !button) throw new Error("expected the editor and its button");
+        await type(editor, "Held");
+
+        // Only now: the board is drawn through timers of its own, which would never come round.
+        vi.useFakeTimers();
+
+        const press = (type: string, at: number, pointerType = "touch") =>
+            button.dispatchEvent(new PointerEvent(type, {
+                bubbles: true, pointerType, clientX: at, clientY: at
+            }));
+
+        // A finger that walks away is scrolling the board, and the menu is not what it asked for.
+        press("pointerdown", 0);
+        press("pointermove", 40);
+        vi.advanceTimersByTime(1000);
+        expect(show).not.toHaveBeenCalled();
+
+        press("pointerdown", 0);
+        vi.advanceTimersByTime(1000);
+        expect(show).toHaveBeenCalled();
+
+        // The press ends in a click of its own, which must not reach the page and close the menu.
+        const reached = vi.fn();
+        document.addEventListener("click", reached);
+        button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        document.removeEventListener("click", reached);
+        expect(reached).not.toHaveBeenCalled();
+
+        // A mouse has its own way there, so holding it down offers nothing.
+        show.mockClear();
+        press("pointerdown", 0, "mouse");
+        vi.advanceTimersByTime(1000);
+        expect(show).not.toHaveBeenCalled();
+
+        vi.useRealTimers();
+        show.mockRestore();
+    });
+
+    /**
+     * With nothing typed there is nothing to save, so the button reaches for a note that exists
+     * already instead, and goes back to making one as soon as the field holds anything.
+     */
+    it("offers an existing note from the new-item button while the field is empty", async () => {
+        const { container } = await setup();
+        const chosen = vi.spyOn(dialog, "chooseNote").mockResolvedValue("existing");
+        const added = vi.spyOn(BoardApi.prototype, "addExistingItem").mockResolvedValue(true);
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const button = () => slot?.querySelector<HTMLElement>(".title-editor-submit");
+        if (!editor) throw new Error("expected the editor");
+        expect(button()?.className).toContain("bx-folder-open");
+
+        await act(async () => {
+            slot?.querySelector<HTMLElement>(".title-editor-submit")
+                ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            await flush();
+        });
+        expect(chosen).toHaveBeenCalled();
+        expect(added).toHaveBeenCalledWith("Doing", "existing");
+
+        await type(editor, "Typed");
+        expect(button()?.className).toContain("bx-plus-circle");
     });
 
     it("starts the new item off with the character typed on its button", async () => {
@@ -1582,7 +2226,7 @@ describe("Board column rename", () => {
     it("says so when what was typed could not be saved", async () => {
         const { container } = await setup();
         const error = vi.spyOn(toast, "showError").mockImplementation(() => {});
-        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
+        vi.spyOn(server, "put").mockRejectedValueOnce(new Error("offline"));
 
         await renameSecondColumn(container, "Renamed");
         await act(async () => { await flush(); });

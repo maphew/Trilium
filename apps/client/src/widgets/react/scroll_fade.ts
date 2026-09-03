@@ -87,7 +87,21 @@ export function useScrollFade(ref: RefObject<HTMLElement>, options: ScrollFadeOp
         // and shrinks without either, which no resize reports.
         const resize = new ResizeObserver(request);
         resize.observe(element);
-        const mutations = new MutationObserver(request);
+
+        // The children too: one of them growing changes how much there is to scroll while the box
+        // it grows inside keeps its size, and an animated height is not a change to the page that
+        // anything else here would hear about.
+        const watchChildren = () => {
+            for (const child of element.children) {
+                resize.observe(child);
+            }
+        };
+        watchChildren();
+
+        const mutations = new MutationObserver(() => {
+            watchChildren();
+            request();
+        });
         mutations.observe(element, { childList: true, subtree: true, characterData: true });
         element.addEventListener("scroll", measure, { passive: true });
 

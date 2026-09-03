@@ -10,6 +10,7 @@ import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
 import { ContextMenuEvent } from "../../../menus/context_menu";
 import branches from "../../../services/branches";
+import dialog from "../../../services/dialog";
 import { getHue, parseColor } from "../../../services/css_class_manager";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
@@ -18,13 +19,22 @@ import ActionButton from "../../react/ActionButton";
 import Icon from "../../react/Icon";
 import { IconPickerButton } from "../../react/IconPicker";
 import { useStaticTooltip } from "../../react/hooks";
+import { FLIP_SETTLE_MS, useFlip } from "../../react/flip";
 import { useScrollFade } from "../../react/scroll_fade";
+
+/**
+ * How long `footerQuietUntil` holds for a card `AddNewItem` is making, if the write never answers.
+ */
+const FOOTER_QUIET_MS = 5000;
+
+/** How long an open takes. Matches `--board-expand-duration` in the board's own rules. */
+const EXPAND_MS = 200;
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
 import Card from "./card";
 import { DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
-import { openColumnContextMenu } from "./context_menu";
+import { openColumnContextMenu, openCreateCardMenu } from "./context_menu";
 
 interface DragContext {
     column: string;
@@ -45,6 +55,7 @@ export default function Column({
     color,
     archived,
     collapsed,
+    keepCollapsed,
     isActive,
     nested,
     limit,
@@ -61,8 +72,10 @@ export default function Column({
     color?: string,
     /** Whether the column is archived. Only ever rendered while archived notes are shown. */
     archived?: boolean,
-    /** Whether the column is stored as collapsed. Selecting it opens it without clearing this. */
+    /** Whether the column is stored as collapsed. A drag opening it does not clear this. */
     collapsed?: boolean,
+    /** Whether the column collapses again once opened, which keeps `collapsed` through an open. */
+    keepCollapsed?: boolean,
     /** Whether this is the column the reader is working in, which opens it while it is collapsed. */
     isActive?: boolean,
     /** Whether the inbox also collects notes deeper than the board's direct children. */
@@ -81,22 +94,66 @@ export default function Column({
 } & DragContext) {
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
     const [ created, setCreated ] = useState<{ noteId?: string, takesFocus: boolean }>();
-    // The column stays the one just added until another is, so what has already been shown is
-    // remembered here rather than played again by every redraw of the board.
+    /**
+     * Every card this column has drawn, which is what tells one just made from one coming back.
+     *
+     * `created` names a card until another is made, and the card itself is marked in no way, so a
+     * card carried off the column and back would arrive under that name again. Every arrival is
+     * recorded, whatever became of it: the card can be drawn before the write answers with its id,
+     * and the footer's own card is never opened out at all.
+     */
+    const arrived = useRef(new Set<string>());
+    // `isNew` stays true until another column is added, so the reveal is recorded here rather than
+    // replayed on every redraw of the board.
     const [ isRevealed, setIsRevealed ] = useState(false);
-    // A card inserted next to another one is where the reader is working, so it is left focused; one
-    // made in the footer is not, or every card would take focus from the editor still being typed in.
+    /**
+     * Until when a card from `AddNewItem` can still arrive, during which `useFlip` does not grow
+     * it.
+     *
+     * Testing the id is not enough: `createNewItem()` answers with it after the refresh that draws
+     * the card can already have run, so `created` is set too late. `onCreating` sets this before
+     * the write instead.
+     */
+    const footerQuietUntil = useRef(0);
+    // An inserted card is left focused, since that is where the work is; a card from the footer is
+    // not, or it would take focus from the editor being typed in.
     const cardInserted = useCallback(
         (noteId: string | undefined) => setCreated({ noteId, takesFocus: true }), []);
-    const cardAdded = useCallback(
-        (noteId: string | undefined) => setCreated({ noteId, takesFocus: false }), []);
+    const addingFromFooter = useCallback(() => {
+        // Long enough for a write that never answers; `cardAdded` shortens it when one does.
+        footerQuietUntil.current = Date.now() + FOOTER_QUIET_MS;
+    }, []);
+    const cardAdded = useCallback((noteId: string | undefined) => {
+        footerQuietUntil.current = Date.now() + FLIP_SETTLE_MS;
+        setCreated({ noteId, takesFocus: false });
+    }, []);
     const { setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn } =
         useContext(BoardActionsContext);
     const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
     const isEditing = (columnNameToEdit === column);
     const editorRef = useRef<HTMLInputElement>(null);
+    const headerRef = useRef<HTMLHeadingElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const scrollFade = useScrollFade(contentRef);
+    // Cards slide to follow the drop gap opening and closing. Only the card named by `created`
+    // opens out of nothing: a card moved here from another column mounts as a new element too, and
+    // would collapse and reopen after the drop. The footer's own card is excluded as well, by
+    // `footerQuietUntil`: the scroll to the end and the fade already show it.
+    useFlip(contentRef, {
+        selector: ".board-note",
+        grow: (card) => {
+            const noteId = card.getAttribute("data-note-id");
+            if (!noteId) {
+                return false;
+            }
+
+            const isFirstArrival = !arrived.current.has(noteId);
+            arrived.current.add(noteId);
+
+            return isFirstArrival && noteId === created?.noteId
+                && Date.now() > footerQuietUntil.current;
+        }
+    });
     const { handleDragOver, handleDragLeave, handleDrop } = useDragging({
         column, columnIndex, columnItems, isEditing, api, parentNote
     });
@@ -111,11 +168,76 @@ export default function Column({
     // Read here rather than in the badge: the column body shows an outline as well.
     const isOverLimit = limit !== undefined && (columnItems?.length ?? 0) > limit;
     const isCollapsed = !!collapsed && !isActive;
+    // A column opened to take a dragged card takes its width at once, and its cards with it.
+    const opensAtOnce = !!draggedCard || dropTarget === column;
+
+    /**
+     * Whether the column is still widening, during which its cards are left unpainted.
+     *
+     * They are laid out again on every frame of the widening, their titles rewrapping as the
+     * column grows, which is what the reader would otherwise watch. Read during the render that
+     * opens the column, so there is no frame where they are painted into a narrow one.
+     *
+     * Unpainted rather than undrawn: the board focuses the card a keyboard open steps onto, and a
+     * card that is not there yet is one it cannot hand focus to.
+     */
+    const [ isExpanding, setIsExpanding ] = useState(false);
+    const [ wasCollapsed, setWasCollapsed ] = useState(isCollapsed);
+    if (wasCollapsed !== isCollapsed) {
+        setWasCollapsed(isCollapsed);
+        setIsExpanding(!isCollapsed && !opensAtOnce);
+    }
+
+    useEffect(() => {
+        if (!isExpanding) {
+            return;
+        }
+
+        const timer = window.setTimeout(() => setIsExpanding(false), EXPAND_MS);
+        return () => window.clearTimeout(timer);
+    }, [ isExpanding ]);
+
+    // Only while the column is open: the strip's own press opens it, which is what it says
+    // instead. Memoised because `useStaticTooltip` rebuilds the tooltip on a new config.
+    const headerTooltip = useMemo(
+        () => ({ title: isCollapsed ? "" : t("board_view.collapse-hint") }), [ isCollapsed ]);
+    useStaticTooltip(headerRef, headerTooltip);
 
     // Reported on the way in only. A column opened by being selected closes when another one is
     // selected, so nothing here watches for focus leaving: the menu, the icon picker and the limit
     // dialog all render outside the column, and each would otherwise close it as it opened.
-    const select = useCallback(() => setActiveColumn(column), [ column, setActiveColumn ]);
+    const select = useCallback(() => {
+        setActiveColumn(column);
+
+        // Opening the strip by hand opens the column for good, unless `keepCollapsed` says it
+        // closes again. A column opened by a card dragged over it goes through `setActiveColumn`
+        // instead, so it keeps the flag.
+        if (isCollapsed && !keepCollapsed) {
+            api.setColumnCollapsed(column, false);
+        }
+    }, [ api, column, isCollapsed, keepCollapsed, setActiveColumn ]);
+
+    /**
+     * Whether the collapse now being drawn is one the reader asked for, which runs faster than a
+     * peek closing: only the peek closes behind the pointer, with the board shifting under it.
+     */
+    const [ isCollapsingByHand, setIsCollapsingByHand ] = useState(false);
+
+    /** Collapses the column, closing the open one so that the change is drawn straight away. */
+    const collapse = useCallback(() => {
+        setIsCollapsingByHand(true);
+        api.setColumnCollapsed(column, true);
+        setActiveColumn(undefined);
+    }, [ api, column, setActiveColumn ]);
+
+    /**
+     * Whether the header was a strip when the press began.
+     *
+     * The first click of a double click on a strip already opens the column, so by the time
+     * `dblclick` arrives the header is a heading and collapsing it again would undo the open. Only
+     * the press that starts a sequence is recorded, which `detail` counts.
+     */
+    const wasCollapsedOnPress = useRef(false);
 
     // Focus reaching a column closes whichever one was open, and opens nothing: a collapsed column
     // is walked onto without being disturbed, and is opened by a click or by Space instead.
@@ -134,6 +256,8 @@ export default function Column({
             archived,
             collapsed,
             canRename: !isCollapsed,
+            isCollapsed,
+            keepCollapsed,
             nested,
             onEditTitle: () => setColumnNameToEdit(column),
             onNewItem: () => setIsCreatingNewItem(true),
@@ -141,11 +265,13 @@ export default function Column({
                 setColumnNameToEdit(await api.insertColumn(column, direction));
             },
             onSetLimit: () => setColumnLimitToEdit(column),
-            onCollapse: (collapse) => {
-                api.setColumnCollapsed(column, collapse);
-                // The menu is opened from the column, which is therefore the open one. Closing it
-                // here is what shows the reader that anything happened.
-                if (collapse) {
+            onCollapse: collapse,
+            onKeepCollapsed: (keep) => {
+                setIsCollapsingByHand(keep);
+                api.setColumnKeepCollapsed(column, keep, !isCollapsed);
+                // Turning it on collapses the column as well, so the open one is closed here for
+                // the same reason `collapse` closes it.
+                if (keep) {
                     setActiveColumn(undefined);
                 }
             },
@@ -157,8 +283,9 @@ export default function Column({
             }
         });
     }, [
-        api, column, color, archived, collapsed, isCollapsed, nested, columns, columnIndex,
-        setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn, onMoveColumn, onFocusColumn
+        api, column, color, archived, collapsed, keepCollapsed, collapse, isCollapsed, nested,
+        columns, columnIndex, setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn,
+        onMoveColumn, onFocusColumn
     ]);
 
     // A fully desaturated colour has no hue to tint with, and leaves the column plain.
@@ -185,6 +312,12 @@ export default function Column({
     }, []);
 
     useEffect(() => {
+        if (!isCollapsed) {
+            setIsCollapsingByHand(false);
+        }
+    }, [ isCollapsed ]);
+
+    useEffect(() => {
         editorRef.current?.focus();
     }, [ isEditing ]);
 
@@ -198,6 +331,11 @@ export default function Column({
                 "board-column-archived": archived,
                 "over-limit": isOverLimit,
                 collapsed: isCollapsed,
+                "quick-collapse": isCollapsingByHand,
+                // Opening is drawn for the reader who asked for it. A column opened to take a
+                // dragged card takes its width at once, since the drop is measured as it opens.
+                "quick-expand": !isCollapsed && !opensAtOnce,
+                expanding: isExpanding,
                 appearing: isNew && !isRevealed
             })}
             onAnimationEnd={(e) => {
@@ -215,6 +353,7 @@ export default function Column({
             style={{ "--board-column-custom-hue": hue }}
         >
             <h3
+                ref={headerRef}
                 className={`${isEditing ? "editing" : ""}`}
                 // While collapsed the header is what opens the column, so it says so and answers
                 // for the keys a button answers for. Open, it is a heading again and Space does
@@ -222,6 +361,16 @@ export default function Column({
                 role={isCollapsed ? "button" : undefined}
                 aria-expanded={isCollapsed ? false : undefined}
                 onContextMenu={openMenu}
+                onMouseDown={(e) => {
+                    if (e.detail <= 1) {
+                        wasCollapsedOnPress.current = isCollapsed;
+                    }
+                }}
+                onDblClick={() => {
+                    if (!wasCollapsedOnPress.current) {
+                        collapse();
+                    }
+                }}
                 onKeyDown={handleTitleKeyDown}
                 tabIndex={300}
             >
@@ -262,14 +411,7 @@ export default function Column({
 
                 {!isEditing ? (
                     <>
-                        <span
-                            className="title"
-                            // In relation mode the title is a link to the note the column stands
-                            // for, and the first of the two clicks has already followed it.
-                            onDblClick={isInRelationMode
-                                ? undefined
-                                : () => setColumnNameToEdit(column)}
-                        >
+                        <span className="title">
                             {isInRelationMode
                                 ? <NoteLink notePath={column} showNoteIcon />
                                 : api.getColumnTitle(column)}
@@ -349,6 +491,7 @@ export default function Column({
                 isCreating={isCreatingNewItem}
                 setIsCreating={setIsCreatingNewItem}
                 onCreated={cardAdded}
+                onCreating={addingFromFooter}
             />}
         </div>
     );
@@ -358,13 +501,15 @@ export default function Column({
  * The editor a new card is named in, opened by the button below the column or by its menu. The
  * state is the column's rather than this component's, since the menu is raised from the header.
  */
-function AddNewItem({ column, api, isCreating, setIsCreating, onCreated }: {
+function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreating }: {
     column: string,
     api: BoardApi,
     isCreating: boolean,
     setIsCreating: (isCreating: boolean) => void,
     /** Names the card just made, which the column reveals once the board has drawn it. */
-    onCreated: (noteId: string | undefined) => void
+    onCreated: (noteId: string | undefined) => void,
+    /** Said before the write, which the card can be drawn by the board ahead of. */
+    onCreating: () => void
 }) {
     // What the editor opens with: empty to begin with, then whatever was typed into it and left
     // unsaved, so that reaching for something else and coming back does not cost the title.
@@ -374,6 +519,18 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated }: {
         setInitialTitle(title);
         setIsCreating(true);
     }, [ setIsCreating ]);
+
+    /** Puts a note that already exists into this column, for a field with nothing typed into it. */
+    const addExistingItem = useCallback(async () => {
+        const noteId = await dialog.chooseNote({
+            title: t("board_view.add-existing-item-title"),
+            okLabel: t("board_view.add-existing-item-ok")
+        });
+
+        if (noteId) {
+            await api.addExistingItem(column, noteId);
+        }
+    }, [ api, column ]);
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (isCreating) return;
@@ -408,12 +565,22 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated }: {
                 <TitleEditor
                     currentValue={initialTitle}
                     placeholder={t("board_view.new-item-placeholder")}
-                    save={async (title) => onCreated(await api.createNewItem(column, title))}
+                    save={async (title, atStart) => {
+                        onCreating();
+                        onCreated(await api.createNewItem(
+                            column, title, atStart ? "top" : "bottom"));
+                    }}
                     dismiss={() => setIsCreating(false)}
                     mode="multiline" isNewItem
                     selectOnFocus={false}
                     saveAndContinue
                     abandon={setInitialTitle}
+                    whenEmpty={{
+                        title: t("board_view.add-existing-item"),
+                        onClick: addExistingItem
+                    }}
+                    submitTitle={t("board_view.create-new-note")}
+                    openPlacements={openCreateCardMenu}
                 />
             )}
         </div>
