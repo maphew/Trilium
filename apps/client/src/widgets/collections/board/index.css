@@ -746,8 +746,10 @@ body.mobile .column-drop-placeholder {
 }
 
 /* Opening runs the reverse of that collapse. Left out while a card is carried: a column opened to
-   take one is measured as it opens, and a width still on its way misplaces the gap. */
-.board-view-container .board-column.quick-expand {
+   take one is measured as it opens, and a width still on its way misplaces the gap. The copy being
+   carried is left out for the same reason `.collapsed` leaves it out: it would ease towards each
+   frame's position instead of taking it. */
+.board-view-container .board-column.quick-expand:not(.board-drag-preview) {
   transition: border-color 0.2s ease, transform 0.2s ease,
     width var(--board-expand-duration) ease;
 }
@@ -783,7 +785,7 @@ body.mobile .column-drop-placeholder {
 @media (prefers-reduced-motion: reduce) {
   /* Matching the selectors above, which these have to outweigh rather than merely follow. */
   .board-view-container .board-column.collapsed:not(.board-drag-preview),
-  .board-view-container .board-column.quick-expand {
+  .board-view-container .board-column.quick-expand:not(.board-drag-preview) {
     transition: border-color 0.2s ease;
   }
 
