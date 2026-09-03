@@ -165,6 +165,9 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
     });
 }
 
+/** How many columns a card's menu lists before the rest go behind an entry of their own. */
+const LISTED_COLUMNS = 7;
+
 /** What the board itself offers, for a press on the ground the columns stand on. */
 export function openBoardContextMenu(
     event: ContextMenuEvent,
@@ -308,6 +311,8 @@ function ColumnColorPicker({ api, value, color }: { api: Api, value: string, col
 /**
  * The columns a card can be filed under, standing in the menu itself rather than behind a submenu:
  * moving a card is what a board is for, and a submenu puts every column a step further away.
+ * Past `LISTED_COLUMNS` of them the menu would run off the screen, so what does not fit goes behind
+ * one entry, and the column the card is in is listed whether or not it is among the first.
  *
  * Archived columns are offered like any other, since filing a card under one is a fair thing to
  * want; the badge is there so it is not a surprise when the card goes out of sight.
@@ -315,7 +320,7 @@ function ColumnColorPicker({ api, value, color }: { api: Api, value: string, col
 function buildColumnItems(
     api: Api, note: FNote, column: string, onFocusCard: (noteId: string) => void
 ): MenuItem<CommandNames>[] {
-    return api.columns.map((name) => ({
+    const items: MenuItem<CommandNames>[] = api.columns.map((name) => ({
         // The menu reads a title as markup, which is what puts the name in a box of its own: a
         // bare run of text inside the item's flex row is an anonymous box, and nothing can be said
         // about its width. What a crafted name would plant there is escaped into the text it is
@@ -338,6 +343,29 @@ function buildColumnItems(
             api.changeColumn(note.noteId, name);
         }
     }));
+
+    if (items.length <= LISTED_COLUMNS) {
+        return items;
+    }
+
+    const listed = items.slice(0, LISTED_COLUMNS);
+    const rest = items.slice(LISTED_COLUMNS);
+
+    // The card's own column is listed even where it falls outside: the check beside it is what
+    // says which column the card is in, and behind an entry it says nothing.
+    const current = api.columns.indexOf(column);
+    if (current >= LISTED_COLUMNS) {
+        listed.push(...rest.splice(current - LISTED_COLUMNS, 1));
+    }
+
+    return [
+        ...listed,
+        {
+            title: t("board_view.more-columns"),
+            uiIcon: "bx bx-dots-horizontal-rounded",
+            items: rest
+        }
+    ];
 }
 
 export function openNoteContextMenu(
