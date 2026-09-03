@@ -315,6 +315,12 @@ export function openNoteContextMenu(
         y: event.pageY,
         items: [
             ...link_context_menu.getItems(event),
+            {
+                title: t("board_view.edit-title"),
+                uiIcon: "bx bx-rename",
+                shortcut: "F2",
+                handler: () => api.startEditing(branchId)
+            },
             { kind: "separator" },
             {
                 title: t("board_view.insert-above"),

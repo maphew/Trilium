@@ -377,6 +377,25 @@ describe("Board item context menu", () => {
     afterEach(() => vi.restoreAllMocks());
 
 
+    /** The same editor F2 opens, for a reader who came to the card with the mouse. */
+    it("opens the card's title editor", () => {
+        const api = {
+            columns: [],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            startEditing: vi.fn()
+        } as unknown as BoardApi;
+
+        const entry = openItemMenu(api).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-rename");
+        if (!entry || !("handler" in entry)) throw new Error("expected an edit-title entry");
+        expect("shortcut" in entry && entry.shortcut).toBe("F2");
+
+        entry.handler?.(entry, {} as never);
+        expect(api.startEditing).toHaveBeenCalledWith("branchId");
+    });
+
     it("inserts a card on either side of the one it was opened on", () => {
         const api = {
             columns: [],
