@@ -416,6 +416,41 @@ describe("Board item context menu", () => {
             .toEqual([ "before", "after" ]);
     });
 
+    /** Where Ctrl+Home sends it, for a reader who reached the card with the mouse. */
+    it("sends a card to the head of its column, and keeps the focus on it", () => {
+        const api = {
+            columns: [],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            moveToColumnStart: vi.fn(async () => {})
+        } as unknown as BoardApi;
+        const focusCard = vi.fn();
+
+        const entry = openItemMenu(api, "To Do", focusCard).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-vertical-top");
+        if (!entry || !("handler" in entry)) throw new Error("expected a move-to-top entry");
+        expect("shortcut" in entry && entry.shortcut).toBe("Ctrl+Home");
+
+        entry.handler?.(entry, {} as never);
+        expect(api.moveToColumnStart).toHaveBeenCalledWith(
+            expect.any(String), "branchId", "To Do");
+        expect(focusCard).toHaveBeenCalled();
+    });
+
+    it("says nothing about moving up the card already at the head", () => {
+        const api = {
+            columns: [],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            isFirstInColumn: () => true
+        } as unknown as BoardApi;
+
+        expect(openItemMenu(api).some(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-vertical-top")).toBe(false);
+    });
+
     it("copies a card into the board, after the one it was made from", async () => {
         const api = {
             columns: [ "To Do" ],
@@ -468,7 +503,12 @@ describe("Board item context menu", () => {
         // Every item menu asks what the board calls its grouping field; a test says so only when
         // that is what it is about.
         const withDefaults = Object.assign(
-            { getStatusLabel: () => "Status", getColumnTitle: (name: string) => name }, api);
+            {
+                getStatusLabel: () => "Status",
+                getColumnTitle: (name: string) => name,
+                isFirstInColumn: () => false
+            },
+            api);
         openNoteContextMenu(
             withDefaults, event, buildNote({ title: "Card" }) as FNote, "branchId", column,
             focusCard, () => {});

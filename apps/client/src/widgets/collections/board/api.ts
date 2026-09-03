@@ -891,6 +891,27 @@ export default class BoardApi {
         this.sentToColumnEnd.set(targetColumn, branchId);
     }
 
+    /** Whether a card stands at the head of its column, with nowhere left to be moved up to. */
+    isFirstInColumn(branchId: string, column: string) {
+        return this.byColumn?.get(column)?.[0]?.branch.branchId === branchId;
+    }
+
+    /**
+     * Moves a card to the head of the column it stands in, where Ctrl+Home also sends it.
+     *
+     * The card's own place is looked up here rather than asked of the caller: the menu is opened on
+     * a card, which knows the column it is in but not where it stands among the others.
+     */
+    async moveToColumnStart(noteId: string, branchId: string, column: string) {
+        const items = this.byColumn?.get(column) ?? [];
+        const at = items.findIndex(item => item.branch.branchId === branchId);
+        if (at <= 0) {
+            return;
+        }
+
+        await this.moveWithinBoard(noteId, branchId, at, 0, column, column);
+    }
+
     async moveWithinBoard(noteId: string, sourceBranchId: string, sourceIndex: number, targetIndex: number, sourceColumn: string, targetColumn: string) {
         const targetItems = this.byColumn?.get(targetColumn) ?? [];
 

@@ -336,6 +336,18 @@ export function openNoteContextMenu(
                 handler: () => api.insertRowAtPosition(column, branchId, "after")
                     .then(created => onCreated(created?.noteId))
             },
+            // Left out for the card already at the head, which has nowhere to go.
+            ...(api.isFirstInColumn(branchId, column) ? [] : [ {
+                title: t("board_view.move-to-top"),
+                uiIcon: "bx bx-vertical-top",
+                shortcut: "Ctrl+Home",
+                handler: () => {
+                    // Asked for before the write: the card is blurred as it is moved in the page,
+                    // and the reveal that follows the focus is what shows where it went.
+                    onFocusCard(note.noteId);
+                    api.moveToColumnStart(note.noteId, branchId, column);
+                }
+            } ]),
             { kind: "header", title: api.getStatusLabel() },
             ...buildColumnItems(api, note, column, onFocusCard),
             { kind: "separator" },

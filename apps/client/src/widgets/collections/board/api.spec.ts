@@ -720,6 +720,20 @@ describe("BoardApi card operations", () => {
             expect.not.objectContaining({ target: "before" }));
     });
 
+    it("sends a card to the head of its column, and leaves one already there alone", async () => {
+        const { api, items } = createBoardWithCards();
+        const moveBefore = vi.spyOn(branches, "moveBeforeBranch").mockResolvedValue(undefined);
+
+        const last = items[items.length - 1];
+        await api.moveToColumnStart(last.note.noteId, last.branch.branchId, "Done");
+        expect(moveBefore).toHaveBeenCalledWith(
+            [ last.branch.branchId ], items[0].branch.branchId);
+
+        moveBefore.mockClear();
+        await api.moveToColumnStart(items[0].note.noteId, items[0].branch.branchId, "Done");
+        expect(moveBefore).not.toHaveBeenCalled();
+    });
+
     it("hands the editing state straight through to the board", () => {
         const { api, editing } = createBoardWithCards();
 
