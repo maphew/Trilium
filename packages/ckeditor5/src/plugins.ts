@@ -37,6 +37,7 @@ import ClipboardBareImage from "./plugins/clipboard_bare_image.js";
 import ClipboardImageEmbed from "./plugins/clipboard_image_embed.js";
 import TriliumSnippets from "./plugins/snippets/snippets.js";
 import TriliumAiAssistant from "./plugins/ai_assistant/ai_assistant.js";
+import FindInLinkWidgets from "./plugins/find_in_link_widgets.js";
 
 import CodeBlockToolbar from "./plugins/code_block_toolbar.js";
 import CodeBlockLanguageDropdown from "./plugins/code_block_language_dropdown.js";
@@ -96,6 +97,7 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     ClipboardBareImage,
     TriliumSnippets,
     TriliumAiAssistant,
+    FindInLinkWidgets,
 ];
 
 /**
