@@ -4066,7 +4066,7 @@
     "ok": "选择"
   },
   "font_preview": {
-    "pangram": "敏捷的棕色狐狸跳过懒狗",
+    "pangram": "The quick brown fox jumps over the lazy dog",
     "specimen_placeholder": "输入文字以预览效果…",
     "size": "预览大小",
     "size_pixels": "{{size}} px",
