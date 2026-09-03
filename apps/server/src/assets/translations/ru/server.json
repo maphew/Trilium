@@ -443,5 +443,61 @@
   },
   "export": {
     "zip_filter": "ZIP-архив (*.zip)"
+  },
+  "onenote_import": {
+    "root-title": "Импорт OneNote",
+    "failed-page-placeholder": "Не удалось импортировать эту страницу из OneNote. Ошибка: {{error}}",
+    "report": {
+      "row-pages": "Страницы успешно импортированы",
+      "row-notebooks": "Импортированные записные книжки",
+      "row-sections": "Импортированные разделы",
+      "row-duration": "Общая продолжительность импорта",
+      "row-images": "Изображения",
+      "row-attachments": "Вложения",
+      "row-ink": "Страницы с рукописным текстом или рисунками",
+      "row-links": "Межстраничные ссылки",
+      "skipped-sections-title": "Разделы, которые не удалось импортировать",
+      "skipped-sections-section": "Раздел",
+      "skipped-sections-notebook": "Записная книжка",
+      "skipped-sections-error": "Ошибка",
+      "failed-pages-title": "Страницы, которые не удалось импортировать",
+      "failed-pages-page": "Страница",
+      "failed-pages-section": "Раздел",
+      "failed-pages-error": "Ошибка",
+      "failed-resources-title": "Отсутствующие изображения и вложения",
+      "failed-resources-item_one": "{{- pageLink}}: {{count}} ресурс не удалось загрузить",
+      "failed-resources-item_few": "{{- pageLink}}: {{count}} ресурса не удалось загрузить",
+      "failed-resources-item_many": "{{- pageLink}}: {{count}} ресурсов не удалось загрузить"
+    },
+    "failed-section-placeholder": "Этот раздел не удалось импортировать из OneNote, поэтому он был создан пустым. Ошибка: {{error}}",
+    "protected-section-error": "Этот раздел защищен паролем. Удалите пароль в OneNote, а затем импортируйте его снова.",
+    "protected-section-placeholder": "Этот раздел защищен паролем, поэтому его страницы не удалось импортировать, и он был создан пустым. Для импорта откройте раздел в OneNote, снимите с него пароль (щелкните правой кнопкой мыши по разделу &rarr; Защита паролем &rarr; Удалить пароль ), а затем снова запустите импорт."
+  },
+  "notion_import": {
+    "root-title": "Импорт Notion",
+    "markdown-export-unsupported": "Похоже, это экспорт из Notion в формате \"Markdown & CSV\", который Trilium не может импортировать. Пожалуйста, повторно экспортируйте свою рабочую область Notion, используя экспорта в формате \"HTML\", и импортируйте его.",
+    "subpage-folders-disabled": "Этот экспорт из Notion был создан без параметра \"Создать папки для подстраниц\", поэтому иерархию страниц восстановить невозможно. Пожалуйста, повторно экспортируйте из Notion с включенным параметром \"Создать папки для подстраниц\", и импортируйте его вместо этого."
+  },
+  "keep_import": {
+    "root-title": "Импорт Google Keep"
+  },
+  "anytype_import": {
+    "root-title": "Импорт Anytype",
+    "protobuf-export-unsupported": "Похоже, это экспорт из Anytype в формате \"Protobuf\", который Trilium не может импортировать. Пожалуйста, повторно экспортируйте ваше пространство из Anytype, используя формат \"Any-Block\" с параметром \"JSON\", и импортируйте его вместо этого.",
+    "markdown-export-unsupported": "Похоже, это экспорт из Anytype в формате \"Markdown\", который Trilium не может импортировать. Пожалуйста, повторно экспортируйте ваше пространство из Anytype, используя формат \"Any-Block\" с параметром \"JSON\", и импортируйте его вместо этого."
+  },
+  "obsidian_import": {
+    "root-title": "Импорт Obsidian"
+  },
+  "import": {
+    "invalid_file_grant": "Срок действия выбранного файла истек или он недействителен. Пожалуйста, выберите файл еще раз."
+  },
+  "restore": {
+    "pick_backup_title": "Выберите резервную копию для восстановления",
+    "backup_filter": "Резервная копия Trilium (*.db, *.tnbackup)",
+    "any_file_filter": "Все файлы"
+  },
+  "dialog": {
+    "select_directory": "Выберите папку"
   }
 }
