@@ -27,15 +27,6 @@ import { useScrollFade } from "../../react/scroll_fade";
  */
 const FOOTER_QUIET_MS = 5000;
 
-/**
- * How long the card just made is still the one the column opens out for.
- *
- * Long enough to cover a write that never answers, as `FOOTER_QUIET_MS` is. `created` names the
- * card until another is made, and the card itself is not marked in any way, so without this a card
- * dragged out of the column and back opens out again on the drop.
- */
-const CREATED_GROW_MS = 5000;
-
 /** How long an open takes. Matches `--board-expand-duration` in the board's own rules. */
 const EXPAND_MS = 200;
 import NoteLink from "../../react/NoteLink";
@@ -102,8 +93,15 @@ export default function Column({
     onFocusCard: (noteId: string) => void
 } & DragContext) {
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
-    const [ created, setCreated ] =
-        useState<{ noteId?: string, takesFocus: boolean, at: number }>();
+    const [ created, setCreated ] = useState<{ noteId?: string, takesFocus: boolean }>();
+    /**
+     * The cards this column has opened out, each of which it opens out once.
+     *
+     * `created` names the card until another is made, and the card itself is marked in no way, so
+     * a card dragged out of the column and back would arrive as the one just made and open out
+     * again on the drop.
+     */
+    const grown = useRef(new Set<string>());
     // `isNew` stays true until another column is added, so the reveal is recorded here rather than
     // replayed on every redraw of the board.
     const [ isRevealed, setIsRevealed ] = useState(false);
@@ -119,15 +117,14 @@ export default function Column({
     // An inserted card is left focused, since that is where the work is; a card from the footer is
     // not, or it would take focus from the editor being typed in.
     const cardInserted = useCallback(
-        (noteId: string | undefined) =>
-            setCreated({ noteId, takesFocus: true, at: Date.now() }), []);
+        (noteId: string | undefined) => setCreated({ noteId, takesFocus: true }), []);
     const addingFromFooter = useCallback(() => {
         // Long enough for a write that never answers; `cardAdded` shortens it when one does.
         footerQuietUntil.current = Date.now() + FOOTER_QUIET_MS;
     }, []);
     const cardAdded = useCallback((noteId: string | undefined) => {
         footerQuietUntil.current = Date.now() + FLIP_SETTLE_MS;
-        setCreated({ noteId, takesFocus: false, at: Date.now() });
+        setCreated({ noteId, takesFocus: false });
     }, []);
     const { setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn } =
         useContext(BoardActionsContext);
@@ -143,9 +140,16 @@ export default function Column({
     // `footerQuietUntil`: the scroll to the end and the fade already show it.
     useFlip(contentRef, {
         selector: ".board-note",
-        grow: (card) => !!created && card.getAttribute("data-note-id") === created.noteId
-            && Date.now() - created.at < CREATED_GROW_MS
-            && Date.now() > footerQuietUntil.current
+        grow: (card) => {
+            const noteId = card.getAttribute("data-note-id");
+            if (!noteId || noteId !== created?.noteId || grown.current.has(noteId)
+                    || Date.now() <= footerQuietUntil.current) {
+                return false;
+            }
+
+            grown.current.add(noteId);
+            return true;
+        }
     });
     const { handleDragOver, handleDragLeave, handleDrop } = useDragging({
         column, columnIndex, columnItems, isEditing, api, parentNote

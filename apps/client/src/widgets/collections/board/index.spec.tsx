@@ -103,6 +103,13 @@ function addCard(board: ReturnType<typeof buildNote>, status: string) {
     return fileCard(board, buildNote({ title: "Added", "#status": status }));
 }
 
+/** Takes a card off the board, the way carrying it to another one does. */
+function unfileCard(board: ReturnType<typeof buildNote>, card: ReturnType<typeof buildNote>) {
+    delete froca.branches[`${board.noteId}_${card.noteId}`];
+    delete board.childToBranch[card.noteId];
+    board.children = board.children.filter(noteId => noteId !== card.noteId);
+}
+
 /** Puts a note the test already holds under the board, for one made before it is filed. */
 function fileCard(board: ReturnType<typeof buildNote>, card: ReturnType<typeof buildNote>) {
     const branchId = `${board.noteId}_${card.noteId}`;
@@ -1440,44 +1447,49 @@ describe("Board column rename", () => {
     });
 
     /**
-     * The column names the card it just made until it makes another, so what opens out is bounded
-     * in time as well: a card dragged out of the column and back is not the one just made, however
-     * long it has been the last.
+     * The column names the card it just made until it makes another, so what opens out is counted
+     * as well: a card dragged out of the column and back is a card coming back, not one just made.
      */
-    it("opens out the card it just made, and not that card once it is old", async () => {
-        for (const [ passed, height ] of [ [ 0, "0px" ], [ 6000, "" ] ] as const) {
-            const { note, container } = await setup();
-            withBoxes();
+    it("opens out the card it just made once, and not when it comes back", async () => {
+        const { note, container } = await setup();
+        withBoxes();
 
-            try {
-                const card = buildNote({ title: "Made", "#status": "Doing" });
-                vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
-                    .mockResolvedValue({ noteId: card.noteId } as never);
+        try {
+            const card = buildNote({ title: "Made", "#status": "Doing" });
+            vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
+                .mockResolvedValue({ noteId: card.noteId } as never);
 
-                // Made here, and drawn only by the refresh that follows.
-                const standIn = container.querySelectorAll<HTMLElement>(".board-column")[1]
-                    .querySelector<HTMLElement>(".board-note");
-                await act(async () => {
-                    standIn?.dispatchEvent(new KeyboardEvent("keydown",
-                        { key: "Enter", bubbles: true }));
-                    await flush();
-                });
+            // Made here, and drawn only by the refresh that follows.
+            const standIn = container.querySelectorAll<HTMLElement>(".board-column")[1]
+                .querySelector<HTMLElement>(".board-note");
+            await act(async () => {
+                standIn?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+                await flush();
+            });
 
-                vi.setSystemTime(Date.now() + passed);
-                fileCard(note, card);
-                await redraw(note, container);
+            fileCard(note, card);
+            await redraw(note, container);
+            expect(drawn(container, card.noteId).style.height).toBe("0px");
 
-                const arrived = [ ...container.querySelectorAll<HTMLElement>(".board-note") ]
-                    .find(element => element.getAttribute("data-note-id") === card.noteId);
-                if (!arrived) throw new Error("expected the card just made to be drawn");
-                expect(arrived.style.height).toBe(height);
-            } finally {
-                vi.useRealTimers();
-                dropBoxes();
-                render(null, container);
-            }
+            // Carried off the column and dropped back on it, which draws it afresh both times.
+            unfileCard(note, card);
+            await redraw(note, container);
+            fileCard(note, card);
+            await redraw(note, container);
+
+            expect(drawn(container, card.noteId).style.height).toBe("");
+        } finally {
+            dropBoxes();
         }
     });
+
+    /** The element standing for a note, which a move draws afresh. */
+    function drawn(container: HTMLElement, noteId: string) {
+        const element = [ ...container.querySelectorAll<HTMLElement>(".board-note") ]
+            .find(card => card.getAttribute("data-note-id") === noteId);
+        if (!element) throw new Error(`expected ${noteId} to be drawn`);
+        return element;
+    }
 
     /**
      * A card that arrives from somewhere else, a move between columns above all, mounts as a new
