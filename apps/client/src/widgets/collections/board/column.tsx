@@ -95,13 +95,13 @@ export default function Column({
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
     const [ created, setCreated ] = useState<{ noteId?: string, takesFocus: boolean }>();
     /**
-     * The cards this column has opened out, each of which it opens out once.
+     * The cards this column has drawn since making them, each of which arrives once.
      *
      * `created` names the card until another is made, and the card itself is marked in no way, so
-     * a card dragged out of the column and back would arrive as the one just made and open out
-     * again on the drop.
+     * a card dragged out of the column and back would arrive as the one just made. Recorded
+     * whether or not it opens out: the footer's card is one the column has drawn as well.
      */
-    const grown = useRef(new Set<string>());
+    const arrived = useRef(new Set<string>());
     // `isNew` stays true until another column is added, so the reveal is recorded here rather than
     // replayed on every redraw of the board.
     const [ isRevealed, setIsRevealed ] = useState(false);
@@ -142,13 +142,12 @@ export default function Column({
         selector: ".board-note",
         grow: (card) => {
             const noteId = card.getAttribute("data-note-id");
-            if (!noteId || noteId !== created?.noteId || grown.current.has(noteId)
-                    || Date.now() <= footerQuietUntil.current) {
+            if (!noteId || noteId !== created?.noteId || arrived.current.has(noteId)) {
                 return false;
             }
 
-            grown.current.add(noteId);
-            return true;
+            arrived.current.add(noteId);
+            return Date.now() > footerQuietUntil.current;
         }
     });
     const { handleDragOver, handleDragLeave, handleDrop } = useDragging({

@@ -20,6 +20,7 @@ import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
 import { collectShortcutHints } from "../../../services/shortcut_hints";
+import { FLIP_SETTLE_MS } from "../../react/flip";
 import BoardApi, { getPendingWrites } from "./api";
 import { DEFAULT_COLUMN_ICON } from "./columns";
 
@@ -1472,6 +1473,53 @@ describe("Board column rename", () => {
             expect(drawn(container, card.noteId).style.height).toBe("0px");
 
             // Carried off the column and dropped back on it, which draws it afresh both times.
+            unfileCard(note, card);
+            await redraw(note, container);
+            fileCard(note, card);
+            await redraw(note, container);
+
+            expect(drawn(container, card.noteId).style.height).toBe("");
+        } finally {
+            dropBoxes();
+        }
+    });
+
+    /**
+     * The footer's own card never opens out, the scroll to the end and the fade standing for it, so
+     * its arrival is recorded rather than its growth: otherwise it is the one card the column has
+     * made that opens out when it comes back.
+     */
+    it("leaves a card the footer made alone when it comes back", async () => {
+        const { note, container } = await setup();
+        withBoxes();
+
+        try {
+            const card = buildNote({ title: "Footed", "#status": "Doing" });
+            vi.spyOn(BoardApi.prototype, "createNewItem").mockResolvedValue(card.noteId);
+
+            const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+                .querySelector<HTMLElement>(".board-new-item");
+            await act(async () => {
+                slot?.click();
+                await flush();
+            });
+
+            const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+            if (!editor) throw new Error("expected the new-item editor to be open");
+            editor.value = "Footed";
+            await act(async () => {
+                editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+                await flush();
+            });
+
+            fileCard(note, card);
+            await redraw(note, container);
+            expect(drawn(container, card.noteId).style.height).toBe("");
+
+            // Once the quiet window the footer opened has passed, and back on the column.
+            await act(async () => {
+                await new Promise((resolve) => setTimeout(resolve, FLIP_SETTLE_MS + 100));
+            });
             unfileCard(note, card);
             await redraw(note, container);
             fileCard(note, card);
