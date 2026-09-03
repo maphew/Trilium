@@ -450,9 +450,9 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
                 <TitleEditor
                     currentValue={initialTitle}
                     placeholder={t("board_view.new-item-placeholder")}
-                    save={async (title) => {
+                    save={async (title, placement) => {
                         onCreating();
-                        onCreated(await api.createNewItem(column, title));
+                        onCreated(await api.createNewItem(column, title, placement));
                     }}
                     dismiss={() => setIsCreating(false)}
                     mode="multiline" isNewItem
@@ -464,6 +464,7 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
                         onClick: addExistingItem
                     }}
                     submitTitle={t("board_view.create-new-note")}
+                    canPlace
                 />
             )}
         </div>

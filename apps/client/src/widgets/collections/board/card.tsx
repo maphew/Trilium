@@ -121,9 +121,9 @@ function Card({
         setTitle(note.title);
     }, [ note ]);
 
-    // A new card can be below the fold on a full column. One at the end takes the column to its
-    // end, so it lands clear of the fade the scrolling body draws over its bottom edge; one
-    // inserted between others is only brought into view.
+    // A new card can be out of sight on a full column. One at either end takes the column to that
+    // end, so it lands clear of the fade the scrolling body draws over its edges; one inserted
+    // between others is only brought into view.
     useLayoutEffect(() => {
         if (!isNew) {
             return;
@@ -136,10 +136,12 @@ function Card({
         }
 
         const bring = () => {
-            if (card.nextElementSibling) {
-                card.scrollIntoView?.({ block: "nearest" });
-            } else {
+            if (!card.nextElementSibling) {
                 content.scrollTop = content.scrollHeight;
+            } else if (!card.previousElementSibling) {
+                content.scrollTop = 0;
+            } else {
+                card.scrollIntoView?.({ block: "nearest" });
             }
         };
 

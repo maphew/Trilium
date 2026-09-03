@@ -696,6 +696,30 @@ describe("BoardApi card operations", () => {
         expect(logged).toHaveBeenCalled();
     });
 
+    /**
+     * A column is drawn in the order its notes stand in, so the head of one is the card before its
+     * first, not the first child of the board: the columns share one list between them.
+     */
+    it("makes a card at the head of a column against that column's first card", async () => {
+        const { api, items } = createBoardWithCards();
+        vi.mocked(note_create.createNote).mockResolvedValue({
+            note: buildNote({ title: "Created" }), branch: { branchId: "createdBranch" }
+        } as never);
+
+        await api.createNewItem("Done", "First of all", "top");
+        expect(note_create.createNote).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({
+                target: "before", targetBranchId: items[0].branch.branchId
+            }));
+
+        // An empty column has nothing to be placed against, and the card is simply made.
+        await api.createNewItem("Nowhere", "Only one", "top");
+        expect(note_create.createNote).toHaveBeenLastCalledWith(
+            expect.any(String),
+            expect.not.objectContaining({ target: "before" }));
+    });
+
     it("hands the editing state straight through to the board", () => {
         const { api, editing } = createBoardWithCards();
 

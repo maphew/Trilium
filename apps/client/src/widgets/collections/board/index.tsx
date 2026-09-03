@@ -3,6 +3,7 @@ import "./index.css";
 import clsx from "clsx";
 
 import { createContext, Fragment, TargetedKeyboardEvent } from "preact";
+import { JSX } from "preact/jsx-runtime";
 import { createPortal, RefObject } from "preact/compat";
 import {
     Dispatch, StateUpdater, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState
@@ -14,7 +15,7 @@ import type LoadResults from "../../../services/load_results";
 import { isIMEComposing } from "../../../services/shortcuts";
 import type { ShortcutHintDefinition } from "../../../services/shortcut_hints";
 import toast from "../../../services/toast";
-import { isMobile } from "../../../services/utils";
+import { escapeHtml, isMobile } from "../../../services/utils";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import FormTextArea from "../../react/FormTextArea";
 import FormTextBox from "../../react/FormTextBox";
@@ -30,13 +31,14 @@ import ActionButton from "../../react/ActionButton";
 import { useDragPan } from "../../react/drag_pan";
 import { FLIP_SETTLE_MS, useFlip } from "../../react/flip";
 import { ViewModeProps } from "../interface";
-import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
+import Api, { CardPlacement, getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
 import { useBoardDrag } from "./board_drag";
 import { movesColumn } from "./drag_geometry";
 import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition, INBOX_COLUMN } from "./columns";
 import Column from "./column";
 import ColumnLimitDialog from "./column_limit";
+import { openCreateCardMenu } from "./context_menu";
 import { applyCardMove, ColumnMap, getBoardData } from "./data";
 import { useBoardKeyboard } from "./keyboard";
 
@@ -153,6 +155,12 @@ export const BoardDragStateContext = createContext<BoardDragState>({
  * board handles itself (see `keyboard.ts` and the card and column handlers), none of them
  * rebindable, so each is listed literally rather than through a registered action.
  */
+/** How long a finger stays on the create button before it offers where to put the card. */
+const HOLD_TO_PLACE_MS = 500;
+
+/** How far a finger can wander during that and still be holding rather than scrolling. */
+const HOLD_SLACK_PX = 10;
+
 const BOARD_HINTS: ShortcutHintDefinition = [
     {
         titleKey: "board_view.hints.navigation",
@@ -799,11 +807,11 @@ function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
 
 export function TitleEditor({
     currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true,
-    saveAndContinue = false, returnFocusTo, abandon, whenEmpty, submitTitle
+    saveAndContinue = false, returnFocusTo, abandon, whenEmpty, submitTitle, canPlace
 }: {
     currentValue?: string;
     placeholder?: string;
-    save: (newValue: string) => void | Promise<void>;
+    save: (newValue: string, placement?: CardPlacement) => void | Promise<void>;
     dismiss: () => void;
     isNewItem?: boolean;
     mode?: "normal" | "multiline" | "relation";
@@ -826,6 +834,11 @@ export function TitleEditor({
     /** What the button beside the field makes, for the reader hovering over it. */
     submitTitle?: string;
     /**
+     * Whether the button also offers which end of the column to make it at: a menu on a right
+     * click or a hold, and Shift+Enter for the top. Only for a `save` that reads the placement.
+     */
+    canPlace?: boolean;
+    /**
      * Where focus goes when the editor closes, instead of back to whatever held it before. A card
      * whose editor was opened for it rather than by it names itself, so that closing does not light
      * up the card the reader came from on the way.
@@ -844,6 +857,13 @@ export function TitleEditor({
     const focusElRef = useRef<Element>(null);
     const dismissOnNextRefreshRef = useRef(false);
     const shouldDismiss = useRef(false);
+    const held = useRef<number>();
+    /** Where on the screen the finger went down, against which a scroll is told from a hold. */
+    const heldFrom = useRef<{ x: number, y: number }>();
+    /** Whether the menu was opened by a hold, whose press ends in a click the menu must survive. */
+    const openedByHold = useRef(false);
+
+    useEffect(() => () => window.clearTimeout(held.current), []);
 
     // Laid out rather than deferred: with the open drawn synchronously, this puts focus on the
     // editor inside the press that asked for it, which is what opens a phone's keyboard.
@@ -876,7 +896,7 @@ export function TitleEditor({
         if (e.key === "Enter" && saveAndContinue) {
             e.preventDefault();
             e.stopPropagation();
-            submit();
+            submit(canPlace && e.shiftKey ? "top" : "bottom");
             return;
         }
 
@@ -902,16 +922,76 @@ export function TitleEditor({
         }
     };
 
-    /** Saves what is in the editor and empties it, leaving it open for whatever comes next. */
-    function submit() {
+    /**
+     * Saves what is in the editor and empties it, leaving it open for whatever comes next.
+     *
+     * @param placement which end of the column to save at, for an editor that offers both.
+     * @param typed what to save, for a menu that read the field when it opened rather than now.
+     */
+    function submit(placement?: CardPlacement, typed?: string) {
         const input = inputRef.current;
-        if (input?.value.trim()) {
-            commit(input.value);
-            input.value = "";
+        const value = typed ?? input?.value ?? "";
+        if (value.trim()) {
+            commit(value, placement);
+            if (input) {
+                input.value = "";
+            }
         }
 
         input?.focus();
         setIsEmpty(true);
+    }
+
+    /** Offers both ends of the column, saving what the field held when the menu was opened. */
+    function openPlacementMenu(e: JSX.TargetedMouseEvent<HTMLElement>) {
+        e.preventDefault();
+        e.stopPropagation();
+        cancelHold();
+
+        const typed = inputRef.current?.value ?? "";
+        openCreateCardMenu(e.pageX, e.pageY, (placement) => submit(placement, typed));
+    }
+
+    /** Opens the same menu for a finger, which has no second button to open it with. */
+    function holdToPlace(e: JSX.TargetedPointerEvent<HTMLElement>) {
+        if (e.pointerType === "mouse") {
+            return;
+        }
+
+        const { pageX, pageY, clientX, clientY } = e;
+        cancelHold();
+        heldFrom.current = { x: clientX, y: clientY };
+        held.current = window.setTimeout(() => {
+            openedByHold.current = true;
+            const typed = inputRef.current?.value ?? "";
+            openCreateCardMenu(pageX, pageY, (placement) => submit(placement, typed));
+        }, HOLD_TO_PLACE_MS);
+    }
+
+    function cancelHold() {
+        window.clearTimeout(held.current);
+        heldFrom.current = undefined;
+    }
+
+    /** Gives up on a hold the finger has walked away from, which is a scroll and not a press. */
+    function holdMoved(e: JSX.TargetedPointerEvent<HTMLElement>) {
+        const from = heldFrom.current;
+        if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > HOLD_SLACK_PX) {
+            cancelHold();
+        }
+    }
+
+    function pressed(e: JSX.TargetedMouseEvent<HTMLElement>) {
+        cancelHold();
+
+        // A hold ends in a click, which would reach the page and close the menu it just opened.
+        if (openedByHold.current) {
+            openedByHold.current = false;
+            e.stopPropagation();
+            return;
+        }
+
+        submit("bottom");
     }
 
     const onBlur = (newValue: string) => {
@@ -932,8 +1012,8 @@ export function TitleEditor({
     // The editor is closing either way, and what a save writes has already been put back by
     // whatever could not write it; all that is left is to say so rather than to reject unhandled,
     // which is what a save reaching nobody used to do.
-    function commit(newValue: string) {
-        Promise.resolve(save(newValue)).catch((e) => {
+    function commit(newValue: string, placement?: CardPlacement) {
+        Promise.resolve(save(newValue, placement)).catch((e) => {
             console.error("Failed to save what the board editor was given:", e);
             toast.showError(t("board_view.save-error"));
         });
@@ -958,12 +1038,19 @@ export function TitleEditor({
             return field;
         }
 
+        // A placement applies only to the button that creates. With nothing typed, the button
+        // stands for whatever the caller offers instead.
+        const offersPlacement = !!canPlace && !isEmpty;
+        const madeBy = submitTitle ?? t("board_view.add-new-item");
         const offered = isEmpty && whenEmpty
-            ? { icon: "bx bx-folder-open", ...whenEmpty }
+            ? { icon: "bx bx-folder-open", title: whenEmpty.title, onClick: whenEmpty.onClick }
             : {
                 icon: "bx bx-plus-circle",
-                title: submitTitle ?? t("board_view.add-new-item"),
-                onClick: submit
+                title: offersPlacement
+                    ? `<span class="action">${escapeHtml(madeBy)}</span>`
+                        + `<span class="hint">${escapeHtml(t("board_view.create-hold-hint"))}</span>`
+                    : madeBy,
+                onClick: pressed
             };
 
         return (
@@ -971,11 +1058,20 @@ export function TitleEditor({
                 {field}
                 {/* The press must not take focus out of the field first: losing it is what closes
                     the editor, and it would be gone before the click arrived. */}
-                <span onMouseDown={(e) => e.preventDefault()}>
+                <span
+                    onMouseDown={(e) => e.preventDefault()}
+                    onPointerDown={offersPlacement ? holdToPlace : undefined}
+                    onPointerUp={cancelHold}
+                    onPointerMove={holdMoved}
+                    onPointerCancel={cancelHold}
+                    onContextMenu={offersPlacement ? openPlacementMenu : undefined}
+                >
                     <ActionButton
                         className="title-editor-submit"
                         icon={offered.icon}
                         text={offered.title}
+                        tooltipHtml={offersPlacement}
+                        tooltipClass={offersPlacement ? "title-editor-submit-tooltip" : undefined}
                         onClick={offered.onClick}
                     />
                 </span>

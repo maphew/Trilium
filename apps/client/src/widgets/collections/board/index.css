@@ -534,6 +534,18 @@ body.mobile .board-view-container .board-add-column {
   color: var(--muted-text-color);
 }
 
+/* The tooltip is drawn at the end of the page, so it is named rather than nested in the board. */
+.tooltip.title-editor-submit-tooltip {
+  .action {
+    display: block;
+    padding-bottom: 4px;
+  }
+
+  .hint {
+    opacity: 0.75;
+  }
+}
+
 /* Room for the button, so a long title runs up to it rather than under it. Stated after the rule
    above, whose shorthand padding would otherwise take this back. */
 .board-view-container .title-editor-with-submit textarea.form-control,

@@ -20,6 +20,9 @@ import {
 } from "./columns";
 import { ColumnMap } from "./data";
 
+/** Which end of a column a new card is made at. */
+export type CardPlacement = "top" | "bottom";
+
 /** One write's claim on a column, held until that write lands or is taken back. */
 interface ColumnClaim {
     /**
@@ -160,13 +163,25 @@ export default class BoardApi {
         this.statusAttribute = statusAttribute.replace(/^[~#]/, "");
     }
 
-    async createNewItem(column: string, title: string) {
+    /**
+     * Creates a card at one end of a column.
+     *
+     * Cards are drawn in the order the board's children stand in, so a card created under the
+     * board lands at the bottom. The top is created before the column's own first card: all
+     * columns share one list of children, so the board's first child is not this column's.
+     */
+    async createNewItem(column: string, title: string, placement: CardPlacement = "bottom") {
+        const first = placement === "top"
+            ? this.byColumn?.get(column)?.[0]?.branch.branchId
+            : undefined;
+
         try {
             const { note } = await note_create.createNote(this.parentNote.noteId, {
                 activate: false,
                 title,
                 isProtected: this.parentNote.isProtected,
-                attributes: this.groupingFor(column)
+                attributes: this.groupingFor(column),
+                ...(first ? { target: "before", targetBranchId: first } : {})
             });
 
             return note?.noteId;

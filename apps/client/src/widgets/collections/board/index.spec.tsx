@@ -133,6 +133,7 @@ describe("Collapsed board columns", () => {
     let container: HTMLElement | undefined;
 
     afterEach(() => {
+        vi.useRealTimers();
         saved.length = 0;
         if (container) {
             render(null, container);
@@ -1228,7 +1229,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "First");
+        expect(created).toHaveBeenCalledWith("Doing", "First", "bottom");
         expect(slot?.querySelector("textarea")).toBe(editor);
         expect(editor.value).toBe("");
         expect(document.activeElement).toBe(editor);
@@ -1241,7 +1242,7 @@ describe("Board column rename", () => {
         });
 
         expect(created).toHaveBeenCalledTimes(2);
-        expect(created).toHaveBeenLastCalledWith("Doing", "Second");
+        expect(created).toHaveBeenLastCalledWith("Doing", "Second", "bottom");
     });
 
     /**
@@ -1315,8 +1316,9 @@ describe("Board column rename", () => {
     it("reveals a card inserted next to another one, without leaving its place", async () => {
         const { note, container } = await setup();
 
-        // A second card in the same column, so the one standing in for the insert has a card after
-        // it and the column is brought to it rather than run to its end.
+        // Two more cards in the same column, so the one standing in for the insert has a card on
+        // either side and the column is brought to it rather than run to either end.
+        addCard(note, "Doing");
         addCard(note, "Doing");
         await act(async () => {
             render(
@@ -1334,12 +1336,14 @@ describe("Board column rename", () => {
         await act(async () => { await flush(); });
 
         const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
-        const [ first, second ] = column.querySelectorAll<HTMLElement>(".board-note");
-        const noteId = first?.getAttribute("data-note-id");
-        if (!first || !second || !noteId) throw new Error("expected a column of two cards");
+        const [ first, middle, last ] = column.querySelectorAll<HTMLElement>(".board-note");
+        const noteId = middle?.getAttribute("data-note-id");
+        if (!first || !middle || !last || !noteId) {
+            throw new Error("expected a column of three cards");
+        }
 
         const scrolled = vi.fn();
-        Object.defineProperty(first, "scrollIntoView",
+        Object.defineProperty(middle, "scrollIntoView",
             { value: scrolled, configurable: true, writable: true });
         const content = column.querySelector<HTMLElement>(".board-column-content");
         Object.defineProperty(content, "scrollHeight",
@@ -1348,11 +1352,11 @@ describe("Board column rename", () => {
             .mockResolvedValue({ noteId } as never);
 
         await act(async () => {
-            second.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            last.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
             await flush();
         });
 
-        expect(first.classList.contains("appearing")).toBe(true);
+        expect(middle.classList.contains("appearing")).toBe(true);
         expect(scrolled).toHaveBeenCalled();
         expect(content?.scrollTop).toBe(0);
     });
@@ -1537,10 +1541,140 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "From the button");
+        expect(created).toHaveBeenCalledWith("Doing", "From the button", "bottom");
         expect(editor.value).toBe("");
         expect(slot?.querySelector("textarea")).toBe(editor);
         expect(document.activeElement).toBe(editor);
+    });
+
+    /**
+     * Cards are made at the end of a column, and at its head for the reader adding what comes next
+     * rather than what comes last. Both ends are reached from the field: Enter for the end, and
+     * Shift+Enter or the button's own menu for the head.
+     */
+    it("makes a card at the head of the column on Shift+Enter", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        if (!editor) throw new Error("expected the new-item editor to be open");
+
+        await type(editor, "On top");
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown",
+                { key: "Enter", shiftKey: true, bubbles: true }));
+            await flush();
+        });
+
+        expect(created).toHaveBeenCalledWith("Doing", "On top", "top");
+        // The field is emptied for the next one, as it is for a card made at the end.
+        expect(editor.value).toBe("");
+    });
+
+    it("offers both ends of the column from the button's own menu", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const button = slot?.querySelector<HTMLElement>(".title-editor-submit");
+        if (!editor || !button) throw new Error("expected the editor and its button");
+
+        // Nothing typed: there is nowhere to put a card that is not being made.
+        button.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+        expect(show).not.toHaveBeenCalled();
+
+        await type(editor, "Either end");
+        button.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+
+        const items = show.mock.calls.at(-1)?.[0].items ?? [];
+        const entries = items.flatMap(item => item && "title" in item && "handler" in item
+            ? [ { title: item.title, shortcut: "shortcut" in item ? item.shortcut : undefined,
+                  handler: item.handler } ]
+            : []);
+        expect(entries.map(entry => [ entry.title, entry.shortcut ])).toEqual([
+            [ "board_view.create-at-top", "Shift+Enter" ],
+            [ "board_view.create-at-bottom", "Enter" ]
+        ]);
+
+        await act(async () => {
+            entries[0]?.handler?.({} as never, {} as never);
+            await flush();
+        });
+        expect(created).toHaveBeenCalledWith("Doing", "Either end", "top");
+        expect(editor.value).toBe("");
+
+        show.mockRestore();
+    });
+
+    /** A finger has no second button, so it holds the create button to reach the same menu. */
+    it("opens the placement menu on a hold, and gives it up for a scroll", async () => {
+        const { container } = await setup();
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const button = slot?.querySelector<HTMLElement>(".title-editor-submit");
+        if (!editor || !button) throw new Error("expected the editor and its button");
+        await type(editor, "Held");
+
+        // Only now: the board is drawn through timers of its own, which would never come round.
+        vi.useFakeTimers();
+
+        const press = (type: string, at: number, pointerType = "touch") =>
+            button.dispatchEvent(new PointerEvent(type, {
+                bubbles: true, pointerType, clientX: at, clientY: at
+            }));
+
+        // A finger that walks away is scrolling the board, and the menu is not what it asked for.
+        press("pointerdown", 0);
+        press("pointermove", 40);
+        vi.advanceTimersByTime(1000);
+        expect(show).not.toHaveBeenCalled();
+
+        press("pointerdown", 0);
+        vi.advanceTimersByTime(1000);
+        expect(show).toHaveBeenCalled();
+
+        // The press ends in a click of its own, which must not reach the page and close the menu.
+        const reached = vi.fn();
+        document.addEventListener("click", reached);
+        button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        document.removeEventListener("click", reached);
+        expect(reached).not.toHaveBeenCalled();
+
+        // A mouse has its own way there, so holding it down offers nothing.
+        show.mockClear();
+        press("pointerdown", 0, "mouse");
+        vi.advanceTimersByTime(1000);
+        expect(show).not.toHaveBeenCalled();
+
+        vi.useRealTimers();
+        show.mockRestore();
     });
 
     /**

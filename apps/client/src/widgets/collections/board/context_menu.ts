@@ -11,7 +11,7 @@ import { getArchiveMenuItem } from "../../../menus/context_menu_utils";
 import { t } from "../../../services/i18n";
 import { escapeHtml } from "../../../services/utils";
 import ColorPicker from "../../react/ColorPicker";
-import Api from "./api";
+import Api, { CardPlacement } from "./api";
 import { INBOX_COLUMN } from "./columns";
 
 /** What the column menu is opened for: the column itself, and what it can be asked to do. */
@@ -146,6 +146,31 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
             {
                 kind: "custom",
                 componentFn: () => ColumnColorPicker({ api, ...column })
+            }
+        ],
+        selectMenuItemHandler() {}
+    });
+}
+
+/** Offers both ends of a column for the card the button below it is about to create. */
+export function openCreateCardMenu(
+    x: number, y: number, create: (placement: CardPlacement) => void
+) {
+    contextMenu.show({
+        x,
+        y,
+        items: [
+            {
+                title: t("board_view.create-at-top"),
+                uiIcon: "bx bx-vertical-top",
+                shortcut: "Shift+Enter",
+                handler: () => create("top")
+            },
+            {
+                title: t("board_view.create-at-bottom"),
+                uiIcon: "bx bx-vertical-bottom",
+                shortcut: "Enter",
+                handler: () => create("bottom")
             }
         ],
         selectMenuItemHandler() {}
