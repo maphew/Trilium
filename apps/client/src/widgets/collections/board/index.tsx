@@ -1044,12 +1044,14 @@ export function TitleEditor({
             return field;
         }
 
-        // A placement applies only to the button that creates. With nothing typed, the button
-        // stands for whatever the caller offers instead.
+        // A placement applies only to the button that creates. With nothing typed there is nothing
+        // to create, so the button stands for whatever the caller offers instead, or for nothing.
         const offersPlacement = !!openPlacements && !isEmpty;
         const madeBy = submitTitle ?? t("board_view.add-new-item");
-        const offered = isEmpty && whenEmpty
-            ? { icon: "bx bx-folder-open", title: whenEmpty.title, onClick: whenEmpty.onClick }
+        const offered = isEmpty
+            ? whenEmpty && {
+                icon: "bx bx-folder-open", title: whenEmpty.title, onClick: whenEmpty.onClick
+            }
             : {
                 icon: "bx bx-plus-circle",
                 title: offersPlacement
@@ -1064,23 +1066,26 @@ export function TitleEditor({
                 {field}
                 {/* The press must not take focus out of the field first: losing it is what closes
                     the editor, and it would be gone before the click arrived. */}
-                <span
-                    onMouseDown={(e) => e.preventDefault()}
-                    onPointerDown={offersPlacement ? holdToPlace : undefined}
-                    onPointerUp={cancelHold}
-                    onPointerMove={holdMoved}
-                    onPointerCancel={cancelHold}
-                    onContextMenu={offersPlacement ? openPlacementMenu : undefined}
-                >
-                    <ActionButton
-                        className="title-editor-submit"
-                        icon={offered.icon}
-                        text={offered.title}
-                        tooltipHtml={offersPlacement}
-                        tooltipClass={offersPlacement ? "title-editor-submit-tooltip" : undefined}
-                        onClick={offered.onClick}
-                    />
-                </span>
+                {offered && (
+                    <span
+                        onMouseDown={(e) => e.preventDefault()}
+                        onPointerDown={offersPlacement ? holdToPlace : undefined}
+                        onPointerUp={cancelHold}
+                        onPointerMove={holdMoved}
+                        onPointerCancel={cancelHold}
+                        onContextMenu={offersPlacement ? openPlacementMenu : undefined}
+                    >
+                        <ActionButton
+                            className="title-editor-submit"
+                            icon={offered.icon}
+                            text={offered.title}
+                            tooltipHtml={offersPlacement}
+                            tooltipClass={
+                                offersPlacement ? "title-editor-submit-tooltip" : undefined}
+                            onClick={offered.onClick}
+                        />
+                    </span>
+                )}
             </div>
         );
     }

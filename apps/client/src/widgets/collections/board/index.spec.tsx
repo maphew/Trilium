@@ -1550,10 +1550,14 @@ describe("Board column rename", () => {
         });
 
         const editor = slot?.querySelector<HTMLInputElement>("input");
-        const button = slot?.querySelector<HTMLElement>(".title-editor-submit");
-        if (!editor || !button) throw new Error("expected the editor and its button");
+        if (!editor) throw new Error("expected the add-column editor to be open");
+
+        // Nothing typed is nothing to create, so there is no button standing there at all.
+        expect(slot?.querySelector(".title-editor-submit")).toBeNull();
 
         await type(editor, "Blocked");
+        const button = slot?.querySelector<HTMLElement>(".title-editor-submit");
+        if (!button) throw new Error("expected the button beside the field");
         button.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
 
         const opened = show.mock.calls.at(-1)?.[0];
