@@ -451,10 +451,16 @@ body.mobile .board-view-container .board-add-column {
   touch-action: none;
 }
 
-/* Reaching the end of the board or of a column scrolls neither the page nor anything else. */
-.board-view-container,
-.board-view-container .board-column-content {
+/* Reaching the end of the board scrolls neither the page nor anything else. */
+.board-view-container {
   overscroll-behavior: contain;
+}
+
+/* A column contains only what it can scroll itself. `contain` on both axes would also hold a
+   sideways swipe that starts on a card, which the column cannot scroll and the board can: Chrome
+   stops it at the column instead of passing it on, and the board never moves. */
+.board-view-container .board-column-content {
+  overscroll-behavior-y: contain;
 }
 
 /* And while something is carried, the end does not spring back either: the copy is positioned
