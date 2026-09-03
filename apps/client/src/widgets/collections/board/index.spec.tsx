@@ -444,6 +444,8 @@ describe("Collapsed board columns", () => {
         const board = mountPoint.querySelector<HTMLElement>(".board-view-container");
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
 
+        // With a column open, which the collapse has to close along with the rest.
+        await select(mountPoint, 1);
         board?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
         const entries = (show.mock.calls.at(-1)?.[0].items ?? []).flatMap(item =>
             item && "uiIcon" in item && "handler" in item

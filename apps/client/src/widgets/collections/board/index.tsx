@@ -311,7 +311,11 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
 
         openBoardContextMenu(event, {
             onCollapseAll: () => {
-                setIsPeekingAll(false);
+                // The open column is closed with the rest: it holds the peek that would otherwise
+                // keep it open against what is being written for it.
+                // The open column is closed with the rest: it holds the peek that would otherwise
+                // keep it open against what is being written for it.
+                selectColumn(undefined);
                 api.setAllColumnsCollapsed(true);
             },
             onExpandAll: () => {
@@ -320,7 +324,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                 api.setAllColumnsCollapsed(false);
             }
         });
-    }, [ api ]);
+    }, [ api, selectColumn ]);
 
     const boardActions = useMemo<BoardActions>(() => ({
         setBranchIdToEdit,
