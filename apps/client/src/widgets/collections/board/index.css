@@ -544,6 +544,8 @@ body.mobile .board-view-container .board-add-column {
   opacity: 0.6;
 }
 
+/* The space a carried column would take, so it must measure the same: the board spaces its columns
+   with its own gap, and a margin here is width the columns after it are pushed along by. */
 .column-drop-placeholder {
   width: 250px;
   flex-shrink: 0;
@@ -552,7 +554,11 @@ body.mobile .board-view-container .board-add-column {
   background-color: rgba(0, 0, 0, 0.1);
   opacity: 0;
   transition: opacity 0.15s ease;
-  margin: 0 0.5em;
+}
+
+body.mobile .column-drop-placeholder {
+  width: 75vw;
+  max-width: 300px;
 }
 
 .column-drop-placeholder.show {
