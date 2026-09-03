@@ -695,31 +695,40 @@ describe("Board column rename", () => {
      * which a board that cannot write its own definition does for good. The board still has to
      * bring what it can reach into line, so only a running write holds persistence back.
      */
-    it("persists again once the write has landed, even with its record left standing", async () => {
+    /**
+     * A board that keeps a column list is left to keep it: written on every refresh instead, a
+     * client reading the board while another changes it resolves a name the change has already
+     * taken away and writes it back as a column of its own.
+     */
+    it("leaves a stored column list alone, and writes one only for a board with none", async () => {
         const { note } = await setup();
         saved.length = 0;
 
-        // The record stands, and no write is running.
-        getPendingWrites(`${note.noteId}|status`).renames.set("Done", undefined);
+        const draw = async (initialConfig: BoardViewData) => {
+            const mountPoint = document.createElement("div");
+            document.body.appendChild(mountPoint);
+            await act(async () => {
+                render(
+                    <ParentComponent.Provider value={new Component()}>
+                        <Harness
+                            note={note}
+                            noteIds={[ ...note.getChildNoteIds() ]}
+                            initialConfig={initialConfig}
+                        />
+                    </ParentComponent.Provider>,
+                    mountPoint
+                );
+            });
+            await act(async () => { await flush(); });
+            mountPoint.remove();
+        };
 
-        const second = document.createElement("div");
-        document.body.appendChild(second);
-        await act(async () => {
-            render(
-                <ParentComponent.Provider value={new Component()}>
-                    <Harness
-                        note={note}
-                        noteIds={[ ...note.getChildNoteIds() ]}
-                        initialConfig={DEFAULT_CONFIG}
-                    />
-                </ParentComponent.Provider>,
-                second
-            );
-        });
-        await act(async () => { await flush(); });
+        await draw(DEFAULT_CONFIG);
+        expect(saved).toEqual([]);
 
-        expect(saved.at(-1)?.columns?.map(column => column.value)).toEqual([ "To Do", "Doing" ]);
-        second.remove();
+        await draw({});
+        expect(saved.at(-1)?.columns?.map(column => column.value))
+            .toEqual([ "To Do", "Doing", "Done" ]);
     });
 
     it("offers its keys as contextual shortcut hints", async () => {
@@ -1026,15 +1035,23 @@ describe("Board column rename", () => {
         await act(async () => { await flush(); });
     }
 
-    it("does not leave the old name behind as an empty column", async () => {
+    /**
+     * The cards, the stored columns and the definition are renamed together by the server, so that
+     * no client reads the board while they disagree and writes the old name back. What the board
+     * does from here is ask for that, and write none of the three itself.
+     */
+    it("asks the server to rename the column, and writes nothing of its own", async () => {
         const { container } = await setup();
+        const put = vi.spyOn(server, "put").mockResolvedValue(undefined);
         expect(columnTitles(container)).toEqual([ "To Do", "Doing", "Done" ]);
 
         await renameSecondColumn(container, "In Progress");
 
-        expect(columnTitles(container)).toEqual([ "To Do", "In Progress", "Done" ]);
-        expect(saved.at(-1)?.columns?.map(c => c.value))
-            .toEqual([ "To Do", "In Progress", "Done" ]);
+        expect(put).toHaveBeenCalledWith(expect.stringMatching(/board\/rename-column$/),
+            expect.objectContaining({
+                attribute: "status", oldValue: "Doing", newValue: "In Progress"
+            }));
+        expect(saved).toEqual([]);
     });
 
     /**
@@ -1582,7 +1599,7 @@ describe("Board column rename", () => {
     it("says so when what was typed could not be saved", async () => {
         const { container } = await setup();
         const error = vi.spyOn(toast, "showError").mockImplementation(() => {});
-        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
+        vi.spyOn(server, "put").mockRejectedValueOnce(new Error("offline"));
 
         await renameSecondColumn(container, "Renamed");
         await act(async () => { await flush(); });

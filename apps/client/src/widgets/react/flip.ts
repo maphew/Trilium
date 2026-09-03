@@ -121,6 +121,14 @@ export function useFlip(
             slide(child, by, axis);
         }
 
+        if (moved.length) {
+            // Read once, to make the browser work out the styles just written before the frame that
+            // takes them away. Without it a child moved in the page can be set back and let go
+            // inside one recalculation, which leaves the transition nothing to start from and the
+            // move is drawn where it lands with nothing in between.
+            void container.offsetHeight;
+        }
+
         if (!arrived.length) {
             return;
         }
@@ -129,6 +137,8 @@ export function useFlip(
         for (const { child, size } of arrived) {
             open(child, size, axis);
         }
+
+        void container.offsetHeight;
 
         // Read again once the growth is over, so what follows is measured against where its
         // neighbours came to rest rather than against wherever it caught them.

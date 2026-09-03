@@ -18,8 +18,11 @@ import ActionButton from "../../react/ActionButton";
 import Icon from "../../react/Icon";
 import { IconPickerButton } from "../../react/IconPicker";
 import { useStaticTooltip } from "../../react/hooks";
-import { useFlip } from "../../react/flip";
+import { FLIP_SETTLE_MS, useFlip } from "../../react/flip";
 import { useScrollFade } from "../../react/scroll_fade";
+
+/** How long a column stays quiet for a card the footer is making, if the write never answers. */
+const FOOTER_QUIET_MS = 5000;
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
@@ -85,14 +88,26 @@ export default function Column({
     // The column stays the one just added until another is, so what has already been shown is
     // remembered here rather than played again by every redraw of the board.
     const [ isRevealed, setIsRevealed ] = useState(false);
-    /** The card the footer made, which arrives without opening out. */
-    const quietlyAdded = created?.takesFocus === false ? created.noteId : undefined;
+    /**
+     * When a card the footer is making may still arrive.
+     *
+     * Naming the card itself is not enough: the write answers with its id, and the refresh that
+     * draws it can land first, so the card is on the board before there is anything to say it came
+     * from the footer. The column is quiet from the moment the footer is asked instead.
+     */
+    const footerQuietUntil = useRef(0);
     // A card inserted next to another one is where the reader is working, so it is left focused; one
     // made in the footer is not, or every card would take focus from the editor still being typed in.
     const cardInserted = useCallback(
         (noteId: string | undefined) => setCreated({ noteId, takesFocus: true }), []);
-    const cardAdded = useCallback(
-        (noteId: string | undefined) => setCreated({ noteId, takesFocus: false }), []);
+    const addingFromFooter = useCallback(() => {
+        // Long enough to cover a write that never answers, and cut short by the one that does.
+        footerQuietUntil.current = Date.now() + FOOTER_QUIET_MS;
+    }, []);
+    const cardAdded = useCallback((noteId: string | undefined) => {
+        footerQuietUntil.current = Date.now() + FLIP_SETTLE_MS;
+        setCreated({ noteId, takesFocus: false });
+    }, []);
     const { setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn } =
         useContext(BoardActionsContext);
     const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
@@ -106,7 +121,7 @@ export default function Column({
     // to its end, and opening out on top of those is one movement too many.
     useFlip(contentRef, {
         selector: ".board-note",
-        grow: (card) => card.dataset.noteId !== quietlyAdded
+        grow: () => Date.now() > footerQuietUntil.current
     });
     const { handleDragOver, handleDragLeave, handleDrop } = useDragging({
         column, columnIndex, columnItems, isEditing, api, parentNote
@@ -360,6 +375,7 @@ export default function Column({
                 isCreating={isCreatingNewItem}
                 setIsCreating={setIsCreatingNewItem}
                 onCreated={cardAdded}
+                onCreating={addingFromFooter}
             />}
         </div>
     );
@@ -369,13 +385,15 @@ export default function Column({
  * The editor a new card is named in, opened by the button below the column or by its menu. The
  * state is the column's rather than this component's, since the menu is raised from the header.
  */
-function AddNewItem({ column, api, isCreating, setIsCreating, onCreated }: {
+function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreating }: {
     column: string,
     api: BoardApi,
     isCreating: boolean,
     setIsCreating: (isCreating: boolean) => void,
     /** Names the card just made, which the column reveals once the board has drawn it. */
-    onCreated: (noteId: string | undefined) => void
+    onCreated: (noteId: string | undefined) => void,
+    /** Said before the write, which the card can be drawn by the board ahead of. */
+    onCreating: () => void
 }) {
     // What the editor opens with: empty to begin with, then whatever was typed into it and left
     // unsaved, so that reaching for something else and coming back does not cost the title.
@@ -419,7 +437,10 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated }: {
                 <TitleEditor
                     currentValue={initialTitle}
                     placeholder={t("board_view.new-item-placeholder")}
-                    save={async (title) => onCreated(await api.createNewItem(column, title))}
+                    save={async (title) => {
+                        onCreating();
+                        onCreated(await api.createNewItem(column, title));
+                    }}
                     dismiss={() => setIsCreating(false)}
                     mode="multiline" isNewItem
                     selectOnFocus={false}

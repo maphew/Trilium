@@ -27,6 +27,19 @@ function failNextBulkAction() {
     vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
 }
 
+/** The same for a column rename, which the server makes in one write of its own. */
+function failNextRename() {
+    vi.spyOn(server, "put").mockRejectedValueOnce(new Error("offline"));
+}
+
+/** Holds the next rename open, answering it only once the returned function is called. */
+function holdNextRename() {
+    let release = () => {};
+    vi.spyOn(server, "put").mockImplementationOnce(
+        () => new Promise<void>((resolve) => { release = resolve; }));
+    return () => release();
+}
+
 vi.mock("../../../services/branches", () => ({
     default: {
         cloneNoteToParentNote: vi.fn(async () => {}),
@@ -86,18 +99,16 @@ describe("BoardApi column mutations", () => {
         const { api, saved } = createApi(viewConfig, [ "To Do", "Done" ]);
 
         await api.addNewColumn("In Progress");
-        await api.renameColumn("Done", "Shipped");
         await api.removeColumn("To Do");
 
-        expect(saved).toHaveLength(3);
+        expect(saved).toHaveLength(2);
         for (const config of saved) {
             expect(config).not.toBe(viewConfig);
             expect(config.columns).not.toBe(viewConfig.columns);
         }
         expect(saved.map(config => config.columns?.map(col => col.value))).toEqual([
             [ "To Do", "Done", "In Progress" ],
-            [ "To Do", "Shipped", "In Progress" ],
-            [ "Shipped", "In Progress" ]
+            [ "Done", "In Progress" ]
         ]);
     });
 
@@ -228,13 +239,24 @@ describe("BoardApi column mutations", () => {
         expect(saved.at(-1)?.columns).toEqual([ { value: "To Do", icon: "bx bx-list-ul" } ]);
     });
 
-    it("keeps the icon of a column it renames", async () => {
+    /**
+     * What the column is drawn with is kept by the server, which renames it in the stored columns
+     * as well as in the cards and the definition. Checked there; asked for here.
+     */
+    it("asks the server to rename the column, rather than writing each place itself", async () => {
+        const put = vi.spyOn(server, "put").mockResolvedValue(undefined);
         const { api, saved } = createApi(
             { columns: [ { value: "Done", icon: "bx bx-check" } ] }, [ "Done" ]);
+        // Cleared: the mock outlives the test that first stood it up, and its calls with it.
+        vi.mocked(executeBulkActions).mockClear();
 
         await api.renameColumn("Done", "Shipped");
 
-        expect(saved.at(-1)?.columns).toEqual([ { value: "Shipped", icon: "bx bx-check" } ]);
+        expect(put).toHaveBeenCalledWith(expect.stringMatching(/board\/rename-column$/), {
+            attribute: "status", isRelation: false, oldValue: "Done", newValue: "Shipped"
+        });
+        expect(saved).toEqual([]);
+        expect(executeBulkActions).not.toHaveBeenCalled();
     });
 
     it("records what each column it renames away or deletes became", async () => {
@@ -265,7 +287,7 @@ describe("BoardApi column mutations", () => {
             [ "To Do", "Done" ]
         );
 
-        failNextBulkAction();
+        failNextRename();
         await expect(api.renameColumn("Done", "Shipped")).rejects.toThrow("offline");
 
         failNextBulkAction();
@@ -281,7 +303,7 @@ describe("BoardApi column mutations", () => {
         await api.renameColumn("Done", "Shipped");
 
         // The refused rename re-pointed the first one on its way in, which has to be put back.
-        failNextBulkAction();
+        failNextRename();
         await expect(api.renameColumn("Shipped", "Delivered")).rejects.toThrow("offline");
 
         expect([ ...pendingRenames ]).toEqual([ [ "Done", "Shipped" ] ]);
@@ -299,7 +321,7 @@ describe("BoardApi column mutations", () => {
         );
 
         // Both start before either finishes, and both are refused.
-        failNextBulkAction();
+        failNextRename();
         failNextBulkAction();
         const first = api.renameColumn("Done", "Shipped");
         const second = api.removeColumn("To Do");
@@ -316,7 +338,7 @@ describe("BoardApi column mutations", () => {
         );
 
         let releaseSecond = () => {};
-        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
+        failNextRename();
         vi.mocked(executeBulkActions).mockImplementationOnce(
             () => new Promise<void>((resolve) => { releaseSecond = resolve; }));
 
@@ -339,9 +361,8 @@ describe("BoardApi column mutations", () => {
         const { api, pendingRenames } = createApi({ columns: [ { value: "Done" } ] }, [ "Done" ]);
 
         let releaseSecond = () => {};
-        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
-        vi.mocked(executeBulkActions).mockImplementationOnce(
-            () => new Promise<void>((resolve) => { releaseSecond = resolve; }));
+        failNextRename();
+        releaseSecond = holdNextRename();
 
         const failing = api.renameColumn("Done", "Shipped");
         const running = api.renameColumn("Shipped", "Delivered");
@@ -364,8 +385,8 @@ describe("BoardApi column mutations", () => {
         const { api, pendingRenames } = createApi({ columns: [ { value: "Done" } ] }, [ "Done" ]);
 
         let failSecond = (_: Error) => {};
-        vi.mocked(executeBulkActions).mockRejectedValueOnce(new Error("offline"));
-        vi.mocked(executeBulkActions).mockImplementationOnce(
+        failNextRename();
+        vi.spyOn(server, "put").mockImplementationOnce(
             () => new Promise<void>((_, reject) => { failSecond = reject; }));
 
         const first = api.renameColumn("Done", "Shipped");
@@ -446,6 +467,8 @@ describe("BoardApi card operations", () => {
     beforeEach(() => {
         // Spies outlive a test otherwise, and one standing in for a write is read by the next.
         vi.restoreAllMocks();
+        // Every write the api makes over the wire, answered rather than attempted.
+        vi.spyOn(server, "put").mockResolvedValue(undefined);
         vi.mocked(branches.moveBeforeBranch).mockClear();
         vi.mocked(branches.moveAfterBranch).mockClear();
         vi.mocked(note_create.createNote).mockClear();
@@ -1221,11 +1244,12 @@ describe("renaming a column that names itself", () => {
     it("renames any other column by the value its cards carry", async () => {
         const { api } = createApi(
             { columns: [ { value: "" }, { value: "To Do" } ] }, [ "", "To Do" ]);
-        vi.mocked(executeBulkActions).mockClear();
+        const put = vi.spyOn(server, "put").mockResolvedValue(undefined);
 
         await api.setColumnTitle("To Do", "Doing");
 
-        expect(executeBulkActions).toHaveBeenCalled();
+        expect(put).toHaveBeenCalledWith(expect.stringMatching(/board\/rename-column$/),
+            expect.objectContaining({ oldValue: "To Do", newValue: "Doing" }));
     });
 
     it("leaves either kind alone when given nothing", async () => {

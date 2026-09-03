@@ -27,7 +27,7 @@ import NoteAutocomplete from "../../react/NoteAutocomplete";
 import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import { useDragPan } from "../../react/drag_pan";
-import { useFlip } from "../../react/flip";
+import { FLIP_SETTLE_MS, useFlip } from "../../react/flip";
 import { ViewModeProps } from "../interface";
 import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
 import { useBoardDrag } from "./board_drag";
@@ -302,6 +302,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         [ usableColumns, storedColumns, includeArchived ]);
 
     const containerRef = useRef<HTMLDivElement>(null);
+    /** When a column the reader moved may still be settling, which is what a slide is drawn for. */
+    const columnMovedUntil = useRef(0);
 
     const boardDragState = useMemo<BoardDragState>(() => ({
         branchIdToEdit,
@@ -360,17 +362,34 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                     return;
                 }
 
-                if (newPersistedData) {
+                // Only to give a board that keeps no column list one to begin with. Written on
+                // every refresh instead, this is what a client reads the board with while another
+                // is changing it: it resolves a name the change has already taken away from
+                // whichever source it has not heard about yet, and writes it back as a column.
+                // What this board itself changes is written where it is changed.
+                if (newPersistedData && !viewConfig?.columns?.length) {
                     viewConfig = { ...newPersistedData };
                     saveConfig(newPersistedData);
                 }
 
-                // The columns the board settled on are the options its definition should offer. This
-                // is what gives a board created after migration 0240 ran a definition at all, and what
-                // keeps one that gained a column from outside the board's own UI up to date. It writes
-                // only when the two actually differ, so the re-render its own write causes stops here.
+                // The columns the board settled on are the options its definition should offer,
+                // which is what gives a board created after migration 0240 ran a definition at all.
+                // Only a board without one of its own: a client reading the board while another is
+                // changing it resolves a name the change has already taken away, and writing that
+                // into the definition puts the column back for everyone. What this board changes
+                // itself is written where it is changed.
                 // Reported rather than surfaced: nothing the user did is failing, and a board that
                 // cannot write it re-tries on the next render, which would toast on each one.
+                // Only a board that has no definition of its own. One that has is kept in step by
+                // whatever writes its columns: the server for a rename, `storeColumns` for
+                // everything the board itself changes. Writing it from here as well means a client
+                // reading the board while another changes it puts its own view of the columns on
+                // disk, which is how a renamed column loses its place or comes back under its old
+                // name.
+                if (statusDefinition?.isOwned) {
+                    return;
+                }
+
                 api.syncColumnsToDefinition(columns)
                     .catch((e) => console.error("Failed to sync the board columns to the attribute definition:", e));
             });
@@ -455,12 +474,19 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // jump to. Two are left out: the copy being carried, whose transform the gesture writes every
     // frame, and the add-column button, which a new column moves at the same moment as the scroll
     // that keeps it in view, so sliding it as well reads as a stumble rather than as movement.
+    //
+    // Columns are moved, never opened out. A column is its grouping value, so it is drawn afresh
+    // whenever that value changes, and a rename is indistinguishable from an arrival to anything
+    // watching the page. The one column that really does arrive is the one just added, and the fade
+    // and the board running to its end already say so.
     useFlip(containerRef, {
         selector: ".board-column:not(.board-drag-preview)",
         axis: "horizontal",
-        // Except the one just added: it is already announced by the fade and by the board running
-        // to its end, and opening out on top of those is one movement too many.
-        grow: (column) => column.dataset.column !== createdColumn
+        // Only for a move the reader made. A column is its grouping value, so the board redraws
+        // its columns whenever a value changes, and the order churns for a moment as the three
+        // places that name a column catch up with one another; following that draws a slide for a
+        // rename nobody moved.
+        disabled: !draggedColumn && Date.now() > columnMovedUntil.current
     });
 
     /**
@@ -518,6 +544,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     // landed among them all once some are archived and hidden. Translated here so a reorder leaves
     // every hidden column where it was rather than herding them to the end.
     const handleColumnDrop = useCallback((fromIndex: number, toIndex: number) => {
+        columnMovedUntil.current = Date.now() + FLIP_SETTLE_MS;
         // The list the api holds, which is also the one it reorders. A column the board is not
         // showing is in neither, so indexing into `columns` would be off by one.
         const allColumns = api.columns;
@@ -852,9 +879,18 @@ export function TitleEditor({
             if (target instanceof HTMLElement) {
                 shouldDismiss.current = (e.key === "Escape");
                 target.focus();
-            } else {
-                dismiss();
+                return;
             }
+
+            // Nothing to hand focus back to, and it is the blur of handing it back that saves. An
+            // editor opened by a press on the thing it edits, rather than from something focused,
+            // has nowhere to send it, so Enter says here what that blur would have said.
+            const typed = inputRef.current?.value ?? "";
+            if (e.key === "Enter" && typed.trim() && (typed !== currentValue || isNewItem)) {
+                commit(typed);
+            }
+
+            dismiss();
         }
     };
 

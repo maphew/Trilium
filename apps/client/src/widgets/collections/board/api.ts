@@ -356,18 +356,26 @@ export default class BoardApi {
             return;
         }
 
-        const noteIds = this.byColumn?.get(oldValue)?.map(item => item.note.noteId) || [];
+        // One write, which the server makes over the cards, the stored columns and the definition
+        // together. Renaming them from here one at a time leaves a window in which they disagree,
+        // and another client reading the board during it resolves the old name back from whichever
+        // of them still carries it and writes that back, undoing the rename.
+        const renamed = await this.retiredWhile(oldValue, newValue, () =>
+            server.put<{ config?: BoardViewData }>(
+                `notes/${this.parentNote.noteId}/board/rename-column`, {
+                    attribute: this.statusAttribute,
+                    isRelation: this.isRelationMode,
+                    oldValue,
+                    newValue
+                }));
 
-        // Change the value in the notes.
-        const action: BulkAction = this.isRelationMode
-            ? { name: "updateRelationTarget", relationName: this.statusAttribute, targetNoteId: newValue }
-            : { name: "updateLabelValue", labelName: this.statusAttribute, labelValue: newValue };
-        await this.retiredWhile(oldValue, newValue,
-            () => executeBulkActions(noteIds, [ action ], { silent: true }));
-
-        // Rename the column in the persisted data.
-        this.storeColumns((this.viewConfig?.columns ?? [])
-            .map(col => col.value === oldValue ? { ...col, value: newValue } : col));
+        // Taken from the answer rather than waited for: until the change arrives, this still holds
+        // the configuration it read before the rename, and a refresh landing in between would write
+        // that back and bring the old name with it.
+        if (renamed?.config) {
+            this.viewConfig = renamed.config;
+            this.viewConfigSource = renamed.config;
+        }
     }
 
     /** Stores the icon a column shows, or clears it back to the default when given nothing. */

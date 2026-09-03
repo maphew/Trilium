@@ -10,6 +10,7 @@ import { ContextMenuEvent } from "../../../menus/context_menu";
 import { openNoteContextMenu } from "./context_menu";
 import { t } from "../../../services/i18n";
 import UserAttributesDisplay from "../../attribute_widgets/UserAttributesList";
+import { FLIP_SETTLE_MS } from "../../react/flip";
 import {
     useNoteColorClass, useNoteIcon, useNoteLabelBoolean, useTriliumEvent
 } from "../../react/hooks";
@@ -134,11 +135,20 @@ function Card({
             return;
         }
 
-        if (card.nextElementSibling) {
-            card.scrollIntoView?.({ block: "nearest" });
-        } else {
-            content.scrollTop = content.scrollHeight;
-        }
+        const bring = () => {
+            if (card.nextElementSibling) {
+                card.scrollIntoView?.({ block: "nearest" });
+            } else {
+                content.scrollTop = content.scrollHeight;
+            }
+        };
+
+        bring();
+        // And again once it has opened out: a card asked for while it is still growing is measured
+        // against a column shorter than the one it ends up in, which leaves it over the edge.
+        const settled = window.setTimeout(bring, FLIP_SETTLE_MS);
+
+        return () => window.clearTimeout(settled);
     }, [ isNew ]);
 
     return (
