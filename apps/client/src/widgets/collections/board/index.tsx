@@ -12,6 +12,7 @@ import {
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import type LoadResults from "../../../services/load_results";
+import { ContextMenuEvent } from "../../../menus/context_menu";
 import { isIMEComposing } from "../../../services/shortcuts";
 import type { ShortcutHintDefinition } from "../../../services/shortcut_hints";
 import toast from "../../../services/toast";
@@ -38,7 +39,7 @@ import BoardApi from "./api";
 import { DEFAULT_GROUP_BY, getStatusDefinition, INBOX_COLUMN } from "./columns";
 import Column from "./column";
 import ColumnLimitDialog from "./column_limit";
-import { openCreateColumnMenu } from "./context_menu";
+import { openBoardContextMenu, openCreateColumnMenu } from "./context_menu";
 import { applyCardMove, ColumnMap, getBoardData } from "./data";
 import { useBoardKeyboard } from "./keyboard";
 
@@ -232,6 +233,18 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ columnNameToEdit, setColumnNameToEdit ] = useState<string>();
     const [ columnLimitToEdit, setColumnLimitToEdit ] = useState<string>();
     const [ activeColumn, setActiveColumn ] = useState<string>();
+    /**
+     * Whether every collapsed column is open at once, which "Expand all columns" asks for.
+     *
+     * Held apart from `activeColumn`, which names one column: a column drawn open by this is not
+     * the column the reader is working in, and is closed by the same signal a single peek is, which
+     * is a column being selected or focused.
+     */
+    const [ isPeekingAll, setIsPeekingAll ] = useState(false);
+    const selectColumn = useCallback<Dispatch<StateUpdater<string | undefined>>>((column) => {
+        setIsPeekingAll(false);
+        setActiveColumn(column);
+    }, []);
     // How many card moves are still being written. The board is drawn as they will leave it, so a
     // redraw from the first of a move's two writes would take that back.
     const movesInFlight = useRef(0);
@@ -289,17 +302,37 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const api = apiRef.current.api;
     // Every member is one of useState's own setters, so this value is built once and never changes
     // identity -- a drag cannot reach anything that reads only this.
+    const openBoardMenu = useCallback((event: ContextMenuEvent) => {
+        // Only the ground the columns stand on. A column and a card answer for their own presses,
+        // and what they leave alone, such as the button that makes a card, is left alone here too.
+        if ((event.target as HTMLElement)?.closest(".board-column, .board-add-column")) {
+            return;
+        }
+
+        openBoardContextMenu(event, {
+            onCollapseAll: () => {
+                setIsPeekingAll(false);
+                api.setAllColumnsCollapsed(true);
+            },
+            onExpandAll: () => {
+                // Opened for good where the column is not kept collapsed, and peeked where it is.
+                setIsPeekingAll(true);
+                api.setAllColumnsCollapsed(false);
+            }
+        });
+    }, [ api ]);
+
     const boardActions = useMemo<BoardActions>(() => ({
         setBranchIdToEdit,
         setColumnNameToEdit,
         setColumnLimitToEdit,
-        setActiveColumn,
+        setActiveColumn: selectColumn,
         setDraggedCard,
         setDraggedColumn,
         setDropPosition,
         setDropTarget
     }), [
-        setBranchIdToEdit, setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn,
+        setBranchIdToEdit, setColumnNameToEdit, setColumnLimitToEdit, selectColumn,
         setDraggedCard, setDraggedColumn, setDropPosition, setDropTarget
     ]);
 
@@ -427,7 +460,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             // one merely passed near keeps to itself, and one already opened stays open, since
             // closing it under a drag would move every column after it.
             if (position && inside && storedColumns.get(position.column)?.collapsed) {
-                setActiveColumn(position.column);
+                selectColumn(position.column);
             }
         },
         onCardEnd: (card, position) => {
@@ -546,7 +579,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
 
     // The board is not drawn afresh for another note, so the column opened on one would otherwise
     // still be open on the next, over whatever that board stores for a column of the same name.
-    useEffect(() => setActiveColumn(undefined), [ parentNote ]);
+    useEffect(() => selectColumn(undefined), [ parentNote, selectColumn ]);
 
     useEffect(refresh, [
         parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition, inboxEnabled
@@ -615,6 +648,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                             panning: isPanning
                         })}
                         onKeyDown={handleKeyDown}
+                        onContextMenu={openBoardMenu}
                         onWheel={onWheelHorizontalScroll}
                     >
                         {/* The columns are keyed by value, so a reorder moves each column's
@@ -647,6 +681,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     collapsed={storedColumns.get(column)?.collapsed}
                                     keepCollapsed={storedColumns.get(column)?.keepCollapsed}
                                     isActive={activeColumn === column}
+                                    isPeeked={isPeekingAll}
                                     nested={storedColumns.get(column)?.nested}
                                     limit={storedColumns.get(column)?.limit}
                                     columnIndex={index}

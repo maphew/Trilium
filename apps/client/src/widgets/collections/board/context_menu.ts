@@ -165,6 +165,33 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
     });
 }
 
+/** What the board itself offers, for a press on the ground the columns stand on. */
+export function openBoardContextMenu(
+    event: ContextMenuEvent,
+    board: { onCollapseAll: () => void, onExpandAll: () => void }
+) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    contextMenu.show({
+        x: event.pageX,
+        y: event.pageY,
+        items: [
+            {
+                title: t("board_view.collapse-all-columns"),
+                uiIcon: "bx bx-collapse-alt",
+                handler: board.onCollapseAll
+            },
+            {
+                title: t("board_view.expand-all-columns"),
+                uiIcon: "bx bx-expand-alt",
+                handler: board.onExpandAll
+            }
+        ],
+        selectMenuItemHandler() {}
+    });
+}
+
 /** Offers both ends of a column for the card the button below it is about to create. */
 export function openCreateCardMenu(x: number, y: number, create: (atStart: boolean) => void) {
     contextMenu.show({

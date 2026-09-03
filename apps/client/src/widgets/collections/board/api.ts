@@ -537,6 +537,34 @@ export default class BoardApi {
         this.updateColumn(column, { collapsed });
     }
 
+    /**
+     * Collapses every column, or opens the ones that are not kept collapsed.
+     *
+     * One write for the board: a column resolved from the definition or from a value its cards
+     * carry is drawn without ever having been stored, so this is also where it gets an entry.
+     */
+    async setAllColumnsCollapsed(collapsed: boolean) {
+        const stored = new Map((this.viewConfig?.columns ?? []).map(col => [ col.value, col ]));
+        const order = [ ...stored.keys() ];
+        for (const derived of this.columns) {
+            if (!stored.has(derived)) {
+                order.push(derived);
+            }
+        }
+
+        this.storeColumns(order.map(value => {
+            const column = { ...(stored.get(value) ?? { value }) };
+            if (collapsed) {
+                column.collapsed = true;
+            } else if (!column.keepCollapsed) {
+                // A column kept collapsed keeps the flag: opening it is what the peek is for.
+                delete column.collapsed;
+            }
+
+            return column;
+        }));
+    }
+
     /** Whether a column collapses again once it has been opened. */
     isColumnKeptCollapsed(column: string) {
         return !!this.viewConfig?.columns?.find(col => col.value === column)?.keepCollapsed;

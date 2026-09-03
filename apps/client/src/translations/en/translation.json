@@ -3414,6 +3414,8 @@
     "rename-column": "Rename column",
     "collapse-column": "Collapse column",
     "keep-column-collapsed": "Keep the column collapsed",
+    "collapse-all-columns": "Collapse all columns",
+    "expand-all-columns": "Expand all columns",
     "collapse-hint": "Double click to collapse",
     "set-limit": "Set limit...",
     "set-limit-ok": "Set limit",

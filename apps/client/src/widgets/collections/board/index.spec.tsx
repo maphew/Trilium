@@ -434,6 +434,61 @@ describe("Collapsed board columns", () => {
         expect(isCollapsed(mountPoint, 0)).toBe(false);
     });
 
+    /**
+     * The board's own menu, for a press on the ground the columns stand on. Expanding shows every
+     * column at once; a column that is kept collapsed is only peeked, and closes as the reader
+     * settles on one column, which is what a single peek does.
+     */
+    it("collapses and expands every column from the board's menu", async () => {
+        const { mountPoint } = await setup({ keepCollapsed: true });
+        const board = mountPoint.querySelector<HTMLElement>(".board-view-container");
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+
+        board?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+        const entries = (show.mock.calls.at(-1)?.[0].items ?? []).flatMap(item =>
+            item && "uiIcon" in item && "handler" in item
+                ? [ { icon: item.uiIcon, handler: item.handler } ]
+                : []);
+        expect(entries.map(entry => entry.icon))
+            .toEqual([ "bx bx-collapse-alt", "bx bx-expand-alt" ]);
+
+        await act(async () => {
+            entries[0]?.handler?.({} as never, {} as never);
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(isCollapsed(mountPoint, 1)).toBe(true);
+        expect(saved.at(-1)?.columns?.map(column => column.collapsed)).toEqual([ true, true ]);
+
+        await act(async () => {
+            entries[1]?.handler?.({} as never, {} as never);
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+        expect(isCollapsed(mountPoint, 1)).toBe(false);
+        // The one kept collapsed keeps the flag, and shuts again as soon as a column is selected.
+        expect(saved.at(-1)?.columns?.map(column => column.collapsed))
+            .toEqual([ true, undefined ]);
+
+        await select(mountPoint, 1);
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(isCollapsed(mountPoint, 1)).toBe(false);
+
+        show.mockRestore();
+    });
+
+    /** A column and a card answer for their own presses, and the board does not speak over them. */
+    it("leaves a press inside a column to the column", async () => {
+        const { mountPoint } = await setup();
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+
+        columnAt(mountPoint, 1).querySelector(".board-column-content")
+            ?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+
+        expect(show).not.toHaveBeenCalled();
+        show.mockRestore();
+    });
+
     /** The first of the two clicks opens the strip; collapsing it again would undo that. */
     it("leaves a strip open when it is double clicked open", async () => {
         const { mountPoint } = await setup();

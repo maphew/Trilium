@@ -57,6 +57,7 @@ export default function Column({
     collapsed,
     keepCollapsed,
     isActive,
+    isPeeked,
     nested,
     limit,
     columnItems,
@@ -78,6 +79,8 @@ export default function Column({
     keepCollapsed?: boolean,
     /** Whether this is the column the reader is working in, which opens it while it is collapsed. */
     isActive?: boolean,
+    /** Whether the board is showing every collapsed column at once, which opens this one too. */
+    isPeeked?: boolean,
     /** Whether the inbox also collects notes deeper than the board's direct children. */
     nested?: boolean,
     /** The note limit, absent if disabled. */
@@ -167,7 +170,7 @@ export default function Column({
 
     // Read here rather than in the badge: the column body shows an outline as well.
     const isOverLimit = limit !== undefined && (columnItems?.length ?? 0) > limit;
-    const isCollapsed = !!collapsed && !isActive;
+    const isCollapsed = !!collapsed && !isActive && !isPeeked;
     // A column opened to take a dragged card takes its width at once, and its cards with it.
     const opensAtOnce = !!draggedCard || dropTarget === column;
 

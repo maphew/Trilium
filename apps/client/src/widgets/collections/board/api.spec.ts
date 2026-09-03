@@ -1189,6 +1189,27 @@ describe("collapsing a column", () => {
         expect(saved.at(-1)?.columns).toEqual([ { value: "To Do" } ]);
     });
 
+    /**
+     * A column drawn from the definition or from a value its cards carry has no stored entry until
+     * something is picked for it, and collapsing the board is what picks for all of them at once.
+     */
+    it("collapses every column, and opens the ones that are not kept collapsed", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do", keepCollapsed: true } ] }, [ "To Do", "Done" ]);
+
+        await api.setAllColumnsCollapsed(true);
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "To Do", keepCollapsed: true, collapsed: true },
+            { value: "Done", collapsed: true }
+        ]);
+
+        await api.setAllColumnsCollapsed(false);
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "To Do", keepCollapsed: true, collapsed: true },
+            { value: "Done" }
+        ]);
+    });
+
     it("leaves the column's other properties alone", async () => {
         const { api, saved } = createApi(
             { columns: [ { value: "To Do", icon: "bx bx-star", limit: 3 } ] }, [ "To Do" ]);
