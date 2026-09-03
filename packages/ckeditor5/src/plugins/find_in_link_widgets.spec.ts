@@ -6,7 +6,8 @@ import {
     FindAndReplaceEditing,
     LinkEditing,
     Paragraph,
-    type FindResultType
+    type FindResultType,
+    type ModelElement
 } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -70,10 +71,15 @@ describe("FindInLinkWidgets", () => {
 
         const editingRoot = editor.editing.view.getDomRoot();
         expect(editingRoot?.querySelector("a.reference-link")?.textContent).toBe("Reference match");
-        editor.execute("find", "match");
+        const commandResult = editor.execute("find", "match") as {
+            results: Iterable<FindResultType>;
+        };
 
         const state = editor.plugins.get(FindAndReplaceEditing).state;
         expect(resultElementNames(state?.results ?? [])).toEqual([
+            "text", "reference", "linkMention", "linkEmbed"
+        ]);
+        expect(resultElementNames(commandResult.results)).toEqual([
             "text", "reference", "linkMention", "linkEmbed"
         ]);
         expect(editingRoot?.querySelector("a.reference-link.ck-find-result")).not.toBeNull();
@@ -111,6 +117,77 @@ describe("FindInLinkWidgets", () => {
         expect(findCount(editor, "match", { matchCase: true })).toBe(0);
         expect(findCount(editor, "act", { wholeWords: true })).toBe(0);
         expect(findCount(editor, "Hidden metadata")).toBe(0);
+    });
+
+    it("ignores widgets that do not have a rendered DOM element", () => {
+        setModelData(
+            editor.model,
+            '<paragraph><reference href="#root/first"></reference></paragraph>' +
+                '<paragraph><reference href="#root/second"></reference></paragraph>' +
+                '<paragraph><reference href="#root/third"></reference></paragraph>'
+        );
+
+        const root = editor.model.document.getRoot();
+        if (!root) {
+            throw new Error("The test editor has no model root.");
+        }
+        const references = [ ...editor.model.createRangeIn(root).getItems() ].filter(
+            (item): item is ModelElement => item.is("element", "reference")
+        );
+        expect(references).toHaveLength(3);
+
+        const [ first, second ] = references;
+        if (!first || !second) {
+            throw new Error("The test editor did not create the reference widgets.");
+        }
+        editor.editing.mapper.unbindModelElement(first);
+        const secondView = editor.editing.mapper.toViewElement(second);
+        if (!secondView) {
+            throw new Error("The second reference has no view element.");
+        }
+        const secondDom = editor.editing.view.domConverter.mapViewToDom(secondView);
+        if (!secondDom) {
+            throw new Error("The second reference has no DOM element.");
+        }
+        editor.editing.view.domConverter.unbindDomElement(secondDom);
+
+        expect(findCount(editor, "Reference match")).toBe(1);
+    });
+
+    it("ignores unsupported searches and blank rendered text nodes", () => {
+        setModelData(
+            editor.model,
+            '<paragraph><linkMention url="https://mention.example/" title="Mention match">' +
+                "</linkMention></paragraph>"
+        );
+        const mention = editor.editing.view.getDomRoot()?.querySelector("span.link-mention");
+        if (!mention) {
+            throw new Error("The test editor did not render the link mention.");
+        }
+        mention.append(document.createTextNode(" "));
+
+        editor.execute("find", () => []);
+        expect(editor.plugins.get(FindAndReplaceEditing).state?.results).toHaveLength(0);
+        findCount(editor, "");
+        expect(resultElementNames(editor.plugins.get(FindAndReplaceEditing).state?.results ?? []))
+            .not.toContain("linkMention");
+        expect(findCount(editor, "absent")).toBe(0);
+    });
+
+    it("preserves replace-all behavior when there are no widget results", () => {
+        setModelData(editor.model, "<paragraph>first match</paragraph>");
+        editor.execute("find", "match");
+
+        const state = editor.plugins.get(FindAndReplaceEditing).state;
+        if (!state) {
+            throw new Error("FindAndReplaceEditing has no state.");
+        }
+        editor.execute("replaceAll", "done", state.results);
+        expect(editor.getData()).toContain("first done");
+
+        setModelData(editor.model, "<paragraph>second match</paragraph>");
+        editor.execute("replaceAll", "done", "match");
+        expect(editor.getData()).toContain("second done");
     });
 
     it("skips a widget during replacement and still replaces normal text", () => {

@@ -26,27 +26,33 @@ export default class FindInLinkWidgets extends Plugin {
 
     afterInit() {
         const findCommand = this.editor.commands.get("find");
-        findCommand?.on<CommandExecuteEvent>(
+        const replaceCommand = this.editor.commands.get("replace");
+        const replaceAllCommand = this.editor.commands.get("replaceAll");
+        /* v8 ignore next -- FindAndReplaceEditing registers all three required commands. */
+        if (!findCommand || !replaceCommand || !replaceAllCommand) {
+            return;
+        }
+
+        findCommand.on<CommandExecuteEvent>(
             "execute",
             (eventInfo, [ query, options ]) => {
-                if (typeof query !== "string" || !query || !isFindCommandResult(eventInfo.return)) {
+                if (typeof query !== "string" || !query) {
                     return;
                 }
 
                 this._addWidgetResults(
                     query,
                     options as FindAttributes | undefined,
-                    eventInfo.return.results
+                    (eventInfo.return as { results: Collection<FindResultType> }).results
                 );
             },
             { priority: "lowest" }
         );
 
-        const replaceCommand = this.editor.commands.get("replace");
-        replaceCommand?.on<CommandExecuteEvent>(
+        replaceCommand.on<CommandExecuteEvent>(
             "execute",
             (eventInfo, [ , result ]) => {
-                if (isWidgetResult(result)) {
+                if (isWidgetResult(result as MarkedFindResult)) {
                     eventInfo.stop();
                     this.editor.execute("findNext");
                 }
@@ -54,8 +60,7 @@ export default class FindInLinkWidgets extends Plugin {
             { priority: "high" }
         );
 
-        const replaceAllCommand = this.editor.commands.get("replaceAll");
-        replaceAllCommand?.on<CommandExecuteEvent>(
+        replaceAllCommand.on<CommandExecuteEvent>(
             "execute",
             (_eventInfo, args) => {
                 const results = args[1];
@@ -64,7 +69,7 @@ export default class FindInLinkWidgets extends Plugin {
                 }
 
                 const replaceableResults = [ ...results ].filter(
-                    (result) => !isWidgetResult(result)
+                    (result) => !isWidgetResult(result as MarkedFindResult)
                 );
                 if (replaceableResults.length !== results.length) {
                     args[1] = new Collection(replaceableResults);
@@ -82,19 +87,15 @@ export default class FindInLinkWidgets extends Plugin {
         const { editor } = this;
         const { model } = editor;
         const state = editor.plugins.get(FindAndReplaceEditing).state;
-        const findByText = editor.plugins
-            .get(FindAndReplaceUtils)
-            .findByTextCallback(query, options ?? {});
+        /* v8 ignore next -- The required plugin creates its state in init(). */
         if (!state) {
             return;
         }
+        const findByText = editor.plugins
+            .get(FindAndReplaceUtils)
+            .findByTextCallback(query, options ?? {});
 
-        for (const rootName of model.document.getRootNames()) {
-            const root = model.document.getRoot(rootName);
-            if (!root) {
-                continue;
-            }
-
+        for (const root of model.document.getRoots()) {
             for (const item of model.createRangeIn(root).getItems()) {
                 // One marker identifies one atomic widget, so repeated matches remain one result.
                 const isMatch = item.is("element") && visibleText(editor, item).some(
@@ -105,23 +106,17 @@ export default class FindInLinkWidgets extends Plugin {
                 }
 
                 const markerName = `findResult:widget-${uid()}`;
-                let marker: Marker | undefined;
-                model.change((writer) => {
-                    marker = writer.addMarker(markerName, {
+                const marker: Marker = model.change((writer) =>
+                    writer.addMarker(markerName, {
                         usingOperation: false,
                         affectsData: false,
                         range: model.createRangeOn(item)
-                    });
-                });
-                if (!marker) {
-                    continue;
-                }
+                    })
+                );
 
                 const result: FindResultType = { id: markerName, label: query, marker };
                 state.results.add(result, insertionIndex(model, state.results, result));
-                if (commandResults !== state.results) {
-                    commandResults.add(result, insertionIndex(model, commandResults, result));
-                }
+                commandResults.add(result, insertionIndex(model, commandResults, result));
             }
         }
 
@@ -169,19 +164,10 @@ function insertionIndex(
     return sortFindResults(model, [ ...results, result ]).indexOf(result);
 }
 
-function isFindCommandResult(value: unknown): value is { results: Collection<FindResultType> } {
-    return typeof value === "object" && value !== null && "results" in value &&
-        value.results instanceof Collection;
-}
+type MarkedFindResult = FindResultType & { marker: Marker };
 
-function isWidgetResult(value: unknown): value is FindResultType {
-    if (typeof value !== "object" || value === null || !("marker" in value)) {
-        return false;
-    }
-
-    const marker = value.marker;
-    return typeof marker === "object" && marker !== null && "name" in marker &&
-        typeof marker.name === "string" && marker.name.startsWith("findResult:widget-");
+function isWidgetResult(value: MarkedFindResult): boolean {
+    return value.marker.name.startsWith("findResult:widget-");
 }
 
 const SEARCHABLE_WIDGETS = new Set([ "reference", "linkMention", "linkEmbed" ]);
