@@ -9,8 +9,8 @@ import dialog from "../../../services/dialog";
 import FNote from "../../../entities/fnote";
 import { buildNote } from "../../../test/easy-froca";
 import BoardApi from "./api";
-import { DEFAULT_COLUMN_ICON } from "./columns";
-import { openColumnContextMenu, openNoteContextMenu } from "./context_menu";
+import { DEFAULT_COLUMN_ICON, INBOX_COLUMN_ICON } from "./columns";
+import { openBoardContextMenu, openColumnContextMenu, openNoteContextMenu } from "./context_menu";
 
 // The card menu opens with the shared link items, which reach for the active note context.
 vi.mock("../../../menus/link_context_menu", () => ({
@@ -709,5 +709,49 @@ describe("Board item context menu", () => {
         expect(statusItems(api)
             .map(item => !!(item && "badges" in item && item.badges?.length)))
             .toEqual([ false, true ]);
+    });
+});
+
+describe("Board context menu", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    /**
+     * What the board itself offers, for a press on the ground the columns stand on. The last entry
+     * opens the dialog naming what a card can be made from, which the pill inside the field a card
+     * is named in opens as well.
+     */
+    it("offers what the board holds, and a way to what its cards are made from", () => {
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        const board = {
+            inboxShown: true,
+            archivedShown: false,
+            onAddColumn: vi.fn(),
+            onCollapseAll: vi.fn(),
+            onExpandAll: vi.fn(),
+            onShowInbox: vi.fn(),
+            onShowArchived: vi.fn(),
+            onCustomizeTemplates: vi.fn()
+        };
+
+        openBoardContextMenu({
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            pageX: 0,
+            pageY: 0
+        } as ContextMenuEvent, board);
+
+        const items = show.mock.calls.at(-1)?.[0].items ?? [];
+        // A separator stands between what the board shows and what its cards are made from.
+        expect(items.map(item => item && "uiIcon" in item ? item.uiIcon : "---")).toEqual([
+            "bx bx-columns", "---",
+            "bx bx-collapse-alt", "bx bx-expand-alt", "---",
+            INBOX_COLUMN_ICON, "bx bx-archive", "---",
+            "bx bx-list-ul"
+        ]);
+
+        const entry = items.at(-1);
+        if (!entry || !("handler" in entry)) throw new Error("expected an entry for the templates");
+        entry.handler?.(entry, {} as never);
+        expect(board.onCustomizeTemplates).toHaveBeenCalled();
     });
 });

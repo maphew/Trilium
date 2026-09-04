@@ -372,9 +372,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             onAddColumn: () => setIsCreatingColumn(true),
             onShowInbox: (shown) => api.setInboxEnabled(shown),
             onShowArchived: (shown) => api.setArchivedShown(shown),
+            onCustomizeTemplates: () => setIsPickingTemplates(true),
             onCollapseAll: () => {
-                // The open column is closed with the rest: it holds the peek that would otherwise
-                // keep it open against what is being written for it.
                 // The open column is closed with the rest: it holds the peek that would otherwise
                 // keep it open against what is being written for it.
                 selectColumn(undefined);

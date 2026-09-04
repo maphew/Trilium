@@ -510,7 +510,7 @@ describe("Collapsed board columns", () => {
                 : []);
         expect(entries.map(entry => entry.icon)).toEqual([
             "bx bx-columns", "bx bx-collapse-alt", "bx bx-expand-alt",
-            INBOX_COLUMN_ICON, "bx bx-archive"
+            INBOX_COLUMN_ICON, "bx bx-archive", "bx bx-list-ul"
         ]);
         const entry = (icon: string) => entries.find(item => item.icon === icon)?.handler;
 
