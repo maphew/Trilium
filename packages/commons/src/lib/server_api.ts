@@ -335,6 +335,52 @@ export interface SubtreeSizeResponse {
 }
 
 /**
+ * A single token to highlight in search results, tagged with how it should be
+ * matched. `plain` tokens are matched literally (case-insensitively); `regex`
+ * tokens (produced by the `%=` operator) are compiled to a regular expression.
+ */
+export interface HighlightedTokenInfo {
+    token: string;
+    /**
+     * `plain` is matched literally and `regex` (from `%=`) as a regular expression. `fuzzy` is a
+     * word the search accepted in place of one the user typed, matched literally but rendered in a
+     * muted style so an approximate hit does not read as an exact one.
+     */
+    type: "plain" | "regex" | "fuzzy";
+}
+
+/** Request body for `POST /api/search-note/:noteId/result-details` (max 100 noteIds). */
+export interface SearchResultDetailsRequest {
+    noteIds: string[];
+}
+
+/**
+ * Per-note snippet + highlight details for one search result, built lazily for a
+ * page of results. Snippet fields are absent when there is nothing to show (e.g.
+ * protected notes without a session, or script-based searches).
+ */
+export interface SearchResultDetails {
+    noteId: string;
+    notePath: string;
+    noteTitle: string;
+    notePathTitle: string;
+    highlightedNotePathTitle?: string;
+    contentSnippet?: string;
+    highlightedContentSnippet?: string;
+    attributeSnippet?: string;
+    highlightedAttributeSnippet?: string;
+    icon: string;
+}
+
+/** Response for `POST /api/search-note/:noteId/result-details`. */
+export interface SearchResultDetailsResponse {
+    /** Requested-order details; requested ids not in the result set are omitted. */
+    results: SearchResultDetails[];
+    highlightedTokenInfos: HighlightedTokenInfo[];
+    error: string | null;
+}
+
+/**
  * How far an on-demand image compression run should go. Every field is optional, and what is left
  * out falls back to the corresponding option — so an empty request compresses exactly the way the
  * automatic import-time shrinking would, only without needing that shrinking to be enabled.

@@ -177,6 +177,8 @@ describe("Lexer expression", () => {
         expect(lex(`note.title ~* books`).expressionTokens.map((t) => t.token)).toEqual(["note", ".", "title", "~*", "books"]);
         expect(lex(`#author ~= tolkien`).expressionTokens.map((t) => t.token)).toEqual(["#author", "~=", "tolkien"]);
         expect(lex(`#author ~*'lord of the rings'`).expressionTokens.map((t) => t.token)).toEqual(["#author", "~*", "lord of the rings"]);
+        expect(lex(`#author~=tolkien`).expressionTokens.map((t) => t.token)).toEqual(["#author", "~=", "tolkien"]);
+        expect(lex(`~author.title ~= tolkien`).expressionTokens.map((t) => t.token)).toEqual(["~author", ".", "title", "~=", "tolkien"]);
     });
 
     it("relation prefix still works when ~ is not followed by = or *", () => {

@@ -406,7 +406,7 @@ export type CommandMappings = {
     unhoist: CommandData;
     reloadFrontendApp: CommandData;
     openDevTools: CommandData;
-    findInText: CommandData;
+    findInText: CommandData & { searchTerms?: string[] };
     toggleLeftPane: CommandData;
     toggleFullscreen: CommandData;
     zoomOut: CommandData;

@@ -163,21 +163,28 @@ async function autocompleteSource(term: string, cb: (rows: Suggestion[]) => void
     cb(results);
 }
 
+// `autocomplete("val", ...)` does not dispatch a native "input" event, so each function below
+// fires one to keep consumers bound to it, such as NoteAutocomplete's onTextChange, in sync.
+
 function clearText($el: JQuery<HTMLElement>) {
     searchDelay = 0;
     $el.setSelectedNotePath("");
     $el.autocomplete("val", "").trigger("change");
+    $el.trigger("input");
 }
 
 function setText($el: JQuery<HTMLElement>, text: string) {
     $el.setSelectedNotePath("");
-    $el.autocomplete("val", text.trim()).autocomplete("open");
+    $el.autocomplete("val", text.trim());
+    $el.trigger("input");
+    $el.autocomplete("open");
 }
 
 function showRecentNotes($el: JQuery<HTMLElement>) {
     searchDelay = 0;
     $el.setSelectedNotePath("");
     $el.autocomplete("val", "");
+    $el.trigger("input");
     $el.autocomplete("open");
     $el.trigger("focus");
 }
@@ -185,7 +192,9 @@ function showRecentNotes($el: JQuery<HTMLElement>) {
 function showAllCommands($el: JQuery<HTMLElement>) {
     searchDelay = 0;
     $el.setSelectedNotePath("");
-    $el.autocomplete("val", ">").autocomplete("open");
+    $el.autocomplete("val", ">");
+    $el.trigger("input");
+    $el.autocomplete("open");
 }
 
 function fullTextSearch($el: JQuery<HTMLElement>, options: Options) {
