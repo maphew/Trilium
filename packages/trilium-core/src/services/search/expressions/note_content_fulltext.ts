@@ -8,7 +8,7 @@ import NoteSet from "../note_set.js";
 import type SearchContext from "../search_context.js";
 import {
     FUZZY_SEARCH_CONFIG,
-    fuzzyMatchWord,
+    fuzzyMatchWordWithResult,
     getAutoMaxEditDistance,
     normalizeSearchText,
     stripWordPunctuation,
@@ -256,17 +256,19 @@ class NoteContentFulltextExp extends Expression {
         // A4: progressive phase-2 fuzzy fallback for plain-query body content. Only
         // runs for notes that failed the cheap match above, and only when this is the
         // default *=* content expression (fuzzyFallback) with fuzzy matching enabled.
-        const fuzzyMatched = !matched && !negation && this.fuzzyFallback && searchContext.enableFuzzyMatching
-            && this.allTokensFuzzyMatchContent(content);
+        const fuzzyMatchedWords = !matched && !negation && this.fuzzyFallback && searchContext.enableFuzzyMatching
+            ? this.allTokensFuzzyMatchContent(content)
+            : null;
 
-        if (matched || fuzzyMatched) {
+        if (matched || fuzzyMatchedWords) {
             resultNoteSet.add(becca.notes[noteId]);
 
-            if (fuzzyMatched) {
+            if (fuzzyMatchedWords) {
                 searchContext.recordContentMatch(noteId, {
                     tier: "fuzzy",
                     matchedTokenCount: new Set(this.tokens.flatMap((token) => tokenizeIntoWords(token))).size,
-                    inOrder: false
+                    inOrder: false,
+                    matchedWords: fuzzyMatchedWords
                 });
             } else if (!negation) {
                 // Record how well the content matched so scoring can rank body matches.
@@ -280,17 +282,31 @@ class NoteContentFulltextExp extends Expression {
     }
 
     /**
-     * True when every query token fuzzy-matches (or is a substring of) some word in
-     * the content. Used only by the phase-2 fuzzy fallback; per-word work is bounded
-     * by the length-difference early-skip and AUTO edit distances.
+     * Returns the content words that stood in for each query token when every token
+     * fuzzy-matches (or is a substring of) some word in the content, else null. The returned
+     * words are what the result card highlights, so a fuzzy hit can show why it matched.
+     * Used only by the phase-2 fuzzy fallback; per-word work is bounded by the
+     * length-difference early-skip and AUTO edit distances.
      */
-    private allTokensFuzzyMatchContent(content: string): boolean {
+    private allTokensFuzzyMatchContent(content: string): string[] | null {
         const normalizedContent = normalizeSearchText(content);
+        const matchedWords: string[] = [];
 
-        return this.tokens.every((token) => {
+        for (const token of this.tokens) {
             const normalizedToken = normalizeSearchText(token);
-            return normalizedContent.includes(normalizedToken) || this.fuzzyMatchToken(normalizedToken, normalizedContent);
-        });
+            if (normalizedContent.includes(normalizedToken)) {
+                continue;
+            }
+
+            const matchedWord = this.fuzzyMatchToken(normalizedToken, normalizedContent);
+            if (!matchedWord) {
+                return null;
+            }
+
+            matchedWords.push(matchedWord);
+        }
+
+        return matchedWords;
     }
 
     /**
@@ -415,8 +431,8 @@ class NoteContentFulltextExp extends Expression {
 
             // Single token fuzzy matching
             const token = normalizeSearchText(this.tokens[0]);
-            return this.fuzzyMatchToken(token, normalizedContent) ||
-                   (this.flatText && this.fuzzyMatchToken(token, flatText));
+            return this.fuzzyMatchToken(token, normalizedContent) !== null ||
+                   (this.flatText && this.fuzzyMatchToken(token, flatText) !== null);
         } catch (error) {
             getLog().error(`Error in fuzzy matching for note ${noteId}: ${error}`);
             return false;
@@ -497,12 +513,13 @@ class NoteContentFulltextExp extends Expression {
     }
 
     /**
-     * Performs fuzzy matching for a single token against content
+     * Performs fuzzy matching for a single token against content, returning the content word
+     * it matched so callers can highlight it, or null when nothing matched.
      */
-    private fuzzyMatchToken(token: string, content: string): boolean {
+    private fuzzyMatchToken(token: string, content: string): string | null {
         if (token.length < FUZZY_SEARCH_CONFIG.MIN_FUZZY_TOKEN_LENGTH) {
             // For short tokens, require exact match to avoid too many false positives
-            return content.includes(token);
+            return content.includes(token) ? token : null;
         }
 
         const words = content.split(/\s+/);
@@ -510,7 +527,14 @@ class NoteContentFulltextExp extends Expression {
         // Only limit word processing for truly extreme cases to prevent system instability
         const limitedWords = words.slice(0, FUZZY_SEARCH_CONFIG.ABSOLUTE_MAX_WORD_COUNT);
 
-        return limitedWords.some(word => this.fuzzyMatchSingle(token, word));
+        for (const word of limitedWords) {
+            const matchedWord = this.fuzzyMatchSingle(token, word);
+            if (matchedWord) {
+                return matchedWord;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -520,16 +544,16 @@ class NoteContentFulltextExp extends Expression {
      * (fuzzy equals, word-level via fuzzyMatchToken) unaffected.
      */
     private fuzzyContainsToken(token: string, content: string): boolean {
-        return content.includes(token) || this.fuzzyMatchToken(token, content);
+        return content.includes(token) || this.fuzzyMatchToken(token, content) !== null;
     }
 
     /**
-     * Fuzzy matches a single token against a single word
+     * Fuzzy matches a single token against a single word, returning the word it matched so
+     * callers can highlight it. The edit-distance bound is length-scaled (AUTO), so short
+     * tokens do not produce false positives.
      */
-    private fuzzyMatchSingle(token: string, word: string): boolean {
-        // Use shared optimized fuzzy matching logic with a length-scaled (AUTO)
-        // edit-distance bound so short tokens don't produce false positives.
-        return fuzzyMatchWord(token, word, getAutoMaxEditDistance(token.length));
+    private fuzzyMatchSingle(token: string, word: string): string | null {
+        return fuzzyMatchWordWithResult(token, word, getAutoMaxEditDistance(token.length));
     }
 }
 

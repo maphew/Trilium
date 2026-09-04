@@ -748,11 +748,17 @@ function buildSearchResultDetails(results: SearchResult[], searchContext: Search
     const tokenInfos = searchContext.getHighlightedTokenInfos();
 
     for (const result of results) {
-        result.contentSnippet = extractContentSnippet(result.noteId, tokenInfos);
-        result.attributeSnippet = extractAttributeSnippet(result.noteId, tokenInfos);
-    }
+        // A fuzzy hit matched a word the user did not type, so highlight that word for this note
+        // alone. Without it the card carries no visible reason for being in the results at all.
+        const matchedWords = searchContext.contentMatches.get(result.noteId)?.matchedWords ?? [];
+        const noteTokenInfos: HighlightedTokenInfo[] = matchedWords.length
+            ? [ ...tokenInfos, ...matchedWords.map((token) => ({ token, type: "plain" as const })) ]
+            : tokenInfos;
 
-    highlightSearchResults(results, tokenInfos, searchContext.ignoreInternalAttributes);
+        result.contentSnippet = extractContentSnippet(result.noteId, noteTokenInfos);
+        result.attributeSnippet = extractAttributeSnippet(result.noteId, noteTokenInfos);
+        highlightSearchResults([ result ], noteTokenInfos, searchContext.ignoreInternalAttributes);
+    }
 
     return results.map((result) => {
         const { title, icon } = becca_service.getNoteTitleAndIcon(result.noteId);

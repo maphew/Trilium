@@ -995,6 +995,51 @@ describe("Search", () => {
         });
     });
 
+    describe("fuzzy content match highlighting", () => {
+        function contentNote(title: string, content: string) {
+            return getContext().init(() => noteService.createNewNote({
+                parentNoteId: "root",
+                title,
+                content,
+                type: "text"
+            }).note);
+        }
+
+        function detailsFor(query: string) {
+            const searchContext = new SearchContext();
+            const results = searchService.findResultsWithQuery(query, searchContext);
+            return searchService.buildSearchResultDetails(results, searchContext);
+        }
+
+        it("highlights the word a fuzzy body match actually matched", () => {
+            // "writer" is two edits from "orbiter", which AUTO allows for a 7-character token, so
+            // this note is a result even though the word the user typed appears nowhere in it.
+            // The padding pushes the match past the snippet window, so the excerpt only reaches it
+            // by centering on the matched word rather than starting at the top of the note.
+            const asimov = contentNote("Asimov", `<p>${"padding ".repeat(60)}by American writer Isaac Asimov</p>`);
+
+            const detail = detailsFor("orbiter").find((d) => d.noteId === asimov.noteId);
+
+            expect(detail?.contentSnippet).toContain("writer");
+            expect(detail?.highlightedContentSnippet).toContain("<b>writer</b>");
+        });
+
+        it("keeps one note's fuzzy word out of another note's highlighting", () => {
+            const shuttle = contentNote("Shuttle", "<p>The Orbiter met the writer yesterday.</p>");
+            const asimov = contentNote("Asimov", "<p>a short story by American writer Isaac Asimov</p>");
+
+            const details = detailsFor("orbiter");
+            const exact = details.find((d) => d.noteId === shuttle.noteId);
+            const fuzzy = details.find((d) => d.noteId === asimov.noteId);
+
+            // The exact match highlights only what was typed, even though "writer" is the word
+            // that pulled the other note in and appears here too.
+            expect(exact?.highlightedContentSnippet).toContain("<b>Orbiter</b>");
+            expect(exact?.highlightedContentSnippet).not.toContain("<b>writer</b>");
+            expect(fuzzy?.highlightedContentSnippet).toContain("<b>writer</b>");
+        });
+    });
+
 
     it("breaks a collapsible summary onto its own line in the quick-search snippet", () => {
         // striptags concatenates block text with no separator, which would merge a

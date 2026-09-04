@@ -15,6 +15,11 @@ export interface ContentMatchQuality {
     matchedTokenCount: number;
     /** Proximity only: whether the tokens appeared in query order within the window. */
     inOrder: boolean;
+    /**
+     * Fuzzy tier only: the content words that stood in for the query tokens. The result card
+     * highlights these, so an approximate hit shows the word it actually matched.
+     */
+    matchedWords?: string[];
 }
 
 const TIER_RANK: Record<ContentMatchTier, number> = {
