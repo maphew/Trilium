@@ -191,12 +191,12 @@
   "login": {
     "title": "ログイン",
     "heading": "Trilium ログイン",
-    "incorrect-totp": "TOTPが正しくありません。もう一度お試しください。",
+    "incorrect-totp": "TOTP が正しくありません。もう一度お試しください。",
     "incorrect-password": "パスワードが間違っています。もう一度お試しください。",
     "password": "パスワード",
     "button": "ログイン",
     "remember-me": "ログイン状態を保持する",
-    "sign_in_with_sso": "{{ ssoIssuerName }}でログイン",
+    "sign_in_with_sso": "{{ ssoIssuerName }} でサインイン",
     "sso-wrong-account": "そのアカウントは、この Trilium インスタンスに連携されていません。連携済みのアカウントでサインインしてください。",
     "sso-not-enrolled": "シングルサインオンはまだ設定されていません。まずはパスワードでサインインし、その後、設定からアカウントを連携させてください。"
   },
