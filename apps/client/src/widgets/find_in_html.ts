@@ -88,10 +88,9 @@ export default class FindInHtml {
      * only the primary (seed) matches counted by {@link performFind}.
      *
      * Only this read-only HTML handler supports the multi-token pass; the editable CKEditor and
-     * CodeMirror handlers stay seed-only (their find engines highlight a single term). These marks
-     * reuse the same mark.js instance created by {@link performFind}, so {@link findBoxClosed}'s
-     * `unmark()` — and any subsequent manual re-search's `unmark()` — clears them too. mark.js
-     * escapes each keyword internally, so regex metacharacters in a token can't inject.
+     * CodeMirror handlers stay seed-only, because their find engines highlight a single term. These
+     * marks reuse the mark.js instance created by {@link performFind}, so any later `unmark()`
+     * clears them too. mark.js escapes each keyword, so a regex metacharacter cannot inject.
      */
     async highlightExtraTokens(tokens: string[]) {
         const mark = this.mark;

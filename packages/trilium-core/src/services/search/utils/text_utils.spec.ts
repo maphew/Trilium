@@ -54,7 +54,7 @@ describe('Fuzzy Search Core', () => {
             expect(fuzzyMatchWord('hello', 'helo')).toBe(true);
             // wrold/tset are transpositions (Levenshtein d=2). Under length-scaled
             // distance, <=5-char tokens only allow d=1, so these no longer match.
-            // (Old behavior allowed a flat d=2 for any length — too loose, #10616.)
+            // (Old behavior allowed a flat d=2 for any length, which was too loose, #10616.)
             expect(fuzzyMatchWord('world', 'wrold')).toBe(false);
             expect(fuzzyMatchWord('test', 'tset')).toBe(false);
             expect(fuzzyMatchWord('test', 'xyz')).toBe(false);
@@ -76,7 +76,7 @@ describe('Fuzzy Search Core', () => {
         });
 
         it('keeps connector/symbol chars and inner punctuation', () => {
-            // "+" is a math symbol (Sm), "_" is a connector (Pc) — both deliberately kept.
+            // "+" is a math symbol (Sm), "_" is a connector (Pc); both are deliberately kept.
             expect(stripWordPunctuation('c++')).toBe('c++');
             expect(stripWordPunctuation('_private')).toBe('_private');
             // Inner apostrophe is preserved; only leading/trailing punctuation is stripped.

@@ -10,7 +10,7 @@
  *   docs/User Guide/User Guide/Basic Concepts and Features/Navigation/Quick search.md
  *
  * When adding a docs example, add its test here first (TDD). If a documented
- * claim does not hold, DO NOT bend the doc or the test — the engine is the
+ * claim does not hold, DO NOT bend the doc or the test. The engine is the
  * authority and the mismatch is a bug to report.
  */
 import { describe, it, expect, beforeEach } from "vitest";
@@ -61,8 +61,8 @@ describe("Search documentation examples", () => {
         return results.findIndex((result) => result.noteId === noteId);
     }
 
-    describe('Default matching — no prefix: substring + fuzzy, relevance-ranked', () => {
-        // Docs: Search.md § "The three matching modes" — default mode example
+    describe('Default matching (no prefix): substring + fuzzy, relevance-ranked', () => {
+        // Docs: Search.md § "The three matching modes", default mode example
         it("`sync` finds the substring `synchronize`, but ranks the exact word `sync` higher", () => {
             const exactWord = contentNote("Guide", "please sync the folders");
             const substring = contentNote("Manual", "synchronize the database now");
@@ -76,8 +76,8 @@ describe("Search documentation examples", () => {
         });
     });
 
-    describe('Exact match prefix (=) — whole word / phrase, punctuation-insensitive, no fuzzy/substring', () => {
-        // Docs: Search.md § "Exact match prefix (=)" — example 1
+    describe('Exact match prefix (=): whole word / phrase, punctuation-insensitive, no fuzzy/substring', () => {
+        // Docs: Search.md § "Exact match prefix (=)", example 1
         it("`=sync` matches the whole word even wrapped in punctuation; not a substring, not a typo", () => {
             const paren = contentNote("Paren", "see (sync) mode");
             const comma = contentNote("Comma", "in sync, then continue");
@@ -97,7 +97,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(3);
         });
 
-        // Docs: Search.md § "Exact match prefix (=)" — example 3 (quoted phrase)
+        // Docs: Search.md § "Exact match prefix (=)", example 3 (quoted phrase)
         it('`="project plan"` matches the exact phrase in title or content, including across punctuation', () => {
             const titlePhrase = contentNote("Project Plan", "");
             const bodyPhrase = contentNote("Roadmap", "the (project plan) is ready to share");
@@ -113,7 +113,7 @@ describe("Search documentation examples", () => {
         });
     });
 
-    describe('Attribute / property equality (=, !=) — strict full-value, case/diacritic-insensitive', () => {
+    describe('Attribute / property equality (=, !=): strict full-value, case/diacritic-insensitive', () => {
         function buildCapitals() {
             const austria = note("Austria").label("capital", "Vienna");
             const somewhere = note("Somewhere").label("capital", "Vienna Austria");
@@ -122,7 +122,7 @@ describe("Search documentation examples", () => {
             rootNote.child(austria).child(somewhere).child(czech).child(swiss);
         }
 
-        // Docs: Search.md § "Attribute and property equality" — example 4
+        // Docs: Search.md § "Attribute and property equality", example 4
         it("`#capital=Vienna` matches the whole value `Vienna`, but NOT `Vienna Austria`", () => {
             buildCapitals();
 
@@ -133,7 +133,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(1);
         });
 
-        // Docs: Search.md § "Attribute and property equality" — example 4 (quoted full value)
+        // Docs: Search.md § "Attribute and property equality", example 4 (quoted full value)
         it('`#capital="Vienna Austria"` matches the full multi-word value', () => {
             buildCapitals();
 
@@ -144,7 +144,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(1);
         });
 
-        // Docs: Search.md § "Attribute and property equality" — example 4 (inversion)
+        // Docs: Search.md § "Attribute and property equality", example 4 (inversion)
         it("`#capital!=Vienna` inverts the equality: every capital label except `Vienna`", () => {
             buildCapitals();
 
@@ -157,7 +157,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(3);
         });
 
-        // Docs: Search.md § "Attribute and property equality" — example 4 (diacritic-insensitive)
+        // Docs: Search.md § "Attribute and property equality", example 4 (diacritic-insensitive)
         it("`#capital=Zurich` matches the diacritic value `Zürich` (equality is diacritic-insensitive)", () => {
             buildCapitals();
 
@@ -167,7 +167,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(1);
         });
 
-        // Docs: Search.md § "Attribute and property equality" — quick-search caveat.
+        // Docs: Search.md § "Attribute and property equality", quick-search caveat.
         // Quick search / autocomplete run with fuzzyAttributeSearch, which rewrites attribute `=`
         // to `*=*` (contains); the same `#capital=Vienna` that is strict in full search also
         // matches the substring value `Vienna Austria` there.
@@ -185,7 +185,7 @@ describe("Search documentation examples", () => {
     });
 
     describe('Fuzzy operators (~= fuzzy-equals, ~* fuzzy-contains)', () => {
-        // Docs: Search.md § "Fuzzy operators" — example 5
+        // Docs: Search.md § "Fuzzy operators", example 5
         it("`note.title ~= boks` finds title `Books`; `#author ~= tolkein` finds label value `tolkien`", () => {
             const books = note("Books").label("author", "Tolkien");
             rootNote.child(books);
@@ -196,7 +196,7 @@ describe("Search documentation examples", () => {
             expect(findNoteByTitle(search("#author ~= tolkein"), "Books")).toBeTruthy();
         });
 
-        // Docs: Search.md § "Fuzzy operators" — example 6
+        // Docs: Search.md § "Fuzzy operators", example 6
         it("`note.content ~* progr` and `~* programing` both find content `programming`", () => {
             const prog = contentNote("Prog", "learn programming today");
 
@@ -207,23 +207,23 @@ describe("Search documentation examples", () => {
         });
     });
 
-    describe('Fuzzy tolerance (AUTO) — token length decides allowed edits', () => {
-        // Docs: Search.md § "Fuzzy tolerance (AUTO)" — length-3-to-5 tier (1 edit)
-        it("`cat` (length 3) finds `car` — one edit is allowed for 3-5 character tokens", () => {
+    describe('Fuzzy tolerance (AUTO): token length decides allowed edits', () => {
+        // Docs: Search.md § "Fuzzy tolerance (AUTO)", length-3-to-5 tier (1 edit)
+        it("`cat` (length 3) finds `car`: one edit is allowed for 3-5 character tokens", () => {
             const car = contentNote("Vehicle", "a bright red car");
 
             expect(rank(search("cat"), car.noteId)).toBeGreaterThanOrEqual(0);
         });
 
-        // Docs: Search.md § "Fuzzy tolerance (AUTO)" — length-3-to-5 tier rejects 2 edits
-        it("`ceck` (length 4) does NOT find `tech` — two edits exceed the 1-edit budget", () => {
+        // Docs: Search.md § "Fuzzy tolerance (AUTO)", length-3-to-5 tier rejects 2 edits
+        it("`ceck` (length 4) does NOT find `tech`: two edits exceed the 1-edit budget", () => {
             const tech = contentNote("News", "the latest tech trends");
 
             expect(rank(search("ceck"), tech.noteId)).toEqual(-1);
         });
 
-        // Docs: Search.md § "Fuzzy tolerance (AUTO)" — length-6+ tier (2 edits)
-        it("`combinef` (length 8) finds `combined` — two edits are allowed for 6+ character tokens", () => {
+        // Docs: Search.md § "Fuzzy tolerance (AUTO)", length-6+ tier (2 edits)
+        it("`combinef` (length 8) finds `combined`: two edits are allowed for 6+ character tokens", () => {
             const combined = contentNote("Build", "the values were combined together");
 
             expect(rank(search("combinef"), combined.noteId)).toBeGreaterThanOrEqual(0);
@@ -231,7 +231,7 @@ describe("Search documentation examples", () => {
     });
 
     describe('Phrase and proximity ranking', () => {
-        // Docs: Search.md § "Relevance ranking" — example 8
+        // Docs: Search.md § "Relevance ranking", example 8
         it("`you and me` ranks the exact phrase above scattered words", () => {
             const phrase = contentNote("Alpha", "I like you and me as a phrase");
             const scattered = contentNote("Beta", "the menu is here and you know it");
@@ -247,8 +247,8 @@ describe("Search documentation examples", () => {
         });
     });
 
-    describe('Link and reference indexing — reference-link target titles are searchable', () => {
-        // Docs: Search.md § "What is searchable" — example 9
+    describe('Link and reference indexing: reference-link target titles are searchable', () => {
+        // Docs: Search.md § "What is searchable", example 9
         it("a note that only reference-links to `Special Topic` is found by `special topic`; the target ranks first", () => {
             const target = contentNote("Special Topic", "");
             const linker = contentNote(
@@ -267,7 +267,7 @@ describe("Search documentation examples", () => {
             expect(targetRank).toBeLessThan(linkerRank);
         });
 
-        // Docs: Search.md § "What is searchable" — example 9 (single word)
+        // Docs: Search.md § "What is searchable", example 9 (single word)
         it("a single word `special` from the target's title still finds the reference-linking note", () => {
             const target = contentNote("Special Topic", "");
             const linker = contentNote(
@@ -281,7 +281,7 @@ describe("Search documentation examples", () => {
             expect(rank(results, linker.noteId)).toBeGreaterThanOrEqual(0);
         });
 
-        // Docs: Search.md § "What is searchable" — example 9 (diacritic-insensitive)
+        // Docs: Search.md § "What is searchable", example 9 (diacritic-insensitive)
         it("`zurich` finds a note reference-linking to a note titled `Zürich` (diacritics normalized)", () => {
             const target = contentNote("Zürich", "");
             const linker = contentNote(
@@ -295,8 +295,8 @@ describe("Search documentation examples", () => {
         });
     });
 
-    describe('Diacritics — normalization strips accents on both sides', () => {
-        // Docs: Search.md § "Diacritics" — example 10
+    describe('Diacritics: normalization strips accents on both sides', () => {
+        // Docs: Search.md § "Diacritics", example 10
         it("`ktory` finds `ktorý`, and `ktorý` finds `ktory`", () => {
             const accented = contentNote("Slovak", "slovo ktorý znamena nieco");
             const plain = contentNote("Plain", "the word ktory appears here");
@@ -307,7 +307,7 @@ describe("Search documentation examples", () => {
     });
 
     describe('Regular expressions (%=)', () => {
-        // Docs: Search.md § "Regular expressions" — example 11
+        // Docs: Search.md § "Regular expressions", example 11
         it("`note.content %= 'colou?r'` finds both `color` and `colour`", () => {
             const us = contentNote("US spelling", "my favorite color of all");
             const uk = contentNote("UK spelling", "my favourite colour of all");
@@ -323,11 +323,11 @@ describe("Search documentation examples", () => {
     // ------------------------------------------------------------------
     // Legacy reference examples (pre-existing docs sections). Each of the
     // example strings already present in Search.md is validated here so the
-    // whole document — not only the newly-authored sections — is covered.
+    // whole document is covered, not only the newly-authored sections.
     // ------------------------------------------------------------------
 
     describe('Legacy: Simple Note Search Examples', () => {
-        // Docs: Search.md § "Simple Note Search Examples" — `rings tolkien`
+        // Docs: Search.md § "Simple Note Search Examples", `rings tolkien`
         it("`rings tolkien` finds a note containing both words, not one with only `rings`", () => {
             contentNote("Both", "the rings by tolkien are legendary");
             contentNote("OnlyRings", "the rings saga continues");
@@ -339,7 +339,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(1);
         });
 
-        // Docs: Search.md § "Simple Note Search Examples" — `"The Lord of the Rings" Tolkien`
+        // Docs: Search.md § "Simple Note Search Examples", `"The Lord of the Rings" Tolkien`
         it('`"The Lord of the Rings" Tolkien` requires the exact phrase plus the word', () => {
             contentNote("Book", "The Lord of the Rings was written by Tolkien");
             contentNote("Scrambled", "the rings lord of the tolkien mixed up");
@@ -351,7 +351,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(1);
         });
 
-        // Docs: Search.md § "Simple Note Search Examples" — `note.content *=* rings OR note.content *=* tolkien`
+        // Docs: Search.md § "Simple Note Search Examples", `note.content *=* rings OR note.content *=* tolkien`
         it("`note.content *=* rings OR note.content *=* tolkien` matches either substring", () => {
             contentNote("RingsOnly", "many rings here");
             contentNote("TolkienOnly", "written by tolkien");
@@ -365,7 +365,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(2);
         });
 
-        // Docs: Search.md § "Simple Note Search Examples" — `towers #book`, `towers #book or #author`, `towers #!book`
+        // Docs: Search.md § "Simple Note Search Examples", `towers #book`, `towers #book or #author`, `towers #!book`
         it("combines full-text `towers` with label filters `#book`, `#book or #author`, `#!book`", () => {
             rootNote
                 .child(note("Two Towers").label("book"))
@@ -393,7 +393,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(2);
         });
 
-        // Docs: Search.md § "Simple Note Search Examples" — `#book #publicationYear = 1954`,
+        // Docs: Search.md § "Simple Note Search Examples", `#book #publicationYear = 1954`,
         //  `#book #publicationYear >= 1950 #publicationYear < 1960`, `#publicationYear %= '19[0-9]{2}'`
         it("filters by exact, numeric-range and regex label values on `publicationYear`", () => {
             rootNote
@@ -421,7 +421,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(3);
         });
 
-        // Docs: Search.md § "Simple Note Search Examples" — `#genre *=* fan`
+        // Docs: Search.md § "Simple Note Search Examples", `#genre *=* fan`
         it("`#genre *=* fan` matches a label value containing the substring `fan`", () => {
             rootNote
                 .child(note("Fantasy Novel").label("genre", "fantasy"))
@@ -434,7 +434,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(1);
         });
 
-        // Docs: Search.md § "Simple Note Search Examples" — `#dateNote >= TODAY-30`
+        // Docs: Search.md § "Simple Note Search Examples", `#dateNote >= TODAY-30`
         it("`#dateNote >= TODAY-30` matches a recent date but not an old one (smart date)", () => {
             rootNote
                 .child(note("Recent").label("dateNote", dateUtils.localNowDate()))
@@ -447,7 +447,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(1);
         });
 
-        // Docs: Search.md § "Simple Note Search Examples" — `~author.title *=* Tolkien`
+        // Docs: Search.md § "Simple Note Search Examples", `~author.title *=* Tolkien`
         it("`~author.title *=* Tolkien` matches via the related author note's title", () => {
             const tolkien = note("J. R. R. Tolkien");
             const herbert = note("Frank Herbert");
@@ -464,7 +464,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(1);
         });
 
-        // Docs: Search.md § "Simple Note Search Examples" — `note.content %= '\d{2}:\d{2} (PM|AM)'`
+        // Docs: Search.md § "Simple Note Search Examples", `note.content %= '\d{2}:\d{2} (PM|AM)'`
         // NOTE: the docs render the backslashes as `\\d` (a literal backslash must be
         // escaped in the query); in JS source that literal `\\` is written `\\\\`.
         it("`note.content %= '\\\\d{2}:\\\\d{2} (PM|AM)'` matches note content mentioning a time", () => {
@@ -480,7 +480,7 @@ describe("Search documentation examples", () => {
     });
 
     describe('Legacy: Advanced Use Cases', () => {
-        // Docs: Search.md § "Advanced Use Cases" — `~author.relations.son.title = 'Christopher Tolkien'`
+        // Docs: Search.md § "Advanced Use Cases", `~author.relations.son.title = 'Christopher Tolkien'`
         it("`~author.relations.son.title = 'Christopher Tolkien'` traverses two relation hops", () => {
             const christopher = note("Christopher Tolkien");
             const brian = note("Brian Herbert");
@@ -501,7 +501,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(1);
         });
 
-        // Docs: Search.md § "Advanced Use Cases" — boolean expression with grouping parentheses
+        // Docs: Search.md § "Advanced Use Cases", boolean expression with grouping parentheses
         it("`~author.title *= Tolkien OR (#publicationDate >= 1954 AND #publicationDate <= 1960)` groups clauses", () => {
             const tolkien = note("J. R. R. Tolkien");
             rootNote
@@ -518,7 +518,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(2);
         });
 
-        // Docs: Search.md § "Advanced Use Cases" — `note.parents.title`, `note.parents.parents.title`, `note.ancestors.title`
+        // Docs: Search.md § "Advanced Use Cases", `note.parents.title`, `note.parents.parents.title`, `note.ancestors.title`
         it("filters by parent, grandparent and ancestor title against a `Books` subtree", () => {
             const lotr = note("Lord of the Rings");
             const fiction = note("Fiction").child(lotr);
@@ -535,7 +535,7 @@ describe("Search documentation examples", () => {
             expect(findNoteByTitle(results, "Lord of the Rings")).toBeTruthy();
             expect(results.length).toEqual(1);
 
-            // any ancestor named Books — note the filter is subtree-inclusive: it
+            // any ancestor named Books. The filter is subtree-inclusive: it
             // returns the "Books" note itself as well as its descendants.
             results = search("note.ancestors.title = 'Books'");
             expect(findNoteByTitle(results, "Fiction")).toBeTruthy();
@@ -545,7 +545,7 @@ describe("Search documentation examples", () => {
             expect(results.length).toEqual(3);
         });
 
-        // Docs: Search.md § "Advanced Use Cases" — `note.children.title = 'sub-note'`
+        // Docs: Search.md § "Advanced Use Cases", `note.children.title = 'sub-note'`
         it("`note.children.title = 'sub-note'` matches a note that has such a child", () => {
             rootNote
                 .child(note("Parent Note").child(note("sub-note")))
@@ -560,7 +560,7 @@ describe("Search documentation examples", () => {
     });
 
     describe('Legacy: Note Properties', () => {
-        // Docs: Search.md § "Search with Note Properties" — `note.type = code AND note.mime = 'application/json'`
+        // Docs: Search.md § "Search with Note Properties", `note.type = code AND note.mime = 'application/json'`
         it("`note.type = code AND note.mime = 'application/json'` filters by type and mime", () => {
             rootNote
                 .child(note("Config", { type: "code", mime: "application/json" }))
@@ -577,7 +577,7 @@ describe("Search documentation examples", () => {
     });
 
     describe('Legacy: Order by and Limit', () => {
-        // Docs: Search.md § "Order by and Limit" — `#author=Tolkien orderBy #publicationDate desc, note.title limit 10`
+        // Docs: Search.md § "Order by and Limit", `#author=Tolkien orderBy #publicationDate desc, note.title limit 10`
         it("orders by publication date descending with a title tie-breaker, limited", () => {
             rootNote
                 .child(note("The Hobbit").label("author", "Tolkien").label("publicationDate", "1937"))
@@ -597,7 +597,7 @@ describe("Search documentation examples", () => {
     });
 
     describe('Legacy: Negation', () => {
-        // Docs: Search.md § "Negation" — `#book AND not(note.ancestors.title = 'Tolkien')`
+        // Docs: Search.md § "Negation", `#book AND not(note.ancestors.title = 'Tolkien')`
         // NOTE: the docs previously wrote the singular `note.ancestor.title`, which is an
         // unrecognized property specifier and returns garbage; corrected to the plural
         // `note.ancestors.title` (see task report).

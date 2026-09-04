@@ -33,9 +33,9 @@ export default function SearchResultCard({ noteId, details, loading, highlighted
     const viewScope: ViewScope = { searchTerms };
     const href = calculateHash({ notePath: noteId, viewScope });
 
-    // Set the title text imperatively so mark.js (which mutates the DOM to inject `.ck-find-result`
-    // spans) doesn't fight Preact's reconciliation of a controlled text child — the same reason
-    // NoteLink renders its title imperatively.
+    // Set the title text imperatively so mark.js, which injects `.ck-find-result` spans into the
+    // DOM, does not fight Preact's reconciliation of a controlled text child. NoteLink renders its
+    // title imperatively for the same reason.
     const titleRef = useRef<HTMLSpanElement>(null);
     const highlightTitle = useImperativeSearchHighlighlighting(highlightedTokens);
     useEffect(() => {

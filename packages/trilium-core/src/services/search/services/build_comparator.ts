@@ -13,10 +13,10 @@ function getRegex(str: string) {
 type Comparator<T> = (comparedValue: T) => (val: string) => boolean;
 
 const stringComparators: Record<string, Comparator<string>> = {
-    // Strict normalized full-value equality: the whole value must equal the whole
-    // compared value (case- and diacritic-insensitive). This is the documented
-    // label-equality semantics — e.g. #capital=Vienna matches "vienna" but NOT
-    // "Vienna Austria". Word/phrase matching lives in the internal "word=" operator.
+    // Strict normalized full-value equality: the whole value must equal the whole compared value,
+    // ignoring case and diacritics. This is the documented label-equality semantics, so
+    // #capital=Vienna matches "vienna" but not "Vienna Austria". Word and phrase matching lives
+    // in the internal "word=" operator.
     "=": (comparedValue) => (val) => normalizeSearchText(val) === normalizeSearchText(comparedValue),
     "!=": (comparedValue) => (val) => normalizeSearchText(val) !== normalizeSearchText(comparedValue),
     // Internal operator (not user-typable): word/phrase match used by the leading-"="

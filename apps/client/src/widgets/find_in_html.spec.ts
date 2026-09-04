@@ -47,7 +47,7 @@ describe("FindInHtml", () => {
         await finder.performFind("alpha", false, false);
         await finder.highlightExtraTokens([ "beta", "gamma" ]);
 
-        // Seed count is unaffected — Enter/F3 still cycles only the primary matches.
+        // Seed count is unaffected: Enter/F3 still cycles only the primary matches.
         expect(container.querySelectorAll(".ck-find-result").length).toBe(1);
         expect(container.querySelectorAll(".find-result-secondary").length).toBe(2);
     });
@@ -84,7 +84,7 @@ describe("FindInHtml", () => {
         await finder.performFind("value", false, false);
         await finder.highlightExtraTokens([ "a.c", "a+c" ]);
 
-        // Literal matches only — no regex injection (both literal tokens exist once each).
+        // Literal matches only, no regex injection (both literal tokens exist once each).
         const secondary = Array.from(container.querySelectorAll(".find-result-secondary")).map((el) => el.textContent);
         expect(secondary).toContain("a.c");
         expect(secondary).toContain("a+c");

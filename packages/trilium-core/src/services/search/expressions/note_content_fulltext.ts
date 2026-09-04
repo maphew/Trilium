@@ -211,9 +211,8 @@ class NoteContentFulltextExp extends Expression {
         }
 
         // For flatText, also check if the phrase appears in attribute values.
-        // Attributes in flatText appear as "#name=value" or "~name=value", so we
-        // look for "=phrase" against the raw string — this depends on the
-        // #name=value structure and must stay a raw-string scan.
+        // Attributes in flatText appear as "#name=value" or "~name=value", so this looks for
+        // "=phrase" against the raw string and must stay a raw-string scan.
         if (checkFlatTextAttributes && normalizedContent.includes(`=${phrase}`)) {
             return true;
         }
@@ -271,8 +270,8 @@ class NoteContentFulltextExp extends Expression {
                 });
             } else if (!negation) {
                 // Record how well the content matched so scoring can rank body matches.
-                // Negation (!=) matches are added because content does NOT contain the
-                // query — there is no positive content match to record.
+                // A negation (!=) match means the content does not contain the query, so there is
+                // no positive content match to record for it.
                 this.recordContentMatchQuality(noteId, content, searchContext);
             }
         }

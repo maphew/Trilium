@@ -14,7 +14,7 @@ import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // i18next isn't initialized under test (t() would echo the key), so stub it to surface interpolated
-// values — mirroring RenderErrorCard.spec — so the result-count assertion can see the count.
+// values, mirroring RenderErrorCard.spec, so the result-count assertion can see the count.
 vi.mock("../../../services/i18n", () => ({
     t: (key: string, opts?: Record<string, unknown>) => (opts && "count" in opts ? `${key}:${opts.count}` : key)
 }));

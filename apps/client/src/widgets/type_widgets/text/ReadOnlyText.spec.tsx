@@ -9,7 +9,7 @@
  * (which carries the saving component's id) is misclassified as a foreign change. The
  * hidden widget then refetches the whole blob after every save and publishes
  * `contentLoad: "loading"` to the shared note context, which makes the note-detail
- * loading overlay cover the visible editor — the content "disappears and reappears"
+ * loading overlay cover the visible editor, so the content "disappears and reappears"
  * while typing.
  *
  * These tests assert the *correct* behavior, so they are red while the bug exists and
@@ -134,7 +134,7 @@ describe("ReadOnlyText reacting to content changes (#10575)", () => {
         // save carries the shared parent component's id.
         await harness.fireContentChange(harness.parent.componentId);
 
-        // The change originated here — refetching the whole blob is pure waste...
+        // The change originated here, so refetching the whole blob is pure waste...
         expect(harness.getBlobSpy).toHaveBeenCalledTimes(1);
         // ...and publishing "loading" makes the note-detail overlay cover the editor mid-typing.
         expect(harness.contentLoadStates).toEqual([]);
@@ -223,7 +223,7 @@ describe("ReadOnlyText ?bookmark= handling", () => {
             );
         });
 
-        // The mount effect ran against an empty container — it must not consume the bookmark
+        // The mount effect ran against an empty container, so it must not consume the bookmark
         // yet, or the post-load pass has nothing left to reveal.
         expect(noteContext.viewScope?.bookmark).toBe("deep-anchor");
 

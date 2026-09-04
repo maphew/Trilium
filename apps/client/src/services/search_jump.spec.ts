@@ -92,7 +92,7 @@ describe("consumeSearchTerms", () => {
         expect(triggerCommand).toHaveBeenCalledTimes(1);
 
         // Simulates the belt-and-suspenders double trigger (content-ready effect + noteSwitched
-        // listener) — the terms are gone, so nothing fires again.
+        // listener). The terms are gone, so nothing fires again.
         consumeSearchTerms(ctx, "ntx1");
         flushRaf();
         expect(triggerCommand).toHaveBeenCalledTimes(1);

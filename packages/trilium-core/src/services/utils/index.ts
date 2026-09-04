@@ -89,11 +89,10 @@ export function normalize(str: string) {
  * snippet/highlight index math relies on: it finds match offsets on the normalized
  * text but inserts markers into (or slices) the original text at the same offsets.
  *
- * Each character (Unicode code point) is transformed individually; when the
- * transformed result is not the same code-unit length as the source character —
- * a bare combining mark that would vanish, or (hypothetically) a ligature that
- * would expand — the original character is kept instead. This trades perfect
- * folding of already-decomposed content for a hard length invariant.
+ * Each character (Unicode code point) is transformed individually, and the original character is
+ * kept whenever the transformed result is a different code-unit length: a bare combining mark that
+ * would vanish, or a ligature that would expand. This trades perfect folding of already-decomposed
+ * content for a hard length invariant.
  */
 export function normalizePreservingLength(str: string) {
     let result = "";

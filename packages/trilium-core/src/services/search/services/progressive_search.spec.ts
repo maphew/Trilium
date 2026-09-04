@@ -256,7 +256,7 @@ describe("Progressive Search Strategy", () => {
             for (let i = 0; i < 5; i++) {
                 contentNote(`Note ${i}`, `this document section ${i}`);
             }
-            // Body typo of "document" — reachable only via the phase-2 fuzzy fallback.
+            // Body typo of "document", reachable only via the phase-2 fuzzy fallback.
             const typo = contentNote("Typo", "this documnt section");
 
             const searchResults = searchService.findResultsWithQuery("document", new SearchContext());

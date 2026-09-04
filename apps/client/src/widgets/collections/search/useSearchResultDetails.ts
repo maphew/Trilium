@@ -19,7 +19,7 @@ export interface SearchResultDetailsState {
  * re-execution that yields the *same* ids but updated content still refreshes the snippets.
  *
  * Responses can land out of order (a slow first page resolving after the user has paged on), so an
- * incrementing sequence ref guards against a stale response clobbering a newer one — the same
+ * incrementing sequence ref guards against a stale response clobbering a newer one, the same
  * pattern `useNoteIds` uses for its own refreshes.
  */
 export function useSearchResultDetails(

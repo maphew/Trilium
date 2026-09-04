@@ -395,7 +395,7 @@ describe("Search", () => {
 
     it("exact word search matches a content word wrapped in punctuation (#10616)", () => {
         // The note body contains "(sync)" (parenthesised). Exact-word search for
-        // "sync" must still find it — content tokenization strips boundary
+        // "sync" must still find it, because content tokenization strips boundary
         // punctuation so "(sync)" tokenizes to the word "sync". The title
         // deliberately omits the word so the match comes from the body.
         const guide = getContext().init(() => noteService.createNewNote({
@@ -729,7 +729,7 @@ describe("Search", () => {
     it("test attribute group AND-ed with a note property, then ordered", () => {
         // The shape the Content Manager builds when its filter box is used: an OR chain of attribute
         // filters grouped in parens, AND-ed with a title match, with `orderBy` still at top level.
-        // The title condition leads deliberately — a query *starting* with "(" is mis-lexed, since
+        // The title condition leads deliberately: a query *starting* with "(" is mis-lexed, since
         // the paren is swallowed into the fulltext portion before any token ends it.
         const alpha = note("Alpha script").label("run", "hourly");
         const beta = note("Beta script").label("run", "daily");
@@ -951,7 +951,7 @@ describe("Search", () => {
 
         it("finds a note by a SINGLE word from a reference-link's target title, as a phase-1 exact match", () => {
             // The injected title is normalized like the body, so a single lowercased query token
-            // hits it via the default *=* content includes() in phase 1 — not only via phase-2
+            // hits it via the default *=* content includes() in phase 1, not only via phase-2
             // fuzzy (where it would rank last, or be dropped entirely once phase 1 is sufficient).
             const target = contentNote("Special Topic", "");
             const linker = contentNote("Linker", `<p>see <a class="reference-link" href="#root/${target.noteId}"></a></p>`);

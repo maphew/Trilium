@@ -52,10 +52,9 @@ export function betterQuality(a: ContentMatchQuality, b: ContentMatchQuality): C
  * already-tokenized content words, returning the best tier plus how many distinct
  * tokens matched (at any tier). Returns null when nothing matched.
  *
- * This is a pure function: tokens and contentWords must already be normalized and
- * tokenized (e.g. via {@link tokenizeIntoWords}) by the caller. It never computes
- * edit distances — the "fuzzy" tier is recorded by callers when only fuzzy matching
- * succeeded.
+ * Pure: the caller must normalize and tokenize `tokens` and `contentWords` first, via
+ * `tokenizeIntoWords()`. It never computes edit distances, so callers record the "fuzzy" tier
+ * themselves when only fuzzy matching succeeded.
  */
 export function classifyContentMatch(tokens: string[], contentWords: string[]): ContentMatchQuality | null {
     if (tokens.length === 0 || contentWords.length === 0) {
@@ -71,14 +70,14 @@ export function classifyContentMatch(tokens: string[], contentWords: string[]): 
 
     // Map each exact content word to its sorted positions for proximity/phrase checks.
     const wordPositions = new Map<string, number[]>();
-    contentWords.forEach((word, index) => {
+    for (const [ index, word ] of contentWords.entries()) {
         const positions = wordPositions.get(word);
         if (positions) {
             positions.push(index);
         } else {
             wordPositions.set(word, [index]);
         }
-    });
+    }
 
     let anyExact = false;
     let anyPrefix = false;
@@ -137,11 +136,11 @@ export function classifyContentMatch(tokens: string[], contentWords: string[]): 
  */
 function withinProximityWindow(positionLists: number[][], maxSpan: number): boolean {
     const merged: { position: number; listIndex: number }[] = [];
-    positionLists.forEach((positions, listIndex) => {
+    for (const [ listIndex, positions ] of positionLists.entries()) {
         for (const position of positions) {
             merged.push({ position, listIndex });
         }
-    });
+    }
     merged.sort((a, b) => a.position - b.position);
 
     const need = positionLists.length;
