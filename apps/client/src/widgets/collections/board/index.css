@@ -135,6 +135,10 @@ body.mobile .board-view-container .board-add-column {
   font-size: 1em;
   margin: 0;
   padding: 0.5em 0.5em 0.5em 0.5em;
+  /* As tall as the menu button standing in it, whatever else it holds: while the title is edited
+     the badge and that button are not drawn, and the heading would otherwise close up around the
+     field by the difference between them. */
+  min-height: calc(var(--icon-button-size, 32px) + 1em + 1px);
   border-bottom: 1px solid var(--main-border-color);
   cursor: grab;
   position: relative;
@@ -207,9 +211,12 @@ body.mobile .board-view-container .board-add-column {
   border-radius: 4px;
 }
 
+/* Outlined from within rather than bordered: a border is a box of its own, and the heading would
+   take a pixel more room the moment its title were edited, carrying the icon and the title with
+   it. */
 .board-view-container .board-column h3.editing {
   background-color: var(--main-background-color);
-  border: 1px solid var(--main-text-color);
+  box-shadow: inset 0 0 0 1px var(--main-text-color);
   border-radius: 4px;
 }
 
@@ -219,6 +226,8 @@ body.mobile .board-view-container .board-add-column {
   outline: none;
   font-size: inherit;
   font-weight: inherit;
+  /* The line the title itself stands on, rather than the form control's own. */
+  line-height: inherit;
   color: inherit;
   width: 100%;
   font-family: inherit;
@@ -747,10 +756,10 @@ body.mobile .column-drop-placeholder {
 
 /* The box is the slot, as a column's own heading is the box while its title is edited, and the
    field inside carries nothing of its own. The card's padding and line, so the icon beside it lands
-   where the shared rule above puts it. */
+   where the shared rule above puts it, and the outline drawn within so the slot keeps its size. */
 .board-add-column.editing {
   background-color: var(--main-background-color);
-  border: 1px solid var(--main-text-color);
+  box-shadow: inset 0 0 0 1px var(--main-text-color);
 }
 
 .board-add-column input {
