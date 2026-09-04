@@ -11,7 +11,7 @@ import searchService from "./search.js";
 
 let rootNote: NoteBuilder;
 
-// "cafe" + combining acute accent (U+0301) — an NFD-decomposed "café".
+// "cafe" + combining acute accent (U+0301), an NFD-decomposed "café".
 const DECOMPOSED_CAFE = "café";
 
 function makeResult(title: string, snippet: string): SearchResult {
@@ -70,6 +70,18 @@ describe("highlightSearchResults", () => {
         const result = makeResult("Note", `${DECOMPOSED_CAFE} match`);
         searchService.highlightSearchResults([result], ["match"]);
         expect(result.highlightedContentSnippet).toBe(`${DECOMPOSED_CAFE} <b>match</b>`);
+    });
+
+    it("highlights in both diacritic directions, matching what the search itself matched", () => {
+        // Matching runs on a normalized field, so the token has to be normalized the same way.
+        // An accented query finds the note; without this the match it found went unmarked.
+        const accentedToken = makeResult("Note", "slovo ktory znamena");
+        searchService.highlightSearchResults([accentedToken], ["ktorý"]);
+        expect(accentedToken.highlightedContentSnippet).toBe("slovo <b>ktory</b> znamena");
+
+        const accentedContent = makeResult("Note", "slovo ktorý znamena");
+        searchService.highlightSearchResults([accentedContent], ["ktory"]);
+        expect(accentedContent.highlightedContentSnippet).toBe("slovo <b>ktorý</b> znamena");
     });
 
     it("highlights matches of a regex token via HighlightedTokenInfo", () => {

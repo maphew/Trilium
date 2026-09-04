@@ -27,9 +27,8 @@ export interface SearchNoteResult {
     searchResultNoteIds: string[];
     highlightedTokens: string[];
     /**
-     * Structured highlight tokens (additive). Empty for script-based searches, which
-     * have no lexed tokens. {@link highlightedTokens} is left untouched — it is part
-     * of the public scripting API.
+     * Structured highlight tokens (additive). Empty for script-based searches, which have no
+     * lexed tokens. {@link highlightedTokens} is left untouched, being part of the scripting API.
      */
     highlightedTokenInfos: HighlightedTokenInfo[];
     error: string | null;
@@ -316,8 +315,8 @@ function performSearch(expression: Expression, searchContext: SearchContext, ena
     const originalFuzzyMatching = searchContext.enableFuzzyMatching;
     searchContext.enableFuzzyMatching = enableFuzzyMatching;
 
-    // Each progressive phase re-executes the expression tree, so clear content-match
-    // records first — otherwise phase-2 (fuzzy) records would mix with phase-1 ones.
+    // Each progressive phase re-executes the expression tree, so clear the content-match records
+    // first to keep phase-2 (fuzzy) records from mixing with phase-1 ones.
     searchContext.contentMatches.clear();
 
     const noteSet = expression.execute(allNoteSet, executionContext, searchContext);
@@ -894,7 +893,9 @@ function buildHighlightRegex(info: HighlightedTokenInfo): RegExp | null {
         }
     }
 
-    return new RegExp(escapeRegExp(info.token), "gi");
+    // The field is normalized before matching, so the token must be too, or an accented query
+    // highlights nothing in a note the diacritic-insensitive search just matched.
+    return new RegExp(escapeRegExp(normalizePreservingLength(info.token)), "gi");
 }
 
 /**
