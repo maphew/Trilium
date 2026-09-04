@@ -31,10 +31,10 @@ const FOOTER_QUIET_MS = 5000;
 const EXPAND_MS = 200;
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
-import CardTemplatePill from "./card_template_pill";
-import { type CardTemplates } from "./card_templates";
 import BoardApi from "./api";
 import Card from "./card";
+import CardTemplatePill from "./card_template_pill";
+import { type CardTemplates } from "./card_templates";
 import { DEFAULT_CARD_ICON, DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
 import { openColumnContextMenu, openCreateCardMenu } from "./context_menu";
 

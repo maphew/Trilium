@@ -10,10 +10,10 @@ import dialog from "../../../services/dialog";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import note_create from "../../../services/note_create";
+import { type NoteTypeOption, resolveNoteTypeOptions } from "../../../services/note_types";
 import server from "../../../services/server";
 import ws from "../../../services/ws";
 import toast from "../../../services/toast";
-import { type NoteTypeOption, resolveNoteTypeOptions } from "../../../services/note_types";
 import { BoardColumnData, BoardViewData } from ".";
 import { currentCardTemplate, DEFAULT_CARD_TEMPLATES } from "./card_templates";
 import {

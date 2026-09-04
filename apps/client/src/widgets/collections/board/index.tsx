@@ -17,11 +17,10 @@ import { isIMEComposing } from "../../../services/shortcuts";
 import type { ShortcutHintDefinition } from "../../../services/shortcut_hints";
 import toast from "../../../services/toast";
 import { escapeHtml, isMobile } from "../../../services/utils";
-import CollectionProperties from "../../note_bars/CollectionProperties";
 import {
     getNoteTypeOptions, type NoteTypeOption, resolveNoteTypeOptions
 } from "../../../services/note_types";
-import NoteTypeSelectorDialog from "../../react/NoteTypeSelectorDialog";
+import CollectionProperties from "../../note_bars/CollectionProperties";
 import FormTextArea from "../../react/FormTextArea";
 import FormTextBox from "../../react/FormTextBox";
 import {
@@ -30,6 +29,7 @@ import {
 } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
+import NoteTypeSelectorDialog from "../../react/NoteTypeSelectorDialog";
 import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import ActionButton from "../../react/ActionButton";
@@ -271,7 +271,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ availableTemplates, setAvailableTemplates ] = useState<NoteTypeOption[]>([]);
     const [ isPickingTemplates, setIsPickingTemplates ] = useState(false);
 
-    useEffect(() => {
+    const readTemplates = useCallback(() => {
         let listening = true;
         getNoteTypeOptions().then((templates) => {
             if (listening) {
@@ -281,6 +281,23 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
 
         return () => { listening = false; };
     }, []);
+
+    useEffect(readTemplates, [ readTemplates ]);
+
+    // A board outlives the templates it read: one made while it stands would never be offered, and
+    // one deleted would go on being offered until the board was drawn afresh. A template is a note
+    // carrying `#template`, and its title and icon are what the picker shows.
+    useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
+        const templated = loadResults.getAttributeRows()
+            .some((attribute) => attribute.name === "template");
+        const renamed = availableTemplates.some((option) =>
+            option.options.templateNoteId
+                && loadResults.isNoteReloaded(option.options.templateNoteId));
+
+        if (templated || renamed) {
+            readTemplates();
+        }
+    });
     const selectColumn = useCallback<Dispatch<StateUpdater<string | undefined>>>((column) => {
         setIsPeekingAll(false);
         setActiveColumn(column);

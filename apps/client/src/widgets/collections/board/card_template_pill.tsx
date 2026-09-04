@@ -1,10 +1,10 @@
 import { useMemo, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
+import { type NoteTypeOption } from "../../../services/note_types";
 import Dropdown from "../../react/Dropdown";
 import { FormListItem } from "../../react/FormList";
 import Icon from "../../react/Icon";
-import { type NoteTypeOption } from "../../../services/note_types";
 
 /**
  * What a new card will be made from, standing inside the editor it is named in.

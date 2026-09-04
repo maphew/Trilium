@@ -17,6 +17,7 @@ import FBranch from "../../../entities/fbranch";
 import froca from "../../../services/froca";
 import attributes from "../../../services/attributes";
 import { executeBulkActions } from "../../../services/bulk_action";
+import LoadResults from "../../../services/load_results";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
@@ -42,12 +43,18 @@ vi.mock("../../../services/i18n", () => ({
 // What a card can be made from. The listing itself is the app's and is tested there; the board is
 // handed a short list of it, the four it offers by default and one it does not.
 vi.mock("../../../services/note_types", () => ({
-    getNoteTypeOptions: async () => NOTE_TYPE_OPTIONS,
+    getNoteTypeOptions: async () => {
+        templateReads++;
+        return NOTE_TYPE_OPTIONS;
+    },
     resolveNoteTypeOptions: (ids: string[], available: { id: string }[]) =>
         ids.flatMap(id => available.filter(option => option.id === id)),
     noteTypeOptionGroupTitle: (group: string) => `group:${group}`,
     default: {}
 }));
+
+/** How many times the board has asked what a card can be made from. */
+let templateReads = 0;
 
 const NOTE_TYPE_OPTIONS = [
     [ "type:text:text/html", "Text", "text", "text/html" ],
@@ -972,9 +979,10 @@ describe("Board column rename", () => {
         container = mountPoint;
         document.body.appendChild(mountPoint);
 
+        const host = new Component();
         await act(async () => {
             render(
-                <ParentComponent.Provider value={new Component()}>
+                <ParentComponent.Provider value={host}>
                     <Harness
                         note={note}
                         noteIds={[ ...note.getChildNoteIds() ]}
@@ -986,7 +994,8 @@ describe("Board column rename", () => {
         });
         await act(async () => { await flush(); });
 
-        return { note, container: mountPoint };
+        // The host is what the board's own event handlers hang off, for a test that sends one.
+        return { note, container: mountPoint, host };
     }
 
     /**
@@ -2298,6 +2307,40 @@ describe("Board column rename", () => {
             await flush();
         });
         expect(document.activeElement).toBe(editor);
+    });
+
+    /**
+     * A board outlives the templates it read: one made while it stands would never be offered, and
+     * one deleted would go on being offered. A template is a note carrying `#template`, so a change
+     * to one of those attributes is what sends the board back for the list.
+     */
+    it("reads the templates again when one is made or taken away", async () => {
+        const { host } = await setup();
+        const before = templateReads;
+
+        /** An attribute change as the server reports one: the row is tracked as well as carried. */
+        const attributeChanged = (name: string) => {
+            const results = new LoadResults([ {
+                entityName: "attributes",
+                entityId: "attr1",
+                entity: { attributeId: "attr1", noteId: "someNote", type: "label", name }
+            } as never ]);
+            results.addAttribute("attr1", "other");
+            return results;
+        };
+
+        // A change to something else leaves the list where it is.
+        await act(async () => {
+            await host.handleEvent("entitiesReloaded", { loadResults: attributeChanged("status") });
+            await flush();
+        });
+        expect(templateReads).toBe(before);
+
+        await act(async () => {
+            await host.handleEvent("entitiesReloaded", { loadResults: attributeChanged("template") });
+            await flush();
+        });
+        expect(templateReads).toBe(before + 1);
     });
 
     /** The pill's last entry opens the dialog that decides what the board offers. */
