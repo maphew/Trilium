@@ -267,19 +267,12 @@ export default class FindWidget extends NoteContextAwareWidget {
 
     /**
      * Opens the find bar pre-seeded from search terms carried in on note open (jump-to-match),
-     * scrolling to the first match so Enter/F3 immediately cycles the results.
-     *
-     * The bar is shown whenever there is at least one match — deliberately, even for non-Electron
-     * users who have no Ctrl+F to summon it: (a) Enter/F3 cycling is bound on the input, (b) leaving
-     * the bar open is the affordance that lets the user dismiss the highlights (closeSearch only
-     * unmarks while the bar is visible). With zero matches nothing is shown and performFind leaves
-     * no marks behind, so there is nothing to leak.
-     *
-     * Kept separate from the manual-open flow above, whose pre-existing show()/isAlreadyVisible
-     * ordering is intentionally left untouched.
+     * scrolling to the first match so Enter/F3 immediately cycles the results. The bar stays open
+     * on a match because `closeSearch` only unmarks while it is visible, so it is what lets the
+     * user dismiss the highlights.
      */
     private async seededFind(searchTerms: string[]) {
-        const { seed, extraTokens } = deriveSeededFind(searchTerms);
+        const [ seed = "", ...extraTokens ] = searchTerms;
         this.$input.val(seed);
 
         const { totalFound } = await this.performFind();
@@ -447,14 +440,4 @@ export default class FindWidget extends NoteContextAwareWidget {
             this.closeSearch();
         }
     }
-}
-
-/**
- * Splits the search terms carried in on note open into the seed (first token — a quoted phrase
- * arrives as a single token) that drives the find counter and Enter/F3 cycling, and the remaining
- * tokens that get a muted highlight-all pass (HTML handler only). Extracted and kept pure so the
- * seed/extras split is unit-testable without instantiating the jQuery widget.
- */
-export function deriveSeededFind(searchTerms: string[]): { seed: string; extraTokens: string[] } {
-    return { seed: searchTerms[0] ?? "", extraTokens: searchTerms.slice(1) };
 }

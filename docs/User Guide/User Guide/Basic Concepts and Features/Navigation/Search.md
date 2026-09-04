@@ -57,7 +57,7 @@ The options available are:
 
 ## Viewing search results
 
-Results appear below the search pane as a list of **snippet cards** — each card shows the note title and a short excerpt of the text that matched, with your search terms highlighted.
+Results appear below the search pane as a list of **snippet cards**. Each card shows the note title and a short excerpt of the text that matched, with your search terms highlighted.
 
 *   The **total number of results** is always shown, so you can immediately tell how broad a query is.
 *   A **page-size selector** lets you choose how many results to display per page. Your choice is remembered and synced across your devices (stored in the `searchResultsPageSize` option), so you do not have to reset it on every device.
@@ -80,7 +80,7 @@ Every example below is backed 1:1 by an automated test, so the documentation can
 
 ### Default matching (no prefix)
 
-**Rule:** typing words with no prefix finds notes that contain those words anywhere in the title, content or attributes — as whole words _or_ as substrings — and ranks the closest matches first.
+**Rule:** typing words with no prefix finds notes that contain those words anywhere in the title, content or attributes, as whole words or as substrings. The closest matches are ranked first.
 
 | Query | Example note content | Matches? | Why |
 | --- | --- | --- | --- |
@@ -89,7 +89,7 @@ Every example below is backed 1:1 by an automated test, so the documentation can
 
 ### Exact match with the `=` prefix
 
-**Rule:** a leading `=` switches the full-text search to exact matching — it finds the whole word or phrase only, ignoring surrounding punctuation, with **no** substring and **no** fuzzy matching. Use it when a normal search returns too many near-matches.
+**Rule:** a leading `=` switches the full-text search to exact matching. It finds the whole word or phrase only, ignoring surrounding punctuation, with **no** substring and **no** fuzzy matching. Use it when a normal search returns too many near-matches.
 
 | Query | Example note content | Matches? | Why |
 | --- | --- | --- | --- |
@@ -109,7 +109,7 @@ To match an exact **phrase**, quote it after the `=` (single, double or backtick
 
 ### Attribute and property equality (`=`, `!=`)
 
-**Rule:** when `=` compares an attribute or property — `#label=value`, `note.title=value` — it is **strict full-value equality**: the _whole_ value must equal what you typed (case- and diacritic-insensitive). This is **not** word matching. `!=` inverts it.
+**Rule:** when `=` compares an attribute or property, as in `#label=value` or `note.title=value`, it is **strict full-value equality**: the _whole_ value must equal what you typed, ignoring case and diacritics. This is **not** word matching. `!=` inverts it.
 
 The examples below assume four notes: _Austria_ (`#capital=Vienna`), _Somewhere_ (`#capital=Vienna Austria`), _Czech Republic_ (`#capital=Prague`) and _Switzerland_ (`#capital=Zürich`).
 
@@ -122,11 +122,11 @@ The examples below assume four notes: _Austria_ (`#capital=Vienna`), _Somewhere_
 | `#capital!=Vienna` | `Prague` | Yes | `!=` matches every value that is not `Vienna` |
 | `#capital!=Vienna` | `Vienna` | No | `!=` excludes the exact value |
 
-> **Quick search relaxes this.** The [Quick search](Quick%20search.md) bar and autocomplete apply relaxed attribute matching — an attribute `=` is treated as "contains" — so `#capital=Vienna` typed there also matches `Vienna Austria`; the strict full-value equality described here applies only in the full Search.
+> **Quick search relaxes this.** The [Quick search](Quick%20search.md) bar and autocomplete treat an attribute `=` as "contains", so `#capital=Vienna` typed there also matches `Vienna Austria`. The strict full-value equality described here applies only in the full Search.
 
 ### Fuzzy operators (`~=` and `~*`)
 
-**Rule:** the fuzzy operators tolerate typos. `~=` (fuzzy-equals) matches a value that is a close whole-word variant of your term; `~*` (fuzzy-contains) matches when your term appears — as a fragment _or_ a near-miss — anywhere inside the value. Both work on note properties (`note.title`, `note.content`, …) and on labels (`#label`). Fuzzy operators require at least 3 characters.
+**Rule:** the fuzzy operators tolerate typos. `~=` (fuzzy-equals) matches a value that is a close whole-word variant of your term. `~*` (fuzzy-contains) matches when your term appears anywhere inside the value, either as a fragment or as a near-miss. Both work on note properties such as `note.title` and `note.content`, and on labels (`#label`). Fuzzy operators require at least 3 characters.
 
 The examples assume a note titled `Books` carrying the label `#author=Tolkien`, and a note whose content is `learn programming today`.
 
@@ -176,9 +176,9 @@ The last point is the least obvious: if a note's only content is a reference lin
 
 | Query | Setup | Matches? | Why |
 | --- | --- | --- | --- |
-| `special topic` | a note whose only content is a reference link to a note titled `Special Topic` | Yes — the linking note is found; the linked target ranks first | the target's title is indexed into the linking note's searchable text |
-| `special` | the same note (only a reference link to `Special Topic`) | Yes — a single word from the target's title is enough to find the linking note | the indexed title is normalized just like body text, so even one lowercased word matches |
-| `zurich` | a note whose only content is a reference link to a note titled `Zürich` | Yes — the linking note is found | the indexed title has its accents normalized, so the plain form matches the accented title |
+| `special topic` | a note whose only content is a reference link to a note titled `Special Topic` | Yes, and the linked target ranks first | the target's title is indexed into the linking note's searchable text |
+| `special` | the same note (only a reference link to `Special Topic`) | Yes, one word from the target's title is enough | the indexed title is normalized just like body text, so even one lowercased word matches |
+| `zurich` | a note whose only content is a reference link to a note titled `Zürich` | Yes | the indexed title has its accents normalized, so the plain form matches the accented title |
 
 ### Diacritics
 
@@ -358,7 +358,7 @@ You can open Trilium and automatically trigger a search by including the search 
 | Parameter | Value | Description |
 | --- | --- | --- |
 | `MIN_FUZZY_TOKEN_LENGTH` | 3 | Minimum characters for fuzzy matching |
-| `MAX_EDIT_DISTANCE` | 2 | Ceiling on character changes, reached only by 6+ character terms; shorter terms allow fewer — see the _Fuzzy tolerance (AUTO)_ section above |
+| `MAX_EDIT_DISTANCE` | 2 | Ceiling on character changes, reached only by 6+ character terms; shorter terms allow fewer. See the _Fuzzy tolerance (AUTO)_ section above |
 | `RESULT_SUFFICIENCY_THRESHOLD` | 5 | Minimum exact results before fuzzy fallback |
 | `MAX_CONTENT_SIZE` | 10MB | Maximum note content size for search processing |
 

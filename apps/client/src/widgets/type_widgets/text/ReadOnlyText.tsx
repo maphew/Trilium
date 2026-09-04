@@ -38,17 +38,14 @@ export default function ReadOnlyText({ note, noteContext, ntxId, parentComponent
     const { isRtl } = useNoteLanguage(note);
     const readOnlyContentRef = usePreactRef<HTMLDivElement>(null);
 
-    // Scroll to bookmark anchor if navigated with ?bookmark=... Gated on the blob: the mount
-    // run fires while the content is still loading (empty container), and consuming the
-    // bookmark there would leave nothing for the post-load run — this effect only re-fires
-    // on [blob].
+    // Scroll to bookmark anchor if navigated with ?bookmark=... The blob gate skips the mount run,
+    // which fires against an empty container while the content is still loading.
     useEffect(() => {
         if (!blob) return;
         consumeBookmark(readOnlyContentRef.current, noteContext?.viewScope);
     }, [blob]);
 
-    // Jump to the first search match (and pre-fill the find bar) when navigated from search results.
-    // Runs once the content has loaded; the same-note re-click case is covered by the hook below.
+    // Jump to the first search match when navigated from search results.
     useEffect(() => {
         if (blob) consumeSearchTerms(noteContext, ntxId);
     }, [blob]);

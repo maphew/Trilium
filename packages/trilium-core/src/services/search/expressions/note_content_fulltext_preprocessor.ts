@@ -4,10 +4,7 @@ import striptags from "striptags";
 import { normalizeSearchText } from "../utils/text_utils";
 import { normalize, unescapeHtml } from "../../utils/index";
 
-/**
- * Resolves a note's title by its id. Injected by the caller so this module stays
- * pure and browser-safe (no becca import here). Returns null for unknown notes.
- */
+/** Resolves a note's title by its id, injected so this module stays free of a becca import. */
 export type NoteTitleResolver = (noteId: string) => string | null;
 
 export default function preprocessContent(rawContent: string | Uint8Array, type: string, mime: string, raw?: boolean, resolveNoteTitle?: NoteTitleResolver) {
@@ -16,23 +13,16 @@ export default function preprocessContent(rawContent: string | Uint8Array, type:
 
     if (type === "text" && mime === "text/html") {
         if (!raw) {
-            // Pull searchable text out of link previews and internal-link targets BEFORE
-            // stripTags discards their data-* metadata and (stale) anchor text. Extraction
-            // runs against the original, case-preserved markup so link target noteIds still
-            // resolve (normalize() lowercases, which would corrupt the ids).
+            // Runs before stripTags(), which discards the data-* metadata and anchor text, and
+            // against the original markup, because normalize() lowercases the noteIds it needs.
             const injectedText = extractLinkSearchText(originalContent, resolveNoteTitle);
 
             // Content size already filtered at DB level, safe to process
             content = stripTags(content);
 
             if (injectedText) {
-                // Normalize the appended text the same way the body was normalized above.
-                // Extraction ran against the case-preserved original so link-target noteIds
-                // still resolved, but the default single-token content match lowercases the
-                // query token and does a raw `content.includes()` (see note_content_fulltext
-                // matchesContent), so the injected titles/metadata must be lowercased and
-                // diacritic-stripped too — otherwise `special` misses a linked "Special Topic"
-                // and `zurich` misses a linked "Zürich" in phase 1.
+                // The body above was normalized, and matchesContent() compares a lowercased query
+                // token against the raw string, so the injected text must be normalized too.
                 content = `${content} ${normalize(injectedText)}`;
             }
         }
@@ -141,18 +131,13 @@ function processCanvasContent(content: string) {
 /** Metadata attributes to index from link previews, in the order they are appended. */
 const LINK_PREVIEW_ATTRIBUTES = ["data-url", "data-title", "data-description", "data-site-name"] as const;
 
-// Matches the opening tag of a link-embed section or link-mention span (serialized by
-// packages/ckeditor5/src/plugins/link_embed/link_embed_editing.ts dataDowncast).
+// Must match what link_embed_editing.ts writes in its dataDowncast.
 const LINK_PREVIEW_TAG_RE = /<(?:section|span)\b[^>]*\bclass=["'][^"']*\blink-(?:embed|mention)\b[^"']*["'][^>]*>/gi;
 
-// Copy of services/notes.ts findInternalLinks: captures the target noteId of a reference
-// link or plain internal link. Kept inline so the preprocessor stays free of the notes service.
+// Mirrors findInternalLinks() in services/notes.ts, inlined to keep that import out of here.
 const INTERNAL_LINK_RE = /href="[^"]*#root[a-zA-Z0-9_\/]*\/([a-zA-Z0-9_]+)\/?"/g;
 
-/**
- * Builds a space-separated bag of extra searchable text from a text/html note's link
- * previews (their data-* metadata) and internal-link targets (their resolved titles).
- */
+/** Collects extra searchable text from a note's link previews and internal-link targets. */
 function extractLinkSearchText(content: string, resolveNoteTitle?: NoteTitleResolver): string {
     const parts: string[] = [];
 

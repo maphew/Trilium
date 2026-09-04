@@ -1082,8 +1082,6 @@ table.promoted-attributes-in-tooltip th {
     word-wrap: break-word;
 }
 
-/* Highlight the server-injected <b> tags with the same vars the snippet cards
-   (SearchResultsList.css / ListOrGridView.css) and quick-search dropdown use. */
 .aa-dropdown-menu .aa-suggestion .search-result-content b {
     background: var(--note-list-view-search-result-highlight-background);
     color: var(--note-list-view-search-result-highlight-color);

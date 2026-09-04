@@ -57,8 +57,7 @@ export function ReadOnlyCode({ note, viewScope, ntxId, noteContext, parentCompon
 
         setContent(newContent);
 
-        // Jump to the first search match (and pre-fill the find bar) when navigated from search
-        // results; the same-note re-click case is covered by useSearchTermsConsumer below.
+        // Jump to the first search match when navigated from search results.
         consumeSearchTerms(noteContext, ntxId);
     }, [ blob ]);
     useSearchTermsConsumer(note, noteContext, ntxId);
@@ -122,9 +121,7 @@ export function EditableCode({ note, ntxId, noteContext, debounceUpdate, parentC
             codeEditor.setMimeType(note.mime);
             codeEditor.clearHistory();
 
-            // Jump to the first search match (and pre-fill the find bar) when navigated from search
-            // results. Runs once the content has loaded into the editor; the same-note re-click case
-            // is covered by useSearchTermsConsumer below.
+            // Jump to the first search match when navigated from search results.
             consumeSearchTerms(noteContext, ntxId);
         },
         dataSaved,

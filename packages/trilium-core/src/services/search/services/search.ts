@@ -589,7 +589,7 @@ function extractContentSnippet(noteId: string, searchTokens: HighlightedTokenInf
             // Find the first line that contains a search token
             let firstMatchLine = -1;
             for (let i = 0; i < normalizedLines.length; i++) {
-                if (tokenInfos.some((info) => tokenInfoMatches(info, normalizedLines[i]))) {
+                if (tokenInfos.some((info) => tokenInfoFirstIndex(info, normalizedLines[i]) !== -1)) {
                     firstMatchLine = i;
                     break;
                 }
@@ -664,7 +664,7 @@ function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenI
             const normalizedName = normalizePreservingLength(attrName);
             const normalizedValue = normalizePreservingLength(attrValue);
             const hasMatch = tokenInfos.some((info) =>
-                tokenInfoMatches(info, normalizedName) || tokenInfoMatches(info, normalizedValue));
+                tokenInfoFirstIndex(info, normalizedName) !== -1 || tokenInfoFirstIndex(info, normalizedValue) !== -1);
 
             if (hasMatch) {
                 matchingAttributes.push({
@@ -858,16 +858,9 @@ function tokenInfoFirstIndex(info: HighlightedTokenInfo, normalizedText: string)
     return normalizedText.indexOf(normalizePreservingLength(info.token));
 }
 
-/** Whether a token matches anywhere within already-normalized text. */
-function tokenInfoMatches(info: HighlightedTokenInfo, normalizedText: string): boolean {
-    return tokenInfoFirstIndex(info, normalizedText) !== -1;
-}
-
 /**
- * Normalizes the highlight token input for {@link highlightSearchResults}: widens
- * legacy strings to plain token infos, strips marker/angle characters from plain
- * tokens (regex patterns are kept verbatim), drops blanks, dedupes, and sorts
- * longest-first so longer matches win before shorter ones.
+ * Widens, cleans, dedupes and sorts the highlight tokens for `highlightSearchResults()`. The sort
+ * is longest-first so a longer match wins over a shorter one it contains.
  */
 function normalizeHighlightTokens(tokens: HighlightedTokenInfo[] | string[]): HighlightedTokenInfo[] {
     const seen = new Set<string>();
@@ -905,11 +898,9 @@ function buildHighlightRegex(info: HighlightedTokenInfo): RegExp | null {
 }
 
 /**
- * Wraps every match of one token in a single field with `{`/`}` markers (later
- * turned into `<b>`/`</b>`). Match positions are found on a length-preserving
- * normalization so they align 1:1 with the original field. The wrap count is
- * capped to bound pathological regex patterns, and zero-width matches break the
- * loop rather than spin forever.
+ * Wraps every match of one token in a field with the `{`/`}` markers that `renderHighlights()`
+ * turns into `<b>`/`</b>`. Positions come from a length-preserving normalization, so they align
+ * 1:1 with the original field.
  */
 function highlightField(field: string | undefined, info: HighlightedTokenInfo): string | undefined {
     if (!field) {
@@ -929,7 +920,8 @@ function highlightField(field: string | undefined, info: HighlightedTokenInfo): 
             break; // Zero-width match can't be highlighted; avoid an infinite loop.
         }
 
-        field = wrapText(field, match.index, matchLength, "{", "}");
+        const matchEnd = match.index + matchLength;
+        field = `${field.slice(0, match.index)}{${field.slice(match.index, matchEnd)}}${field.slice(matchEnd)}`;
         // Two marker characters were inserted, so advance past them as well.
         regex.lastIndex += 2;
 
@@ -939,10 +931,6 @@ function highlightField(field: string | undefined, info: HighlightedTokenInfo): 
     }
 
     return field;
-}
-
-function wrapText(text: string, start: number, length: number, prefix: string, suffix: string) {
-    return text.substring(0, start) + prefix + text.substr(start, length) + suffix + text.substring(start + length);
 }
 
 /** Escapes the text for display, then turns the { } markers into the <b> tags they stand for. */

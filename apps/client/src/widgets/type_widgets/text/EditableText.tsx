@@ -67,9 +67,7 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
             contentRef.current = newContent;
             watchdogRef.current?.editor?.setData(newContent);
 
-            // Jump to the first search match (and pre-fill the find bar) when navigated from search
-            // results. Runs once the content has loaded into the editor; the same-note re-click case
-            // is covered by useSearchTermsConsumer below.
+            // Jump to the first search match when navigated from search results.
             consumeSearchTerms(noteContext, ntxId);
 
             // Scroll to bookmark anchor if navigated with ?bookmark=...
