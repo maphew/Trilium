@@ -1695,12 +1695,35 @@ describe("Board column rename", () => {
         expect(card.style.height).toBe("");
     });
 
-    /** An attribute change as the server reports one: the row is tracked as well as carried. */
-    function attributeChanged(name: string, noteId = "someNote") {
+    /** A read of the templates the test itself answers, in the order it chooses. */
+    interface Answer {
+        resolve: (options: NoteTypeOption[]) => void;
+        reject: (error: Error) => void;
+    }
+
+    /** What the pill in the editor a card is named in reads, which is the board's own template. */
+    async function pillNames(container: HTMLElement) {
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        return slot?.querySelector(".card-template-pill button")?.textContent ?? "";
+    }
+
+    /**
+     * An attribute change as the server reports one: the row is tracked as well as carried.
+     *
+     * A label taken away is reported as a change like any other, the row read from the database
+     * rather than from becca and so carrying what the label was.
+     */
+    function attributeChanged(name: string, noteId = "someNote", isDeleted = false) {
         const results = new LoadResults([ {
             entityName: "attributes",
             entityId: "attr1",
-            entity: { attributeId: "attr1", noteId, type: "label", name }
+            entity: { attributeId: "attr1", noteId, type: "label", name, isDeleted }
         } as never ]);
         results.addAttribute("attr1", "other");
         return results;
@@ -2301,6 +2324,14 @@ describe("Board column rename", () => {
             await flush();
         });
         expect(templateReads).toBe(before + 1);
+
+        // And a note that stops being a template, which is the same row with `isDeleted` set.
+        await act(async () => {
+            await host.handleEvent("entitiesReloaded",
+                { loadResults: attributeChanged("template", "someNote", true) });
+            await flush();
+        });
+        expect(templateReads).toBe(before + 2);
     });
 
     /**
@@ -2338,6 +2369,14 @@ describe("Board column rename", () => {
                 await flush();
             });
             expect(reading.mock.calls.length).toBe(before + 1);
+
+            // And an icon taken away again, which is the same row with `isDeleted` set.
+            await act(async () => {
+                await host.handleEvent("entitiesReloaded",
+                    { loadResults: attributeChanged("iconClass", "tmpl1", true) });
+                await flush();
+            });
+            expect(reading.mock.calls.length).toBe(before + 2);
         } finally {
             reading.mockImplementation(stockAnswer ?? (async () => NOTE_TYPE_OPTIONS));
         }
@@ -2349,10 +2388,11 @@ describe("Board column rename", () => {
      * answer to the older read is not what the board is left offering.
      */
     it("keeps the newest reading of what a card can be made from", async () => {
-        const answers: Array<(options: NoteTypeOption[]) => void> = [];
+        const answers: Answer[] = [];
         const reading = vi.mocked(getNoteTypeOptions);
         const stockAnswer = reading.getMockImplementation();
-        reading.mockImplementation(() => new Promise((resolve) => { answers.push(resolve); }));
+        reading.mockImplementation(() =>
+            new Promise((resolve, reject) => { answers.push({ resolve, reject }); }));
 
         try {
             // Both reads are made, and neither has been answered.
@@ -2366,20 +2406,45 @@ describe("Board column rename", () => {
 
             // The newer read is answered first, and the older one after it, with nothing at all.
             await act(async () => {
-                answers[1](NOTE_TYPE_OPTIONS);
-                answers[0]([]);
+                answers[1].resolve(NOTE_TYPE_OPTIONS);
+                answers[0].resolve([]);
                 await flush();
             });
 
             // The pill names what a card would be made from, which the older answer has none of.
-            const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
-                .querySelector<HTMLElement>(".board-new-item");
+            expect(await pillNames(container)).toContain("Text");
+        } finally {
+            reading.mockImplementation(stockAnswer ?? (async () => NOTE_TYPE_OPTIONS));
+        }
+    });
+
+    /**
+     * A read that fails leaves no answer at all, so what an older read answered is what the board
+     * has: it is taken rather than thrown away for a newer read that came back with nothing.
+     */
+    it("takes an older answer when the newer read fails", async () => {
+        const answers: Answer[] = [];
+        const reading = vi.mocked(getNoteTypeOptions);
+        const stockAnswer = reading.getMockImplementation();
+        reading.mockImplementation(() =>
+            new Promise((resolve, reject) => { answers.push({ resolve, reject }); }));
+
+        try {
+            const { host, container } = await setup();
             await act(async () => {
-                slot?.click();
+                await host.handleEvent("entitiesReloaded",
+                    { loadResults: attributeChanged("template") });
                 await flush();
             });
-            expect(slot?.querySelector(".card-template-pill button")?.textContent)
-                .toContain("Text");
+            expect(answers.length).toBe(2);
+
+            await act(async () => {
+                answers[1].reject(new Error("offline"));
+                answers[0].resolve(NOTE_TYPE_OPTIONS);
+                await flush();
+            });
+
+            expect(await pillNames(container)).toContain("Text");
         } finally {
             reading.mockImplementation(stockAnswer ?? (async () => NOTE_TYPE_OPTIONS));
         }

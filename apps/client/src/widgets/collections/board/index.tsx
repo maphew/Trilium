@@ -271,14 +271,18 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ availableTemplates, setAvailableTemplates ] = useState<NoteTypeOption[]>([]);
     const [ isPickingTemplates, setIsPickingTemplates ] = useState(false);
 
-    /** Which read of the templates the board is waiting for, counted so answers can be ordered. */
-    const templateRead = useRef(0);
+    /** How many reads of the templates were asked for, and the newest one answered. */
+    const readsAsked = useRef(0);
+    const readAnswered = useRef(0);
     const readTemplates = useCallback(() => {
-        const read = ++templateRead.current;
+        const read = ++readsAsked.current;
         getNoteTypeOptions().then((templates) => {
             // Two reads can be in flight at once, the one made on arrival and one a template being
-            // made asks for, and the answers need not come back in the order they were asked for.
-            if (read === templateRead.current) {
+            // made asks for. They need not answer in the order they were asked, and one of them
+            // can fail and leave no answer at all, so what is taken is what no newer answer has
+            // been taken over.
+            if (read > readAnswered.current) {
+                readAnswered.current = read;
                 setAvailableTemplates(templates);
             }
         }).catch((e) => console.error("Failed to read what a card can be made from:", e));
@@ -287,7 +291,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     useEffect(() => {
         readTemplates();
         // A read still in flight when the board goes has nothing left to answer.
-        return () => { templateRead.current++; };
+        return () => { readAnswered.current = readsAsked.current + 1; };
     }, [ readTemplates ]);
 
     // A board outlives the templates it read: one made while it stands would never be offered, and
