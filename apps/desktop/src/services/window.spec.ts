@@ -254,6 +254,7 @@ vi.mock("@triliumnext/core", async (importOriginal) => {
 const windowService = (await import("./window.js")).default;
 const { setupWindowing } = await import("./window.js");
 const { markStartupMetric } = await import("./startup_metrics.js");
+const { setupWebContentsSecurity } = await import("./web_contents_security.js");
 
 function fireOn(channel: string, event: unknown, ...args: unknown[]) {
     const fn = state.ipcOn.get(channel);
@@ -417,6 +418,21 @@ describe("window service", () => {
             const win = state.windows[state.windows.length - 1];
             expect(win.loadURL).toHaveBeenCalledWith("trilium-app://app/?extraWindow=1#root/abc");
             expect(win.webContents.session.setSpellCheckerLanguages).toHaveBeenCalled();
+        });
+
+        it("adopts a window the renderer opened through window.open", async () => {
+            state.optionBools = { spellCheckEnabled: false };
+            await windowService.createExtraWindow("#opener");
+            const opener = state.windows[state.windows.length - 1];
+
+            const child = new FakeBrowserWindow();
+            opener.webContents.fire("did-create-window", child);
+
+            expect(child.setMenuBarVisibility).toHaveBeenCalledWith(false);
+            expect(child.webContents.session.setSpellCheckerEnabled).toHaveBeenCalledWith(false);
+            state.ipcEmit.mockClear();
+            child.fire("focus");
+            expect(state.ipcEmit).toHaveBeenCalledWith("reload-tray");
         });
     });
 
@@ -769,10 +785,13 @@ describe("window service", () => {
             new FakeBrowserWindow();
         });
 
-        it("create-extra-window invokes createExtraWindow", async () => {
-            fireOn("create-extra-window", makeEvent(), { extraWindowHash: "#h" });
-            await new Promise((r) => setTimeout(r, 0));
-            expect(state.windows.some(w => w.loadURL.mock.calls.length > 0)).toBe(true);
+        it("hands the window-open policy the extra-window options, preload included", () => {
+            const [options] = vi.mocked(setupWebContentsSecurity).mock.calls.at(-1) ?? [];
+            const extraWindowOptions = options?.extraWindowOptions();
+            expect(extraWindowOptions?.width).toBe(1000);
+            const preload = extraWindowOptions?.webPreferences?.preload;
+            expect(preload).toMatch(/preload\.(compiled\.)?cjs$/);
+            expect(extraWindowOptions?.webPreferences?.nodeIntegration).toBe(false);
         });
 
         it("reload-all-windows reloads every window", () => {
