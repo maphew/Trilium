@@ -2080,7 +2080,6 @@
     "monospace_ligatures": "Programlama bağlantı harfleri",
     "monospace_ligatures_description": "Eş aralıklı yazı tipi destekliyorsa, != ve -> gibi karakter çiftlerini tek sembol olarak (≠, →) oluşturur. Metnin kendisi değişmez.",
     "size_relative_to_general": "Boyut, genel yazı tipi boyutuna görecelidir",
-    "not_all_fonts_available": "Listelenen tüm yazı tipleri sisteminizde mevcut olmayabilir",
     "apply_changes": "Değişiklikleri uygulamak için yeniden yükle",
     "generic-fonts": "Genel yazı tipleri",
     "sans-serif-system-fonts": "Sans-serif sistem yazı tipleri",
@@ -3459,7 +3458,6 @@
     "remove-from-board": "Panodan kaldır",
     "archive-note": "Notu arşivle",
     "unarchive-note": "Notu arşivden çıkar",
-    "move-to": "Taşı",
     "insert-above": "Üstüne ekle",
     "insert-below": "Altına ekle",
     "delete-column": "Sütunu sil",
@@ -3469,7 +3467,6 @@
     "add-column": "Sütun Ekle",
     "add-column-placeholder": "Sütun adını girin...",
     "edit-note-title": "Not başlığını düzenlemek için tıklayın",
-    "edit-column-title": "Sütun başlığını düzenlemek için tıklayın",
     "column-already-exists": "Bu sütun panoda zaten var.",
     "column-definition-save-error": "Sütunlar panoda kaydedildi, ancak durum özelliğine kaydedilemedi.",
     "status-alias": "Durum"

@@ -13,9 +13,11 @@ const isDev = process.env.NODE_ENV === "development";
 let plugins: any = [];
 
 if (isDev) {
-    // Add Prefresh for Preact HMR in development
     plugins = [
-        prefresh(),
+        // Prefresh keeps a growing list of vnodes per component type and scans it on every diff, so
+        // a view with thousands of instances of one component slows to a stop. Set TRILIUM_NO_HMR to
+        // work on such a view; components then reload with the page instead of in place.
+        ...(process.env.TRILIUM_NO_HMR ? [] : [ prefresh() ]),
         stripUniverHyphenation()
     ];
 } else {

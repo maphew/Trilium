@@ -171,6 +171,24 @@ describe("BrowserRouter result formatting", () => {
         expect(JSON.parse(decodeBody(res.body))).toEqual({ id: "x" });
     });
 
+    it("sends a string result as-is, so an HTML fragment is not JSON-escaped", async () => {
+        const router = new BrowserRouter();
+        router.get("/preview", () => "<table><td>a</td></table>");
+        const res = await router.dispatch("GET", "http://localhost/preview");
+        expect(res.status).toBe(200);
+        expect(res.headers["content-type"]).toContain("text/html");
+        expect(decodeBody(res.body)).toBe("<table><td>a</td></table>");
+    });
+
+    it("sends an error tuple's string as plain text, not a JSON-quoted copy", async () => {
+        const router = new BrowserRouter();
+        router.get("/bad", () => [400, "Description must be a string."]);
+        const res = await router.dispatch("GET", "http://localhost/bad");
+        expect(res.status).toBe(400);
+        expect(res.headers["content-type"]).toContain("text/plain");
+        expect(decodeBody(res.body)).toBe("Description must be a string.");
+    });
+
     it("serializes a plain object as a 200 JSON response", async () => {
         const router = new BrowserRouter();
         router.get("/obj", () => ({ ok: true }));

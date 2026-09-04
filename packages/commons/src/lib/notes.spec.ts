@@ -141,9 +141,27 @@ describe("getNoteIcon", () => {
         expect(icon).toBe("bx bxs-file-pdf");
     });
 
+    it("marks a font file as a font, whichever media type it arrived under", () => {
+        expect(getNoteIcon(buildArgs({ type: "file", mime: "font/woff2" }))).toBe("bx bx-font");
+        expect(getNoteIcon(buildArgs({ type: "file", mime: "application/x-font-ttf" }))).toBe("bx bx-font");
+        // EOT is no font Trilium can draw, so it stays a plain file.
+        expect(getNoteIcon(buildArgs({ type: "file", mime: "application/vnd.ms-fontobject" }))).toBe("bx bx-file");
+    });
+
     it("marks a GPX track as the journey it holds rather than as a file", () => {
         const icon = getNoteIcon(buildArgs({ type: "file", mime: "application/gpx+xml" }));
         expect(icon).toBe("bx bx-trip");
+    });
+
+    it("marks every spreadsheet format as a spreadsheet", () => {
+        for (const mime of [
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.oasis.opendocument.spreadsheet",
+            "application/vnd.ms-excel",
+            "text/csv"
+        ]) {
+            expect(getNoteIcon(buildArgs({ type: "file", mime }))).toBe("bx bx-spreadsheet");
+        }
     });
 
     it("falls back to the file icon for a file note with an unmapped mime", () => {
@@ -199,6 +217,8 @@ describe("getMimeIcon", () => {
         expect(getMimeIcon("image/gif")).toBe("bx bxs-file-gif");
         expect(getMimeIcon("image/png")).toBe("bx bx-image");
         expect(getMimeIcon("application/gpx+xml")).toBe("bx bx-trip");
+        expect(getMimeIcon("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")).toBe("bx bx-spreadsheet");
+        expect(getMimeIcon("text/csv")).toBe("bx bx-spreadsheet");
         expect(getMimeIcon("text/plain")).toBe("bx bx-file");
     });
 

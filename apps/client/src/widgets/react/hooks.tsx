@@ -33,6 +33,7 @@ import NoteContextAwareWidget from "../note_context_aware_widget";
 import { DragData } from "../note_tree";
 import { noteSavedDataStore } from "./NoteStore";
 import { NoteContextContext, ParentComponent, refToJQuerySelector } from "./react_utils";
+import type FAttachment from "../../entities/fattachment";
 
 export function useTriliumEvent<T extends EventNames>(eventName: T, handler: (data: EventData<T>) => void) {
     const parentComponent = useContext(ParentComponent);
@@ -737,8 +738,15 @@ export function useNoteLabelWithDefault(note: FNote | undefined | null, labelNam
 export function useNoteLabelBoolean(note: FNote | undefined | null, labelName: FilterLabelsByType<boolean>): [ boolean, (newValue: boolean) => void] {
     const [, forceRender] = useState({});
 
+    // Not on the first run: the render that mounted the component has already read the label, so
+    // forcing another draws every consumer twice for a value that has not changed. 72 components
+    // use this hook, and a board draws it once a card.
+    const seenNote = useRef<FNote | undefined | null>(undefined);
     useEffect(() => {
-        forceRender({});
+        if (seenNote.current !== undefined) {
+            forceRender({});
+        }
+        seenNote.current = note;
     }, [ note ]);
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
@@ -1364,6 +1372,26 @@ export function useContextualShortcutHints(hints: ShortcutHintDefinition | (() =
         };
     }, [ parentComponent ]);
     useDebugValue("contextual-shortcut-hints");
+}
+
+/**
+ * The element a ref points at, as state, so an effect keyed on it runs once the element is there.
+ *
+ * Filling a ref triggers no render, so an effect that reads `ref.current` in its dependencies never
+ * hears the element arrive. Containers drawn only once their content has loaded are the ordinary
+ * case for that.
+ */
+export function useTrackedElement<T extends HTMLElement>(ref: RefObject<T>): T | null {
+    const [ element, setElement ] = useState<T | null>(null);
+
+    // Every render, and set only where it changed, so this settles in one further pass.
+    useLayoutEffect(() => {
+        if (ref.current !== element) {
+            setElement(ref.current);
+        }
+    });
+
+    return element;
 }
 
 export function useSyncedRef<T>(externalRef?: Ref<T>, initialValue: T | null = null): RefObject<T> {
@@ -2177,4 +2205,22 @@ export function useDebouncedValue<T>(value: T, delay: number): T {
     }, [ value, delay ]);
 
     return settled;
+}
+
+export function useAttachments(note: FNote) {
+    const [ attachments, setAttachments ] = useState<FAttachment[]>([]);
+
+    function refresh() {
+        note.getAttachments().then(attachments => setAttachments(Array.from(attachments)));
+    }
+
+    useEffect(refresh, [ note ]);
+
+    useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
+        if (loadResults.getAttachmentRows().some((att) => att.attachmentId && att.ownerId === note.noteId)) {
+            refresh();
+        }
+    });
+
+    return attachments;
 }

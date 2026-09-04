@@ -159,7 +159,7 @@ jobs:
           path: upload
 
       - name: Publish stable release
-        uses: softprops/action-gh-release@v3.0.2
+        uses: softprops/action-gh-release@v3.0.3
         with:
           draft: false
           body_path: ${{ runner.temp }}/release-body.md

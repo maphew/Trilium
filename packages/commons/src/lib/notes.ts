@@ -2,6 +2,7 @@
  * @module notes Common logic for notes (across front-end and back-end)
  */
 
+import { isFontMimeType } from "./font_mimes.js";
 import { MIME_TYPES_DICT } from "./mime_type.js";
 import { NoteType } from "./rows.js";
 
@@ -83,6 +84,11 @@ const FILE_MIME_MAPPINGS: Record<string, string> = {
     "application/vnd.oasis.opendocument.text": "bx bxs-file-doc",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "bx bxs-file-doc",
     "application/gpx+xml": "bx bx-trip",
+    // Workbooks kept as file notes or attachments, which `convertOfficeToHtml` previews as a grid.
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "bx bx-spreadsheet",
+    "application/vnd.oasis.opendocument.spreadsheet": "bx bx-spreadsheet",
+    "application/vnd.ms-excel": "bx bx-spreadsheet",
+    "text/csv": "bx bx-spreadsheet",
 };
 
 const IMAGE_MIME_MAPPINGS: Record<string, string> = {
@@ -165,6 +171,7 @@ export function getMimeIcon(mime: string | undefined | null): string {
 function getFileMimeIcon(mime: string): string {
     if (mime.startsWith("video/")) return "bx bx-video";
     if (mime.startsWith("audio/")) return "bx bx-music";
+    if (isFontMimeType(mime)) return "bx bx-font";
     return lookUpMime(FILE_MIME_MAPPINGS, mime) ?? NOTE_TYPE_ICONS.file;
 }
 

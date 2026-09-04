@@ -1413,7 +1413,6 @@
     "note_tree_font": "Texto del árbol de notas",
     "note_detail_font": "Texto del documento",
     "monospace_font": "Texto monoespacio",
-    "not_all_fonts_available": "Es posible que no todas las fuentes enumeradas estén disponibles en su sistema",
     "generic-fonts": "Fuentes genéricas",
     "sans-serif-system-fonts": "Fuentes Sans-serif del sistema",
     "serif-system-fonts": "Fuentes Serif del sistema",
@@ -2420,7 +2419,6 @@
   },
   "board_view": {
     "delete-note": "Eliminar nota...",
-    "move-to": "Mover a",
     "insert-above": "Insertar arriba",
     "insert-below": "Insertar abajo",
     "delete-column": "Eliminar columna",
@@ -2432,7 +2430,6 @@
     "new-item-placeholder": "Ingresar título de la nota...",
     "add-column-placeholder": "Ingresar título de la columna...",
     "edit-note-title": "Haga clic para editar el título de la nota",
-    "edit-column-title": "Haga clic para editar el título de la columna",
     "remove-from-board": "Eliminar del tablero",
     "column-already-exists": "Esta columna ya existe en el tablero.",
     "column-definition-save-error": "Las columnas se guardaron en el tablero, pero no se pudieron guardar en el atributo de estado.",

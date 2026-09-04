@@ -138,6 +138,16 @@ export function hardenWebviewPreferences(webPreferences: Electron.WebPreferences
  *   main-process `electronApi.clipboard.readText()` bridge, so the sensitive
  *   `clipboard-read` permission never has to be granted to the whole session
  *   (which would also expose it to embedded remote iframes).
+ *   `fileSystem` covers the File System Access API, which bundled third-party
+ *   editors call directly rather than through `electronApi` — the Excalidraw
+ *   canvas reaches `showOpenFilePicker()` / `showSaveFilePicker()` via
+ *   `browser-fs-access` to insert an image or export a drawing. Chromium only
+ *   hands out a handle for a file the user picked in an OS dialog, so the grant
+ *   cannot reach anything the user did not choose.
+ *   `local-fonts` lets the appearance settings offer the fonts installed on
+ *   this device (see `listSystemFonts`); Chromium routes it through the
+ *   *check* handler rather than the request handler, so granting it here is
+ *   what keeps the picker from falling back to the stock list.
  * - `guest`: the `<webview>` partition hosting arbitrary remote pages from
  *   Web View notes. Fullscreen only (embedded video players) — a remote page
  *   must not show OS notifications that appear to come from Trilium.
@@ -148,7 +158,7 @@ export function hardenWebviewPreferences(webPreferences: Electron.WebPreferences
  * the default session. Fullscreen is the exception — granted for any origin.
  */
 const PERMISSION_ALLOWLIST = {
-    app: new Set(["clipboard-sanitized-write", "fullscreen", "notifications"]),
+    app: new Set(["clipboard-sanitized-write", "fileSystem", "fullscreen", "local-fonts", "notifications"]),
     guest: new Set(["fullscreen"])
 } as const;
 

@@ -1399,7 +1399,6 @@
     "note_tree_font": "Notizbaum-Schriftart",
     "note_detail_font": "Notiz-Detail-Schriftart",
     "monospace_font": "Monospace-Schriftart (Code)",
-    "not_all_fonts_available": "Möglicherweise sind nicht alle aufgelisteten Schriftarten auf Ihrem System verfügbar",
     "generic-fonts": "Generische Schriftarten",
     "sans-serif-system-fonts": "Sans-serif Systemschriftarten",
     "serif-system-fonts": "Serif Systemschriftarten",
@@ -2381,7 +2380,6 @@
   },
   "board_view": {
     "delete-note": "Notiz löschen...",
-    "move-to": "Verschieben zu",
     "insert-above": "Oberhalb einfügen",
     "insert-below": "Unterhalb einfügen",
     "delete-column": "Spalte entfernen",
@@ -2394,7 +2392,6 @@
     "new-item-placeholder": "Notiztitel eingeben...",
     "add-column-placeholder": "Spaltenname eingeben...",
     "edit-note-title": "Zum Bearbeiten des Notiztitels klicken",
-    "edit-column-title": "Zum Bearbeiten des Spaltentitels klicken",
     "column-already-exists": "Die Spalte ist auf dem Board bereits vorhanden."
   },
   "command_palette": {
