@@ -6,7 +6,7 @@ Note search enables you to find notes by searching for text in the title, conten
 ## Accessing the search
 
 *   From the <a class="reference-link" href="../UI%20Elements/Launch%20Bar.md">Launch Bar</a>, look for the dedicated search button.
-*   To limit the search to a note and its children, select _Search from subtree_ from the <a class="reference-link" href="../UI%20Elements/Note%20Tree/Note%20tree%20contextual%20menu.md">Note tree contextual menu</a> or press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>.
+*   To limit the search to a note and its children, select _Search from subtree_ from the <a class="reference-link" href="../UI%20Elements/Note%20Tree/Note%20tree%20contextual%20menu.md">Note tree contextual menu</a> or press <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">Shift</kbd>+<kbd spellcheck="false">S</kbd>.
 
 ## Interaction
 
@@ -57,7 +57,14 @@ The options available are:
 
 ## Viewing search results
 
-Results appear below the search pane as a list of **snippet cards**. Each card shows the note title and a short excerpt of the text that matched, with your search terms highlighted.
+Results appear below the search pane as a list of **snippet cards**. Each card shows the note title and a short excerpt of the text that matched.
+
+The search will also highlight the words from the title or content that matched:
+
+*   With a solid underlined green for a direct match;
+*   With a dotted underline orange for a partial match (matched by the fuzzy search).
+
+In addition: 
 
 *   The **total number of results** is always shown, so you can immediately tell how broad a query is.
 *   A **page-size selector** lets you choose how many results to display per page. Your choice is remembered and synced across your devices (stored in the `searchResultsPageSize` option), so you do not have to reset it on every device.

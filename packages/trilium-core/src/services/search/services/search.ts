@@ -23,6 +23,23 @@ import { getSql } from "../../sql/index.js";
 /** Cap on marker wraps per snippet field per token, bounding pathological regex patterns. */
 const MAX_HIGHLIGHT_WRAPS = 50;
 
+/** Class on a fuzzy match's tag, so the client can mute it against the exact highlights. */
+export const FUZZY_HIGHLIGHT_CLASS = "search-fuzzy-match";
+
+/**
+ * Markers wrapped around a match before the text is escaped; `renderHighlights()` turns each
+ * pair into its tag. Braces are stripped from the source text and from the tokens beforehand,
+ * so the only ones left are the pairs inserted here and doubling one is unambiguous.
+ */
+const MARKERS = {
+    plain: { open: "{", close: "}" },
+    regex: { open: "{", close: "}" },
+    fuzzy: { open: "{{", close: "}}" }
+} as const;
+
+/** Every marker character, stripped from source text and tokens so neither can forge a tag. */
+const MARKER_CHARS = /[{}]/g;
+
 export interface SearchNoteResult {
     searchResultNoteIds: string[];
     highlightedTokens: string[];
@@ -752,7 +769,7 @@ function buildSearchResultDetails(results: SearchResult[], searchContext: Search
         // alone. Without it the card carries no visible reason for being in the results at all.
         const matchedWords = searchContext.contentMatches.get(result.noteId)?.matchedWords ?? [];
         const noteTokenInfos: HighlightedTokenInfo[] = matchedWords.length
-            ? [ ...tokenInfos, ...matchedWords.map((token) => ({ token, type: "plain" as const })) ]
+            ? [ ...tokenInfos, ...matchedWords.map((token) => ({ token, type: "fuzzy" as const })) ]
             : tokenInfos;
 
         result.contentSnippet = extractContentSnippet(result.noteId, noteTokenInfos);
@@ -791,16 +808,16 @@ function highlightSearchResults(searchResults: SearchResult[], tokens: Highlight
     // like "Issues caused by <div>" would lose its opening bracket.
     // The only characters that have to go are the { } markers themselves.
     for (const result of searchResults) {
-        result.highlightedNotePathTitle = result.notePathTitle.replace(/[{}]/g, "");
+        result.highlightedNotePathTitle = result.notePathTitle.replace(MARKER_CHARS, "");
 
         // Initialize highlighted content snippet, preserving newlines for later conversion to <br>
         if (result.contentSnippet) {
-            result.highlightedContentSnippet = result.contentSnippet.replace(/[{}]/g, "");
+            result.highlightedContentSnippet = result.contentSnippet.replace(MARKER_CHARS, "");
         }
 
         // Initialize highlighted attribute snippet
         if (result.attributeSnippet) {
-            result.highlightedAttributeSnippet = result.attributeSnippet.replace(/[{}]/g, "");
+            result.highlightedAttributeSnippet = result.attributeSnippet.replace(MARKER_CHARS, "");
         }
     }
 
@@ -872,9 +889,9 @@ function normalizeHighlightTokens(tokens: HighlightedTokenInfo[] | string[]): Hi
     const result: HighlightedTokenInfo[] = [];
 
     for (const info of toTokenInfos(tokens)) {
-        // { } are used as <b>/</b> markers and < can break the surrounding HTML, so we
-        // strip them from plain tokens; regex patterns keep them (e.g. `a{2}` quantifiers).
-        const token = info.type === "regex" ? info.token : info.token.replace(/[<>{}]/g, "");
+        // Braces are the markers and < can break the surrounding HTML, so strip them from the
+        // literal tokens; regex patterns keep them (e.g. `a{2}` quantifiers).
+        const token = info.type === "regex" ? info.token : info.token.replace(/[<>]/g, "").replace(MARKER_CHARS, "");
 
         if (!token.trim() || seen.has(token)) {
             continue;
@@ -905,9 +922,9 @@ function buildHighlightRegex(info: HighlightedTokenInfo): RegExp | null {
 }
 
 /**
- * Wraps every match of one token in a field with the `{`/`}` markers that `renderHighlights()`
- * turns into `<b>`/`</b>`. Positions come from a length-preserving normalization, so they align
- * 1:1 with the original field.
+ * Wraps every match of one token in a field with the markers that `renderHighlights()` turns into
+ * tags. Positions come from a length-preserving normalization, so they align 1:1 with the original
+ * field.
  */
 function highlightField(field: string | undefined, info: HighlightedTokenInfo): string | undefined {
     if (!field) {
@@ -919,6 +936,7 @@ function highlightField(field: string | undefined, info: HighlightedTokenInfo): 
         return field;
     }
 
+    const { open, close } = MARKERS[info.type];
     let match: RegExpExecArray | null;
     let wraps = 0;
     while ((match = regex.exec(normalizePreservingLength(field))) !== null) {
@@ -928,9 +946,9 @@ function highlightField(field: string | undefined, info: HighlightedTokenInfo): 
         }
 
         const matchEnd = match.index + matchLength;
-        field = `${field.slice(0, match.index)}{${field.slice(match.index, matchEnd)}}${field.slice(matchEnd)}`;
-        // Two marker characters were inserted, so advance past them as well.
-        regex.lastIndex += 2;
+        field = `${field.slice(0, match.index)}${open}${field.slice(match.index, matchEnd)}${close}${field.slice(matchEnd)}`;
+        // The markers were inserted into the field, so advance past them as well.
+        regex.lastIndex += open.length + close.length;
 
         if (++wraps >= MAX_HIGHLIGHT_WRAPS) {
             break;
@@ -940,7 +958,14 @@ function highlightField(field: string | undefined, info: HighlightedTokenInfo): 
     return field;
 }
 
-/** Escapes the text for display, then turns the { } markers into the <b> tags they stand for. */
+/**
+ * Escapes the text for display, then turns the markers into the tags they stand for. The doubled
+ * fuzzy pair is replaced first, so its braces are consumed before the single-brace pass runs.
+ */
 function renderHighlights(text: string) {
-    return escapeHtml(text).replace(/{/g, "<b>").replace(/}/g, "</b>");
+    return escapeHtml(text)
+        .replace(/\{\{/g, `<b class="${FUZZY_HIGHLIGHT_CLASS}">`)
+        .replace(/\}\}/g, "</b>")
+        .replace(/{/g, "<b>")
+        .replace(/}/g, "</b>");
 }

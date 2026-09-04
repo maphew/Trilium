@@ -140,6 +140,7 @@
     --quick-search-focus-color: white;
     --quick-search-result-content-background: #0000004d;
     --quick-search-result-highlight-color: #a4d995;
+    --quick-search-result-fuzzy-highlight-color: #efb075;
 
     --left-pane-collapsed-border-color: #0009;
     --left-pane-background-color: #1f1f1f;
@@ -191,7 +192,7 @@
 
     --right-pane-heading-color: gray;
     --right-pane-peek-background: #303030dc;
-    
+
     --peek-pane-backdrop-color: #00000032;
     --peek-pane-shadow-color: #000000a8;
 
@@ -343,6 +344,7 @@
     --note-list-view-large-icon-color: var(--note-icon-color);
     --note-list-view-search-result-highlight-background: transparent;
     --note-list-view-search-result-highlight-color: var(--quick-search-result-highlight-color);
+    --note-list-view-search-result-fuzzy-highlight-color: var(--quick-search-result-fuzzy-highlight-color);
     --note-list-view-content-background: rgba(0, 0, 0, .2);
     --note-list-view-content-search-result-highlight-background: var(--quick-search-result-highlight-color);
     --note-list-view-content-search-result-highlight-color: black;

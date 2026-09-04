@@ -111,6 +111,14 @@ const TPL = /*html*/`
         text-decoration: underline;
     }
 
+    .quick-search .search-result-title b.search-fuzzy-match,
+    .quick-search .search-result-content b.search-fuzzy-match,
+    .quick-search .search-result-attributes b.search-fuzzy-match {
+        color: var(--quick-search-result-fuzzy-highlight-color, #e47b19);
+        font-weight: 400;
+        text-decoration: underline dotted;
+    }
+
     .quick-search .dropdown-divider {
         margin: 0;
     }

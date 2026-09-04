@@ -341,7 +341,12 @@ export interface SubtreeSizeResponse {
  */
 export interface HighlightedTokenInfo {
     token: string;
-    type: "plain" | "regex";
+    /**
+     * `plain` is matched literally and `regex` (from `%=`) as a regular expression. `fuzzy` is a
+     * word the search accepted in place of one the user typed, matched literally but rendered in a
+     * muted style so an approximate hit does not read as an exact one.
+     */
+    type: "plain" | "regex" | "fuzzy";
 }
 
 /** Request body for `POST /api/search-note/:noteId/result-details` (max 100 noteIds). */

@@ -131,6 +131,16 @@
         font-weight: 600;
         text-decoration: underline;
     }
+
+    /* A word the search accepted in place of one that was typed: a different hue from the same
+       family, not bold, dotted, so it reads as an approximate match rather than something the
+       query actually contained. */
+    .search-result-card-snippet b.search-fuzzy-match,
+    .search-result-card-badges b.search-fuzzy-match {
+        color: var(--note-list-view-search-result-fuzzy-highlight-color);
+        font-weight: 400;
+        text-decoration: underline dotted;
+    }
 }
 
 @keyframes search-result-skeleton {

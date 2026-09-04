@@ -1021,7 +1021,7 @@ describe("Search", () => {
             const detail = detailsFor("orbiter").find((d) => d.noteId === asimov.noteId);
 
             expect(detail?.contentSnippet).toContain("writer");
-            expect(detail?.highlightedContentSnippet).toContain("<b>writer</b>");
+            expect(detail?.highlightedContentSnippet).toContain(`<b class="search-fuzzy-match">writer</b>`);
         });
 
         it("keeps one note's fuzzy word out of another note's highlighting", () => {
@@ -1035,8 +1035,21 @@ describe("Search", () => {
             // The exact match highlights only what was typed, even though "writer" is the word
             // that pulled the other note in and appears here too.
             expect(exact?.highlightedContentSnippet).toContain("<b>Orbiter</b>");
-            expect(exact?.highlightedContentSnippet).not.toContain("<b>writer</b>");
-            expect(fuzzy?.highlightedContentSnippet).toContain("<b>writer</b>");
+            expect(exact?.highlightedContentSnippet).not.toContain("search-fuzzy-match");
+            expect(fuzzy?.highlightedContentSnippet).toContain(`<b class="search-fuzzy-match">writer</b>`);
+        });
+
+        it("marks an exact hit and a fuzzy stand-in apart in the same snippet", () => {
+            // "rocket" is in the note and "orbiter" is not, so the note only survives phase 2 by
+            // accepting "writer" for "orbiter". The two have to render differently, or the word
+            // the user never typed reads exactly like the word they did.
+            const both = contentNote("Both", "<p>The rocket and the writer met</p>");
+
+            const detail = detailsFor("orbiter rocket").find((d) => d.noteId === both.noteId);
+
+            expect(detail?.highlightedContentSnippet).toBe(
+                `The <b>rocket</b> and the <b class="search-fuzzy-match">writer</b> met`
+            );
         });
     });
 

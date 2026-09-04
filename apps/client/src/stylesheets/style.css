@@ -1089,6 +1089,12 @@ table.promoted-attributes-in-tooltip th {
     text-decoration: underline;
 }
 
+.aa-dropdown-menu .aa-suggestion .search-result-content b.search-fuzzy-match {
+    color: var(--note-list-view-search-result-fuzzy-highlight-color);
+    font-weight: 400;
+    text-decoration: underline dotted;
+}
+
 .aa-dropdown-menu .aa-suggestion p {
     padding: 0;
     margin: 0;

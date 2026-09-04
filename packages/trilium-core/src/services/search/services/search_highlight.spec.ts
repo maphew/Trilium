@@ -90,6 +90,29 @@ describe("highlightSearchResults", () => {
         expect(result.highlightedContentSnippet).toBe("<b>coool</b> result");
     });
 
+    it("renders a fuzzy token in its own tag so it does not read as an exact hit", () => {
+        const result = makeResult("Note", "hello match world");
+        searchService.highlightSearchResults([result], [{ token: "match", type: "fuzzy" }]);
+        expect(result.highlightedContentSnippet).toBe(`hello <b class="search-fuzzy-match">match</b> world`);
+    });
+
+    it("keeps the two marker pairs apart when both appear in one field", () => {
+        const result = makeResult("Note", "exact and fuzzy");
+        searchService.highlightSearchResults([result], [
+            { token: "exact", type: "plain" },
+            { token: "fuzzy", type: "fuzzy" }
+        ]);
+        expect(result.highlightedContentSnippet).toBe(
+            `<b>exact</b> and <b class="search-fuzzy-match">fuzzy</b>`
+        );
+    });
+
+    it("strips braces out of the text so it cannot forge either marker", () => {
+        const result = makeResult("Note", "a {{match}} here");
+        searchService.highlightSearchResults([result], [{ token: "match", type: "plain" }]);
+        expect(result.highlightedContentSnippet).toBe("a <b>match</b> here");
+    });
+
     it("skips invalid regex patterns instead of throwing", () => {
         const result = makeResult("Note", "plain text");
         expect(() =>
