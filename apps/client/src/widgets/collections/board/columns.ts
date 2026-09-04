@@ -17,6 +17,9 @@ export const DEFAULT_GROUP_BY = "status";
 /** The icon a column shows until one is picked for it. */
 export const DEFAULT_COLUMN_ICON = "bx bx-circle";
 
+/** What a card is drawn with until an icon is picked for it, which is what a text note carries. */
+export const DEFAULT_CARD_ICON = "bx bx-note";
+
 /**
  * The value identifying the inbox column: the empty string, which is what a card with no
  * grouping value has.

@@ -523,32 +523,37 @@ describe("Board item context menu", () => {
         } as unknown as BoardApi;
 
         const listed = statusItems(api, "One");
-        expect(names(listed.slice(0, -1))).toEqual(columns.slice(0, 7));
+        expect(names(listed.slice(0, -1))).toEqual(columns.slice(0, 7).map(boxed));
 
         // Named by its icon: `t()` answers with nothing here, i18next never being initialised.
         const more = listed.at(-1);
         if (!more || !("items" in more) || !more.items) throw new Error("expected a more entry");
         expect("uiIcon" in more && more.uiIcon).toBe("bx bx-dots-horizontal-rounded");
-        expect(names(more.items)).toEqual([ "Eight", "Nine" ]);
+        expect(names(more.items)).toEqual([ "Eight", "Nine" ].map(boxed));
 
         // The card is in the ninth column, which stands in the menu itself along with the first
         // seven, and is gone from what the entry holds.
         const withNinth = statusItems(api, "Nine");
-        expect(names(withNinth.slice(0, -1))).toEqual([ ...columns.slice(0, 7), "Nine" ]);
+        expect(names(withNinth.slice(0, -1)))
+            .toEqual([ ...columns.slice(0, 7), "Nine" ].map(boxed));
         const rest = withNinth.at(-1);
         if (!rest || !("items" in rest) || !rest.items) throw new Error("expected a more entry");
-        expect(names(rest.items)).toEqual([ "Eight" ]);
+        expect(names(rest.items)).toEqual([ "Eight" ].map(boxed));
 
         // Seven of them fit as they are.
         expect(names(statusItems({ ...api, columns: columns.slice(0, 7) } as BoardApi, "One")))
-            .toEqual(columns.slice(0, 7));
+            .toEqual(columns.slice(0, 7).map(boxed));
     });
 
-    /** The names the menu shows, each boxed in a span the stylesheet sizes. */
+    /** The titles the menu shows, each name boxed in the span the stylesheet sizes. */
     function names(items: MenuItem<unknown>[]) {
-        return items.flatMap(item => item && "title" in item && item.title
-            ? [ item.title.replace(/<[^>]*>/g, "") ]
-            : []);
+        return items.flatMap(item =>
+            item && "title" in item && item.title ? [ item.title ] : []);
+    }
+
+    /** A name as the menu writes it, which is what `names` reads back. */
+    function boxed(name: string) {
+        return `<span class="board-column-name">${name}</span>`;
     }
 
     /** Opens the menu a card offers, and hands back what it was given to show. */

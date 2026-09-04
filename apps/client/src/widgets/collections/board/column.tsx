@@ -27,16 +27,13 @@ import { useScrollFade } from "../../react/scroll_fade";
  */
 const FOOTER_QUIET_MS = 5000;
 
-/** What a card is drawn with until an icon is picked for it, which is what a text note carries. */
-const DEFAULT_CARD_ICON = "bx bx-note";
-
 /** How long an open takes. Matches `--board-expand-duration` in the board's own rules. */
 const EXPAND_MS = 200;
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
 import Card from "./card";
-import { DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
+import { DEFAULT_CARD_ICON, DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
 import { openColumnContextMenu, openCreateCardMenu } from "./context_menu";
 
 interface DragContext {
