@@ -38,6 +38,12 @@
   --card-font-size: 0.9em;
   --card-line-height: 1.2;
   --card-padding: 0.6em;
+  /* The icon a card carries, and where it and the title stand from the card's leading edge. The
+     card and the editor it opens into are laid out from these, so switching between them moves
+     nothing. All three are worked out in the card's own font. */
+  --card-icon-size: 1em;
+  --card-icon-inset: 0.42rem;
+  --card-title-inset: 1.9em;
 }
 
 /* Lays nothing out: the columns stay the board's own flex items, and Preact has a parent of its own
@@ -358,15 +364,36 @@ body.mobile .board-view-container .board-add-column {
   opacity: 0.5;
 }
 
-.board-view-container .board-note .icon {
-  margin-inline-end: 0.25em;
-  display: inline;
+/*
+ * The title and the icon before it, which stand where the editor's field and picker do: the icon at
+ * `--card-icon-inset` from the card's edge and centred on the first line, the title at
+ * `--card-title-inset` with the lines below it kept off the icon, as the field's own padding keeps
+ * them.
+ *
+ * The card's padding is already in front of both, so each is drawn back by it.
+ */
+.board-view-container .board-note > .title {
+  display: flex;
+  align-items: flex-start;
+}
+
+.board-view-container .board-note > .title > .icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--card-icon-size);
+  height: calc(var(--card-line-height) * 1em);
+  margin-inline-start: calc(var(--card-icon-inset) - var(--card-padding));
+  margin-inline-end: calc(
+    var(--card-title-inset) - var(--card-icon-inset) - var(--card-icon-size));
 }
 
 .board-view-container .board-note > .edit-icon {
   position: absolute;
   top: 8px;
-  inset-inline-end: 4px;
+  /* The gap the icons in a card shared before the title took its own layout. */
+  inset-inline-end: calc(4px + 0.25em);
   padding: 2px;
   /* Masks the title it sits over, so it takes the card's own colour rather than the plain one. */
   background-color: inherit;
@@ -571,9 +598,9 @@ body.mobile .board-view-container .board-add-column {
  * worked out where it is used, and both sit in the card's own font.
  */
 .board-view-container .title-editor-field .title-editor-icon {
-  --note-icon-size: 15px;
+  --note-icon-size: var(--card-icon-size);
   --note-icon-container-padding-size: 4px;
-  --title-editor-icon-inset: 0.42rem;
+  --title-editor-icon-inset: var(--card-icon-inset);
   /* No disc behind it, and the colour the line itself is written in: it stands in the text being
      typed, not on a note's own header. */
   --note-icon-custom-background-color: transparent;
@@ -595,7 +622,7 @@ body.mobile .board-view-container .board-add-column {
    above, whose shorthand padding would otherwise take this back. */
 .board-view-container .title-editor-field textarea.form-control,
 .board-view-container .title-editor-field input.form-control {
-  padding-inline-start: 1.9em;
+  padding-inline-start: var(--card-title-inset);
 }
 
 /* And for the button, wherever there is one to make room for. Kept whether or not it is drawn just
