@@ -21,6 +21,7 @@ import LoadResults from "../../../services/load_results";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
+import { getNoteTypeOptions, type NoteTypeOption } from "../../../services/note_types";
 import { collectShortcutHints } from "../../../services/shortcut_hints";
 import BoardApi, { getPendingWrites } from "./api";
 import { DEFAULT_COLUMN_ICON, INBOX_COLUMN_ICON } from "./columns";
@@ -42,10 +43,10 @@ vi.mock("../../../services/i18n", () => ({
 // What a card can be made from. The listing itself is the app's and is tested there; the board is
 // handed a short list of it, the four it offers by default and one it does not.
 vi.mock("../../../services/note_types", () => ({
-    getNoteTypeOptions: async () => {
+    getNoteTypeOptions: vi.fn(async () => {
         templateReads++;
         return NOTE_TYPE_OPTIONS;
-    },
+    }),
     resolveNoteTypeOptions: (ids: string[], available: { id: string }[]) =>
         ids.flatMap(id => available.filter(option => option.id === id)),
     noteTypeOptionGroupTitle: (group: string) => `group:${group}`,
@@ -63,7 +64,7 @@ const NOTE_TYPE_OPTIONS = [
     [ "type:mermaid:text/mermaid", "Mermaid", "mermaid", "text/mermaid" ]
 ].map(([ id, title, type, mime ]) => ({
     id, title, icon: "bx bx-note", group: "type" as const, options: { type, mime }
-}));
+})) as NoteTypeOption[];
 
 vi.mock("../../react/IconPicker", () => ({
     IconPickerButton: ({ className, icon, onSelect, onOpened, onClosed }: {
@@ -1694,6 +1695,17 @@ describe("Board column rename", () => {
         expect(card.style.height).toBe("");
     });
 
+    /** An attribute change as the server reports one: the row is tracked as well as carried. */
+    function attributeChanged(name: string) {
+        const results = new LoadResults([ {
+            entityName: "attributes",
+            entityId: "attr1",
+            entity: { attributeId: "attr1", noteId: "someNote", type: "label", name }
+        } as never ]);
+        results.addAttribute("attr1", "other");
+        return results;
+    }
+
     /**
      * Names a card in the field a press of Enter opens below the given one, which is what makes it.
      *
@@ -2277,17 +2289,6 @@ describe("Board column rename", () => {
         const { host } = await setup();
         const before = templateReads;
 
-        /** An attribute change as the server reports one: the row is tracked as well as carried. */
-        const attributeChanged = (name: string) => {
-            const results = new LoadResults([ {
-                entityName: "attributes",
-                entityId: "attr1",
-                entity: { attributeId: "attr1", noteId: "someNote", type: "label", name }
-            } as never ]);
-            results.addAttribute("attr1", "other");
-            return results;
-        };
-
         // A change to something else leaves the list where it is.
         await act(async () => {
             await host.handleEvent("entitiesReloaded", { loadResults: attributeChanged("status") });
@@ -2300,6 +2301,48 @@ describe("Board column rename", () => {
             await flush();
         });
         expect(templateReads).toBe(before + 1);
+    });
+
+    /**
+     * Two reads can be in flight at once: the one the board makes as it arrives, and one a template
+     * being made or deleted asks for. The server need not answer in the order it was asked, so the
+     * answer to the older read is not what the board is left offering.
+     */
+    it("keeps the newest reading of what a card can be made from", async () => {
+        const answers: Array<(options: NoteTypeOption[]) => void> = [];
+        const reading = vi.mocked(getNoteTypeOptions);
+        const stockAnswer = reading.getMockImplementation();
+        reading.mockImplementation(() => new Promise((resolve) => { answers.push(resolve); }));
+
+        try {
+            // Both reads are made, and neither has been answered.
+            const { host, container } = await setup();
+            await act(async () => {
+                await host.handleEvent("entitiesReloaded",
+                    { loadResults: attributeChanged("template") });
+                await flush();
+            });
+            expect(answers.length).toBe(2);
+
+            // The newer read is answered first, and the older one after it, with nothing at all.
+            await act(async () => {
+                answers[1](NOTE_TYPE_OPTIONS);
+                answers[0]([]);
+                await flush();
+            });
+
+            // The pill names what a card would be made from, which the older answer has none of.
+            const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+                .querySelector<HTMLElement>(".board-new-item");
+            await act(async () => {
+                slot?.click();
+                await flush();
+            });
+            expect(slot?.querySelector(".card-template-pill button")?.textContent)
+                .toContain("Text");
+        } finally {
+            reading.mockImplementation(stockAnswer ?? (async () => NOTE_TYPE_OPTIONS));
+        }
     });
 
     /** The pill's last entry opens the dialog that decides what the board offers. */

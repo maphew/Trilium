@@ -271,18 +271,24 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ availableTemplates, setAvailableTemplates ] = useState<NoteTypeOption[]>([]);
     const [ isPickingTemplates, setIsPickingTemplates ] = useState(false);
 
+    /** Which read of the templates the board is waiting for, counted so answers can be ordered. */
+    const templateRead = useRef(0);
     const readTemplates = useCallback(() => {
-        let listening = true;
+        const read = ++templateRead.current;
         getNoteTypeOptions().then((templates) => {
-            if (listening) {
+            // Two reads can be in flight at once, the one made on arrival and one a template being
+            // made asks for, and the answers need not come back in the order they were asked for.
+            if (read === templateRead.current) {
                 setAvailableTemplates(templates);
             }
         }).catch((e) => console.error("Failed to read what a card can be made from:", e));
-
-        return () => { listening = false; };
     }, []);
 
-    useEffect(readTemplates, [ readTemplates ]);
+    useEffect(() => {
+        readTemplates();
+        // A read still in flight when the board goes has nothing left to answer.
+        return () => { templateRead.current++; };
+    }, [ readTemplates ]);
 
     // A board outlives the templates it read: one made while it stands would never be offered, and
     // one deleted would go on being offered until the board was drawn afresh. A template is a note
