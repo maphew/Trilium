@@ -2337,7 +2337,8 @@ describe("Board column rename", () => {
     /**
      * A template's icon is what the picker and the pill show, and an icon is a label on the note
      * rather than part of the note row: the change is reported as an attribute changing, which is
-     * not what a reloaded note reads as. Only the notes the board offers are watched for it.
+     * not what a reloaded note reads as. The label is not always `iconClass`, so any label on a
+     * note the board offers sends it back for the list. Notes it offers nothing from are its own.
      */
     it("reads the templates again when one it offers is given another icon", async () => {
         const reading = vi.mocked(getNoteTypeOptions);
@@ -2377,6 +2378,14 @@ describe("Board column rename", () => {
                 await flush();
             });
             expect(reading.mock.calls.length).toBe(before + 2);
+
+            // A note with no icon of its own wears its workspace's, which is another label again.
+            await act(async () => {
+                await host.handleEvent("entitiesReloaded",
+                    { loadResults: attributeChanged("workspaceIconClass", "tmpl1") });
+                await flush();
+            });
+            expect(reading.mock.calls.length).toBe(before + 3);
         } finally {
             reading.mockImplementation(stockAnswer ?? (async () => NOTE_TYPE_OPTIONS));
         }

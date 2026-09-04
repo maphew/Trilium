@@ -301,13 +301,13 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         const offered = new Set(availableTemplates
             .map((option) => option.options.templateNoteId)
             .filter((noteId) => !!noteId));
-        // A note taking `#template` or losing it changes what a card can be made from, and so does
-        // the icon of one already offered. An icon is a label rather than part of the note row, so
-        // a change to one is reported as the attribute changing and not as the note reloading.
+        // A note taking `#template` or losing it changes what a card can be made from. So does any
+        // attribute of a note already offered: the icon the picker shows comes from `iconClass`,
+        // from `workspaceIconClass` where there is none, and from a `#geoLocation` on a text note,
+        // all of them labels rather than part of the note row a reload would report.
         const templated = loadResults.getAttributeRows().some((attribute) =>
             attribute.name === "template"
-                || (attribute.name === "iconClass" && !!attribute.noteId
-                    && offered.has(attribute.noteId)));
+                || (!!attribute.noteId && offered.has(attribute.noteId)));
         const renamed = availableTemplates.some((option) =>
             option.options.templateNoteId
                 && loadResults.isNoteReloaded(option.options.templateNoteId));
