@@ -522,10 +522,13 @@ body.mobile .board-view-container .board-add-column {
   padding: 0;
 }
 
+/* One line stands exactly as tall as the card, or as the closed button; typing more grows it from
+   there. Stated rather than left to the field's own intrinsic height, which rounds a line of 1.2em
+   up to a whole pixel and leaves a card being edited a fraction taller than the same card is when
+   it is not. */
+.board-view-container .board-note.editing textarea,
 .board-view-container .board-new-item textarea.form-control {
-  /* One line stands exactly as tall as the closed button; typing more grows it from there. */
   min-height: calc(var(--card-line-height) * 1em + 2 * var(--card-padding));
-  height: calc(var(--card-line-height) * 1em + 2 * var(--card-padding));
 }
 
 .board-view-container .board-note.editing textarea,
