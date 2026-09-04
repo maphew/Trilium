@@ -637,9 +637,26 @@ export default class BoardApi {
             return updated;
         };
 
-        this.storeColumns(columns.some(col => col.value === column)
-            ? columns.map(col => col.value === column ? patched(col) : col)
-            : [ ...columns, patched({ value: column }) ]);
+        if (columns.some(col => col.value === column)) {
+            this.storeColumns(columns.map(col => col.value === column ? patched(col) : col));
+            return;
+        }
+
+        // A column with no entry yet is written where the board draws it, after the last column
+        // before it that has one. Appended, it would move to the end of the board the moment
+        // anything was picked for it: the stored order is what the board reads first, and a column
+        // with no entry keeps a place of its own only until it has one. The inbox is drawn at the
+        // head without ever having been written, so collapsing it used to send it to the back.
+        const drawn = this.columns.indexOf(column);
+        const previous = drawn < 0 ? undefined : this.columns.slice(0, drawn).reverse()
+            .find(value => columns.some(col => col.value === value));
+        const at = drawn < 0
+            ? columns.length
+            : previous ? columns.findIndex(col => col.value === previous) + 1 : 0;
+
+        const placed = [ ...columns ];
+        placed.splice(at, 0, patched({ value: column }));
+        this.storeColumns(placed);
     }
 
     reorderColumn(fromIndex: number, toIndex: number) {

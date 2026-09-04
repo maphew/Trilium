@@ -16,7 +16,7 @@ import { buildNote } from "../../../test/easy-froca";
 import { BoardViewData } from ".";
 import BoardApi, { getPendingWrites, PendingColumnWrites } from "./api";
 import { ColumnMap } from "./data";
-import { BOARD_TEMPLATE_ID, DEFAULT_COLUMN_ICON, getStatusDefinition } from "./columns";
+import { BOARD_TEMPLATE_ID, DEFAULT_COLUMN_ICON, getStatusDefinition, INBOX_COLUMN } from "./columns";
 
 vi.mock("../../../services/bulk_action", () => ({
     executeBulkActions: vi.fn(async () => {})
@@ -1187,6 +1187,30 @@ describe("collapsing a column", () => {
         await api.setColumnKeepCollapsed("To Do", true);
         await api.setColumnKeepCollapsed("To Do", false, true);
         expect(saved.at(-1)?.columns).toEqual([ { value: "To Do" } ]);
+    });
+
+    /**
+     * The inbox is drawn at the head of the board without ever having been written, so the first
+     * thing picked for it is also the first entry it gets. Appended, that entry would send the
+     * column to the end of the board, the stored order being what the board reads first.
+     */
+    it("writes a column with no entry yet where the board draws it", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ INBOX_COLUMN, "To Do", "Done" ]);
+
+        await api.setColumnCollapsed(INBOX_COLUMN, true);
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: INBOX_COLUMN, collapsed: true }, { value: "To Do" }, { value: "Done" }
+        ]);
+
+        // One drawn between two stored columns lands between them.
+        const middle = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ "To Do", "Doing", "Done" ]);
+        await middle.api.setColumnCollapsed("Doing", true);
+        expect(middle.saved.at(-1)?.columns?.map(column => column.value))
+            .toEqual([ "To Do", "Doing", "Done" ]);
     });
 
     /** The icon goes in with the column, rather than as a second write and a second refresh. */
