@@ -47,6 +47,16 @@ describe("note type ids", () => {
         expect(resolveNoteType("template:abc123")).toEqual({ templateNoteId: "abc123" });
     });
 
+    /**
+     * An id with no mime at all, which a hand-written one or one from an older build can be. There
+     * is nothing after the type to read a mime from, and the type alone still names a note type.
+     */
+    it("reads an id that carries no mime", () => {
+        expect(parseNoteTypeId("type:text")).toEqual({ kind: "type", type: "text", mime: undefined });
+        expect(parseNoteTypeId("type:notAType")).toBeUndefined();
+        expect(resolveNoteType("type:canvas")).toEqual({ type: "canvas", mime: undefined });
+    });
+
     /** A mime holds colons of its own in some builds, and the id keeps all of it. */
     it("keeps everything after the type as the mime", () => {
         const id = buildNoteTypeId("code", "text/plain;charset=utf-8");
