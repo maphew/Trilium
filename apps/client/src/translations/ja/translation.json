@@ -661,8 +661,8 @@
   },
   "board_view": {
     "delete-note": "ノートを削除...",
-    "insert-above": "上に挿入",
-    "insert-below": "下に挿入",
+    "insert-above": "上に新しく挿入",
+    "insert-below": "下に新しく挿入",
     "delete-column": "列を削除...",
     "delete-column-confirmation": "本当にこの列を削除しますか？対応する属性は、この列の下のノートでも削除されます。",
     "new-item": "新しいアイテム",
@@ -729,7 +729,18 @@
     "set-limit-ok": "上限を設定",
     "limit-capacity": "列の容量超過時に警告する",
     "limit-count": "列内の最大ノート数",
-    "collapse-column": "列を折りたたむ"
+    "collapse-column": "列を折りたたむ",
+    "edit-title": "タイトルを編集",
+    "move-to-top": "一番上へ移動",
+    "create-new-note": "ノートを作成",
+    "create-new-column": "列を作成",
+    "create-hold-hint": "右クリックまたは長押しでその他のオプションを表示。",
+    "create-at-top": "一番上に作成",
+    "create-at-bottom": "一番下に作成",
+    "create-column-at-start": "先頭に列を作成",
+    "create-column-at-end": "末尾に列を作成",
+    "keep-column-collapsed": "列を折りたたんだままにする",
+    "collapse-hint": "ダブルクリックで折りたたむ"
   },
   "code_buttons": {
     "execute_button_title": "スクリプトを実行",

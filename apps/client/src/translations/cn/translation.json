@@ -2461,8 +2461,8 @@
   },
   "board_view": {
     "delete-note": "删除笔记...",
-    "insert-above": "在上方插入",
-    "insert-below": "在下方插入",
+    "insert-above": "在上方插入新笔记",
+    "insert-below": "在下方插入新笔记",
     "delete-column": "删除列...",
     "delete-column-confirmation": "确定要删除此列吗？此列下所有笔记中对应的属性也将被删除。",
     "new-item": "新增项目",
@@ -2529,7 +2529,18 @@
     "set-limit-ok": "设置上限",
     "limit-capacity": "超出列容量时发出警告",
     "limit-count": "列中笔记的最大数量",
-    "collapse-column": "折叠列"
+    "collapse-column": "折叠列",
+    "edit-title": "编辑标题",
+    "move-to-top": "移到顶部",
+    "create-new-note": "新建笔记",
+    "create-new-column": "新建列",
+    "create-hold-hint": "右键单击或长按可查看更多选项。",
+    "create-at-top": "在顶部新建",
+    "create-at-bottom": "在底部新建",
+    "create-column-at-start": "在开头新建列",
+    "create-column-at-end": "在末尾新建列",
+    "keep-column-collapsed": "保持列折叠",
+    "collapse-hint": "双击以折叠"
   },
   "command_palette": {
     "tree-action-name": "树形：{{name}}",
@@ -4066,7 +4077,7 @@
     "ok": "选择"
   },
   "font_preview": {
-    "pangram": "敏捷的棕色狐狸跳过懒狗",
+    "pangram": "The quick brown fox jumps over the lazy dog",
     "specimen_placeholder": "输入文字以预览效果…",
     "size": "预览大小",
     "size_pixels": "{{size}} px",
