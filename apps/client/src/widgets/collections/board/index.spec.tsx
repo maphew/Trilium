@@ -1915,7 +1915,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(added).toHaveBeenCalledWith("Blocked", false);
+        expect(added).toHaveBeenCalledWith("Blocked", false, undefined);
         expect(slot?.querySelector("input")).toBe(editor);
         expect(editor.value).toBe("");
         expect(document.activeElement).toBe(editor);
@@ -1955,6 +1955,42 @@ describe("Board column rename", () => {
 
         await type(editor, "Blocked");
         expect(editor.value).toBe("Blocked");
+    });
+
+    /**
+     * The same picker the column's own heading carries, so a column is given its icon as it is
+     * named. It is kept for the next column, as the card editor keeps its own.
+     */
+    it("makes a column with the icon picked in the editor, and keeps it for the next", async () => {
+        const { container } = await setup();
+        const added = vi.spyOn(BoardApi.prototype, "addNewColumn").mockResolvedValue(true);
+        added.mockClear();
+        const slot = container.querySelector<HTMLElement>(".board-add-column");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLInputElement>("input");
+        if (!editor) throw new Error("expected the add-column editor to be open");
+        // What a column is drawn with, until something else is picked.
+        expect(slot?.querySelector(".title-editor-icon button")?.className)
+            .toContain(DEFAULT_COLUMN_ICON);
+
+        await act(async () => {
+            slot?.querySelector<HTMLElement>(".title-editor-icon button")?.click();
+            await flush();
+        });
+        await type(editor, "Starred");
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(added).toHaveBeenCalledWith("Starred", false, PICKED_ICON);
+        expect(editor.value).toBe("");
+        expect(slot?.querySelector(".title-editor-icon button")?.className).toContain(PICKED_ICON);
     });
 
     /** The same two ends a card's button offers, named for a board that runs across. */
@@ -1999,7 +2035,7 @@ describe("Board column rename", () => {
             entries[0]?.handler?.({} as never, {} as never);
             await flush();
         });
-        expect(added).toHaveBeenCalledWith("Blocked", true);
+        expect(added).toHaveBeenCalledWith("Blocked", true, undefined);
         expect(editor.value).toBe("");
 
         // Shift+Enter says the same thing from the field itself.
@@ -2010,7 +2046,7 @@ describe("Board column rename", () => {
                 { key: "Enter", shiftKey: true, bubbles: true }));
             await flush();
         });
-        expect(added).toHaveBeenCalledWith("Also first", true);
+        expect(added).toHaveBeenCalledWith("Also first", true, undefined);
 
         show.mockRestore();
     });

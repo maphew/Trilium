@@ -1189,6 +1189,18 @@ describe("collapsing a column", () => {
         expect(saved.at(-1)?.columns).toEqual([ { value: "To Do" } ]);
     });
 
+    /** The icon goes in with the column, rather than as a second write and a second refresh. */
+    it("stores a new column with the icon picked for it", async () => {
+        const { api, saved } = createApi({ columns: [ { value: "To Do" } ] }, [ "To Do" ]);
+
+        await api.addNewColumn("Blocked", false, "bx bx-star");
+        expect(saved.at(-1)?.columns)
+            .toEqual([ { value: "To Do" }, { value: "Blocked", icon: "bx bx-star" } ]);
+
+        await api.addNewColumn("Doing", true, "bx bx-run");
+        expect(saved.at(-1)?.columns?.[0]).toEqual({ value: "Doing", icon: "bx bx-run" });
+    });
+
     /**
      * A column drawn from the definition or from a value its cards carry has no stored entry until
      * something is picked for it, and collapsing the board is what picks for all of them at once.

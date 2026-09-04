@@ -293,7 +293,7 @@ export default class BoardApi {
      *
      * @param atStart whether it goes at the head of the board rather than after the last column.
      */
-    async addNewColumn(columnName: string, atStart = false) {
+    async addNewColumn(columnName: string, atStart = false, icon?: string) {
         if (!columnName.trim()) {
             return;
         }
@@ -304,8 +304,12 @@ export default class BoardApi {
         if (columns.some(col => col.value === columnName)) return false;
         settleColumn(this.pending, columnName);
 
+        // The icon goes in with the column rather than after it: a write of its own would be a
+        // second refresh of the board for a column that has only just been drawn.
+        const added: BoardColumnData = icon ? { value: columnName, icon } : { value: columnName };
+
         if (!atStart) {
-            this.storeColumns([ ...columns, { value: columnName } ]);
+            this.storeColumns([ ...columns, added ]);
             return true;
         }
 
@@ -321,7 +325,7 @@ export default class BoardApi {
 
         const byValue = new Map(columns.map(col => [ col.value, col ]));
         const placed: BoardColumnData[] = order.map(value => byValue.get(value) ?? { value });
-        placed.splice(order[0] === INBOX_COLUMN ? 1 : 0, 0, { value: columnName });
+        placed.splice(order[0] === INBOX_COLUMN ? 1 : 0, 0, added);
         this.storeColumns(placed);
         return true;
     }

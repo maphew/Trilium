@@ -745,16 +745,24 @@ body.mobile .column-drop-placeholder {
   font-size: 1.2em;
 }
 
-.board-add-column input {
-  background: var(--main-background-color);
+/* The box is the slot, as a column's own heading is the box while its title is edited, and the
+   field inside carries nothing of its own. The card's padding and line, so the icon beside it lands
+   where the shared rule above puts it. */
+.board-add-column.editing {
+  background-color: var(--main-background-color);
   border: 1px solid var(--main-text-color);
-  border-radius: 4px;
-  padding: 0.5em;
+}
+
+.board-add-column input {
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: var(--card-padding);
+  line-height: var(--card-line-height);
   color: var(--main-text-color);
   font-family: inherit;
   font-size: inherit;
   width: 100%;
-  text-align: center;
 }
 
 /* The menu is drawn outside the board, so the columns it lists are named rather than reached

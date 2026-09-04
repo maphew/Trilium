@@ -37,7 +37,7 @@ import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api"
 import { useBoardDrag } from "./board_drag";
 import { movesColumn } from "./drag_geometry";
 import BoardApi from "./api";
-import { DEFAULT_GROUP_BY, getStatusDefinition, INBOX_COLUMN } from "./columns";
+import { DEFAULT_COLUMN_ICON, DEFAULT_GROUP_BY, getStatusDefinition, INBOX_COLUMN } from "./columns";
 import Column from "./column";
 import ColumnLimitDialog from "./column_limit";
 import { openBoardContextMenu, openCreateColumnMenu } from "./context_menu";
@@ -782,6 +782,9 @@ function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
     onCreated: (column: string) => void
 }) {
     const [ isCreatingNewColumn, setIsCreatingNewColumn ] = useState(false);
+    // Kept between columns, as the card editor keeps its own: a run of columns is often a run of
+    // the same kind of column.
+    const [ icon, setIcon ] = useState(DEFAULT_COLUMN_ICON);
     const slotRef = useRef<HTMLDivElement>(null);
 
     // Keyed on the count rather than done when the write returns: the column it makes room for is
@@ -827,7 +830,8 @@ function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
                     <TitleEditor
                         placeholder={t("board_view.add-column-placeholder")}
                         save={async (columnName, atStart) => {
-                            const created = await api.addNewColumn(columnName, atStart);
+                            const created = await api.addNewColumn(columnName, atStart,
+                                icon !== DEFAULT_COLUMN_ICON ? icon : undefined);
                             if (created) {
                                 onCreated(columnName);
                             } else {
@@ -842,6 +846,15 @@ function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
                         saveAndContinue={!isInRelationMode}
                         submitTitle={t("board_view.create-new-column")}
                         openPlacements={openCreateColumnMenu}
+                        // The same picker the column's own heading carries, so a column is given
+                        // its icon as it is named rather than after it stands there.
+                        icon={{
+                            current: icon,
+                            onSelect: setIcon,
+                            onReset: icon !== DEFAULT_COLUMN_ICON
+                                ? () => setIcon(DEFAULT_COLUMN_ICON)
+                                : undefined
+                        }}
                         mode={isInRelationMode ? "relation" : "normal"}
                     />
                 )}
