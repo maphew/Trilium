@@ -126,12 +126,6 @@ export interface ElectronWindowApi {
     /** Closes the current window. */
     closeWindow(): void;
 
-    /**
-     * Opens a new top-level Trilium window navigated to the given hash route.
-     * @param extraWindowHash The URL hash fragment (without the leading `#`) for the new window.
-     */
-    createExtraWindow(extraWindowHash: string): void;
-
     /** Synchronously returns whether the window is pinned above all others. */
     isAlwaysOnTop(): boolean;
 
