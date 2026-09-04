@@ -19,13 +19,11 @@ import ActionButton from "../../react/ActionButton";
 import Icon from "../../react/Icon";
 import { IconPickerButton } from "../../react/IconPicker";
 import { useStaticTooltip } from "../../react/hooks";
-import { FLIP_SETTLE_MS, useFlip } from "../../react/flip";
+import { useFlip } from "../../react/flip";
 import { useScrollFade } from "../../react/scroll_fade";
 
-/**
- * How long `footerQuietUntil` holds for a card `AddNewItem` is making, if the write never answers.
- */
-const FOOTER_QUIET_MS = 5000;
+/** How long a field waits for the card it made, after which it is taken down regardless. */
+const HAND_OVER_MS = 2000;
 
 /** How long an open takes. Matches `--board-expand-duration` in the board's own rules. */
 const EXPAND_MS = 200;
@@ -33,6 +31,8 @@ import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
 import Card from "./card";
+import CardTemplatePill from "./card_template_pill";
+import { type CardTemplates } from "./card_templates";
 import { DEFAULT_CARD_ICON, DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
 import { openColumnContextMenu, openCreateCardMenu } from "./context_menu";
 
@@ -62,6 +62,7 @@ export default function Column({
     limit,
     columnItems,
     isNew,
+    cardTemplates,
     api,
     parentNote,
     isInRelationMode
@@ -81,6 +82,8 @@ export default function Column({
     isActive?: boolean,
     /** Whether the board is showing every collapsed column at once, which opens this one too. */
     isPeeked?: boolean,
+    /** What a new card is made from, and how the reader picks something else. */
+    cardTemplates: CardTemplates,
     /** Whether the inbox also collects notes deeper than the board's direct children. */
     nested?: boolean,
     /** The note limit, absent if disabled. */
@@ -96,40 +99,43 @@ export default function Column({
     onFocusCard: (noteId: string) => void
 } & DragContext) {
     const [ isCreatingNewItem, setIsCreatingNewItem ] = useState(false);
-    const [ created, setCreated ] = useState<{ noteId?: string, takesFocus: boolean }>();
     /**
-     * Every card this column has drawn, which is what tells one just made from one coming back.
+     * The card a field standing among the cards makes its own above, absent while no such field is
+     * open and empty for one standing below the last card.
      *
-     * `created` names a card until another is made, and the card itself is marked in no way, so a
-     * card carried off the column and back would arrive under that name again. Every arrival is
-     * recorded, whatever became of it: the card can be drawn before the write answers with its id,
-     * and the footer's own card is never opened out at all.
+     * The card below the field rather than the one above it, so the field keeps its place as it
+     * makes cards: each one is drawn above the field, and a run of them stands in the order it was
+     * typed. Named by the card above instead, the field would be carried down past every card it
+     * made, and moving the element it is typed in takes focus out of it.
      */
-    const arrived = useRef(new Set<string>());
+    const [ insertBefore, setInsertBefore ] = useState<{ branchId?: string }>();
+    /**
+     * The cards as last drawn, for the callback that opens a field among them. Read through a ref
+     * so that callback keeps one identity: rebuilt per refresh, it would be a new prop on every
+     * card and no card could be left undrawn.
+     */
+    const itemsRef = useRef(columnItems);
+    itemsRef.current = columnItems;
+    /** Opens the field at a place among the cards, which is the index the card it makes takes. */
+    const beginInsert = useCallback((index: number) => {
+        setInsertBefore({ branchId: itemsRef.current?.[index]?.branch.branchId });
+    }, []);
+    /** The card the footer just made, which is revealed and scrolled to as it is drawn. */
+    const [ createdNoteId, setCreatedNoteId ] = useState<string>();
+    /**
+     * The card a field standing among the others just made, which takes the field's place.
+     *
+     * The field stands where the card goes until the board has drawn it, so the card fades in
+     * where the field was rather than opening out of a gap the column has to make for it.
+     */
+    const [ insertedNoteId, setInsertedNoteId ] = useState<string>();
+    const cardInserted = useCallback((noteId: string | undefined) => {
+        setInsertedNoteId(noteId);
+        setCreatedNoteId(noteId);
+    }, []);
     // `isNew` stays true until another column is added, so the reveal is recorded here rather than
     // replayed on every redraw of the board.
     const [ isRevealed, setIsRevealed ] = useState(false);
-    /**
-     * Until when a card from `AddNewItem` can still arrive, during which `useFlip` does not grow
-     * it.
-     *
-     * Testing the id is not enough: `createNewItem()` answers with it after the refresh that draws
-     * the card can already have run, so `created` is set too late. `onCreating` sets this before
-     * the write instead.
-     */
-    const footerQuietUntil = useRef(0);
-    // An inserted card is left focused, since that is where the work is; a card from the footer is
-    // not, or it would take focus from the editor being typed in.
-    const cardInserted = useCallback(
-        (noteId: string | undefined) => setCreated({ noteId, takesFocus: true }), []);
-    const addingFromFooter = useCallback(() => {
-        // Long enough for a write that never answers; `cardAdded` shortens it when one does.
-        footerQuietUntil.current = Date.now() + FOOTER_QUIET_MS;
-    }, []);
-    const cardAdded = useCallback((noteId: string | undefined) => {
-        footerQuietUntil.current = Date.now() + FLIP_SETTLE_MS;
-        setCreated({ noteId, takesFocus: false });
-    }, []);
     const { setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn } =
         useContext(BoardActionsContext);
     const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
@@ -138,25 +144,10 @@ export default function Column({
     const headerRef = useRef<HTMLHeadingElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const scrollFade = useScrollFade(contentRef);
-    // Cards slide to follow the drop gap opening and closing. Only the card named by `created`
-    // opens out of nothing: a card moved here from another column mounts as a new element too, and
-    // would collapse and reopen after the drop. The footer's own card is excluded as well, by
-    // `footerQuietUntil`: the scroll to the end and the fade already show it.
-    useFlip(contentRef, {
-        selector: ".board-note",
-        grow: (card) => {
-            const noteId = card.getAttribute("data-note-id");
-            if (!noteId) {
-                return false;
-            }
-
-            const isFirstArrival = !arrived.current.has(noteId);
-            arrived.current.add(noteId);
-
-            return isFirstArrival && noteId === created?.noteId
-                && Date.now() > footerQuietUntil.current;
-        }
-    });
+    // Cards slide to follow the drop gap opening and closing. No card opens out of nothing: one
+    // made in the footer is shown by the scroll to the end and by its fade, and one made among the
+    // others takes the place its field was standing in.
+    useFlip(contentRef, { selector: ".board-note" });
     const { handleDragOver, handleDragLeave, handleDrop } = useDragging({
         column, columnIndex, columnItems, isEditing, api, parentNote
     });
@@ -329,6 +320,44 @@ export default function Column({
         editorRef.current?.focus();
     }, [ isEditing ]);
 
+    // The field is taken down only once the card it made stands in its place, so the column does
+    // not close the gap the field held and open it again for the card.
+    useEffect(() => {
+        if (!insertedNoteId) {
+            return;
+        }
+
+        const close = () => {
+            setInsertBefore(undefined);
+            setInsertedNoteId(undefined);
+        };
+
+        if (columnItems?.some(({ note }) => note.noteId === insertedNoteId)) {
+            close();
+            return;
+        }
+
+        // A card can be drawn in another column, which one made from a template carrying a value
+        // of its own is, so the field is not left standing for a card that never arrives here.
+        const timer = window.setTimeout(close, HAND_OVER_MS);
+        return () => window.clearTimeout(timer);
+    }, [ insertedNoteId, columnItems ]);
+
+    // The field a card is inserted in, drawn where the reader asked for the card. The same field
+    // as the one below the column, so a card is made the same way wherever it goes.
+    const insertField = insertBefore && (
+        <AddNewItem
+            api={api}
+            cardTemplates={cardTemplates}
+            column={column}
+            insert={{
+                before: insertBefore.branchId,
+                close: () => setInsertBefore(undefined)
+            }}
+            onCreated={cardInserted}
+        />
+    );
+
     return (
         <div
             data-column={column}
@@ -469,6 +498,7 @@ export default function Column({
                             {showIndicatorBefore && (
                                 <div className="board-drop-placeholder show" style={gapStyle} />
                             )}
+                            {insertBefore?.branchId === branch.branchId && insertField}
                             <Card
                                 api={api}
                                 note={note}
@@ -476,18 +506,17 @@ export default function Column({
                                 column={column}
                                 index={index}
                                 statusAttribute={api.statusAttribute}
-                                isNew={note.noteId === created?.noteId}
-                                focusOnArrival={
-                                    note.noteId === created?.noteId && created.takesFocus
-                                }
+                                isNew={note.noteId === createdNoteId}
+                                focusOnArrival={note.noteId === insertedNoteId}
                                 isDragging={draggedCard?.noteId === note.noteId}
                                 isEditing={branch.branchId === branchIdToEdit}
                                 onFocusCard={onFocusCard}
-                                onCreated={cardInserted}
+                                onInsert={beginInsert}
                             />
                         </Fragment>
                     );
                 })}
+                {insertBefore && !insertBefore.branchId && insertField}
                 {dropPosition?.column === column && dropPosition.index === (columnItems?.length ?? 0) && (
                     <div className="board-drop-placeholder show" style={gapStyle} />
                 )}
@@ -495,30 +524,45 @@ export default function Column({
 
             {!isCollapsed && <AddNewItem
                 api={api}
+                cardTemplates={cardTemplates}
                 column={column}
                 isCreating={isCreatingNewItem}
                 setIsCreating={setIsCreatingNewItem}
-                onCreated={cardAdded}
-                onCreating={addingFromFooter}
+                onCreated={setCreatedNoteId}
             />}
         </div>
     );
 }
 
 /**
- * The editor a new card is named in, opened by the button below the column or by its menu. The
- * state is the column's rather than this component's, since the menu is raised from the header.
+ * The editor a new card is named in, standing below the column or between two of its cards.
+ *
+ * Below the column it is opened by the button it replaces or by the column's menu, so that state
+ * is the column's rather than this component's: the menu is raised from the header. Between two
+ * cards it is opened by a card's own menu, and `insert` says where it stands.
  */
-function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreating }: {
+function AddNewItem({
+    column, api, cardTemplates, isCreating, setIsCreating, onCreated, insert
+}: {
     column: string,
     api: BoardApi,
-    isCreating: boolean,
-    setIsCreating: (isCreating: boolean) => void,
-    /** Names the card just made, which the column reveals once the board has drawn it. */
+    cardTemplates: CardTemplates,
+    isCreating?: boolean,
+    setIsCreating?: (isCreating: boolean) => void,
+    /** Names the card just made, which the column shows once the board has drawn it. */
     onCreated: (noteId: string | undefined) => void,
-    /** Said before the write, which the card can be drawn by the board ahead of. */
-    onCreating: () => void
+    /**
+     * Where a field standing among the cards puts what it makes: above the card it is given, or
+     * at the end of the column where it is given none. Absent for the field below the column.
+     */
+    insert?: { before?: string, close: () => void }
 }) {
+    // A field standing among the cards is nothing else: there is no button for it to replace, and
+    // it is taken down rather than closed.
+    const isEditing = !!insert || !!isCreating;
+    const close = useCallback(
+        () => insert ? insert.close() : setIsCreating?.(false),
+        [ insert, setIsCreating ]);
     // What the editor opens with: empty to begin with, then whatever was typed into it and left
     // unsaved, so that reaching for something else and coming back does not cost the title.
     const [ initialTitle, setInitialTitle ] = useState("");
@@ -527,7 +571,7 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
 
     const open = useCallback((title: string) => {
         setInitialTitle(title);
-        setIsCreating(true);
+        setIsCreating?.(true);
     }, [ setIsCreating ]);
 
     /** Puts a note that already exists into this column, for a field with nothing typed into it. */
@@ -538,15 +582,15 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
         });
 
         if (noteId) {
-            await api.addExistingItem(column, noteId);
+            await api.addExistingItem(column, noteId, insert?.before);
         }
-    }, [ api, column ]);
+    }, [ api, column, insert ]);
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (isCreating) return;
 
         if (e.key === "Enter" && !e.ctrlKey) {
-            setIsCreating(true);
+            setIsCreating?.(true);
             return;
         }
 
@@ -559,14 +603,34 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
         }
     }, [ isCreating, open, setIsCreating ]);
 
+    /** Makes the card, where the field stands or at the end of the column. */
+    const create = useCallback(async (title: string, atStart?: boolean) => {
+        const cardIcon = icon !== DEFAULT_CARD_ICON ? icon : undefined;
+
+        if (insert) {
+            // Left standing until the column has drawn the card, which takes the field's place.
+            const noteId = await api.createNewItemBefore(
+                column, insert.before, title, cardIcon, cardTemplates.current);
+            if (noteId) {
+                onCreated(noteId);
+            } else {
+                insert.close();
+            }
+            return;
+        }
+
+        onCreated(await api.createNewItem(
+            column, title, atStart ? "top" : "bottom", cardIcon, cardTemplates.current));
+    }, [ api, cardTemplates, column, icon, insert, onCreated ]);
+
     return (
         <div
-            className={`board-new-item ${isCreating ? "editing" : ""}`}
-            onClick={() => flushSync(() => setIsCreating(true))}
-            onKeyDown={handleKeyDown}
-            tabIndex={300}
+            className={clsx("board-new-item", { editing: isEditing, inserting: !!insert })}
+            onClick={!insert ? () => flushSync(() => setIsCreating?.(true)) : undefined}
+            onKeyDown={!insert ? handleKeyDown : undefined}
+            tabIndex={!insert ? 300 : undefined}
         >
-            {!isCreating ? (
+            {!isEditing ? (
                 <>
                     <Icon icon="bx bx-plus" />{" "}
                     {t("board_view.new-item")}
@@ -575,23 +639,22 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
                 <TitleEditor
                     currentValue={initialTitle}
                     placeholder={t("board_view.new-item-placeholder")}
-                    save={async (title, atStart) => {
-                        onCreating();
-                        onCreated(await api.createNewItem(
-                            column, title, atStart ? "top" : "bottom",
-                            icon !== DEFAULT_CARD_ICON ? icon : undefined));
-                    }}
-                    dismiss={() => setIsCreating(false)}
+                    save={create}
+                    dismiss={close}
                     mode="multiline" isNewItem
                     selectOnFocus={false}
                     saveAndContinue
+                    handsOver={!!insert}
                     abandon={setInitialTitle}
                     whenEmpty={{
                         title: t("board_view.add-existing-item"),
                         onClick: addExistingItem
                     }}
                     submitTitle={t("board_view.create-new-note")}
-                    openPlacements={openCreateCardMenu}
+                    // Only the field below the column offers both ends. One standing among the
+                    // cards is already at the end the reader asked for.
+                    openPlacements={!insert ? openCreateCardMenu : undefined}
+                    footer={(hold) => <CardTemplatePill {...cardTemplates} {...hold} />}
                     icon={{
                         current: icon,
                         onSelect: setIcon,

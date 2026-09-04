@@ -1,4 +1,7 @@
-import type { TemplatesResponse } from "@triliumnext/commons";
+import {
+    buildNoteTypeId, buildTemplateId, type NoteType as CommonNoteType, type NoteTypeId,
+    type TemplatesResponse
+} from "@triliumnext/commons";
 
 import type FNote from "../entities/fnote.js";
 import type { NoteType } from "../entities/fnote.js";
@@ -61,6 +64,90 @@ export const NOTE_TYPES: NoteTypeMapping[] = [
     { type: "image", title: t("note_types.image"), reserved: true },
     { type: "launcher", mime: "", title: t("note_types.launcher"), reserved: true },
 ];
+
+/**
+ * One thing a new note can be made from: a blank note type, or a note carrying `#template`.
+ *
+ * Named by a {@link NoteTypeId}, so that a stored choice outlives the list it was picked from and
+ * anything offering the choice, a board's card templates included, speaks of it the same way.
+ */
+export interface NoteTypeOption {
+    id: NoteTypeId;
+    title: string;
+    /** The icon class, `bx` prefix included. */
+    icon: string;
+    /** Where it stands in a list the reader picks from. */
+    group: NoteTypeOptionGroup;
+    /** What `createNote` is given to make one. */
+    options: { type: NoteType; mime?: string; templateNoteId?: string };
+}
+
+export type NoteTypeOptionGroup = "type" | "builtin" | "user";
+
+/**
+ * Everything a new note can be made from: the blank note types, the templates the app ships, and
+ * the reader's own.
+ *
+ * The note types are the ones the tree offers to create, so that anything built on this offers to
+ * make what the tree offers to make and nothing else.
+ */
+export async function getNoteTypeOptions(): Promise<NoteTypeOption[]> {
+    const { builtInTemplateNotes, userTemplateNotes } = await loadNoteTypeData();
+
+    const types = NOTE_TYPES
+        .filter((mapping) => !mapping.reserved && mapping.type !== "book")
+        .filter((mapping) => mapping.type !== "llmChat" || isExperimentalFeatureEnabled("llm"))
+        .map<NoteTypeOption>((mapping) => ({
+            id: buildNoteTypeId(mapping.type as CommonNoteType, mapping.mime),
+            title: mapping.title,
+            icon: `bx ${mapping.icon ?? "bx-note"}`,
+            group: "type",
+            options: { type: mapping.type, mime: mapping.mime }
+        }));
+
+    return [
+        ...types,
+        ...templateOptions(
+            builtInTemplateNotes.filter((note) => note.hasLabel("template")), "builtin"),
+        ...templateOptions(userTemplateNotes, "user")
+    ];
+}
+
+/**
+ * The options named by the given ids, in that order, leaving out what no longer exists.
+ *
+ * A stored id outlives what it names: a note type can be dropped from the app and a template note
+ * deleted. What is gone is left out rather than reported, so a stored list stays usable.
+ */
+export function resolveNoteTypeOptions(ids: NoteTypeId[], available: NoteTypeOption[]) {
+    const byId = new Map(available.map((option) => [ option.id, option ]));
+    return ids.flatMap((id) => {
+        const option = byId.get(id);
+        return option ? [ option ] : [];
+    });
+}
+
+/** The name of the group an option stands in, for a list the reader picks from. */
+export function noteTypeOptionGroupTitle(group: NoteTypeOptionGroup) {
+    switch (group) {
+        case "type":
+            return t("note_types.note-types");
+        case "builtin":
+            return t("note_types.built-in-templates");
+        default:
+            return t("note_type_chooser.templates");
+    }
+}
+
+function templateOptions(notes: FNote[], group: NoteTypeOptionGroup): NoteTypeOption[] {
+    return notes.map((note) => ({
+        id: buildTemplateId(note.noteId),
+        title: note.title,
+        icon: note.getIcon(),
+        group,
+        options: { type: note.type, mime: note.mime, templateNoteId: note.noteId }
+    }));
+}
 
 /** The menu item badge used to mark new note types and templates */
 const NEW_BADGE: MenuItemBadge = {
@@ -235,5 +322,7 @@ function getBuiltInTemplates(title: string | null, command: TreeCommandNames | u
 export default {
     loadNoteTypeData,
     buildNoteTypeItems,
-    getNoteTypeItems
+    getNoteTypeItems,
+    getNoteTypeOptions,
+    resolveNoteTypeOptions
 };

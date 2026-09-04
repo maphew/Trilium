@@ -27,7 +27,7 @@ function Card({
     isDragging,
     isEditing,
     onFocusCard,
-    onCreated
+    onInsert
 }: {
     api: BoardApi,
     note: FNote,
@@ -41,7 +41,7 @@ function Card({
     statusAttribute: string,
     /** Whether this is the card just made, which is revealed on arrival. */
     isNew: boolean,
-    /** Whether the card just made is also left focused, which an insert's is and the footer's is not. */
+    /** Whether the card just made is also left focused, which one made among the others is. */
     focusOnArrival: boolean,
     isDragging: boolean,
     /**
@@ -51,8 +51,11 @@ function Card({
     isEditing: boolean,
     /** Puts focus back on this card once a change of column has drawn it under another one. */
     onFocusCard: (noteId: string) => void,
-    /** Names the card inserted next to this one, which the column reveals as it draws it. */
-    onCreated: (noteId: string | undefined) => void
+    /**
+     * Opens the field a new card is named in at a place in the column, which is what makes the
+     * card. The index is where the field stands among the cards.
+     */
+    onInsert: (index: number) => void
 }) {
     const { setBranchIdToEdit } = useContext(BoardActionsContext);
     // Tracks the `color` label, which the board does not redraw a card for.
@@ -78,8 +81,8 @@ function Card({
     });
 
     const handleContextMenu = useCallback((e: ContextMenuEvent) => {
-        openNoteContextMenu(api, e, note, branch.branchId, column, onFocusCard, onCreated);
-    }, [ api, note, branch, column, onFocusCard, onCreated ]);
+        openNoteContextMenu(api, e, note, branch.branchId, column, index, onFocusCard, onInsert);
+    }, [ api, note, branch, column, index, onFocusCard, onInsert ]);
 
     const handleOpen = useCallback((e: MouseEvent) => {
         // A double click is one gesture, and its second click would open the note over itself: the
@@ -99,19 +102,18 @@ function Card({
             // Enter adds a card the way it adds a row in a spreadsheet, and Space is what opens
             // one. Shift adds it above instead of below.
             e.preventDefault();
-            api.insertRowAtPosition(column, branch.branchId, e.shiftKey ? "before" : "after")
-                .then(created => onCreated(created?.noteId));
+            onInsert(e.shiftKey ? index : index + 1);
         } else if (e.key === "F2") {
             setBranchIdToEdit(branch.branchId);
         }
-    }, [ api, column, branch, setBranchIdToEdit, onCreated ]);
+    }, [ branch, index, setBranchIdToEdit, onInsert ]);
 
     useEffect(() => {
         editorRef.current?.focus();
     }, [ isEditing ]);
 
-    // An insert opens the new card's title editor, which holds focus while a title is typed. The
-    // card takes it from there, so that the arrow keys carry on from where the reader is.
+    // The field a card is named in closes as the card is made, so the card takes focus as it is
+    // drawn and the arrow keys carry on from there.
     useEffect(() => {
         if (focusOnArrival && !isEditing) {
             cardRef.current?.focus();

@@ -17,11 +17,12 @@ import FBranch from "../../../entities/fbranch";
 import froca from "../../../services/froca";
 import attributes from "../../../services/attributes";
 import { executeBulkActions } from "../../../services/bulk_action";
+import LoadResults from "../../../services/load_results";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
+import { getNoteTypeOptions, type NoteTypeOption } from "../../../services/note_types";
 import { collectShortcutHints } from "../../../services/shortcut_hints";
-import { FLIP_SETTLE_MS } from "../../react/flip";
 import BoardApi, { getPendingWrites } from "./api";
 import { DEFAULT_COLUMN_ICON, INBOX_COLUMN_ICON } from "./columns";
 
@@ -39,6 +40,32 @@ vi.mock("../../../services/i18n", () => ({
 // The picker is a Bootstrap dropdown portalled to the page, which happy-dom does not open. What the
 // board answers for is the icon it shows and what it does with a pick, so the button stands in for
 // the picker and hands one over when it is pressed.
+// What a card can be made from. The listing itself is the app's and is tested there; the board is
+// handed a short list of it, the four it offers by default and one it does not.
+vi.mock("../../../services/note_types", () => ({
+    getNoteTypeOptions: vi.fn(async () => {
+        templateReads++;
+        return NOTE_TYPE_OPTIONS;
+    }),
+    resolveNoteTypeOptions: (ids: string[], available: { id: string }[]) =>
+        ids.flatMap(id => available.filter(option => option.id === id)),
+    noteTypeOptionGroupTitle: (group: string) => `group:${group}`,
+    default: {}
+}));
+
+/** How many times the board has asked what a card can be made from. */
+let templateReads = 0;
+
+const NOTE_TYPE_OPTIONS = [
+    [ "type:text:text/html", "Text", "text", "text/html" ],
+    [ "type:code:text/x-markdown", "Markdown", "code", "text/x-markdown" ],
+    [ "type:canvas:application/json", "Canvas", "canvas", "application/json" ],
+    [ "type:spreadsheet:application/json", "Spreadsheet", "spreadsheet", "application/json" ],
+    [ "type:mermaid:text/mermaid", "Mermaid", "mermaid", "text/mermaid" ]
+].map(([ id, title, type, mime ]) => ({
+    id, title, icon: "bx bx-note", group: "type" as const, options: { type, mime }
+})) as NoteTypeOption[];
+
 vi.mock("../../react/IconPicker", () => ({
     IconPickerButton: ({ className, icon, onSelect, onOpened, onClosed }: {
         className?: string, icon: string, onSelect: (picked: string) => void,
@@ -77,6 +104,11 @@ vi.mock("../../../services/bulk_action", () => ({
         }
     })
 }));
+
+/** What a card is made from until another template is picked: the first the board offers. */
+function textTemplate() {
+    return expect.objectContaining({ id: "type:text:text/html" });
+}
 
 /** Drains the async chain inside `refresh()` (getBoardData → setByColumn/setColumns). */
 async function flush() {
@@ -479,7 +511,7 @@ describe("Collapsed board columns", () => {
                 : []);
         expect(entries.map(entry => entry.icon)).toEqual([
             "bx bx-columns", "bx bx-collapse-alt", "bx bx-expand-alt",
-            INBOX_COLUMN_ICON, "bx bx-archive"
+            INBOX_COLUMN_ICON, "bx bx-archive", "bx bx-list-ul"
         ]);
         const entry = (icon: string) => entries.find(item => item.icon === icon)?.handler;
 
@@ -947,9 +979,10 @@ describe("Board column rename", () => {
         container = mountPoint;
         document.body.appendChild(mountPoint);
 
+        const host = new Component();
         await act(async () => {
             render(
-                <ParentComponent.Provider value={new Component()}>
+                <ParentComponent.Provider value={host}>
                     <Harness
                         note={note}
                         noteIds={[ ...note.getChildNoteIds() ]}
@@ -961,7 +994,8 @@ describe("Board column rename", () => {
         });
         await act(async () => { await flush(); });
 
-        return { note, container: mountPoint };
+        // The host is what the board's own event handlers hang off, for a test that sends one.
+        return { note, container: mountPoint, host };
     }
 
     /**
@@ -1529,7 +1563,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "First", "bottom", undefined);
+        expect(created).toHaveBeenCalledWith("Doing", "First", "bottom", undefined, textTemplate());
         expect(slot?.querySelector("textarea")).toBe(editor);
         expect(editor.value).toBe("");
         expect(document.activeElement).toBe(editor);
@@ -1542,7 +1576,7 @@ describe("Board column rename", () => {
         });
 
         expect(created).toHaveBeenCalledTimes(2);
-        expect(created).toHaveBeenLastCalledWith("Doing", "Second", "bottom", undefined);
+        expect(created).toHaveBeenLastCalledWith("Doing", "Second", "bottom", undefined, textTemplate());
     });
 
     /**
@@ -1614,140 +1648,110 @@ describe("Board column rename", () => {
     });
 
     /**
-     * The column names the card it just made until it makes another, so what opens out is counted
-     * as well: a card dragged out of the column and back is a card coming back, not one just made.
+     * The field a card is named in stands where the card goes and holds what it is called, so the
+     * card is drawn into the place the field was keeping for it: it fades in there rather than
+     * opening out of a gap the column makes after closing the one the field left.
      */
-    it("opens out the card it just made once, and not when it comes back", async () => {
+    it("keeps the field standing until the card it made takes its place", async () => {
         const { note, container } = await setup();
-        withBoxes();
+        const made = buildNote({ title: "Made", "#status": "Doing" });
+        let answer: (noteId: string) => void = () => {};
+        vi.spyOn(BoardApi.prototype, "createNewItemBefore")
+            .mockReturnValue(new Promise((resolve) => { answer = resolve; }));
 
-        try {
-            const card = buildNote({ title: "Made", "#status": "Doing" });
-            vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
-                .mockResolvedValue({ noteId: card.noteId } as never);
+        const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
+        const standIn = column.querySelector<HTMLElement>(".board-note");
+        if (!standIn) throw new Error("expected a card in the column");
 
-            // Made here, and drawn only by the refresh that follows.
-            const standIn = container.querySelectorAll<HTMLElement>(".board-column")[1]
-                .querySelector<HTMLElement>(".board-note");
-            await act(async () => {
-                standIn?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-                await flush();
-            });
+        await act(async () => {
+            standIn.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
 
-            fileCard(note, card);
-            await redraw(note, container);
-            expect(drawn(container, card.noteId).style.height).toBe("0px");
+        const field = column
+            .querySelector<HTMLTextAreaElement>(".board-new-item.inserting textarea");
+        if (!field) throw new Error("expected the field for a new card to be open");
+        field.value = "Made";
+        await act(async () => {
+            field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
 
-            // Carried off the column and dropped back on it, which draws it afresh both times.
-            unfileCard(note, card);
-            await redraw(note, container);
-            fileCard(note, card);
-            await redraw(note, container);
+        // The write is still in flight, so the field stands, and holds what it is about to become.
+        await act(async () => {
+            answer(made.noteId);
+            await flush();
+        });
+        expect(column.querySelector(".board-new-item.inserting")).toBeTruthy();
+        expect(field.value).toBe("Made");
 
-            expect(drawn(container, card.noteId).style.height).toBe("");
-        } finally {
-            dropBoxes();
-        }
+        fileCard(note, made);
+        await redraw(note, container);
+
+        expect(column.querySelector(".board-new-item.inserting")).toBeNull();
+        // Faded in where the field stood, and not opened out of nothing.
+        const card = drawn(container, made.noteId);
+        expect(card.classList.contains("appearing")).toBe(true);
+        expect(card.style.height).toBe("");
     });
+
+    /** A read of the templates the test itself answers, in the order it chooses. */
+    interface Answer {
+        resolve: (options: NoteTypeOption[]) => void;
+        reject: (error: Error) => void;
+    }
+
+    /** What the pill in the editor a card is named in reads, which is the board's own template. */
+    async function pillNames(container: HTMLElement) {
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        return slot?.querySelector(".card-template-pill button")?.textContent ?? "";
+    }
 
     /**
-     * The footer's own card never opens out, the scroll to the end and the fade standing for it, so
-     * its arrival is recorded rather than its growth: otherwise it is the one card the column has
-     * made that opens out when it comes back.
+     * An attribute change as the server reports one: the row is tracked as well as carried.
+     *
+     * A label taken away is reported as a change like any other, the row read from the database
+     * rather than from becca and so carrying what the label was.
      */
-    it("leaves a card the footer made alone when it comes back", async () => {
-        const { note, container } = await setup();
-        withBoxes();
-
-        try {
-            const card = buildNote({ title: "Footed", "#status": "Doing" });
-            vi.spyOn(BoardApi.prototype, "createNewItem").mockResolvedValue(card.noteId);
-
-            const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
-                .querySelector<HTMLElement>(".board-new-item");
-            await act(async () => {
-                slot?.click();
-                await flush();
-            });
-
-            const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
-            if (!editor) throw new Error("expected the new-item editor to be open");
-            editor.value = "Footed";
-            await act(async () => {
-                editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-                await flush();
-            });
-
-            fileCard(note, card);
-            await redraw(note, container);
-            expect(drawn(container, card.noteId).style.height).toBe("");
-
-            // Once the quiet window the footer opened has passed, and back on the column.
-            await act(async () => {
-                await new Promise((resolve) => setTimeout(resolve, FLIP_SETTLE_MS + 100));
-            });
-            unfileCard(note, card);
-            await redraw(note, container);
-            fileCard(note, card);
-            await redraw(note, container);
-
-            expect(drawn(container, card.noteId).style.height).toBe("");
-        } finally {
-            dropBoxes();
-        }
-    });
+    function attributeChanged(name: string, noteId = "someNote", isDeleted = false) {
+        const results = new LoadResults([ {
+            entityName: "attributes",
+            entityId: "attr1",
+            entity: { attributeId: "attr1", noteId, type: "label", name, isDeleted }
+        } as never ]);
+        results.addAttribute("attr1", "other");
+        return results;
+    }
 
     /**
-     * The write answers with the card's id, and the refresh that draws the card can land first, so
-     * the column draws it before it knows what it made. That arrival counts all the same, or the
-     * card is the one the column would open out when it comes back.
+     * Names a card in the field a press of Enter opens below the given one, which is what makes it.
+     *
+     * Answers with the field, which is taken down as the card is made.
      */
-    it("leaves a card drawn before the write answered alone when it comes back", async () => {
-        const { note, container } = await setup();
-        withBoxes();
+    async function nameCardBeside(card: HTMLElement, title: string) {
+        await act(async () => {
+            card.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
 
-        try {
-            const card = buildNote({ title: "Early", "#status": "Doing" });
-            let answer: (noteId: string) => void = () => {};
-            vi.spyOn(BoardApi.prototype, "createNewItem")
-                .mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+        const field = card.parentElement
+            ?.querySelector<HTMLTextAreaElement>(".board-new-item.inserting textarea");
+        if (!field) throw new Error("expected the field for a new card to be open");
 
-            const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
-                .querySelector<HTMLElement>(".board-new-item");
-            await act(async () => {
-                slot?.click();
-                await flush();
-            });
+        field.value = title;
+        await act(async () => {
+            field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
 
-            const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
-            if (!editor) throw new Error("expected the new-item editor to be open");
-            editor.value = "Early";
-            await act(async () => {
-                editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-                await flush();
-            });
-
-            // Drawn while the write is still in flight, and only then answered.
-            fileCard(note, card);
-            await redraw(note, container);
-            await act(async () => {
-                answer(card.noteId);
-                await flush();
-            });
-
-            await act(async () => {
-                await new Promise((resolve) => setTimeout(resolve, FLIP_SETTLE_MS + 100));
-            });
-            unfileCard(note, card);
-            await redraw(note, container);
-            fileCard(note, card);
-            await redraw(note, container);
-
-            expect(drawn(container, card.noteId).style.height).toBe("");
-        } finally {
-            dropBoxes();
-        }
-    });
+        return field;
+    }
 
     /** The element standing for a note, which a move draws afresh. */
     function drawn(container: HTMLElement, noteId: string) {
@@ -1759,10 +1763,10 @@ describe("Board column rename", () => {
 
     /**
      * A card that arrives from somewhere else, a move between columns above all, mounts as a new
-     * element in the column that draws it. Only the card the column itself made opens out of
-     * nothing; the rest are already where they were put.
+     * element in the column that draws it. Only a card the column itself made is shown: the rest
+     * are already where they were put.
      */
-    it("opens out only the card the column made, not one that merely arrived", async () => {
+    it("shows only the card the column made, not one that merely arrived", async () => {
         const { note, container } = await setup();
         withBoxes();
 
@@ -1773,6 +1777,7 @@ describe("Board column rename", () => {
             const arrived = [ ...container.querySelectorAll<HTMLElement>(".board-note") ]
                 .find(card => card.textContent?.includes("Added"));
             if (!arrived) throw new Error("expected the card that arrived to be drawn");
+            expect(arrived.classList.contains("appearing")).toBe(false);
             expect(arrived.style.height).toBe("");
             expect(arrived.style.overflow).toBe("");
         } finally {
@@ -1851,13 +1856,9 @@ describe("Board column rename", () => {
         const content = column.querySelector<HTMLElement>(".board-column-content");
         Object.defineProperty(content, "scrollHeight",
             { value: 500, configurable: true, writable: true });
-        vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
-            .mockResolvedValue({ noteId } as never);
+        vi.spyOn(BoardApi.prototype, "createNewItemBefore").mockResolvedValue(noteId);
 
-        await act(async () => {
-            last.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-            await flush();
-        });
+        await nameCardBeside(last, "Typed");
 
         expect(middle.classList.contains("appearing")).toBe(true);
         expect(scrolled).toHaveBeenCalled();
@@ -1865,23 +1866,50 @@ describe("Board column rename", () => {
     });
 
     /**
-     * The editor an insert opens holds focus while the title is typed; the card takes it once that
-     * editor is done, so the arrow keys carry on from the card just made.
+     * The same field wherever it stands, so a card inserted between two others is named, iconed and
+     * made from a template the way a card added below the column is.
      */
-    it("leaves an inserted card focused, and a card added in the footer unfocused", async () => {
+    it("inserts with the field the column's own footer uses", async () => {
+        const { container } = await setup();
+        const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
+        const card = column.querySelector<HTMLElement>(".board-note");
+        if (!card) throw new Error("expected a card in the column");
+
+        await act(async () => {
+            card.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        const field = column.querySelector<HTMLElement>(".board-new-item.inserting");
+        expect(field?.querySelector(".title-editor-icon button")).toBeTruthy();
+        expect(field?.querySelector(".card-template-pill button")?.textContent).toContain("Text");
+        expect(field?.querySelector("textarea")?.placeholder).toBeTruthy();
+
+        // Escape takes it down again, having made nothing.
+        const editor = field?.querySelector<HTMLTextAreaElement>("textarea");
+        await act(async () => {
+            editor?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+            await flush();
+        });
+        expect(column.querySelector(".board-new-item.inserting")).toBeNull();
+    });
+
+    /**
+     * The field a card is named in among the others stands for the card being made, so it is taken
+     * down as the card lands and the card is left focused: the arrow keys carry on from there.
+     */
+    it("leaves the card it made focused, and a card added in the footer unfocused", async () => {
         const { container } = await setup();
         const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
         const card = column.querySelector<HTMLElement>(".board-note");
         const noteId = card?.getAttribute("data-note-id");
         if (!card || !noteId) throw new Error("expected a card in the column");
 
-        vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
-            .mockResolvedValue({ noteId } as never);
-        await act(async () => {
-            card.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-            await flush();
-        });
+        // The stand-in for the card just made, which is what the board draws and focuses.
+        vi.spyOn(BoardApi.prototype, "createNewItemBefore").mockResolvedValue(noteId);
+        await nameCardBeside(card, "Typed");
 
+        expect(column.querySelector(".board-new-item.inserting")).toBeNull();
         expect(document.activeElement).toBe(card);
 
         // The footer's own editor keeps focus instead, so a run of cards can be typed into it.
@@ -2161,10 +2189,353 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "From the button", "bottom", undefined);
+        expect(created).toHaveBeenCalledWith("Doing", "From the button", "bottom", undefined, textTemplate());
         expect(editor.value).toBe("");
         expect(slot?.querySelector("textarea")).toBe(editor);
         expect(document.activeElement).toBe(editor);
+    });
+
+    /**
+     * The pill at the foot of the new-card field names what the card will be made from. It offers
+     * what the board offers, and picking one is remembered: the next card is made from it, and so
+     * is the next editor opened.
+     */
+    it("makes a card from the template picked in the pill, and remembers it", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const pill = slot?.querySelector<HTMLElement>(".card-template-pill button");
+        if (!editor || !pill) throw new Error("expected the editor and its template pill");
+
+        // The first the board offers, until something else is picked.
+        expect(pill.textContent).toContain("Text");
+
+        await act(async () => {
+            pill.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+            $(pill.closest(".dropdown") as HTMLElement).trigger("show.bs.dropdown");
+            await flush();
+        });
+
+        // The menu is portalled to the page, and the boards this file rendered before left theirs
+        // behind, so it is the last one that belongs to the board under test.
+        const menu = [ ...document.querySelectorAll<HTMLElement>(".card-template-pill") ].at(-1);
+        const items = [ ...(menu?.querySelectorAll<HTMLElement>(".dropdown-item") ?? []) ];
+        expect(items.map(item => item.textContent?.trim())).toEqual([
+            "Text", "Markdown", "Canvas", "Spreadsheet", "board_view.more-templates"
+        ]);
+        // The one a card would be made from is ticked, rather than standing out by its background.
+        expect(items.map(item => !!item.querySelector(".card-template-current")))
+            .toEqual([ true, false, false, false, false ]);
+        expect(items.some(item => item.classList.contains("active"))).toBe(false);
+
+        await act(async () => {
+            items[2].click();
+            await flush();
+        });
+
+        // Stored on the board, so the next editor opens on it as well.
+        expect(saved.at(-1)?.template).toBe("type:canvas:application/json");
+        expect([ ...(menu?.querySelectorAll(".dropdown-item") ?? []) ]
+            .map(item => !!item.querySelector(".card-template-current")))
+            .toEqual([ false, false, true, false, false ]);
+
+        await type(editor, "Drawn");
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(created).toHaveBeenCalledWith("Doing", "Drawn", "bottom", undefined,
+            expect.objectContaining({ id: "type:canvas:application/json" }));
+        expect(slot?.querySelector(".card-template-pill button")?.textContent).toContain("Canvas");
+    });
+
+    /**
+     * Opening the pill's menu takes focus off the field: Bootstrap focuses the toggle it opens
+     * from. Losing focus is what closes this editor, so the editor would take the menu down with
+     * itself the moment it was opened, and the toggle would then find nothing to open.
+     */
+    it("stays open while the template pill's menu has the focus", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const pill = slot?.querySelector<HTMLElement>(".card-template-pill button");
+        if (!editor || !pill) throw new Error("expected the editor and its pill");
+        await type(editor, "Still here");
+
+        await act(async () => {
+            pill.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+            $(pill.closest(".dropdown") as HTMLElement).trigger("show.bs.dropdown");
+            editor.dispatchEvent(new FocusEvent("blur"));
+            editor.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+            await flush();
+        });
+
+        expect(slot?.querySelector("textarea")).toBe(editor);
+        expect(editor.value).toBe("Still here");
+        expect(created).not.toHaveBeenCalled();
+
+        // Once the menu is done with, the field has the focus again.
+        await act(async () => {
+            $(pill.closest(".dropdown") as HTMLElement).trigger("hide.bs.dropdown");
+            await flush();
+        });
+        expect(document.activeElement).toBe(editor);
+    });
+
+    /**
+     * A board outlives the templates it read: one made while it stands would never be offered, and
+     * one deleted would go on being offered. A template is a note carrying `#template`, so a change
+     * to one of those attributes is what sends the board back for the list.
+     */
+    it("reads the templates again when one is made or taken away", async () => {
+        const { host } = await setup();
+        const before = templateReads;
+
+        // A change to something else leaves the list where it is.
+        await act(async () => {
+            await host.handleEvent("entitiesReloaded", { loadResults: attributeChanged("status") });
+            await flush();
+        });
+        expect(templateReads).toBe(before);
+
+        await act(async () => {
+            await host.handleEvent("entitiesReloaded", { loadResults: attributeChanged("template") });
+            await flush();
+        });
+        expect(templateReads).toBe(before + 1);
+
+        // And a note that stops being a template, which is the same row with `isDeleted` set.
+        await act(async () => {
+            await host.handleEvent("entitiesReloaded",
+                { loadResults: attributeChanged("template", "someNote", true) });
+            await flush();
+        });
+        expect(templateReads).toBe(before + 2);
+    });
+
+    /**
+     * A template's icon is what the picker and the pill show, and an icon is a label on the note
+     * rather than part of the note row: the change is reported as an attribute changing, which is
+     * not what a reloaded note reads as. The label is not always `iconClass`, so any label on a
+     * note the board offers sends it back for the list. Notes it offers nothing from are its own.
+     */
+    it("reads the templates again when one it offers is given another icon", async () => {
+        const reading = vi.mocked(getNoteTypeOptions);
+        const stockAnswer = reading.getMockImplementation();
+        const template = {
+            id: "template:tmpl1",
+            title: "My template",
+            icon: "bx bx-star",
+            group: "user",
+            options: { type: "text", mime: "text/html", templateNoteId: "tmpl1" }
+        } as NoteTypeOption;
+        reading.mockImplementation(async () => [ ...NOTE_TYPE_OPTIONS, template ]);
+
+        try {
+            const { host } = await setup();
+            const before = reading.mock.calls.length;
+
+            // An icon given to a note the board offers nothing from is not its business.
+            await act(async () => {
+                await host.handleEvent("entitiesReloaded",
+                    { loadResults: attributeChanged("iconClass") });
+                await flush();
+            });
+            expect(reading.mock.calls.length).toBe(before);
+
+            await act(async () => {
+                await host.handleEvent("entitiesReloaded",
+                    { loadResults: attributeChanged("iconClass", "tmpl1") });
+                await flush();
+            });
+            expect(reading.mock.calls.length).toBe(before + 1);
+
+            // And an icon taken away again, which is the same row with `isDeleted` set.
+            await act(async () => {
+                await host.handleEvent("entitiesReloaded",
+                    { loadResults: attributeChanged("iconClass", "tmpl1", true) });
+                await flush();
+            });
+            expect(reading.mock.calls.length).toBe(before + 2);
+
+            // A note with no icon of its own wears its workspace's, which is another label again.
+            await act(async () => {
+                await host.handleEvent("entitiesReloaded",
+                    { loadResults: attributeChanged("workspaceIconClass", "tmpl1") });
+                await flush();
+            });
+            expect(reading.mock.calls.length).toBe(before + 3);
+        } finally {
+            reading.mockImplementation(stockAnswer ?? (async () => NOTE_TYPE_OPTIONS));
+        }
+    });
+
+    /**
+     * Two reads can be in flight at once: the one the board makes as it arrives, and one a template
+     * being made or deleted asks for. The server need not answer in the order it was asked, so the
+     * answer to the older read is not what the board is left offering.
+     */
+    it("keeps the newest reading of what a card can be made from", async () => {
+        const answers: Answer[] = [];
+        const reading = vi.mocked(getNoteTypeOptions);
+        const stockAnswer = reading.getMockImplementation();
+        reading.mockImplementation(() =>
+            new Promise((resolve, reject) => { answers.push({ resolve, reject }); }));
+
+        try {
+            // Both reads are made, and neither has been answered.
+            const { host, container } = await setup();
+            await act(async () => {
+                await host.handleEvent("entitiesReloaded",
+                    { loadResults: attributeChanged("template") });
+                await flush();
+            });
+            expect(answers.length).toBe(2);
+
+            // The newer read is answered first, and the older one after it, with nothing at all.
+            await act(async () => {
+                answers[1].resolve(NOTE_TYPE_OPTIONS);
+                answers[0].resolve([]);
+                await flush();
+            });
+
+            // The pill names what a card would be made from, which the older answer has none of.
+            expect(await pillNames(container)).toContain("Text");
+        } finally {
+            reading.mockImplementation(stockAnswer ?? (async () => NOTE_TYPE_OPTIONS));
+        }
+    });
+
+    /**
+     * A read that fails leaves no answer at all, so what an older read answered is what the board
+     * has: it is taken rather than thrown away for a newer read that came back with nothing.
+     */
+    it("takes an older answer when the newer read fails", async () => {
+        const answers: Answer[] = [];
+        const reading = vi.mocked(getNoteTypeOptions);
+        const stockAnswer = reading.getMockImplementation();
+        reading.mockImplementation(() =>
+            new Promise((resolve, reject) => { answers.push({ resolve, reject }); }));
+
+        try {
+            const { host, container } = await setup();
+            await act(async () => {
+                await host.handleEvent("entitiesReloaded",
+                    { loadResults: attributeChanged("template") });
+                await flush();
+            });
+            expect(answers.length).toBe(2);
+
+            await act(async () => {
+                answers[1].reject(new Error("offline"));
+                answers[0].resolve(NOTE_TYPE_OPTIONS);
+                await flush();
+            });
+
+            expect(await pillNames(container)).toContain("Text");
+        } finally {
+            reading.mockImplementation(stockAnswer ?? (async () => NOTE_TYPE_OPTIONS));
+        }
+    });
+
+    /** The pill's last entry opens the dialog that decides what the board offers. */
+    it("opens the templates dialog from the pill, and stores what is ticked", async () => {
+        const { container } = await setup();
+        const stored = vi.spyOn(BoardApi.prototype, "setCardTemplateIds")
+            .mockResolvedValue(undefined);
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const pill = slot?.querySelector<HTMLElement>(".card-template-pill button");
+        if (!pill) throw new Error("expected the template pill");
+        await act(async () => {
+            pill.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+            $(pill.closest(".dropdown") as HTMLElement).trigger("show.bs.dropdown");
+            await flush();
+        });
+
+        const menus = [ ...document.querySelectorAll<HTMLElement>(".card-template-pill") ];
+        const more = [ ...(menus.at(-1)?.querySelectorAll<HTMLElement>(".dropdown-item") ?? []) ]
+            .find(item => item.textContent?.includes("more-templates"));
+        if (!more) throw new Error("expected a way to the dialog");
+
+        await act(async () => {
+            more.click();
+            await flush();
+        });
+
+        // The last of them: a dialog portalled to the page outlives the board that drew it here,
+        // so every board this file has rendered has left one behind.
+        const dialog = [ ...document.querySelectorAll<HTMLElement>(".note-type-selector-dialog") ]
+            .at(-1);
+        expect(dialog).toBeTruthy();
+
+        const boxes = [ ...(dialog?.querySelectorAll<HTMLInputElement>("input[type=checkbox]") ?? []) ];
+        // The name carries a suffix of its own, which is what ties the box to its label.
+        const named = boxes.map(box => box.getAttribute("name")?.replace(/-[^-]{10}$/, ""));
+        // Everything the app can make is listed, with what the board offers already ticked.
+        expect(named).toEqual([
+            "type:text:text/html",
+            "type:code:text/x-markdown",
+            "type:canvas:application/json",
+            "type:spreadsheet:application/json",
+            "type:mermaid:text/mermaid"
+        ]);
+        expect(boxes.filter(box => box.checked).length).toBe(4);
+
+        // Nothing ticked is nothing a card could be made from, so it cannot be saved.
+        await act(async () => {
+            for (const box of boxes.filter(box => box.checked)) {
+                box.checked = false;
+                box.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            await flush();
+        });
+        const save = [ ...(dialog?.querySelectorAll<HTMLButtonElement>("button") ?? []) ]
+            .find(button => button.textContent?.includes("selector-save"));
+        expect(save?.disabled).toBe(true);
+
+        await act(async () => {
+            boxes[4].checked = true;
+            boxes[4].dispatchEvent(new Event("change", { bubbles: true }));
+            await flush();
+        });
+        expect(save?.disabled).toBe(false);
+
+        await act(async () => {
+            dialog?.querySelector("form")?.dispatchEvent(
+                new Event("submit", { bubbles: true, cancelable: true }));
+            await flush();
+        });
+        expect(stored).toHaveBeenCalledWith([ "type:mermaid:text/mermaid" ]);
+
+        stored.mockRestore();
     });
 
     /**
@@ -2201,7 +2572,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "Starred", "bottom", PICKED_ICON);
+        expect(created).toHaveBeenCalledWith("Doing", "Starred", "bottom", PICKED_ICON, textTemplate());
         // The title goes, the icon stays.
         expect(editor.value).toBe("");
         expect(slot?.querySelector(".title-editor-icon button")?.className)
@@ -2330,7 +2701,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "On top", "top", undefined);
+        expect(created).toHaveBeenCalledWith("Doing", "On top", "top", undefined, textTemplate());
         // The field is emptied for the next one, as it is for a card made at the end.
         expect(editor.value).toBe("");
     });
@@ -2374,7 +2745,7 @@ describe("Board column rename", () => {
             entries[0]?.handler?.({} as never, {} as never);
             await flush();
         });
-        expect(created).toHaveBeenCalledWith("Doing", "Either end", "top", undefined);
+        expect(created).toHaveBeenCalledWith("Doing", "Either end", "top", undefined, textTemplate());
         expect(editor.value).toBe("");
 
         show.mockRestore();
@@ -2459,7 +2830,8 @@ describe("Board column rename", () => {
             await flush();
         });
         expect(chosen).toHaveBeenCalled();
-        expect(added).toHaveBeenCalledWith("Doing", "existing");
+        // No place given: the field below a column adds the note at the end of it.
+        expect(added).toHaveBeenCalledWith("Doing", "existing", undefined);
 
         await type(editor, "Typed");
         expect(button()?.className).toContain("bx-plus-circle");

@@ -44,6 +44,8 @@
   --card-icon-size: 1em;
   --card-icon-inset: 0.42rem;
   --card-title-inset: 1.9em;
+  /* The chip naming what a new card is made from, and the room the field leaves for it. */
+  --card-template-pill-height: 1.6em;
 }
 
 /* Lays nothing out: the columns stay the board's own flex items, and Preact has a parent of its own
@@ -255,6 +257,11 @@ body.mobile .board-view-container .board-add-column {
   overflow-y: auto;
   /* No padding below: the last card's own gap stands between it and the footer. */
   padding: 0.5em 0.5em 0;
+}
+
+/* A field standing among the cards is spaced as one of them, which is what it stands for. */
+.board-view-container .board-column-content > .board-new-item {
+  margin-block: 0 0.65em;
 }
 
 .board-view-container .board-column > .board-new-item {
@@ -642,6 +649,63 @@ body.mobile .board-view-container .board-add-column {
 .board-view-container .title-editor-field.with-submit textarea.form-control,
 .board-view-container .title-editor-field.with-submit input.form-control {
   padding-inline-end: 2.2em;
+}
+
+/*
+ * Room below the text for what stands at the foot of the field, which is the pill naming what a new
+ * card will be made from. The pill is laid over that room rather than in the flow, so the field
+ * still grows a line at a time as it is typed into.
+ */
+.board-view-container .title-editor-field.with-footer textarea.form-control,
+.board-view-container .title-editor-field.with-footer input.form-control {
+  padding-block-end: calc(var(--card-padding) + var(--card-template-pill-height));
+}
+
+.board-view-container .title-editor-footer {
+  position: absolute;
+  inset-inline-start: var(--card-icon-inset);
+  inset-block-end: calc(var(--card-padding) / 2);
+  max-width: calc(100% - 2 * var(--card-icon-inset));
+}
+
+/* A quiet chip rather than a button: it names what the card will be, and is pressed only to change
+   it. The name is cut rather than wrapped, the field being one line tall to begin with. */
+.board-view-container .card-template-pill .card-template-pill-button {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  max-width: 100%;
+  height: var(--card-template-pill-height);
+  border: 1px solid var(--main-border-color);
+  border-radius: 999px;
+  padding-inline: 0.5em;
+  background-color: transparent;
+  color: var(--muted-text-color);
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+.board-view-container .card-template-pill .card-template-pill-button:hover {
+  border-color: var(--main-text-color);
+  color: var(--main-text-color);
+}
+
+/* The menu is drawn at the end of the page, so it is named rather than nested in the board. The
+   tick stands at the trailing edge, where a shortcut would. */
+.tn-dropdown-portal.card-template-pill .dropdown-item {
+  display: flex;
+  align-items: center;
+}
+
+.tn-dropdown-portal.card-template-pill .card-template-current {
+  margin-inline-start: auto;
+  padding-inline-start: 1.5em;
+}
+
+.board-view-container .card-template-pill .card-template-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* A card or column lands where the reader may not be looking, so it announces itself. */

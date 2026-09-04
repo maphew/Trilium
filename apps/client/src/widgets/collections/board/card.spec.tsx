@@ -122,22 +122,35 @@ describe("Board card", () => {
             .toHaveBeenCalledWith("openInPopup", { noteIdOrPath: first });
     });
 
-    /** Enter adds a card where a spreadsheet would add a row, and Shift puts it above instead. */
-    it("adds a card under the focused one for Enter, and over it for Shift and Enter", async () => {
-        const insert = vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
-            .mockResolvedValue(undefined as never);
-        const openInPopup = vi.spyOn(appContext, "triggerCommand").mockReturnValue(undefined);
-        const { first } = await renderBoard();
+    /**
+     * Enter opens the field a card is named in where a spreadsheet would add a row, and Shift puts
+     * it above instead. The card itself is made by that field, once it has been given a title.
+     */
+    it("opens the field under the focused card for Enter, and over it for Shift and Enter",
+        async () => {
+            const openInPopup = vi.spyOn(appContext, "triggerCommand").mockReturnValue(undefined);
+            const { first } = await renderBoard();
 
-        await act(async () => { press(card(first), "Enter"); });
-        expect(insert).toHaveBeenLastCalledWith("To Do", expect.any(String), "after");
+            await act(async () => { press(card(first), "Enter"); });
+            expect(fieldBeside(first)).toBe("after");
 
-        await act(async () => { press(card(first), "Enter", { shiftKey: true }); });
-        expect(insert).toHaveBeenLastCalledWith("To Do", expect.any(String), "before");
+            await act(async () => { press(card(first), "Enter", { shiftKey: true }); });
+            expect(fieldBeside(first)).toBe("before");
 
-        // The card it was pressed on stays where it is; Space is what opens one.
-        expect(openInPopup).not.toHaveBeenCalled();
-    });
+            // The card it was pressed on stays where it is; Space is what opens one.
+            expect(openInPopup).not.toHaveBeenCalled();
+        });
+
+    /** Which side of a card the field for a new one stands on, or that none is open. */
+    function fieldBeside(noteId: string) {
+        const field = container?.querySelector(".board-new-item.inserting");
+        if (!field) return "none";
+
+        const element = card(noteId);
+        if (field.previousElementSibling === element) return "after";
+        if (field.nextElementSibling === element) return "before";
+        return "elsewhere";
+    }
 
     it("opens the note once for a double click, not once per click of it", async () => {
         const { first } = await renderBoard();
