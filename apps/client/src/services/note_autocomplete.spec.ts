@@ -337,9 +337,9 @@ describe("autocompleteSource (via dataset)", () => {
         expect(html).toContain("#color=red");
     });
 
-    it("does not render a content snippet by default, even when the suggestion has one", () => {
-        // showContentSnippets defaults to false so compact consumers (link dialogs, relation
-        // editors, @-mentions) don't grow an extra line.
+    it("never renders a content snippet, whatever the suggestion carries", () => {
+        // The dropdown lists notes matched by title and attributes, so a body excerpt would
+        // suggest a content match that fast search never made.
         const { dataset } = initAndGetSource();
         const html = dataset.templates.suggestion({
             highlightedNotePathTitle: "T",
@@ -347,22 +347,6 @@ describe("autocompleteSource (via dataset)", () => {
         });
         expect(html).not.toContain("search-result-content");
         expect(html).not.toContain("matched");
-    });
-
-    it("does not render a content snippet when showContentSnippets is set but the suggestion has none", () => {
-        const { dataset } = initAndGetSource({ showContentSnippets: true });
-        const html = dataset.templates.suggestion({ highlightedNotePathTitle: "T" });
-        expect(html).not.toContain("search-result-content");
-    });
-
-    it("renders the content snippet when showContentSnippets is enabled (jump-to-note dialog)", () => {
-        const { dataset } = initAndGetSource({ showContentSnippets: true });
-        const html = dataset.templates.suggestion({
-            highlightedNotePathTitle: "T",
-            highlightedContentSnippet: "some <b>matched</b> content"
-        });
-        expect(html).toContain("search-result-content");
-        expect(html).toContain("some <b>matched</b> content");
     });
 
     it("renders search-notes, create-note and external-link suggestion icons/classes", () => {
@@ -552,7 +536,7 @@ describe("initNoteAutocomplete wiring", () => {
 
         // clear button -> autocomplete("val", "") + change trigger. Also re-triggers "input" so
         // consumers tracking the live query (e.g. jump_to_note.tsx's actualText ref) don't go
-        // stale when the value is cleared programmatically instead of by typing (#task-7 review).
+        // stale when the value is cleared programmatically instead of by typing.
         $group.find(".input-clearer-button").trigger("click");
         expect(autocompleteCalls.some((c) => c[0] === "val" && c[1] === "")).toBe(true);
         expect(onInput).toHaveBeenCalled();
@@ -842,7 +826,7 @@ describe("public helpers", () => {
         noteAutocomplete.setText($el, "  hello  ");
         expect(lastCommandWith("open")).toBe(true);
         expect($el.attr("data-note-path")).toBe("");
-        // re-triggers "input" so consumers tracking the live query stay in sync (#task-7 review)
+        // re-triggers "input" so consumers tracking the live query stay in sync
         expect(onInput).toHaveBeenCalled();
     });
 

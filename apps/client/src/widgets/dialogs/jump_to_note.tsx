@@ -5,7 +5,6 @@ import { useRef, useState } from "preact/hooks";
 import appContext from "../../components/app_context";
 import commandRegistry from "../../services/command_registry";
 import { t } from "../../services/i18n";
-import type { ViewScope } from "../../services/link";
 import note_autocomplete, { Suggestion } from "../../services/note_autocomplete";
 import shortcutService from "../../services/shortcuts";
 import Button from "../react/Button";
@@ -50,8 +49,8 @@ export default function JumpToNoteDialogComponent() {
             setMode(newMode);
         }
 
-        // The "recent-notes" branch above resets the displayed text without firing "input", which
-        // is what normally updates this ref, so keep it in sync with what is about to be shown.
+        // `showInFullSearch` reads this ref, so it has to follow the text about to be displayed
+        // rather than keep the previous session's query.
         actualText.current = initialText;
 
         setInitialText(initialText);
@@ -69,9 +68,7 @@ export default function JumpToNoteDialogComponent() {
 
         setShown(false);
         if (suggestion.notePath) {
-            const searchString = !isCommandMode ? actualText.current?.trim() : "";
-            const viewScope: ViewScope = searchString ? { searchTerms: [ searchString ] } : {};
-            appContext.tabManager.getActiveContext()?.setNote(suggestion.notePath, { viewScope });
+            appContext.tabManager.getActiveContext()?.setNote(suggestion.notePath);
         } else if (suggestion.commandId) {
             await commandRegistry.executeCommand(suggestion.commandId);
         }
@@ -139,8 +136,7 @@ export default function JumpToNoteDialogComponent() {
                     allowCreatingNotes: true,
                     hideGoToSelectedNoteButton: true,
                     allowJumpToSearchNotes: true,
-                    isCommandPalette: true,
-                    showContentSnippets: true
+                    isCommandPalette: true
                 }}
                 onTextChange={(text) => {
                     actualText.current = text;

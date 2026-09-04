@@ -1073,28 +1073,6 @@ table.promoted-attributes-in-tooltip th {
     word-wrap: break-word;
 }
 
-.aa-dropdown-menu .aa-suggestion .search-result-content {
-    display: block;
-    margin-top: 4px;
-    font-size: 0.85em;
-    color: var(--muted-text-color);
-    line-height: 1.3;
-    word-wrap: break-word;
-}
-
-.aa-dropdown-menu .aa-suggestion .search-result-content b {
-    background: var(--note-list-view-search-result-highlight-background);
-    color: var(--note-list-view-search-result-highlight-color);
-    font-weight: 600;
-    text-decoration: underline;
-}
-
-.aa-dropdown-menu .aa-suggestion .search-result-content b.search-fuzzy-match {
-    color: var(--note-list-view-search-result-fuzzy-highlight-color);
-    font-weight: 400;
-    text-decoration: underline dotted;
-}
-
 .aa-dropdown-menu .aa-suggestion p {
     padding: 0;
     margin: 0;
