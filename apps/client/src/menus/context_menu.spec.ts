@@ -60,6 +60,58 @@ describe("contextMenu", () => {
         expect(menu?.parentElement).toBe(document.body);
     });
 
+    /**
+     * A submenu opens towards the trailing edge, and a menu raised near that edge would draw it off
+     * the screen. It goes on the other side of its parent instead, which is what the page already
+     * does for the launcher bar lying on its side.
+     */
+    it("opens a submenu on the other side of a menu standing at the edge", async () => {
+        buildPage();
+        const contextMenu = await buildContextMenu();
+        Object.defineProperty(document.documentElement, "clientWidth",
+            { value: 1000, configurable: true });
+        Object.defineProperty(document.documentElement, "clientHeight",
+            { value: 800, configurable: true });
+
+        await contextMenu.show({
+            x: 900, y: 10,
+            items: [ { title: "More states", items } ],
+            selectMenuItemHandler: () => {}
+        });
+
+        const parent = document.querySelector<HTMLElement>(".dropdown-submenu");
+        const submenu = parent?.querySelector<HTMLElement>(".dropdown-menu");
+        if (!parent || !submenu) throw new Error("expected a submenu");
+
+        // jQuery binds `mouseenter` as a native `mouseover`, which is what the hover has to be.
+        const hover = () =>
+            parent.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+
+        // happy-dom measures nothing, so the submenu is told where it stands.
+        const place = (left: number, width: number) =>
+            Object.defineProperty(submenu, "getBoundingClientRect", {
+                value: () => ({
+                    left, right: left + width, width,
+                    top: 10, bottom: 110, height: 100
+                }),
+                configurable: true
+            });
+
+        place(910, 300);
+        hover();
+        expect(submenu.classList.contains("submenu-flip-start")).toBe(true);
+
+        // Where it fits as it is, it is left where it opens.
+        place(500, 300);
+        hover();
+        expect(submenu.classList.contains("submenu-flip-start")).toBe(false);
+
+        // And where it fits on neither side, since flipping would only clip the other end.
+        place(910, 950);
+        hover();
+        expect(submenu.classList.contains("submenu-flip-start")).toBe(false);
+    });
+
     it("tints an item's icon with the colour class it carries, and only the icon", async () => {
         const menu = buildPage();
         const contextMenu = await buildContextMenu();

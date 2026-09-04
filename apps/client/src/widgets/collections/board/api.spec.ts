@@ -16,7 +16,7 @@ import { buildNote } from "../../../test/easy-froca";
 import { BoardViewData } from ".";
 import BoardApi, { getPendingWrites, PendingColumnWrites } from "./api";
 import { ColumnMap } from "./data";
-import { BOARD_TEMPLATE_ID, DEFAULT_COLUMN_ICON, getStatusDefinition } from "./columns";
+import { BOARD_TEMPLATE_ID, DEFAULT_COLUMN_ICON, getStatusDefinition, INBOX_COLUMN } from "./columns";
 
 vi.mock("../../../services/bulk_action", () => ({
     executeBulkActions: vi.fn(async () => {})
@@ -1187,6 +1187,63 @@ describe("collapsing a column", () => {
         await api.setColumnKeepCollapsed("To Do", true);
         await api.setColumnKeepCollapsed("To Do", false, true);
         expect(saved.at(-1)?.columns).toEqual([ { value: "To Do" } ]);
+    });
+
+    /**
+     * The inbox is drawn at the head of the board without ever having been written, so the first
+     * thing picked for it is also the first entry it gets. Appended, that entry would send the
+     * column to the end of the board, the stored order being what the board reads first.
+     */
+    it("writes a column with no entry yet where the board draws it", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ INBOX_COLUMN, "To Do", "Done" ]);
+
+        await api.setColumnCollapsed(INBOX_COLUMN, true);
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: INBOX_COLUMN, collapsed: true }, { value: "To Do" }, { value: "Done" }
+        ]);
+
+        // One drawn between two stored columns lands between them.
+        const middle = createApi(
+            { columns: [ { value: "To Do" }, { value: "Done" } ] },
+            [ "To Do", "Doing", "Done" ]);
+        await middle.api.setColumnCollapsed("Doing", true);
+        expect(middle.saved.at(-1)?.columns?.map(column => column.value))
+            .toEqual([ "To Do", "Doing", "Done" ]);
+    });
+
+    /** The icon goes in with the column, rather than as a second write and a second refresh. */
+    it("stores a new column with the icon picked for it", async () => {
+        const { api, saved } = createApi({ columns: [ { value: "To Do" } ] }, [ "To Do" ]);
+
+        await api.addNewColumn("Blocked", false, "bx bx-star");
+        expect(saved.at(-1)?.columns)
+            .toEqual([ { value: "To Do" }, { value: "Blocked", icon: "bx bx-star" } ]);
+
+        await api.addNewColumn("Doing", true, "bx bx-run");
+        expect(saved.at(-1)?.columns?.[0]).toEqual({ value: "Doing", icon: "bx bx-run" });
+    });
+
+    /**
+     * A column drawn from the definition or from a value its cards carry has no stored entry until
+     * something is picked for it, and collapsing the board is what picks for all of them at once.
+     */
+    it("collapses every column, and opens the ones that are not kept collapsed", async () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do", keepCollapsed: true } ] }, [ "To Do", "Done" ]);
+
+        await api.setAllColumnsCollapsed(true);
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "To Do", keepCollapsed: true, collapsed: true },
+            { value: "Done", collapsed: true }
+        ]);
+
+        await api.setAllColumnsCollapsed(false);
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "To Do", keepCollapsed: true, collapsed: true },
+            { value: "Done" }
+        ]);
     });
 
     it("leaves the column's other properties alone", async () => {

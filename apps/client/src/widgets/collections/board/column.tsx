@@ -33,7 +33,7 @@ import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
 import Card from "./card";
-import { DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
+import { DEFAULT_CARD_ICON, DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
 import { openColumnContextMenu, openCreateCardMenu } from "./context_menu";
 
 interface DragContext {
@@ -57,6 +57,7 @@ export default function Column({
     collapsed,
     keepCollapsed,
     isActive,
+    isPeeked,
     nested,
     limit,
     columnItems,
@@ -78,6 +79,8 @@ export default function Column({
     keepCollapsed?: boolean,
     /** Whether this is the column the reader is working in, which opens it while it is collapsed. */
     isActive?: boolean,
+    /** Whether the board is showing every collapsed column at once, which opens this one too. */
+    isPeeked?: boolean,
     /** Whether the inbox also collects notes deeper than the board's direct children. */
     nested?: boolean,
     /** The note limit, absent if disabled. */
@@ -167,7 +170,7 @@ export default function Column({
 
     // Read here rather than in the badge: the column body shows an outline as well.
     const isOverLimit = limit !== undefined && (columnItems?.length ?? 0) > limit;
-    const isCollapsed = !!collapsed && !isActive;
+    const isCollapsed = !!collapsed && !isActive && !isPeeked;
     // A column opened to take a dragged card takes its width at once, and its cards with it.
     const opensAtOnce = !!draggedCard || dropTarget === column;
 
@@ -242,10 +245,15 @@ export default function Column({
     // Focus reaching a column closes whichever one was open, and opens nothing: a collapsed column
     // is walked onto without being disturbed, and is opened by a click or by Space instead.
     const handleFocusIn = useCallback(() => {
-        if (!isActive) {
-            setActiveColumn(undefined);
+        if (isActive) {
+            return;
         }
-    }, [ isActive, setActiveColumn ]);
+
+        // While the whole board is peeked, focus arriving settles the peek on this column rather
+        // than closing every column: the reader has just gone to work in this one, and a press on
+        // one of its cards is focus arriving before it is a click.
+        setActiveColumn(isPeeked ? column : undefined);
+    }, [ column, isActive, isPeeked, setActiveColumn ]);
 
     const openMenu = useCallback((e: ContextMenuEvent) => {
         openColumnContextMenu(api, e, {
@@ -514,6 +522,8 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
     // What the editor opens with: empty to begin with, then whatever was typed into it and left
     // unsaved, so that reaching for something else and coming back does not cost the title.
     const [ initialTitle, setInitialTitle ] = useState("");
+    // Kept between cards, unlike the title: a run of cards is often a run of the same kind of card.
+    const [ icon, setIcon ] = useState(DEFAULT_CARD_ICON);
 
     const open = useCallback((title: string) => {
         setInitialTitle(title);
@@ -568,7 +578,8 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
                     save={async (title, atStart) => {
                         onCreating();
                         onCreated(await api.createNewItem(
-                            column, title, atStart ? "top" : "bottom"));
+                            column, title, atStart ? "top" : "bottom",
+                            icon !== DEFAULT_CARD_ICON ? icon : undefined));
                     }}
                     dismiss={() => setIsCreating(false)}
                     mode="multiline" isNewItem
@@ -581,6 +592,13 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
                     }}
                     submitTitle={t("board_view.create-new-note")}
                     openPlacements={openCreateCardMenu}
+                    icon={{
+                        current: icon,
+                        onSelect: setIcon,
+                        onReset: icon !== DEFAULT_CARD_ICON
+                            ? () => setIcon(DEFAULT_CARD_ICON)
+                            : undefined
+                    }}
                 />
             )}
         </div>

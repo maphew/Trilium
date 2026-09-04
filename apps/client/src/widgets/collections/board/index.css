@@ -38,6 +38,12 @@
   --card-font-size: 0.9em;
   --card-line-height: 1.2;
   --card-padding: 0.6em;
+  /* The icon a card carries, and where it and the title stand from the card's leading edge. The
+     card and the editor it opens into are laid out from these, so switching between them moves
+     nothing. All three are worked out in the card's own font. */
+  --card-icon-size: 1em;
+  --card-icon-inset: 0.42rem;
+  --card-title-inset: 1.9em;
 }
 
 /* Lays nothing out: the columns stay the board's own flex items, and Preact has a parent of its own
@@ -129,6 +135,10 @@ body.mobile .board-view-container .board-add-column {
   font-size: 1em;
   margin: 0;
   padding: 0.5em 0.5em 0.5em 0.5em;
+  /* As tall as the menu button standing in it, whatever else it holds: while the title is edited
+     the badge and that button are not drawn, and the heading would otherwise close up around the
+     field by the difference between them. */
+  min-height: calc(var(--icon-button-size, 32px) + 1em + 1px);
   border-bottom: 1px solid var(--main-border-color);
   cursor: grab;
   position: relative;
@@ -201,9 +211,12 @@ body.mobile .board-view-container .board-add-column {
   border-radius: 4px;
 }
 
+/* Outlined from within rather than bordered: a border is a box of its own, and the heading would
+   take a pixel more room the moment its title were edited, carrying the icon and the title with
+   it. */
 .board-view-container .board-column h3.editing {
   background-color: var(--main-background-color);
-  border: 1px solid var(--main-text-color);
+  box-shadow: inset 0 0 0 1px var(--main-text-color);
   border-radius: 4px;
 }
 
@@ -213,6 +226,8 @@ body.mobile .board-view-container .board-add-column {
   outline: none;
   font-size: inherit;
   font-weight: inherit;
+  /* The line the title itself stands on, rather than the form control's own. */
+  line-height: inherit;
   color: inherit;
   width: 100%;
   font-family: inherit;
@@ -358,15 +373,36 @@ body.mobile .board-view-container .board-add-column {
   opacity: 0.5;
 }
 
-.board-view-container .board-note .icon {
-  margin-inline-end: 0.25em;
-  display: inline;
+/*
+ * The title and the icon before it, which stand where the editor's field and picker do: the icon at
+ * `--card-icon-inset` from the card's edge and centred on the first line, the title at
+ * `--card-title-inset` with the lines below it kept off the icon, as the field's own padding keeps
+ * them.
+ *
+ * The card's padding is already in front of both, so each is drawn back by it.
+ */
+.board-view-container .board-note > .title {
+  display: flex;
+  align-items: flex-start;
+}
+
+.board-view-container .board-note > .title > .icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--card-icon-size);
+  height: calc(var(--card-line-height) * 1em);
+  margin-inline-start: calc(var(--card-icon-inset) - var(--card-padding));
+  margin-inline-end: calc(
+    var(--card-title-inset) - var(--card-icon-inset) - var(--card-icon-size));
 }
 
 .board-view-container .board-note > .edit-icon {
   position: absolute;
   top: 8px;
-  inset-inline-end: 4px;
+  /* The gap the icons in a card shared before the title took its own layout. */
+  inset-inline-end: calc(4px + 0.25em);
   padding: 2px;
   /* Masks the title it sits over, so it takes the card's own colour rather than the plain one. */
   background-color: inherit;
@@ -495,10 +531,13 @@ body.mobile .board-view-container .board-add-column {
   padding: 0;
 }
 
+/* One line stands exactly as tall as the card, or as the closed button; typing more grows it from
+   there. Stated rather than left to the field's own intrinsic height, which rounds a line of 1.2em
+   up to a whole pixel and leaves a card being edited a fraction taller than the same card is when
+   it is not. */
+.board-view-container .board-note.editing textarea,
 .board-view-container .board-new-item textarea.form-control {
-  /* One line stands exactly as tall as the closed button; typing more grows it from there. */
   min-height: calc(var(--card-line-height) * 1em + 2 * var(--card-padding));
-  height: calc(var(--card-line-height) * 1em + 2 * var(--card-padding));
 }
 
 .board-view-container .board-note.editing textarea,
@@ -517,8 +556,8 @@ body.mobile .board-view-container .board-add-column {
   resize: none;
 }
 
-/* The field and the button that submits it, which stands over the field's own end. */
-.board-view-container .title-editor-with-submit {
+/* The field with what stands over it: the icon at its leading edge, the submit at its trailing. */
+.board-view-container .title-editor-field {
   display: flex;
   flex-grow: 1;
   position: relative;
@@ -534,7 +573,7 @@ body.mobile .board-view-container .board-add-column {
  * rather than `em`: a custom property is worked out where it is used, and this button's font is
  * itself derived from the size below.
  */
-.board-view-container .title-editor-with-submit .title-editor-submit {
+.board-view-container .title-editor-field .title-editor-submit {
   --icon-button-size: 1.6rem;
   --icon-button-icon-ratio: 0.72;
 
@@ -556,10 +595,52 @@ body.mobile .board-view-container .board-add-column {
   }
 }
 
-/* Room for the button, so a long title runs up to it rather than under it. Stated after the rule
+/*
+ * The icon the card carries, which opens the picker. Flat and the size of the icon a card is drawn
+ * with, rather than the button a note header stands on: it is part of the line being typed.
+ *
+ * Three sizes, and the icon stays where it is through all of them: `--note-icon-size` is the glyph,
+ * `--note-icon-container-padding-size` the ring it lights up under the pointer, which grows
+ * outwards from the glyph, and `--title-editor-icon-inset` where the glyph stands from the field's
+ * leading edge.
+ *
+ * Down the field it is held against the first line: the field's own top padding and half a line
+ * down, less half the icon's box. That is the middle of a field of one line, and the first line of
+ * a taller one. Written in `em` on this element rather than on the field: a custom property is
+ * worked out where it is used, and both sit in the card's own font.
+ */
+.board-view-container .title-editor-field .title-editor-icon {
+  --note-icon-size: var(--card-icon-size);
+  --note-icon-container-padding-size: 4px;
+  --title-editor-icon-inset: var(--card-icon-inset);
+  /* No disc behind it, and the colour the line itself is written in: it stands in the text being
+     typed, not on a note's own header. */
+  --note-icon-custom-background-color: transparent;
+  --note-icon-color: var(--main-text-color);
+  /* What every other icon button in the page lights up with under the pointer. */
+  --note-icon-hover-custom-background-color: var(--icon-button-hover-background);
+  --title-editor-icon-box: calc(
+    var(--note-icon-size) + 2 * var(--note-icon-container-padding-size));
+
+  position: absolute;
+  inset-inline-start: calc(
+    var(--title-editor-icon-inset) - var(--note-icon-container-padding-size));
+  inset-block-start: calc(
+    var(--card-padding) + (var(--card-line-height) * 1em - var(--title-editor-icon-box)) / 2);
+  z-index: 1;
+}
+
+/* Room for the icon, so a long title runs up to it rather than under it. Stated after the rules
    above, whose shorthand padding would otherwise take this back. */
-.board-view-container .title-editor-with-submit textarea.form-control,
-.board-view-container .title-editor-with-submit input.form-control {
+.board-view-container .title-editor-field textarea.form-control,
+.board-view-container .title-editor-field input.form-control {
+  padding-inline-start: var(--card-title-inset);
+}
+
+/* And for the button, wherever there is one to make room for. Kept whether or not it is drawn just
+   now, or the text would shift as the field is typed into and emptied again. */
+.board-view-container .title-editor-field.with-submit textarea.form-control,
+.board-view-container .title-editor-field.with-submit input.form-control {
   padding-inline-end: 2.2em;
 }
 
@@ -673,16 +754,24 @@ body.mobile .column-drop-placeholder {
   font-size: 1.2em;
 }
 
+/* The box is the slot, as a column's own heading is the box while its title is edited, and the
+   field inside carries nothing of its own. The card's padding and line, so the icon beside it lands
+   where the shared rule above puts it, and the outline drawn within so the slot keeps its size. */
+.board-add-column.editing {
+  background-color: var(--main-background-color);
+  box-shadow: inset 0 0 0 1px var(--main-text-color);
+}
+
 .board-add-column input {
-  background: var(--main-background-color);
-  border: 1px solid var(--main-text-color);
-  border-radius: 4px;
-  padding: 0.5em;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: var(--card-padding);
+  line-height: var(--card-line-height);
   color: var(--main-text-color);
   font-family: inherit;
   font-size: inherit;
   width: 100%;
-  text-align: center;
 }
 
 /* The menu is drawn outside the board, so the columns it lists are named rather than reached

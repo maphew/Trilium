@@ -69,9 +69,19 @@ export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "c
      * above the whole modal, would otherwise dim the menu through.
      */
     mobileBottomSheet?: boolean;
+    /**
+     * Dim the page behind the menu on any screen, for a menu that is a task of its own rather than
+     * a list of actions: the icon picker, which holds a search field and a grid of a thousand
+     * icons.
+     *
+     * Drawn inside the same portal as the menu, immediately before it, so what covers what is a
+     * matter of document order and one z-index rather than of two scales meeting. Needs
+     * {@link portalToBody} for that, and does nothing without it.
+     */
+    backdrop?: boolean;
 }
 
-export default function Dropdown({ id, className, buttonClassName, isStatic, children, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, noDropdownListStyle, forceShown, onShown: externalOnShown, onHidden: externalOnHidden, dropdownOptions, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop: mobileBackdropProp, portalToBody: portalToBodyProp, mobileBottomSheet }: DropdownProps) {
+export default function Dropdown({ id, className, buttonClassName, isStatic, children, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, noDropdownListStyle, forceShown, onShown: externalOnShown, onHidden: externalOnHidden, dropdownOptions, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop: mobileBackdropProp, portalToBody: portalToBodyProp, mobileBottomSheet, backdrop }: DropdownProps) {
     // The sheet is three things at once — placed by the app's own rule, dimming what is behind it,
     // and lifted out of whatever opened it — so it is asked for as one thing and unpacked here.
     const bottomSheet = !!mobileBottomSheet && isMobile();
@@ -260,7 +270,12 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
                 // `tn-dropdown-portal` beside it carries the z-index a menu needs out here (style.css).
                 // Only mount it while needed (see `menuMounted`) so closed pickers don't each leave an
                 // empty menu wrapper in the body.
-                ? (menuMounted && createPortal(<div class={`tn-dropdown-portal ${className ?? ""}`}>{menu}</div>, document.body))
+                ? (menuMounted && createPortal((
+                    <div class={`tn-dropdown-portal ${className ?? ""}`}>
+                        {backdrop && shown && <div class="tn-dropdown-backdrop" />}
+                        {menu}
+                    </div>
+                ), document.body))
                 : menu}
         </div>
     );

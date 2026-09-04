@@ -463,6 +463,16 @@ body > .tn-dropdown-portal > .dropdown-menu {
     --bs-dropdown-zindex: 1200;
 }
 
+/* Under the menu above, which is what it is drawn for; stated beside it so the two stay in step.
+   Dressed as a dialog's backdrop, a menu that dims the page being the same thing to the reader. */
+body > .tn-dropdown-portal > .tn-dropdown-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1199;
+    background-color: var(--modal-backdrop-color);
+    opacity: var(--bs-backdrop-opacity, 0.5);
+}
+
 body.desktop .dropdown-menu,
 body.desktop .tabulator-popup-container,
 :root .excalidraw .dropdown-menu .dropdown-menu-container,
@@ -1729,7 +1739,10 @@ body.desktop .dropdown-submenu > .dropdown-menu {
     max-width: 300px;
 }
 
+/* Opened on the other side (`submenu-flip-start` added by ContextMenu.repositionSubmenu) when the
+   submenu would overflow the side it opens on. */
 .dropdown-submenu.dropstart > .dropdown-menu,
+.dropdown-submenu > .dropdown-menu.submenu-flip-start,
 body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
     inset-inline-start: auto;
     inset-inline-end: calc(100% - 2px);
