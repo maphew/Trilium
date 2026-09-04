@@ -63,7 +63,7 @@ export interface HoldOpen {
 export interface BoardViewData {
     columns?: BoardColumnData[];
     /**
-     * What a new card can be made from, as {@link CardTemplate} ids. Absent until the reader picks
+     * What a new card can be made from, as {@link NoteTypeOption} ids. Absent until the reader picks
      * for the board, which is what `DEFAULT_CARD_TEMPLATES` stands in for.
      */
     templates?: string[];
