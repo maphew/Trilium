@@ -509,6 +509,45 @@ describe("Collapsed board columns", () => {
     });
 
     /**
+     * A press on a card is focus arriving before it is a click, and while the whole board is peeked
+     * every column reads as inactive. The column pressed in keeps its peek; the rest give theirs up.
+     */
+    it("settles a board-wide peek on the column pressed in", async () => {
+        const { mountPoint } = await setup({ keepCollapsed: true });
+        const board = mountPoint.querySelector<HTMLElement>(".board-view-container");
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+
+        board?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+        const expand = (show.mock.calls.at(-1)?.[0].items ?? []).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-expand-alt");
+        if (!expand || !("handler" in expand)) throw new Error("expected an expand entry");
+
+        await act(async () => {
+            expand.handler?.(expand, {} as never);
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+
+        // Focus landing on one of its cards, which is what a press on a card does first.
+        await act(async () => {
+            columnAt(mountPoint, 0).querySelector(".board-note")
+                ?.dispatchEvent(new Event("focusin", { bubbles: true }));
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+
+        // And the peek is this column's alone: focus reaching another one closes it as usual.
+        await act(async () => {
+            columnAt(mountPoint, 1).querySelector("h3")
+                ?.dispatchEvent(new Event("focusin", { bubbles: true }));
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+
+        show.mockRestore();
+    });
+
+    /**
      * The board's own menu offers what the board is as well as what it does: an editor for a new
      * column, and the two settings that decide which columns and cards it draws at all.
      */

@@ -245,10 +245,15 @@ export default function Column({
     // Focus reaching a column closes whichever one was open, and opens nothing: a collapsed column
     // is walked onto without being disturbed, and is opened by a click or by Space instead.
     const handleFocusIn = useCallback(() => {
-        if (!isActive) {
-            setActiveColumn(undefined);
+        if (isActive) {
+            return;
         }
-    }, [ isActive, setActiveColumn ]);
+
+        // While the whole board is peeked, focus arriving settles the peek on this column rather
+        // than closing every column: the reader has just gone to work in this one, and a press on
+        // one of its cards is focus arriving before it is a click.
+        setActiveColumn(isPeeked ? column : undefined);
+    }, [ column, isActive, isPeeked, setActiveColumn ]);
 
     const openMenu = useCallback((e: ContextMenuEvent) => {
         openColumnContextMenu(api, e, {
