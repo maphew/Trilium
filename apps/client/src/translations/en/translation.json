@@ -2518,7 +2518,10 @@
     "task-list": "Task List",
     "new-feature": "New",
     "collections": "Collections",
-    "spreadsheet": "Spreadsheet"
+    "spreadsheet": "Spreadsheet",
+    "note-types": "Note types",
+    "built-in-templates": "Built-in templates",
+    "selector-save": "Save"
   },
   "protect_note": {
     "toggle-on": "Protect the note",
@@ -3419,6 +3422,10 @@
     "expand-all-columns": "Expand all columns",
     "show-inbox-column": "Show inbox column",
     "show-archived-notes": "Show archived notes",
+    "more-templates": "More templates…",
+    "card-template": "Select a card template",
+    "templates-title": "Templates offered on this board",
+    "templates-hint": "Pick what a new card can be made from. At least one is needed.",
     "collapse-hint": "Double click to collapse",
     "set-limit": "Set limit...",
     "set-limit-ok": "Set limit",

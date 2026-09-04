@@ -31,6 +31,8 @@ const FOOTER_QUIET_MS = 5000;
 const EXPAND_MS = 200;
 import NoteLink from "../../react/NoteLink";
 import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
+import CardTemplatePill from "./card_template_pill";
+import { type CardTemplates } from "./card_templates";
 import BoardApi from "./api";
 import Card from "./card";
 import { DEFAULT_CARD_ICON, DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
@@ -62,6 +64,7 @@ export default function Column({
     limit,
     columnItems,
     isNew,
+    cardTemplates,
     api,
     parentNote,
     isInRelationMode
@@ -81,6 +84,8 @@ export default function Column({
     isActive?: boolean,
     /** Whether the board is showing every collapsed column at once, which opens this one too. */
     isPeeked?: boolean,
+    /** What a new card is made from, and how the reader picks something else. */
+    cardTemplates: CardTemplates,
     /** Whether the inbox also collects notes deeper than the board's direct children. */
     nested?: boolean,
     /** The note limit, absent if disabled. */
@@ -495,6 +500,7 @@ export default function Column({
 
             {!isCollapsed && <AddNewItem
                 api={api}
+                cardTemplates={cardTemplates}
                 column={column}
                 isCreating={isCreatingNewItem}
                 setIsCreating={setIsCreatingNewItem}
@@ -509,9 +515,12 @@ export default function Column({
  * The editor a new card is named in, opened by the button below the column or by its menu. The
  * state is the column's rather than this component's, since the menu is raised from the header.
  */
-function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreating }: {
+function AddNewItem({
+    column, api, cardTemplates, isCreating, setIsCreating, onCreated, onCreating
+}: {
     column: string,
     api: BoardApi,
+    cardTemplates: CardTemplates,
     isCreating: boolean,
     setIsCreating: (isCreating: boolean) => void,
     /** Names the card just made, which the column reveals once the board has drawn it. */
@@ -579,7 +588,8 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
                         onCreating();
                         onCreated(await api.createNewItem(
                             column, title, atStart ? "top" : "bottom",
-                            icon !== DEFAULT_CARD_ICON ? icon : undefined));
+                            icon !== DEFAULT_CARD_ICON ? icon : undefined,
+                            cardTemplates.current));
                     }}
                     dismiss={() => setIsCreating(false)}
                     mode="multiline" isNewItem
@@ -592,6 +602,7 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
                     }}
                     submitTitle={t("board_view.create-new-note")}
                     openPlacements={openCreateCardMenu}
+                    footer={(hold) => <CardTemplatePill {...cardTemplates} {...hold} />}
                     icon={{
                         current: icon,
                         onSelect: setIcon,

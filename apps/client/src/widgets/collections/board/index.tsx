@@ -2,7 +2,7 @@ import "./index.css";
 
 import clsx from "clsx";
 
-import { createContext, Fragment, TargetedKeyboardEvent } from "preact";
+import { ComponentChildren, createContext, Fragment, TargetedKeyboardEvent } from "preact";
 import { JSX } from "preact/jsx-runtime";
 import { createPortal, RefObject } from "preact/compat";
 import {
@@ -18,6 +18,10 @@ import type { ShortcutHintDefinition } from "../../../services/shortcut_hints";
 import toast from "../../../services/toast";
 import { escapeHtml, isMobile } from "../../../services/utils";
 import CollectionProperties from "../../note_bars/CollectionProperties";
+import {
+    getNoteTypeOptions, type NoteTypeOption, resolveNoteTypeOptions
+} from "../../../services/note_types";
+import NoteTypeSelectorDialog from "../../react/NoteTypeSelectorDialog";
 import FormTextArea from "../../react/FormTextArea";
 import FormTextBox from "../../react/FormTextBox";
 import {
@@ -39,13 +43,32 @@ import { movesColumn } from "./drag_geometry";
 import BoardApi from "./api";
 import { DEFAULT_COLUMN_ICON, DEFAULT_GROUP_BY, getStatusDefinition, INBOX_COLUMN } from "./columns";
 import Column from "./column";
+import { currentCardTemplate, DEFAULT_CARD_TEMPLATES } from "./card_templates";
 import ColumnLimitDialog from "./column_limit";
 import { openBoardContextMenu, openCreateColumnMenu } from "./context_menu";
 import { applyCardMove, ColumnMap, getBoardData } from "./data";
 import { useBoardKeyboard } from "./keyboard";
 
+/**
+ * What a control standing inside an editor's field calls as it opens and closes.
+ *
+ * Losing focus is what closes an editor, and a menu takes focus with it: a control that opens one
+ * says so, and the editor stays where it is until the menu is done with.
+ */
+export interface HoldOpen {
+    onOpened: () => void;
+    onClosed: () => void;
+}
+
 export interface BoardViewData {
     columns?: BoardColumnData[];
+    /**
+     * What a new card can be made from, as {@link CardTemplate} ids. Absent until the reader picks
+     * for the board, which is what `DEFAULT_CARD_TEMPLATES` stands in for.
+     */
+    templates?: string[];
+    /** The one last used, which the next card is made from. */
+    template?: string;
 }
 
 export interface BoardColumnData {
@@ -244,6 +267,20 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ isPeekingAll, setIsPeekingAll ] = useState(false);
     /** Whether the editor a column is named in is open, which the board's own menu also opens. */
     const [ isCreatingColumn, setIsCreatingColumn ] = useState(false);
+    /** Everything a card could be made from, read once: the note types and every template. */
+    const [ availableTemplates, setAvailableTemplates ] = useState<NoteTypeOption[]>([]);
+    const [ isPickingTemplates, setIsPickingTemplates ] = useState(false);
+
+    useEffect(() => {
+        let listening = true;
+        getNoteTypeOptions().then((templates) => {
+            if (listening) {
+                setAvailableTemplates(templates);
+            }
+        }).catch((e) => console.error("Failed to read what a card can be made from:", e));
+
+        return () => { listening = false; };
+    }, []);
     const selectColumn = useCallback<Dispatch<StateUpdater<string | undefined>>>((column) => {
         setIsPeekingAll(false);
         setActiveColumn(column);
@@ -333,6 +370,23 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             }
         });
     }, [ api, selectColumn, inboxEnabled, includeArchived ]);
+
+    // Read from the api rather than from the prop, since a pick moves the api's own copy ahead of
+    // the board's; keyed on the prop so that a change from anywhere else is followed too.
+    const offeredTemplates = useMemo(
+        () => resolveNoteTypeOptions(api.getCardTemplateIds(), availableTemplates),
+        [ api, viewConfig, availableTemplates ]);
+    // Handed to the api as well, for the cards made from somewhere other than the editor: an
+    // insert beside another card reaches for the same template without being given one.
+    useEffect(
+        () => api.setAvailableCardTemplates(availableTemplates), [ api, availableTemplates ]);
+
+    const cardTemplates = useMemo(() => ({
+        offered: offeredTemplates,
+        current: currentCardTemplate(offeredTemplates, api.getLastCardTemplateId()),
+        onSelect: (template: NoteTypeOption) => api.setLastCardTemplateId(template.id),
+        onMore: () => setIsPickingTemplates(true)
+    }), [ api, viewConfig, offeredTemplates ]);
 
     const boardActions = useMemo<BoardActions>(() => ({
         setBranchIdToEdit,
@@ -694,6 +748,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                                     keepCollapsed={storedColumns.get(column)?.keepCollapsed}
                                     isActive={activeColumn === column}
                                     isPeeked={isPeekingAll}
+                                    cardTemplates={cardTemplates}
                                     nested={storedColumns.get(column)?.nested}
                                     limit={storedColumns.get(column)?.limit}
                                     columnIndex={index}
@@ -722,15 +777,26 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                         {/* Where what is being carried is put. Preact draws the layer and never
                             its contents, so the copy is not among the children it places. */}
                         <div className="board-drag-layer" />
-                        {/* Out of the board and onto the page: the dialog is positioned against
-                            the window, and Bootstrap puts its backdrop on the body, so a stacking
+                        {/* Out of the board and onto the page: a dialog is positioned against the
+                            window, and Bootstrap puts its backdrop on the body, so a stacking
                             context above the board would trap it underneath. */}
                         {createPortal(
-                            <ColumnLimitDialog
-                                api={api}
-                                column={columnLimitToEdit}
-                                onClose={() => setColumnLimitToEdit(undefined)}
-                            />,
+                            <>
+                                <ColumnLimitDialog
+                                    api={api}
+                                    column={columnLimitToEdit}
+                                    onClose={() => setColumnLimitToEdit(undefined)}
+                                />
+                                <NoteTypeSelectorDialog
+                                    available={availableTemplates}
+                                    selected={api.getCardTemplateIds()}
+                                    shown={isPickingTemplates}
+                                    title={t("board_view.templates-title")}
+                                    hint={t("board_view.templates-hint")}
+                                    onSave={(ids) => api.setCardTemplateIds(ids)}
+                                    onClose={() => setIsPickingTemplates(false)}
+                                />
+                            </>,
                             document.body
                         )}
                         {!isMobile() && (
@@ -879,7 +945,8 @@ function AddNewColumn({
 
 export function TitleEditor({
     currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true,
-    saveAndContinue = false, returnFocusTo, abandon, whenEmpty, submitTitle, openPlacements, icon
+    saveAndContinue = false, returnFocusTo, abandon, whenEmpty, submitTitle, openPlacements, icon,
+    footer
 }: {
     currentValue?: string;
     placeholder?: string;
@@ -903,6 +970,11 @@ export function TitleEditor({
     whenEmpty?: { title: string, onClick?: () => void };
     /** Names what the button creates, shown in its tooltip. */
     submitTitle?: string;
+    /**
+     * What stands at the foot of the field, inside its own box: the pill naming what a new card
+     * will be made from. The field is given room for it.
+     */
+    footer?: (hold: HoldOpen) => ComponentChildren;
     /**
      * The icon shown inside the field, at the leading edge, which opens the picker when pressed.
      * The caller answers for what a pick does: a card carries it as `iconClass`, and the editor a
@@ -938,14 +1010,22 @@ export function TitleEditor({
     const dismissOnNextRefreshRef = useRef(false);
     const shouldDismiss = useRef(false);
     /**
-     * Whether the icon picker is open, during which the editor stays where it is.
+     * Whether something the field carries is open, during which the editor stays where it is.
      *
-     * The picker takes focus with it, and losing focus is what closes this editor: it would take
-     * the picker down with itself. Held in a ref rather than in state because the blur arrives
-     * before the render a state change would schedule. Focus goes back to the field as the picker
-     * closes, the blur that would have ended the edit being spent.
+     * A menu takes focus with it, and losing focus is what closes this editor: it would take the
+     * menu down with itself, which is what the icon picker and the pill naming what a card is made
+     * from both do. Held in a ref rather than in state because the blur arrives before the render
+     * a state change would schedule; focus goes back to the field as the menu closes, the blur
+     * that would have ended the edit being spent.
      */
-    const isPickingIcon = useRef(false);
+    const isHoldingOpen = useRef(false);
+    const holdOpen = useMemo<HoldOpen>(() => ({
+        onOpened: () => { isHoldingOpen.current = true; },
+        onClosed: () => {
+            isHoldingOpen.current = false;
+            inputRef.current?.focus();
+        }
+    }), []);
     const held = useRef<number>();
     /** Where on the screen the finger went down, against which a scroll is told from a hold. */
     const heldFrom = useRef<{ x: number, y: number }>();
@@ -1084,7 +1164,7 @@ export function TitleEditor({
     }
 
     const onBlur = (newValue: string) => {
-        if (isPickingIcon.current) {
+        if (isHoldingOpen.current) {
             return;
         }
 
@@ -1127,7 +1207,7 @@ export function TitleEditor({
             />
         );
 
-        if (!saveAndContinue && !icon) {
+        if (!saveAndContinue && !icon && !footer) {
             return field;
         }
 
@@ -1150,7 +1230,10 @@ export function TitleEditor({
             };
 
         return (
-            <div className={clsx("title-editor-field", { "with-submit": saveAndContinue })}>
+            <div className={clsx("title-editor-field", {
+                "with-submit": saveAndContinue,
+                "with-footer": !!footer
+            })}>
                 {/* The press that opens the picker must not take focus out of the field: the
                     blur arrives before the picker reports itself open, and losing focus is what
                     closes the editor. */}
@@ -1165,11 +1248,7 @@ export function TitleEditor({
                             // A grid of a thousand icons and a search field is a task of its own,
                             // so the board behind it is dimmed rather than left looking pressable.
                             backdrop
-                            onOpened={() => { isPickingIcon.current = true; }}
-                            onClosed={() => {
-                                isPickingIcon.current = false;
-                                inputRef.current?.focus();
-                            }}
+                            {...holdOpen}
                         />
                     </span>
                 )}
@@ -1195,6 +1274,14 @@ export function TitleEditor({
                             onClick={offered.onClick}
                         />
                     </span>
+                )}
+                {/* Inside the field's own box, in the room made for it below the text. The press
+                    must not take focus out of the field, which is what closes the editor. */}
+                {footer && (
+                    <span
+                        className="title-editor-footer"
+                        onMouseDown={(e) => e.preventDefault()}
+                    >{footer(holdOpen)}</span>
                 )}
             </div>
         );

@@ -39,6 +39,26 @@ vi.mock("../../../services/i18n", () => ({
 // The picker is a Bootstrap dropdown portalled to the page, which happy-dom does not open. What the
 // board answers for is the icon it shows and what it does with a pick, so the button stands in for
 // the picker and hands one over when it is pressed.
+// What a card can be made from. The listing itself is the app's and is tested there; the board is
+// handed a short list of it, the four it offers by default and one it does not.
+vi.mock("../../../services/note_types", () => ({
+    getNoteTypeOptions: async () => NOTE_TYPE_OPTIONS,
+    resolveNoteTypeOptions: (ids: string[], available: { id: string }[]) =>
+        ids.flatMap(id => available.filter(option => option.id === id)),
+    noteTypeOptionGroupTitle: (group: string) => `group:${group}`,
+    default: {}
+}));
+
+const NOTE_TYPE_OPTIONS = [
+    [ "type:text:text/html", "Text", "text", "text/html" ],
+    [ "type:code:text/x-markdown", "Markdown", "code", "text/x-markdown" ],
+    [ "type:canvas:application/json", "Canvas", "canvas", "application/json" ],
+    [ "type:spreadsheet:application/json", "Spreadsheet", "spreadsheet", "application/json" ],
+    [ "type:mermaid:text/mermaid", "Mermaid", "mermaid", "text/mermaid" ]
+].map(([ id, title, type, mime ]) => ({
+    id, title, icon: "bx bx-note", group: "type" as const, options: { type, mime }
+}));
+
 vi.mock("../../react/IconPicker", () => ({
     IconPickerButton: ({ className, icon, onSelect, onOpened, onClosed }: {
         className?: string, icon: string, onSelect: (picked: string) => void,
@@ -77,6 +97,11 @@ vi.mock("../../../services/bulk_action", () => ({
         }
     })
 }));
+
+/** What a card is made from until another template is picked: the first the board offers. */
+function textTemplate() {
+    return expect.objectContaining({ id: "type:text:text/html" });
+}
 
 /** Drains the async chain inside `refresh()` (getBoardData → setByColumn/setColumns). */
 async function flush() {
@@ -1529,7 +1554,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "First", "bottom", undefined);
+        expect(created).toHaveBeenCalledWith("Doing", "First", "bottom", undefined, textTemplate());
         expect(slot?.querySelector("textarea")).toBe(editor);
         expect(editor.value).toBe("");
         expect(document.activeElement).toBe(editor);
@@ -1542,7 +1567,7 @@ describe("Board column rename", () => {
         });
 
         expect(created).toHaveBeenCalledTimes(2);
-        expect(created).toHaveBeenLastCalledWith("Doing", "Second", "bottom", undefined);
+        expect(created).toHaveBeenLastCalledWith("Doing", "Second", "bottom", undefined, textTemplate());
     });
 
     /**
@@ -2161,10 +2186,190 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "From the button", "bottom", undefined);
+        expect(created).toHaveBeenCalledWith("Doing", "From the button", "bottom", undefined, textTemplate());
         expect(editor.value).toBe("");
         expect(slot?.querySelector("textarea")).toBe(editor);
         expect(document.activeElement).toBe(editor);
+    });
+
+    /**
+     * The pill at the foot of the new-card field names what the card will be made from. It offers
+     * what the board offers, and picking one is remembered: the next card is made from it, and so
+     * is the next editor opened.
+     */
+    it("makes a card from the template picked in the pill, and remembers it", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const pill = slot?.querySelector<HTMLElement>(".card-template-pill button");
+        if (!editor || !pill) throw new Error("expected the editor and its template pill");
+
+        // The first the board offers, until something else is picked.
+        expect(pill.textContent).toContain("Text");
+
+        await act(async () => {
+            pill.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+            $(pill.closest(".dropdown") as HTMLElement).trigger("show.bs.dropdown");
+            await flush();
+        });
+
+        // The menu is portalled to the page, and the boards this file rendered before left theirs
+        // behind, so it is the last one that belongs to the board under test.
+        const menu = [ ...document.querySelectorAll<HTMLElement>(".card-template-pill") ].at(-1);
+        const items = [ ...(menu?.querySelectorAll<HTMLElement>(".dropdown-item") ?? []) ];
+        expect(items.map(item => item.textContent?.trim())).toEqual([
+            "Text", "Markdown", "Canvas", "Spreadsheet", "board_view.more-templates"
+        ]);
+
+        await act(async () => {
+            items[2].click();
+            await flush();
+        });
+
+        // Stored on the board, so the next editor opens on it as well.
+        expect(saved.at(-1)?.template).toBe("type:canvas:application/json");
+
+        await type(editor, "Drawn");
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(created).toHaveBeenCalledWith("Doing", "Drawn", "bottom", undefined,
+            expect.objectContaining({ id: "type:canvas:application/json" }));
+        expect(slot?.querySelector(".card-template-pill button")?.textContent).toContain("Canvas");
+    });
+
+    /**
+     * Opening the pill's menu takes focus off the field: Bootstrap focuses the toggle it opens
+     * from. Losing focus is what closes this editor, so the editor would take the menu down with
+     * itself the moment it was opened, and the toggle would then find nothing to open.
+     */
+    it("stays open while the template pill's menu has the focus", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const pill = slot?.querySelector<HTMLElement>(".card-template-pill button");
+        if (!editor || !pill) throw new Error("expected the editor and its pill");
+        await type(editor, "Still here");
+
+        await act(async () => {
+            pill.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+            $(pill.closest(".dropdown") as HTMLElement).trigger("show.bs.dropdown");
+            editor.dispatchEvent(new FocusEvent("blur"));
+            editor.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+            await flush();
+        });
+
+        expect(slot?.querySelector("textarea")).toBe(editor);
+        expect(editor.value).toBe("Still here");
+        expect(created).not.toHaveBeenCalled();
+
+        // Once the menu is done with, the field has the focus again.
+        await act(async () => {
+            $(pill.closest(".dropdown") as HTMLElement).trigger("hide.bs.dropdown");
+            await flush();
+        });
+        expect(document.activeElement).toBe(editor);
+    });
+
+    /** The pill's last entry opens the dialog that decides what the board offers. */
+    it("opens the templates dialog from the pill, and stores what is ticked", async () => {
+        const { container } = await setup();
+        const stored = vi.spyOn(BoardApi.prototype, "setCardTemplateIds")
+            .mockResolvedValue(undefined);
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const pill = slot?.querySelector<HTMLElement>(".card-template-pill button");
+        if (!pill) throw new Error("expected the template pill");
+        await act(async () => {
+            pill.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+            $(pill.closest(".dropdown") as HTMLElement).trigger("show.bs.dropdown");
+            await flush();
+        });
+
+        const menus = [ ...document.querySelectorAll<HTMLElement>(".card-template-pill") ];
+        const more = [ ...(menus.at(-1)?.querySelectorAll<HTMLElement>(".dropdown-item") ?? []) ]
+            .find(item => item.textContent?.includes("more-templates"));
+        if (!more) throw new Error("expected a way to the dialog");
+
+        await act(async () => {
+            more.click();
+            await flush();
+        });
+
+        // The last of them: a dialog portalled to the page outlives the board that drew it here,
+        // so every board this file has rendered has left one behind.
+        const dialog = [ ...document.querySelectorAll<HTMLElement>(".note-type-selector-dialog") ]
+            .at(-1);
+        expect(dialog).toBeTruthy();
+
+        const boxes = [ ...(dialog?.querySelectorAll<HTMLInputElement>("input[type=checkbox]") ?? []) ];
+        // The name carries a suffix of its own, which is what ties the box to its label.
+        const named = boxes.map(box => box.getAttribute("name")?.replace(/-[^-]{10}$/, ""));
+        // Everything the app can make is listed, with what the board offers already ticked.
+        expect(named).toEqual([
+            "type:text:text/html",
+            "type:code:text/x-markdown",
+            "type:canvas:application/json",
+            "type:spreadsheet:application/json",
+            "type:mermaid:text/mermaid"
+        ]);
+        expect(boxes.filter(box => box.checked).length).toBe(4);
+
+        // Nothing ticked is nothing a card could be made from, so it cannot be saved.
+        await act(async () => {
+            for (const box of boxes.filter(box => box.checked)) {
+                box.checked = false;
+                box.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            await flush();
+        });
+        const save = [ ...(dialog?.querySelectorAll<HTMLButtonElement>("button") ?? []) ]
+            .find(button => button.textContent?.includes("selector-save"));
+        expect(save?.disabled).toBe(true);
+
+        await act(async () => {
+            boxes[4].checked = true;
+            boxes[4].dispatchEvent(new Event("change", { bubbles: true }));
+            await flush();
+        });
+        expect(save?.disabled).toBe(false);
+
+        await act(async () => {
+            dialog?.querySelector("form")?.dispatchEvent(
+                new Event("submit", { bubbles: true, cancelable: true }));
+            await flush();
+        });
+        expect(stored).toHaveBeenCalledWith([ "type:mermaid:text/mermaid" ]);
+
+        stored.mockRestore();
     });
 
     /**
@@ -2201,7 +2406,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "Starred", "bottom", PICKED_ICON);
+        expect(created).toHaveBeenCalledWith("Doing", "Starred", "bottom", PICKED_ICON, textTemplate());
         // The title goes, the icon stays.
         expect(editor.value).toBe("");
         expect(slot?.querySelector(".title-editor-icon button")?.className)
@@ -2330,7 +2535,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "On top", "top", undefined);
+        expect(created).toHaveBeenCalledWith("Doing", "On top", "top", undefined, textTemplate());
         // The field is emptied for the next one, as it is for a card made at the end.
         expect(editor.value).toBe("");
     });
@@ -2374,7 +2579,7 @@ describe("Board column rename", () => {
             entries[0]?.handler?.({} as never, {} as never);
             await flush();
         });
-        expect(created).toHaveBeenCalledWith("Doing", "Either end", "top", undefined);
+        expect(created).toHaveBeenCalledWith("Doing", "Either end", "top", undefined, textTemplate());
         expect(editor.value).toBe("");
 
         show.mockRestore();

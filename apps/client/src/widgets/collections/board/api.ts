@@ -13,7 +13,9 @@ import note_create from "../../../services/note_create";
 import server from "../../../services/server";
 import ws from "../../../services/ws";
 import toast from "../../../services/toast";
+import { type NoteTypeOption, resolveNoteTypeOptions } from "../../../services/note_types";
 import { BoardColumnData, BoardViewData } from ".";
+import { currentCardTemplate, DEFAULT_CARD_TEMPLATES } from "./card_templates";
 import {
     type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_COLUMN_ICON,
     DEFAULT_GROUP_BY, INBOX_COLUMN, INBOX_COLUMN_ICON
@@ -171,7 +173,8 @@ export default class BoardApi {
      * columns share one list of children, so the board's first child is not this column's.
      */
     async createNewItem(
-        column: string, title: string, placement: CardPlacement = "bottom", icon?: string
+        column: string, title: string, placement: CardPlacement = "bottom", icon?: string,
+        template: NoteTypeOption | undefined = this.getCurrentCardTemplate()
     ) {
         const first = placement === "top"
             ? this.byColumn?.get(column)?.[0]?.branch.branchId
@@ -182,6 +185,7 @@ export default class BoardApi {
                 activate: false,
                 title,
                 isProtected: this.parentNote.isProtected,
+                ...(template?.options ?? {}),
                 attributes: [
                     ...this.groupingFor(column),
                     ...(icon
@@ -554,6 +558,55 @@ export default class BoardApi {
         this.updateColumn(column, { archived });
     }
 
+    /**
+     * Everything a card could be made from, as the board read them.
+     *
+     * Held here so that a card made from somewhere other than the editor with the pill in it, an
+     * insert beside another card above all, is made from the same template: the alternative is
+     * handing every card on the board a list it would redraw for.
+     */
+    private availableTemplates: NoteTypeOption[] = [];
+
+    setAvailableCardTemplates(templates: NoteTypeOption[]) {
+        this.availableTemplates = templates;
+    }
+
+    /** What a card is made from now: the one last used, or the first the board offers. */
+    getCurrentCardTemplate() {
+        return currentCardTemplate(
+            resolveNoteTypeOptions(this.getCardTemplateIds(), this.availableTemplates),
+            this.getLastCardTemplateId());
+    }
+
+    /** The templates the board offers, or the stock set until the reader has picked for it. */
+    getCardTemplateIds() {
+        const stored = this.viewConfig?.templates;
+        return stored?.length ? stored : DEFAULT_CARD_TEMPLATES;
+    }
+
+    /** Which of them a new card is made from, until another is picked. */
+    getLastCardTemplateId() {
+        return this.viewConfig?.template;
+    }
+
+    /** Sets what the board offers. An empty set would leave nothing to make a card from. */
+    async setCardTemplateIds(templates: string[]) {
+        if (!templates.length) {
+            return;
+        }
+
+        this.storeConfig({ templates });
+    }
+
+    /** Remembers what the last card was made from, so the next one is made from it too. */
+    async setLastCardTemplateId(template: string) {
+        if (template === this.viewConfig?.template) {
+            return;
+        }
+
+        this.storeConfig({ template });
+    }
+
     /** Whether a column is stored as collapsed, which draws it as a strip without its cards. */
     isColumnCollapsed(column: string) {
         return !!this.viewConfig?.columns?.find(col => col.value === column)?.collapsed;
@@ -801,6 +854,12 @@ export default class BoardApi {
      * re-renders off the identity of the config it was handed, so an in-place edit would be written
      * to disk but stay invisible until the view is re-entered.
      */
+    /** Writes part of the board's own configuration, leaving the rest of it as it stands. */
+    private storeConfig(patch: Partial<BoardViewData>) {
+        this.viewConfig = { ...this.viewConfig, ...patch };
+        this.saveConfig(this.viewConfig);
+    }
+
     private storeColumns(columns: BoardColumnData[]) {
         this.viewConfig = { ...this.viewConfig, columns };
         this.saveConfig(this.viewConfig);
@@ -884,12 +943,14 @@ export default class BoardApi {
     async insertRowAtPosition(
         column: string,
         relativeToBranchId: string,
-        direction: "before" | "after") {
+        direction: "before" | "after",
+        template: NoteTypeOption | undefined = this.getCurrentCardTemplate()) {
         const { note, branch } = await note_create.createNote(this.parentNote.noteId, {
             activate: false,
             targetBranchId: relativeToBranchId,
             target: direction,
             title: t("board_view.new-item"),
+            ...(template?.options ?? {}),
             attributes: this.groupingFor(column)
         });
 

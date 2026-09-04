@@ -73,6 +73,85 @@ function withTemplatesRoot(children: FakeNote[] | null) {
     };
 }
 
+describe("getNoteTypeOptions", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        llmFlag.mockReturnValue(false);
+    });
+
+    /**
+     * What anything offering "make a new note of..." picks from: the note types the tree offers,
+     * then the templates the app ships, then the reader's own, each named by an id that outlives
+     * the list it came from.
+     */
+    it("lists the note types the tree offers, then every template", async () => {
+        withTemplates([ "userTemplate" ]);
+        const restore = withTemplatesRoot([
+            fakeTemplate("shipped", [ "template" ], "Shipped"),
+            fakeTemplate("notATemplate", [], "Not a template")
+        ]);
+        const user = buildNote({ id: "userTemplate", title: "Mine", "#template": "" });
+
+        try {
+            const options = await noteTypesService.getNoteTypeOptions();
+
+            const types = options.filter(option => option.group === "type");
+            expect(types.every(option => option.id.startsWith("type:"))).toBe(true);
+            expect(types.some(option => option.id === "type:text:text/html")).toBe(true);
+            expect(types.some(option => option.id.startsWith("type:book"))).toBe(false);
+            expect(types.some(option => option.id.startsWith("type:image"))).toBe(false);
+
+            // A note under `_templates` that carries no `#template` is not one.
+            expect(options.map(option => option.id)).toContain("template:shipped");
+            expect(options.map(option => option.id)).not.toContain("template:notATemplate");
+
+            const mine = options.find(option => option.id === `template:${user.noteId}`);
+            expect(mine?.group).toBe("user");
+            expect(mine?.options).toEqual(expect.objectContaining({ templateNoteId: user.noteId }));
+
+            // A note type is made from its type and mime, which is what `createNote` takes.
+            expect(options.find(option => option.id === "type:canvas:application/json")?.options)
+                .toEqual({ type: "canvas", mime: "application/json" });
+        } finally {
+            restore();
+        }
+    });
+
+    it("offers the chat note type only where that feature is switched on", async () => {
+        withTemplates();
+        const restore = withTemplatesRoot([]);
+
+        try {
+            const isOffered = async () => (await noteTypesService.getNoteTypeOptions())
+                .some(option => option.id.startsWith("type:llmChat"));
+
+            expect(await isOffered()).toBe(false);
+            llmFlag.mockReturnValue(true);
+            expect(await isOffered()).toBe(true);
+        } finally {
+            restore();
+        }
+    });
+
+    /** A stored list outlives what it names, and what is gone is left out rather than reported. */
+    it("resolves stored ids in their own order, dropping what no longer exists", async () => {
+        withTemplates();
+        const restore = withTemplatesRoot([]);
+
+        try {
+            const available = await noteTypesService.getNoteTypeOptions();
+            const offered = noteTypesService.resolveNoteTypeOptions(
+                [ "type:canvas:application/json", "template:gone", "type:text:text/html" ],
+                available);
+
+            expect(offered.map(option => option.id))
+                .toEqual([ "type:canvas:application/json", "type:text:text/html" ]);
+        } finally {
+            restore();
+        }
+    });
+});
+
 describe("getBlankNoteTypes (via getNoteTypeItems)", () => {
     beforeEach(() => {
         vi.clearAllMocks();
