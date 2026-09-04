@@ -413,15 +413,16 @@ describe("Board item context menu", () => {
         expect(api.startEditing).toHaveBeenCalledWith("branchId");
     });
 
-    it("inserts a card on either side of the one it was opened on", () => {
+    /** The card is named in a field opened where it goes, so the menu only says where that is. */
+    it("opens the field for a card on either side of the one it was opened on", () => {
         const api = {
             columns: [],
             isColumnArchived: () => false,
             getColumnIcon: () => DEFAULT_COLUMN_ICON,
-            getColumnColorClass: () => "",
-            insertRowAtPosition: vi.fn(async () => {})
+            getColumnColorClass: () => ""
         } as unknown as BoardApi;
-        const items = openItemMenu(api);
+        const insert = vi.fn();
+        const items = openItemMenu(api, "To Do", vi.fn(), insert, 2);
 
         for (const icon of [ "bx bx-list-plus", "bx bx-empty" ]) {
             const entry = items.find(item => item && "uiIcon" in item && item.uiIcon === icon);
@@ -429,8 +430,8 @@ describe("Board item context menu", () => {
             entry.handler?.(entry, {} as never);
         }
 
-        expect(vi.mocked(api.insertRowAtPosition).mock.calls.map(call => call[2]))
-            .toEqual([ "before", "after" ]);
+        // The field stands where the card it makes goes: in this card's place, or after it.
+        expect(insert.mock.calls.map(call => call[0])).toEqual([ 2, 3 ]);
     });
 
     /** Where Ctrl+Home sends it, for a reader who reached the card with the mouse. */
@@ -557,7 +558,8 @@ describe("Board item context menu", () => {
     }
 
     /** Opens the menu a card offers, and hands back what it was given to show. */
-    function openItemMenu(api: BoardApi, column = "To Do", focusCard = vi.fn()) {
+    function openItemMenu(
+        api: BoardApi, column = "To Do", focusCard = vi.fn(), insert = vi.fn(), index = 2) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
         const event = {
             preventDefault: () => {},
@@ -576,8 +578,8 @@ describe("Board item context menu", () => {
             },
             api);
         openNoteContextMenu(
-            withDefaults, event, buildNote({ title: "Card" }) as FNote, "branchId", column,
-            focusCard, () => {});
+            withDefaults, event, buildNote({ title: "Card" }) as FNote, "branchId", column, index,
+            focusCard, insert);
 
         return show.mock.calls.at(-1)?.[0].items ?? [];
     }

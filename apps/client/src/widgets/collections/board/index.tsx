@@ -962,8 +962,8 @@ function AddNewColumn({
 
 export function TitleEditor({
     currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true,
-    saveAndContinue = false, returnFocusTo, abandon, whenEmpty, submitTitle, openPlacements, icon,
-    footer
+    saveAndContinue = false, handsOver = false, returnFocusTo, abandon, whenEmpty, submitTitle,
+    openPlacements, icon, footer
 }: {
     currentValue?: string;
     placeholder?: string;
@@ -978,6 +978,13 @@ export function TitleEditor({
      * away from often enough that saving on the way out would create cards nobody asked for.
      */
     saveAndContinue?: boolean;
+    /**
+     * Whether the field keeps what was typed once it has saved, and saves only once.
+     *
+     * For an editor the caller takes down as what it made takes its place: emptied instead, the
+     * field would stand where the new thing is about to be drawn without holding what it says.
+     */
+    handsOver?: boolean;
     /** Reports what was typed and not saved, so reopening the editor can restore it. */
     abandon?: (typed: string) => void;
     /**
@@ -1043,6 +1050,8 @@ export function TitleEditor({
             inputRef.current?.focus();
         }
     }), []);
+    /** Whether the field has already saved, for one that keeps what it saved standing. */
+    const hasHandedOver = useRef(false);
     const held = useRef<number>();
     /** Where on the screen the finger went down, against which a scroll is told from a hold. */
     const heldFrom = useRef<{ x: number, y: number }>();
@@ -1117,8 +1126,20 @@ export function TitleEditor({
     function submit(atStart?: boolean, typed?: string) {
         const input = inputRef.current;
         const value = typed ?? input?.value ?? "";
+
         if (value.trim()) {
+            if (hasHandedOver.current) {
+                return;
+            }
+
             commit(value, atStart);
+
+            if (handsOver) {
+                hasHandedOver.current = true;
+                input?.focus();
+                return;
+            }
+
             if (input) {
                 input.value = "";
             }

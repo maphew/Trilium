@@ -186,17 +186,7 @@ export default class BoardApi {
                 title,
                 isProtected: this.parentNote.isProtected,
                 ...(template?.options ?? {}),
-                attributes: [
-                    ...this.groupingFor(column),
-                    ...(icon
-                        ? [ {
-                            type: "label" as const,
-                            name: "iconClass",
-                            value: icon,
-                            isInheritable: false
-                        } ]
-                        : [])
-                ],
+                attributes: this.attributesFor(column, icon),
                 ...(first ? { target: "before", targetBranchId: first } : {})
             });
 
@@ -204,6 +194,40 @@ export default class BoardApi {
         } catch (error) {
             console.error("Failed to create new item:", error);
         }
+    }
+
+    /**
+     * Creates a card above another one, for a field standing among a column's cards.
+     *
+     * Without a card to go above, which is where the field stands below the last one, the card is
+     * made at the end of the column.
+     */
+    async createNewItemBefore(
+        column: string, beforeBranchId: string | undefined, title: string, icon?: string,
+        template: NoteTypeOption | undefined = this.getCurrentCardTemplate()
+    ) {
+        if (!beforeBranchId) {
+            return this.createNewItem(column, title, "bottom", icon, template);
+        }
+
+        const { note } = await this.insertRowAtPosition(
+            column, beforeBranchId, "before", title, icon, template);
+        return note.noteId;
+    }
+
+    /** What a new card carries besides its title: the column it lands in, and its icon. */
+    private attributesFor(column: string, icon?: string) {
+        return [
+            ...this.groupingFor(column),
+            ...(icon
+                ? [ {
+                    type: "label" as const,
+                    name: "iconClass",
+                    value: icon,
+                    isInheritable: false
+                } ]
+                : [])
+        ];
     }
 
     /**
@@ -237,7 +261,7 @@ export default class BoardApi {
      *
      * @returns whether the note was added, `false` when the user backed out.
      */
-    async addExistingItem(column: string, noteId: string) {
+    async addExistingItem(column: string, noteId: string, beforeBranchId?: string) {
         const note = await froca.getNote(noteId, true);
         if (!note) return false;
 
@@ -258,7 +282,31 @@ export default class BoardApi {
         }
 
         await this.changeColumn(noteId, column);
+
+        if (beforeBranchId) {
+            await this.moveIntoPlace(noteId, beforeBranchId);
+        }
+
         return true;
+    }
+
+    /**
+     * Puts a card that was just added above another one, which is where a field standing among a
+     * column's cards adds it, rather than leaving it at the end of the column.
+     *
+     * The wait is what makes the move possible: a note cloned onto the board is given its branch by
+     * the server, and that branch has to be in froca before it can be moved.
+     */
+    private async moveIntoPlace(noteId: string, beforeBranchId: string) {
+        await ws.waitForMaxKnownEntityChangeId();
+
+        const note = await froca.getNote(noteId);
+        const branchId = note?.getParentBranches()
+            .find(branch => branch.parentNoteId === this.parentNote.noteId)?.branchId;
+
+        if (branchId && branchId !== beforeBranchId) {
+            await branches.moveBeforeBranch([ branchId ], beforeBranchId);
+        }
     }
 
     async changeColumn(noteId: string, newColumn: string) {
@@ -940,27 +988,29 @@ export default class BoardApi {
         );
     }
 
+    /** Creates a card beside another one, which is what a field between two cards makes. */
     async insertRowAtPosition(
         column: string,
         relativeToBranchId: string,
         direction: "before" | "after",
+        title: string,
+        icon?: string,
         template: NoteTypeOption | undefined = this.getCurrentCardTemplate()) {
         const { note, branch } = await note_create.createNote(this.parentNote.noteId, {
             activate: false,
             targetBranchId: relativeToBranchId,
             target: direction,
-            title: t("board_view.new-item"),
+            title,
+            isProtected: this.parentNote.isProtected,
             ...(template?.options ?? {}),
-            attributes: this.groupingFor(column)
+            attributes: this.attributesFor(column, icon)
         });
 
         if (!note || !branch) {
             throw new Error("Failed to create note");
         }
 
-        this.startEditing(branch.branchId);
-
-        return note;
+        return { note, branch };
     }
 
     openNote(noteId: string) {

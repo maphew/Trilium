@@ -644,28 +644,62 @@ describe("BoardApi card operations", () => {
             "notes/" + items[0].note.noteId + "/title", { title: "Fresh title" });
     });
 
-    it("inserts a card beside another and opens its title for editing", async () => {
-        const { api, editing, items } = createBoardWithCards();
+    it("inserts a card beside another, named and iconed as it was typed", async () => {
+        const { api, items } = createBoardWithCards();
         const created = buildNote({ title: "Created" });
         vi.spyOn(server, "put").mockResolvedValue(undefined);
         vi.mocked(note_create.createNote).mockResolvedValue({
             note: created, branch: { branchId: "createdBranch" }
         } as never);
 
-        const note = await api.insertRowAtPosition("Done", items[0].branch.branchId, "after");
+        const result = await api.insertRowAtPosition(
+            "Done", items[0].branch.branchId, "after", "Typed", "bx bx-star");
 
-        expect(note).toBe(created);
+        expect(result).toEqual({ note: created, branch: { branchId: "createdBranch" } });
         expect(note_create.createNote).toHaveBeenCalledWith(
             expect.any(String),
-            expect.objectContaining({ targetBranchId: items[0].branch.branchId, target: "after" }));
-        expect(editing).toEqual([ "createdBranch" ]);
+            expect.objectContaining({
+                targetBranchId: items[0].branch.branchId,
+                target: "after",
+                title: "Typed",
+                attributes: expect.arrayContaining([
+                    expect.objectContaining({ name: "iconClass", value: "bx bx-star" })
+                ])
+            }));
+    });
+
+    /**
+     * What a field standing among a column's cards makes: the card goes above the one the field
+     * stands over, and a field standing below the last card makes one at the end of the column.
+     */
+    it("creates a card above the one a field stands over", async () => {
+        const { api, items } = createBoardWithCards();
+        const created = buildNote({ title: "Created" });
+        vi.spyOn(server, "put").mockResolvedValue(undefined);
+        vi.mocked(note_create.createNote).mockResolvedValue({
+            note: created, branch: { branchId: "createdBranch" }
+        } as never);
+
+        expect(await api.createNewItemBefore("Done", items[0].branch.branchId, "First"))
+            .toBe(created.noteId);
+        expect(note_create.createNote).toHaveBeenLastCalledWith(
+            expect.any(String),
+            expect.objectContaining({
+                targetBranchId: items[0].branch.branchId, target: "before", title: "First"
+            }));
+
+        // Below the last card there is nothing to go above, so the card is made at the end.
+        expect(await api.createNewItemBefore("Done", undefined, "Last")).toBe(created.noteId);
+        const last = vi.mocked(note_create.createNote).mock.calls.at(-1)?.[1];
+        expect(last).toEqual(expect.objectContaining({ title: "Last" }));
+        expect(last).not.toHaveProperty("target");
     });
 
     it("reports a card it could not create rather than filing nothing", async () => {
         const { api, items } = createBoardWithCards();
         vi.mocked(note_create.createNote).mockResolvedValue({ note: null, branch: null } as never);
 
-        await expect(api.insertRowAtPosition("Done", items[0].branch.branchId, "after"))
+        await expect(api.insertRowAtPosition("Done", items[0].branch.branchId, "after", "Typed"))
             .rejects.toThrow("Failed to create note");
     });
 
@@ -782,12 +816,12 @@ describe("BoardApi card operations", () => {
         } as never);
 
         // Nothing has been used yet, so the first the board offers stands.
-        await api.insertRowAtPosition("Done", "branchId", "after");
+        await api.insertRowAtPosition("Done", "branchId", "after", "Typed");
         expect(note_create.createNote).toHaveBeenLastCalledWith(
             expect.any(String), expect.objectContaining({ type: "text" }));
 
         await api.setLastCardTemplateId("type:canvas:application/json");
-        await api.insertRowAtPosition("Done", "branchId", "after");
+        await api.insertRowAtPosition("Done", "branchId", "after", "Typed");
         expect(note_create.createNote).toHaveBeenLastCalledWith(
             expect.any(String), expect.objectContaining({ type: "canvas" }));
 
@@ -828,7 +862,7 @@ describe("BoardApi card operations", () => {
             expect.objectContaining({ type: "canvas", mime: "application/json" }));
 
         // And the same for a card inserted beside another one.
-        await api.insertRowAtPosition("Done", "branchId", "after", {
+        await api.insertRowAtPosition("Done", "branchId", "after", "Typed", undefined, {
             id: "note:mine",
             title: "My template",
             icon: "bx bx-star",

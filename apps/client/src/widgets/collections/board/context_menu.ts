@@ -400,10 +400,12 @@ function buildColumnItems(
 
 export function openNoteContextMenu(
     api: Api, event: ContextMenuEvent, note: FNote, branchId: string, column: string,
+    /** Where this card stands among its column's cards, which is what an insert is placed by. */
+    index: number,
     /** Puts focus back on the card once a change of column has drawn it under another one. */
     onFocusCard: (noteId: string) => void,
-    /** Names the card an insert makes, which the column reveals once the board has drawn it. */
-    onCreated: (noteId: string | undefined) => void
+    /** Opens the field a new card is named in at a place in the column, above or below this one. */
+    onInsert: (index: number) => void
 ) {
     event.preventDefault();
     event.stopPropagation();
@@ -424,15 +426,13 @@ export function openNoteContextMenu(
                 title: t("board_view.insert-above"),
                 uiIcon: "bx bx-list-plus",
                 shortcut: "Shift+Enter",
-                handler: () => api.insertRowAtPosition(column, branchId, "before")
-                    .then(created => onCreated(created?.noteId))
+                handler: () => onInsert(index)
             },
             {
                 title: t("board_view.insert-below"),
                 uiIcon: "bx bx-empty",
                 shortcut: "Enter",
-                handler: () => api.insertRowAtPosition(column, branchId, "after")
-                    .then(created => onCreated(created?.noteId))
+                handler: () => onInsert(index + 1)
             },
             // Left out for the card already at the head, which has nowhere to go.
             ...(api.isFirstInColumn(branchId, column) ? [] : [ {

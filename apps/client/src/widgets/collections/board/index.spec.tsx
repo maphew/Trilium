@@ -22,7 +22,6 @@ import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { BoardViewData } from ".";
 import { collectShortcutHints } from "../../../services/shortcut_hints";
-import { FLIP_SETTLE_MS } from "../../react/flip";
 import BoardApi, { getPendingWrites } from "./api";
 import { DEFAULT_COLUMN_ICON, INBOX_COLUMN_ICON } from "./columns";
 
@@ -1648,140 +1647,76 @@ describe("Board column rename", () => {
     });
 
     /**
-     * The column names the card it just made until it makes another, so what opens out is counted
-     * as well: a card dragged out of the column and back is a card coming back, not one just made.
+     * The field a card is named in stands where the card goes and holds what it is called, so the
+     * card is drawn into the place the field was keeping for it: it fades in there rather than
+     * opening out of a gap the column makes after closing the one the field left.
      */
-    it("opens out the card it just made once, and not when it comes back", async () => {
+    it("keeps the field standing until the card it made takes its place", async () => {
         const { note, container } = await setup();
-        withBoxes();
+        const made = buildNote({ title: "Made", "#status": "Doing" });
+        let answer: (noteId: string) => void = () => {};
+        vi.spyOn(BoardApi.prototype, "createNewItemBefore")
+            .mockReturnValue(new Promise((resolve) => { answer = resolve; }));
 
-        try {
-            const card = buildNote({ title: "Made", "#status": "Doing" });
-            vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
-                .mockResolvedValue({ noteId: card.noteId } as never);
+        const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
+        const standIn = column.querySelector<HTMLElement>(".board-note");
+        if (!standIn) throw new Error("expected a card in the column");
 
-            // Made here, and drawn only by the refresh that follows.
-            const standIn = container.querySelectorAll<HTMLElement>(".board-column")[1]
-                .querySelector<HTMLElement>(".board-note");
-            await act(async () => {
-                standIn?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-                await flush();
-            });
+        await act(async () => {
+            standIn.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
 
-            fileCard(note, card);
-            await redraw(note, container);
-            expect(drawn(container, card.noteId).style.height).toBe("0px");
+        const field = column
+            .querySelector<HTMLTextAreaElement>(".board-new-item.inserting textarea");
+        if (!field) throw new Error("expected the field for a new card to be open");
+        field.value = "Made";
+        await act(async () => {
+            field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
 
-            // Carried off the column and dropped back on it, which draws it afresh both times.
-            unfileCard(note, card);
-            await redraw(note, container);
-            fileCard(note, card);
-            await redraw(note, container);
+        // The write is still in flight, so the field stands, and holds what it is about to become.
+        await act(async () => {
+            answer(made.noteId);
+            await flush();
+        });
+        expect(column.querySelector(".board-new-item.inserting")).toBeTruthy();
+        expect(field.value).toBe("Made");
 
-            expect(drawn(container, card.noteId).style.height).toBe("");
-        } finally {
-            dropBoxes();
-        }
+        fileCard(note, made);
+        await redraw(note, container);
+
+        expect(column.querySelector(".board-new-item.inserting")).toBeNull();
+        // Faded in where the field stood, and not opened out of nothing.
+        const card = drawn(container, made.noteId);
+        expect(card.classList.contains("appearing")).toBe(true);
+        expect(card.style.height).toBe("");
     });
 
     /**
-     * The footer's own card never opens out, the scroll to the end and the fade standing for it, so
-     * its arrival is recorded rather than its growth: otherwise it is the one card the column has
-     * made that opens out when it comes back.
+     * Names a card in the field a press of Enter opens below the given one, which is what makes it.
+     *
+     * Answers with the field, which is taken down as the card is made.
      */
-    it("leaves a card the footer made alone when it comes back", async () => {
-        const { note, container } = await setup();
-        withBoxes();
+    async function nameCardBeside(card: HTMLElement, title: string) {
+        await act(async () => {
+            card.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
 
-        try {
-            const card = buildNote({ title: "Footed", "#status": "Doing" });
-            vi.spyOn(BoardApi.prototype, "createNewItem").mockResolvedValue(card.noteId);
+        const field = card.parentElement
+            ?.querySelector<HTMLTextAreaElement>(".board-new-item.inserting textarea");
+        if (!field) throw new Error("expected the field for a new card to be open");
 
-            const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
-                .querySelector<HTMLElement>(".board-new-item");
-            await act(async () => {
-                slot?.click();
-                await flush();
-            });
+        field.value = title;
+        await act(async () => {
+            field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
 
-            const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
-            if (!editor) throw new Error("expected the new-item editor to be open");
-            editor.value = "Footed";
-            await act(async () => {
-                editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-                await flush();
-            });
-
-            fileCard(note, card);
-            await redraw(note, container);
-            expect(drawn(container, card.noteId).style.height).toBe("");
-
-            // Once the quiet window the footer opened has passed, and back on the column.
-            await act(async () => {
-                await new Promise((resolve) => setTimeout(resolve, FLIP_SETTLE_MS + 100));
-            });
-            unfileCard(note, card);
-            await redraw(note, container);
-            fileCard(note, card);
-            await redraw(note, container);
-
-            expect(drawn(container, card.noteId).style.height).toBe("");
-        } finally {
-            dropBoxes();
-        }
-    });
-
-    /**
-     * The write answers with the card's id, and the refresh that draws the card can land first, so
-     * the column draws it before it knows what it made. That arrival counts all the same, or the
-     * card is the one the column would open out when it comes back.
-     */
-    it("leaves a card drawn before the write answered alone when it comes back", async () => {
-        const { note, container } = await setup();
-        withBoxes();
-
-        try {
-            const card = buildNote({ title: "Early", "#status": "Doing" });
-            let answer: (noteId: string) => void = () => {};
-            vi.spyOn(BoardApi.prototype, "createNewItem")
-                .mockReturnValue(new Promise((resolve) => { answer = resolve; }));
-
-            const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
-                .querySelector<HTMLElement>(".board-new-item");
-            await act(async () => {
-                slot?.click();
-                await flush();
-            });
-
-            const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
-            if (!editor) throw new Error("expected the new-item editor to be open");
-            editor.value = "Early";
-            await act(async () => {
-                editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-                await flush();
-            });
-
-            // Drawn while the write is still in flight, and only then answered.
-            fileCard(note, card);
-            await redraw(note, container);
-            await act(async () => {
-                answer(card.noteId);
-                await flush();
-            });
-
-            await act(async () => {
-                await new Promise((resolve) => setTimeout(resolve, FLIP_SETTLE_MS + 100));
-            });
-            unfileCard(note, card);
-            await redraw(note, container);
-            fileCard(note, card);
-            await redraw(note, container);
-
-            expect(drawn(container, card.noteId).style.height).toBe("");
-        } finally {
-            dropBoxes();
-        }
-    });
+        return field;
+    }
 
     /** The element standing for a note, which a move draws afresh. */
     function drawn(container: HTMLElement, noteId: string) {
@@ -1793,10 +1728,10 @@ describe("Board column rename", () => {
 
     /**
      * A card that arrives from somewhere else, a move between columns above all, mounts as a new
-     * element in the column that draws it. Only the card the column itself made opens out of
-     * nothing; the rest are already where they were put.
+     * element in the column that draws it. Only a card the column itself made is shown: the rest
+     * are already where they were put.
      */
-    it("opens out only the card the column made, not one that merely arrived", async () => {
+    it("shows only the card the column made, not one that merely arrived", async () => {
         const { note, container } = await setup();
         withBoxes();
 
@@ -1807,6 +1742,7 @@ describe("Board column rename", () => {
             const arrived = [ ...container.querySelectorAll<HTMLElement>(".board-note") ]
                 .find(card => card.textContent?.includes("Added"));
             if (!arrived) throw new Error("expected the card that arrived to be drawn");
+            expect(arrived.classList.contains("appearing")).toBe(false);
             expect(arrived.style.height).toBe("");
             expect(arrived.style.overflow).toBe("");
         } finally {
@@ -1885,13 +1821,9 @@ describe("Board column rename", () => {
         const content = column.querySelector<HTMLElement>(".board-column-content");
         Object.defineProperty(content, "scrollHeight",
             { value: 500, configurable: true, writable: true });
-        vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
-            .mockResolvedValue({ noteId } as never);
+        vi.spyOn(BoardApi.prototype, "createNewItemBefore").mockResolvedValue(noteId);
 
-        await act(async () => {
-            last.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-            await flush();
-        });
+        await nameCardBeside(last, "Typed");
 
         expect(middle.classList.contains("appearing")).toBe(true);
         expect(scrolled).toHaveBeenCalled();
@@ -1899,23 +1831,50 @@ describe("Board column rename", () => {
     });
 
     /**
-     * The editor an insert opens holds focus while the title is typed; the card takes it once that
-     * editor is done, so the arrow keys carry on from the card just made.
+     * The same field wherever it stands, so a card inserted between two others is named, iconed and
+     * made from a template the way a card added below the column is.
      */
-    it("leaves an inserted card focused, and a card added in the footer unfocused", async () => {
+    it("inserts with the field the column's own footer uses", async () => {
+        const { container } = await setup();
+        const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
+        const card = column.querySelector<HTMLElement>(".board-note");
+        if (!card) throw new Error("expected a card in the column");
+
+        await act(async () => {
+            card.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        const field = column.querySelector<HTMLElement>(".board-new-item.inserting");
+        expect(field?.querySelector(".title-editor-icon button")).toBeTruthy();
+        expect(field?.querySelector(".card-template-pill button")?.textContent).toContain("Text");
+        expect(field?.querySelector("textarea")?.placeholder).toBeTruthy();
+
+        // Escape takes it down again, having made nothing.
+        const editor = field?.querySelector<HTMLTextAreaElement>("textarea");
+        await act(async () => {
+            editor?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+            await flush();
+        });
+        expect(column.querySelector(".board-new-item.inserting")).toBeNull();
+    });
+
+    /**
+     * The field a card is named in among the others stands for the card being made, so it is taken
+     * down as the card lands and the card is left focused: the arrow keys carry on from there.
+     */
+    it("leaves the card it made focused, and a card added in the footer unfocused", async () => {
         const { container } = await setup();
         const column = container.querySelectorAll<HTMLElement>(".board-column")[1];
         const card = column.querySelector<HTMLElement>(".board-note");
         const noteId = card?.getAttribute("data-note-id");
         if (!card || !noteId) throw new Error("expected a card in the column");
 
-        vi.spyOn(BoardApi.prototype, "insertRowAtPosition")
-            .mockResolvedValue({ noteId } as never);
-        await act(async () => {
-            card.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-            await flush();
-        });
+        // The stand-in for the card just made, which is what the board draws and focuses.
+        vi.spyOn(BoardApi.prototype, "createNewItemBefore").mockResolvedValue(noteId);
+        await nameCardBeside(card, "Typed");
 
+        expect(column.querySelector(".board-new-item.inserting")).toBeNull();
         expect(document.activeElement).toBe(card);
 
         // The footer's own editor keeps focus instead, so a run of cards can be typed into it.
@@ -2714,7 +2673,8 @@ describe("Board column rename", () => {
             await flush();
         });
         expect(chosen).toHaveBeenCalled();
-        expect(added).toHaveBeenCalledWith("Doing", "existing");
+        // No place given: the field below a column adds the note at the end of it.
+        expect(added).toHaveBeenCalledWith("Doing", "existing", undefined);
 
         await type(editor, "Typed");
         expect(button()?.className).toContain("bx-plus-circle");
