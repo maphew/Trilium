@@ -170,7 +170,9 @@ export default class BoardApi {
      * board lands at the bottom. The top is created before the column's own first card: all
      * columns share one list of children, so the board's first child is not this column's.
      */
-    async createNewItem(column: string, title: string, placement: CardPlacement = "bottom") {
+    async createNewItem(
+        column: string, title: string, placement: CardPlacement = "bottom", icon?: string
+    ) {
         const first = placement === "top"
             ? this.byColumn?.get(column)?.[0]?.branch.branchId
             : undefined;
@@ -180,7 +182,17 @@ export default class BoardApi {
                 activate: false,
                 title,
                 isProtected: this.parentNote.isProtected,
-                attributes: this.groupingFor(column),
+                attributes: [
+                    ...this.groupingFor(column),
+                    ...(icon
+                        ? [ {
+                            type: "label" as const,
+                            name: "iconClass",
+                            value: icon,
+                            isInheritable: false
+                        } ]
+                        : [])
+                ],
                 ...(first ? { target: "before", targetBranchId: first } : {})
             });
 

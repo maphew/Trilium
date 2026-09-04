@@ -27,6 +27,9 @@ import { useScrollFade } from "../../react/scroll_fade";
  */
 const FOOTER_QUIET_MS = 5000;
 
+/** What a card is drawn with until an icon is picked for it, which is what a text note carries. */
+const DEFAULT_CARD_ICON = "bx bx-note";
+
 /** How long an open takes. Matches `--board-expand-duration` in the board's own rules. */
 const EXPAND_MS = 200;
 import NoteLink from "../../react/NoteLink";
@@ -517,6 +520,8 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
     // What the editor opens with: empty to begin with, then whatever was typed into it and left
     // unsaved, so that reaching for something else and coming back does not cost the title.
     const [ initialTitle, setInitialTitle ] = useState("");
+    // Kept between cards, unlike the title: a run of cards is often a run of the same kind of card.
+    const [ icon, setIcon ] = useState(DEFAULT_CARD_ICON);
 
     const open = useCallback((title: string) => {
         setInitialTitle(title);
@@ -571,7 +576,8 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
                     save={async (title, atStart) => {
                         onCreating();
                         onCreated(await api.createNewItem(
-                            column, title, atStart ? "top" : "bottom"));
+                            column, title, atStart ? "top" : "bottom",
+                            icon !== DEFAULT_CARD_ICON ? icon : undefined));
                     }}
                     dismiss={() => setIsCreating(false)}
                     mode="multiline" isNewItem
@@ -584,6 +590,13 @@ function AddNewItem({ column, api, isCreating, setIsCreating, onCreated, onCreat
                     }}
                     submitTitle={t("board_view.create-new-note")}
                     openPlacements={openCreateCardMenu}
+                    icon={{
+                        current: icon,
+                        onSelect: setIcon,
+                        onReset: icon !== DEFAULT_CARD_ICON
+                            ? () => setIcon(DEFAULT_CARD_ICON)
+                            : undefined
+                    }}
                 />
             )}
         </div>

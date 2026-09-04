@@ -517,8 +517,8 @@ body.mobile .board-view-container .board-add-column {
   resize: none;
 }
 
-/* The field and the button that submits it, which stands over the field's own end. */
-.board-view-container .title-editor-with-submit {
+/* The field with what stands over it: the icon at its leading edge, the submit at its trailing. */
+.board-view-container .title-editor-field {
   display: flex;
   flex-grow: 1;
   position: relative;
@@ -534,7 +534,7 @@ body.mobile .board-view-container .board-add-column {
  * rather than `em`: a custom property is worked out where it is used, and this button's font is
  * itself derived from the size below.
  */
-.board-view-container .title-editor-with-submit .title-editor-submit {
+.board-view-container .title-editor-field .title-editor-submit {
   --icon-button-size: 1.6rem;
   --icon-button-icon-ratio: 0.72;
 
@@ -556,10 +556,52 @@ body.mobile .board-view-container .board-add-column {
   }
 }
 
-/* Room for the button, so a long title runs up to it rather than under it. Stated after the rule
+/*
+ * The icon the card carries, which opens the picker. Flat and the size of the icon a card is drawn
+ * with, rather than the button a note header stands on: it is part of the line being typed.
+ *
+ * Three sizes, and the icon stays where it is through all of them: `--note-icon-size` is the glyph,
+ * `--note-icon-container-padding-size` the ring it lights up under the pointer, which grows
+ * outwards from the glyph, and `--title-editor-icon-inset` where the glyph stands from the field's
+ * leading edge.
+ *
+ * Down the field it is held against the first line: the field's own top padding and half a line
+ * down, less half the icon's box. That is the middle of a field of one line, and the first line of
+ * a taller one. Written in `em` on this element rather than on the field: a custom property is
+ * worked out where it is used, and both sit in the card's own font.
+ */
+.board-view-container .title-editor-field .title-editor-icon {
+  --note-icon-size: 15px;
+  --note-icon-container-padding-size: 4px;
+  --title-editor-icon-inset: 0.42rem;
+  /* No disc behind it, and the colour the line itself is written in: it stands in the text being
+     typed, not on a note's own header. */
+  --note-icon-custom-background-color: transparent;
+  --note-icon-color: var(--main-text-color);
+  /* What every other icon button in the page lights up with under the pointer. */
+  --note-icon-hover-custom-background-color: var(--icon-button-hover-background);
+  --title-editor-icon-box: calc(
+    var(--note-icon-size) + 2 * var(--note-icon-container-padding-size));
+
+  position: absolute;
+  inset-inline-start: calc(
+    var(--title-editor-icon-inset) - var(--note-icon-container-padding-size));
+  inset-block-start: calc(
+    var(--card-padding) + (var(--card-line-height) * 1em - var(--title-editor-icon-box)) / 2);
+  z-index: 1;
+}
+
+/* Room for the icon, so a long title runs up to it rather than under it. Stated after the rules
    above, whose shorthand padding would otherwise take this back. */
-.board-view-container .title-editor-with-submit textarea.form-control,
-.board-view-container .title-editor-with-submit input.form-control {
+.board-view-container .title-editor-field textarea.form-control,
+.board-view-container .title-editor-field input.form-control {
+  padding-inline-start: 1.9em;
+}
+
+/* And for the button, wherever there is one to make room for. Kept whether or not it is drawn just
+   now, or the text would shift as the field is typed into and emptied again. */
+.board-view-container .title-editor-field.with-submit textarea.form-control,
+.board-view-container .title-editor-field.with-submit input.form-control {
   padding-inline-end: 2.2em;
 }
 

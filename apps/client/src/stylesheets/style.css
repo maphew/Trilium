@@ -463,6 +463,14 @@ body > .tn-dropdown-portal > .dropdown-menu {
     --bs-dropdown-zindex: 1200;
 }
 
+/* Under the menu above, which is what it is drawn for; stated beside it so the two stay in step. */
+body > .tn-dropdown-portal > .tn-dropdown-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1199;
+    background: rgba(0, 0, 0, 0.1);
+}
+
 body.desktop .dropdown-menu,
 body.desktop .tabulator-popup-container,
 :root .excalidraw .dropdown-menu .dropdown-menu-container,

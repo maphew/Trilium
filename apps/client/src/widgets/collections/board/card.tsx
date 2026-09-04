@@ -12,7 +12,7 @@ import { t } from "../../../services/i18n";
 import UserAttributesDisplay from "../../attribute_widgets/UserAttributesList";
 import { FLIP_SETTLE_MS } from "../../react/flip";
 import {
-    useNoteColorClass, useNoteIcon, useNoteLabelBoolean, useTriliumEvent
+    useNoteColorClass, useNoteIcon, useNoteLabel, useNoteLabelBoolean, useTriliumEvent
 } from "../../react/hooks";
 
 function Card({
@@ -60,6 +60,7 @@ function Card({
     const editorRef = useRef<HTMLInputElement>(null);
     const cardRef = useRef<HTMLDivElement>(null);
     const [ isArchived ] = useNoteLabelBoolean(note, "archived");
+    const [ iconClass, setIconClass ] = useNoteLabel(note, "iconClass");
     // The card stays the one just made until another is, so what has already been shown is
     // remembered here rather than played again by every redraw of the column.
     const [ isRevealed, setIsRevealed ] = useState(false);
@@ -191,6 +192,11 @@ function Card({
                     }}
                     dismiss={() => api.dismissEditingTitle()}
                     mode="multiline"
+                    icon={{
+                        current: icon ?? "",
+                        onSelect: setIconClass,
+                        onReset: iconClass ? () => setIconClass(null) : undefined
+                    }}
                 />
             )}
         </div>

@@ -29,6 +29,7 @@ import NoteAutocomplete from "../../react/NoteAutocomplete";
 import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import ActionButton from "../../react/ActionButton";
+import { IconPickerButton } from "../../react/IconPicker";
 import { useDragPan } from "../../react/drag_pan";
 import { FLIP_SETTLE_MS, useFlip } from "../../react/flip";
 import { ViewModeProps } from "../interface";
@@ -850,7 +851,7 @@ function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
 
 export function TitleEditor({
     currentValue, placeholder, save, dismiss, mode, isNewItem, selectOnFocus = true,
-    saveAndContinue = false, returnFocusTo, abandon, whenEmpty, submitTitle, openPlacements
+    saveAndContinue = false, returnFocusTo, abandon, whenEmpty, submitTitle, openPlacements, icon
 }: {
     currentValue?: string;
     placeholder?: string;
@@ -874,6 +875,12 @@ export function TitleEditor({
     whenEmpty?: { title: string, onClick?: () => void };
     /** Names what the button creates, shown in its tooltip. */
     submitTitle?: string;
+    /**
+     * The icon shown inside the field, at the leading edge, which opens the picker when pressed.
+     * The caller answers for what a pick does: a card carries it as `iconClass`, and the editor a
+     * card is made in keeps it for the next card.
+     */
+    icon?: { current: string, onSelect: (icon: string) => void, onReset?: () => void };
     /**
      * Opens the menu naming which end to create at, for a `save` that reads `atStart`. Passing it
      * is what gives the button both ends: a right click or a hold opens the menu, Shift+Enter
@@ -902,6 +909,15 @@ export function TitleEditor({
     const focusElRef = useRef<Element>(null);
     const dismissOnNextRefreshRef = useRef(false);
     const shouldDismiss = useRef(false);
+    /**
+     * Whether the icon picker is open, during which the editor stays where it is.
+     *
+     * The picker takes focus with it, and losing focus is what closes this editor: it would take
+     * the picker down with itself. Held in a ref rather than in state because the blur arrives
+     * before the render a state change would schedule. Focus goes back to the field as the picker
+     * closes, the blur that would have ended the edit being spent.
+     */
+    const isPickingIcon = useRef(false);
     const held = useRef<number>();
     /** Where on the screen the finger went down, against which a scroll is told from a hold. */
     const heldFrom = useRef<{ x: number, y: number }>();
@@ -1040,6 +1056,10 @@ export function TitleEditor({
     }
 
     const onBlur = (newValue: string) => {
+        if (isPickingIcon.current) {
+            return;
+        }
+
         if (saveAndContinue) {
             abandon?.(newValue);
             dismiss();
@@ -1079,19 +1099,20 @@ export function TitleEditor({
             />
         );
 
-        if (!saveAndContinue) {
+        if (!saveAndContinue && !icon) {
             return field;
         }
 
         // A placement applies only to the button that creates. With nothing typed there is nothing
         // to create, so the button stands for whatever the caller offers instead, or for nothing.
+        // An editor that saves once, a card being renamed above all, makes nothing and offers none.
         const offersPlacement = !!openPlacements && !isEmpty;
         const madeBy = submitTitle ?? t("board_view.add-new-item");
         const offered = isEmpty
             ? whenEmpty && {
                 icon: "bx bx-folder-open", title: whenEmpty.title, onClick: whenEmpty.onClick
             }
-            : {
+            : saveAndContinue && {
                 icon: "bx bx-plus-circle",
                 title: offersPlacement
                     ? `<span class="action">${escapeHtml(madeBy)}</span>`
@@ -1101,7 +1122,29 @@ export function TitleEditor({
             };
 
         return (
-            <div className="title-editor-with-submit">
+            <div className={clsx("title-editor-field", { "with-submit": saveAndContinue })}>
+                {/* The press that opens the picker must not take focus out of the field: the
+                    blur arrives before the picker reports itself open, and losing focus is what
+                    closes the editor. */}
+                {icon && (
+                    <span onMouseDown={(e) => e.preventDefault()}>
+                        <IconPickerButton
+                            className="title-editor-icon"
+                            icon={icon.current}
+                            title={t("board_view.change-note-icon")}
+                            onSelect={icon.onSelect}
+                            onReset={icon.onReset}
+                            // A grid of a thousand icons and a search field is a task of its own,
+                            // so the board behind it is dimmed rather than left looking pressable.
+                            backdrop
+                            onOpened={() => { isPickingIcon.current = true; }}
+                            onClosed={() => {
+                                isPickingIcon.current = false;
+                                inputRef.current?.focus();
+                            }}
+                        />
+                    </span>
+                )}
                 {field}
                 {/* The press must not take focus out of the field first: losing it is what closes
                     the editor, and it would be gone before the click arrived. */}

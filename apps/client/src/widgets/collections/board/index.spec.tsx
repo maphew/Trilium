@@ -15,6 +15,7 @@ import server from "../../../services/server";
 import toast from "../../../services/toast";
 import FBranch from "../../../entities/fbranch";
 import froca from "../../../services/froca";
+import attributes from "../../../services/attributes";
 import { executeBulkActions } from "../../../services/bulk_action";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
@@ -34,6 +35,31 @@ vi.mock("../../../services/i18n", () => ({
     // Awaited by whatever waits for the catalogue; a mock without it rejects where it is read.
     translationsInitializedPromise: $.Deferred().resolve()
 }));
+
+// The picker is a Bootstrap dropdown portalled to the page, which happy-dom does not open. What the
+// board answers for is the icon it shows and what it does with a pick, so the button stands in for
+// the picker and hands one over when it is pressed.
+vi.mock("../../react/IconPicker", () => ({
+    IconPickerButton: ({ className, icon, onSelect, onOpened, onClosed }: {
+        className?: string, icon: string, onSelect: (picked: string) => void,
+        onOpened?: () => void, onClosed?: () => void
+    }) => (
+        <span className={className}>
+            <button className={icon} onClick={() => {
+                onOpened?.();
+                onSelect(PICKED_ICON);
+                onClosed?.();
+            }} />
+            {/* The picker opening and closing on their own, for what the editor does in between.
+                Not buttons: a host counting the buttons its picker draws would count these too. */}
+            <span className="picker-open" onClick={() => onOpened?.()} />
+            <span className="picker-close" onClick={() => onClosed?.()} />
+        </span>
+    )
+}));
+
+/** What the picker hands over when it is pressed under test. */
+const PICKED_ICON = "bx bx-star";
 
 vi.mock("../../../services/bulk_action", () => ({
     executeBulkActions: vi.fn(async (
@@ -1420,7 +1446,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "First", "bottom");
+        expect(created).toHaveBeenCalledWith("Doing", "First", "bottom", undefined);
         expect(slot?.querySelector("textarea")).toBe(editor);
         expect(editor.value).toBe("");
         expect(document.activeElement).toBe(editor);
@@ -1433,7 +1459,7 @@ describe("Board column rename", () => {
         });
 
         expect(created).toHaveBeenCalledTimes(2);
-        expect(created).toHaveBeenLastCalledWith("Doing", "Second", "bottom");
+        expect(created).toHaveBeenLastCalledWith("Doing", "Second", "bottom", undefined);
     });
 
     /**
@@ -2016,11 +2042,146 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "From the button", "bottom");
+        expect(created).toHaveBeenCalledWith("Doing", "From the button", "bottom", undefined);
         expect(editor.value).toBe("");
         expect(slot?.querySelector("textarea")).toBe(editor);
         expect(document.activeElement).toBe(editor);
     });
+
+    /**
+     * The icon stands inside the field, at its head, and is what the card is made with. It is kept
+     * between cards, unlike the title: a run of cards is often a run of the same kind of card.
+     */
+    it("makes a card with the icon picked in the editor, and keeps it for the next", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        created.mockClear();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        const picker = slot?.querySelector<HTMLElement>(".title-editor-icon");
+        if (!editor || !picker) throw new Error("expected the editor and its icon");
+
+        // What a text note is drawn with, until something else is picked.
+        expect(picker.querySelector("button")?.className).toContain("bx bx-note");
+
+        await pickIcon(slot);
+        expect(slot?.querySelector(".title-editor-icon button")?.className)
+            .toContain(PICKED_ICON);
+
+        await type(editor, "Starred");
+        await act(async () => {
+            editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await flush();
+        });
+
+        expect(created).toHaveBeenCalledWith("Doing", "Starred", "bottom", PICKED_ICON);
+        // The title goes, the icon stays.
+        expect(editor.value).toBe("");
+        expect(slot?.querySelector(".title-editor-icon button")?.className)
+            .toContain(PICKED_ICON);
+    });
+
+    /**
+     * The picker takes focus with it, and losing focus is what closes the editor: it would take the
+     * picker down with itself the moment it was opened.
+     */
+    it("stays open while the icon picker has the focus", async () => {
+        const { container } = await setup();
+        const created = vi.spyOn(BoardApi.prototype, "createNewItem")
+            .mockResolvedValue(undefined);
+        // The spy outlives the test that made it, and with it what it was called with there.
+        created.mockClear();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const editor = slot?.querySelector<HTMLTextAreaElement>("textarea");
+        if (!editor) throw new Error("expected the new-item editor to be open");
+        await type(editor, "Still here");
+
+        await act(async () => {
+            slot?.querySelector<HTMLElement>(".picker-open")?.click();
+            editor.dispatchEvent(new FocusEvent("blur"));
+            editor.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+            await flush();
+        });
+
+        expect(slot?.querySelector("textarea")).toBe(editor);
+        expect(editor.value).toBe("Still here");
+        expect(created).not.toHaveBeenCalled();
+
+        // The blur that would have ended the edit is spent, so the field is focused again.
+        await act(async () => {
+            slot?.querySelector<HTMLElement>(".picker-close")?.click();
+            await flush();
+        });
+        expect(document.activeElement).toBe(editor);
+    });
+
+    /** Renaming a card makes nothing, so the button that creates is not offered beside it. */
+    it("offers no create button while a card's title is edited", async () => {
+        const { container } = await setup();
+        const card = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-note");
+        if (!card) throw new Error("expected a card");
+
+        await act(async () => {
+            card.dispatchEvent(new KeyboardEvent("keydown", { key: "F2", bubbles: true }));
+            await flush();
+        });
+
+        const editor = card.querySelector<HTMLTextAreaElement>("textarea");
+        if (!editor) throw new Error("expected the title editor");
+
+        await type(editor, "Renamed");
+        expect(card.querySelector(".title-editor-submit")).toBeNull();
+        // The icon is offered all the same, which is what the editor is dressed for.
+        expect(card.querySelector(".title-editor-icon")).toBeTruthy();
+    });
+
+    /** The same picker on a card being renamed, which writes the icon onto the card itself. */
+    it("writes the icon picked while a card's title is edited", async () => {
+        const { container } = await setup();
+        const setLabel = vi.spyOn(attributes, "setLabel").mockResolvedValue(undefined);
+        const card = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-note");
+        const noteId = card?.getAttribute("data-note-id");
+        if (!card || !noteId) throw new Error("expected a card");
+
+        await act(async () => {
+            card.dispatchEvent(new KeyboardEvent("keydown", { key: "F2", bubbles: true }));
+            await flush();
+        });
+        expect(card.querySelector("textarea")).toBeTruthy();
+
+        await pickIcon(card);
+
+        expect(setLabel).toHaveBeenCalledWith(noteId, "iconClass", PICKED_ICON);
+        setLabel.mockRestore();
+    });
+
+    /** Takes an icon from the picker standing in the given editor. */
+    async function pickIcon(host: HTMLElement | null | undefined) {
+        const button = host?.querySelector<HTMLElement>(".title-editor-icon button");
+        if (!button) throw new Error("expected an icon beside the field");
+
+        await act(async () => {
+            button.click();
+            await flush();
+        });
+    }
 
     /**
      * Cards are made at the end of a column, and at its head for the reader adding what comes next
@@ -2050,7 +2211,7 @@ describe("Board column rename", () => {
             await flush();
         });
 
-        expect(created).toHaveBeenCalledWith("Doing", "On top", "top");
+        expect(created).toHaveBeenCalledWith("Doing", "On top", "top", undefined);
         // The field is emptied for the next one, as it is for a card made at the end.
         expect(editor.value).toBe("");
     });
@@ -2094,7 +2255,7 @@ describe("Board column rename", () => {
             entries[0]?.handler?.({} as never, {} as never);
             await flush();
         });
-        expect(created).toHaveBeenCalledWith("Doing", "Either end", "top");
+        expect(created).toHaveBeenCalledWith("Doing", "Either end", "top", undefined);
         expect(editor.value).toBe("");
 
         show.mockRestore();
