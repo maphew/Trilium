@@ -685,6 +685,18 @@ body.mobile .board-view-container .board-add-column {
   color: var(--main-text-color);
 }
 
+/* The menu is drawn at the end of the page, so it is named rather than nested in the board. The
+   tick stands at the trailing edge, where a shortcut would. */
+.tn-dropdown-portal.card-template-pill .dropdown-item {
+  display: flex;
+  align-items: center;
+}
+
+.tn-dropdown-portal.card-template-pill .card-template-current {
+  margin-inline-start: auto;
+  padding-inline-start: 1.5em;
+}
+
 .board-view-container .card-template-pill .card-template-name {
   overflow: hidden;
   text-overflow: ellipsis;

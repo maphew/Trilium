@@ -3,6 +3,7 @@ import { useMemo, useState } from "preact/hooks";
 import { t } from "../../../services/i18n";
 import Dropdown from "../../react/Dropdown";
 import { FormListItem } from "../../react/FormList";
+import Icon from "../../react/Icon";
 import { type NoteTypeOption } from "../../../services/note_types";
 
 /**
@@ -33,9 +34,15 @@ export default function CardTemplatePill({ offered, current, onSelect, onMore, o
         <FormListItem
             key={template.id}
             icon={template.icon}
-            active={template.id === current?.id}
             onClick={() => onSelect(template)}
-        >{template.title}</FormListItem>
+        >
+            {template.title}
+            {/* Ticked rather than highlighted: a highlighted row reads as the one under the
+                pointer. The icon each template carries stays where it is. */}
+            {template.id === current?.id && (
+                <Icon className="card-template-current" icon="bx bx-check" />
+            )}
+        </FormListItem>
     )), [ offered, current, onSelect ]);
 
     // The name alone stands in the pill: the field already carries the icon the card itself will

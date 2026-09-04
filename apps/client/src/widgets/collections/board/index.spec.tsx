@@ -2230,6 +2230,10 @@ describe("Board column rename", () => {
         expect(items.map(item => item.textContent?.trim())).toEqual([
             "Text", "Markdown", "Canvas", "Spreadsheet", "board_view.more-templates"
         ]);
+        // The one a card would be made from is ticked, rather than standing out by its background.
+        expect(items.map(item => !!item.querySelector(".card-template-current")))
+            .toEqual([ true, false, false, false, false ]);
+        expect(items.some(item => item.classList.contains("active"))).toBe(false);
 
         await act(async () => {
             items[2].click();
@@ -2238,6 +2242,9 @@ describe("Board column rename", () => {
 
         // Stored on the board, so the next editor opens on it as well.
         expect(saved.at(-1)?.template).toBe("type:canvas:application/json");
+        expect([ ...(menu?.querySelectorAll(".dropdown-item") ?? []) ]
+            .map(item => !!item.querySelector(".card-template-current")))
+            .toEqual([ false, false, true, false, false ]);
 
         await type(editor, "Drawn");
         await act(async () => {
