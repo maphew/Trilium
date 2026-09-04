@@ -23,7 +23,7 @@ import BoardView, { BoardViewData } from ".";
 import { collectShortcutHints } from "../../../services/shortcut_hints";
 import { FLIP_SETTLE_MS } from "../../react/flip";
 import BoardApi, { getPendingWrites } from "./api";
-import { DEFAULT_COLUMN_ICON } from "./columns";
+import { DEFAULT_COLUMN_ICON, INBOX_COLUMN_ICON } from "./columns";
 
 // Stands in for the server: by the time the bulk action resolves, the notes carry the new value,
 // which is what makes the old column empty rather than merely renamed.
@@ -477,11 +477,14 @@ describe("Collapsed board columns", () => {
             item && "uiIcon" in item && "handler" in item
                 ? [ { icon: item.uiIcon, handler: item.handler } ]
                 : []);
-        expect(entries.map(entry => entry.icon))
-            .toEqual([ "bx bx-collapse-alt", "bx bx-expand-alt" ]);
+        expect(entries.map(entry => entry.icon)).toEqual([
+            "bx bx-columns", "bx bx-collapse-alt", "bx bx-expand-alt",
+            INBOX_COLUMN_ICON, "bx bx-archive"
+        ]);
+        const entry = (icon: string) => entries.find(item => item.icon === icon)?.handler;
 
         await act(async () => {
-            entries[0]?.handler?.({} as never, {} as never);
+            entry("bx bx-collapse-alt")?.({} as never, {} as never);
             await flush();
         });
         expect(isCollapsed(mountPoint, 0)).toBe(true);
@@ -489,7 +492,7 @@ describe("Collapsed board columns", () => {
         expect(saved.at(-1)?.columns?.map(column => column.collapsed)).toEqual([ true, true ]);
 
         await act(async () => {
-            entries[1]?.handler?.({} as never, {} as never);
+            entry("bx bx-expand-alt")?.({} as never, {} as never);
             await flush();
         });
         expect(isCollapsed(mountPoint, 0)).toBe(false);
@@ -503,6 +506,47 @@ describe("Collapsed board columns", () => {
         expect(isCollapsed(mountPoint, 1)).toBe(false);
 
         show.mockRestore();
+    });
+
+    /**
+     * The board's own menu offers what the board is as well as what it does: an editor for a new
+     * column, and the two settings that decide which columns and cards it draws at all.
+     */
+    it("opens the column editor and toggles what the board shows, from its menu", async () => {
+        const { mountPoint } = await setup();
+        const board = mountPoint.querySelector<HTMLElement>(".board-view-container");
+        const inbox = vi.spyOn(BoardApi.prototype, "setInboxEnabled").mockResolvedValue(undefined);
+        const archived = vi.spyOn(BoardApi.prototype, "setArchivedShown")
+            .mockResolvedValue(undefined);
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+
+        board?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+        const items = show.mock.calls.at(-1)?.[0].items ?? [];
+        const entry = (icon: string) => {
+            const found = items.find(item => item && "uiIcon" in item && item.uiIcon === icon);
+            if (!found || !("handler" in found)) throw new Error(`expected a ${icon} entry`);
+            return found;
+        };
+
+        // Neither is on, so neither is ticked, and pressing them asks for them.
+        expect("trailingIcon" in entry(INBOX_COLUMN_ICON) && entry(INBOX_COLUMN_ICON).trailingIcon)
+            .toBeUndefined();
+        entry(INBOX_COLUMN_ICON).handler?.(entry(INBOX_COLUMN_ICON), {} as never);
+        entry("bx bx-archive").handler?.(entry("bx bx-archive"), {} as never);
+        expect(inbox).toHaveBeenCalledWith(true);
+        expect(archived).toHaveBeenCalledWith(true);
+
+        // The same editor the slot at the end of the board opens.
+        expect(mountPoint.querySelector(".board-add-column input")).toBeNull();
+        await act(async () => {
+            entry("bx bx-columns").handler?.(entry("bx bx-columns"), {} as never);
+            await flush();
+        });
+        expect(mountPoint.querySelector(".board-add-column input")).toBeTruthy();
+
+        show.mockRestore();
+        inbox.mockRestore();
+        archived.mockRestore();
     });
 
     /** A column and a card answer for their own presses, and the board does not speak over them. */

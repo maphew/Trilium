@@ -12,7 +12,7 @@ import { t } from "../../../services/i18n";
 import { escapeHtml } from "../../../services/utils";
 import ColorPicker from "../../react/ColorPicker";
 import Api from "./api";
-import { INBOX_COLUMN } from "./columns";
+import { INBOX_COLUMN, INBOX_COLUMN_ICON } from "./columns";
 
 /** What the column menu is opened for: the column itself, and what it can be asked to do. */
 interface ColumnMenuTarget {
@@ -168,11 +168,22 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
 /** How many columns a card's menu lists before the rest go behind an entry of their own. */
 const LISTED_COLUMNS = 7;
 
+/** What the board is, and what it can be asked to do, for a press on the ground its columns stand on. */
+interface BoardMenuTarget {
+    /** Whether the board keeps an inbox column, which the entry reports and toggles. */
+    inboxShown: boolean;
+    /** Whether the board draws the notes filed as archived. */
+    archivedShown: boolean;
+    /** Opens the editor a column is named in, the same one the button at the end opens. */
+    onAddColumn: () => void;
+    onCollapseAll: () => void;
+    onExpandAll: () => void;
+    onShowInbox: (shown: boolean) => void;
+    onShowArchived: (shown: boolean) => void;
+}
+
 /** What the board itself offers, for a press on the ground the columns stand on. */
-export function openBoardContextMenu(
-    event: ContextMenuEvent,
-    board: { onCollapseAll: () => void, onExpandAll: () => void }
-) {
+export function openBoardContextMenu(event: ContextMenuEvent, board: BoardMenuTarget) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -180,6 +191,12 @@ export function openBoardContextMenu(
         x: event.pageX,
         y: event.pageY,
         items: [
+            {
+                title: t("board_view.add-new-column"),
+                uiIcon: "bx bx-columns",
+                handler: board.onAddColumn
+            },
+            { kind: "separator" },
             {
                 title: t("board_view.collapse-all-columns"),
                 uiIcon: "bx bx-collapse-alt",
@@ -189,6 +206,19 @@ export function openBoardContextMenu(
                 title: t("board_view.expand-all-columns"),
                 uiIcon: "bx bx-expand-alt",
                 handler: board.onExpandAll
+            },
+            { kind: "separator" },
+            {
+                title: t("board_view.show-inbox-column"),
+                uiIcon: INBOX_COLUMN_ICON,
+                trailingIcon: board.inboxShown ? "bx bx-check" : undefined,
+                handler: () => board.onShowInbox(!board.inboxShown)
+            },
+            {
+                title: t("board_view.show-archived-notes"),
+                uiIcon: "bx bx-archive",
+                trailingIcon: board.archivedShown ? "bx bx-check" : undefined,
+                handler: () => board.onShowArchived(!board.archivedShown)
             }
         ],
         selectMenuItemHandler() {}

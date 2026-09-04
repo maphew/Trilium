@@ -508,11 +508,22 @@ export default class BoardApi {
     }
 
     /**
-     * Hides the inbox column by turning off the board's setting. The stored entry is kept, so
-     * its icon, colour and position are restored when it is switched back on.
+     * Whether the board keeps an inbox column. The stored entry outlives being switched off, so
+     * its icon, colour and position come back with it.
      */
+    async setInboxEnabled(enabled: boolean) {
+        await attributes.setBooleanWithInheritance(
+            this.parentNote, "enableInboxColumn", enabled);
+    }
+
+    /** Hides the inbox column, which is what its own menu offers. */
     async disableInbox() {
-        await attributes.setBooleanWithInheritance(this.parentNote, "enableInboxColumn", false);
+        await this.setInboxEnabled(false);
+    }
+
+    /** Whether the board draws the notes filed as archived, cards and columns alike. */
+    async setArchivedShown(shown: boolean) {
+        await attributes.setBooleanWithInheritance(this.parentNote, "includeArchived", shown);
     }
 
     /** The note limit set for a column, absent if disabled. */

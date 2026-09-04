@@ -242,6 +242,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
      * is a column being selected or focused.
      */
     const [ isPeekingAll, setIsPeekingAll ] = useState(false);
+    /** Whether the editor a column is named in is open, which the board's own menu also opens. */
+    const [ isCreatingColumn, setIsCreatingColumn ] = useState(false);
     const selectColumn = useCallback<Dispatch<StateUpdater<string | undefined>>>((column) => {
         setIsPeekingAll(false);
         setActiveColumn(column);
@@ -311,6 +313,11 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         }
 
         openBoardContextMenu(event, {
+            inboxShown: inboxEnabled,
+            archivedShown: includeArchived,
+            onAddColumn: () => setIsCreatingColumn(true),
+            onShowInbox: (shown) => api.setInboxEnabled(shown),
+            onShowArchived: (shown) => api.setArchivedShown(shown),
             onCollapseAll: () => {
                 // The open column is closed with the rest: it holds the peek that would otherwise
                 // keep it open against what is being written for it.
@@ -325,7 +332,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                 api.setAllColumnsCollapsed(false);
             }
         });
-    }, [ api, selectColumn ]);
+    }, [ api, selectColumn, inboxEnabled, includeArchived ]);
 
     const boardActions = useMemo<BoardActions>(() => ({
         setBranchIdToEdit,
@@ -709,6 +716,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                             isInRelationMode={isInRelationMode}
                             columnCount={shownColumns.length}
                             onCreated={setCreatedColumn}
+                            isCreating={isCreatingColumn}
+                            setIsCreating={setIsCreatingColumn}
                         />
                         {/* Where what is being carried is put. Preact draws the layer and never
                             its contents, so the copy is not among the children it places. */}
@@ -773,15 +782,21 @@ export function findRefreshReason(loadResults: LoadResults, statusAttribute: str
     return null;
 }
 
-function AddNewColumn({ api, isInRelationMode, columnCount, onCreated }: {
+function AddNewColumn({
+    api, isInRelationMode, columnCount, onCreated, isCreating, setIsCreating
+}: {
     api: BoardApi,
     isInRelationMode: boolean,
     /** How many columns stand before this, which is what carries it past the board's edge. */
     columnCount: number,
     /** Names the column just made, which the board reveals as it draws it. */
-    onCreated: (column: string) => void
+    onCreated: (column: string) => void,
+    /** Whether the editor is open. The board's own menu opens the same one this slot opens. */
+    isCreating: boolean,
+    setIsCreating: (isCreating: boolean) => void
 }) {
-    const [ isCreatingNewColumn, setIsCreatingNewColumn ] = useState(false);
+    const isCreatingNewColumn = isCreating;
+    const setIsCreatingNewColumn = setIsCreating;
     // Kept between columns, as the card editor keeps its own: a run of columns is often a run of
     // the same kind of column.
     const [ icon, setIcon ] = useState(DEFAULT_COLUMN_ICON);

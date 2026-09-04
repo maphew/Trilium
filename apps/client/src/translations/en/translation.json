@@ -3417,6 +3417,8 @@
     "keep-column-collapsed": "Keep the column collapsed",
     "collapse-all-columns": "Collapse all columns",
     "expand-all-columns": "Expand all columns",
+    "show-inbox-column": "Show inbox column",
+    "show-archived-notes": "Show archived notes",
     "collapse-hint": "Double click to collapse",
     "set-limit": "Set limit...",
     "set-limit-ok": "Set limit",
