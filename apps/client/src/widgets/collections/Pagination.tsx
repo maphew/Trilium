@@ -150,13 +150,16 @@ export function usePagination(
     const normalizedPageSize = (pageSize && pageSize > 0 ? pageSize : 20);
 
     // Calculate start/end index.
-    const startIdx = (page - 1) * normalizedPageSize;
-    const endIdx = startIdx + normalizedPageSize;
     const pageCount = Math.ceil(noteIds.length / normalizedPageSize);
+    // A growing page size, or a shrinking result set, can leave `page` past the last page. Clamp
+    // here rather than waiting for the effect below: callers slice with the page this returns, so
+    // an out-of-range value renders the previous result set's notes in the list and grid views,
+    // and nothing at all in the search cards, which re-derive their own slice from it.
+    const effectivePage = pageCount > 0 ? Math.min(page, pageCount) : page;
+    const startIdx = (effectivePage - 1) * normalizedPageSize;
+    const endIdx = startIdx + normalizedPageSize;
 
-    // If the page size grows (or the result set shrinks) enough that the current page no longer
-    // exists, step back onto the last valid page so the slice below can't silently yield an empty
-    // page. A no-op in steady state, so existing list/grid callers are unaffected.
+    // Catch the state up to what is being rendered, so the pager and `setPage` callers agree.
     useEffect(() => {
         if (pageCount > 0 && page > pageCount) {
             setPage(pageCount);
@@ -167,12 +170,6 @@ export function usePagination(
     const pageNoteIds = noteIds.slice(startIdx, Math.min(endIdx, noteIds.length));
 
     useEffect(() => {
-        // While the clamp effect above is stepping an out-of-range page back onto the last valid
-        // one, the slice is empty; loading it would only flash the list blank for a frame.
-        if (pageCount > 0 && page > pageCount) {
-            return;
-        }
-
         // Overlapping loads (rapid page flips, a shrinking result set) can resolve out of order;
         // the cleanup flag makes sure a superseded load can no longer overwrite the current page.
         let cancelled = false;
@@ -184,10 +181,10 @@ export function usePagination(
         return () => {
             cancelled = true;
         };
-    }, [ note, noteIds, page, normalizedPageSize ]);
+    }, [ note, noteIds, effectivePage, normalizedPageSize ]);
 
     return {
-        page, setPage, pageNotes, pageCount,
+        page: effectivePage, setPage, pageNotes, pageCount,
         pageSize: normalizedPageSize,
         totalNotes: noteIds.length
     };
