@@ -1696,11 +1696,11 @@ describe("Board column rename", () => {
     });
 
     /** An attribute change as the server reports one: the row is tracked as well as carried. */
-    function attributeChanged(name: string) {
+    function attributeChanged(name: string, noteId = "someNote") {
         const results = new LoadResults([ {
             entityName: "attributes",
             entityId: "attr1",
-            entity: { attributeId: "attr1", noteId: "someNote", type: "label", name }
+            entity: { attributeId: "attr1", noteId, type: "label", name }
         } as never ]);
         results.addAttribute("attr1", "other");
         return results;
@@ -2301,6 +2301,46 @@ describe("Board column rename", () => {
             await flush();
         });
         expect(templateReads).toBe(before + 1);
+    });
+
+    /**
+     * A template's icon is what the picker and the pill show, and an icon is a label on the note
+     * rather than part of the note row: the change is reported as an attribute changing, which is
+     * not what a reloaded note reads as. Only the notes the board offers are watched for it.
+     */
+    it("reads the templates again when one it offers is given another icon", async () => {
+        const reading = vi.mocked(getNoteTypeOptions);
+        const stockAnswer = reading.getMockImplementation();
+        const template = {
+            id: "template:tmpl1",
+            title: "My template",
+            icon: "bx bx-star",
+            group: "user",
+            options: { type: "text", mime: "text/html", templateNoteId: "tmpl1" }
+        } as NoteTypeOption;
+        reading.mockImplementation(async () => [ ...NOTE_TYPE_OPTIONS, template ]);
+
+        try {
+            const { host } = await setup();
+            const before = reading.mock.calls.length;
+
+            // An icon given to a note the board offers nothing from is not its business.
+            await act(async () => {
+                await host.handleEvent("entitiesReloaded",
+                    { loadResults: attributeChanged("iconClass") });
+                await flush();
+            });
+            expect(reading.mock.calls.length).toBe(before);
+
+            await act(async () => {
+                await host.handleEvent("entitiesReloaded",
+                    { loadResults: attributeChanged("iconClass", "tmpl1") });
+                await flush();
+            });
+            expect(reading.mock.calls.length).toBe(before + 1);
+        } finally {
+            reading.mockImplementation(stockAnswer ?? (async () => NOTE_TYPE_OPTIONS));
+        }
     });
 
     /**
