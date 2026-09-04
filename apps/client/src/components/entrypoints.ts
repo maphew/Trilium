@@ -139,11 +139,9 @@ export default class Entrypoints extends Component {
     async openInWindowCommand({ notePath, hoistedNoteId, viewScope, splits, activeSplit }: NoteCommandData) {
         const target = { notePath, hoistedNoteId, viewScope, splits, activeSplit };
 
-        if (window.electronApi) {
-            window.electronApi.window.createExtraWindow(linkService.calculateHash(target));
-        } else {
-            window.open(linkService.calculateExtraWindowUrl(target), "", "width=1000,height=800");
-        }
+        // On desktop the main process turns this into an extra window that shares
+        // this renderer's process (`installWindowOpenPolicy`).
+        window.open(linkService.calculateExtraWindowUrl(target), "", "width=1000,height=800");
     }
 
     async openNewWindowCommand() {

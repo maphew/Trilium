@@ -89,6 +89,8 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "appThemeBase", valueType: "select", selectOptions: [
         "next", "next-light", "next-dark"
     ] },
+    // Offers a font file note in the font picker, under the note's own title.
+    { type: "label", name: "customFont", valueType: "boolean" },
     { type: "label", name: "hidePromotedAttributes", valueType: "boolean" },
     { type: "label", name: "readOnly", valueType: "boolean" },
     { type: "label", name: "autoReadOnlyDisabled", valueType: "boolean" },
@@ -266,6 +268,7 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "isHidden", valueType: "boolean" },
     { type: "label", name: "maxNestingDepth", valueType: "number", hasUserValue: true },
     { type: "label", name: "includeArchived", valueType: "boolean", hasUserValue: true },
+    { type: "label", name: "enableInboxColumn", valueType: "boolean", hasUserValue: true },
     // FullCalendar's own view names, which is what the calendar hands back when the view is switched.
     { type: "label", name: "calendar:view", valueType: "select", hasUserValue: true, selectOptions: [
         "timeGridDay", "timeGridWeek", "dayGridMonth", "multiMonthYear", "listMonth"
@@ -303,7 +306,8 @@ const BUILTIN_ATTRIBUTES = [
     // Reveal.js' own stock themes, which is what the presentation bundles; anything else falls back
     // to `white`.
     { type: "label", name: "presentation:theme", valueType: "select", hasUserValue: true, selectOptions: [
-        "black", "white", "beige", "serif", "simple", "solarized", "moon", "dracula", "sky", "blood"
+        "black", "black-contrast", "white", "white-contrast", "beige", "serif", "simple",
+        "solarized", "moon", "dracula", "sky", "blood", "league", "night"
     ] },
     { type: "label", name: "slide:background", valueType: "text", hasUserValue: true },
 

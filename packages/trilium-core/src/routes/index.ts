@@ -18,6 +18,7 @@ import revisionsApiRoute from "./api/revisions";
 import relationMapApiRoute from "./api/relation-map";
 import recentChangesApiRoute from "./api/recent_changes";
 import deletedNotesApiRoute from "./api/deleted_notes";
+import boardRoute from "./api/board";
 import bulkActionRoute from "./api/bulk_action";
 import searchRoute from "./api/search";
 import specialNotesRoute from "./api/special_notes";
@@ -38,6 +39,7 @@ import loginApiRoute from "./api/login";
 import fontsRoute from "./api/fonts";
 import ocrRoute from "./api/ocr";
 import linkEmbedRoute from "./api/link_embed";
+import spreadsheetRoute from "./api/spreadsheet";
 import llmRoute from "./api/llm";
 
 // TODO: Deduplicate with routes.ts
@@ -90,6 +92,7 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     asyncApiRoute(PUT, "/api/options/:name/:value", optionsApiRoute.updateOption);
     asyncApiRoute(PUT, "/api/options", optionsApiRoute.updateOptions);
     apiRoute(GET, "/api/options/user-themes", optionsApiRoute.getUserThemes);
+    apiRoute(GET, "/api/options/user-fonts", optionsApiRoute.getUserFonts);
 
     apiRoute(PST, "/api/notes/:noteId/convert-to-attachment", notesApiRoute.convertNoteToAttachment);
     apiRoute(PST, "/api/notes/:noteId/convert-format", notesApiRoute.convertNoteFormat);
@@ -168,6 +171,8 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     // POSTed rather than taking the URL in a query string: a link can carry a one-time token or a
     // signature, and a query string ends up in every access log along the way.
     asyncApiRoute(PST, "/api/link-embed/metadata", linkEmbedRoute.getMetadata);
+
+    asyncRoute(GET, "/api/spreadsheet/:noteId/xlsx", [checkApiAuthOrElectron], spreadsheetRoute.exportXlsx);
 
     // group of the services below are meant to be executed from the outside
     // Not transactional: a status read needs no transaction, and one is unopenable during the moment
@@ -291,6 +296,8 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
 
     apiRoute(GET, "/api/sql/schema", sqlRoute.getSchema);
     apiRoute(PST, "/api/sql/execute/:noteId", sqlRoute.execute);
+
+    apiRoute(PUT, "/api/notes/:noteId/board/rename-column", boardRoute.renameColumn);
 
     apiRoute(PST, "/api/bulk-action/execute", bulkActionRoute.execute);
     apiRoute(PST, "/api/bulk-action/affected-notes", bulkActionRoute.getAffectedNoteCount);

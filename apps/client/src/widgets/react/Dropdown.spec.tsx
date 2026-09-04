@@ -150,6 +150,49 @@ describe("Dropdown", () => {
         expect(document.body.querySelector(":scope > .my-scope")).toBeNull();
     });
 
+    /**
+     * A menu that is a task of its own dims the page behind it. The cover is drawn inside the same
+     * portal, before the menu, so what covers what is document order rather than two z-index scales
+     * meeting; and only while the menu is actually open, an armed but closed one covering nothing.
+     */
+    it("draws a backdrop under a portaled menu while it is open", () => {
+        const el = renderInto(
+            <Dropdown portalToBody backdrop className="my-scope">
+                <li>entry</li>
+            </Dropdown>
+        );
+
+        fire(getToggle(), "pointerdown");
+        expect(document.body.querySelector(":scope > .my-scope > .tn-dropdown-backdrop")).toBeNull();
+
+        const dropdownEl = el.querySelector(".dropdown");
+        void act(() => {
+            $(dropdownEl as HTMLElement).trigger("show.bs.dropdown");
+        });
+
+        const wrapper = document.body.querySelector<HTMLElement>(":scope > .my-scope");
+        const drawn = [ ...(wrapper?.children ?? []) ].map(child => child.className.split(" ")[0]);
+        expect(drawn).toEqual([ "tn-dropdown-backdrop", "dropdown-menu" ]);
+
+        void act(() => {
+            $(dropdownEl as HTMLElement).trigger("hide.bs.dropdown");
+        });
+        expect(document.body.querySelector(":scope > .my-scope")).toBeNull();
+    });
+
+    it("leaves a menu without the prop undimmed", () => {
+        const el = renderInto(
+            <Dropdown portalToBody className="my-scope"><li>entry</li></Dropdown>
+        );
+
+        fire(getToggle(), "pointerdown");
+        void act(() => {
+            $(el.querySelector(".dropdown") as HTMLElement).trigger("show.bs.dropdown");
+        });
+
+        expect(document.body.querySelector(":scope > .my-scope > .tn-dropdown-backdrop")).toBeNull();
+    });
+
     it("leaves a mobileBottomSheet menu alone on a desktop layout", () => {
         const el = renderInto(<Dropdown mobileBottomSheet forceShown>item</Dropdown>);
 

@@ -868,7 +868,6 @@
     "fonts": "Fonturi",
     "main_font": "Fontul principal",
     "monospace_font": "Fontul monospace (pentru cod)",
-    "not_all_fonts_available": "Nu toate fonturile listate aici pot fi disponibile pe acest sistem.",
     "note_detail_font": "Fontul pentru detaliile notițelor",
     "note_tree_font": "Fontul arborelui de notițe",
     "size": "Mărime",
@@ -2451,7 +2450,6 @@
   },
   "board_view": {
     "delete-note": "Șterge notița...",
-    "move-to": "Mută la",
     "insert-above": "Inserează deasupra",
     "insert-below": "Inserează dedesubt",
     "delete-column": "Șterge coloana",
@@ -2464,7 +2462,6 @@
     "new-item-placeholder": "Introduceți titlul notiței...",
     "add-column-placeholder": "Introduceți denumirea coloanei...",
     "edit-note-title": "Clic pentru a edita titlul notiței",
-    "edit-column-title": "Clic pentru a edita titlul coloanei",
     "column-already-exists": "Această coloană deja există.",
     "column-definition-save-error": "Coloanele au fost salvate pe tablă, dar nu au putut fi salvate în atributul de stare.",
     "status-alias": "Stare"
@@ -2597,8 +2594,7 @@
   },
   "server": {
     "unknown_http_error_title": "Eroare de comunicare cu server-ul",
-    "unknown_http_error_content": "Cod: {{statusCode}}\nURL: {{method}} {{url}}\nMesaj: {{message}}",
-    "traefik_blocks_requests": "Dacă utilizați reverse proxy-ul Traefik, acesta a introdus o schimbare majoră ce afectează comunicarea cu server-ul."
+    "unknown_http_error_content": "Cod: {{statusCode}}\nURL: {{method}} {{url}}\nMesaj: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "Înapoi la notița anterioară",
@@ -3639,9 +3635,7 @@
     "note_paths_what": "O notiță se poate afla în mai multe locuri din arborele de notițe în același timp, iar fiecare dintre aceste locuri este listat aici ca o cale.",
     "note_paths_cloning": "Adăugarea unui loc se numește clonare: nimic nu este copiat, așa că o modificare făcută pe o cale apare pe toate, iar eliminarea unei căi lasă notița sub celelalte.",
     "backlinks_what": "Notițele care indică spre aceasta, fie printr-o legătură din textul lor, fie printr-o relație care o numește.",
-    "backlinks_listing": "O legătură din text este listată împreună cu pasajul din jurul ei, iar o relație cu numele prin care indică. Această parte a legăturii nu poate fi editată: dispare atunci când notița care a creat-o renunță la legătură.",
-    "similar_notes_what": "Notițe care par înrudite cu aceasta chiar și acolo unde nimic nu le leagă.",
-    "similar_notes_how": "Asemănarea este dedusă din conținutul notițelor, din atributele și relațiile pe care le poartă și din cât de apropiat în timp au fost create."
+    "backlinks_listing": "O legătură din text este listată împreună cu pasajul din jurul ei, iar o relație cu numele prin care indică. Această parte a legăturii nu poate fi editată: dispare atunci când notița care a creat-o renunță la legătură."
   },
   "split_editor": {
     "render_error": "Previzualizarea nu a putut fi randată",

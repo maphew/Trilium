@@ -13,6 +13,7 @@ import type LoadResults from "../services/load_results.js";
 import type { CreateNoteOpts } from "../services/note_create.js";
 import options from "../services/options.js";
 import type { ShortcutHintSection } from "../services/shortcut_hints.js";
+import { reportSplashPhase } from "../services/splash.js";
 import toast from "../services/toast.js";
 import utils from "../services/utils.js";
 import { ReactWrappedWidget } from "../widgets/basic_widget.js";
@@ -25,6 +26,7 @@ import type { InfoProps } from "../widgets/dialogs/info.jsx";
 import type { MarkdownImportOpts } from "../widgets/dialogs/markdown_import.jsx";
 import { ChooseNoteTypeCallback } from "../widgets/dialogs/note_type_chooser.jsx";
 import type { PrintPreviewData } from "../widgets/dialogs/print_preview.jsx";
+import type { NotePickerDialogOptions } from "../widgets/dialogs/note_picker.js";
 import type { PromptDialogOptions } from "../widgets/dialogs/prompt.js";
 import type NoteTreeWidget from "../widgets/note_tree.js";
 import type { RightPaneTabId } from "../widgets/sidebar/RightPaneTabs.jsx";
@@ -149,6 +151,7 @@ export type CommandMappings = {
         isNewNote?: boolean;
     };
     showPromptDialog: PromptDialogOptions;
+    showNotePickerDialog: NotePickerDialogOptions;
     showInfoDialog: InfoProps;
     showConfirmDialog: ConfirmWithMessageOptions;
     showRecentChanges: CommandData & { ancestorNoteId: string };
@@ -653,6 +656,7 @@ export class AppContext extends Component {
         this.initComponents();
         this.renderWidgets();
 
+        reportSplashPhase("notes");
         await froca.initializedPromise;
 
         this.tabManager.loadTabs();

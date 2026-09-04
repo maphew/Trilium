@@ -13,7 +13,7 @@ import { setupWebContentsSecurity } from "./web_contents_security.js";
 //   - Dev: this file lives at apps/desktop/src/services/window.ts, and the
 //     preload bundle is one level up at apps/desktop/src/preload.compiled.cjs
 //     (built in place by scripts/electron-start.mts).
-//   - Prod: this file is bundled into apps/desktop/dist/main.cjs, with
+//   - Prod: this file is bundled into apps/desktop/dist/main.mjs, with
 //     preload.cjs sitting next to it in dist/ (NOT one level up — getting
 //     this wrong leaves the renderer without `window.electronApi`).
 //
@@ -63,12 +63,24 @@ function trackWindowFocus(win: BrowserWindow) {
     });
 }
 
+/**
+ * Opens an extra window from the main process, for callers with no renderer to
+ * open it from (the `--new-window` command line). The client opens its own
+ * extra windows through `window.open`, which `installWindowOpenPolicy` turns
+ * into a window in the opener's renderer process; both paths end in
+ * `adoptExtraWindow()`.
+ */
 async function createExtraWindow(extraWindowHash: string) {
-    const spellcheckEnabled = optionService.getOptionBool("spellCheckEnabled");
-
     const { BrowserWindow } = await import("electron");
 
-    const win = new BrowserWindow({
+    const win = new BrowserWindow(getExtraWindowOptions());
+    win.loadURL(`${TRILIUM_APP_BASE_URL}?extraWindow=1${extraWindowHash}`);
+    adoptExtraWindow(win);
+}
+
+/** Constructor options shared by both ways an extra window is created. */
+function getExtraWindowOptions(): BrowserWindowConstructorOptions {
+    return {
         width: 1000,
         height: 800,
         title: "Trilium Notes",
@@ -85,13 +97,13 @@ async function createExtraWindow(extraWindowHash: string) {
         },
         ...getWindowExtraOpts(),
         icon: getIcon()
-    });
+    };
+}
 
+/** Per-window wiring for an extra window, whichever way it was created. */
+function adoptExtraWindow(win: BrowserWindow) {
     win.setMenuBarVisibility(false);
-    win.loadURL(`${TRILIUM_APP_BASE_URL}?extraWindow=1${extraWindowHash}`);
-
-    configureWebContents(win.webContents, spellcheckEnabled);
-
+    configureWebContents(win.webContents, optionService.getOptionBool("spellCheckEnabled"));
     trackWindowFocus(win);
 }
 
@@ -212,6 +224,11 @@ async function configureWebContents(webContents: WebContents, spellcheckEnabled:
 
     setupSpellcheckForSession(webContents.session, spellcheckEnabled);
     setupExportRevealForSession(webContents.session);
+
+    // `window.open` from this renderer creates an extra window in the same
+    // process (see installWindowOpenPolicy); it needs the same wiring as one
+    // the main process created.
+    webContents.on("did-create-window", (child) => adoptExtraWindow(child));
 
     // Forward full-screen events to the renderer via IPC.
     const win = electron.BrowserWindow.fromWebContents(webContents);
@@ -477,16 +494,12 @@ export function setupWindowing() {
     // to every WebContents the app creates. Installed here rather than left to
     // each entry point so a new Electron launcher cannot silently ship without
     // the renderer/main security boundary.
-    setupWebContentsSecurity();
+    setupWebContentsSecurity({ extraWindowOptions: getExtraWindowOptions });
 
     // Mark a genuine quit so the close-to-tray interceptor lets windows close for
     // real. Fires for every quit path (Cmd+Q, tray "Quit", app menu, OS shutdown).
     electron.app.on("before-quit", () => {
         isQuitting = true;
-    });
-
-    electron.ipcMain.on("create-extra-window", (_event, arg) => {
-        createExtraWindow(arg.extraWindowHash);
     });
 
     electron.ipcMain.on("reload-all-windows", () => {
@@ -500,14 +513,17 @@ export function setupWindowing() {
         electron.app.exit();
     });
 
-    electron.ipcMain.on("copy-image-to-clipboard", (_event, buffer: Uint8Array) => {
+    electron.ipcMain.on("copy-image-to-clipboard", async (_event, buffer: Uint8Array) => {
         try {
             const image = electron.nativeImage.createFromBuffer(Buffer.from(buffer));
             if (image.isEmpty()) {
                 getLog().error("copy-image-to-clipboard: nativeImage is empty, unsupported format?");
                 return;
             }
-            electron.clipboard.writeImage(image);
+            // `clipboard.write()` takes MIME-typed payloads, and PNG is the format every
+            // platform clipboard accepts, so the decoded image is re-encoded to PNG.
+            const png = new Uint8Array(image.toPNG());
+            await electron.clipboard.write([new electron.ClipboardItem({ "image/png": new Blob([png], { type: "image/png" }) })]);
         } catch (e) {
             getLog().error(`copy-image-to-clipboard failed: ${coreUtils.safeExtractMessageAndStackFromError(e)}`);
         }

@@ -143,13 +143,18 @@
       "ctx": 131072
     },
     "deepseek-v4-flash": {
-      "input": 0.14,
-      "output": 0.28,
+      "input": 0.44,
+      "output": 1.32,
+      "ctx": 1000000
+    },
+    "deepseek-v4-flash-vision-exp": {
+      "input": 0.44,
+      "output": 1.32,
       "ctx": 1000000
     },
     "deepseek-v4-pro": {
-      "input": 0.435,
-      "output": 0.87,
+      "input": 1.32,
+      "output": 3.96,
       "ctx": 1000000
     }
   },
@@ -200,18 +205,18 @@
       "ctx": 1048576
     },
     "gemini-2.5-flash-native-audio-latest": {
-      "input": 0.3,
-      "output": 2.5,
+      "input": 0.5,
+      "output": 2,
       "ctx": 1048576
     },
     "gemini-2.5-flash-native-audio-preview-09-2025": {
-      "input": 0.3,
-      "output": 2.5,
+      "input": 0.5,
+      "output": 2,
       "ctx": 1048576
     },
     "gemini-2.5-flash-native-audio-preview-12-2025": {
-      "input": 0.3,
-      "output": 2.5,
+      "input": 0.5,
+      "output": 2,
       "ctx": 1048576
     },
     "gemini-2.5-flash-preview-09-2025": {
@@ -225,8 +230,8 @@
       "ctx": 1048576
     },
     "gemini-2.5-pro-preview-tts": {
-      "input": 1.25,
-      "output": 10,
+      "input": 1,
+      "output": 20,
       "ctx": 1048576
     },
     "gemini-3-flash-preview": {
@@ -275,8 +280,8 @@
       "ctx": 1048576
     },
     "gemini-3.6-flash": {
-      "input": 1.5,
-      "output": 7.5,
+      "input": 0.75,
+      "output": 3.75,
       "ctx": 1048576
     },
     "gemini-3.7-flash": {
@@ -612,24 +617,29 @@
       "ctx": 1050000
     },
     "gpt-5.6": {
-      "input": 5,
-      "output": 30,
-      "ctx": 1050000
+      "input": 4,
+      "output": 20,
+      "ctx": 922000
+    },
+    "gpt-5.6-cyber": {
+      "input": 12.5,
+      "output": 75,
+      "ctx": 400000
     },
     "gpt-5.6-luna": {
       "input": 0.2,
       "output": 1.2,
-      "ctx": 1050000
+      "ctx": 922000
     },
     "gpt-5.6-sol": {
-      "input": 5,
-      "output": 30,
-      "ctx": 1050000
+      "input": 4,
+      "output": 20,
+      "ctx": 922000
     },
     "gpt-5.6-terra": {
       "input": 2,
       "output": 12,
-      "ctx": 1050000
+      "ctx": 922000
     },
     "gpt-audio": {
       "input": 2.5,

@@ -1758,9 +1758,7 @@
     "note_paths_what": "Bir not, aynı anda not ağacında birden fazla yerde bulunabilir ve bu yerlerin her biri burada bir yol olarak listelenir.",
     "note_paths_cloning": "Bir yer eklemeye klonlama denir: hiçbir şey kopyalanmaz, bu yüzden bir yol altında yapılan bir düzenleme hepsinde görünür ve bir yolu kaldırmak notu diğerlerinin altında bırakır.",
     "backlinks_what": "Metinlerinde bir bağlantı aracılığıyla veya buna adını veren bir ilişki aracılığıyla buna işaret eden notlar.",
-    "backlinks_listing": "Bir metin bağlantısı, etrafındaki pasajla birlikte listelenir; bir ilişki, işaret ettiği adla listelenir. Bir bağlantının bu tarafı düzenlenemez: bunu oluşturan not bağlantıyı bıraktığında kaybolur.",
-    "similar_notes_what": "Hiçbir şey onları bağlamasa bile buna ilişkili görünen notlar.",
-    "similar_notes_how": "Benzerlik, notların içeriğinden, taşıdıkları özellik ve ilişkilerden ve ne kadar yakın zamanda oluşturulduklarından hesaplanır."
+    "backlinks_listing": "Bir metin bağlantısı, etrafındaki pasajla birlikte listelenir; bir ilişki, işaret ettiği adla listelenir. Bir bağlantının bu tarafı düzenlenemez: bunu oluşturan not bağlantıyı bıraktığında kaybolur."
   },
   "abstract_search_option": {
     "remove_this_search_option": "Bu arama seçeneğini kaldır",
@@ -2082,7 +2080,6 @@
     "monospace_ligatures": "Programlama bağlantı harfleri",
     "monospace_ligatures_description": "Eş aralıklı yazı tipi destekliyorsa, != ve -> gibi karakter çiftlerini tek sembol olarak (≠, →) oluşturur. Metnin kendisi değişmez.",
     "size_relative_to_general": "Boyut, genel yazı tipi boyutuna görecelidir",
-    "not_all_fonts_available": "Listelenen tüm yazı tipleri sisteminizde mevcut olmayabilir",
     "apply_changes": "Değişiklikleri uygulamak için yeniden yükle",
     "generic-fonts": "Genel yazı tipleri",
     "sans-serif-system-fonts": "Sans-serif sistem yazı tipleri",
@@ -3461,7 +3458,6 @@
     "remove-from-board": "Panodan kaldır",
     "archive-note": "Notu arşivle",
     "unarchive-note": "Notu arşivden çıkar",
-    "move-to": "Taşı",
     "insert-above": "Üstüne ekle",
     "insert-below": "Altına ekle",
     "delete-column": "Sütunu sil",
@@ -3471,7 +3467,6 @@
     "add-column": "Sütun Ekle",
     "add-column-placeholder": "Sütun adını girin...",
     "edit-note-title": "Not başlığını düzenlemek için tıklayın",
-    "edit-column-title": "Sütun başlığını düzenlemek için tıklayın",
     "column-already-exists": "Bu sütun panoda zaten var.",
     "column-definition-save-error": "Sütunlar panoda kaydedildi, ancak durum özelliğine kaydedilemedi.",
     "status-alias": "Durum"
@@ -3614,8 +3609,7 @@
   },
   "server": {
     "unknown_http_error_title": "Sunucuyla iletişim hatası",
-    "unknown_http_error_content": "Durum kodu: {{statusCode}}\nURL: {{method}} {{url}}\nMesaj: {{message}}",
-    "traefik_blocks_requests": "Traefik ters vekil sunucusunu kullanıyorsanız, sunucuyla iletişimi etkileyen bir değişiklik yaptı."
+    "unknown_http_error_content": "Durum kodu: {{statusCode}}\nURL: {{method}} {{url}}\nMesaj: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "Önceki nota geri dön",

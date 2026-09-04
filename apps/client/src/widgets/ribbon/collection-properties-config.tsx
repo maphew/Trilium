@@ -148,12 +148,20 @@ export const bookPropertiesConfig: Record<ViewTypeOptions, BookConfig> = {
         ]
     },
     board: {
-        properties: []
+        properties: [
+            {
+                label: t("book_properties_config.board-inbox-column"),
+                type: "checkbox",
+                icon: "bx bx-inbox",
+                helpTooltip: t("book_properties_config.board-inbox-column-help"),
+                bindToLabel: "enableInboxColumn"
+            }
+        ]
     },
     presentation: {
         properties: [
             {
-                label: "Theme",
+                label: t("book_properties_config.presentation-theme"),
                 type: "combobox",
                 icon: "bx bx-palette",
                 bindToLabel: "presentation:theme",

@@ -1,7 +1,7 @@
 import "./DetailPane.css";
 
 import clsx from "clsx";
-import type { GeoJSONSource, MapGeoJSONFeature, Map as MapLibreGLMap, MapMouseEvent, MapSourceDataEvent } from "maplibre-gl";
+import type { EaseToOptions, GeoJSONSource, MapGeoJSONFeature, Map as MapLibreGLMap, MapMouseEvent, MapSourceDataEvent } from "maplibre-gl";
 import { useCallback, useContext, useEffect, useMemo, useRef } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
@@ -18,6 +18,7 @@ import { useLegacyComponentElement, useNoteColorClass, useNoteLabel, useStaticTo
 import Modal from "../../react/Modal";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { removeFromMap } from "./api";
+import { type Bounds, boundsOf } from "./coordinates";
 import { GPX_MIME, trackHitLayers, trackSourceId } from "./GpxTrack";
 import { ParentMap } from "./map";
 import { formatLocation, LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
@@ -36,6 +37,9 @@ export interface PaneSelection {
     isNew?: boolean;
     /** What of the note the click named, where it named more than the note. See {@link PaneFocus}. */
     focus?: PaneFocus;
+    /** The zoom to stand the marker at. Absent for a marker clicked on the map, which keeps the
+     *  current zoom. */
+    zoom?: number;
 }
 
 /**
@@ -227,14 +231,18 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
         const coordinates = parseLocation(location);
         if (!coordinates) return;
 
-        map.easeTo({ center: coordinates, offset: paneOffset(map) });
+        const aim: EaseToOptions = { center: coordinates, offset: paneOffset(map) };
+        if (selection?.zoom !== undefined) {
+            aim.zoom = selection.zoom;
+        }
+        map.easeTo(aim);
         // The focus is depended on by identity, which a click renews even on the same note: every
         // click is a fresh ask, and re-clicking what is already open brings it back into view.
         //
         // Growing and shrinking the pane are asks of the same kind, the room the camera is aiming
         // into being what changed: a pane put back down brings its marker clear of it again, rather
         // than leaving it under the pane until something else happens to move the camera.
-    }, [ map, note?.noteId, location, selection?.focus, maximized ]);
+    }, [ map, note?.noteId, location, selection?.focus, selection?.zoom, maximized ]);
 
     // Bound only while something is selected, so the map's other Escape — giving up on placing a
     // marker (see index.tsx) — stands alone when nothing is. A phone's dialog answers the key
@@ -343,50 +351,29 @@ function featureFocus(feature: MapGeoJSONFeature): PaneFocus | undefined {
  * its flags stand on its line, and another journey's ground — or a waypoint hung off in a third
  * place — is exactly what focusing one track is meant to leave out of frame.
  *
- * Longitude is read in two frames at once, because it is a circle wearing a seam: a track across
- * the antimeridian holds points either side of ±180° that are a stroll apart on the ground, and
- * their raw minimum and maximum span nearly the whole world. The same longitudes are therefore
- * also read with the seam moved to 0° — each western value pushed a turn east — and whichever
- * frame drew the narrower box is the one answered. A crossing of one seam is whole in the other
- * frame; only a track truly girdling half the earth stays wide in both, and then wide is the
- * truth. The shifted answer may name longitudes past 180°, which `fitBounds` takes in stride.
+ * The seam at ±180° is {@link boundsOf}'s to deal with, which the points are yielded to as they are
+ * read: a long ride holds thousands of them.
  */
-async function trackBounds(map: MapLibreGLMap, noteId: string, track?: number): Promise<[[number, number], [number, number]] | null> {
+async function trackBounds(map: MapLibreGLMap, noteId: string, track?: number): Promise<Bounds | null> {
     const data = await map.getSource<GeoJSONSource>(trackSourceId(noteId))?.getData();
     if (!data || data.type !== "FeatureCollection") return null;
+    const { features } = data;
 
-    let west = Infinity, south = Infinity, east = -Infinity, north = -Infinity;
-    let westShifted = Infinity, eastShifted = -Infinity;
-    const extend = ([ lng, lat ]: number[]) => {
-        west = Math.min(west, lng);
-        south = Math.min(south, lat);
-        east = Math.max(east, lng);
-        north = Math.max(north, lat);
+    function* points() {
+        for (const { geometry, properties } of features) {
+            if (track !== undefined && properties?.track !== track) continue;
 
-        const shifted = lng < 0 ? lng + 360 : lng;
-        westShifted = Math.min(westShifted, shifted);
-        eastShifted = Math.max(eastShifted, shifted);
-    };
-
-    for (const { geometry, properties } of data.features) {
-        if (track !== undefined && properties?.track !== track) continue;
-
-        if (geometry.type === "Point") {
-            extend(geometry.coordinates);
-        } else if (geometry.type === "MultiLineString") {
-            for (const line of geometry.coordinates) {
-                for (const point of line) {
-                    extend(point);
+            if (geometry.type === "Point") {
+                yield geometry.coordinates;
+            } else if (geometry.type === "MultiLineString") {
+                for (const line of geometry.coordinates) {
+                    yield* line;
                 }
             }
         }
     }
 
-    if (!Number.isFinite(west)) return null;
-
-    return eastShifted - westShifted < east - west
-        ? [ [ westShifted, south ], [ eastShifted, north ] ]
-        : [ [ west, south ], [ east, north ] ];
+    return boundsOf(points());
 }
 
 /**
@@ -632,7 +619,7 @@ function MarkerLocation({ note }: { note: FNote }) {
  * pane does: the hook binds on mount and does not look again, and there is a render before the
  * location has been read in which there is no button to bind to.
  */
-function LocationButton({ coordinates }: { coordinates: [number, number] }) {
+export function LocationButton({ coordinates }: { coordinates: [number, number] }) {
     const buttonRef = useRef<HTMLButtonElement>(null);
 
     // The app's own tooltip rather than the browser's, as the buttons under it wear (see
