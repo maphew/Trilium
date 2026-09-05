@@ -182,8 +182,8 @@ importers:
         version: link:../server
     devDependencies:
       '@redocly/cli':
-        specifier: 2.49.0
-        version: 2.49.0
+        specifier: 2.49.1
+        version: 2.49.1
       archiver:
         specifier: 8.0.0
         version: 8.0.0
@@ -4351,8 +4351,8 @@ packages:
   '@radix-ui/rect@1.1.1':
     resolution: {integrity: sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw==}
 
-  '@redocly/cli@2.49.0':
-    resolution: {integrity: sha512-87UuARXYrPIiHhd/UriamL4BApuPgB0E91coBtoPG6PK4giTwiuo3dI4RoyMGhsC7TwgAnL8PJuhCwGymgwbVA==}
+  '@redocly/cli@2.49.1':
+    resolution: {integrity: sha512-8/7uAXm5ryOTyrXwh1MCYLD/91lY5WsoXPAmMSCxBc2dmh9O7TU77HntL/tUkV9M83wmwx3GP4EMYryDidostQ==}
     engines: {node: '>=22.12.0 || >=20.19.0 <21.0.0', npm: '>=10'}
     hasBin: true
 
@@ -15919,7 +15919,7 @@ snapshots:
 
   '@radix-ui/rect@1.1.1': {}
 
-  '@redocly/cli@2.49.0': {}
+  '@redocly/cli@2.49.1': {}
 
   '@replit/codemirror-indentation-markers@6.5.3(@codemirror/language@6.12.4)(@codemirror/state@6.7.2)(@codemirror/view@6.43.10)':
     dependencies:
