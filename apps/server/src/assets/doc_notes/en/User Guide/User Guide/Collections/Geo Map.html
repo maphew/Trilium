@@ -12,6 +12,7 @@
   <li>Search the notes already on the map, and look up places anywhere in the
     world.</li>
   <li>Turn a place the map already shows into a marker by clicking it.</li>
+  <li>Draw paths, areas, rectangles and circles onto the map.</li>
   <li>Display tracks on the map using <code spellcheck="false">.gpx</code> files.</li>
   <li>Show your own location on the map and follow it as you move.</li>
   <li>3D view of the map, which displays buildings when using a vector map.</li>
@@ -47,6 +48,12 @@
         still allowing for edits.</li>
     </ul>
   </li>
+  <li>At the top-center (on desktop, or left-center on mobile and in split views)
+    there are the drawing tools such as paths, areas, rectangles and circles.
+    <ul>
+      <li>When the map is read-only, the toolbar is not shown.</li>
+    </ul>
+  </li>
 </ul>
 <h2>Creating a new geo map</h2>
 <p>Right click on an existing note in the&nbsp;<a class="reference-link"
@@ -64,7 +71,7 @@
   when you open it, so they are all in view without having to go looking
   for them. A map that contains no markers shows the whole world instead.</p>
 <p>In practice this applies to maps whose markers were added externally,
-  by a script or through <a class="reference-link" href="#root/_help_pgxEVkzLl1OP">ETAPI (REST API)</a>.
+  by a script or through&nbsp;<a class="reference-link" href="#root/_help_pgxEVkzLl1OP">ETAPI (REST API)</a>.
   When you add markers yourself you have already moved the map to reach the
   place you are marking, and that movement saves a position.</p>
 <h2>Going to your location</h2>
@@ -135,7 +142,7 @@
   The note is therefore given the same name as any other new note, which
   is the name you also get from the <em>Add marker</em> button and from the
   + button in the note tree. The note opens with that name selected, so you
-  can type over it. If the map has a <a class="reference-link" href="#root/_help_47ZrP6FNuoG8">titleTemplate</a> label,
+  can type over it. If the map has a&nbsp;<a class="reference-link" href="#root/_help_47ZrP6FNuoG8">Default Note Title</a>&nbsp;label,
   the marker is named by that template instead.</p>
 <p>The forms understood are:</p>
 <ul>
@@ -206,10 +213,8 @@
 <h2>Adding a marker using the map</h2>
 <h3>Adding a new note using the plus button</h3>
 <ol>
-  <li>
-    <p>To create a marker, first navigate to the desired point on the map. Then
-      press the <em>Add marker</em> button at the center-bottom of the map.</p>
-  </li>
+  <li>To create a marker, first navigate to the desired point on the map. Then
+    press the <em>Add marker</em> button at the center-bottom of the map.</li>
   <li>
     <p>Once pressed, the map will enter in the insert mode, as illustrated by
       the notification. Additionally, a preview of the marker will be shown at
@@ -217,10 +222,8 @@
     <p>Simply click the point on the map where to place the marker. To cancel,
       press either the &nbsp;Escape key or press again the <em>Add marker</em> button.</p>
   </li>
-  <li>
-    <p>Once clicked, the marker will show up on the map and a popup will show
-      to the right with the title already selected to be changed.</p>
-  </li>
+  <li>Once clicked, the marker will show up on the map and a popup will show
+    to the right with the title already selected to be changed.</li>
 </ol>
 <h3>Adding a new note using the contextual menu</h3>
 <ol>
@@ -302,7 +305,7 @@ class="admonition note">
   <p>If the map is locked for editing (see below), the map needs to be unlocked
     before moving the marker.</p>
 </aside>
-<h2>Interaction with the markers</h2>
+<h2>Interaction with the markers, tracks or shapes</h2>
 <ul>
   <li>Hovering over a marker will display a&nbsp;<a class="reference-link" href="#root/_help_lgKX7r3aL30x">Note Tooltip</a>&nbsp;with
     the content of the note it belongs to.
@@ -317,24 +320,31 @@ class="admonition note">
     or not.</li>
 </ul>
 <h3>Popup view</h3>
-<p>When a marker or a track is clicked, a popup will open to the right which
-  contains the following information:</p>
+<p>When a marker, a <a href="#root/_help_C2H9HK4BzwG7">shape</a>, or track
+  is clicked, a popup will open to the right which contains the following
+  information:</p>
 <ul>
   <li>The title and icon of the marker, both editable.</li>
   <li>An indicator for the coordinates; clicking it will copy the coordinates
     to clipboard.</li>
   <li>A button to maximize the popup.</li>
-  <li>Buttons to interact with the markers:
+  <li>Buttons to interact with the current item:
     <ul>
       <li>Open the marker in the same pane, new tab, etc.</li>
       <li>A button to open the location in a dedicated application (e.g. Google
         Maps on mobile).</li>
       <li>Color picker to change the color of the marker.</li>
+      <li>Markers can also be moved, unlike tracks or shapes (which need to be redrawn).</li>
       <li>Button to remove the marker from the map, which can optionally delete
-        its corresponding note. Removing a marker without deleting the note will
-        only remove its <code spellcheck="false">#geolocation</code> attribute (case
-        in which the coordinates have to be manually added back in in order to
-        get the note to show on the map again).</li>
+        its corresponding note.
+        <ul>
+          <li>Removing a marker without deleting the note will only remove its <code
+            spellcheck="false">#geolocation</code> attribute (case in which the coordinates
+            have to be manually added back in in order to get the note to show on the
+            map again).</li>
+          <li>Similarly, removing a shape will remove its <code spellcheck="false">#geoShape</code> attribute.</li>
+        </ul>
+      </li>
     </ul>
   </li>
   <li>The&nbsp;<a class="reference-link" href="#root/_help_OFXdgB2nNk1F">Promoted Attributes</a>&nbsp;of
@@ -383,8 +393,10 @@ class="admonition note">
         get the note to show on the map again).</li>
     </ol>
   </li>
+  <li>Shapes can also be right-clicked and the menu is similar to markers except
+    they cannot be moved.</li>
 </ol>
-<h3>Icon and color of the markers</h3>
+<h3>Icon and color</h3>
 <figure class="image image-style-align-right image_resized" style="width:47.42%;">
   <img style="aspect-ratio:885/321;" src="3_Geo Map_image.png" width="885"
   height="321">
@@ -392,6 +404,12 @@ class="admonition note">
 <p>The markers will have the same icon as the note.</p>
 <p>It's possible to add a custom color to a marker by assigning them a <code
   spellcheck="false">#color</code> attribute such as <code spellcheck="false">#color=green</code>.</p>
+<p>This also applies to tracks and <a href="#root/_help_C2H9HK4BzwG7">shapes</a>.</p>
+<aside
+class="admonition note">
+  <p>The color as it will be displayed on the map might be slightly tinted
+    in order to make the text or icon more legible.</p>
+</aside>
 <h3>Adding the coordinates manually</h3>
 <p>Searching for the place is usually quicker (see <em>Searching the map</em> above).
   The steps below remain useful for a coordinate that is already to hand,
@@ -425,6 +443,8 @@ class="admonition note">
   <li>Simply paste the value inside the text box into the <code spellcheck="false">#geolocation</code> attribute
     of a child note of the map and then it should be displayed on the map.</li>
 </ol>
+<h2>Drawing shapes on the map</h2>
+<p>See the dedicated&nbsp;<a class="reference-link" href="#root/_help_C2H9HK4BzwG7">Drawing shapes</a>&nbsp;page.</p>
 <h2>Adding GPS tracks (.gpx)</h2>
 <figure class="image">
   <img style="aspect-ratio:1566/1155;" src="1_Geo Map_image.png" width="1566"
@@ -470,6 +490,7 @@ class="admonition note">
   <li>Keeping a place as a marker, whether you found it by searching or clicked
     it on the map. You can still search and click, and you can still look at
     a place and copy its coordinates.</li>
+  <li>Drawing <a href="#root/_help_C2H9HK4BzwG7">shapes</a>.</li>
 </ul>
 <p>To set a map as read-only, go to&nbsp;<a class="reference-link" href="#root/_help_8YBEPzcpUgxw">Note buttons</a>&nbsp;→ <em>Editable</em> → <em>Read-only</em> (on
   the new layout, or in Basic Properties on the&nbsp;<a class="reference-link"

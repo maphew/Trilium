@@ -23,7 +23,7 @@
   <li>Create a new column by pressing <em>Add Column</em> near the last column.
     <ul>
       <li>Once pressed, a text box will be displayed to set the name of the column.
-        Press <kbd>Enter</kbd> to confirm, or <kbd>Escape</kbd> to dismiss.</li>
+        Press Enter to confirm, or Escape to dismiss.</li>
     </ul>
   </li>
   <li>To reorder a column, simply hold the mouse over the title and drag it
@@ -42,9 +42,8 @@
 <ul>
   <li>Create a new note in any column by pressing <em>New item</em>
     <ul>
-      <li>Enter the name of the note and press <kbd>Enter</kbd> or click away. To
-        dismiss the creation of a new note, simply press <kbd>Escape</kbd> or leave
-        the name empty.</li>
+      <li>Enter the name of the note and press Enter or click away. To dismiss the
+        creation of a new note, simply press Escape or leave the name empty.</li>
       <li>Once created, the new note will have an attribute (<code spellcheck="false">status</code> label
         by default) set to the name of the column.</li>
     </ul>
@@ -93,13 +92,12 @@
 <h3>Keyboard interaction</h3>
 <p>The board view has mild support for keyboard-based navigation:</p>
 <ul>
-  <li>Use <kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd> to navigate between
-    column titles, notes and the “New item” button for each of the columns,
-    in sequential order.</li>
-  <li>To rename a column or a note, press <kbd>F2</kbd> while it is focused.</li>
-  <li>To open a specific note or create a new item, press <kbd>Enter</kbd> while
-    it is focused.</li>
-  <li>To dismiss a rename of a note or a column, press <kbd>Escape</kbd>.</li>
+  <li>Use Tab and Shift+Tab to navigate between column titles, notes and the
+    “New item” button for each of the columns, in sequential order.</li>
+  <li>To rename a column or a note, press F2 while it is focused.</li>
+  <li>To open a specific note or create a new item, press Enter while it is
+    focused.</li>
+  <li>To dismiss a rename of a note or a column, press Escape.</li>
 </ul>
 <h2>Configuration</h2>
 <h3>Displaying custom attributes</h3>
@@ -161,18 +159,12 @@
 </ul>
 <p>To do so:</p>
 <ol>
-  <li>
-    <p>First, create a Kanban board from scratch and not a template:</p>
-  </li>
-  <li>
-    <p>Assign <code spellcheck="false">#viewType=board #hidePromotedAttributes</code> to
-      emulate the default template.</p>
-  </li>
-  <li>
-    <p>Set <code spellcheck="false">#board:groupBy</code> to the name of a relation
-      to group by, <strong>including the</strong>  <code spellcheck="false">~</code>  <strong>prefix</strong> (e.g. <code
-      spellcheck="false">~status</code>).</p>
-  </li>
+  <li>First, create a Kanban board from scratch and not a template:</li>
+  <li>Assign <code spellcheck="false">#viewType=board #hidePromotedAttributes</code> to
+    emulate the default template.</li>
+  <li>Set <code spellcheck="false">#board:groupBy</code> to the name of a relation
+    to group by, <strong>including the</strong>  <code spellcheck="false">~</code>  <strong>prefix</strong> (e.g. <code
+    spellcheck="false">~status</code>).</li>
   <li>
     <p>Optionally, use&nbsp;<a class="reference-link" href="#root/_help_OFXdgB2nNk1F">Promoted Attributes</a>&nbsp;for
       easy status change within the note:</p><pre><code class="language-text-x-trilium-auto">#relation:status(inheritable)="promoted,alias=Status,single"</code></pre>
