@@ -6,7 +6,7 @@ import type { DrawTool } from "./DrawShape";
 import { ParentMap } from "./map";
 
 interface DrawToolbarProps {
-    /** The map may not be edited, which is every tool refused at once. */
+    /** The map may not be edited, which takes the rail off it entirely. */
     isReadOnly: boolean;
     /** The tool the map is armed to draw with, if any — its button worn held down. */
     drawingTool: DrawTool | null;
@@ -29,8 +29,9 @@ interface DrawToolbarProps {
 export default function DrawToolbar({ isReadOnly, drawingTool, onToggleDrawing }: DrawToolbarProps) {
     const map = useContext(ParentMap);
 
-    // No rail over a map that could not be drawn (see the WebGL fallback in map.tsx).
-    if (!map) return null;
+    // No rail over a map that could not be drawn (see the WebGL fallback in map.tsx), and none over
+    // one that may not be edited: every button on it draws, so all four would be disabled at once.
+    if (!map || isReadOnly) return null;
 
     return (
         <OverlayControlGroup className="geo-draw-toolbar" placement="middle-start" vertical overCanvas>
@@ -40,7 +41,6 @@ export default function DrawToolbar({ isReadOnly, drawingTool, onToggleDrawing }
                     title={drawingTool === tool ? t("geo-map.draw-cancel") : title()}
                     icon={icon}
                     active={drawingTool === tool}
-                    disabled={isReadOnly}
                     onClick={() => onToggleDrawing(tool)}
                 />
             ))}

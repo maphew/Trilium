@@ -1,7 +1,7 @@
 /**
  * The rail of drawing tools over a geo map (see DrawToolbar.tsx). What is checked is that every tool
  * is offered, that a press arms the map and a press on an armed one stands it down, that the armed
- * tool is worn held down, and that a map that may not be edited refuses them all.
+ * tool is worn held down, and that a map that may not be edited carries no rail at all.
  */
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
@@ -67,13 +67,15 @@ describe("geo map DrawToolbar", () => {
         expect(buttons()).toHaveLength(DRAW_TOOL_ICONS.length);
     });
 
-    it("refuses every tool on a map that may not be edited", () => {
-        const { buttons } = renderRail({ isReadOnly: true });
+    /**
+     * Drawing is all the rail offers, so a map that may not be edited would carry four dead buttons
+     * and nothing else. The editing bar shows its own refused, having somewhere to stand either way.
+     */
+    it("comes off a map that may not be edited rather than standing there refused", () => {
+        const { group, buttons } = renderRail({ isReadOnly: true });
 
-        expect(buttons()).toHaveLength(DRAW_TOOL_ICONS.length);
-        for (const button of buttons()) {
-            expect(button.disabled).toBe(true);
-        }
+        expect(group()).toBeNull();
+        expect(buttons()).toHaveLength(0);
     });
 
     it("stands aside where there is no map at all", () => {
