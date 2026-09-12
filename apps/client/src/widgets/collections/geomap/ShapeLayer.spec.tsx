@@ -1,15 +1,43 @@
 /**
  * The hand-drawn shape (see ShapeLayer.tsx): that it goes onto a loaded style and not before, that
  * a line is a stroke alone while an area wears a wash under the same stroke, that it is put back
- * after a style switch wipes the map, and that it leaves nothing behind when it goes.
+ * after a style switch wipes the map, and that it leaves nothing behind when it goes. Then the name
+ * a shape answers a hover with, which is the only thing on the map that says what it is.
  */
 import { render } from "preact";
 import { act } from "preact/test-utils";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { buildNote } from "../../../test/easy-froca";
 import type { GeoShape } from "./shapes";
-import { shapeHitLayers, ShapeLayer, shapeSourceId } from "./ShapeLayer";
+import { shapeHitLayers, ShapeLayer, ShapeNames, shapeSourceId } from "./ShapeLayer";
 import { MapStyleLoaded, ParentMap } from "./map";
+import { MARKER_LAYER } from "./Markers";
+
+/** The popup MapLibre would draw, recording what it was shown and whether it is up. */
+const { FakePopup } = vi.hoisted(() => {
+    class FakePopup {
+        static open: FakePopup[] = [];
+
+        content: HTMLElement | null = null;
+
+        setLngLat() { return this; }
+        setDOMContent(content: HTMLElement) { this.content = content; return this; }
+        addTo() {
+            if (!FakePopup.open.includes(this)) FakePopup.open.push(this);
+            return this;
+        }
+        remove() {
+            FakePopup.open = FakePopup.open.filter((popup) => popup !== this);
+            return this;
+        }
+    }
+
+    return { FakePopup };
+});
+
+// map.ts reaches for these at load; only the popup is exercised here.
+vi.mock("maplibre-gl", () => ({ GeolocateControl: class {}, Popup: FakePopup, setWorkerUrl: vi.fn() }));
 
 /**
  * A map as MapLibre behaves, in the one respect that matters here: a source or a layer can only be
@@ -201,5 +229,153 @@ describe("ShapeLayer", () => {
         act(() => map.switchStyle());
         expect(map.sources.has(shapeSourceId(NOTE_ID))).toBe(true);
         expect(map.layers.has(`shape-stroke-${NOTE_ID}`)).toBe(true);
+    });
+});
+
+/**
+ * A map that reports what is under the pointer and takes listeners bound to named layers, which is
+ * what a hover is read through (see `useHoverName`).
+ */
+function hoverMap(shapeLayers = [ `shape-hit-${NOTE_ID}` ]) {
+    const listeners = new Map<string, Set<(e?: unknown) => void>>();
+    const canvas = { style: { cursor: "" } };
+    let layers = shapeLayers;
+    let marker: string | null = null;
+    let shape: string | null = NOTE_ID;
+
+    function fire(key: string, event?: unknown) {
+        for (const fn of listeners.get(key) ?? []) fn(event);
+    }
+
+    return {
+        get cursor() { return canvas.style.cursor; },
+        /** The pointer another layer's own hover has set, which this one must not clear. */
+        setCursor(cursor: string) { canvas.style.cursor = cursor; },
+        /** Which of the map's notes the pointer is really over, the marker being the smaller target. */
+        setUnderPointer({ markerNoteId = null as string | null, shapeNoteId = null as string | null }) {
+            marker = markerNoteId;
+            shape = shapeNoteId;
+        },
+        /** A shape drawn while the map is up, which MapLibre announces as a change to the style. */
+        addShapeLayer(id: string) {
+            layers = [ ...layers, id ];
+            fire("styledata");
+        },
+        /** The layers the pointer is currently watched on. */
+        boundLayers() {
+            return [ ...listeners.keys() ]
+                .filter((key) => key.startsWith("mousemove:") && (listeners.get(key)?.size ?? 0) > 0)
+                .flatMap((key) => key.slice("mousemove:".length).split(",").filter(Boolean));
+        },
+        /** The pointer coming to rest, as MapLibre reports it to a layer-bound listener. */
+        hover() {
+            for (const key of [ ...listeners.keys() ].filter((k) => k.startsWith("mousemove:"))) {
+                fire(key, { point: { x: 10, y: 20 }, lngLat: { lng: 24.13, lat: 45.79 } });
+            }
+        },
+        click() { fire("click"); },
+        on(event: string, fnOrLayers: unknown, fn?: (e?: unknown) => void) {
+            const key = fn ? `${event}:${fnOrLayers}` : event;
+            if (!listeners.has(key)) listeners.set(key, new Set());
+            listeners.get(key)?.add((fn ?? fnOrLayers) as (e?: unknown) => void);
+        },
+        off(event: string, fnOrLayers: unknown, fn?: (e?: unknown) => void) {
+            listeners.get(fn ? `${event}:${fnOrLayers}` : event)?.delete((fn ?? fnOrLayers) as () => void);
+        },
+        getLayersOrder: () => layers,
+        getCanvas: () => canvas,
+        queryRenderedFeatures(_point: unknown, { layers: queried }: { layers: string[] }) {
+            if (queried.includes(MARKER_LAYER)) {
+                return marker ? [ { properties: { id: marker }, layer: { id: MARKER_LAYER } } ] : [];
+            }
+            return shape && queried.length
+                ? [ { properties: { id: shape }, layer: { id: queried[0] } } ]
+                : [];
+        }
+    };
+}
+
+describe("ShapeNames", () => {
+    /** Long enough for the rest the name is held back for, whatever that rest is set to. */
+    const RESTED = 500;
+    let container: HTMLElement;
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        FakePopup.open = [];
+        container = document.createElement("div");
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        render(null, container);
+        container.remove();
+        vi.useRealTimers();
+    });
+
+    function renderNames(map: ReturnType<typeof hoverMap>) {
+        act(() => {
+            render(
+                <ParentMap.Provider value={map as never}>
+                    <ShapeNames />
+                </ParentMap.Provider>,
+                container
+            );
+        });
+    }
+
+    /** What the name currently reads, or `null` where none is up. */
+    function nameText() {
+        return FakePopup.open[0]?.content?.textContent ?? null;
+    }
+
+    it("names the shape the pointer has come to rest on", () => {
+        buildNote({ id: NOTE_ID, title: "The lot", "#geoShape": "polygon:45.79,24.13 45.81,24.16 45.89,24.08" });
+        const map = hoverMap();
+        renderNames(map);
+
+        map.hover();
+        // Not while the pointer is merely passing over it.
+        expect(nameText()).toBeNull();
+
+        vi.advanceTimersByTime(RESTED);
+        expect(nameText()).toBe("The lot");
+        expect(map.cursor).toBe("pointer");
+
+        // A click is always something being done, whose result the name would otherwise stand over.
+        act(() => map.click());
+        expect(nameText()).toBeNull();
+    });
+
+    /**
+     * A pin standing inside a polygon is the smaller target and the one a click means, and it sets
+     * a pointer of its own — so the shape neither names itself nor clears what the marker has set.
+     */
+    it("says nothing while a marker standing on the shape is what the pointer is on", () => {
+        buildNote({ id: NOTE_ID, title: "The lot", "#geoShape": "polygon:45.79,24.13 45.81,24.16 45.89,24.08" });
+        buildNote({ id: "markerNoteId1", title: "The well", "#geolocation": "45.8,24.14" });
+        const map = hoverMap();
+        renderNames(map);
+        map.setUnderPointer({ markerNoteId: "markerNoteId1", shapeNoteId: NOTE_ID });
+        // The pointer the marker's own hover has just set (see Markers).
+        map.setCursor("pointer");
+
+        map.hover();
+        vi.advanceTimersByTime(RESTED);
+
+        // Neither the shape's name nor the marker's: the marker answers for itself.
+        expect(nameText()).toBeNull();
+        expect(map.cursor).toBe("pointer");
+    });
+
+    /** A shape drawn while the map is up adds a layer, which nothing was watching until now. */
+    it("watches a shape drawn after it was bound", () => {
+        const map = hoverMap();
+        renderNames(map);
+
+        expect(map.boundLayers()).toEqual([ `shape-hit-${NOTE_ID}` ]);
+
+        act(() => map.addShapeLayer("shape-fill-shapeNoteId2"));
+        expect(map.boundLayers()).toEqual([ `shape-hit-${NOTE_ID}`, "shape-fill-shapeNoteId2" ]);
     });
 });

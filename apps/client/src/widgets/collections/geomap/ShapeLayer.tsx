@@ -1,7 +1,9 @@
 import type { MapGeoJSONFeature, Map as MapLibreGLMap, Point } from "maplibre-gl";
 import { useContext, useEffect } from "preact/hooks";
 
+import froca from "../../../services/froca";
 import { trackHitLayers } from "./GpxTrack";
+import { useHoverName } from "./hover_name";
 import { MapStyleLoaded, ParentMap } from "./map";
 import { MARKER_LAYER } from "./Markers";
 import { circleRing, closeRing, type GeoShape, serializeGeoShape } from "./shapes";
@@ -162,6 +164,50 @@ export function ShapeLayer({ noteId, shape, color }: ShapeLayerProps) {
 }
 
 /**
+ * The name of the drawn shape under the pointer, shown once the pointer has rested on it.
+ *
+ * A shape carries nothing on the map to say what it is: a marker's title hangs under its pin and a
+ * track's is written along its line, but a shape is drawn bare. Named on hover rather than labelled
+ * outright, which is how the base map's places are named as well (see Pois) — a title written across
+ * every shape would set the stock name of each unnamed one against the map, and a name over an area
+ * covers the very thing it names.
+ *
+ * Mounted once for the whole map rather than once per shape, every shape's layers being watched in
+ * the one binding.
+ */
+export function ShapeNames() {
+    const map = useContext(ParentMap);
+
+    useHoverName(map, {
+        layers: shapeHitLayers,
+        answer: (e) => {
+            if (!map) return null;
+
+            // A marker or a track standing on the shape is the smaller target and the one a click
+            // means (see featureAt), and it sets a pointer of its own — so the shape says nothing
+            // while one of them is what the pointer is really on.
+            const feature = featureAt(map, e.point);
+            if (!feature) return null;
+            if (!isShapeFeature(feature)) return "deferred";
+
+            const note = froca.getNoteFromCache(String(feature.properties.id));
+            if (!note) return null;
+
+            return {
+                id: note.noteId,
+                // Where the pointer came to rest, an area having no one point to stand at. Held
+                // there while the pointer stays on the same shape rather than following it.
+                lngLat: [ e.lngLat.lng, e.lngLat.lat ],
+                icon: note.getIcon(),
+                text: note.title
+            };
+        }
+    });
+
+    return null;
+}
+
+/**
  * The one source a shape's layers draw from, named for whoever needs to read the shape back off
  * the map — as a track's is (see `trackSourceId`).
  */
@@ -192,4 +238,9 @@ export function shapeHitLayers(map: MapLibreGLMap) {
 export function featureAt(map: MapLibreGLMap, point: Point): MapGeoJSONFeature | undefined {
     return map.queryRenderedFeatures(point, { layers: [ MARKER_LAYER, ...trackHitLayers(map) ] })[0]
         ?? map.queryRenderedFeatures(point, { layers: shapeHitLayers(map) })[0];
+}
+
+/** Whether {@link featureAt} answered with a shape rather than with a marker or a track. */
+function isShapeFeature(feature: MapGeoJSONFeature) {
+    return feature.layer.id.startsWith(HIT_LAYER_PREFIX) || feature.layer.id.startsWith(FILL_LAYER_PREFIX);
 }

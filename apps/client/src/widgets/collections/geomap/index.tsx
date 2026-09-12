@@ -34,7 +34,7 @@ import Pois from "./Pois";
 import ResultNavigator from "./ResultNavigator";
 import { NOTE_ZOOM, type SearchResult } from "./results";
 import SearchBox from "./SearchBox";
-import { ShapeLayer } from "./ShapeLayer";
+import { ShapeLayer, ShapeNames } from "./ShapeLayer";
 import { GeoShape, parseGeoShape, SHAPE_ATTRIBUTE } from "./shapes";
 import Tooltips from "./Tooltips";
 
@@ -479,6 +479,8 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} placing={!!placement} opensNotes={false} selectedNoteId={selection?.noteId ?? null} />
                 {notes.map(note => <NoteGpxTrackWrapper key={note.noteId} note={note} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} />)}
                 {notes.map(note => <NoteShapeWrapper key={note.noteId} note={note} />)}
+                {/* One binding for every shape's layers, rather than one per shape (see ShapeNames). */}
+                <ShapeNames />
                 <FitToNotes notes={notes} enabled={!viewConfig?.view} />
             </Map>}
         </div>
