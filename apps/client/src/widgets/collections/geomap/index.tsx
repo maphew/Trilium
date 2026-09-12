@@ -19,6 +19,7 @@ import ContextMenus from "./ContextMenus";
 import { pointPlace } from "./coordinates";
 import DetailPane, { PaneSelection } from "./DetailPane";
 import DrawShape, { DrawTool } from "./DrawShape";
+import DrawToolbar from "./DrawToolbar";
 import EditToolbar from "./EditToolbar";
 import GhostPin from "./GhostPin";
 import { GPX_MIME, GpxTrack } from "./GpxTrack";
@@ -441,9 +442,12 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                     isReadOnly={isReadOnly}
                     placing={placement?.mode === "new"}
                     onTogglePlacement={toggleNotePlacement}
+                    onAddGpxTrack={addGpxTrack}
+                />
+                <DrawToolbar
+                    isReadOnly={isReadOnly}
                     drawingTool={placement?.mode === "draw" ? placement.tool : null}
                     onToggleDrawing={toggleDrawing}
-                    onAddGpxTrack={addGpxTrack}
                 />
                 <Tooltips selectedNoteId={selection?.noteId ?? null} paneMaximized={paneMaximized} />
                 {/* The preview under the pointer while a click is armed to mean a place — the note
