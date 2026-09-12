@@ -15,6 +15,8 @@
  * track keeps its own file-note form; see GpxTrack).
  */
 
+import { GEO_SHAPE_ATTRIBUTE } from "@triliumnext/commons";
+
 import { type Bounds, boundsOf } from "./coordinates";
 
 /** The label a shape note carries its geometry in. Named in commons because `getNoteIcon` reads it
@@ -95,6 +97,15 @@ export function parseGeoShape(value: string): GeoShape | null {
     if (!coordinates || coordinates.length < MINIMUM_POINTS[type]) return null;
 
     return { type, coordinates };
+}
+
+/**
+ * Whether the note is drawn on the map as a shape, which is what carrying a readable geometry label
+ * means. Asked wherever a shape is offered something different from a marker — it has no pin to put
+ * somewhere else, for one (see the detail pane and the context menu).
+ */
+export function isShapeNote(note: { getLabelValue(name: string): string | null }): boolean {
+    return !!parseGeoShape(note.getLabelValue(GEO_SHAPE_ATTRIBUTE) ?? "");
 }
 
 function parseCircle(rest: string): GeoShapeCircle | null {

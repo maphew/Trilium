@@ -1,7 +1,9 @@
-import type { Map as MapLibreGLMap } from "maplibre-gl";
+import type { MapGeoJSONFeature, Map as MapLibreGLMap, Point } from "maplibre-gl";
 import { useContext, useEffect } from "preact/hooks";
 
+import { trackHitLayers } from "./GpxTrack";
 import { MapStyleLoaded, ParentMap } from "./map";
+import { MARKER_LAYER } from "./Markers";
 import { circleRing, closeRing, type GeoShape, serializeGeoShape } from "./shapes";
 
 /**
@@ -177,4 +179,17 @@ export function shapeSourceId(noteId: string) {
  */
 export function shapeHitLayers(map: MapLibreGLMap) {
     return map.getLayersOrder().filter((id) => id.startsWith(HIT_LAYER_PREFIX) || id.startsWith(FILL_LAYER_PREFIX));
+}
+
+/**
+ * The feature of one of the map's notes under a point, or `undefined` where none is hit.
+ *
+ * The shapes are queried separately because `queryRenderedFeatures()` returns features in drawing
+ * order, not in `layers` order: an area's fill covers its interior and draws above the markers, so
+ * one query would answer a click on a pin inside a polygon with the polygon. An empty `layers` list
+ * matches nothing, so a map without shapes needs no guard.
+ */
+export function featureAt(map: MapLibreGLMap, point: Point): MapGeoJSONFeature | undefined {
+    return map.queryRenderedFeatures(point, { layers: [ MARKER_LAYER, ...trackHitLayers(map) ] })[0]
+        ?? map.queryRenderedFeatures(point, { layers: shapeHitLayers(map) })[0];
 }

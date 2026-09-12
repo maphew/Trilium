@@ -19,11 +19,11 @@ import Modal from "../../react/Modal";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { removeFromMap } from "./api";
 import { type Bounds, boundsOf } from "./coordinates";
-import { GPX_MIME, trackHitLayers, trackSourceId } from "./GpxTrack";
+import { GPX_MIME, trackSourceId } from "./GpxTrack";
 import { ParentMap } from "./map";
-import { formatLocation, LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
-import { shapeHitLayers } from "./ShapeLayer";
-import { geoShapeBounds, parseGeoShape, SHAPE_ATTRIBUTE } from "./shapes";
+import { formatLocation, LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
+import { featureAt } from "./ShapeLayer";
+import { geoShapeBounds, isShapeNote, parseGeoShape, SHAPE_ATTRIBUTE } from "./shapes";
 
 /**
  * Which marker the pane stands for, and why it came to be selected.
@@ -152,19 +152,12 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
 
     // A marker, a GPX track or a drawn shape selects, anywhere else clears. Read off the rendered
     // layers rather than bound to them (`map.on("click", MARKER_LAYER, ...)`) so one handler answers
-    // all.
-    //
-    // The shapes are queried separately, and only where the markers and tracks were missed:
-    // queryRenderedFeatures() answers in the map's drawing order rather than in the order of the
-    // `layers` argument, and an area's fill covers its whole inside and is drawn above the markers.
-    // One combined query would therefore return the polygon for every click inside it.
+    // all, the order between the three being the hit test's own business (see featureAt).
     useEffect(() => {
         if (!map || placing) return;
 
         const onClick = (e: MapMouseEvent) => {
-            const shapeLayers = shapeHitLayers(map);
-            const feature = map.queryRenderedFeatures(e.point, { layers: [ MARKER_LAYER, ...trackHitLayers(map) ] })[0]
-                ?? (shapeLayers.length > 0 ? map.queryRenderedFeatures(e.point, { layers: shapeLayers })[0] : undefined);
+            const feature = featureAt(map, e.point);
             if (!feature) {
                 void closePane();
                 return;
@@ -356,7 +349,7 @@ const FIT_MAX_ZOOM = 16;
 function standsOnMap(note: FNote) {
     return note.mime === GPX_MIME
         || !!parseLocation(note.getLabelValue(LOCATION_ATTRIBUTE))
-        || !!parseGeoShape(note.getLabelValue(SHAPE_ATTRIBUTE) ?? "");
+        || isShapeNote(note);
 }
 
 /**
@@ -577,9 +570,10 @@ const PANE_NTX_ID = "_geo-detail-pane";
  */
 function MarkerActions({ note, parentNote, isReadOnly, onRelocate }: { note: FNote; parentNote: FNote; isReadOnly: boolean; onRelocate(): void }) {
     const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
-    const [ shapeValue ] = useNoteLabel(note, SHAPE_ATTRIBUTE);
+    // Read so the row is rebuilt when the geometry is edited away, the note ceasing to be a shape.
+    useNoteLabel(note, SHAPE_ATTRIBUTE);
     const latLng = parseLocation(location);
-    const isShape = !!parseGeoShape(shapeValue ?? "");
+    const isShape = isShapeNote(note);
 
     return (
         <EmbeddedNoteActions>

@@ -34,16 +34,24 @@ vi.mock("../../../menus/link_context_menu", () => ({
 vi.mock("../../../menus/custom-items/NoteColorPicker", () => ({ default: () => null }));
 
 /** A map that reports what is under a click and delegates its own, which is all this component asks. */
-function fakeMap(markerUnderPointer?: FNote, trackUnderPointer?: FNote) {
+function fakeMap(markerUnderPointer?: FNote, trackUnderPointer?: FNote, shapeUnderPointer?: FNote) {
     const listeners = new Set<(e: unknown) => void>();
-    // The layer a GPX track offers to be pointed at by, named after its note (see `trackHitLayers`).
+    // The layers a track and a shape offer to be pointed at by, each named after its note (see
+    // `trackHitLayers` and `shapeHitLayers`).
     const trackLayer = trackUnderPointer && `gpx-hit-${trackUnderPointer.noteId}`;
+    const shapeLayer = shapeUnderPointer && `shape-hit-${shapeUnderPointer.noteId}`;
 
     return {
         on(event: string, fn: (e: unknown) => void) { if (event === "contextmenu") listeners.add(fn); },
         off(event: string, fn: (e: unknown) => void) { if (event === "contextmenu") listeners.delete(fn); },
-        getLayersOrder: () => (trackLayer ? [ trackLayer ] : []),
+        getLayersOrder: () => [ trackLayer, shapeLayer ].filter((id) => id !== undefined),
+        // Answered in the map's drawing order rather than in the order of `layers`, which is how
+        // MapLibre answers: the shapes go on last and so are drawn above the pins standing on them.
+        // A single query naming both would therefore hand back the shape.
         queryRenderedFeatures: (_point: unknown, options: { layers: string[] }) => [
+            ...(shapeUnderPointer && shapeLayer && options.layers.includes(shapeLayer)
+                ? [ { properties: { id: shapeUnderPointer.noteId } } ]
+                : []),
             ...(markerUnderPointer && options.layers.includes(MARKER_LAYER)
                 ? [ { properties: { id: markerUnderPointer.noteId } } ]
                 : []),
@@ -85,6 +93,9 @@ async function openMenu(map: ReturnType<typeof fakeMap>, { isReadOnly = false, o
     const items: MenuItem<string>[] = show.mock.calls[0]?.[0]?.items ?? [];
     return { items, onRelocate, onCreateNote };
 }
+
+/** A triangular lot, in the label format a shape note carries (see shapes.ts). */
+const LOT_SHAPE = "polygon:45.79,24.13 45.81,24.16 45.89,24.08";
 
 /** The item offering to move a marker, where one was offered. */
 function moveItem(items: MenuItem<string>[]) {
@@ -176,6 +187,43 @@ describe("ContextMenus", () => {
 
         // Aiming at a pin standing on its own track has to mean the pin: it is the smaller target,
         // and moving it is something only the marker's menu offers.
+        const move = moveItem(items);
+        move?.handler?.(move, undefined as never);
+        expect(onRelocate).toHaveBeenCalledWith(marker.noteId);
+    });
+
+    /**
+     * A drawn shape is one of the map's notes like any other, so right-clicking it opens that note's
+     * menu rather than the bare map's. Taking it off the map clears its geometry and leaves the note
+     * behind, which is the plain removal a marker is offered and not a track's deletion.
+     */
+    it("opens the note of a drawn shape that was right-clicked", async () => {
+        const shape = buildNote({ title: "The lot", "#geoShape": LOT_SHAPE });
+        const { items } = await openMenu(fakeMap(undefined, undefined, shape));
+
+        expect(items).not.toContainEqual(expect.objectContaining({ title: "geo-map-context.add-note" }));
+        expect(items).toContainEqual(expect.objectContaining({ title: "geo-map-context.remove-from-map" }));
+        expect(items).not.toContainEqual(expect.objectContaining({ title: "geo-map-context.delete-note" }));
+    });
+
+    /** A shape has no marker to put somewhere else either: moving one means drawing it again. */
+    it("does not offer to move a drawn shape", async () => {
+        const shape = buildNote({ title: "The lot", "#geoShape": LOT_SHAPE });
+        const { items } = await openMenu(fakeMap(undefined, undefined, shape));
+
+        expect(moveItem(items)).toBeUndefined();
+    });
+
+    /**
+     * An area's fill covers its whole inside and is drawn above the pins standing on it, so asking
+     * for both at once would hand back the polygon for every point within it. The shapes are asked
+     * about only where the markers and the tracks were missed.
+     */
+    it("prefers a marker standing inside a shape to the shape", async () => {
+        const marker = buildNote({ title: "The well", "#geolocation": "1,2" });
+        const shape = buildNote({ title: "The lot", "#geoShape": LOT_SHAPE });
+        const { items, onRelocate } = await openMenu(fakeMap(marker, undefined, shape));
+
         const move = moveItem(items);
         move?.handler?.(move, undefined as never);
         expect(onRelocate).toHaveBeenCalledWith(marker.noteId);
