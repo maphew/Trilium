@@ -60,7 +60,7 @@ describe("parseGeoShape", () => {
     });
 
     it("refuses what is not a shape", () => {
-        // An unknown kind, no kind at all, and plain junk alike.
+        // An unknown kind, no kind at all, and plain junk.
         expect(parseGeoShape("blob:1,2 3,4 5,6")).toBeNull();
         expect(parseGeoShape("1,2 3,4")).toBeNull();
         expect(parseGeoShape("")).toBeNull();
@@ -83,7 +83,7 @@ describe("parseGeoShape", () => {
             center: [ 2.29, 48.85 ],
             radiusMeters: 500
         });
-        // No radius, two centres, a reach of nothing, and one of nonsense.
+        // No radius, two centers, a radius of nothing, and one of nonsense.
         expect(parseGeoShape("circle:48.85,2.29")).toBeNull();
         expect(parseGeoShape("circle:48.85,2.29 48.86,2.35 500")).toBeNull();
         expect(parseGeoShape("circle:48.85,2.29 0")).toBeNull();
@@ -113,21 +113,21 @@ describe("rings", () => {
         const ring = circleRing(center, radiusMeters);
 
         expect(ring).toHaveLength(64);
-        // Not closed — the closing repeat is closeRing's to add, as for any other ring.
+        // Not closed: the closing repeat is closeRing's to add, as for any other ring.
         expect(ring[0]).not.toEqual(ring[ring.length - 1]);
-        // Every point stands the same distance out, give or take the arithmetic.
+        // Every point is the same distance out, give or take the arithmetic.
         for (const point of ring) {
             expect(haversineMeters(center, point)).toBeCloseTo(radiusMeters, 0);
         }
-        // And the ring stands around where it was asked to.
+        // And the ring is centered where it was asked to be.
         const [ lng, lat ] = ringCenter(ring) ?? [ NaN, NaN ];
         expect(lng).toBeCloseTo(center[0], 4);
         expect(lat).toBeCloseTo(center[1], 4);
     });
 });
 
-/** How the box itself is measured is `boundsOf`'s own business (see coordinates.spec); what these
- *  pin down is which points of a shape are handed to it. */
+/** How the box is measured is `boundsOf`'s business (see coordinates.spec); these pin down which
+ *  points of a shape are handed to it. */
 describe("bounds", () => {
     it("boxes a line and a polygon by their own points", () => {
         expect(geoShapeBounds({
@@ -141,14 +141,14 @@ describe("bounds", () => {
         })).toEqual([ [ 24.08, 45.79 ], [ 24.16, 45.96 ] ]);
     });
 
-    /** A circle is stored as a centre and a radius, so the box has to cover the radius. */
+    /** A circle is stored as a center and a radius, so the box has to cover the radius. */
     it("boxes a circle across the ring its radius walks out", () => {
         const circle: GeoShape = { type: "circle", center: [ 2.29, 48.85 ], radiusMeters: 1000 };
         const bounds = geoShapeBounds(circle);
         const [ [ west, south ], [ east, north ] ] = bounds ?? [ [ NaN, NaN ], [ NaN, NaN ] ];
 
-        // A kilometre spans about 0.018° of latitude, and more of longitude at this latitude. The
-        // centre sits in the middle of both.
+        // A kilometer spans about 0.018° of latitude, and more of longitude at this latitude.
+        // The center sits in the middle of both.
         expect((south + north) / 2).toBeCloseTo(48.85, 4);
         expect((west + east) / 2).toBeCloseTo(2.29, 4);
         expect(north - south).toBeCloseTo(0.018, 3);
@@ -164,7 +164,7 @@ describe("bounds", () => {
     });
 });
 
-/** The distance between two points the way the ring generator must honour it: over the sphere. */
+/** The distance between two points as the ring generator measures it: over the sphere. */
 function haversineMeters([ lng1, lat1 ]: [number, number], [ lng2, lat2 ]: [number, number]): number {
     const toRad = (d: number) => (d * Math.PI) / 180;
     const dLat = toRad(lat2 - lat1);

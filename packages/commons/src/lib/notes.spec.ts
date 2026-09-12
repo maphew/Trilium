@@ -119,13 +119,13 @@ describe("getNoteIcon", () => {
             .toBe("bx bx-shape-polygon");
         expect(getNoteIcon(buildArgs({ getLabelValue: drawn("circle:48.85,2.29 500") })))
             .toBe("bx bx-shape-circle");
-        // Nothing is written onto a shape note either, so the map's own icon still wins — and the
-        // icon follows a shape redrawn as another kind rather than staying what it was created as.
+        // Nothing is written onto a shape note either, so the map's own icon still wins, and the
+        // icon follows a shape redrawn as another kind.
         expect(getNoteIcon(buildArgs({
             getLabelValue: drawn("circle:48.85,2.29 500"), iconClass: "bx bx-store"
         }))).toBe("bx bx-store");
-        // A label nobody can read draws no shape on the map, but the note is still one that carries
-        // a shape; the line's icon is the least it could be.
+        // A label nobody can read draws no shape on the map, but the note still carries one, so
+        // the line icon is the fallback.
         expect(getNoteIcon(buildArgs({ getLabelValue: drawn("nonsense") }))).toBe("bx bx-vector");
         expect(getNoteIcon(buildArgs({ getLabelValue: drawn("") }))).toBe("bx bx-note");
     });

@@ -20,31 +20,27 @@ const HIT_LAYER_PREFIX = "shape-hit-";
 const HIT_WIDTH = 20;
 
 interface ShapeLayerProps {
-    /** The note the shape belongs to, which is what its source and layers are named after. */
+    /** The note the shape belongs to. Its source and layers are named after it. */
     noteId: string;
-    /** The shape off the note's label, as {@link parseGeoShape} hands it over. */
+    /** The shape read off the note's label by {@link parseGeoShape}. */
     shape: GeoShape;
-    /** What the shape is drawn in — the note's own colour, as a track's would be. */
+    /** The note's own color, which the shape is drawn in, as a track is. */
     color: string;
 }
 
 /**
  * A shape drawn onto the map by hand, read back off its note's `#geoShape` label (see shapes.ts).
  *
- * The GPX track's little sibling: the same source-and-layers arrangement, the same put-it-back-on-
- * every-style-load dance, without the file, the flags or the name written along it. A line is its
- * stroke alone; an area wears a wash of its colour under the same stroke, which is its boundary
- * drawn the way the line is. A transparent wide line over the boundary takes the pointer hits that
- * select the shape (see {@link shapeHitLayers}). What a track has that this does not yet: the label
- * layer and the marks. Each is a straight lift from {@link GpxTrack} when its turn comes.
+ * Built like {@link GpxTrack}: one source per note, with its layers re-added on every style load. A
+ * line is drawn as its stroke alone, an area as a fill under the same stroke. A wide transparent
+ * line over the boundary takes the pointer hits that select the shape (see {@link shapeHitLayers}).
  */
 export function ShapeLayer({ noteId, shape, color }: ShapeLayerProps) {
     const parentMap = useContext(ParentMap);
     const styleLoaded = useContext(MapStyleLoaded);
 
-    // The shape as a dependency the effect can compare: the object is rebuilt on every parse of
-    // the label, so handing it over as-is would tear the layers down and put them back per render.
-    // Its label spelling is exactly such a comparison — one string, stable across parses.
+    // parseGeoShape() rebuilds the object on every render, so the effect compares the label
+    // spelling instead, which is stable across parses.
     const shapeKey = serializeGeoShape(shape);
 
     useEffect(() => {
@@ -57,9 +53,8 @@ export function ShapeLayer({ noteId, shape, color }: ShapeLayerProps) {
         const hitLayerId = `${HIT_LAYER_PREFIX}${noteId}`;
         const hasArea = shape.type !== "line";
 
-        // The shape lives in the map style, which setStyle() wipes for a URL-named vector style
-        // (keepAdditions cannot carry what it never saw; see map.tsx) — so it is put back on every
-        // style load, and each piece only if it is missing, exactly as a track is.
+        // setStyle() wipes the shape for a URL-named vector style (keepAdditions cannot carry
+        // what it never saw; see map.tsx), so every missing piece is re-added on each style load.
         function addShapeLayers() {
             try {
                 if (!map.getSource(sourceId)) {
@@ -67,13 +62,12 @@ export function ShapeLayer({ noteId, shape, color }: ShapeLayerProps) {
                         type: "geojson",
                         data: {
                             type: "Feature",
-                            // The note the shape stands for, carried in the feature the way a
-                            // track's is, for whatever comes to hit-test shapes.
+                            // The note the shape belongs to, which featureAt() reads back.
                             properties: { id: noteId },
                             geometry: shape.type === "line"
                                 ? { type: "LineString", coordinates: shape.coordinates }
-                                // An area is its ring closed back up — the ring the label spells
-                                // for a polygon, or the one walked out of a circle's two numbers.
+                                // An area is its ring closed back up: a polygon's own points,
+                                // or the ring walked out of a circle's centre and radius.
                                 : { type: "Polygon", coordinates: [ closeRing(
                                     shape.type === "circle"
                                         ? circleRing(shape.center, shape.radiusMeters)
@@ -83,7 +77,7 @@ export function ShapeLayer({ noteId, shape, color }: ShapeLayerProps) {
                     });
                 }
 
-                // The wash before the stroke, so the boundary is drawn over it rather than under.
+                // Added before the stroke, so the boundary draws over the fill rather than under.
                 if (hasArea && !map.getLayer(fillLayerId)) {
                     map.addLayer({
                         id: fillLayerId,
@@ -102,7 +96,7 @@ export function ShapeLayer({ noteId, shape, color }: ShapeLayerProps) {
                         type: "line",
                         source: sourceId,
                         layout: {
-                            // Otherwise a line doubling back meets its own corners as spikes,
+                            // Otherwise a line doubling back meets its own corners as spikes
                             // and ends in a flat stub.
                             "line-join": "round",
                             "line-cap": "round"
@@ -114,9 +108,10 @@ export function ShapeLayer({ noteId, shape, color }: ShapeLayerProps) {
                     });
                 }
 
-                // Takes the pointer hits on the boundary, the 3px stroke being too thin to click
-                // reliably. Drawn at zero opacity rather than hidden: MapLibre drops a layer from
-                // queryRenderedFeatures() for `visibility: none` but not for being invisible.
+                // Takes the pointer hits on the boundary, the 3px stroke being too thin to
+                // click reliably. Drawn at zero opacity rather than hidden, since MapLibre drops a
+                // layer from queryRenderedFeatures() for `visibility: none` but not for being
+                // invisible.
                 if (!map.getLayer(hitLayerId)) {
                     map.addLayer({
                         id: hitLayerId,
@@ -130,7 +125,7 @@ export function ShapeLayer({ noteId, shape, color }: ShapeLayerProps) {
                     });
                 }
             } catch (e) {
-                // Only worth a word if the style was ready and it still would not take the shape.
+                // Only worth reporting if the style was ready and still would not take the shape.
                 if (styleLoaded) {
                     console.warn("Geo map: could not draw a shape —", e);
                 }
@@ -145,7 +140,7 @@ export function ShapeLayer({ noteId, shape, color }: ShapeLayerProps) {
         return () => {
             map.off("style.load", addShapeLayers);
             try {
-                // Every layer before the source they draw from: one still in use cannot be removed.
+                // Layers before the source they draw from: a source still in use cannot be removed.
                 for (const layer of [ hitLayerId, strokeLayerId, fillLayerId ]) {
                     if (map.getLayer(layer)) {
                         map.removeLayer(layer);
@@ -166,14 +161,11 @@ export function ShapeLayer({ noteId, shape, color }: ShapeLayerProps) {
 /**
  * The name of the drawn shape under the pointer, shown once the pointer has rested on it.
  *
- * A shape carries nothing on the map to say what it is: a marker's title hangs under its pin and a
- * track's is written along its line, but a shape is drawn bare. Named on hover rather than labelled
- * outright, which is how the base map's places are named as well (see Pois) — a title written across
- * every shape would set the stock name of each unnamed one against the map, and a name over an area
- * covers the very thing it names.
+ * A shape carries no name on the map, unlike a marker's title under its pin or a track's along its
+ * line. Shown on hover rather than drawn on the map, as the base map's places are (see Pois): a
+ * shape starts out titled "New note", and a name over an area covers what it names.
  *
- * Mounted once for the whole map rather than once per shape, every shape's layers being watched in
- * the one binding.
+ * Mounted once for the whole map, one binding watching every shape's layers.
  */
 export function ShapeNames() {
     const map = useContext(ParentMap);
@@ -183,9 +175,8 @@ export function ShapeNames() {
         answer: (e) => {
             if (!map) return null;
 
-            // A marker or a track standing on the shape is the smaller target and the one a click
-            // means (see featureAt), and it sets a pointer of its own — so the shape says nothing
-            // while one of them is what the pointer is really on.
+            // A marker or track over the shape is the smaller target and the one a click means
+            // (see featureAt), and it sets its own cursor, so the shape defers to it.
             const feature = featureAt(map, e.point);
             if (!feature) return null;
             if (!isShapeFeature(feature)) return "deferred";
@@ -195,8 +186,8 @@ export function ShapeNames() {
 
             return {
                 id: note.noteId,
-                // Where the pointer came to rest, an area having no one point to stand at. Held
-                // there while the pointer stays on the same shape rather than following it.
+                // Where the pointer came to rest, an area having no single point to anchor to.
+                // The name stays there while the pointer remains on the same shape.
                 lngLat: [ e.lngLat.lng, e.lngLat.lat ],
                 icon: note.getIcon(),
                 text: note.title
@@ -207,10 +198,8 @@ export function ShapeNames() {
     return null;
 }
 
-/**
- * The one source a shape's layers draw from, named for whoever needs to read the shape back off
- * the map — as a track's is (see `trackSourceId`).
- */
+/** The single source a shape's layers draw from, named so callers can read the shape back off
+ *  the map, as `trackSourceId` is. */
 export function shapeSourceId(noteId: string) {
     return `shape-source-${noteId}`;
 }
@@ -240,7 +229,7 @@ export function featureAt(map: MapLibreGLMap, point: Point): MapGeoJSONFeature |
         ?? map.queryRenderedFeatures(point, { layers: shapeHitLayers(map) })[0];
 }
 
-/** Whether {@link featureAt} answered with a shape rather than with a marker or a track. */
+/** Whether {@link featureAt} returned a shape rather than a marker or a track. */
 function isShapeFeature(feature: MapGeoJSONFeature) {
     return feature.layer.id.startsWith(HIT_LAYER_PREFIX) || feature.layer.id.startsWith(FILL_LAYER_PREFIX);
 }

@@ -36,8 +36,8 @@ vi.mock("../../../menus/custom-items/NoteColorPicker", () => ({ default: () => n
 /** A map that reports what is under a click and delegates its own, which is all this component asks. */
 function fakeMap(markerUnderPointer?: FNote, trackUnderPointer?: FNote, shapeUnderPointer?: FNote) {
     const listeners = new Set<(e: unknown) => void>();
-    // The layers a track and a shape offer to be pointed at by, each named after its note (see
-    // `trackHitLayers` and `shapeHitLayers`).
+    // The hit layers a track and a shape add, each named after its note (see `trackHitLayers`
+    // and `shapeHitLayers`).
     const trackLayer = trackUnderPointer && `gpx-hit-${trackUnderPointer.noteId}`;
     const shapeLayer = shapeUnderPointer && `shape-hit-${shapeUnderPointer.noteId}`;
 
@@ -45,9 +45,9 @@ function fakeMap(markerUnderPointer?: FNote, trackUnderPointer?: FNote, shapeUnd
         on(event: string, fn: (e: unknown) => void) { if (event === "contextmenu") listeners.add(fn); },
         off(event: string, fn: (e: unknown) => void) { if (event === "contextmenu") listeners.delete(fn); },
         getLayersOrder: () => [ trackLayer, shapeLayer ].filter((id) => id !== undefined),
-        // Answered in the map's drawing order rather than in the order of `layers`, which is how
-        // MapLibre answers: the shapes go on last and so are drawn above the pins standing on them.
-        // A single query naming both would therefore hand back the shape.
+        // Answered in drawing order rather than in the order of `layers`, as MapLibre does: the
+        // shapes are added last and draw above the pins, so one query naming both returns the
+        // shape.
         queryRenderedFeatures: (_point: unknown, options: { layers: string[] }) => [
             ...(shapeUnderPointer && shapeLayer && options.layers.includes(shapeLayer)
                 ? [ { properties: { id: shapeUnderPointer.noteId } } ]
@@ -193,9 +193,9 @@ describe("ContextMenus", () => {
     });
 
     /**
-     * A drawn shape is one of the map's notes like any other, so right-clicking it opens that note's
-     * menu rather than the bare map's. Taking it off the map clears its geometry and leaves the note
-     * behind, which is the plain removal a marker is offered and not a track's deletion.
+     * A drawn shape is one of the map's notes, so right-clicking it opens that note's menu rather
+     * than the map's. Taking it off clears its geometry and keeps the note, which is the plain
+     * removal a marker is offered rather than a track's deletion.
      */
     it("opens the note of a drawn shape that was right-clicked", async () => {
         const shape = buildNote({ title: "The lot", "#geoShape": LOT_SHAPE });
@@ -206,7 +206,7 @@ describe("ContextMenus", () => {
         expect(items).not.toContainEqual(expect.objectContaining({ title: "geo-map-context.delete-note" }));
     });
 
-    /** A shape has no marker to put somewhere else either: moving one means drawing it again. */
+    /** A shape has no marker to move either: moving one means drawing it again. */
     it("does not offer to move a drawn shape", async () => {
         const shape = buildNote({ title: "The lot", "#geoShape": LOT_SHAPE });
         const { items } = await openMenu(fakeMap(undefined, undefined, shape));
@@ -215,9 +215,9 @@ describe("ContextMenus", () => {
     });
 
     /**
-     * An area's fill covers its whole inside and is drawn above the pins standing on it, so asking
-     * for both at once would hand back the polygon for every point within it. The shapes are asked
-     * about only where the markers and the tracks were missed.
+     * An area's fill covers its inside and draws above the pins, so one query for both would return
+     * the polygon for every point within it. The shapes are queried only where the markers and the
+     * tracks were missed.
      */
     it("prefers a marker standing inside a shape to the shape", async () => {
         const marker = buildNote({ title: "The well", "#geolocation": "1,2" });

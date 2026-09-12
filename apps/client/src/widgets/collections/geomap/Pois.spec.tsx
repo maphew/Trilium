@@ -54,7 +54,7 @@ function tooltipText() {
 
 type Listener = (e?: unknown) => void;
 
-/** The layers a drawn shape offers to be pointed at by, named after its note (see ShapeLayer). */
+/** The hit layers a drawn shape adds, named after its note (see ShapeLayer). */
 const SHAPE_FILL_LAYER = "shape-fill-note1";
 const SHAPE_HIT_LAYER = "shape-hit-note1";
 
@@ -262,8 +262,8 @@ describe("geo map Pois", () => {
     });
 
     /**
-     * A drawn shape is one of the map's own, and an area covers every place standing inside it. Left
-     * out of the hit test, the click opened the place alongside the pane the shape had just opened.
+     * A drawn shape is one of the map's own, and an area covers every place inside it. Left out of
+     * the hit test, a click opened the place alongside the pane the shape had just opened.
      */
     it("leaves a click that landed inside a drawn shape to the shape", async () => {
         const map = fakeMap({ ownLayerIds: [ SHAPE_FILL_LAYER, SHAPE_HIT_LAYER ] });
@@ -382,7 +382,7 @@ describe("geo map Pois", () => {
         expect(map.cursor).toBe("pointer");
     });
 
-    /** An area covers every place inside it, so its own name is what a rest there asks for. */
+    /** An area covers every place inside it, so a hover there names the shape. */
     it("leaves the pointer to a drawn shape the place stands inside", async () => {
         const map = fakeMap({ ownLayerIds: [ SHAPE_FILL_LAYER, SHAPE_HIT_LAYER ] });
         await renderPois(map);

@@ -122,9 +122,9 @@ describe("geo map api", () => {
         expect(created).toEqual({ noteId: "created" });
         expect(createNote).toHaveBeenCalledWith(parent.noteId, expect.objectContaining({
             type: "text",
-            // Named and iconed by exactly the rules a placed marker is named and iconed by: no
-            // title, so a `#titleTemplate` on the map applies, and no icon, so getNoteIcon draws
-            // the shape the label names and `#child:iconClass` or a template can override it.
+            // Named and iconed by the rules a placed marker is: no title, so a `#titleTemplate`
+            // on the map applies, and no icon, so getNoteIcon draws the shape the label names and
+            // `#child:iconClass` or a template can override it.
             title: undefined,
             activate: false,
             attributes: [

@@ -5,61 +5,52 @@ import {
 } from "maplibre-gl";
 import { useEffect, useRef } from "preact/hooks";
 
-/**
- * How long the pointer has to rest on something before its name is shown.
- *
- * Shorter than the wait a marker's preview sits out, that one reading a note from the server while
- * these names are already in hand — but long enough that sweeping the pointer across a crowded
- * map does not name everything on the way past.
- */
+/** How long the pointer rests on something before its name appears. Shorter than the wait in
+ *  Tooltips, which fetches the note, but long enough not to name what the pointer sweeps past. */
 const REST_DELAY = 200;
 
-/** How far the name stands off what it names, be that a place's icon or the pointer itself. */
+/** Distance in pixels between the popup and the point it is anchored to. */
 const NAME_OFFSET = 10;
 
-/** A name to show, and with it the pointer saying the thing under it answers a click. */
+/** A name to show, which also sets the cursor to `pointer`. */
 export interface HoverName {
-    /** Tells one thing from the next, so the pointer crossing between them replaces the name. */
+    /** Distinguishes one feature from the next, so moving between them replaces the name. */
     id: string;
-    /** Where the name stands. */
+    /** Where the popup is anchored. */
     lngLat: [number, number];
-    /** The boxicons classes of the mark beside the name, where the thing wears one. */
+    /** Boxicons classes for the icon beside the name, where the feature has one. */
     icon?: string | null;
     text: string;
 }
 
 /**
- * What the pointer is resting on: a name to show, nothing at all, or something drawn above that
- * answers for it. The last is not the same as nothing — whatever stands above has set its own
- * cursor, so this leaves the cursor alone rather than clearing what that has just set.
+ * What the pointer is over: a name to show, nothing, or `"deferred"` for a feature another layer
+ * owns. `"deferred"` differs from nothing in that it leaves the cursor alone, the layer that owns
+ * the feature having just set it.
  */
 export type HoverAnswer = HoverName | null | "deferred";
 
 interface HoverNameOptions {
-    /** The layers the pointer is watched on, read afresh whenever the style changes. */
+    /** The layers to watch, read again whenever the style changes. */
     layers: (map: MapLibreGLMap) => string[];
-    /** What the pointer is resting on, given the features those layers reported under it. */
+    /** What the pointer is over, given the features those layers report under it. */
     answer: (e: MapMouseEvent & { features?: MapGeoJSONFeature[] }) => HoverAnswer;
-    /** Held off entirely, for a map busy with something the pointer means instead. */
+    /** Binds nothing, for a map where the pointer means something else. */
     disabled?: boolean;
 }
 
 /**
- * The name of the thing under the pointer, shown in a small popup once the pointer has rested.
+ * Shows the name of the feature under the pointer in a small popup, once the pointer has rested.
  *
- * What every hovered name over this map has in common, the caller saying only which layers to watch
- * and what it finds there: the base map's places (see Pois) and the shapes drawn onto it (see
- * ShapeLayer). Both are named from something already in hand, so neither waits on the server the
- * way a marker's preview does (see Tooltips).
+ * Shared by Pois and ShapeLayer, which supply only the layers to watch and the name to show. Both
+ * name a feature from data already loaded, unlike Tooltips, which fetches the note.
  *
- * The name is put away on a click, whatever the click was for, and does not come back until the
- * pointer has left and returned — a click is always something being done, whose result the name
- * would otherwise stand over.
+ * A click hides the name, and it does not return until the pointer leaves the feature and comes
+ * back, so it never covers what the click opened.
  */
 export function useHoverName(
     parentMap: MapLibreGLMap | null, { layers, answer, disabled }: HoverNameOptions) {
-    // Read through a ref so a caller can hand over plain arrows without the handlers being bound
-    // again on every render.
+    // Read through a ref so inline callbacks do not rebind the handlers on every render.
     const latest = useRef({ layers, answer });
     latest.current = { layers, answer };
 
@@ -71,15 +62,14 @@ export function useHoverName(
         const popup = new Popup({
             closeButton: false,
             closeOnClick: false,
-            // Otherwise MapLibre puts the caret in the popup as it opens, taking the focus out of
-            // whatever the user was typing in (see Tooltips).
+            // MapLibre otherwise focuses the popup as it opens, taking focus out of the search box.
             focusAfterOpen: false,
             offset: NAME_OFFSET,
             className: "geo-hover-name"
         });
 
         let bound: string[] = [];
-        /** What the name belongs to, or what the last click was on until the pointer leaves it. */
+        /** The feature the name belongs to, or the one last clicked until the pointer leaves it. */
         let named: string | null = null;
         let showTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -107,9 +97,8 @@ export function useHoverName(
             }
 
             setCursor("pointer");
-            // Watched by the move rather than by `mouseenter`, which fires on entering the layer
-            // rather than the thing: the pointer crossing from one to the next never leaves the
-            // layer, and the first name would stay up over the second.
+            // Tracked on "mousemove" rather than "mouseenter", which fires on entering the layer:
+            // moving from one feature to the next never leaves it, so the first name would stay up.
             if (answered.id === named) return;
 
             named = answered.id;
@@ -146,15 +135,13 @@ export function useHoverName(
         }
 
         bind();
-        // Two ways the layers under the pointer change: a style switch replaces every one of them,
-        // and a layer added or taken away within a style, a shape drawn or removed, changes which
-        // of them there are. `bind` does nothing where they turn out to be the same, so the second,
-        // which MapLibre reports freely, costs a comparison.
+        // "style.load" covers a style switch, which replaces every layer; "styledata" covers a
+        // layer added or removed within one, such as a shape being drawn. bind() returns early when
+        // the list is unchanged, so the frequent "styledata" costs only a comparison.
         map.on("style.load", bind);
         map.on("styledata", bind);
-        // `named` is left standing rather than cleared, which is what keeps the name from coming
-        // back over whatever the click has just opened: the thing under the pointer stays the one
-        // already named until the pointer leaves it.
+        // hide() leaves `named` set, so the name does not reappear over what the click opened
+        // until the pointer moves to another feature.
         map.on("click", hide);
 
         return () => {
@@ -163,14 +150,14 @@ export function useHoverName(
             map.off("click", hide);
             unbind();
             hide();
-            // The pointer is put back by hand, since this can be torn down while it sits on
-            // something and the `mouseleave` that would have cleared it is no longer listened for.
+            // Reset by hand: this can be torn down while the pointer rests on a feature, and the
+            // "mouseleave" that would have cleared the cursor is no longer bound.
             setCursor("");
         };
     }, [ parentMap, disabled ]);
 }
 
-/** The name as it is shown: the mark the thing wears, where it wears one, and what it is called. */
+/** The popup contents: the feature's icon, where it has one, and its name. */
 function nameLabel({ icon, text }: HoverName) {
     const label = document.createElement("span");
     label.className = "geo-hover-name-label";
@@ -182,8 +169,8 @@ function nameLabel({ icon, text }: HoverName) {
     }
 
     const name = document.createElement("span");
-    // A place is named by whatever OpenStreetMap holds and a shape by its note's title, neither of
-    // which is ours to read as markup.
+    // A place's name comes from OpenStreetMap and a shape's from its note title, neither of which
+    // is markup.
     name.textContent = text;
     label.appendChild(name);
 

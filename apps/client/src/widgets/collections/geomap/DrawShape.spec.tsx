@@ -1,7 +1,7 @@
 /**
- * The drawing session (see DrawShape.tsx): that mounting it arms Terra Draw with the tool's own
- * mode and unmounting stands it down, that a finished shape reaches the caller converted to what
- * its note will carry, and that anything else Terra Draw announces is left alone.
+ * The drawing session (see DrawShape.tsx): that mounting it arms Terra Draw with the tool's mode
+ * and unmounting stops it, that a finished shape reaches the caller as what its note will carry,
+ * and that anything else Terra Draw reports is ignored.
  */
 import { render } from "preact";
 import { act } from "preact/test-utils";
@@ -32,7 +32,7 @@ vi.mock("terra-draw", () => {
         setMode(name: string) { this.modeName = name; }
         getSnapshotFeature(id: string) { return this.features.get(id); }
 
-        /** A shape being finished, as the real library would announce it. */
+        /** A shape being finished, as the real library would report it. */
         finish(id: string, action: string, feature: unknown) {
             this.features.set(id, feature);
             this.listeners.get("finish")?.(id, { action });
@@ -128,10 +128,10 @@ describe("DrawShape", () => {
     });
 
     /**
-     * A circle and a rectangle are two positions, and Terra Draw reads the second one from pointer
+     * A circle and a rectangle are two positions, and Terra Draw reads the second from pointer
      * movement between two clicks unless told otherwise. A finger makes no such movement, so on a
-     * touchscreen the tap that placed the first position left nothing able to size the shape.
-     * Asking for the drag as well is what lets a finger draw one.
+     * touchscreen nothing could size the shape. Accepting the drag as well is what lets a finger
+     * draw one.
      */
     it("lets the two-corner tools be drawn by dragging, which is all a finger can do", () => {
         for (const tool of [ "circle", "rectangle" ] as const) {

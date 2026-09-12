@@ -103,9 +103,8 @@ export const GEO_SHAPE_ATTRIBUTE = "geoShape";
 export const GEO_MARKER_ICON = "bx bx-pin";
 
 /**
- * The icon a drawn shape is worn under, by the kind its `#geoShape` label names (see the client's
- * geomap/shapes.ts for the format). An unreadable label falls back to the line's icon, a shape
- * being a line before it is anything else.
+ * The icon for a drawn shape, keyed by the kind its `#geoShape` label names (see the client's
+ * geomap/shapes.ts for the format). An unreadable label falls back to the line icon.
  */
 export const GEO_SHAPE_ICONS: Record<string, string> = {
     line: "bx bx-vector",
@@ -118,11 +117,11 @@ export const GEO_SHAPE_ICONS: Record<string, string> = {
  * what the note is otherwise.
  *
  * A note carrying a non-empty `#geolocation` is drawn as a pin, and one carrying a `#geoShape` as
- * the shape it draws, where either has nothing more specific. So the geo map writes no `#iconClass`
- * onto a marker or a shape it creates: an icon the map hands down through `#child:iconClass` or a
- * template still applies, and redrawing a shape as another kind changes the icon with it rather
- * than leaving the one it was created under. `iconClass` stays an argument rather than being read
- * here because the share tree narrows it to the prefixes an icon pack supplies.
+ * the shape it names, where neither has anything more specific. The geo map therefore writes no
+ * `#iconClass` onto a marker or a shape it creates, so an icon it hands down through
+ * `#child:iconClass` or a template still applies, and redrawing a shape as another kind changes the
+ * icon with it. `iconClass` stays an argument rather than being read here because the share tree
+ * narrows it to the prefixes an icon pack supplies.
  */
 export function getNoteIcon({
     noteId, type, mime, iconClass, workspaceIconClass, isFolder, getLabelValue

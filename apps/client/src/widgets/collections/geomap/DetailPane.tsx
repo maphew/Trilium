@@ -152,7 +152,7 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
 
     // A marker, a GPX track or a drawn shape selects, anywhere else clears. Read off the rendered
     // layers rather than bound to them (`map.on("click", MARKER_LAYER, ...)`) so one handler answers
-    // all, the order between the three being the hit test's own business (see featureAt).
+    // all; featureAt() decides the order between the three.
     useEffect(() => {
         if (!map || placing) return;
 
@@ -175,9 +175,9 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
     // created — is held clear of the pane the same way as one that was clicked; and off the
     // location too, so a marker that has just been put somewhere else is followed there.
     //
-    // A GPX track and a drawn shape are not points but extents, so they are fitted rather than
-    // centred: panned and zoomed until they stand in the part of the map the pane leaves uncovered
-    // — the whole file, or only what the click named where it named more (see PaneFocus).
+    // A GPX track and a drawn shape are extents rather than points, so they are fitted rather
+    // than centred: panned and zoomed until they stand in the part of the map the pane leaves
+    // uncovered, the whole file or only what the click named where it named more (see PaneFocus).
     useEffect(() => {
         if (!map || !note) return;
         // Nothing is aimed at behind a surface that covers the map: the camera would be moving to a
@@ -190,8 +190,8 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
         // camera has nothing to do there at all, and what it did was pan the map behind a sheet.
         if (maximized || isMobile()) return;
 
-        // A shape is measured off its own label, which holds every point the map draws from and
-        // holds them at once, so there is no source to wait for as a track's file needs.
+        // A shape is measured off its own label, which holds every point at once, so there is
+        // no source to wait for as a track's file needs.
         if (shape) {
             const bounds = geoShapeBounds(shape);
             if (bounds) {
@@ -344,7 +344,7 @@ const FIT_MAX_ZOOM = 16;
  *
  * Three kinds of note reach the map three ways: a marker through `LOCATION_ATTRIBUTE`, a drawn
  * shape through `SHAPE_ATTRIBUTE` (see shapes.ts), and a GPX track through its mime, its line
- * coming from the note's own file rather than from anything written on it.
+ * coming from the note's own file rather than from a label.
  */
 function standsOnMap(note: FNote) {
     return note.mime === GPX_MIME
@@ -570,7 +570,8 @@ const PANE_NTX_ID = "_geo-detail-pane";
  */
 function MarkerActions({ note, parentNote, isReadOnly, onRelocate }: { note: FNote; parentNote: FNote; isReadOnly: boolean; onRelocate(): void }) {
     const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
-    // Read so the row is rebuilt when the geometry is edited away, the note ceasing to be a shape.
+    // Read so the row is rebuilt when the geometry is edited away and the note stops being a
+    // shape.
     useNoteLabel(note, SHAPE_ATTRIBUTE);
     const latLng = parseLocation(location);
     const isShape = isShapeNote(note);
@@ -595,8 +596,8 @@ function MarkerActions({ note, parentNote, isReadOnly, onRelocate }: { note: FNo
                 <NoteColorAction note={note} title={t("geo-map.marker-color")} />
 
                 {/* Not offered for a track or a drawn shape: neither has a location label to
-                    rewrite, and moving one means drawing it again. The right-click menu leaves it
-                    out for a track for the same reason. */}
+                    rewrite, and moving one means drawing it again. ContextMenus leaves it out for
+                    the same reason. */}
                 {note.mime !== GPX_MIME && !isShape && <ActionButton
                     className="geo-detail-pane-move"
                     icon="bx bx-move"

@@ -164,11 +164,10 @@ async function createNoteAt(
 }
 
 /**
- * Makes a note of a shape drawn on the map, and hands it back for the pane to open on.
+ * Creates the note for a shape drawn on the map, and returns it for the pane to open on.
  *
- * A marker note in every way but the label: the whole shape in `#geoShape` where a marker keeps its
- * point in `#geolocation` (see shapes.ts). The note is the shape the way a marker note is its pin,
- * so it is named and iconed by the same rules, and the content stays the user's to write.
+ * A marker note but for the label, which holds the whole shape in `#geoShape` where a marker keeps
+ * its point in `#geolocation` (see shapes.ts). Naming and icons follow the same rules.
  */
 export async function createShapeNote(parentNote: FNote, shape: GeoShape) {
     return createMapNote(parentNote, [
@@ -177,12 +176,12 @@ export async function createShapeNote(parentNote: FNote, shape: GeoShape) {
 }
 
 /**
- * Creates a note of the map's own, carrying whatever puts it on the map.
+ * Creates one of the map's own notes, carrying whatever puts it on the map.
  *
- * No title is sent unless the caller has one worth keeping, which leaves the naming where every
- * other new note's is: the server's, and so a `#titleTemplate` on the map's if it carries one. No
- * `#iconClass` either, `getNoteIcon` drawing a note by the geo label it carries (see commons), so
- * an icon the map hands down through `#child:iconClass` or a template still applies.
+ * A title is sent only where the caller has one, so naming falls to the server and to a
+ * `#titleTemplate` on the map note where it carries one. No `#iconClass` is sent either, since
+ * `getNoteIcon` draws a note by the geo label it carries (see commons), leaving an icon the map
+ * hands down through `#child:iconClass` or a template to apply.
  */
 async function createMapNote(
     parentNote: FNote, attributes: Omit<AttributeRow, "noteId" | "attributeId">[], title?: string) {

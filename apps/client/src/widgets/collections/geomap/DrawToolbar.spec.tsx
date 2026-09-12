@@ -1,8 +1,7 @@
 /**
- * The drawing tools over a geo map (see DrawToolbar.tsx). What is checked is that every tool is
- * offered, that a press arms the map and a press on an armed one stands it down, that the armed tool
- * is worn held down, that the width of the map settles where they stand, and that a map that may not
- * be edited carries none of them at all.
+ * The drawing tools over a geo map (see DrawToolbar.tsx): that every tool is offered, that a press
+ * arms the map and a press on an armed one disarms it, that the armed tool's button is shown
+ * active, that the map's width decides where they stand, and that a read-only map carries none.
  */
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
@@ -12,14 +11,14 @@ import type { DrawTool } from "./DrawShape";
 import DrawToolbar from "./DrawToolbar";
 import { ParentMap } from "./map";
 
-/** A map of a given width, which is all the tools ask of one: where they stand follows from it. */
+/** A map of a given width, which is all the tools read of one. */
 function fakeMap(width: number) {
     const container = document.createElement("div");
     Object.defineProperty(container, "clientWidth", { value: width, configurable: true });
     return { getContainer: () => container } as never;
 }
 
-/** A map with no room at its head, which is where the tools stand in a column down its side. */
+/** A map with no room at its head, where the tools stand in a column down its side. */
 const NARROW = 400;
 
 /** A map roomy enough for the tools to stand across its head, clear of the search bar and the pane. */
@@ -47,7 +46,7 @@ function renderTools({ map = fakeMap(NARROW), isReadOnly = false, drawingTool = 
     };
 }
 
-/** Every drawing tool, by the icon its button wears. */
+/** Every drawing tool, by the icon on its button. */
 const DRAW_TOOL_ICONS: { tool: DrawTool; icon: string }[] = [
     { tool: "line", icon: "bx-vector" },
     { tool: "polygon", icon: "bx-shape-polygon" },
@@ -91,8 +90,8 @@ describe("geo map DrawToolbar", () => {
     });
 
     /**
-     * Drawing is all the group offers, so a map that may not be edited would carry four dead buttons
-     * and nothing else. The editing bar shows its own refused, having somewhere to stand either way.
+     * Every button draws, so a read-only map would carry four disabled buttons and nothing else.
+     * EditToolbar shows its own disabled rather than hiding the group.
      */
     it("comes off a map that may not be edited rather than standing there refused", () => {
         const { group, buttons } = renderTools({ isReadOnly: true });

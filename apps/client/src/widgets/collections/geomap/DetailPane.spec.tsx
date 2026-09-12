@@ -133,9 +133,9 @@ function fakeMap({ width = MAP_WIDTH, features = [] as unknown[] } = {}) {
             listeners.get(fn ? `${event}:${fnOrLayer}` : event)?.delete((fn ?? fnOrLayer) as Listener);
         },
         /**
-         * What was hit, in the map's drawing order rather than the order of `layers`, which is how
-         * MapLibre answers and the reason the pane queries twice. The shapes go on last and so draw
-         * above the markers, meaning a query naming both returns the shape first.
+         * What was hit, in drawing order rather than in the order of `layers`, as MapLibre answers
+         * and the reason the pane queries twice. The shapes are added last and draw above the
+         * markers, so a query naming both returns the shape first.
          */
         queryRenderedFeatures(_point: unknown, { layers }: { layers: string[] }) {
             const shapes = shapeLayers.some((id) => layers.includes(id)) ? underShapes : [];

@@ -1,8 +1,8 @@
 /**
  * The hand-drawn shape (see ShapeLayer.tsx): that it goes onto a loaded style and not before, that
- * a line is a stroke alone while an area wears a wash under the same stroke, that it is put back
+ * a line is a stroke alone while an area adds a fill under the same stroke, that it is re-added
  * after a style switch wipes the map, and that it leaves nothing behind when it goes. Then the name
- * a shape answers a hover with, which is the only thing on the map that says what it is.
+ * a shape answers a hover with, the only thing on the map that names it.
  */
 import { render } from "preact";
 import { act } from "preact/test-utils";
@@ -84,14 +84,14 @@ function fakeMap() {
             return [ ...layers.keys() ];
         },
 
-        /** The style finishing, which is what `style.load` announces. */
+        /** The style finishing, which is what `style.load` reports. */
         loadStyle() {
             loaded = true;
             for (const listener of listeners.get("style.load") ?? []) {
                 listener();
             }
         },
-        /** A style switch as the shape experiences one: everything wiped, then `style.load` again. */
+        /** A style switch: everything wiped, then `style.load` again. */
         switchStyle() {
             sources.clear();
             layers.clear();
@@ -141,12 +141,12 @@ describe("ShapeLayer", () => {
         };
         expect(source.data.geometry.type).toBe("LineString");
         expect(source.data.geometry.coordinates).toEqual(LINE.coordinates);
-        // The note the shape stands for rides in the feature, for whatever comes to hit-test it.
+        // The note the shape belongs to is carried in the feature, for the hit test to read.
         expect(source.data.properties.id).toBe(NOTE_ID);
 
         const stroke = map.layers.get(`shape-stroke-${NOTE_ID}`) as { paint: Record<string, unknown> };
         expect(stroke.paint["line-color"]).toBe("purple");
-        // No wash under a line: it encloses nothing.
+        // No fill under a line, which encloses nothing.
         expect(map.layers.has(`shape-fill-${NOTE_ID}`)).toBe(false);
 
         act(() => render(null, container));
@@ -162,7 +162,7 @@ describe("ShapeLayer", () => {
             data: { geometry: { type: string; coordinates: [number, number][][] } };
         };
         expect(source.data.geometry.type).toBe("Polygon");
-        // The label leaves the closing point unwritten; GeoJSON wants the ring ended where it began.
+        // The label leaves the closing point unwritten, and GeoJSON ends the ring where it began.
         expect(source.data.geometry.coordinates[0]).toEqual([ ...POLYGON.coordinates, POLYGON.coordinates[0] ]);
 
         const fill = map.layers.get(`shape-fill-${NOTE_ID}`) as { paint: Record<string, unknown> };
@@ -215,12 +215,12 @@ describe("ShapeLayer", () => {
     });
 
     it("waits for the style, and is put back when a style switch wipes the map", () => {
-        // Mounted before the style has loaded — as a shape whose note arrives early always is —
-        // nothing can go on yet.
+        // Mounted before the style has loaded, as a shape whose note arrives early is, so nothing
+        // can go on yet.
         renderShape(LINE, { styleLoaded: false });
         expect(map.sources.size).toBe(0);
 
-        // MapStyleLoaded flipping true is a new render; the style itself also announces itself.
+        // MapStyleLoaded turning true is a new render, and the style reports itself as well.
         act(() => map.loadStyle());
         renderShape(LINE, { styleLoaded: true });
         expect(map.sources.has(shapeSourceId(NOTE_ID))).toBe(true);
@@ -249,14 +249,14 @@ function hoverMap(shapeLayers = [ `shape-hit-${NOTE_ID}` ]) {
 
     return {
         get cursor() { return canvas.style.cursor; },
-        /** The pointer another layer's own hover has set, which this one must not clear. */
+        /** The cursor another layer's hover has set, which this one must not clear. */
         setCursor(cursor: string) { canvas.style.cursor = cursor; },
         /** Which of the map's notes the pointer is really over, the marker being the smaller target. */
         setUnderPointer({ markerNoteId = null as string | null, shapeNoteId = null as string | null }) {
             marker = markerNoteId;
             shape = shapeNoteId;
         },
-        /** A shape drawn while the map is up, which MapLibre announces as a change to the style. */
+        /** A shape drawn while the map is up, which MapLibre reports as a change to the style. */
         addShapeLayer(id: string) {
             layers = [ ...layers, id ];
             fire("styledata");
@@ -296,7 +296,7 @@ function hoverMap(shapeLayers = [ `shape-hit-${NOTE_ID}` ]) {
 }
 
 describe("ShapeNames", () => {
-    /** Long enough for the rest the name is held back for, whatever that rest is set to. */
+    /** Long enough for the delay the name is held back by, whatever it is set to. */
     const RESTED = 500;
     let container: HTMLElement;
 
@@ -342,14 +342,14 @@ describe("ShapeNames", () => {
         expect(nameText()).toBe("The lot");
         expect(map.cursor).toBe("pointer");
 
-        // A click is always something being done, whose result the name would otherwise stand over.
+        // The name would otherwise stand over whatever the click opened.
         act(() => map.click());
         expect(nameText()).toBeNull();
     });
 
     /**
-     * A pin standing inside a polygon is the smaller target and the one a click means, and it sets
-     * a pointer of its own — so the shape neither names itself nor clears what the marker has set.
+     * A pin inside a polygon is the smaller target and the one a click means, and it sets its own
+     * cursor, so the shape neither names itself nor clears what the marker set.
      */
     it("says nothing while a marker standing on the shape is what the pointer is on", () => {
         buildNote({ id: NOTE_ID, title: "The lot", "#geoShape": "polygon:45.79,24.13 45.81,24.16 45.89,24.08" });
@@ -357,7 +357,7 @@ describe("ShapeNames", () => {
         const map = hoverMap();
         renderNames(map);
         map.setUnderPointer({ markerNoteId: "markerNoteId1", shapeNoteId: NOTE_ID });
-        // The pointer the marker's own hover has just set (see Markers).
+        // The cursor the marker's own hover has just set (see Markers).
         map.setCursor("pointer");
 
         map.hover();
@@ -368,7 +368,7 @@ describe("ShapeNames", () => {
         expect(map.cursor).toBe("pointer");
     });
 
-    /** A shape drawn while the map is up adds a layer, which nothing was watching until now. */
+    /** A shape drawn while the map is up adds a layer nothing was watching. */
     it("watches a shape drawn after it was bound", () => {
         const map = hoverMap();
         renderNames(map);

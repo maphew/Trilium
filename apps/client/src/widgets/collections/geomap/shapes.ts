@@ -1,67 +1,67 @@
 /**
  * How a drawn shape is written onto its note, and read back off it.
  *
- * A shape lives in a label the way a marker's location does (see `LOCATION_ATTRIBUTE` in Markers):
- * the same `lat,lng` atom, pluralized — a prefix naming what the points make, then the points.
- * `#geoShape=line:48.858093,2.294694 48.860294,2.338629` is the marker format anyone has already
- * read, walked along a path; a polygon is the same walk closed at the end (the closing point is
- * not written — it is the first one again, and writing it twice would only invite the two copies
- * to disagree).
+ * A shape lives in a label, like a marker's location (see `LOCATION_ATTRIBUTE` in Markers): the
+ * same `lat,lng` pair, repeated, behind a prefix naming what the points make, as in
+ * `#geoShape=line:48.858093,2.294694 48.860294,2.338629`. A polygon is a line closed at the end,
+ * and the closing point is left out, since writing the first point twice only lets the two copies
+ * disagree.
  *
- * A label rather than the note's content so the shape rides the attribute payload the way
- * `#geolocation` does: the map draws every shape the moment its children load, with no fetch per
- * shape. The trade is a bounded size — a label is no home for a thousand points, which is why the
- * drawing tools are the deliberate, click-a-vertex kind rather than freehand (and why an imported
- * track keeps its own file-note form; see GpxTrack).
+ * A label rather than the note's content, so a shape travels in the attribute payload as
+ * `#geolocation` does and the map draws every shape as soon as its children load, with no fetch per
+ * shape. The
+ * cost is a bounded size, which is why the drawing tools place one vertex per click rather than
+ * following a freehand stroke, and why an imported track keeps its file-note form (see GpxTrack).
  */
 
 import { GEO_SHAPE_ATTRIBUTE } from "@triliumnext/commons";
 
 import { type Bounds, boundsOf } from "./coordinates";
 
-/** The label a shape note carries its geometry in. Named in commons because `getNoteIcon` reads it
- *  to draw a shape note under the shape it draws, as `GEO_LOCATION_ATTRIBUTE` is. */
+/** The label a shape note carries its geometry in. Declared in commons because `getNoteIcon`
+ *  reads it to give a shape note the icon of the shape it draws, as it does
+ *  `GEO_LOCATION_ATTRIBUTE`. */
 export { GEO_SHAPE_ATTRIBUTE as SHAPE_ATTRIBUTE } from "@triliumnext/commons";
 
-/** How many decimal places a coordinate keeps: six is about a tenth of a metre, which is already
- *  more than a hand-placed vertex means. */
+/** How many decimal places a coordinate keeps. Six is about a tenth of a meter, which is finer
+ *  than a hand-placed vertex. */
 const COORDINATE_DECIMALS = 6;
 
 export interface GeoShapeLine {
     type: "line";
-    /** `[lng, lat]` pairs — GeoJSON's order, ready for a MapLibre source or a Terra Draw feature. */
+    /** `[lng, lat]` pairs, GeoJSON's order, ready for a MapLibre source or a Terra Draw feature. */
     coordinates: [number, number][];
 }
 
 export interface GeoShapePolygon {
     type: "polygon";
-    /** `[lng, lat]` corners of the ring, without the closing repeat of the first — see
-     *  {@link closeRing} for the ring as GeoJSON wants it. */
+    /** `[lng, lat]` corners of the ring, without the closing repeat of the first. See
+     *  {@link closeRing} for the ring in the form GeoJSON expects. */
     coordinates: [number, number][];
 }
 
 export interface GeoShapeCircle {
     type: "circle";
-    /** `[lng, lat]` of the centre. */
+    /** `[lng, lat]` of the center. */
     center: [number, number];
-    /** How far the circle reaches, in metres — the one number the points would only approximate. */
+    /** The circle's radius in meters, which a ring of points would only approximate. */
     radiusMeters: number;
 }
 
 /** Every kind of shape a note can carry. */
 export type GeoShape = GeoShapeLine | GeoShapePolygon | GeoShapeCircle;
 
-/** The fewest points each point-list kind is a shape at all with: one point is no line, and two
- *  no area. A circle is not among them — it is a centre and a reach, not a walk. */
+/** The fewest points each point-list kind needs: one point is no line, and two no area. A circle
+ *  is not listed, being a center and a radius rather than a list of points. */
 const MINIMUM_POINTS = { line: 2, polygon: 3 } as const;
 
 /**
- * A shape as its label value: the kind, a colon, and each point as `lat,lng` — the order the
- * reader of a `#geolocation` label expects, however the coordinates are held in memory. A circle
- * is its centre and then its radius in metres, `circle:48.85,2.29 500`, rather than the ring of
- * points a drawing library holds it as: the ring is an approximation regenerated at whatever
- * fineness the reader wants (see {@link circleRing}), and sixty-odd points would swell the label
- * for less information than two numbers carry.
+ * A shape as its label value: the kind, a colon, then each point as `lat,lng`, the order a
+ * `#geolocation` label is read in however the coordinates are held in memory.
+ *
+ * A circle is written as its center and its radius in meters, `circle:48.85,2.29 500`, rather than
+ * as the ring a drawing library holds it as. The ring only approximates the circle and is rebuilt
+ * at whatever fineness the reader wants (see {@link circleRing}).
  */
 export function serializeGeoShape(shape: GeoShape): string {
     if (shape.type === "circle") {
@@ -75,10 +75,10 @@ export function serializeGeoShape(shape: GeoShape): string {
 /**
  * The shape a label value spells, or null where it spells none.
  *
- * Null rather than a throw, whatever is wrong with it — the value is user-editable like any label,
- * and a shape that cannot be read is a shape the map does not draw, not an error the map falls
- * over on. The rules are only what the geometry itself demands: every point a finite `lat,lng`
- * pair, and enough of them for the kind (see {@link MINIMUM_POINTS}).
+ * Null rather than a throw: the value is user-editable like any label, so a shape that cannot be
+ * read is one the map does not draw rather than an error it falls over on. The rules are only what
+ * the geometry demands: every point a finite `lat,lng` pair, and enough of them for the kind (see
+ * {@link MINIMUM_POINTS}).
  */
 export function parseGeoShape(value: string): GeoShape | null {
     const divide = value.indexOf(":");
@@ -100,9 +100,9 @@ export function parseGeoShape(value: string): GeoShape | null {
 }
 
 /**
- * Whether the note is drawn on the map as a shape, which is what carrying a readable geometry label
- * means. Asked wherever a shape is offered something different from a marker — it has no pin to put
- * somewhere else, for one (see the detail pane and the context menu).
+ * Whether the note is drawn on the map as a shape, which is what a readable geometry label means.
+ * Asked wherever a shape is offered something different from a marker, such as having no pin to
+ * move (see DetailPane and ContextMenus).
  */
 export function isShapeNote(note: { getLabelValue(name: string): string | null }): boolean {
     return !!parseGeoShape(note.getLabelValue(GEO_SHAPE_ATTRIBUTE) ?? "");
@@ -122,8 +122,8 @@ function parseCircle(rest: string): GeoShapeCircle | null {
 }
 
 /**
- * A polygon from the ring a drawing tool hands over, which spells the closing point out — GeoJSON
- * rings end where they began, and the label does not (see the module note).
+ * A polygon from the ring a drawing tool produces, which spells the closing point out: GeoJSON
+ * rings end where they began and the label does not (see the module note).
  */
 export function polygonFromRing(ring: [number, number][]): GeoShapePolygon {
     const [ firstLng, firstLat ] = ring[0] ?? [];
@@ -132,20 +132,20 @@ export function polygonFromRing(ring: [number, number][]): GeoShapePolygon {
     return { type: "polygon", coordinates: closed ? ring.slice(0, -1) : ring };
 }
 
-/** The ring as GeoJSON wants it back: ended where it began. */
+/** The ring as GeoJSON expects it: ended where it began. */
 export function closeRing(coordinates: [number, number][]): [number, number][] {
     return [ ...coordinates, coordinates[0] ];
 }
 
-/** The mean of the earth's radii, as MapLibre also takes it. */
+/** The mean of the earth's radii, the value MapLibre uses as well. */
 const EARTH_RADIUS_METERS = 6371008.8;
 
-/** How many corners a circle's ring is drawn with — enough that nobody sees them. */
+/** How many corners a circle's ring is drawn with, enough that none of them show. */
 const CIRCLE_SEGMENTS = 64;
 
 /**
- * A circle's reach walked out as a ring, one point per bearing, without the closing repeat — the
- * ring a circle label is drawn from (see {@link serializeGeoShape} for why it is not stored).
+ * A circle's radius walked out as a ring, one point per bearing, without the closing repeat. This
+ * is the ring a circle label is drawn from, and is not stored (see {@link serializeGeoShape}).
  * Great-circle rather than flat arithmetic, so a wide circle far from the equator keeps its shape.
  */
 export function circleRing(center: [number, number], radiusMeters: number, segments = CIRCLE_SEGMENTS): [number, number][] {
@@ -172,9 +172,8 @@ export function circleRing(center: [number, number], radiusMeters: number, segme
 }
 
 /**
- * Where a ring stands: the mean of its points. Exact for the regular ring a circle tool hands
- * over, which is all it is asked about — this is how the centre a circle label stores is read
- * back off the ring Terra Draw drew (see `shapeFromFeature`).
+ * The mean of a ring's points. Exact for the regular ring a circle tool produces, which is the only
+ * one it is asked about: this is how `shapeFromFeature` recovers the center a circle label stores.
  */
 export function ringCenter(ring: [number, number][]): [number, number] | null {
     if (ring.length === 0) return null;
@@ -189,9 +188,9 @@ export function ringCenter(ring: [number, number][]): [number, number] | null {
 }
 
 /**
- * The corners of a shape, which `DetailPane` frames the shape it opens on by. A circle is measured
- * across {@link circleRing} rather than at its centre, so the box covers the whole radius; the seam
- * at ±180° is {@link boundsOf}'s to deal with, as it is for a track.
+ * The bounding box `DetailPane` frames a shape by. A circle is measured across {@link circleRing}
+ * rather than at its center, so the box covers the whole radius. The seam at ±180° is
+ * {@link boundsOf}'s to deal with, as it is for a track.
  */
 export function geoShapeBounds(shape: GeoShape): Bounds | null {
     return boundsOf(shape.type === "circle"

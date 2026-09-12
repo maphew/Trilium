@@ -240,8 +240,8 @@ export function poiLayers(map: MapLibreGLMap) {
  * Whether the map has something of its own under the pointer — a marker, a cluster, a track, a drawn
  * shape, or the pin of a place already in hand. Those stand above the base map and answer for it.
  *
- * A shape counts over its whole area rather than along its boundary, which is what `shapeHitLayers`
- * gives: the fill covers every place standing inside it, and those belong to the shape.
+ * A shape counts over its whole area rather than along its boundary, `shapeHitLayers` including
+ * the fill: a place standing inside a shape belongs to the shape.
  */
 function isOwnUnderPointer(map: MapLibreGLMap, point: MapMouseEvent["point"]) {
     const own = [ MARKER_LAYER, PLACE_LAYER, ...CLUSTER_LAYERS, ...trackHitLayers(map), ...shapeHitLayers(map) ]

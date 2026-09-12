@@ -72,14 +72,13 @@ interface MapData {
 
 /**
  * What the next click on the map is for, where it is for anything at all: a new note is to be created
- * there, the marker of the note named here is to be moved there, or a line is being drawn point by
+ * there, the marker of the note named here is to be moved there, or a shape is being drawn point by
  * point. `undefined` is a map that is only being looked at, which is every map most of the time.
  *
- * The three are one state rather than three because they are alternatives — a click cannot mean two
- * of them — and because the note being moved has nowhere else to be kept where it could not go
- * missing. Drawing differs from the other two in taking many clicks rather than one, which is why
- * the map's own click handler leaves it alone (see onClick): the clicks belong to the drawing
- * session (see DrawLine) until it finishes or is stood down.
+ * One state rather than three because they are alternatives, a click meaning only one of them, and
+ * because the note being moved has nowhere else to be kept where it could not go missing. Drawing
+ * takes many clicks rather than one, so the map's own click handler leaves it alone (see onClick)
+ * and the clicks belong to {@link DrawShape} until the session finishes or is disarmed.
  */
 type Placement =
     | { mode: "new" }
@@ -254,15 +253,15 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     }, []);
     const startMarkerRelocation = useCallback((noteId: string) => setPlacement({ mode: "move", noteId }), []);
     const toggleDrawing = useCallback((tool: DrawTool) => {
-        // A press on the armed tool stands the map down; a press on another switches to it, the
-        // way + takes over a map armed to move a marker.
+        // A press on the armed tool disarms the map, and a press on another switches to it, as
+        // the marker button takes over a map armed to move a marker.
         setPlacement((current) => current?.mode === "draw" && current.tool === tool ? undefined : { mode: "draw", tool });
     }, []);
 
     /**
-     * Makes a note of a finished shape and opens the pane on it, title selected, exactly as a
-     * placed marker is offered for naming (see createNoteAt). Disarming comes first so a failure
-     * to create the note does not leave the map drawing a shape nobody is looking at any more.
+     * Creates the note for a finished shape and opens the pane on it, title selected, as a placed
+     * marker is offered for naming (see createNoteAt). Disarming comes first, so a failure to
+     * create the note does not leave the map still drawing.
      */
     const finishShape = useCallback(async (shape: GeoShape) => {
         setPlacement(undefined);
@@ -351,8 +350,8 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     }, [ placement ]);
 
     const onClick = useCallback(async (e: GeoMouseEvent) => {
-        // A drawing session's clicks are its vertices, one by one — not this handler's to spend,
-        // and above all not to disarm on: the session runs until it finishes or is stood down.
+        // A drawing session's clicks are its vertices, so this handler neither consumes them nor
+        // disarms on them: the session runs until it finishes or is disarmed.
         if (!placement || placement.mode === "draw") return;
 
         // Leaving placement mode closes the instruction toast via the effect's cleanup. The state is
@@ -452,8 +451,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 <Tooltips selectedNoteId={selection?.noteId ?? null} paneMaximized={paneMaximized} />
                 {/* The preview under the pointer while a click is armed to mean a place — the note
                     being moved wearing its own pin, a note to be created wearing the one the map
-                    would give it (see GhostPin). A drawing session previews itself, so no ghost
-                    then. */}
+                    would give it (see GhostPin). Terra Draw previews a drawing session itself. */}
                 {placement && placement.mode !== "draw" && <GhostPin
                     parentNote={note}
                     note={placement.mode === "move"
@@ -608,10 +606,9 @@ function NoteGpxTrack({ note, hideLabels, isDarkTheme }: { note: FNote, hideLabe
 }
 
 /**
- * A note's drawn shape, where the note carries one — a shape written into its `#geoShape` label
- * (see shapes.ts). A label the shape cannot be read from draws nothing, the same nothing a note
- * with no shape at all draws: the label is user-editable like any other, and a map is no place to
- * report a parse error.
+ * A note's drawn shape, read from its `#geoShape` label (see shapes.ts). A label that cannot be
+ * parsed draws nothing, as a note with no shape does: the label is user-editable like any other,
+ * and a map is no place to report a parse error.
  */
 function NoteShapeWrapper({ note }: { note: FNote }) {
     const [ shapeValue ] = useNoteLabel(note, SHAPE_ATTRIBUTE);

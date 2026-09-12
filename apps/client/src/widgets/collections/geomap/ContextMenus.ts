@@ -41,8 +41,8 @@ export default function ContextMenus({ parentNote, isReadOnly, onRelocate, onCre
 
     const onContextMenu = useCallback((e: GeoMouseEvent) => {
         if (!map) return;
-        // Whichever of the map's notes the pointer landed on — a marker, a track or a drawn shape,
-        // the order between them being the hit test's own business (see featureAt).
+        // Whichever of the map's notes the click landed on. featureAt() decides the order
+        // between a marker, a track and a drawn shape.
         const feature = featureAt(map, e.point);
 
         if (feature) {
@@ -149,11 +149,10 @@ export function openMapContextMenu(e: GeoMouseEvent, isEditable: boolean, onCrea
  * The marker is moved by being placed again rather than dragged: the notes are drawn into one symbol
  * layer, not an element apiece, so there is nothing on the map to take hold of.
  *
- * Neither a GPX track nor a drawn shape is offered anything, which is why this is a list and not an
- * item. Each is on the map by the figure it draws across it, which no click can pick up, and what
- * the offer did was write a location onto the note — planting a stray pin somewhere else while the
- * line or the shape stayed exactly where it was. The detail pane leaves the button out for the same
- * reason.
+ * Neither a GPX track nor a drawn shape is offered anything, which is why this returns a list and
+ * not an item. Each is on the map by the figure it draws, which no click can pick up, and the offer
+ * only wrote a location onto the note, planting a stray pin while the figure stayed where it was.
+ * DetailPane leaves the button out for the same reason.
  */
 function buildRelocateItem(noteId: string, onRelocate: (noteId: string) => void): MenuItem<keyof CommandMappings>[] {
     const note = froca.getNoteFromCache(noteId);

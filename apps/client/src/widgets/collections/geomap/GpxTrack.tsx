@@ -16,11 +16,7 @@ export interface GpxTrackProps {
     /** What the line is named along its length, and what the start mark wears under its pin. */
     title: string;
     gpxXmlString: string;
-    /**
-     * The note's own colour, as its marker would wear it: the line is drawn in it and the marks'
-     * pins are filled with it. One colour rather than one per layer, a note having one colour —
-     * the line and its own start pin used to be given different ones and so disagreed.
-     */
+    /** The note's own color, which both the line and the marks' pins are drawn in. */
     color: string;
     /** The note's icon, which the start mark wears; the end and the waypoints have icons of their own. */
     iconClass: string;

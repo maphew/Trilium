@@ -114,8 +114,8 @@ const TWO_SEGMENT_GPX = `<?xml version="1.0" encoding="UTF-8"?>
 /** The note the track belongs to, which every one of its layers is named after. */
 const NOTE_ID = "gpxNoteId1";
 
-/** The note's colour: the line is drawn in it and the marks' pins are filled with it, under the ids
- *  the shared rasterizer files pins by (see Markers). */
+/** The note's color, which the line is drawn in and the marks' pins filled with, under the ids
+ *  the shared rasterizer stores pins by (see Markers). */
 const NOTE_COLOR = "purple";
 const NOTE_ICON = "bx bx-cycling";
 const START_IMAGE = markerImageId(NOTE_COLOR, NOTE_ICON);
