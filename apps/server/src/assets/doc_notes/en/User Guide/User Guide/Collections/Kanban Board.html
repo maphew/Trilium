@@ -159,12 +159,18 @@
 </ul>
 <p>To do so:</p>
 <ol>
-  <li>First, create a Kanban board from scratch and not a template:</li>
-  <li>Assign <code spellcheck="false">#viewType=board #hidePromotedAttributes</code> to
-    emulate the default template.</li>
-  <li>Set <code spellcheck="false">#board:groupBy</code> to the name of a relation
-    to group by, <strong>including the</strong>  <code spellcheck="false">~</code>  <strong>prefix</strong> (e.g. <code
-    spellcheck="false">~status</code>).</li>
+  <li>
+    <p>First, create a Kanban board from scratch and not a template:</p>
+  </li>
+  <li>
+    <p>Assign <code spellcheck="false">#viewType=board #hidePromotedAttributes</code> to
+      emulate the default template.</p>
+  </li>
+  <li>
+    <p>Set <code spellcheck="false">#board:groupBy</code> to the name of a relation
+      to group by, <strong>including the</strong>  <code spellcheck="false">~</code>  <strong>prefix</strong> (e.g. <code
+      spellcheck="false">~status</code>).</p>
+  </li>
   <li>
     <p>Optionally, use&nbsp;<a class="reference-link" href="#root/_help_OFXdgB2nNk1F">Promoted Attributes</a>&nbsp;for
       easy status change within the note:</p><pre><code class="language-text-x-trilium-auto">#relation:status(inheritable)="promoted,alias=Status,single"</code></pre>

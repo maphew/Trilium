@@ -5,23 +5,25 @@
   you <code spellcheck="false">…</code>, and <code spellcheck="false">"quote"</code> gives
   you <code spellcheck="false">“quote”</code>.</p>
 <p>These replacements are not applied inside code blocks or inline code,
-  and pasted text is never affected — only text you type. If you have pasted
+  and pasted text is never affected, only text you type. If you have pasted
   a code snippet, or written one inside a code block, its characters are
   left exactly as they are.</p>
+<h3>Undoing a replacement</h3>
 <p>Once an automatic replacement takes place, it can be undone by:</p>
 <ul>
-  <li>Pressing <kbd>Backspace</kbd> immediately after a replacement undoes it
-    and restores what you typed.
+  <li>Pressing <kbd spellcheck="false">Backspace</kbd> immediately after a replacement
+    undoes it and restores what you typed.
     <ul>
-      <li>Note that this consumes the undo, so a further <kbd>Ctrl</kbd>+<kbd>Z</kbd> might
-        delete your typed text.</li>
-      <li>Pressing <kbd>Space</kbd> or changing the cursor position disables this
-        functionality.</li>
+      <li>Note that this consumes the undo, so a further <kbd spellcheck="false">Ctrl</kbd>+<kbd
+        spellcheck="false">Z</kbd> might delete your typed text.</li>
+      <li>Pressing <kbd spellcheck="false">Space</kbd> or changing the cursor position
+        disables this functionality.</li>
     </ul>
   </li>
-  <li>Pressing <kbd>Ctrl</kbd>+<kbd>Z</kbd>, which works even after pressing
-    space.</li>
+  <li>Pressing <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">Z</kbd>,
+    which works even after pressing space.</li>
 </ul>
+<h3>Replacement groups &amp; configuration</h3>
 <p>Each group can be turned off in&nbsp;<a class="reference-link" href="#root/_help_4TIF1oA4VQRO">Options</a>&nbsp;→ <em>Text notes</em> → <em>Automatic replacements</em>.</p>
 <figure
 class="table">
@@ -66,23 +68,23 @@ class="table">
 <h2>Quotation marks</h2>
 <p>Quotation marks are configured separately from the rest, with one setting
   for the <strong>double</strong> quote key and one for the <strong>single</strong> quote
-  key, because which pair belongs on which key differs between conventions
-  — British typography traditionally sets a quotation in <code spellcheck="false">‘…’</code> where
+  key, because which pair belongs on which key differs between conventions:
+  British typography traditionally sets a quotation in <code spellcheck="false">‘…’</code> where
   American sets it in <code spellcheck="false">“…”</code>.</p>
 <p>Each offers:</p>
 <ul>
   <li><em>Based on the note's content language</em> (the default) — English gives <code
     spellcheck="false">“quote”</code>, German <code spellcheck="false">„quote“</code>,
     French <code spellcheck="false">« quote »</code>, Japanese <code spellcheck="false">「quote」</code>.
-    See <em>Content language &amp; Right-to-left support</em> for how a note's
-    language is decided.</li>
+    See&nbsp;<a class="reference-link" href="#root/_help_veGu4faJErEM">Content language &amp; Right-to-left support</a>&nbsp;for
+    how a note's language is decided.</li>
   <li><em>Disabled,</em> straight quotes stay straight.</li>
-  <li><em>A specific pair</em> — <code spellcheck="false">“…”</code>, <code spellcheck="false">‘…’</code>, <code
+  <li>A specific pair<em>: </em><code spellcheck="false">“…”</code>, <code spellcheck="false">‘…’</code>, <code
     spellcheck="false">„…“</code>, <code spellcheck="false">„…”</code>, <code
     spellcheck="false">«…»</code>, <code spellcheck="false">« … »</code>, <code
     spellcheck="false">‹…›</code>, <code spellcheck="false">「…」</code>, <code
-    spellcheck="false">『…』</code>. Choosing one applies it to every note, whatever
-    language it is written in.</li>
+    spellcheck="false">『…』</code>. Choosing one applies it to every note, regardless
+    of its content language.</li>
 </ul>
 <h2>Custom replacements</h2>
 <p>You can add your own under&nbsp;<a class="reference-link" href="#root/_help_4TIF1oA4VQRO">Options</a>&nbsp;→ <em>Text notes</em> → <em>Automatic replacements</em> → <em>Custom replacements</em>.
@@ -93,7 +95,7 @@ class="table">
   — a <code spellcheck="false">TN</code> replacement does not rewrite the end
   of <code spellcheck="false">BTN</code>, and <code spellcheck="false">TNT</code> can
   still be typed.</p>
-<p>Capitalisation follows what you type, unless the replacement has capitals
+<p>Capitalization follows what you type, unless the replacement has capitals
   of its own:</p>
 <figure class="table">
   <table>
@@ -123,21 +125,28 @@ class="table">
         </td>
         <td><code spellcheck="false">TN</code> or <code spellcheck="false">tn</code>
         </td>
-        <td><code spellcheck="false">Trilium Notes</code> (unchanged — it has capitals)</td>
+        <td><code spellcheck="false">Trilium Notes</code> (unchanged, it has capitals)</td>
       </tr>
     </tbody>
   </table>
 </figure>
-<p>The text to replace is matched literally; it is not a pattern. Typing
-  a replacement whose "text to replace" already exists updates that entry
-  rather than adding a second one.</p>
+<p>Of note:</p>
+<ul>
+  <li>The text to replace is matched literally; it is not a pattern.</li>
+  <li>Typing a "text to replace" that already exists in the list of replacements
+    will update the existing one instead. It's not possible to have multiple
+    replacements for the same text.</li>
+  <li>The same “text to replace” with different capitalization (e.g. <code spellcheck="false">TN</code> and <code
+    spellcheck="false">tn</code> co-existing) doesn't work because it would
+    interfere with the capitalization rules above.</li>
+</ul>
 <h2>Characters that only look replaced (ligatures)</h2>
 <p>If you see <code spellcheck="false">!=</code> displayed as <code spellcheck="false">≠</code> or <code
   spellcheck="false">-&gt;</code> as <code spellcheck="false">→</code> inside
-  a code block, that is not a replacement — replacements never run there.
-  It is a <em>font ligature</em>: the default monospace font draws certain
-  character pairs as a single symbol. The underlying text is unchanged, and
-  copying it out gives you back <code spellcheck="false">!=</code> and <code
-  spellcheck="false">-&gt;</code>.</p>
+  a code block, that is not a replacement since replacements never run there
+  (unless a code block is applied to an existing text). It is a <em>font ligature</em>:
+  the default monospace font draws certain character pairs as a single symbol.
+  The underlying text is unchanged, and copying it out gives you back <code
+  spellcheck="false">!=</code> and <code spellcheck="false">-&gt;</code>.</p>
 <p>This can be turned off with&nbsp;<a class="reference-link" href="#root/_help_4TIF1oA4VQRO">Options</a><em>→ Appearance → Fonts → Programming ligatures.</em>
 </p>

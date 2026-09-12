@@ -15,7 +15,7 @@ Once a shape is drawn, it cannot be moved or modified. To do so, simply remove t
 
 1.  Press the _Draw a path on the map_ or _Draw an area on the map_ button. The button stays held down while the tool is armed, and a notification describes what to do.
 2.  Click on the map once for each point. The shape is previewed as it grows.
-3.  Finish it by pressing <kbd spellcheck="false">Enter</kbd>. A path can also be finished by clicking its last point again, and an area by clicking the corner it started from. A path needs at least two points and an area at least three.
+3.  Finish it by pressing <kbd>Enter</kbd>. A path can also be finished by clicking its last point again, and an area by clicking the corner it started from. A path needs at least two points and an area at least three.
 
 ### Drawing a rectangle or a circle
 
@@ -25,7 +25,7 @@ Once a shape is drawn, it cannot be moved or modified. To do so, simply remove t
 
 ### Finishing and cancelling
 
-To give up on a shape while drawing it, press <kbd spellcheck="false">Escape</kbd> or press the tool's button again. Whatever has been drawn so far is discarded.
+To give up on a shape while drawing it, press <kbd>Escape</kbd> or press the tool's button again. Whatever has been drawn so far is discarded.
 
 The tool is deactivated once a shape is finished, so drawing a second shape requires another button press.
 
