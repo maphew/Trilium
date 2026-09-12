@@ -11,6 +11,7 @@ import { isLocationDot } from "./MapToolbar";
 import { MARKER_LAYER } from "./Markers";
 import { placeIcon } from "./osm_icons";
 import { PLACE_LAYER, PLACE_MARKER_COLOR } from "./PlaceMarker";
+import { shapeHitLayers } from "./ShapeLayer";
 
 /** The source layer the vector styles draw shops, cafes and the rest of the base map's places from. */
 const POI_SOURCE_LAYER = "pois";
@@ -341,11 +342,14 @@ export function poiLayers(map: MapLibreGLMap) {
 }
 
 /**
- * Whether the map has something of its own under the pointer — a marker, a cluster, a track or the
- * pin of a place already in hand. Those stand above the base map and answer for it.
+ * Whether the map has something of its own under the pointer — a marker, a cluster, a track, a drawn
+ * shape, or the pin of a place already in hand. Those stand above the base map and answer for it.
+ *
+ * A shape counts over its whole area rather than along its boundary, which is what `shapeHitLayers`
+ * gives: the fill covers every place standing inside it, and those belong to the shape.
  */
 function isOwnUnderPointer(map: MapLibreGLMap, point: MapMouseEvent["point"]) {
-    const own = [ MARKER_LAYER, PLACE_LAYER, ...CLUSTER_LAYERS, ...trackHitLayers(map) ]
+    const own = [ MARKER_LAYER, PLACE_LAYER, ...CLUSTER_LAYERS, ...trackHitLayers(map), ...shapeHitLayers(map) ]
         .filter((id) => map.getLayer(id));
 
     return own.length > 0 && map.queryRenderedFeatures(point, { layers: own }).length > 0;

@@ -54,6 +54,10 @@ function tooltipText() {
 
 type Listener = (e?: unknown) => void;
 
+/** The layers a drawn shape offers to be pointed at by, named after its note (see ShapeLayer). */
+const SHAPE_FILL_LAYER = "shape-fill-note1";
+const SHAPE_HIT_LAYER = "shape-hit-note1";
+
 /** A place as a tile carries one: named, classified by its OSM tags, standing at a point. */
 function poiFeature(properties: Record<string, unknown>, coordinates: [number, number] = [ 13.4, 52.5 ]) {
     return {
@@ -257,6 +261,23 @@ describe("geo map Pois", () => {
         expect(picked).toEqual([]);
     });
 
+    /**
+     * A drawn shape is one of the map's own, and an area covers every place standing inside it. Left
+     * out of the hit test, the click opened the place alongside the pane the shape had just opened.
+     */
+    it("leaves a click that landed inside a drawn shape to the shape", async () => {
+        const map = fakeMap({ ownLayerIds: [ SHAPE_FILL_LAYER, SHAPE_HIT_LAYER ] });
+        const { picked } = await renderPois(map);
+
+        map.setUnderPointer({
+            poi: [ poiFeature({ name: "Café Kranzler", amenity: "cafe" }) ],
+            own: [ { properties: { id: "note1" } } ]
+        });
+        await act(async () => { map.click(); });
+
+        expect(picked).toEqual([]);
+    });
+
     it("leaves a click that landed on the device's own dot to the dot", async () => {
         const map = fakeMap();
         const { picked } = await renderPois(map);
@@ -359,6 +380,17 @@ describe("geo map Pois", () => {
         map.hover(place);
 
         expect(map.cursor).toBe("pointer");
+    });
+
+    /** An area covers every place inside it, so its own name is what a rest there asks for. */
+    it("leaves the pointer to a drawn shape the place stands inside", async () => {
+        const map = fakeMap({ ownLayerIds: [ SHAPE_FILL_LAYER, SHAPE_HIT_LAYER ] });
+        await renderPois(map);
+
+        map.setUnderPointer({ own: [ { properties: { id: "note1" } } ] });
+        map.hover(poiFeature({ name: "Café Kranzler", amenity: "cafe" }));
+
+        expect(map.cursor).toBe("");
     });
 
     it("puts the pointer back on the layers a style switch brought in", async () => {
