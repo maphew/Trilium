@@ -2634,13 +2634,24 @@ describe("references to a board's columns and cards", () => {
         async () => {
             const board = buildNote({ title: "Board" });
             const { api } = createApi(
-                { columns: [ { value: "To Do", id: "colTodo00001" } ] }, [ "To Do" ], board);
+                {
+                    columns: [
+                        { value: "To Do", id: "colTodo00001", icon: "bx bx-star",
+                            color: "#ff8800" },
+                        { value: "Done", id: "colDone00001" }
+                    ]
+                },
+                [ "To Do", "Done" ], board);
             api.noteContext = { notePath: `root/parent1234/${board.noteId}` } as NoteContext;
 
-            await expect(api.getColumnReference("To Do"))
-                .resolves.toBe(`#root/parent1234/${board.noteId}?column=colTodo00001`);
-            expect(api.getCardReference("card00000001"))
-                .toBe(`#root/parent1234/${board.noteId}?card=card00000001`);
+            const path = `root/parent1234/${board.noteId}`;
+            await expect(api.getColumnReference("To Do")).resolves.toBe(
+                `#${path}?column=colTodo00001&columnTitle=To%20Do&columnIcon=bx%20bx-star`
+                + "&columnColor=%23ff8800");
+            // A column carrying no colour of its own leaves the parameter out.
+            await expect(api.getColumnReference("Done")).resolves.toBe(
+                `#${path}?column=colDone00001&columnTitle=Done&columnIcon=bx%20bx-circle`);
+            expect(api.getCardReference("card00000001")).toBe(`#${path}?card=card00000001`);
         });
 
     /** A board drawn outside a pane, such as in a note preview, still has itself to name. */

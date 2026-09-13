@@ -263,7 +263,7 @@ describe("Board column context menu", () => {
 
     /** The id is settled by the server, so the link is awaited before it is copied. */
     it("copies a link to the column once its id has been assigned", async () => {
-        const copy = vi.spyOn(clipboard, "copyTextWithToast").mockImplementation(() => {});
+        const copy = vi.spyOn(clipboard, "copyReferenceWithToast").mockResolvedValue();
         const api = {
             getColumnReference: async (column: string) =>
                 `#root/board1234?column=id-of-${column}`
@@ -591,7 +591,7 @@ describe("Board item context menu", () => {
     });
 
     it("copies a link to the card, which the card's own note id names", () => {
-        const copy = vi.spyOn(clipboard, "copyTextWithToast").mockImplementation(() => {});
+        const copy = vi.spyOn(clipboard, "copyReferenceWithToast").mockResolvedValue();
         const note = buildNote({ title: "Card" }) as FNote;
         const api = {
             columns: [],

@@ -3,7 +3,8 @@
  *
  * A reference is a note path plus a `?column=` or `?card=` parameter. `link.ts` carries both in the
  * pane's view scope, as it carries `?bookmark=`, and {@link useBoardReference} reads the parameter
- * once and reveals what it names.
+ * once and reveals what it names. A column reference also carries the column's title, icon and
+ * colour, which is what `link.ts` draws it from when the reference is pasted into a note.
  *
  * A card uses its note id. A column uses an id stored in `board.json`, because renaming a column
  * rewrites the value its cards carry.
@@ -95,6 +96,9 @@ export function useBoardReference({
                 : { board: noteId, kind: "card", noteId: viewScope.card ?? "" };
             switchedTo.current = null;
             viewScope.column = undefined;
+            viewScope.columnTitle = undefined;
+            viewScope.columnIcon = undefined;
+            viewScope.columnColor = undefined;
             viewScope.card = undefined;
         }
 
@@ -268,9 +272,32 @@ export function readColumnId(
     return columns?.find(column => column.value === value)?.id;
 }
 
-/** The link that opens a board on one of its columns. */
-export function columnReference(notePath: string, columnId: string) {
-    return `#${notePath}?column=${encodeURIComponent(columnId)}`;
+/** How a column reference names its column, which the link carries for display only. */
+export interface ColumnReferenceLabel {
+    title: string;
+    icon: string;
+    color?: string;
+}
+
+/**
+ * The link that opens a board on one of its columns.
+ *
+ * The label rides along so that a link can be drawn without reading `board.json`, which only the
+ * board itself loads. The id is what the board resolves, so renaming a column leaves the link
+ * working and only its label behind.
+ */
+export function columnReference(notePath: string, columnId: string, label: ColumnReferenceLabel) {
+    const params: [ string, string ][] = [
+        [ "column", columnId ],
+        [ "columnTitle", label.title ],
+        [ "columnIcon", label.icon ]
+    ];
+    if (label.color) {
+        params.push([ "columnColor", label.color ]);
+    }
+
+    const query = params.map(([ name, value ]) => `${name}=${encodeURIComponent(value)}`).join("&");
+    return `#${notePath}?${query}`;
 }
 
 /** The link that opens a board on one of its cards. */

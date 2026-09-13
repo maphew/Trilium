@@ -31,7 +31,9 @@ import {
 } from "./columns";
 import { readColumns, writeColumns } from "./column_storage";
 import { ColumnItem, ColumnMap } from "./data";
-import { cardReference, columnReference, newColumnId, readColumnId } from "./reference";
+import {
+    cardReference, ColumnReferenceLabel, columnReference, newColumnId, readColumnId
+} from "./reference";
 import { SORT_DESCENDING_LABEL, SORT_LABEL } from "./sort";
 
 /** Which end of a column a new card is made at. */
@@ -609,18 +611,28 @@ export default class BoardApi {
     /**
      * What each column is called, the icon it shows and how many cards it holds, which the right
      * pane's outline is drawn from.
+     */
+    getColumnOutline(columns: string[]) {
+        return columns.map(column => {
+            const { title, icon } = this.getColumnLabel(column);
+            return { value: column, title, icon, count: this.byColumn?.get(column)?.length ?? 0 };
+        });
+    }
+
+    /**
+     * What names a column wherever it stands for itself away from the board: its title, its icon
+     * and the colour it is tinted with.
      *
      * A relation board keys its columns by note id, so each one is named from the note's title.
      */
-    getColumnOutline(columns: string[]) {
-        return columns.map(column => ({
-            value: column,
+    getColumnLabel(column: string): ColumnReferenceLabel {
+        return {
             title: this.isRelationMode && column !== INBOX_COLUMN
                 ? froca.getNoteFromCache(column)?.title ?? column
                 : this.getColumnTitle(column),
             icon: this.getColumnIcon(column) ?? DEFAULT_COLUMN_ICON,
-            count: this.byColumn?.get(column)?.length ?? 0
-        }));
+            color: this.storedColumns.find(col => col.value === column)?.color
+        };
     }
 
     /**
@@ -852,7 +864,8 @@ export default class BoardApi {
      * copying a reference writes to `board.json` where nothing has been stored for the column yet.
      */
     async getColumnReference(column: string) {
-        return columnReference(this.boardNotePath, await this.ensureColumnId(column));
+        return columnReference(this.boardNotePath, await this.ensureColumnId(column),
+            this.getColumnLabel(column));
     }
 
     /** The link that opens this board on one of its cards, which is named by its own note id. */

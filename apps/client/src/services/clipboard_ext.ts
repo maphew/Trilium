@@ -1,4 +1,5 @@
 import { t } from "./i18n.js";
+import link from "./link.js";
 import toast from "./toast.js";
 import utils from "./utils.js";
 
@@ -79,4 +80,20 @@ export async function copyHtmlWithToast(html: string, plainText: string = html) 
     } else {
         toast.showError(t("clipboard.copy_failed"));
     }
+}
+
+/**
+ * Copies `href` as a reference link, so that pasting it into a note's content gives the title, icon
+ * and colour of what it points at rather than the address itself. Reports the outcome as a toast.
+ *
+ * The plain-text alternative is the address, which is what a target taking no HTML — a code note, a
+ * Markdown note, a terminal — needs to build a link of its own. The editor keeps only the `href`
+ * when it takes the rich flavour in and draws the rest from it, so the markup built here is what a
+ * non-Trilium target gets.
+ */
+export async function copyReferenceWithToast(href: string) {
+    const $link = $("<a>").addClass("reference-link").attr("href", href);
+    await link.loadReferenceLinkTitle($link, href);
+
+    await copyHtmlWithToast($link[0].outerHTML, href);
 }
