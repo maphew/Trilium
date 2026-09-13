@@ -2708,7 +2708,11 @@
     "sort-board-default": "Mainneachtain an Bhoird",
     "reset-column-sorting": "Athshocraigh na roghanna sórtála go dtí na réamhshocruithe do gach colún",
     "reset-column-sorting-confirm": "Ar mhaith leat na roghanna sórtála do gach colún sa radharc reatha a athshocrú go dtí na réamhshocruithe?",
-    "sorted-no-reorder": "Ní féidir ord na gcártaí a athrú, ós rud é gur colún sórtáilte é seo."
+    "sorted-no-reorder": "Ní féidir ord na gcártaí a athrú, ós rud é gur colún sórtáilte é seo.",
+    "copy-reference": "Cóipeáil an tagairt",
+    "reference-column-missing": "Níl an colún sin ar an gclár seo a thuilleadh.",
+    "reference-archived": "Tá an mhír sin curtha i gcartlann, mar sin níl sí á taispeáint ag an mbord.",
+    "reference-missing": "Níl an mhír sin ar an gclár seo a thuilleadh."
   },
   "presentation_view": {
     "edit-slide": "Cuir an sleamhnán seo in eagar",
