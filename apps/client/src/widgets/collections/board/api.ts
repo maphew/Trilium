@@ -620,10 +620,9 @@ export default class BoardApi {
     }
 
     /**
-     * What names a column wherever it stands for itself away from the board: its title, its icon
-     * and the colour it is tinted with.
+     * The title, icon and colour naming a column outside the board itself.
      *
-     * A relation board keys its columns by note id, so each one is named from the note's title.
+     * A relation board keys its columns by note id, so the title comes from the note.
      */
     getColumnLabel(column: string): ColumnReferenceLabel {
         return {
@@ -864,6 +863,13 @@ export default class BoardApi {
      * copying a reference writes to `board.json` where nothing has been stored for the column yet.
      */
     async getColumnReference(column: string) {
+        // `getColumnLabel` reads the note from froca's cache, which the heading fills only after
+        // the board is interactive. Load it first: the label is written into the link for good, so
+        // a cache miss would title the column with its note id.
+        if (this.isRelationMode && column !== INBOX_COLUMN) {
+            await froca.getNote(column, true);
+        }
+
         return columnReference(this.boardNotePath, await this.ensureColumnId(column),
             this.getColumnLabel(column));
     }

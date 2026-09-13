@@ -919,15 +919,15 @@ function AddNewItem({
     // What the editor opens with: empty to begin with, then whatever was typed into it and left
     // unsaved, so that reaching for something else and coming back does not cost the title.
     const [ initialTitle, setInitialTitle ] = useState("");
-    // What a card made from the template now offered would be drawn with.
+    // The icon a card made from the current template would carry.
     const templateIcon = cardTemplateIcon(cardTemplates.current) ?? DEFAULT_CARD_ICON;
     // Kept between cards, unlike the title: a run of cards is often a run of the same kind of card.
     const [ icon, setIcon ] = useState(templateIcon);
-    /** The template icon the field is showing, against which a pick of the reader's is told. */
+    /** The template icon `icon` was last set from, telling a picked icon from a followed one. */
     const followedIcon = useRef(templateIcon);
 
-    // The icon follows the template while it is still the template's own. One the reader picked
-    // stands, since the template changing under it says nothing about the icon they chose.
+    // Follow the template only while `icon` is still the previous template's. A picked icon is
+    // kept: a template change says nothing about it.
     useEffect(() => {
         if (templateIcon === followedIcon.current) {
             return;

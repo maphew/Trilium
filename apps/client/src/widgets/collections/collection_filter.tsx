@@ -199,8 +199,8 @@ export function CollectionFilterInput({ filter, placeholder }: {
     // Adopt a query submitted elsewhere, or the stored one arriving on mount.
     useEffect(() => setTyped(filter.query), [ filter.query ]);
 
-    // Searching the note lands here: a collection holds no text of its own, so the find bar has
-    // nothing to look through, and narrowing to what is searched for is what the reader is after.
+    // A collection has no text of its own for the find bar to search, so `findInText` focuses
+    // this box instead and the query narrows the collection.
     useTriliumEvent("findInText", ({ ntxId }) => {
         if (ntxId ? ntxId !== noteContext?.ntxId : !noteContext?.isActive()) {
             return;

@@ -4,7 +4,7 @@
  * A reference is a note path plus a `?column=` or `?card=` parameter. `link.ts` carries both in the
  * pane's view scope, as it carries `?bookmark=`, and {@link useBoardReference} reads the parameter
  * once and reveals what it names. A column reference also carries the column's title, icon and
- * colour, which is what `link.ts` draws it from when the reference is pasted into a note.
+ * colour, which `link.ts` renders the link from when the reference is pasted into a note.
  *
  * A card uses its note id. A column uses an id stored in `board.json`, because renaming a column
  * rewrites the value its cards carry.
@@ -272,7 +272,7 @@ export function readColumnId(
     return columns?.find(column => column.value === value)?.id;
 }
 
-/** How a column reference names its column, which the link carries for display only. */
+/** The column's title, icon and colour, carried in the link for display only. */
 export interface ColumnReferenceLabel {
     title: string;
     icon: string;
@@ -282,9 +282,9 @@ export interface ColumnReferenceLabel {
 /**
  * The link that opens a board on one of its columns.
  *
- * The label rides along so that a link can be drawn without reading `board.json`, which only the
- * board itself loads. The id is what the board resolves, so renaming a column leaves the link
- * working and only its label behind.
+ * `label` is written into the link because `board.json`, which holds it, is loaded by the board
+ * alone. `columnId` is what the board resolves, so a rename leaves the link working and only its
+ * label out of date.
  */
 export function columnReference(notePath: string, columnId: string, label: ColumnReferenceLabel) {
     const params: [ string, string ][] = [

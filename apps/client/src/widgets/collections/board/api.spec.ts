@@ -2654,6 +2654,32 @@ describe("references to a board's columns and cards", () => {
             expect(api.getCardReference("card00000001")).toBe(`#${path}?card=card00000001`);
         });
 
+    /**
+     * A relation board titles its columns from the notes they point at, and that title is written
+     * into the link permanently. The heading loads the note only after the board is interactive,
+     * so a reference copied before then would carry the note id as the title.
+     */
+    it("loads a relation column's note before naming it", async () => {
+        const target = buildNote({ title: "Alice", "#iconClass": "bx bx-user" });
+        const board = buildNote({ title: "Board" });
+        vi.spyOn(server, "put").mockResolvedValue({ id: "colAlice0001", stored: true } as never);
+        const { api } = createApi({}, [ target.noteId ], board, "~assignee");
+
+        // Not in the cache until it has been asked for, which is the state the board opens in.
+        let isCached = false;
+        vi.spyOn(froca, "getNoteFromCache").mockImplementation(
+            (noteId) => (isCached && noteId === target.noteId ? target : null) as never);
+        const getNote = vi.spyOn(froca, "getNote").mockImplementation(async () => {
+            isCached = true;
+            return target as never;
+        });
+
+        await expect(api.getColumnReference(target.noteId)).resolves.toBe(
+            `#${board.noteId}?column=colAlice0001&columnTitle=Alice`
+            + `&columnIcon=${encodeURIComponent("tn-icon bx bx-user")}`);
+        expect(getNote).toHaveBeenCalledWith(target.noteId, true);
+    });
+
     /** A board drawn outside a pane, such as in a note preview, still has itself to name. */
     it("falls back to the board's own id where the pane names no path", () => {
         const board = buildNote({ title: "Board" });

@@ -10,7 +10,7 @@ import { showError } from "./toast.js";
 import treeService from "./tree.js";
 import utils from "./utils.js";
 
-/** The icon a column reference falls back to when the link carries none of its own. */
+/** The icon a column reference uses when the link carries no `columnIcon`. */
 const DEFAULT_COLUMN_REFERENCE_ICON = "bx bx-columns";
 
 function getNotePathFromUrl(url: string) {
@@ -85,10 +85,9 @@ export interface ViewScope {
      */
     column?: string;
     /**
-     * How a column reference names its column: the title, icon and colour the board showed when the
-     * reference was made. Carried so that a link to a column can be drawn without reading the
-     * board's configuration; {@link column} is what the board resolves, so a renamed column is
-     * still found and only the label goes stale.
+     * The title, icon and colour a column reference renders as, copied from the board when the
+     * reference was made. Carried in the link because reading them needs the board's own
+     * configuration; {@link column} is what the board resolves, so a rename only dates the label.
      */
     columnTitle?: string;
     columnIcon?: string;
@@ -647,8 +646,8 @@ async function loadReferenceLinkTitle($el: JQuery<HTMLElement>, href: string | n
         console.warn("Missing note ID.");
     }
 
-    // A card reference names the board in its path and the card in `card`, so the card is what the
-    // link is drawn from while the board is what it opens.
+    // A card reference holds the board in its path and the card in `card`. The link renders the
+    // card; the path is what it opens.
     const subjectId = viewScope?.card || noteId;
     const note = subjectId ? await froca.getNote(subjectId, true) : null;
 
@@ -657,7 +656,7 @@ async function loadReferenceLinkTitle($el: JQuery<HTMLElement>, href: string | n
     }
 
     const title = await getReferenceLinkTitle(href);
-    // A column reference reads "<board>: <column>", the column following in a suffix of its own.
+    // A column reference renders as "<board>: <column>", the column in a `<small>` below.
     $el.text(viewScope?.columnTitle ? `${title}:` : title);
 
     if (viewScope?.bookmark) {
@@ -691,7 +690,7 @@ async function getReferenceLinkTitle(href: string) {
         return "[missing note]";
     }
 
-    // A card reference is named by the card, not by the board its path names.
+    // A card reference is titled by the card, not by the board in its path.
     const note = await froca.getNote(viewScope?.card || noteId);
     if (!note) {
         return "[missing note]";

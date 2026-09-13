@@ -38,10 +38,10 @@ export function currentCardTemplate(offered: NoteTypeOption[], stored: string | 
 }
 
 /**
- * The icon a card made from a template carries, as an icon class the picker also writes.
+ * The icon a card made from `template` carries, in the form `IconPicker` writes.
  *
- * `FNote.getIcon()` prefixes what it returns with `tn-icon`, which an `#iconClass` label never
- * carries, so a template note's icon is trimmed to what a pick would hand over.
+ * `FNote.getIcon()` prefixes its result with `tn-icon` and an `#iconClass` label does not, so a
+ * template note's icon needs that prefix removed to compare with a picked one.
  */
 export function cardTemplateIcon(template: NoteTypeOption | undefined) {
     return template?.icon.replace(/^tn-icon\s+/, "");
