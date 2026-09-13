@@ -9,10 +9,10 @@ These replacements are not applied inside code blocks or inline code, and pasted
 
 Once an automatic replacement takes place, it can be undone by:
 
-*   Pressing <kbd spellcheck="false">Backspace</kbd> immediately after a replacement undoes it and restores what you typed.
-    *   Note that this consumes the undo, so a further <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">Z</kbd> might delete your typed text.
-    *   Pressing <kbd spellcheck="false">Space</kbd> or changing the cursor position disables this functionality.
-*   Pressing <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">Z</kbd>, which works even after pressing space.
+*   Pressing <kbd>Backspace</kbd> immediately after a replacement undoes it and restores what you typed.
+    *   Note that this consumes the undo, so a further <kbd>Ctrl</kbd>+<kbd>Z</kbd> might delete your typed text.
+    *   Pressing <kbd>Space</kbd> or changing the cursor position disables this functionality.
+*   Pressing <kbd>Ctrl</kbd>+<kbd>Z</kbd>, which works even after pressing space.
 
 ### Replacement groups & configuration
 
@@ -33,7 +33,7 @@ Each offers:
 
 *   _Based on the note's content language_ (the default) — English gives `“quote”`, German `„quote“`, French `« quote »`, Japanese `「quote」`. See <a class="reference-link" href="Content%20language%20%26%20Right-to-left%20support.md">Content language &amp; Right-to-left support</a> for how a note's language is decided.
 *   _Disabled,_ straight quotes stay straight.
-*   A specific pair_:_ `“…”`, `‘…’`, `„…“`, `„…”`, `«…»`, `« … »`, `‹…›`, `「…」`, `『…』`. Choosing one applies it to every note, regardless of its content language.
+*   A specific pair\_:\_ `“…”`, `‘…’`, `„…“`, `„…”`, `«…»`, `« … »`, `‹…›`, `「…」`, `『…』`. Choosing one applies it to every note, regardless of its content language.
 
 ## Custom replacements
 

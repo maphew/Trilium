@@ -23,32 +23,32 @@ Child notes can be automatically sorted by attaching specific [labels](../../Adv
     </thead>
     <tbody>
         <tr>
-            <td><code spellcheck="false">#sorted</code></td>
+            <td><code>#sorted</code></td>
             <td><p>Keeps child notes sorted by title alphabetically.</p><p>When given a value, it will sort by the value of another label instead. If one of the child notes doesn't have the specified label, the title will be used for them instead.</p></td>
         </tr>
         <tr>
-            <td><code spellcheck="false">#sortDirection</code></td>
-            <td><p>If <code spellcheck="false">sorted</code> is applied, specifies the direction of the sort:</p><ul><li><code spellcheck="false">ASC</code>, ascending (default)</li><li><code spellcheck="false">DESC</code>, descending</li></ul></td>
+            <td><code>#sortDirection</code></td>
+            <td><p>If <code>sorted</code> is applied, specifies the direction of the sort:</p><ul><li><code>ASC</code>, ascending (default)</li><li><code>DESC</code>, descending</li></ul></td>
         </tr>
         <tr>
-            <td><code spellcheck="false">#sortFoldersFirst</code></td>
-            <td>If <code spellcheck="false">sorted</code> is applied, folders (notes with children) will be sorted as a group at the top, and the rest will be sorted.</td>
+            <td><code>#sortFoldersFirst</code></td>
+            <td>If <code>sorted</code> is applied, folders (notes with children) will be sorted as a group at the top, and the rest will be sorted.</td>
         </tr>
         <tr>
-            <td><code spellcheck="false">#sortNatural</code></td>
+            <td><code>#sortNatural</code></td>
             <td>Sort numbers naturally instead of alphabetically, so 2 comes before 10.</td>
         </tr>
         <tr>
-            <td><code spellcheck="false">#sortLocale</code></td>
-            <td>The language code driving the natural sort (e.g. <code spellcheck="false">zh-CN</code>, <code spellcheck="false">de</code>). Only meaningful together with <code spellcheck="false">#sortNatural</code>.</td>
+            <td><code>#sortLocale</code></td>
+            <td>The language code driving the natural sort (e.g. <code>zh-CN</code>, <code>de</code>). Only meaningful together with <code>#sortNatural</code>.</td>
         </tr>
         <tr>
-            <td><code spellcheck="false">#top</code></td>
-            <td>If <code spellcheck="false">sorted</code> is applied to the parent note, keeps given note on top in its parent.</td>
+            <td><code>#top</code></td>
+            <td>If <code>sorted</code> is applied to the parent note, keeps given note on top in its parent.</td>
         </tr>
         <tr>
-            <td><code spellcheck="false">#bottom</code></td>
-            <td>If <code spellcheck="false">sorted</code> is applied to the parent note, keeps given note on bottom in its parent.</td>
+            <td><code>#bottom</code></td>
+            <td>If <code>sorted</code> is applied to the parent note, keeps given note on bottom in its parent.</td>
         </tr>
     </tbody>
 </table>

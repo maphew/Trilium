@@ -34,7 +34,6 @@ The tool is deactivated once a shape is finished, so drawing a second shape requ
 Once a shape is created:
 
 *   Clicking a shape opens the standard panel which allows changing the title, the content and with buttons to open the note or remove it.
-    
     *   When clicking, a marker takes priority over the shape.
 *   Right-clicking a shape opens a contextual menu similar to the one for markers, which allows opening the corresponding note or removing the shape.
 *   Typing in the map's search bar finds shapes by their title, as it does markers. Selecting one brings the whole shape into view.
