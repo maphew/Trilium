@@ -1685,6 +1685,7 @@ body.mobile .dropdown-submenu > .dropdown-menu {
     top: unset !important;
     margin-top: 0 !important;
     width: 100%;
+    max-height: none;
 }
 
 #context-menu-container,
