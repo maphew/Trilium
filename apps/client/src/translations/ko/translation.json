@@ -3324,7 +3324,11 @@
     "drop-as-last-item": "마지막 항목으로 놓기",
     "column-width-narrow": "좁게 (기본값)",
     "column-width-medium": "중간",
-    "column-width-wide": "넓게"
+    "column-width-wide": "넓게",
+    "copy-reference": "참조 복사",
+    "reference-column-missing": "해당 열은 더 이상 이 보드에 없습니다.",
+    "reference-archived": "해당 항목은 보관되어 있어 보드에 표시되지 않습니다.",
+    "reference-missing": "해당 항목은 더 이상 이 보드에 없습니다."
   },
   "dashboard_view": {
     "refresh-widget": "새로 고침",
