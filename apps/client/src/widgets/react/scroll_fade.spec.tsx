@@ -84,6 +84,31 @@ describe("useScrollFade", () => {
         expect(scroller.className).not.toContain("scroll-fade-end");
     });
 
+    /**
+     * A fade reaching 20px into a container that scrolls 2px covers ten times what it hides, and
+     * reads as content below that scrolling never reaches.
+     */
+    it("leaves both ends alone while there is less to scroll than the fade reaches", () => {
+        const scroller = setup({ contentSize: 218 });
+
+        expect(scroller.className).not.toContain("scroll-fade-end");
+
+        // Past the fade's own reach, so the fade now stands for something.
+        content = 222;
+        act(() => {
+            scroller.dispatchEvent(new Event("scroll"));
+            vi.advanceTimersByTime(20);
+        });
+        expect(scroller.className).toContain("scroll-fade-end");
+    });
+
+    /** A line of text cut off by a character still has to read as cut off. */
+    it("fades a smaller overflow for a caller that asks for one", () => {
+        const scroller = setup({ contentSize: 205, options: { minOverflow: 1 } });
+
+        expect(scroller.className).toContain("scroll-fade-end");
+    });
+
     /** Cards arrive and leave without the box changing size, which no resize reports. */
     it("measures again when the content changes", async () => {
         const scroller = setup({ contentSize: 150 });
