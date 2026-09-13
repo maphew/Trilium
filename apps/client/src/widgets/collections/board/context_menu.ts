@@ -8,6 +8,7 @@ import NoteColorPicker from "../../../menus/custom-items/NoteColorPicker";
 import link_context_menu from "../../../menus/link_context_menu";
 import attributes from "../../../services/attributes";
 import branches from "../../../services/branches";
+import { copyTextWithToast } from "../../../services/clipboard_ext";
 import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import { shared } from "../../../services/note_set";
@@ -72,7 +73,12 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
             uiIcon: "bx bx-subdirectory-right",
             checked: !!column.nested,
             handler: () => api.setInboxNested(!column.nested)
-        } ] : [])
+        } ] : []),
+        {
+            title: t("board_view.copy-reference"),
+            uiIcon: "bx bx-directions",
+            handler: async () => copyTextWithToast(await api.getColumnReference(column.value))
+        }
     ];
 
     contextMenu.show({
@@ -527,6 +533,11 @@ export function openNoteContextMenu(api: Api, event: ContextMenuEvent, target: N
             handler: () => api.startEditing(branchId)
         },
         link_context_menu.getOpenNoteItem(event),
+        {
+            title: t("board_view.copy-reference"),
+            uiIcon: "bx bx-directions",
+            handler: () => copyTextWithToast(api.getCardReference(note.noteId))
+        },
         { kind: "separator" }
     ];
 

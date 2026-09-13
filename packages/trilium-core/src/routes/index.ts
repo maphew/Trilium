@@ -300,6 +300,7 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     apiRoute(PST, "/api/sql/execute/:noteId", sqlRoute.execute);
 
     apiRoute(PUT, "/api/notes/:noteId/board/rename-column", boardRoute.renameColumn);
+    apiRoute(PUT, "/api/notes/:noteId/board/column-id", boardRoute.ensureColumnId);
 
     apiRoute(PST, "/api/bulk-action/execute", bulkActionRoute.execute);
     apiRoute(PST, "/api/bulk-action/affected-notes", bulkActionRoute.getAffectedNoteCount);

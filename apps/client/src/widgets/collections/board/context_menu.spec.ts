@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CommandNames } from "../../../components/app_context";
 import contextMenu, { ContextMenuEvent, MenuItem } from "../../../menus/context_menu";
 import branches from "../../../services/branches";
+import * as clipboard from "../../../services/clipboard_ext";
 import dialog from "../../../services/dialog";
 import FNote from "../../../entities/fnote";
 import type { PromotedAttribute } from "../promoted_attributes";
@@ -240,7 +241,7 @@ describe("Board column context menu", () => {
         const titled = openMenu({} as BoardApi).filter(item => item && "uiIcon" in item);
         expect(titled.map(item => "uiIcon" in item ? item.uiIcon : undefined))
             .toEqual([
-                "bx bx-edit-alt",
+                "bx bx-edit-alt", "bx bx-directions",
                 "bx bx-plus", "bx bx-link", "bx bx-columns",
                 "bx bx-collapse-horizontal", "bx bx-lock-alt", "bx bx-sort-alt-2",
                 "bx bx-tachometer",
@@ -249,12 +250,31 @@ describe("Board column context menu", () => {
             ]);
     });
 
-    /** A collapsed column offers no rename, so the group above the first divider is empty. */
+    /**
+     * A collapsed column offers no rename, so the reference is all its leading group holds. The
+     * menu still opens on an entry rather than on the divider that closes the group.
+     */
     it("opens on an entry rather than a divider when it has nothing to rename", () => {
         const items = openMenu({} as BoardApi, { canRename: false, isCollapsed: true });
 
         expect(items[0]).not.toMatchObject({ kind: "separator" });
-        expect(items[0]).toMatchObject({ uiIcon: "bx bx-plus" });
+        expect(items[0]).toMatchObject({ uiIcon: "bx bx-directions" });
+    });
+
+    /** The id is settled by the server, so the link is awaited before it is copied. */
+    it("copies a link to the column once its id has been assigned", async () => {
+        const copy = vi.spyOn(clipboard, "copyTextWithToast").mockImplementation(() => {});
+        const api = {
+            getColumnReference: async (column: string) =>
+                `#root/board1234?column=id-of-${column}`
+        } as unknown as BoardApi;
+
+        const entry = openMenu(api, { value: "To Do" }).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-directions");
+        if (!entry || !("handler" in entry)) throw new Error("expected a copy-reference entry");
+
+        await entry.handler?.(entry, {} as never);
+        expect(copy).toHaveBeenCalledWith("#root/board1234?column=id-of-To Do");
     });
 
     /** Every place offered has to actually move the column, or the menu promises nothing. */
@@ -570,6 +590,40 @@ describe("Board item context menu", () => {
             .toEqual([ "bx bx-list-plus", "bx bx-empty", "bx bx-outline" ]);
     });
 
+    it("copies a link to the card, which the card's own note id names", () => {
+        const copy = vi.spyOn(clipboard, "copyTextWithToast").mockImplementation(() => {});
+        const note = buildNote({ title: "Card" }) as FNote;
+        const api = {
+            columns: [],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            getCardReference: (noteId: string) => `#root/board1234?card=${noteId}`
+        } as unknown as BoardApi;
+
+        const entry = openItemMenu(api, "To Do", vi.fn(), vi.fn(), 2, vi.fn(), [ note ])
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-directions");
+        if (!entry || !("handler" in entry)) throw new Error("expected a copy-reference entry");
+
+        entry.handler?.(entry, {} as never);
+        expect(copy).toHaveBeenCalledWith(`#root/board1234?card=${note.noteId}`);
+    });
+
+    /** A whole selection has no one card to make a link to, so the entry is left out. */
+    it("offers no reference for a selection of several cards", () => {
+        const api = {
+            columns: [],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => ""
+        } as unknown as BoardApi;
+        const notes = [ buildNote({ title: "One" }), buildNote({ title: "Two" }) ] as FNote[];
+
+        const icons = openItemMenu(api, "To Do", vi.fn(), vi.fn(), 2, vi.fn(), notes)
+            .map(item => (item && "uiIcon" in item ? item.uiIcon : undefined));
+        expect(icons).not.toContain("bx bx-directions");
+    });
+
     it("says nothing about moving up the card already at the head", () => {
         const api = {
             columns: [],
@@ -635,7 +689,8 @@ describe("Board item context menu", () => {
 
     /** Where the entries a card is opened and named with end, which the next group follows. */
     function lastOfLeadingGroup(items: MenuItem<unknown>[]) {
-        return items.findIndex(item => item && "title" in item && item.title === "Open note");
+        return items.findIndex(item =>
+            item && "title" in item && item.title === "board_view.copy-reference");
     }
 
     it("copies a card into the board, after the one it was made from", async () => {

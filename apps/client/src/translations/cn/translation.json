@@ -633,7 +633,8 @@
     "enable_inbox_column": "对于看板集合，显示收件箱列，其中列出所有未被分配到看板列的子笔记。",
     "sort_columns": "对于看板集合，指各列对其卡片进行排序的顺序；除非某列被赋予了自己的排序顺序，否则它遵循此顺序。值可为 <code>title</code>, <code>creationDate</code> 或 <code>attr:</code> 后跟提升属性的名称。",
     "sort_columns_descending": "对于看板集合，按 <code>#sortColumns</code> 的顺序反向运行。",
-    "board_card_redirect_to": "在看板卡片上，打开卡片会跳转到它所指向的笔记，而不是打开卡片本身。"
+    "board_card_redirect_to": "在看板卡片上，打开卡片会跳转到它所指向的笔记，而不是打开卡片本身。",
+    "board_card_width": "对于看板集合，指各列的绘制宽度： <code>narrow</code>（窄）、<code>medium</code>（中）或 <code>wide</code>（宽）。在移动端会被忽略，移动端会按其自身宽度绘制。"
   },
   "attribute_editor": {
     "help_text_body1": "要添加标签，只需输入例如 <code>#rock</code> ；或者如果你还想同时添加数值，则可输入例如 <code>#year = 2020</code>",
@@ -2574,7 +2575,7 @@
     "create-column-at-end": "在末尾新建列",
     "keep-column-collapsed": "保持列折叠",
     "collapse-hint": "双击以折叠",
-    "more-columns": "更多状态…",
+    "more-columns": "更多…",
     "collapse-all-columns": "折叠所有列",
     "expand-all-columns": "展开所有列",
     "show-inbox-column": "显示收件箱列",
@@ -2603,7 +2604,16 @@
     "default-card-order": "默认卡片顺序",
     "default-card-order-description": "决定各列中卡片的排序方式；若某列单独设置了排序，则以该列设置为准。",
     "reset-column-sorting": "将所有列的排序重置为默认",
-    "reset-column-sorting-confirm": "是否要将当前视图中所有列的排序重置为默认？"
+    "reset-column-sorting-confirm": "是否要将当前视图中所有列的排序重置为默认？",
+    "column-name-taken": "已存在名为“{{- column}}”的列。",
+    "columns-title": "列",
+    "columns-empty": "此看板还没有任何列。",
+    "column-width": "列宽",
+    "drop-as-first-item": "作为第一项拖放",
+    "drop-as-last-item": "作为最后一项拖放",
+    "column-width-narrow": "窄（默认）",
+    "column-width-medium": "中",
+    "column-width-wide": "宽"
   },
   "command_palette": {
     "tree-action-name": "树形：{{name}}",

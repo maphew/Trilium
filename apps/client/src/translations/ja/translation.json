@@ -744,7 +744,7 @@
     "create-column-at-end": "末尾に列を作成",
     "keep-column-collapsed": "列を折りたたんだままにする",
     "collapse-hint": "ダブルクリックで折りたたむ",
-    "more-columns": "その他のステータス…",
+    "more-columns": "その他…",
     "collapse-all-columns": "すべての列を折りたたむ",
     "expand-all-columns": "すべての列を展開",
     "show-inbox-column": "インボックス列を表示",
@@ -773,7 +773,16 @@
     "default-card-order": "デフォルトのカード並び順",
     "default-card-order-description": "特定の列に対して異なる並べ替えオプションを選択しない限り、各列のカードはこの順序で並べ替えられます。",
     "reset-column-sorting": "すべての列の並べ替えオプションをデフォルトにリセット",
-    "reset-column-sorting-confirm": "現在のビューにあるすべての列の並べ替えオプションを、デフォルトにリセットしますか？"
+    "reset-column-sorting-confirm": "現在のビューにあるすべての列の並べ替えオプションを、デフォルトにリセットしますか？",
+    "column-name-taken": "“{{- column}}” という名前の列はすでに存在します。",
+    "columns-title": "列",
+    "columns-empty": "このボードにはまだ列がありません。",
+    "column-width": "列の幅",
+    "drop-as-first-item": "最初の項目としてドロップ",
+    "drop-as-last-item": "最後の項目としてドロップ",
+    "column-width-narrow": "狭い（デフォルト）",
+    "column-width-medium": "中",
+    "column-width-wide": "広い"
   },
   "code_buttons": {
     "execute_button_title": "スクリプトを実行",
@@ -1658,7 +1667,8 @@
     "enable_inbox_column": "ボードコレクションの場合、インボックス列が表示され、ボード列に割り当てられていないすべての子ノートが一覧表示されます。",
     "sort_columns": "ボードコレクションにおいて、列がカードを並べ替える際の基準となる順序です。列に独自の並べ替え順序が指定されていない限り、この順序が適用されます。<code>title</code>、<code>creationDate</code>、または <code>attr:</code> に続けて昇格(プロモート)された属性名を指定します。",
     "sort_columns_descending": "ボードコレクションの場合、<code>#sortColumns</code> で指定された順序を逆順にします。",
-    "board_card_redirect_to": "ボード上のカードを開いたとき、カード自体を開くのではなく、そのカードが指し示しているノートに移動します。"
+    "board_card_redirect_to": "ボード上のカードを開いたとき、カード自体を開くのではなく、そのカードが指し示しているノートに移動します。",
+    "board_card_width": "ボードコレクションにおける列の幅: <code>narrow</code>、<code>medium</code>、<code>wide</code>（狭い、中、広い）を指定します。モバイルでは独自の幅で描画されるため、この設定は無視されます。"
   },
   "link_context_menu": {
     "open_note_in_popup": "クイック編集",

@@ -29,3 +29,18 @@ export function boardColumnsKey(groupBy: string | undefined | null): BoardColumn
 export function isBoardColumnsKey(key: string): boolean {
     return key.endsWith("ViewColumns") && key.length > "ViewColumns".length;
 }
+
+/**
+ * Which grouping a `board.json` key holds the columns of, or nothing where it holds none.
+ *
+ * The reverse of {@link boardColumnsKey}, for reading a board's stored columns without knowing
+ * which grouping they belong to: a column reference names a column alone, and the board has to
+ * find which of its groupings owns it.
+ */
+export function boardGroupByFromColumnsKey(key: string): string | undefined {
+    if (key === "columns") {
+        return DEFAULT_BOARD_GROUP_BY;
+    }
+
+    return isBoardColumnsKey(key) ? key.slice(0, -"ViewColumns".length) : undefined;
+}

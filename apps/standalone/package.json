@@ -49,7 +49,7 @@
     "scrypt-js": "3.0.1",
     "jsplumb": "2.15.6",
     "katex": "0.18.7",
-    "maplibre-gl": "6.8.0",
+    "maplibre-gl": "6.9.0",
     "mark.js": "8.11.1",
     "marked": "18.0.12",
     "mermaid": "11.17.2",
@@ -75,7 +75,7 @@
     "@types/reveal.js": "5.2.2",
     "@types/tabulator-tables": "6.3.6",
     "cross-env": "10.1.0",
-    "happy-dom": "20.14.0",
+    "happy-dom": "20.14.3",
     "sass": "1.104.0",
     "vite-plugin-static-copy": "4.1.1"
   }

@@ -574,6 +574,33 @@ describe("Collapsed board columns", () => {
     });
 
     /**
+     * The overlay group holds the same two actions as the board menu, followed by the
+     * shortcut-hints button.
+     */
+    it("collapses and expands every column from the overlay group", async () => {
+        const { mountPoint } = await setup({ keepCollapsed: true });
+        const group = mountPoint.querySelector<HTMLElement>(".board-overlay-controls");
+        const buttons = [ ...(group?.querySelectorAll<HTMLButtonElement>("button") ?? []) ];
+        expect(buttons.map(button => button.getAttribute("aria-label"))).toEqual([
+            "board_view.collapse-all-columns", "board_view.expand-all-columns",
+            "shortcut_hints.show_button"
+        ]);
+
+        await act(async () => {
+            buttons[0]?.click();
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(isCollapsed(mountPoint, 1)).toBe(true);
+
+        await act(async () => {
+            buttons[1]?.click();
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+        expect(isCollapsed(mountPoint, 1)).toBe(false);
+    });
+    /**
      * A press on a card is focus arriving before it is a click, and while the whole board is peeked
      * every column reads as inactive. The column pressed in keeps its peek; the rest give theirs up.
      */
@@ -4229,10 +4256,38 @@ describe("Board properties from the note menu", () => {
         expect(isOpen()).toBe(true);
     });
 
+    /**
+     * The collection settings menu opens the same dialog. Its entry comes after the view options,
+     * separated from them by a divider.
+     */
+    it("opens the dialog from the collection settings menu, below a divider", async () => {
+        await renderBoardInContext("ntx-1");
+
+        const cog = container?.querySelector<HTMLElement>(".collection-properties button.bx-cog");
+        const options = cog?.closest(".dropdown");
+        if (!options) throw new Error("expected a settings menu on the collection bar");
+        await act(async () => {
+            $(options as HTMLElement).trigger("show.bs.dropdown");
+            await flush();
+        });
+
+        const entry = [ ...options.querySelectorAll<HTMLElement>(".dropdown-item") ].at(-1);
+        if (!entry) throw new Error("expected an entry in the settings menu");
+        expect(entry.textContent).toContain("board_view.properties");
+        expect(entry.previousElementSibling?.className).toContain("dropdown-divider");
+
+        await act(async () => {
+            entry.click();
+            await flush();
+        });
+        expect(document.querySelector(".board-properties-dialog .modal-dialog")).toBeTruthy();
+    });
+
     /** Mounts a board belonging to the given tab, returning what events reach it through. */
     async function renderBoardInContext(ntxId: string) {
         const note = buildNote({
             title: "Board",
+            type: "book",
             "#collection": "",
             "#viewType": "board",
             children: [

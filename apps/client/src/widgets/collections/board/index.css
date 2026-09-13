@@ -1372,3 +1372,9 @@ body.mobile .column-drop-placeholder {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Below `.board-edit-backdrop` (z-index 50), so the controls dim with the board while a card is
+   being named. */
+.board-view .board-overlay-controls {
+  z-index: 2;
+}
