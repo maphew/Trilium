@@ -5,7 +5,7 @@ import froca from "../services/froca.js";
 import { t } from "../services/i18n.js";
 import linkService, { calculateHash, type ViewScope } from "../services/link.js";
 import server from "../services/server.js";
-import shortcutService, { isIMEComposing } from "../services/shortcuts.js";
+import shortcutService, { isAppShortcutChord, isIMEComposing } from "../services/shortcuts.js";
 import utils, { handleRightToLeftPlacement } from "../services/utils.js";
 import BasicWidget from "./basic_widget.js";
 
@@ -229,8 +229,23 @@ export default class QuickSearchWidget extends BasicWidget {
             this.$searchString.focus();
         });
 
-        shortcutService.bindElShortcut(this.$searchString, "down", () => {
-            this.$dropdownMenu.find(".dropdown-item:not(.disabled):first").focus();
+        // Steps from the search box into the results. Bootstrap moves between the items from there,
+        // but it ignores key events on an input, and bindElShortcut() refuses a modifier-less
+        // ArrowDown, so this listener is what opens the way in.
+        this.$searchString.on("keydown", (e) => {
+            const event = e.originalEvent as KeyboardEvent | undefined;
+
+            if (!event || event.key !== "ArrowDown" || !this.isDropdownOpen()) {
+                return;
+            }
+
+            if (isIMEComposing(event) || isAppShortcutChord(event) || event.shiftKey) {
+                return;
+            }
+
+            e.preventDefault();
+            // first() rather than the `:first` selector, which jQuery 4 dropped.
+            this.$dropdownMenu.find(".dropdown-item:not(.disabled)").first().focus();
         });
 
         shortcutService.bindElShortcut(this.$searchString, "esc", () => {
@@ -420,9 +435,12 @@ export default class QuickSearchWidget extends BasicWidget {
 
         shortcutService.bindElShortcut($showInFullButton, "return", () => this.showInFullSearch());
 
-        shortcutService.bindElShortcut(this.$dropdownMenu.find(".dropdown-item:first"), "up", () => this.$searchString.focus());
-
         this.dropdown.update();
+    }
+
+    /** Whether the results popup is open, which is what makes ArrowDown move focus into it. */
+    private isDropdownOpen() {
+        return this.$dropdownMenu.hasClass("show");
     }
 
     async showInFullSearch() {
