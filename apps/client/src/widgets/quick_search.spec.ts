@@ -34,6 +34,13 @@ describe("QuickSearchWidget", () => {
         expect(pressArrowDown($input[0])).toBe(false);
         expect(document.activeElement).not.toBe($firstItem[0]);
     });
+
+    it("leaves ArrowDown alone when the popup holds no result to focus", async () => {
+        const widget = await renderAndSearch(0);
+
+        expect(widget.$widget.find(".dropdown-menu .dropdown-item.disabled").length).toBe(1);
+        expect(pressArrowDown(widget.$widget.find(".search-string")[0])).toBe(false);
+    });
 });
 
 /** Returns whether the widget claimed the key, which is what keeps the caret from moving. */
@@ -45,8 +52,8 @@ function pressArrowDown(element: HTMLElement, modifiers: KeyboardEventInit = {})
     return event.defaultPrevented;
 }
 
-async function renderAndSearch() {
-    const searchResults = Array.from({ length: 3 }, (_, index) => ({
+async function renderAndSearch(resultCount = 3) {
+    const searchResults = Array.from({ length: resultCount }, (_, index) => ({
         notePath: `note${index}`,
         noteTitle: `Note ${index}`,
         notePathTitle: `Note ${index}`,

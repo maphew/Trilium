@@ -229,9 +229,8 @@ export default class QuickSearchWidget extends BasicWidget {
             this.$searchString.focus();
         });
 
-        // Steps from the search box into the results. Bootstrap moves between the items from there,
-        // but it ignores key events on an input, and bindElShortcut() refuses a modifier-less
-        // ArrowDown, so this listener is what opens the way in.
+        // Bootstrap moves between the results but ignores key events on an input, so the step from
+        // the search box into the list is bound here.
         this.$searchString.on("keydown", (e) => {
             const event = e.originalEvent as KeyboardEvent | undefined;
 
@@ -243,9 +242,15 @@ export default class QuickSearchWidget extends BasicWidget {
                 return;
             }
 
+            const $firstResult = this.$dropdownMenu.find(".dropdown-item:not(.disabled)").first();
+
+            // Searching and no-results leave only a disabled item, and the caret keeps the key.
+            if (!$firstResult.length) {
+                return;
+            }
+
             e.preventDefault();
-            // first() rather than the `:first` selector, which jQuery 4 dropped.
-            this.$dropdownMenu.find(".dropdown-item:not(.disabled)").first().focus();
+            $firstResult.focus();
         });
 
         shortcutService.bindElShortcut(this.$searchString, "esc", () => {
