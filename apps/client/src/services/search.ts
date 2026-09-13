@@ -19,8 +19,8 @@ async function searchForNotes(searchString: string) {
  */
 async function searchInSubtree(searchString: string, ancestorNoteId: string) {
     return await server.get<SearchWithTokensResponse>(
-        `search/${encodeURIComponent(searchString)}`
-        + `?ancestorNoteId=${encodeURIComponent(ancestorNoteId)}&includeTokens=true`);
+        `search?searchString=${encodeURIComponent(searchString)}`
+        + `&ancestorNoteId=${encodeURIComponent(ancestorNoteId)}&includeTokens=true`);
 }
 
 export default {

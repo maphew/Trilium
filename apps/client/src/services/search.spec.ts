@@ -40,7 +40,7 @@ describe("search service", () => {
         const result = await searchService.searchInSubtree("#done & task", "board1");
 
         expect(get).toHaveBeenCalledWith(
-            `search/${encodeURIComponent("#done & task")}?ancestorNoteId=board1&includeTokens=true`);
+            `search?searchString=${encodeURIComponent("#done & task")}&ancestorNoteId=board1&includeTokens=true`);
         expect(result).toBe(response);
     });
 
