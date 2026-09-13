@@ -8,6 +8,7 @@ import { t } from "../../services/i18n";
 import { randomString } from "../../services/utils";
 import { useActiveNoteContext, useContentElement, useGetContextData, useIsNoteReadOnly, useMathRendering, useNoteProperty, useTextEditor } from "../react/hooks";
 import Icon from "../react/Icon";
+import { getEditorNoteId } from "../react/NoteStore";
 import RawHtml from "../react/RawHtml";
 import RightPanelWidget from "./RightPanelWidget";
 
@@ -213,58 +214,55 @@ interface CKHeading extends RawHeading {
 }
 
 function EditableTextTableOfContents() {
-    const { noteContext } = useActiveNoteContext();
+    const { note, noteContext } = useActiveNoteContext();
     const textEditor = useTextEditor(noteContext);
     const [ headings, setHeadings ] = useState<CKHeading[]>([]);
     const [ scrollingContainer, setScrollingContainer ] = useState<HTMLElement | null>(null);
 
-    // Subscribe to editor changes once per editor instance — crucially NOT keyed on the
-    // active note. The CKEditor instance is reused across note switches within a tab (the
-    // content is swapped in via `editor.setData()`, which emits `change:data`), so keying
-    // this on the note would tear the listener down and re-attach it on every navigation.
-    // Because re-attaching is deferred behind an async `import()`, the `setData()` for the
-    // freshly-navigated note — and the `change:data` it emits — can fire during that gap
-    // with no listener attached, leaving the sidebar stuck on the previous note's headings
-    // (especially for large notes, whose content lands well after the switch). A stable
-    // per-editor subscription closes that window: the initial extract handles the first
-    // note, and every subsequent note's `setData()` re-extracts through the same listener.
+    // The CKEditor instance is reused across note switches within a tab and across the
+    // read-only ↔ editable switch: the note detail keeps it mounted behind the read-only view
+    // and swaps content in with `editor.setData()`, which emits `change:data`. So the editor
+    // this runs against can still hold the note the user edited before, and does until this
+    // note's blob arrives — a wait the auto-readonly threshold makes a long one.
     useEffect(() => {
         if (!textEditor) return;
-        setHeadings(extractTocFromTextEditor(textEditor));
 
-        // The helper lives in the CKEditor bundle, which is statically heavy but guaranteed
-        // to be loaded by now (a text editor instance exists), so resolving it via a dynamic
-        // import keeps it out of this component's startup graph.
-        let disposed = false;
-        let removeListener: (() => void) | undefined;
+        // `getEditorNoteId()` says whose content is in the editor. Extracting from another note's
+        // would put its headings in the sidebar; the listener below picks this note's up as soon
+        // as `setData()` lands.
+        if (getEditorNoteId(textEditor) === note?.noteId) {
+            setHeadings(extractTocFromTextEditor(textEditor));
+        }
+
+        // Attached synchronously so no `setData()` can slip past it. Only the attribute check
+        // waits on the CKEditor bundle, which is statically heavy but guaranteed to be loaded by
+        // now (a text editor instance exists); until it resolves, inserts and removals — which is
+        // what `setData()` produces — still come through.
+        let affectsHeading: typeof import("@triliumnext/ckeditor5").attributeChangeAffectsHeading | undefined;
         void import("@triliumnext/ckeditor5").then(({ attributeChangeAffectsHeading }) => {
-            if (disposed) return;
-
-            const changeCallback = () => {
-                const changes = textEditor.model.document.differ.getChanges();
-
-                const affectsHeadings = changes.some( change => {
-                    return (
-                        change.type === 'insert' || change.type === 'remove' ||
-                        (change.type === 'attribute' && attributeChangeAffectsHeading(change, textEditor))
-                    );
-                });
-                if (affectsHeadings) {
-                    requestAnimationFrame(() => {
-                        setHeadings(extractTocFromTextEditor(textEditor));
-                    });
-                }
-            };
-
-            textEditor.model.document.on("change:data", changeCallback);
-            removeListener = () => textEditor.model.document.off("change:data", changeCallback);
+            affectsHeading = attributeChangeAffectsHeading;
         });
 
-        return () => {
-            disposed = true;
-            removeListener?.();
+        const changeCallback = () => {
+            const changes = textEditor.model.document.differ.getChanges();
+
+            const affectsHeadings = changes.some( change => {
+                return (
+                    change.type === 'insert' || change.type === 'remove' ||
+                    (change.type === 'attribute' && (affectsHeading?.(change, textEditor) ?? false))
+                );
+            });
+            if (affectsHeadings) {
+                requestAnimationFrame(() => {
+                    setHeadings(extractTocFromTextEditor(textEditor));
+                });
+            }
         };
-    }, [ textEditor ]);
+
+        textEditor.model.document.on("change:data", changeCallback);
+
+        return () => textEditor.model.document.off("change:data", changeCallback);
+    }, [ textEditor, note?.noteId ]);
 
     useEffect(() => {
         if (!textEditor) {
