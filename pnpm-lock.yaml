@@ -370,7 +370,7 @@ importers:
         version: 1.32.3
       terra-draw-maplibre-gl-adapter:
         specifier: 1.4.1
-        version: 1.4.1(maplibre-gl@6.8.0)(terra-draw@1.32.3)
+        version: 1.4.1(maplibre-gl@6.9.0)(terra-draw@1.32.3)
     devDependencies:
       '@ckeditor/ckeditor5-inspector':
         specifier: 5.0.3
@@ -23743,9 +23743,9 @@ snapshots:
 
   temporal-utils@1.0.2: {}
 
-  terra-draw-maplibre-gl-adapter@1.4.1(maplibre-gl@6.8.0)(terra-draw@1.32.3):
+  terra-draw-maplibre-gl-adapter@1.4.1(maplibre-gl@6.9.0)(terra-draw@1.32.3):
     dependencies:
-      maplibre-gl: 6.8.0
+      maplibre-gl: 6.9.0
       terra-draw: 1.32.3
 
   terra-draw@1.32.3: {}
