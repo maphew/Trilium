@@ -10,7 +10,7 @@ import type LoadResults from "../../services/load_results";
 import searchService from "../../services/search";
 import ActionButton from "../react/ActionButton";
 import FormTextBox from "../react/FormTextBox";
-import { useTriliumEvent } from "../react/hooks";
+import { useNoteContext, useTriliumEvent } from "../react/hooks";
 
 /** How long to wait after a change before re-running the active filter. */
 const RERUN_DEBOUNCE_MS = 300;
@@ -194,9 +194,21 @@ export function CollectionFilterInput({ filter, placeholder }: {
 }) {
     const [ typed, setTyped ] = useState(filter.query);
     const inputRef = useRef<HTMLInputElement>(null);
+    const { noteContext } = useNoteContext();
 
     // Adopt a query submitted elsewhere, or the stored one arriving on mount.
     useEffect(() => setTyped(filter.query), [ filter.query ]);
+
+    // Searching the note lands here: a collection holds no text of its own, so the find bar has
+    // nothing to look through, and narrowing to what is searched for is what the reader is after.
+    useTriliumEvent("findInText", ({ ntxId }) => {
+        if (ntxId ? ntxId !== noteContext?.ntxId : !noteContext?.isActive()) {
+            return;
+        }
+
+        inputRef.current?.focus();
+        inputRef.current?.select();
+    });
 
     const isActive = !!filter.query;
 
