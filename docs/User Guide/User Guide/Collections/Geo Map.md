@@ -71,7 +71,7 @@ The search bar at the top-left of the map searches in two places. It always sear
 
 ### Searching the notes already on the map
 
-Type in the search bar, and the notes on the map are matched by their title as you type. Accents are ignored, both in what you type and in the titles, so `zurich` finds _Zürich Hauptbahnhof_. Each word is searched for on its own, so `hotel paris` finds _Paris Hotel_. Notes without a `#geolocation` attribute are not offered, since there would be nowhere to go. GPS tracks are offered, even though they carry no such attribute: selecting one brings its whole route into view.
+Type in the search bar, and the notes on the map are matched by their title as you type. Accents are ignored, both in what you type and in the titles, so `zurich` finds _Zürich Hauptbahnhof_. Each word is searched for on its own, so `hotel paris` finds _Paris Hotel_. Notes without a `#geolocation` attribute are not offered, since there would be nowhere to go. Drawn shapes and GPS tracks are offered, even though they carry no such attribute: selecting one brings the whole shape or route into view.
 
 If more notes match than the list can show, you are offered the ones closest to the area you are viewing.
 

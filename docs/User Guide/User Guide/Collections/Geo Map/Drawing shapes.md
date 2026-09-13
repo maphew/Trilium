@@ -37,6 +37,7 @@ Once a shape is created:
     
     *   When clicking, a marker takes priority over the shape.
 *   Right-clicking a shape opens a contextual menu similar to the one for markers, which allows opening the corresponding note or removing the shape.
+*   Typing in the map's search bar finds shapes by their title, as it does markers. Selecting one brings the whole shape into view.
 
 ## How shapes are represented
 
