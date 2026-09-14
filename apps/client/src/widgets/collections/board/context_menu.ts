@@ -76,7 +76,7 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
         } ] : []),
         {
             title: t("board_view.copy-reference"),
-            uiIcon: "bx bx-directions",
+            uiIcon: "bx bx-copy",
             handler: async () => copyReferenceWithToast(await api.getColumnReference(column.value))
         }
     ];
@@ -535,7 +535,7 @@ export function openNoteContextMenu(api: Api, event: ContextMenuEvent, target: N
         link_context_menu.getOpenNoteItem(event),
         {
             title: t("board_view.copy-reference"),
-            uiIcon: "bx bx-directions",
+            uiIcon: "bx bx-copy",
             handler: () => copyReferenceWithToast(api.getCardReference(note.noteId))
         },
         { kind: "separator" }
