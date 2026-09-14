@@ -22,7 +22,12 @@ const RUN = "[a-z0-9]+-[a-z0-9]+";
  * Models the bridge the module reaches through: neither Filesystem nor Share is registered by the
  * injected runtime, so both arrive via `registerPlugin()` rather than from `Plugins`.
  */
-function installCapacitor({ share, runs }: { share?: ReturnType<typeof vi.fn>; runs?: string[] } = {}) {
+function installCapacitor({ share, runs, renameRefusesReplace }: {
+    share?: ReturnType<typeof vi.fn>;
+    runs?: string[];
+    /** Fail a rename whose destination has not been deleted, as a platform that cannot replace. */
+    renameRefusesReplace?: boolean;
+} = {}) {
     const written: { path: string; data: string; directory: string; append: boolean }[] = [];
     const removed: string[] = [];
     const deleted: string[] = [];
@@ -44,6 +49,9 @@ function installCapacitor({ share, runs }: { share?: ReturnType<typeof vi.fn>; r
             deleted.push(opts.path);
         }),
         rename: vi.fn(async (opts: { from: string; to: string }) => {
+            if (renameRefusesReplace && !deleted.includes(opts.to)) {
+                throw new Error("Destination file already exists");
+            }
             renamed.push({ from: opts.from, to: opts.to });
         }),
         readdir: vi.fn(async () => {
@@ -350,20 +358,35 @@ describe("capacitor download", () => {
                 "db.tnbackup", inPieces(Uint8Array.from([1, 2, 3]), 3), BACKUP_TARGET
             );
 
-            // Backups keep their folder: nothing is pruned, and even the same-name predecessor
-            // stands until its replacement is complete on disk.
+            // Backups keep their folder: nothing is pruned, and the same-name predecessor is
+            // replaced in one rename — at no moment is neither file on disk.
             expect(removed).toEqual([]);
             expect(filesystem.readdir).not.toHaveBeenCalled();
             expect(written).toEqual([
                 expect.objectContaining({ path: "Trilium/db.tnbackup.part", directory: "DOCUMENTS" })
             ]);
-            expect(deleted).toEqual(["Trilium/db.tnbackup"]);
+            expect(deleted).toEqual([]);
             expect(renamed).toEqual([{ from: "Trilium/db.tnbackup.part", to: "Trilium/db.tnbackup" }]);
             expect(result.location).toBe("/cache/Trilium/db.tnbackup");
             expect(sharePlugin.share).toHaveBeenCalledWith({
                 title: "db.tnbackup",
                 files: ["file:///cache/Trilium/db.tnbackup"]
             });
+        });
+
+        it("gives way before the rename only where the platform refuses to replace", async () => {
+            const { filesystem, deleted, renamed } = installCapacitor({ renameRefusesReplace: true });
+
+            const result = await saveChunksToDevice(
+                "db.tnbackup", inPieces(Uint8Array.from([1, 2, 3]), 3), BACKUP_TARGET
+            );
+
+            expect(result.status).toBe("saved");
+            // The old file falls only after the replacement refused to land over it, which keeps
+            // the gap to platforms whose rename cannot replace in place.
+            expect(filesystem.rename).toHaveBeenCalledTimes(2);
+            expect(deleted).toEqual(["Trilium/db.tnbackup"]);
+            expect(renamed).toEqual([{ from: "Trilium/db.tnbackup.part", to: "Trilium/db.tnbackup" }]);
         });
 
         it("streams raw bytes through the native sink when the shell provides one", async () => {

@@ -184,9 +184,15 @@ async function writeChunks(
         throw e;
     }
 
-    // Only now, with its replacement complete on disk, does the previous file fall.
-    await filesystem.deleteFile({ path, directory }).catch(() => undefined);
-    await filesystem.rename({ from: partPath, to: path, directory });
+    // The previous file is replaced only now, when its successor is whole. Rename first: where
+    // the platform replaces in place, as POSIX rename does, no moment has neither file on disk.
+    // Only a platform that refuses to replace gets the delete-then-retry window.
+    try {
+        await filesystem.rename({ from: partPath, to: path, directory });
+    } catch {
+        await filesystem.deleteFile({ path, directory }).catch(() => undefined);
+        await filesystem.rename({ from: partPath, to: path, directory });
+    }
 
     const { uri } = await filesystem.getUri({ path, directory });
     return uri;
