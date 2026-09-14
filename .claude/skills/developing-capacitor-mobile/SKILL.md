@@ -85,7 +85,12 @@ sheet.
   holds only what the injected runtime registered (`CapacitorHttp` and the rest of core); the `@capacitor/*`
   packages exist so `cap sync` wires the **native** code in.
 - **A shared file cannot be deleted after `share()` resolves** — the receiving app reads the URI on its
-  own schedule. The cache directory is cleared before the *next* save instead.
+  own schedule (a Drive upload can outlive the sheet by minutes). Each download therefore lands in a
+  run folder of its own, and a save prunes all previous runs *except the newest*, giving the last
+  share one save's grace.
+- **Every save writes `<name>.part` and renames into place on success.** A stream can die mid-way —
+  `DatabaseChangedError` fires if any write lands during a backup — and truncating the final name
+  first would turn the previous good backup into a partial file.
 - **Android needs no manifest change**: `file_paths.xml` already exposes `<cache-path path="."/>` to the
   `${applicationId}.fileprovider` the Share plugin looks up, and the cache directory is not external
   storage, so no permission prompt.
@@ -103,8 +108,8 @@ sheet.
   port to the service worker, so no SW is involved (which is also why it works on iOS), and
   `setBackupPinging` stays off — that keepalive exists only for a stream the SW is holding open.
   Two things differ from a download: it goes to `Directory.Documents` under `Trilium/`, not the cache,
-  and the folder is **not** swept first, which would delete the previous backup. A dismissed share
-  sheet is `done`, not `cancelled`: the file is complete before the sheet opens.
+  and nothing there is ever pruned — a repeated name replaces the file only via the `.part` swap. A
+  dismissed share sheet is `done`, not `cancelled`: the file is complete before the sheet opens.
 - **`rechunk()` is what makes any source safe to write.** A producer picks its chunk sizes for its own
   reasons — a response body by packet, the backup by database page — and neither is 3-aligned.
 

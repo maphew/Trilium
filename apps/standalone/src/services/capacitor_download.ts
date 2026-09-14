@@ -1,15 +1,11 @@
 import type { StandaloneSaveResult } from "@triliumnext/commons";
 
 /**
- * Saving a download inside the Capacitor shell, which has no download manager of its own.
- *
- * A WebView answers a navigation that resolves to `Content-Disposition: attachment` by calling
- * `WebView.setDownloadListener`, and neither Capacitor nor `MainActivity` registers one — the
- * response is dropped without a trace. Re-requesting the URL natively would not help either: the
- * bytes come from the SQLite worker inside the page, so nothing outside the WebView can fetch
- * them. The page therefore does the whole job: fetch (still routed to the worker by the service
- * worker on Android and by the iOS interceptors on `capacitor://`), write to the app's cache
- * directory, hand the file to the system share sheet.
+ * Saving a download inside the Capacitor shell, which has no download manager of its own: the
+ * WebView drops a response that says `Content-Disposition: attachment`, silently. The page does
+ * the whole job instead — fetch (still routed to the worker by the service worker on Android and
+ * by the iOS interceptors on `capacitor://`), write to the app's storage, hand the file to the
+ * system share sheet.
  *
  * A database backup takes the same last step through {@link saveChunksToDevice}, reading its bytes
  * straight off the local worker rather than out of a response.
@@ -22,45 +18,36 @@ export interface SaveTarget {
     /** The folder inside it, so saved files do not litter the directory's root. */
     folder: string;
     /**
-     * Whether the folder is emptied before the write. True for scratch space the share sheet reads
-     * from once; false where the folder holds the user's own files.
+     * Whether saves are scratch output: each lands in a run folder of its own, and older runs are
+     * pruned save by save. False where the folder holds the user's own files, which nothing prunes.
      */
-    sweep: boolean;
+    scratch: boolean;
 }
 
 /**
- * A download: transient. The share sheet is what the user does with it, and the copy left behind is
- * rubbish, cleared before the next one. It cannot be cleared *after* the sheet closes, because the
- * receiving app reads the shared URI on its own schedule.
+ * A download: scratch. The share sheet is what the user does with it, so only the newest previous
+ * run is kept — the app the sheet handed it to can still be reading it.
  */
 export const DOWNLOAD_TARGET: SaveTarget = {
     directory: "CACHE",
     folder: "trilium-downloads",
-    sweep: true
+    scratch: true
 };
 
 /**
- * A backup: the opposite. It has to survive the share sheet being dismissed and the phone running
- * low on space, neither of which a cache directory does, and sweeping the folder would destroy the
- * previous backup. Same-day repeats overwrite, which is what the date-based default name means.
+ * A backup: the user's file. It has to outlive the share sheet and storage pressure, which a cache
+ * directory does not. A repeated name replaces the file, and only once the new one is whole.
  */
 export const BACKUP_TARGET: SaveTarget = {
     directory: "DOCUMENTS",
     folder: "Trilium",
-    sweep: false
+    scratch: false
 };
 
 /**
- * Bytes per write.
- *
- * A multiple of 3, so each chunk encodes independently: base64 pads any group narrower than three
- * bytes, and a padded group in the middle of a file decodes to the wrong bytes. Every `3n` KiB
- * satisfies that.
- *
- * The size is a trade against the bridge, which is what a write costs: the chunk crosses as base64
- * inside a JSON string, so the bytes are walked about five times between here and the file, and
- * the chunk, its base64 copy and both sides of the marshalled string are live at once — budget
- * roughly four times the chunk. Fewer, larger writes buy fewer round trips at that price.
+ * Bytes per write: a multiple of 3, so each chunk encodes to base64 independently — base64 pads
+ * any group narrower than three bytes, and a padded group mid-file decodes to the wrong bytes.
+ * Larger chunks buy fewer transport round trips and hold more transient copies at once.
  */
 const DEFAULT_CHUNK_BYTES = 3 * 1024 * 1024;
 
@@ -132,6 +119,9 @@ interface FilesystemPlugin {
     appendFile(opts: WriteOptions): Promise<void>;
     getUri(opts: { path: string; directory: string }): Promise<{ uri: string }>;
     rmdir(opts: { path: string; directory: string; recursive: boolean }): Promise<void>;
+    deleteFile(opts: { path: string; directory: string }): Promise<void>;
+    rename(opts: { from: string; to: string; directory: string }): Promise<void>;
+    readdir(opts: { path: string; directory: string }): Promise<{ files: { name: string }[] }>;
 }
 
 interface SharePlugin {
@@ -157,36 +147,87 @@ function getPlugin<T>(name: string): T {
     return plugin as T;
 }
 
-/** Writes the chunks into `target` one at a time and returns the finished file's URI. */
+/** Writes the chunks into `target`, replacing any previous file only on success. */
 async function writeChunks(
     fileName: string,
     chunks: AsyncIterable<Uint8Array>,
-    { directory, folder, sweep }: SaveTarget
+    { directory, folder, scratch }: SaveTarget
 ): Promise<string> {
     const filesystem = getPlugin<FilesystemPlugin>("Filesystem");
-    const path = `${folder}/${fileName}`;
+    const parent = scratch ? `${folder}/${runName()}` : folder;
+    const path = `${parent}/${fileName}`;
+    // Every byte lands in a sibling first: a stream that dies mid-way must cost nothing but
+    // itself, never the file already under the final name.
+    const partPath = `${path}.part`;
 
-    if (sweep) {
+    if (scratch) {
+        await pruneRuns(filesystem, folder, directory);
+    }
+
+    try {
+        const sink = takeFileSink();
+        if (sink) {
+            try {
+                // The plugin creates the file first, so its own directory mapping — not a guess
+                // at it — is what turns `partPath` into the absolute path the sink writes to.
+                await filesystem.writeFile({ path: partPath, data: "", directory, recursive: true });
+                const { uri } = await filesystem.getUri({ path: partPath, directory });
+                await writeThroughSink(sink, displayPath(uri), chunks);
+            } finally {
+                releaseFileSink();
+            }
+        } else {
+            await writeThroughPlugin(filesystem, partPath, directory, chunks);
+        }
+    } catch (e) {
+        await filesystem.deleteFile({ path: partPath, directory }).catch(() => undefined);
+        throw e;
+    }
+
+    // Only now, with its replacement complete on disk, does the previous file fall.
+    await filesystem.deleteFile({ path, directory }).catch(() => undefined);
+    await filesystem.rename({ from: partPath, to: path, directory });
+
+    const { uri } = await filesystem.getUri({ path, directory });
+    return uri;
+}
+
+/** Names one save's run folder so that later saves sort after earlier ones. */
+function runName(): string {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/**
+ * Deletes previous run folders, except the newest: the app the share sheet handed its file to can
+ * still be reading it, and one save's grace is as long as that gets.
+ */
+async function pruneRuns(
+    filesystem: FilesystemPlugin,
+    folder: string,
+    directory: string
+): Promise<void> {
+    const listing = await filesystem.readdir({ path: folder, directory }).catch(() => null);
+    if (!listing) {
+        return;
+    }
+
+    const runs = listing.files
+        .map((file) => file.name)
+        .sort((a, b) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0));
+    for (const run of runs.slice(0, -1)) {
         await filesystem
-            .rmdir({ path: folder, directory, recursive: true })
+            .rmdir({ path: `${folder}/${run}`, directory, recursive: true })
             .catch(() => undefined);
     }
+}
 
-    const sink = takeFileSink();
-    if (sink) {
-        try {
-            // The plugin creates the file first, so its own directory mapping — not a guess at
-            // it — is what turns `path` into the absolute path the sink writes to.
-            await filesystem.writeFile({ path, data: "", directory, recursive: true });
-            const { uri } = await filesystem.getUri({ path, directory });
-
-            await writeThroughSink(sink, displayPath(uri), chunks);
-            return uri;
-        } finally {
-            releaseFileSink();
-        }
-    }
-
+/** The plugin-bridge fallback: each chunk crosses as base64 and is appended natively. */
+async function writeThroughPlugin(
+    filesystem: FilesystemPlugin,
+    path: string,
+    directory: string,
+    chunks: AsyncIterable<Uint8Array>
+): Promise<void> {
     let started = false;
     // One call is kept in flight while the next chunk encodes, so the encode's cost hides behind
     // the bridge's. Never two: appends are ordered only because each is issued after the previous
@@ -216,17 +257,14 @@ async function writeChunks(
     if (!started) {
         await filesystem.writeFile({ path, data: "", directory, recursive: true });
     }
-
-    const { uri } = await filesystem.getUri({ path, directory });
-    return uri;
 }
 
 /**
  * `window.triliumFileSink`: the binary write channel `TriliumFileSink.java` injects on Android.
  *
  * A `WebMessageListener` object, so it carries raw `ArrayBuffer`s — where the plugin bridge wraps
- * every chunk in base64 inside a JSON string that the native side re-parses whole, capping writes
- * around 13 MB/s. Absent on iOS, on WebViews too old for ArrayBuffer messages, and on the web.
+ * every chunk in base64 inside a JSON string that the native side re-parses whole. Absent on iOS,
+ * on WebViews too old for ArrayBuffer messages, and on the web.
  */
 interface NativeFileSink {
     postMessage(message: string | ArrayBuffer): void;

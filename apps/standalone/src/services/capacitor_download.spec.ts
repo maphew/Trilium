@@ -15,13 +15,18 @@ interface CapacitorWindow {
     Capacitor?: unknown;
 }
 
+/** How a run-folder segment reads inside an asserted path. */
+const RUN = "[a-z0-9]+-[a-z0-9]+";
+
 /**
  * Models the bridge the module reaches through: neither Filesystem nor Share is registered by the
  * injected runtime, so both arrive via `registerPlugin()` rather than from `Plugins`.
  */
-function installCapacitor({ share }: { share?: ReturnType<typeof vi.fn> } = {}) {
+function installCapacitor({ share, runs }: { share?: ReturnType<typeof vi.fn>; runs?: string[] } = {}) {
     const written: { path: string; data: string; directory: string; append: boolean }[] = [];
     const removed: string[] = [];
+    const deleted: string[] = [];
+    const renamed: { from: string; to: string }[] = [];
 
     const filesystem = {
         writeFile: vi.fn(async (opts: { path: string; data: string; directory: string }) => {
@@ -34,6 +39,18 @@ function installCapacitor({ share }: { share?: ReturnType<typeof vi.fn> } = {}) 
         getUri: vi.fn(async (opts: { path: string }) => ({ uri: `file:///cache/${opts.path}` })),
         rmdir: vi.fn(async (opts: { path: string }) => {
             removed.push(opts.path);
+        }),
+        deleteFile: vi.fn(async (opts: { path: string }) => {
+            deleted.push(opts.path);
+        }),
+        rename: vi.fn(async (opts: { from: string; to: string }) => {
+            renamed.push({ from: opts.from, to: opts.to });
+        }),
+        readdir: vi.fn(async () => {
+            if (!runs) {
+                throw new Error("Directory does not exist");
+            }
+            return { files: runs.map((name) => ({ name })) };
         })
     };
 
@@ -47,7 +64,7 @@ function installCapacitor({ share }: { share?: ReturnType<typeof vi.fn> } = {}) 
 
     (window as unknown as CapacitorWindow).Capacitor = { Plugins: {}, registerPlugin };
 
-    return { filesystem, sharePlugin, registerPlugin, written, removed };
+    return { filesystem, sharePlugin, registerPlugin, written, removed, deleted, renamed };
 }
 
 /**
@@ -181,7 +198,7 @@ describe("capacitor download", () => {
 
     describe("saveUrlToDevice", () => {
         it("writes the body in chunks that decode back to the original bytes, then shares the file", async () => {
-            const { filesystem, sharePlugin, written, removed } = installCapacitor();
+            const { filesystem, sharePlugin, written, renamed } = installCapacitor();
             // Over one chunk, so the write is split and the append path runs. The pattern repeats
             // at 251 (a prime, coprime with the chunk size) so a chunk boundary landing on the
             // wrong byte shows up as a mismatch rather than an accidental match.
@@ -198,19 +215,38 @@ describe("capacitor download", () => {
                 status: "saved",
                 fileName: "Export.zip",
                 // The `file://` scheme is stripped: this is shown to a person, not opened.
-                location: "/cache/trilium-downloads/Export.zip"
+                location: expect.stringMatching(new RegExp(`^/cache/trilium-downloads/${RUN}/Export\\.zip$`))
             });
-            expect(removed).toEqual(["trilium-downloads"]);
             expect(written.map((write) => write.append)).toEqual([false, true]);
-            expect(written.every((write) => write.path === "trilium-downloads/Export.zip")).toBe(true);
+            // Written beside the final name and renamed over it only once complete.
+            const partPattern = new RegExp(`^trilium-downloads/${RUN}/Export\\.zip\\.part$`);
+            expect(written.every((write) => partPattern.test(write.path))).toBe(true);
+            expect(renamed).toEqual([{
+                from: written[0].path,
+                to: written[0].path.replace(/\.part$/, "")
+            }]);
             expect(writtenBytes(written)).toEqual(bytes);
             expect(filesystem.writeFile).toHaveBeenCalledWith(
                 expect.objectContaining({ directory: "CACHE", recursive: true })
             );
             expect(sharePlugin.share).toHaveBeenCalledWith({
                 title: "Export.zip",
-                files: ["file:///cache/trilium-downloads/Export.zip"]
+                files: [expect.stringMatching(new RegExp(`^file:///cache/trilium-downloads/${RUN}/Export\\.zip$`))]
             });
+        });
+
+        it("prunes older download runs but keeps the newest, which can still be being read", async () => {
+            const { removed } = installCapacitor({ runs: ["aaaa-x", "cccc-x", "bbbb-x"] });
+            vi.stubGlobal("fetch", vi.fn(async () => fakeResponse({
+                headers: { "content-disposition": `attachment; filename="a.bin"` },
+                buffer: Uint8Array.from([1])
+            })));
+
+            await saveUrlToDevice("api/a.bin");
+
+            // The app the previous share sheet handed its file to reads it on its own schedule,
+            // so the newest run gets one save's grace.
+            expect(removed).toEqual(["trilium-downloads/aaaa-x", "trilium-downloads/bbbb-x"]);
         });
 
         it("reads a response with no streaming body whole, and writes an empty one as an empty file", async () => {
@@ -239,7 +275,7 @@ describe("capacitor download", () => {
             expect(await saveUrlToDevice("api/a.bin")).toEqual({
                 status: "cancelled",
                 fileName: "a.bin",
-                location: "/cache/trilium-downloads/a.bin"
+                location: expect.stringMatching(new RegExp(`^/cache/trilium-downloads/${RUN}/a\\.bin$`))
             });
 
             installCapacitor({ share: vi.fn(async () => { throw new Error("No app can open this"); }) });
@@ -307,19 +343,22 @@ describe("capacitor download", () => {
             expect(written.slice(0, -1).every((write) => atob(write.data).length % 3 === 0)).toBe(true);
         });
 
-        it("writes a backup into documents and leaves the previous ones alone", async () => {
-            const { written, removed, sharePlugin } = installCapacitor();
+        it("writes a backup beside the previous one and replaces it only when whole", async () => {
+            const { filesystem, written, removed, deleted, renamed, sharePlugin } = installCapacitor();
 
             const result = await saveChunksToDevice(
                 "db.tnbackup", inPieces(Uint8Array.from([1, 2, 3]), 3), BACKUP_TARGET
             );
 
-            // Sweeping the folder before each write is right for the share sheet's scratch space
-            // and would destroy the previous backup here.
+            // Backups keep their folder: nothing is pruned, and even the same-name predecessor
+            // stands until its replacement is complete on disk.
             expect(removed).toEqual([]);
+            expect(filesystem.readdir).not.toHaveBeenCalled();
             expect(written).toEqual([
-                expect.objectContaining({ path: "Trilium/db.tnbackup", directory: "DOCUMENTS" })
+                expect.objectContaining({ path: "Trilium/db.tnbackup.part", directory: "DOCUMENTS" })
             ]);
+            expect(deleted).toEqual(["Trilium/db.tnbackup"]);
+            expect(renamed).toEqual([{ from: "Trilium/db.tnbackup.part", to: "Trilium/db.tnbackup" }]);
             expect(result.location).toBe("/cache/Trilium/db.tnbackup");
             expect(sharePlugin.share).toHaveBeenCalledWith({
                 title: "db.tnbackup",
@@ -340,7 +379,7 @@ describe("capacitor download", () => {
             expect(written).toEqual([ expect.objectContaining({ data: "", append: false }) ]);
             expect(filesystem.appendFile).not.toHaveBeenCalled();
 
-            expect(posted[0]).toBe(JSON.stringify({ type: "open", path: "/cache/Trilium/db.tnbackup" }));
+            expect(posted[0]).toBe(JSON.stringify({ type: "open", path: "/cache/Trilium/db.tnbackup.part" }));
             expect(posted.at(-1)).toBe(JSON.stringify({ type: "close" }));
             const streamed = posted.filter((message): message is ArrayBuffer => typeof message !== "string");
             expect(streamed.length).toBe(2);
@@ -352,7 +391,7 @@ describe("capacitor download", () => {
         });
 
         it("fails the save when the sink answers a chunk with an error, without sharing", async () => {
-            const { sharePlugin } = installCapacitor();
+            const { sharePlugin, deleted, renamed } = installCapacitor();
             const { listeners } = installFileSink({ failOnChunk: true });
 
             const result = await saveChunksToDevice(
@@ -366,6 +405,9 @@ describe("capacitor download", () => {
             });
             expect(sharePlugin.share).not.toHaveBeenCalled();
             expect(listeners.size).toBe(0);
+            // The debris goes; the file under the final name was never touched.
+            expect(deleted).toEqual(["Trilium/db.tnbackup.part"]);
+            expect(renamed).toEqual([]);
         });
 
         it("encodes through the runtime's own toBase64 when it has one, to the same bytes", async () => {
@@ -401,8 +443,8 @@ describe("capacitor download", () => {
             }
         });
 
-        it("fails without sharing when the source throws part-way through", async () => {
-            const { sharePlugin } = installCapacitor();
+        it("a failed stream never costs the previous backup", async () => {
+            const { written, deleted, renamed, sharePlugin } = installCapacitor();
             async function* breaks() {
                 yield Uint8Array.from([1, 2, 3]);
                 throw new Error("The backup stream failed.");
@@ -414,6 +456,13 @@ describe("capacitor download", () => {
                 message: "The backup stream failed."
             });
             expect(sharePlugin.share).not.toHaveBeenCalled();
+
+            // The file under the final name was never opened, replaced or deleted: with the
+            // date-based default name, a failure here would otherwise turn the previous good
+            // backup into a partial file.
+            expect(written.every((write) => write.path.endsWith(".part"))).toBe(true);
+            expect(renamed).toEqual([]);
+            expect(deleted).toEqual(["Trilium/db.tnbackup.part"]);
         });
     });
 });
