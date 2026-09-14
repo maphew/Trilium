@@ -351,8 +351,8 @@ importers:
         specifier: 4.2.0
         version: 4.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       reveal.js:
-        specifier: 6.0.1
-        version: 6.0.1
+        specifier: 6.0.2
+        version: 6.0.2
       rrule:
         specifier: 2.8.1
         version: 2.8.1
@@ -956,8 +956,8 @@ importers:
         specifier: 4.2.0
         version: 4.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       reveal.js:
-        specifier: 6.0.1
-        version: 6.0.1
+        specifier: 6.0.2
+        version: 6.0.2
       scrypt-js:
         specifier: 3.0.1
         version: 3.0.1
@@ -10307,8 +10307,8 @@ packages:
     resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
 
-  reveal.js@6.0.1:
-    resolution: {integrity: sha512-9eacArNIgqO2HGWOK+93gJNn+gvdGDVbSq+i2u3Ja9kjiHps0XNLpgYTZTYjKRH91uXy3clGimeGiw4umHG/tg==}
+  reveal.js@6.0.2:
+    resolution: {integrity: sha512-JYIg5D9aoxoaLeb84O+OvAwsKWdIavVgEDScxtYEXFCT6t6TQrhNtSgogcjdCpdLsWglhJn3zyE3fUOwiH5KEg==}
 
   rfdc@1.4.1:
     resolution: {integrity: sha512-q1b3N5QkRUWUl7iyylaaj3kOpIT0N2i9MqIEQXP73GVsN9cw3fdx8X63cEmWhJGi2PPCF23Ijp7ktmd39rawIA==}
@@ -23005,7 +23005,7 @@ snapshots:
 
   reusify@1.1.0: {}
 
-  reveal.js@6.0.1: {}
+  reveal.js@6.0.2: {}
 
   rfdc@1.4.1: {}
 
