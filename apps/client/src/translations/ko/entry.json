@@ -159,6 +159,7 @@
         "existing-data-skip-warning": "아직 아무것도 삭제되지 않았습니다. 새 지식 베이스를 만들거나, 백업을 복원하거나, 다른 기기에서 동기화하도록 선택한 경우에만 현재 지식 베이스가 교체됩니다.",
         "unlock-refused": "입력한 정보가 올바르지 않습니다. 다시 시도해 주세요.",
         "keep-existing": "앱으로 돌아가기",
-        "keep-existing-description": "기존 지식 베이스를 계속 사용하고 앱으로 돌아갑니다."
+        "keep-existing-description": "기존 지식 베이스를 계속 사용하고 앱으로 돌아갑니다.",
+        "backup-saved-to": "백업이 {{- location}}에 저장되었습니다. \"마침\"을 눌러 애플리케이션으로 돌아가세요."
     }
 }
