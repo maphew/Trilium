@@ -73,8 +73,8 @@ build_icns "mac/master-dev.png" "icon-dev.icns" "mac/dev"
 
 # icon.icon and icon-dev.icon (Icon Composer documents for macOS 26) are NOT generated here. Their
 # Assets/leaf-{right,bottom,left}.svg are the three path groups of icon-color.svg and
-# icon-purple.svg, one leaf per file on the same 256x256 viewBox, with each class resolved to its
-# fill color. After changing either source SVG, update those leaf files by hand to match.
+# icon-purple.svg, one leaf per file on the same 256x256 viewBox, with icon-color.svg's CSS classes
+# inlined as fill attributes. After changing either source SVG, update those leaf files by hand.
 
 # Build Windows icon
 magick -background none "$source_icon_dir/icon-color.svg" -define icon:auto-resize=16,32,48,64,128,256 "./icon.ico"
