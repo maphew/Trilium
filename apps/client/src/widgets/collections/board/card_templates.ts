@@ -36,3 +36,13 @@ export const DEFAULT_CARD_TEMPLATES = [
 export function currentCardTemplate(offered: NoteTypeOption[], stored: string | undefined) {
     return offered.find((template) => template.id === stored) ?? offered[0];
 }
+
+/**
+ * The icon a card made from `template` carries, in the form `IconPicker` writes.
+ *
+ * `FNote.getIcon()` prefixes its result with `tn-icon` and an `#iconClass` label does not, so a
+ * template note's icon needs that prefix removed to compare with a picked one.
+ */
+export function cardTemplateIcon(template: NoteTypeOption | undefined) {
+    return template?.icon.replace(/^tn-icon\s+/, "");
+}

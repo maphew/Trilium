@@ -37,7 +37,12 @@ export default function ScrollableLabel({ children, className, autoScroll }: Scr
     // The walk below starts over whenever the overflow changes, which is what walks a label whose
     // words arrived after it did, a path waiting on its titles, without asking the caller to say so
     // and without restarting on a render that changed nothing.
-    const { className: fadeClass, overflow } = useScrollFade(ref, { direction: "horizontal" });
+    // `minOverflow` is dropped to a pixel: a line cut off by a character still has to read as cut
+    // off, and the walk below runs on any overflow at all.
+    const { className: fadeClass, overflow } = useScrollFade(ref, {
+        direction: "horizontal",
+        minOverflow: 1
+    });
     // Set by the reader's own first scroll, and cleared only by a remount, which is what a new label
     // is: a walk they interrupted must not start again while the same line is still on screen. A
     // consumer whose label changes what it names keys it, so the new one arrives with a fresh walk.

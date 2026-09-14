@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { type NoteTypeOption } from "../../../services/note_types";
-import { currentCardTemplate, DEFAULT_CARD_TEMPLATES } from "./card_templates";
+import { cardTemplateIcon, currentCardTemplate, DEFAULT_CARD_TEMPLATES } from "./card_templates";
 
 /** An option as `getNoteTypeOptions` builds one, cut down to what the board reads. */
 function option(id: string, title: string): NoteTypeOption {
@@ -29,5 +29,17 @@ describe("what a board makes its cards from", () => {
         expect(currentCardTemplate(offered, "type:canvas:application/json")?.title).toBe("Text");
         expect(currentCardTemplate(offered, undefined)?.title).toBe("Text");
         expect(currentCardTemplate([], "type:text:text/html")).toBeUndefined();
+    });
+
+    /**
+     * A note type carries a bare icon class, while a template note's comes from `FNote.getIcon()`
+     * with `tn-icon` in front. The picker writes neither prefix, so both have to read alike.
+     */
+    it("gives a template's icon as the picker would write it", () => {
+        const template = { ...option("note:mine", "Mine"), icon: "tn-icon bx bx-user" };
+
+        expect(cardTemplateIcon(template)).toBe("bx bx-user");
+        expect(cardTemplateIcon(option("type:text:text/html", "Text"))).toBe("bx bx-note");
+        expect(cardTemplateIcon(undefined)).toBeUndefined();
     });
 });

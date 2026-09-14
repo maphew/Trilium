@@ -375,10 +375,18 @@ describe("useCollectionFilter", () => {
 
 describe("CollectionFilterInput", () => {
     let container: HTMLElement;
+    let parent: Component;
 
     beforeEach(() => {
         container = document.createElement("div");
         document.body.appendChild(container);
+        parent = new Component();
+        // What the pane the collection is drawn in answers as, which the box reads to tell a
+        // search of its own note from one aimed at another pane.
+        (parent as unknown as { noteContext: unknown }).noteContext = {
+            ntxId: "ntx1",
+            isActive: () => true
+        };
     });
 
     afterEach(() => {
@@ -400,11 +408,38 @@ describe("CollectionFilterInput", () => {
         };
         // Rendered inside act so the mount effects run now, not queued into the next act where
         // they would clobber what a test has typed in the meantime.
-        act(() => render(<CollectionFilterInput filter={filter} />, container));
+        act(() => render(
+            <ParentComponent.Provider value={parent}>
+                <CollectionFilterInput filter={filter} />
+            </ParentComponent.Provider>,
+            container));
         const input = container.querySelector("input");
         expect(input).not.toBeNull();
         return { filter, input: input as HTMLInputElement };
     }
+
+    /**
+     * A collection draws notes that live elsewhere, so the find bar has no text of its own to look
+     * through and does not open on one at all. Narrowing the collection is the search it has.
+     */
+    it("takes the note's own search, on the pane it is drawn in", async () => {
+        const { input } = mountInput({ query: "#done" });
+        input.value = "#done";
+
+        await act(async () => { await parent.handleEvent("findInText", {}); });
+        expect(document.activeElement).toBe(input);
+        // Selected, so what is typed next replaces the query rather than running on from it.
+        expect(input.selectionStart).toBe(0);
+        expect(input.selectionEnd).toBe("#done".length);
+
+        // A search aimed at another pane leaves this one alone.
+        input.blur();
+        await act(async () => { await parent.handleEvent("findInText", { ntxId: "ntx2" }); });
+        expect(document.activeElement).not.toBe(input);
+
+        await act(async () => { await parent.handleEvent("findInText", { ntxId: "ntx1" }); });
+        expect(document.activeElement).toBe(input);
+    });
 
     function type(input: HTMLInputElement, value: string) {
         input.value = value;

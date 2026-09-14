@@ -2293,6 +2293,12 @@ button.close:hover {
     margin-inline-end: 3px;
 }
 
+/* The board column a reference points at. `--custom-color` is set by the theme on
+   `.use-note-color`. */
+.reference-link small.use-note-color {
+    color: var(--custom-color, inherit);
+}
+
 .options-section:first-of-type h4 {
     margin-top: 0;
 }

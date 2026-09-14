@@ -40,13 +40,20 @@ const HIGH_ID = "colHigh00001";
 
 describe("board reference links", () => {
     it("names a column and a card in a note path the app can follow", () => {
-        expect(columnReference("root/board123", TODO_ID)).toBe(`#root/board123?column=${TODO_ID}`);
+        const label = { title: "To Do", icon: "bx bx-star", color: "#ff8800" };
+        expect(columnReference("root/board123", TODO_ID, label)).toBe(
+            `#root/board123?column=${TODO_ID}&columnTitle=To%20Do&columnIcon=bx%20bx-star`
+            + "&columnColor=%23ff8800");
+        // A column carrying no colour of its own leaves the parameter out.
+        expect(columnReference("root/board123", DONE_ID, { title: "Done", icon: "bx bx-circle" }))
+            .toBe(`#root/board123?column=${DONE_ID}&columnTitle=Done&columnIcon=bx%20bx-circle`);
         expect(cardReference("root/board123", "card00000001"))
             .toBe("#root/board123?card=card00000001");
     });
 
-    it("escapes what a column id could otherwise end the parameter with", () => {
-        expect(columnReference("root/board123", "a b&c=d")).toBe("#root/board123?column=a%20b%26c%3Dd");
+    it("escapes what a column id or title could otherwise end the parameter with", () => {
+        expect(columnReference("root/board123", "a b&c=d", { title: "x&y", icon: "bx bx-circle" }))
+            .toBe("#root/board123?column=a%20b%26c%3Dd&columnTitle=x%26y&columnIcon=bx%20bx-circle");
     });
 
     it("mints ids of a note id's length, and distinct ones", () => {
