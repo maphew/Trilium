@@ -60,9 +60,7 @@ export default function SyncStatus({ launcherNote }: LauncherNoteProps) {
 
     useStaticTooltip(spanRef, {
         html: true,
-        title: escapeQuotes(title) + (effectiveSyncServerHost
-            ? `<p>${t("sync_status.server", { host: effectiveSyncServerHost, interpolation: { escapeValue: true } })}</p>`
-            : "")
+        title: escapeQuotes(title)
     });
 
     // config.ini and environment variables hold still for the life of the process, so only the

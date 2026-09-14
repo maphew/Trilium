@@ -89,39 +89,31 @@ function showTooltip() {
 }
 
 describe("SyncStatus", () => {
-    it("names the server in use rather than the stored one, and syncs when pressed", () => {
-        mocks.options.syncServerHost = "";
+    it("syncs when pressed, and refuses a second request while one is running", () => {
         mount();
 
-        const { element, body } = showTooltip();
-        expect(body.textContent).toContain("https://effective.example/");
-        element.click();
+        icon()?.click();
+        expect(mocks.syncNow).toHaveBeenCalledTimes(1);
+
+        act(() => { mocks.onMessage?.({ type: "sync-pull-in-progress", lastSyncedPush: 0 }); });
+        icon()?.click();
         expect(mocks.syncNow).toHaveBeenCalledTimes(1);
     });
 
-    it("keeps the host through status changes and prevents duplicate sync requests", () => {
-        mount();
-
-        for (const type of [ "sync-finished", "sync-failed", "sync-pull-in-progress" ] as const) {
-            act(() => { mocks.onMessage?.({ type, lastSyncedPush: 0 }); });
-            const { element, body } = showTooltip();
-            expect(body.textContent).toContain("https://effective.example/");
-            expect(body.textContent).not.toContain("https://stored.example/");
-            if (type === "sync-pull-in-progress") {
-                element.click();
-                expect(mocks.syncNow).not.toHaveBeenCalled();
-            }
-        }
-    });
-
-    it("escapes markup in the host instead of rendering it", () => {
-        const host = 'https://sync.example/<b title="test">&value</b>';
-        mocks.options.effectiveSyncServerHost = host;
+    it("names the sync state without naming the server", () => {
         mount();
 
         const { body } = showTooltip();
-        expect(body.textContent).toContain(host);
-        expect(body.querySelector("b")).toBeNull();
+        expect(body.textContent).toContain("Sync status will be known");
+        expect(body.textContent).not.toContain("https://effective.example/");
+        expect(body.textContent).not.toContain("https://stored.example/");
+    });
+
+    it("shows the button when a config override supplies the address, whatever is stored", () => {
+        mocks.options.syncServerHost = "";
+        mount();
+
+        expect(icon()).not.toBeNull();
     });
 
     it("hides the button when the configuration turns sync off, whatever the stored host says", () => {
