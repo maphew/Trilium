@@ -131,10 +131,9 @@ export interface StandaloneApi {
     /** Present only inside the Capacitor shell, where the browser saves no downloads itself. */
     save?: StandaloneSaveApi;
     /**
-     * Answers an internal API request from the SQLite worker this page owns. Present only in the
-     * leader tab — a follower has no worker and reaches the leader's through the service worker.
-     * The client's `server.ts` prefers this over its XHR transport, which would pay the
-     * XHR → service worker → page round trip to end up in the same worker.
+     * Answers an internal API request from the SQLite worker this page owns. The tab that wins the
+     * database lock sets it, and the client's `server.ts` prefers it over its XHR transport, which
+     * would pay the XHR → service worker → page round trip to end up in the same worker.
      */
     localFetch?(request: Request): Promise<Response>;
 }

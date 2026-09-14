@@ -114,8 +114,7 @@ async function bootstrap() {
         claimLeadership(() => {
             startLocalServerWorker();
             // The leader answers API requests from its own worker, so the client's server.ts
-            // can skip the service-worker round trip. Followers leave this unset and their
-            // requests reach this tab through the service worker.
+            // can skip the service-worker round trip.
             standaloneApi.localFetch = localFetch;
             announceLeadership();
         });

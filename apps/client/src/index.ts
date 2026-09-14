@@ -4,6 +4,21 @@ import {
 } from "./services/splash";
 import { buildThemeStylesheetRefs, createStylesheetLink, getThemeStyle, initThemeChangeNotifier, StylesheetRef } from "./services/theme";
 
+/**
+ * How long the tab that owns the SQLite worker waits for it to answer `/bootstrap`. Matches the
+ * service worker's forwarding timeout in `apps/standalone/src/sw.ts`, so a worker that never
+ * finishes starting up fails the page at the same point on either transport.
+ */
+const LOCAL_BOOTSTRAP_TIMEOUT_MS = 270_000;
+
+/**
+ * Whether the tab that owns the SQLite worker answers `/bootstrap` itself. Mirrors
+ * `USE_LOCAL_FETCH` in `services/server.ts`, which gates the same choice for every later request;
+ * `VITE_DISABLE_LOCAL_FETCH=true` therefore takes the service worker's route for the whole
+ * session. Read here rather than imported, which would pull `server.ts` into the startup chunk.
+ */
+const USE_LOCAL_FETCH = import.meta.env.VITE_DISABLE_LOCAL_FETCH !== "true";
+
 async function bootstrap() {
     // The splash from index.html covers the page until hideSplash(). Standalone reports a longer
     // sequence of its own before this one, so these phases only take effect on server and desktop.
@@ -44,9 +59,11 @@ async function setupGlob() {
     const url = `./bootstrap${window.location.search}`;
     // The standalone tab that owns the SQLite worker answers this itself; every other build (and a
     // follower tab, which has no worker) fetches, on standalone through the service worker.
-    const localFetch = window.standaloneApi?.localFetch;
+    const localFetch = USE_LOCAL_FETCH ? window.standaloneApi?.localFetch : undefined;
     const startedAt = performance.now();
-    const response = localFetch ? await localFetch(new Request(url)) : await fetch(url);
+    const response = localFetch
+        ? await withTimeout(localFetch(new Request(url)), LOCAL_BOOTSTRAP_TIMEOUT_MS)
+        : await fetch(url);
     const json = await response.json();
     if (import.meta.env.DEV && localFetch) {
         // The worker answers this one only once it has finished starting up, so the time it
@@ -61,6 +78,20 @@ async function setupGlob() {
         device: json.device || getDevice()
     };
     window.glob.getThemeStyle = getThemeStyle;
+}
+
+/**
+ * Rejects once `timeoutMs` has passed without `promise` settling, so a worker that never answers
+ * reaches `bootstrap()`'s error handler and the splash states the failure.
+ */
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const timer = setTimeout(
+            () => reject(new Error("the local database worker did not answer in time")),
+            timeoutMs
+        );
+        promise.then(resolve, reject).finally(() => clearTimeout(timer));
+    });
 }
 
 function getDevice() {
