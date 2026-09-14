@@ -2,13 +2,16 @@
  * What the standalone build exposes to the client as `window.standaloneApi`.
  *
  * Standalone runs the whole stack in the browser: the database lives in a worker's private
- * filesystem, and the client talks to it over an intercepted `fetch`. That path serialises every
- * request body twice on its way through, and gives up after thirty seconds, which is fine for the
- * JSON everything else exchanges and impossible for a database.
+ * filesystem, and a tab that does not own that worker reaches it over an intercepted `fetch`. That
+ * path serialises every request body twice on its way through, and gives up after thirty seconds,
+ * which is fine for the JSON everything else exchanges and impossible for a database.
  *
  * So the few things that carry a file get their own way through, the same way the desktop's
  * `window.electronApi` does. A `File` handed across is a reference to bytes the browser already has;
  * nothing is copied, nothing is uploaded, and the worker reads it as a stream.
+ *
+ * `localFetch` sits here for a different reason: it carries no file, and offers the tab that owns
+ * the worker the ordinary request path without the trip through the service worker.
  */
 
 /** How far a restore has got, reported as it goes. */

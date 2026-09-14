@@ -28,7 +28,11 @@ apps/client/src/services/utils.ts          # isMobileApp() — running inside th
 
 ## Inbound: how the client's API calls reach the in-app worker
 
-The client's `/api`, `/sync`, `/bootstrap`, `/search` requests (`LOCAL_API_PREFIXES` in `local-bridge.ts`) must be answered by the worker. The two platforms do it differently because their WebViews resolve `*Scheme: "https"` differently:
+The client's `/api`, `/sync`, `/bootstrap`, `/search` requests (`LOCAL_API_PREFIXES` in `local-bridge.ts`) must be answered by the worker.
+
+**Most of them never leave the page.** The shell is a single WebView, so its one tab always wins the database lock, and a tab that owns the worker publishes `localFetch` on `window.standaloneApi`; the client's `ajax()` and `setupGlob()`'s `/bootstrap` call it directly rather than issuing a request (see the standalone skill, "Request flow" step 3). That covers everything routed through `apps/client/src/services/server.ts`, on both platforms alike.
+
+What still leaves the page — engine-initiated loads (`<img src="api/images/…">`, `@font-face`, themes), `upload()`/`chunked_upload.ts`, the LLM stream — is where the platforms diverge, because their WebViews resolve `*Scheme: "https"` differently:
 
 - **Android** — `androidScheme: "https"` works, the app runs at `https://localhost`, a real secure origin, so the **service worker** (`sw.ts`) intercepts those requests and forwards them to the worker — the same path as the web build.
 - **iOS** — the app runs at **`capacitor://localhost`**, and WebKit refuses to register a service worker on a non-HTTP(S) origin. `main.ts` therefore installs **in-page interceptors** (`installIosInterceptors()`, gated on `location.protocol === "capacitor:"`), one per way a request can leave the page: `window.fetch`, `XMLHttpRequest` (jQuery `$.ajax` never touches fetch), `<img src="api/images/…">` (the image loader issues its own requests) and CSS-initiated loads (`@font-face url()` in injected styles, custom themes via `<link href="api/…">`). Each rewrites a local-API request into `localFetch()`.
