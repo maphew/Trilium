@@ -109,11 +109,7 @@ export async function saveChunksToDevice(
     target: SaveTarget
 ): Promise<StandaloneSaveResult> {
     try {
-        const started = performance.now();
-        const outcome = await writeChunks(fileName, chunks, target);
-        reportThroughput(fileName, outcome, performance.now() - started);
-        const { uri } = outcome;
-
+        const uri = await writeChunks(fileName, chunks, target);
         return { ...await shareFile(uri, fileName), location: displayPath(uri) };
     } catch (e) {
         return {
@@ -161,20 +157,12 @@ function getPlugin<T>(name: string): T {
     return plugin as T;
 }
 
-interface WriteOutcome {
-    uri: string;
-    bytes: number;
-    encodeMs: number;
-    waitMs: number;
-    transport: "sink" | "plugin";
-}
-
 /** Writes the chunks into `target` one at a time and returns the finished file's URI. */
 async function writeChunks(
     fileName: string,
     chunks: AsyncIterable<Uint8Array>,
     { directory, folder, sweep }: SaveTarget
-): Promise<WriteOutcome> {
+): Promise<string> {
     const filesystem = getPlugin<FilesystemPlugin>("Filesystem");
     const path = `${folder}/${fileName}`;
 
@@ -192,15 +180,13 @@ async function writeChunks(
             await filesystem.writeFile({ path, data: "", directory, recursive: true });
             const { uri } = await filesystem.getUri({ path, directory });
 
-            return { uri, transport: "sink", ...await writeThroughSink(sink, displayPath(uri), chunks) };
+            await writeThroughSink(sink, displayPath(uri), chunks);
+            return uri;
         } finally {
             releaseFileSink();
         }
     }
 
-    let bytes = 0;
-    let encodeMs = 0;
-    let waitMs = 0;
     let started = false;
     // One call is kept in flight while the next chunk encodes, so the encode's cost hides behind
     // the bridge's. Never two: appends are ordered only because each is issued after the previous
@@ -209,25 +195,20 @@ async function writeChunks(
 
     const awaitPending = async () => {
         if (pending) {
-            const waitStart = performance.now();
             await pending;
-            waitMs += performance.now() - waitStart;
             pending = null;
         }
     };
 
     await withoutCallLogging(async () => {
         for await (const chunk of rechunk(chunks, chunkBytes)) {
-            const encodeStart = performance.now();
             const data = toBase64(chunk);
-            encodeMs += performance.now() - encodeStart;
 
             await awaitPending();
             pending = started
                 ? filesystem.appendFile({ path, data, directory })
                 : filesystem.writeFile({ path, data, directory, recursive: true });
             started = true;
-            bytes += chunk.length;
         }
         await awaitPending();
     });
@@ -237,7 +218,7 @@ async function writeChunks(
     }
 
     const { uri } = await filesystem.getUri({ path, directory });
-    return { uri, bytes, encodeMs, waitMs, transport: "plugin" };
+    return uri;
 }
 
 /**
@@ -281,10 +262,7 @@ async function writeThroughSink(
     sink: NativeFileSink,
     filePath: string,
     chunks: AsyncIterable<Uint8Array>
-): Promise<{ bytes: number; encodeMs: number; waitMs: number }> {
-    let bytes = 0;
-    let waitMs = 0;
-
+): Promise<void> {
     // Replies arrive in send order, so the head of this queue is always the awaited step.
     const waiting: ((reply: string) => void)[] = [];
     const listener = (event: { data: unknown }) => waiting.shift()?.(String(event.data));
@@ -312,17 +290,12 @@ async function writeThroughSink(
     try {
         await send(JSON.stringify({ type: "open", path: filePath }), "opened");
         for await (const chunk of rechunk(chunks, chunkBytes)) {
-            const waitStart = performance.now();
             await send(exactBuffer(chunk), "written");
-            waitMs += performance.now() - waitStart;
-            bytes += chunk.length;
         }
         await send(JSON.stringify({ type: "close" }), "closed");
     } finally {
         sink.removeEventListener("message", listener);
     }
-
-    return { bytes, encodeMs: 0, waitMs };
 }
 
 /** The chunk's bytes as exactly one ArrayBuffer, which is what the message channel carries. */
@@ -357,32 +330,6 @@ async function withoutCallLogging<T>(write: () => Promise<T>): Promise<T> {
             cap.isLoggingEnabled = wasEnabled;
         }
     }
-}
-
-/**
- * What the write achieved, which is the only place the transport's cost per byte is visible.
- *
- * The split names the suspect: `base64` is time in {@link toBase64}, the wait is time blocked on
- * the transport. What is left of the total is producing the bytes (the worker, for a backup) plus
- * everything the pipelining managed to hide.
- */
-function reportThroughput(
-    fileName: string,
-    { bytes, encodeMs, waitMs, transport }: WriteOutcome,
-    elapsedMs: number
-): void {
-    const seconds = elapsedMs / 1000;
-    const megabytes = bytes / 1_000_000;
-    const rate = seconds > 0 ? (megabytes / seconds).toFixed(1) : "—";
-    const split = transport === "sink"
-        ? `via the binary sink — write wait ${(waitMs / 1000).toFixed(1)}s`
-        : `via the plugin bridge — base64 ${(encodeMs / 1000).toFixed(1)}s, `
-            + `bridge wait ${(waitMs / 1000).toFixed(1)}s`;
-
-    console.log(
-        `[Save] ${fileName}: ${megabytes.toFixed(1)} MB in ${seconds.toFixed(1)}s (${rate} MB/s) `
-        + `${split}, ${Math.ceil(bytes / chunkBytes)} writes of ${chunkBytes / 1024} KiB`
-    );
 }
 
 /**
