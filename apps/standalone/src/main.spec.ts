@@ -52,6 +52,10 @@ function setServiceWorker(sw: ServiceWorkerLike | undefined) {
     Object.defineProperty(navigator, "serviceWorker", { value: sw, configurable: true });
 }
 
+function setStorageManager(storage: { persist?: unknown } | undefined) {
+    Object.defineProperty(navigator, "storage", { value: storage, configurable: true });
+}
+
 let reloadSpy: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -64,7 +68,9 @@ beforeEach(() => {
         value: { ...window.location, protocol: "https:", hostname: "localhost", reload: reloadSpy, search: "" },
         configurable: true
     });
+    setStorageManager({ persist: vi.fn().mockResolvedValue(true) });
     vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -110,6 +116,47 @@ describe("bootstrap", () => {
         // A follower must keep calling through the service worker: with no worker of its own,
         // a localFetch here would answer from nothing.
         expect(window.standaloneApi?.localFetch).toBeUndefined();
+    });
+
+    it("asks the browser to keep the storage the database lives in", async () => {
+        const persist = vi.fn().mockResolvedValue(true);
+        setStorageManager({ persist });
+        setServiceWorker({ controller: {}, register: vi.fn(), ready: Promise.resolve() });
+        await runBootstrap();
+
+        await vi.waitFor(() => expect(persist).toHaveBeenCalled());
+        expect(console.log).toHaveBeenCalledWith("[Bootstrap] Storage is persistent");
+    });
+
+    it("reports a refusal and starts up regardless", async () => {
+        const persist = vi.fn().mockResolvedValue(false);
+        setStorageManager({ persist });
+        setServiceWorker({ controller: {}, register: vi.fn(), ready: Promise.resolve() });
+        await runBootstrap();
+
+        // A browser that declines gives no reason and takes no argument, so the only thing left
+        // to do about it is say so; the database still opens either way.
+        await vi.waitFor(() => expect(console.log)
+            .toHaveBeenCalledWith(expect.stringContaining("best-effort")));
+        expect(mocks.startLocalServerWorker).toHaveBeenCalled();
+        expect(document.body.innerHTML).toBe("");
+    });
+
+    it("survives a browser that rejects or lacks the request", async () => {
+        setStorageManager({ persist: vi.fn().mockRejectedValue(new Error("no quota manager")) });
+        setServiceWorker({ controller: {}, register: vi.fn(), ready: Promise.resolve() });
+        await runBootstrap();
+        await vi.waitFor(() => expect(console.warn).toHaveBeenCalledWith(
+            "[Bootstrap] Could not ask for persistent storage:", expect.any(Error)));
+        expect(document.body.innerHTML).toBe("");
+
+        // `navigator.storage` is missing outside a secure context; asking there would throw
+        // before the service worker's own error screen could explain why nothing works.
+        vi.mocked(console.warn).mockClear();
+        setStorageManager(undefined);
+        await runBootstrap();
+        await vi.waitFor(() => expect(mocks.startLocalServerWorker).toHaveBeenCalledTimes(2));
+        expect(console.warn).not.toHaveBeenCalled();
     });
 
     it("registers the native HTTP handler and the share-sheet save under Capacitor only", async () => {

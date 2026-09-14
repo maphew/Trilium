@@ -91,6 +91,10 @@ async function bootstrap() {
     };
     window.standaloneApi = standaloneApi;
 
+    // Never awaited: the verdict changes nothing about how startup proceeds, and the browser is
+    // free to take its time reaching one.
+    void requestPersistentStorage();
+
     try {
         // When running inside a Capacitor WebView, register the native HTTP
         // handler so outbound sync requests bypass CORS and cookie restrictions.
@@ -141,6 +145,34 @@ async function bootstrap() {
             "Failed to Initialize",
             err instanceof Error ? err.message : String(err)
         );
+    }
+}
+
+/**
+ * Asks the browser to keep the storage the database lives in. Without the grant that storage is
+ * best-effort: WebKit drops it after about a week without a visit and Chromium evicts it under
+ * pressure, taking the whole database with it.
+ *
+ * The browser answers from its own heuristics — how installed the site looks — and a page can
+ * neither prompt for it nor appeal it, so this reports the verdict and carries on. It runs here
+ * rather than beside the OPFS code because `StorageManager.persist()` is exposed on the window
+ * only; a worker can read `persisted()` but cannot ask.
+ *
+ * `navigator.storage` is absent outside a secure context, which standalone already refuses to
+ * start in.
+ */
+async function requestPersistentStorage() {
+    if (!navigator.storage?.persist) {
+        return;
+    }
+
+    try {
+        const granted = await navigator.storage.persist();
+        console.log(granted
+            ? "[Bootstrap] Storage is persistent"
+            : "[Bootstrap] Storage is best-effort, so the browser can evict the database");
+    } catch (err) {
+        console.warn("[Bootstrap] Could not ask for persistent storage:", err);
     }
 }
 
