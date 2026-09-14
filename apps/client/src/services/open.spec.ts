@@ -192,6 +192,18 @@ describe("open service", () => {
             expect(window.location.href).toContain("api/attachments/a3/download");
         });
 
+        it("routes a non-previewable open through the mobile share sheet", async () => {
+            // Navigating to the attachment response would be dropped there, like any download.
+            const saveUrl = vi.fn(async () => ({ status: "saved" as const, fileName: "a.zip" }));
+            realWindow.standaloneApi = { save: { saveUrl } };
+
+            await open.openAttachmentExternally("a5", "application/zip");
+
+            await vi.waitFor(() => expect(saveUrl).toHaveBeenCalledWith(
+                expect.stringContaining("api/attachments/a5/download")
+            ));
+        });
+
         it("covers all canOpenInBrowser branches (image/audio/video)", async () => {
             await openNoteExternally("img", "image/jpeg");
             expect(window.open).toHaveBeenLastCalledWith("api/notes/img/open");

@@ -112,7 +112,9 @@ async function openExternally(type: string, entityId: string, mime: string) {
         if (canOpenInBrowser(mime)) {
             window.open(getOpenFileUrl(type, entityId));
         } else {
-            window.location.href = getFileUrl(type, entityId);
+            // What cannot be previewed is downloaded, which on mobile means the share sheet:
+            // navigating to the attachment response would be dropped there (see download()).
+            download(getFileUrl(type, entityId));
         }
     }
 }
