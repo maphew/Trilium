@@ -1806,7 +1806,12 @@
     "start_over_pending": "The setup screen will appear the next time this server is restarted. Restart the server when you are ready, or cancel below to leave everything as it is.",
     "start_over_cancel": "Cancel start over",
     "related_backup": "Backup",
-    "related_backup_description": "Create or restore database backups, manage automatic backups."
+    "related_backup_description": "Create or restore database backups, manage automatic backups.",
+    "info_persistence": "Persistence",
+    "info_persistence_persistent": "Persistent",
+    "info_persistence_best_effort": "Best-effort",
+    "info_persistence_persistent_description": "The browser has undertaken to keep this database until you delete it.",
+    "info_persistence_best_effort_description": "The browser can evict this database to reclaim space.\nInstalling Trilium as an app or adding it to your home screen usually earns persistence."
   },
   "vacuum_database": {
     "title": "Vacuum Database",
