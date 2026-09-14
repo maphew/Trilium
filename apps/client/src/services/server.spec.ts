@@ -553,4 +553,55 @@ describe("localFetch transport", () => {
         await expect(server.get("url")).resolves.toEqual({ viaXhr: true });
         expect(localFetch).not.toHaveBeenCalled();
     });
+
+    it("answers an empty body with null rather than parsing it", async () => {
+        // What a DELETE returns, and what `JSON.parse("")` would throw on.
+        localFetch.mockResolvedValue(new Response(null, {
+            status: 204,
+            headers: { "content-type": "application/json" }
+        }));
+
+        await expect(server.remove("del/url")).resolves.toBeNull();
+    });
+
+    it("hands back a body the response does not call json as it arrived", async () => {
+        answerWith("plain words", { headers: { "content-type": "text/plain" } });
+
+        await expect(server.get("text/url")).resolves.toBe("plain words");
+    });
+
+    it("drops the headers that have no value", async () => {
+        // No active context, so `trilium-hoisted-note-id` is null. Left in, it would reach the
+        // worker as the string "null".
+        answerWith(JSON.stringify({}));
+        await server.get("url");
+
+        const request = localFetch.mock.calls[0][0] as Request;
+        expect(request.headers.has("trilium-hoisted-note-id")).toBe(false);
+    });
+
+    it("refreshes the csrf token only once, however many times the retry is refused", async () => {
+        (window as any).fetch = vi.fn(async () => ({
+            ok: true,
+            json: async () => ({ csrfToken: "fresh-token" })
+        }));
+        (window as any).location = { search: "" } as any;
+
+        const refusal = JSON.stringify({ message: "Invalid CSRF token" });
+        localFetch.mockImplementation(async () => new Response(refusal, {
+            status: 403,
+            headers: { "content-type": "application/json" }
+        }));
+
+        await expect(server.get("retry-forever/url")).rejects.toBe(refusal);
+        // The retry carries `csrfRetried`, so its own refusal reports rather than retrying again.
+        expect(localFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("lets a worker failure through instead of reading a response out of it", async () => {
+        // What local-bridge.ts rejects every in-flight request with when the worker dies.
+        localFetch.mockRejectedValue(new Error("Worker error: boom"));
+
+        await expect(server.get("url")).rejects.toThrow("Worker error: boom");
+    });
 });
