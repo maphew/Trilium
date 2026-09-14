@@ -139,6 +139,6 @@
 
 /* On a screen of its own, the map keeps clear of whatever the screen keeps for itself. */
 .mind-map-container:fullscreen {
-    --mind-map-inset-top: calc(var(--mind-map-inset) + env(safe-area-inset-top));
-    --mind-map-inset-bottom: calc(var(--mind-map-inset) + env(safe-area-inset-bottom));
+    --mind-map-inset-top: calc(var(--mind-map-inset) + var(--safe-area-inset-top, env(safe-area-inset-top)));
+    --mind-map-inset-bottom: calc(var(--mind-map-inset) + var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
 }

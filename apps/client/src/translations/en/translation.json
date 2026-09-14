@@ -2190,7 +2190,8 @@
     "mismatch": "The passwords do not match."
   },
   "open": {
-    "directory_failed": "Could not open {{- directory}}: {{- reason}}"
+    "directory_failed": "Could not open {{- directory}}: {{- reason}}",
+    "download_failed": "Could not save the download: {{- reason}}"
   },
   "etapi": {
     "description": "ETAPI is a REST API used to access Trilium instance programmatically, without UI.",

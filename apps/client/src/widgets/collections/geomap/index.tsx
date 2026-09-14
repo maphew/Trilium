@@ -9,6 +9,7 @@ import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
+import { fileAccept } from "../../../services/utils";
 import { logError } from "../../../services/ws";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import { useCollectionTreeDrag, useColorScheme, useEffectiveReadOnly, useNoteBlob, useNoteContext, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate } from "../../react/hooks";
@@ -506,7 +507,7 @@ function pickGpxFile(): Promise<File | null> {
     return new Promise((resolve) => {
         const input = document.createElement("input");
         input.type = "file";
-        input.accept = ".gpx,application/gpx+xml";
+        input.accept = fileAccept(".gpx,application/gpx+xml");
         input.addEventListener("change", () => resolve(input.files?.[0] ?? null));
         input.addEventListener("cancel", () => resolve(null));
         input.click();

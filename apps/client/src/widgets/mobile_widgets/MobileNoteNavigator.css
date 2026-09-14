@@ -90,7 +90,7 @@
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
     overscroll-behavior: contain;
-    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0));
 }
 
 .mobile-navigator-scroll.is-pending .mobile-navigator-body {

@@ -131,10 +131,10 @@ body[dir=rtl] .geo-map-container {
  * which is the point of insetting rather than padding.
  */
 .geo-map-container:fullscreen {
-  --geo-map-inset-top: calc(var(--geo-map-inset) + env(safe-area-inset-top));
-  --geo-map-inset-bottom: calc(var(--geo-map-inset) + env(safe-area-inset-bottom));
-  --geo-map-inset-left: calc(var(--geo-map-inset) + env(safe-area-inset-left));
-  --geo-map-inset-right: calc(var(--geo-map-inset) + env(safe-area-inset-right));
+  --geo-map-inset-top: calc(var(--geo-map-inset) + var(--safe-area-inset-top, env(safe-area-inset-top)));
+  --geo-map-inset-bottom: calc(var(--geo-map-inset) + var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
+  --geo-map-inset-left: calc(var(--geo-map-inset) + var(--safe-area-inset-left, env(safe-area-inset-left)));
+  --geo-map-inset-right: calc(var(--geo-map-inset) + var(--safe-area-inset-right, env(safe-area-inset-right)));
 }
 
 /*

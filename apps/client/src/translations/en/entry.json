@@ -159,6 +159,7 @@
     "restore-stage-validating": "Checking the database",
     "restore-stage-swapping": "Putting it in place",
     "restore-stage-migrating": "Opening the database",
-    "restore-do-not-close": "Do not close this window."
+    "restore-do-not-close": "Do not close this window.",
+    "backup-saved-to": "The backup has been saved to {{- location}}. Press \"Finish\" to return to the application."
   }
 }
