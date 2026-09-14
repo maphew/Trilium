@@ -8,9 +8,6 @@ test("renders ELK flowchart", async ({ page, context }) => {
         noteTitle: "Flowchart ELK on",
         snapshot: `
             - document:
-                - paragraph: A
-                - paragraph: B
-                - paragraph: C
                 - paragraph: Guarantee
                 - paragraph: User attributes
                 - paragraph: Master data
@@ -21,9 +18,25 @@ test("renders ELK flowchart", async ({ page, context }) => {
                 - paragraph: Customer
                 - paragraph: Profit Centers
                 - paragraph: Guarantee
+                - paragraph: A
+                - paragraph: B
+                - paragraph: C
                 - text: Interfaces for B
         `
     });
+});
+
+// The aria snapshots above read label text in DOM order, which mermaid emits from the
+// diagram source and is therefore the same under either layout. Node coordinates are what
+// differ, so this is the assertion that `layout: elk` in a note's front matter still beats
+// the `layout: dagre` the client pins in getMermaidConfig().
+test("lays the ELK flowchart out differently from the dagre one", async ({ page, context }) => {
+    const elk = await nodePositions(page, context, "Flowchart ELK on");
+    const dagre = await nodePositions(page, context, "Flowchart ELK off");
+
+    expect(elk.length).toBeGreaterThan(0);
+    expect(elk.length).toBe(dagre.length);
+    expect(elk).not.toEqual(dagre);
 });
 
 test("renders standard flowchart", async ({ page, context }) => {
@@ -160,4 +173,14 @@ function requireBoundingBox(box: Awaited<ReturnType<Locator["boundingBox"]>>, la
         );
     }
     return box;
+}
+
+async function nodePositions(page: Page, context: BrowserContext, noteTitle: string) {
+    const app = new App(page, context);
+    await app.goto();
+    await app.goToNoteInNewTab(noteTitle);
+
+    const nodes = app.currentNoteSplit.locator(".render-container svg .node");
+    await expect(nodes.first()).toBeVisible();
+    return await nodes.evaluateAll((els) => els.map((el) => el.getAttribute("transform") ?? ""));
 }
