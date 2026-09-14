@@ -1223,9 +1223,11 @@ body.mobile .column-drop-placeholder {
 }
 
 /* What stops a strip's cards being drawn while they stay in the page. Taking them out instead
-   lands on the frames the width is animating across. */
+   lands on the frames the width is animating across. `content-visibility` skips the contents but
+   not the box's own padding, which would stand below the heading as a band the hover misses. */
 .board-view-container .board-column.collapsed > .board-column-content {
   content-visibility: hidden;
+  padding-block: 0;
 }
 
 /* Width and not a transform: the columns beside it have to move with it. The copy being carried is
