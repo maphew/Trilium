@@ -51,11 +51,28 @@ export const BACKUP_TARGET: SaveTarget = {
 };
 
 /**
- * Bytes per write. A multiple of 3, so each chunk encodes independently: base64 pads any group
- * narrower than three bytes, and a padded group in the middle of a file decodes to the wrong
- * bytes. 768 KiB keeps the base64 copy of a chunk around a megabyte.
+ * Bytes per write.
+ *
+ * A multiple of 3, so each chunk encodes independently: base64 pads any group narrower than three
+ * bytes, and a padded group in the middle of a file decodes to the wrong bytes. Every `3n` KiB
+ * satisfies that.
+ *
+ * The size is a trade against the bridge, which is what a write costs: the chunk crosses as base64
+ * inside a JSON string, so the bytes are walked about five times between here and the file, and
+ * the chunk, its base64 copy and both sides of the marshalled string are live at once — budget
+ * roughly four times the chunk. Fewer, larger writes buy fewer round trips at that price.
  */
-const CHUNK_BYTES = 768 * 1024;
+const DEFAULT_CHUNK_BYTES = 3 * 1024 * 1024;
+
+let chunkBytes = DEFAULT_CHUNK_BYTES;
+
+/**
+ * Test-only: shrinks the write size, so a spec can cross a chunk boundary without pushing the
+ * production size through base64 and back on every run.
+ */
+export function setChunkBytesForTests(bytes = DEFAULT_CHUNK_BYTES) {
+    chunkBytes = bytes;
+}
 
 /** Both platforms' Share plugin rejects with exactly this when the user dismisses the sheet. */
 const SHARE_CANCELLED = "Share canceled";
@@ -92,7 +109,11 @@ export async function saveChunksToDevice(
     target: SaveTarget
 ): Promise<StandaloneSaveResult> {
     try {
-        const uri = await writeChunks(fileName, chunks, target);
+        const started = performance.now();
+        const outcome = await writeChunks(fileName, chunks, target);
+        reportThroughput(fileName, outcome, performance.now() - started);
+        const { uri } = outcome;
+
         return { ...await shareFile(uri, fileName), location: displayPath(uri) };
     } catch (e) {
         return {
@@ -140,12 +161,20 @@ function getPlugin<T>(name: string): T {
     return plugin as T;
 }
 
+interface WriteOutcome {
+    uri: string;
+    bytes: number;
+    encodeMs: number;
+    waitMs: number;
+    transport: "sink" | "plugin";
+}
+
 /** Writes the chunks into `target` one at a time and returns the finished file's URI. */
 async function writeChunks(
     fileName: string,
     chunks: AsyncIterable<Uint8Array>,
     { directory, folder, sweep }: SaveTarget
-): Promise<string> {
+): Promise<WriteOutcome> {
     const filesystem = getPlugin<FilesystemPlugin>("Filesystem");
     const path = `${folder}/${fileName}`;
 
@@ -155,23 +184,205 @@ async function writeChunks(
             .catch(() => undefined);
     }
 
-    let started = false;
-    for await (const chunk of rechunk(chunks, CHUNK_BYTES)) {
-        const data = toBase64(chunk);
-        if (started) {
-            await filesystem.appendFile({ path, data, directory });
-        } else {
-            await filesystem.writeFile({ path, data, directory, recursive: true });
-            started = true;
+    const sink = takeFileSink();
+    if (sink) {
+        try {
+            // The plugin creates the file first, so its own directory mapping — not a guess at
+            // it — is what turns `path` into the absolute path the sink writes to.
+            await filesystem.writeFile({ path, data: "", directory, recursive: true });
+            const { uri } = await filesystem.getUri({ path, directory });
+
+            return { uri, transport: "sink", ...await writeThroughSink(sink, displayPath(uri), chunks) };
+        } finally {
+            releaseFileSink();
         }
     }
+
+    let bytes = 0;
+    let encodeMs = 0;
+    let waitMs = 0;
+    let started = false;
+    // One call is kept in flight while the next chunk encodes, so the encode's cost hides behind
+    // the bridge's. Never two: appends are ordered only because each is issued after the previous
+    // one resolves.
+    let pending: Promise<unknown> | null = null;
+
+    const awaitPending = async () => {
+        if (pending) {
+            const waitStart = performance.now();
+            await pending;
+            waitMs += performance.now() - waitStart;
+            pending = null;
+        }
+    };
+
+    await withoutCallLogging(async () => {
+        for await (const chunk of rechunk(chunks, chunkBytes)) {
+            const encodeStart = performance.now();
+            const data = toBase64(chunk);
+            encodeMs += performance.now() - encodeStart;
+
+            await awaitPending();
+            pending = started
+                ? filesystem.appendFile({ path, data, directory })
+                : filesystem.writeFile({ path, data, directory, recursive: true });
+            started = true;
+            bytes += chunk.length;
+        }
+        await awaitPending();
+    });
 
     if (!started) {
         await filesystem.writeFile({ path, data: "", directory, recursive: true });
     }
 
     const { uri } = await filesystem.getUri({ path, directory });
-    return uri;
+    return { uri, bytes, encodeMs, waitMs, transport: "plugin" };
+}
+
+/**
+ * `window.triliumFileSink`: the binary write channel `TriliumFileSink.java` injects on Android.
+ *
+ * A `WebMessageListener` object, so it carries raw `ArrayBuffer`s — where the plugin bridge wraps
+ * every chunk in base64 inside a JSON string that the native side re-parses whole, capping writes
+ * around 13 MB/s. Absent on iOS, on WebViews too old for ArrayBuffer messages, and on the web.
+ */
+interface NativeFileSink {
+    postMessage(message: string | ArrayBuffer): void;
+    addEventListener(type: "message", listener: (event: { data: unknown }) => void): void;
+    removeEventListener(type: "message", listener: (event: { data: unknown }) => void): void;
+}
+
+/** Whether a transfer already owns the sink, which holds one open file and no more. */
+let sinkBusy = false;
+
+function takeFileSink(): NativeFileSink | null {
+    const sink = (window as { triliumFileSink?: NativeFileSink }).triliumFileSink;
+    if (!sink || typeof sink.postMessage !== "function" || sinkBusy) {
+        return null;
+    }
+    sinkBusy = true;
+    return sink;
+}
+
+function releaseFileSink(): void {
+    sinkBusy = false;
+}
+
+/** How long one acknowledged step may take before the transfer is declared dead. */
+const SINK_ACK_TIMEOUT_MS = 30_000;
+
+/**
+ * Streams the chunks down the sink: `open`, one ArrayBuffer per chunk, `close`, each step
+ * acknowledged before the next is sent — which is all the flow control there is, and enough,
+ * because the native side answers only after its write lands.
+ */
+async function writeThroughSink(
+    sink: NativeFileSink,
+    filePath: string,
+    chunks: AsyncIterable<Uint8Array>
+): Promise<{ bytes: number; encodeMs: number; waitMs: number }> {
+    let bytes = 0;
+    let waitMs = 0;
+
+    // Replies arrive in send order, so the head of this queue is always the awaited step.
+    const waiting: ((reply: string) => void)[] = [];
+    const listener = (event: { data: unknown }) => waiting.shift()?.(String(event.data));
+    sink.addEventListener("message", listener);
+
+    const send = (message: string | ArrayBuffer, expected: string) =>
+        new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(
+                () => reject(new Error("The file sink stopped answering.")),
+                SINK_ACK_TIMEOUT_MS
+            );
+            waiting.push((reply) => {
+                clearTimeout(timer);
+                if (reply === expected) {
+                    resolve();
+                } else {
+                    reject(new Error(reply.startsWith("error:")
+                        ? reply.slice("error:".length)
+                        : `Unexpected sink reply: ${reply}`));
+                }
+            });
+            sink.postMessage(message);
+        });
+
+    try {
+        await send(JSON.stringify({ type: "open", path: filePath }), "opened");
+        for await (const chunk of rechunk(chunks, chunkBytes)) {
+            const waitStart = performance.now();
+            await send(exactBuffer(chunk), "written");
+            waitMs += performance.now() - waitStart;
+            bytes += chunk.length;
+        }
+        await send(JSON.stringify({ type: "close" }), "closed");
+    } finally {
+        sink.removeEventListener("message", listener);
+    }
+
+    return { bytes, encodeMs: 0, waitMs };
+}
+
+/** The chunk's bytes as exactly one ArrayBuffer, which is what the message channel carries. */
+function exactBuffer(chunk: Uint8Array): ArrayBuffer {
+    const { buffer, byteOffset, byteLength } = chunk;
+    if (byteOffset === 0 && byteLength === buffer.byteLength && buffer instanceof ArrayBuffer) {
+        return buffer;
+    }
+    return buffer.slice(byteOffset, byteOffset + byteLength) as ArrayBuffer;
+}
+
+/**
+ * Runs `write` with Capacitor's per-call console logging turned off.
+ *
+ * A debuggable build logs every plugin call by handing the call object to `console.dir`, and a
+ * write's call object holds the whole base64 chunk — megabytes through the console pipeline per
+ * chunk, next to the write itself. The flag is read at call time, so this suppresses only those
+ * call traces; the application's own console output reaches logcat by a different route.
+ */
+async function withoutCallLogging<T>(write: () => Promise<T>): Promise<T> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cap = (window as any).Capacitor;
+    const wasEnabled = cap?.isLoggingEnabled;
+
+    if (cap) {
+        cap.isLoggingEnabled = false;
+    }
+    try {
+        return await write();
+    } finally {
+        if (cap) {
+            cap.isLoggingEnabled = wasEnabled;
+        }
+    }
+}
+
+/**
+ * What the write achieved, which is the only place the transport's cost per byte is visible.
+ *
+ * The split names the suspect: `base64` is time in {@link toBase64}, the wait is time blocked on
+ * the transport. What is left of the total is producing the bytes (the worker, for a backup) plus
+ * everything the pipelining managed to hide.
+ */
+function reportThroughput(
+    fileName: string,
+    { bytes, encodeMs, waitMs, transport }: WriteOutcome,
+    elapsedMs: number
+): void {
+    const seconds = elapsedMs / 1000;
+    const megabytes = bytes / 1_000_000;
+    const rate = seconds > 0 ? (megabytes / seconds).toFixed(1) : "—";
+    const split = transport === "sink"
+        ? `via the binary sink — write wait ${(waitMs / 1000).toFixed(1)}s`
+        : `via the plugin bridge — base64 ${(encodeMs / 1000).toFixed(1)}s, `
+            + `bridge wait ${(waitMs / 1000).toFixed(1)}s`;
+
+    console.log(
+        `[Save] ${fileName}: ${megabytes.toFixed(1)} MB in ${seconds.toFixed(1)}s (${rate} MB/s) `
+        + `${split}, ${Math.ceil(bytes / chunkBytes)} writes of ${chunkBytes / 1024} KiB`
+    );
 }
 
 /**
@@ -230,10 +441,11 @@ async function* bodyChunks(response: Response): AsyncGenerator<Uint8Array> {
 /**
  * Regroups a stream into pieces of `size` bytes, with whatever is left over emitted last.
  *
- * This is what keeps every write but the last a multiple of 3 bytes, so each encodes to base64
- * independently. It belongs here rather than in the callers because a source picks its chunk sizes
- * for its own reasons — a response body by packet, the backup stream by database page — and none
- * of them is obliged to know what the writer needs.
+ * This is what keeps every plugin-bridge write but the last a multiple of 3 bytes, so each encodes
+ * to base64 independently, and what bounds a sink message to one chunk. It belongs here rather
+ * than in the callers because a source picks its chunk sizes for its own reasons — a response body
+ * by packet, the backup stream by database page — and none of them is obliged to know what the
+ * writer needs.
  */
 async function* rechunk(chunks: AsyncIterable<Uint8Array>, size: number): AsyncGenerator<Uint8Array> {
     // Held as they arrive and joined only when a whole chunk is due. Merging each arrival into one
@@ -286,12 +498,20 @@ function take(parts: Uint8Array[], size: number): Uint8Array {
 }
 
 /**
- * Base64 for the bridge, which carries binary as a string. Built in steps because
- * `String.fromCharCode` takes its bytes as arguments, and a chunk's worth at once overflows the
- * call stack. The crypto provider's `encodeBase64` is not reachable from here: it lives in the
- * worker, and this runs on the page.
+ * Base64 for the bridge, which carries binary as a string.
+ *
+ * `Uint8Array.prototype.toBase64` (Chrome 140+, so every current WebView) encodes in native code
+ * with the same standard alphabet and padding `btoa` produces. The fallback is built in steps
+ * because `String.fromCharCode` takes its bytes as arguments, and a chunk's worth at once
+ * overflows the call stack. The crypto provider's `encodeBase64` is not reachable from here: it
+ * lives in the worker, and this runs on the page.
  */
 function toBase64(bytes: Uint8Array): string {
+    const native = (bytes as Uint8Array & { toBase64?: () => string }).toBase64;
+    if (typeof native === "function") {
+        return native.call(bytes);
+    }
+
     const STEP = 8192;
     let binary = "";
     for (let offset = 0; offset < bytes.length; offset += STEP) {

@@ -1,6 +1,15 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BACKUP_TARGET, fileNameOf, saveChunksToDevice, saveUrlToDevice } from "./capacitor_download.js";
+import {
+    BACKUP_TARGET, fileNameOf, saveChunksToDevice, saveUrlToDevice, setChunkBytesForTests
+} from "./capacitor_download.js";
+
+/**
+ * The write size these specs run at. Small, so crossing a chunk boundary costs a few hundred
+ * kilobytes of base64 rather than the production size, and fixed here so tuning that size does not
+ * quietly stop the boundary being crossed at all.
+ */
+const CHUNK_BYTES = 96 * 1024;
 
 interface CapacitorWindow {
     Capacitor?: unknown;
@@ -39,6 +48,40 @@ function installCapacitor({ share }: { share?: ReturnType<typeof vi.fn> } = {}) 
     (window as unknown as CapacitorWindow).Capacitor = { Plugins: {}, registerPlugin };
 
     return { filesystem, sharePlugin, registerPlugin, written, removed };
+}
+
+/**
+ * Models `window.triliumFileSink`, the binary channel `TriliumFileSink.java` injects: acknowledges
+ * every message the way the native side does, or answers a chunk with an error when asked to.
+ */
+function installFileSink({ failOnChunk = false } = {}) {
+    const posted: (string | ArrayBuffer)[] = [];
+    const listeners = new Set<(event: { data: string }) => void>();
+    const reply = (data: string) => queueMicrotask(() => {
+        for (const listener of [ ...listeners ]) {
+            listener({ data });
+        }
+    });
+
+    const sink = {
+        postMessage: (message: string | ArrayBuffer) => {
+            posted.push(message);
+            if (typeof message !== "string") {
+                reply(failOnChunk ? "error:disk full" : "written");
+            } else {
+                reply((JSON.parse(message) as { type: string }).type === "open" ? "opened" : "closed");
+            }
+        },
+        addEventListener: (_type: string, listener: (event: { data: string }) => void) => {
+            listeners.add(listener);
+        },
+        removeEventListener: (_type: string, listener: (event: { data: string }) => void) => {
+            listeners.delete(listener);
+        }
+    };
+    (window as { triliumFileSink?: unknown }).triliumFileSink = sink;
+
+    return { posted, listeners };
 }
 
 /** The bytes handed to the plugin, decoded back out of the base64 each write carried. */
@@ -89,8 +132,14 @@ function fakeResponse({
 }
 
 describe("capacitor download", () => {
+    beforeEach(() => {
+        setChunkBytesForTests(CHUNK_BYTES);
+    });
+
     afterEach(() => {
+        setChunkBytesForTests();
         delete (window as unknown as CapacitorWindow).Capacitor;
+        delete (window as { triliumFileSink?: unknown }).triliumFileSink;
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
@@ -133,14 +182,14 @@ describe("capacitor download", () => {
     describe("saveUrlToDevice", () => {
         it("writes the body in chunks that decode back to the original bytes, then shares the file", async () => {
             const { filesystem, sharePlugin, written, removed } = installCapacitor();
-            // Over one 768 KiB chunk, so the write is split and the append path runs. The pattern
-            // repeats at 251 (a prime, coprime with the chunk size) so a chunk boundary landing on
-            // the wrong byte shows up as a mismatch rather than an accidental match.
-            const bytes = Uint8Array.from({ length: 900 * 1024 }, (_, i) => i % 251);
+            // Over one chunk, so the write is split and the append path runs. The pattern repeats
+            // at 251 (a prime, coprime with the chunk size) so a chunk boundary landing on the
+            // wrong byte shows up as a mismatch rather than an accidental match.
+            const bytes = Uint8Array.from({ length: CHUNK_BYTES + 4001 }, (_, i) => i % 251);
             vi.stubGlobal("fetch", vi.fn(async () => streamingResponse(
                 bytes,
                 { "content-disposition": `attachment; filename*=UTF-8''Export.zip` },
-                64 * 1024
+                8 * 1024
             )));
 
             const result = await saveUrlToDevice("api/branches/b1/export/subtree/html/t1");
@@ -230,13 +279,25 @@ describe("capacitor download", () => {
             }
         }
 
+        /** The sink's messages joined back into the bytes they carried. */
+        function concatBuffers(buffers: ArrayBuffer[]): Uint8Array {
+            const total = buffers.reduce((sum, buffer) => sum + buffer.byteLength, 0);
+            const out = new Uint8Array(total);
+            let offset = 0;
+            for (const buffer of buffers) {
+                out.set(new Uint8Array(buffer), offset);
+                offset += buffer.byteLength;
+            }
+            return out;
+        }
+
         it("realigns a source whose chunks are not a multiple of 3 bytes", async () => {
             const { written } = installCapacitor();
             // 4001 is coprime with 3, so every incoming piece straddles a base64 group. Writing
             // these through unaligned would pad mid-file and corrupt everything after the first
             // piece, which is exactly what the database backup's page-sized chunks would do. The
-            // total clears one 768 KiB write, so there is a boundary to get wrong.
-            const bytes = Uint8Array.from({ length: 800 * 1024 }, (_, i) => (i * 7) % 251);
+            // total clears one write, so there is a boundary to get wrong.
+            const bytes = Uint8Array.from({ length: CHUNK_BYTES * 2 + 7 }, (_, i) => (i * 7) % 251);
 
             const result = await saveChunksToDevice("db.tnbackup", inPieces(bytes, 4001), BACKUP_TARGET);
 
@@ -264,6 +325,80 @@ describe("capacitor download", () => {
                 title: "db.tnbackup",
                 files: ["file:///cache/Trilium/db.tnbackup"]
             });
+        });
+
+        it("streams raw bytes through the native sink when the shell provides one", async () => {
+            const { filesystem, written, sharePlugin } = installCapacitor();
+            const { posted, listeners } = installFileSink();
+            const bytes = Uint8Array.from({ length: CHUNK_BYTES + 4001 }, (_, i) => (i * 13) % 251);
+
+            const result = await saveChunksToDevice("db.tnbackup", inPieces(bytes, 4001), BACKUP_TARGET);
+
+            expect(result).toMatchObject({ status: "saved", location: "/cache/Trilium/db.tnbackup" });
+            // The plugin only creates the empty file, so its own directory mapping resolves the
+            // absolute path; the bytes themselves never ride the plugin bridge.
+            expect(written).toEqual([ expect.objectContaining({ data: "", append: false }) ]);
+            expect(filesystem.appendFile).not.toHaveBeenCalled();
+
+            expect(posted[0]).toBe(JSON.stringify({ type: "open", path: "/cache/Trilium/db.tnbackup" }));
+            expect(posted.at(-1)).toBe(JSON.stringify({ type: "close" }));
+            const streamed = posted.filter((message): message is ArrayBuffer => typeof message !== "string");
+            expect(streamed.length).toBe(2);
+            expect(concatBuffers(streamed)).toEqual(bytes);
+
+            expect(sharePlugin.share).toHaveBeenCalled();
+            // The transfer's listener is gone, so the next save starts with a clean channel.
+            expect(listeners.size).toBe(0);
+        });
+
+        it("fails the save when the sink answers a chunk with an error, without sharing", async () => {
+            const { sharePlugin } = installCapacitor();
+            const { listeners } = installFileSink({ failOnChunk: true });
+
+            const result = await saveChunksToDevice(
+                "db.tnbackup", inPieces(Uint8Array.from([ 1, 2, 3 ]), 3), BACKUP_TARGET
+            );
+
+            expect(result).toEqual({
+                status: "failed",
+                fileName: "db.tnbackup",
+                message: "disk full"
+            });
+            expect(sharePlugin.share).not.toHaveBeenCalled();
+            expect(listeners.size).toBe(0);
+        });
+
+        it("encodes through the runtime's own toBase64 when it has one, to the same bytes", async () => {
+            // Node has no Uint8Array.prototype.toBase64 yet, so the suite otherwise only ever runs
+            // the fallback — while every current WebView takes this path.
+            const proto = Uint8Array.prototype as unknown as { toBase64?: (this: Uint8Array) => string };
+            const original = proto.toBase64;
+            let calls = 0;
+            proto.toBase64 = function (this: Uint8Array) {
+                calls++;
+                let binary = "";
+                for (const byte of this) {
+                    binary += String.fromCharCode(byte);
+                }
+                return btoa(binary);
+            };
+
+            try {
+                const { written } = installCapacitor();
+                const bytes = Uint8Array.from({ length: CHUNK_BYTES + 17 }, (_, i) => (i * 11) % 251);
+
+                const result = await saveChunksToDevice("n.bin", inPieces(bytes, 5000), BACKUP_TARGET);
+
+                expect(result.status).toBe("saved");
+                expect(calls).toBeGreaterThan(0);
+                expect(writtenBytes(written)).toEqual(bytes);
+            } finally {
+                if (original) {
+                    proto.toBase64 = original;
+                } else {
+                    delete proto.toBase64;
+                }
+            }
         });
 
         it("fails without sharing when the source throws part-way through", async () => {
