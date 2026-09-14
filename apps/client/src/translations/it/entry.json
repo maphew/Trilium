@@ -74,7 +74,7 @@
         "existing-data-backup-failed": "Impossibile creare il backup.",
         "backup-data": "Esegui il backup dei dati di Trilium",
         "backup-name": "Nome di backup",
-        "backup-name-description": "Assegna a questo backup un nome che riconoscerai in seguito, oppure mantieni quello suggerito.",
+        "backup-name-description": "Assegna a questo backup un nome che potrai riconoscere in seguito, oppure mantieni quello suggerito.",
         "backup-password": "Password (facoltativa)",
         "backup-password-repeat": "Ripeti la password",
         "backup-password-description": "Se si specifica una password, il file di backup verrà crittografato. Conservare la password in un luogo sicuro: senza di essa, il backup non potrà essere ripristinato.",
