@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fileNameOf, saveUrlToDevice } from "./capacitor_download.js";
+import { BACKUP_TARGET, fileNameOf, saveChunksToDevice, saveUrlToDevice } from "./capacitor_download.js";
 
 interface CapacitorWindow {
     Capacitor?: unknown;
@@ -44,7 +44,11 @@ function installCapacitor({ share }: { share?: ReturnType<typeof vi.fn> } = {}) 
 /** The bytes handed to the plugin, decoded back out of the base64 each write carried. */
 function writtenBytes(written: { data: string }[]): Uint8Array {
     const binary = written.map((write) => atob(write.data)).join("");
-    return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
 }
 
 /** A response whose body streams in `chunkSize` pieces, as a real network body would. */
@@ -141,7 +145,12 @@ describe("capacitor download", () => {
 
             const result = await saveUrlToDevice("api/branches/b1/export/subtree/html/t1");
 
-            expect(result).toEqual({ status: "saved", fileName: "Export.zip" });
+            expect(result).toEqual({
+                status: "saved",
+                fileName: "Export.zip",
+                // The `file://` scheme is stripped: this is shown to a person, not opened.
+                location: "/cache/trilium-downloads/Export.zip"
+            });
             expect(removed).toEqual(["trilium-downloads"]);
             expect(written.map((write) => write.append)).toEqual([false, true]);
             expect(written.every((write) => write.path === "trilium-downloads/Export.zip")).toBe(true);
@@ -162,12 +171,12 @@ describe("capacitor download", () => {
                 headers: { "content-disposition": `attachment; filename="a.bin"` },
                 buffer: bytes
             })));
-            expect(await saveUrlToDevice("api/x")).toEqual({ status: "saved", fileName: "a.bin" });
+            expect(await saveUrlToDevice("api/x")).toMatchObject({ status: "saved", fileName: "a.bin" });
             expect(writtenBytes(written)).toEqual(bytes);
 
             written.length = 0;
             vi.stubGlobal("fetch", vi.fn(async () => fakeResponse({})));
-            expect(await saveUrlToDevice("api/empty.bin")).toEqual({ status: "saved", fileName: "empty.bin" });
+            expect(await saveUrlToDevice("api/empty.bin")).toMatchObject({ status: "saved", fileName: "empty.bin" });
             expect(written).toEqual([
                 expect.objectContaining({ data: "", append: false })
             ]);
@@ -176,10 +185,16 @@ describe("capacitor download", () => {
         it("reports a cancelled share sheet as cancelled, and any other share error as a failure", async () => {
             installCapacitor({ share: vi.fn(async () => { throw new Error("Share canceled"); }) });
             vi.stubGlobal("fetch", vi.fn(async () => fakeResponse({ buffer: Uint8Array.from([1]) })));
-            expect(await saveUrlToDevice("api/a.bin")).toEqual({ status: "cancelled", fileName: "a.bin" });
+            // Still a file on disk, which is what `location` says and what makes a dismissed sheet
+            // survivable for a backup.
+            expect(await saveUrlToDevice("api/a.bin")).toEqual({
+                status: "cancelled",
+                fileName: "a.bin",
+                location: "/cache/trilium-downloads/a.bin"
+            });
 
             installCapacitor({ share: vi.fn(async () => { throw new Error("No app can open this"); }) });
-            expect(await saveUrlToDevice("api/a.bin")).toEqual({
+            expect(await saveUrlToDevice("api/a.bin")).toMatchObject({
                 status: "failed",
                 fileName: "a.bin",
                 message: "No app can open this"
@@ -204,6 +219,66 @@ describe("capacitor download", () => {
                 fileName: "a.bin",
                 message: "The Filesystem plugin is not available"
             });
+        });
+    });
+
+    describe("saveChunksToDevice", () => {
+        /** Emits `bytes` in pieces of `size`, which is how an arbitrary producer feeds the writer. */
+        async function* inPieces(bytes: Uint8Array, size: number) {
+            for (let offset = 0; offset < bytes.length; offset += size) {
+                yield bytes.slice(offset, offset + size);
+            }
+        }
+
+        it("realigns a source whose chunks are not a multiple of 3 bytes", async () => {
+            const { written } = installCapacitor();
+            // 4001 is coprime with 3, so every incoming piece straddles a base64 group. Writing
+            // these through unaligned would pad mid-file and corrupt everything after the first
+            // piece, which is exactly what the database backup's page-sized chunks would do. The
+            // total clears one 768 KiB write, so there is a boundary to get wrong.
+            const bytes = Uint8Array.from({ length: 800 * 1024 }, (_, i) => (i * 7) % 251);
+
+            const result = await saveChunksToDevice("db.tnbackup", inPieces(bytes, 4001), BACKUP_TARGET);
+
+            expect(result.status).toBe("saved");
+            expect(writtenBytes(written)).toEqual(bytes);
+            // Every write but the last is a whole chunk, so every write but the last is 3-aligned.
+            expect(written.slice(0, -1).every((write) => atob(write.data).length % 3 === 0)).toBe(true);
+        });
+
+        it("writes a backup into documents and leaves the previous ones alone", async () => {
+            const { written, removed, sharePlugin } = installCapacitor();
+
+            const result = await saveChunksToDevice(
+                "db.tnbackup", inPieces(Uint8Array.from([1, 2, 3]), 3), BACKUP_TARGET
+            );
+
+            // Sweeping the folder before each write is right for the share sheet's scratch space
+            // and would destroy the previous backup here.
+            expect(removed).toEqual([]);
+            expect(written).toEqual([
+                expect.objectContaining({ path: "Trilium/db.tnbackup", directory: "DOCUMENTS" })
+            ]);
+            expect(result.location).toBe("/cache/Trilium/db.tnbackup");
+            expect(sharePlugin.share).toHaveBeenCalledWith({
+                title: "db.tnbackup",
+                files: ["file:///cache/Trilium/db.tnbackup"]
+            });
+        });
+
+        it("fails without sharing when the source throws part-way through", async () => {
+            const { sharePlugin } = installCapacitor();
+            async function* breaks() {
+                yield Uint8Array.from([1, 2, 3]);
+                throw new Error("The backup stream failed.");
+            }
+
+            expect(await saveChunksToDevice("db.tnbackup", breaks(), BACKUP_TARGET)).toEqual({
+                status: "failed",
+                fileName: "db.tnbackup",
+                message: "The backup stream failed."
+            });
+            expect(sharePlugin.share).not.toHaveBeenCalled();
         });
     });
 });

@@ -47,6 +47,12 @@ export interface StandaloneDownloadResult {
     status: "done" | "cancelled" | "failed";
     /** What stopped it, when `status` is `failed`. */
     message?: string;
+    /**
+     * Where the file was written, when it went somewhere nameable. A browser download lands
+     * wherever the browser puts it and reports nothing back; a save onto a device has a path,
+     * which the screen shows because the user otherwise has no way to find it again.
+     */
+    location?: string;
 }
 
 export interface StandaloneBackupApi {
@@ -70,6 +76,22 @@ export interface StandaloneBackupApi {
         passphrase?: string,
         onProgress?: (sentBytes: number, totalBytes: number) => void
     ): Promise<StandaloneDownloadResult>;
+
+    /**
+     * Writes the same backup onto the device instead, for the mobile shell, whose WebView has no
+     * download manager to hand it to.
+     *
+     * The bytes take the same pull-driven path off the database, so the container, the passphrase
+     * and the progress mean exactly what they do above; only the far end differs. The file lands
+     * in the app's documents directory and the share sheet then offers to put it somewhere that
+     * outlives the device — but the file is already written by then, so a dismissed sheet is still
+     * a backup, and the result carries where it went.
+     */
+    saveDatabase?(
+        fileName: string,
+        passphrase?: string,
+        onProgress?: (sentBytes: number, totalBytes: number) => void
+    ): Promise<StandaloneDownloadResult>;
 }
 
 /** How saving a download onto the device ended. */
@@ -79,6 +101,8 @@ export interface StandaloneSaveResult {
     fileName?: string;
     /** What stopped it, when `status` is `failed`. */
     message?: string;
+    /** Where the file was written, present once it is on disk whatever the share sheet then did. */
+    location?: string;
 }
 
 export interface StandaloneSaveApi {

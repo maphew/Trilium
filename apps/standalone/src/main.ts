@@ -6,7 +6,7 @@ import {
 import { showErrorOverlay } from "./error-overlay.js";
 import { installIosInterceptors } from "./ios-interceptors.js";
 import { claimLeadership } from "./leader_election.js";
-import { announceLeadership, attachServiceWorkerBridge, downloadDatabase, registerNativeHttpHandler, restoreBackup, startLocalServerWorker } from "./local-bridge.js";
+import { announceLeadership, attachServiceWorkerBridge, downloadDatabase, registerNativeHttpHandler, restoreBackup, saveDatabase, startLocalServerWorker } from "./local-bridge.js";
 
 /**
  * What a cold standalone start passes through, drawn as the splash's progress bar. Weights are
@@ -99,9 +99,11 @@ async function bootstrap() {
             registerNativeHttpHandler(capacitorHttpHandler);
 
             // The shell's WebView drops a download the moment the response says `attachment`,
-            // so the client routes downloads through the share sheet instead.
+            // so the client routes downloads through the share sheet instead. The backup takes the
+            // same route, off its own stream rather than a response.
             const { saveUrlToDevice } = await import("./services/capacitor_download.js");
             standaloneApi.save = { saveUrl: saveUrlToDevice };
+            standaloneApi.backup.saveDatabase = saveDatabase;
         }
 
         // 1) Start the local worker ASAP (so /bootstrap is fast) — but only in

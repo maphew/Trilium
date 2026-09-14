@@ -10,13 +10,45 @@ import type { StandaloneSaveResult } from "@triliumnext/commons";
  * them. The page therefore does the whole job: fetch (still routed to the worker by the service
  * worker on Android and by the iOS interceptors on `capacitor://`), write to the app's cache
  * directory, hand the file to the system share sheet.
+ *
+ * A database backup takes the same last step through {@link saveChunksToDevice}, reading its bytes
+ * straight off the local worker rather than out of a response.
  */
 
-/** Where a saved file waits between being written and being handed to the share sheet. */
-const DOWNLOAD_DIR = "trilium-downloads";
+/** Where a kind of saved file is written, and what happens to what is already there. */
+export interface SaveTarget {
+    /** `Directory`'s value, which the Filesystem plugin takes as a string over the bridge. */
+    directory: "CACHE" | "DOCUMENTS";
+    /** The folder inside it, so saved files do not litter the directory's root. */
+    folder: string;
+    /**
+     * Whether the folder is emptied before the write. True for scratch space the share sheet reads
+     * from once; false where the folder holds the user's own files.
+     */
+    sweep: boolean;
+}
 
-/** `Directory.Cache` — the Filesystem plugin takes the enum's string value over the bridge. */
-const CACHE = "CACHE";
+/**
+ * A download: transient. The share sheet is what the user does with it, and the copy left behind is
+ * rubbish, cleared before the next one. It cannot be cleared *after* the sheet closes, because the
+ * receiving app reads the shared URI on its own schedule.
+ */
+export const DOWNLOAD_TARGET: SaveTarget = {
+    directory: "CACHE",
+    folder: "trilium-downloads",
+    sweep: true
+};
+
+/**
+ * A backup: the opposite. It has to survive the share sheet being dismissed and the phone running
+ * low on space, neither of which a cache directory does, and sweeping the folder would destroy the
+ * previous backup. Same-day repeats overwrite, which is what the date-based default name means.
+ */
+export const BACKUP_TARGET: SaveTarget = {
+    directory: "DOCUMENTS",
+    folder: "Trilium",
+    sweep: false
+};
 
 /**
  * Bytes per write. A multiple of 3, so each chunk encodes independently: base64 pads any group
@@ -37,8 +69,31 @@ export async function saveUrlToDevice(url: string): Promise<StandaloneSaveResult
         }
 
         fileName = fileNameOf(response, url);
-        const uri = await writeToCache(fileName, response);
-        return await shareFile(uri, fileName);
+        return await saveChunksToDevice(fileName, bodyChunks(response), DOWNLOAD_TARGET);
+    } catch (e) {
+        return {
+            status: "failed",
+            fileName,
+            message: e instanceof Error ? e.message : String(e)
+        };
+    }
+}
+
+/**
+ * Writes a stream of bytes into `target` and offers the file to the share sheet.
+ *
+ * The file is complete before the sheet opens, and `location` is set as soon as it is on disk, so
+ * a `cancelled` result still names a file that exists — which is what makes this usable for a
+ * backup, where dismissing the sheet must not mean the backup never happened.
+ */
+export async function saveChunksToDevice(
+    fileName: string,
+    chunks: AsyncIterable<Uint8Array>,
+    target: SaveTarget
+): Promise<StandaloneSaveResult> {
+    try {
+        const uri = await writeChunks(fileName, chunks, target);
+        return { ...await shareFile(uri, fileName), location: displayPath(uri) };
     } catch (e) {
         return {
             status: "failed",
@@ -85,35 +140,51 @@ function getPlugin<T>(name: string): T {
     return plugin as T;
 }
 
-/** Writes the response into the cache directory a chunk at a time and returns the file's URI. */
-async function writeToCache(fileName: string, response: Response): Promise<string> {
+/** Writes the chunks into `target` one at a time and returns the finished file's URI. */
+async function writeChunks(
+    fileName: string,
+    chunks: AsyncIterable<Uint8Array>,
+    { directory, folder, sweep }: SaveTarget
+): Promise<string> {
     const filesystem = getPlugin<FilesystemPlugin>("Filesystem");
-    const path = `${DOWNLOAD_DIR}/${fileName}`;
+    const path = `${folder}/${fileName}`;
 
-    // What the previous save left behind. The share sheet hands the receiving app a URI it reads
-    // on its own schedule, so a shared file can only be removed before the next save, never after
-    // `share()` resolves.
-    await filesystem
-        .rmdir({ path: DOWNLOAD_DIR, directory: CACHE, recursive: true })
-        .catch(() => undefined);
+    if (sweep) {
+        await filesystem
+            .rmdir({ path: folder, directory, recursive: true })
+            .catch(() => undefined);
+    }
 
     let started = false;
-    for await (const chunk of chunksOf(response, CHUNK_BYTES)) {
+    for await (const chunk of rechunk(chunks, CHUNK_BYTES)) {
         const data = toBase64(chunk);
         if (started) {
-            await filesystem.appendFile({ path, data, directory: CACHE });
+            await filesystem.appendFile({ path, data, directory });
         } else {
-            await filesystem.writeFile({ path, data, directory: CACHE, recursive: true });
+            await filesystem.writeFile({ path, data, directory, recursive: true });
             started = true;
         }
     }
 
     if (!started) {
-        await filesystem.writeFile({ path, data: "", directory: CACHE, recursive: true });
+        await filesystem.writeFile({ path, data: "", directory, recursive: true });
     }
 
-    const { uri } = await filesystem.getUri({ path, directory: CACHE });
+    const { uri } = await filesystem.getUri({ path, directory });
     return uri;
+}
+
+/**
+ * The file's URI as somewhere a person can be told to look. `getUri` answers with a `file://` URL,
+ * percent-encoded, which is a path with two layers of machinery on top of it.
+ */
+function displayPath(uri: string): string {
+    const path = uri.replace(/^file:\/\//, "");
+    try {
+        return decodeURIComponent(path);
+    } catch {
+        return path;
+    }
 }
 
 async function shareFile(uri: string, fileName: string): Promise<StandaloneSaveResult> {
@@ -130,12 +201,12 @@ async function shareFile(uri: string, fileName: string): Promise<StandaloneSaveR
 }
 
 /**
- * Reads the body in pieces of `size` bytes, with whatever is left over emitted last.
+ * Reads the body as it arrives.
  *
  * A response with no `body` — happy-dom under the specs, and a WebView old enough to lack
  * streaming — is read whole instead.
  */
-async function* chunksOf(response: Response, size: number): AsyncGenerator<Uint8Array> {
+async function* bodyChunks(response: Response): AsyncGenerator<Uint8Array> {
     const reader = response.body?.getReader();
     if (!reader) {
         const whole = new Uint8Array(await response.arrayBuffer());
@@ -145,29 +216,73 @@ async function* chunksOf(response: Response, size: number): AsyncGenerator<Uint8
         return;
     }
 
-    let pending = new Uint8Array(0);
     for (;;) {
         const { done, value } = await reader.read();
         if (value?.length) {
-            const merged = new Uint8Array(pending.length + value.length);
-            merged.set(pending, 0);
-            merged.set(value, pending.length);
-            pending = merged;
-
-            while (pending.length >= size) {
-                const chunk = pending.slice(0, size);
-                pending = pending.slice(size);
-                yield chunk;
-            }
+            yield value;
         }
         if (done) {
-            break;
+            return;
+        }
+    }
+}
+
+/**
+ * Regroups a stream into pieces of `size` bytes, with whatever is left over emitted last.
+ *
+ * This is what keeps every write but the last a multiple of 3 bytes, so each encodes to base64
+ * independently. It belongs here rather than in the callers because a source picks its chunk sizes
+ * for its own reasons — a response body by packet, the backup stream by database page — and none
+ * of them is obliged to know what the writer needs.
+ */
+async function* rechunk(chunks: AsyncIterable<Uint8Array>, size: number): AsyncGenerator<Uint8Array> {
+    // Held as they arrive and joined only when a whole chunk is due. Merging each arrival into one
+    // growing buffer instead would copy everything received so far on every arrival, which a
+    // database backup pays for by the gigabyte.
+    const parts: Uint8Array[] = [];
+    let pending = 0;
+
+    for await (const value of chunks) {
+        if (!value.length) {
+            continue;
+        }
+        parts.push(value);
+        pending += value.length;
+
+        while (pending >= size) {
+            yield take(parts, size);
+            pending -= size;
         }
     }
 
-    if (pending.length) {
-        yield pending;
+    if (pending) {
+        yield take(parts, pending);
     }
+}
+
+/** Removes the first `size` bytes of `parts`, leaving the tail of a part it splits at the front. */
+function take(parts: Uint8Array[], size: number): Uint8Array {
+    const out = new Uint8Array(size);
+    let filled = 0;
+
+    while (filled < size) {
+        const part = parts[0];
+        if (!part) {
+            return out.subarray(0, filled);
+        }
+
+        const taken = Math.min(part.length, size - filled);
+        out.set(part.subarray(0, taken), filled);
+        filled += taken;
+
+        if (taken === part.length) {
+            parts.shift();
+        } else {
+            parts[0] = part.subarray(taken);
+        }
+    }
+
+    return out;
 }
 
 /**
