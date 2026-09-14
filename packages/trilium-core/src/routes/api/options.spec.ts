@@ -2,6 +2,7 @@ import type { UserFont } from "@triliumnext/commons";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import * as i18n from "../../services/i18n";
+import optionService from "../../services/options";
 import { getConfig, initConfig } from "../../services/config";
 import { getSql } from "../../services/sql/index";
 import { CoreApiTester } from "../../test/api_tester";
@@ -14,6 +15,14 @@ let api: CoreApiTester;
 
 function getOptionValue(name: string): string | null {
     return getSql().getValue<string | null>("SELECT value FROM options WHERE name = ?", [name]);
+}
+
+/** Forces the stored `syncServerHost` option, leaving every other option reading from the fixture. */
+function mockSyncServerHost(syncServerHost: string) {
+    const originalGetOption = optionService.getOption.bind(optionService);
+    return vi.spyOn(optionService, "getOption").mockImplementation((name) =>
+        name === "syncServerHost" ? syncServerHost : originalGetOption(name)
+    );
 }
 
 /** Creates a file note carrying a `#customFont` label and returns its note ID. */
@@ -94,6 +103,81 @@ describe("Options API (core)", () => {
         } finally {
             initConfig(original);
         }
+    });
+
+    describe("the effective sync server", () => {
+        it("reports the normalized stored host, with credentials removed", async () => {
+            mockSyncServerHost(" https://user:secret@sync.example.com//path/ ");
+
+            const res = await api.get<Record<string, string>>("/api/options");
+            expect(res.body.effectiveSyncServerHost).toBe("https://sync.example.com/path");
+            expect(res.body.syncServerHostOverridden).toBe("false");
+        });
+
+        it("removes credentials from malformed and schemeless hosts, keeping the rest for diagnostics", async () => {
+            const malformed = mockSyncServerHost("https://user:secret@host:99999");
+            expect((await api.get<Record<string, string>>("/api/options")).body.effectiveSyncServerHost)
+                .toBe("https://host:99999");
+
+            malformed.mockRestore();
+            const schemeless = mockSyncServerHost("user:secret@sync.example.com");
+            expect((await api.get<Record<string, string>>("/api/options")).body.effectiveSyncServerHost)
+                .toBe("sync.example.com");
+
+            schemeless.mockRestore();
+            mockSyncServerHost("not a URL");
+            expect((await api.get<Record<string, string>>("/api/options")).body.effectiveSyncServerHost)
+                .toBe("not a URL");
+        });
+
+        it("keeps at signs that are not URL credentials", async () => {
+            mockSyncServerHost("https://sync.example.com/path@name?recipient=user@example.com");
+
+            const res = await api.get<Record<string, string>>("/api/options");
+            expect(res.body.effectiveSyncServerHost)
+                .toBe("https://sync.example.com/path@name?recipient=user@example.com");
+        });
+
+        it("is empty when no host is configured", async () => {
+            const emptyHost = mockSyncServerHost("");
+            expect((await api.get<Record<string, string>>("/api/options")).body.effectiveSyncServerHost).toBe("");
+
+            emptyHost.mockRestore();
+            mockSyncServerHost("   ");
+            expect((await api.get<Record<string, string>>("/api/options")).body.effectiveSyncServerHost).toBe("");
+        });
+
+        it("prefers the config override over a stale or empty stored host, and flags it", async () => {
+            const original = getConfig();
+            initConfig({ ...original, Sync: { ...original.Sync, syncServerHost: "https://override.example.com/" } });
+            try {
+                const stale = mockSyncServerHost("https://stored.example.com");
+                const overridden = await api.get<Record<string, string>>("/api/options");
+                expect(overridden.body.effectiveSyncServerHost).toBe("https://override.example.com");
+                expect(overridden.body.syncServerHostOverridden).toBe("true");
+
+                stale.mockRestore();
+                mockSyncServerHost("");
+                expect((await api.get<Record<string, string>>("/api/options")).body.effectiveSyncServerHost)
+                    .toBe("https://override.example.com");
+            } finally {
+                initConfig(original);
+            }
+        });
+
+        it("is empty but still flagged when the config override disables sync", async () => {
+            const original = getConfig();
+            initConfig({ ...original, Sync: { ...original.Sync, syncServerHost: "disabled" } });
+            try {
+                mockSyncServerHost("https://stored.example.com");
+
+                const res = await api.get<Record<string, string>>("/api/options");
+                expect(res.body.effectiveSyncServerHost).toBe("");
+                expect(res.body.syncServerHostOverridden).toBe("true");
+            } finally {
+                initConfig(original);
+            }
+        });
     });
 
     it("flags backend scripts, ignoring #run labels on frontend scripts", async () => {

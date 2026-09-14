@@ -1,15 +1,14 @@
 import "./SyncStatus.css";
 
-import { SyncConfigResponse, WebSocketMessage } from "@triliumnext/commons";
+import { WebSocketMessage } from "@triliumnext/commons";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../services/i18n";
-import server from "../../services/server";
 import sync from "../../services/sync";
 import { escapeQuotes } from "../../services/utils";
 import ws, { subscribeToMessages, unsubscribeToMessage } from "../../services/ws";
-import { useStaticTooltip, useTriliumOption } from "../react/hooks";
+import { useStaticTooltip, useTriliumOption, useTriliumOptionBool } from "../react/hooks";
 import { launcherContextMenuHandler, LauncherNoteProps } from "./launch_bar_widgets";
 
 type SyncState = "unknown" | "in-progress"
@@ -56,28 +55,22 @@ export default function SyncStatus({ launcherNote }: LauncherNoteProps) {
     const { title, icon, hasChanges } = STATE_MAPPINGS[syncState];
     const spanRef = useRef<HTMLSpanElement>(null);
     const [ storedSyncServerHost ] = useTriliumOption("syncServerHost");
-    const [ syncServerHost, setSyncServerHost ] = useState<string | null>();
-
-    useEffect(() => {
-        let cancelled = false;
-        setSyncServerHost(undefined);
-        server.get<SyncConfigResponse>("sync/config").then(config => {
-            if (!cancelled) setSyncServerHost(config.syncServerHost);
-        }).catch(() => {
-            if (!cancelled) setSyncServerHost(undefined);
-        });
-        return () => { cancelled = true; };
-    }, [ storedSyncServerHost ]);
+    const [ effectiveSyncServerHost ] = useTriliumOption("effectiveSyncServerHost");
+    const [ isSyncServerHostOverridden ] = useTriliumOptionBool("syncServerHostOverridden");
 
     useStaticTooltip(spanRef, {
         html: true,
-        title: escapeQuotes(title) + (syncServerHost
-            ? `<p>${t("sync_status.server", { host: syncServerHost, interpolation: { escapeValue: true } })}</p>`
+        title: escapeQuotes(title) + (effectiveSyncServerHost
+            ? `<p>${t("sync_status.server", { host: effectiveSyncServerHost, interpolation: { escapeValue: true } })}</p>`
             : "")
     });
 
-    const showSyncStatus = syncServerHost !== null && (syncServerHost !== undefined
-        || (storedSyncServerHost && storedSyncServerHost !== "disabled"));
+    // config.ini and environment variables hold still for the life of the process, so only the
+    // stored option can change while the app runs. Reading it directly makes the button appear as
+    // soon as sync is configured, without waiting for a reload.
+    const showSyncStatus = isSyncServerHostOverridden
+        ? !!effectiveSyncServerHost
+        : !!storedSyncServerHost && storedSyncServerHost !== "disabled";
 
     return (showSyncStatus &&
         <div

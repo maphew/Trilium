@@ -1,4 +1,4 @@
-import type { SyncConfigResponse, WebSocketMessage } from "@triliumnext/commons";
+import type { WebSocketMessage } from "@triliumnext/commons";
 import { Tooltip } from "bootstrap";
 import { render } from "preact";
 import { act } from "preact/test-utils";
@@ -7,17 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type FNote from "../../entities/fnote";
 
 const mocks = vi.hoisted(() => ({
-    storedHost: "https://stored.example/",
-    getConfig: vi.fn<() => Promise<SyncConfigResponse>>(),
+    options: {} as Record<string, string>,
     syncNow: vi.fn(),
     onMessage: undefined as ((message: WebSocketMessage) => void) | undefined
 }));
 
 vi.mock("../../services/server", () => ({
-    default: {
-        get: (url: string) => url === "sync/config" ? mocks.getConfig()
-            : Promise.resolve(url === "keyboard-actions" ? [] : {})
-    }
+    default: { get: (url: string) => Promise.resolve(url === "keyboard-actions" ? [] : {}) }
 }));
 vi.mock("../../services/sync", () => ({ default: { syncNow: mocks.syncNow } }));
 vi.mock("../../services/ws", () => ({
@@ -38,11 +34,14 @@ vi.mock("../../services/i18n", async () => {
     });
     return { t: i18n.t };
 });
+// `useTriliumOptionBool` is mocked alongside `useTriliumOption` rather than left to the original:
+// it reaches for its module's own binding, which a mock of the export does not reach.
 vi.mock("../react/hooks", async (importOriginal) => {
     const hooks = await importOriginal<typeof import("../react/hooks")>();
     return {
         ...hooks,
-        useTriliumOption: () => [ mocks.storedHost, vi.fn() ],
+        useTriliumOption: (name: string) => [ mocks.options[name] ?? "", vi.fn() ],
+        useTriliumOptionBool: (name: string) => [ mocks.options[name] === "true", vi.fn() ],
         useStaticTooltip: (...args: Parameters<typeof hooks.useStaticTooltip>) =>
             hooks.useStaticTooltip(args[0], { ...args[1], animation: false })
     };
@@ -54,8 +53,11 @@ import SyncStatus from "./SyncStatus";
 let container: HTMLDivElement;
 
 beforeEach(() => {
-    mocks.storedHost = "https://stored.example/";
-    mocks.getConfig.mockReset().mockResolvedValue({ syncServerHost: "https://effective.example/" });
+    mocks.options = {
+        syncServerHost: "https://stored.example/",
+        effectiveSyncServerHost: "https://effective.example/",
+        syncServerHostOverridden: "true"
+    };
     mocks.syncNow.mockClear();
     container = document.body.appendChild(document.createElement("div"));
 });
@@ -65,85 +67,82 @@ afterEach(() => {
     container.remove();
 });
 
-async function mount() {
-    await act(async () => {
+function mount() {
+    act(() => {
         render(<SyncStatus launcherNote={{} as FNote} />, container);
     });
-    await act(async () => {});
 }
 
+const icon = () => container.querySelector<HTMLElement>(".sync-status-icon");
+
 function showTooltip() {
-    const icon = container.querySelector<HTMLElement>(".sync-status-icon");
-    expect(icon).not.toBeNull();
-    if (!icon) throw new Error("Missing sync icon");
-    const tooltip = Tooltip.getInstance(icon);
+    const element = icon();
+    expect(element).not.toBeNull();
+    if (!element) throw new Error("Missing sync icon");
+    const tooltip = Tooltip.getInstance(element);
     expect(tooltip).not.toBeNull();
     tooltip?.show();
     const body = document.querySelector<HTMLElement>(".tooltip-inner");
     expect(body).not.toBeNull();
     if (!body) throw new Error("Missing tooltip");
-    return { icon, body };
+    return { element, body };
 }
 
 describe("SyncStatus", () => {
-    it("shows the effective host even when the stored host is empty", async () => {
-        mocks.storedHost = "";
-        await mount();
-        const { icon, body } = showTooltip();
+    it("names the server in use rather than the stored one, and syncs when pressed", () => {
+        mocks.options.syncServerHost = "";
+        mount();
+
+        const { element, body } = showTooltip();
         expect(body.textContent).toContain("https://effective.example/");
-        expect(mocks.getConfig).toHaveBeenCalledTimes(1);
-        icon.click();
+        element.click();
         expect(mocks.syncNow).toHaveBeenCalledTimes(1);
     });
 
-    it("keeps the host through status changes and prevents duplicate sync requests", async () => {
-        await mount();
+    it("keeps the host through status changes and prevents duplicate sync requests", () => {
+        mount();
+
         for (const type of [ "sync-finished", "sync-failed", "sync-pull-in-progress" ] as const) {
-            await act(async () => { mocks.onMessage?.({ type, lastSyncedPush: 0 }); });
-            const { icon, body } = showTooltip();
+            act(() => { mocks.onMessage?.({ type, lastSyncedPush: 0 }); });
+            const { element, body } = showTooltip();
             expect(body.textContent).toContain("https://effective.example/");
-            expect(body.textContent).not.toContain(mocks.storedHost);
+            expect(body.textContent).not.toContain("https://stored.example/");
             if (type === "sync-pull-in-progress") {
-                icon.click();
+                element.click();
                 expect(mocks.syncNow).not.toHaveBeenCalled();
             }
         }
     });
 
-    it("escapes markup in the host instead of rendering it", async () => {
+    it("escapes markup in the host instead of rendering it", () => {
         const host = 'https://sync.example/<b title="test">&value</b>';
-        mocks.getConfig.mockResolvedValue({ syncServerHost: host });
-        await mount();
+        mocks.options.effectiveSyncServerHost = host;
+        mount();
+
         const { body } = showTooltip();
         expect(body.textContent).toContain(host);
         expect(body.querySelector("b")).toBeNull();
     });
 
-    it("hides disabled sync but keeps the button available after a config read fails", async () => {
-        mocks.getConfig.mockResolvedValue({ syncServerHost: null });
-        await mount();
-        expect(container.querySelector(".sync-status-icon")).toBeNull();
-        mocks.storedHost = "https://changed.example/";
-        mocks.getConfig.mockRejectedValue(new Error("Unavailable"));
-        await mount();
-        const { icon, body } = showTooltip();
-        expect(body.textContent).not.toContain(mocks.storedHost);
-        icon.click();
-        expect(mocks.syncNow).toHaveBeenCalledTimes(1);
+    it("hides the button when the configuration turns sync off, whatever the stored host says", () => {
+        mocks.options.effectiveSyncServerHost = "";
+        mount();
+
+        expect(icon()).toBeNull();
     });
 
-    it("refreshes after a host change and ignores stale responses", async () => {
-        let resolveFirst: ((value: SyncConfigResponse) => void) | undefined;
-        mocks.getConfig.mockReturnValueOnce(new Promise(resolve => { resolveFirst = resolve; }));
-        await mount();
-        mocks.storedHost = "https://new.example/";
-        mocks.getConfig.mockResolvedValue({ syncServerHost: "https://new.example/" });
-        await mount();
-        expect(showTooltip().body.textContent).toContain("https://new.example/");
-        await act(async () => { resolveFirst?.({ syncServerHost: "https://old.example/" }); });
-        const { body } = showTooltip();
-        expect(body.textContent).toContain("https://new.example/");
-        expect(body.textContent).not.toContain("https://old.example/");
-        expect(mocks.getConfig).toHaveBeenCalledTimes(2);
+    it("follows the stored host while nothing overrides it", () => {
+        mocks.options.syncServerHostOverridden = "false";
+        mocks.options.effectiveSyncServerHost = "";
+
+        mount();
+        expect(icon()).not.toBeNull();
+
+        for (const storedHost of [ "disabled", "" ]) {
+            mocks.options.syncServerHost = storedHost;
+            act(() => { render(null, container); });
+            mount();
+            expect(icon()).toBeNull();
+        }
     });
 });
