@@ -41,8 +41,18 @@ async function initJQuery() {
 }
 
 async function setupGlob() {
-    const response = await fetch(`./bootstrap${window.location.search}`);
+    const url = `./bootstrap${window.location.search}`;
+    // The standalone tab that owns the SQLite worker answers this itself; every other build (and a
+    // follower tab, which has no worker) fetches, on standalone through the service worker.
+    const localFetch = window.standaloneApi?.localFetch;
+    const startedAt = performance.now();
+    const response = localFetch ? await localFetch(new Request(url)) : await fetch(url);
     const json = await response.json();
+    if (import.meta.env.DEV && localFetch) {
+        // The worker answers this one only once it has finished starting up, so the time it
+        // reports is mostly that wait rather than the request.
+        console.debug(`[api] GET bootstrap ${(performance.now() - startedAt).toFixed(1)}ms`);
+    }
 
     window.global = globalThis; /* fixes https://github.com/webpack/webpack/issues/10035 */
     window.glob = {
