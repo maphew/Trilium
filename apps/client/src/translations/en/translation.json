@@ -2425,7 +2425,10 @@
     "test_title": "Test Connection",
     "test_description": "Test the connection to the sync server. If not initialized, this will set up syncing.",
     "test_button": "Test now",
-    "handshake_failed": "Sync server handshake failed, error: {{message}}"
+    "handshake_failed": "Sync server handshake failed, error: {{message}}",
+    "effective_server": "Server in use",
+    "effective_server_description": "Set through config.ini or environment variables, which take priority over the server address above.",
+    "effective_server_disabled": "Synchronization is turned off."
   },
   "api_log": {
     "close": "Close"

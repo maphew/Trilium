@@ -183,6 +183,13 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     backendScriptingEnabled: boolean;
     sqlConsoleEnabled: boolean;
     allowLanAccess: boolean;
+    /**
+     * Sync address actually in use, with any `user:password@` removed, or empty when sync is off.
+     * Read-only: derived from config.ini / environment variables and the stored `syncServerHost`.
+     */
+    effectiveSyncServerHost: string;
+    /** Whether config.ini or an environment variable supplies the sync address. Read-only. */
+    syncServerHostOverridden: boolean;
     hasUserBackendScripts: boolean;
     isPasswordSet: boolean;
     overrideThemeFonts: boolean;

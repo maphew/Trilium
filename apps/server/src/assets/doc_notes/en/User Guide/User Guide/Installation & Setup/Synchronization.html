@@ -22,19 +22,24 @@
   <li><strong>Server Deployment</strong>: Ensure your server instance is deployed
     but uninitialized.</li>
   <li><strong>Desktop Configuration</strong>: Open your desktop instance, navigate
-    to Options -&gt; Sync tab -&gt; Sync configuration, and set the "Server
-    instance address" to your sync server's address. Click Save.</li>
-</ol>
-<p>
-  <img src="Synchronization_sync-config.png" alt="screenshot of the sync settings options modal">
-</p>
-<ol>
-  <li><strong>Testing Sync</strong>: Click the "Test sync" button to verify
-    the connection to the sync server. If successful, the client will start
-    pushing all data to the server instance. This process may take some time,
-    but you can continue using Trilium. Periodically check the server instance
-    to confirm when the sync is complete. Once finished, you should see the
-    login screen on the server.</li>
+    to&nbsp;<a class="reference-link" href="#root/_help_4TIF1oA4VQRO">Options</a>&nbsp;→ <em>Sync</em> → <em>Sync server</em>,
+    and set the <em>Server address</em> to your sync server's address.
+    <ul>
+      <li>Note that the sync server can also be overridden through&nbsp;<a class="reference-link"
+        href="#root/_help_Gzjqa934BdH4">Configuration (config.ini or environment variables)</a>,
+        case in which that value takes precedence. If that's the case, a field
+        called <em>Server in use</em> indicates it.</li>
+    </ul>
+  </li>
+  <li><strong>Testing Sync</strong>: Click the <em>Test sync</em> button to verify
+    the connection to the sync server.
+    <ul>
+      <li>If successful, the client will start pushing all data to the server instance.</li>
+      <li>This process may take some time, but you can continue using Trilium. Periodically
+        check the server instance to confirm when the sync is complete. Once finished,
+        you should see the login screen on the server.</li>
+    </ul>
+  </li>
 </ol>
 <h3>Synchronizing a Desktop Instance from a Sync Server</h3>
 <p>This method is used when you already have a sync server and want to configure

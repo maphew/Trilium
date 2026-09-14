@@ -243,5 +243,8 @@
   },
   "sidebar_help": {
     "highlights_configure": "Which formats count is yours to set: bold, italic, underlined, coloured text and text on a background colour can each be listed or left out, from the gear in this card's header. Pressing an entry scrolls the note to it."
+  },
+  "sync_2": {
+    "effective_server_disabled": "Synchronisation is turned off."
   }
 }
