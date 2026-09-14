@@ -4,6 +4,7 @@ import type { ElectronWindowApi } from "@triliumnext/commons";
 
 import appContext, { type CommandNames } from "./components/app_context.js";
 import electronContextMenu from "./menus/electron_context_menu.js";
+import { setupContextMenu as setupBrowserContextMenu } from "./menus/note_context_menu.js";
 import bundleService from "./services/bundle.js";
 import { setupClipboardImageEmbed } from "./services/clipboard_image_embed.js";
 import glob from "./services/glob.js";
@@ -59,6 +60,8 @@ setupClipboardImageEmbed();
 
 if (utils.isElectron()) {
     electronContextMenu.setupContextMenu();
+} else {
+    setupBrowserContextMenu();
 }
 
 function initOnElectron() {
