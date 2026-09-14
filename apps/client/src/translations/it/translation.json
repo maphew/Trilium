@@ -1368,8 +1368,8 @@
     "board_card_redirect_to": "Su una scheda del tabellone, aprendo la scheda si passa direttamente alla nota a cui questa rimanda, invece di aprire la scheda stessa.",
     "sort_columns": "Per le collezioni di bacheche, l'ordine in cui le colonne ordinano le schede; tale ordine viene seguito da una colonna a meno che non le venga assegnato un ordine specifico. Contiene <code>titolo</code>, <code>data di creazione</code> o <code>attr:</code> seguito dal nome di un attributo promosso.",
     "sort_columns_descending": "Per le raccolte di schede, esegue l'ordine in <code>#sortColumns</code> in ordine inverso.",
-    "board_card_width": "Per le raccolte di schede, la larghezza con cui vengono visualizzate le colonne: <code>stretta</code>, <code>media</code> o <code>ampia</code>. Questa impostazione viene ignorata sui dispositivi mobili, che le visualizzano con una larghezza predefinita.",
-    "geo_shape": "Una forma come quella tracciata su una mappa geografica: il tipo di forma, seguito dalla latitudine e dalla longitudine di ciascun punto, ad esempio <code>linea:48.85,2.29 48.86,2.35</code> - oppure un cerchio con il centro e il raggio in metri, <code>circle:48.85,2.29 500</code>."
+    "board_card_width": "Per le raccolte di schede, la larghezza con cui vengono visualizzate le colonne: <code>narrow</code>, <code>medium</code> o <code>wide</code>. Questa impostazione viene ignorata sui dispositivi mobili, che le visualizzano con una larghezza predefinita.",
+    "geo_shape": "Una forma come quella tracciata su una mappa geografica: il tipo di forma, seguito dalla latitudine e dalla longitudine di ciascun punto, ad esempio <code>line:48.85,2.29 48.86,2.35</code> - oppure un cerchio con il centro e il raggio in metri, <code>circle:48.85,2.29 500</code>."
   },
   "attribute_editor": {
     "help_text_body1": "Per aggiungere un'etichetta, basta digitare ad esempio <code>#rock</code> oppure, se si desidera aggiungere anche un valore, ad esempio <code>#year = 2020</code>",
