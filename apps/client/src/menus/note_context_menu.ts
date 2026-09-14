@@ -66,6 +66,14 @@ export function setupContextMenu() {
             return;
         }
 
+        // Firefox suppresses the event outright on Shift+right-click, so its users already have a
+        // way back to the browser's menu — to the extension entries registered against a selection
+        // above all. Honoring the modifier gives Chrome and Safari, which have no bypass of their
+        // own, the same one.
+        if (event.shiftKey) {
+            return;
+        }
+
         // `window.getSelection()` does not report a selection inside an `<input>` or `<textarea>`,
         // so those keep the browser's menu, which is the better one for a plain text field.
         const selectionText = window.getSelection()?.toString() ?? "";

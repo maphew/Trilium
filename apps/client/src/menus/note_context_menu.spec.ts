@@ -222,10 +222,10 @@ describe("setupContextMenu (browser)", () => {
         tabManager.activeContext = null;
     });
 
-    /** Right-clicks `element`, optionally with the event already claimed by another widget. */
-    function rightClick(element: Element, claimedByAnotherWidget = false) {
-        const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
-        if (claimedByAnotherWidget) {
+    /** Right-clicks `element`, holding Shift or letting another widget claim the event first. */
+    function rightClick(element: Element, { shiftKey = false, claimed = false } = {}) {
+        const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, shiftKey });
+        if (claimed) {
             element.addEventListener("contextmenu", (e) => e.preventDefault(), { once: true });
         }
         element.dispatchEvent(event);
@@ -252,9 +252,21 @@ describe("setupContextMenu (browser)", () => {
         document.body.appendChild(div);
         setSelection(div, "<b>text</b>", "text");
 
-        rightClick(div, true);
+        rightClick(div, { claimed: true });
         await settle();
 
+        expect(contextMenu.show).not.toHaveBeenCalled();
+    });
+
+    it("hands a Shift+right-click back to the browser, selection or not", async () => {
+        const div = document.createElement("div");
+        document.body.appendChild(div);
+        setSelection(div, "<b>text</b>", "text");
+
+        const event = rightClick(div, { shiftKey: true });
+        await settle();
+
+        expect(event.defaultPrevented).toBe(false);
         expect(contextMenu.show).not.toHaveBeenCalled();
     });
 
