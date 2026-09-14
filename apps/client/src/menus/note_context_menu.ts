@@ -91,7 +91,7 @@ export function setupContextMenu() {
             linkURL: link instanceof HTMLAnchorElement ? link.href : "",
             linkText: link?.textContent ?? "",
             isMedia: !!element?.closest("img, video, audio"),
-            isEditable: !!element?.isContentEditable,
+            isEditable: acceptsTyping(element),
             selectionText
         });
     });
@@ -277,17 +277,36 @@ async function showBrowserContextMenu(x: number, y: number, target: ContextMenuT
 }
 
 /**
+ * Whether `element` takes typing, which is what decides the rows that write to a note.
+ *
+ * `isContentEditable` alone does not answer it inside a code note. CodeMirror drives
+ * `contenteditable` off its `editable` facet, which Trilium never lowers, and marks a read-only
+ * note with `aria-readonly` on the same element instead — so the attribute is what tells the two
+ * apart.
+ */
+function acceptsTyping(element: HTMLElement | null) {
+    return !!element?.isContentEditable && !element.closest("[aria-readonly='true']");
+}
+
+/**
  * The host for a page, which has web APIs and nothing more.
  *
- * `editor` is what the selection sits in, when it sits in a text note at all. Cut needs somewhere
- * to delete from, and the editor is the only thing in a note that answers that.
+ * `editor` is what the selection sits in, when it sits in a text note at all — `null` in a code
+ * note, which has a CodeMirror instead, and in a plain field.
  */
 function browserHost(editor: CKTextEditor | null): ContextMenuHost {
     return {
-        canCut: !!editor && !editor.isReadOnly,
-        async cut() {
-            await copySelection();
-            editor?.execute("delete");
+        canCut: !editor?.isReadOnly,
+        cut() {
+            // A text note's editor is asked directly, so that the clipboard gets the clean
+            // data-pipeline HTML `copySelection` reads rather than the editing view's markup.
+            // Everywhere else the browser cuts, and CodeMirror takes that as it would any edit.
+            if (!editor) {
+                document.execCommand("cut");
+                return;
+            }
+
+            return copySelection().then(() => editor.execute("delete"));
         },
         canCopy: true,
         copy: copySelection,

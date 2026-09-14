@@ -235,6 +235,31 @@ describe("setupContextMenu (browser)", () => {
     /** Lets the listener's async tail run, so a menu it would raise has been raised by now. */
     const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+    /** happy-dom ships no `execCommand`, so the browser's own cut is only observable as a stub. */
+    function stubExecCommand() {
+        const execCommand = vi.fn(() => true);
+        document.execCommand = execCommand;
+        return execCommand;
+    }
+
+    /** An editable standing in for CodeMirror's `.cm-content`, read-only when asked. */
+    function codeEditable(readOnly = false) {
+        const content = document.createElement("div");
+        content.setAttribute("contenteditable", "true");
+        if (readOnly) {
+            content.setAttribute("aria-readonly", "true");
+        }
+        document.body.appendChild(content);
+        return content;
+    }
+
+    /** Right-clicks `element` and returns the rows the menu went up with. */
+    async function menuFor(element: Element) {
+        rightClick(element);
+        await vi.waitFor(() => expect(contextMenu.show).toHaveBeenCalled());
+        return vi.mocked(contextMenu.show).mock.calls[0][0].items;
+    }
+
     it("leaves the browser's own menu up when nothing is selected", async () => {
         const div = document.createElement("div");
         document.body.appendChild(div);
@@ -268,6 +293,46 @@ describe("setupContextMenu (browser)", () => {
 
         expect(event.defaultPrevented).toBe(false);
         expect(contextMenu.show).not.toHaveBeenCalled();
+    });
+
+    it("cuts a text note through its editor and a code note through the browser", async () => {
+        const execCommand = stubExecCommand();
+
+        const content = codeEditable();
+        tabManager.activeNote = { type: "code" }; // so no CKEditor answers for the selection
+        setSelection(content, "<span>code</span>", "code");
+
+        const codeRows = await menuFor(content);
+        expect(findItem(codeRows, "electron_context_menu.cut")?.enabled).toBe(true);
+        await run(codeRows, "electron_context_menu.cut");
+        expect(execCommand).toHaveBeenCalledWith("cut");
+
+        vi.clearAllMocks();
+
+        const editorRoot = codeEditable();
+        const anchor = document.createElement("span");
+        editorRoot.appendChild(anchor);
+        const editor = fakeEditor(editorRoot, "<p>clean</p>");
+        tabManager.activeNote = { type: "text" };
+        tabManager.activeContext = { getTextEditor: async () => editor };
+        setSelection(anchor, "<p>clean</p>", "clean");
+
+        await run(await menuFor(editorRoot), "electron_context_menu.cut");
+        expect(copyHtml).toHaveBeenCalledWith("<p>clean</p>", "clean");
+        expect(editor.execute).toHaveBeenCalledWith("delete");
+        expect(execCommand).not.toHaveBeenCalled();
+    });
+
+    it("drops the cut row in a read-only code note", async () => {
+        const content = codeEditable(true);
+        tabManager.activeNote = { type: "code" };
+        setSelection(content, "<span>code</span>", "code");
+
+        const shown = titles(await menuFor(content));
+
+        expect(shown).not.toContain("electron_context_menu.cut");
+        expect(shown).toContain("electron_context_menu.copy");
+        expect(shown).toContain("electron_context_menu.copy-as-markdown");
     });
 
     it("takes the menu over for a selection, and reads the link under the pointer", async () => {
