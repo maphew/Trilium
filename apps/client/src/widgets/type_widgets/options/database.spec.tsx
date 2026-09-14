@@ -253,6 +253,25 @@ describe("what the database is", () => {
             .toContain("database.info_persistence_best_effort_description");
     });
 
+    it("reads the storage's standing again with the figures, since the grant can land later", async () => {
+        standalone.enabled = true;
+        INFO = { ...DATABASE_INFO, filePath: null };
+        let granted = false;
+        setStorageManager({ persisted: async () => granted });
+        renderPage();
+        await settle();
+
+        expect(infoValues()[1]).toBe("database.info_persistence_best_effort");
+
+        // Standalone asks for the grant at startup and the browser can answer after this page is
+        // already open, so the row follows the card's own refresh rather than only its mounting.
+        granted = true;
+        button("cleanup-button")?.click();
+        await settle();
+
+        expect(infoValues()[1]).toBe("database.info_persistence_persistent");
+    });
+
     it("leaves out the persistence row where the browser does not answer for the storage", async () => {
         // A database on disk stays there whatever the browser thinks, and a browser old enough to
         // lack `navigator.storage` has nothing to report.

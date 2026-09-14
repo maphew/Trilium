@@ -123,7 +123,7 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
 
             {/* Follows the storage it qualifies, and only where that storage is the browser's:
                 a database on disk stays there whatever the browser thinks of it. */}
-            {isStandalone && <StoragePersistence />}
+            {isStandalone && <StoragePersistence refreshToken={refreshToken} />}
 
             <OptionCardSection label={t("database.info_content")}>
                 <span className="tn-card-option-value">
@@ -159,8 +159,11 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
  * the browser's own reading of its own storage, and there is nothing in the database to base it on.
  * Nothing is shown where the browser does not report it, which is every build whose database is a
  * file on disk.
+ *
+ * Read again on `refreshToken`, like the figures beside it: the startup request can still be in
+ * flight when this mounts, and the browser is free to change its mind afterwards.
  */
-function StoragePersistence() {
+function StoragePersistence({ refreshToken }: { refreshToken: number }) {
     const [ persisted, setPersisted ] = useState<boolean | null>(null);
 
     useEffect(() => {
@@ -170,7 +173,7 @@ function StoragePersistence() {
             .catch(() => {});
 
         return () => { current = false; };
-    }, []);
+    }, [ refreshToken ]);
 
     if (persisted === null) {
         return null;
