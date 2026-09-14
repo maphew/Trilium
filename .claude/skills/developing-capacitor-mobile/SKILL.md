@@ -54,6 +54,38 @@ A fetch from the app origin to a sync server is cross-origin, so CORS and cookie
 - **iOS `ViewController`**: the layout is `body { position: fixed; height: 100vh }` with an inner scrolling container, so WKWebView's reflexive scroll-to-focused-element would drag the toolbar off-screen; the controller pins the outer scroll offset while the keyboard animates and samples the keyboard's top edge every frame into the `--tn-keyboard-gap` CSS variable so the editor toolbar follows an interactive swipe-dismiss. `Keyboard.resize: "native"` in the config is part of the same contract. Change the keyboard/toolbar CSS on the client and this controller together.
 - `limitsNavigationsToAppBoundDomains: true` on iOS.
 
+## Safe-area insets: never write a bare `env(safe-area-inset-*)`
+
+Android's WebView does not populate `env(safe-area-inset-*)` — it resolves to `0`, silently, on every
+Android version. `MainActivity.forwardInsetsToWebView()` works around it by setting
+`--safe-area-inset-top`/`-bottom`/`-left`/`-right` (plus `--keyboard-height`) on
+`document.documentElement` from the real `WindowInsetsCompat` values, in CSS pixels, on every inset
+change.
+
+**So client CSS must read the variable with `env()` only as the fallback:**
+
+```css
+padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
+```
+
+The fallback is what keeps iOS and desktop browsers right, where the variable is never injected and
+`env()` is authoritative. Get the two axes matching — `var(--safe-area-inset-left, env(safe-area-inset-left))`,
+never a `-left` var falling back to `env(…-right)`.
+
+- **Bare `env()` is a bug on Android, not a style nit.** It had gone unnoticed at 27 call sites
+  (fixed in `a8f4e9f405`), including `--mobile-bottom-offset`, which puts the mobile launcher bar
+  under the gesture pill.
+- **The one deliberate exception** is the `body.ios` `--mobile-bottom-offset` override in
+  `apps/client/src/stylesheets/style.css` — platform-scoped to where `env()` is the real source.
+- **`body.desktop` rules are in scope too.** An Android tablet WebView has no `Mobi` in its UA, so
+  `isMobile()` is false and `index.ts` picks the desktop layout for it.
+- **`--keyboard-height` is injected but read by nothing.** `MainActivity` resizes the WebView through
+  `bottomMargin` instead, so the CSS viewport shrinks on its own. iOS drives `--tn-keyboard-gap` from
+  `ViewController` for a different purpose; the two are not a pair.
+
+Audit with `grep -rn "env(safe-area" --include=*.css apps/client/src apps/standalone/src` — every hit
+should be wrapped in a matching `var()`.
+
 ## Client-side gating
 
 - `isMobileApp()` (`apps/client/src/services/utils.ts`) — `window.Capacitor?.isNativePlatform?.()`: true only inside the native wrapper. Distinct from `isMobile()`, which is the *layout* choice and is also true for a phone browser. Use the former for "there is a native shell" behaviour (e.g. setup flow), the latter for responsive UI. `window.Capacitor` is typed in `apps/client/src/types.d.ts`.
