@@ -32,6 +32,8 @@ function getOpenFileUrl(type: string, noteId: string) {
 function download(url: string) {
     if (window.electronApi) {
         window.electronApi.shell.downloadURL(url);
+    } else if (window.standaloneApi?.save) {
+        void saveToDevice(url);
     } else {
         window.location.href = url;
     }
@@ -176,6 +178,23 @@ function revealFile(filePath: string) {
 function reportDirectoryFailure(directory: string, reason: string) {
     console.error("Failed to open directory:", directory, reason);
     toast.showError(t("open.directory_failed", { directory, reason }));
+}
+
+/**
+ * Saves a download through the mobile app's share sheet, which is how a file leaves the Capacitor
+ * WebView: it has no download manager, so `window.location.href` would resolve to an `attachment`
+ * response that nothing ever writes.
+ *
+ * The sheet is the confirmation, so only a failure is worth a message; dismissing it is a choice,
+ * not an error.
+ */
+async function saveToDevice(url: string) {
+    const result = await window.standaloneApi?.save?.saveUrl(url);
+
+    if (result?.status === "failed") {
+        console.error("Failed to save the download:", url, result.message);
+        toast.showError(t("open.download_failed", { reason: result.message ?? "" }));
+    }
 }
 
 export default {

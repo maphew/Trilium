@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
     restoreBackup: vi.fn(),
     downloadDatabase: vi.fn(),
     announceLeadership: vi.fn(),
-    capacitorHttpHandler: vi.fn()
+    capacitorHttpHandler: vi.fn(),
+    saveUrlToDevice: vi.fn()
 }));
 
 // Whether this tab wins the database lock. Only the leader may start a worker;
@@ -30,6 +31,7 @@ vi.mock("./leader_election.js", () => ({
     }
 }));
 vi.mock("./services/capacitor_http_handler.js", () => ({ capacitorHttpHandler: mocks.capacitorHttpHandler }));
+vi.mock("./services/capacitor_download.js", () => ({ saveUrlToDevice: mocks.saveUrlToDevice }));
 // Avoid pulling the entire client bundle when loadScripts() runs.
 vi.mock("../../client/src/index.js", () => ({}));
 
@@ -39,7 +41,10 @@ interface ServiceWorkerLike {
     ready: Promise<unknown>;
 }
 
-interface WindowWithCapacitor { Capacitor?: unknown }
+interface WindowWithCapacitor {
+    Capacitor?: unknown;
+    standaloneApi?: { save?: { saveUrl: unknown } };
+}
 
 function setServiceWorker(sw: ServiceWorkerLike | undefined) {
     Object.defineProperty(navigator, "serviceWorker", { value: sw, configurable: true });
@@ -99,11 +104,18 @@ describe("bootstrap", () => {
         expect(mocks.announceLeadership).not.toHaveBeenCalled();
     });
 
-    it("registers the native HTTP handler under Capacitor", async () => {
-        (window as unknown as WindowWithCapacitor).Capacitor = {};
+    it("registers the native HTTP handler and the share-sheet save under Capacitor only", async () => {
         setServiceWorker({ controller: {}, register: vi.fn(), ready: Promise.resolve() });
         await runBootstrap();
+        await vi.waitFor(() => expect(mocks.startLocalServerWorker).toHaveBeenCalled());
+        // A browser saves its own downloads, so the client keeps navigating to them there.
+        const win = window as unknown as WindowWithCapacitor;
+        expect(win.standaloneApi?.save).toBeUndefined();
+
+        win.Capacitor = {};
+        await runBootstrap();
         await vi.waitFor(() => expect(mocks.registerNativeHttpHandler).toHaveBeenCalledWith(mocks.capacitorHttpHandler));
+        await vi.waitFor(() => expect(win.standaloneApi?.save?.saveUrl).toBe(mocks.saveUrlToDevice));
     });
 
     it("registers and waits for the SW, then loads scripts once it controls", async () => {

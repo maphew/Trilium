@@ -72,8 +72,35 @@ export interface StandaloneBackupApi {
     ): Promise<StandaloneDownloadResult>;
 }
 
+/** How saving a download onto the device ended. */
+export interface StandaloneSaveResult {
+    status: "saved" | "cancelled" | "failed";
+    /** The name the file was written under, which the message to the user names. */
+    fileName?: string;
+    /** What stopped it, when `status` is `failed`. */
+    message?: string;
+}
+
+export interface StandaloneSaveApi {
+    /**
+     * Fetches a download URL and puts the file on the device through the system share sheet.
+     *
+     * The Capacitor WebView has no download manager: a navigation that resolves to an
+     * `attachment` response is dropped, silently. So the bytes are fetched by the page instead —
+     * where the service worker (Android) or the iOS interceptors still route them to the local
+     * worker — written to the app's cache directory, and handed to the share sheet, which is
+     * where the user picks what the file becomes: a file in Downloads, a Drive upload, a mail
+     * attachment.
+     *
+     * `cancelled` means the user dismissed that sheet, which is not a failure to report as one.
+     */
+    saveUrl(url: string): Promise<StandaloneSaveResult>;
+}
+
 /** The complete surface the standalone build exposes to the client. */
 export interface StandaloneApi {
     restore: StandaloneRestoreApi;
     backup: StandaloneBackupApi;
+    /** Present only inside the Capacitor shell, where the browser saves no downloads itself. */
+    save?: StandaloneSaveApi;
 }

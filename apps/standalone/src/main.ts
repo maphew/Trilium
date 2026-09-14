@@ -1,3 +1,5 @@
+import type { StandaloneApi } from "@triliumnext/commons";
+
 import {
     initSplashProgress, reportSplashPhase, type SplashPhase
 } from "../../client/src/services/splash.js";
@@ -83,10 +85,11 @@ async function bootstrap() {
 
     // The client's way to the worker for the few things that carry a file, which the request path
     // would serialise whole and time out on. The desktop's `window.electronApi` is the same idea.
-    window.standaloneApi = {
+    const standaloneApi: StandaloneApi = {
         restore: { importBackup: restoreBackup },
         backup: { downloadDatabase }
     };
+    window.standaloneApi = standaloneApi;
 
     try {
         // When running inside a Capacitor WebView, register the native HTTP
@@ -94,6 +97,11 @@ async function bootstrap() {
         if ("Capacitor" in window) {
             const { capacitorHttpHandler } = await import("./services/capacitor_http_handler.js");
             registerNativeHttpHandler(capacitorHttpHandler);
+
+            // The shell's WebView drops a download the moment the response says `attachment`,
+            // so the client routes downloads through the share sheet instead.
+            const { saveUrlToDevice } = await import("./services/capacitor_download.js");
+            standaloneApi.save = { saveUrl: saveUrlToDevice };
         }
 
         // 1) Start the local worker ASAP (so /bootstrap is fast) — but only in

@@ -1,6 +1,6 @@
 ---
 name: developing-capacitor-mobile
-description: Use when working on the Trilium mobile app (`apps/mobile`, Capacitor for Android/iOS) or on the standalone code paths that only run inside it — request routing on `capacitor://` vs `https://localhost`, the iOS fetch/XHR/image/stylesheet interceptors, the Android native streaming HTTP proxy (`TriliumWebViewClient`), the `NativeHttpHandler` sync transport, `MainActivity`/`ViewController` WebView tweaks (edge-to-edge, keyboard), `isMobileApp()` gating in the client, or the mobile CI/nightly builds. Also load it when reviewing a diff that touches these files, so working iOS-only code is not flagged as dead.
+description: Use when working on the Trilium mobile app (`apps/mobile`, Capacitor for Android/iOS) or on the standalone code paths that only run inside it — request routing on `capacitor://` vs `https://localhost`, the iOS fetch/XHR/image/stylesheet interceptors, the Android native streaming HTTP proxy (`TriliumWebViewClient`), the `NativeHttpHandler` sync transport, downloads and exports (the WebView saves none itself — `capacitor_download.ts` writes them and opens the share sheet), `MainActivity`/`ViewController` WebView tweaks (edge-to-edge, keyboard), `isMobileApp()` gating in the client, adding a Capacitor plugin, or the mobile CI/nightly builds. Also load it when reviewing a diff that touches these files, so working iOS-only code is not flagged as dead.
 ---
 
 # Developing the Capacitor mobile app
@@ -18,6 +18,7 @@ apps/mobile/ios/App/App/ViewController.swift   # keyboard handling: pins outer s
 apps/standalone/src/main.ts                # boot: registers native HTTP handler if `Capacitor` in window; iOS interceptors
 apps/standalone/src/ios-interceptors.ts    # fetch / XHR / <img> / stylesheet interceptors, iOS only
 apps/standalone/src/services/capacitor_http_handler.ts   # NativeHttpHandler: Android proxy probe + CapacitorHttp fallback
+apps/standalone/src/services/capacitor_download.ts       # saveUrlToDevice(): fetch → Filesystem cache → share sheet
 apps/standalone/src/local-bridge.ts        # LOCAL_API_PREFIXES, localFetch(), registerNativeHttpHandler()
 apps/standalone/src/sw.ts                  # service worker routing (Android + web); guards for capacitor:// and the native proxy
 apps/client/src/services/utils.ts          # isMobileApp() — running inside the native wrapper
@@ -47,6 +48,43 @@ A fetch from the app origin to a sync server is cross-origin, so CORS and cookie
 - **Everything else** (POSTs, binary responses, and all of iOS) uses the stock **`CapacitorHttp` plugin**, reached via the global `window.Capacitor.Plugins` — **not** `import "@capacitor/core"`, since bare specifiers don't resolve in the browser's native module loader.
 - Responses hand **parsed JSON through `data`** and only non-JSON through `body`; the handler must not `JSON.stringify` — the extra string copy OOM-ed the iOS worker on large blobs. Preserve that contract when touching either side.
 - iOS has no `shouldInterceptRequest` equivalent for https, so it stays on the plugin transport; the geo map's tile referer workaround (`apps/client/src/widgets/collections/geomap/map.tsx`) has the same limitation.
+
+## Downloads: the WebView has no download manager
+
+A navigation whose response carries `Content-Disposition: attachment` is handed to
+`WebView.setDownloadListener` on Android, and **nothing registers one** — not Capacitor, not
+`MainActivity`. The response is dropped with no console output and no error, so an export "succeeds"
+(the task's websocket `taskSucceeded` still fires the toast) while no file ever appears. On iOS the
+same `window.location.href` is worse: the interceptors patch `fetch`/XHR/`<img>`/stylesheets, never a
+top-level navigation, so the URL reaches Capacitor's scheme handler and navigates the app out of the
+SPA.
+
+Registering a native `DownloadListener` does not fix it. The listener receives only a URL, and a
+native re-request of `https://localhost/api/…` goes to the real network stack, which the service
+worker never sees and where no server exists.
+
+So the page does the saving: `open.download()` (`apps/client/src/services/open.ts`) routes through
+`window.standaloneApi.save.saveUrl()` when that exists, which `main.ts` defines only inside the shell.
+`capacitor_download.ts` fetches the URL — still routed to the worker by the service worker on Android
+and the interceptors on iOS — writes it into `Directory.Cache` and hands the file to the system share
+sheet.
+
+- **Chunks must be a multiple of 3 bytes.** The Filesystem plugin takes base64, and base64 pads any
+  group narrower than three bytes; a padded group mid-file decodes to the wrong bytes.
+- **Plugins come from `Capacitor.registerPlugin(name)`, not a `@capacitor/*` import.** `Capacitor.Plugins`
+  holds only what the injected runtime registered (`CapacitorHttp` and the rest of core); the `@capacitor/*`
+  packages exist so `cap sync` wires the **native** code in.
+- **A shared file cannot be deleted after `share()` resolves** — the receiving app reads the URI on its
+  own schedule. The cache directory is cleared before the *next* save instead.
+- **Android needs no manifest change**: `file_paths.xml` already exposes `<cache-path path="."/>` to the
+  `${applicationId}.fileprovider` the Share plugin looks up, and the cache directory is not external
+  storage, so no permission prompt.
+- **Adding a plugin means three edits**: `apps/mobile/package.json`, `includePlugins` in
+  `capacitor.config.json` (iOS only builds what is listed), and `cap update android` to regenerate the
+  tracked `capacitor.settings.gradle` / `app/capacitor.build.gradle`. iOS's `CapApp-SPM/Package.swift`
+  is gitignored and regenerated by CI.
+- **Still unfixed: the database backup download** (`downloadDatabase` in `local-bridge.ts`) navigates a
+  hidden iframe to `/local-backup-download` and hits the same wall.
 
 ## Native shells
 
@@ -116,6 +154,7 @@ Everything JS-side is under the standalone Vitest suite (happy-dom + real sqlite
 ```bash
 pnpm --filter standalone test ios-interceptors        # iOS interceptors
 pnpm --filter standalone test capacitor_http_handler  # Android proxy probe / plugin fallback
+pnpm --filter standalone test capacitor_download      # chunked base64 write, filename parsing, share sheet
 pnpm --filter standalone test sw                      # service-worker routing incl. capacitor:// guard
 pnpm --filter standalone test main                    # boot wiring (native handler registered, interceptors installed on capacitor:)
 ```
