@@ -55,7 +55,9 @@ function fakeEditor(domRoot: Node | null, selectedHtml: string) {
 
 /**
  * Points window.getSelection() at `anchorNode`, cloning `fallbackHtml` for the DOM-range path.
- * `text` is what the selection stringifies to — what the browser menu's gate reads.
+ * `text` is what the selection stringifies to — what the browser menu's gate reads. happy-dom lays
+ * nothing out, so the highlighted box is stated here: it covers the origin every `rightClick`
+ * lands on unless that test says otherwise.
  */
 function setSelection(anchorNode: Node | null, fallbackHtml = "", text = "") {
     const fragment = document.createDocumentFragment();
@@ -67,7 +69,10 @@ function setSelection(anchorNode: Node | null, fallbackHtml = "", text = "") {
     vi.spyOn(window, "getSelection").mockReturnValue({
         anchorNode,
         rangeCount: anchorNode || fallbackHtml ? 1 : 0,
-        getRangeAt: () => ({ cloneContents: () => fragment.cloneNode(true) }),
+        getRangeAt: () => ({
+            cloneContents: () => fragment.cloneNode(true),
+            getClientRects: () => [ { left: 0, top: 0, right: 200, bottom: 100 } ]
+        }),
         toString: () => text
     } as unknown as Selection);
 }
@@ -223,8 +228,17 @@ describe("setupContextMenu (browser)", () => {
     });
 
     /** Right-clicks `element`, holding Shift or letting another widget claim the event first. */
-    function rightClick(element: Element, { shiftKey = false, claimed = false } = {}) {
-        const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, shiftKey });
+    function rightClick(
+        element: Element,
+        { shiftKey = false, claimed = false, clientX = 0, clientY = 0 } = {}
+    ) {
+        const event = new MouseEvent("contextmenu", {
+            bubbles: true,
+            cancelable: true,
+            shiftKey,
+            clientX,
+            clientY
+        });
         if (claimed) {
             element.addEventListener("contextmenu", (e) => e.preventDefault(), { once: true });
         }
@@ -266,6 +280,18 @@ describe("setupContextMenu (browser)", () => {
         setSelection(null, "", "   ");
 
         const event = rightClick(div);
+        await settle();
+
+        expect(event.defaultPrevented).toBe(false);
+        expect(contextMenu.show).not.toHaveBeenCalled();
+    });
+
+    it("leaves it up for a click away from the selection, which is what the rows act on", async () => {
+        const div = document.createElement("div");
+        document.body.appendChild(div);
+        setSelection(div, "<b>text</b>", "text");
+
+        const event = rightClick(div, { clientX: 500, clientY: 500 });
         await settle();
 
         expect(event.defaultPrevented).toBe(false);

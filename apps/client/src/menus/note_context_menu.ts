@@ -25,11 +25,8 @@ export interface ContextMenuTarget {
 
 /**
  * What the surrounding application can run on the menu's behalf. An optional member the host leaves
- * out drops the rows that depend on it.
- *
- * Chromium reports its spell checker's state to the application embedding it but not to a page,
- * and a page's paste costs a permission prompt in Chrome and an extra click in Firefox and
- * Safari — more than the Ctrl+V it would stand in for. A browser host therefore supplies neither.
+ * out drops the rows that depend on it: a page reaches neither the spell checker's state nor a
+ * paste cheaper than Ctrl+V, so a browser host supplies neither.
  */
 export interface ContextMenuHost {
     spelling?: {
@@ -51,12 +48,9 @@ export interface ContextMenuHost {
 }
 
 /**
- * Puts Trilium's menu over the browser's own wherever there is a selection to act on.
- *
- * The gate is what keeps the native menu reachable: spelling corrections and the browser's paste
- * live there, no web API exposes either, and a right-click at a bare caret is the gesture for
- * fixing a typo — so that click is left alone. Electron has no such constraint and replaces the
- * menu everywhere; see `electron_context_menu.ts`.
+ * Puts Trilium's menu over the browser's own wherever the pointer sits on a selection. A click at a
+ * bare caret keeps the native menu, the only way to spelling corrections and the browser's paste.
+ * Electron replaces the menu everywhere; see `electron_context_menu.ts`.
  */
 export function setupContextMenu() {
     document.addEventListener("contextmenu", (event) => {
@@ -66,18 +60,23 @@ export function setupContextMenu() {
             return;
         }
 
-        // Firefox suppresses the event outright on Shift+right-click, so its users already have a
-        // way back to the browser's menu — to the extension entries registered against a selection
-        // above all. Honoring the modifier gives Chrome and Safari, which have no bypass of their
-        // own, the same one.
+        // Shift+right-click is Firefox's own way back to the browser's menu; honoring it gives
+        // Chrome and Safari, which have no bypass of their own, the same one.
         if (event.shiftKey) {
             return;
         }
 
         // `window.getSelection()` does not report a selection inside an `<input>` or `<textarea>`,
         // so those keep the browser's menu, which is the better one for a plain text field.
-        const selectionText = window.getSelection()?.toString() ?? "";
-        if (!selectionText.trim()) {
+        const selection = window.getSelection();
+        const selectionText = selection?.toString() ?? "";
+        if (!selection || !selectionText.trim()) {
+            return;
+        }
+
+        // The rows act on the selection, so the pointer has to be on it. A right-click on the
+        // surrounding UI, which takes no selection of its own, leaves an earlier one standing.
+        if (!isPointInSelection(selection, event.clientX, event.clientY)) {
             return;
         }
 
@@ -274,6 +273,19 @@ async function showBrowserContextMenu(x: number, y: number, target: ContextMenuT
     if (!items.length) return;
 
     contextMenu.show({ x, y, items, selectMenuItemHandler: () => {} });
+}
+
+/** Whether the point (`x`, `y`), in viewport coordinates, lands on what `selection` highlights. */
+function isPointInSelection(selection: Selection, x: number, y: number) {
+    for (let i = 0; i < selection.rangeCount; i++) {
+        for (const rect of Array.from(selection.getRangeAt(i).getClientRects())) {
+            if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 /**
