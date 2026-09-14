@@ -242,12 +242,10 @@ export class SqlService {
 
     /**
      * Gets every row of a whole-table read as a positional array, the way {@link getRawRows} does,
-     * but crossing between JavaScript and the database once instead of once per column.
-     *
-     * `@sqlite.org/sqlite-wasm` charges roughly 7µs per column a row exposes, so the Becca
-     * load spends most of its time marshalling rather than querying. `json_group_array()`
-     * hands the result set over as one value, which `JSON.parse()` turns into rows about ten
-     * times faster; better-sqlite3 is marginally faster this way too.
+     * but crossing between JavaScript and the database once instead of once per column: under
+     * `@sqlite.org/sqlite-wasm` every column read is its own wasm round trip, so a wide
+     * whole-table read spends most of its time marshalling. `json_group_array()` hands the
+     * result set over as one value for `JSON.parse()`.
      *
      * Going through JSON puts two limits on `columns` that {@link getRawRows} does not have:
      * `json_array()` rejects a BLOB column, and an integer above `Number.MAX_SAFE_INTEGER`

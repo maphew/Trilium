@@ -9,9 +9,9 @@ import { KEY_BYTES, TAG_BYTES } from "./format.js";
 /**
  * The browser backend: AES-256-GCM and randomness from WebCrypto, gzip from the platform's
  * `CompressionStream`, and the two primitives WebCrypto does not offer from elsewhere — scrypt
- * from `@noble/hashes`, incremental SHA-256 from `hash-wasm`. The hash is WASM rather than
- * `@noble`'s pure JS because it runs over every payload byte and paced a phone's backup at about
- * 32 MB/s; scrypt stays JS because it runs once per container. Runs under Node just as well,
+ * from `@noble/hashes`, incremental SHA-256 from `hash-wasm`. The hash is WASM rather than pure
+ * JS because it runs over every payload byte, where the JS penalty on a phone paces the whole
+ * backup; scrypt stays JS because it runs once per container. Runs under Node just as well,
  * which is how the cross-backend tests exercise it.
  *
  * WebCrypto's `subtle` interface only exists in secure contexts (HTTPS, localhost, workers of

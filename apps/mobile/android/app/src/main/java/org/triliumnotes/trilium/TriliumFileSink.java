@@ -22,7 +22,7 @@ import org.json.JSONObject;
  *
  * <p>The Capacitor plugin bridge carries binary as base64 inside a JSON string, and the native
  * side re-parses that whole string per call ({@code MessageHandler} → {@code org.json}), which
- * caps file writes at roughly 13 MB/s. This listener receives raw {@code ArrayBuffer} messages
+ * is far too slow for large files. This listener receives raw {@code ArrayBuffer} messages
  * instead — no base64, no JSON around the payload — and appends them to a file on an IO thread.
  *
  * <p>Protocol, driven by {@code capacitor_download.ts}: a JSON string {@code {"type":"open",
