@@ -6,7 +6,7 @@ import {
 import { showErrorOverlay } from "./error-overlay.js";
 import { installIosInterceptors } from "./ios-interceptors.js";
 import { claimLeadership } from "./leader_election.js";
-import { announceLeadership, attachServiceWorkerBridge, downloadDatabase, registerNativeHttpHandler, restoreBackup, saveDatabase, startLocalServerWorker } from "./local-bridge.js";
+import { announceLeadership, attachServiceWorkerBridge, downloadDatabase, localFetch, registerNativeHttpHandler, restoreBackup, saveDatabase, startLocalServerWorker } from "./local-bridge.js";
 
 /**
  * What a cold standalone start passes through, drawn as the splash's progress bar. Weights are
@@ -113,6 +113,9 @@ async function bootstrap() {
         // worker instead. See leader_election.ts.
         claimLeadership(() => {
             startLocalServerWorker();
+            // The leader answers API requests from its own worker, so the client's server.ts
+            // can skip the service-worker round trip.
+            standaloneApi.localFetch = localFetch;
             announceLeadership();
         });
 

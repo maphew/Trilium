@@ -3,8 +3,9 @@ import becca from "../../becca/becca";
 import { RenderMarkdownResponse, ToMarkdownResponse } from "@triliumnext/commons";
 import type { Request } from "express";
 
+import { ValidationError } from "../../errors.js";
 import markdown from "../../services/export/markdown.js";
-import { markdownImportService, ValidationError } from "../..";
+import markdownImportService from "../../services/import/markdown.js";
 
 function renderMarkdown(req: Request) {
     const { markdownContent } = req.body;

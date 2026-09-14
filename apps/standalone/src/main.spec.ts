@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
     restoreBackup: vi.fn(),
     downloadDatabase: vi.fn(),
     announceLeadership: vi.fn(),
+    localFetch: vi.fn(),
     capacitorHttpHandler: vi.fn(),
     saveUrlToDevice: vi.fn()
 }));
@@ -21,7 +22,8 @@ vi.mock("./local-bridge.js", () => ({
     registerNativeHttpHandler: mocks.registerNativeHttpHandler,
     restoreBackup: mocks.restoreBackup,
     downloadDatabase: mocks.downloadDatabase,
-    announceLeadership: mocks.announceLeadership
+    announceLeadership: mocks.announceLeadership,
+    localFetch: mocks.localFetch
 }));
 vi.mock("./leader_election.js", () => ({
     claimLeadership: (onElected: () => void) => {
@@ -90,6 +92,8 @@ describe("bootstrap", () => {
         // The service worker has to know which tab owns the worker so it can
         // route every tab's API traffic there.
         await vi.waitFor(() => expect(mocks.announceLeadership).toHaveBeenCalled());
+        // The leader also answers the client's API calls directly, skipping that route.
+        expect(window.standaloneApi?.localFetch).toBe(mocks.localFetch);
     });
 
     it("a follower tab starts no worker but still bridges the SW", async () => {
@@ -102,6 +106,10 @@ describe("bootstrap", () => {
         // exclusive OPFS handles and silently fall back to an empty in-memory one.
         expect(mocks.startLocalServerWorker).not.toHaveBeenCalled();
         expect(mocks.announceLeadership).not.toHaveBeenCalled();
+
+        // A follower must keep calling through the service worker: with no worker of its own,
+        // a localFetch here would answer from nothing.
+        expect(window.standaloneApi?.localFetch).toBeUndefined();
     });
 
     it("registers the native HTTP handler and the share-sheet save under Capacitor only", async () => {
