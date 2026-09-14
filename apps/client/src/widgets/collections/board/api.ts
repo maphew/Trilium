@@ -25,11 +25,13 @@ import {
 import { BoardColumnData, BoardViewData } from ".";
 import { currentCardTemplate, DEFAULT_CARD_TEMPLATES } from "./card_templates";
 import {
-    type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_COLUMN_ICON,
-    DEFAULT_GROUP_BY, INBOX_COLUMN, INBOX_COLUMN_ICON
+    type BoardStatusDefinition, canStoreColumnsInDefinition, COLUMN_WIDTH_LABEL, type ColumnWidth,
+    DEFAULT_COLUMN_ICON, DEFAULT_COLUMN_WIDTH, DEFAULT_GROUP_BY, INBOX_COLUMN, INBOX_COLUMN_ICON,
+    parseColumnWidth
 } from "./columns";
 import { readColumns, writeColumns } from "./column_storage";
 import { ColumnItem, ColumnMap } from "./data";
+import { cardReference, columnReference, newColumnId, readColumnId } from "./reference";
 import { SORT_DESCENDING_LABEL, SORT_LABEL } from "./sort";
 
 /** Which end of a column a new card is made at. */
@@ -407,7 +409,10 @@ export default class BoardApi {
 
         // The icon goes in with the column rather than after it: a write of its own would be a
         // second refresh of the board for a column that has only just been drawn.
-        const added: BoardColumnData = icon ? { value: columnName, icon } : { value: columnName };
+        const added: BoardColumnData = { value: columnName, id: newColumnId() };
+        if (icon) {
+            added.icon = icon;
+        }
 
         if (!atStart) {
             this.storeColumns([ ...columns, added ]);
@@ -463,9 +468,11 @@ export default class BoardApi {
         order.splice(
             neighbour < 0 ? order.length : neighbour + (direction === "after" ? 1 : 0), 0, name);
 
-        // Entries carry more than their name, so each is moved rather than rebuilt.
+        // Entries carry more than their name, so each is moved rather than rebuilt. The new one is
+        // the only one written from scratch, and is the only one given an id.
         const byValue = new Map(stored.map(col => [ col.value, col ]));
-        this.storeColumns(order.map(value => byValue.get(value) ?? { value }));
+        this.storeColumns(order.map(value =>
+            byValue.get(value) ?? (value === name ? { value, id: newColumnId() } : { value })));
 
         return name;
     }
@@ -561,15 +568,59 @@ export default class BoardApi {
      * Most columns are identified by the value their cards carry, so renaming writes that value
      * to every card in the column. The inbox has no value, so it stores a display name instead and
      * its cards are left untouched.
+     *
+     * @returns `false` when nothing was written, which keeps the caller's editor open: the name
+     *          is blank, or another column already uses it and renaming would merge the two.
      */
-    async setColumnTitle(column: string, title: string) {
-        if (!title.trim()) {
-            return;
+    setColumnTitle(column: string, title: string): false | void | Promise<void> {
+        const name = title.trim();
+        if (!name) {
+            return false;
+        }
+
+        if (this.isColumnNameTaken(name, column)) {
+            toast.showMessage(t("board_view.column-name-taken", { column: name }), undefined,
+                "bx bx-duplicate");
+            return false;
         }
 
         return column === INBOX_COLUMN
-            ? this.updateColumn(column, { displayName: title.trim() })
-            : this.renameColumn(column, title);
+            ? this.updateColumn(column, { displayName: name })
+            : this.renameColumn(column, name);
+    }
+
+    /**
+     * Whether a column other than `except` already uses a name.
+     *
+     * Compares titles as well as values, since the inbox is named by `displayName`, and covers the
+     * stored columns so that an empty one counts.
+     */
+    private isColumnNameTaken(name: string, except: string) {
+        const values = new Set([ ...this.columns, ...this.storedColumns.map(col => col.value) ]);
+        for (const value of values) {
+            if (value !== except && (value === name || this.getColumnTitle(value) === name)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * What each column is called, the icon it shows and how many cards it holds, which the right
+     * pane's outline is drawn from.
+     *
+     * A relation board keys its columns by note id, so each one is named from the note's title.
+     */
+    getColumnOutline(columns: string[]) {
+        return columns.map(column => ({
+            value: column,
+            title: this.isRelationMode && column !== INBOX_COLUMN
+                ? froca.getNoteFromCache(column)?.title ?? column
+                : this.getColumnTitle(column),
+            icon: this.getColumnIcon(column) ?? DEFAULT_COLUMN_ICON,
+            count: this.byColumn?.get(column)?.length ?? 0
+        }));
     }
 
     /**
@@ -579,7 +630,9 @@ export default class BoardApi {
      * `NoteLink` puts in the heading — and `setColumnIcon` is not offered there.
      */
     getColumnIcon(column: string) {
-        if (this.isRelationMode) {
+        // The inbox stands for the cards carrying no value at all, so there is no note behind it
+        // even on a relation board, where every other column is one.
+        if (this.isRelationMode && column !== INBOX_COLUMN) {
             return froca.getNoteFromCache(column)?.getIcon();
         }
 
@@ -627,6 +680,33 @@ export default class BoardApi {
     /** Whether the board draws the notes filed as archived, cards and columns alike. */
     async setArchivedShown(shown: boolean) {
         await attributes.setBooleanWithInheritance(this.parentNote, "includeArchived", shown);
+    }
+
+    /** How wide the board draws its columns, which the board turns into a class of its own. */
+    get columnWidth() {
+        return parseColumnWidth(this.parentNote?.getLabelValue(COLUMN_WIDTH_LABEL));
+    }
+
+    /**
+     * Sets how wide the columns are drawn.
+     *
+     * Picking the default removes the label, to keep the note tidy. Where a template or a parent
+     * sets the label, the default is written out instead: `removeOwnedLabelByName` would leave the
+     * inherited value in force.
+     */
+    async setColumnWidth(width: ColumnWidth) {
+        const note = this.parentNote;
+        if (!note) return;
+
+        const inherited = note.getAttributes("label", COLUMN_WIDTH_LABEL)
+            .find(attribute => attribute.noteId !== note.noteId);
+        if (width === DEFAULT_COLUMN_WIDTH
+                && parseColumnWidth(inherited?.value) === DEFAULT_COLUMN_WIDTH) {
+            await attributes.removeOwnedLabelByName(note, COLUMN_WIDTH_LABEL);
+            return;
+        }
+
+        await attributes.setLabel(note.noteId, COLUMN_WIDTH_LABEL, width);
     }
 
     /** The note limit set for a column, absent if disabled. */
@@ -724,6 +804,65 @@ export default class BoardApi {
     /** Whether the inbox also collects notes deeper than the board's direct children. */
     async setInboxNested(nested: boolean) {
         await this.updateColumn(INBOX_COLUMN, { nested });
+    }
+
+    /**
+     * The id a reference names a column by, assigning one where the column has none yet.
+     *
+     * A column with no stored entry at all is given one here: it is drawn from the definition or
+     * from a value its cards carry, and until something is stored for it there is nothing to hold
+     * an id.
+     *
+     * The assignment goes through the server, which reads and writes `board.json` in one request.
+     * Two clients copying a reference to the same id-less column would otherwise each generate an
+     * id and the second write would replace the first, breaking the link already copied from it.
+     * The server answers with the id the column actually holds, which is this one only when it
+     * arrived first, and says whether it stored it: a configuration the server cannot read is left
+     * for the board to write out again from here.
+     */
+    async ensureColumnId(column: string) {
+        const stored = readColumnId(this.viewConfig, this.groupBy, column);
+        if (stored) {
+            return stored;
+        }
+
+        const id = newColumnId();
+        try {
+            const settled = await server.put<{ id: string, stored: boolean }>(
+                `notes/${this.parentNote.noteId}/board/column-id`,
+                { groupBy: this.groupBy, value: column, id });
+            if (settled && !settled.stored) {
+                this.updateColumn(column, { id: settled.id });
+            }
+
+            return settled?.id ?? id;
+        } catch (e) {
+            // The link still works for as long as nothing else claims the column, and the board
+            // writes the id out with the rest of the configuration as it draws.
+            console.error("Failed to store the board column id:", e);
+            this.updateColumn(column, { id });
+            return id;
+        }
+    }
+
+    /**
+     * The link that opens this board on one of its columns, which the menu copies.
+     *
+     * Assigning an id to a column that has none is what makes the link outlive a rename, so
+     * copying a reference writes to `board.json` where nothing has been stored for the column yet.
+     */
+    async getColumnReference(column: string) {
+        return columnReference(this.boardNotePath, await this.ensureColumnId(column));
+    }
+
+    /** The link that opens this board on one of its cards, which is named by its own note id. */
+    getCardReference(noteId: string) {
+        return cardReference(this.boardNotePath, noteId);
+    }
+
+    /** How a link names the board: the path the pane reached it by, or the board alone. */
+    private get boardNotePath() {
+        return this.noteContext?.notePath ?? this.parentNote.noteId;
     }
 
     /** Whether a column is archived, which the board shows only while archived notes are shown. */

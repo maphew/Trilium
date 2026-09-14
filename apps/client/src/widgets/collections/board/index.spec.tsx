@@ -211,6 +211,14 @@ function columnIcons(container: HTMLElement) {
         .map(el => [ ...el.classList ].filter(name => name.startsWith("bx")).join(" "));
 }
 
+/**
+ * A stand-in note context, with the two calls every mounted board makes of one: it publishes its
+ * columns into the context for the right pane to list, and clears them as it goes.
+ */
+function contextStub(context: object) {
+    return { setContextData: () => {}, clearContextData: () => {}, ...context };
+}
+
 function columnTitles(container: HTMLElement) {
     return [ ...container.querySelectorAll(".board-column h3 .title") ].map(el => el.textContent);
 }
@@ -566,6 +574,33 @@ describe("Collapsed board columns", () => {
     });
 
     /**
+     * The overlay group holds the same two actions as the board menu, followed by the
+     * shortcut-hints button.
+     */
+    it("collapses and expands every column from the overlay group", async () => {
+        const { mountPoint } = await setup({ keepCollapsed: true });
+        const group = mountPoint.querySelector<HTMLElement>(".board-overlay-controls");
+        const buttons = [ ...(group?.querySelectorAll<HTMLButtonElement>("button") ?? []) ];
+        expect(buttons.map(button => button.getAttribute("aria-label"))).toEqual([
+            "board_view.collapse-all-columns", "board_view.expand-all-columns",
+            "shortcut_hints.show_button"
+        ]);
+
+        await act(async () => {
+            buttons[0]?.click();
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(isCollapsed(mountPoint, 1)).toBe(true);
+
+        await act(async () => {
+            buttons[1]?.click();
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+        expect(isCollapsed(mountPoint, 1)).toBe(false);
+    });
+    /**
      * A press on a card is focus arriving before it is a click, and while the whole board is peeked
      * every column reads as inactive. The column pressed in keeps its peek; the rest give theirs up.
      */
@@ -795,7 +830,7 @@ describe("A board in a tab the reader is not looking at", () => {
         const otherTab = {};
         let shown: object = tab;
         const host = new Component();
-        Object.assign(host, { noteContext: { getMainContext: () => tab } });
+        Object.assign(host, { noteContext: contextStub({ getMainContext: () => tab }) });
         const previousTabManager = appContext.tabManager;
         appContext.tabManager = { getActiveMainContext: () => shown } as never;
 
@@ -862,7 +897,7 @@ describe("A board in a tab the reader is not looking at", () => {
         // One tab, and the board is in a pane of it that does not hold the focus.
         const tab = {};
         const host = new Component();
-        Object.assign(host, { noteContext: { getMainContext: () => tab } });
+        Object.assign(host, { noteContext: contextStub({ getMainContext: () => tab }) });
         const previousTabManager = appContext.tabManager;
         appContext.tabManager = { getActiveMainContext: () => tab } as never;
 
@@ -1470,6 +1505,28 @@ describe("Board column rename", () => {
         });
         await act(async () => { await flush(); });
     }
+
+    /**
+     * Two columns under one name would be merged by the rename, which a reader who has forgotten
+     * the other column does not expect. The name is refused, and the editor stays open on it.
+     */
+    it("refuses a name another column already has and keeps the editor open", async () => {
+        const { container } = await setup();
+        const put = vi.spyOn(server, "put").mockResolvedValue(undefined);
+        const message = vi.spyOn(toast, "showMessage").mockReturnValue(undefined);
+
+        await renameColumnAt(container, 1, "Done");
+
+        expect(message).toHaveBeenCalledWith(
+            "board_view.column-name-taken:{\"column\":\"Done\"}", undefined, "bx bx-duplicate");
+        expect(put).not.toHaveBeenCalled();
+
+        const columns = container.querySelectorAll<HTMLElement>(".board-column");
+        expect(columns).toHaveLength(3);
+        // The column being renamed shows the editor in place of its title.
+        expect(columnTitles(container)).toEqual([ "To Do", "Done" ]);
+        expect(columns[1].querySelector<HTMLInputElement>("h3 input")?.value).toBe("Done");
+    });
 
     /**
      * The cards, the stored columns and the definition are renamed together by the server, so that
@@ -4199,10 +4256,38 @@ describe("Board properties from the note menu", () => {
         expect(isOpen()).toBe(true);
     });
 
+    /**
+     * The collection settings menu opens the same dialog. Its entry comes after the view options,
+     * separated from them by a divider.
+     */
+    it("opens the dialog from the collection settings menu, below a divider", async () => {
+        await renderBoardInContext("ntx-1");
+
+        const cog = container?.querySelector<HTMLElement>(".collection-properties button.bx-cog");
+        const options = cog?.closest(".dropdown");
+        if (!options) throw new Error("expected a settings menu on the collection bar");
+        await act(async () => {
+            $(options as HTMLElement).trigger("show.bs.dropdown");
+            await flush();
+        });
+
+        const entry = [ ...options.querySelectorAll<HTMLElement>(".dropdown-item") ].at(-1);
+        if (!entry) throw new Error("expected an entry in the settings menu");
+        expect(entry.textContent).toContain("board_view.properties");
+        expect(entry.previousElementSibling?.className).toContain("dropdown-divider");
+
+        await act(async () => {
+            entry.click();
+            await flush();
+        });
+        expect(document.querySelector(".board-properties-dialog .modal-dialog")).toBeTruthy();
+    });
+
     /** Mounts a board belonging to the given tab, returning what events reach it through. */
     async function renderBoardInContext(ntxId: string) {
         const note = buildNote({
             title: "Board",
+            type: "book",
             "#collection": "",
             "#viewType": "board",
             children: [
@@ -4212,7 +4297,7 @@ describe("Board properties from the note menu", () => {
         });
 
         const host = new Component();
-        Object.assign(host, { noteContext: { ntxId, isActive: () => true } });
+        Object.assign(host, { noteContext: contextStub({ ntxId, isActive: () => true }) });
 
         const mountPoint = document.createElement("div");
         container = mountPoint;
@@ -4283,6 +4368,20 @@ describe("a column windowed for its size", () => {
     });
 
     /**
+     * The drag places a card at a column's foot by this count. It has to stand on the column
+     * itself: a collapsed column draws no card area to hang it off, and a windowed one draws fewer
+     * cards than it holds.
+     */
+    it("says on each column how many cards it holds, drawn or not", async () => {
+        const board = await renderSized(200, 3);
+        const columns = board.querySelectorAll<HTMLElement>(".board-column");
+
+        expect(columns[0].dataset.count).toBe("200");
+        expect(columns[0].querySelectorAll(".board-note").length).toBeLessThan(200);
+        expect(columns[1].dataset.count).toBe("3");
+    });
+
+    /**
      * The drag and the keyboard both name a card by the place it holds in its column. Counting
      * drawn elements would name a place among whatever is on screen, which moves as it scrolls.
      */
@@ -4331,4 +4430,154 @@ describe("a column windowed for its size", () => {
 
         return mountPoint;
     }
+});
+
+describe("how wide the board draws its columns", () => {
+    let container: HTMLElement | undefined;
+
+    afterEach(() => {
+        saved.length = 0;
+        if (container) {
+            render(null, container);
+            container.remove();
+            container = undefined;
+        }
+    });
+
+    /**
+     * The width itself is CSS, which happy-dom does not resolve. What the board answers for is the
+     * class it carries, off which the stylesheet picks one of the three widths.
+     */
+    it("carries the width its label names, and no class where it names none", async () => {
+        expect((await draw("wide")).className).toContain("board-wide-columns");
+        expect((await draw("narrow")).className).toContain("board-narrow-columns");
+
+        // Without a class the width is whatever is inherited, which is the stylesheet's own
+        // default or a theme's if one sets it.
+        expect((await draw(undefined)).className).not.toMatch(/board-\w+-columns/);
+        expect((await draw("enormous")).className).not.toMatch(/board-\w+-columns/);
+    });
+
+    async function draw(width: string | undefined) {
+        if (container) {
+            render(null, container);
+            container.remove();
+        }
+
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            ...(width ? { "#boardCardWidth": width } : {}),
+            children: [ { title: "First", "#status": "To Do" } ]
+        });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={{ columns: [ { value: "To Do" } ] }}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+        });
+        await act(async () => { await flush(); });
+
+        const board = mountPoint.querySelector<HTMLElement>(".board-view");
+        if (!board) throw new Error("expected the board to be drawn");
+        return board;
+    }
+});
+
+describe("what the board hands the right pane", () => {
+    let container: HTMLElement | undefined;
+
+    afterEach(() => {
+        saved.length = 0;
+        if (container) {
+            render(null, container);
+            container.remove();
+            container = undefined;
+        }
+    });
+
+    /**
+     * The pane lists the columns of whichever board is on show, so the board publishes them into
+     * the context it belongs to rather than the pane reading the board's own state.
+     */
+    it("publishes its columns, scrolls to one on request, and takes them back", async () => {
+        const published: { key: string, value: unknown }[] = [];
+        const cleared: string[] = [];
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            children: [
+                { title: "First", "#status": "To Do" },
+                { title: "Second", "#status": "Done" },
+                { title: "Third", "#status": "Done" }
+            ]
+        });
+
+        const host = new Component();
+        Object.assign(host, { noteContext: {
+            setContextData: (key: string, value: unknown) => published.push({ key, value }),
+            clearContextData: (key: string) => cleared.push(key)
+        } });
+
+        const mountPoint = document.createElement("div");
+        container = mountPoint;
+        document.body.appendChild(mountPoint);
+
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={host}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={{ columns: [ { value: "To Do" }, { value: "Done" } ] }}
+                    />
+                </ParentComponent.Provider>,
+                mountPoint
+            );
+        });
+        await act(async () => { await flush(); });
+
+        const outline = published.at(-1);
+        expect(outline?.key).toBe("boardColumns");
+        const { columns, scrollToColumn } = outline?.value as {
+            columns: { value: string, title: string, count: number }[],
+            scrollToColumn: (column: string) => void
+        };
+        expect(columns.map(({ title, count }) => `${title}:${count}`))
+            .toEqual([ "To Do:1", "Done:2" ]);
+
+        // What a press on one of the pane's entries does. Both are recorded rather than watched
+        // for: happy-dom scrolls nothing, and a dialog another spec left standing holds the focus.
+        const scrolled: (string | undefined)[] = [];
+        const focused: (string | undefined)[] = [];
+        for (const element of mountPoint.querySelectorAll<HTMLElement>(".board-column")) {
+            element.scrollIntoView = () => scrolled.push(element.dataset.column);
+            const heading = element.querySelector<HTMLElement>("h3");
+            if (heading) {
+                heading.focus = () => focused.push(element.dataset.column);
+            }
+        }
+
+        scrollToColumn("Done");
+        expect(scrolled).toEqual([ "Done" ]);
+        // The heading takes the focus with it, so the board's own keys carry on from there.
+        expect(focused).toEqual([ "Done" ]);
+
+        // A board that is no longer on show leaves nothing behind for the pane to list.
+        act(() => { render(null, mountPoint); });
+        expect(cleared).toContain("boardColumns");
+    });
 });

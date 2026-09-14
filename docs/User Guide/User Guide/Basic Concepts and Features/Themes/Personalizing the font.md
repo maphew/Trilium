@@ -57,3 +57,9 @@ A large selection of fonts can be easily retrieved from Google Fonts, as follows
 5.  Press _Download all_.
 6.  In the <a class="reference-link" href="../UI%20Elements/Note%20Tree.md">Note Tree</a>, create a note where to store the new fonts.
 7.  In the <a class="reference-link" href="../UI%20Elements/Note%20Tree.md">Note Tree</a>, drag-and-drop the .zip file directly onto the newly created note and follow the steps from the previous section.
+
+## Programming ligatures
+
+Some fonts support programming ligatures, which will turn character combinations such as `!=` into `≠` or `->` as `→` in <a class="reference-link" href="../../Note%20Types/Text/Developer-specific%20formatting/Code%20blocks.md">Code blocks</a> and <a class="reference-link" href="../../Note%20Types/Code.md">Code</a> notes.
+
+These are only a display affordance, so copying the text is not affected. Regardless, this feature can be disabled in Trilium by unchecking _Programming ligatures_ in the font settings.

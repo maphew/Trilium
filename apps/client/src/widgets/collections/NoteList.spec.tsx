@@ -18,11 +18,19 @@ import Component from "../../components/component";
 import type FNote from "../../entities/fnote";
 import type { EntityChange } from "../../server_types";
 import LoadResults from "../../services/load_results";
-import { buildNote } from "../../test/easy-froca";
+import { buildNote, buildNotes } from "../../test/easy-froca";
 import { ParentComponent } from "../react/react_utils";
 import { CustomNoteList, useNoteIds } from "./NoteList";
 
 let currentNoteIds: string[] = [];
+
+// The child ids below stand for real notes: a collection view resolves the ids it is given through
+// froca.getNotes(), which round-trips to the server for anything the mock does not hold.
+buildNotes([
+    { id: "child-a", title: "Child A" },
+    { id: "child-b", title: "Child B" },
+    { id: "child-new", title: "Child New" }
+]);
 
 /** Drains the chained awaits in `refreshNoteIds` (getNoteIds → search promise → setNoteIds). */
 async function flushMicrotasks() {
@@ -232,7 +240,9 @@ describe("CustomNoteList visibility latch", () => {
 
     it("keeps observing after a non-intersecting callback and renders once visible", async () => {
         const note = buildNote({ title: "Parent", type: "text" });
-        note.getChildNoteIdsWithArchiveFiltering = vi.fn(async () => [ "child-a" ]);
+        // A note froca holds, since the list renders it and asks froca for it by id.
+        const child = buildNote({ title: "Child", type: "text" });
+        note.getChildNoteIdsWithArchiveFiltering = vi.fn(async () => [ child.noteId ]);
         note.getAttachmentsByRole = vi.fn(async () => []);
 
         const parent = new Component();
@@ -276,7 +286,9 @@ describe("CustomNoteList visibility latch", () => {
 
     it("waits for the note content before observing, and drops the latch when a new load starts", async () => {
         const note = buildNote({ title: "Parent", type: "text" });
-        note.getChildNoteIdsWithArchiveFiltering = vi.fn(async () => [ "child-a" ]);
+        // A note froca holds, since the list renders it and asks froca for it by id.
+        const child = buildNote({ title: "Child", type: "text" });
+        note.getChildNoteIdsWithArchiveFiltering = vi.fn(async () => [ child.noteId ]);
         note.getAttachmentsByRole = vi.fn(async () => []);
 
         const parent = new Component();

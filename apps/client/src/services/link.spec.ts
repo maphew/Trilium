@@ -144,6 +144,14 @@ describe("parseNavigationStateFromUrl", () => {
         warn.mockRestore();
     });
 
+    it("carries a board reference through, for the column and for the card", () => {
+        const column = parseNavigationStateFromUrl("#root/aaaaaaaaaaaa?column=colTodo00001");
+        expect((column as any).viewScope).toMatchObject({ column: "colTodo00001" });
+
+        const card = parseNavigationStateFromUrl("#root/aaaaaaaaaaaa?card=card00000001");
+        expect((card as any).viewScope).toMatchObject({ card: "card00000001" });
+    });
+
     it("returns empty object when the note path does not match the id pattern", () => {
         // hash present at index 0, but the path is too short to be a valid note id
         expect(parseNavigationStateFromUrl("#ab")).toStrictEqual({});
@@ -167,6 +175,21 @@ describe("calculateHash", () => {
             viewScope: { viewMode: "source", attachmentId: "att 1" }
         } as any);
         expect(hash).toBe("#root/abc?ntxId=n1&hoistedNoteId=h1&viewMode=source&attachmentId=att%201");
+    });
+
+    it("writes a board reference back into the hash it was read from", () => {
+        const hash = calculateHash({
+            notePath: "root/abc",
+            viewScope: { column: "colTodo00001" }
+        } as any);
+        expect(hash).toBe("#root/abc?column=colTodo00001");
+        // Read back, the path spelled out at the length a note id is checked against.
+        const read = `http://localhost:8080/#root/aaaaaaaaaaaa${hash.slice("#root/abc".length)}`;
+        expect(parseNavigationStateFromUrl(read))
+            .toMatchObject({ viewScope: { column: "colTodo00001" } });
+
+        expect(calculateHash({ notePath: "root/abc", viewScope: { card: "card00000001" } } as any))
+            .toBe("#root/abc?card=card00000001");
     });
 
     it("omits params that are at their defaults", () => {

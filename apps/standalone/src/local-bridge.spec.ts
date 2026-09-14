@@ -2,14 +2,47 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // A controllable stand-in for the bundled local-server-worker. vi.hoisted lets the
 // (hoisted) vi.mock factory share the instance registry with the test body.
-const { workerInstances, leadership } = vi.hoisted(() => ({
+const { workerInstances, leadership, saved } = vi.hoisted(() => ({
     workerInstances: [] as MockWorker[],
     // Most of this suite exercises the leader, which is the tab that owns the
     // worker. Followers take a different path — see the leadership describe.
-    leadership: { isLeader: true }
+    leadership: { isLeader: true },
+    // What saveDatabase() handed the device, and what the device said back.
+    saved: {
+        fileName: "",
+        chunks: [] as Uint8Array[],
+        target: null as unknown,
+        result: { status: "saved", location: "/documents/Trilium/db.tnbackup" } as {
+            status: string;
+            location?: string;
+            message?: string;
+        }
+    }
 }));
 
 vi.mock("./leader_election.js", () => ({ isLeader: () => leadership.isLeader }));
+
+// The Capacitor plugins are not there under happy-dom, and what matters on this side is which
+// target the backup asked for and what reached it — see capacitor_download.spec.ts for the writing.
+vi.mock("./services/capacitor_download.js", () => ({
+    BACKUP_TARGET: { directory: "DOCUMENTS", folder: "Trilium", sweep: false },
+    saveChunksToDevice: async (
+        fileName: string, chunks: AsyncIterable<Uint8Array>, target: unknown
+    ) => {
+        saved.fileName = fileName;
+        saved.target = target;
+        saved.chunks = [];
+        try {
+            for await (const chunk of chunks) {
+                saved.chunks.push(chunk);
+            }
+        } catch (e) {
+            // The real one reports a broken source rather than rejecting; see its own spec.
+            return { fileName, status: "failed", message: (e as Error).message };
+        }
+        return { fileName, ...saved.result };
+    }
+}));
 
 class MockWorker {
     postMessage = vi.fn();
@@ -33,6 +66,7 @@ async function freshBridge(withServiceWorker = true): Promise<LocalBridge> {
     vi.resetModules();
     workerInstances.length = 0;
     leadership.isLeader = true;
+    saved.result = { status: "saved", location: "/documents/Trilium/db.tnbackup" };
     swHandler = undefined;
     if (withServiceWorker) {
         Object.defineProperty(navigator, "serviceWorker", {
@@ -430,7 +464,7 @@ describe("backup download keepalive", () => {
         vi.useFakeTimers();
         const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null));
         const bridge = await freshBridge();
-        bridge.startLocalServerWorker();
+        void bridge.downloadDatabase("Backup.tnbackup");
 
         lastWorker().onmessage?.({ data: { type: "BACKUP_STREAM_ACTIVE", active: true } });
         await vi.advanceTimersByTimeAsync(25_000);
@@ -441,6 +475,21 @@ describe("backup download keepalive", () => {
         await vi.advanceTimersByTimeAsync(60_000);
         expect(fetchSpy).toHaveBeenCalledTimes(2);
 
+        vi.useRealTimers();
+    });
+
+    it("does not ping for a stream the page consumes itself", async () => {
+        vi.useFakeTimers();
+        const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null));
+        const bridge = await freshBridge();
+        bridge.startLocalServerWorker();
+
+        // saveDatabase() holds the stream open in the page, so there is no service worker waiting
+        // on it — and on iOS there is no service worker at all.
+        lastWorker().onmessage?.({ data: { type: "BACKUP_STREAM_ACTIVE", active: true } });
+        await vi.advanceTimersByTimeAsync(60_000);
+
+        expect(fetchSpy).not.toHaveBeenCalled();
         vi.useRealTimers();
     });
 });
@@ -490,6 +539,92 @@ describe("downloadDatabase", () => {
 
         expect(await pending).toMatchObject({ status: "failed" });
         vi.useRealTimers();
+    });
+});
+
+describe("saveDatabase", () => {
+    /** What the bridge asked the worker to stream, including the port to play it down. */
+    function backupMessage(worker: MockWorker): { port?: MessagePort; passphrase?: string } {
+        return worker.postMessage.mock.calls
+            .map(([ message ]) => message as { type: string; port?: MessagePort; passphrase?: string })
+            .find((message) => message.type === "BACKUP_STREAM") ?? {};
+    }
+
+    /** The port the bridge handed the worker, played from the worker's side. */
+    function backupPort(worker: MockWorker): MessagePort {
+        const port = backupMessage(worker).port;
+        if (!port) {
+            throw new Error("no BACKUP_STREAM sent");
+        }
+        return port;
+    }
+
+    /** Answers the bridge's pulls with `chunks`, then ends — what the local worker does. */
+    function serveStream(port: MessagePort, chunks: Uint8Array[]) {
+        let next = 0;
+        port.onmessage = (event) => {
+            const message = event.data as { type?: string };
+            if (message?.type !== "pull") {
+                return;
+            }
+            if (next < chunks.length) {
+                const chunk = chunks[next++];
+                port.postMessage({ type: "chunk", data: chunk.buffer.slice(0) });
+            } else {
+                port.postMessage({ type: "end" });
+            }
+        };
+        port.postMessage({ type: "begin", byteSize: chunks.reduce((sum, c) => sum + c.length, 0) });
+    }
+
+    it("streams the backup to the device and reports where it went", async () => {
+        const bridge = await freshBridge();
+        const progress: number[] = [];
+        const pending = bridge.saveDatabase("db.tnbackup", "hunter2", (sent) => progress.push(sent));
+
+        // The dynamic import of the save module resolves before the stream is asked for.
+        await vi.waitFor(() => backupPort(lastWorker()));
+        serveStream(backupPort(lastWorker()), [ Uint8Array.from([ 1, 2, 3 ]), Uint8Array.from([ 4, 5 ]) ]);
+        lastWorker().onmessage?.({
+            data: { type: "BACKUP_STREAM_PROGRESS", sentBytes: 3, totalBytes: 5 }
+        });
+
+        expect(await pending).toEqual({ status: "done", location: "/documents/Trilium/db.tnbackup" });
+        expect(saved.chunks).toEqual([ Uint8Array.from([ 1, 2, 3 ]), Uint8Array.from([ 4, 5 ]) ]);
+        expect(saved.fileName).toBe("db.tnbackup");
+        // Documents, not the share sheet's scratch directory: a backup outlives the sheet.
+        expect(saved.target).toMatchObject({ directory: "DOCUMENTS", sweep: false });
+        // The passphrase rides the worker message rather than any URL.
+        expect(backupMessage(lastWorker()).passphrase).toBe("hunter2");
+        expect(progress).toEqual([ 3 ]);
+    });
+
+    it("is done, not cancelled, when the user dismisses the share sheet", async () => {
+        const bridge = await freshBridge();
+        saved.result = { status: "cancelled", location: "/documents/Trilium/db.tnbackup" };
+        const pending = bridge.saveDatabase("db.tnbackup");
+
+        await vi.waitFor(() => backupPort(lastWorker()));
+        serveStream(backupPort(lastWorker()), [ Uint8Array.from([ 1 ]) ]);
+
+        // The file was written before the sheet opened, so there is a backup either way.
+        expect(await pending).toEqual({ status: "done", location: "/documents/Trilium/db.tnbackup" });
+    });
+
+    it("fails when the stream never begins, and refuses outright in a follower tab", async () => {
+        const bridge = await freshBridge();
+        const pending = bridge.saveDatabase("db.tnbackup");
+
+        await vi.waitFor(() => backupPort(lastWorker()));
+        backupPort(lastWorker()).postMessage({ type: "error", message: "The database is not ready yet." });
+
+        expect(await pending).toMatchObject({
+            status: "failed",
+            message: "The database is not ready yet."
+        });
+
+        leadership.isLeader = false;
+        expect(await bridge.saveDatabase("db.tnbackup")).toMatchObject({ status: "failed" });
     });
 });
 

@@ -1,6 +1,6 @@
 <figure class="image">
-  <img style="aspect-ratio:1561/1149;" src="Geo Map_image.png"
-  width="1561" height="1149">
+  <img style="aspect-ratio:1561/1149;" src="Geo Map_image.png" width="1561"
+  height="1149">
 </figure>
 <p>This note type displays the children notes on a geographical map, based
   on an attribute. It is also possible to add new notes at a specific location
@@ -12,7 +12,8 @@
   <li>Search the notes already on the map, and look up places anywhere in the
     world.</li>
   <li>Turn a place the map already shows into a marker by clicking it.</li>
-  <li>Display tracks on the map using <code spellcheck="false">.gpx</code> files.</li>
+  <li>Draw paths, areas, rectangles and circles onto the map.</li>
+  <li>Display tracks on the map using <code>.gpx</code> files.</li>
   <li>Show your own location on the map and follow it as you move.</li>
   <li>3D view of the map, which displays buildings when using a vector map.</li>
 </ul>
@@ -47,6 +48,12 @@
         still allowing for edits.</li>
     </ul>
   </li>
+  <li>At the top-center (on desktop, or left-center on mobile and in split views)
+    there are the drawing tools such as paths, areas, rectangles and circles.
+    <ul>
+      <li>When the map is read-only, the toolbar is not shown.</li>
+    </ul>
+  </li>
 </ul>
 <h2>Creating a new geo map</h2>
 <p>Right click on an existing note in the&nbsp;<a class="reference-link"
@@ -64,7 +71,7 @@
   when you open it, so they are all in view without having to go looking
   for them. A map that contains no markers shows the whole world instead.</p>
 <p>In practice this applies to maps whose markers were added externally,
-  by a script or through <a class="reference-link" href="#root/_help_pgxEVkzLl1OP">ETAPI (REST API)</a>.
+  by a script or through&nbsp;<a class="reference-link" href="#root/_help_pgxEVkzLl1OP">ETAPI (REST API)</a>.
   When you add markers yourself you have already moved the map to reach the
   place you are marking, and that movement saves a position.</p>
 <h2>Going to your location</h2>
@@ -101,12 +108,12 @@
 <h3>Searching the notes already on the map</h3>
 <p>Type in the search bar, and the notes on the map are matched by their
   title as you type. Accents are ignored, both in what you type and in the
-  titles, so <code spellcheck="false">zurich</code> finds <em>Zürich Hauptbahnhof</em>.
-  Each word is searched for on its own, so <code spellcheck="false">hotel paris</code> finds <em>Paris Hotel</em>.
-  Notes without a <code spellcheck="false">#geolocation</code> attribute are
-  not offered, since there would be nowhere to go. GPS tracks are offered,
-  even though they carry no such attribute: selecting one brings its whole
-  route into view.</p>
+  titles, so <code>zurich</code> finds <em>Zürich Hauptbahnhof</em>. Each word
+  is searched for on its own, so <code>hotel paris</code> finds <em>Paris Hotel</em>.
+  Notes without a <code>#geolocation</code> attribute are not offered, since
+  there would be nowhere to go. Drawn shapes and GPS tracks are offered,
+  even though they carry no such attribute: selecting one brings the whole
+  shape or route into view.</p>
 <p>If more notes match than the list can show, you are offered the ones closest
   to the area you are viewing.</p>
 <h3>Searching for places online</h3>
@@ -135,20 +142,19 @@
   The note is therefore given the same name as any other new note, which
   is the name you also get from the <em>Add marker</em> button and from the
   + button in the note tree. The note opens with that name selected, so you
-  can type over it. If the map has a <a class="reference-link" href="#root/_help_47ZrP6FNuoG8">titleTemplate</a> label,
+  can type over it. If the map has a&nbsp;<a class="reference-link" href="#root/_help_47ZrP6FNuoG8">[missing note]</a>&nbsp;label,
   the marker is named by that template instead.</p>
 <p>The forms understood are:</p>
 <ul>
-  <li>A plain pair, such as <code spellcheck="false">45.9432, 24.9668</code>.
-    This is what Google Maps and OpenStreetMap both give you when you ask for
-    the coordinates of a place, and it is also what the <code spellcheck="false">#geolocation</code> attribute
-    holds.</li>
-  <li>The <code spellcheck="false">geo:</code> link that the map itself offers
-    for a place, through the <em>Open location</em> action.</li>
+  <li>A plain pair, such as <code>45.9432, 24.9668</code>. This is what Google
+    Maps and OpenStreetMap both give you when you ask for the coordinates of
+    a place, and it is also what the <code>#geolocation</code> attribute holds.</li>
+  <li>The <code>geo:</code> link that the map itself offers for a place, through
+    the <em>Open location</em> action.</li>
   <li>The address of a place on Google Maps or OpenStreetMap, pasted whole.</li>
 </ul>
-<p>A pair that is not a place on Earth, such as <code spellcheck="false">1234, 5678</code>,
-  is not offered.</p>
+<p>A pair that is not a place on Earth, such as <code>1234, 5678</code>, is
+  not offered.</p>
 <h3>Reading the results</h3>
 <p>Results are gathered under headings, and each group is ordered by distance
   from the middle of the map:</p>
@@ -178,7 +184,7 @@
 <h3>Keeping a place as a marker</h3>
 <p>Press <em>Add as marker</em> in that panel to keep the place. A child note
   is created under the map. It takes the name of the place, as well as the
-  icon, which matches the kind of place it is. Its <code spellcheck="false">#geolocation</code> attribute
+  icon, which matches the kind of place it is. Its <code>#geolocation</code> attribute
   is already set. The note opens beside the map, so you can edit it straight
   away. The temporary pin disappears, because the place is now a marker like
   any other.</p>
@@ -206,10 +212,8 @@
 <h2>Adding a marker using the map</h2>
 <h3>Adding a new note using the plus button</h3>
 <ol>
-  <li>
-    <p>To create a marker, first navigate to the desired point on the map. Then
-      press the <em>Add marker</em> button at the center-bottom of the map.</p>
-  </li>
+  <li>To create a marker, first navigate to the desired point on the map. Then
+    press the <em>Add marker</em> button at the center-bottom of the map.</li>
   <li>
     <p>Once pressed, the map will enter in the insert mode, as illustrated by
       the notification. Additionally, a preview of the marker will be shown at
@@ -217,10 +221,8 @@
     <p>Simply click the point on the map where to place the marker. To cancel,
       press either the &nbsp;Escape key or press again the <em>Add marker</em> button.</p>
   </li>
-  <li>
-    <p>Once clicked, the marker will show up on the map and a popup will show
-      to the right with the title already selected to be changed.</p>
-  </li>
+  <li>Once clicked, the marker will show up on the map and a popup will show
+    to the right with the title already selected to be changed.</li>
 </ol>
 <h3>Adding a new note using the contextual menu</h3>
 <ol>
@@ -284,7 +286,7 @@
     keep it as a marker.</li>
 </ul>
 <h2>How the location of the markers is stored</h2>
-<p>The location of a marker is stored in the <code spellcheck="false">#geolocation</code> attribute
+<p>The location of a marker is stored in the <code>#geolocation</code> attribute
   of the child notes:</p>
 <p>This value can be added manually if needed. The value of the attribute
   is made up of the latitude and longitude separated by a comma.</p>
@@ -302,9 +304,9 @@ class="admonition note">
   <p>If the map is locked for editing (see below), the map needs to be unlocked
     before moving the marker.</p>
 </aside>
-<h2>Interaction with the markers</h2>
+<h2>Interaction with the markers, tracks or shapes</h2>
 <ul>
-  <li>Hovering over a marker will display a&nbsp;<a class="reference-link" href="#root/_help_lgKX7r3aL30x">Note Tooltip</a>&nbsp;with
+  <li>Hovering over a marker will display a&nbsp;<a class="reference-link" href="#root/_help_lgKX7r3aL30x">[missing note]</a>&nbsp;with
     the content of the note it belongs to.
     <ul>
       <li>Clicking on the note title in the tooltip will navigate to the note in
@@ -317,24 +319,30 @@ class="admonition note">
     or not.</li>
 </ul>
 <h3>Popup view</h3>
-<p>When a marker or a track is clicked, a popup will open to the right which
-  contains the following information:</p>
+<p>When a marker, a <a href="#root/_help_C2H9HK4BzwG7">shape</a>, or track
+  is clicked, a popup will open to the right which contains the following
+  information:</p>
 <ul>
   <li>The title and icon of the marker, both editable.</li>
   <li>An indicator for the coordinates; clicking it will copy the coordinates
     to clipboard.</li>
   <li>A button to maximize the popup.</li>
-  <li>Buttons to interact with the markers:
+  <li>Buttons to interact with the current item:
     <ul>
       <li>Open the marker in the same pane, new tab, etc.</li>
       <li>A button to open the location in a dedicated application (e.g. Google
         Maps on mobile).</li>
       <li>Color picker to change the color of the marker.</li>
+      <li>Markers can also be moved, unlike tracks or shapes (which need to be redrawn).</li>
       <li>Button to remove the marker from the map, which can optionally delete
-        its corresponding note. Removing a marker without deleting the note will
-        only remove its <code spellcheck="false">#geolocation</code> attribute (case
-        in which the coordinates have to be manually added back in in order to
-        get the note to show on the map again).</li>
+        its corresponding note.
+        <ul>
+          <li>Removing a marker without deleting the note will only remove its <code>#geolocation</code> attribute
+            (case in which the coordinates have to be manually added back in in order
+            to get the note to show on the map again).</li>
+          <li>Similarly, removing a shape will remove its <code>#geoShape</code> attribute.</li>
+        </ul>
+      </li>
     </ul>
   </li>
   <li>The&nbsp;<a class="reference-link" href="#root/_help_OFXdgB2nNk1F">Promoted Attributes</a>&nbsp;of
@@ -378,25 +386,33 @@ class="admonition note">
       <li>Open the note in a new tab, split or window.</li>
       <li>Button to remove the marker from the map, which can optionally delete
         its corresponding note. Removing a marker without deleting the note will
-        only remove its <code spellcheck="false">#geolocation</code> attribute (case
-        in which the coordinates have to be manually added back in in order to
-        get the note to show on the map again).</li>
+        only remove its <code>#geolocation</code> attribute (case in which the coordinates
+        have to be manually added back in in order to get the note to show on the
+        map again).</li>
     </ol>
   </li>
+  <li>Shapes can also be right-clicked and the menu is similar to markers except
+    they cannot be moved.</li>
 </ol>
-<h3>Icon and color of the markers</h3>
+<h3>Icon and color</h3>
 <figure class="image image-style-align-right image_resized" style="width:47.42%;">
-  <img style="aspect-ratio:885/321;" src="3_Geo Map_image.png"
-  width="885" height="321">
+  <img style="aspect-ratio:885/321;" src="3_Geo Map_image.png" width="885"
+  height="321">
 </figure>
 <p>The markers will have the same icon as the note.</p>
-<p>It's possible to add a custom color to a marker by assigning them a <code
-  spellcheck="false">#color</code> attribute such as <code spellcheck="false">#color=green</code>.</p>
+<p>It's possible to add a custom color to a marker by assigning them a <code>#color</code> attribute
+  such as <code>#color=green</code>.</p>
+<p>This also applies to tracks and <a href="#root/_help_C2H9HK4BzwG7">shapes</a>.</p>
+<aside
+class="admonition note">
+  <p>The color as it will be displayed on the map might be slightly tinted
+    in order to make the text or icon more legible.</p>
+</aside>
 <h3>Adding the coordinates manually</h3>
 <p>Searching for the place is usually quicker (see <em>Searching the map</em> above).
   The steps below remain useful for a coordinate that is already to hand,
   or for a place the search cannot find.</p>
-<p>In a nutshell, create a child note and set the <code spellcheck="false">#geolocation</code> attribute
+<p>In a nutshell, create a child note and set the <code>#geolocation</code> attribute
   to the coordinates.</p>
 <p>The value of the attribute is made up of the latitude and longitude separated
   by a comma.</p>
@@ -411,9 +427,8 @@ class="admonition note">
     </ol>
   </li>
   <li>In Trilium, create a child note under the map.</li>
-  <li>Then paste the value inside the text box into the <code spellcheck="false">#geolocation</code> attribute
-    of a child note of the map (don't forget to surround the value with a <code
-    spellcheck="false">"</code> character).</li>
+  <li>Then paste the value inside the text box into the <code>#geolocation</code> attribute
+    of a child note of the map (don't forget to surround the value with a <code>"</code> character).</li>
 </ol>
 <h4>Adding from OpenStreetMap</h4>
 <p>Similarly to the Google Maps approach:</p>
@@ -422,22 +437,24 @@ class="admonition note">
     context menu. Select the <em>Show address</em> item.</li>
   <li>The address will be visible in the top-left of the screen, in the place
     of the search bar.&nbsp;Select the coordinates and copy them into the clipboard.</li>
-  <li>Simply paste the value inside the text box into the <code spellcheck="false">#geolocation</code> attribute
+  <li>Simply paste the value inside the text box into the <code>#geolocation</code> attribute
     of a child note of the map and then it should be displayed on the map.</li>
 </ol>
+<h2>Drawing shapes on the map</h2>
+<p>See the dedicated&nbsp;<a class="reference-link" href="#root/_help_C2H9HK4BzwG7">[missing note]</a>&nbsp;page.</p>
 <h2>Adding GPS tracks (.gpx)</h2>
 <figure class="image">
-  <img style="aspect-ratio:1566/1155;" src="1_Geo Map_image.png"
-  width="1566" height="1155">
+  <img style="aspect-ratio:1566/1155;" src="1_Geo Map_image.png" width="1566"
+  height="1155">
 </figure>
-<p>Trilium can display GPS tracks on the geo map, in the form of <code spellcheck="false">.gpx</code> files.</p>
+<p>Trilium can display GPS tracks on the geo map, in the form of <code>.gpx</code> files.</p>
 <p>To add a track, either:</p>
 <ol>
-  <li>Drag &amp; drop a <code spellcheck="false">.gpx</code> file inside the geo
-    map in the note tree.
+  <li>Drag &amp; drop a <code>.gpx</code> file inside the geo map in the note
+    tree.
     <ol>
       <li>In order for the file to be recognized as a GPS track, it needs to show
-        up as <code spellcheck="false">application/gpx+xml</code> in the <em>File type</em> field.</li>
+        up as <code>application/gpx+xml</code> in the <em>File type</em> field.</li>
     </ol>
   </li>
   <li>Press the <em>Add a GPS track from a GPX file</em> which will directly prompt
@@ -446,8 +463,8 @@ class="admonition note">
 <p>When going back to the map, the track should now be visible.</p>
 <p>The starting point of the track will be displayed as a marker, with the
   name of the note underneath. The start marker will also respect the icon
-  and the <code spellcheck="false">color</code> of the note. The end marker
-  is displayed with a distinct icon.</p>
+  and the <code>color</code> of the note. The end marker is displayed with
+  a distinct icon.</p>
 <p>If the track file contains multiple tracks, they will all be displayed
   as well as markers. Trilium will also split a single track that happens
   to have non-continuous points.</p>
@@ -456,13 +473,13 @@ class="admonition note">
 <p>When the track is clicked, the entire route is brought into view, as well
   as the right popup will indicate details about the track such as distance,
   duration and the elevation map. This information is also displayed when
-  clicking the <code spellcheck="false">.gpx</code> note itself.</p>
+  clicking the <code>.gpx</code> note itself.</p>
 <p>When clicking on the markers of a track (whether it's the start or stop
   builtin markers, or custom markers that are part of the track), only that
   marker is brought into view, as opposed to the entire route.</p>
 <h2>Read-only mode</h2>
-<p>When a map is <a href="#root/_help_CoFPLs3dRlXc">read-only</a> all editing features
-  will be disabled such as:</p>
+<p>When a map is <a href="#root/_help_CoFPLs3dRlXc">read-only</a> all editing
+  features will be disabled such as:</p>
 <ul>
   <li>The add button at the bottom of the map.</li>
   <li>Repositioning markers.</li>
@@ -470,15 +487,16 @@ class="admonition note">
   <li>Keeping a place as a marker, whether you found it by searching or clicked
     it on the map. You can still search and click, and you can still look at
     a place and copy its coordinates.</li>
+  <li>Drawing <a href="#root/_help_C2H9HK4BzwG7">shapes</a>.</li>
 </ul>
-<p>To set a map as read-only, go to&nbsp;<a class="reference-link" href="#root/_help_8YBEPzcpUgxw">Note buttons</a>&nbsp;→ <em>Editable</em> → <em>Read-only</em> (on
+<p>To set a map as read-only, go to&nbsp;<a class="reference-link" href="#root/_help_8YBEPzcpUgxw">[missing note]</a>&nbsp;→ <em>Editable</em> → <em>Read-only</em> (on
   the new layout, or in Basic Properties on the&nbsp;<a class="reference-link"
   href="#root/_help_BlN9DFI679QC">Ribbon</a>&nbsp;for the old layout).</p>
 <h2>Configuration</h2>
 <h3>Map Style</h3>
 <p>The styling of the map can be adjusted in the&nbsp;<a class="reference-link"
-  href="#root/_help_CssoWBu8I7jF">Collection Properties</a>&nbsp;or manually via
-  the <code spellcheck="false">#map:style</code> attribute.</p>
+  href="#root/_help_CssoWBu8I7jF">Collection Properties</a>&nbsp;or manually
+  via the <code>#map:style</code> attribute.</p>
 <p>The geo map comes with two different types of styles:</p>
 <ul>
   <li>Raster styles
@@ -506,8 +524,8 @@ class="admonition note">
 <p>The default theme is Versatiles Colorful (vector).</p>
 <h4>3D view with buildings</h4>
 <figure class="image">
-  <img style="aspect-ratio:2727/1642;" src="2_Geo Map_image.png"
-  width="2727" height="1642">
+  <img style="aspect-ratio:2727/1642;" src="2_Geo Map_image.png" width="2727"
+  height="1642">
 </figure>
 <p>Trilium v0.105.0 introduces a 3D view, courtesy of MapLibre GL. To enter
   3D mode, simply press the corresponding button at the bottom-right of the
@@ -516,21 +534,21 @@ class="admonition note">
 <aside
 class="admonition note">
   <p>To get 3D buildings, make sure you are using the <em>VersaTiles</em> styles
-    which provide the building informatia via the <code spellcheck="false">versatiles-shortbread</code> source.</p>
+    which provide the building informatia via the <code>versatiles-shortbread</code> source.</p>
 </aside>
 <h3>Custom map style / tiles</h3>
 <p>Starting with v0.102.0 it is possible to use custom tile sets, but only
   in raster format.</p>
-<p>To do so, manually set the <code spellcheck="false">#map:style</code>  <a
-  href="#root/_help_HI6GBBIduIgv">label</a> to the URL of the tile set. For example,
-  to use Esri.NatGeoWorldMap, set the value to <a href="https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/%7Bz%7D/%7By%7D/%7Bx%7D."><code spellcheck="false">https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}</code>.</a>
+<p>To do so, manually set the <code>#map:style</code>  <a href="#root/_help_HI6GBBIduIgv">label</a> to
+  the URL of the tile set. For example, to use Esri.NatGeoWorldMap, set the
+  value to <a href="https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/%7Bz%7D/%7By%7D/%7Bx%7D."><code>https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}</code>.</a>
 </p>
 <p>Additionally:</p>
 <ul>
-  <li>Hi-DPI tiles are supported via the <code spellcheck="false">{r}</code> placeholder.</li>
+  <li>Hi-DPI tiles are supported via the <code>{r}</code> placeholder.</li>
   <li>To mark the custom style as dark (which affects the styling of the UI),
-    apply the <code spellcheck="false">map:darkStyle</code> label. This attribute
-    also overrides builtin themes.</li>
+    apply the <code>map:darkStyle</code> label. This attribute also overrides
+    builtin themes.</li>
 </ul>
 <aside class="admonition note">
   <p>For a list of tile sets, see the <a href="https://leaflet-extras.github.io/leaflet-providers/preview/">Leaflet Providers preview</a> page.
@@ -539,9 +557,10 @@ class="admonition note">
 <p>Custom vector map support is planned, but not yet implemented.</p>
 <h3>Other options</h3>
 <p>The following options can be configured either via the&nbsp;<a class="reference-link"
-  href="#root/_help_CssoWBu8I7jF">Collection Properties</a>, by clicking on the
-  settings (Gear icon). Alternatively, each of these options also have a
-  corresponding <a href="#root/_help_HI6GBBIduIgv">label</a> that can be set manually.</p>
+  href="#root/_help_CssoWBu8I7jF">Collection Properties</a>, by clicking
+  on the settings (Gear icon). Alternatively, each of these options also
+  have a corresponding <a href="#root/_help_HI6GBBIduIgv">label</a> that can
+  be set manually.</p>
 <ul>
   <li>Scale, which illustrates the scale of the map in either kilometers or
     miles in the bottom-left of the map.

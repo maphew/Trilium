@@ -8163,6 +8163,44 @@
                                     "position": 10,
                                     "dataFileName": "3_Geo Map_image.png"
                                 }
+                            ],
+                            "dirFileName": "Geo Map",
+                            "children": [
+                                {
+                                    "isClone": false,
+                                    "noteId": "C2H9HK4BzwG7",
+                                    "notePath": [
+                                        "pOsGYCXsbNQG",
+                                        "GTwFsgaA0lCt",
+                                        "81SGnPGMk7Xc",
+                                        "C2H9HK4BzwG7"
+                                    ],
+                                    "title": "Drawing shapes",
+                                    "notePosition": 10,
+                                    "prefix": null,
+                                    "isExpanded": false,
+                                    "type": "text",
+                                    "mime": "text/html",
+                                    "attributes": [
+                                        {
+                                            "type": "label",
+                                            "name": "iconClass",
+                                            "value": "bx bx-shape-square",
+                                            "isInheritable": false,
+                                            "position": 30
+                                        },
+                                        {
+                                            "type": "label",
+                                            "name": "shareAlias",
+                                            "value": "shapes",
+                                            "isInheritable": false,
+                                            "position": 40
+                                        }
+                                    ],
+                                    "format": "markdown",
+                                    "dataFileName": "Drawing shapes.md",
+                                    "attachments": []
+                                }
                             ]
                         },
                         {

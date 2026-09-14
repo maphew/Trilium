@@ -285,6 +285,8 @@ export default function Column({
                     : (last ? last.offsetTop + last.offsetHeight + cardSpacing() : 0));
             gap.style.transform = `translateY(${top}px)`;
             gap.style.height = `${height}px`;
+        } else {
+            clearGap(gap);
         }
         gap.classList.toggle("show", dropIndex !== null);
         roomRef.current?.style.setProperty("height", `${room}px`);
@@ -596,6 +598,11 @@ export default function Column({
     return (
         <div
             data-column={column}
+            // Read by the drag, which offers neither end of a column that places its own cards.
+            data-sorted={isSorted ? "true" : undefined}
+            // Also read by the drag, for placing a card at the column's foot. On the column rather
+            // than on the card area below, which a collapsed column does not draw at all.
+            data-count={noteIds.length}
             className={clsx("board-column", {
                 "drag-over": isDropTarget && (isSorted || draggedCard?.fromColumn !== column),
                 // The class the themes key a hue off, worn here as anywhere else that carries one.
@@ -836,6 +843,19 @@ export function placeCard(card: HTMLElement, transform: string | null, atOnce: b
             settling.clear();
         });
     });
+}
+
+/**
+ * Takes back the room a closed gap holds in its column.
+ *
+ * `.board-drop-placeholder` is positioned in the column's scrolling box, so its height and
+ * transform count towards `scrollHeight` whether it is showing or not. Left where the last drag
+ * put it, it holds a card's worth of scroll past the last card.
+ */
+export function clearGap(gap: HTMLElement) {
+    gap.style.removeProperty("transform");
+    // Set rather than removed: the stylesheet gives the gap a height of its own to fall back on.
+    gap.style.height = "0px";
 }
 
 /**

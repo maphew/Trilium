@@ -111,6 +111,31 @@ describe("HtmlExportProvider", () => {
             expect(result.replace(/\s+/g, " ")).toContain("</code> or the name of a label");
         });
 
+        it("wraps identically however long the href was before rewriteFn shortened it", () => {
+            // Both forms are written by Trilium for the same link: the editor stores a full note
+            // path, an import stores a bare ID. rewriteFn collapses each to the same target, so
+            // the exported file must not differ.
+            const wrapFor = (href: string) => {
+                const { provider } = buildProvider({
+                    zipExportOptions: { skipHtmlTemplate: true },
+                    rewriteFn: (content) => content.replace(/href="[^"]*"/g, 'href="#root/_help_eIg8jdvaoNNd"')
+                });
+                const content = "<p>To search the whole database while hoisted, use the full "
+                    + `<a class="reference-link" href="${href}">Search</a> and leave `
+                    + "<em>Ancestor</em> field empty.</p>";
+                return provider.prepareContent("Quick search", content, {
+                    format: "html",
+                    notePath: ["root", "leaf"]
+                }) as string;
+            };
+
+            const fromImport = wrapFor("#root/eIg8jdvaoNNd");
+            const fromEditor = wrapFor("#root/pOsGYCXsbNQG/BFs8mudNFgCS/BCkXAVs63Ttv/eIg8jdvaoNNd");
+
+            expect(fromEditor).toBe(fromImport);
+            expect(fromImport).toContain('href="#root/_help_eIg8jdvaoNNd"');
+        });
+
         it("uses a bare style.css path for a top-level note (notePath length 1)", () => {
             const { provider } = buildProvider();
             const result = provider.prepareContent("T", "<p>x</p>", {

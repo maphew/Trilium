@@ -7,7 +7,9 @@ const mocks = vi.hoisted(() => ({
     restoreBackup: vi.fn(),
     downloadDatabase: vi.fn(),
     announceLeadership: vi.fn(),
-    capacitorHttpHandler: vi.fn()
+    localFetch: vi.fn(),
+    capacitorHttpHandler: vi.fn(),
+    saveUrlToDevice: vi.fn()
 }));
 
 // Whether this tab wins the database lock. Only the leader may start a worker;
@@ -20,7 +22,8 @@ vi.mock("./local-bridge.js", () => ({
     registerNativeHttpHandler: mocks.registerNativeHttpHandler,
     restoreBackup: mocks.restoreBackup,
     downloadDatabase: mocks.downloadDatabase,
-    announceLeadership: mocks.announceLeadership
+    announceLeadership: mocks.announceLeadership,
+    localFetch: mocks.localFetch
 }));
 vi.mock("./leader_election.js", () => ({
     claimLeadership: (onElected: () => void) => {
@@ -30,6 +33,7 @@ vi.mock("./leader_election.js", () => ({
     }
 }));
 vi.mock("./services/capacitor_http_handler.js", () => ({ capacitorHttpHandler: mocks.capacitorHttpHandler }));
+vi.mock("./services/capacitor_download.js", () => ({ saveUrlToDevice: mocks.saveUrlToDevice }));
 // Avoid pulling the entire client bundle when loadScripts() runs.
 vi.mock("../../client/src/index.js", () => ({}));
 
@@ -39,7 +43,10 @@ interface ServiceWorkerLike {
     ready: Promise<unknown>;
 }
 
-interface WindowWithCapacitor { Capacitor?: unknown }
+interface WindowWithCapacitor {
+    Capacitor?: unknown;
+    standaloneApi?: { save?: { saveUrl: unknown } };
+}
 
 function setServiceWorker(sw: ServiceWorkerLike | undefined) {
     Object.defineProperty(navigator, "serviceWorker", { value: sw, configurable: true });
@@ -85,6 +92,8 @@ describe("bootstrap", () => {
         // The service worker has to know which tab owns the worker so it can
         // route every tab's API traffic there.
         await vi.waitFor(() => expect(mocks.announceLeadership).toHaveBeenCalled());
+        // The leader also answers the client's API calls directly, skipping that route.
+        expect(window.standaloneApi?.localFetch).toBe(mocks.localFetch);
     });
 
     it("a follower tab starts no worker but still bridges the SW", async () => {
@@ -97,13 +106,24 @@ describe("bootstrap", () => {
         // exclusive OPFS handles and silently fall back to an empty in-memory one.
         expect(mocks.startLocalServerWorker).not.toHaveBeenCalled();
         expect(mocks.announceLeadership).not.toHaveBeenCalled();
+
+        // A follower must keep calling through the service worker: with no worker of its own,
+        // a localFetch here would answer from nothing.
+        expect(window.standaloneApi?.localFetch).toBeUndefined();
     });
 
-    it("registers the native HTTP handler under Capacitor", async () => {
-        (window as unknown as WindowWithCapacitor).Capacitor = {};
+    it("registers the native HTTP handler and the share-sheet save under Capacitor only", async () => {
         setServiceWorker({ controller: {}, register: vi.fn(), ready: Promise.resolve() });
         await runBootstrap();
+        await vi.waitFor(() => expect(mocks.startLocalServerWorker).toHaveBeenCalled());
+        // A browser saves its own downloads, so the client keeps navigating to them there.
+        const win = window as unknown as WindowWithCapacitor;
+        expect(win.standaloneApi?.save).toBeUndefined();
+
+        win.Capacitor = {};
+        await runBootstrap();
         await vi.waitFor(() => expect(mocks.registerNativeHttpHandler).toHaveBeenCalledWith(mocks.capacitorHttpHandler));
+        await vi.waitFor(() => expect(win.standaloneApi?.save?.saveUrl).toBe(mocks.saveUrlToDevice));
     });
 
     it("registers and waits for the SW, then loads scripts once it controls", async () => {

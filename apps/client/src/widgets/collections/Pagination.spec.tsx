@@ -166,4 +166,32 @@ describe("usePagination", () => {
             getNotesSpy.mockRestore();
         }
     });
+
+    it("reports a failed note load, and stays quiet about a superseded one", async () => {
+        // Hand out the reject side of each load, so the page-1 load can be failed after the flip
+        // to page 2 has already superseded it.
+        const pending: Array<(reason: Error) => void> = [];
+        const getNotesSpy = vi.spyOn(froca, "getNotes").mockImplementation(() =>
+            new Promise<FNote[]>((_resolve, reject) => pending.push(reject))
+        );
+        const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        try {
+            const note = buildNote({ title: "Search", type: "search" });
+            await mount(note, 10);
+            await act(async () => observed?.setPage?.(2));
+            expect(pending).toHaveLength(2);
+
+            const [ supersededLoad, currentLoad ] = pending;
+            await act(async () => supersededLoad(new Error("tree/load failed")));
+            expect(consoleSpy).not.toHaveBeenCalled();
+
+            await act(async () => currentLoad(new Error("tree/load failed")));
+            expect(consoleSpy).toHaveBeenCalledTimes(1);
+            expect(observed?.page).toBe(2);
+            expect(observed?.pageNotes).toBeUndefined();
+        } finally {
+            consoleSpy.mockRestore();
+            getNotesSpy.mockRestore();
+        }
+    });
 });

@@ -2,16 +2,16 @@
   support for JSX.</p>
 <p>Preact can be used for:</p>
 <ul>
-  <li><a class="reference-link" href="#root/_help_HcABDtFCkbFN">Render Note</a>, where
-    a JSX code note is used instead of a HTML one.</li>
+  <li><a class="reference-link" href="#root/_help_HcABDtFCkbFN">Render Note</a>,
+    where a JSX code note is used instead of a HTML one.</li>
   <li><a class="reference-link" href="#root/_help_MgibgPcfeuGz">Custom Widgets</a>,
     where JSX can be used to replace the old, jQuery-based mechanism.</li>
 </ul>
 <p>To get started, the first step is to enable JSX in the list of Code languages.
   Go to Options → Code Notes and check the “JSX” language. Afterwards, proceed
   with the documentation in either&nbsp;<a class="reference-link" href="#root/_help_HcABDtFCkbFN">Render Note</a>&nbsp;or&nbsp;<a
-  class="reference-link" href="#root/_help_MgibgPcfeuGz">Custom Widgets</a>, which
-  will both have a section on how to use the new Preact integration.</p>
+  class="reference-link" href="#root/_help_MgibgPcfeuGz">Custom Widgets</a>,
+  which will both have a section on how to use the new Preact integration.</p>
 <aside
 class="admonition important">
   <p>The documentation assumes prior knowledge with React or Preact. As a starting
@@ -20,10 +20,9 @@ class="admonition important">
 </aside>
 <h2>Import/exports</h2>
 <p>When using Preact with JSX, there is a special syntax which provides ES-like
-  imports. This <code spellcheck="false">import</code> syntax makes way for
-  a more intuitive that doesn't make use of global objects and paves the
-  way for better auto-completion support that might be introduced in the
-  future.&nbsp;</p>
+  imports. This <code>import</code> syntax makes way for a more intuitive that
+  doesn't make use of global objects and paves the way for better auto-completion
+  support that might be introduced in the future.&nbsp;</p>
 <h3>API imports</h3>
 <p>Instead of:</p><pre><code class="language-text-jsx">api.showMessage("Hello");</code></pre>
 <p>the JSX version looks like this:</p><pre><code class="language-text-jsx">import { showMessage } from "trilium:api";
@@ -44,13 +43,13 @@ const [ myState, setMyState ] = useState("Hi");</code></pre>
     );
 }</code></pre>
 <h3>Import/export are not required</h3>
-<p>These imports are syntactic sugar meant to replace the usage for the <code
-  spellcheck="false">api</code> global object (see&nbsp;<a class="reference-link"
-  href="#root/_help_GLks18SNjxmC">Script API</a>).&nbsp;</p>
-<aside class="admonition note">
-  <p>The <code spellcheck="false">import</code> and <code spellcheck="false">export</code> syntax
-    work only for JSX notes. Standard/jQuery code notes still need to use the <code
-    spellcheck="false">api</code> global and <code spellcheck="false">module.exports</code>.</p>
+<p>These imports are syntactic sugar meant to replace the usage for the <code>api</code> global
+  object (see&nbsp;<a class="reference-link" href="#root/_help_GLks18SNjxmC">Script API</a>).&nbsp;</p>
+<aside
+class="admonition note">
+  <p>The <code>import</code> and <code>export</code> syntax work only for JSX notes.
+    Standard/jQuery code notes still need to use the <code>api</code> global
+    and <code>module.exports</code>.</p>
 </aside>
 <h2>Under the hood</h2>
 <p>Unlike JavaScript, JSX requires pre-processing to turn it into JavaScript

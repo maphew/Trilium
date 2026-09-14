@@ -37,6 +37,7 @@ import { showCleanupDialog } from "../space_usage/cleanup_dialog";
 import DatabaseFileList from "./components/DatabaseFileList";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import RelatedSettings from "./components/RelatedSettings";
+import HelpButton from "../../react/HelpButton";
 
 /**
  * What can be done to the knowledge base as a whole, rather than to anything inside it: keeping the
@@ -375,6 +376,7 @@ function AnonymizationOptions() {
             <Card className="database-anonymization"
                 heading={t("database_anonymization.title")}
                 description={t("database_anonymization.description")}
+                actions={<HelpButton helpPage="x59R8J8KV5Bp" />}
             >
                 <OptionCardSection
                     label={t("database_anonymization.full_anonymization")}

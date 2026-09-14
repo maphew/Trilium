@@ -13,7 +13,10 @@ import type BRevision from "../../becca/entities/brevision.js";
 import blobService from "../../services/blob.js";
 import eraseService from "../../services/erase.js";
 import { NotePojo } from "../../becca/becca-interface.js";
-import { becca_service, binary_utils, cls, getSql } from "../../index.js";
+import becca_service from "../../becca/becca_service.js";
+import * as cls from "../../services/context.js";
+import { getSql } from "../../services/sql/index.js";
+import * as binary_utils from "../../services/utils/binary.js";
 import { formatDownloadTitle, getContentDisposition } from "../../services/utils/index.js";
 import { extname } from "../../services/utils/path.js";
 

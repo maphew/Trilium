@@ -8,6 +8,7 @@ This note type displays the children notes on a geographical map, based on an at
 *   Add markers on the map, which can be customized with icons, colors and text.
 *   Search the notes already on the map, and look up places anywhere in the world.
 *   Turn a place the map already shows into a marker by clicking it.
+*   Draw paths, areas, rectangles and circles onto the map.
 *   Display tracks on the map using `.gpx` files.
 *   Show your own location on the map and follow it as you move.
 *   3D view of the map, which displays buildings when using a vector map.
@@ -30,6 +31,8 @@ The button that shows your location is offered only when Trilium is reached over
         *   On desktop, alternatively use the scroll wheel to adjust the zoom.
     *   A button that shows your location on the map and follows it (see _Going to your location_ below).
     *   Full screen button which focuses the entire map onto the screen, while still allowing for edits.
+*   At the top-center (on desktop, or left-center on mobile and in split views) there are the drawing tools such as paths, areas, rectangles and circles.
+    *   When the map is read-only, the toolbar is not shown.
 
 ## Creating a new geo map
 
@@ -46,7 +49,7 @@ The position on the map and the zoom are saved inside the map note and restored 
 
 A map that has no position saved yet is framed around the markers it contains when you open it, so they are all in view without having to go looking for them. A map that contains no markers shows the whole world instead.
 
-In practice this applies to maps whose markers were added externally, by a script or through <a class="reference-link" href="../Advanced%20Usage/ETAPI%20(REST%20API).md">ETAPI (REST API)</a>. When you add markers yourself you have already moved the map to reach the place you are marking, and that movement saves a position.
+In practice this applies to maps whose markers were added externally, by a script or through <a class="reference-link" href="../Advanced%20Usage/ETAPI%20(REST%20API).md">ETAPI (REST API)</a>. When you add markers yourself you have already moved the map to reach the place you are marking, and that movement saves a position.
 
 ## Going to your location
 
@@ -68,7 +71,7 @@ The search bar at the top-left of the map searches in two places. It always sear
 
 ### Searching the notes already on the map
 
-Type in the search bar, and the notes on the map are matched by their title as you type. Accents are ignored, both in what you type and in the titles, so `zurich` finds _Zürich Hauptbahnhof_. Each word is searched for on its own, so `hotel paris` finds _Paris Hotel_. Notes without a `#geolocation` attribute are not offered, since there would be nowhere to go. GPS tracks are offered, even though they carry no such attribute: selecting one brings its whole route into view.
+Type in the search bar, and the notes on the map are matched by their title as you type. Accents are ignored, both in what you type and in the titles, so `zurich` finds _Zürich Hauptbahnhof_. Each word is searched for on its own, so `hotel paris` finds _Paris Hotel_. Notes without a `#geolocation` attribute are not offered, since there would be nowhere to go. Drawn shapes and GPS tracks are offered, even though they carry no such attribute: selecting one brings the whole shape or route into view.
 
 If more notes match than the list can show, you are offered the ones closest to the area you are viewing.
 
@@ -84,7 +87,7 @@ The search prefers the area you are viewing. Places inside the current view are 
 
 If you type or paste coordinates into the search bar, a _Go to_ row is offered above all the other results. Selecting it moves the map to that exact spot and marks it. You can then keep it as a marker, in the same way you keep a place found by searching.
 
-A point has no name of its own. It only has the coordinates you typed. The note is therefore given the same name as any other new note, which is the name you also get from the _Add marker_ button and from the + button in the note tree. The note opens with that name selected, so you can type over it. If the map has a <a class="reference-link" href="../Advanced%20Usage/Default%20Note%20Title.md">titleTemplate</a> label, the marker is named by that template instead.
+A point has no name of its own. It only has the coordinates you typed. The note is therefore given the same name as any other new note, which is the name you also get from the _Add marker_ button and from the + button in the note tree. The note opens with that name selected, so you can type over it. If the map has a <a class="reference-link" href="../Advanced%20Usage/Default%20Note%20Title.md">[missing note]</a> label, the marker is named by that template instead.
 
 The forms understood are:
 
@@ -198,25 +201,28 @@ After clicking the button to move the marker, click at the desired position on t
 > [!NOTE]
 > If the map is locked for editing (see below), the map needs to be unlocked before moving the marker.
 
-## Interaction with the markers
+## Interaction with the markers, tracks or shapes
 
-*   Hovering over a marker will display a <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Note%20Tooltip.md">Note Tooltip</a> with the content of the note it belongs to.
+*   Hovering over a marker will display a <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Note%20Tooltip.md">[missing note]</a> with the content of the note it belongs to.
     *   Clicking on the note title in the tooltip will navigate to the note in the current view.
 *   Right-clicking the marker will open a contextual menu (as described below).
 *   Clicking a marker will focus on the marker and display a dedicated popup with the details. This works regardless of whether the map is editable or not.
 
 ### Popup view
 
-When a marker or a track is clicked, a popup will open to the right which contains the following information:
+When a marker, a [shape](Geo%20Map/Drawing%20shapes.md), or track is clicked, a popup will open to the right which contains the following information:
 
 *   The title and icon of the marker, both editable.
 *   An indicator for the coordinates; clicking it will copy the coordinates to clipboard.
 *   A button to maximize the popup.
-*   Buttons to interact with the markers:
+*   Buttons to interact with the current item:
     *   Open the marker in the same pane, new tab, etc.
     *   A button to open the location in a dedicated application (e.g. Google Maps on mobile).
     *   Color picker to change the color of the marker.
-    *   Button to remove the marker from the map, which can optionally delete its corresponding note. Removing a marker without deleting the note will only remove its `#geolocation` attribute (case in which the coordinates have to be manually added back in in order to get the note to show on the map again).
+    *   Markers can also be moved, unlike tracks or shapes (which need to be redrawn).
+    *   Button to remove the marker from the map, which can optionally delete its corresponding note.
+        *   Removing a marker without deleting the note will only remove its `#geolocation` attribute (case in which the coordinates have to be manually added back in in order to get the note to show on the map again).
+        *   Similarly, removing a shape will remove its `#geoShape` attribute.
 *   The <a class="reference-link" href="../Advanced%20Usage/Attributes/Promoted%20Attributes.md">Promoted Attributes</a> of the marker, if any.
 *   The note's content which can be edited directly from the panel.
 
@@ -245,14 +251,20 @@ It's possible to press the right mouse button to display a contextual menu.
     2.  Open the location using an external application (if the operating system supports it).
     3.  Open the note in a new tab, split or window.
     4.  Button to remove the marker from the map, which can optionally delete its corresponding note. Removing a marker without deleting the note will only remove its `#geolocation` attribute (case in which the coordinates have to be manually added back in in order to get the note to show on the map again).
+3.  Shapes can also be right-clicked and the menu is similar to markers except they cannot be moved.
 
-### Icon and color of the markers
+### Icon and color
 
 <figure class="image image-style-align-right image_resized" style="width:47.42%;"><img style="aspect-ratio:885/321;" src="3_Geo Map_image.png" width="885" height="321"></figure>
 
 The markers will have the same icon as the note.
 
 It's possible to add a custom color to a marker by assigning them a `#color` attribute such as `#color=green`.
+
+This also applies to tracks and [shapes](Geo%20Map/Drawing%20shapes.md).
+
+> [!NOTE]
+> The color as it will be displayed on the map might be slightly tinted in order to make the text or icon more legible.
 
 ### Adding the coordinates manually
 
@@ -277,6 +289,10 @@ Similarly to the Google Maps approach:
 1.  Go to any location on openstreetmap.org and right click to bring up the context menu. Select the _Show address_ item.
 2.  The address will be visible in the top-left of the screen, in the place of the search bar. Select the coordinates and copy them into the clipboard.
 3.  Simply paste the value inside the text box into the `#geolocation` attribute of a child note of the map and then it should be displayed on the map.
+
+## Drawing shapes on the map
+
+See the dedicated <a class="reference-link" href="Geo%20Map/Drawing%20shapes.md">[missing note]</a> page.
 
 ## Adding GPS tracks (.gpx)
 
@@ -310,8 +326,9 @@ When a map is [read-only](../Basic%20Concepts%20and%20Features/Notes/Read-Only%2
 *   Repositioning markers.
 *   Editing from the contextual menu (removing locations or adding new items).
 *   Keeping a place as a marker, whether you found it by searching or clicked it on the map. You can still search and click, and you can still look at a place and copy its coordinates.
+*   Drawing [shapes](Geo%20Map/Drawing%20shapes.md).
 
-To set a map as read-only, go to <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Note%20buttons.md">Note buttons</a> → _Editable_ → _Read-only_ (on the new layout, or in Basic Properties on the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Ribbon.md">Ribbon</a> for the old layout).
+To set a map as read-only, go to <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Note%20buttons.md">[missing note]</a> → _Editable_ → _Read-only_ (on the new layout, or in Basic Properties on the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Ribbon.md">Ribbon</a> for the old layout).
 
 ## Configuration
 

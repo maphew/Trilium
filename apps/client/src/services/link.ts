@@ -75,6 +75,16 @@ export interface ViewScope {
      * by the destination type widget (mirrors `bookmark` semantics).
      */
     searchTerms?: string[];
+    /**
+     * The id of the board column a reference points at, which the board reveals once it has drawn
+     * it. Consumed once, as `bookmark` is.
+     */
+    column?: string;
+    /**
+     * The note id of the board card a reference points at, revealed the same way {@link column}
+     * is.
+     */
+    card?: string;
 }
 
 /**
@@ -97,7 +107,7 @@ const NOTE_PATH_PATTERN = /^[_a-z0-9]{4,}(\/[_a-z0-9]{4,})*$/i;
 const MAX_SPLIT_PANES_IN_HASH = 8;
 
 /** Hash parameters that belong to a pane's view scope rather than to the window as a whole. */
-const VIEW_SCOPE_PARAMS = ["viewMode", "attachmentId", "bookmark"];
+const VIEW_SCOPE_PARAMS = ["viewMode", "attachmentId", "bookmark", "column", "card"];
 
 interface CreateLinkOptions {
     title?: string;
@@ -234,6 +244,8 @@ export function calculateHash(
         hoistedNoteId && hoistedNoteId !== "root" ? { hoistedNoteId } : null,
         viewScope.viewMode && viewScope.viewMode !== "default" ? { viewMode: viewScope.viewMode } : null,
         viewScope.attachmentId ? { attachmentId: viewScope.attachmentId } : null,
+        viewScope.column ? { column: viewScope.column } : null,
+        viewScope.card ? { card: viewScope.card } : null,
         viewScope.searchTerms?.length
             ? { searchTerms: viewScope.searchTerms.map(encodeURIComponent).join(",") }
             : null,

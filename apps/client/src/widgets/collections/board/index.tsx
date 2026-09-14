@@ -28,15 +28,17 @@ import { type NoteTypeOption, resolveNoteTypeOptions } from "../../../services/n
 import { type PromotedAttributeSetting, resolvePromotedAttributes } from "../promoted_attributes";
 import type { SortContext } from "../sorting";
 import CollectionProperties from "../../note_bars/CollectionProperties";
+import { FormListItem } from "../../react/FormList";
 import FormTextArea from "../../react/FormTextArea";
 import FormTextBox from "../../react/FormTextBox";
 import {
-    useContextualShortcutHints, useNoteContext, useNoteLabelBoolean, useNoteLabelWithDefault,
-    useNoteTypeOptions, useTrackedElement, useTriliumEvent
+    useContextualShortcutHints, useNoteContext, useNoteLabel, useNoteLabelBoolean,
+    useNoteLabelWithDefault, useNoteTypeOptions, useSetContextData, useTrackedElement, useTriliumEvent
 } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
-import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
+import OverlayControlGroup, { OverlayControlButton } from "../../react/OverlayControlGroup";
+import { ShortcutHintOverlayButton } from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import ActionButton from "../../react/ActionButton";
 import { IconPickerButton } from "../../react/IconPicker";
@@ -53,12 +55,16 @@ import { forgetWindowHeights } from "./windowing";
 import { BoardDropStateContext, DropStateStore } from "./drop_state";
 import BoardApi from "./api";
 import { adoptLegacyColumns, readColumns } from "./column_storage";
-import { DEFAULT_COLUMN_ICON, DEFAULT_GROUP_BY, getStatusDefinition, INBOX_COLUMN } from "./columns";
-import Column, { EXPAND_MS, placeCard, settleCards } from "./column";
+import {
+    COLUMN_WIDTH_LABEL, columnWidthClass, DEFAULT_COLUMN_ICON, DEFAULT_GROUP_BY,
+    getStatusDefinition, INBOX_COLUMN
+} from "./columns";
+import Column, { clearGap, EXPAND_MS, placeCard, settleCards } from "./column";
 import { currentCardTemplate, DEFAULT_CARD_TEMPLATES } from "./card_templates";
 import ColumnLimitDialog from "./column_limit";
 import BoardGroupBy, { groupingOptions } from "./group_by";
 import BoardProperties from "./properties";
+import { useBoardReference } from "./reference";
 import { openBoardContextMenu, openCreateColumnMenu } from "./context_menu";
 import { useBoardSort } from "./sort";
 import {
@@ -104,6 +110,11 @@ export interface BoardViewData {
 
 export interface BoardColumnData {
     value: string;
+    /**
+     * Identifies the column in a reference link. Renaming a column rewrites `value`, so a link
+     * cannot use it. Assigned when the column is created, or by `BoardApi#ensureColumnId`.
+     */
+    id?: string;
     /** The icon class shown before the title, absent until one is picked. */
     icon?: string;
     /** The CSS colour the column is tinted with, absent until one is picked. */
@@ -351,6 +362,9 @@ export default function BoardView({
     let viewConfig = adoptedConfig ?? storedConfig;
     const [ includeArchived ] = useNoteLabelBoolean(parentNote, "includeArchived");
     const [ inboxEnabled ] = useNoteLabelBoolean(parentNote, "enableInboxColumn");
+    // Read undefaulted: a board naming no width wears no class, so `--board-column-width` keeps
+    // whatever it inherits.
+    const [ storedColumnWidth ] = useNoteLabel(parentNote, COLUMN_WIDTH_LABEL);
     /** Every card the board holds, which an active filter narrows before the cards are drawn. */
     const [ allByColumn, setAllByColumn ] = useState<ColumnMap>();
     const [ columns, setColumns ] = useState<string[]>();
@@ -542,6 +556,18 @@ export default function BoardView({
     api.noteContext = noteContext;
     // Every member is one of useState's own setters, so this value is built once and never changes
     // identity -- a drag cannot reach anything that reads only this.
+    const collapseAllColumns = useCallback(() => {
+        // Clears the open column first. `activeColumn` draws a collapsed column open, which
+        // would survive the write below.
+        selectColumn(undefined);
+        api.setAllColumnsCollapsed(true);
+    }, [ api, selectColumn ]);
+    const expandAllColumns = useCallback(() => {
+        // `isPeekingAll` draws the columns that keep `keepCollapsed`; the rest are opened by
+        // the write below.
+        setIsPeekingAll(true);
+        api.setAllColumnsCollapsed(false);
+    }, [ api ]);
     const openBoardMenu = useCallback((event: ContextMenuEvent) => {
         // Only the ground the columns stand on. A column and a card answer for their own presses,
         // and what they leave alone, such as the button that makes a card, is left alone here too.
@@ -554,19 +580,10 @@ export default function BoardView({
             onAddColumn: () => setIsCreatingColumn(true),
             onShowArchived: (shown) => api.setArchivedShown(shown),
             onOpenProperties: () => setIsEditingProperties(true),
-            onCollapseAll: () => {
-                // The open column is closed with the rest: it holds the peek that would otherwise
-                // keep it open against what is being written for it.
-                selectColumn(undefined);
-                api.setAllColumnsCollapsed(true);
-            },
-            onExpandAll: () => {
-                // Opened for good where the column is not kept collapsed, and peeked where it is.
-                setIsPeekingAll(true);
-                api.setAllColumnsCollapsed(false);
-            }
+            onCollapseAll: collapseAllColumns,
+            onExpandAll: expandAllColumns
         });
-    }, [ api, selectColumn, inboxEnabled, includeArchived ]);
+    }, [ api, collapseAllColumns, expandAllColumns, inboxEnabled, includeArchived ]);
 
     // Read from the api rather than from the prop, since a pick moves the api's own copy ahead of
     // the board's; keyed on the prop so that a change from anywhere else is followed too.
@@ -625,6 +642,40 @@ export default function BoardView({
     const containerRef = useRef<HTMLDivElement>(null);
     /** Until when a column move can still be settling, which is when `useFlip` slides columns. */
     const columnMovedUntil = useRef(0);
+
+    // What the right pane lists the board as, and what a press on one of its entries does.
+    //
+    // Held still between renders: the pane redraws its list whenever this changes identity, and a
+    // board renders on every step of a drag. `storedColumns` is among what it is held against
+    // because the api reads the config in place, so nothing else here changes when it does.
+    const outline = useMemo(() => ({
+        columns: api.getColumnOutline(shownColumns),
+        scrollToColumn: (column: string) => {
+            const element = columnElement(containerRef.current, column);
+            element?.scrollIntoView({ inline: "start", block: "nearest", behavior: "smooth" });
+            // The heading takes the focus, so the board's own keys carry on from the column the
+            // reader picked. Scrolled first, and without moving anything itself: focus landing on
+            // its own would jump the board to the column the scroll is already easing towards.
+            element?.querySelector<HTMLElement>("h3")?.focus({ preventScroll: true });
+        }
+    }), [ api, shownColumns, byColumn, storedColumns, isInRelationMode ]);
+    useSetContextData(noteContext, "boardColumns", outline);
+
+    // Reveals the column or card a `?column=` or `?card=` link names. Takes `shownColumns` rather
+    // than every column, so that a column hidden because it is archived is reported instead of
+    // being waited for.
+    useBoardReference({
+        noteId: parentNote.noteId,
+        noteContext,
+        api,
+        viewConfig,
+        groupBy,
+        setGroupBy: setRequestedGroupBy,
+        columns: columns && shownColumns,
+        includeArchived,
+        selectColumn,
+        containerRef
+    });
 
     // Neither the creation dates the tie-break needs nor the targets of a sorted relation come
     // with the board. Both are fetched here, and `sortRevision` redraws it once they land.
@@ -965,13 +1016,8 @@ export default function BoardView({
         if (!isMobile()) return;
 
         requestAnimationFrame(() => {
-            const columns = containerRef.current?.querySelectorAll<HTMLElement>(".board-column");
-            for (const element of columns ?? []) {
-                if (element.dataset.column === column) {
-                    element.scrollIntoView({ inline: "center", block: "nearest" });
-                    return;
-                }
-            }
+            columnElement(containerRef.current, column)
+                ?.scrollIntoView({ inline: "center", block: "nearest" });
         });
     }, []);
 
@@ -1198,7 +1244,7 @@ export default function BoardView({
         : undefined;
 
     return (
-        <div className={clsx("board-view", {
+        <div className={clsx("board-view", columnWidthClass(storedColumnWidth), {
             frozen: isFrozen,
             "editing-open": branchIdToEdit !== undefined || insertingColumns.size > 0
         })}>
@@ -1214,6 +1260,12 @@ export default function BoardView({
             />
             <CollectionProperties
                 note={parentNote}
+                optionsChildren={
+                    <FormListItem
+                        icon="bx bx-cog"
+                        onClick={() => setIsEditingProperties(true)}
+                    >{t("board_view.properties")}</FormListItem>
+                }
                 rightChildren={<>
                     <BoardGroupBy
                         note={parentNote}
@@ -1337,10 +1389,22 @@ export default function BoardView({
                             document.body
                         )}
                         {!isMobile() && (
-                            <ShortcutHintButton
-                                className="board-shortcut-hint-button"
+                            <OverlayControlGroup
+                                className="board-overlay-controls"
                                 placement="bottom-end"
-                            />
+                            >
+                                <OverlayControlButton
+                                    title={t("board_view.collapse-all-columns")}
+                                    icon="bx-collapse-alt"
+                                    onClick={collapseAllColumns}
+                                />
+                                <OverlayControlButton
+                                    title={t("board_view.expand-all-columns")}
+                                    icon="bx-expand-alt"
+                                    onClick={expandAllColumns}
+                                />
+                                <ShortcutHintOverlayButton />
+                            </OverlayControlGroup>
                         )}
                     </div>}
                 </SelectionContext.Provider>
@@ -1401,12 +1465,22 @@ function closeGaps(container: HTMLElement | null) {
         }
     }
 
-    for (const gap of container.querySelectorAll(".board-drop-placeholder")) {
+    for (const gap of container.querySelectorAll<HTMLElement>(".board-drop-placeholder")) {
         gap.classList.remove("show");
+        clearGap(gap);
     }
 
     for (const room of container.querySelectorAll<HTMLElement>(".board-drop-room")) {
         room.style.height = "0px";
+    }
+}
+
+/** The element a column is drawn in, for the two things that scroll the board to one. */
+function columnElement(container: HTMLElement | null, column: string) {
+    for (const element of container?.querySelectorAll<HTMLElement>(".board-column") ?? []) {
+        if (element.dataset.column === column) {
+            return element;
+        }
     }
 }
 
@@ -1536,7 +1610,11 @@ export function TitleEditor({
 }: {
     currentValue?: string;
     placeholder?: string;
-    save: (newValue: string, atStart?: boolean) => void | Promise<void>;
+    /**
+     * Writes what was typed. Returns `false` to refuse it, which keeps the editor open on what it
+     * holds so the reader can correct it.
+     */
+    save: (newValue: string, atStart?: boolean) => false | void | Promise<void>;
     dismiss: () => void;
     isNewItem?: boolean;
     mode?: "normal" | "multiline" | "relation";
@@ -1678,8 +1756,9 @@ export function TitleEditor({
             // editor opened by a press on the thing it edits, rather than from something focused,
             // has nowhere to send it, so Enter says here what that blur would have said.
             const typed = inputRef.current?.value ?? "";
-            if (e.key === "Enter" && typed.trim() && (typed !== currentValue || isNewItem)) {
-                commit(typed);
+            if (e.key === "Enter" && typed.trim() && (typed !== currentValue || isNewItem)
+                    && !commit(typed)) {
+                return;
             }
 
             dismiss();
@@ -1701,7 +1780,10 @@ export function TitleEditor({
                 return;
             }
 
-            commit(value, atStart);
+            if (!commit(value, atStart)) {
+                input?.focus();
+                return;
+            }
 
             if (handsOver) {
                 hasHandedOver.current = true;
@@ -1782,21 +1864,36 @@ export function TitleEditor({
         }
 
         if (!shouldDismiss.current && newValue.trim() && (newValue !== currentValue || isNewItem)) {
-            commit(newValue);
+            if (!commit(newValue)) {
+                // The field stays open, so the focus this blur took off it has to come back.
+                inputRef.current?.focus();
+                return;
+            }
+
             dismissOnNextRefreshRef.current = true;
         } else {
             dismiss();
         }
     };
 
-    // The editor is closing either way, and what a save writes has already been put back by
-    // whatever could not write it; all that is left is to say so rather than to reject unhandled,
-    // which is what a save reaching nobody used to do.
+    /**
+     * Saves what was typed and reports whether `save` accepted it.
+     *
+     * A refusal is reported by `save` itself, which is what knows why it refused. A save that
+     * fails later is reported here instead of rejecting unhandled: the editor has closed by then,
+     * and whatever could not be written has already been put back.
+     */
     function commit(newValue: string, atStart?: boolean) {
-        Promise.resolve(save(newValue, atStart)).catch((e) => {
+        const outcome = save(newValue, atStart);
+        if (outcome === false) {
+            return false;
+        }
+
+        Promise.resolve(outcome).catch((e) => {
             console.error("Failed to save what the board editor was given:", e);
             toast.showError(t("board_view.save-error"));
         });
+        return true;
     }
 
     if (mode !== "relation") {
@@ -1908,7 +2005,10 @@ export function TitleEditor({
             }}
             onBlur={() => dismiss()}
             noteIdChanged={(newValue) => {
-                save(newValue);
+                if (newValue && !commit(newValue)) {
+                    return;
+                }
+
                 dismiss();
             }}
         />

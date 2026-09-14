@@ -134,17 +134,17 @@ body.setup {
             display: flex;
             flex-direction: column;
             height: 100%;
-            padding-top: calc(2em + env(safe-area-inset-top));
-            padding-bottom: calc(2em + env(safe-area-inset-bottom));
-            padding-left: calc(2em + env(safe-area-inset-left));
-            padding-right: calc(2em + env(safe-area-inset-right));
+            padding-top: calc(2em + var(--safe-area-inset-top, env(safe-area-inset-top)));
+            padding-bottom: calc(2em + var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
+            padding-left: calc(2em + var(--safe-area-inset-left, env(safe-area-inset-left)));
+            padding-right: calc(2em + var(--safe-area-inset-right, env(safe-area-inset-right)));
             overflow: auto;
 
             >.back-button {
                 /* `.page` scrolls (not `.setup-container`), so sticky is required here, not
                    absolute, to stay in flow and follow the scroll. */
                 position: sticky;
-                top: calc(1em + env(safe-area-inset-top));
+                top: calc(1em + var(--safe-area-inset-top, env(safe-area-inset-top)));
                 inset-inline-start: 1em;
                 align-self: flex-start;
                 z-index: 1;
@@ -217,7 +217,7 @@ body.setup {
                 margin: 0;
                 border-radius: 0;
                 box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-                padding-top: calc(1em + env(safe-area-inset-top));
+                padding-top: calc(1em + var(--safe-area-inset-top, env(safe-area-inset-top)));
                 padding-inline-end: 2.5em;
                 user-select: text;
 
