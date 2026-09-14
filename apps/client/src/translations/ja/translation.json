@@ -1672,7 +1672,8 @@
     "sort_columns": "ボードコレクションにおいて、列がカードを並べ替える際の基準となる順序です。列に独自の並べ替え順序が指定されていない限り、この順序が適用されます。<code>title</code>、<code>creationDate</code>、または <code>attr:</code> に続けて昇格(プロモート)された属性名を指定します。",
     "sort_columns_descending": "ボードコレクションの場合、<code>#sortColumns</code> で指定された順序を逆順にします。",
     "board_card_redirect_to": "ボード上のカードを開いたとき、カード自体を開くのではなく、そのカードが指し示しているノートに移動します。",
-    "board_card_width": "ボードコレクションにおける列の幅: <code>narrow</code>、<code>medium</code>、<code>wide</code>（狭い、中、広い）を指定します。モバイルでは独自の幅で描画されるため、この設定は無視されます。"
+    "board_card_width": "ボードコレクションにおける列の幅: <code>narrow</code>、<code>medium</code>、<code>wide</code>（狭い、中、広い）を指定します。モバイルでは独自の幅で描画されるため、この設定は無視されます。",
+    "geo_shape": "ジオマップ上にノートを描画する際の形状指定: 形状の種類に続けて、各ポイントの緯度・経度を指定します。例: <code>line:48.85,2.29 48.86,2.35</code> — または、中心を円とし、メートル単位で到達範囲を指定します。<code>circle:48.85,2.29 500</code>。"
   },
   "link_context_menu": {
     "open_note_in_popup": "クイック編集",
@@ -2483,7 +2484,20 @@
     "locate-error": "現在地が見つかりませんでした。もう一度押すと検索を停止します。",
     "locate-unavailable": "現在地情報は利用できません",
     "location-denied": "位置情報へのアクセスが拒否されました。マップ上に現在地を表示するには、ブラウザまたはシステムの設定で Trilium の位置情報へのアクセスを許可してください。",
-    "location-unavailable": "現在地を特定できませんでした。"
+    "location-unavailable": "現在地を特定できませんでした。",
+    "draw-line": "マップ上に経路を描画",
+    "draw-polygon": "マップ上に範囲を描画",
+    "draw-cancel": "描画をキャンセル",
+    "draw-line-toast-title": "経路を描画",
+    "draw-line-instruction": "マップ上をクリックしてポイントを追加します。最後のポイントを再度クリックするか Enter キーを押すと完了し、Esc キーを押すとキャンセルされます。",
+    "draw-polygon-toast-title": "範囲を描画",
+    "draw-polygon-instruction": "マップ上をクリックして頂点を追加します。最初の頂点を再度クリックするか、Enter キーを押して完了します。Esc キーを押すとキャンセルされます。",
+    "draw-rectangle": "マップ上に長方形を描画",
+    "draw-rectangle-toast-title": "長方形を描画",
+    "draw-rectangle-instruction": "マップ上の 1 つの頂点をクリックし、次に対角にある頂点をクリックします。一方の頂点からもう一方の頂点へドラッグすることもできます。Esc キーを押すとキャンセルされます。",
+    "draw-circle": "マップ上に円を描画",
+    "draw-circle-toast-title": "円を描画",
+    "draw-circle-instruction": "マップ上の中心をクリックし、円の半径となる位置を再度クリックします。中心からドラッグして描画することもできます。Esc キーを押すとキャンセルされます。"
   },
   "geo-map-context": {
     "open-location": "現在位置を表示",

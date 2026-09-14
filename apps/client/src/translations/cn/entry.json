@@ -103,7 +103,7 @@
         "existing-data-backup-failed": "无法创建备份。",
         "backup-data": "备份你的Trilium数据",
         "backup-name": "备份名称",
-        "backup-name-description": "为该备份取一个你以后能认出的名称，或者保留系统建议的名称。",
+        "backup-name-description": "为这个备份起一个日后能认出的名称，或保留建议的名称。",
         "backup-password": "密码（可选）",
         "backup-password-repeat": "再次输入密码",
         "backup-password-description": "如果你设置了密码，备份文件将被加密。请将密码保存在安全的地方：如果没有密码，将无法恢复备份。",
