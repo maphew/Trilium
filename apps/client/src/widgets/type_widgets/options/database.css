@@ -1,3 +1,14 @@
+.database-info .database-persistence {
+    /* A card option's value gives way once the description beside it has to wrap, and breaks
+       wherever it must: at 55px "Best-effort" loses its second half to a line of its own, where it
+       reads as a word in its own right. This value is one short word at either setting, so it keeps
+       its width and the sentence wraps instead. */
+    .tn-card-option-value {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+}
+
 /* The notice sits above the cards it precedes, so the gap belongs under it. */
 .admonition.start-over-pending {
     margin-bottom: 16px;

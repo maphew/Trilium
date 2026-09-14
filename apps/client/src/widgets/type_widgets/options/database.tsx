@@ -121,6 +121,10 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
                 </span>
             </OptionCardSection>
 
+            {/* Follows the storage it qualifies, and only where that storage is the browser's:
+                a database on disk stays there whatever the browser thinks of it. */}
+            {isStandalone && <StoragePersistence />}
+
             <OptionCardSection label={t("database.info_content")}>
                 <span className="tn-card-option-value">
                     {t("database.info_notes", { count: info.noteCount })}
@@ -143,6 +147,49 @@ function DatabaseInfo({ refreshToken }: { refreshToken: number }) {
                 download, taken there and then, so there is nothing standing to state. */}
             {!isBackupDownloadSupported() && <BackupStanding refreshToken={refreshToken} />}
         </Card>
+    );
+}
+
+/**
+ * Whether the browser has undertaken to keep the storage the database lives in. Standalone asks for
+ * that undertaking at every startup, and the browser decides from its own heuristics — chiefly how
+ * installed the site looks — so this states the answer and what follows from it.
+ *
+ * Read from the page rather than from `database/info`, which is answered by core: `persisted()` is
+ * the browser's own reading of its own storage, and there is nothing in the database to base it on.
+ * Nothing is shown where the browser does not report it, which is every build whose database is a
+ * file on disk.
+ */
+function StoragePersistence() {
+    const [ persisted, setPersisted ] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        let current = true;
+        navigator.storage?.persisted?.()
+            .then((result) => { if (current) setPersisted(result); })
+            .catch(() => {});
+
+        return () => { current = false; };
+    }, []);
+
+    if (persisted === null) {
+        return null;
+    }
+
+    return (
+        <OptionCardSection
+            className="database-persistence"
+            label={t("database.info_persistence")}
+            description={persisted
+                ? t("database.info_persistence_persistent_description")
+                : t("database.info_persistence_best_effort_description")}
+        >
+            <span className="tn-card-option-value">
+                {persisted
+                    ? t("database.info_persistence_persistent")
+                    : t("database.info_persistence_best_effort")}
+            </span>
+        </OptionCardSection>
     );
 }
 
