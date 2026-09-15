@@ -1754,7 +1754,12 @@
     "related_backup": "백업",
     "related_backup_description": "데이터베이스 백업을 만들거나 복원하고, 자동 백업을 관리합니다.",
     "info_notes_other": "{{count}} 노트",
-    "info_attachments_other": "첨부파일 {{count}}개"
+    "info_attachments_other": "첨부파일 {{count}}개",
+    "info_persistence": "지속성",
+    "info_persistence_persistent": "지속적",
+    "info_persistence_best_effort": "최선형",
+    "info_persistence_persistent_description": "브라우저는 사용자가 삭제할 때까지 이 데이터베이스를 유지하도록 설정되어 있습니다.",
+    "info_persistence_best_effort_description": "브라우저는 저장 공간을 확보하기 위해 이 데이터베이스를 삭제할 수 있습니다.\nTrilium을 앱으로 설치하거나 홈 화면에 추가하면 일반적으로 데이터베이스가 지속적으로 유지됩니다."
   },
   "vacuum_database": {
     "title": "데이터베이스 압축",
@@ -2327,7 +2332,10 @@
     "test_title": "테스트 연결",
     "test_description": "동기화 서버와의 연결을 테스트해 보세요. 초기화되지 않으면 동기화가 시작됩니다.",
     "test_button": "지금 테스트",
-    "handshake_failed": "동기화 서버 핸드셰이크 실패, 오류: {{message}}"
+    "handshake_failed": "동기화 서버 핸드셰이크 실패, 오류: {{message}}",
+    "effective_server": "서버 사용 중",
+    "effective_server_description": "config.ini 또는 환경 변수를 통해 설정되며, 이는 위의 서버 주소보다 우선합니다.",
+    "effective_server_disabled": "동기화가 꺼져 있습니다."
   },
   "api_log": {
     "close": "닫기"
@@ -4080,7 +4088,8 @@
     "unit_mph": "{{value}} mph"
   },
   "open": {
-    "directory_failed": "{{- directory}} 열기 실패: {{- reason}}"
+    "directory_failed": "{{- directory}} 열기 실패: {{- reason}}",
+    "download_failed": "다운로드를 저장할 수 없습니다: {{- reason}}"
   },
   "embedded_note": {
     "open-note": "노트 열기",

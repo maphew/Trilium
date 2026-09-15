@@ -1898,7 +1898,10 @@
     "handshake_failed": "同步服务器握手失败，错误：{{message}}",
     "timeout_description": "当连接速度过慢时等待多长时间后放弃连接。",
     "server_address_description": "用于同步的 Trilium 服务器 URL。",
-    "proxy_description": "留空则会使用系统代理（仅限桌面端）。如果输入 \"noproxy\"，将跳过所有代理。"
+    "proxy_description": "留空则会使用系统代理（仅限桌面端）。如果输入 \"noproxy\"，将跳过所有代理。",
+    "effective_server": "当前使用的服务器",
+    "effective_server_description": "通过 config.ini 或环境变量设置，其优先级高于上方填写的服务器地址。",
+    "effective_server_disabled": "同步已关闭。"
   },
   "api_log": {
     "close": "关闭"
@@ -3333,7 +3336,12 @@
     "cleanup_description": "擦除已删除的笔记和附件，修剪修订快照并压缩图片，以保持数据库精简。",
     "related_backup": "备份",
     "related_backup_description": "创建或恢复数据库备份，管理自动备份。",
-    "info_backup": "备份"
+    "info_backup": "备份",
+    "info_persistence": "持久化",
+    "info_persistence_persistent": "持久保存",
+    "info_persistence_best_effort": "尽力而为",
+    "info_persistence_persistent_description": "浏览器已承诺保留此数据库，直到你删除它。",
+    "info_persistence_best_effort_description": "浏览器可清除此数据库以回收空间。\n将 Trilium 安装为应用或添加到主屏幕，通常可获得持久保存的资格。"
   },
   "revisions_snapshot": {
     "title": "笔记修订"
@@ -4091,7 +4099,8 @@
     "mismatch": "两次输入的密码不一致。"
   },
   "open": {
-    "directory_failed": "无法打开 {{- directory}}: {{- reason}}"
+    "directory_failed": "无法打开 {{- directory}}: {{- reason}}",
+    "download_failed": "无法保存下载内容：{{- reason}}"
   },
   "embedded_note": {
     "open-note": "打开笔记",

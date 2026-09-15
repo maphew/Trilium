@@ -134,7 +134,8 @@
         "existing-data-skip-warning": "まだ何も削除されていません。ナレッジベースは、新しいナレッジベースを作成するか、バックアップを復元するか、別のデバイスから同期する場合にのみ置き換えられます。",
         "unlock-refused": "入力された情報は受け付けられませんでした。もう一度お試しください。",
         "keep-existing": "アプリに戻る",
-        "keep-existing-description": "既存のナレッジベースを引き続き使用して、アプリに戻ります。"
+        "keep-existing-description": "既存のナレッジベースを引き続き使用して、アプリに戻ります。",
+        "backup-saved-to": "バックアップは {{- location}} に保存されました。 \"完了\" を押してアプリケーションに戻ってください。"
     },
     "login": {
         "heading": "Trilium Notes にログイン",

@@ -134,7 +134,8 @@
         "existing-data-skip-warning": "目前尚未删除任何内容。只有当你选择创建新知识库、恢复备份或从其他设备同步时，你的知识库才会被替换。",
         "unlock-refused": "这些信息未被接受。请重试。",
         "keep-existing": "返回应用",
-        "keep-existing-description": "继续使用现有知识库并返回应用。"
+        "keep-existing-description": "继续使用现有知识库并返回应用。",
+        "backup-saved-to": "备份已保存到 {{- location}}。按「完成」返回应用程序。"
     },
     "login": {
         "heading": "登录 Trilium Notes",
