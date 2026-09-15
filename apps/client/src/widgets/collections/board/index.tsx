@@ -1147,8 +1147,9 @@ export default function BoardView({
     // still be open on the next, over whatever that board stores for a column of the same name.
     // The same holds across a grouping, whose columns are a different set entirely.
     useEffect(() => selectColumn(undefined), [ parentNote, groupBy, selectColumn ]);
-    // Another board starts outside selection mode: the board is not remounted between notes.
-    useEffect(() => setIsSelecting(false), [ parentNote ]);
+    // Another board starts outside selection mode and with nothing selected: the board is not
+    // remounted between notes, and a note cloned onto both boards would otherwise stay selected.
+    useEffect(() => stopSelecting(), [ parentNote, stopSelecting ]);
 
     // Stored once, and only for a board still carrying a pre-switching column list.
     useEffect(() => {

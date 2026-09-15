@@ -4951,10 +4951,12 @@ describe("Card toolbar on mobile", () => {
     });
 
     /**
-     * A long press picks the card up, and nothing is offered while it is carried. Let go where it
-     * was picked up, the card takes the focus back, and the rail with it.
+     * A long press picks the card up, and nothing is offered while it is carried. Once the drop
+     * is aborted, the card takes the focus back, and the rail with it. Aborted rather than let
+     * go: with no geometry under happy-dom a release is a drop at the head of a column, and the
+     * move it starts runs on past the test.
      */
-    it("is hidden while the card is carried, and back once the press lets go", async () => {
+    it("is hidden while the card is carried, and back once the drop is aborted", async () => {
         await setup();
         await focus("tool1");
         vi.useFakeTimers();
@@ -4973,9 +4975,7 @@ describe("Card toolbar on mobile", () => {
         // on activation, or the auto-scroll it keeps working stops with it.
         expect(board()?.classList.contains("board-dragging")).toBe(true);
 
-        await withTabManager(async () => {
-            await act(async () => { press("pointerup"); });
-        });
+        await act(async () => { press("pointercancel"); });
         expect(board()?.classList.contains("board-dragging")).toBe(false);
         expect(document.activeElement).toBe(card("tool1"));
         expect(toolbar()).not.toBeNull();
@@ -5150,5 +5150,41 @@ describe("Selection mode on mobile", () => {
 
         deleteNotes.mockRestore();
         show.mockRestore();
+    });
+
+    /**
+     * The board is not remounted between notes, and a card the next board also holds, as a clone,
+     * would otherwise still be selected there without the reader having picked it.
+     */
+    it("gives the selection up with the mode when another board is shown", async () => {
+        await setup();
+        await startSelecting();
+        await tap("pick1");
+        expect(selected()).toEqual([ "pick1" ]);
+
+        const other = buildNote({
+            title: "Other board",
+            type: "book",
+            "#collection": "",
+            "#viewType": "board",
+            children: [ { id: "pick1", title: "First", "#status": "To Do" } ]
+        });
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={host}>
+                    <Harness
+                        note={other}
+                        noteIds={[ ...other.getChildNoteIds() ]}
+                        initialConfig={{ columns: [ { value: "To Do" } ] }}
+                    />
+                </ParentComponent.Provider>,
+                container
+            );
+        });
+        await act(async () => { await flush(); });
+
+        expect(card("pick1")).toBeTruthy();
+        expect(selected()).toEqual([]);
+        expect(bar()).toBeNull();
     });
 });
