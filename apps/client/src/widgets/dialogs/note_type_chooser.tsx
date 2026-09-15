@@ -10,7 +10,6 @@ import { TreeCommandNames } from "../../menus/tree_context_menu";
 import { Suggestion } from "../../services/note_autocomplete";
 import SimpleBadge from "../react/Badge";
 import { useTriliumEvent } from "../react/hooks";
-import { refToJQuerySelector } from "../react/react_utils";
 
 export interface ChooseNoteTypeResponse {
     success: boolean;
@@ -34,7 +33,6 @@ export default function NoteTypeChooserDialogComponent() {
     const [ parentNote, setParentNote ] = useState<Suggestion | null>();
     const [ noteTypes, setNoteTypes ] = useState<MenuItem<TreeCommandNames>[]>([]);
     const modalRef = useRef<HTMLDivElement>(null);
-    const autocompleteRef = useRef<HTMLInputElement>(null);
 
     useTriliumEvent("chooseNoteType", ({ callback }) => {
         setCallback(() => callback);
@@ -59,6 +57,14 @@ export default function NoteTypeChooserDialogComponent() {
         });
     }, []);
 
+    // The types load asynchronously; Bootstrap then focuses the first field, so `onShown` repeats
+    // this after the dialog is up. Enter then creates a text note (the first type).
+    useEffect(() => {
+        if (shown && noteTypes.length > 0) {
+            focusFirstNoteType(modalRef.current);
+        }
+    }, [ shown, noteTypes.length ]);
+
     function onNoteTypeSelected(value: string) {
         const [ noteType, templateNoteId ] = value.split(",");
 
@@ -79,11 +85,7 @@ export default function NoteTypeChooserDialogComponent() {
             size="md"
             zIndex={1100} // note type chooser needs to be higher than other dialogs from which it is triggered, e.g. "add link"
             scrollable
-            onShown={() => {
-                refToJQuerySelector(autocompleteRef)
-                    .trigger("focus")
-                    .trigger("select");
-            }}
+            onShown={() => focusFirstNoteType(modalRef.current)}
             onHidden={() => {
                 callback?.({ success: false });
                 setShown(false);
@@ -93,7 +95,6 @@ export default function NoteTypeChooserDialogComponent() {
         >
             <FormGroup name="parent-note" label={t("note_type_chooser.change_path_prompt")}>
                 <NoteAutocomplete
-                    inputRef={autocompleteRef}
                     onChange={setParentNote}
                     placeholder={t("note_type_chooser.search_placeholder")}
                     opts={{
@@ -128,4 +129,8 @@ export default function NoteTypeChooserDialogComponent() {
             </FormGroup>
         </Modal>
     );
+}
+
+function focusFirstNoteType(modal: HTMLDivElement | null) {
+    modal?.querySelector<HTMLElement>(".dropdownWrapper .dropdown-item:not(.disabled)")?.focus();
 }
