@@ -419,6 +419,10 @@
     --board-text-lightness: 80%;
     --board-muted-text-saturation: 18%;
     --board-muted-text-lightness: 73%;
+    --board-column-header-text-saturation: 67%;
+    --board-column-header-text-lightness: 81%;
+    --board-column-header-muted-text-saturation: 18%;
+    --board-column-header-muted-text-lightness: 73%;
 
     --board-focus-outline-saturation: 60%;
     --board-focus-outline-lightness: 70%;
