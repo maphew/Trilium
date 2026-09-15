@@ -1373,7 +1373,10 @@
     "handshake_failed": "同期サーバーのハンドシェイクに失敗しました。エラー: {{message}}",
     "timeout_description": "接続が遅い場合に接続を断念するまでの待機時間。",
     "server_address_description": "同期先の Trilium サーバーの URL。",
-    "proxy_description": "システムのプロキシを使用する場合は空欄のままにしてください（デスクトップ版のみ）。すべてのプロキシをバイパスするには \"noproxy\" を使用してください。"
+    "proxy_description": "システムのプロキシを使用する場合は空欄のままにしてください（デスクトップ版のみ）。すべてのプロキシをバイパスするには \"noproxy\" を使用してください。",
+    "effective_server": "サーバーは使用中です",
+    "effective_server_description": "config.ini または環境変数で設定します。これらは上記のサーバーアドレスよりも優先されます。",
+    "effective_server_disabled": "同期は無効になっています。"
   },
   "api_log": {
     "close": "閉じる"
@@ -3275,7 +3278,12 @@
     "cleanup": "データベースをクリーンアップ",
     "cleanup_description": "削除済みのノートや添付ファイルを消去し、変更履歴スナップショットを整理して画像を圧縮することで、データベースを軽量に保ちます。",
     "related_backup": "バックアップ",
-    "related_backup_description": "データベースのバックアップ作成や復元、自動バックアップの管理を行います。"
+    "related_backup_description": "データベースのバックアップ作成や復元、自動バックアップの管理を行います。",
+    "info_persistence": "永続性",
+    "info_persistence_persistent": "永続",
+    "info_persistence_best_effort": "ベストエフォート",
+    "info_persistence_persistent_description": "ブラウザは、ユーザーが削除するまでこのデータベースを保持します。",
+    "info_persistence_best_effort_description": "ブラウザは、空き容量を確保するためにこのデータベースを削除する可能性があります。\nTrilium をアプリとしてインストールするか、ホーム画面に追加することで、通常は永続性が確保されます。"
   },
   "search": {
     "title": "検索",
@@ -4091,7 +4099,8 @@
     "mismatch": "パスワードが一致しません。"
   },
   "open": {
-    "directory_failed": "{{- directory}} を開けませんでした: {{- reason}}"
+    "directory_failed": "{{- directory}} を開けませんでした: {{- reason}}",
+    "download_failed": "ダウンロードを保存できませんでした: {{- reason}}"
   },
   "embedded_note": {
     "open-note": "ノートを開く",
