@@ -105,9 +105,9 @@ const securityChanges = new Map<string, (written: boolean) => void>();
 const SECURITY_CHANGE_TIMEOUT_MS = 30_000;
 
 /**
- * The one channel a security setting can be written over, entangled with the worker at startup.
- * Not `self.onmessage`, which backend scripts can call: they run through `eval()` in the worker's
- * realm, which reaches its globals but not another module's bindings.
+ * The private channel a security setting is written over, entangled with the worker at startup.
+ * Module scope is what makes it trustworthy: backend scripts run through `eval()` in the worker's
+ * realm, which reaches its globals, `self.onmessage` among them, but no module's bindings.
  */
 let securityPort: MessagePort | null = null;
 

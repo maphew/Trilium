@@ -62,13 +62,9 @@ export default function SecuritySettings() {
 }
 
 /**
- * Whether this build can change the settings from here.
- *
- * Both platforms that can keep them outside the database can: the desktop in its data directory,
- * standalone in an OPFS file its database worker holds the lock on. A server reads them from
- * `config.ini`, and a standalone tab that does not own the database has no worker to write through
- * — the tab that does is where the toggle works. Elsewhere the toggle shows the state and
- * `ServerConfigHint` says where to change it.
+ * Whether this build can change the settings from here: the desktop, which writes its data
+ * directory, and the standalone tab that owns the worker holding the OPFS file's lock. Everywhere
+ * else the toggle shows the state and `WhereToEnableHint` says where to change it.
  */
 function canToggle(): boolean {
     return isElectron() || (isStandalone && !!window.standaloneApi?.security);

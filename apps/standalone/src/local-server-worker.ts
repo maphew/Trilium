@@ -107,9 +107,9 @@ let messagingProvider: InstanceType<typeof WorkerMessagingProvider> | null = nul
 let securityStore: import('./lightweight/security_settings').SecuritySettingsStore | null = null;
 
 /**
- * The page's end of the security channel, taken from the INIT message. Not `self.onmessage`, which
- * backend scripts can call: they run through `eval()` in this worker's realm, which reaches its
- * globals but not another module's bindings.
+ * The page's end of that channel, taken from the INIT message. Module scope is what makes it
+ * trustworthy: backend scripts run through `eval()` in this worker's realm, which reaches its
+ * globals, `self.onmessage` among them, but no module's bindings.
  */
 let securityPort: MessagePort | null = null;
 
