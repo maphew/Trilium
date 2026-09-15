@@ -99,9 +99,22 @@ export default class Entrypoints extends Component {
         utils.reloadFrontendApp();
     }
 
-    async logoutCommand() {
-        await server.post("../logout");
-        window.location.replace(`/login`);
+    logoutCommand() {
+        // A form submission keeps the OIDC provider's redirect a top-level navigation; an XHR
+        // follows it cross-origin and fails the provider's CORS preflight.
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = `${window.glob.baseApiUrl}../logout`;
+        form.hidden = true;
+
+        const csrfToken = document.createElement("input");
+        csrfToken.type = "hidden";
+        csrfToken.name = "x-csrf-token";
+        csrfToken.value = window.glob.csrfToken ?? "";
+        form.append(csrfToken);
+
+        document.body.append(form);
+        form.submit();
     }
 
     backInNoteHistoryCommand() {
