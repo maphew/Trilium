@@ -8,7 +8,7 @@ nodeLinker: hoisted
 # updates and regular installs aren't stalled.
 minimumReleaseAge: 0
 
-# Don't fail when corepack provides a slightly different pnpm version than packageManager declares.
+# Don't fail when the installed pnpm is a slightly different version than packageManager declares.
 pmOnFail: ignore
 
 overrides:

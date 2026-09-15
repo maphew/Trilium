@@ -6,7 +6,7 @@ Capacitor shell that wraps the [`@triliumnext/standalone`](../standalone/) PWA b
 
 - Android SDK + an emulator or attached device (set up `ANDROID_HOME` / `ANDROID_SDK_ROOT`).
 - JDK 17+.
-- The monorepo installed: `corepack enable && pnpm install` at the repo root.
+- The monorepo installed: `npm install -g pnpm && pnpm install` at the repo root.
 
 ## First-time setup
 

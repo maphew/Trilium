@@ -9,7 +9,7 @@ Trilium Notes is a hierarchical note-taking application with synchronization, sc
 ## Development Commands
 
 ```bash
-corepack enable && pnpm install         # setup
+npm install -g pnpm && pnpm install      # setup (pnpm 12 is a native binary; corepack < 0.34.5 cannot start it)
 pnpm server:start                        # dev server at http://localhost:8080
 pnpm desktop:start                       # Electron dev app
 pnpm standalone:start                    # standalone (in-browser) client
