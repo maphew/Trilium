@@ -105,13 +105,18 @@ const securityChanges = new Map<string, (written: boolean) => void>();
 const SECURITY_CHANGE_TIMEOUT_MS = 30_000;
 
 /**
+ * The one channel a security setting can be written over, entangled with the worker at startup.
+ * Not `self.onmessage`, which backend scripts can call: they run through `eval()` in the worker's
+ * realm, which reaches its globals but not another module's bindings.
+ */
+let securityPort: MessagePort | null = null;
+
+/**
  * Writes a security setting, on the worker that holds the lock on the file it lives in.
  *
- * The page cannot write that file itself — the lock is the whole point, see
- * `lightweight/security_settings.ts` — and this deliberately avoids the request path: a route
- * would put the change behind the same API a frontend script already calls freely. Sending it as
- * a message means the only way to reach it is a reference to the worker, which lives in this
- * module and is handed to nothing.
+ * The page cannot write that file itself: the lock is the whole point, see
+ * `lightweight/security_settings.ts`. This deliberately avoids the request path too, since a route
+ * would put the change behind the same API a frontend script already calls freely.
  *
  * Only the leader tab has that worker. A follower is refused rather than served, as for a backup.
  */
@@ -120,7 +125,12 @@ export function requestSecurityChange(setting: string, enabled: boolean): Promis
         return Promise.resolve(false);
     }
 
-    const worker = startLocalServerWorker();
+    startLocalServerWorker();
+    const port = securityPort;
+    if (!port) {
+        return Promise.resolve(false);
+    }
+
     const id = Math.random().toString(36).slice(2);
 
     return new Promise((resolve) => {
@@ -132,7 +142,7 @@ export function requestSecurityChange(setting: string, enabled: boolean): Promis
         const timer = setTimeout(() => settle(false), SECURITY_CHANGE_TIMEOUT_MS);
 
         securityChanges.set(id, settle);
-        worker.postMessage({ type: "SECURITY_SET", id, setting, enabled });
+        port.postMessage({ type: "SECURITY_SET", id, setting, enabled });
     });
 }
 
@@ -429,11 +439,24 @@ export function registerNativeHttpHandler(handler: NativeHttpHandler) {
 export function startLocalServerWorker() {
     if (localWorker) return localWorker;
     localWorker = new LocalServerWorker();
+
+    // Handed over with the worker's first message, before it has loaded a module of its own and
+    // long before it can run a note's script. See `securityPort`.
+    const security = new MessageChannel();
+    securityPort = security.port1;
+    securityPort.onmessage = (event) => {
+        const msg = event.data;
+        if (msg?.type === "SECURITY_SET_RESULT") {
+            securityChanges.get(msg.id)?.(msg.written === true);
+        }
+    };
+
     localWorker.postMessage({
         type: "INIT",
         queryString: location.search,
-        useNativeHttp: nativeHttpHandler != null
-    });
+        useNativeHttp: nativeHttpHandler != null,
+        securityPort: security.port2
+    }, [ security.port2 ]);
 
     // Handle worker errors during initialization
     localWorker.onerror = (event) => {
@@ -468,13 +491,6 @@ export function startLocalServerWorker() {
         if (msg?.type === "RESTORE_RESULT") {
             restores.get(msg.id)?.resolve(msg.result);
             restores.delete(msg.id);
-            return;
-        }
-
-        // Whether a security setting the user agreed to reached the file. Only ever `true` when
-        // the worker wrote it, so a worker that refused the change leaves the toggle where it was.
-        if (msg?.type === "SECURITY_SET_RESULT") {
-            securityChanges.get(msg.id)?.(msg.written === true);
             return;
         }
 

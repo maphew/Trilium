@@ -20,7 +20,9 @@ import { requestSecurityChange } from "./local-bridge.js";
  *   never reaches the dialog at all; the toggle the user just clicked does.
  * - A decline limit, which is the backstop where activation is not tracked (Firefox). A script
  *   that keeps asking gets {@link MAX_DECLINES} dialogs and then silence, so it cannot wear the
- *   user down into clicking OK. One accidental Cancel does not cost the user the toggle.
+ *   user down into clicking OK. One accidental Cancel does not cost the user the toggle, and the
+ *   limit covers granting only, so it can never stand between the user and turning a capability
+ *   back off.
  *
  * @module
  */
@@ -51,14 +53,20 @@ export function createSecurityApi(): StandaloneSecurityApi {
 async function requestChange(
     setting: StandaloneSecuritySettingName, enabled: boolean
 ): Promise<boolean> {
-    if (!nativeConfirm || asking || declines >= MAX_DECLINES || !hasUserActivation()) {
+    // Only granting is limited. Turning a capability off is what the user does to get out of a
+    // situation like this one, and a script that keeps asking for it can achieve nothing worse
+    // than the user agreeing.
+    const outOfDialogs = enabled && declines >= MAX_DECLINES;
+    if (!nativeConfirm || asking || outOfDialogs || !hasUserActivation()) {
         return false;
     }
 
     asking = true;
     try {
         if (!nativeConfirm(await promptFor(setting, enabled))) {
-            declines++;
+            if (enabled) {
+                declines++;
+            }
             return false;
         }
 

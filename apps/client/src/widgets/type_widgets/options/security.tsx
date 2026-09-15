@@ -147,8 +147,8 @@ function BackendScriptingSettings({ liveValue, pendingValue, setPendingValue }: 
     return (
         <Card
             heading={t("security.backend_scripting_title")}
-            // Standalone runs core in a Web Worker, where none of the filesystem, network and OS
-            // access the other builds grant a backend script exists to grant.
+            // Standalone runs core in a Web Worker, so what a backend script reaches there is the
+            // database: every note, the options table, and the sync credentials it holds.
             description={isStandalone
                 ? t("security.standalone.backend_scripting_section_description")
                 : t("security.backend_scripting_section_description")}

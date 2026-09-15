@@ -184,6 +184,44 @@ describe("a script that keeps asking", () => {
         expect(dialogs).toHaveLength(2);
     });
 
+    it("never stands between the user and turning a capability back off", async () => {
+        confirmed = false;
+        const api = await loadGate();
+
+        // Two declines, which is as far as asking to enable anything gets from here on.
+        await api.setBackendScriptingEnabled(true);
+        await api.setBackendScriptingEnabled(true);
+        expect(dialogs).toHaveLength(2);
+        await expect(api.setBackendScriptingEnabled(true)).resolves.toBe(false);
+        expect(dialogs).toHaveLength(2);
+
+        // Disabling is still asked about, and still works. A user who has just been pestered into
+        // the limit is exactly the user who wants this, and a script that keeps asking for it can
+        // achieve nothing worse than the capability being turned off.
+        confirmed = true;
+        await expect(api.setBackendScriptingEnabled(false)).resolves.toBe(true);
+        expect(dialogs).toHaveLength(3);
+        expect(bridge.calls).toEqual([ { setting: "backendScriptingEnabled", enabled: false } ]);
+    });
+
+    it("does not count a declined disable against the limit", async () => {
+        confirmed = false;
+        const api = await loadGate();
+
+        await api.setBackendScriptingEnabled(false);
+        await api.setSqlConsoleEnabled(false);
+        await api.setBackendScriptingEnabled(false);
+
+        // Three dialogs, where three declined *enable* requests would have produced two.
+        expect(dialogs).toHaveLength(3);
+
+        // And the enable path still has both of its dialogs left.
+        await api.setBackendScriptingEnabled(true);
+        await api.setBackendScriptingEnabled(true);
+        await api.setBackendScriptingEnabled(true);
+        expect(dialogs).toHaveLength(5);
+    });
+
     it("does not cost the user the toggle over one misclick", async () => {
         confirmed = false;
         const api = await loadGate();

@@ -106,6 +106,13 @@ let messagingProvider: InstanceType<typeof WorkerMessagingProvider> | null = nul
 /** Holds the lock on `security.json` for as long as this worker lives, and is its only writer. */
 let securityStore: import('./lightweight/security_settings').SecuritySettingsStore | null = null;
 
+/**
+ * The page's end of the security channel, taken from the INIT message. Not `self.onmessage`, which
+ * backend scripts can call: they run through `eval()` in this worker's realm, which reaches its
+ * globals but not another module's bindings.
+ */
+let securityPort: MessagePort | null = null;
+
 // Core module, router, and initialization state
 let coreModule: typeof import("@triliumnext/core") | null = null;
 let router: BrowserRouter | null = null;
@@ -563,10 +570,34 @@ async function handleRestoreBackup(id: string, backup: File, passphrase?: string
 let restoreInProgress = false;
 
 /**
+ * Takes the page's end of the security channel, once, and answers what arrives on it. Once, because
+ * the port is what proves a message came from the page: a second one could be substituted by
+ * anything that reaches the INIT path.
+ */
+function adoptSecurityPort(port: MessagePort | undefined): void {
+    if (securityPort || !port) {
+        return;
+    }
+
+    securityPort = port;
+    securityPort.onmessage = async (event) => {
+        const msg = event.data;
+        if (msg?.type !== "SECURITY_SET") {
+            return;
+        }
+
+        // Waits for the boot that takes the lock: a change arriving before it would be written by
+        // a store that has no handle, and reported as refused for no reason the user could see.
+        await initialize().catch(() => undefined);
+        handleSecuritySet(msg.id, msg.setting, msg.enabled);
+    };
+}
+
+/**
  * Writes a security setting the user has agreed to, which this worker is the only writer of.
  *
- * Reached only from `requestSecurityChange` in local-bridge.ts, which sends it after the browser's
- * own confirmation dialog — but what arrives here is still just a message, so the name and the
+ * Reached only over {@link securityPort}, which carries what `requestSecurityChange` sends after
+ * the browser's own confirmation dialog. What arrives is still just a message, so the name and the
  * value are checked by the store rather than trusted. The change applies at the next start, since
  * core was handed its config when it was initialized.
  */
@@ -577,7 +608,7 @@ function handleSecuritySet(id: string, setting: unknown, enabled: unknown): void
         console.log(`[Worker] Security setting "${setting}" written; it applies from the next start.`);
     }
 
-    (self as unknown as Worker).postMessage({ type: "SECURITY_SET_RESULT", id, written });
+    securityPort?.postMessage({ type: "SECURITY_SET_RESULT", id, written });
 }
 
 /**
@@ -637,6 +668,7 @@ self.onmessage = async (event) => {
     if (msg.type === "INIT") {
         queryString = msg.queryString || "";
         useNativeHttp = msg.useNativeHttp || false;
+        adoptSecurityPort(msg.securityPort);
         if (!initReceived) {
             initReceived = true;
             console.log("[Worker] Starting initialization...");
@@ -662,14 +694,6 @@ self.onmessage = async (event) => {
 
     if (msg.type === "BACKUP_STREAM") {
         await handleBackupStream(msg.port, msg.passphrase);
-        return;
-    }
-
-    if (msg.type === "SECURITY_SET") {
-        // Waits for the boot that takes the lock: a change arriving before it would be written by
-        // a store that has no handle, and reported as refused for no reason the user could see.
-        await initialize().catch(() => undefined);
-        handleSecuritySet(msg.id, msg.setting, msg.enabled);
         return;
     }
 

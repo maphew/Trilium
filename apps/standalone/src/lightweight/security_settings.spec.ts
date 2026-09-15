@@ -149,7 +149,7 @@ describe("what a start runs with", () => {
             Security: {
                 backendScriptingEnabled: true,
                 sqlConsoleEnabled: false,
-                // There is no listener to open in a browser, so this is never the file's to grant.
+                // The file holds the two scripting flags; LAN access stays where core defaults it.
                 allowLanAccess: false
             }
         });
@@ -344,6 +344,22 @@ describe("the lock the file is only trustworthy behind", () => {
             read: () => 0,
             truncate: () => {},
             write: () => { throw new Error("out of space"); },
+            flush: () => {}
+        } as unknown as FileSystemSyncAccessHandle);
+
+        expect(store.setSetting("backendScriptingEnabled", true)).toBe(false);
+    });
+
+    it("reports a write that landed only partly as refused too", () => {
+        // `write()` answers with a byte count rather than throwing when it runs short, and the
+        // truncate before it has already happened, so what is left on disk is part of a setting.
+        // The next start reads that as no settings at all, and the toggle has to say so rather
+        // than claim the change was saved.
+        const store = new SecuritySettingsStore({
+            getSize: () => 0,
+            read: () => 0,
+            truncate: () => {},
+            write: (bytes: Uint8Array) => bytes.length - 1,
             flush: () => {}
         } as unknown as FileSystemSyncAccessHandle);
 

@@ -130,8 +130,18 @@ export class SecuritySettingsStore {
             const settings = { ...this.read(), [name]: enabled };
             const bytes = new TextEncoder().encode(JSON.stringify(settings, null, 4));
             this.handle.truncate(0);
-            this.handle.write(bytes, { at: 0 });
+            const written = this.handle.write(bytes, { at: 0 });
             this.handle.flush();
+
+            // A short write leaves the file holding part of a setting, which the next start reads
+            // as no settings at all. Saying so is what keeps the toggle from claiming otherwise.
+            if (written !== bytes.length) {
+                console.error(
+                    `[SecuritySettings] Only ${written} of ${bytes.length} bytes were written.`
+                );
+                return false;
+            }
+
             return true;
         } catch (e) {
             console.error("[SecuritySettings] The settings file could not be written:", e);
@@ -172,9 +182,8 @@ export function parseSecuritySettings(raw: string): StandaloneSecuritySettings {
 /**
  * The config core is started with, which is where these settings become the guard's answer.
  *
- * Everything outside `Security` is left empty, which is how core reads "no override": the server
- * takes those from `config.ini` and this build has none. `allowLanAccess` is a desktop setting —
- * there is no listener here to open.
+ * Core treats an empty string and `false` as "no override" and falls back to the stored option, so
+ * this carries the two flags the file holds and lets core answer the rest for itself.
  */
 export function toCoreConfig(settings: StandaloneSecuritySettings): CoreConfig {
     return {

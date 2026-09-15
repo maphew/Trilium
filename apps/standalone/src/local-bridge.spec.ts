@@ -125,7 +125,11 @@ describe("startLocalServerWorker", () => {
         const bridge = await freshBridge();
         const worker = bridge.startLocalServerWorker();
         expect(workerInstances).toHaveLength(1);
-        expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "INIT", useNativeHttp: false }));
+        expect(worker.postMessage).toHaveBeenCalledWith(
+            expect.objectContaining({ type: "INIT", useNativeHttp: false }),
+            // The security channel's worker end, transferred rather than copied.
+            [ expect.anything() ]
+        );
 
         // Second call returns the same instance without creating another worker.
         expect(bridge.startLocalServerWorker()).toBe(worker);
@@ -136,7 +140,10 @@ describe("startLocalServerWorker", () => {
         const bridge = await freshBridge();
         bridge.registerNativeHttpHandler(vi.fn());
         bridge.startLocalServerWorker();
-        expect(lastWorker().postMessage).toHaveBeenCalledWith(expect.objectContaining({ useNativeHttp: true }));
+        expect(lastWorker().postMessage).toHaveBeenCalledWith(
+            expect.objectContaining({ useNativeHttp: true }),
+            [ expect.anything() ]
+        );
     });
 });
 
@@ -778,45 +785,93 @@ describe("leadership", () => {
 });
 
 describe("security settings", () => {
-    it("sends the change to the worker that holds the file, and answers what it wrote", async () => {
-        const bridge = await freshBridge();
-        const change = bridge.requestSecurityChange("backendScriptingEnabled", true);
+    /**
+     * The worker's end of the security channel, handed over with INIT.
+     *
+     * A channel of its own rather than the worker's message handler, because that handler is
+     * reachable from inside the worker: backend scripts run through `eval()` in its realm, so a
+     * command sitting on `self.onmessage` is one a script can issue without the browser ever
+     * drawing its confirmation dialog.
+     */
+    function securityPort(worker: MockWorker): MessagePort {
+        const init = worker.postMessage.mock.calls
+            .map(([message]) => message as { type: string; securityPort?: MessagePort })
+            .find((message) => message.type === "INIT");
+        if (!init?.securityPort) {
+            throw new Error("INIT carried no security port");
+        }
+        return init.securityPort;
+    }
 
-        const worker = lastWorker();
-        const sent = worker.postMessage.mock.calls
-            .map(([message]) => message as { type: string; id: string; setting?: string; enabled?: boolean })
-            .find((message) => message.type === "SECURITY_SET");
+    /** What the page sent over that channel, as the worker would see it. */
+    type SecurityChange = { id: string; setting: string; enabled: boolean };
+
+    function changesSentTo(port: MessagePort): Promise<SecurityChange[]> {
+        const seen: SecurityChange[] = [];
+        port.onmessage = (event) => {
+            const msg = event.data as SecurityChange & { type: string };
+            if (msg?.type === "SECURITY_SET") {
+                seen.push(msg);
+            }
+        };
+        return vi.waitFor(() => {
+            expect(seen.length).toBeGreaterThan(0);
+            return seen;
+        });
+    }
+
+    it("sends the change over the port, and answers what the worker wrote", async () => {
+        const bridge = await freshBridge();
+        const port = securityPort(bridge.startLocalServerWorker() as unknown as MockWorker);
+        const seen = changesSentTo(port);
+
+        const change = bridge.requestSecurityChange("backendScriptingEnabled", true);
+        const [ sent ] = await seen;
         expect(sent).toMatchObject({ setting: "backendScriptingEnabled", enabled: true });
 
-        worker.onmessage?.({ data: { type: "SECURITY_SET_RESULT", id: sent?.id, written: true } });
+        port.postMessage({ type: "SECURITY_SET_RESULT", id: sent.id, written: true });
         await expect(change).resolves.toBe(true);
+    });
+
+    it("never puts the change on the worker's own message handler", async () => {
+        const bridge = await freshBridge();
+        const worker = bridge.startLocalServerWorker() as unknown as MockWorker;
+        const seen = changesSentTo(securityPort(worker));
+
+        bridge.requestSecurityChange("backendScriptingEnabled", true);
+        await seen;
+
+        // Only INIT ever goes to the worker itself. A SECURITY_SET there would be a command a
+        // backend script could issue for itself, since eval() runs in the worker's realm.
+        const toWorker = worker.postMessage.mock.calls
+            .map(([message]) => (message as { type: string }).type);
+        expect(toWorker).not.toContain("SECURITY_SET");
     });
 
     it("answers no when the worker refused to write it", async () => {
         const bridge = await freshBridge();
-        const change = bridge.requestSecurityChange("sqlConsoleEnabled", true);
+        const port = securityPort(bridge.startLocalServerWorker() as unknown as MockWorker);
+        const seen = changesSentTo(port);
 
-        const worker = lastWorker();
-        const sent = worker.postMessage.mock.calls
-            .map(([message]) => message as { type: string; id: string })
-            .find((message) => message.type === "SECURITY_SET");
+        const change = bridge.requestSecurityChange("sqlConsoleEnabled", true);
+        const [ sent ] = await seen;
         // A worker whose settings file is not locked reports the change as unwritten rather than
         // pretending; anything but an outright `true` leaves the setting where it was.
-        worker.onmessage?.({ data: { type: "SECURITY_SET_RESULT", id: sent?.id, written: "yes" } });
+        port.postMessage({ type: "SECURITY_SET_RESULT", id: sent.id, written: "yes" });
 
         await expect(change).resolves.toBe(false);
     });
 
     it("ignores a result that answers a different change", async () => {
         const bridge = await freshBridge();
+        const port = securityPort(bridge.startLocalServerWorker() as unknown as MockWorker);
         const change = bridge.requestSecurityChange("backendScriptingEnabled", true);
-        const worker = lastWorker();
 
-        worker.onmessage?.({ data: { type: "SECURITY_SET_RESULT", id: "some other change", written: true } });
+        port.postMessage({ type: "SECURITY_SET_RESULT", id: "some other change", written: true });
 
         let settled = false;
         void change.then(() => { settled = true; });
-        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 10));
         expect(settled).toBe(false);
     });
 
