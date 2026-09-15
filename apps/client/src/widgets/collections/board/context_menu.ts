@@ -73,7 +73,8 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
         ...(isInbox ? [ {
             title: t("board_view.inbox-nested"),
             uiIcon: "bx bx-subdirectory-right",
-            checked: !!column.nested,
+            // At the trailing edge, so the entry keeps its own icon in front.
+            trailingIcon: column.nested ? "bx bx-check" : undefined,
             handler: () => api.setInboxNested(!column.nested)
         } ] : []),
         {

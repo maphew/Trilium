@@ -235,14 +235,24 @@ describe("Board column context menu", () => {
             setInboxNested: vi.fn(async () => {})
         } as unknown as BoardApi;
 
-        const items = openMenu(api, { value: "", columns: [ "", "To Do" ], index: 0 });
-        const nesting = items.find(item =>
-            item && "uiIcon" in item && item.uiIcon === "bx bx-subdirectory-right");
-        if (!nesting || !("handler" in nesting)) throw new Error("expected a nesting entry");
+        const entryOf = (nested: boolean) => {
+            const found = openMenu(api, { value: "", columns: [ "", "To Do" ], index: 0, nested })
+                .find(item => item && "uiIcon" in item
+                    && item.uiIcon === "bx bx-subdirectory-right");
+            if (!found || !("handler" in found)) throw new Error("expected a nesting entry");
+            return found;
+        };
 
-        expect(nesting).toMatchObject({ checked: false });
-        nesting.handler?.(nesting, {} as never);
-        expect(api.setInboxNested).toHaveBeenCalledWith(true);
+        // The check sits after the title, the entry keeping its own icon ahead of it.
+        const unchecked = entryOf(false);
+        expect("trailingIcon" in unchecked && unchecked.trailingIcon).toBeUndefined();
+        unchecked.handler?.(unchecked, {} as never);
+        expect(api.setInboxNested).toHaveBeenLastCalledWith(true);
+
+        const checked = entryOf(true);
+        expect("trailingIcon" in checked && checked.trailingIcon).toBe("bx bx-check");
+        checked.handler?.(checked, {} as never);
+        expect(api.setInboxNested).toHaveBeenLastCalledWith(false);
     });
 
     it("orders the entries, keeping the safe way out ahead of deleting", () => {
