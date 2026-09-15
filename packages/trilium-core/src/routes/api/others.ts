@@ -1,7 +1,7 @@
 import becca from "../../becca/becca";
 
 import { RenderMarkdownResponse, ToMarkdownResponse } from "@triliumnext/commons";
-import type { Request } from "express";
+import type { Request } from "../../http_interface";
 
 import { ValidationError } from "../../errors.js";
 import markdown from "../../services/export/markdown.js";

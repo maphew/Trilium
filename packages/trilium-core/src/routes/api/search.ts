@@ -2,7 +2,7 @@ import {
     dayjs, type SearchResultDetails, type SearchResultDetailsRequest,
     type SearchResultDetailsResponse, type SearchWithTokensResponse, type TemplatesResponse
 } from "@triliumnext/commons";
-import type { Request } from "express";
+import type { Request } from "../../http_interface";
 
 import becca from "../../becca/becca.js";
 import becca_service from "../../becca/becca_service.js";
@@ -139,8 +139,7 @@ function quickSearch(req: Request<{ searchString: string }>) {
 }
 
 function search(
-    req: Request<{ searchString: string }, unknown, unknown,
-        { ancestorNoteId?: string, includeTokens?: string }>
+    req: Request<{ searchString: string }, { ancestorNoteId?: string, includeTokens?: string }>
 ): string[] | SearchWithTokensResponse {
     const { searchString } = req.params;
     const { ancestorNoteId, includeTokens } = req.query;

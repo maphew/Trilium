@@ -1,5 +1,5 @@
 import type { AttributeRow, CreateChildrenResponse, DeleteNotesPreview, MetadataResponse } from "@triliumnext/commons";
-import type { Request } from "express";
+import type { Request } from "../../http_interface";
 
 import blobService from "../../services/blob";
 import eraseService from "../../services/erase.js";
