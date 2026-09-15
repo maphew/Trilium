@@ -4942,6 +4942,45 @@ describe("Card toolbar on mobile", () => {
     });
 
     /**
+     * A drag measures the board as it stands, so nothing may scroll it under the finger. The focus
+     * held for the card last dropped is revealed again whenever the board redraws, and lifting a
+     * card redraws it: that reveal scrolled the board to the earlier card, and the lifted one
+     * landed in a neighbouring column.
+     */
+    it("reveals no earlier focus while a card is carried", async () => {
+        await setup();
+        vi.useFakeTimers();
+        const scrolled = vi.fn();
+        Object.defineProperty(card("tool1"), "scrollIntoView",
+            { value: scrolled, configurable: true });
+        const pressOn = (element: HTMLElement, type: string) => element.dispatchEvent(
+            new PointerEvent(type, {
+                bubbles: true, pointerType: "touch", clientX: 10, clientY: 10
+            }));
+        const settle = () => act(async () => { vi.advanceTimersByTime(1000); });
+
+        // The first drop leaves its focus on the first card, revealed once the board settles.
+        await act(async () => { pressOn(card("tool1"), "pointerdown"); });
+        await settle();
+        await act(async () => { pressOn(card("tool1"), "pointercancel"); });
+        await settle();
+        expect(document.activeElement).toBe(card("tool1"));
+        expect(scrolled).toHaveBeenCalledTimes(1);
+
+        // Lifting another card redraws the board. The first card is left where it is, however
+        // long the second is held.
+        await act(async () => { pressOn(card("tool2"), "pointerdown"); });
+        await settle();
+        const board = container.querySelector(".board-view-container");
+        expect(board?.classList.contains("board-dragging")).toBe(true);
+        await settle();
+        expect(scrolled).toHaveBeenCalledTimes(1);
+
+        await act(async () => { pressOn(card("tool2"), "pointercancel"); });
+        await settle();
+    });
+
+    /**
      * The rail stands for the card, so a card scrolled off the screen entirely takes it along,
      * and brings it back. Watched only while the rail is wanted: the observer goes with the focus.
      */
@@ -5042,14 +5081,14 @@ describe("Card toolbar on mobile", () => {
      * go: with no geometry under happy-dom a release is a drop at the head of a column, and the
      * move it starts runs on past the test.
      */
-    it("is hidden while the card is carried, and back once the drop is aborted", async () => {
+    it("stands through a lift, hides once the card is carried, and is back after", async () => {
         await setup();
         await focus("tool1");
         vi.useFakeTimers();
 
         const element = card("tool1");
-        const press = (type: string) => element.dispatchEvent(new PointerEvent(type, {
-            bubbles: true, pointerType: "touch", clientX: 10, clientY: 10
+        const press = (type: string, x = 10) => element.dispatchEvent(new PointerEvent(type, {
+            bubbles: true, pointerType: "touch", clientX: x, clientY: 10
         }));
         const board = () => container.querySelector(".board-view-container");
 
@@ -5057,14 +5096,24 @@ describe("Card toolbar on mobile", () => {
             press("pointerdown");
             vi.advanceTimersByTime(1000);
         });
-        // The drag's own class, which the rail hides under. It must survive the board's redraw
-        // on activation, or the auto-scroll it keeps working stops with it.
+        // The drag's own class, which must survive the board's redraw on activation, or the
+        // auto-scroll it keeps working stops with it. The rail stands: nothing has moved yet.
         expect(board()?.classList.contains("board-dragging")).toBe(true);
+        expect(board()?.classList.contains("board-carrying")).toBe(false);
+        expect(toolbar()?.classList.contains("leaving")).toBe(false);
 
-        await act(async () => { press("pointercancel"); });
+        // Carried once it has come far enough from where it was lifted, which is what hides the
+        // rail (by class, see card_toolbar.css); a wobble under the finger does not.
+        await act(async () => { press("pointermove", 22); });
+        expect(board()?.classList.contains("board-carrying")).toBe(false);
+        await act(async () => { press("pointermove", 35); });
+        expect(board()?.classList.contains("board-carrying")).toBe(true);
+
+        await act(async () => { press("pointercancel", 35); });
         expect(board()?.classList.contains("board-dragging")).toBe(false);
+        expect(board()?.classList.contains("board-carrying")).toBe(false);
         expect(document.activeElement).toBe(card("tool1"));
-        expect(toolbar()).not.toBeNull();
+        expect(toolbar()?.classList.contains("leaving")).toBe(false);
     });
 });
 
@@ -5207,6 +5256,20 @@ describe("Selection mode on mobile", () => {
         expect(selected()).toEqual([]);
 
         openCard.mockRestore();
+    });
+
+    /** The selection rail stands for the mode; a heading focused meanwhile floats no rail. */
+    it("keeps the selection rail alone when a heading is focused", async () => {
+        await setup();
+        await startSelecting();
+        const heading = container.querySelector<HTMLElement>(".board-column h3");
+        if (!heading) throw new Error("expected a heading");
+
+        await act(async () => { heading.focus(); });
+        expect(container.querySelectorAll(".board-card-toolbar")).toHaveLength(1);
+        expect([ ...container.querySelectorAll(".board-card-toolbar button") ]
+            .map(button => [ ...button.classList ].find(name => name.startsWith("bx-"))))
+            .toEqual([ "bx-trash", "bx-dots-vertical-rounded" ]);
     });
 
     it("selects the column of the last picked card, and acts on the whole selection", async () => {

@@ -104,20 +104,26 @@ function Card({
     /** Whether the card holds the focus, which on mobile floats its toolbar over the board. */
     const [ isFocused, setIsFocused ] = useState(false);
     // Focus moving within the card or onto the toolbar keeps the toolbar; anywhere else takes it.
+    // So does the lift: it hides the card's element, which blurs it, and the card is focused
+    // again once it is let go, so the rail stands through a press that ripens and lets go.
     const handleFocusOut = useCallback((e: FocusEvent) => {
+        if (isDragging) {
+            return;
+        }
+
         const next = e.relatedTarget instanceof Element ? e.relatedTarget : null;
         if (next && (cardRef.current?.contains(next) || next.closest(".board-card-toolbar"))) {
             return;
         }
 
         setIsFocused(false);
-    }, []);
+    }, [ isDragging ]);
     /**
      * Whether the card's rail is wanted. Off the card while its title is edited, since the rename
-     * it offers is under way, while it is carried, since the board is being rearranged under the
-     * finger, and in selection mode, where the board's own rail acts on the selection instead.
+     * it offers is under way, and in selection mode, where the board's own rail acts on the
+     * selection instead. A card carried away hides it by class (see card_toolbar.css).
      */
-    const isRailWanted = isMobile() && isFocused && !isEditing && !isDragging && !isSelecting;
+    const isRailWanted = isMobile() && isFocused && !isEditing && !isSelecting;
     // The rail stands for the card, so it goes when the card is scrolled off the screen entirely
     // and comes back with it.
     const isOnScreen = useIsOnScreen(cardRef, isRailWanted);

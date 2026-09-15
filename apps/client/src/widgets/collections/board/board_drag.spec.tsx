@@ -363,6 +363,24 @@ describe("useBoardDrag, carrying a card", () => {
         expect(calls.start).toHaveLength(1);
     });
 
+    /** A lift is not yet a carry: only a card taken some way from where it was is being carried. */
+    it("marks the board as carrying once the lifted card has travelled", () => {
+        setup();
+
+        press(card("n1"), 100, 100, "touch");
+        act(() => { vi.advanceTimersByTime(500); });
+        expect(board.classList.contains("board-dragging")).toBe(true);
+        expect(board.classList.contains("board-carrying")).toBe(false);
+
+        move(110, 105);
+        expect(board.classList.contains("board-carrying")).toBe(false);
+        move(125, 100);
+        expect(board.classList.contains("board-carrying")).toBe(true);
+
+        release(125, 100, "touch");
+        expect(board.classList.contains("board-carrying")).toBe(false);
+    });
+
     it("lets a finger that moves off scroll instead of carrying the card", () => {
         setup();
 

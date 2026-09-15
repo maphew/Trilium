@@ -49,10 +49,10 @@
   }
 }
 
-/* Hidden while a card is carried, under the class board_drag.ts sets on the container itself: a
-   class rendered from state changes the attribute mid-drag and drops that one, and its auto-scroll.
-   Visibility rather than display, which restarts the entrance when the drag ends. */
-.board-view-container.board-dragging .board-card-toolbar {
+/* Hidden once a lifted card is carried away, under the class board_drag.ts sets on the container
+   itself: a class rendered from state changes the attribute mid-drag and drops the drag's own,
+   and its auto-scroll. Visibility rather than display, which restarts the entrance afterwards. */
+.board-view-container.board-carrying .board-card-toolbar {
   visibility: hidden;
 }
 

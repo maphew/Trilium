@@ -15,39 +15,36 @@ import OverlayControlGroup, { OverlayControlButton } from "../../react/OverlayCo
 export const RAIL_EXIT_MS = 400;
 
 /**
- * Which rail stands on a board, one at a time. A rail arriving while another stands takes over in
- * place, neither sliding in over it nor waiting for it to slide off: the one it replaces is dropped
- * at once. A rail keeps its stand while it slides off, so a newcomer takes over from that too.
+ * Which rail stands on a board: one at a time, the latest to claim it. A rail arriving while
+ * another stands takes over in place, neither sliding in over it nor waiting for it to slide off.
+ * The one it replaces is hidden, and shown again once the newcomer has gone, unless it was on its
+ * way off itself, in which case it is dropped for good (see {@link Rail}).
  */
 export class RailStand {
-    private owner: object | null = null;
-    /** The rails another took over from, which stay dropped even once the stand is free again. */
-    private superseded = new WeakSet<object>();
+    /** Every rail that stands, in the order they claimed the stand; the last one is shown. */
+    private claimants: object[] = [];
     private listeners = new Set<() => void>();
 
-    /** Whether any rail stands, the one leaving included. */
+    /** Whether any rail stands, one leaving included. */
     get isTaken() {
-        return this.owner !== null;
+        return this.claimants.length > 0;
     }
 
+    /** Whether a later rail stands over this one. */
     isSuperseded(token: object) {
-        return this.superseded.has(token);
+        const index = this.claimants.indexOf(token);
+        return index >= 0 && index < this.claimants.length - 1;
     }
 
     claim(token: object) {
-        if (this.owner === token) return;
-        if (this.owner !== null) {
-            this.superseded.add(this.owner);
-        }
-        this.owner = token;
+        if (this.claimants.at(-1) === token) return;
+        this.claimants = [ ...this.claimants.filter((other) => other !== token), token ];
         this.notify();
     }
 
-    /** Gives the stand up, unless another rail has taken it over meanwhile. */
     release(token: object) {
-        this.superseded.delete(token);
-        if (this.owner !== token) return;
-        this.owner = null;
+        if (!this.claimants.includes(token)) return;
+        this.claimants = this.claimants.filter((other) => other !== token);
         this.notify();
     }
 
@@ -253,8 +250,19 @@ function Rail({ host, isLeaving, onFocusOut, children }: RailProps) {
     const isSuperseded = useSyncExternalStore(
         useCallback((listener: () => void) => stand.subscribe(listener), [ stand ]),
         useCallback(() => stand.isSuperseded(token), [ stand, token ]));
-
+    // A rail taken over from while on its way off has nothing to come back for: it gives the
+    // stand up and stays gone, rather than reappearing to finish its slide once the newcomer goes.
+    const isDropped = useRef(false);
     if (isLeaving && isSuperseded) {
+        isDropped.current = true;
+    }
+    useEffect(() => {
+        if (isDropped.current) {
+            stand.release(token);
+        }
+    }, [ stand, token, isLeaving, isSuperseded ]);
+
+    if (isDropped.current || isSuperseded) {
         return null;
     }
 

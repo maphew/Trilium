@@ -40,7 +40,8 @@ const MIN_CARD_HEIGHT = 32;
 export const EXPAND_MS = 200;
 import NoteLink from "../../react/NoteLink";
 import {
-    BoardActionsContext, BoardDragStateContext, BoardOverlayHostContext, TitleEditor
+    BoardActionsContext, BoardDragStateContext, BoardOverlayHostContext, BoardSelectionModeContext,
+    TitleEditor
 } from ".";
 import BoardApi from "./api";
 import Card from "./card";
@@ -530,8 +531,10 @@ export default function Column({
 
         setIsHeaderFocused(false);
     }, []);
-    // Off the heading while its title is edited, since the rename it offers is under way.
-    const isRailWanted = isMobile() && isHeaderFocused && !isEditing;
+    const isSelecting = useContext(BoardSelectionModeContext);
+    // Off the heading while its title is edited, since the rename it offers is under way, and in
+    // selection mode, where the board's own rail stands for the selection.
+    const isRailWanted = isMobile() && isHeaderFocused && !isEditing && !isSelecting;
     const isHeaderOnScreen = useIsOnScreen(headerRef, isRailWanted);
     const isRailShown = isRailWanted && isHeaderOnScreen;
     // Kept drawn while it slides off.

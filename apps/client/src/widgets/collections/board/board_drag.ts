@@ -22,6 +22,12 @@ const TOUCH_DELAY_MS = 400;
 /** How far a finger may stray in that time and still be resting rather than scrolling. */
 const TOUCH_TOLERANCE = 8;
 
+/**
+ * How far a lifted card travels before it counts as carried, which is when what stands over the
+ * board for it goes. A press that ripens and lets go where it was leaves all of that in place.
+ */
+const CARRY_THRESHOLD = 20;
+
 /** How much a carried card shrinks. Written with the movement, a class could not add to it. */
 const DRAG_SCALE = 0.9;
 
@@ -162,6 +168,7 @@ export function useBoardDrag(
             window.clearTimeout(held.dwell);
             scroller.stop();
             container.classList.remove("board-dragging");
+            container.classList.remove("board-carrying");
             held.preview?.remove();
             held.element.style.display = "";
             if (held.frame !== undefined) {
@@ -414,6 +421,7 @@ export function useBoardDrag(
                 lastY: event.clientY,
                 touch: event.pointerType !== "mouse",
                 active: false,
+                carried: false,
                 preview: undefined,
                 measurement: undefined,
                 frame: undefined,
@@ -444,6 +452,12 @@ export function useBoardDrag(
                 // Carried on into the move below, so what is picked up takes its place under the
                 // pointer on the move that picked it up rather than on the one after.
                 activate();
+            }
+
+            const fromLift = Math.hypot(event.clientX - held.startX, event.clientY - held.startY);
+            if (!held.carried && fromLift >= CARRY_THRESHOLD) {
+                held.carried = true;
+                container.classList.add("board-carrying");
             }
 
             // Written in a frame of its own, and only the transform: a move that redrew the board
@@ -876,6 +890,8 @@ type Gesture = (CardSubject | ColumnSubject) & {
     lastY: number;
     /** Whether the press has to ripen before it carries anything. */
     touch: boolean;
+    /** Whether what was lifted has travelled `CARRY_THRESHOLD` from where it was picked up. */
+    carried: boolean;
     /** Whether it has, and something is being carried. */
     active: boolean;
     /** The copy that follows the pointer, what it stands for staying where it is. */
