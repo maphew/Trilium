@@ -5,7 +5,7 @@ import froca from "../services/froca.js";
 import { t } from "../services/i18n.js";
 import linkService, { calculateHash, type ViewScope } from "../services/link.js";
 import server from "../services/server.js";
-import shortcutService, { isIMEComposing } from "../services/shortcuts.js";
+import shortcutService, { isAppShortcutChord, isIMEComposing } from "../services/shortcuts.js";
 import utils, { handleRightToLeftPlacement } from "../services/utils.js";
 import BasicWidget from "./basic_widget.js";
 
@@ -75,8 +75,13 @@ const TPL = /*html*/`
         display: none;
     }
 
-    .quick-search-item.dropdown-item:hover {
-        background-color: #f8f9fa;
+    /* Mouse hover and the ArrowDown keyboard selection share the "active item" fill the rest
+       of the menus use, so pointing at a result and arrowing to it look the same. */
+    .quick-search .dropdown-item:not(.disabled):hover,
+    .quick-search .dropdown-item:not(.disabled):focus {
+        background-color: var(--active-item-background-color);
+        color: var(--active-item-text-color);
+        outline: none;
     }
 
      .quick-search .quick-search-item {
@@ -255,8 +260,28 @@ export default class QuickSearchWidget extends BasicWidget {
             this.$searchString.focus();
         });
 
-        shortcutService.bindElShortcut(this.$searchString, "down", () => {
-            this.$searchResults.find(".dropdown-item:not(.disabled):first").focus();
+        // Bootstrap moves between the results but ignores key events on an input, so the step from
+        // the search box into the list is bound here.
+        this.$searchString.on("keydown", (e) => {
+            const event = e.originalEvent as KeyboardEvent | undefined;
+
+            if (!event || event.key !== "ArrowDown" || !this.isDropdownOpen()) {
+                return;
+            }
+
+            if (isIMEComposing(event) || isAppShortcutChord(event) || event.shiftKey) {
+                return;
+            }
+
+            const $firstResult = this.$searchResults.find(".dropdown-item:not(.disabled)").first();
+
+            // Searching and no-results leave only a disabled item, and the caret keeps the key.
+            if (!$firstResult.length) {
+                return;
+            }
+
+            e.preventDefault();
+            $firstResult.focus();
         });
 
         shortcutService.bindElShortcut(this.$searchString, "esc", () => {
@@ -427,6 +452,11 @@ export default class QuickSearchWidget extends BasicWidget {
                 this.displayMoreResults(LOAD_MORE_BATCH_SIZE).then(() => this.dropdown.update());
             }
         }
+    }
+
+    /** Whether the results popup is open, which is what makes ArrowDown move focus into it. */
+    private isDropdownOpen() {
+        return this.$dropdownMenu.hasClass("show");
     }
 
     async showInFullSearch() {
