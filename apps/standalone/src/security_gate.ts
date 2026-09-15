@@ -1,4 +1,4 @@
-import type { StandaloneSecurityApi, StandaloneSecuritySettingName } from "@triliumnext/commons";
+import type { SecurityToggleName, StandaloneSecurityApi } from "@triliumnext/commons";
 
 import { requestSecurityChange } from "./local-bridge.js";
 
@@ -51,7 +51,7 @@ export function createSecurityApi(): StandaloneSecurityApi {
 
 /** Whether the user agreed, and the change reached the file. Every other answer is `false`. */
 async function requestChange(
-    setting: StandaloneSecuritySettingName, enabled: boolean
+    setting: SecurityToggleName, enabled: boolean
 ): Promise<boolean> {
     // Only granting is limited. Turning a capability off is what the user does to get out of a
     // situation like this one, and a script that keeps asking for it can achieve nothing worse
@@ -96,7 +96,7 @@ function hasUserActivation(): boolean {
  * costs nothing and keeps i18next out of the startup bundle.
  */
 async function promptFor(
-    setting: StandaloneSecuritySettingName, enabled: boolean
+    setting: SecurityToggleName, enabled: boolean
 ): Promise<string> {
     const { t } = await import("../../client/src/services/i18n.js");
     const settingLabel = setting === "backendScriptingEnabled"

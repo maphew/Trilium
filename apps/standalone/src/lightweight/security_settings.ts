@@ -1,4 +1,4 @@
-import type { StandaloneSecuritySettingName } from "@triliumnext/commons";
+import { parseSecuritySettings, type SecurityToggleName } from "@triliumnext/commons";
 import type { CoreConfig } from "@triliumnext/core";
 
 /**
@@ -25,7 +25,11 @@ export interface StandaloneSecuritySettings {
     sqlConsoleEnabled: boolean;
 }
 
-export const SECURITY_SETTING_NAMES: readonly StandaloneSecuritySettingName[] = [
+/**
+ * What this build writes. The file can carry the desktop's LAN access too, but there is no listener
+ * here for it to open, so a request naming it is refused rather than stored.
+ */
+export const WRITABLE_SETTING_NAMES: readonly SecurityToggleName[] = [
     "backendScriptingEnabled",
     "sqlConsoleEnabled"
 ];
@@ -107,7 +111,7 @@ export class SecuritySettingsStore {
         try {
             const bytes = new Uint8Array(this.handle.getSize());
             this.handle.read(bytes, { at: 0 });
-            return parseSecuritySettings(new TextDecoder().decode(bytes));
+            return resolveSecuritySettings(new TextDecoder().decode(bytes));
         } catch (e) {
             console.warn("[SecuritySettings] The settings file could not be read:", e);
             return { ...DEFAULT_SECURITY_SETTINGS };
@@ -122,7 +126,7 @@ export class SecuritySettingsStore {
      * becomes what the next start reads.
      */
     setSetting(name: unknown, enabled: unknown): boolean {
-        if (!this.handle || !isSecuritySettingName(name) || typeof enabled !== "boolean") {
+        if (!this.handle || !isWritableSettingName(name) || typeof enabled !== "boolean") {
             return false;
         }
 
@@ -150,32 +154,23 @@ export class SecuritySettingsStore {
     }
 }
 
-export function isSecuritySettingName(name: unknown): name is StandaloneSecuritySettingName {
-    return typeof name === "string" && (SECURITY_SETTING_NAMES as readonly string[]).includes(name);
+export function isWritableSettingName(name: unknown): name is SecurityToggleName {
+    return typeof name === "string" && (WRITABLE_SETTING_NAMES as readonly string[]).includes(name);
 }
 
 /**
- * Reads what the file says, granting nothing it does not say exactly.
+ * What the file says, as an answer for each setting rather than only for the ones it named.
  *
- * Only a literal `true` enables anything: a `"true"`, a `1` or an object is what a half-written
- * file looks like, and none of them is a decision the user made.
+ * The shared reader leaves a setting out when the file has nothing to say about it, which is what
+ * a server needs so `config.ini` still gets a turn. There is no config file here, so an unanswered
+ * setting is one nobody has agreed to.
  */
-export function parseSecuritySettings(raw: string): StandaloneSecuritySettings {
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(raw);
-    } catch {
-        return { ...DEFAULT_SECURITY_SETTINGS };
-    }
+export function resolveSecuritySettings(raw: string): StandaloneSecuritySettings {
+    const settings = parseSecuritySettings(raw);
 
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        return { ...DEFAULT_SECURITY_SETTINGS };
-    }
-
-    const record = parsed as Record<string, unknown>;
     return {
-        backendScriptingEnabled: record.backendScriptingEnabled === true,
-        sqlConsoleEnabled: record.sqlConsoleEnabled === true
+        backendScriptingEnabled: settings.backendScriptingEnabled === true,
+        sqlConsoleEnabled: settings.sqlConsoleEnabled === true
     };
 }
 

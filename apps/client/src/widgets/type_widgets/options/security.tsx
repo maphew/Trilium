@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 
-import type { StandaloneSecuritySettingName } from "@triliumnext/commons";
+import type { SecurityToggleName } from "@triliumnext/commons";
 
 import { t } from "../../../services/i18n";
 import { isElectron, isStandalone } from "../../../services/utils";
@@ -83,7 +83,7 @@ function canToggle(): boolean {
  * the user still has to answer either way.
  */
 async function requestSecurityChange(
-    setting: StandaloneSecuritySettingName, enabled: boolean
+    setting: SecurityToggleName, enabled: boolean
 ): Promise<boolean> {
     const api = window.electronApi?.security ?? window.standaloneApi?.security;
 

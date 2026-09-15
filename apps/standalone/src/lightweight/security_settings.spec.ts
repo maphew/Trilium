@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     acquireSecuritySettings,
     DEFAULT_SECURITY_SETTINGS,
-    isSecuritySettingName,
-    parseSecuritySettings,
+    isWritableSettingName,
+    resolveSecuritySettings,
     SecuritySettingsStore,
     toCoreConfig
 } from "./security_settings.js";
@@ -183,7 +183,7 @@ describe("a file that says something other than yes or no", () => {
     });
 
     it("grants only the settings it names, whatever else it carries", () => {
-        const settings = parseSecuritySettings(JSON.stringify({
+        const settings = resolveSecuritySettings(JSON.stringify({
             backendScriptingEnabled: true,
             // A file that names something else is not a way to reach it: only these two are read,
             // and only these two are written back.
@@ -250,10 +250,10 @@ describe("a change that is not one of the two", () => {
     });
 
     it("knows which names are settings", () => {
-        expect(isSecuritySettingName("backendScriptingEnabled")).toBe(true);
-        expect(isSecuritySettingName("sqlConsoleEnabled")).toBe(true);
-        expect(isSecuritySettingName("allowLanAccess")).toBe(false);
-        expect(isSecuritySettingName("__proto__")).toBe(false);
+        expect(isWritableSettingName("backendScriptingEnabled")).toBe(true);
+        expect(isWritableSettingName("sqlConsoleEnabled")).toBe(true);
+        expect(isWritableSettingName("allowLanAccess")).toBe(false);
+        expect(isWritableSettingName("__proto__")).toBe(false);
     });
 });
 
