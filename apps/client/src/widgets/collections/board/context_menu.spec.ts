@@ -850,7 +850,8 @@ describe("Board item context menu", () => {
                 getPromotedAttributes: () => [],
                 isFirstInColumn: () => false,
                 isColumnSorted: () => false,
-                getCardColumn: () => column
+                getCardColumn: () => column,
+                getColumnNoteIds: () => []
             },
             api);
         const selected = notes ?? [ buildNote({ title: "Card" }) as FNote ];
@@ -944,23 +945,58 @@ describe("Board item context menu", () => {
         expect(api.changeColumn).toHaveBeenCalledWith(expect.any(String), "Done");
     });
 
-    /** The card is drawn afresh under the column it lands in, so focus is asked for by name. */
-    it("keeps focus on the card it files, as a move by keyboard does", () => {
+    /**
+     * Focus stays in the column being emptied rather than following the card, so that sending a
+     * run of cards off does not carry the reader to wherever each one landed.
+     */
+    it("focuses the card taking its place rather than the one it files", () => {
+        const cards = [ 0, 1, 2, 3 ].map(() => buildNote({ title: "Card" }) as FNote);
+        const ids = cards.map(card => card.noteId);
         const api = {
             columns: [ "To Do", "Done" ],
             isColumnArchived: () => false,
             getColumnIcon: () => DEFAULT_COLUMN_ICON,
             getColumnColorClass: () => "",
+            getColumnNoteIds: () => ids,
+            changeColumn: vi.fn(async () => {})
+        } as unknown as BoardApi;
+
+        /** Files the card standing at `index` under "Done", and says what was focused after. */
+        const fileFrom = (index: number) => {
+            const focusCard = vi.fn();
+            const items = openItemMenu(
+                api, "To Do", focusCard, vi.fn(), index, vi.fn(), [ cards[index] ]);
+            const header = items.findIndex(item => item && "kind" in item && item.kind === "header");
+            const done = items[header + 2];
+            if (done && "handler" in done) done.handler?.(done, {} as never);
+            return focusCard.mock.calls.map(call => call[0]);
+        };
+
+        // The card that closes the gap is the one after it.
+        expect(fileFrom(1)).toEqual([ ids[2] ]);
+        // From the foot there is none after it, so the column's new last card takes the focus.
+        expect(fileFrom(3)).toEqual([ ids[2] ]);
+    });
+
+    /** The card it is already under writes nothing, so there is no reason to move the focus. */
+    it("leaves the focus alone when the column named is the one it is in", () => {
+        const api = {
+            columns: [ "To Do", "Done" ],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            getColumnNoteIds: () => [ "first", "second" ],
             changeColumn: vi.fn(async () => {})
         } as unknown as BoardApi;
         const focusCard = vi.fn();
 
         const items = openItemMenu(api, "To Do", focusCard);
+        // The first column entry, which is the one the card already stands under.
         const header = items.findIndex(item => item && "kind" in item && item.kind === "header");
-        const done = items[header + 2];
-        if (done && "handler" in done) done.handler?.(done, {} as never);
+        const toDo = items[header + 1];
+        if (toDo && "handler" in toDo) toDo.handler?.(toDo, {} as never);
 
-        expect(focusCard).toHaveBeenCalledWith(expect.any(String));
+        expect(focusCard).not.toHaveBeenCalled();
     });
 
     /**

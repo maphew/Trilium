@@ -408,7 +408,7 @@ export interface NoteMenuTarget {
     notes: FNote[];
     /** The branches those notes have on this board, in the order `notes` lists them. */
     branchIds: string[];
-    /** Refocuses the card after a column change has redrawn it elsewhere. */
+    /** Puts focus on a card by name, once the board has drawn it again. */
     onFocusCard: (noteId: string) => void;
     /** Opens the new-card editor at an index in the column, above or below this card. */
     onInsert: (index: number) => void;
@@ -442,9 +442,19 @@ function buildColumnItems(api: Api, target: NoteMenuTarget): MenuItem<CommandNam
             ? [ { title: t("board_view.archived-badge") } ]
             : undefined,
         handler: () => {
-            // Asked for before the write: the cards are drawn afresh under the column they land
-            // in, so the element the menu was opened from will be gone.
-            target.onFocusCard(target.note.noteId);
+            // Focus stays in the column being emptied, on the card that takes this one's place:
+            // a reader sending cards off one after another would otherwise be carried to
+            // wherever each one landed. Asked for before the write, which draws the board again.
+            if (name !== current) {
+                const going = new Set(target.notes.map((note) => note.noteId));
+                const staying = api.getColumnNoteIds(target.column)
+                    .filter((noteId) => !going.has(noteId));
+                const next = staying[target.index] ?? staying.at(-1);
+                if (next) {
+                    target.onFocusCard(next);
+                }
+            }
+
             return Promise.all(
                 target.notes.map((note) => api.changeColumn(note.noteId, name)));
         }
