@@ -1416,7 +1416,6 @@ export default function BoardView({
                         className={clsx("board-view-container", {
                             pannable: isPannable,
                             panning: isPanning,
-                            dragging: isDraggingItem,
                             selecting: isSelecting
                         })}
                         onKeyDown={handleKeyDown}

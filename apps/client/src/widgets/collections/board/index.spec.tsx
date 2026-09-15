@@ -4966,12 +4966,14 @@ describe("Card toolbar on mobile", () => {
             press("pointerdown");
             vi.advanceTimersByTime(1000);
         });
-        expect(board()?.classList.contains("dragging")).toBe(true);
+        // The drag's own class, which the rail hides under. It must survive the board's redraw
+        // on activation, or the auto-scroll it keeps working stops with it.
+        expect(board()?.classList.contains("board-dragging")).toBe(true);
 
         await withTabManager(async () => {
             await act(async () => { press("pointerup"); });
         });
-        expect(board()?.classList.contains("dragging")).toBe(false);
+        expect(board()?.classList.contains("board-dragging")).toBe(false);
         expect(document.activeElement).toBe(card("tool1"));
         expect(toolbar()).not.toBeNull();
     });
