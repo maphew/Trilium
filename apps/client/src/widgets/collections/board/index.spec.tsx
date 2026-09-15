@@ -4867,9 +4867,12 @@ describe("Card toolbar on mobile", () => {
         expect(buttons()).toEqual([
             "bx-rename", "bx-list-plus", "bx-list-plus", "bx-task-x", "bx-dots-vertical-rounded"
         ]);
-        // The second insert is the one below, told apart by the class its icon is turned over by.
-        expect(toolbar()?.querySelectorAll("button")[2].classList
-            .contains("board-insert-below-button")).toBe(true);
+        // Above first, then below. The glyph's plus sits at the foot of its list, so the one
+        // above is told apart by the class that turns it over.
+        expect(toolbar()?.querySelectorAll("button")[1].classList
+            .contains("board-insert-above-button")).toBe(true);
+        // The rail offers the rename, so the card's own hover-revealed icon is left out.
+        expect(card("tool1").querySelector(".edit-icon")).toBeNull();
         // Portaled onto the board, whose edge the rail is pinned to, rather than into the card.
         expect(toolbar()?.parentElement).toBe(container.querySelector(".board-view-container"));
 
@@ -4899,7 +4902,7 @@ describe("Card toolbar on mobile", () => {
         // Insert below opens the field under the card, which takes the focus and the rail with it.
         await focus("tool1");
         await act(async () => {
-            button("board-insert-below-button").click();
+            toolbar()?.querySelectorAll<HTMLElement>("button")[2].click();
             await flush();
         });
         const column = container.querySelectorAll(".board-column")[0];

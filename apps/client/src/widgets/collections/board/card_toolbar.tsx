@@ -55,12 +55,12 @@ export default function CardToolbar({
                 <OverlayControlButton
                     title={t("board_view.insert-above")}
                     icon="bx-list-plus"
+                    className="board-insert-above-button"
                     onClick={onInsertAbove}
                 />
                 <OverlayControlButton
                     title={t("board_view.insert-below")}
                     icon="bx-list-plus"
-                    className="board-insert-below-button"
                     onClick={onInsertBelow}
                 />
             </>)}

@@ -39,8 +39,8 @@
   }
 }
 
-/* The icon above it turned over: an addition at the foot of the list rather than at its head. */
-.board-view-container .board-card-toolbar .board-insert-below-button::before {
+/* The list's plus sits at its foot, so the head is the same glyph turned over. */
+.board-view-container .board-card-toolbar .board-insert-above-button::before {
   display: inline-block;
   transform: scaleY(-1);
 }

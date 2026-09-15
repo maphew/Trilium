@@ -308,11 +308,13 @@ function Card({
                         <HighlightedText
                             className="text" text={title} highlightedTokens={highlightedTokens} />
                     </span>
-                    <span
+                    {/* On mobile the rail offers the rename, and a hover-revealed icon has no
+                        hover to be revealed by. */}
+                    {!isMobile() && <span
                         className="edit-icon icon bx bx-edit"
                         title={t("board_view.edit-note-title")}
                         onClick={handleEdit}
-                    />
+                    />}
                 </>
             ) : (
                 <TitleEditor
