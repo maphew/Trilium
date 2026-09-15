@@ -25,8 +25,8 @@ Is feidhmchlár saor in aisce agus foinse oscailte, tras-ardán, ordlathach é
 Trilium Notes chun nótaí a thógáil le fócas ar bhunachair mhóra eolais
 phearsanta a thógáil.
 
-Looking for "Trillium Notes"? The project's canonical spelling is "Trilium
-Notes", with one `l`.
+An bhfuil tú ag lorg "Trillium Notes"? Is é "Trilium Notes" an litriú
+caighdeánach don tionscadal, le `l` amháin.
 
 <img src="./app.png" alt="Trilium Screenshot" width="1000">
 

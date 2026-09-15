@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-    boardColumnsKey, DEFAULT_BOARD_GROUP_BY, isBoardColumnsKey, normalizeBoardGroupBy
+    boardColumnsKey, boardGroupByFromColumnsKey, DEFAULT_BOARD_GROUP_BY, isBoardColumnsKey,
+    normalizeBoardGroupBy
 } from "./board_columns.js";
 
 describe("boardColumnsKey", () => {
@@ -41,5 +42,25 @@ describe("isBoardColumnsKey", () => {
         expect(isBoardColumnsKey("columns")).toBe(false);
         expect(isBoardColumnsKey("ViewColumns")).toBe(false);
         expect(isBoardColumnsKey("templates")).toBe(false);
+    });
+});
+
+describe("boardGroupByFromColumnsKey", () => {
+    it("names the grouping a stored column list belongs to", () => {
+        expect(boardGroupByFromColumnsKey("columns")).toBe(DEFAULT_BOARD_GROUP_BY);
+        expect(boardGroupByFromColumnsKey("priorityViewColumns")).toBe("priority");
+        expect(boardGroupByFromColumnsKey("~assigneeViewColumns")).toBe("~assignee");
+    });
+
+    it("answers with nothing for a key holding something else", () => {
+        for (const key of [ "templates", "ViewColumns", "filterQuery", "" ]) {
+            expect(boardGroupByFromColumnsKey(key), key).toBeUndefined();
+        }
+    });
+
+    it("round-trips every grouping through boardColumnsKey", () => {
+        for (const groupBy of [ DEFAULT_BOARD_GROUP_BY, "priority", "~assignee" ]) {
+            expect(boardGroupByFromColumnsKey(boardColumnsKey(groupBy)), groupBy).toBe(groupBy);
+        }
     });
 });

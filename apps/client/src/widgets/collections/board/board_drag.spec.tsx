@@ -3,13 +3,21 @@ import { useRef } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type BoardDragCallbacks, type DropPosition, useBoardDrag } from "./board_drag";
+import {
+    type BoardDragCallbacks, type DraggedCard, type DropPosition, useBoardDrag
+} from "./board_drag";
+
+// i18next is never initialised under test, so the overlay would be left saying nothing at all.
+vi.mock("../../../services/i18n", () => ({
+    t: (key: string) => key,
+    translationsInitializedPromise: Promise.resolve()
+}));
 
 describe("useBoardDrag, carrying a card", () => {
     let container: HTMLElement | undefined;
     let board: HTMLElement;
     let calls: {
-        start: unknown[],
+        start: DraggedCard[],
         move: { position: unknown | null, inside: boolean }[],
         end: { card: unknown, position: unknown }[],
         columnStart: { column: string, index: number, size: unknown }[],
@@ -45,7 +53,88 @@ describe("useBoardDrag, carrying a card", () => {
 
         move(70, 60);
         expect(calls.start)
-            .toEqual([ { noteId: "n1", fromColumn: "To Do", index: 0, height: 50 } ]);
+            .toEqual([
+                { noteId: "n1", noteIds: [ "n1" ], fromColumn: "To Do", index: 0, height: 50 }
+            ]);
+    });
+
+    it("carries a selection as one card naming how many are on the move", () => {
+        setup({ carried: [ "n1", "n2", "n3" ] });
+
+        press(card("n1"), 50, 60);
+        move(90, 90);
+
+        expect(calls.start[0]?.noteIds).toEqual([ "n1", "n2", "n3" ]);
+        // A blank card holding the count, rather than a copy of the one under the pointer.
+        const copy = preview();
+        expect(copy?.classList.contains("board-drag-count")).toBe(true);
+        expect(copy?.textContent).toBe("3");
+        expect(copy?.querySelector(".title")).toBeNull();
+    });
+
+    /**
+     * A mouse drag is followed by a click on whatever the press and the release have in common,
+     * which for a card carried anywhere is the board itself. Left to stand, letting a card go
+     * would also read as a click on the board, which is a gesture of its own.
+     */
+    it("takes the click a mouse drag is followed by", () => {
+        setup();
+        const reached = vi.fn();
+        board.addEventListener("click", reached);
+
+        press(card("n1"), 50, 60);
+        move(90, 90);
+        release(90, 90);
+
+        const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+        card("n2").dispatchEvent(click);
+
+        expect(reached).not.toHaveBeenCalled();
+        expect(click.defaultPrevented).toBe(true);
+
+        // The one click, and no more: a press of the reader's own still counts.
+        const later = new MouseEvent("click", { bubbles: true, cancelable: true });
+        card("n2").dispatchEvent(later);
+        expect(reached).toHaveBeenCalledTimes(1);
+    });
+
+    /**
+     * The gap holds the space the cards will fill, so the column they land in is already the size
+     * it will be. Sized for one of them, it would resize around the rest as they arrive.
+     */
+    it("holds a gap the size of everything being carried", () => {
+        setup({ carried: [ "n1", "n2" ] });
+
+        press(card("n1"), 50, 60);
+        move(90, 90);
+
+        // Both cards stand 50 tall, and the stylesheet the spacing comes from is not loaded here.
+        expect(calls.start[0]?.height).toBe(100);
+    });
+
+    /** Two cards on the move leave one card behind the copy. */
+    it("stacks one card behind a pair", () => {
+        setup({ carried: [ "n1", "n2" ] });
+
+        press(card("n1"), 50, 60);
+        move(90, 90);
+
+        expect(preview()?.dataset.layers).toBe("2");
+        expect(preview()?.textContent).toBe("2");
+    });
+
+    /**
+     * The stack says a set is on the move and the number says how big it is, so the stack stops at
+     * the depth the stylesheet draws however many cards are carried.
+     */
+    it("stacks no deeper than three, whatever the selection holds", () => {
+        setup({ carried: [ "n1", "n2", "n3", "n4", "n5" ] });
+
+        press(card("n1"), 50, 60);
+        move(90, 90);
+
+        expect(preview()?.dataset.layers).toBe("3");
+        expect(preview()?.textContent).toBe("5");
     });
 
     it("carries a copy under the pointer without redrawing the board", () => {
@@ -255,7 +344,7 @@ describe("useBoardDrag, carrying a card", () => {
         release(320, 200);
 
         expect(calls.end).toEqual([ {
-            card: { noteId: "n1", fromColumn: "To Do", index: 0, height: 50 },
+            card: { noteId: "n1", noteIds: [ "n1" ], fromColumn: "To Do", index: 0, height: 50 },
             position: { column: "Doing", index: 1 }
         } ]);
     });
@@ -458,7 +547,7 @@ describe("useBoardDrag, carrying a card", () => {
         });
 
         expect(calls.end).toEqual([ {
-            card: { noteId: "n1", fromColumn: "To Do", index: 0, height: 50 },
+            card: { noteId: "n1", noteIds: [ "n1" ], fromColumn: "To Do", index: 0, height: 50 },
             position: null
         } ]);
         expect(element.style.transform).toBe("");
@@ -505,6 +594,52 @@ describe("useBoardDrag, carrying a card", () => {
         move(200, 100);
 
         expect(calls.start).toHaveLength(0);
+    });
+
+    describe("the drag Ctrl hands to the browser", () => {
+        /**
+         * Nothing else reaches the note tree or a board in another split, so a Ctrl press makes the
+         * card natively draggable and stands back. `draggable` is set on the press rather than kept
+         * on the card, or every ordinary drag would become a native one.
+         */
+        it("makes the card draggable and opens no gesture of its own", () => {
+            setup();
+            const element = card("n1");
+            // `toBeFalsy`, not `toBe(false)`: happy-dom does not reflect the `draggable` attribute
+            // onto the property, so an element nothing has set it on reads undefined.
+            expect(element.draggable).toBeFalsy();
+
+            press(element, 50, 60, "mouse", { ctrlKey: true });
+            expect(element.draggable).toBe(true);
+
+            move(90, 90);
+            expect(calls.start).toHaveLength(0);
+        });
+
+        it("puts `draggable` back, whether the press became a drag or stayed a click", () => {
+            setup();
+            const element = card("n1");
+
+            press(element, 50, 60, "mouse", { ctrlKey: true });
+            act(() => { element.dispatchEvent(new Event("dragend", { bubbles: true })); });
+            expect(element.draggable).toBe(false);
+
+            // A Ctrl click that never moved delivers no `dragend`, so the release clears it.
+            press(element, 50, 60, "mouse", { ctrlKey: true });
+            release(50, 60);
+            expect(element.draggable).toBe(false);
+        });
+
+        it("leaves an ordinary press to the board's own gesture", () => {
+            setup();
+            const element = card("n1");
+
+            press(element, 50, 60);
+            move(90, 90);
+
+            expect(element.draggable).toBeFalsy();
+            expect(calls.start).toHaveLength(1);
+        });
     });
 
     describe("carrying a column", () => {
@@ -593,12 +728,204 @@ describe("useBoardDrag, carrying a card", () => {
      * Two 100px columns, 200 apart, each card 50 tall. The first holds two cards, the second one.
      * happy-dom lays nothing out, so every box is declared.
      */
-    function setup({ disabled = false } = {}) {
+    describe("carrying a card to one end of a column", () => {
+        /** Ten cards in the first column, scrolled so that neither end of it is on screen. */
+        const tall = {
+            layout: [ Array.from({ length: 10 }, (_, index) => `c${index + 1}`), [ "n3" ] ],
+            scrollTop: 120
+        };
+
+        /** Taken 25 below its own top edge, so the card and the pointer are never in one place. */
+        function takeHold() {
+            press(card("c3"), 50, 65);
+        }
+
+        /**
+         * The column runs on above and below what it shows, so the places the two ends name are
+         * nowhere near the ones the cards on screen give.
+         */
+        it("places the card at the head of the column, and at its foot", () => {
+            setup(tall);
+
+            takeHold();
+            move(50, 225);
+            act(() => { vi.advanceTimersByTime(20); });
+            expect(calls.move.at(-1)?.position).toEqual({ column: "To Do", index: 5 });
+
+            // Clear above the heading, which is the head of the column whatever it is scrolled to.
+            move(50, -40);
+            act(() => { vi.advanceTimersByTime(20); });
+            expect(calls.move.at(-1)?.position).toEqual({ column: "To Do", index: 0 });
+
+            // Clear below the button that adds a card, which is its foot.
+            move(50, 440);
+            act(() => { vi.advanceTimersByTime(20); });
+            expect(calls.move.at(-1)?.position).toEqual({ column: "To Do", index: 10 });
+        });
+
+        /**
+         * Both are where a card is held to walk the column along, which is how a reader reaches a
+         * place in the middle of a long one.
+         */
+        it("leaves the heading and the button that adds a card out of both ends", () => {
+            setup(tall);
+            const showing = () => !!preview()?.classList.contains("showing-drop-hint");
+            const area = board.querySelector<HTMLElement>(".board-column-content");
+
+            takeHold();
+            // On the heading, the card's own top edge standing above the column altogether.
+            move(50, 20);
+            act(() => { vi.advanceTimersByTime(100); });
+            expect(showing()).toBe(false);
+            // What the heading is for while a card is held over it: the column walks up under it,
+            // and the card is placed against the cards that brings into view.
+            expect(area?.scrollTop).toBeLessThan(120);
+
+            // On the button at the foot, and in the band just past it.
+            move(50, 360);
+            act(() => { vi.advanceTimersByTime(20); });
+            expect(showing()).toBe(false);
+            expect(calls.move.at(-1)?.position).not.toEqual({ column: "To Do", index: 10 });
+
+            move(50, 425);
+            act(() => { vi.advanceTimersByTime(20); });
+            expect(showing()).toBe(false);
+        });
+
+        it("says on the copy being carried what letting go would do", () => {
+            setup(tall);
+            const hint = () => preview()?.querySelector<HTMLElement>(".board-drop-hint");
+
+            takeHold();
+            move(50, -40);
+            act(() => { vi.advanceTimersByTime(20); });
+            expect(preview()?.classList.contains("showing-drop-hint")).toBe(true);
+            expect(hint()?.textContent).toBe("board_view.drop-as-first-item");
+
+            move(50, 440);
+            act(() => { vi.advanceTimersByTime(20); });
+            expect(hint()?.textContent).toBe("board_view.drop-as-last-item");
+
+            // Back among the cards, where the card is placed against them and says nothing.
+            move(50, 225);
+            act(() => { vi.advanceTimersByTime(20); });
+            expect(preview()?.classList.contains("showing-drop-hint")).toBe(false);
+        });
+
+        /**
+         * A card taller than the board is cut off by it, and a label in the middle of the card is
+         * cut off with it. The board runs 0 to 600 here and the window reaches further, so a label
+         * placed against the window would land below what the reader can see.
+         */
+        it("lets the copy leave the board, but not past a sliver of itself", () => {
+            setup(tall);
+            const labelEl = () => preview()
+                ?.querySelector<HTMLElement>(".board-drop-hint span") as HTMLElement;
+            const shift = () => Number(labelEl()?.style.transform.match(/-?[\d.]+/)?.[0]);
+            const visible = () =>
+                Number(preview()?.style.getPropertyValue("--board-drag-visible"));
+            /** How far down the page the copy has been moved, off its own transform. */
+            const moved = () =>
+                Number(preview()?.style.transform.match(/translate3d\([^,]+,\s*(-?[\d.]+)px/)?.[1]);
+            const showing = parseFloat(getComputedStyle(card("c3")).fontSize) * 1.5;
+
+            // A card of its own height, carried above the board's head. Negative here: in the app
+            // the board's head sits below the window's.
+            takeHold();
+            move(50, -60);
+            act(() => { vi.advanceTimersByTime(20); });
+            // Drawn 45 tall about a middle that starts 40 below the page's top, so this is where
+            // its foot stands: a sliver of it inside the board's head at 0.
+            expect(40 + moved() + 50 / 2 + 45 / 2).toBeCloseTo(showing, 5);
+            release(50, -60);
+
+            // A card taller than the board, carried past the foot but still short of leaving it.
+            place(card("c3"), 0, 40, 100, 2000);
+            press(card("c3"), 50, 65);
+            move(50, 440);
+            act(() => { vi.advanceTimersByTime(20); });
+            const head = () => 40 + moved() + 2000 / 2 - 1800 / 2;
+            expect(head()).toBeCloseTo(515, 5);
+            expect(visible()).toBeCloseTo(0.034, 3);
+
+            // Carried on out, it stops with the same sliver against the board's foot.
+            move(50, 1400);
+            act(() => { vi.advanceTimersByTime(20); });
+            const stood = moved();
+            expect(head()).toBeCloseTo(600 - showing, 5);
+            // Against the edge, where the fade has run its course.
+            expect(visible()).toBe(0);
+
+            // And stands still however far past the board the pointer goes.
+            move(50, 1500);
+            act(() => { vi.advanceTimersByTime(20); });
+            expect(moved()).toBe(stood);
+
+            // The label keeps to the middle of what the board shows of the copy.
+            const label = 40 + moved() + 2000 / 2 + shift() * 0.9;
+            expect(label).toBeGreaterThan(0);
+            expect(label).toBeLessThan(600);
+        });
+
+        it("offers both ends of a collapsed column, which draws none of its cards", () => {
+            setup();
+            // Collapsed before the board opened, so its cards were never drawn: the strip is its
+            // heading alone, and how many it holds is read off the column itself.
+            const strip = board.querySelectorAll<HTMLElement>(".board-column")[1];
+            strip.classList.add("collapsed");
+            strip.dataset.count = "7";
+            strip.querySelector(".board-column-content")?.remove();
+            strip.querySelector(".board-new-item")?.remove();
+            place(strip, 200, 0, 40, 400);
+            place(strip.querySelector("h3") as HTMLElement, 200, 0, 40, 400);
+
+            press(card("n1"), 10, 10);
+            move(210, 440);
+            act(() => { vi.advanceTimersByTime(20); });
+            expect(calls.move.at(-1)?.position).toEqual({ column: "Doing", index: 7 });
+
+            move(210, -40);
+            act(() => { vi.advanceTimersByTime(20); });
+            expect(calls.move.at(-1)?.position).toEqual({ column: "Doing", index: 0 });
+
+            // Over the strip itself it goes to the front, as it did before either end was offered.
+            move(210, 200);
+            act(() => { vi.advanceTimersByTime(20); });
+            expect(calls.move.at(-1)?.position).toEqual({ column: "Doing", index: 0 });
+            release(210, 200);
+        });
+
+        /** A sorted column places what it is given, so neither of its ends is on offer. */
+        it("offers no end of a column that orders its own cards", () => {
+            setup(tall);
+            board.querySelectorAll<HTMLElement>(".board-column")[0].dataset.sorted = "true";
+
+            takeHold();
+            move(50, -40);
+            act(() => { vi.advanceTimersByTime(20); });
+
+            expect(preview()?.classList.contains("showing-drop-hint")).toBe(false);
+            expect(calls.move.at(-1)?.position).toEqual({ column: "To Do", index: 0 });
+        });
+    });
+
+    function setup({
+        disabled = false, carried, layout = [ [ "n1", "n2" ], [ "n3" ] ], scrollTop = 0
+    }: {
+        disabled?: boolean,
+        /** The cards a press answers with, for the tests about carrying a selection. */
+        carried?: string[],
+        /** What each column holds, for a test that needs more cards than a column can show. */
+        layout?: string[][],
+        /** How far each column is scrolled, its cards standing that much higher on screen. */
+        scrollTop?: number
+    } = {}) {
         const mountPoint = document.createElement("div");
         container = mountPoint;
         document.body.appendChild(mountPoint);
 
         const callbacks: BoardDragCallbacks = {
+            carriedWith: (noteId) => carried ?? [ noteId ],
             onCardStart: (card) => calls.start.push(card),
             onCardMove: (position, inside) => calls.move.push({ position, inside }),
             onCardEnd: (card, position) => calls.end.push({ card, position }),
@@ -618,11 +945,11 @@ describe("useBoardDrag, carrying a card", () => {
         board.appendChild(Object.assign(document.createElement("div"), {
             className: "board-drag-layer"
         }));
-        place(board, 0, 0, 500, 400);
+        place(board, 0, 0, 500, 600);
         // Writable: the board walks itself along while something is held at its edge.
         Object.defineProperty(board, "scrollLeft", { value: 0, configurable: true, writable: true });
 
-        for (const [ index, cards ] of [ [ "n1", "n2" ], [ "n3" ] ].entries()) {
+        for (const [ index, cards ] of layout.entries()) {
             const column = document.createElement("div");
             column.className = "board-column";
             column.dataset.column = [ "To Do", "Doing" ][index];
@@ -641,9 +968,9 @@ describe("useBoardDrag, carrying a card", () => {
             const area = document.createElement("div");
             area.className = "board-column-content";
             column.appendChild(area);
-            place(area, index * 200, 40, 100, 360);
+            place(area, index * 200, 40, 100, 300);
             Object.defineProperty(area, "scrollTop", {
-                value: 0, configurable: true, writable: true
+                value: scrollTop, configurable: true, writable: true
             });
 
             for (const [ position, noteId ] of cards.entries()) {
@@ -654,8 +981,14 @@ describe("useBoardDrag, carrying a card", () => {
                     className: "edit-icon"
                 }));
                 area.appendChild(note);
-                place(note, index * 200, 40 + position * 60, 100, 50);
+                place(note, index * 200, 40 + position * 60 - scrollTop, 100, 50);
             }
+
+            // The button that adds a card, which stands at the foot of every open column.
+            const adder = document.createElement("div");
+            adder.className = "board-new-item";
+            column.appendChild(adder);
+            place(adder, index * 200, 340, 100, 60);
         }
 
         // Attached from an effect, which Preact defers past the render.
@@ -682,18 +1015,26 @@ describe("useBoardDrag, carrying a card", () => {
         }) as DOMRect;
     }
 
-    function pointer(type: string, clientX: number, clientY: number, pointerType: string) {
+    function pointer(
+        type: string, clientX: number, clientY: number, pointerType: string,
+        modifiers: { ctrlKey?: boolean } = {}
+    ) {
         const event = new Event(type, { bubbles: true, cancelable: true });
         for (const [ name, value ] of Object.entries({
-            clientX, clientY, pointerId: 1, button: 0, pointerType
+            clientX, clientY, pointerId: 1, button: 0, pointerType, ...modifiers
         })) {
             Object.defineProperty(event, name, { value, configurable: true });
         }
         return event;
     }
 
-    function press(target: HTMLElement, x: number, y: number, pointerType = "mouse") {
-        act(() => { target.dispatchEvent(pointer("pointerdown", x, y, pointerType)); });
+    function press(
+        target: HTMLElement, x: number, y: number, pointerType = "mouse",
+        modifiers: { ctrlKey?: boolean } = {}
+    ) {
+        act(() => {
+            target.dispatchEvent(pointer("pointerdown", x, y, pointerType, modifiers));
+        });
     }
 
     function move(x: number, y: number, pointerType = "mouse") {

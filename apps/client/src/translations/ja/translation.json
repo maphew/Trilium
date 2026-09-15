@@ -646,7 +646,7 @@
     "show_attachments_title": "添付ファイルを表示",
     "show_attachments_description": "ノートの添付ファイルを表示",
     "configure_launch_bar_title": "ランチャーバーの設定",
-    "configure_launch_bar_description": "ランチャーバーの構成を開き、項目を追加または削除します。",
+    "configure_launch_bar_description": "ランチャーバーの構成を開き、アイテムを追加または削除します。",
     "pin_tab_title": "タブを固定",
     "pin_tab_description": "このノートを常にタブバーの先頭で開いたままにし、誤って閉じられるのを防ぎます",
     "unpin_tab_title": "タブの固定を解除",
@@ -699,24 +699,27 @@
     "move-column-after": "{{column}} の後ろに",
     "hints": {
       "navigation": "ナビゲーション",
-      "navigate_items": "項目間を移動",
+      "navigate_items": "アイテム間を移動",
       "navigate_columns": "列間を移動",
-      "first_last_item": "列の先頭 / 最後の項目",
+      "first_last_item": "列の先頭 / 最後のアイテム",
       "editing": "編集",
-      "insert_item": "下 / 上 に項目を挿入",
+      "insert_item": "下 / 上 にアイテムを挿入",
       "insert_column": "後ろ / 前 に列を挿入",
-      "open_item": "項目を開く",
-      "rename": "項目または列の名前を変更",
-      "remove_item": "ボードから項目を削除",
+      "open_item": "アイテムを開く",
+      "rename": "アイテムまたは列の名前を変更",
+      "remove_item": "ボードからアイテムを削除",
       "delete_item": "ノートを削除",
       "remove_column": "列を削除（選択した列ヘッダーに対して））",
       "moving": "移動",
-      "move_item": "項目を上 / 下 に移動",
+      "move_item": "アイテムを上 / 下 に移動",
       "move_within": "列の 先頭 / 末尾 に移動",
       "move_across": "前 / 次 の列に移動",
       "move_to_end_column": "最初 / 最後 の列に移動",
       "move_column": "列を 左 / 右 に移動",
-      "move_column_to_edge": "列を 一番左 / 一番右 に移動"
+      "move_column_to_edge": "列を 一番左 / 一番右 に移動",
+      "selection": "選択",
+      "select_column": "列内のすべてのアイテムを選択",
+      "clear_selection": "選択を解除"
     },
     "inbox": "インボックス",
     "inherited-column": "このカードは、テンプレートまたは親ノートから列情報を取得するため、そこで変更できます。",
@@ -741,7 +744,7 @@
     "create-column-at-end": "末尾に列を作成",
     "keep-column-collapsed": "列を折りたたんだままにする",
     "collapse-hint": "ダブルクリックで折りたたむ",
-    "more-columns": "その他のステータス…",
+    "more-columns": "その他…",
     "collapse-all-columns": "すべての列を折りたたむ",
     "expand-all-columns": "すべての列を展開",
     "show-inbox-column": "インボックス列を表示",
@@ -762,7 +765,28 @@
     "card-outside-filter": "このカードは現在のフィルタリング範囲外です",
     "sort": "並べ替え",
     "sort-manually": "手動",
-    "sorted-no-reorder": "並べ替えが適用されている列のため、カードの順序を変更することはできません。"
+    "sorted-no-reorder": "並べ替えが適用されている列のため、カードの順序を変更することはできません。",
+    "insert-new": "新しく追加",
+    "group-by": "カードのグループ化",
+    "grouping-already-defined": "\"{{- name}}\" はこのボード上で既に定義されています。リストから選択してグループ化してください。",
+    "sort-board-default": "ボードのデフォルト",
+    "default-card-order": "デフォルトのカード並び順",
+    "default-card-order-description": "特定の列に対して異なる並べ替えオプションを選択しない限り、各列のカードはこの順序で並べ替えられます。",
+    "reset-column-sorting": "すべての列の並べ替えオプションをデフォルトにリセット",
+    "reset-column-sorting-confirm": "現在のビューにあるすべての列の並べ替えオプションを、デフォルトにリセットしますか？",
+    "column-name-taken": "“{{- column}}” という名前の列はすでに存在します。",
+    "columns-title": "列",
+    "columns-empty": "このボードにはまだ列がありません。",
+    "column-width": "列の幅",
+    "drop-as-first-item": "最初のアイテムとしてドロップ",
+    "drop-as-last-item": "最後のアイテムとしてドロップ",
+    "column-width-narrow": "狭い（デフォルト）",
+    "column-width-medium": "中",
+    "column-width-wide": "広い",
+    "copy-reference": "参照をコピー",
+    "reference-column-missing": "その列は、このボード上にはもうありません。",
+    "reference-archived": "そのアイテムはアーカイブされているため、ボードには表示されていません。",
+    "reference-missing": "そのアイテムは、このボード上にはもうありません。"
   },
   "code_buttons": {
     "execute_button_title": "スクリプトを実行",
@@ -1349,7 +1373,10 @@
     "handshake_failed": "同期サーバーのハンドシェイクに失敗しました。エラー: {{message}}",
     "timeout_description": "接続が遅い場合に接続を断念するまでの待機時間。",
     "server_address_description": "同期先の Trilium サーバーの URL。",
-    "proxy_description": "システムのプロキシを使用する場合は空欄のままにしてください（デスクトップ版のみ）。すべてのプロキシをバイパスするには \"noproxy\" を使用してください。"
+    "proxy_description": "システムのプロキシを使用する場合は空欄のままにしてください（デスクトップ版のみ）。すべてのプロキシをバイパスするには \"noproxy\" を使用してください。",
+    "effective_server": "サーバーは使用中です",
+    "effective_server_description": "config.ini または環境変数で設定します。これらは上記のサーバーアドレスよりも優先されます。",
+    "effective_server_disabled": "同期は無効になっています。"
   },
   "api_log": {
     "close": "閉じる"
@@ -1430,7 +1457,7 @@
     "app_theme_base": "\"next\"、\"next-light\"、または \"next-dark\" に設定すると、従来のテーマではなく、対応する TriliumNext テーマ (auto、light、または dark) がカスタム テーマのベースとして使用されます。",
     "css_class": "このラベルの値は、ツリー内の特定のノートを表すノードにCSSクラスとして追加されます。これは高度なテーマ設定に役立ちます。テンプレートノートで使用できます。",
     "icon_class": "このラベルの値は、ツリー上のアイコンにCSSクラスとして追加され、ツリー内のノートを視覚的に区別するのに役立ちます。例えば、bx bx-home のように、アイコンは boxicons から取得されます。テンプレートノートで使用できます。",
-    "page_size": "ノート一覧の 1 ページあたりの項目数。",
+    "page_size": "ノート一覧の 1 ページあたりのアイテム数。",
     "custom_request_handler": "このバックエンドスクリプトを、<code>/custom/</code> の後にこの値を付加した URL で HTTP 経由で提供します。この値は、正規表現としてパスと照合されます。スクリプトは、<code>api.req</code> からリクエストを読み取り、<code>api.res</code> にレスポンスを書き込みます。また、正規表現でキャプチャされた内容はすべて <code>api.pathParams</code> に格納されます。",
     "custom_resource_provider": "このノートの内容は、HTTP 経由で <code>/custom/</code> に続くこの値で配信されます。この値は、パスに対して正規表現として照合されます。スクリプトは実行されません — ノートはそのまま送信されます。これは、フォントや画像などのファイルに安定した URL が割り当てられる仕組みと同じです。",
     "widget": "このノートをカスタムウィジェットとしてマークし、Trilium コンポーネントツリーに追加します。",
@@ -1644,14 +1671,20 @@
     "ai_quick_action": "このノートをテキストエディタの AI アシスタントメニューの指示として表示されます。タイトルがアクション名になり、内容がプロンプトになります。",
     "template_new_note_default_parent": "テンプレートノートに設定した場合: テンプレートから作成されたノート（例: @補完機能によるもの）は、明示的に別の場所が選択されない限り、対象のノートの配下に配置されます。",
     "custom_font": "Trilium のオプションにあるフォント選択画面で、ノートのタイトルの下に表示されるフォントファイルを指定します。",
-    "enable_inbox_column": "ボードコレクションの場合、インボックス列が表示され、ボード列に割り当てられていないすべての子ノートが一覧表示されます。"
+    "enable_inbox_column": "ボードコレクションの場合、インボックス列が表示され、ボード列に割り当てられていないすべての子ノートが一覧表示されます。",
+    "sort_columns": "ボードコレクションにおいて、列がカードを並べ替える際の基準となる順序です。列に独自の並べ替え順序が指定されていない限り、この順序が適用されます。<code>title</code>、<code>creationDate</code>、または <code>attr:</code> に続けて昇格(プロモート)された属性名を指定します。",
+    "sort_columns_descending": "ボードコレクションの場合、<code>#sortColumns</code> で指定された順序を逆順にします。",
+    "board_card_redirect_to": "ボード上のカードを開いたとき、カード自体を開くのではなく、そのカードが指し示しているノートに移動します。",
+    "board_card_width": "ボードコレクションにおける列の幅: <code>narrow</code>、<code>medium</code>、<code>wide</code>（狭い、中、広い）を指定します。モバイルでは独自の幅で描画されるため、この設定は無視されます。",
+    "geo_shape": "ジオマップ上にノートを描画する際の形状指定: 形状の種類に続けて、各ポイントの緯度・経度を指定します。例: <code>line:48.85,2.29 48.86,2.35</code> — または、中心を円とし、メートル単位で到達範囲を指定します。<code>circle:48.85,2.29 500</code>。"
   },
   "link_context_menu": {
     "open_note_in_popup": "クイック編集",
     "open_note_in_new_tab": "新しいタブでノートを開く",
     "open_note_in_new_split": "新しく分割してノートを開く",
     "open_note_in_new_window": "新しいウィンドウでノートを開く",
-    "open_note_in_other_split": "他の分割画面でノートを開く"
+    "open_note_in_other_split": "他の分割画面でノートを開く",
+    "open_note": "ノートを開く"
   },
   "note_tooltip": {
     "quick-edit": "クイック編集",
@@ -2042,7 +2075,9 @@
     "delete_attribute": "この属性を削除",
     "delete_confirmation": "このコレクション内のすべてのノートから <strong>{{name}}</strong> とその値を削除しますか？この操作は元に戻せません。",
     "shown_on_items": "アイテムに表示",
-    "hidden_from_items": "アイテムから非表示"
+    "hidden_from_items": "アイテムから非表示",
+    "label_name": "ラベル: {{name}}",
+    "relation_name": "リレーション: {{name}}"
   },
   "relation_map": {
     "remove_note": "ノートを削除",
@@ -2452,7 +2487,20 @@
     "locate-error": "現在地が見つかりませんでした。もう一度押すと検索を停止します。",
     "locate-unavailable": "現在地情報は利用できません",
     "location-denied": "位置情報へのアクセスが拒否されました。マップ上に現在地を表示するには、ブラウザまたはシステムの設定で Trilium の位置情報へのアクセスを許可してください。",
-    "location-unavailable": "現在地を特定できませんでした。"
+    "location-unavailable": "現在地を特定できませんでした。",
+    "draw-line": "マップ上に経路を描画",
+    "draw-polygon": "マップ上に範囲を描画",
+    "draw-cancel": "描画をキャンセル",
+    "draw-line-toast-title": "経路を描画",
+    "draw-line-instruction": "マップ上をクリックしてポイントを追加します。最後のポイントを再度クリックするか Enter キーを押すと完了し、Esc キーを押すとキャンセルされます。",
+    "draw-polygon-toast-title": "範囲を描画",
+    "draw-polygon-instruction": "マップ上をクリックして頂点を追加します。最初の頂点を再度クリックするか、Enter キーを押して完了します。Esc キーを押すとキャンセルされます。",
+    "draw-rectangle": "マップ上に長方形を描画",
+    "draw-rectangle-toast-title": "長方形を描画",
+    "draw-rectangle-instruction": "マップ上の 1 つの頂点をクリックし、次に対角にある頂点をクリックします。一方の頂点からもう一方の頂点へドラッグすることもできます。Esc キーを押すとキャンセルされます。",
+    "draw-circle": "マップ上に円を描画",
+    "draw-circle-toast-title": "円を描画",
+    "draw-circle-instruction": "マップ上の中心をクリックし、円の半径となる位置を再度クリックします。中心からドラッグして描画することもできます。Esc キーを押すとキャンセルされます。"
   },
   "geo-map-context": {
     "open-location": "現在位置を表示",
@@ -3230,7 +3278,12 @@
     "cleanup": "データベースをクリーンアップ",
     "cleanup_description": "削除済みのノートや添付ファイルを消去し、変更履歴スナップショットを整理して画像を圧縮することで、データベースを軽量に保ちます。",
     "related_backup": "バックアップ",
-    "related_backup_description": "データベースのバックアップ作成や復元、自動バックアップの管理を行います。"
+    "related_backup_description": "データベースのバックアップ作成や復元、自動バックアップの管理を行います。",
+    "info_persistence": "永続性",
+    "info_persistence_persistent": "永続",
+    "info_persistence_best_effort": "ベストエフォート",
+    "info_persistence_persistent_description": "ブラウザは、ユーザーが削除するまでこのデータベースを保持します。",
+    "info_persistence_best_effort_description": "ブラウザは、空き容量を確保するためにこのデータベースを削除する可能性があります。\nTrilium をアプリとしてインストールするか、ホーム画面に追加することで、通常は永続性が確保されます。"
   },
   "search": {
     "title": "検索",
@@ -3376,8 +3429,8 @@
     "admonition": "{{type}} の注釈を挿入",
     "mermaid_template": "\"{{name}}\" マーメイド図を挿入",
     "collapsible": "折りたたみブロックを挿入",
-    "todo": "\"{{title}}\" タスク項目を挿入",
-    "todo_nonstandard": "\"{{title}}\" タスク項目（非標準）を挿入",
+    "todo": "\"{{title}}\" タスクアイテムを挿入",
+    "todo_nonstandard": "\"{{title}}\" タスクアイテム（非標準）を挿入",
     "placeholders": {
       "math": "数式",
       "collapsible_summary": "概要",
@@ -4046,7 +4099,8 @@
     "mismatch": "パスワードが一致しません。"
   },
   "open": {
-    "directory_failed": "{{- directory}} を開けませんでした: {{- reason}}"
+    "directory_failed": "{{- directory}} を開けませんでした: {{- reason}}",
+    "download_failed": "ダウンロードを保存できませんでした: {{- reason}}"
   },
   "embedded_note": {
     "open-note": "ノートを開く",
@@ -4142,7 +4196,7 @@
   "item_picker": {
     "title": "アイテムを選択",
     "search": "検索…",
-    "nothing-found": "入力した内容に一致する項目が見つかりませんでした。"
+    "nothing-found": "入力した内容に一致するアイテムが見つかりませんでした。"
   },
   "sortable_card": {
     "reorder": "ドラッグして並べ替え"
@@ -4158,6 +4212,11 @@
     "title": "タイトル",
     "creation-date": "作成日時",
     "ascending": "昇順",
-    "descending": "降順"
+    "descending": "降順",
+    "default": "デフォルト"
+  },
+  "attribute_menu": {
+    "attributes": "属性",
+    "not-set": "未設定"
   }
 }

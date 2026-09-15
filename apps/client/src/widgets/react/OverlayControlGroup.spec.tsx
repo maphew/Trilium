@@ -203,6 +203,47 @@ describe("OverlayControlGroup", () => {
         expect(container.querySelector(".my-group")?.hasAttribute("data-placement")).toBe(false);
     });
 
+    it("stacks into a column when asked, and says so for its own stylesheet to round the right ends", () => {
+        mount(
+            <OverlayControlGroup className="my-rail" placement="middle-start" vertical>
+                <OverlayControlButton title="Draw a path" icon="bx-vector" />
+                <OverlayControlButton title="Draw an area" icon="bx-shape-polygon" />
+            </OverlayControlGroup>
+        );
+
+        const rail = container.querySelector(".my-rail");
+        expect(rail?.getAttribute("data-orientation")).toBe("vertical");
+        expect(rail?.getAttribute("data-placement")).toBe("middle-start");
+    });
+
+    it("leaves a row saying nothing about its direction", () => {
+        mount(
+            <OverlayControlGroup className="my-group" placement="bottom-center">
+                <OverlayControlButton title="Zoom in" icon="bx-plus-circle" />
+            </OverlayControlGroup>
+        );
+
+        expect(container.querySelector(".my-group")?.hasAttribute("data-orientation")).toBe(false);
+    });
+
+    it("opens a column's tooltips sideways, away from the edge it runs down", () => {
+        // Read off the latest call rather than by label: the second render reuses the first
+        // button's element, so the ref the first call was handed answers to the second one's name.
+        const placement = () => staticTooltipSpy.mock.calls.at(-1)?.[1]?.placement;
+        const rail = (placement: "middle-start" | "middle-end") => (
+            <OverlayControlGroup placement={placement} vertical>
+                <OverlayControlButton title="Draw a path" icon="bx-vector" />
+            </OverlayControlGroup>
+        );
+
+        mount(rail("middle-start"));
+        expect(placement()).toBe("right");
+
+        // Against the trailing edge they open the other way, for the same reason.
+        act(() => render(rail("middle-end"), container));
+        expect(placement()).toBe("left");
+    });
+
     it("opens the tooltips of a group at the head downwards, away from the edge it stands at", () => {
         mount(
             <OverlayControlGroup placement="top-end">

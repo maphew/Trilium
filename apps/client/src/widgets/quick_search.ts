@@ -28,10 +28,26 @@ const TPL = /*html*/`
         max-height: 80vh;
         min-width: 400px;
         max-width: 720px;
-        overflow-y: auto;
-        overflow-x: hidden;
+        overflow: hidden;
         text-overflow: ellipsis;
         box-shadow: -30px 50px 93px -50px black;
+    }
+
+    /* Bootstrap opens the menu by switching display, so the column only applies to the open menu. */
+    .quick-search .dropdown-menu.show {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .quick-search .quick-search-results {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .quick-search .quick-search-footer {
+        flex: 0 0 auto;
     }
 
     .quick-search .dropdown-item {
@@ -56,10 +72,6 @@ const TPL = /*html*/`
     }
 
     .quick-search .dropdown-item.disabled::after {
-        display: none;
-    }
-
-    .quick-search .dropdown-item.show-in-full-search::after {
         display: none;
     }
 
@@ -133,7 +145,13 @@ const TPL = /*html*/`
     <button class="btn btn-outline-secondary search-button" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
         <span class="bx bx-search"></span>
     </button>
-    <div class="dropdown-menu tn-dropdown-list"></div>
+    <div class="dropdown-menu tn-dropdown-list">
+        <div class="quick-search-results"></div>
+        <div class="quick-search-footer hidden-ext">
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item show-in-full-search" tabindex="0">${t("quick-search.show-in-full-search")}</a>
+        </div>
+    </div>
   </div>
   <input type="text" class="form-control form-control-sm search-string" placeholder="${t("quick-search.placeholder")}">
 </div>`;
@@ -166,6 +184,8 @@ export default class QuickSearchWidget extends BasicWidget {
     private dropdown!: bootstrap.Dropdown;
     private $searchString!: JQuery<HTMLElement>;
     private $dropdownMenu!: JQuery<HTMLElement>;
+    private $searchResults!: JQuery<HTMLElement>;
+    private $footer!: JQuery<HTMLElement>;
 
     // State for infinite scrolling
     private allSearchResults: Array<any> = [];
@@ -181,6 +201,8 @@ export default class QuickSearchWidget extends BasicWidget {
         this.$widget = $(TPL);
         this.$searchString = this.$widget.find(".search-string");
         this.$dropdownMenu = this.$widget.find(".dropdown-menu");
+        this.$searchResults = this.$dropdownMenu.find(".quick-search-results");
+        this.$footer = this.$dropdownMenu.find(".quick-search-footer");
 
         this.dropdown = Dropdown.getOrCreateInstance(this.$widget.find("[data-bs-toggle='dropdown']")[0], {
             reference: this.$searchString[0],
@@ -193,9 +215,13 @@ export default class QuickSearchWidget extends BasicWidget {
         this.$widget.find(".input-group-prepend").on("shown.bs.dropdown", () => this.search());
 
         // Add scroll event listener for infinite scrolling
-        this.$dropdownMenu.on("scroll", () => {
+        this.$searchResults.on("scroll", () => {
             this.handleScroll();
         });
+
+        const $showInFullSearchButton = this.$footer.find(".show-in-full-search");
+        $showInFullSearchButton.on("click", () => this.showInFullSearch());
+        shortcutService.bindElShortcut($showInFullSearchButton, "return", () => this.showInFullSearch());
 
         if (utils.isMobile()) {
             this.$searchString.keydown((e) => {
@@ -242,7 +268,7 @@ export default class QuickSearchWidget extends BasicWidget {
                 return;
             }
 
-            const $firstResult = this.$dropdownMenu.find(".dropdown-item:not(.disabled)").first();
+            const $firstResult = this.$searchResults.find(".dropdown-item:not(.disabled)").first();
 
             // Searching and no-results leave only a disabled item, and the caret keeps the key.
             if (!$firstResult.length) {
@@ -274,8 +300,9 @@ export default class QuickSearchWidget extends BasicWidget {
         this.currentDisplayedCount = 0;
         this.isLoadingMore = false;
 
-        this.$dropdownMenu.empty();
-        this.$dropdownMenu.append(`
+        this.$footer.addClass("hidden-ext");
+        this.$searchResults.empty();
+        this.$searchResults.append(`
             <span class="dropdown-item disabled">
                 <span class="bx bx-loader bx-spin"></span>
                 ${t("quick-search.searching")}
@@ -301,16 +328,18 @@ export default class QuickSearchWidget extends BasicWidget {
         this.allSearchResults = searchResults || [];
         this.allSearchResultNoteIds = searchResultNoteIds || [];
 
-        this.$dropdownMenu.empty();
+        this.$searchResults.empty();
 
         if (this.allSearchResults.length === 0 && this.allSearchResultNoteIds.length === 0) {
-            this.$dropdownMenu.append(`<span class="dropdown-item disabled">${t("quick-search.no-results")}</span>`);
+            this.$searchResults.append(`<span class="dropdown-item disabled">${t("quick-search.no-results")}</span>`);
             return;
         }
 
         // Display initial batch
         await this.displayMoreResults(INITIAL_DISPLAYED_NOTES);
-        this.addShowInFullSearchButton();
+
+        this.$footer.removeClass("hidden-ext");
+        shortcutService.bindElShortcut(this.$searchResults.find(".dropdown-item:first"), "up", () => this.$searchString.focus());
 
         this.dropdown.update();
     }
@@ -318,10 +347,6 @@ export default class QuickSearchWidget extends BasicWidget {
     private async displayMoreResults(batchSize: number) {
         if (this.isLoadingMore) return;
         this.isLoadingMore = true;
-
-        // Remove the "Show in full search" button temporarily
-        this.$dropdownMenu.find('.show-in-full-search').remove();
-        this.$dropdownMenu.find('.dropdown-divider').remove();
 
         // Use highlighted search results if available, otherwise fall back to basic display
         if (this.allSearchResults.length > 0) {
@@ -369,7 +394,7 @@ export default class QuickSearchWidget extends BasicWidget {
                     $item[0].click();
                 });
 
-                this.$dropdownMenu.append($item);
+                this.$searchResults.append($item);
             }
 
             this.currentDisplayedCount = endIndex;
@@ -397,7 +422,7 @@ export default class QuickSearchWidget extends BasicWidget {
                     $link.find("a")[0]?.click();
                 });
 
-                this.$dropdownMenu.append($link);
+                this.$searchResults.append($link);
             }
 
             this.currentDisplayedCount = endIndex;
@@ -409,38 +434,19 @@ export default class QuickSearchWidget extends BasicWidget {
     private handleScroll() {
         if (this.isLoadingMore) return;
 
-        const dropdown = this.$dropdownMenu[0];
-        const scrollTop = dropdown.scrollTop;
-        const scrollHeight = dropdown.scrollHeight;
-        const clientHeight = dropdown.clientHeight;
+        const results = this.$searchResults[0];
+        const scrollTop = results.scrollTop;
+        const scrollHeight = results.scrollHeight;
+        const clientHeight = results.clientHeight;
 
         // Trigger loading more when user scrolls near the bottom (within 50px)
         if (scrollTop + clientHeight >= scrollHeight - 50) {
             const totalResults = this.allSearchResults.length > 0 ? this.allSearchResults.length : this.allSearchResultNoteIds.length;
 
             if (this.currentDisplayedCount < totalResults) {
-                this.displayMoreResults(LOAD_MORE_BATCH_SIZE).then(() => {
-                    this.addShowInFullSearchButton();
-                });
+                this.displayMoreResults(LOAD_MORE_BATCH_SIZE).then(() => this.dropdown.update());
             }
         }
-    }
-
-    private addShowInFullSearchButton() {
-        // Remove existing button if it exists
-        this.$dropdownMenu.find('.show-in-full-search').remove();
-        this.$dropdownMenu.find('.dropdown-divider').remove();
-
-        const $showInFullButton = $('<a class="dropdown-item show-in-full-search" tabindex="0">').text(t("quick-search.show-in-full-search"));
-
-        this.$dropdownMenu.append($(`<div class="dropdown-divider">`));
-        this.$dropdownMenu.append($showInFullButton);
-
-        $showInFullButton.on("click", () => this.showInFullSearch());
-
-        shortcutService.bindElShortcut($showInFullButton, "return", () => this.showInFullSearch());
-
-        this.dropdown.update();
     }
 
     /** Whether the results popup is open, which is what makes ArrowDown move focus into it. */

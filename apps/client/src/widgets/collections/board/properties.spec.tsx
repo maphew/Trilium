@@ -4,7 +4,7 @@ import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type FNote from "../../../entities/fnote";
-import contextMenu, { type MenuCommandItem } from "../../../menus/context_menu";
+import dialogService from "../../../services/dialog";
 import type { PromotedAttribute } from "../promoted_attributes";
 import type { SortKey } from "../sorting";
 import BoardApi from "./api";
@@ -62,6 +62,8 @@ describe("Board properties", () => {
     let labels: Record<string, string>;
     /** What the board was asked to do with the order it holds. */
     let sorting: string[];
+    /** The widths the board was asked to draw its columns at. */
+    let widths: string[];
     /** Draws the dialog again, for a test that changed what the board says. */
     let draw: () => void;
 
@@ -70,6 +72,7 @@ describe("Board properties", () => {
         storedAttributes = [];
         toggled = [];
         sorting = [];
+        widths = [];
         labels = { includeArchived: "true" };
         container = document.createElement("div");
         document.body.appendChild(container);
@@ -102,7 +105,8 @@ describe("Board properties", () => {
             setDefaultSortDirection: async (isDescending: boolean) => {
                 sorting.push(`descending:${isDescending}`);
             },
-            resetColumnSortsToDefault: async () => { sorting.push("reset"); }
+            resetColumnSortsToDefault: async () => { sorting.push("reset"); },
+            setColumnWidth: async (width: string) => { widths.push(width); }
         } as unknown as BoardApi;
 
         draw = () => act(() => {
@@ -151,9 +155,10 @@ describe("Board properties", () => {
     describe("what the board shows", () => {
         /** Both were on the board's own menu; the inbox column is now offered only here. */
         it("draws a segment for each, reading what the board's labels say", () => {
-            const rows = general()?.querySelectorAll(".tn-card-section") ?? [];
+            const rows = general()
+                ?.querySelectorAll(".tn-card-section:not(.tn-card-section-nested)") ?? [];
 
-            expect(rows.length).toBe(3);
+            expect(rows.length).toBe(4);
             expect(toggleAt(0)?.classList.contains("on")).toBe(false);
             expect(toggleAt(1)?.classList.contains("on")).toBe(true);
         });
@@ -187,34 +192,70 @@ describe("Board properties", () => {
             expect(picker()?.querySelector(".bx-sort-down")).toBeTruthy();
         });
 
-        it("offers a menu beside the picker for putting the columns back to it", () => {
-            const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
-            // The menu closes itself on any click reaching the document, so the press that opens
-            // it must not get there.
-            const onDocument = vi.fn();
-            document.addEventListener("click", onDocument);
+        it("carries a link under the picker for putting the columns back to it", async () => {
+            const confirm = vi.spyOn(dialogService, "confirm").mockResolvedValue(true);
+            const link = resetLink();
 
-            act(() => { actionsButton()?.click(); });
-            document.removeEventListener("click", onDocument);
-            expect(onDocument).not.toHaveBeenCalled();
+            expect(link?.textContent).toContain("board_view.reset-column-sorting");
 
-            const items = show.mock.calls.at(-1)?.[0].items ?? [];
-            expect(items.map(item => item && "title" in item ? item.title : ""))
-                .toEqual([ "board_view.reset-columns-to-default" ]);
+            await act(async () => { link?.click(); });
 
-            const entry = items[0];
-            if (!entry || !("handler" in entry)) throw new Error("expected a menu entry");
-            act(() => { entry.handler?.(entry as MenuCommandItem<unknown>, {} as never); });
-
+            expect(confirm).toHaveBeenCalledWith("board_view.reset-column-sorting-confirm");
             expect(sorting).toEqual([ "reset" ]);
+        });
+
+        it("leaves the orders alone when the prompt is declined", async () => {
+            vi.spyOn(dialogService, "confirm").mockResolvedValue(false);
+
+            await act(async () => { resetLink()?.click(); });
+
+            expect(sorting).toEqual([]);
         });
 
         function picker() {
             return general()?.querySelector<HTMLElement>(".board-sort-picker");
         }
 
-        function actionsButton() {
-            return general()?.querySelector<HTMLElement>(".board-sort-actions");
+        function resetLink() {
+            return general()?.querySelector<HTMLElement>(".board-sort-reset");
+        }
+    });
+
+    describe("how wide it draws its columns", () => {
+        it("offers the three widths the board knows", () => {
+            // happy-dom does not follow which option Preact marks as selected, so what the board
+            // holds is covered by `parseColumnWidth` and the api instead.
+            expect([ ...(picker()?.options ?? []) ].map((option) => option.textContent)).toEqual([
+                "board_view.column-width-narrow",
+                "board_view.column-width-medium",
+                "board_view.column-width-wide"
+            ]);
+        });
+
+        it("asks the board for the width that was picked", () => {
+            const select = picker();
+            if (!select) throw new Error("expected a width picker on the board properties");
+
+            act(() => {
+                select.value = "medium";
+                select.dispatchEvent(new Event("change", { bubbles: true }));
+            });
+
+            expect(widths).toEqual([ "medium" ]);
+        });
+
+        /** A phone lays the columns out at a width of its own, so there is nothing to pick. */
+        it("is left out on mobile", () => {
+            window.glob.device = "mobile";
+            act(() => { render(null, container); });
+            draw();
+
+            expect(picker()).toBeFalsy();
+            window.glob.device = "desktop";
+        });
+
+        function picker() {
+            return general()?.querySelector<HTMLSelectElement>("select");
         }
     });
 

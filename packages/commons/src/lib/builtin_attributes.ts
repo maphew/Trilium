@@ -269,6 +269,11 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "maxNestingDepth", valueType: "number", hasUserValue: true },
     { type: "label", name: "includeArchived", valueType: "boolean", hasUserValue: true },
     { type: "label", name: "enableInboxColumn", valueType: "boolean", hasUserValue: true },
+    // Carried by a card that stands in for another note: opening it navigates there instead.
+    { type: "relation", name: "boardCardRedirectTo" },
+    // How wide the board draws its columns. Absent for the narrow default.
+    { type: "label", name: "boardCardWidth", valueType: "select", hasUserValue: true,
+        selectOptions: [ "narrow", "medium", "wide" ] },
     // The order a board offers for its columns, which its properties apply to every column at once.
     { type: "label", name: "sortColumns", valueType: "text", hasUserValue: true },
     { type: "label", name: "sortColumnsDescending", valueType: "boolean", hasUserValue: true },
@@ -295,6 +300,9 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "endTime", valueType: "time", hasUserValue: true },
     { type: "label", name: "recurrence", valueType: "text", hasUserValue: true },
     { type: "label", name: "geolocation", valueType: "text", hasUserValue: true },
+    // A shape drawn onto a geo map: a kind, a colon, then a `lat,lng` per vertex (see the
+    // client's geomap/shapes.ts).
+    { type: "label", name: "geoShape", valueType: "text", hasUserValue: true },
     // Which note map a note map note draws; anything but `tree` is read as `link`.
     { type: "label", name: "mapType", valueType: "select", hasUserValue: true, selectOptions: [
         "link", "tree"

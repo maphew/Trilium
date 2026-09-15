@@ -128,7 +128,7 @@
         "existing-data-backup-failed": "백업을 생성할 수 없습니다.",
         "backup-data": "Trilium 데이터 백업",
         "backup-name": "백업 이름",
-        "backup-name-description": "나중에 알아볼 수 있는 이름을 이 백업에 지정하거나 제안된 이름을 그대로 사용하세요.",
+        "backup-name-description": "나중에 알아보기 쉬운 이름을 이 백업에 지정하거나, 제안된 이름을 그대로 사용하세요.",
         "backup-password": "비밀번호 (선택 사항)",
         "backup-password-repeat": "비밀번호 다시 입력",
         "backup-password-description": "비밀번호를 지정하면 백업 파일이 암호화됩니다. 비밀번호를 안전한 곳에 보관하세요: 비밀번호가 없으면 백업을 복원할 수 없습니다.",
@@ -159,6 +159,7 @@
         "existing-data-skip-warning": "아직 아무것도 삭제되지 않았습니다. 새 지식 베이스를 만들거나, 백업을 복원하거나, 다른 기기에서 동기화하도록 선택한 경우에만 현재 지식 베이스가 교체됩니다.",
         "unlock-refused": "입력한 정보가 올바르지 않습니다. 다시 시도해 주세요.",
         "keep-existing": "앱으로 돌아가기",
-        "keep-existing-description": "기존 지식 베이스를 계속 사용하고 앱으로 돌아갑니다."
+        "keep-existing-description": "기존 지식 베이스를 계속 사용하고 앱으로 돌아갑니다.",
+        "backup-saved-to": "백업이 {{- location}}에 저장되었습니다. \"마침\"을 눌러 애플리케이션으로 돌아가세요."
     }
 }

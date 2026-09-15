@@ -144,6 +144,14 @@ describe("parseNavigationStateFromUrl", () => {
         warn.mockRestore();
     });
 
+    it("carries a board reference through, for the column and for the card", () => {
+        const column = parseNavigationStateFromUrl("#root/aaaaaaaaaaaa?column=colTodo00001");
+        expect((column as any).viewScope).toMatchObject({ column: "colTodo00001" });
+
+        const card = parseNavigationStateFromUrl("#root/aaaaaaaaaaaa?card=card00000001");
+        expect((card as any).viewScope).toMatchObject({ card: "card00000001" });
+    });
+
     it("returns empty object when the note path does not match the id pattern", () => {
         // hash present at index 0, but the path is too short to be a valid note id
         expect(parseNavigationStateFromUrl("#ab")).toStrictEqual({});
@@ -167,6 +175,21 @@ describe("calculateHash", () => {
             viewScope: { viewMode: "source", attachmentId: "att 1" }
         } as any);
         expect(hash).toBe("#root/abc?ntxId=n1&hoistedNoteId=h1&viewMode=source&attachmentId=att%201");
+    });
+
+    it("writes a board reference back into the hash it was read from", () => {
+        const hash = calculateHash({
+            notePath: "root/abc",
+            viewScope: { column: "colTodo00001" }
+        } as any);
+        expect(hash).toBe("#root/abc?column=colTodo00001");
+        // Read back, the path spelled out at the length a note id is checked against.
+        const read = `http://localhost:8080/#root/aaaaaaaaaaaa${hash.slice("#root/abc".length)}`;
+        expect(parseNavigationStateFromUrl(read))
+            .toMatchObject({ viewScope: { column: "colTodo00001" } });
+
+        expect(calculateHash({ notePath: "root/abc", viewScope: { card: "card00000001" } } as any))
+            .toBe("#root/abc?card=card00000001");
     });
 
     it("omits params that are at their defaults", () => {
@@ -784,6 +807,24 @@ describe("getReferenceLinkTitle / getReferenceLinkTitleSync", () => {
         expect(linkService.getReferenceLinkTitleSync(`#root/${note2.noteId}?viewMode=attachments&attachmentId=a1`)).toBe("Matched");
     });
 
+    it("names the card a board reference points at, rather than the board", async () => {
+        const board = buildNote({ title: "Board" });
+        const card = buildNote({ title: "Card" });
+        const href = `#root/${board.noteId}?card=${card.noteId}`;
+
+        expect(await linkService.getReferenceLinkTitle(href)).toBe("Card");
+        expect(linkService.getReferenceLinkTitleSync(href)).toBe("Card");
+    });
+
+    it("names the board a column reference points at, and the column after it", async () => {
+        const board = buildNote({ title: "Board" });
+        const href = `#root/${board.noteId}?column=colTodo00001&columnTitle=To%20Do`;
+
+        // The link body is the board, so the column shows only where a suffix can be drawn.
+        expect(await linkService.getReferenceLinkTitle(href)).toBe("Board");
+        expect(linkService.getReferenceLinkTitleSync(href)).toBe("Board: To Do");
+    });
+
     it("getReferenceLinkTitleSync returns [missing note] when the note is not in cache", () => {
         const orig = froca.getNoteFromCache;
         froca.getNoteFromCache = vi.fn(() => null) as unknown as typeof froca.getNoteFromCache;
@@ -842,6 +883,44 @@ describe("loadReferenceLinkTitle", () => {
         const $iconSpan = $el.children("span").first();
         expect($iconSpan.length).toBe(1);
         expect($iconSpan.hasClass("bx-star")).toBe(true);
+    });
+
+    it("draws a card reference from the card's own icon and colour", async () => {
+        const board = buildNote({ title: "Board" });
+        const card = buildNote({ title: "Card", "#color": "green", "#iconClass": "bx bx-task" });
+        const href = `#root/${board.noteId}?card=${card.noteId}`;
+        const $el = $("<span>");
+
+        await linkService.loadReferenceLinkTitle($el, href);
+
+        expect($el.text()).toBe("Card");
+        expect($el.hasClass(card.getColorClass())).toBe(true);
+        expect($el.children("span").first().hasClass("bx-task")).toBe(true);
+    });
+
+    it("appends the column a reference names, tinted with its own colour", async () => {
+        const board = buildNote({ title: "Board" });
+        const href = `#root/${board.noteId}?column=colTodo00001&columnTitle=To%20Do`
+            + "&columnIcon=bx%20bx-star&columnColor=%23ff8800";
+        const $el = $("<span>");
+
+        await linkService.loadReferenceLinkTitle($el, href);
+
+        expect($el.text()).toContain("Board:");
+        const $column = $el.find("small");
+        expect($column.text()).toBe(" To Do");
+        expect($column.children("span").hasClass("bx-star")).toBe(true);
+        expect($column.hasClass("color-FF8800")).toBe(true);
+    });
+
+    it("falls back to a column glyph for a reference carrying no icon of its own", async () => {
+        const board = buildNote({ title: "Board" });
+        const $el = $("<span>");
+
+        await linkService.loadReferenceLinkTitle($el,
+            `#root/${board.noteId}?column=colTodo00001&columnTitle=To%20Do`);
+
+        expect($el.find("small span").hasClass("bx-columns")).toBe(true);
     });
 
     it("uses the element's own href and finds the inner anchor when none is passed", async () => {

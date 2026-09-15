@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { Request, Response } from "../../http_interface";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import * as cls from "../../services/context.js";

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CommandNames } from "../../../components/app_context";
 import contextMenu, { ContextMenuEvent, MenuItem } from "../../../menus/context_menu";
 import branches from "../../../services/branches";
+import * as clipboard from "../../../services/clipboard_ext";
 import dialog from "../../../services/dialog";
 import FNote from "../../../entities/fnote";
 import type { PromotedAttribute } from "../promoted_attributes";
@@ -240,7 +241,7 @@ describe("Board column context menu", () => {
         const titled = openMenu({} as BoardApi).filter(item => item && "uiIcon" in item);
         expect(titled.map(item => "uiIcon" in item ? item.uiIcon : undefined))
             .toEqual([
-                "bx bx-edit-alt",
+                "bx bx-edit-alt", "bx bx-copy",
                 "bx bx-plus", "bx bx-link", "bx bx-columns",
                 "bx bx-collapse-horizontal", "bx bx-lock-alt", "bx bx-sort-alt-2",
                 "bx bx-tachometer",
@@ -249,12 +250,31 @@ describe("Board column context menu", () => {
             ]);
     });
 
-    /** A collapsed column offers no rename, so the group above the first divider is empty. */
+    /**
+     * A collapsed column offers no rename, so the reference is all its leading group holds. The
+     * menu still opens on an entry rather than on the divider that closes the group.
+     */
     it("opens on an entry rather than a divider when it has nothing to rename", () => {
         const items = openMenu({} as BoardApi, { canRename: false, isCollapsed: true });
 
         expect(items[0]).not.toMatchObject({ kind: "separator" });
-        expect(items[0]).toMatchObject({ uiIcon: "bx bx-plus" });
+        expect(items[0]).toMatchObject({ uiIcon: "bx bx-copy" });
+    });
+
+    /** The id is settled by the server, so the link is awaited before it is copied. */
+    it("copies a link to the column once its id has been assigned", async () => {
+        const copy = vi.spyOn(clipboard, "copyReferenceWithToast").mockResolvedValue();
+        const api = {
+            getColumnReference: async (column: string) =>
+                `#root/board1234?column=id-of-${column}`
+        } as unknown as BoardApi;
+
+        const entry = openMenu(api, { value: "To Do" }).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-copy");
+        if (!entry || !("handler" in entry)) throw new Error("expected a copy-reference entry");
+
+        await entry.handler?.(entry, {} as never);
+        expect(copy).toHaveBeenCalledWith("#root/board1234?column=id-of-To Do");
     });
 
     /** Every place offered has to actually move the column, or the menu promises nothing. */
@@ -570,6 +590,40 @@ describe("Board item context menu", () => {
             .toEqual([ "bx bx-list-plus", "bx bx-empty", "bx bx-outline" ]);
     });
 
+    it("copies a link to the card, which the card's own note id names", () => {
+        const copy = vi.spyOn(clipboard, "copyReferenceWithToast").mockResolvedValue();
+        const note = buildNote({ title: "Card" }) as FNote;
+        const api = {
+            columns: [],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            getCardReference: (noteId: string) => `#root/board1234?card=${noteId}`
+        } as unknown as BoardApi;
+
+        const entry = openItemMenu(api, "To Do", vi.fn(), vi.fn(), 2, vi.fn(), [ note ])
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-copy");
+        if (!entry || !("handler" in entry)) throw new Error("expected a copy-reference entry");
+
+        entry.handler?.(entry, {} as never);
+        expect(copy).toHaveBeenCalledWith(`#root/board1234?card=${note.noteId}`);
+    });
+
+    /** A whole selection has no one card to make a link to, so the entry is left out. */
+    it("offers no reference for a selection of several cards", () => {
+        const api = {
+            columns: [],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => ""
+        } as unknown as BoardApi;
+        const notes = [ buildNote({ title: "One" }), buildNote({ title: "Two" }) ] as FNote[];
+
+        const icons = openItemMenu(api, "To Do", vi.fn(), vi.fn(), 2, vi.fn(), notes)
+            .map(item => (item && "uiIcon" in item ? item.uiIcon : undefined));
+        expect(icons).not.toContain("bx bx-copy");
+    });
+
     it("says nothing about moving up the card already at the head", () => {
         const api = {
             columns: [],
@@ -635,7 +689,8 @@ describe("Board item context menu", () => {
 
     /** Where the entries a card is opened and named with end, which the next group follows. */
     function lastOfLeadingGroup(items: MenuItem<unknown>[]) {
-        return items.findIndex(item => item && "title" in item && item.title === "Open note");
+        return items.findIndex(item =>
+            item && "title" in item && item.title === "board_view.copy-reference");
     }
 
     it("copies a card into the board, after the one it was made from", async () => {
@@ -675,6 +730,29 @@ describe("Board item context menu", () => {
 
         expect(api.removeFromBoard).toHaveBeenCalled();
         expect(deleteNotes).toHaveBeenCalledWith([ "branchId" ], false, false);
+    });
+
+    /**
+     * The inbox is the column a card with no grouping value stands in, so taking that value away
+     * leaves the card there instead of off the board. Deleting the note is what removes it.
+     */
+    it("offers no way off the board while the inbox column is drawn", () => {
+        const api = {
+            columns: [],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            isInboxEnabled: true,
+            removeFromBoard: vi.fn()
+        } as unknown as BoardApi;
+
+        const items = openItemMenu(api);
+
+        expect(items.find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-task-x"))
+            .toBeUndefined();
+        // Deleting the note is still offered, since that does take it off the board.
+        expect(items.find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-trash"))
+            .toBeTruthy();
     });
 
     /**
@@ -726,10 +804,15 @@ describe("Board item context menu", () => {
         return `<span class="tn-menu-name">${name}</span>`;
     }
 
-    /** Opens the menu a card offers, and hands back what it was given to show. */
+    /**
+     * Opens the menu a card offers, and hands back what it was given to show.
+     *
+     * @param notes the selection the menu writes to, the card the menu was opened on standing
+     * first. One note unless a test is about what a selection changes.
+     */
     function openItemMenu(
         api: BoardApi, column = "To Do", focusCard = vi.fn(), insert = vi.fn(), index = 2,
-        newItem = vi.fn()) {
+        newItem = vi.fn(), notes?: FNote[]) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
         const event = {
             preventDefault: () => {},
@@ -747,12 +830,22 @@ describe("Board item context menu", () => {
                 getColumnTitle: (name: string) => name,
                 getPromotedAttributes: () => [],
                 isFirstInColumn: () => false,
-                isColumnSorted: () => false
+                isColumnSorted: () => false,
+                getCardColumn: () => column
             },
             api);
-        openNoteContextMenu(
-            withDefaults, event, buildNote({ title: "Card" }) as FNote, "branchId", column, index,
-            focusCard, insert, newItem);
+        const selected = notes ?? [ buildNote({ title: "Card" }) as FNote ];
+        openNoteContextMenu(withDefaults, event, {
+            note: selected[0],
+            branchId: "branchId",
+            column,
+            index,
+            notes: selected,
+            branchIds: selected.map((_, at) => `branchId${at || ""}`),
+            onFocusCard: focusCard,
+            onInsert: insert,
+            onNewItem: newItem
+        });
 
         return show.mock.calls.at(-1)?.[0].items ?? [];
     }
@@ -915,6 +1008,110 @@ describe("Board item context menu", () => {
         expect(statusItems(api)
             .map(item => !!(item && "badges" in item && item.badges?.length)))
             .toEqual([ false, true ]);
+    });
+
+    describe("opened on a selection", () => {
+        const columnApi = {
+            columns: [ "To Do", "Done" ],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => ""
+        } as unknown as BoardApi;
+
+        it("leaves out the entries about one card, and leads with the columns", () => {
+            const items = openSelectionMenu(columnApi, [
+                buildNote({ title: "One" }), buildNote({ title: "Two" })
+            ]);
+
+            // No entries of its own above them, and no divider left standing where they were.
+            expect(items[0]).toEqual({ kind: "header", title: "Status" });
+            expect(titlesOf(items)).not.toContain("board_view.edit-title");
+            expect(titlesOf(items)).not.toContain("board_view.duplicate-item");
+            expect(titlesOf(items)).not.toContain("board_view.insert-above");
+        });
+
+        it("ticks a column only while every card stands in it", () => {
+            const notes = [ buildNote({ title: "One" }), buildNote({ title: "Two" }) ];
+            const together = {
+                ...columnApi, getCardColumn: () => "Done"
+            } as unknown as BoardApi;
+            const apart = {
+                ...columnApi,
+                getCardColumn: (noteId: string) => noteId === notes[0].noteId ? "To Do" : "Done"
+            } as unknown as BoardApi;
+
+            expect(marksOf(openSelectionMenu(together, notes)))
+                .toEqual([ undefined, "bx bx-check" ]);
+            expect(marksOf(openSelectionMenu(apart, notes))).toEqual([ undefined, undefined ]);
+        });
+
+        it("files every card under the column picked", async () => {
+            const changeColumn = vi.fn();
+            const notes = [ buildNote({ title: "One" }), buildNote({ title: "Two" }) ];
+            const api = { ...columnApi, changeColumn } as unknown as BoardApi;
+
+            const entry = openSelectionMenu(api, notes)
+                .find(item => item && "title" in item && item.title === boxed("Done"));
+            if (!entry || !("handler" in entry)) throw new Error("expected the Done entry");
+            await entry.handler?.(entry, {} as never);
+
+            expect(changeColumn).toHaveBeenCalledWith(notes[0].noteId, "Done");
+            expect(changeColumn).toHaveBeenCalledWith(notes[1].noteId, "Done");
+        });
+
+        it("deletes every branch the selection names in one call", () => {
+            const deleteNotes = vi.spyOn(branches, "deleteNotes").mockResolvedValue(false);
+            const notes = [ buildNote({ title: "One" }), buildNote({ title: "Two" }) ];
+
+            const entry = openSelectionMenu(columnApi, notes)
+                .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-trash");
+            if (!entry || !("handler" in entry)) throw new Error("expected the delete entry");
+            entry.handler?.(entry, {} as never);
+
+            expect(deleteNotes).toHaveBeenCalledWith([ "branchId", "branchId1" ], false, false);
+        });
+
+        /**
+         * One entry cannot say what picking it would do while the cards are in different states,
+         * and both entries at once would read as two states the same cards are in.
+         */
+        it("offers archiving only while the cards agree on what they are", () => {
+            const plain = buildNote({ title: "One" });
+            const archived = buildNote({ title: "Two", "#archived": "" });
+
+            expect(titlesOf(openSelectionMenu(columnApi, [ plain, plain ])))
+                .toContain("board_view.archive-note");
+            expect(titlesOf(openSelectionMenu(columnApi, [ archived, archived ])))
+                .toContain("board_view.unarchive-note");
+
+            const mixed = titlesOf(openSelectionMenu(columnApi, [ plain, archived ]));
+            expect(mixed).not.toContain("board_view.archive-note");
+            expect(mixed).not.toContain("board_view.unarchive-note");
+        });
+
+        /** The menu a selection opens, which is the card menu given more than one note. */
+        function openSelectionMenu(api: BoardApi, notes: FNote[]) {
+            return openItemMenu(api, "To Do", vi.fn(), vi.fn(), 2, vi.fn(), notes);
+        }
+
+        /** The column entries alone, which stand between the Status header and the separator. */
+        function columnEntries(items: MenuItem<unknown>[]) {
+            const header = items.findIndex(item =>
+                item && "kind" in item && item.kind === "header" && item.title === "Status");
+            const rest = items.slice(header + 1);
+            const end = rest.findIndex(item => item && "kind" in item && item.kind === "separator");
+            return rest.slice(0, end < 0 ? rest.length : end);
+        }
+
+        function marksOf(items: MenuItem<unknown>[]) {
+            return columnEntries(items)
+                .map(item => item && "trailingIcon" in item ? item.trailingIcon : undefined);
+        }
+
+        function titlesOf(items: MenuItem<unknown>[]) {
+            return items.flatMap(item =>
+                item && "title" in item && item.title ? [ item.title ] : []);
+        }
     });
 });
 

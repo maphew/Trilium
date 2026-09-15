@@ -1371,8 +1371,15 @@ body.layout-horizontal #rest-pane > .classic-toolbar-widget {
     border: 2px solid transparent;
 }
 
+/* Mobile has no #center-pane: its splits stack inside #detail-container instead. */
+body.mobile #detail-container .note-split {
+    transition: border-color 150ms ease-out;
+    border: 2px solid transparent;
+}
+
 /* The active split in a multi-split view */
-#center-pane > .split-note-container-widget:has(> .note-split.visible ~ .note-split.visible) > .note-split.active {
+#center-pane > .split-note-container-widget:has(> .note-split.visible ~ .note-split.visible) > .note-split.active,
+body.mobile #detail-container > .split-note-container-widget:has(> .note-split.visible ~ .note-split.visible) > .note-split.active {
     border-color: var(--link-selection-outline-color);
 }
 

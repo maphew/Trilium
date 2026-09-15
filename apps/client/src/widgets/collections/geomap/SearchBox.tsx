@@ -14,31 +14,17 @@ import { filterTokens, matchesFilter } from "../../react/filter";
 import FormAutocomplete from "../../react/FormAutocomplete";
 import Icon from "../../react/Icon";
 import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
-import { parseCoordinates, pointPlace } from "./coordinates";
+import { type Bounds, parseCoordinates, pointPlace } from "./coordinates";
 import { DEFAULT_GEOCODING_PROVIDER_NAME, DEFAULT_PLACE_ICON, type GeoBounds, GEOCODING_PROVIDERS, type GeoSearchResult, SEARCH_RADIUS_M } from "./geocoding";
 import { GPX_MIME } from "./GpxTrack";
 import { ParentMap } from "./map";
 import { describePlace } from "./place_address";
 import { LOCATION_ATTRIBUTE, parseLocation } from "./Markers";
 import { frameResult, type SearchResult } from "./results";
+import { geoShapeBounds, parseGeoShape, SHAPE_ATTRIBUTE } from "./shapes";
 
 /** Shorter queries are not searched. */
 const MIN_QUERY_LENGTH = 2;
-
-/** The zoom level a place is shown at where the geocoder does not say how much ground it covers. */
-const PLACE_ZOOM = 12;
-
-/**
- * How close a place is framed at most. A house's extent is a few metres across, which on its own
- * would fill the screen with the roof.
- */
-const PLACE_MAX_ZOOM = 17;
-
-/** The room kept around a framed place, so its pin and name do not sit against the map's edge. */
-const PLACE_PADDING = 60;
-
-/** The zoom level a marker is shown at, closer in since a note marks a spot rather than an area. */
-const MARKER_ZOOM = 15;
 
 /** The mean radius of the Earth, which is what a great-circle distance is measured on. */
 const EARTH_RADIUS_M = 6_371_008.8;
@@ -81,8 +67,11 @@ type SearchEntry = {
     /** A second line under the first: the address that places a place, or whose answer a row is. */
     detail?: string;
 } & (
-    /** A note of the map's own. `center` is absent for a GPX track, which stands on no one point. */
-    | { kind: "marker"; center?: [number, number]; noteId: string }
+    /**
+     * A note of the map's own. `center` is where it is measured from, absent for a GPX track, which
+     * stands on no one point; `bounds` is the ground a drawn shape covers (see {@link frameResult}).
+     */
+    | { kind: "marker"; center?: [number, number]; bounds?: Bounds; noteId: string }
     /** A place from the geocoder, carried whole for whoever the pick is reported to. */
     | { kind: "place"; center: [number, number]; result: GeoSearchResult }
     /**
@@ -314,7 +303,7 @@ function walkableResults(entries: Map<string, SearchEntry>): SearchResult[] {
 
     for (const entry of entries.values()) {
         if (entry.kind === "marker") {
-            results.push({ kind: "note", noteId: entry.noteId, center: entry.center });
+            results.push({ kind: "note", noteId: entry.noteId, center: entry.center, bounds: entry.bounds });
         } else if (entry.kind === "place" || entry.kind === "point") {
             results.push({ kind: "place", place: entry.result });
         }
@@ -375,11 +364,13 @@ function matchMarkers(notes: FNote[], query: string): SearchEntry[] {
     for (const note of notes) {
         if (!matchesFilter(tokens, note.title)) continue;
 
-        // A note without a readable location has no marker to fly to. A GPX track has no location
-        // either — its route is in the file — but it is drawn on the map all the same, and the pane
-        // fits the whole of it (see DetailPane).
+        // The three ways a note reaches the map, in the order DetailPane reads them: a marker's
+        // location, a drawn shape's geometry, and a GPX track's file. A track's route is in the
+        // file rather than on a label, so it stands on no point the list can measure from, and the
+        // pane fits the whole of it (see DetailPane).
         const center = parseLocation(note.getLabelValue(LOCATION_ATTRIBUTE));
-        if (!center && note.mime !== GPX_MIME) continue;
+        const bounds = center ? null : shapeBounds(note);
+        if (!center && !bounds && note.mime !== GPX_MIME) continue;
 
         matches.push({
             kind: "marker",
@@ -387,11 +378,27 @@ function matchMarkers(notes: FNote[], query: string): SearchEntry[] {
             noteId: note.noteId,
             label: note.title,
             icon: note.getIcon(),
-            center: center ?? undefined
+            // A shape is measured from the middle of the ground it covers, so that it is ordered
+            // among the markers by how far off it is rather than sorted to the end of them.
+            center: center ?? (bounds ? boundsCenter(bounds) : undefined),
+            bounds: bounds ?? undefined
         });
     }
 
     return matches;
+}
+
+/** The box a note's drawn shape covers, or `null` where the note carries no readable one. */
+function shapeBounds(note: FNote): Bounds | null {
+    const value = note.getLabelValue(SHAPE_ATTRIBUTE);
+    const shape = value ? parseGeoShape(value) : null;
+    return shape ? geoShapeBounds(shape) : null;
+}
+
+/** The middle of a box. A shape crossing ±180° is framed on longitudes past 180° (see `boundsOf`),
+ *  which {@link metresBetween} reads as the same meridian either way. */
+function boundsCenter([ [ west, south ], [ east, north ] ]: Bounds): [number, number] {
+    return [ (west + east) / 2, (south + north) / 2 ];
 }
 
 /**

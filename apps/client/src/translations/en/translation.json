@@ -739,7 +739,9 @@
     "is_hidden": "Keeps a task state out of the pickers, without deleting it or the notes already in it.",
     "max_nesting_depth": "How many levels of children a table shows. Notes cannot be reordered while it is set.",
     "include_archived": "Includes archived notes in this collection, which are otherwise left out.",
+    "board_card_width": "For board collections, how wide the columns are drawn: <code>narrow</code>, <code>medium</code> or <code>wide</code>. Ignored on mobile, which draws them at a width of its own.",
     "enable_inbox_column": "For board collections, shows the inbox column, which lists all child notes that are not assigned to a board column.",
+    "board_card_redirect_to": "On a board card, opening the card jumps to the note this points at instead of opening the card itself.",
     "sort_columns": "For board collections, the order the columns sort their cards in, which a column follows unless it is given an order of its own. Holds <code>title</code>, <code>creationDate</code> or <code>attr:</code> followed by a promoted attribute's name.",
     "sort_columns_descending": "For board collections, runs the order in <code>#sortColumns</code> backwards.",
     "calendar_view": "Which view a calendar opens in: <code>timeGridDay</code>, <code>timeGridWeek</code>, <code>dayGridMonth</code>, <code>multiMonthYear</code> or <code>listMonth</code>.",
@@ -747,7 +749,7 @@
     "calendar_hide_weekends": "Hides Saturday and Sunday from the calendar. Applies whatever its value.",
     "calendar_week_numbers": "Shows the number of the week on the calendar. Applies whatever its value.",
     "calendar_slot_duration": "How long each timeslot of a calendar lasts, as <code>HH:MM:SS</code>. Defaults to 15 minutes.",
-    "calendar_slot_label_interval": "How often the timeslots of a calendar are labelled, as <code>HH:MM:SS</code>. Defaults to an hour.",
+    "calendar_slot_label_interval": "How often the timeslots of a calendar are labeled, as <code>HH:MM:SS</code>. Defaults to an hour.",
     "calendar_title": "Names the attribute an event takes its title from, instead of the note title. Either a label or a relation, written without <code>#</code> or <code>~</code>.",
     "calendar_displayed_attributes": "Comma-delimited attribute names whose values are shown on the event. A relation is shown as the title of the note it points at.",
     "calendar_start_date": "Names the label an event reads its start date from, instead of <code>#startDate</code>. Written without the <code>#</code>.",
@@ -761,6 +763,7 @@
     "end_time": "The time an event ends at, read against <code>#endDate</code> where there is one and <code>#startDate</code> otherwise.",
     "recurrence": "A CalDAV <code>RRULE</code> string making the event repeat. The start is taken from <code>#startDate</code> and <code>#startTime</code>, so the rule leaves <code>DTSTART</code> out.",
     "geolocation": "The latitude and longitude the note is placed at on a geo map.",
+    "geo_shape": "A shape the note is drawn as on a geo map: the kind of shape, then the latitude and longitude of each point, e.g. <code>line:48.85,2.29 48.86,2.35</code> — or a circle as its center and reach in meters, <code>circle:48.85,2.29 500</code>.",
     "map_type": "Which note map is drawn: <code>link</code> for the relations between notes, or <code>tree</code> for the hierarchy.",
     "map_style": "Which style a geo map is drawn in, chosen from the raster and vector styles offered in the collection properties.",
     "map_dark_style": "Tells a geo map that the custom style given in <code>map:style</code> is a dark one, so that the marker titles are drawn light over it. The styles offered in the collection properties say so for themselves and need no such label.",
@@ -768,7 +771,7 @@
     "map_hide_labels": "Hides the note titles beside the markers on a geo map.",
     "map_cluster": "Gathers markers that are drawn close together into a single numbered bubble, which opens when clicked.",
     "presentation_theme": "Which theme a presentation is shown with.",
-    "slide_background": "The background of a slide, as a colour or as a CSS gradient.",
+    "slide_background": "The background of a slide, as a color or as a CSS gradient.",
     "tab_width": "How many spaces wide one level of indentation is in this code note.",
     "indent_with_tabs": "Indents this code note with tabs rather than spaces.",
     "wrap_lines": "Wraps long lines in this code note instead of scrolling sideways.",
@@ -1454,7 +1457,7 @@
     "attributes_definitions_what": "A definition is the schema behind an attribute name: what kind of value it takes, whether it may be given more than once, and whether it is promoted.",
     "attributes_definitions_promoted": "A promoted attribute is shown on the note itself as a form field rather than being left to this panel. Definitions usually arrive from a template, and each row names the note it lives on.",
     "highlights_what": "The passages this note picks out by their formatting. That is a wider net than it sounds: an ordinary bold or italic sentence counts, not only text you have highlighted.",
-    "highlights_configure": "Which formats count is yours to set: bold, italic, underlined, coloured text and text on a background colour can each be listed or left out, from the gear in this card's header. Pressing an entry scrolls the note to it.",
+    "highlights_configure": "Which formats count is yours to set: bold, italic, underlined, colored text and text on a background color can each be listed or left out, from the gear in this card's header. Pressing an entry scrolls the note to it.",
     "note_map_what": "A map of what this note connects to. The link map draws the internal links and relations going in and out of it; the tree map draws where it sits in the note tree. The switcher in this header chooses between the two.",
     "note_map_interaction": "Hovering a note brings its own connections forward and fades the rest. The expand button opens the same map at the size of the window.",
     "note_paths_what": "A note can sit in more than one place in the note tree at once, and each of those places is listed here as a path.",
@@ -1803,7 +1806,12 @@
     "start_over_pending": "The setup screen will appear the next time this server is restarted. Restart the server when you are ready, or cancel below to leave everything as it is.",
     "start_over_cancel": "Cancel start over",
     "related_backup": "Backup",
-    "related_backup_description": "Create or restore database backups, manage automatic backups."
+    "related_backup_description": "Create or restore database backups, manage automatic backups.",
+    "info_persistence": "Persistence",
+    "info_persistence_persistent": "Persistent",
+    "info_persistence_best_effort": "Best-effort",
+    "info_persistence_persistent_description": "The browser has undertaken to keep this database until you delete it.",
+    "info_persistence_best_effort_description": "The browser can evict this database to reclaim space.\nInstalling Trilium as an app or adding it to your home screen usually earns persistence."
   },
   "vacuum_database": {
     "title": "Vacuum Database",
@@ -1857,7 +1865,7 @@
     "search_placeholder": "Search fonts",
     "no_fonts_found": "No font matches what you are looking for.",
     "document_preview_heading": "Purple heart cuttings",
-    "document_preview_body": "Snipped 4 stems below a node and stood them in water on the sill; the first roots showed after <strong>9 days</strong>. It holds its colour in <em>full sun</em> and fades to green in the shade."
+    "document_preview_body": "Snipped 4 stems below a node and stood them in water on the sill; the first roots showed after <strong>9 days</strong>. It holds its color in <em>full sun</em> and fades to green in the shade."
   },
   "max_content_width": {
     "title": "Content Width",
@@ -2187,7 +2195,8 @@
     "mismatch": "The passwords do not match."
   },
   "open": {
-    "directory_failed": "Could not open {{- directory}}: {{- reason}}"
+    "directory_failed": "Could not open {{- directory}}: {{- reason}}",
+    "download_failed": "Could not save the download: {{- reason}}"
   },
   "etapi": {
     "description": "ETAPI is a REST API used to access Trilium instance programmatically, without UI.",
@@ -2231,7 +2240,17 @@
     "server_config_hint": "Add the following to your config.ini file:",
     "server_env_hint": "Or set the following environment variable:",
     "restart_required": "Restart required for this change to take effect.",
-    "restart_now": "Restart the application now"
+    "restart_now": "Restart the application now",
+    "standalone": {
+      "backend_scripting_section_description": "Backend scripts run inside this browser, with full access to your notes, your settings and your sync credentials. They can be triggered via sync, import, or any content that includes executable attributes, without you opening the note. Frontend scripts are always enabled and reach no further than the app itself does.",
+      "reload_required": "Reload required for this change to take effect.",
+      "reload_now": "Reload the page now",
+      "other_tab_hint": "These settings are changed from the tab that owns the database, which is usually the first Trilium tab you opened. Close the other tabs and reload this page to change them here.",
+      "confirm_enable": "Enable {{- setting}}?\n\n{{- warning}} A script in your notes can request this, so only continue if you asked for it yourself.",
+      "confirm_disable": "Disable {{- setting}}?",
+      "confirm_backend_scripting_warning": "Backend scripts get full access to your notes, settings and sync credentials.",
+      "confirm_sql_console_warning": "The SQL console can read your sync credentials and password hash, and change or delete any note."
+    }
   },
   "password": {
     "heading": "Password",
@@ -2416,7 +2435,10 @@
     "test_title": "Test Connection",
     "test_description": "Test the connection to the sync server. If not initialized, this will set up syncing.",
     "test_button": "Test now",
-    "handshake_failed": "Sync server handshake failed, error: {{message}}"
+    "handshake_failed": "Sync server handshake failed, error: {{message}}",
+    "effective_server": "Server in use",
+    "effective_server_description": "Set through config.ini or environment variables, which take priority over the server address above.",
+    "effective_server_disabled": "Synchronization is turned off."
   },
   "api_log": {
     "close": "Close"
@@ -3010,6 +3032,19 @@
     "create-child-note-instruction": "Click on the map to create a new note at that location or press Escape to dismiss.",
     "create-child-note-toast-title": "New note",
     "add-gpx-track": "Add a GPS track from a GPX file",
+    "draw-line": "Draw a path on the map",
+    "draw-polygon": "Draw an area on the map",
+    "draw-cancel": "Cancel drawing",
+    "draw-line-toast-title": "Draw a path",
+    "draw-line-instruction": "Click on the map to add points. Click the last point again or press Enter to finish, or press Escape to cancel.",
+    "draw-polygon-toast-title": "Draw an area",
+    "draw-polygon-instruction": "Click on the map to add corners. Click the first corner again or press Enter to finish, or press Escape to cancel.",
+    "draw-rectangle": "Draw a rectangle on the map",
+    "draw-rectangle-toast-title": "Draw a rectangle",
+    "draw-rectangle-instruction": "Click on the map at one corner, then click again at the opposite corner. You can also drag from one corner to the other. Press Escape to cancel.",
+    "draw-circle": "Draw a circle on the map",
+    "draw-circle-toast-title": "Draw a circle",
+    "draw-circle-instruction": "Click on the map at the center, then click again at the distance the circle should reach. You can also drag out from the center. Press Escape to cancel.",
     "move-marker-instruction": "Click on the map to move the marker to that location or press Escape to dismiss.",
     "move-marker-toast-title": "Move marker",
     "unable-to-load-map": "Unable to load map.",
@@ -3427,7 +3462,7 @@
     "insert-above": "Insert new above",
     "insert-below": "Insert new below",
     "move-to-top": "Move to top",
-    "more-columns": "More states…",
+    "more-columns": "More…",
     "delete-column": "Delete column...",
     "archive-column": "Archive column",
     "unarchive-column": "Unarchive column",
@@ -3472,6 +3507,10 @@
     "show-archived-notes": "Show archived cards/columns",
     "general": "General",
     "show-archived": "Show archived cards and columns",
+    "copy-reference": "Copy reference",
+    "reference-column-missing": "That column is no longer on this board.",
+    "reference-archived": "That item is archived, so the board is not showing it.",
+    "reference-missing": "That item is no longer on this board.",
     "properties": "Board properties",
     "properties-title": "Board properties",
     "card-templates": "Card templates",
@@ -3493,6 +3532,7 @@
     "change-note-icon": "Change icon",
     "column-menu": "Column menu",
     "column-already-exists": "This column already exists on the board.",
+    "column-name-taken": "The column named “{{- column}}” already exists.",
     "column-definition-save-error": "The columns were saved on the board, but could not be saved to the status attribute.",
     "save-error": "The change could not be saved.",
     "hints": {
@@ -3514,7 +3554,10 @@
       "move_across": "Move to the previous / next column",
       "move_to_end_column": "Move to the first / last column",
       "move_column": "Move the column left / right",
-      "move_column_to_edge": "Move the column to the far left / right"
+      "move_column_to_edge": "Move the column to the far left / right",
+      "selection": "Selection",
+      "select_column": "Select every item of the column",
+      "clear_selection": "Clear the selection"
     },
     "status-alias": "Status",
     "filter-placeholder": "Filter board...",
@@ -3523,10 +3566,19 @@
     "card-outside-filter": "This card is outside of the current filtering scope",
     "sort": "Sort",
     "sort-manually": "Manually",
-    "sort-cards": "Sort cards",
+    "default-card-order": "Default card order",
+    "columns-title": "Columns",
+    "columns-empty": "This board has no columns yet.",
+    "column-width": "Column width",
+    "drop-as-first-item": "Drop as the first item",
+    "drop-as-last-item": "Drop as the last item",
+    "column-width-narrow": "Narrow (default)",
+    "column-width-medium": "Medium",
+    "column-width-wide": "Wide",
+    "default-card-order-description": "How cards are sorted in each column, unless you choose different sorting options for a particular column.",
     "sort-board-default": "Board's default",
-    "sort-actions": "More actions",
-    "reset-columns-to-default": "Reset all columns to default",
+    "reset-column-sorting": "Reset sorting options to default for all columns",
+    "reset-column-sorting-confirm": "Do you want to reset the sorting options for all columns from the current view to default?",
     "sorted-no-reorder": "Cards cannot be reordered, since this is a sorted column."
   },
   "dashboard_view": {
@@ -4204,6 +4256,7 @@
       "type-the-content-here": "Type the content here...",
       "undefined-custom-task-state": "Undefined custom task state",
       "url": "URL",
+      "upload-image": "Upload image",
       "warning": "Warning",
       "working": "Working…"
     },

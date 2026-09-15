@@ -3,11 +3,15 @@ import { ALLOWED_PROTOCOLS } from "@triliumnext/commons";
 import appContext, { type NoteCommandData } from "../components/app_context.js";
 import { openInCurrentNoteContext } from "../components/note_context.js";
 import linkContextMenuService from "../menus/link_context_menu.js";
+import cssClassManager from "./css_class_manager.js";
 import froca from "./froca.js";
 import { t } from "./i18n.js";
 import { showError } from "./toast.js";
 import treeService from "./tree.js";
 import utils from "./utils.js";
+
+/** The icon a column reference uses when the link carries no `columnIcon`. */
+const DEFAULT_COLUMN_REFERENCE_ICON = "bx bx-columns";
 
 function getNotePathFromUrl(url: string) {
     const notePathMatch = /#(root[A-Za-z0-9_/]*)$/.exec(url);
@@ -75,6 +79,24 @@ export interface ViewScope {
      * by the destination type widget (mirrors `bookmark` semantics).
      */
     searchTerms?: string[];
+    /**
+     * The id of the board column a reference points at, which the board reveals once it has drawn
+     * it. Consumed once, as `bookmark` is.
+     */
+    column?: string;
+    /**
+     * The title, icon and colour a column reference renders as, copied from the board when the
+     * reference was made. Carried in the link because reading them needs the board's own
+     * configuration; {@link column} is what the board resolves, so a rename only dates the label.
+     */
+    columnTitle?: string;
+    columnIcon?: string;
+    columnColor?: string;
+    /**
+     * The note id of the board card a reference points at, revealed the same way {@link column}
+     * is.
+     */
+    card?: string;
 }
 
 /**
@@ -97,7 +119,8 @@ const NOTE_PATH_PATTERN = /^[_a-z0-9]{4,}(\/[_a-z0-9]{4,})*$/i;
 const MAX_SPLIT_PANES_IN_HASH = 8;
 
 /** Hash parameters that belong to a pane's view scope rather than to the window as a whole. */
-const VIEW_SCOPE_PARAMS = ["viewMode", "attachmentId", "bookmark"];
+const VIEW_SCOPE_PARAMS = ["viewMode", "attachmentId", "bookmark", "column", "columnTitle",
+    "columnIcon", "columnColor", "card"];
 
 interface CreateLinkOptions {
     title?: string;
@@ -234,6 +257,11 @@ export function calculateHash(
         hoistedNoteId && hoistedNoteId !== "root" ? { hoistedNoteId } : null,
         viewScope.viewMode && viewScope.viewMode !== "default" ? { viewMode: viewScope.viewMode } : null,
         viewScope.attachmentId ? { attachmentId: viewScope.attachmentId } : null,
+        viewScope.column ? { column: viewScope.column } : null,
+        viewScope.columnTitle ? { columnTitle: viewScope.columnTitle } : null,
+        viewScope.columnIcon ? { columnIcon: viewScope.columnIcon } : null,
+        viewScope.columnColor ? { columnColor: viewScope.columnColor } : null,
+        viewScope.card ? { card: viewScope.card } : null,
         viewScope.searchTerms?.length
             ? { searchTerms: viewScope.searchTerms.map(encodeURIComponent).join(",") }
             : null,
@@ -618,14 +646,18 @@ async function loadReferenceLinkTitle($el: JQuery<HTMLElement>, href: string | n
         console.warn("Missing note ID.");
     }
 
-    const note = noteId ? await froca.getNote(noteId, true) : null;
+    // A card reference holds the board in its path and the card in `card`. The link renders the
+    // card; the path is what it opens.
+    const subjectId = viewScope?.card || noteId;
+    const note = subjectId ? await froca.getNote(subjectId, true) : null;
 
     if (note) {
         $el.addClass(note.getColorClass());
     }
 
     const title = await getReferenceLinkTitle(href);
-    $el.text(title);
+    // A column reference renders as "<board>: <column>", the column in a `<small>` below.
+    $el.text(viewScope?.columnTitle ? `${title}:` : title);
 
     if (viewScope?.bookmark) {
         $el.append($("<small>").append(
@@ -634,8 +666,17 @@ async function loadReferenceLinkTitle($el: JQuery<HTMLElement>, href: string | n
         ));
     }
 
-    if (noteId && note) {
-        const icon = await getLinkIcon(noteId, viewScope?.viewMode);
+    if (viewScope?.columnTitle) {
+        $el.append($("<small>")
+            .addClass(cssClassManager.createClassForColor(viewScope.columnColor ?? null))
+            .append(
+                $("<span>").addClass(viewScope.columnIcon || DEFAULT_COLUMN_REFERENCE_ICON),
+                document.createTextNode(` ${viewScope.columnTitle}`)
+            ));
+    }
+
+    if (subjectId && note) {
+        const icon = await getLinkIcon(subjectId, viewScope?.viewMode);
 
         if (icon) {
             $el.prepend($("<span>").addClass(icon));
@@ -649,7 +690,8 @@ async function getReferenceLinkTitle(href: string) {
         return "[missing note]";
     }
 
-    const note = await froca.getNote(noteId);
+    // A card reference is titled by the card, not by the board in its path.
+    const note = await froca.getNote(viewScope?.card || noteId);
     if (!note) {
         return "[missing note]";
     }
@@ -669,7 +711,7 @@ function getReferenceLinkTitleSync(href: string) {
         return "[missing note]";
     }
 
-    const note = froca.getNoteFromCache(noteId);
+    const note = froca.getNoteFromCache(viewScope?.card || noteId);
     if (!note) {
         return "[missing note]";
     }
@@ -682,6 +724,10 @@ function getReferenceLinkTitleSync(href: string) {
         const attachment = note.attachments.find((att) => att.attachmentId === viewScope.attachmentId);
 
         return attachment ? attachment.title : "[missing attachment]";
+    }
+
+    if (viewScope?.columnTitle) {
+        return `${note.title}: ${viewScope.columnTitle}`;
     }
 
     if (viewScope?.bookmark) {

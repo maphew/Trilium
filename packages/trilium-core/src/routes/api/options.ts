@@ -1,7 +1,7 @@
 
 
 import type { OptionNames, UserFont } from "@triliumnext/commons";
-import type { Request } from "express";
+import type { Request } from "../../http_interface";
 
 import attributeService from "../../services/attributes.js";
 import config from "../../services/config.js";
@@ -10,6 +10,7 @@ import { getLog } from "../../services/log.js";
 import optionService from "../../services/options.js";
 import searchService from "../../services/search/services/search.js";
 import { getSql } from "../../services/sql/index.js";
+import syncOptions from "../../services/sync_options.js";
 import { ValidationError } from "../../errors.js";
 
 interface UserTheme {
@@ -193,6 +194,11 @@ function getOptions() {
     resultMap["sqlConsoleEnabled"] = config.Security.sqlConsoleEnabled ? "true" : "false";
     // Desktop LAN-access override (read-only; toggled via the Electron security bridge)
     resultMap["allowLanAccess"] = config.Security.allowLanAccess ? "true" : "false";
+    // Expose the sync address actually in use (read-only), which config.ini / env vars can override
+    // so that a development copy of a live document does not push to the live sync server.
+    const syncServerHost = syncOptions.isSyncSetup() ? syncOptions.getSyncServerHost() : null;
+    resultMap["effectiveSyncServerHost"] = syncServerHost ? stripSyncCredentials(syncServerHost) : "";
+    resultMap["syncServerHostOverridden"] = config.Sync.syncServerHost ? "true" : "false";
 
     // Detect if the user has any backend scripts with #run labels (backendStartup, hourly, daily).
     // Filter by MIME type since #run can also appear on frontend scripts.
@@ -310,6 +316,11 @@ function isReadable(name: string) {
         || name.startsWith("keyboardShortcuts")
         || name.endsWith("Collapsed")
         || name.startsWith("hideArchivedNotes");
+}
+
+/** Removes any `user:password@` from a sync address, so it can be shown in the UI. */
+function stripSyncCredentials(host: string) {
+    return host.replace(/^((?:[a-z][a-z\d+.-]*:)?\/\/)?[^/?#]*@/i, "$1");
 }
 
 /** Check if an option can be written by the client (PUT requests). */

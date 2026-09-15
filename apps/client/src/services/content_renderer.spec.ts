@@ -53,10 +53,10 @@ vi.mock("./open.js", () => ({
     }
 }));
 
-const loadElkIfNeeded = vi.fn(async (..._args: any[]) => {});
+const getMermaidConfig = vi.fn(() => ({ theme: "default", layout: "dagre", look: "classic" }));
 const postprocessMermaidSvg = vi.fn((...args: any[]) => `<svg class="mm">${args[0]}</svg>`);
 vi.mock("./mermaid.js", () => ({
-    loadElkIfNeeded: (...a: any[]) => loadElkIfNeeded(...a),
+    getMermaidConfig: () => getMermaidConfig(),
     postprocessMermaidSvg: (...a: any[]) => postprocessMermaidSvg(...a)
 }));
 
@@ -514,7 +514,9 @@ describe("getRenderedContent render / doc / protectedSession / mermaid", () => {
         const { type, $renderedContent } = await getRenderedContent(note);
         expect(type).toBe("mermaid");
         expect(mermaidInitialize).toHaveBeenCalledOnce();
-        expect(loadElkIfNeeded).toHaveBeenCalledOnce();
+        expect(mermaidInitialize).toHaveBeenCalledWith(
+            expect.objectContaining({ layout: "dagre", look: "classic", startOnLoad: false })
+        );
         expect(postprocessMermaidSvg).toHaveBeenCalledWith("<g/>");
         expect($renderedContent.find("svg.mm").length).toBe(1);
     });

@@ -157,6 +157,7 @@ export const ATTR_HELP: AttrHelpMap = {
         maxNestingDepth: t("attribute_detail.max_nesting_depth"),
         includeArchived: t("attribute_detail.include_archived"),
         enableInboxColumn: t("attribute_detail.enable_inbox_column"),
+        boardCardWidth: t("attribute_detail.board_card_width"),
         sortColumns: t("attribute_detail.sort_columns"),
         sortColumnsDescending: t("attribute_detail.sort_columns_descending"),
         "calendar:view": t("attribute_detail.calendar_view"),
@@ -178,6 +179,7 @@ export const ATTR_HELP: AttrHelpMap = {
         endTime: t("attribute_detail.end_time"),
         recurrence: t("attribute_detail.recurrence"),
         geolocation: t("attribute_detail.geolocation"),
+        geoShape: t("attribute_detail.geo_shape"),
         mapType: t("attribute_detail.map_type"),
         "map:style": t("attribute_detail.map_style"),
         "map:darkStyle": t("attribute_detail.map_dark_style"),
@@ -192,6 +194,7 @@ export const ATTR_HELP: AttrHelpMap = {
         internalBookmark: t("attribute_detail.internal_bookmark")
     },
     relation: {
+        boardCardRedirectTo: t("attribute_detail.board_card_redirect_to"),
         runOnNoteCreation: t("attribute_detail.run_on_note_creation"),
         runOnChildNoteCreation: t("attribute_detail.run_on_child_note_creation"),
         runOnNoteTitleChange: t("attribute_detail.run_on_note_title_change"),

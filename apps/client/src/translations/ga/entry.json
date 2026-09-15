@@ -103,7 +103,7 @@
         "existing-data-backup-failed": "Níorbh fhéidir an cúltaca a chruthú.",
         "backup-data": "Cúltaca de do shonraí Trilium",
         "backup-name": "Ainm cúltaca",
-        "backup-name-description": "Tabhair ainm don chúltaca seo a aithneoidh tú níos déanaí, nó coinnigh an ceann molta.",
+        "backup-name-description": "Tabhair ainm ar an gcúltaca seo a aithneoidh tú níos déanaí, nó coinnigh an t-ainm atá molta.",
         "backup-password": "Pasfhocal (roghnach)",
         "backup-password-repeat": "Athdhéan an focal faire",
         "backup-password-description": "Má shonraíonn tú pasfhocal, cripteofar an comhad cúltaca. Coinnigh an pasfhocal in áit shábháilte: gan é, ní féidir an cúltaca a athchóiriú.",
