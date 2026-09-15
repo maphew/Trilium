@@ -97,7 +97,8 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
             },
             {
                 title: t("board_view.add-existing-item"),
-                uiIcon: "bx bx-link",
+                // The same mark the add field wears for this, where it stands for the empty one.
+                uiIcon: "bx bx-folder-open",
                 async handler() {
                     const noteId = await dialog.chooseNote({
                         title: t("board_view.add-existing-item-title"),
@@ -495,13 +496,14 @@ export function openNoteContextMenu(api: Api, event: ContextMenuEvent, target: N
         } ] : [
             {
                 title: t("board_view.insert-above"),
-                uiIcon: "bx bx-list-plus",
+                // The list's plus sits at its foot, so the head is the glyph turned over.
+                uiIcon: "bx bx-list-plus bx-flip-vertical",
                 shortcut: "Shift+Enter",
                 handler: () => target.onInsert(index)
             },
             {
                 title: t("board_view.insert-below"),
-                uiIcon: "bx bx-empty",
+                uiIcon: "bx bx-list-plus",
                 shortcut: "Enter",
                 handler: () => target.onInsert(index + 1)
             }

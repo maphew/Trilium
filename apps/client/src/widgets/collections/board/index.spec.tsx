@@ -4899,7 +4899,7 @@ describe("Card toolbar on mobile", () => {
         // Above first, then below. The glyph's plus sits at the foot of its list, so the one
         // above is told apart by the class that turns it over.
         expect(toolbar()?.querySelectorAll("button")[1].classList
-            .contains("board-insert-above-button")).toBe(true);
+            .contains("bx-flip-vertical")).toBe(true);
         // The rail offers the rename, so the card's own hover-revealed icon is left out.
         expect(card("tool1").querySelector(".edit-icon")).toBeNull();
         // Portaled onto the board, whose edge the rail is pinned to, rather than into the card.

@@ -114,7 +114,8 @@ export default function CardToolbar({
                 <OverlayControlButton
                     title={t("board_view.insert-above")}
                     icon="bx-list-plus"
-                    className="board-insert-above-button"
+                    // The list's plus sits at its foot, so the head is the glyph turned over.
+                    className="bx-flip-vertical"
                     onClick={onInsertAbove}
                 />
                 <OverlayControlButton

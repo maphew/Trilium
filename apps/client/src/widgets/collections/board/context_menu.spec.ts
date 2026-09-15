@@ -260,7 +260,7 @@ describe("Board column context menu", () => {
         expect(titled.map(item => "uiIcon" in item ? item.uiIcon : undefined))
             .toEqual([
                 "bx bx-edit-alt", "bx bx-copy",
-                "bx bx-plus", "bx bx-link", "bx bx-columns",
+                "bx bx-plus", "bx bx-folder-open", "bx bx-columns",
                 "bx bx-collapse-horizontal", "bx bx-lock-alt", "bx bx-sort-alt-2",
                 "bx bx-tachometer",
                 "bx bx-horizontal-left",
@@ -381,7 +381,7 @@ describe("Board column context menu", () => {
         vi.spyOn(dialog, "chooseNote").mockResolvedValue("pickedNote");
 
         const entry = openMenu(api)
-            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-link");
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-folder-open");
         if (!entry || !("handler" in entry)) throw new Error("expected an add-existing entry");
 
         await entry.handler?.(entry, {} as never);
@@ -393,7 +393,7 @@ describe("Board column context menu", () => {
         vi.spyOn(dialog, "chooseNote").mockResolvedValue(null);
 
         const entry = openMenu(api)
-            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-link");
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-folder-open");
         if (!entry || !("handler" in entry)) throw new Error("expected an add-existing entry");
 
         await entry.handler?.(entry, {} as never);
@@ -409,7 +409,7 @@ describe("Board column context menu", () => {
         expect(byIcon("bx bx-edit-alt")).toMatchObject({ shortcut: "F2" });
         expect(byIcon("bx bx-trash")).toMatchObject({ shortcut: "Delete" });
         // Nothing claims a key it does not answer for.
-        expect(byIcon("bx bx-link")).not.toHaveProperty("shortcut");
+        expect(byIcon("bx bx-folder-open")).not.toHaveProperty("shortcut");
 
         const submenu = byIcon("bx bx-columns");
         const children = submenu && "items" in submenu ? submenu.items ?? [] : [];
@@ -559,7 +559,8 @@ describe("Board item context menu", () => {
         const insert = vi.fn();
         const items = openItemMenu(api, "To Do", vi.fn(), insert, 2);
 
-        for (const icon of [ "bx bx-list-plus", "bx bx-empty" ]) {
+        // The one above wears the same glyph as the one below, turned over by its own class.
+        for (const icon of [ "bx bx-list-plus bx-flip-vertical", "bx bx-list-plus" ]) {
             const entry = items.find(item => item && "uiIcon" in item && item.uiIcon === icon);
             if (!entry || !("handler" in entry)) throw new Error(`expected a ${icon} entry`);
             entry.handler?.(entry, {} as never);
@@ -605,7 +606,7 @@ describe("Board item context menu", () => {
         expect(items[at + 1]).toMatchObject({ kind: "separator" });
         expect(items.slice(at + 2, at + 5).map(item =>
             item && "uiIcon" in item ? item.uiIcon : undefined))
-            .toEqual([ "bx bx-list-plus", "bx bx-empty", "bx bx-outline" ]);
+            .toEqual([ "bx bx-list-plus bx-flip-vertical", "bx bx-list-plus", "bx bx-outline" ]);
     });
 
     it("copies a link to the card, which the card's own note id names", () => {
