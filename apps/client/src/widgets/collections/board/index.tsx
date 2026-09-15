@@ -33,8 +33,9 @@ import { FormListItem } from "../../react/FormList";
 import FormTextArea from "../../react/FormTextArea";
 import FormTextBox from "../../react/FormTextBox";
 import {
-    useContextualShortcutHints, useNoteContext, useNoteLabel, useNoteLabelBoolean,
-    useNoteLabelWithDefault, useNoteTypeOptions, useSetContextData, useTrackedElement, useTriliumEvent
+    useContextualShortcutHints, useLingeringTrue, useNoteContext, useNoteLabel,
+    useNoteLabelBoolean, useNoteLabelWithDefault, useNoteTypeOptions, useSetContextData,
+    useTrackedElement, useTriliumEvent
 } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
@@ -47,7 +48,7 @@ import { useDragPan } from "../../react/drag_pan";
 import { FLIP_SETTLE_MS, useFlip } from "../../react/flip";
 import { SelectionContext, SelectionStore } from "../../react/selection";
 import { CollectionFilterInput, useCollectionFilter } from "../collection_filter";
-import { SelectionToolbar } from "./card_toolbar";
+import { BoardRailContext, RAIL_EXIT_MS, RailStand, SelectionToolbar } from "./card_toolbar";
 import BoardHeaderTools from "./selection_bar";
 import { ViewModeProps } from "../interface";
 import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
@@ -400,6 +401,7 @@ export default function BoardView({
      * card must wake that card and no other.
      */
     const selection = useMemo(() => new SelectionStore(), []);
+    const railStand = useMemo(() => new RailStand(), []);
     /**
      * Whether a tap picks a card out instead of opening it. Mobile only: a finger has no Ctrl to
      * pick cards out with. Leaving the mode gives the selection up as well.
@@ -417,6 +419,8 @@ export default function BoardView({
         setIsSelecting(false);
         selection.clear();
     }, [ selection ]);
+    // The selection's rail is kept drawn while it slides off.
+    const isSelectionRailDrawn = useLingeringTrue(isMobile() && isSelecting, RAIL_EXIT_MS);
     const setDropPosition = useCallback((position: ColumnDrag | null) => {
         dropState.set({ ...dropState.get(), position });
     }, [ dropState ]);
@@ -1412,6 +1416,7 @@ export default function BoardView({
                 <SelectionContext.Provider value={selection}>
                 <BoardOverlayHostContext.Provider value={containerRef}>
                 <BoardSelectionModeContext.Provider value={isSelecting}>
+                <BoardRailContext.Provider value={railStand}>
                     {byColumn && columns && <div
                         ref={containerRef}
                         className={clsx("board-view-container", {
@@ -1542,9 +1547,10 @@ export default function BoardView({
                     {/* Acts on the selection in place of the focused card's rail. The menu is
                         asked of the card first picked out, whose own handler carries the whole
                         selection, the way a tap on a heading asks for a column's. */}
-                    {isMobile() && isSelecting && containerRef.current && (
+                    {isSelectionRailDrawn && containerRef.current && (
                         <SelectionToolbar
                             host={containerRef.current}
+                            isLeaving={!isSelecting}
                             count={selectionCount}
                             onDelete={() => branches.deleteNotes(
                                 api.getCards(selection.keys).map((card) => card.branch.branchId),
@@ -1560,6 +1566,7 @@ export default function BoardView({
                             }}
                         />
                     )}
+                </BoardRailContext.Provider>
                 </BoardSelectionModeContext.Provider>
                 </BoardOverlayHostContext.Provider>
                 </SelectionContext.Provider>

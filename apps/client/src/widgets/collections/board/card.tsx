@@ -26,9 +26,10 @@ import {
 } from "../../react/hooks";
 import { TooltipIcon } from "../../react/Icon";
 import { HighlightedText } from "../../react/RawHtml";
+import { useIsOnScreen, useLingeringTrue } from "../../react/hooks";
 import { useIsSelected, useSelection } from "../../react/selection";
 import { type DragData, TREE_CLIPBOARD_TYPE } from "../../note_tree";
-import CardToolbar from "./card_toolbar";
+import CardToolbar, { RAIL_EXIT_MS } from "./card_toolbar";
 
 function Card({
     api,
@@ -111,6 +112,18 @@ function Card({
 
         setIsFocused(false);
     }, []);
+    /**
+     * Whether the card's rail is wanted. Off the card while its title is edited, since the rename
+     * it offers is under way, while it is carried, since the board is being rearranged under the
+     * finger, and in selection mode, where the board's own rail acts on the selection instead.
+     */
+    const isRailWanted = isMobile() && isFocused && !isEditing && !isDragging && !isSelecting;
+    // The rail stands for the card, so it goes when the card is scrolled off the screen entirely
+    // and comes back with it.
+    const isOnScreen = useIsOnScreen(cardRef, isRailWanted);
+    const isRailShown = isRailWanted && isOnScreen;
+    // Kept drawn while it slides off.
+    const isRailDrawn = useLingeringTrue(isRailShown, RAIL_EXIT_MS);
     const isSelected = useIsSelected(note.noteId);
 
     // A card owns its own title: the board does not redraw for a note-row change. Setting the value
@@ -342,13 +355,10 @@ function Card({
                 badges={isOutsideFilter && <OutsideFilterBadge />}
             />
         </div>
-        {/* Off the card while its title is edited, since the rename it offers is under way, while
-            it is carried, since the board is being rearranged under the finger, and in selection
-            mode, where the board's own rail acts on the selection instead. */}
-        {isMobile() && isFocused && !isEditing && !isDragging && !isSelecting
-            && overlayHost.current && (
+        {isRailDrawn && overlayHost.current && (
             <CardToolbar
                 host={overlayHost.current}
+                isLeaving={!isRailShown}
                 isSorted={api.isColumnSorted(column)}
                 removal={api.isInboxEnabled ? "note" : "board"}
                 onRename={() => setBranchIdToEdit(branch.branchId)}

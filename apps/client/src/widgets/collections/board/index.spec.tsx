@@ -30,6 +30,7 @@ import BoardView, { BoardViewData } from ".";
 import { getNoteTypeOptions, type NoteTypeOption } from "../../../services/note_types";
 import { collectShortcutHints } from "../../../services/shortcut_hints";
 import BoardApi, { getPendingWrites } from "./api";
+import { RAIL_EXIT_MS } from "./card_toolbar";
 import { DEFAULT_COLUMN_ICON } from "./columns";
 
 // Stands in for the server: by the time the bulk action resolves, the notes carry the new value,
@@ -4790,11 +4791,34 @@ describe("Card toolbar on mobile", () => {
     let container: HTMLElement;
     let host: Component;
 
+    /** Stands in for the observer the rail watches its card with, and reports on request. */
+    class MockIntersectionObserver {
+        static instances: MockIntersectionObserver[] = [];
+        observe = vi.fn();
+        disconnect = vi.fn();
+
+        constructor(readonly callback: IntersectionObserverCallback) {
+            MockIntersectionObserver.instances.push(this);
+        }
+
+        report(isIntersecting: boolean) {
+            this.callback(
+                [ { isIntersecting } as IntersectionObserverEntry ],
+                this as unknown as IntersectionObserver);
+        }
+    }
+    let realIntersectionObserver: typeof IntersectionObserver;
+
     beforeEach(() => {
         layout.onMobile = true;
+        MockIntersectionObserver.instances = [];
+        realIntersectionObserver = window.IntersectionObserver;
+        window.IntersectionObserver =
+            MockIntersectionObserver as unknown as typeof IntersectionObserver;
     });
 
     afterEach(() => {
+        window.IntersectionObserver = realIntersectionObserver;
         layout.onMobile = false;
         vi.useRealTimers();
         saved.length = 0;
@@ -4860,6 +4884,11 @@ describe("Card toolbar on mobile", () => {
         await act(async () => { card(noteId).focus(); });
     }
 
+    /** Lets a dismissed rail finish sliding off, after which it is gone. Needs fake timers. */
+    async function letRailLeave() {
+        await act(async () => { vi.advanceTimersByTime(RAIL_EXIT_MS); });
+    }
+
     it("follows the focus onto a card and leaves with it, over the board", async () => {
         await setup();
         expect(toolbar()).toBeNull();
@@ -4881,8 +4910,63 @@ describe("Card toolbar on mobile", () => {
         button("bx-rename").dispatchEvent(press);
         expect(press.defaultPrevented).toBe(true);
 
+        // Dismissed, it slides off before it goes, and takes no press meanwhile.
+        vi.useFakeTimers();
         await act(async () => { card("tool1").blur(); });
+        expect(toolbar()?.classList.contains("leaving")).toBe(true);
+        await letRailLeave();
         expect(toolbar()).toBeNull();
+    });
+
+    /**
+     * Focus moving from one card to another hands the rail over: the newcomer stands in place
+     * without sliding in, and the rail it replaces is dropped rather than left sliding off.
+     */
+    it("hands over between cards without sliding out and in", async () => {
+        await setup();
+        await focus("tool1");
+        expect(toolbar()?.classList.contains("takes-over")).toBe(false);
+
+        await focus("tool2");
+        const rails = container.querySelectorAll(".board-card-toolbar");
+        expect(rails).toHaveLength(1);
+        expect(rails[0].classList.contains("takes-over")).toBe(true);
+        expect(rails[0].classList.contains("leaving")).toBe(false);
+
+        // The one standing slides off on its own once nothing takes over from it.
+        vi.useFakeTimers();
+        await act(async () => { card("tool2").blur(); });
+        expect(toolbar()?.classList.contains("leaving")).toBe(true);
+        await letRailLeave();
+        expect(toolbar()).toBeNull();
+    });
+
+    /**
+     * The rail stands for the card, so a card scrolled off the screen entirely takes it along,
+     * and brings it back. Watched only while the rail is wanted: the observer goes with the focus.
+     */
+    it("goes off the screen with its card and comes back with it", async () => {
+        await setup();
+        expect(MockIntersectionObserver.instances).toHaveLength(0);
+
+        await focus("tool1");
+        expect(toolbar()).not.toBeNull();
+        const observer = MockIntersectionObserver.instances.at(-1);
+        if (!observer) throw new Error("expected the card to be watched");
+        expect(observer.observe).toHaveBeenCalledWith(card("tool1"));
+
+        vi.useFakeTimers();
+        await act(async () => { observer.report(false); });
+        await letRailLeave();
+        expect(toolbar()).toBeNull();
+
+        await act(async () => { observer.report(true); });
+        expect(toolbar()?.classList.contains("leaving")).toBe(false);
+
+        await act(async () => { card("tool1").blur(); });
+        await letRailLeave();
+        expect(toolbar()).toBeNull();
+        expect(observer.disconnect).toHaveBeenCalled();
     });
 
     it("is left out off mobile, where the card has its menu", async () => {
@@ -4901,10 +4985,11 @@ describe("Card toolbar on mobile", () => {
 
         // Insert below opens the field under the card, which takes the focus and the rail with it.
         await focus("tool1");
+        vi.useFakeTimers();
         await act(async () => {
             toolbar()?.querySelectorAll<HTMLElement>("button")[2].click();
-            await flush();
         });
+        await letRailLeave();
         const column = container.querySelectorAll(".board-column")[0];
         const order = [ ...column.querySelectorAll(".board-note, .board-new-item.inserting") ]
             .map(element => element.getAttribute("data-note-id") ?? "field");
@@ -4914,6 +4999,7 @@ describe("Card toolbar on mobile", () => {
         // Rename opens the title editor in the card, and the rail stands aside while it is open.
         await focus("tool2");
         await act(async () => { button("bx-rename").click(); });
+        await letRailLeave();
         expect(card("tool2").classList.contains("editing")).toBe(true);
         expect(toolbar()).toBeNull();
 
