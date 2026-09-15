@@ -1,6 +1,5 @@
 import { type AttributeRow, dayjs, formatLogMessage } from "@triliumnext/commons";
-import type { BackendApi as PublicBackendApi, ScriptBNote as PublicScriptBNote } from "@triliumnext/commons/src/lib/script_api.js";
-import type { Request, Response } from "../http_interface";
+import type { BackendApi as PublicBackendApi, ScriptBNote as PublicScriptBNote, ScriptRequest, ScriptResponse } from "@triliumnext/commons/src/lib/script_api.js";
 import AbstractBeccaEntity from "../becca/entities/abstract_becca_entity";
 import Becca from "../becca/becca-interface";
 import * as htmlParser from "node-html-parser";
@@ -119,15 +118,15 @@ export interface Api {
     /**
      * The request. Only present when the script runs as a custom request handler (a note with the
      * `#customRequestHandler` label invoked via `/custom/...`); `undefined` for every other backend
-     * script. A custom handler only runs on the server, so the object is Express's `req` and carries
-     * the rest of its API beyond what {@link Request} names.
+     * script. {@link ScriptRequest} is the same subset the in-editor language service offers; the
+     * object itself is Express's `req`, whose full API the Custom Request Handler guide points to.
      */
-    req?: Request;
+    req?: ScriptRequest;
     /**
      * The response to write the HTTP reply to, under the same conditions as {@link ApiParams.req}
      * and likewise Express's own `res` at runtime.
      */
-    res?: Response;
+    res?: ScriptResponse;
     /**
      * Capture groups from the `#customRequestHandler` regex that matched this request's
      * URL, in order. Only present in custom request handlers.

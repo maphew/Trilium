@@ -1,3 +1,4 @@
+import type { ScriptRequest } from "@triliumnext/commons/src/lib/script_api.js";
 import { becca, cls, getLog, routeHelpers, scriptService, utils } from "@triliumnext/core";
 import type { Request, Response, Router } from "express";
 
@@ -74,7 +75,10 @@ function handleRequest(req: Request, res: Response) {
             try {
                 scriptService.executeNote(note, {
                     pathParams: match.slice(1),
-                    req,
+                    // `ScriptRequest` declares `params` flat, while Express 5 types a wildcard as
+                    // `string | string[]` — the same widening `splitPath` above works around. A
+                    // handler reads its path through `pathParams` rather than through `params`.
+                    req: req as unknown as ScriptRequest,
                     res
                 });
             } catch (e: unknown) {
