@@ -388,17 +388,31 @@ describe("useBoardDrag, carrying a card", () => {
         expect(captured).toEqual([ 1 ]);
     });
 
-    /** A tap asks for the menu, the long press being how a finger picks a card up instead. */
-    it("asks a card for its menu when it is tapped", () => {
+    /**
+     * A tap on a card is a click on it, which opens the card. The long press is how a finger
+     * picks a card up, so no menu is asked for on the way.
+     */
+    it("leaves a tap on a card to the click it lands", () => {
         setup();
         const element = card("n1");
         const menus: string[] = [];
+        const clicks: boolean[] = [];
         element.addEventListener("contextmenu", () => menus.push("card"));
+        board.addEventListener("click", (event) => clicks.push(event.defaultPrevented));
 
         press(element, 50, 60, "touch");
         release(50, 62, "touch");
+        act(() => {
+            element.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+        });
 
-        expect(menus).toEqual([ "card" ]);
+        expect(menus).toEqual([]);
+        expect(clicks).toEqual([ false ]);
+
+        // Nor is the `touchend` the browser makes the click from refused.
+        const followed = new Event("touchend", { bubbles: true, cancelable: true });
+        act(() => { document.dispatchEvent(followed); });
+        expect(followed.defaultPrevented).toBe(false);
     });
 
     /** The heading answers for a column's menu, the column itself holding no handler. */
@@ -440,16 +454,17 @@ describe("useBoardDrag, carrying a card", () => {
         expect(clicks).toEqual([ "click" ]);
     });
 
-    it("leaves the click a tap also lands unanswered", () => {
+    it("leaves the click a tap on a heading also lands unanswered", () => {
         setup();
-        const element = card("n1");
+        const heading = board.querySelector<HTMLElement>(".board-column h3");
+        if (!heading) throw new Error("expected a heading");
         const clicks: boolean[] = [];
         board.addEventListener("click", (event) => clicks.push(event.defaultPrevented));
 
-        press(element, 50, 60, "touch");
-        release(50, 62, "touch");
+        press(heading, 10, 10, "touch");
+        release(11, 11, "touch");
         act(() => {
-            element.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+            heading.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
         });
 
         expect(clicks).toEqual([]);
@@ -462,9 +477,11 @@ describe("useBoardDrag, carrying a card", () => {
      */
     it("refuses the mouse events a browser would make from a tap", () => {
         setup();
+        const heading = board.querySelector<HTMLElement>(".board-column h3");
+        if (!heading) throw new Error("expected a heading");
 
-        press(card("n1"), 50, 60, "touch");
-        release(50, 62, "touch");
+        press(heading, 10, 10, "touch");
+        release(11, 11, "touch");
 
         const followed = new Event("touchend", { bubbles: true, cancelable: true });
         act(() => { document.dispatchEvent(followed); });

@@ -266,6 +266,9 @@ export const BoardHighlightTokensContext = createContext<HighlightedTokenInfo[] 
 /** The cards drawn although the filter does not match them, which say as much on their face. */
 export const BoardKeptCardsContext = createContext<Set<string>>(new Set());
 
+/** The board's own element, which what a card floats over the board is portaled into. */
+export const BoardOverlayHostContext = createContext<RefObject<HTMLElement>>({ current: null });
+
 /**
  * What the board answers with when asked for contextual keyboard help. Every entry is a key the
  * board handles itself (see `keyboard.ts` and the card and column handlers), none of them
@@ -1360,11 +1363,13 @@ export default function BoardView({
                 <BoardDropStateContext.Provider value={dropState}>
                 <BoardDragStateContext.Provider value={boardDragState}>
                 <SelectionContext.Provider value={selection}>
+                <BoardOverlayHostContext.Provider value={containerRef}>
                     {byColumn && columns && <div
                         ref={containerRef}
                         className={clsx("board-view-container", {
                             pannable: isPannable,
-                            panning: isPanning
+                            panning: isPanning,
+                            dragging: isDraggingItem
                         })}
                         onKeyDown={handleKeyDown}
                         onClick={clearSelectionOutsideCards}
@@ -1486,6 +1491,7 @@ export default function BoardView({
                             </OverlayControlGroup>
                         )}
                     </div>}
+                </BoardOverlayHostContext.Provider>
                 </SelectionContext.Provider>
                 </BoardDragStateContext.Provider>
                 </BoardDropStateContext.Provider>

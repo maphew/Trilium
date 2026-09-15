@@ -1,0 +1,45 @@
+/* Laid out by the group, which pins itself over the board: the wrapper is there for its events. */
+.board-view-container .board-card-toolbar {
+  display: contents;
+}
+
+/* Nothing is offered while a card is carried; the rail comes back with the focus afterwards. */
+.board-view-container.dragging .board-card-toolbar {
+  display: none;
+}
+
+.board-view-container .board-card-toolbar .tn-overlay-control-group {
+  /* A finger's target: 48px square meets Material, Apple's 44pt and WCAG 2.5.5 alike. */
+  --overlay-button-height: 48px;
+  --overlay-button-icon-size: 24px;
+  /* Flush with the screen edge, so a touch reaching for the rail cannot land on a card past it. */
+  --overlay-group-inset-end: 0;
+  z-index: 2;
+  border-inline-end: none;
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+
+  .tn-overlay-icon-button {
+    width: 48px;
+  }
+
+  /* Takes the card away, and is marked the way destructive menu entries are. */
+  .board-remove-button {
+    color: var(--dropdown-item-icon-destructive-color);
+  }
+
+  /* The side that meets the screen edge keeps no rounding. */
+  button:first-child {
+    border-start-end-radius: 0;
+  }
+
+  button:last-child {
+    border-end-end-radius: 0;
+  }
+}
+
+/* The icon above it turned over: an addition at the foot of the list rather than at its head. */
+.board-view-container .board-card-toolbar .board-insert-below-button::before {
+  display: inline-block;
+  transform: scaleY(-1);
+}

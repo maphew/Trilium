@@ -19,6 +19,7 @@ import toast from "../../../services/toast";
 import FBranch from "../../../entities/fbranch";
 import froca from "../../../services/froca";
 import attributes from "../../../services/attributes";
+import branches from "../../../services/branches";
 import { executeBulkActions } from "../../../services/bulk_action";
 import LoadResults from "../../../services/load_results";
 import noteAttributeCache from "../../../services/note_attribute_cache";
@@ -47,6 +48,15 @@ vi.mock("../../../services/i18n", () => ({
 // the picker and hands one over when it is pressed.
 // What a card can be made from. The listing itself is the app's and is tested there; the board is
 // handed a short list of it, the four it offers by default and one it does not.
+// Hoisted with the mock, which is lifted above everything a test file declares.
+const layout = vi.hoisted(() => ({ onMobile: false }));
+
+// Spread rather than replaced: the board reads far more of this than the one export a test steers.
+vi.mock("../../../services/utils", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../../services/utils")>()),
+    isMobile: () => layout.onMobile
+}));
+
 vi.mock("../../../services/note_types", () => ({
     getNoteTypeOptions: vi.fn(async () => {
         templateReads++;
@@ -4384,9 +4394,9 @@ describe("Board properties from the note menu", () => {
         }
 
         // A modal Bootstrap still believes is shown traps the focus of every later test, and its
-        // teardown waits on a transition happy-dom never runs.
-        const modal = document.querySelector<HTMLElement>(".board-properties-dialog");
-        if (modal) {
+        // teardown waits on a transition happy-dom never runs. Every one of them: earlier tests
+        // leave dialogs of their own behind, and the shown one is the last.
+        for (const modal of document.querySelectorAll<HTMLElement>(".board-properties-dialog")) {
             BootstrapModal.getInstance(modal)?.dispose();
             modal.remove();
         }
@@ -4740,5 +4750,223 @@ describe("what the board hands the right pane", () => {
         // A board that is no longer on show leaves nothing behind for the pane to list.
         act(() => { render(null, mountPoint); });
         expect(cleared).toContain("boardColumns");
+    });
+});
+
+describe("Card toolbar on mobile", () => {
+    let container: HTMLElement;
+    let host: Component;
+
+    beforeEach(() => {
+        layout.onMobile = true;
+    });
+
+    afterEach(() => {
+        layout.onMobile = false;
+        vi.useRealTimers();
+        saved.length = 0;
+        render(null, container);
+        container.remove();
+    });
+
+    /** A board of two columns, three cards, nothing sorted, and an inbox only when asked for. */
+    async function setup({ withInbox = false } = {}) {
+        // A dialog an earlier test opened can be mounted only after that test's teardown, and a
+        // modal Bootstrap believes shown pulls the focus back into itself from anything focused
+        // later. The toolbar follows the focus, so the page is cleared of them first.
+        for (const modal of document.querySelectorAll<HTMLElement>(".modal.show")) {
+            BootstrapModal.getInstance(modal)?.dispose();
+            modal.remove();
+        }
+        document.querySelector(".modal-backdrop")?.remove();
+        document.body.classList.remove("modal-open");
+
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            ...(withInbox ? { "#enableInboxColumn": "true" } : {}),
+            children: [
+                { id: "tool1", title: "First", "#status": "To Do" },
+                { id: "tool2", title: "Second", "#status": "To Do" },
+                { id: "tool3", title: "Third", "#status": "Done" }
+            ]
+        });
+
+        host = new Component();
+        container = document.body.appendChild(document.createElement("div"));
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={host}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={{ columns: [ { value: "To Do" }, { value: "Done" } ] }}
+                    />
+                </ParentComponent.Provider>,
+                container
+            );
+        });
+        await act(async () => { await flush(); });
+
+        return note;
+    }
+
+    function card(noteId: string) {
+        const element = container.querySelector<HTMLElement>(
+            `.board-note[data-note-id="${noteId}"]`);
+        if (!element) throw new Error(`expected the card ${noteId}`);
+        return element;
+    }
+
+    const toolbar = () => container.querySelector<HTMLElement>(".board-card-toolbar");
+
+    /** The buttons on the rail, each by the icon it wears. */
+    const buttons = () => [ ...toolbar()?.querySelectorAll("button") ?? [] ]
+        .map(button => [ ...button.classList ].find(name => name.startsWith("bx-")));
+
+    function button(icon: string) {
+        const element = toolbar()?.querySelector<HTMLElement>(`button.${icon}`);
+        if (!element) throw new Error(`expected a ${icon} button`);
+        return element;
+    }
+
+    async function focus(noteId: string) {
+        await act(async () => { card(noteId).focus(); });
+    }
+
+    /**
+     * Runs a step with a tab manager standing in for the app's, which the card's menu and the
+     * reveal after a drop ask for the active pane. Only for that step: the board's own hooks read
+     * the manager while it renders, and answer differently to a stand-in than to none.
+     */
+    async function withTabManager(step: () => Promise<void>) {
+        const previous = appContext.tabManager;
+        appContext.tabManager = {
+            getActiveContext: () => undefined,
+            // The menu on mobile asks whether the pane is split, which one with no splits is not.
+            getNoteContextById: () => ({ getMainContext: () => ({ getSubContexts: () => [] }) })
+        } as never;
+        try {
+            await step();
+        } finally {
+            appContext.tabManager = previous;
+        }
+    }
+
+    it("follows the focus onto a card and leaves with it, over the board", async () => {
+        await setup();
+        expect(toolbar()).toBeNull();
+        await focus("tool1");
+        expect(buttons()).toEqual([
+            "bx-rename", "bx-list-plus", "bx-list-plus", "bx-task-x", "bx-dots-vertical-rounded"
+        ]);
+        // The second insert is the one below, told apart by the class its icon is turned over by.
+        expect(toolbar()?.querySelectorAll("button")[2].classList
+            .contains("board-insert-below-button")).toBe(true);
+        // Portaled onto the board, whose edge the rail is pinned to, rather than into the card.
+        expect(toolbar()?.parentElement).toBe(container.querySelector(".board-view-container"));
+
+        // A press on the rail keeps the focus where it is, or the rail would close under it.
+        const press = new PointerEvent("pointerdown", { bubbles: true, cancelable: true });
+        button("bx-rename").dispatchEvent(press);
+        expect(press.defaultPrevented).toBe(true);
+
+        await act(async () => { card("tool1").blur(); });
+        expect(toolbar()).toBeNull();
+    });
+
+    it("is left out off mobile, where the card has its menu", async () => {
+        layout.onMobile = false;
+        await setup();
+
+        await focus("tool1");
+        expect(toolbar()).toBeNull();
+    });
+
+    it("inserts, renames, removes and opens the menu for the focused card", async () => {
+        await setup();
+        const removeFromBoard = vi.spyOn(BoardApi.prototype, "removeFromBoard")
+            .mockResolvedValue(undefined);
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+
+        // Insert below opens the field under the card, which takes the focus and the rail with it.
+        await focus("tool1");
+        await act(async () => {
+            button("board-insert-below-button").click();
+            await flush();
+        });
+        const column = container.querySelectorAll(".board-column")[0];
+        const order = [ ...column.querySelectorAll(".board-note, .board-new-item.inserting") ]
+            .map(element => element.getAttribute("data-note-id") ?? "field");
+        expect(order).toEqual([ "tool1", "field", "tool2" ]);
+        expect(toolbar()).toBeNull();
+
+        // Rename opens the title editor in the card, and the rail stands aside while it is open.
+        await focus("tool2");
+        await act(async () => { button("bx-rename").click(); });
+        expect(card("tool2").classList.contains("editing")).toBe(true);
+        expect(toolbar()).toBeNull();
+
+        await focus("tool3");
+        await withTabManager(async () => {
+            await act(async () => { button("bx-dots-vertical-rounded").click(); });
+        });
+        expect(show).toHaveBeenCalledTimes(1);
+
+        await act(async () => { button("bx-task-x").click(); });
+        expect(removeFromBoard).toHaveBeenCalledWith([ "tool3" ]);
+
+        removeFromBoard.mockRestore();
+        show.mockRestore();
+    });
+
+    /**
+     * A board with an inbox keeps a card whose grouping value is cleared, in the inbox, so what
+     * takes a card off such a board is deleting the note, as on the card's menu.
+     */
+    it("offers to delete the note instead where the board has an inbox", async () => {
+        await setup({ withInbox: true });
+        const deleteNotes = vi.spyOn(branches, "deleteNotes").mockResolvedValue(false);
+
+        await focus("tool1");
+        expect(buttons()).toEqual([
+            "bx-rename", "bx-list-plus", "bx-list-plus", "bx-trash", "bx-dots-vertical-rounded"
+        ]);
+
+        // The card's own branch, and neither the tree's confirmation shortcut nor its erase.
+        await act(async () => { button("bx-trash").click(); });
+        expect(deleteNotes.mock.calls).toEqual([ [ [ expect.any(String) ], false, false ] ]);
+
+        deleteNotes.mockRestore();
+    });
+
+    /**
+     * A long press picks the card up, and nothing is offered while it is carried. Let go where it
+     * was picked up, the card takes the focus back, and the rail with it.
+     */
+    it("is hidden while the card is carried, and back once the press lets go", async () => {
+        await setup();
+        await focus("tool1");
+        vi.useFakeTimers();
+
+        const element = card("tool1");
+        const press = (type: string) => element.dispatchEvent(new PointerEvent(type, {
+            bubbles: true, pointerType: "touch", clientX: 10, clientY: 10
+        }));
+        const board = () => container.querySelector(".board-view-container");
+
+        await act(async () => {
+            press("pointerdown");
+            vi.advanceTimersByTime(1000);
+        });
+        expect(board()?.classList.contains("dragging")).toBe(true);
+
+        await withTabManager(async () => {
+            await act(async () => { press("pointerup"); });
+        });
+        expect(board()?.classList.contains("dragging")).toBe(false);
+        expect(document.activeElement).toBe(card("tool1"));
+        expect(toolbar()).not.toBeNull();
     });
 });

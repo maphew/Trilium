@@ -3569,7 +3569,8 @@
     "sort-board-default": "Board's default",
     "reset-column-sorting": "Reset sorting options to default for all columns",
     "reset-column-sorting-confirm": "Do you want to reset the sorting options for all columns from the current view to default?",
-    "sorted-no-reorder": "Cards cannot be reordered, since this is a sorted column."
+    "sorted-no-reorder": "Cards cannot be reordered, since this is a sorted column.",
+    "more-actions": "More actions"
   },
   "dashboard_view": {
     "refresh-widget": "Refresh",

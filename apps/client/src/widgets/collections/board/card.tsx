@@ -9,12 +9,14 @@ import FNote from "../../../entities/fnote";
 import BoardApi, { CARD_REDIRECT_RELATION } from "./api";
 import {
     BoardActionsContext, BoardHighlightTokensContext, BoardKeptCardsContext,
-    BoardPromotedAttributesContext, TitleEditor
+    BoardOverlayHostContext, BoardPromotedAttributesContext, TitleEditor
 } from ".";
 import { ContextMenuEvent } from "../../../menus/context_menu";
 import { cardFollows } from "./columns";
 import { openNoteContextMenu } from "./context_menu";
+import branches from "../../../services/branches";
 import { t } from "../../../services/i18n";
+import { isMobile } from "../../../services/utils";
 import UserAttributesDisplay from "../../attribute_widgets/UserAttributesList";
 import { parseNavigationStateFromUrl } from "../../../services/link";
 import { FLIP_SETTLE_MS } from "../../react/flip";
@@ -26,6 +28,7 @@ import { TooltipIcon } from "../../react/Icon";
 import { HighlightedText } from "../../react/RawHtml";
 import { useIsSelected, useSelection } from "../../react/selection";
 import { type DragData, TREE_CLIPBOARD_TYPE } from "../../note_tree";
+import CardToolbar from "./card_toolbar";
 
 function Card({
     api,
@@ -95,6 +98,18 @@ function Card({
     // card and no other. The store keeps one identity for the life of the board, so holding it
     // here leaves the memo below intact.
     const selection = useSelection();
+    const overlayHost = useContext(BoardOverlayHostContext);
+    /** Whether the card holds the focus, which on mobile floats its toolbar over the board. */
+    const [ isFocused, setIsFocused ] = useState(false);
+    // Focus moving within the card or onto the toolbar keeps the toolbar; anywhere else takes it.
+    const handleFocusOut = useCallback((e: FocusEvent) => {
+        const next = e.relatedTarget instanceof Element ? e.relatedTarget : null;
+        if (next && (cardRef.current?.contains(next) || next.closest(".board-card-toolbar"))) {
+            return;
+        }
+
+        setIsFocused(false);
+    }, []);
     const isSelected = useIsSelected(note.noteId);
 
     // A card owns its own title: the board does not redraw for a note-row change. Setting the value
@@ -253,7 +268,7 @@ function Card({
         return () => window.clearTimeout(settled);
     }, [ isNew ]);
 
-    return (
+    return (<>
         <div
             ref={cardRef}
             className={clsx("board-note", colorClass, {
@@ -275,6 +290,8 @@ function Card({
             onDragStart={handleDragStart}
             onClick={!isEditing ? handleClick : undefined}
             onKeyDown={handleKeyDown}
+            onFocusIn={() => setIsFocused(true)}
+            onFocusOut={handleFocusOut}
             tabIndex={300}
         >
             {!isEditing ? (
@@ -316,7 +333,25 @@ function Card({
                 badges={isOutsideFilter && <OutsideFilterBadge />}
             />
         </div>
-    )
+        {/* Off the card while its title is edited, since the rename it offers is under way, and
+            while it is carried, since the board is being rearranged under the finger. */}
+        {isMobile() && isFocused && !isEditing && !isDragging && overlayHost.current && (
+            <CardToolbar
+                host={overlayHost.current}
+                isSorted={api.isColumnSorted(column)}
+                removal={api.isInboxEnabled ? "note" : "board"}
+                onRename={() => setBranchIdToEdit(branch.branchId)}
+                onInsertAbove={() => onInsert(index)}
+                onInsertBelow={() => onInsert(index + 1)}
+                onInsertNew={onNewItem}
+                onRemove={() => (api.isInboxEnabled
+                    ? branches.deleteNotes([ branch.branchId ], false, false)
+                    : api.removeFromBoard([ note.noteId ]))}
+                onMore={handleContextMenu}
+                onFocusOut={handleFocusOut}
+            />
+        )}
+    </>);
 }
 
 /**
