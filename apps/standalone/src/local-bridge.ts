@@ -98,6 +98,44 @@ export function restoreBackup(opts: {
     });
 }
 
+/** Security changes waiting on the worker that owns the file, by id. */
+const securityChanges = new Map<string, (written: boolean) => void>();
+
+/** Long enough for a worker that is still starting up, short enough that the toggle answers. */
+const SECURITY_CHANGE_TIMEOUT_MS = 30_000;
+
+/**
+ * Writes a security setting, on the worker that holds the lock on the file it lives in.
+ *
+ * The page cannot write that file itself — the lock is the whole point, see
+ * `lightweight/security_settings.ts` — and this deliberately avoids the request path: a route
+ * would put the change behind the same API a frontend script already calls freely. Sending it as
+ * a message means the only way to reach it is a reference to the worker, which lives in this
+ * module and is handed to nothing.
+ *
+ * Only the leader tab has that worker. A follower is refused rather than served, as for a backup.
+ */
+export function requestSecurityChange(setting: string, enabled: boolean): Promise<boolean> {
+    if (!isLeader()) {
+        return Promise.resolve(false);
+    }
+
+    const worker = startLocalServerWorker();
+    const id = Math.random().toString(36).slice(2);
+
+    return new Promise((resolve) => {
+        const settle = (written: boolean) => {
+            clearTimeout(timer);
+            securityChanges.delete(id);
+            resolve(written);
+        };
+        const timer = setTimeout(() => settle(false), SECURITY_CHANGE_TIMEOUT_MS);
+
+        securityChanges.set(id, settle);
+        worker.postMessage({ type: "SECURITY_SET", id, setting, enabled });
+    });
+}
+
 /**
  * How long the download's frame is kept in the page: comfortably past the service worker's own
  * 30-second wait for the stream to open, after which the response has either been handed to the
@@ -430,6 +468,13 @@ export function startLocalServerWorker() {
         if (msg?.type === "RESTORE_RESULT") {
             restores.get(msg.id)?.resolve(msg.result);
             restores.delete(msg.id);
+            return;
+        }
+
+        // Whether a security setting the user agreed to reached the file. Only ever `true` when
+        // the worker wrote it, so a worker that refused the change leaves the toggle where it was.
+        if (msg?.type === "SECURITY_SET_RESULT") {
+            securityChanges.get(msg.id)?.(msg.written === true);
             return;
         }
 

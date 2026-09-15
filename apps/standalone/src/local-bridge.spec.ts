@@ -777,6 +777,74 @@ describe("leadership", () => {
     });
 });
 
+describe("security settings", () => {
+    it("sends the change to the worker that holds the file, and answers what it wrote", async () => {
+        const bridge = await freshBridge();
+        const change = bridge.requestSecurityChange("backendScriptingEnabled", true);
+
+        const worker = lastWorker();
+        const sent = worker.postMessage.mock.calls
+            .map(([message]) => message as { type: string; id: string; setting?: string; enabled?: boolean })
+            .find((message) => message.type === "SECURITY_SET");
+        expect(sent).toMatchObject({ setting: "backendScriptingEnabled", enabled: true });
+
+        worker.onmessage?.({ data: { type: "SECURITY_SET_RESULT", id: sent?.id, written: true } });
+        await expect(change).resolves.toBe(true);
+    });
+
+    it("answers no when the worker refused to write it", async () => {
+        const bridge = await freshBridge();
+        const change = bridge.requestSecurityChange("sqlConsoleEnabled", true);
+
+        const worker = lastWorker();
+        const sent = worker.postMessage.mock.calls
+            .map(([message]) => message as { type: string; id: string })
+            .find((message) => message.type === "SECURITY_SET");
+        // A worker whose settings file is not locked reports the change as unwritten rather than
+        // pretending; anything but an outright `true` leaves the setting where it was.
+        worker.onmessage?.({ data: { type: "SECURITY_SET_RESULT", id: sent?.id, written: "yes" } });
+
+        await expect(change).resolves.toBe(false);
+    });
+
+    it("ignores a result that answers a different change", async () => {
+        const bridge = await freshBridge();
+        const change = bridge.requestSecurityChange("backendScriptingEnabled", true);
+        const worker = lastWorker();
+
+        worker.onmessage?.({ data: { type: "SECURITY_SET_RESULT", id: "some other change", written: true } });
+
+        let settled = false;
+        void change.then(() => { settled = true; });
+        await Promise.resolve();
+        expect(settled).toBe(false);
+    });
+
+    it("gives up rather than hanging when the worker never answers", async () => {
+        vi.useFakeTimers();
+        try {
+            const bridge = await freshBridge();
+            const change = bridge.requestSecurityChange("backendScriptingEnabled", true);
+
+            await vi.advanceTimersByTimeAsync(30_000);
+
+            await expect(change).resolves.toBe(false);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("a follower writes nothing, since the file belongs to the leader's worker", async () => {
+        const bridge = await freshBridge();
+        leadership.isLeader = false;
+
+        await expect(bridge.requestSecurityChange("backendScriptingEnabled", true)).resolves.toBe(false);
+
+        // No worker either: one here would open a second database against the same OPFS pool.
+        expect(workerInstances).toHaveLength(0);
+    });
+});
+
 describe("cross-tab ws relay", () => {
     it("relays the worker's ws messages to the other tabs", async () => {
         const posted: unknown[] = [];

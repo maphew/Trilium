@@ -1,7 +1,9 @@
 import { useState } from "preact/hooks";
 
+import type { StandaloneSecuritySettingName } from "@triliumnext/commons";
+
 import { t } from "../../../services/i18n";
-import { isElectron } from "../../../services/utils";
+import { isElectron, isStandalone } from "../../../services/utils";
 import { Card, CardSection, OptionCardSection } from "../../react/Card";
 import CodeBlock from "../../react/CodeBlock";
 import Collapsible from "../../react/Collapsible";
@@ -47,16 +49,68 @@ export default function SecuritySettings() {
                     setPendingValue={setPendingLanAccess}
                 />
             )}
-            {hasPendingChanges && isElectron() && (
-                <RestartAction text={t("security.restart_now")} icon="bx-refresh" />
+            {hasPendingChanges && canToggle() && (
+                <RestartAction
+                    text={isElectron()
+                        ? t("security.restart_now")
+                        : t("security.standalone.reload_now")}
+                    icon="bx-refresh"
+                />
             )}
         </>
     );
 }
 
-function ServerConfigHint({ configKey, envVar }: { configKey: string; envVar: string }) {
-    if (isElectron()) {
+/**
+ * Whether this build can change the settings from here.
+ *
+ * Both platforms that can keep them outside the database can: the desktop in its data directory,
+ * standalone in an OPFS file its database worker holds the lock on. A server reads them from
+ * `config.ini`, and a standalone tab that does not own the database has no worker to write through
+ * — the tab that does is where the toggle works. Elsewhere the toggle shows the state and
+ * `ServerConfigHint` says where to change it.
+ */
+function canToggle(): boolean {
+    return isElectron() || (isStandalone && !!window.standaloneApi?.security);
+}
+
+/**
+ * Asks the platform to change a setting, and says whether the user agreed to it.
+ *
+ * The confirmation is the platform's, not this page's: a note script can reach any dialog the
+ * application draws for itself, so the desktop asks the operating system and standalone asks the
+ * browser. Which means this is not the only caller — the page is one way to reach a request that
+ * the user still has to answer either way.
+ */
+async function requestSecurityChange(
+    setting: StandaloneSecuritySettingName, enabled: boolean
+): Promise<boolean> {
+    const api = window.electronApi?.security ?? window.standaloneApi?.security;
+
+    if (setting === "backendScriptingEnabled") {
+        return await api?.setBackendScriptingEnabled(enabled) === true;
+    }
+
+    return await api?.setSqlConsoleEnabled(enabled) === true;
+}
+
+/**
+ * Where to change a setting this build does not change from here.
+ *
+ * A server reads them from `config.ini`; a standalone tab that does not own the database has no
+ * worker to write the file through, so the one that does is where the toggle works.
+ */
+function WhereToEnableHint({ configKey, envVar }: { configKey: string; envVar: string }) {
+    if (canToggle()) {
         return null;
+    }
+
+    if (isStandalone) {
+        return (
+            <CardSection>
+                <p>{t("security.standalone.other_tab_hint")}</p>
+            </CardSection>
+        );
     }
 
     return (
@@ -80,13 +134,11 @@ interface ToggleSectionProps {
 }
 
 function BackendScriptingSettings({ liveValue, pendingValue, setPendingValue }: ToggleSectionProps) {
-    const isDesktop = isElectron();
     const displayValue = pendingValue ?? liveValue;
     const hasPendingChange = pendingValue !== null && pendingValue !== liveValue;
 
     async function handleToggle(enabled: boolean) {
-        const confirmed = await window.electronApi?.security.setBackendScriptingEnabled(enabled);
-        if (confirmed) {
+        if (await requestSecurityChange("backendScriptingEnabled", enabled)) {
             // If toggling back to the live value, clear pending state
             setPendingValue(enabled === liveValue ? null : enabled);
         }
@@ -95,20 +147,24 @@ function BackendScriptingSettings({ liveValue, pendingValue, setPendingValue }: 
     return (
         <Card
             heading={t("security.backend_scripting_title")}
-            description={t("security.backend_scripting_section_description")}
+            // Standalone runs core in a Web Worker, where none of the filesystem, network and OS
+            // access the other builds grant a backend script exists to grant.
+            description={isStandalone
+                ? t("security.standalone.backend_scripting_section_description")
+                : t("security.backend_scripting_section_description")}
             actions={<HelpButton helpPage="SPirpZypehBG" />}
         >
             <OptionCardSection
                 name="backend-scripting-enabled"
                 label={t("security.backend_scripting_label")}
                 description={hasPendingChange
-                    ? t("security.restart_required")
+                    ? restartRequiredText()
                     : t("security.backend_scripting_description")}
             >
-                <FormToggle currentValue={displayValue} onChange={handleToggle} disabled={!isDesktop} />
+                <FormToggle currentValue={displayValue} onChange={handleToggle} disabled={!canToggle()} />
             </OptionCardSection>
 
-            <ServerConfigHint
+            <WhereToEnableHint
                 configKey="backendScriptingEnabled"
                 envVar="TRILIUM_SECURITY_BACKEND_SCRIPTING_ENABLED"
             />
@@ -116,14 +172,17 @@ function BackendScriptingSettings({ liveValue, pendingValue, setPendingValue }: 
     );
 }
 
+/** What has to happen before a change counts: a relaunch on the desktop, a reload in a browser. */
+function restartRequiredText(): string {
+    return isElectron() ? t("security.restart_required") : t("security.standalone.reload_required");
+}
+
 function SqlConsoleSettings({ liveValue, pendingValue, setPendingValue }: ToggleSectionProps) {
-    const isDesktop = isElectron();
     const displayValue = pendingValue ?? liveValue;
     const hasPendingChange = pendingValue !== null && pendingValue !== liveValue;
 
     async function handleToggle(enabled: boolean) {
-        const confirmed = await window.electronApi?.security.setSqlConsoleEnabled(enabled);
-        if (confirmed) {
+        if (await requestSecurityChange("sqlConsoleEnabled", enabled)) {
             setPendingValue(enabled === liveValue ? null : enabled);
         }
     }
@@ -131,6 +190,8 @@ function SqlConsoleSettings({ liveValue, pendingValue, setPendingValue }: Toggle
     return (
         <Card
             heading={t("security.sql_console_title")}
+            // The options table holds the sync credentials and the password hash wherever Trilium
+            // runs, so what the SQL console reaches is the same in a browser as anywhere else.
             description={t("security.sql_console_section_description")}
             actions={<HelpButton helpPage="YKWqdJhzi2VY" />}
         >
@@ -138,13 +199,13 @@ function SqlConsoleSettings({ liveValue, pendingValue, setPendingValue }: Toggle
                 name="sql-console-enabled"
                 label={t("security.sql_console_label")}
                 description={hasPendingChange
-                    ? t("security.restart_required")
+                    ? restartRequiredText()
                     : t("security.sql_console_description")}
             >
-                <FormToggle currentValue={displayValue} onChange={handleToggle} disabled={!isDesktop} />
+                <FormToggle currentValue={displayValue} onChange={handleToggle} disabled={!canToggle()} />
             </OptionCardSection>
 
-            <ServerConfigHint
+            <WhereToEnableHint
                 configKey="sqlConsoleEnabled"
                 envVar="TRILIUM_SECURITY_SQL_CONSOLE_ENABLED"
             />

@@ -124,12 +124,37 @@ export interface StandaloneSaveApi {
     saveUrl(url: string): Promise<StandaloneSaveResult>;
 }
 
+/** The security settings a standalone instance keeps outside its database. See {@link StandaloneSecurityApi}. */
+export type StandaloneSecuritySettingName = "backendScriptingEnabled" | "sqlConsoleEnabled";
+
+/**
+ * Asks to change a security setting, which the browser's own confirmation dialog gates.
+ *
+ * The twin of `ElectronSecurityApi`, defending the same boundary in a place where it is harder to
+ * hold: a frontend script here runs in the page, so it can call these methods itself. What it
+ * cannot do is answer the dialog — `confirm()` is drawn by the browser, outside the page's reach —
+ * and it cannot reach the setting any other way, because the value lives in an OPFS file the
+ * SQLite worker holds an exclusive lock on rather than in the database the SQL console can write.
+ *
+ * Both methods resolve `true` only when the user confirmed and the change was written; a reload
+ * applies it. Present only on the tab that owns the database, which is the tab that has a worker.
+ */
+export interface StandaloneSecurityApi {
+    /** Requests backend script execution be turned on or off. */
+    setBackendScriptingEnabled(enabled: boolean): Promise<boolean>;
+
+    /** Requests the SQL console be turned on or off. */
+    setSqlConsoleEnabled(enabled: boolean): Promise<boolean>;
+}
+
 /** The complete surface the standalone build exposes to the client. */
 export interface StandaloneApi {
     restore: StandaloneRestoreApi;
     backup: StandaloneBackupApi;
     /** Present only inside the Capacitor shell, where the browser saves no downloads itself. */
     save?: StandaloneSaveApi;
+    /** Present only on the tab that owns the database, which is the one whose worker can write the file. */
+    security?: StandaloneSecurityApi;
     /**
      * Answers an internal API request from the SQLite worker this page owns. The tab that wins the
      * database lock sets it, and the client's `server.ts` prefers it over its XHR transport, which

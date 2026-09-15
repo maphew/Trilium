@@ -214,6 +214,28 @@ describe("Options API (core)", () => {
         expect(res.status).toBe(400);
     });
 
+    it("refuses to let the security flags be written, and keeps them out of the database", async () => {
+        // These two decide whether backend scripts and the SQL console run at all, and they come
+        // from a file no route can reach: config.ini on a server, security.json in the desktop's
+        // data directory, a locked OPFS file in standalone. Making either of them an option would
+        // put the first behind the second — a script granted the SQL console could `UPDATE
+        // options` its way to backend scripting, without the user being asked.
+        for (const name of [ "backendScriptingEnabled", "sqlConsoleEnabled" ]) {
+            expect((await api.put(`/api/options/${name}/true`)).status).toBe(400);
+            // The map form rolls the whole batch back rather than validating up front, so this is
+            // the 500 the surrounding tests describe — either way nothing is written.
+            expect((await api.put("/api/options", { body: { [name]: "true" } })).status).toBe(500);
+            // No row at all, which the two SQL providers report differently.
+            expect(getOptionValue(name) ?? null).toBeNull();
+        }
+
+        // The route reports them from the config it was started with, so what a write would have
+        // to reach is somewhere the API does not go.
+        const res = await api.get<Record<string, string>>("/api/options");
+        expect(res.body.backendScriptingEnabled).toBe("false");
+        expect(res.body.sqlConsoleEnabled).toBe("false");
+    });
+
     it("runs changeLanguage when updating the locale option", async () => {
         const changeLanguage = vi.spyOn(i18n, "changeLanguage").mockResolvedValue(undefined as never);
         const res = await api.put("/api/options/locale/de");

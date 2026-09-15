@@ -103,6 +103,9 @@ let waitForSahPoolRelease: typeof import('./lightweight/sql_provider').waitForSa
 let sqlProvider: InstanceType<typeof BrowserSqlProvider> | null = null;
 let messagingProvider: InstanceType<typeof WorkerMessagingProvider> | null = null;
 
+/** Holds the lock on `security.json` for as long as this worker lives, and is its only writer. */
+let securityStore: import('./lightweight/security_settings').SecuritySettingsStore | null = null;
+
 // Core module, router, and initialization state
 let coreModule: typeof import("@triliumnext/core") | null = null;
 let router: BrowserRouter | null = null;
@@ -229,6 +232,13 @@ async function initialize(): Promise<void> {
             // First, load all modules dynamically
             await loadModules();
 
+            // Before the database, and before anything that can take time: the window in which
+            // this file is locked by nobody is the window in which a page that outlived the
+            // previous worker could write it, so it is made as short as this boot allows.
+            const { acquireSecuritySettings, toCoreConfig } = await import('./lightweight/security_settings.js');
+            securityStore = await acquireSecuritySettings();
+            const securityConfig = toCoreConfig(securityStore.read());
+
             // A reload starts this worker while the browser is still releasing the previous
             // worker's exclusive OPFS access handles, so the boot waits for the database pool
             // to be free — before the log service, whose own OPFS file is held the same way.
@@ -320,6 +330,10 @@ async function initialize(): Promise<void> {
                 },
                 inAppHelp: new StandaloneInAppHelpProvider(),
                 image: (await import("./services/image_provider.js")).standaloneImageProvider,
+                // What `assertScriptingEnabled()` answers from. Read from a locked OPFS file rather
+                // than the database, because the SQL console is enabled separately and an `UPDATE
+                // options` would otherwise be all it takes to grant backend scripting.
+                config: securityConfig,
                 // Read before core opens anything, because what it says is whether to open the
                 // database at all: a page reloaded by the app itself comes back to the wizard.
                 setupMarker: await consumeSetupMarker(),
@@ -549,6 +563,24 @@ async function handleRestoreBackup(id: string, backup: File, passphrase?: string
 let restoreInProgress = false;
 
 /**
+ * Writes a security setting the user has agreed to, which this worker is the only writer of.
+ *
+ * Reached only from `requestSecurityChange` in local-bridge.ts, which sends it after the browser's
+ * own confirmation dialog — but what arrives here is still just a message, so the name and the
+ * value are checked by the store rather than trusted. The change applies at the next start, since
+ * core was handed its config when it was initialized.
+ */
+function handleSecuritySet(id: string, setting: unknown, enabled: unknown): void {
+    const written = securityStore?.setSetting(setting, enabled) === true;
+
+    if (written) {
+        console.log(`[Worker] Security setting "${setting}" written; it applies from the next start.`);
+    }
+
+    (self as unknown as Worker).postMessage({ type: "SECURITY_SET_RESULT", id, written });
+}
+
+/**
  * Streams the database into a download the service worker is holding open on the other end of
  * `port`. Every way this ends is reported twice over: through the port for the download's sake,
  * and to the page, which keeps the service worker alive while the stream runs and whose screen
@@ -630,6 +662,14 @@ self.onmessage = async (event) => {
 
     if (msg.type === "BACKUP_STREAM") {
         await handleBackupStream(msg.port, msg.passphrase);
+        return;
+    }
+
+    if (msg.type === "SECURITY_SET") {
+        // Waits for the boot that takes the lock: a change arriving before it would be written by
+        // a store that has no handle, and reported as refused for no reason the user could see.
+        await initialize().catch(() => undefined);
+        handleSecuritySet(msg.id, msg.setting, msg.enabled);
         return;
     }
 
