@@ -198,10 +198,11 @@ describe("Board column context menu", () => {
     });
 
     /**
-     * The inbox holds a name of its own, so it is renamed like any other column; what it has not is
-     * anything to archive, and it is put away by the board's own setting instead.
+     * The inbox holds a name of its own, so it is renamed like any other column; what it has not
+     * is anything to archive, or anywhere to go, and it is put away by the board's own setting
+     * instead.
      */
-    it("offers the inbox no archive, and puts it away instead", () => {
+    it("offers the inbox no archive and no move, and puts it away instead", () => {
         const api = {
             getColumnIcon: () => DEFAULT_COLUMN_ICON,
             getColumnColorClass: () => "",
@@ -216,6 +217,8 @@ describe("Board column context menu", () => {
 
         expect(icons).toContain("bx bx-edit-alt");
         expect(icons).not.toContain("bx bx-archive");
+        // The inbox leads the board and cannot be moved off the head of it.
+        expect(icons).not.toContain("bx bx-horizontal-left");
 
         const remove = items.find(item =>
             item && "uiIcon" in item && item.uiIcon === "bx bx-trash");

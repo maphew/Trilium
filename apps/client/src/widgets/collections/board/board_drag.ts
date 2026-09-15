@@ -802,6 +802,9 @@ function lift(held: Gesture, container: HTMLElement) {
     if (held.kind === "card" && hue) {
         preview.classList.add("column-tinted");
         preview.style.setProperty("--board-column-custom-hue", hue);
+    } else if (held.kind === "card" && held.element.closest(".board-column-inbox")) {
+        // The inbox paints its cards itself, and that rule no longer reaches the copy either.
+        preview.classList.add("inbox-surface");
     }
 
     // The card's own colour and its em, read here rather than on every move: both cost a page

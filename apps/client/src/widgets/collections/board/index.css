@@ -10,6 +10,16 @@
   --board-item-hover-background-saturation: 100%;
   --board-item-hover-background-lightness: 98.5%;
 
+  /* The inbox's own surfaces. It holds what has not been sorted yet, so it stands on the board
+     itself rather than in a column of its own, and its cards take the surface the app's cards
+     stand on. The theme's name first, then the one every theme has. */
+  --board-inbox-column-background: transparent;
+  /* Nothing to cast on: the cards lie on the board rather than in a column. */
+  --board-inbox-item-shadow: none;
+  --board-inbox-item-background: var(--card-background-color, var(--accented-background-color));
+  --board-inbox-item-hover-background:
+    var(--card-background-hover-color, var(--more-accented-background-color));
+
   --board-limit-exceeded-background: #c62828;
   /* Half opacity: the badge is the main warning, the outline supports it. */
   --board-limit-exceeded-outline: #c6282880;
@@ -27,6 +37,8 @@
   --board-collapse-duration-quick: 0.3s;
   --board-expand-duration: 0.2s;
 
+  /* What a card at rest casts on the column it stands in. */
+  --board-item-shadow: 1px 1px 4px rgba(0, 0, 0, 0.1);
   /* The lift a card takes under the pointer, named so that a picked-out card can carry its ring
      and this shadow together. */
   --board-item-hover-shadow: 2px 4px 8px rgba(0, 0, 0, 0.1);
@@ -190,6 +202,40 @@ body.mobile .board-view-container .board-add-column {
   border-color: var(--main-text-color);
 }
 
+/* The inbox's surfaces, which stand until the reader gives the column a colour: `with-hue` then
+   paints it as any other column, cards and all, and a card with a colour of its own keeps it. */
+.board-view-container .board-column.board-column-inbox:not(.with-hue) {
+  background-color: var(--board-inbox-column-background);
+}
+
+/* The shadow is handed over rather than set here: hover and the picked-out ring both write
+   `box-shadow` themselves, and a rule specific enough to reach this card would outweigh them. */
+.board-view-container .board-column-inbox:not(.with-hue) .board-note:not(.with-hue),
+.board-view-container .board-drag-preview.inbox-surface:not(.with-hue) {
+  background-color: var(--board-inbox-item-background);
+  --board-item-shadow: var(--board-inbox-item-shadow);
+}
+
+.board-view-container .board-column-inbox:not(.with-hue) .board-note:not(.with-hue):hover {
+  background-color: var(--board-inbox-item-hover-background);
+}
+
+/* The rename button masks the title it sits over, so it has to be opaque. The theme's card colour
+   is a translucent overlay, and `inherit` lays it over the card a second time, which darkens the
+   patch and leaves the title showing through; the button is painted the way the card itself is,
+   the overlay over the app's background. */
+.board-view-container .board-column-inbox:not(.with-hue) .board-note:not(.with-hue) > .edit-icon {
+  background-color: var(--main-background-color);
+  background-image: linear-gradient(
+    var(--board-inbox-item-background), var(--board-inbox-item-background));
+}
+
+.board-view-container .board-column-inbox:not(.with-hue)
+    .board-note:not(.with-hue):hover > .edit-icon {
+  background-image: linear-gradient(
+    var(--board-inbox-item-hover-background), var(--board-inbox-item-hover-background));
+}
+
 .board-view-container .board-column h3 {
   font-size: 1em;
   margin: 0;
@@ -348,7 +394,7 @@ body.mobile .board-view-container .board-add-column {
 
 .board-view-container .board-note,
 .board-view-container .board-new-item.editing {
-  box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--board-item-shadow);
   padding: var(--card-padding);
   border-radius: 5px;
   position: relative;

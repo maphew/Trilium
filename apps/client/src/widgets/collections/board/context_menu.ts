@@ -148,11 +148,12 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                 handler: column.onSetLimit
             },
             { kind: "separator" },
-            {
+            // The inbox leads the board and `moveColumn` refuses to move it, so it is not offered.
+            ...(isInbox ? [] : [ {
                 title: t("board_view.move-column"),
                 uiIcon: "bx bx-horizontal-left",
                 items: buildMoveColumnItems(api, column)
-            },
+            } ]),
             { kind: "separator" },
             ...(isInbox ? [] : [ column.archived
                 ? {

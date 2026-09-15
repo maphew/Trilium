@@ -650,6 +650,7 @@ export default function Column({
                 "drag-over": isDropTarget && (isSorted || draggedCard?.fromColumn !== column),
                 // The class the themes key a hue off, worn here as anywhere else that carries one.
                 "with-hue": hue !== undefined,
+                "board-column-inbox": column === INBOX_COLUMN,
                 "board-column-archived": archived,
                 "editing-open": hasEditedCard || !!insertBefore,
                 windowed: isWindowed,
