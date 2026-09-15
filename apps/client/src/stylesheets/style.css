@@ -3056,7 +3056,7 @@ iframe.print-iframe {
             }
         }
 
-        body:not(.ios) #root-widget.virtual-keyboard-opened .note-split:not(.active) {
+        &:not(.ios) #root-widget.virtual-keyboard-opened .note-split:not(.active) {
             max-height: 80px;
             opacity: 0.4;
         }
