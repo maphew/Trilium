@@ -33,8 +33,10 @@ export default function NoteTypeChooserDialogComponent() {
     const [ parentNote, setParentNote ] = useState<Suggestion | null>();
     const [ noteTypes, setNoteTypes ] = useState<MenuItem<TreeCommandNames>[]>([]);
     const modalRef = useRef<HTMLDivElement>(null);
+    const userMovedFocus = useRef(false);
 
     useTriliumEvent("chooseNoteType", ({ callback }) => {
+        userMovedFocus.current = false;
         setCallback(() => callback);
         setShown(true);
     });
@@ -57,13 +59,41 @@ export default function NoteTypeChooserDialogComponent() {
         });
     }, []);
 
-    // The types load asynchronously; Bootstrap then focuses the first field, so `onShown` repeats
-    // this after the dialog is up. Enter then creates a text note (the first type).
+    useEffect(() => {
+        const modal = modalRef.current;
+        if (!shown || !modal) {
+            return;
+        }
+
+        const onUserGesture = (e: Event) => {
+            const target = e.target as HTMLElement | null;
+            if (target?.closest(".dropdown-item")) {
+                return;
+            }
+            userMovedFocus.current = true;
+        };
+
+        modal.addEventListener("pointerdown", onUserGesture);
+        modal.addEventListener("keydown", onUserGesture);
+        return () => {
+            modal.removeEventListener("pointerdown", onUserGesture);
+            modal.removeEventListener("keydown", onUserGesture);
+        };
+    }, [ shown ]);
+
+    // Opening focuses the first type so Enter creates it, unless the user is already on the
+    // parent-path field.
     useEffect(() => {
         if (shown && noteTypes.length > 0) {
-            focusFirstNoteType(modalRef.current);
+            tryFocusFirstNoteType();
         }
     }, [ shown, noteTypes.length ]);
+
+    function tryFocusFirstNoteType() {
+        if (!userMovedFocus.current) {
+            focusFirstNoteType(modalRef.current);
+        }
+    }
 
     function onNoteTypeSelected(value: string) {
         const [ noteType, templateNoteId ] = value.split(",");
@@ -85,7 +115,7 @@ export default function NoteTypeChooserDialogComponent() {
             size="md"
             zIndex={1100} // note type chooser needs to be higher than other dialogs from which it is triggered, e.g. "add link"
             scrollable
-            onShown={() => focusFirstNoteType(modalRef.current)}
+            onShown={tryFocusFirstNoteType}
             onHidden={() => {
                 callback?.({ success: false });
                 setShown(false);
