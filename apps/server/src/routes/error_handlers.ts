@@ -52,8 +52,9 @@ function register(app: Application) {
 
         // A logout form is a top-level navigation so OIDC redirects can leave the origin.
         // Keep validation and provider failures inside the app instead of rendering an error body.
+        // "." resolves to the directory holding /logout, which keeps a reverse proxy's path prefix.
         if (isLogoutFormNavigation(req)) {
-            res.redirect("..");
+            res.redirect(".");
             return;
         }
 
