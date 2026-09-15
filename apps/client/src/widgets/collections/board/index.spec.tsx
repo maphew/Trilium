@@ -4753,6 +4753,39 @@ describe("what the board hands the right pane", () => {
     });
 });
 
+/**
+ * Disposes every modal an earlier test left shown. Such a dialog can be mounted only after that
+ * test's teardown, and a modal Bootstrap believes shown pulls the focus back into itself from
+ * anything focused later. The mobile rails follow the focus, so the page is cleared of them first.
+ */
+function disposeShownModals() {
+    for (const modal of document.querySelectorAll<HTMLElement>(".modal.show")) {
+        BootstrapModal.getInstance(modal)?.dispose();
+        modal.remove();
+    }
+    document.querySelector(".modal-backdrop")?.remove();
+    document.body.classList.remove("modal-open");
+}
+
+/**
+ * Runs a step with a tab manager standing in for the app's, which the card's menu and the reveal
+ * after a drop ask for the active pane. Only for that step: the board's own hooks read the manager
+ * while it renders, and answer differently to a stand-in than to none.
+ */
+async function withTabManager(step: () => Promise<void>) {
+    const previous = appContext.tabManager;
+    appContext.tabManager = {
+        getActiveContext: () => undefined,
+        // The menu on mobile asks whether the pane is split, which one with no splits is not.
+        getNoteContextById: () => ({ getMainContext: () => ({ getSubContexts: () => [] }) })
+    } as never;
+    try {
+        await step();
+    } finally {
+        appContext.tabManager = previous;
+    }
+}
+
 describe("Card toolbar on mobile", () => {
     let container: HTMLElement;
     let host: Component;
@@ -4771,15 +4804,7 @@ describe("Card toolbar on mobile", () => {
 
     /** A board of two columns, three cards, nothing sorted, and an inbox only when asked for. */
     async function setup({ withInbox = false } = {}) {
-        // A dialog an earlier test opened can be mounted only after that test's teardown, and a
-        // modal Bootstrap believes shown pulls the focus back into itself from anything focused
-        // later. The toolbar follows the focus, so the page is cleared of them first.
-        for (const modal of document.querySelectorAll<HTMLElement>(".modal.show")) {
-            BootstrapModal.getInstance(modal)?.dispose();
-            modal.remove();
-        }
-        document.querySelector(".modal-backdrop")?.remove();
-        document.body.classList.remove("modal-open");
+        disposeShownModals();
 
         const note = buildNote({
             title: "Board",
@@ -4833,25 +4858,6 @@ describe("Card toolbar on mobile", () => {
 
     async function focus(noteId: string) {
         await act(async () => { card(noteId).focus(); });
-    }
-
-    /**
-     * Runs a step with a tab manager standing in for the app's, which the card's menu and the
-     * reveal after a drop ask for the active pane. Only for that step: the board's own hooks read
-     * the manager while it renders, and answer differently to a stand-in than to none.
-     */
-    async function withTabManager(step: () => Promise<void>) {
-        const previous = appContext.tabManager;
-        appContext.tabManager = {
-            getActiveContext: () => undefined,
-            // The menu on mobile asks whether the pane is split, which one with no splits is not.
-            getNoteContextById: () => ({ getMainContext: () => ({ getSubContexts: () => [] }) })
-        } as never;
-        try {
-            await step();
-        } finally {
-            appContext.tabManager = previous;
-        }
     }
 
     it("follows the focus onto a card and leaves with it, over the board", async () => {
@@ -4968,5 +4974,176 @@ describe("Card toolbar on mobile", () => {
         expect(board()?.classList.contains("dragging")).toBe(false);
         expect(document.activeElement).toBe(card("tool1"));
         expect(toolbar()).not.toBeNull();
+    });
+});
+
+describe("Selection mode on mobile", () => {
+    let container: HTMLElement;
+    let host: Component;
+
+    beforeEach(() => {
+        layout.onMobile = true;
+    });
+
+    afterEach(() => {
+        layout.onMobile = false;
+        saved.length = 0;
+        render(null, container);
+        container.remove();
+    });
+
+    /** A collection note, so the header the mode is switched on from is drawn. */
+    async function setup() {
+        disposeShownModals();
+
+        const note = buildNote({
+            title: "Board",
+            type: "book",
+            "#collection": "",
+            "#viewType": "board",
+            children: [
+                { id: "pick1", title: "First", "#status": "To Do" },
+                { id: "pick2", title: "Second", "#status": "To Do" },
+                { id: "pick3", title: "Third", "#status": "Done" }
+            ]
+        });
+
+        host = new Component();
+        container = document.body.appendChild(document.createElement("div"));
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={host}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={{ columns: [ { value: "To Do" }, { value: "Done" } ] }}
+                    />
+                </ParentComponent.Provider>,
+                container
+            );
+        });
+        await act(async () => { await flush(); });
+
+        return note;
+    }
+
+    function card(noteId: string) {
+        const element = container.querySelector<HTMLElement>(
+            `.board-note[data-note-id="${noteId}"]`);
+        if (!element) throw new Error(`expected the card ${noteId}`);
+        return element;
+    }
+
+    const board = () => container.querySelector(".board-view-container");
+    const bar = () => container.querySelector<HTMLElement>(".board-selection-bar");
+    const selected = () => [ ...container.querySelectorAll(".board-note.selected") ]
+        .map(element => element.getAttribute("data-note-id"));
+
+    function headerButton(icon: string) {
+        const element = container.querySelector<HTMLElement>(`.board-header-tools button.${icon}`);
+        if (!element) throw new Error(`expected a ${icon} button in the header`);
+        return element;
+    }
+
+    function railButton(icon: string) {
+        const element = container.querySelector<HTMLElement>(`.board-card-toolbar button.${icon}`);
+        if (!element) throw new Error(`expected a ${icon} button on the rail`);
+        return element;
+    }
+
+    async function startSelecting() {
+        await act(async () => { headerButton("bx-select-multiple").click(); });
+    }
+
+    async function tap(noteId: string) {
+        await act(async () => {
+            card(noteId).focus();
+            card(noteId).click();
+        });
+    }
+
+    it("is switched on from the header and covers that row while it lasts", async () => {
+        await setup();
+        expect(bar()).toBeNull();
+        expect(board()?.classList.contains("selecting")).toBe(false);
+
+        await startSelecting();
+        expect(board()?.classList.contains("selecting")).toBe(true);
+        expect(bar()?.querySelector(".board-selection-count")?.textContent)
+            .toBe('board_view.cards-selected:{"count":0}');
+        // Over the grouping and the filter, which stay in the page beneath it.
+        expect(bar()?.parentElement?.querySelector(".board-group-by")).toBeTruthy();
+
+        await act(async () => { headerButton("bx-x").click(); });
+        expect(bar()).toBeNull();
+        expect(board()?.classList.contains("selecting")).toBe(false);
+    });
+
+    it("is left out off mobile", async () => {
+        layout.onMobile = false;
+        await setup();
+
+        expect(container.querySelector(".board-selection-toggle")).toBeNull();
+    });
+
+    /**
+     * A tap picks a card out or puts it back, and opens nothing. The focused card's own rail
+     * stands aside for the selection's, which has nothing to offer until a card is picked.
+     */
+    it("picks cards out with a tap instead of opening them", async () => {
+        await setup();
+        const openCard = vi.spyOn(BoardApi.prototype, "openCard").mockImplementation(() => {});
+        await startSelecting();
+
+        expect(railButton("bx-trash").hasAttribute("disabled")).toBe(true);
+        expect(container.querySelector(".board-card-toolbar button.bx-rename")).toBeNull();
+
+        await tap("pick1");
+        expect(selected()).toEqual([ "pick1" ]);
+        expect(openCard).not.toHaveBeenCalled();
+        expect(bar()?.querySelector(".board-selection-count")?.textContent)
+            .toBe('board_view.cards-selected:{"count":1}');
+        expect(railButton("bx-trash").hasAttribute("disabled")).toBe(false);
+        expect(container.querySelector(".board-card-toolbar button.bx-rename")).toBeNull();
+
+        await tap("pick1");
+        expect(selected()).toEqual([]);
+
+        // Off again, a tap opens the card as before.
+        await act(async () => { headerButton("bx-x").click(); });
+        await tap("pick1");
+        expect(openCard).toHaveBeenCalledTimes(1);
+        expect(selected()).toEqual([]);
+
+        openCard.mockRestore();
+    });
+
+    it("selects the column of the last picked card, and acts on the whole selection", async () => {
+        await setup();
+        const deleteNotes = vi.spyOn(branches, "deleteNotes").mockResolvedValue(false);
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        await startSelecting();
+
+        await tap("pick1");
+        await act(async () => { headerButton("bx-list-check").click(); });
+        expect(selected().sort()).toEqual([ "pick1", "pick2" ]);
+
+        // The menu is the one the cards offer, carrying every picked card.
+        await withTabManager(async () => {
+            await act(async () => { railButton("bx-dots-vertical-rounded").click(); });
+        });
+        expect(show).toHaveBeenCalledTimes(1);
+
+        await act(async () => { railButton("bx-trash").click(); });
+        expect(deleteNotes).toHaveBeenCalledTimes(1);
+        expect(deleteNotes.mock.calls[0][0]).toHaveLength(2);
+
+        // Reset gives the selection up and ends the mode with it.
+        await act(async () => { headerButton("bx-x").click(); });
+        expect(selected()).toEqual([]);
+        expect(bar()).toBeNull();
+
+        deleteNotes.mockRestore();
+        show.mockRestore();
     });
 });

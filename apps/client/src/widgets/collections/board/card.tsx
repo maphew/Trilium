@@ -9,7 +9,7 @@ import FNote from "../../../entities/fnote";
 import BoardApi, { CARD_REDIRECT_RELATION } from "./api";
 import {
     BoardActionsContext, BoardHighlightTokensContext, BoardKeptCardsContext,
-    BoardOverlayHostContext, BoardPromotedAttributesContext, TitleEditor
+    BoardOverlayHostContext, BoardPromotedAttributesContext, BoardSelectionModeContext, TitleEditor
 } from ".";
 import { ContextMenuEvent } from "../../../menus/context_menu";
 import { cardFollows } from "./columns";
@@ -99,6 +99,7 @@ function Card({
     // here leaves the memo below intact.
     const selection = useSelection();
     const overlayHost = useContext(BoardOverlayHostContext);
+    const isSelecting = useContext(BoardSelectionModeContext);
     /** Whether the card holds the focus, which on mobile floats its toolbar over the board. */
     const [ isFocused, setIsFocused ] = useState(false);
     // Focus moving within the card or onto the toolbar keeps the toolbar; anywhere else takes it.
@@ -149,6 +150,12 @@ function Card({
         // popup already standing is taken as the one to stack on, and closing that leaves neither.
         if (e.detail > 1) return;
 
+        // In selection mode a tap picks the card out or puts it back, and opens nothing.
+        if (isSelecting) {
+            selection.toggle(note.noteId);
+            return;
+        }
+
         // A link to a note, such as a relation's target, opens in the popup. Cancelled here so that
         // `goToLink` does not open a tab for it as well; a link naming no note is left alone.
         // Checked before the modifiers below, so Ctrl on a link still means what it means anywhere.
@@ -181,7 +188,7 @@ function Card({
 
         selection.clear();
         api.openCard(note);
-    }, [ api, note, column, selection ]);
+    }, [ api, note, column, selection, isSelecting ]);
 
     /**
      * Fills the drag with what the note tree reads, for the native drag a Ctrl press arms in
@@ -333,9 +340,11 @@ function Card({
                 badges={isOutsideFilter && <OutsideFilterBadge />}
             />
         </div>
-        {/* Off the card while its title is edited, since the rename it offers is under way, and
-            while it is carried, since the board is being rearranged under the finger. */}
-        {isMobile() && isFocused && !isEditing && !isDragging && overlayHost.current && (
+        {/* Off the card while its title is edited, since the rename it offers is under way, while
+            it is carried, since the board is being rearranged under the finger, and in selection
+            mode, where the board's own rail acts on the selection instead. */}
+        {isMobile() && isFocused && !isEditing && !isDragging && !isSelecting
+            && overlayHost.current && (
             <CardToolbar
                 host={overlayHost.current}
                 isSorted={api.isColumnSorted(column)}

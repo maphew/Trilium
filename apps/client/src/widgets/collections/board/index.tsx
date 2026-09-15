@@ -4,7 +4,7 @@ import clsx from "clsx";
 
 import { ComponentChildren, createContext, Fragment, TargetedKeyboardEvent } from "preact";
 import { JSX } from "preact/jsx-runtime";
-import { createPortal, RefObject } from "preact/compat";
+import { createPortal, RefObject, useSyncExternalStore } from "preact/compat";
 import {
     Dispatch, StateUpdater, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState
 } from "preact/hooks";
@@ -14,6 +14,7 @@ import { type HighlightedTokenInfo, normalizeBoardGroupBy } from "@triliumnext/c
 import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
+import branches from "../../../services/branches";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { getCreationDate, loadCreationDates } from "../../../services/note_dates";
@@ -46,9 +47,11 @@ import { useDragPan } from "../../react/drag_pan";
 import { FLIP_SETTLE_MS, useFlip } from "../../react/flip";
 import { SelectionContext, SelectionStore } from "../../react/selection";
 import { CollectionFilterInput, useCollectionFilter } from "../collection_filter";
+import { SelectionToolbar } from "./card_toolbar";
+import BoardHeaderTools from "./selection_bar";
 import { ViewModeProps } from "../interface";
 import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
-import { useBoardDrag } from "./board_drag";
+import { askForMenu, useBoardDrag } from "./board_drag";
 import { columnGapStandsAside, columnStandsAside, movesColumn } from "./drag_geometry";
 import { forgetCardHeights } from "./drag_measure";
 import { forgetWindowHeights } from "./windowing";
@@ -269,6 +272,9 @@ export const BoardKeptCardsContext = createContext<Set<string>>(new Set());
 /** The board's own element, which what a card floats over the board is portaled into. */
 export const BoardOverlayHostContext = createContext<RefObject<HTMLElement>>({ current: null });
 
+/** Whether a tap picks a card out instead of opening it, which the mobile header switches on. */
+export const BoardSelectionModeContext = createContext(false);
+
 /**
  * What the board answers with when asked for contextual keyboard help. Every entry is a key the
  * board handles itself (see `keyboard.ts` and the card and column handlers), none of them
@@ -394,6 +400,23 @@ export default function BoardView({
      * card must wake that card and no other.
      */
     const selection = useMemo(() => new SelectionStore(), []);
+    /**
+     * Whether a tap picks a card out instead of opening it. Mobile only: a finger has no Ctrl to
+     * pick cards out with. Leaving the mode gives the selection up as well.
+     */
+    const [ isSelecting, setIsSelecting ] = useState(false);
+    // Read here rather than through `useSelectionCount`, which reads the context this board
+    // provides and would find the default store instead.
+    const subscribeToSelection = useCallback(
+        (listener: () => void) => selection.subscribe(listener), [ selection ]);
+    const selectionCount = useSyncExternalStore(
+        subscribeToSelection, useCallback(() => selection.size, [ selection ]));
+    const selectionAnchor = useSyncExternalStore(
+        subscribeToSelection, useCallback(() => selection.anchor, [ selection ]));
+    const stopSelecting = useCallback(() => {
+        setIsSelecting(false);
+        selection.clear();
+    }, [ selection ]);
     const setDropPosition = useCallback((position: ColumnDrag | null) => {
         dropState.set({ ...dropState.get(), position });
     }, [ dropState ]);
@@ -1124,6 +1147,8 @@ export default function BoardView({
     // still be open on the next, over whatever that board stores for a column of the same name.
     // The same holds across a grouping, whose columns are a different set entirely.
     useEffect(() => selectColumn(undefined), [ parentNote, groupBy, selectColumn ]);
+    // Another board starts outside selection mode: the board is not remounted between notes.
+    useEffect(() => setIsSelecting(false), [ parentNote ]);
 
     // Stored once, and only for a board still carrying a pre-switching column list.
     useEffect(() => {
@@ -1343,18 +1368,39 @@ export default function BoardView({
                         onClick={() => setIsEditingProperties(true)}
                     >{t("board_view.properties")}</FormListItem>
                 }
-                rightChildren={<>
-                    <BoardGroupBy
-                        note={parentNote}
-                        options={groupingChoices}
-                        current={currentGrouping}
-                        onSelect={setRequestedGroupBy}
-                    />
-                    <CollectionFilterInput
-                        filter={filter}
-                        placeholder={t("board_view.filter-placeholder")}
-                    />
-                </>}
+                rightChildren={
+                    <BoardHeaderTools
+                        isSelecting={isSelecting}
+                        onToggleSelecting={() => (isSelecting
+                            ? stopSelecting()
+                            : setIsSelecting(true))}
+                        count={selectionCount}
+                        canSelectColumn={selectionAnchor !== null}
+                        onSelectColumn={() => {
+                            // The column of the card last picked out, added to what is picked.
+                            const column = selectionAnchor === null
+                                ? undefined
+                                : api.getCardColumn(selectionAnchor);
+                            if (column !== undefined) {
+                                selection.selectAll([
+                                    ...selection.keys, ...api.getColumnNoteIds(column)
+                                ]);
+                            }
+                        }}
+                        onReset={stopSelecting}
+                    >
+                        <BoardGroupBy
+                            note={parentNote}
+                            options={groupingChoices}
+                            current={currentGrouping}
+                            onSelect={setRequestedGroupBy}
+                        />
+                        <CollectionFilterInput
+                            filter={filter}
+                            placeholder={t("board_view.filter-placeholder")}
+                        />
+                    </BoardHeaderTools>
+                }
             />
             <BoardActionsContext.Provider value={boardActions}>
                 <BoardPromotedAttributesContext.Provider value={shownAttributes}>
@@ -1364,12 +1410,14 @@ export default function BoardView({
                 <BoardDragStateContext.Provider value={boardDragState}>
                 <SelectionContext.Provider value={selection}>
                 <BoardOverlayHostContext.Provider value={containerRef}>
+                <BoardSelectionModeContext.Provider value={isSelecting}>
                     {byColumn && columns && <div
                         ref={containerRef}
                         className={clsx("board-view-container", {
                             pannable: isPannable,
                             panning: isPanning,
-                            dragging: isDraggingItem
+                            dragging: isDraggingItem,
+                            selecting: isSelecting
                         })}
                         onKeyDown={handleKeyDown}
                         onClick={clearSelectionOutsideCards}
@@ -1491,6 +1539,28 @@ export default function BoardView({
                             </OverlayControlGroup>
                         )}
                     </div>}
+                    {/* Acts on the selection in place of the focused card's rail. The menu is
+                        asked of the card first picked out, whose own handler carries the whole
+                        selection, the way a tap on a heading asks for a column's. */}
+                    {isMobile() && isSelecting && containerRef.current && (
+                        <SelectionToolbar
+                            host={containerRef.current}
+                            count={selectionCount}
+                            onDelete={() => branches.deleteNotes(
+                                api.getCards(selection.keys).map((card) => card.branch.branchId),
+                                false, false)}
+                            onMore={(e) => {
+                                const [ first ] = selection.keys;
+                                const card = [ ...containerRef.current
+                                    ?.querySelectorAll<HTMLElement>(".board-note") ?? [] ]
+                                    .find((element) => element.dataset.noteId === first);
+                                if (card) {
+                                    askForMenu(card, e.clientX, e.clientY);
+                                }
+                            }}
+                        />
+                    )}
+                </BoardSelectionModeContext.Provider>
                 </BoardOverlayHostContext.Provider>
                 </SelectionContext.Provider>
                 </BoardDragStateContext.Provider>

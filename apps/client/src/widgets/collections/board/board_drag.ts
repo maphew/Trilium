@@ -702,8 +702,8 @@ function endIndex(end: ColumnEnd | undefined, column: ColumnBox) {
     return end === "first" ? 0 : column.count;
 }
 
-/** Asks an element for its menu the way a right click does, at the place the tap landed. */
-function askForMenu(element: HTMLElement, clientX: number, clientY: number) {
+/** Asks an element for its menu the way a right click does, at the place the press landed. */
+export function askForMenu(element: HTMLElement, clientX: number, clientY: number) {
     element.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX, clientY }));
 }
 

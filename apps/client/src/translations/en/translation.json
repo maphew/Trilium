@@ -3570,7 +3570,12 @@
     "reset-column-sorting": "Reset sorting options to default for all columns",
     "reset-column-sorting-confirm": "Do you want to reset the sorting options for all columns from the current view to default?",
     "sorted-no-reorder": "Cards cannot be reordered, since this is a sorted column.",
-    "more-actions": "More actions"
+    "more-actions": "More actions",
+    "selection-mode": "Select cards",
+    "cards-selected_one": "{{count}} card selected",
+    "cards-selected_other": "{{count}} cards selected",
+    "select-column-cards": "Select every card in the column",
+    "reset-selection": "Reset the selection"
   },
   "dashboard_view": {
     "refresh-widget": "Refresh",
