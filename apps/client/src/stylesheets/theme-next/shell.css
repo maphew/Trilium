@@ -664,6 +664,14 @@ div.quick-search .dropdown-menu {
     padding: 8px 12px !important;
 }
 
+:root .quick-search .dropdown-item:not(.disabled):hover,
+:root .quick-search .dropdown-item:not(.disabled):focus,
+:root .quick-search .dropdown-item:not(.disabled):focus-visible {
+    outline: none !important;
+    background: var(--hover-item-background-color);
+    color: var(--hover-item-text-color);
+}
+
 .quick-search .quick-search-item-icon {
     vertical-align: text-bottom;
 }

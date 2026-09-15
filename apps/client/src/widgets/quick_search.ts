@@ -75,8 +75,13 @@ const TPL = /*html*/`
         display: none;
     }
 
-    .quick-search-item.dropdown-item:hover {
-        background-color: #f8f9fa;
+    /* Mouse hover and the ArrowDown keyboard selection share the "active item" fill the rest
+       of the menus use, so pointing at a result and arrowing to it look the same. */
+    .quick-search .dropdown-item:not(.disabled):hover,
+    .quick-search .dropdown-item:not(.disabled):focus {
+        background-color: var(--active-item-background-color);
+        color: var(--active-item-text-color);
+        outline: none;
     }
 
      .quick-search .quick-search-item {
