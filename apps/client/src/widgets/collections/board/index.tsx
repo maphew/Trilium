@@ -59,7 +59,7 @@ import {
     COLUMN_WIDTH_LABEL, columnWidthClass, DEFAULT_COLUMN_ICON, DEFAULT_GROUP_BY,
     getStatusDefinition, INBOX_COLUMN
 } from "./columns";
-import Column, { EXPAND_MS, placeCard, settleCards } from "./column";
+import Column, { clearGap, EXPAND_MS, placeCard, settleCards } from "./column";
 import { currentCardTemplate, DEFAULT_CARD_TEMPLATES } from "./card_templates";
 import ColumnLimitDialog from "./column_limit";
 import BoardGroupBy, { groupingOptions } from "./group_by";
@@ -1465,8 +1465,9 @@ function closeGaps(container: HTMLElement | null) {
         }
     }
 
-    for (const gap of container.querySelectorAll(".board-drop-placeholder")) {
+    for (const gap of container.querySelectorAll<HTMLElement>(".board-drop-placeholder")) {
         gap.classList.remove("show");
+        clearGap(gap);
     }
 
     for (const room of container.querySelectorAll<HTMLElement>(".board-drop-room")) {

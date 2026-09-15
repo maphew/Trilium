@@ -629,7 +629,7 @@
     "calendar_hide_weekends": "Folaíonn sé Dé Sathairn agus Dé Domhnaigh ón bhféilire. Cuirtear i bhfeidhm cibé luach atá air.",
     "calendar_week_numbers": "Taispeánann sé uimhir na seachtaine ar an bhféilire. Cuirtear i bhfeidhm cibé luach atá air.",
     "calendar_slot_duration": "Cé chomh fada a mhaireann gach sliotán ama i bhféilire, mar <code>HH:MM:SS</code>. Is é 15 nóiméad an réamhshocrú.",
-    "calendar_slot_label_interval": "Cé chomh minic a lipéadaítear sliotáin ama féilire, mar <code>HH:MM:SS</code>. Réamhshocrú uair an chloig.",
+    "calendar_slot_label_interval": "An minicíocht a lipéadaítear sliotáin ama féilire, i bhfoirm <code>HH:MM:SS</code>. Is é uair an chloig an réamhshocrú.",
     "calendar_title": "Ainmníonn sé an tréith a fhaigheann teideal imeachta uaidh, seachas teideal an nóta. Lipéad nó gaol, scríofa gan <code>#</code> nó <code>~</code>.",
     "calendar_displayed_attributes": "Ainmneacha tréithe atá scartha le camóga a bhfuil a luachanna le feiceáil ar an imeacht. Taispeántar gaol mar theideal an nóta a bhfuil sé ag pointeáil air.",
     "calendar_start_date": "Ainmníonn sé an lipéad as a léann imeacht a dháta tosaithe, in ionad <code>#startDate</code>. Scríofa gan an <code>#</code>.",
@@ -679,7 +679,8 @@
     "board_card_width": "Maidir le bailiúcháin boird, an leithead a úsáidtear do na colúin: <code>narrow</code> (caol), <code>medium</code> (meánach) nó <code>wide</code> (leathan). Déantar neamhaird de seo ar ghléasanna móibíleacha, áit a socraítear a leithead féin dóibh.",
     "board_card_redirect_to": "Ar chárta boird, má osclaítear an cárta, léimtear chuig an nóta a bhfuil an cárta ag tagairt dó, seachas an cárta féin a oscailt.",
     "sort_columns": "I gcás bailiúcháin boird, is é seo an t-ord a úsáideann na colúin chun a gcuid cártaí a shórtáil — ord a leanann colún mura bhfuil ord dá chuid féin socraithe dó. Glacann sé le <code>title</code>, <code>creationDate</code> nó <code>attr:</code> agus ainm tréithe curtha chun cinn ina dhiaidh sin.",
-    "sort_columns_descending": "I gcás bailiúcháin boird, ritheann sé an t-ordú i <code>#sortColumns</code> droim ar ais."
+    "sort_columns_descending": "I gcás bailiúcháin boird, ritheann sé an t-ordú i <code>#sortColumns</code> droim ar ais.",
+    "geo_shape": "Cruth a úsáidtear chun an nóta a tharraingt ar léarscáil gheografach: an cineál crutha, agus ansin domhanleithead agus domhanfhad gach pointe, m.sh. <code>line:48.85,2.29 48.86,2.35</code> — nó ciorcal, bunaithe ar a lárphointe agus a raon i méadair, <code>circle:48.85,2.29 500</code>."
   },
   "attribute_editor": {
     "help_text_body1": "Chun lipéad a chur leis, clóscríobh m.sh. <code>#rock</code> nó más mian leat luach a chur leis freisin ansin m.sh. <code>#year = 2020</code>",
@@ -1481,7 +1482,7 @@
     "search_placeholder": "Cuardaigh clónna",
     "no_fonts_found": "Níl aon chló a oireann don rud atá á lorg agat.",
     "document_preview_heading": "Gearrthóga croí corcra",
-    "document_preview_body": "Gearradh 4 ghas faoi nód agus chuir mé iad in uisce ar an leac; bhí na chéad fhréamhacha le feiceáil tar éis <strong>9 lá</strong>. Coinníonn sé a dhath <em>i ngrian iomlán</em> agus imíonn sé go glas sa scáth."
+    "document_preview_body": "Gearradh ceithre ghas díreach faoi nód agus cuireadh iad ina seasamh in uisce ar an leac fuinneoige; tháinig na chéad fhréamhacha chun cinn tar éis <strong>9 lá</strong>. Coinníonn sé a dhath i <em>lánghrian</em> ach téann sé chun glaise sa scáth."
   },
   "max_content_width": {
     "title": "Leithead an Ábhair",
@@ -2431,7 +2432,20 @@
     "locate-error": "Níorbh fhéidir do shuíomh a aimsiú. Brúigh arís chun stop a chur leis an gcuardach.",
     "locate-unavailable": "Níl do shuíomh ar fáil",
     "location-denied": "Diúltaíodh don rochtain ar an suíomh. Ceadaigh é do Trilium i socruithe do bhrabhsálaí nó do chórais chun do shuíomh a thaispeáint ar an léarscáil.",
-    "location-unavailable": "Níorbh fhéidir do shuíomh a chinneadh faoi láthair."
+    "location-unavailable": "Níorbh fhéidir do shuíomh a chinneadh faoi láthair.",
+    "draw-line": "Tarraing cosán ar an léarscáil",
+    "draw-polygon": "Tarraing limistéar ar an léarscáil",
+    "draw-cancel": "Cealaigh an líníocht",
+    "draw-line-toast-title": "Tarraing cosán",
+    "draw-line-instruction": "Cliceáil ar an léarscáil chun pointí a chur leis. Cliceáil ar an bpointe deireanach arís nó brúigh Enter chun críochnú, nó brúigh Escape chun cealú.",
+    "draw-polygon-toast-title": "Tarraing limistéar",
+    "draw-polygon-instruction": "Cliceáil ar an léarscáil chun coirnéil a chur leis. Cliceáil ar an gcéad choirnéal arís nó brúigh Enter chun críochnú, nó brúigh Escape chun cealú.",
+    "draw-rectangle": "Tarraing dronuilleog ar an léarscáil",
+    "draw-rectangle-toast-title": "Tarraing dronuilleog",
+    "draw-rectangle-instruction": "Cliceáil ar an léarscáil ag cúinne amháin, agus ansin cliceáil arís ag an gcúinne os a chomhair amach. Is féidir leat tarraingt ó chúinne amháin go dtí an ceann eile freisin. Brúigh Escape chun cealú.",
+    "draw-circle": "Tarraing ciorcal ar an léarscáil",
+    "draw-circle-toast-title": "Tarraing ciorcal",
+    "draw-circle-instruction": "Cliceáil ar an léarscáil sa lár, agus ansin cliceáil arís ag an bpointe ar chóir don chiorcal síneadh chuige. Is féidir leat tarraingt amach ón lár freisin. Brúigh Escape chun cealú."
   },
   "geo-map-context": {
     "open-location": "Oscail suíomh",
@@ -2708,7 +2722,11 @@
     "sort-board-default": "Mainneachtain an Bhoird",
     "reset-column-sorting": "Athshocraigh na roghanna sórtála go dtí na réamhshocruithe do gach colún",
     "reset-column-sorting-confirm": "Ar mhaith leat na roghanna sórtála do gach colún sa radharc reatha a athshocrú go dtí na réamhshocruithe?",
-    "sorted-no-reorder": "Ní féidir ord na gcártaí a athrú, ós rud é gur colún sórtáilte é seo."
+    "sorted-no-reorder": "Ní féidir ord na gcártaí a athrú, ós rud é gur colún sórtáilte é seo.",
+    "copy-reference": "Cóipeáil an tagairt",
+    "reference-column-missing": "Níl an colún sin ar an gclár seo a thuilleadh.",
+    "reference-archived": "Tá an mhír sin curtha i gcartlann, mar sin níl sí á taispeáint ag an mbord.",
+    "reference-missing": "Níl an mhír sin ar an gclár seo a thuilleadh."
   },
   "presentation_view": {
     "edit-slide": "Cuir an sleamhnán seo in eagar",
@@ -4020,7 +4038,7 @@
     "attributes_definitions_what": "Is éard is sainmhíniú ann an scéim atá taobh thiar d'ainm tréith: cén cineál luacha a ghlacann sé, cibé an féidir é a thabhairt níos mó ná uair amháin, agus cibé an ndéantar é a ardú céime.",
     "attributes_definitions_promoted": "Taispeántar tréith ardaithe ar an nóta féin mar réimse foirme seachas í a fhágáil ar an bpainéal seo. De ghnáth tagann sainmhínithe ó theimpléad, agus ainmníonn gach ró an nóta ina bhfuil sé suite.",
     "highlights_what": "Na sleachta a roghnaíonn an nóta seo de réir a bhformáidithe. Is líonra níos leithne é sin ná mar a shílfeá: tá gnáth-abairt i gcló trom nó iodálach san áireamh, ní hamháin téacs atá aibhsithe agat.",
-    "highlights_configure": "Is leatsa a shocraíonn cé na formáidí a chomhaireamh: is féidir téacs trom, iodálach, faoi líne, téacs daite agus téacs ar dhath cúlra a liostáil nó a fhágáil ar lár, ón ngiar i gceanntásc an chárta seo. Trí bhrú ar iontráil, scrollaítear an nóta chuige.",
+    "highlights_configure": "Is ort féin atá sé a chinneadh cé na formáidí a chuirtear san áireamh: is féidir téacs trom, iodálach, le líne fúithi, daite nó ar chúlra daite a áireamh nó a fhágáil ar lár trí úsáid a bhaint as an deilbhín fearas i gceanntásc an chárta seo. Má bhrúitear ar iontráil, scrollófar an nóta go dtí an áit sin.",
     "note_map_what": "Léarscáil de na rudaí a nascann an nóta seo leis. Tarraingíonn an léarscáil nasc na naisc inmheánacha agus na caidrimh atá ag dul isteach agus amach as; tarraingíonn an léarscáil crann cá bhfuil sé suite sa chrann nótaí. Roghnaíonn an lascóir sa cheanntásc seo idir an dá cheann.",
     "note_map_interaction": "Trí nóta a bhogadh os cionn an chromáin, tugtar a naisc féin chun cinn agus cuirtear deireadh leis an gcuid eile. Osclaítear an léarscáil chéanna ag méid na fuinneoige leis an gcnaipe leathnaithe.",
     "note_paths_what": "Is féidir le nóta suí i níos mó ná áit amháin sa chrann nótaí ag an am céanna, agus liostaítear gach ceann de na háiteanna sin anseo mar chonair.",

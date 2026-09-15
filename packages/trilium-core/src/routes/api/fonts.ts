@@ -1,5 +1,5 @@
 import { customFontFamily, customFontNoteId, SYSTEM_MONOSPACE_FONT_STACK, SYSTEM_SANS_SERIF_FONT_STACK, type OptionMap } from "@triliumnext/commons";
-import type { Request, Response } from "express";
+import type { Request, Response } from "../../http_interface";
 
 import optionService from "../../services/options.js";
 import sqlInit from "../../services/sql_init.js";

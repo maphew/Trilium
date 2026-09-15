@@ -18,11 +18,19 @@ import Component from "../../components/component";
 import type FNote from "../../entities/fnote";
 import type { EntityChange } from "../../server_types";
 import LoadResults from "../../services/load_results";
-import { buildNote } from "../../test/easy-froca";
+import { buildNote, buildNotes } from "../../test/easy-froca";
 import { ParentComponent } from "../react/react_utils";
 import { CustomNoteList, useNoteIds } from "./NoteList";
 
 let currentNoteIds: string[] = [];
+
+// The child ids below stand for real notes: a collection view resolves the ids it is given through
+// froca.getNotes(), which round-trips to the server for anything the mock does not hold.
+buildNotes([
+    { id: "child-a", title: "Child A" },
+    { id: "child-b", title: "Child B" },
+    { id: "child-new", title: "Child New" }
+]);
 
 /** Drains the chained awaits in `refreshNoteIds` (getNoteIds → search promise → setNoteIds). */
 async function flushMicrotasks() {

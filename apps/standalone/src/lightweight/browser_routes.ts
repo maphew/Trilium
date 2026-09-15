@@ -4,7 +4,7 @@
  */
 
 import { BootstrapDefinition } from '@triliumnext/commons';
-import { checkIntegrity, consistency_checks, entity_changes, getContext, getPlatform, getSharedBootstrapItems, getSql, routes, sql_init } from '@triliumnext/core';
+import { checkIntegrity, consistency_checks, entity_changes, getContext, getPlatform, getSharedBootstrapItems, getSql, type Request, type Response, routes, sql_init } from '@triliumnext/core';
 import llmRoute from '@triliumnext/core/src/routes/api/llm.js';
 
 import packageJson from '../../package.json' with { type: 'json' };
@@ -28,18 +28,21 @@ const RAW_RESPONSE = Symbol.for('RAW_RESPONSE');
 type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 /**
- * Creates an Express-like request object from a BrowserRequest.
+ * Adapts a {@link BrowserRequest} to the {@link Request} shape shared route handlers read.
  */
-function toExpressLikeReq(req: BrowserRequest) {
+function toCoreRequest(req: BrowserRequest): Request {
+    /* v8 ignore next -- @preserve: BrowserRouter.dispatch always sets req.headers, so the ?? fallback is unreachable. */
+    const headers = req.headers ?? {};
     return {
         params: req.params,
         query: req.query,
         body: req.body,
-        /* v8 ignore next -- @preserve: BrowserRouter.dispatch always sets req.headers, so the ?? fallback is unreachable. */
-        headers: req.headers ?? {},
+        headers,
         method: req.method,
         file: req.file,
-        get originalUrl() { return req.url; }
+        get originalUrl() { return req.url; },
+        // `fetch` lower-cases the header names it sends, which is the form BrowserRouter stores them in.
+        get: (name: string) => headers[name.toLowerCase()]
     };
 }
 
@@ -62,15 +65,15 @@ function setContextFromHeaders(req: BrowserRequest) {
  * Each request is wrapped in an execution context (like cls.init() on the server)
  * to ensure entity change tracking works correctly.
  */
-function wrapHandler(handler: (req: any) => unknown, transactional: boolean) {
+function wrapHandler(handler: (req: Request) => unknown, transactional: boolean) {
     return (req: BrowserRequest) => {
         return dbLock.runShared(() => getContext().init(() => {
             setContextFromHeaders(req);
-            const expressLikeReq = toExpressLikeReq(req);
+            const coreReq = toCoreRequest(req);
             if (transactional) {
-                return getSql().transactional(() => handler(expressLikeReq));
+                return getSql().transactional(() => handler(coreReq));
             }
-            return handler(expressLikeReq);
+            return handler(coreReq);
         }));
     };
 }
@@ -80,7 +83,7 @@ function wrapHandler(handler: (req: any) => unknown, transactional: boolean) {
  * This bridges the core's route registration to the BrowserRouter.
  */
 function createApiRoute(router: BrowserRouter, transactional: boolean) {
-    return (method: HttpMethod, path: string, handler: (req: any) => unknown) => {
+    return (method: HttpMethod, path: string, handler: (req: Request) => unknown) => {
         router.register(method, path, wrapHandler(handler, transactional));
     };
 }
@@ -94,13 +97,13 @@ function createApiRoute(router: BrowserRouter, transactional: boolean) {
  * - The resultHandler is applied to post-process the result (entity conversion, status codes).
  */
 function createRoute(router: BrowserRouter) {
-    return (method: HttpMethod, path: string, _middleware: any[], handler: (req: any, res: any) => unknown, resultHandler?: ((req: any, res: any, result: unknown) => unknown) | null) => {
+    return (method: HttpMethod, path: string, _middleware: any[], handler: (req: Request, res: Response) => unknown, resultHandler?: ((req: Request, res: ResultHandlerResponse, result: unknown) => unknown) | null) => {
         router.register(method, path, (req: BrowserRequest) => {
             return dbLock.runShared(() => getContext().init(() => {
                 setContextFromHeaders(req);
-                const expressLikeReq = toExpressLikeReq(req);
-                const mockRes = createMockExpressResponse();
-                const result = getSql().transactional(() => handler(expressLikeReq, mockRes));
+                const coreReq = toCoreRequest(req);
+                const mockRes = createMockResponse();
+                const result = getSql().transactional(() => handler(coreReq, mockRes));
 
                 // If the handler used the mock response (e.g. image routes that call res.send()),
                 // return it as a raw response so BrowserRouter doesn't JSON-serialize it.
@@ -116,7 +119,7 @@ function createRoute(router: BrowserRouter) {
                 if (resultHandler) {
                     // Create a minimal response object that captures what apiResultHandler sets.
                     const res = createResultHandlerResponse();
-                    resultHandler(expressLikeReq, res, result);
+                    resultHandler(coreReq, res, result);
                     return res.result;
                 }
 
@@ -133,15 +136,15 @@ function createRoute(router: BrowserRouter) {
  * passed an async callback.
  */
 function createAsyncRoute(router: BrowserRouter, { transactional = true } = {}) {
-    return (method: HttpMethod, path: string, _middleware: any[], handler: (req: any, res: any) => Promise<unknown>, resultHandler?: ((req: any, res: any, result: unknown) => unknown) | null) => {
+    return (method: HttpMethod, path: string, _middleware: any[], handler: (req: Request, res: Response) => Promise<unknown>, resultHandler?: ((req: Request, res: ResultHandlerResponse, result: unknown) => unknown) | null) => {
         router.register(method, path, (req: BrowserRequest) => {
             // Exclusive: this transaction stays open across awaits, so no other
             // route may touch the connection until it commits. See db_lock.ts.
             return dbLock.runExclusive(() => getContext().init(async () => {
                 setContextFromHeaders(req);
-                const expressLikeReq = toExpressLikeReq(req);
-                const mockRes = createMockExpressResponse();
-                const run = () => handler(expressLikeReq, mockRes);
+                const coreReq = toCoreRequest(req);
+                const mockRes = createMockResponse();
+                const run = () => handler(coreReq, mockRes);
                 const result = transactional ? await getSql().transactionalAsync(run) : await run();
 
                 // If the handler used the mock response (e.g. image routes that call res.send()),
@@ -158,7 +161,7 @@ function createAsyncRoute(router: BrowserRouter, { transactional = true } = {}) 
                 if (resultHandler) {
                     // Create a minimal response object that captures what apiResultHandler sets.
                     const res = createResultHandlerResponse();
-                    resultHandler(expressLikeReq, res, result);
+                    resultHandler(coreReq, res, result);
                     return res.result;
                 }
 
@@ -169,10 +172,10 @@ function createAsyncRoute(router: BrowserRouter, { transactional = true } = {}) 
 }
 
 /**
- * Creates a mock Express response object that captures calls to set(), send(), sendStatus(), etc.
- * Used for route handlers (like image routes) that write directly to the response.
+ * Creates the {@link Response} a handler that writes its own body (the image routes, the streaming
+ * export) is given, capturing the status, headers and body the {@link BrowserRouter} then sends.
  */
-function createMockExpressResponse() {
+function createMockResponse() {
     const chunks: string[] = [];
     const res = {
         _used: false,
@@ -224,7 +227,7 @@ function createMockExpressResponse() {
  * - Handles [statusCode, response] tuple format
  * - Sets trilium-max-entity-change-id (captured in response headers)
  */
-function apiResultHandler(_req: any, res: ResultHandlerResponse, result: unknown) {
+function apiResultHandler(_req: Request, res: ResultHandlerResponse, result: unknown) {
     res.headers["trilium-max-entity-change-id"] = String(entity_changes.getMaxEntityChangeId());
     result = routes.convertEntitiesToPojo(result);
 

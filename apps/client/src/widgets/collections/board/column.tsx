@@ -42,7 +42,7 @@ import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
 import Card from "./card";
 import CardTemplatePill from "./card_template_pill";
-import { type CardTemplates } from "./card_templates";
+import { cardTemplateIcon, type CardTemplates } from "./card_templates";
 import { DEFAULT_CARD_ICON, DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
 import { openColumnContextMenu, openColumnSortMenu, openCreateCardMenu } from "./context_menu";
 import type { ColumnSort } from "./data";
@@ -285,6 +285,8 @@ export default function Column({
                     : (last ? last.offsetTop + last.offsetHeight + cardSpacing() : 0));
             gap.style.transform = `translateY(${top}px)`;
             gap.style.height = `${height}px`;
+        } else {
+            clearGap(gap);
         }
         gap.classList.toggle("show", dropIndex !== null);
         roomRef.current?.style.setProperty("height", `${room}px`);
@@ -844,6 +846,19 @@ export function placeCard(card: HTMLElement, transform: string | null, atOnce: b
 }
 
 /**
+ * Takes back the room a closed gap holds in its column.
+ *
+ * `.board-drop-placeholder` is positioned in the column's scrolling box, so its height and
+ * transform count towards `scrollHeight` whether it is showing or not. Left where the last drag
+ * put it, it holds a card's worth of scroll past the last card.
+ */
+export function clearGap(gap: HTMLElement) {
+    gap.style.removeProperty("transform");
+    // Set rather than removed: the stylesheet gives the gap a height of its own to fall back on.
+    gap.style.height = "0px";
+}
+
+/**
  * Puts back at once the suppressed transitions of the cards one board holds, for a board leaving
  * the page.
  *
@@ -904,8 +919,23 @@ function AddNewItem({
     // What the editor opens with: empty to begin with, then whatever was typed into it and left
     // unsaved, so that reaching for something else and coming back does not cost the title.
     const [ initialTitle, setInitialTitle ] = useState("");
+    // The icon a card made from the current template would carry.
+    const templateIcon = cardTemplateIcon(cardTemplates.current) ?? DEFAULT_CARD_ICON;
     // Kept between cards, unlike the title: a run of cards is often a run of the same kind of card.
-    const [ icon, setIcon ] = useState(DEFAULT_CARD_ICON);
+    const [ icon, setIcon ] = useState(templateIcon);
+    /** The template icon `icon` was last set from, telling a picked icon from a followed one. */
+    const followedIcon = useRef(templateIcon);
+
+    // Follow the template only while `icon` is still the previous template's. A picked icon is
+    // kept: a template change says nothing about it.
+    useEffect(() => {
+        if (templateIcon === followedIcon.current) {
+            return;
+        }
+
+        setIcon(shown => shown === followedIcon.current ? templateIcon : shown);
+        followedIcon.current = templateIcon;
+    }, [ templateIcon ]);
 
     const open = useCallback((title: string) => {
         setInitialTitle(title);
@@ -943,7 +973,7 @@ function AddNewItem({
 
     /** Makes the card, where the field stands or at the end of the column. */
     const create = useCallback(async (title: string, atStart?: boolean) => {
-        const cardIcon = icon !== DEFAULT_CARD_ICON ? icon : undefined;
+        const cardIcon = icon !== templateIcon ? icon : undefined;
 
         if (insert) {
             // Left standing until the column has drawn the card, which takes the field's place.
@@ -959,7 +989,7 @@ function AddNewItem({
 
         onCreated(await api.createNewItem(
             column, title, atStart ? "top" : "bottom", cardIcon, cardTemplates.current));
-    }, [ api, cardTemplates, column, icon, insert, onCreated ]);
+    }, [ api, cardTemplates, column, icon, insert, onCreated, templateIcon ]);
 
     return (
         <div
@@ -997,8 +1027,8 @@ function AddNewItem({
                     icon={{
                         current: icon,
                         onSelect: setIcon,
-                        onReset: icon !== DEFAULT_CARD_ICON
-                            ? () => setIcon(DEFAULT_CARD_ICON)
+                        onReset: icon !== templateIcon
+                            ? () => setIcon(templateIcon)
                             : undefined
                     }}
                 />

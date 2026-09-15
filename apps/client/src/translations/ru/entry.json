@@ -134,7 +134,8 @@
         "restore-stage-validating": "Проверка базы данных",
         "restore-stage-swapping": "Установка на место",
         "restore-stage-migrating": "Открытие базы данных",
-        "restore-do-not-close": "Не закрывайте это окно."
+        "restore-do-not-close": "Не закрывайте это окно.",
+        "backup-saved-to": "Резервная копия сохранена в {{- location}}. Нажмите \"Завершить\", чтобы вернуться в приложение."
     },
     "login": {
         "heading": "Вход в Trilium Notes",

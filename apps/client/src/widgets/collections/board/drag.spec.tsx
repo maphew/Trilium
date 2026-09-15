@@ -88,7 +88,10 @@ describe("Board drag and drop", () => {
         // unmade, which is what keeps a drag off the board's own contents.
         await drag(columns[0], "dragleave", { types: [] });
         expect(columns[0].querySelector(".board-drop-placeholder.show")).toBeNull();
-        expect(columns[0].querySelector(".board-drop-placeholder")).toBeTruthy();
+        const gap = columns[0].querySelector<HTMLElement>(".board-drop-placeholder");
+        expect(gap).toBeTruthy();
+        // Standing at no height, so the column scrolls no further than its last card.
+        expect(gap?.style.height).toBe("0px");
     });
 
     /**
@@ -393,6 +396,30 @@ describe("Board drag and drop", () => {
 
         const gap = columns[0].querySelector<HTMLElement>(".board-drop-placeholder");
         expect(gap?.style.height).toBe("100px");
+    });
+
+    /**
+     * The gap is positioned in the column's scrolling box, so its height and transform count
+     * towards `scrollHeight` whether it is showing or not. Left where the drag put it, the column
+     * scrolls a card's worth past its last card.
+     */
+    it("takes back the room the gap held once the card is let go", async () => {
+        const { columns } = await renderBoard();
+        const card = columns[0].querySelector<HTMLElement>(".board-note");
+        if (!card) throw new Error("expected a card");
+        await act(async () => { await settle(); });
+
+        await pointer(card, "pointerdown", 50, 50);
+        await pointer(columns[0], "pointermove", 50, 120);
+
+        const gap = columns[0].querySelector<HTMLElement>(".board-drop-placeholder");
+        if (!gap) throw new Error("expected a gap");
+        expect(gap.style.height).toBe("100px");
+
+        await pointer(columns[0], "pointerup", 50, 120);
+
+        expect(gap.style.height).toBe("0px");
+        expect(gap.style.transform).toBe("");
     });
 
     /**

@@ -26,6 +26,7 @@ import SegmentedChoice from "../../react/SegmentedChoice";
 import { renderShortcutKbds } from "../../react/shortcut_kbd";
 import Slider from "../../react/Slider";
 import SettingsSearch from "./components/SettingsSearch";
+import HelpButton from "../../react/HelpButton";
 
 interface FontFamilyEntry {
     value: FontFamily;
@@ -143,7 +144,8 @@ export default function Fonts() {
     const [ pickerShown, setPickerShown ] = useState(false);
 
     return (
-        <Card className="appearance-fonts" heading={t("fonts.fonts")}>
+        <Card className="appearance-fonts" heading={t("fonts.fonts")}
+            actions={<HelpButton helpPage="w4rMEhJsALlA" />}>
             <OptionCardSection
                 name="override-theme-fonts"
                 label={t("fonts.custom_fonts")}

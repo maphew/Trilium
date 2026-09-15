@@ -50,10 +50,10 @@
 <ol>
   <li>Import the font file, by dragging it into the&nbsp;<a class="reference-link"
     href="#root/_help_oPVyFC7WL2Lp">Note Tree</a>&nbsp;or through <em>Import into note</em>.
-    TrueType (<code spellcheck="false">.ttf</code>), OpenType (<code spellcheck="false">.otf</code>)
-    and Web Open Font Format (<code spellcheck="false">.woff</code>, <code spellcheck="false">.woff2</code>)
-    files are recognized; the note takes the font's name without its extension
-    and is marked with a font icon (an “A” icon).</li>
+    TrueType (<code>.ttf</code>), OpenType (<code>.otf</code>) and Web Open
+    Font Format (<code>.woff</code>, <code>.woff2</code>) files are recognized;
+    the note takes the font's name without its extension and is marked with
+    a font icon (an “A” icon).</li>
   <li>Select the resulting note where a preview of a font will be displayed:
     a specimen line to type your own text into, a slider for its size, a preview
     in multiple sizes, and the Latin character set.</li>
@@ -63,10 +63,9 @@
     families, and can be set for any of the four areas.</li>
 </ol>
 <aside class="admonition note">
-  <p>Embedded OpenType (<code spellcheck="false">.eot</code>) files and TrueType
-    collections (<code spellcheck="false">.ttc</code>) cannot be drawn by the
-    browser, so they are treated as ordinary files: no preview, and no entry
-    in the picker.</p>
+  <p>Embedded OpenType (<code>.eot</code>) files and TrueType collections (<code>.ttc</code>)
+    cannot be drawn by the browser, so they are treated as ordinary files:
+    no preview, and no entry in the picker.</p>
 </aside>
 <h3>How custom fonts behave</h3>
 <ul>
@@ -99,3 +98,11 @@
     drag-and-drop the .zip file directly onto the newly created note and follow
     the steps from the previous section.</li>
 </ol>
+<h2>Programming ligatures</h2>
+<p>Some fonts support programming ligatures, which will turn character combinations
+  such as <code>!=</code> into <code>≠</code> or <code>-&gt;</code> as <code>→</code> in&nbsp;<a
+  class="reference-link" href="#root/_help_QxEyIjRBizuC">Code blocks</a>&nbsp;and&nbsp;<a
+  class="reference-link" href="#root/_help_6f9hih2hXXZk">Code</a>&nbsp;notes.</p>
+<p>These are only a display affordance, so copying the text is not affected.
+  Regardless, this feature can be disabled in Trilium by unchecking <em>Programming ligatures</em> in
+  the font settings.</p>

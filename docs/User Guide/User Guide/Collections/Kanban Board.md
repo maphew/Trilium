@@ -18,7 +18,7 @@ Notes are displayed recursively, so even the child notes of the child notes will
 ### Working with columns
 
 *   Create a new column by pressing _Add Column_ near the last column.
-    *   Once pressed, a text box will be displayed to set the name of the column. Press <kbd>Enter</kbd> to confirm, or <kbd>Escape</kbd> to dismiss.
+    *   Once pressed, a text box will be displayed to set the name of the column. Press Enter to confirm, or Escape to dismiss.
 *   To reorder a column, simply hold the mouse over the title and drag it to the desired position.
 *   To delete a column, right click on its title and select _Delete column_.
 *   To rename a column, click on the note title.
@@ -29,7 +29,7 @@ Notes are displayed recursively, so even the child notes of the child notes will
 ### Working with notes
 
 *   Create a new note in any column by pressing _New item_
-    *   Enter the name of the note and press <kbd>Enter</kbd> or click away. To dismiss the creation of a new note, simply press <kbd>Escape</kbd> or leave the name empty.
+    *   Enter the name of the note and press Enter or click away. To dismiss the creation of a new note, simply press Escape or leave the name empty.
     *   Once created, the new note will have an attribute (`status` label by default) set to the name of the column.
 *   To open the note, simply click on it.
 *   To change the title of the note directly from the board, hover the mouse over its card and press the edit button on the right.
@@ -62,10 +62,10 @@ This works for:
 
 The board view has mild support for keyboard-based navigation:
 
-*   Use <kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd> to navigate between column titles, notes and the “New item” button for each of the columns, in sequential order.
-*   To rename a column or a note, press <kbd>F2</kbd> while it is focused.
-*   To open a specific note or create a new item, press <kbd>Enter</kbd> while it is focused.
-*   To dismiss a rename of a note or a column, press <kbd>Escape</kbd>.
+*   Use Tab and Shift+Tab to navigate between column titles, notes and the “New item” button for each of the columns, in sequential order.
+*   To rename a column or a note, press F2 while it is focused.
+*   To open a specific note or create a new item, press Enter while it is focused.
+*   To dismiss a rename of a note or a column, press Escape.
 
 ## Configuration
 

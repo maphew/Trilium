@@ -1,7 +1,7 @@
 import {
     type BoardColumnsKey, boardColumnsKey, promotedAttributeDefinitionParser
 } from "@triliumnext/commons";
-import type { Request } from "express";
+import type { Request } from "../../http_interface";
 
 import becca from "../../becca/becca.js";
 import type BNote from "../../becca/entities/bnote.js";

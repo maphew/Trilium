@@ -10,6 +10,9 @@ import { useTrackedElement } from "./hooks";
 /** Fractional scroll offsets are reported at sub-pixel precision, so an edge is never tested exactly. */
 const EDGE_EPSILON = 1;
 
+/** How far a fade reaches from an edge when the caller names no size. Matches `scroll_fade.css`. */
+const DEFAULT_FADE_SIZE = 20;
+
 export interface ScrollFadeOptions {
     /** Which way the container scrolls. */
     direction?: "horizontal" | "vertical";
@@ -17,6 +20,14 @@ export interface ScrollFadeOptions {
     size?: number;
     /** How long a fade takes to arrive and to leave, in milliseconds. */
     duration?: number;
+    /**
+     * The least a container has to scroll for its edges to be faded at all, in pixels.
+     *
+     * Defaults to the fade's own size, a fade reaching further than the container can scroll
+     * covering more than it hides. Lower it where a few hidden pixels still have to be reported,
+     * such as a line of text cut off by a character.
+     */
+    minOverflow?: number;
 }
 
 export interface ScrollFade {
@@ -38,7 +49,9 @@ export interface ScrollFade {
  * @param options which way it scrolls, how far each fade reaches and how long it takes.
  */
 export function useScrollFade(ref: RefObject<HTMLElement>, options: ScrollFadeOptions = {}): ScrollFade {
-    const { direction = "vertical", size, duration } = options;
+    const {
+        direction = "vertical", size, duration, minOverflow = size ?? DEFAULT_FADE_SIZE
+    } = options;
     const [ fades, setFades ] = useState({ start: false, end: false });
     const [ overflow, setOverflow ] = useState(0);
     const frameRef = useRef<number>();
@@ -58,13 +71,14 @@ export function useScrollFade(ref: RefObject<HTMLElement>, options: ScrollFadeOp
 
         setOverflow(total);
         setFades((current) => {
+            const isFaded = total > minOverflow;
             const next = {
-                start: travelled > EDGE_EPSILON,
-                end: travelled < total - EDGE_EPSILON
+                start: isFaded && travelled > EDGE_EPSILON,
+                end: isFaded && travelled < total - EDGE_EPSILON
             };
             return current.start === next.start && current.end === next.end ? current : next;
         });
-    }, [ element, direction ]);
+    }, [ element, direction, minOverflow ]);
 
     useEffect(() => {
         if (!element) return;

@@ -17,6 +17,7 @@ import { consumeSearchTerms } from "../../../services/search_jump";
 import toast from "../../../services/toast";
 import utils, { isMobile } from "../../../services/utils";
 import { useEditorSpacedUpdate, useLegacyImperativeHandlers, useNoteLabel, useSearchTermsConsumer, useTriliumEvent, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
+import { setEditorNoteId } from "../../react/NoteStore";
 import { TypeWidgetProps } from "../type_widget";
 import CKEditorWithWatchdog, { CKEditorApi, NotificationEventData, NotificationEventInfo } from "./CKEditorWithWatchdog";
 import getTemplates, { updateTemplateCache } from "./snippets.js";
@@ -33,6 +34,8 @@ import { loadIncludedNote, refreshIncludedNote, setupImageOpening } from "./util
 export default function EditableText({ note, parentComponent, ntxId, noteContext }: TypeWidgetProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<string>("");
+    /** The note `contentRef` holds the content of, so a restarted editor can be marked as holding it. */
+    const contentNoteIdRef = useRef<string>();
     const watchdogRef = useRef<EditorWatchdog>(null);
     const editorApiRef = useRef<CKEditorApi>(null);
     const [ language ] = useNoteLabel(note, "language");
@@ -66,7 +69,12 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
         },
         onContentChange(newContent) {
             contentRef.current = newContent;
-            watchdogRef.current?.editor?.setData(newContent);
+            contentNoteIdRef.current = note?.noteId;
+            const editor = watchdogRef.current?.editor;
+            if (editor && note) {
+                setEditorNoteId(editor, note.noteId);
+            }
+            editor?.setData(newContent);
 
             // Jump to the first search match when navigated from search results.
             consumeSearchTerms(noteContext, ntxId);
@@ -82,6 +90,7 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
         dataSaved(savedData) {
             // Store back the saved data in order to retrieve it in case the CKEditor crashes.
             contentRef.current = savedData.content;
+            contentNoteIdRef.current = note?.noteId;
         }
     });
     const templates = useTemplates();
@@ -469,6 +478,9 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
                     initialized.current.resolve();
                     // Restore the data, either on the first render or if the editor crashes.
                     // We are not using CKEditor's built-in watch dog content, instead we are using the data we store regularly in the spaced update (see `dataSaved`).
+                    if (contentNoteIdRef.current) {
+                        setEditorNoteId(editor, contentNoteIdRef.current);
+                    }
                     editor.setData(contentRef.current);
                     parentComponent?.triggerEvent("textEditorRefreshed", { ntxId, editor });
 

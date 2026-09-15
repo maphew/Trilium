@@ -91,7 +91,7 @@ body {
     --native-titlebar-darwin-y-offset: 12;
     --launcher-pane-height: 53px;
     --tab-bar-height: 40px;
-    --mobile-bottom-offset: env(safe-area-inset-bottom);
+    --mobile-bottom-offset: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
 }
 
 /*
@@ -148,19 +148,19 @@ body.desktop {
         #left-pane,
         #rest-pane {
             padding-top: var(--safe-area-inset-top, env(safe-area-inset-top));
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
         }
     }
 
     &.experimental-feature-new-layout #root-widget.horizontal-layout {
         >.status-bar {
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
         }
     }
 
     &:not(.experimental-feature-new-layout) #root-widget.horizontal-layout {
         #horizontal-main-container {
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
         }
     }
 
@@ -1669,7 +1669,7 @@ body.mobile #context-menu-container.mobile-bottom-menu {
     overflow: auto !important;
     user-select: none;
     -webkit-user-select: none;
-    padding-bottom: max(env(safe-area-inset-bottom), var(--padding, var(--menu-padding-size))) !important;
+    padding-bottom: max(var(--safe-area-inset-bottom, env(safe-area-inset-bottom)), var(--padding, var(--menu-padding-size))) !important;
 }
 
 body.mobile .dropdown-menu {
@@ -1685,6 +1685,7 @@ body.mobile .dropdown-submenu > .dropdown-menu {
     top: unset !important;
     margin-top: 0 !important;
     width: 100%;
+    max-height: none;
 }
 
 #context-menu-container,
@@ -2018,7 +2019,7 @@ body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
 
     body.mobile .dropdown-menu.mobile-bottom-menu.show {
         --dropdown-bottom: 0px;
-        padding-bottom: calc(max(var(--menu-padding-size), env(safe-area-inset-bottom))) !important;
+        padding-bottom: calc(max(var(--menu-padding-size), var(--safe-area-inset-bottom, env(safe-area-inset-bottom)))) !important;
     }
 
     #mobile-sidebar-container {
@@ -2095,7 +2096,7 @@ body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
         max-width: unset;
 
         .modal-header {
-            margin-top: env(safe-area-inset-top);
+            margin-top: var(--safe-area-inset-top, env(safe-area-inset-top));
         }
 
         .modal-content {
@@ -2115,7 +2116,7 @@ body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
 
     body.mobile .modal-footer {
         padding-top: 12px;
-        padding-bottom: calc(max(env(safe-area-inset-bottom), 12px));
+        padding-bottom: calc(max(var(--safe-area-inset-bottom, env(safe-area-inset-bottom)), 12px));
     }
 
     body.mobile .help-dialog kbd {
@@ -2290,6 +2291,12 @@ button.close:hover {
     position: relative;
     top: 1px;
     margin-inline-end: 3px;
+}
+
+/* The board column a reference points at. `--custom-color` is set by the theme on
+   `.use-note-color`. */
+.reference-link small.use-note-color {
+    color: var(--custom-color, inherit);
 }
 
 .options-section:first-of-type h4 {
@@ -3049,7 +3056,7 @@ iframe.print-iframe {
             }
         }
 
-        body:not(.ios) #root-widget.virtual-keyboard-opened .note-split:not(.active) {
+        &:not(.ios) #root-widget.virtual-keyboard-opened .note-split:not(.active) {
             max-height: 80px;
             opacity: 0.4;
         }

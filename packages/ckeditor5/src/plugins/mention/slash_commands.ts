@@ -21,7 +21,8 @@ import {
     IconParagraph,
     IconQuote,
     IconTable,
-    IconTodoList
+    IconTodoList,
+    IconImage
 } from "@ckeditor/ckeditor5-icons";
 import bxBookmark from "boxicons/svg/regular/bx-bookmark.svg?raw";
 import bxBulb from "boxicons/svg/regular/bx-bulb.svg?raw";
@@ -140,7 +141,11 @@ export default class TriliumSlashCommands extends Plugin {
         const config = (editor.config.get("slashCommand") ?? {}) as SlashCommandConfig;
         const removed = new Set(config.removeCommands ?? []);
 
-        return [ ...buildDefaultSlashCommands(editor), ...buildTriliumSlashCommands(editor), ...buildSnippetSlashCommands(editor) ]
+        return [
+            ...buildDefaultSlashCommands(editor),
+            ...buildTriliumSlashCommands(editor),
+            ...buildSnippetSlashCommands(editor)
+        ]
             .filter((definition) => !removed.has(definition.id))
             .filter((definition) => isSlashCommandEnabled(editor, definition));
     }
@@ -295,7 +300,8 @@ export function buildDefaultSlashCommands(editor: Editor): SlashCommandDefinitio
             description: t("Decrease the indentation of the current block."),
             icon: IconOutdent,
             commandName: "outdent"
-        }
+        },
+        buildImageUploadCommand(editor)
     ];
 }
 
@@ -625,6 +631,50 @@ function buildHeadingSlashCommands(editor: Editor): SlashCommandDefinition[] {
             execute: (target: Editor) => target.execute("heading", { value: option.model })
         };
     });
+}
+
+function buildImageUploadCommand(editor: Editor): SlashCommandDefinition {
+    const t = editor.locale.t;
+
+    return {
+        id: "uploadImage",
+        title: t("Upload image"),
+        icon: IconImage,
+        execute(editor) {
+            const input = document.createElement("input");
+
+            input.type = "file";
+            input.accept = "*/*";
+
+            const imageTypes = editor.config.get(   'image.upload.types' )!;
+		    const imageTypesRegExp = createImageTypeRegExp( imageTypes );
+
+            input.addEventListener( "change", () => {
+                const imagesToUpload = Array.from(input.files ?? [])
+                    .filter( file => imageTypesRegExp.test(file.type));
+
+                if (imagesToUpload) {
+                    editor.execute('uploadImage', { file: imagesToUpload });
+				    editor.editing.view.focus();
+                }
+
+                input.remove();
+            }, { once: true } );
+
+            input.style.display = 'none';
+            document.body.appendChild( input );
+
+            input.click();
+        },
+    };
+}
+
+// Source: https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-image/src/imageupload/utils.ts
+function createImageTypeRegExp( types: Array<string> ): RegExp {
+	// Sanitize the MIME type name which may include: "+", "-" or ".".
+	const regExpSafeNames = types.map( type => type.replace( '+', '\\+' ) );
+
+	return new RegExp( `^image\\/(${ regExpSafeNames.join( '|' ) })$` );
 }
 
 /**

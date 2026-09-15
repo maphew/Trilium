@@ -84,6 +84,7 @@
     .tn-card-option-description {
         font-size: .85em;
         opacity: .7;
+        white-space: pre-line;
     }
 
     /* A fact rather than a control: unlike the buttons a row is built around, a value gives way

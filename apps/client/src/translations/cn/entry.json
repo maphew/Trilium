@@ -103,7 +103,7 @@
         "existing-data-backup-failed": "无法创建备份。",
         "backup-data": "备份你的Trilium数据",
         "backup-name": "备份名称",
-        "backup-name-description": "为该备份取一个你以后能认出的名称，或者保留系统建议的名称。",
+        "backup-name-description": "为这个备份起一个日后能认出的名称，或保留建议的名称。",
         "backup-password": "密码（可选）",
         "backup-password-repeat": "再次输入密码",
         "backup-password-description": "如果你设置了密码，备份文件将被加密。请将密码保存在安全的地方：如果没有密码，将无法恢复备份。",
@@ -134,7 +134,8 @@
         "existing-data-skip-warning": "目前尚未删除任何内容。只有当你选择创建新知识库、恢复备份或从其他设备同步时，你的知识库才会被替换。",
         "unlock-refused": "这些信息未被接受。请重试。",
         "keep-existing": "返回应用",
-        "keep-existing-description": "继续使用现有知识库并返回应用。"
+        "keep-existing-description": "继续使用现有知识库并返回应用。",
+        "backup-saved-to": "备份已保存到 {{- location}}。按「完成」返回应用程序。"
     },
     "login": {
         "heading": "登录 Trilium Notes",

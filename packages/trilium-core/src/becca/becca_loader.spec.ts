@@ -199,6 +199,31 @@ describe("becca_loader", () => {
             expect(token?.name).toBe("loader-test-token");
             expect(becca.loaded).toBe(true);
         });
+
+        it("orders a note's children by notePosition rather than by insertion order", () => {
+            const parent = createNote("root");
+            const children = [
+                createNote(parent.noteId), createNote(parent.noteId), createNote(parent.noteId)
+            ];
+
+            getContext().init(() => {
+                // Reverse the positions, so the rowid order the table is scanned in disagrees
+                // with the order the children belong in.
+                const update = /*sql*/`UPDATE branches SET notePosition = ?
+                                       WHERE noteId = ? AND parentNoteId = ?`;
+                for (const [index, child] of children.entries()) {
+                    const position = (children.length - index) * 10;
+                    getSql().execute(update, [position, child.noteId, parent.noteId]);
+                }
+
+                load();
+            });
+
+            const loadedParent = becca.getNoteOrThrow(parent.noteId);
+            expect(loadedParent.children.map((child) => child.noteId)).toEqual(
+                [...children].reverse().map((child) => child.noteId)
+            );
+        });
     });
 
     describe("reload()", () => {

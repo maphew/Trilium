@@ -583,7 +583,7 @@
     "calendar_hide_weekends": "在日历中隐藏周六和周日。设置任意值即生效。",
     "calendar_week_numbers": "在日历上显示周数。设置任意值即生效。",
     "calendar_slot_duration": "日历每个时段时长的长度，格式为 <code>HH:MM:SS</code>。默认 15 分钟。",
-    "calendar_slot_label_interval": "日历时段标记的间隔频率，格式为 <code>HH:MM:SS</code>。默认 1 小时。",
+    "calendar_slot_label_interval": "日历各时间段的标签出现频率，格式为 <code>HH:MM:SS</code>. 默认每小时一次。",
     "calendar_title": "指定事件标题来源的属性，而不是笔记标题。可以是标签或关系，书写时不带 <code>#</code> 或 <code>~</code>。",
     "calendar_displayed_attributes": "在事件上显示其值的属性名称，以逗号分隔。关系将显示为目标笔记的标题。",
     "calendar_start_date": "指定事件读取开始日期的标签，而不是 <code>#startDate</code>。书写时不带 <code>#</code>。",
@@ -634,7 +634,8 @@
     "sort_columns": "对于看板集合，指各列对其卡片进行排序的顺序；除非某列被赋予了自己的排序顺序，否则它遵循此顺序。值可为 <code>title</code>, <code>creationDate</code> 或 <code>attr:</code> 后跟提升属性的名称。",
     "sort_columns_descending": "对于看板集合，按 <code>#sortColumns</code> 的顺序反向运行。",
     "board_card_redirect_to": "在看板卡片上，打开卡片会跳转到它所指向的笔记，而不是打开卡片本身。",
-    "board_card_width": "对于看板集合，指各列的绘制宽度： <code>narrow</code>（窄）、<code>medium</code>（中）或 <code>wide</code>（宽）。在移动端会被忽略，移动端会按其自身宽度绘制。"
+    "board_card_width": "对于看板集合，指各列的绘制宽度： <code>narrow</code>（窄）、<code>medium</code>（中）或 <code>wide</code>（宽）。在移动端会被忽略，移动端会按其自身宽度绘制。",
+    "geo_shape": "笔记在地图上绘制的形状：先写形状种类，再依次写每个点的纬度和经度，例如. <code>line:48.85,2.29 48.86,2.35</code> — 或写圆形，值为圆心和半径（米），例如 <code>circle:48.85,2.29 500</code>."
   },
   "attribute_editor": {
     "help_text_body1": "要添加标签，只需输入例如 <code>#rock</code> ；或者如果你还想同时添加数值，则可输入例如 <code>#year = 2020</code>",
@@ -1897,7 +1898,10 @@
     "handshake_failed": "同步服务器握手失败，错误：{{message}}",
     "timeout_description": "当连接速度过慢时等待多长时间后放弃连接。",
     "server_address_description": "用于同步的 Trilium 服务器 URL。",
-    "proxy_description": "留空则会使用系统代理（仅限桌面端）。如果输入 \"noproxy\"，将跳过所有代理。"
+    "proxy_description": "留空则会使用系统代理（仅限桌面端）。如果输入 \"noproxy\"，将跳过所有代理。",
+    "effective_server": "当前使用的服务器",
+    "effective_server_description": "通过 config.ini 或环境变量设置，其优先级高于上方填写的服务器地址。",
+    "effective_server_disabled": "同步已关闭。"
   },
   "api_log": {
     "close": "关闭"
@@ -2331,7 +2335,20 @@
     "locate-error": "无法找到你的位置。再次按下即可停止查找。",
     "locate-unavailable": "你的位置不可用",
     "location-denied": "位置访问被拒绝。如需在地图上显示你的位置，请在浏览器或系统设置中允许 Trilium 访问位置。",
-    "location-unavailable": "目前无法确定你的位置。"
+    "location-unavailable": "目前无法确定你的位置。",
+    "draw-line": "在地图上绘制路径",
+    "draw-polygon": "在地图上绘制区域",
+    "draw-cancel": "取消绘制",
+    "draw-line-toast-title": "绘制路径",
+    "draw-line-instruction": "点击地图以添加点。再次点击最后一个点或按 Enter 完成，按 Escape 取消。",
+    "draw-polygon-toast-title": "绘制区域",
+    "draw-polygon-instruction": "点击地图以添加角点。再次点击第一个角点或按 Enter 完成，按 Escape 取消。",
+    "draw-rectangle": "在地图上绘制矩形",
+    "draw-rectangle-toast-title": "绘制矩形",
+    "draw-rectangle-instruction": "在地图上点击一个角，再点击对角。也可以从一个角拖到另一个角。按 Escape 取消。",
+    "draw-circle": "在地图上绘制圆形",
+    "draw-circle-toast-title": "绘制圆形",
+    "draw-circle-instruction": "在地图上点击圆心，再点击到圆应该覆盖的距离。也可以从圆心向外拖拽。按 Escape 取消。"
   },
   "geo-map-context": {
     "open-location": "打开位置",
@@ -2613,7 +2630,11 @@
     "drop-as-last-item": "作为最后一项拖放",
     "column-width-narrow": "窄（默认）",
     "column-width-medium": "中",
-    "column-width-wide": "宽"
+    "column-width-wide": "宽",
+    "copy-reference": "复制引用",
+    "reference-column-missing": "该列已不在这个看板上。",
+    "reference-archived": "该条目已归档，因此看板不显示它。",
+    "reference-missing": "该条目已不在这个看板上。"
   },
   "command_palette": {
     "tree-action-name": "树形：{{name}}",
@@ -3315,7 +3336,12 @@
     "cleanup_description": "擦除已删除的笔记和附件，修剪修订快照并压缩图片，以保持数据库精简。",
     "related_backup": "备份",
     "related_backup_description": "创建或恢复数据库备份，管理自动备份。",
-    "info_backup": "备份"
+    "info_backup": "备份",
+    "info_persistence": "持久化",
+    "info_persistence_persistent": "持久保存",
+    "info_persistence_best_effort": "尽力而为",
+    "info_persistence_persistent_description": "浏览器已承诺保留此数据库，直到你删除它。",
+    "info_persistence_best_effort_description": "浏览器可清除此数据库以回收空间。\n将 Trilium 安装为应用或添加到主屏幕，通常可获得持久保存的资格。"
   },
   "revisions_snapshot": {
     "title": "笔记修订"
@@ -4006,7 +4032,7 @@
     "attributes_definitions_what": "定义是属性名称背后的模式（schema）：它接受什么类型的值、是否允许重复赋值，以及是否为提升属性（promoted）。",
     "attributes_definitions_promoted": "提升属性会以表单字段的形式直接显示在笔记上，而不是留在此面板中。定义通常来自模板，每一行都标明了定义所在的笔记。",
     "highlights_what": "这里是笔记中具有特定格式的片段，覆盖范围比想象中更广：普通的加粗或斜体句子也算，不限于你手动高亮的文字。",
-    "highlights_configure": "哪些格式要被统计，由你说了算：加粗、斜体、下划线、彩色文字和背景色文字都能在卡片右上角的齿轮菜单里勾选或去掉。点一下某个条目，笔记就滚到那儿。",
+    "highlights_configure": "哪些格式算数由你决定：加粗、斜体、下划线、彩色文字和带背景色的文字，都可以通过此卡片标题中的齿轮图标选择列出或忽略。点击某个条目会将笔记滚动到对应位置。",
     "note_map_what": "笔记地图展示这篇笔记的连接关系：链接地图显示进出它的内部链接和关系，树形地图显示它在笔记树中的位置。标题栏的切换器可在两种视图间切换。",
     "note_map_interaction": "悬停某篇笔记会将其自身的连接突出显示，其余部分变淡。展开按钮会以窗口大小打开同一张图谱。",
     "note_paths_what": "一篇笔记可以同时位于笔记树中的多个位置，每个位置都会以路径形式列在这里。",
@@ -4073,7 +4099,8 @@
     "mismatch": "两次输入的密码不一致。"
   },
   "open": {
-    "directory_failed": "无法打开 {{- directory}}: {{- reason}}"
+    "directory_failed": "无法打开 {{- directory}}: {{- reason}}",
+    "download_failed": "无法保存下载内容：{{- reason}}"
   },
   "embedded_note": {
     "open-note": "打开笔记",

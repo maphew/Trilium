@@ -62,13 +62,14 @@ vi.mock("../../../services/note_types", () => ({
 let templateReads = 0;
 
 const NOTE_TYPE_OPTIONS = [
-    [ "type:text:text/html", "Text", "text", "text/html" ],
-    [ "type:code:text/x-markdown", "Markdown", "code", "text/x-markdown" ],
-    [ "type:canvas:application/json", "Canvas", "canvas", "application/json" ],
-    [ "type:spreadsheet:application/json", "Spreadsheet", "spreadsheet", "application/json" ],
-    [ "type:mermaid:text/mermaid", "Mermaid", "mermaid", "text/mermaid" ]
-].map(([ id, title, type, mime ]) => ({
-    id, title, icon: "bx bx-note", group: "type" as const, options: { type, mime }
+    [ "type:text:text/html", "Text", "text", "text/html", "bx bx-note" ],
+    [ "type:code:text/x-markdown", "Markdown", "code", "text/x-markdown", "bx bx-code" ],
+    [ "type:canvas:application/json", "Canvas", "canvas", "application/json", "bx bx-pen" ],
+    [ "type:spreadsheet:application/json", "Spreadsheet", "spreadsheet", "application/json",
+        "bx bx-table" ],
+    [ "type:mermaid:text/mermaid", "Mermaid", "mermaid", "text/mermaid", "bx bx-selection" ]
+].map(([ id, title, type, mime, icon ]) => ({
+    id, title, icon, group: "type" as const, options: { type, mime }
 })) as NoteTypeOption[];
 
 vi.mock("../../react/IconPicker", () => ({
@@ -2725,6 +2726,54 @@ describe("Board column rename", () => {
         expect(slot?.querySelector(".title-editor-icon button")?.className)
             .toContain(PICKED_ICON);
     });
+
+    /**
+     * The icon follows the template while it is still the template's own. One the reader picked
+     * stands: the template changing under it says nothing about the icon they chose.
+     */
+    it("moves the card's icon to the template picked, unless one was picked by hand", async () => {
+        const { container } = await setup();
+        const slot = container.querySelectorAll<HTMLElement>(".board-column")[1]
+            .querySelector<HTMLElement>(".board-new-item");
+
+        await act(async () => {
+            slot?.click();
+            await flush();
+        });
+
+        const shownIcon = () => slot?.querySelector(".title-editor-icon button")?.className ?? "";
+
+        // The icon of the template the board opens on, rather than a stock one.
+        expect(shownIcon()).toContain("bx bx-note");
+
+        await pickTemplate(slot, 2);
+        expect(shownIcon()).toContain("bx bx-pen");
+
+        await pickIcon(slot);
+        await pickTemplate(slot, 1);
+        expect(shownIcon()).toContain(PICKED_ICON);
+    });
+
+    /** Picks one of the templates the pill offers, by where it stands in its menu. */
+    async function pickTemplate(slot: HTMLElement | null | undefined, index: number) {
+        const pill = slot?.querySelector<HTMLElement>(".card-template-pill button");
+        if (!pill) throw new Error("expected the template pill");
+
+        await act(async () => {
+            pill.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+            $(pill.closest(".dropdown") as HTMLElement).trigger("show.bs.dropdown");
+            await flush();
+        });
+
+        // The menu is portalled to the page, and the boards rendered before left theirs behind, so
+        // the last one is the board under test.
+        const menu = [ ...document.querySelectorAll<HTMLElement>(".card-template-pill") ].at(-1);
+        const items = [ ...(menu?.querySelectorAll<HTMLElement>(".dropdown-item") ?? []) ];
+        await act(async () => {
+            items[index].click();
+            await flush();
+        });
+    }
 
     /**
      * The picker takes focus with it, and losing focus is what closes the editor: it would take the

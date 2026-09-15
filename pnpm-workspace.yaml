@@ -8,7 +8,7 @@ nodeLinker: hoisted
 # updates and regular installs aren't stalled.
 minimumReleaseAge: 0
 
-# Don't fail when corepack provides a slightly different pnpm version than packageManager declares.
+# Don't fail when the installed pnpm is a slightly different version than packageManager declares.
 pmOnFail: ignore
 
 overrides:
@@ -38,9 +38,9 @@ overrides:
   # copies in the tree mean two declarations of the `unique symbol` that marks a `Schema`, so a tool
   # built by one provider stops being assignable to the ToolSet `ai` expects (TS2322 on the Anthropic
   # web-search tool). Pin the version `ai` itself is built against, and raise it with the next bump.
-  "@ai-sdk/provider-utils": "5.0.37"
-  "zod": "4.5.4"
-  "mermaid": "11.17.2"
+  "@ai-sdk/provider-utils": "5.0.40"
+  "zod": "4.6.2"
+  "mermaid": "12.0.0"
   "preact": "10.29.8"
   "roughjs": "4.6.6"
   "@types/express-serve-static-core": "5.1.3"

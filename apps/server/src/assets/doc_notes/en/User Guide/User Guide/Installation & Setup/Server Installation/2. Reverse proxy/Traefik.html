@@ -4,7 +4,7 @@
 <h2>Breaking change in Traefik 3.6.4</h2>
 <p>Traefik 3.6.4 introduced a <a href="https://doc.traefik.io/traefik/migrate/v3/#encoded-characters-in-request-path">breaking change</a> regarding
   how percent-encoded characters are handled in URLs. Earlier Trilium clients
-  sent search text in paths such as <code spellcheck="false">/api/search/%23workspace%20%23!template</code>.
+  sent search text in paths such as <code>/api/search/%23workspace%20%23!template</code>.
   Traefik automatically rejects these paths and returns HTTP 400. Updated clients
   send search text in a query parameter, but a cached older client can still use
   the old path.</p>
@@ -44,7 +44,7 @@
 <h3>Setup needed environment variables</h3>
 <p>After setting up a reverse proxy, make sure to configure the&nbsp;<a class="reference-link"
   href="#root/_help_LLzSMXACKhUs">Trusted proxy</a>.</p>
-<h3>Example <code spellcheck="false">docker-compose.yaml</code></h3><pre><code class="language-text-x-yaml">services:
+<h3>Example <code>docker-compose.yaml</code></h3><pre><code class="language-text-x-yaml">services:
   trilium:
     image: triliumnext/trilium
     container_name: trilium

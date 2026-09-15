@@ -97,6 +97,22 @@ export default class App {
         }
     }
 
+    /**
+     * Sends this tab's API calls through the service worker, where Playwright can see them.
+     *
+     * Standalone's leader tab answers its own calls from the in-page SQLite worker
+     * (`standaloneApi.localFetch`), so they never reach the network stack and
+     * `page.waitForResponse()` never fires. Call this in a test that waits on a request rather than
+     * on what the request changes. Does nothing on the server build, which has no `standaloneApi`,
+     * and lasts until the next navigation re-runs standalone's bootstrap.
+     */
+    async observeApiRequests() {
+        await this.page.evaluate(() => {
+            const standaloneApi = (window as unknown as { standaloneApi?: { localFetch?: unknown } }).standaloneApi;
+            delete standaloneApi?.localFetch;
+        });
+    }
+
     async goToNoteInNewTab(noteTitle: string) {
         const autocomplete = this.currentNoteSplit.locator(".note-autocomplete");
         await expect(autocomplete).toBeVisible();
