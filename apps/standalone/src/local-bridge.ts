@@ -98,6 +98,54 @@ export function restoreBackup(opts: {
     });
 }
 
+/** Security changes waiting on the worker that owns the file, by id. */
+const securityChanges = new Map<string, (written: boolean) => void>();
+
+/** Long enough for a worker that is still starting up, short enough that the toggle answers. */
+const SECURITY_CHANGE_TIMEOUT_MS = 30_000;
+
+/**
+ * The private channel a security setting is written over, entangled with the worker at startup.
+ * Module scope is what makes it trustworthy: backend scripts run through `eval()` in the worker's
+ * realm, which reaches its globals, `self.onmessage` among them, but no module's bindings.
+ */
+let securityPort: MessagePort | null = null;
+
+/**
+ * Writes a security setting, on the worker that holds the lock on the file it lives in.
+ *
+ * The page cannot write that file itself: the lock is the whole point, see
+ * `lightweight/security_settings.ts`. This deliberately avoids the request path too, since a route
+ * would put the change behind the same API a frontend script already calls freely.
+ *
+ * Only the leader tab has that worker. A follower is refused rather than served, as for a backup.
+ */
+export function requestSecurityChange(setting: string, enabled: boolean): Promise<boolean> {
+    if (!isLeader()) {
+        return Promise.resolve(false);
+    }
+
+    startLocalServerWorker();
+    const port = securityPort;
+    if (!port) {
+        return Promise.resolve(false);
+    }
+
+    const id = Math.random().toString(36).slice(2);
+
+    return new Promise((resolve) => {
+        const settle = (written: boolean) => {
+            clearTimeout(timer);
+            securityChanges.delete(id);
+            resolve(written);
+        };
+        const timer = setTimeout(() => settle(false), SECURITY_CHANGE_TIMEOUT_MS);
+
+        securityChanges.set(id, settle);
+        port.postMessage({ type: "SECURITY_SET", id, setting, enabled });
+    });
+}
+
 /**
  * How long the download's frame is kept in the page: comfortably past the service worker's own
  * 30-second wait for the stream to open, after which the response has either been handed to the
@@ -391,11 +439,24 @@ export function registerNativeHttpHandler(handler: NativeHttpHandler) {
 export function startLocalServerWorker() {
     if (localWorker) return localWorker;
     localWorker = new LocalServerWorker();
+
+    // Handed over with the worker's first message, before it has loaded a module of its own and
+    // long before it can run a note's script. See `securityPort`.
+    const security = new MessageChannel();
+    securityPort = security.port1;
+    securityPort.onmessage = (event) => {
+        const msg = event.data;
+        if (msg?.type === "SECURITY_SET_RESULT") {
+            securityChanges.get(msg.id)?.(msg.written === true);
+        }
+    };
+
     localWorker.postMessage({
         type: "INIT",
         queryString: location.search,
-        useNativeHttp: nativeHttpHandler != null
-    });
+        useNativeHttp: nativeHttpHandler != null,
+        securityPort: security.port2
+    }, [ security.port2 ]);
 
     // Handle worker errors during initialization
     localWorker.onerror = (event) => {

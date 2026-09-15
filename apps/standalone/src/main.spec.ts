@@ -9,7 +9,8 @@ const mocks = vi.hoisted(() => ({
     announceLeadership: vi.fn(),
     localFetch: vi.fn(),
     capacitorHttpHandler: vi.fn(),
-    saveUrlToDevice: vi.fn()
+    saveUrlToDevice: vi.fn(),
+    requestSecurityChange: vi.fn()
 }));
 
 // Whether this tab wins the database lock. Only the leader may start a worker;
@@ -23,7 +24,8 @@ vi.mock("./local-bridge.js", () => ({
     restoreBackup: mocks.restoreBackup,
     downloadDatabase: mocks.downloadDatabase,
     announceLeadership: mocks.announceLeadership,
-    localFetch: mocks.localFetch
+    localFetch: mocks.localFetch,
+    requestSecurityChange: mocks.requestSecurityChange
 }));
 vi.mock("./leader_election.js", () => ({
     claimLeadership: (onElected: () => void) => {
@@ -100,6 +102,9 @@ describe("bootstrap", () => {
         await vi.waitFor(() => expect(mocks.announceLeadership).toHaveBeenCalled());
         // The leader also answers the client's API calls directly, skipping that route.
         expect(window.standaloneApi?.localFetch).toBe(mocks.localFetch);
+        // And its worker is the one holding the settings file, so it is the tab that can change
+        // what this instance is allowed to run.
+        expect(window.standaloneApi?.security).toBeDefined();
     });
 
     it("a follower tab starts no worker but still bridges the SW", async () => {
@@ -116,6 +121,10 @@ describe("bootstrap", () => {
         // A follower must keep calling through the service worker: with no worker of its own,
         // a localFetch here would answer from nothing.
         expect(window.standaloneApi?.localFetch).toBeUndefined();
+
+        // Nor can it change a security setting: the file that holds them is locked by the
+        // leader's worker, which this tab has no way to reach.
+        expect(window.standaloneApi?.security).toBeUndefined();
     });
 
     it("asks the browser to keep the storage the database lives in", async () => {

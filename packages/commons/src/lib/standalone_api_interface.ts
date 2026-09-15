@@ -1,3 +1,5 @@
+import type { SecurityToggleApi } from "./security_settings.js";
+
 /**
  * What the standalone build exposes to the client as `window.standaloneApi`.
  *
@@ -124,12 +126,24 @@ export interface StandaloneSaveApi {
     saveUrl(url: string): Promise<StandaloneSaveResult>;
 }
 
+/**
+ * The same two toggles the desktop offers, defended in a place where it is harder: a frontend
+ * script here runs in the page, so it can call these methods itself. What it cannot do is answer
+ * the dialog, which the browser draws, and it has no other way to the setting, which lives in an
+ * OPFS file the SQLite worker holds an exclusive lock on.
+ *
+ * A reload applies what is written. Present only on the tab that owns the database.
+ */
+export type StandaloneSecurityApi = SecurityToggleApi;
+
 /** The complete surface the standalone build exposes to the client. */
 export interface StandaloneApi {
     restore: StandaloneRestoreApi;
     backup: StandaloneBackupApi;
     /** Present only inside the Capacitor shell, where the browser saves no downloads itself. */
     save?: StandaloneSaveApi;
+    /** Present only on the tab that owns the database, which is the one whose worker can write the file. */
+    security?: StandaloneSecurityApi;
     /**
      * Answers an internal API request from the SQLite worker this page owns. The tab that wins the
      * database lock sets it, and the client's `server.ts` prefers it over its XHR transport, which

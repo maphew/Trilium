@@ -7,6 +7,7 @@ import { showErrorOverlay } from "./error-overlay.js";
 import { installIosInterceptors } from "./ios-interceptors.js";
 import { claimLeadership } from "./leader_election.js";
 import { announceLeadership, attachServiceWorkerBridge, downloadDatabase, localFetch, registerNativeHttpHandler, restoreBackup, saveDatabase, startLocalServerWorker } from "./local-bridge.js";
+import { createSecurityApi } from "./security_gate.js";
 
 /**
  * What a cold standalone start passes through, drawn as the splash's progress bar. Weights are
@@ -120,6 +121,9 @@ async function bootstrap() {
             // The leader answers API requests from its own worker, so the client's server.ts
             // can skip the service-worker round trip.
             standaloneApi.localFetch = localFetch;
+            // Its worker is also the one holding the lock on the security settings file, so it is
+            // the only tab that can change what this instance is allowed to run. See security_gate.ts.
+            standaloneApi.security = createSecurityApi();
             announceLeadership();
         });
 

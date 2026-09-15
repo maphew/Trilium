@@ -2240,7 +2240,17 @@
     "server_config_hint": "Add the following to your config.ini file:",
     "server_env_hint": "Or set the following environment variable:",
     "restart_required": "Restart required for this change to take effect.",
-    "restart_now": "Restart the application now"
+    "restart_now": "Restart the application now",
+    "standalone": {
+      "backend_scripting_section_description": "Backend scripts run inside this browser, with full access to your notes, your settings and your sync credentials. They can be triggered via sync, import, or any content that includes executable attributes, without you opening the note. Frontend scripts are always enabled and reach no further than the app itself does.",
+      "reload_required": "Reload required for this change to take effect.",
+      "reload_now": "Reload the page now",
+      "other_tab_hint": "These settings are changed from the tab that owns the database, which is usually the first Trilium tab you opened. Close the other tabs and reload this page to change them here.",
+      "confirm_enable": "Enable {{- setting}}?\n\n{{- warning}} A script in your notes can request this, so only continue if you asked for it yourself.",
+      "confirm_disable": "Disable {{- setting}}?",
+      "confirm_backend_scripting_warning": "Backend scripts get full access to your notes, settings and sync credentials.",
+      "confirm_sql_console_warning": "The SQL console can read your sync credentials and password hash, and change or delete any note."
+    }
   },
   "password": {
     "heading": "Password",
