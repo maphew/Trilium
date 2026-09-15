@@ -47,7 +47,7 @@ describe("Board column context menu", () => {
         column: {
             value?: string, color?: string, archived?: boolean, collapsed?: boolean,
             keepCollapsed?: boolean, isCollapsed?: boolean, canRename?: boolean,
-            columns?: string[], index?: number, nested?: boolean
+            canKeepCollapsed?: boolean, columns?: string[], index?: number, nested?: boolean
         } = {},
         callbacks: {
             onEditTitle?: () => void,
@@ -80,6 +80,7 @@ describe("Board column context menu", () => {
             columns: [ "To Do" ],
             index: 0,
             canRename: true,
+            canKeepCollapsed: true,
             ...column,
             onEditTitle: callbacks.onEditTitle ?? (() => {}),
             onNewItem: callbacks.onNewItem ?? (() => {}),
@@ -175,6 +176,10 @@ describe("Board column context menu", () => {
         expect("trailingIcon" in checked && checked.trailingIcon).toBe("bx bx-check");
         checked.handler?.(checked, {} as never);
         expect(onKeepCollapsed).toHaveBeenLastCalledWith(false);
+
+        // Withheld while a filter decides what is collapsed, since nothing is stored then.
+        expect(openMenu({} as BoardApi, { canKeepCollapsed: false }).some(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-lock-alt")).toBe(false);
     });
 
     /** The strip has no title to edit, so the menu does not offer to edit one either. */

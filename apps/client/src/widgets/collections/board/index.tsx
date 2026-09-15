@@ -274,6 +274,9 @@ export const BoardKeptCardsContext = createContext<Set<string>>(new Set());
 /** Shared empty set for a board with no insert field open, so no render allocates one. */
 const NO_COLUMNS: ReadonlySet<string> = new Set();
 
+/** Shared empty map for a filter under which no column has been opened or closed by hand. */
+const NO_FILTER_COLLAPSE: ReadonlyMap<string, boolean> = new Map();
+
 /** How long a finger stays on the create button before it offers where to put the card. */
 const HOLD_TO_PLACE_MS = 500;
 
@@ -639,6 +642,77 @@ export default function BoardView({
             includeArchived || !storedColumns.get(column)?.archived),
         [ usableColumns, storedColumns, includeArchived ]);
 
+    // The columns the reader opened or closed while the filter is on. Held here rather than
+    // written: the filter decides what is drawn open, and clearing it brings the stored state back.
+    const [ filterCollapse, setFilterCollapse ] =
+        useState<ReadonlyMap<string, boolean>>(NO_FILTER_COLLAPSE);
+    const isFiltering = filter.shownNoteIds !== null;
+    // New results start afresh, and the peeked column closes with the old ones, or it would stay
+    // open while empty. Keyed on the results rather than on the query, which changes a render
+    // earlier: reset then, the map would be applied to the old results first.
+    const [ filterCollapseResults, setFilterCollapseResults ] = useState(filter.shownNoteIds);
+    if (filterCollapseResults !== filter.shownNoteIds) {
+        setFilterCollapseResults(filter.shownNoteIds);
+        setFilterCollapse(NO_FILTER_COLLAPSE);
+        selectColumn(undefined);
+    }
+    /**
+     * Which columns are to be drawn as strips. While a filter is on, the ones it leaves without a
+     * card, so the matches are read at a glance; otherwise the ones stored as collapsed.
+     */
+    const targetCollapse = useMemo(
+        () => new Map(shownColumns.map(column => [ column, isFiltering
+            ? filterCollapse.get(column) ?? !byColumn?.get(column)?.length
+            : !!storedColumns.get(column)?.collapsed ])),
+        [ shownColumns, isFiltering, filterCollapse, byColumn, storedColumns ]);
+    /**
+     * The target released from a hold, which is then drawn. A hold is a target that arrived with
+     * new cards, which is a filter resolving or being cleared: drawn in the same commit, the width
+     * transitions would run over the frames the card redraw needs, so the columns keep their
+     * widths for two frames first. A change by hand arrives with the cards unchanged and is drawn
+     * at once.
+     */
+    const [ releasedCollapse, setReleasedCollapse ] = useState<ReadonlyMap<string, boolean>>();
+    /** What the last unheld render drew, which a hold keeps drawing. */
+    const drawnCollapse = useRef<{ collapse: ReadonlyMap<string, boolean>, cards?: ColumnMap }>();
+    const isCollapseHeld = releasedCollapse !== targetCollapse
+        && drawnCollapse.current?.cards !== undefined && drawnCollapse.current.cards !== byColumn
+        && sameColumns(drawnCollapse.current.collapse, targetCollapse)
+        && !sameCollapse(drawnCollapse.current.collapse, targetCollapse);
+    /** Which columns are drawn as strips. */
+    const collapsedColumns = isCollapseHeld && drawnCollapse.current
+        ? drawnCollapse.current.collapse
+        : targetCollapse;
+    if (!isCollapseHeld) {
+        drawnCollapse.current = { collapse: targetCollapse, cards: byColumn };
+    }
+    useEffect(() => {
+        if (!isCollapseHeld) {
+            return;
+        }
+
+        // Two frames: the first paints the cards, the second starts the widths moving.
+        let second: number | undefined;
+        const first = requestAnimationFrame(() => {
+            second = requestAnimationFrame(() => setReleasedCollapse(targetCollapse));
+        });
+        return () => {
+            cancelAnimationFrame(first);
+            if (second !== undefined) {
+                cancelAnimationFrame(second);
+            }
+        };
+    }, [ isCollapseHeld, targetCollapse ]);
+    // A release is the filter's doing, so the columns it closes run at the quick pace.
+    const isCollapsedByFilter = releasedCollapse === targetCollapse;
+    // Set here rather than passed in, like `noteContext`: the api outlives a refresh.
+    api.volatileCollapse = isFiltering ? {
+        isCollapsed: (column) => !!collapsedColumns.get(column),
+        setCollapsed: (column, collapsed) => setFilterCollapse(current => (column === null
+            ? new Map(shownColumns.map(each => [ each, collapsed ]))
+            : new Map(current).set(column, collapsed)))
+    } : undefined;
+
     const containerRef = useRef<HTMLDivElement>(null);
     /** Until when a column move can still be settling, which is when `useFlip` slides columns. */
     const columnMovedUntil = useRef(0);
@@ -725,7 +799,7 @@ export default function BoardView({
     const columnResizingUntil = useRef(0);
     const columnWidths = useRef<string>();
     const widths = shownColumns
-        .map(column => storedColumns.get(column)?.collapsed
+        .map(column => collapsedColumns.get(column)
             && column !== activeColumn && !isPeekingAll ? "1" : "0")
         .join("");
     if (columnWidths.current !== undefined && columnWidths.current !== widths) {
@@ -886,7 +960,7 @@ export default function BoardView({
             // Answers for what a `dragover` did, for a collapsed column the card is actually over:
             // one merely passed near keeps to itself, and one already opened stays open, since
             // closing it under a drag would move every column after it.
-            if (position && inside && storedColumns.get(position.column)?.collapsed) {
+            if (position && inside && collapsedColumns.get(position.column)) {
                 selectColumn(position.column);
             }
         },
@@ -1330,8 +1404,13 @@ export default function BoardView({
                                     icon={storedColumns.get(column)?.icon}
                                     color={storedColumns.get(column)?.color}
                                     archived={storedColumns.get(column)?.archived}
-                                    collapsed={storedColumns.get(column)?.collapsed}
-                                    keepCollapsed={storedColumns.get(column)?.keepCollapsed}
+                                    collapsed={collapsedColumns.get(column)}
+                                    keepCollapsed={isFiltering
+                                        ? undefined
+                                        : storedColumns.get(column)?.keepCollapsed}
+                                    isCollapseVolatile={isFiltering}
+                                    collapsesQuickly={isCollapsedByFilter}
+                                    willOpen={isCollapseHeld && !targetCollapse.get(column)}
                                     isActive={activeColumn === column}
                                     isPeeked={isPeekingAll}
                                     isResizing={isResizingColumns}
@@ -1432,6 +1511,17 @@ export default function BoardView({
  */
 /** How long the board waits for a move's changes before drawing again regardless. */
 const SETTLE_TIMEOUT_MS = 10000;
+
+/** Whether two collapse maps hold the same columns. */
+function sameColumns(a: ReadonlyMap<string, boolean>, b: ReadonlyMap<string, boolean>) {
+    return a.size === b.size && [ ...a.keys() ].every(column => b.has(column));
+}
+
+/** Whether two collapse maps hold the same columns and agree on each. */
+function sameCollapse(a: ReadonlyMap<string, boolean>, b: ReadonlyMap<string, boolean>) {
+    return sameColumns(a, b)
+        && [ ...a ].every(([ column, collapsed ]) => b.get(column) === collapsed);
+}
 
 /**
  * Waits for `froca` to hold what a move has written.

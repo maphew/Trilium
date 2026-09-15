@@ -35,6 +35,8 @@ interface ColumnMenuTarget {
     isCollapsed?: boolean;
     /** Whether the title can be edited. False for a collapsed column, rendered as a strip. */
     canRename: boolean;
+    /** Whether the column can be kept collapsed. False while a filter decides what is collapsed. */
+    canKeepCollapsed: boolean;
     /** Whether the inbox also collects notes deeper than the board's direct children. */
     nested?: boolean;
     /** Opens the inline title editor, which F2 also opens. */
@@ -128,13 +130,13 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                 uiIcon: "bx bx-collapse-horizontal",
                 handler: () => column.onCollapse(true)
             } ]),
-            {
+            ...(column.canKeepCollapsed ? [ {
                 title: t("board_view.keep-column-collapsed"),
                 uiIcon: "bx bx-lock-alt",
                 // At the trailing edge, so the entry keeps its own icon in front.
                 trailingIcon: column.keepCollapsed ? "bx bx-check" : undefined,
                 handler: () => column.onKeepCollapsed(!column.keepCollapsed)
-            },
+            } ] : []),
             {
                 title: t("board_view.sort"),
                 uiIcon: "bx bx-sort-alt-2",

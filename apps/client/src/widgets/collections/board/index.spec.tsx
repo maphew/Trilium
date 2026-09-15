@@ -131,6 +131,11 @@ async function flush() {
     await new Promise((resolve) => setTimeout(resolve));
 }
 
+/** Lets one animation frame run. */
+async function nextFrame() {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+}
+
 /** Fills a field the way typing does, so that what watches the field hears about it. */
 async function type(field: HTMLInputElement | HTMLTextAreaElement, value: string) {
     await act(async () => {
@@ -3589,10 +3594,12 @@ describe("Board filtering", () => {
     });
 
     /** A board of four cards over two columns, opened with a stored filter query. */
-    async function setup({ matched, tokens = [], limit }: {
+    async function setup({ matched, tokens = [], limit, columns }: {
         matched: string[];
         tokens?: { token: string; type: "plain" }[];
         limit?: number;
+        /** The stored columns, in place of an open "To Do" and "Done". */
+        columns?: BoardViewData["columns"];
     }) {
         searchInSubtree.mockReset();
         searchInSubtree.mockResolvedValue({
@@ -3603,6 +3610,8 @@ describe("Board filtering", () => {
 
         const note = buildNote({
             title: "Board",
+            // The header the filter box stands in is drawn for a collection note alone.
+            type: "book",
             "#collection": "",
             "#viewType": "board",
             children: [
@@ -3622,7 +3631,7 @@ describe("Board filtering", () => {
                         note={note}
                         noteIds={[ ...note.getChildNoteIds() ]}
                         initialConfig={{
-                            columns: [ { value: "To Do", ...(limit ? { limit } : {}) },
+                            columns: columns ?? [ { value: "To Do", ...(limit ? { limit } : {}) },
                                 { value: "Done" } ],
                             filterQuery: "#urgent"
                         }}
@@ -3641,6 +3650,26 @@ describe("Board filtering", () => {
         const columns = [ ...container.querySelectorAll(".board-column") ];
         return [ ...columns[column].querySelectorAll(".board-note .title") ]
             .map(el => el.textContent);
+    }
+
+    /** Presses the filter's clear button, which stands in the collection header. */
+    async function clearFilter() {
+        const clear = container.querySelector<HTMLElement>(".collection-filter-clear");
+        if (!clear) throw new Error("expected the filter's clear button");
+        await act(async () => {
+            clear.click();
+            await flush();
+        });
+    }
+
+    /**
+     * Lets animation frames run, one pass each: a render is flushed only as a pass ends. The
+     * hold takes two frames, and the release is drawn on the one after.
+     */
+    async function nextFrames(count: number) {
+        for (let frame = 0; frame < count; frame++) {
+            await act(async () => { await nextFrame(); });
+        }
     }
 
     /** A branch change under the board, which is what re-runs an active filter. */
@@ -3790,6 +3819,89 @@ describe("Board filtering", () => {
 
         const marks = [ ...container.querySelectorAll(".board-note .title .ck-find-result") ];
         expect(marks.map(el => el.textContent)).toEqual([ "First" ]);
+    });
+
+    /**
+     * The stored flags are set aside while the filter is on: a column without a match is drawn as
+     * a strip whatever is stored for it, one with a match is drawn open, and what the reader opens
+     * meanwhile is held by the board rather than written. Clearing the filter brings the stored
+     * state back, the hand-opened column included.
+     */
+    it("collapses the columns the filter leaves empty, without writing, until it is cleared",
+        async () => {
+        await setup({ matched: [ "filtered1" ], columns: [
+            { value: "To Do", collapsed: true, keepCollapsed: true },
+            { value: "Done" }
+        ] });
+        const isCollapsed = (index: number) =>
+            container.querySelectorAll(".board-column")[index].classList.contains("collapsed");
+
+        expect(isCollapsed(0)).toBe(false);
+        expect(cardTitles(0)).toEqual([ "First" ]);
+        expect(isCollapsed(1)).toBe(true);
+
+        // A click on the strip opens the column, and keeps it open once focus moves on: the
+        // stored `keepCollapsed` has no say either, so the kept column is not closed by it.
+        const done = container.querySelectorAll<HTMLElement>(".board-column")[1];
+        await act(async () => {
+            done.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+            document.dispatchEvent(new Event("pointerup", { bubbles: true }));
+            done.dispatchEvent(new Event("click", { bubbles: true }));
+        });
+        expect(isCollapsed(1)).toBe(false);
+        const todo = container.querySelectorAll<HTMLElement>(".board-column")[0];
+        await act(async () => {
+            todo.dispatchEvent(new Event("focusin", { bubbles: true }));
+        });
+        expect(isCollapsed(0)).toBe(false);
+        expect(isCollapsed(1)).toBe(false);
+        expect(saved).toEqual([]);
+
+        await clearFilter();
+        // The one the reader opened stays open through the clear: it is stored open, and the
+        // override is dropped with the results it was made against, not with the query.
+        expect(isCollapsed(1)).toBe(false);
+        await nextFrames(3);
+
+        expect(isCollapsed(0)).toBe(true);
+        expect(isCollapsed(1)).toBe(false);
+        expect(cardTitles(1)).toEqual([ "Fourth" ]);
+        // Clearing the filter is the only write, and it leaves the columns as they were stored.
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "To Do", collapsed: true, keepCollapsed: true },
+            { value: "Done" }
+        ]);
+    });
+
+    /**
+     * The cards come back first, and the columns keep their widths for two frames so the width
+     * transitions do not run over the card redraw; only then is the stored state drawn. A strip
+     * about to open draws its cards meanwhile, so the open finds them laid out.
+     */
+    it("holds the columns' widths for two frames after the filter is cleared", async () => {
+        await setup({ matched: [ "filtered1" ], columns: [
+            { value: "To Do", collapsed: true },
+            { value: "Done" }
+        ] });
+        const columnAt = (index: number) => container.querySelectorAll(".board-column")[index];
+        expect(columnAt(0).classList.contains("collapsed")).toBe(false);
+        expect(columnAt(1).classList.contains("collapsed")).toBe(true);
+
+        await clearFilter();
+
+        expect(cardTitles(0)).toEqual([ "First", "Second", "Third" ]);
+        expect(columnAt(0).classList.contains("collapsed")).toBe(false);
+        expect(columnAt(1).classList.contains("collapsed")).toBe(true);
+        expect(columnAt(1).classList.contains("pre-expanding")).toBe(true);
+        expect(columnAt(1).querySelectorAll(".board-note")).toHaveLength(1);
+        await nextFrames(3);
+
+        expect(columnAt(0).classList.contains("collapsed")).toBe(true);
+        // A collapse the filter asked for runs at the quick pace, like one asked for by hand.
+        expect(columnAt(0).classList.contains("quick-collapse")).toBe(true);
+        expect(columnAt(1).classList.contains("collapsed")).toBe(false);
+        expect(columnAt(1).classList.contains("pre-expanding")).toBe(false);
+        expect(cardTitles(1)).toEqual([ "Fourth" ]);
     });
 });
 

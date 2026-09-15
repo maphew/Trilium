@@ -1230,6 +1230,14 @@ body.mobile .column-drop-placeholder {
   padding-block: 0;
 }
 
+/* A strip about to open lays its cards out while it waits, at the width they open to, so the open
+   finds them laid out. No height, so the strip stays as tall as its heading. */
+.board-view-container .board-column.collapsed.pre-expanding > .board-column-content {
+  content-visibility: visible;
+  width: calc(var(--board-column-width) - 2 * var(--board-column-border-width));
+  max-height: 0;
+}
+
 /* Width and not a transform: the columns beside it have to move with it. The copy being carried is
    left out, or it would ease towards each frame's position instead of taking it: its `transition:
    none` above carries no more weight than this rule and stands above it in the file. */

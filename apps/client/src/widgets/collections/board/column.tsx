@@ -72,6 +72,9 @@ export default function Column({
     archived,
     collapsed,
     keepCollapsed,
+    isCollapseVolatile,
+    collapsesQuickly,
+    willOpen,
     isActive,
     isPeeked,
     isResizing,
@@ -99,6 +102,18 @@ export default function Column({
     collapsed?: boolean,
     /** Whether the column collapses again once opened, which keeps `collapsed` through an open. */
     keepCollapsed?: boolean,
+    /**
+     * Whether `collapsed` is the filter's rather than the stored flag, so a change to it is not
+     * written and the column is not offered to keep collapsed.
+     */
+    isCollapseVolatile?: boolean,
+    /** Whether a collapse now being drawn was asked for, which runs at the quick duration. */
+    collapsesQuickly?: boolean,
+    /**
+     * Whether the column is about to open, while it is still drawn as a strip. It lays its cards
+     * out meanwhile, so the open does not pay for that on the frame the width starts moving.
+     */
+    willOpen?: boolean,
     /** Whether this is the column the reader is working in, which opens it while it is collapsed. */
     isActive?: boolean,
     /** Whether the board is showing every collapsed column at once, which opens this one too. */
@@ -351,7 +366,7 @@ export default function Column({
      * hidden rather than taken out, which is what makes closing one cheap.
      */
     const [ isDrawn, setIsDrawn ] = useState(!isCollapsed);
-    if (!isDrawn && !isCollapsed) {
+    if (!isDrawn && (!isCollapsed || willOpen)) {
         setIsDrawn(true);
     }
 
@@ -455,6 +470,7 @@ export default function Column({
             canRename: !isCollapsed,
             isCollapsed,
             keepCollapsed,
+            canKeepCollapsed: !isCollapseVolatile,
             nested,
             onEditTitle: () => setColumnNameToEdit(column),
             onNewItem: beginNewItem,
@@ -480,7 +496,8 @@ export default function Column({
             }
         });
     }, [
-        api, column, color, archived, collapsed, keepCollapsed, collapse, isCollapsed, nested,
+        api, column, color, archived, collapsed, keepCollapsed, isCollapseVolatile, collapse,
+        isCollapsed, nested,
         columns, columnIndex, setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn,
         onMoveColumn, onFocusColumn
     ]);
@@ -612,7 +629,8 @@ export default function Column({
                 windowed: isWindowed,
                 "over-limit": isOverLimit,
                 collapsed: isCollapsed,
-                "quick-collapse": isCollapsingByHand,
+                "pre-expanding": isCollapsed && willOpen,
+                "quick-collapse": isCollapsingByHand || collapsesQuickly,
                 // Opening is drawn for the reader who asked for it. A column opened to take a
                 // dragged card takes its width at once, since the drop is measured as it opens.
                 "quick-expand": !isCollapsed && !opensAtOnce,
