@@ -484,32 +484,12 @@ export function useBoardDrag(
             const held = gesture.current;
             if (!held || event.pointerId !== held.pointerId) return;
 
-            // A tap is a press that never became a drag: it asks for the menu, the long press that
-            // would have opened one being how a finger picks a card up instead.
-            const tapped = held.touch && !held.active && event.type === "pointerup"
-                && Math.hypot(event.clientX - held.startX, event.clientY - held.startY)
-                    <= TOUCH_TOLERANCE;
+            // A tap is a press that never became a drag, and is left to the click it lands: a
+            // card opens, a strip opens its column, a heading takes the focus. Each carries its
+            // menu on a button, the long press being how a finger picks something up.
             const dragged = held.active && event.type === "pointerup";
-            const target = held.menuTarget;
-            // A tap on a card is left to the click it lands, which opens the card, and a tap on a
-            // collapsed column opens it: that is what the strip is for, and its menu is on the
-            // button it carries. A column's heading answers a tap with its menu, the long press
-            // that would otherwise open one being how a finger picks something up.
-            const isLeftToClick = held.kind === "card"
-                || target.closest(".board-column")?.classList.contains("collapsed");
 
             close(event.type === "pointercancel");
-
-            if (tapped && !isLeftToClick) {
-                // The browser follows a tap with mouse events for pages that know nothing of touch,
-                // and they land on the menu this is about to open, right under the finger: the
-                // first of them takes the menu straight back off again. Refused at `touchend`,
-                // which is what the browser makes them from, and which has yet to be sent.
-                justTapped = true;
-                // The click is left out as well, for a browser that sends one regardless.
-                swallowNextClick();
-                askForMenu(target, event.clientX, event.clientY);
-            }
 
             // A mouse drag is followed by a click on whatever the press and the release have in
             // common, which for a card carried anywhere is the board itself. Taken here, so that
@@ -529,16 +509,6 @@ export function useBoardDrag(
             window.setTimeout(
                 () => container.removeEventListener("click", swallow, { capture: true }),
                 COMPATIBILITY_WINDOW_MS);
-        };
-
-        /** Set between a tap and the `touchend` the browser would make mouse events from. */
-        let justTapped = false;
-
-        const onTouchEnd = (event: TouchEvent) => {
-            if (justTapped) {
-                justTapped = false;
-                event.preventDefault();
-            }
         };
 
         const swallow = (event: Event) => {
@@ -578,7 +548,6 @@ export function useBoardDrag(
         container.addEventListener("pointercancel", onPointerUp);
         document.addEventListener("keydown", onKeyDown);
         document.addEventListener("touchmove", onTouchMove, { passive: false });
-        document.addEventListener("touchend", onTouchEnd, { passive: false });
 
         return () => {
             close(true);
@@ -591,7 +560,6 @@ export function useBoardDrag(
             container.removeEventListener("pointercancel", onPointerUp);
             document.removeEventListener("keydown", onKeyDown);
             document.removeEventListener("touchmove", onTouchMove);
-            document.removeEventListener("touchend", onTouchEnd);
             container.removeEventListener("click", swallow, { capture: true });
         };
     }, [ container, disabled ]);
@@ -727,7 +695,6 @@ function startCard(
     return {
         kind: "card",
         element,
-        menuTarget: element,
         card: {
             noteId,
             noteIds,
@@ -771,7 +738,6 @@ function startColumn(target: HTMLElement, container: HTMLElement): ColumnSubject
     return {
         kind: "column",
         element,
-        menuTarget: heading,
         column: element.dataset.column ?? "",
         index: columns.indexOf(element),
         target: null
@@ -881,8 +847,6 @@ function countPreview(count: number) {
 interface CardSubject {
     kind: "card";
     element: HTMLElement;
-    /** What a tap asks for the menu, which for a column is its heading rather than the column. */
-    menuTarget: HTMLElement;
     card: DraggedCard;
     position: DropPosition | null;
     /** The column the card stands on, if any, which resting there opens. */
@@ -896,7 +860,6 @@ interface CardSubject {
 interface ColumnSubject {
     kind: "column";
     element: HTMLElement;
-    menuTarget: HTMLElement;
     column: string;
     /** Where it stands among the columns, counting them as they are drawn. */
     index: number;

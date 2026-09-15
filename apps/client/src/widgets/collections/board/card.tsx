@@ -310,8 +310,9 @@ function Card({
             onDragStart={handleDragStart}
             onClick={!isEditing ? handleClick : undefined}
             onKeyDown={handleKeyDown}
-            onFocusIn={() => setIsFocused(true)}
-            onFocusOut={handleFocusOut}
+            // Only where the rail follows the focus, so a desktop card is not redrawn for it.
+            onFocusIn={isMobile() ? () => setIsFocused(true) : undefined}
+            onFocusOut={isMobile() ? handleFocusOut : undefined}
             tabIndex={300}
         >
             {!isEditing ? (

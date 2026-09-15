@@ -186,6 +186,49 @@ export function SelectionToolbar({
     );
 }
 
+interface ColumnToolbarProps {
+    host: HTMLElement;
+    isLeaving: boolean;
+    /** Whether the column is drawn as a strip, which offers nothing but to open it. */
+    isCollapsed: boolean;
+    onRename: () => void;
+    onToggleCollapse: () => void;
+    /** Opens the sort menu, which on mobile is a sheet at the foot of the screen. */
+    onSort: (event: MouseEvent) => void;
+    onFocusOut: (event: FocusEvent) => void;
+}
+
+/** What can be done with the focused column, on the same rail. The icons are the column menu's. */
+export function ColumnToolbar({
+    host, isLeaving, isCollapsed, onRename, onToggleCollapse, onSort, onFocusOut
+}: ColumnToolbarProps) {
+    return (
+        <Rail host={host} isLeaving={isLeaving} onFocusOut={onFocusOut}>
+            {!isCollapsed && (
+                <OverlayControlButton
+                    title={t("board_view.rename-column")}
+                    icon="bx-edit-alt"
+                    onClick={onRename}
+                />
+            )}
+            <OverlayControlButton
+                title={isCollapsed
+                    ? t("board_view.expand-column")
+                    : t("board_view.collapse-column")}
+                icon={isCollapsed ? "bx-expand-horizontal" : "bx-collapse-horizontal"}
+                onClick={onToggleCollapse}
+            />
+            {!isCollapsed && (
+                <OverlayControlButton
+                    title={t("board_view.sort")}
+                    icon="bx-sort-alt-2"
+                    onClick={onSort}
+                />
+            )}
+        </Rail>
+    );
+}
+
 interface RailProps {
     host: HTMLElement;
     isLeaving: boolean;

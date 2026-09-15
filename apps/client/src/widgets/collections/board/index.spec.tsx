@@ -5274,3 +5274,119 @@ describe("Selection mode on mobile", () => {
         expect(bar()).toBeNull();
     });
 });
+
+describe("Column toolbar on mobile", () => {
+    let container: HTMLElement;
+    let host: Component;
+
+    beforeEach(() => {
+        layout.onMobile = true;
+    });
+
+    afterEach(() => {
+        layout.onMobile = false;
+        vi.useRealTimers();
+        saved.length = 0;
+        render(null, container);
+        container.remove();
+    });
+
+    async function setup() {
+        disposeShownModals();
+
+        const note = buildNote({
+            title: "Board",
+            "#collection": "",
+            "#viewType": "board",
+            children: [
+                { id: "head1", title: "First", "#status": "To Do" },
+                { id: "head2", title: "Second", "#status": "Done" }
+            ]
+        });
+
+        host = new Component();
+        container = document.body.appendChild(document.createElement("div"));
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={host}>
+                    <Harness
+                        note={note}
+                        noteIds={[ ...note.getChildNoteIds() ]}
+                        initialConfig={{ columns: [ { value: "To Do" }, { value: "Done" } ] }}
+                    />
+                </ParentComponent.Provider>,
+                container
+            );
+        });
+        await act(async () => { await flush(); });
+
+        return note;
+    }
+
+    function heading(index: number) {
+        const element = container.querySelectorAll<HTMLElement>(".board-column h3")[index];
+        if (!element) throw new Error(`expected the heading of column ${index}`);
+        return element;
+    }
+
+    const column = (index: number) => container.querySelectorAll(".board-column")[index];
+    const toolbar = () => container.querySelector<HTMLElement>(".board-card-toolbar");
+    const buttons = () => [ ...toolbar()?.querySelectorAll("button") ?? [] ]
+        .map(button => [ ...button.classList ].find(name => name.startsWith("bx-")));
+
+    function button(icon: string) {
+        const element = toolbar()?.querySelector<HTMLElement>(`button.${icon}`);
+        if (!element) throw new Error(`expected a ${icon} button`);
+        return element;
+    }
+
+    async function letRailLeave() {
+        await act(async () => { vi.advanceTimersByTime(RAIL_EXIT_MS); });
+    }
+
+    it("follows the focus onto a heading, which a tap gives it", async () => {
+        await setup();
+        expect(toolbar()).toBeNull();
+
+        // A tap is a click, and on mobile the heading takes the focus from it.
+        await act(async () => { heading(0).click(); });
+        expect(document.activeElement).toBe(heading(0));
+        expect(buttons()).toEqual([ "bx-edit-alt", "bx-collapse-horizontal", "bx-sort-alt-2" ]);
+
+        vi.useFakeTimers();
+        await act(async () => { heading(0).blur(); });
+        await letRailLeave();
+        expect(toolbar()).toBeNull();
+    });
+
+    it("collapses and opens the column, offering only the open on a strip", async () => {
+        await setup();
+        await act(async () => { heading(0).focus(); });
+
+        await act(async () => { button("bx-collapse-horizontal").click(); });
+        expect(column(0).classList.contains("collapsed")).toBe(true);
+        expect(buttons()).toEqual([ "bx-expand-horizontal" ]);
+
+        await act(async () => { button("bx-expand-horizontal").click(); });
+        expect(column(0).classList.contains("collapsed")).toBe(false);
+        expect(buttons()).toEqual([ "bx-edit-alt", "bx-collapse-horizontal", "bx-sort-alt-2" ]);
+    });
+
+    it("opens the sort menu and the title editor", async () => {
+        await setup();
+        const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
+        await act(async () => { heading(0).focus(); });
+
+        await act(async () => { button("bx-sort-alt-2").click(); });
+        expect(show).toHaveBeenCalledTimes(1);
+
+        // The rename opens the editor in the heading, and the rail stands aside while it is open.
+        vi.useFakeTimers();
+        await act(async () => { button("bx-edit-alt").click(); });
+        await letRailLeave();
+        expect(heading(0).querySelector("input, textarea")).toBeTruthy();
+        expect(toolbar()).toBeNull();
+
+        show.mockRestore();
+    });
+});

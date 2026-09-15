@@ -415,18 +415,28 @@ describe("useBoardDrag, carrying a card", () => {
         expect(followed.defaultPrevented).toBe(false);
     });
 
-    /** The heading answers for a column's menu, the column itself holding no handler. */
-    it("asks a column's heading for its menu when it is tapped", () => {
+    /** A tap on a heading is a click on it, which focuses the heading; its menu is on a button. */
+    it("leaves a tap on a heading to the click it lands", () => {
         setup();
         const heading = board.querySelector<HTMLElement>(".board-column h3");
         if (!heading) throw new Error("expected a heading");
         const menus: string[] = [];
+        const clicks: boolean[] = [];
         heading.addEventListener("contextmenu", () => menus.push("heading"));
+        board.addEventListener("click", (event) => clicks.push(event.defaultPrevented));
 
         press(heading, 10, 10, "touch");
         release(11, 11, "touch");
+        act(() => {
+            heading.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+        });
 
-        expect(menus).toEqual([ "heading" ]);
+        expect(menus).toEqual([]);
+        expect(clicks).toEqual([ false ]);
+
+        const followed = new Event("touchend", { bubbles: true, cancelable: true });
+        act(() => { document.dispatchEvent(followed); });
+        expect(followed.defaultPrevented).toBe(false);
     });
 
     /**
@@ -452,45 +462,6 @@ describe("useBoardDrag, carrying a card", () => {
 
         expect(menus).toEqual([]);
         expect(clicks).toEqual([ "click" ]);
-    });
-
-    it("leaves the click a tap on a heading also lands unanswered", () => {
-        setup();
-        const heading = board.querySelector<HTMLElement>(".board-column h3");
-        if (!heading) throw new Error("expected a heading");
-        const clicks: boolean[] = [];
-        board.addEventListener("click", (event) => clicks.push(event.defaultPrevented));
-
-        press(heading, 10, 10, "touch");
-        release(11, 11, "touch");
-        act(() => {
-            heading.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-        });
-
-        expect(clicks).toEqual([]);
-    });
-
-    /**
-     * A browser follows a tap with mouse events for pages that know nothing of touch. They land on
-     * the menu the tap just opened, right under the finger, and the first of them takes it back off
-     * again. They are made from `touchend`, so that is where they are refused.
-     */
-    it("refuses the mouse events a browser would make from a tap", () => {
-        setup();
-        const heading = board.querySelector<HTMLElement>(".board-column h3");
-        if (!heading) throw new Error("expected a heading");
-
-        press(heading, 10, 10, "touch");
-        release(11, 11, "touch");
-
-        const followed = new Event("touchend", { bubbles: true, cancelable: true });
-        act(() => { document.dispatchEvent(followed); });
-        expect(followed.defaultPrevented).toBe(true);
-
-        // Once only: the next touch of the reader's own is theirs to have.
-        const later = new Event("touchend", { bubbles: true, cancelable: true });
-        act(() => { document.dispatchEvent(later); });
-        expect(later.defaultPrevented).toBe(false);
     });
 
     /** A press that became a drag is not a tap, and its `touchend` is the browser's to answer. */

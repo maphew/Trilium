@@ -3575,7 +3575,8 @@
     "cards-selected_one": "{{count}} card selected",
     "cards-selected_other": "{{count}} cards selected",
     "select-column-cards": "Select every card in the column",
-    "reset-selection": "Reset the selection"
+    "reset-selection": "Reset the selection",
+    "expand-column": "Expand column"
   },
   "dashboard_view": {
     "refresh-widget": "Refresh",
