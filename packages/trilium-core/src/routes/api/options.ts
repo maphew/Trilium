@@ -1,7 +1,7 @@
 
 
 import type { OptionNames, UserFont } from "@triliumnext/commons";
-import type { Request } from "express";
+import type { Request } from "../../http_interface";
 
 import attributeService from "../../services/attributes.js";
 import config from "../../services/config.js";

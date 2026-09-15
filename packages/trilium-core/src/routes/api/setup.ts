@@ -14,7 +14,7 @@ import { asSetupTargetScreen, getSetupPlatform, hasExistingData } from "../../se
 import { getLog } from "../../services/log.js";
 import appInfo from "../../services/app_info.js";
 import optionService from "../../services/options.js";
-import type { Request } from "express";
+import type { Request } from "../../http_interface";
 import { SetupSyncFromServerResponse } from "@triliumnext/commons";
 
 function getStatus() {

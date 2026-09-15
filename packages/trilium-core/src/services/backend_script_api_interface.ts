@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { Request, Response } from "../http_interface";
 
 import type BNote from "../becca/entities/bnote.js";
 import AbstractBeccaEntity from "../becca/entities/abstract_becca_entity.js";

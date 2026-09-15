@@ -5,7 +5,7 @@ import {
     RevisionItem,
     RevisionPojo
 } from "@triliumnext/commons";
-import type { Request, Response } from "express";
+import type { Request, Response } from "../../http_interface";
 
 import becca from "../../becca/becca.js";
 import type BNote from "../../becca/entities/bnote.js";
