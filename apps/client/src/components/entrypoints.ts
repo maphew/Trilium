@@ -99,19 +99,12 @@ export default class Entrypoints extends Component {
         utils.reloadFrontendApp();
     }
 
-    async logoutCommand() {
-        // A browser navigation avoids the cross-origin XHR preflight that OIDC providers reject.
-        // Electron keeps the request on its trusted custom protocol.
+    logoutCommand() {
+        // A form submission keeps the OIDC provider's redirect a top-level navigation; an XHR
+        // follows it cross-origin and fails the provider's CORS preflight.
         const form = document.createElement("form");
         form.method = "POST";
-        const httpBaseUrl = window.glob.httpBaseUrl;
-        if (window.glob.isElectron) {
-            form.action = String(new URL(`${window.glob.baseApiUrl}../logout`, window.location.href).href);
-        } else if (httpBaseUrl) {
-            form.action = String(new URL("/logout", httpBaseUrl).href);
-        } else {
-            form.action = String(new URL(`${window.glob.baseApiUrl}../logout`, window.location.href).href);
-        }
+        form.action = `${window.glob.baseApiUrl}../logout`;
         form.hidden = true;
 
         const csrfToken = document.createElement("input");
