@@ -66,6 +66,17 @@
      than hiding what is behind it. */
   --board-edit-backdrop: rgba(0, 0, 0, 0.15);
 
+  /* What the board writes its text and icons in, and what it marks the quieter ones with. These
+     are what a plain board paints; on a coloured one the pair below replaces them. */
+  --board-text-color: var(--main-text-color);
+  --board-muted-text-color: var(--muted-text-color);
+  /* How the two are composed where something around carries a hue. The colour lends its hue
+     alone: the lightness is the theme's, so a coloured board reads as light as a plain one. */
+  --board-text-saturation: 30%;
+  --board-text-lightness: 8%;
+  --board-muted-text-saturation: 20%;
+  --board-muted-text-lightness: 40%;
+
   --board-focus-outline-saturation: 55%;
   --board-focus-outline-lightness: 45%;
   /* Follows the theme of its own accord, so neither theme has to name it again. */
@@ -237,6 +248,7 @@ body.mobile .board-view-container .board-add-column {
 }
 
 .board-view-container .board-column h3 {
+  color: var(--board-text-color);
   font-size: 1em;
   margin: 0;
   padding: 0.5em 0.5em 0.5em 0.5em;
@@ -290,7 +302,8 @@ body.mobile .board-view-container .board-add-column {
 
 .board-view-container .board-column h3 .counter-badge {
   flex-shrink: 0;
-  background-color: var(--muted-text-color);
+  /* The pill is the quiet colour turned inside out, so it follows the same one. */
+  background-color: var(--board-muted-text-color);
   color: var(--main-background-color);
   border-radius: 12px;
   padding: 0.1em 0.6em;
@@ -354,7 +367,7 @@ body.mobile .board-view-container .board-add-column {
   opacity: 0;
   margin-inline-start: 0.5em;
   transition: opacity 0.2s ease;
-  color: var(--muted-text-color);
+  color: var(--board-muted-text-color);
   cursor: pointer;
 }
 
@@ -362,7 +375,7 @@ body.mobile .board-view-container .board-add-column {
 .board-view-container .board-column h3 > .column-sort {
   flex-shrink: 0;
   margin-inline-start: 0.25em;
-  color: var(--muted-text-color);
+  color: var(--board-muted-text-color);
 }
 
 .board-view-container .board-column > .board-column-content {
@@ -394,6 +407,7 @@ body.mobile .board-view-container .board-add-column {
 
 .board-view-container .board-note,
 .board-view-container .board-new-item.editing {
+  color: var(--board-text-color);
   box-shadow: var(--board-item-shadow);
   padding: var(--card-padding);
   border-radius: 5px;
@@ -455,9 +469,20 @@ body.mobile .board-view-container .board-add-column {
   );
 }
 
-/* The outline of whatever is focused within, taking the hue of the nearest thing that has one: the
-   column for its header and buttons, the card for itself and what it holds. */
+/* The text, the icons and the outline of whatever is focused, each taking the hue of the nearest
+   thing that has one: the column for its header and buttons, the card for itself and what it
+   holds. */
 .board-view-container .board-column.with-hue {
+  --board-text-color: hsl(
+    var(--board-column-custom-hue),
+    var(--board-text-saturation),
+    var(--board-text-lightness)
+  );
+  --board-muted-text-color: hsl(
+    var(--board-column-custom-hue),
+    var(--board-muted-text-saturation),
+    var(--board-muted-text-lightness)
+  );
   --board-focus-outline-color: hsl(
     var(--board-column-custom-hue),
     var(--board-focus-outline-saturation),
@@ -467,6 +492,16 @@ body.mobile .board-view-container .board-add-column {
 
 .board-view-container .board-column.with-hue .board-note,
 .board-view-container .board-note.with-hue {
+  --board-text-color: hsl(
+    var(--board-item-hue),
+    var(--board-text-saturation),
+    var(--board-text-lightness)
+  );
+  --board-muted-text-color: hsl(
+    var(--board-item-hue),
+    var(--board-muted-text-saturation),
+    var(--board-muted-text-lightness)
+  );
   --board-focus-outline-color: hsl(
     var(--board-item-hue),
     var(--board-focus-outline-saturation),
@@ -488,7 +523,7 @@ body.mobile .board-view-container .board-add-column {
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.15s ease;
 
   .board-note-outside-filter {
-    color: var(--muted-text-color);
+    color: var(--board-muted-text-color);
     font-size: 1.1em;
     line-height: 1;
     cursor: default;
@@ -604,7 +639,7 @@ body.mobile .board-view-container .board-add-column {
   position: absolute;
   top: 8px;
   inset-inline-end: 4px;
-  color: var(--main-text-color);
+  color: var(--board-text-color);
   background-color: inherit;
   padding-inline-start: 6px;
 }
@@ -933,7 +968,7 @@ body#trilium-app.motion-disabled .board-view.editing-open :is(
   outline: none;
   font-family: inherit;
   font-size: inherit;
-  color: var(--main-text-color);
+  color: var(--board-text-color);
   width: 100%;
   padding: var(--card-padding);
   line-height: var(--card-line-height);
@@ -966,7 +1001,7 @@ body#trilium-app.motion-disabled .board-view.editing-open :is(
   position: absolute;
   inset-inline-end: 0.3rem;
   inset-block-end: min(calc((100% - var(--icon-button-size)) / 2), 0.4rem);
-  color: var(--muted-text-color);
+  color: var(--board-muted-text-color);
 }
 
 /* The tooltip is drawn at the end of the page, so it is named rather than nested in the board. */
@@ -1002,7 +1037,7 @@ body#trilium-app.motion-disabled .board-view.editing-open :is(
   /* No disc behind it, and the colour the line itself is written in: it stands in the text being
      typed, not on a note's own header. */
   --note-icon-custom-background-color: transparent;
-  --note-icon-color: var(--main-text-color);
+  --note-icon-color: var(--board-text-color);
   /* What every other icon button in the page lights up with under the pointer. */
   --note-icon-hover-custom-background-color: var(--icon-button-hover-background);
   --title-editor-icon-box: calc(
@@ -1059,14 +1094,14 @@ body#trilium-app.motion-disabled .board-view.editing-open :is(
   border-radius: 999px;
   padding-inline: 0.5em;
   background-color: transparent;
-  color: var(--muted-text-color);
+  color: var(--board-muted-text-color);
   font-size: 0.85em;
   line-height: 1;
 }
 
 .board-view-container .card-template-pill .card-template-pill-button:hover {
   border-color: var(--main-text-color);
-  color: var(--main-text-color);
+  color: var(--board-text-color);
 }
 
 /* The menu is drawn at the end of the page, so it is named rather than nested in the board. The
@@ -1155,7 +1190,7 @@ body#trilium-app.motion-disabled .board-view.editing-open :is(
   font-size: calc(0.75 * var(--card-font-size));
   line-height: 1.2;
   text-align: center;
-  color: var(--muted-text-color);
+  color: var(--board-muted-text-color);
 }
 
 /* The space a carried column would take, so it must measure the same: the board spaces its columns
@@ -1187,7 +1222,7 @@ body.mobile .column-drop-placeholder {
   padding: var(--card-padding);
   line-height: var(--card-line-height);
   border-radius: 5px;
-  color: var(--muted-text-color);
+  color: var(--board-muted-text-color);
   cursor: pointer;
   transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease,
     /* Matching the cards above, which fade in beside it. */
@@ -1198,7 +1233,7 @@ body.mobile .column-drop-placeholder {
 
 .board-new-item:hover {
   border-color: var(--main-text-color);
-  color: var(--main-text-color);
+  color: var(--board-text-color);
   background-color: var(--hover-item-background-color);
 }
 
@@ -1218,14 +1253,14 @@ body.mobile .column-drop-placeholder {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--muted-text-color);
+  color: var(--board-muted-text-color);
   font-size: 0.9em;
   align-self: flex-start;
 }
 
 .board-add-column:hover {
   border-color: var(--main-text-color);
-  color: var(--main-text-color);
+  color: var(--board-text-color);
   background-color: var(--hover-item-background-color);
 }
 
@@ -1248,7 +1283,7 @@ body.mobile .column-drop-placeholder {
   outline: none;
   padding: var(--card-padding);
   line-height: var(--card-line-height);
-  color: var(--main-text-color);
+  color: var(--board-text-color);
   font-family: inherit;
   font-size: inherit;
   width: 100%;

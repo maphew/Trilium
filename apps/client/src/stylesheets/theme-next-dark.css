@@ -415,6 +415,11 @@
     --board-drop-hint-background-lightness: 45%;
     --board-drop-hint-color: #ffffffc9;
 
+    --board-text-saturation: 25%;
+    --board-text-lightness: 80%;
+    --board-muted-text-saturation: 18%;
+    --board-muted-text-lightness: 73%;
+
     --board-focus-outline-saturation: 60%;
     --board-focus-outline-lightness: 70%;
 
