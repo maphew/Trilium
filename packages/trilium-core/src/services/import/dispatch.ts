@@ -80,13 +80,17 @@ async function routeToImporter(taskContext: TaskContext<"importNotes">, file: Fi
         // Trilium export by extension alone; the Obsidian import dialog tags the upload to route it here.
         return await obsidianImportService.importObsidian(taskContext, zipSource, parentNote, file.originalname);
     } else if (extension === ".zip" && options.explodeArchives && (file.path || typeof file.buffer !== "string")) {
-        // Nothing tags a vault dropped straight onto the note tree, so the zip importer's scan pass hands
-        // one back here instead of importing it: the generic importer would strip it of wikilinks, callouts
-        // and frontmatter properties. That scan already reads every entry name for `!!!meta.json`, so
-        // recognizing a vault adds no pass over the archive.
-        return await zipImportService.importZip(taskContext, zipSource, parentNote, {
-            onObsidianVault: () => obsidianImportService.importObsidian(taskContext, zipSource, parentNote, file.originalname)
-        });
+        if (format === "auto") {
+            // What a drag-and-drop onto the note tree sends: no importer was picked, so the zip importer's
+            // scan pass hands an Obsidian vault back here instead of importing it as a plain archive, which
+            // would strip it of wikilinks, callouts and frontmatter properties. That scan already reads
+            // every entry name for `!!!meta.json`, so recognizing a vault adds no pass over the archive.
+            // A `.zip` chosen in the import dialog is a decision already made, and is left alone.
+            return await zipImportService.importZip(taskContext, zipSource, parentNote, {
+                onObsidianVault: () => obsidianImportService.importObsidian(taskContext, zipSource, parentNote, file.originalname)
+            });
+        }
+        return await zipImportService.importZip(taskContext, zipSource, parentNote);
     } else if (extension === ".opml" && options.explodeArchives) {
         return await opmlImportService.importOpml(taskContext, file.buffer, parentNote);
     } else if (extension === ".enex" && options.explodeArchives) {
