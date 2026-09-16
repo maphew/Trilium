@@ -111,6 +111,7 @@ function getNoteTitleForPath(notePathArray: string[]) {
 
 export default {
     getNoteTitle,
+    getNoteTitleArrayForPath,
     getNoteTitleAndIcon,
     getNoteTitleForPath,
     isNotePathArchived

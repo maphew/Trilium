@@ -398,7 +398,12 @@ export function stripWordPunctuation(word: string): string {
  * tokenize through this, so punctuation in the content cannot prevent a word from matching.
  */
 export function tokenizeIntoWords(text: string): string[] {
-    return normalizeSearchText(text)
+    return tokenizeNormalizedText(normalizeSearchText(text));
+}
+
+/** Splits already-normalized text into the same words {@link tokenizeIntoWords} would produce. */
+export function tokenizeNormalizedText(normalized: string): string[] {
+    return normalized
         .split(/\s+/)
         .map(stripWordPunctuation)
         .filter((word) => word.length > 0);
