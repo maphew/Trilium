@@ -17,7 +17,7 @@ vi.mock("./experimental_features.js", () => ({
 }));
 
 import { isExperimentalFeatureEnabled } from "./experimental_features.js";
-import noteTypesService from "./note_types";
+import noteTypesService, { isCurrentNoteType } from "./note_types";
 
 const llmFlag = vi.mocked(isExperimentalFeatureEnabled);
 
@@ -407,5 +407,32 @@ describe("new template badges", () => {
         } finally {
             restore();
         }
+    });
+});
+
+describe("isCurrentNoteType", () => {
+    const CODE = { type: "code", mime: "text/plain" } as const;
+    const MARKDOWN = { type: "code", mime: "text/x-markdown" } as const;
+
+    it("tells the two code entries apart, which share a type", () => {
+        // A JavaScript note is the plain code entry, never the Markdown one.
+        const script = buildNote({ title: "script", type: "code", mime: "application/javascript" });
+        expect(isCurrentNoteType(CODE, script)).toBe(true);
+        expect(isCurrentNoteType(MARKDOWN, script)).toBe(false);
+
+        // Every mime `isMarkdown()` accepts picks the Markdown entry, `text/x-gfm` included.
+        for (const mime of [ "text/x-markdown", "text/markdown", "text/x-gfm" ]) {
+            const note = buildNote({ title: mime, type: "code", mime });
+            expect(isCurrentNoteType(MARKDOWN, note)).toBe(true);
+            expect(isCurrentNoteType(CODE, note)).toBe(false);
+        }
+    });
+
+    it("matches every other type on the type alone, and nothing without a note", () => {
+        const text = buildNote({ title: "prose", type: "text", mime: "text/html" });
+        expect(isCurrentNoteType({ type: "text", mime: "text/html" }, text)).toBe(true);
+        expect(isCurrentNoteType({ type: "canvas", mime: "application/json" }, text)).toBe(false);
+        expect(isCurrentNoteType(CODE, text)).toBe(false);
+        expect(isCurrentNoteType(CODE, null)).toBe(false);
     });
 });

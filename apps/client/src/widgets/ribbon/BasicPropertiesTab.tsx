@@ -11,7 +11,7 @@ import { isExperimentalFeatureEnabled } from "../../services/experimental_featur
 import { getAvailableLocales, getLocaleById, t } from "../../services/i18n";
 import { resolveContentLanguage } from "../../utils/formatters";
 import mime_types from "../../services/mime_types";
-import { NOTE_TYPES } from "../../services/note_types";
+import { isCurrentNoteType, NOTE_TYPES } from "../../services/note_types";
 import protected_session from "../../services/protected_session";
 import server from "../../services/server";
 import sync from "../../services/sync";
@@ -111,7 +111,7 @@ export function NoteTypeDropdownContent({ currentNoteType, currentNoteMime, note
                     });
                 }
 
-                const checked = (type === currentNoteType);
+                const checked = isCurrentNoteType({ type, mime }, note);
                 if (noCodeNotes || type !== "code") {
                     return (
                         <FormListItem
