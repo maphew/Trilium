@@ -1,5 +1,5 @@
 import becca from "../../becca/becca.js";
-import becca_service from "../../becca/becca_service.js";
+import becca_service, { type SegmentTitleCache } from "../../becca/becca_service.js";
 import type { ContentMatchQuality } from "./match_quality.js";
 import {
     calculateOptimizedEditDistance,
@@ -82,9 +82,9 @@ class SearchResult {
     highlightedAttributeSnippet?: string;
     private fuzzyScore: number; // Track fuzzy score separately
 
-    constructor(notePathArray: string[]) {
+    constructor(notePathArray: string[], segmentTitles?: SegmentTitleCache) {
         this.notePathArray = notePathArray;
-        this.pathTitleSegments = becca_service.getNoteTitleArrayForPath(notePathArray);
+        this.pathTitleSegments = becca_service.getNoteTitleArrayForPath(notePathArray, segmentTitles);
         this.notePathTitle = this.pathTitleSegments.join(" › ");
         this.score = 0;
         this.fuzzyScore = 0;

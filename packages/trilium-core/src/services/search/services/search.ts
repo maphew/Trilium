@@ -338,6 +338,8 @@ function performSearch(expression: Expression, searchContext: SearchContext, ena
 
     const noteSet = expression.execute(allNoteSet, executionContext, searchContext);
 
+    // Results under the same ancestors share path segments, so each pair resolves once per search.
+    const segmentTitles = new Map<string, Map<string, string>>();
     const searchResults = noteSet.notes.map((note) => {
         const notePathArray = executionContext.noteIdToNotePath[note.noteId] || note.getBestNotePath();
 
@@ -345,7 +347,7 @@ function performSearch(expression: Expression, searchContext: SearchContext, ena
             throw new Error(`Can't find note path for note ${JSON.stringify(note.getPojo())}`);
         }
 
-        return new SearchResult(notePathArray);
+        return new SearchResult(notePathArray, segmentTitles);
     });
 
     // Derived once rather than per result: every match is scored against the same query.
