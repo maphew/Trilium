@@ -240,10 +240,10 @@ export default function PromotedAttributesCard({
                             <FormToggle
                                 currentValue={!attribute.hidden && !attribute.drawnByCollection}
                                 disabled={attribute.drawnByCollection}
-                                switchOnTooltip={t("promoted_attributes.shown_on_items")}
+                                switchOnTooltip={t("promoted_attributes.display_on_items")}
                                 switchOffTooltip={attribute.drawnByCollection
                                     ? t("promoted_attributes.drawn_by_collection")
-                                    : t("promoted_attributes.hidden_from_items")}
+                                    : t("promoted_attributes.display_on_items")}
                                 onChange={(visible) => setHidden(attribute.name, !visible)}
                             />
                         </>

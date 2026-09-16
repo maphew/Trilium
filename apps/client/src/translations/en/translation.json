@@ -1396,8 +1396,6 @@
     "edit_attribute": "Edit this attribute",
     "delete_attribute": "Delete this attribute",
     "delete_confirmation": "Delete <strong>{{name}}</strong> and its values from every note in this collection? This cannot be undone.",
-    "shown_on_items": "Shown on the items",
-    "hidden_from_items": "Hidden from the items",
     "unset-field-placeholder": "not set",
     "url_placeholder": "http://website...",
     "open_external_link": "Open external link",
@@ -1413,7 +1411,8 @@
     "select_values_placeholder": "Select an option or create one",
     "values_placeholder": "Type a value and press Enter",
     "add_value": "Add this value",
-    "drawn_by_collection": "The collection is arranged by this, so its items do not repeat it"
+    "drawn_by_collection": "The collection is arranged by this, so its items do not repeat it",
+    "display_on_items": "Display the attribute on the collection items"
   },
   "script_executor": {
     "query": "Query",
