@@ -4027,7 +4027,8 @@
       "tokens": "토큰",
       "try-again": "다시 시도",
       "working": "처리 중…",
-      "upload-image": "이미지 업로드"
+      "upload-image": "이미지 업로드",
+      "upload-an-image-from-your-device": "기기에서 이미지를 업로드하세요."
     },
     "toolbar-groups": {
       "text-formatting": "텍스트 서식",
