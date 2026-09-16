@@ -739,6 +739,10 @@ function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenI
     }
 }
 
+// Each row past this costs a `buildSearchResultDetails` snippet extraction and roughly a kilobyte of
+// response, so the limit follows what a dropdown shows rather than what the query matched.
+const AUTOCOMPLETE_RESULT_LIMIT = 25;
+
 function searchNotesForAutocomplete(query: string, fastSearch: boolean = true) {
     const searchContext = new SearchContext({
         fastSearch,
@@ -749,7 +753,7 @@ function searchNotesForAutocomplete(query: string, fastSearch: boolean = true) {
         ancestorNoteId: hoistedNoteService.isHoistedInHiddenSubtree() ? "root" : hoistedNoteService.getHoistedNoteId()
     });
 
-    const trimmed = findResultsWithQuery(query, searchContext).slice(0, 200);
+    const trimmed = findResultsWithQuery(query, searchContext).slice(0, AUTOCOMPLETE_RESULT_LIMIT);
 
     return buildSearchResultDetails(trimmed, searchContext);
 }
