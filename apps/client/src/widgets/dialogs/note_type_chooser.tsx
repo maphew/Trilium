@@ -127,9 +127,8 @@ export default function NoteTypeChooserDialogComponent() {
 }
 
 /**
- * Focuses the first note type so that Enter creates a text note. The types load asynchronously and
- * Bootstrap focuses the first field itself once the dialog is up, so both their arrival and
- * `onShown` apply the focus. Both back off once the user has moved focus on their own.
+ * Focuses the first note type so Enter creates a text note, until the user moves focus themselves.
+ * Both the arrival of the types and `onShown` apply it, since either can be the one that comes last.
  */
 function useFirstNoteTypeFocus(modalRef: RefObject<HTMLDivElement>, shown: boolean, noteTypeCount: number) {
     const userMovedFocus = useRef(false);
