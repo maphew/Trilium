@@ -179,7 +179,7 @@ export function EditableCode({ note, ntxId, noteContext, debounceUpdate, parentC
     );
 }
 
-export function CodeEditor({ ntxId, containerRef: externalContainerRef, editorRef: externalEditorRef, mime, onInitialized, lineWrapping, ...editorProps }: CodeMirrorProps & Pick<TypeWidgetProps, "ntxId">) {
+export function CodeEditor({ ntxId, containerRef: externalContainerRef, editorRef: externalEditorRef, mime, onInitialized, lineWrapping, allowKeyboardSuggestions, ...editorProps }: CodeMirrorProps & Pick<TypeWidgetProps, "ntxId">) {
     const codeEditorRef = useRef<VanillaCodeMirror>(null);
     const containerRef = useSyncedRef(externalContainerRef);
     const initialized = useRef($.Deferred());
@@ -246,6 +246,7 @@ export function CodeEditor({ ntxId, containerRef: externalContainerRef, editorRe
         editorRef={codeEditorRef}
         containerRef={containerRef}
         lineWrapping={lineWrapping ?? codeLineWrapEnabled}
+        allowKeyboardSuggestions={allowKeyboardSuggestions ?? mime === "text/plain"}
         indentSize={editorProps.indentSize ?? (parseInt(codeNoteTabWidth) || 4)}
         useTabs={editorProps.useTabs ?? codeNoteIndentWithTabs}
         onInitialized={() => {

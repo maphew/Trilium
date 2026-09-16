@@ -78,6 +78,17 @@ describe("CodeMirror", () => {
             editor = build({ allowKeyboardSuggestions: true });
             expect(editor.contentDOM.hasAttribute("autocomplete")).toBe(false);
         });
+
+        it("follows a switch between prose and code after construction", () => {
+            // The language dropdown can move a note between `text/plain` and a real language, so
+            // the attribute has to track it rather than being fixed when the editor is built.
+            editor = build();
+            editor.setAllowKeyboardSuggestions(true);
+            expect(editor.contentDOM.hasAttribute("autocomplete")).toBe(false);
+
+            editor.setAllowKeyboardSuggestions(false);
+            expect(editor.contentDOM.getAttribute("autocomplete")).toBe("off");
+        });
     });
 
     describe("text access", () => {

@@ -82,6 +82,7 @@ export default class CodeMirror extends EditorView {
     private historyCompartment: Compartment;
     private themeCompartment: Compartment;
     private lineWrappingCompartment: Compartment;
+    private keyboardSuggestionsCompartment: Compartment;
     private indentUnitCompartment: Compartment;
     private searchHighlightCompartment: Compartment;
     private typeCompletionCompartment: Compartment;
@@ -102,6 +103,7 @@ export default class CodeMirror extends EditorView {
         const historyCompartment = new Compartment();
         const themeCompartment = new Compartment();
         const lineWrappingCompartment = new Compartment();
+        const keyboardSuggestionsCompartment = new Compartment();
         const indentUnitCompartment = new Compartment();
         const searchHighlightCompartment = new Compartment();
         const typeCompletionCompartment = new Compartment();
@@ -117,6 +119,7 @@ export default class CodeMirror extends EditorView {
             ...extensions,
             languageCompartment.of([]),
             lineWrappingCompartment.of(config.lineWrapping ? EditorView.lineWrapping : []),
+            keyboardSuggestionsCompartment.of(config.allowKeyboardSuggestions ? [] : noKeyboardSuggestions),
             searchMatchHighlightTheme,
             lintTooltipTheme,
             searchHighlightCompartment.of([]),
@@ -150,10 +153,6 @@ export default class CodeMirror extends EditorView {
             ];
         }
 
-        if (!config.allowKeyboardSuggestions) {
-            extensions.push(noKeyboardSuggestions);
-        }
-
         extensions.push(EditorView.updateListener.of((v) => this.#onDocumentUpdated(v)));
 
         if (!config.readOnly) {
@@ -182,6 +181,7 @@ export default class CodeMirror extends EditorView {
         this.historyCompartment = historyCompartment;
         this.themeCompartment = themeCompartment;
         this.lineWrappingCompartment = lineWrappingCompartment;
+        this.keyboardSuggestionsCompartment = keyboardSuggestionsCompartment;
         this.indentUnitCompartment = indentUnitCompartment;
         this.searchHighlightCompartment = searchHighlightCompartment;
         this.typeCompletionCompartment = typeCompletionCompartment;
@@ -256,6 +256,12 @@ export default class CodeMirror extends EditorView {
     setLineWrapping(wrapping: boolean) {
         this.dispatch({
             effects: [ this.lineWrappingCompartment.reconfigure(wrapping ? EditorView.lineWrapping : []) ]
+        });
+    }
+
+    setAllowKeyboardSuggestions(allow: boolean) {
+        this.dispatch({
+            effects: [ this.keyboardSuggestionsCompartment.reconfigure(allow ? [] : noKeyboardSuggestions) ]
         });
     }
 
