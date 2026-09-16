@@ -62,8 +62,9 @@ interface ImportZipOpts {
     restoreAsRoot?: boolean;
     /**
      * Imports the archive instead when the scan pass recognizes an Obsidian vault: a `.obsidian/` config
-     * folder and no `!!!meta.json`. Set by the dispatcher for an untagged `.zip`, so a vault dropped on the
-     * note tree reaches the Obsidian importer without anyone reading the archive an extra time.
+     * folder at the archive root or under a single wrapper folder, and no `!!!meta.json`. Set by the
+     * dispatcher for an untagged `.zip`, so a dropped vault reaches the Obsidian importer without anyone
+     * reading the archive an extra time.
      */
     onObsidianVault?: () => Promise<BNote>;
 }
@@ -798,8 +799,8 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
     // count of entries the processing pass will handle, used as the progress denominator so the
     // client can show a progress bar ("X of N") instead of a bare running count
     let entriesToProcess = 0;
-    // Whether an entry sits under an Obsidian `.obsidian/` config folder, which marks the vault root.
-    let hasObsidianConfig = false;
+    // Depth of the shallowest `.obsidian` segment, which sits at an Obsidian vault's root; -1 when absent.
+    let obsidianDepth = -1;
 
     await zipProvider.readZipFile(source, async (entry, readContent) => {
         const filePath = normalizeFilePath(entry.fileName);
@@ -816,10 +817,9 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
             metaFile = JSON.parse(new TextDecoder("utf-8").decode(content));
         }
 
-        // Matched by segment so every shape counts: the folder entry itself, a file under it, and either
-        // at the archive root or under the vault's outer folder.
-        if (filePath.split("/").includes(".obsidian")) {
-            hasObsidianConfig = true;
+        const depth = filePath.split("/").indexOf(".obsidian");
+        if (depth !== -1 && (obsidianDepth === -1 || depth < obsidianDepth)) {
+            obsidianDepth = depth;
         }
 
         // determine the root of the .zip (i.e. if it has only one top-level folder then the root is that folder, or the root of the archive if there are multiple top-level folders).
@@ -829,9 +829,11 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
     }, filenameEncoding);
     timing.scan = Date.now() - timingMark;
 
-    // The scan has just read every entry name, so recognizing a vault costs nothing on top of it. Nothing
-    // has been created yet, so the archive can still be handed over whole.
-    if (opts?.onObsidianVault && hasObsidianConfig && !metaFile) {
+    // Only the two shapes importObsidian supports: `.obsidian/` at the archive root, or under a single
+    // wrapper folder. A vault nested among unrelated content stays with this importer, which leaves that
+    // content alone.
+    const isObsidianVault = obsidianDepth === 0 || (obsidianDepth === 1 && topLevelItems.size === 1);
+    if (opts?.onObsidianVault && isObsidianVault && !metaFile) {
         return await opts.onObsidianVault();
     }
 

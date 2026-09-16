@@ -1527,6 +1527,18 @@ describe("Obsidian vault detection", () => {
         expect(plain.importedNote?.title).toBe("docs");
     });
 
+    it("leaves a vault nested among unrelated content to this importer", async () => {
+        // importObsidian strips only its own vault root, so everything beside the vault would be imported
+        // with Obsidian semantics under a root named after it.
+        const nested = await importWithFallback({
+            "Documents/MyVault/.obsidian/app.json": "{}",
+            "Documents/MyVault/Note.md": "# Note",
+            "Documents/Unrelated.md": "# Unrelated"
+        }, "obsidian-nested");
+
+        expect(nested.onObsidianVault).not.toHaveBeenCalled();
+    });
+
     it("imports a vault generically when no fallback is offered", async () => {
         const buffer = await createZipBuffer({ "MyVault/.obsidian/app.json": "{}", "MyVault/Note.md": "# Note" });
         const { importedNote } = await testImportBuffer(buffer, "obsidian-no-fallback");

@@ -81,11 +81,8 @@ async function routeToImporter(taskContext: TaskContext<"importNotes">, file: Fi
         return await obsidianImportService.importObsidian(taskContext, zipSource, parentNote, file.originalname);
     } else if (extension === ".zip" && options.explodeArchives && (file.path || typeof file.buffer !== "string")) {
         if (format === "auto") {
-            // What a drag-and-drop onto the note tree sends: no importer was picked, so the zip importer's
-            // scan pass hands an Obsidian vault back here instead of importing it as a plain archive, which
-            // would strip it of wikilinks, callouts and frontmatter properties. That scan already reads
-            // every entry name for `!!!meta.json`, so recognizing a vault adds no pass over the archive.
-            // A `.zip` chosen in the import dialog is a decision already made, and is left alone.
+            // "auto" is what the note tree's drop handler sends, naming no importer. A `.zip` chosen in the
+            // import dialog names one, so only the dropped archive is checked for an Obsidian vault.
             return await zipImportService.importZip(taskContext, zipSource, parentNote, {
                 onObsidianVault: () => obsidianImportService.importObsidian(taskContext, zipSource, parentNote, file.originalname)
             });
