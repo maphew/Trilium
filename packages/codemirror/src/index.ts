@@ -48,6 +48,14 @@ const lintTooltipTheme = EditorView.baseTheme({
 // CodeMirror already sets reach no equivalent flag, so the on-screen keyboard ignores them.
 const noKeyboardSuggestions = EditorView.contentAttributes.of({ autocomplete: "off" });
 
+// CodeMirror sets `autocorrect="off"` and `autocapitalize="off"` on every editor it builds, which
+// suits code. An editor holding prose overrides both, since `contentAttributes` is merged in after
+// those defaults, so the on-screen keyboard capitalizes sentences and fixes typos again.
+const proseKeyboardAttributes = EditorView.contentAttributes.of({
+    autocorrect: "on",
+    autocapitalize: "sentences"
+});
+
 type ContentChangedListener = () => void;
 
 export interface EditorConfig {
@@ -64,8 +72,9 @@ export interface EditorConfig {
     /** If true, indent using a tab character instead of spaces. Defaults to false. */
     useTabs?: boolean;
     /**
-     * Lets an on-screen keyboard offer word completions and autocorrection. Defaults to false,
-     * which suits code; an editor holding prose, such as the Markdown note type, sets it to true.
+     * Lets an on-screen keyboard offer word completions, correct typos and capitalize sentences.
+     * Defaults to false, which suits code; an editor holding prose, such as the Markdown note
+     * type, sets it to true.
      */
     allowKeyboardSuggestions?: boolean;
     onContentChanged?: ContentChangedListener;
@@ -119,7 +128,7 @@ export default class CodeMirror extends EditorView {
             ...extensions,
             languageCompartment.of([]),
             lineWrappingCompartment.of(config.lineWrapping ? EditorView.lineWrapping : []),
-            keyboardSuggestionsCompartment.of(config.allowKeyboardSuggestions ? [] : noKeyboardSuggestions),
+            keyboardSuggestionsCompartment.of(config.allowKeyboardSuggestions ? proseKeyboardAttributes : noKeyboardSuggestions),
             searchMatchHighlightTheme,
             lintTooltipTheme,
             searchHighlightCompartment.of([]),
@@ -261,7 +270,7 @@ export default class CodeMirror extends EditorView {
 
     setAllowKeyboardSuggestions(allow: boolean) {
         this.dispatch({
-            effects: [ this.keyboardSuggestionsCompartment.reconfigure(allow ? [] : noKeyboardSuggestions) ]
+            effects: [ this.keyboardSuggestionsCompartment.reconfigure(allow ? proseKeyboardAttributes : noKeyboardSuggestions) ]
         });
     }
 
