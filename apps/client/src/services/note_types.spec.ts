@@ -17,7 +17,7 @@ vi.mock("./experimental_features.js", () => ({
 }));
 
 import { isExperimentalFeatureEnabled } from "./experimental_features.js";
-import noteTypesService, { isCurrentNoteType } from "./note_types";
+import noteTypesService, { isCurrentNoteType, selectableNoteTypes } from "./note_types";
 
 const llmFlag = vi.mocked(isExperimentalFeatureEnabled);
 
@@ -434,5 +434,34 @@ describe("isCurrentNoteType", () => {
         expect(isCurrentNoteType({ type: "canvas", mime: "application/json" }, text)).toBe(false);
         expect(isCurrentNoteType(CODE, text)).toBe(false);
         expect(isCurrentNoteType(CODE, null)).toBe(false);
+    });
+});
+
+describe("selectableNoteTypes", () => {
+    // The suite's other resets live inside their own describes, so pin the flag here rather than
+    // inheriting whatever the last test left behind.
+    beforeEach(() => llmFlag.mockReturnValue(false));
+
+    it("drops Markdown only where the MIME list already offers it", () => {
+        const markdownEntry = (withMimeList: boolean) =>
+            selectableNoteTypes(withMimeList).filter((nt) => nt.mime === "text/x-markdown");
+
+        // Beside the MIME list the code entries are only its heading, so one heading is left.
+        expect(markdownEntry(true)).toHaveLength(0);
+        expect(selectableNoteTypes(true).filter((nt) => nt.type === "code")).toHaveLength(1);
+
+        // On its own the menu is the only way to reach Markdown, so it stays.
+        expect(markdownEntry(false)).toHaveLength(1);
+    });
+
+    it("leaves out what cannot be created either way", () => {
+        for (const withMimeList of [ true, false ]) {
+            const types = selectableNoteTypes(withMimeList);
+            expect(types.some((nt) => nt.reserved)).toBe(false);
+            expect(types.some((nt) => nt.static)).toBe(false);
+            // The chat type is behind an experimental flag, mocked off for this suite.
+            expect(types.some((nt) => nt.type === "llmChat")).toBe(false);
+            expect(types.some((nt) => nt.type === "text")).toBe(true);
+        }
     });
 });

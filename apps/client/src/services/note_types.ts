@@ -81,6 +81,19 @@ export function isCurrentNoteType(entry: Pick<NoteTypeMapping, "type" | "mime">,
 }
 
 /**
+ * The entries a note type menu offers, leaving out what the reader cannot create.
+ *
+ * `withMimeList` says the caller also renders the code MIME list, which already offers Markdown
+ * and every other language — so the Markdown entry is dropped and the code entries are left as
+ * that list's heading.
+ */
+export function selectableNoteTypes(withMimeList: boolean) {
+    return NOTE_TYPES.filter((nt) => !nt.reserved && !nt.static
+        && (nt.type !== "llmChat" || isExperimentalFeatureEnabled("llm"))
+        && (!withMimeList || nt.mime !== MARKDOWN_NOTE_TYPE_MIME));
+}
+
+/**
  * One thing a new note can be made from: a blank note type, or a note carrying `#template`.
  *
  * Named by a {@link NoteTypeId}, so that a stored choice outlives the list it was picked from and
