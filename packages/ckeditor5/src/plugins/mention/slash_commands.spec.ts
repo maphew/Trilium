@@ -555,6 +555,11 @@ describe("buildTriliumSlashCommands", () => {
         expect(executeSpy).toHaveBeenCalledWith("alignment", { value });
     });
 
+    it("finds the to-do list by the word todo", () => {
+        expect(matchSlashCommands(buildTriliumSlashCommands(editor), "todo").map((entry) => entry.id))
+            .toContain("todoList");
+    });
+
     it("finds the collapsible block under the names other editors give it", () => {
         const definitions = buildTriliumSlashCommands(editor);
 
