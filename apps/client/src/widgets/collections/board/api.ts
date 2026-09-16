@@ -55,14 +55,6 @@ interface ColumnClaim {
 }
 
 /**
- * The columns a board has in flight.
- *
- * Every write claims the columns it touches, and `renames` is what the last claim on each says.
- * Claims are kept rather than a value and its predecessor because writes finish in any order: one
- * taken back from under another leaves the one above it standing, and a column with no claims left
- * has no record at all, whichever of the two failed first.
- */
-/**
  * The collapse state the board draws while a filter narrows it, in place of the stored flags.
  *
  * A column without matches is drawn as a strip so the results are read at a glance, and what the
@@ -75,6 +67,14 @@ export interface VolatileCollapse {
     setCollapsed(column: string | null, collapsed: boolean): void;
 }
 
+/**
+ * The columns a board has in flight.
+ *
+ * Every write claims the columns it touches, and `renames` is what the last claim on each says.
+ * Claims are kept rather than a value and its predecessor because writes finish in any order: one
+ * taken back from under another leaves the one above it standing, and a column with no claims left
+ * has no record at all, whichever of the two failed first.
+ */
 export interface PendingColumnWrites {
     renames: Map<string, string | undefined>;
     claims: Map<string, ColumnClaim[]>;
