@@ -25,7 +25,10 @@ class NoteFlatTextExp extends Expression {
             const key = `${noteId}-${parentNoteId}`;
             let cached = titleCache.get(key);
             if (cached === undefined) {
-                cached = normalizeSearchText(becca_service.getNoteTitle(noteId, parentNoteId));
+                const note = becca.notes[noteId];
+                cached = note
+                    ? normalizedTitleUnder(note, parentNoteId, becca.getBranchFromChildAndParent(noteId, parentNoteId)?.prefix)
+                    : normalizeSearchText(becca_service.getNoteTitle(noteId, parentNoteId));
                 titleCache.set(key, cached);
             }
             return cached;
@@ -144,8 +147,14 @@ class NoteFlatTextExp extends Expression {
                 }
             }
 
-            for (const parentNote of note.parents) {
-                const title = normalizeSearchText(becca_service.getNoteTitle(note.noteId, parentNote.noteId));
+            for (const parentBranch of note.parentBranches) {
+                const parentNote = parentBranch.parentNote;
+
+                if (!parentNote) {
+                    continue;
+                }
+
+                const title = normalizedTitleUnder(note, parentNote.noteId, parentBranch.prefix);
                 const foundTokens = foundAttrTokens.slice();
 
                 for (const token of this.tokens) {
@@ -241,6 +250,18 @@ class NoteFlatTextExp extends Expression {
 
         return false;
     }
+}
+
+/**
+ * The normalized title a note carries under one parent. A branch without a prefix shows the note's
+ * own title, whose normalized form the note caches, so only a prefixed branch builds a new string.
+ */
+function normalizedTitleUnder(note: BNote, parentNoteId: string, prefix: string | null | undefined): string {
+    if (!prefix && note.isContentAvailable()) {
+        return note.getSearchableTitle().normalized;
+    }
+
+    return normalizeSearchText(becca_service.getNoteTitle(note.noteId, parentNoteId));
 }
 
 export default NoteFlatTextExp;
