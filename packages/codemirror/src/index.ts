@@ -42,6 +42,12 @@ const lintTooltipTheme = EditorView.baseTheme({
     }
 });
 
+// Chromium maps `autocomplete="off"` on the focused element to Android's
+// `TYPE_TEXT_FLAG_NO_SUGGESTIONS`, which is what stops Gboard from offering word completions and
+// rewriting what was typed. The `spellcheck`, `autocorrect` and `writingsuggestions` attributes
+// CodeMirror already sets reach no equivalent flag, so the on-screen keyboard ignores them.
+const noKeyboardSuggestions = EditorView.contentAttributes.of({ autocomplete: "off" });
+
 type ContentChangedListener = () => void;
 
 export interface EditorConfig {
@@ -57,6 +63,11 @@ export interface EditorConfig {
     indentSize?: number;
     /** If true, indent using a tab character instead of spaces. Defaults to false. */
     useTabs?: boolean;
+    /**
+     * Lets an on-screen keyboard offer word completions and autocorrection. Defaults to false,
+     * which suits code; an editor holding prose, such as the Markdown note type, sets it to true.
+     */
+    allowKeyboardSuggestions?: boolean;
     onContentChanged?: ContentChangedListener;
 }
 
@@ -137,6 +148,10 @@ export default class CodeMirror extends EditorView {
                 foldGutter(),
                 indentationMarkers(),
             ];
+        }
+
+        if (!config.allowKeyboardSuggestions) {
+            extensions.push(noKeyboardSuggestions);
         }
 
         extensions.push(EditorView.updateListener.of((v) => this.#onDocumentUpdated(v)));

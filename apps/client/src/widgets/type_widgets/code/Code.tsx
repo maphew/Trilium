@@ -30,6 +30,8 @@ export interface EditableCodeProps extends TypeWidgetProps {
     placeholder?: string;
     /** Optional external ref to the underlying CodeMirror `EditorView`. Populated once the editor has initialized. */
     editorRef?: Ref<VanillaCodeMirror>;
+    /** Lets an on-screen keyboard offer word completions and autocorrection, for an editor holding prose rather than code. */
+    allowKeyboardSuggestions?: boolean;
 }
 
 export function ReadOnlyCode({ note, viewScope, ntxId, noteContext, editorRef }: TypeWidgetProps & { editorRef?: Ref<VanillaCodeMirror> }) {

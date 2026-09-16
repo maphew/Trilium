@@ -67,6 +67,17 @@ describe("CodeMirror", () => {
             editor = build({ tabIndex: 7 });
             expect(editor.dom.tabIndex).toBe(7);
         });
+
+        it("keeps on-screen keyboard suggestions off unless the editor holds prose", () => {
+            // Android reads `autocomplete`, not the `spellcheck`/`autocorrect` pair CodeMirror sets
+            // on its own, so its absence is what lets Gboard complete and correct words in code.
+            editor = build();
+            expect(editor.contentDOM.getAttribute("autocomplete")).toBe("off");
+
+            editor.destroy();
+            editor = build({ allowKeyboardSuggestions: true });
+            expect(editor.contentDOM.hasAttribute("autocomplete")).toBe(false);
+        });
     });
 
     describe("text access", () => {

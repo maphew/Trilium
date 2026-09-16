@@ -120,6 +120,7 @@ export default function Markdown(props: TypeWidgetProps) {
                 onContentChanged={setContent}
                 previewContent={<MarkdownPreview ntxId={props.ntxId} />}
                 forceOrientation={isDesktop() ? "horizontal" : "vertical"}
+                allowKeyboardSuggestions
             />
         </MarkdownContext.Provider>
     );
