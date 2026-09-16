@@ -950,7 +950,8 @@ describe("Board item context menu", () => {
      * run of cards off does not carry the reader to wherever each one landed.
      */
     it("focuses the card taking its place rather than the one it files", () => {
-        const cards = [ 0, 1, 2, 3 ].map(() => buildNote({ title: "Card" }) as FNote);
+        // Five, since a shorter column lands on the same card either way and hides a miscount.
+        const cards = [ 0, 1, 2, 3, 4 ].map(() => buildNote({ title: "Card" }) as FNote);
         const ids = cards.map(card => card.noteId);
         const api = {
             columns: [ "To Do", "Done" ],
@@ -961,11 +962,14 @@ describe("Board item context menu", () => {
             changeColumn: vi.fn(async () => {})
         } as unknown as BoardApi;
 
-        /** Files the card standing at `index` under "Done", and says what was focused after. */
-        const fileFrom = (index: number) => {
+        /**
+         * Files the cards at `filed` under "Done", from the menu opened on the first of them,
+         * and says what was focused after.
+         */
+        const fileFrom = (...filed: number[]) => {
             const focusCard = vi.fn();
-            const items = openItemMenu(
-                api, "To Do", focusCard, vi.fn(), index, vi.fn(), [ cards[index] ]);
+            const items = openItemMenu(api, "To Do", focusCard, vi.fn(), filed[0], vi.fn(),
+                filed.map(at => cards[at]));
             const header = items.findIndex(item => item && "kind" in item && item.kind === "header");
             const done = items[header + 2];
             if (done && "handler" in done) done.handler?.(done, {} as never);
@@ -975,7 +979,13 @@ describe("Board item context menu", () => {
         // The card that closes the gap is the one after it.
         expect(fileFrom(1)).toEqual([ ids[2] ]);
         // From the foot there is none after it, so the column's new last card takes the focus.
-        expect(fileFrom(3)).toEqual([ ids[2] ]);
+        expect(fileFrom(4)).toEqual([ ids[3] ]);
+        // A selection leaves the first card still standing below the one the menu was opened on.
+        expect(fileFrom(1, 3)).toEqual([ ids[2] ]);
+        // And the cards leaving from above it are counted out of its place first.
+        expect(fileFrom(2, 0)).toEqual([ ids[3] ]);
+        // With every card filed there is none left to take.
+        expect(fileFrom(0, 1, 2, 3, 4)).toEqual([]);
     });
 
     /** The card it is already under writes nothing, so there is no reason to move the focus. */

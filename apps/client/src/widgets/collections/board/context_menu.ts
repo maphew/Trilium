@@ -447,9 +447,13 @@ function buildColumnItems(api: Api, target: NoteMenuTarget): MenuItem<CommandNam
             // wherever each one landed. Asked for before the write, which draws the board again.
             if (name !== current) {
                 const going = new Set(target.notes.map((note) => note.noteId));
-                const staying = api.getColumnNoteIds(target.column)
-                    .filter((noteId) => !going.has(noteId));
-                const next = staying[target.index] ?? staying.at(-1);
+                const noteIds = api.getColumnNoteIds(target.column);
+                const staying = noteIds.filter((noteId) => !going.has(noteId));
+                // Counted among the cards that stay: any leaving from above this one close up
+                // first, so its place among them is that much higher than the place it held.
+                const above = noteIds.slice(0, target.index)
+                    .filter((noteId) => going.has(noteId)).length;
+                const next = staying[target.index - above] ?? staying.at(-1);
                 if (next) {
                     target.onFocusCard(next);
                 }
