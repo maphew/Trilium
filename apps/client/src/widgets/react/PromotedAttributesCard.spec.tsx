@@ -148,6 +148,25 @@ describe("PromotedAttributesCard", () => {
         expect(stored).toEqual([]);
     });
 
+    /**
+     * The collection can change what it draws itself while the card stands: a board is regrouped
+     * from its header, and this card lives as long as the board does. The marks follow.
+     */
+    it("follows what the collection draws when that changes under it", () => {
+        settings = [ { name: "owner" }, { name: "dueDate" } ];
+        drawnByCollection = [ "owner" ];
+        draw();
+
+        expect(locked()).toEqual([ true, false ]);
+
+        drawnByCollection = [ "dueDate" ];
+        draw();
+
+        expect(names()).toEqual([ unnamed("owner"), "Due" ]);
+        expect(locked()).toEqual([ false, true ]);
+        expect(shown()).toEqual([ true, false ]);
+    });
+
     it("follows the order the settings give, and turns off what they hide", () => {
         settings = [ { name: "owner", hidden: true }, { name: "dueDate" } ];
         draw();

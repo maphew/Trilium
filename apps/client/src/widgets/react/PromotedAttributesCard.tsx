@@ -66,6 +66,18 @@ export default function PromotedAttributesCard({
 }: PromotedAttributesCardProps) {
     const [ shown, setShown ] =
         useState(() => resolvePromotedAttributes(note, settings, drawnByCollection));
+    // What the collection draws can change while the card stands, a board being regrouped from
+    // its header. The rows are marked again where they are, keeping their order and what is
+    // hidden; the marks are not stored, so nothing is written back for them.
+    const drawn = (drawnByCollection ?? []).join(",");
+    const [ lastDrawn, setLastDrawn ] = useState(drawn);
+    if (lastDrawn !== drawn) {
+        setLastDrawn(drawn);
+        setShown((was) => was.map((attribute) => ({
+            ...attribute,
+            drawnByCollection: drawnByCollection?.includes(attribute.name) ?? false
+        })));
+    }
     const [ detail, setDetail ] = useState<AttributeDetailOpts | null>(null);
     /** The definition the editor last reported, which `save` writes. */
     const edited = useRef<Attribute>();
