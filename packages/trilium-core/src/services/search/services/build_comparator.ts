@@ -17,26 +17,36 @@ const stringComparators: Record<string, Comparator<string>> = {
     // ignoring case and diacritics. This is the documented label-equality semantics, so
     // #capital=Vienna matches "vienna" but not "Vienna Austria". Word and phrase matching lives
     // in the internal "word=" operator.
-    "=": (comparedValue) => (val) => normalizeSearchText(val) === normalizeSearchText(comparedValue),
-    "!=": (comparedValue) => (val) => normalizeSearchText(val) !== normalizeSearchText(comparedValue),
+    "=": (comparedValue) => {
+        const normalizedCompared = normalizeSearchText(comparedValue);
+        return (val) => normalizeSearchText(val) === normalizedCompared;
+    },
+    "!=": (comparedValue) => {
+        const normalizedCompared = normalizeSearchText(comparedValue);
+        return (val) => normalizeSearchText(val) !== normalizedCompared;
+    },
     // Internal operator (not user-typable): word/phrase match used by the leading-"="
     // fulltext title comparison. Punctuation-aware via tokenizeIntoWords/stripWordPunctuation.
-    "word=": (comparedValue) => (val) => {
-        if (!val) return false;
-
-        const normalizedVal = normalizeSearchText(val);
+    "word=": (comparedValue) => {
         const normalizedCompared = normalizeSearchText(comparedValue);
+        // A compared value with spaces is a multi-word phrase, matched as a substring.
+        const isPhrase = normalizedCompared.includes(" ");
+        const comparedWord = stripWordPunctuation(normalizedCompared);
 
-        // If comparedValue has spaces, it's a multi-word phrase
-        // Check for substring match (consecutive phrase)
-        if (normalizedCompared.includes(" ")) {
-            return normalizedVal.includes(normalizedCompared);
-        }
+        return (val) => {
+            if (!val) return false;
 
-        // For single word, tokenize into punctuation-stripped words and check for
-        // an exact word match, so a value like "(Books)" matches the token "books".
-        const words = tokenizeIntoWords(normalizedVal);
-        return words.some(word => word === stripWordPunctuation(normalizedCompared));
+            const normalizedVal = normalizeSearchText(val);
+
+            if (isPhrase) {
+                return normalizedVal.includes(normalizedCompared);
+            }
+
+            // For single word, tokenize into punctuation-stripped words and check for
+            // an exact word match, so a value like "(Books)" matches the token "books".
+            const words = tokenizeIntoWords(normalizedVal);
+            return words.some(word => word === comparedWord);
+        };
     },
     ">": (comparedValue) => (val) => val > comparedValue,
     ">=": (comparedValue) => (val) => val >= comparedValue,
@@ -46,45 +56,53 @@ const stringComparators: Record<string, Comparator<string>> = {
     "=*": (comparedValue) => (val) => !!val && val.startsWith(comparedValue),
     "*=*": (comparedValue) => (val) => !!val && val.includes(comparedValue),
     "%=": (comparedValue) => (val) => !!val && !!getRegex(comparedValue).test(val),
-    "~=": (comparedValue) => (val) => {
-        if (!val || !comparedValue) return false;
-        
+    "~=": (comparedValue) => {
         // Validate minimum length for fuzzy search to prevent false positives
-        if (comparedValue.length < FUZZY_SEARCH_CONFIG.MIN_FUZZY_TOKEN_LENGTH) {
-            return val.includes(comparedValue);
-        }
-        
-        const normalizedVal = normalizeSearchText(val);
+        const tooShortForFuzzy = comparedValue.length < FUZZY_SEARCH_CONFIG.MIN_FUZZY_TOKEN_LENGTH;
         const normalizedCompared = normalizeSearchText(comparedValue);
-        
-        // First try exact substring match
-        if (normalizedVal.includes(normalizedCompared)) {
-            return true;
-        }
-        
-        // Then try fuzzy word matching over the tokenized (punctuation-stripped) value
-        const words = tokenizeIntoWords(normalizedVal);
-        return words.some(word => fuzzyMatchWord(normalizedCompared, word));
+
+        return (val) => {
+            if (!val || !comparedValue) return false;
+
+            if (tooShortForFuzzy) {
+                return val.includes(comparedValue);
+            }
+
+            const normalizedVal = normalizeSearchText(val);
+
+            // First try exact substring match
+            if (normalizedVal.includes(normalizedCompared)) {
+                return true;
+            }
+
+            // Then try fuzzy word matching over the tokenized (punctuation-stripped) value
+            const words = tokenizeIntoWords(normalizedVal);
+            return words.some(word => fuzzyMatchWord(normalizedCompared, word));
+        };
     },
-    "~*": (comparedValue) => (val) => {
-        if (!val || !comparedValue) return false;
-        
+    "~*": (comparedValue) => {
         // Validate minimum length for fuzzy search
-        if (comparedValue.length < FUZZY_SEARCH_CONFIG.MIN_FUZZY_TOKEN_LENGTH) {
-            return val.includes(comparedValue);
-        }
-        
-        const normalizedVal = normalizeSearchText(val);
+        const tooShortForFuzzy = comparedValue.length < FUZZY_SEARCH_CONFIG.MIN_FUZZY_TOKEN_LENGTH;
         const normalizedCompared = normalizeSearchText(comparedValue);
 
-        // "~*" is fuzzy CONTAINS: first try a plain substring (fragment) match, so
-        // a fragment like "progr" matches "programming" (mirrors the ~= fallback).
-        // Then fall back to fuzzy matching for typos that are not substrings.
-        if (normalizedVal.includes(normalizedCompared)) {
-            return true;
-        }
+        return (val) => {
+            if (!val || !comparedValue) return false;
 
-        return fuzzyMatchWord(normalizedCompared, normalizedVal);
+            if (tooShortForFuzzy) {
+                return val.includes(comparedValue);
+            }
+
+            const normalizedVal = normalizeSearchText(val);
+
+            // "~*" is fuzzy CONTAINS: first try a plain substring (fragment) match, so
+            // a fragment like "progr" matches "programming" (mirrors the ~= fallback).
+            // Then fall back to fuzzy matching for typos that are not substrings.
+            if (normalizedVal.includes(normalizedCompared)) {
+                return true;
+            }
+
+            return fuzzyMatchWord(normalizedCompared, normalizedVal);
+        };
     }
 };
 
