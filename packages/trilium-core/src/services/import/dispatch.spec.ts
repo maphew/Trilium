@@ -115,7 +115,7 @@ describe("importFile (dispatch)", () => {
         it("routes a .zip to the generic zip importer when archives are exploded", async () => {
             const file = makeFile({ originalname: "backup.zip", path: "/tmp/b.zip" });
             await importFile(taskContext, file, parentNote, makeOptions());
-            expect(stubbed.importZip).toHaveBeenCalledWith(taskContext, { path: "/tmp/b.zip" }, parentNote);
+            expect(stubbed.importZip).toHaveBeenCalledWith(taskContext, { path: "/tmp/b.zip" }, parentNote, { onObsidianVault: expect.any(Function) });
         });
 
         it("imports a .zip as a single file when archives are not exploded", async () => {
@@ -148,6 +148,18 @@ describe("importFile (dispatch)", () => {
             const file = makeFile({ originalname: "note.md", buffer: "# hi" });
             await importFile(taskContext, file, parentNote, makeOptions());
             expect(stubbed.importSingleFile).toHaveBeenCalledWith(taskContext, file, parentNote);
+        });
+    });
+
+    describe("Obsidian detection (an untagged .zip, e.g. dropped on the note tree)", () => {
+        it("hands the zip importer an Obsidian fallback that imports the vault in place of the archive", async () => {
+            const file = makeFile({ originalname: "MyVault.zip", path: "/tmp/v.zip" });
+            await importFile(taskContext, file, parentNote, makeOptions());
+
+            // The zip importer's scan pass decides whether to call this; recognition is covered in zip.spec.ts.
+            const opts = stubbed.importZip.mock.calls[0]?.[3];
+            await opts?.onObsidianVault?.();
+            expect(stubbed.importObsidian).toHaveBeenCalledWith(taskContext, { path: "/tmp/v.zip" }, parentNote, "MyVault.zip");
         });
     });
 });

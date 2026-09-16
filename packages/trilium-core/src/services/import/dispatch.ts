@@ -80,7 +80,13 @@ async function routeToImporter(taskContext: TaskContext<"importNotes">, file: Fi
         // Trilium export by extension alone; the Obsidian import dialog tags the upload to route it here.
         return await obsidianImportService.importObsidian(taskContext, zipSource, parentNote, file.originalname);
     } else if (extension === ".zip" && options.explodeArchives && (file.path || typeof file.buffer !== "string")) {
-        return await zipImportService.importZip(taskContext, zipSource, parentNote);
+        // Nothing tags a vault dropped straight onto the note tree, so the zip importer's scan pass hands
+        // one back here instead of importing it: the generic importer would strip it of wikilinks, callouts
+        // and frontmatter properties. That scan already reads every entry name for `!!!meta.json`, so
+        // recognizing a vault adds no pass over the archive.
+        return await zipImportService.importZip(taskContext, zipSource, parentNote, {
+            onObsidianVault: () => obsidianImportService.importObsidian(taskContext, zipSource, parentNote, file.originalname)
+        });
     } else if (extension === ".opml" && options.explodeArchives) {
         return await opmlImportService.importOpml(taskContext, file.buffer, parentNote);
     } else if (extension === ".enex" && options.explodeArchives) {

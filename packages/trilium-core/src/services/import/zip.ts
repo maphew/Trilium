@@ -60,6 +60,12 @@ interface ImportZipOpts {
      * archived "root" is remapped to a fresh id like any other note (see {@link getNewNoteId}).
      */
     restoreAsRoot?: boolean;
+    /**
+     * Imports the archive instead when the scan pass recognizes an Obsidian vault: a `.obsidian/` config
+     * folder and no `!!!meta.json`. Set by the dispatcher for an untagged `.zip`, so a vault dropped on the
+     * note tree reaches the Obsidian importer without anyone reading the archive an extra time.
+     */
+    onObsidianVault?: () => Promise<BNote>;
 }
 
 async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSource, importRootNote: BNote, opts?: ImportZipOpts): Promise<BNote> {
@@ -792,6 +798,8 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
     // count of entries the processing pass will handle, used as the progress denominator so the
     // client can show a progress bar ("X of N") instead of a bare running count
     let entriesToProcess = 0;
+    // Whether an entry sits under an Obsidian `.obsidian/` config folder, which marks the vault root.
+    let hasObsidianConfig = false;
 
     await zipProvider.readZipFile(source, async (entry, readContent) => {
         const filePath = normalizeFilePath(entry.fileName);
@@ -808,12 +816,24 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
             metaFile = JSON.parse(new TextDecoder("utf-8").decode(content));
         }
 
+        // Matched by segment so every shape counts: the folder entry itself, a file under it, and either
+        // at the archive root or under the vault's outer folder.
+        if (filePath.split("/").includes(".obsidian")) {
+            hasObsidianConfig = true;
+        }
+
         // determine the root of the .zip (i.e. if it has only one top-level folder then the root is that folder, or the root of the archive if there are multiple top-level folders).
         const firstSlash = filePath.indexOf("/");
         const topLevelPath = (firstSlash !== -1 ? filePath.substring(0, firstSlash) : filePath);
         topLevelItems.add(topLevelPath);
     }, filenameEncoding);
     timing.scan = Date.now() - timingMark;
+
+    // The scan has just read every entry name, so recognizing a vault costs nothing on top of it. Nothing
+    // has been created yet, so the archive can still be handed over whole.
+    if (opts?.onObsidianVault && hasObsidianConfig && !metaFile) {
+        return await opts.onObsidianVault();
+    }
 
     topLevelPath = (topLevelItems.size > 1 ? "" : topLevelItems.values().next().value ?? "");
 
