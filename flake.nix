@@ -284,13 +284,13 @@
 
             desktopItems = lib.optionals (app == "desktop") [
               (makeDesktopItem {
-                name = "Trilium Notes";
+                name = meta.mainProgram;
                 exec = meta.mainProgram;
                 icon = "trilium";
                 comment = meta.description;
                 desktopName = "Trilium Notes";
                 categories = [ "Office" ];
-                startupWMClass = "Trilium Notes";
+                startupWMClass = meta.mainProgram;
               })
             ];
 
