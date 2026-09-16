@@ -1555,8 +1555,6 @@
     "edit_attribute": "Изменить этот атрибут",
     "delete_attribute": "Удалить этот атрибут",
     "delete_confirmation": "Удалить <strong>{{name}}</strong> и все связанные с ним значения из каждой заметки в этой коллекции? Это действие нельзя будет отменить.",
-    "shown_on_items": "Показан на элементах",
-    "hidden_from_items": "Скрыт на элементах",
     "label_name": "Метка: {{name}}",
     "relation_name": "Отношение: {{name}}"
   },

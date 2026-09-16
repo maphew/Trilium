@@ -2074,8 +2074,6 @@
     "edit_attribute": "この属性を編集",
     "delete_attribute": "この属性を削除",
     "delete_confirmation": "このコレクション内のすべてのノートから <strong>{{name}}</strong> とその値を削除しますか？この操作は元に戻せません。",
-    "shown_on_items": "アイテムに表示",
-    "hidden_from_items": "アイテムから非表示",
     "label_name": "ラベル: {{name}}",
     "relation_name": "リレーション: {{name}}"
   },

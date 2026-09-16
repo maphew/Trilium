@@ -1186,9 +1186,7 @@
     "relation_name": "Gaol: {{name}}",
     "edit_attribute": "Cuir an tréith seo in eagar",
     "delete_attribute": "Scrios an tréith seo",
-    "delete_confirmation": "An scriosfar <strong>{{name}}</strong> agus a luachanna as gach nóta sa bhailiúchán seo? Ní féidir é seo a chealú.",
-    "shown_on_items": "Ar taispeáint ar na míreanna",
-    "hidden_from_items": "Faoi cheilt ar na míreanna"
+    "delete_confirmation": "An scriosfar <strong>{{name}}</strong> agus a luachanna as gach nóta sa bhailiúchán seo? Ní féidir é seo a chealú."
   },
   "script_executor": {
     "query": "Iarratas",

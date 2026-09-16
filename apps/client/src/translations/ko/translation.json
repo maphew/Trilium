@@ -1414,8 +1414,6 @@
     "create_attribute": "새 속성 생성",
     "edit_attribute": "이 속성 편집",
     "delete_attribute": "이 속성 삭제",
-    "shown_on_items": "항목에 표시",
-    "hidden_from_items": "항목에서 숨김",
     "delete_confirmation": "이 컬렉션의 모든 노트에서 <strong>{{name}}</strong> 및 해당 값을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
     "label_name": "라벨: {{name}}",
     "relation_name": "관계: {{name}}"
