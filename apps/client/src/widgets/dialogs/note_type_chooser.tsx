@@ -90,9 +90,11 @@ export default function NoteTypeChooserDialogComponent() {
     }, [ shown, noteTypes.length ]);
 
     function tryFocusFirstNoteType() {
-        if (!userMovedFocus.current) {
-            focusFirstNoteType(modalRef.current);
+        if (userMovedFocus.current) {
+            return;
         }
+
+        modalRef.current?.querySelector<HTMLElement>(".dropdownWrapper .dropdown-item:not(.disabled)")?.focus();
     }
 
     function onNoteTypeSelected(value: string) {
@@ -159,8 +161,4 @@ export default function NoteTypeChooserDialogComponent() {
             </FormGroup>
         </Modal>
     );
-}
-
-function focusFirstNoteType(modal: HTMLDivElement | null) {
-    modal?.querySelector<HTMLElement>(".dropdownWrapper .dropdown-item:not(.disabled)")?.focus();
 }
