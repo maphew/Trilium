@@ -226,43 +226,6 @@ describe("autocompleteSource (via dataset)", () => {
         expect(rows[0].commandId).toBe("c");
     });
 
-    it("resets searchDelay back to the computed value after it was zeroed", async () => {
-        server.get = vi.fn(async () => []) as typeof server.get;
-        // Capture the delay arg the source's debounce schedules with, so we can
-        // observe that the zeroed searchDelay is restored to the computed value.
-        const scheduledDelays: number[] = [];
-        const originalSetTimeout = globalThis.setTimeout;
-        const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: any, delay?: number, ...rest: any[]) => {
-            scheduledDelays.push(delay as number);
-            // call through to the real timer so runSource's cb still resolves
-            return originalSetTimeout(fn, delay as number, ...rest);
-        }) as unknown as typeof setTimeout);
-        try {
-            const { $el, dataset } = initAndGetSource();
-            // showRecentNotes zeroes the shared module-level searchDelay...
-            noteAutocomplete.showRecentNotes($el);
-            // ...so the FIRST source invocation debounces with delay 0 (immediate)
-            // and, because searchDelay === 0, restores it to getSearchDelay(notesCount).
-            await runSource(dataset, "x");
-            // ...and the SECOND source invocation now sees the restored (non-zero)
-            // delay rather than 0 — this is the reset behaviour the test name claims.
-            await runSource(dataset, "y");
-            expect(server.get).toHaveBeenCalled();
-
-            // The source-callback delays we captured (filtering out any unrelated
-            // timers froca/setup may schedule): the run after zeroing uses 0, the
-            // following run uses the restored computed delay (which is NOT 0).
-            // notesCount resolves to undefined in this mocked environment, so
-            // getSearchDelay(undefined) === NaN — still distinct from the zeroed 0.
-            expect(scheduledDelays).toContain(0); // the immediate run after zeroing
-            const restored = scheduledDelays[scheduledDelays.length - 1];
-            expect(restored).not.toBe(0); // searchDelay was restored away from 0
-            expect(Number.isNaN(restored)).toBe(true); // == getSearchDelay(undefined)
-        } finally {
-            setTimeoutSpy.mockRestore();
-        }
-    });
-
     it("queries the server and returns plain results", async () => {
         server.get = vi.fn(async () => [{ noteTitle: "Result", notePath: "root/x" }]) as typeof server.get;
         const { dataset } = initAndGetSource();
@@ -467,7 +430,7 @@ describe("autocompleteSource (via dataset)", () => {
     });
 });
 
-describe("source debounce + searchDelay reset", () => {
+describe("source debounce", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.useFakeTimers();
@@ -479,6 +442,57 @@ describe("source debounce + searchDelay reset", () => {
 
     afterEach(() => {
         vi.useRealTimers();
+    });
+
+    it("runs the first search of a burst without waiting", () => {
+        const { dataset } = initAndGetSource();
+        dataset.source("hi", vi.fn());
+        // No timer is advanced: an idle input queries on the keystroke itself.
+        expect(server.get).toHaveBeenCalledTimes(1);
+    });
+
+    it("coalesces the rest of a burst into one search for the final term", async () => {
+        const { dataset } = initAndGetSource();
+        for (const term of ["h", "he", "hel", "hell"]) {
+            dataset.source(term, vi.fn());
+        }
+        expect(server.get).toHaveBeenCalledTimes(1);
+
+        await vi.runAllTimersAsync();
+        expect(server.get).toHaveBeenCalledTimes(2);
+        expect(server.get).toHaveBeenLastCalledWith(expect.stringContaining("query=hell"));
+    });
+
+    it("holds the window open while typing continues instead of pacing searches", async () => {
+        const { dataset } = initAndGetSource();
+        // Keystrokes arriving closer together than the window: only the one that opens the burst
+        // and the one after it ends may reach the server.
+        dataset.source("h", vi.fn());
+        for (const term of ["he", "hel", "hell"]) {
+            await vi.advanceTimersByTimeAsync(30);
+            dataset.source(term, vi.fn());
+        }
+        expect(server.get).toHaveBeenCalledTimes(1);
+
+        await vi.runAllTimersAsync();
+        expect(server.get).toHaveBeenCalledTimes(2);
+        expect(server.get).toHaveBeenLastCalledWith(expect.stringContaining("query=hell"));
+    });
+
+    it("gives each input its own timer, so one cannot cancel another's pending search", async () => {
+        const first = initAndGetSource();
+        const second = initAndGetSource();
+        // The leading-edge search of each burst, so both inputs hold a debounced one afterwards.
+        first.dataset.source("a1", vi.fn());
+        second.dataset.source("b1", vi.fn());
+        // Typing in one input must not drop the search the other is waiting on.
+        first.dataset.source("a2", vi.fn());
+        second.dataset.source("b2", vi.fn());
+        await vi.runAllTimersAsync();
+
+        const queries = vi.mocked(server.get).mock.calls.map(([url]) => url);
+        expect(queries.some((url) => url.includes("query=a2"))).toBe(true);
+        expect(queries.some((url) => url.includes("query=b2"))).toBe(true);
     });
 
     it("debounces and skips the search while composing input", async () => {

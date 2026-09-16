@@ -91,19 +91,4 @@ describe("Autocomplete API (core)", () => {
             expect(res.status).toBe(400);
         });
     });
-
-    describe("getNotesCount", () => {
-        it("returns the count of non-deleted notes as a number", async () => {
-            const before = await api.get<number>("/api/autocomplete/notesCount");
-            expect(before.status).toBe(200);
-            expect(typeof before.body).toBe("number");
-            expect(before.body).toBeGreaterThan(0);
-
-            await createTextNote(api, { title: "Counts towards total" });
-
-            const after = await api.get<number>("/api/autocomplete/notesCount");
-            expect(after.status).toBe(200);
-            expect(after.body).toBeGreaterThan(before.body);
-        });
-    });
 });

@@ -16,17 +16,36 @@ const SELECTED_NOTE_PATH_KEY = "data-note-path";
 
 const SELECTED_EXTERNAL_LINK_KEY = "data-external-link";
 
-// To prevent search lag when there are a large number of notes, set a delay based on the number of notes to avoid jitter.
-const notesCount = await server.get<number>(`autocomplete/notesCount`);
-let debounceTimeoutId: ReturnType<typeof setTimeout>;
+// Short on purpose: a search costs tens of milliseconds, so this exists to merge keystrokes that
+// arrive faster than a person reads a result, not to wait out a slow server. Anything longer is
+// felt on every keystroke typed at a normal pace.
+const SEARCH_DEBOUNCE_MS = 50;
 
-function getSearchDelay(notesCount: number): number {
-    const maxNotes = 20000;
-    const maxDelay = 1000;
-    const delay = Math.min(maxDelay, (notesCount / maxNotes) * maxDelay);
-    return delay;
+/**
+ * Debounces one input's searches: the first keystroke after a pause queries immediately, and a burst
+ * typed faster than {@link SEARCH_DEBOUNCE_MS} collapses into one search that runs once it stops.
+ * Each input holds its own timer, so a keystroke in one cannot cancel a search another is waiting on.
+ */
+function createSearchScheduler() {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let lastCallAt = 0;
+
+    return (runSearch: () => void) => {
+        clearTimeout(timeoutId);
+
+        // Measured from the previous keystroke rather than the previous search. Measuring from the
+        // search paces requests at a fixed rate instead of ending the window when typing pauses.
+        const now = Date.now();
+        const startsBurst = now - lastCallAt >= SEARCH_DEBOUNCE_MS;
+        lastCallAt = now;
+
+        if (startsBurst) {
+            runSearch();
+        } else {
+            timeoutId = setTimeout(runSearch, SEARCH_DEBOUNCE_MS);
+        }
+    };
 }
-let searchDelay = getSearchDelay(notesCount);
 
 async function getInboxTarget() {
     try {
@@ -217,7 +236,6 @@ async function autocompleteSource(term: string, cb: (rows: Suggestion[]) => void
 // fires one to keep consumers bound to it, such as NoteAutocomplete's onTextChange, in sync.
 
 function clearText($el: JQuery<HTMLElement>) {
-    searchDelay = 0;
     $el.setSelectedNotePath("");
     $el.autocomplete("val", "").trigger("change");
     $el.trigger("input");
@@ -231,7 +249,6 @@ function setText($el: JQuery<HTMLElement>, text: string) {
 }
 
 function showRecentNotes($el: JQuery<HTMLElement>) {
-    searchDelay = 0;
     $el.setSelectedNotePath("");
     $el.autocomplete("val", "");
     $el.trigger("input");
@@ -240,7 +257,6 @@ function showRecentNotes($el: JQuery<HTMLElement>) {
 }
 
 function showAllCommands($el: JQuery<HTMLElement>) {
-    searchDelay = 0;
     $el.setSelectedNotePath("");
     $el.autocomplete("val", ">");
     $el.trigger("input");
@@ -256,7 +272,6 @@ function fullTextSearch($el: JQuery<HTMLElement>, options: Options) {
     options.fastSearch = false;
     $el.autocomplete("val", "");
     $el.setSelectedNotePath("");
-    searchDelay = 0;
     $el.autocomplete("val", searchString);
 }
 
@@ -269,6 +284,8 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
     }
 
     options = options || {};
+
+    const scheduleSearch = createSearchScheduler();
 
     // Used to track whether the user is performing character composition with an input method (such as Chinese Pinyin, Japanese, Korean, etc.) and to avoid triggering a search during the composition process.
     let isComposingInput = false;
@@ -369,17 +386,12 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
         [
             {
                 source: (term, cb) => {
-                    clearTimeout(debounceTimeoutId);
-                    debounceTimeoutId = setTimeout(() => {
+                    scheduleSearch(() => {
                         if (isComposingInput) {
                             return;
                         }
                         autocompleteSource(term, cb, options);
-                    }, searchDelay);
-
-                    if (searchDelay === 0) {
-                        searchDelay = getSearchDelay(notesCount);
-                    }
+                    });
                 },
                 displayKey: "notePathTitle",
                 templates: {
