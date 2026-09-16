@@ -1090,7 +1090,13 @@ export default function BoardView({
     // Only the board's own background, so a press on a column, a card or the button that adds one
     // is left to whatever it belongs to. Suppressed while a card is carried: the gesture owns the
     // pointer, and the board must not slide under it.
-    const { isPannable, isPanning } = useDragPan(containerRef, { disabled: isDraggingItem });
+    // Panning refuses the browser's default on the press that starts it, and that default is what
+    // moves focus off a field being typed in. So the board does not pan while one is open: the
+    // press lands as an ordinary click, and the field is dismissed by losing the focus.
+    const isNamingSomething = branchIdToEdit !== undefined || columnNameToEdit !== undefined
+        || isCreatingColumn || insertingColumns.size > 0;
+    const { isPannable, isPanning } = useDragPan(containerRef,
+        { disabled: isDraggingItem || isNamingSomething });
     // Columns slide to follow the gap a carried column opens. The selector excludes the drag
     // preview, whose transform `useBoardDrag` writes every frame; `AddNewColumn` is outside the
     // container, and is moved by the scroll that keeps it in view instead.
