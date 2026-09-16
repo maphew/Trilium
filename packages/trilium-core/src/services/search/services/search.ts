@@ -13,7 +13,7 @@ import { isScriptingEnabled } from "../../scripting_guard.js";
 import { escapeHtml, escapeRegExp, normalizePreservingLength, unescapeHtml } from "../../utils/index.js";
 import type Expression from "../expressions/expression.js";
 import SearchContext from "../search_context.js";
-import SearchResult from "../search_result.js";
+import SearchResult, { precomputeScoringTerms } from "../search_result.js";
 import handleParens from "./handle_parens.js";
 import lex from "./lex.js";
 import parse from "./parse.js";
@@ -348,8 +348,10 @@ function performSearch(expression: Expression, searchContext: SearchContext, ena
         return new SearchResult(notePathArray);
     });
 
+    // Derived once rather than per result: every match is scored against the same query.
+    const scoringTerms = precomputeScoringTerms(searchContext.fulltextQuery, searchContext.highlightedTokens);
     for (const res of searchResults) {
-        res.computeScore(searchContext.fulltextQuery, searchContext.highlightedTokens, enableFuzzyMatching, searchContext.contentMatches.get(res.noteId));
+        res.computeScore(searchContext.fulltextQuery, searchContext.highlightedTokens, enableFuzzyMatching, searchContext.contentMatches.get(res.noteId), scoringTerms);
     }
 
     // Restore original fuzzy setting

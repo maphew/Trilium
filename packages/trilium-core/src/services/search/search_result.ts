@@ -42,6 +42,22 @@ const SCORE_WEIGHTS = {
 } as const;
 
 
+/**
+ * The query-side strings every result is scored against. They depend on the query alone, so
+ * `performSearch` derives them once and hands the same bundle to every result.
+ */
+export interface ScoringTerms {
+    normalizedQuery: string;
+    normalizedTokens: string[];
+}
+
+export function precomputeScoringTerms(fulltextQuery: string, tokens: string[]): ScoringTerms {
+    return {
+        normalizedQuery: normalizeSearchText(fulltextQuery),
+        normalizedTokens: tokens.map((token) => stripWordPunctuation(normalizeSearchText(token)))
+    };
+}
+
 class SearchResult {
     notePathArray: string[];
     score: number;
@@ -68,13 +84,13 @@ class SearchResult {
         return this.notePathArray[this.notePathArray.length - 1];
     }
 
-    computeScore(fulltextQuery: string, tokens: string[], enableFuzzyMatching: boolean = true, contentMatch?: ContentMatchQuality) {
+    computeScore(fulltextQuery: string, tokens: string[], enableFuzzyMatching: boolean = true, contentMatch?: ContentMatchQuality, terms?: ScoringTerms) {
         this.score = 0;
         this.fuzzyScore = 0; // Reset fuzzy score tracking
 
         const note = becca.notes[this.noteId];
+        const { normalizedQuery, normalizedTokens } = terms ?? precomputeScoringTerms(fulltextQuery, tokens);
         // normalizeSearchText already lowercases — no need for .toLowerCase() first
-        const normalizedQuery = normalizeSearchText(fulltextQuery);
         const normalizedTitle = normalizeSearchText(note.title);
 
         // Note ID exact match, much higher score
@@ -97,8 +113,8 @@ class SearchResult {
         }
 
         // Add scores for token matches
-        this.addScoreForStrings(tokens, note.title, SCORE_WEIGHTS.TITLE_FACTOR, enableFuzzyMatching);
-        this.addScoreForStrings(tokens, this.notePathTitle, SCORE_WEIGHTS.PATH_FACTOR, enableFuzzyMatching);
+        this.addScoreForStrings(tokens, note.title, SCORE_WEIGHTS.TITLE_FACTOR, enableFuzzyMatching, normalizedTokens);
+        this.addScoreForStrings(tokens, this.notePathTitle, SCORE_WEIGHTS.PATH_FACTOR, enableFuzzyMatching, normalizedTokens);
 
         // Add score for how well the note's body content matched the query.
         if (contentMatch) {
@@ -155,13 +171,12 @@ class SearchResult {
         this.score += contentScore;
     }
 
-    addScoreForStrings(tokens: string[], str: string, factor: number, enableFuzzyMatching: boolean = true) {
+    addScoreForStrings(tokens: string[], str: string, factor: number, enableFuzzyMatching: boolean = true, precomputedTokens?: string[]) {
         // Tokenize (strip boundary punctuation) so a chunk like "(sync)" scores as
         // an exact token match for "sync" rather than only a contains match.
         const chunks = tokenizeIntoWords(str);
 
-        // Pre-normalize and strip tokens once instead of per-chunk
-        const normalizedTokens = tokens.map(t => stripWordPunctuation(normalizeSearchText(t)));
+        const normalizedTokens = precomputedTokens ?? tokens.map(t => stripWordPunctuation(normalizeSearchText(t)));
 
         let tokenScore = 0;
         for (const chunk of chunks) {
