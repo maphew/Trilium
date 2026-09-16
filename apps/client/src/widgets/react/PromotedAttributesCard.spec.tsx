@@ -82,11 +82,13 @@ describe("PromotedAttributesCard", () => {
     let host: Component;
     let stored: PromotedAttribute[][];
     let settings: PromotedAttributeSetting[] | undefined;
+    let drawnByCollection: string[] | undefined;
 
     beforeEach(() => {
         vi.clearAllMocks();
         stored = [];
         settings = undefined;
+        drawnByCollection = undefined;
         defined = [ definition("label:dueDate", { alias: "Due" }), definition("label:owner") ];
         mocks.detail.opts = null;
         mocks.confirm.mockResolvedValue(true);
@@ -124,6 +126,26 @@ describe("PromotedAttributesCard", () => {
             "attribute_detail.date", "attribute_detail.boolean", "attribute_detail.text",
             "attribute_detail.relation_type"
         ]);
+    });
+
+    /**
+     * A collection draws one of them itself, a board's grouping label standing as its columns. It
+     * is listed and arranged with the rest, so it holds its place for whenever the collection is
+     * arranged by something else, but it is never shown on an item and its switch says so.
+     */
+    it("lists what the collection draws itself, with its switch held off", () => {
+        settings = [ { name: "owner" }, { name: "dueDate" } ];
+        drawnByCollection = [ "owner" ];
+        draw();
+
+        expect(names()).toEqual([ unnamed("owner"), "Due" ]);
+        expect(shown()).toEqual([ false, true ]);
+        expect(locked()).toEqual([ true, false ]);
+
+        // Pressing it changes nothing, so what the collection stores is left alone.
+        toggle(0);
+        expect(shown()).toEqual([ false, true ]);
+        expect(stored).toEqual([]);
     });
 
     it("follows the order the settings give, and turns off what they hide", () => {
@@ -365,6 +387,7 @@ describe("PromotedAttributesCard", () => {
                         instruction="Pick what the items show."
                         note={NOTE}
                         settings={settings}
+                        drawnByCollection={drawnByCollection}
                         onChange={(attributes) => stored.push(attributes)}
                     />
                 </ParentComponent.Provider>,
@@ -395,6 +418,12 @@ describe("PromotedAttributesCard", () => {
     function shown() {
         return segments().map((segment) =>
             !!segment.querySelector(".switch-button")?.classList.contains("on"));
+    }
+
+    /** Which entries offer no say over being shown, their switch being held off. */
+    function locked() {
+        return segments().map((segment) =>
+            !!segment.querySelector<HTMLInputElement>(".switch-button input")?.disabled);
     }
 
     function toggle(index: number) {

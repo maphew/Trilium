@@ -45,8 +45,11 @@ export interface PromotedAttributesCardProps {
     note: FNote;
     /** The order and what is hidden, as the collection's view config stores it. */
     settings: PromotedAttributeSetting[] | undefined;
-    /** Attributes the collection draws itself, such as the label a board groups by. */
-    ignored?: string[];
+    /**
+     * Attributes the collection draws itself, such as the label a board groups by. Listed and
+     * arranged with the rest, but their switch is held off: they are already on the screen.
+     */
+    drawnByCollection?: string[];
     /** Called with the whole list after every change, for the caller to store. */
     onChange: (attributes: PromotedAttribute[]) => void;
 }
@@ -59,9 +62,10 @@ export interface PromotedAttributesCardProps {
  * reports the order and what is hidden, which the caller stores.
  */
 export default function PromotedAttributesCard({
-    heading, instruction, note, settings, ignored, onChange
+    heading, instruction, note, settings, drawnByCollection, onChange
 }: PromotedAttributesCardProps) {
-    const [ shown, setShown ] = useState(() => resolvePromotedAttributes(note, settings, ignored));
+    const [ shown, setShown ] =
+        useState(() => resolvePromotedAttributes(note, settings, drawnByCollection));
     const [ detail, setDetail ] = useState<AttributeDetailOpts | null>(null);
     /** The definition the editor last reported, which `save` writes. */
     const edited = useRef<Attribute>();
@@ -75,7 +79,7 @@ export default function PromotedAttributesCard({
             .some((attribute) => attributes.isAffecting(attribute, note));
         if (affects) {
             setShown((was) =>
-                resolvePromotedAttributes(note, storedPromotedAttributes(was), ignored));
+                resolvePromotedAttributes(note, storedPromotedAttributes(was), drawnByCollection));
         }
     });
 
@@ -234,9 +238,12 @@ export default function PromotedAttributesCard({
                             />
 
                             <FormToggle
-                                currentValue={!attribute.hidden}
+                                currentValue={!attribute.hidden && !attribute.drawnByCollection}
+                                disabled={attribute.drawnByCollection}
                                 switchOnTooltip={t("promoted_attributes.shown_on_items")}
-                                switchOffTooltip={t("promoted_attributes.hidden_from_items")}
+                                switchOffTooltip={attribute.drawnByCollection
+                                    ? t("promoted_attributes.drawn_by_collection")
+                                    : t("promoted_attributes.hidden_from_items")}
                                 onChange={(visible) => setHidden(attribute.name, !visible)}
                             />
                         </>

@@ -1412,7 +1412,8 @@
     "remove_value": "Remove this value",
     "select_values_placeholder": "Select an option or create one",
     "values_placeholder": "Type a value and press Enter",
-    "add_value": "Add this value"
+    "add_value": "Add this value",
+    "drawn_by_collection": "The collection is arranged by this, so its items do not repeat it"
   },
   "script_executor": {
     "query": "Query",

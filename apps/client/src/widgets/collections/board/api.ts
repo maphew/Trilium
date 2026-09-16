@@ -952,10 +952,20 @@ export default class BoardApi {
         return this.viewConfig?.promotedAttributes;
     }
 
-    /** The promoted attributes the board defines, in the order the reader put them. */
-    getPromotedAttributes() {
+    /**
+     * Every promoted attribute the board defines, in the order the reader put them, the one it
+     * groups by included: the properties dialog lists that one so it keeps its place among the
+     * others for whenever the board is grouped by something else.
+     */
+    getAllPromotedAttributes() {
         return resolvePromotedAttributes(
             this.parentNote, this.viewConfig?.promotedAttributes, [ this.statusAttribute ]);
+    }
+
+    /** Those a card can show or a column sort by, which the columns themselves stand for. */
+    getPromotedAttributes() {
+        return this.getAllPromotedAttributes()
+            .filter((attribute) => !attribute.drawnByCollection);
     }
 
     /** Which of them a card draws, in order. */
