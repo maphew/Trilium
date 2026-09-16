@@ -23,6 +23,16 @@
         background-repeat: no-repeat;
         background-position: 0.5em var(--markdown-preview-marker-top, 0);
         background-size: 2px var(--markdown-preview-marker-height, 0);
+
+        /* Only while the cursor moves to another block: the hook adds the class for that update
+         * alone, so the marker still resizes instantly as the block it sits in is edited. */
+        &.markdown-preview-marker-moving {
+            transition: background-position 150ms ease, background-size 150ms ease;
+
+            @media (prefers-reduced-motion: reduce) {
+                transition: none;
+            }
+        }
     }
 }
 

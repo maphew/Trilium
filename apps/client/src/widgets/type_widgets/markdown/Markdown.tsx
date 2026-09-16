@@ -282,11 +282,19 @@ function useSyncedHighlight(view: VanillaCodeMirror | null, preview: HTMLDivElem
     useEffect(() => {
         if (!view || !preview) return;
 
+        let current: HTMLElement | null = null;
+
         function update() {
             if (!view || !preview) return;
             const activeLine = view.state.doc.lineAt(view.state.selection.main.head).number;
             const blocks = preview.querySelectorAll<HTMLElement>("[data-source-line]");
             const match = findActiveBlock(blocks, activeLine);
+
+            // Animate from one block to the next, but not into or out of nothing: with no
+            // marker to move from, a transition reads as the bar growing out of the top edge.
+            const moving = !!current && !!match && current !== match;
+            preview.classList.toggle("markdown-preview-marker-moving", moving);
+            current = match;
 
             // `offsetTop` and the marker's containing block are both the preview's padding box.
             preview.style.setProperty("--markdown-preview-marker-top", `${match?.offsetTop ?? 0}px`);
