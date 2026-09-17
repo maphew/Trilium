@@ -112,29 +112,40 @@ describe('Fuzzy Search Core', () => {
     });
 
     describe('getAutoMaxEditDistance', () => {
-        it('scales the allowed edit distance by token length (Elasticsearch AUTO-style)', () => {
-            // 0-2 chars: no fuzzy.
+        it('scales the allowed edit distance by token length', () => {
+            // 0-3 chars: no fuzzy.
             expect(getAutoMaxEditDistance(0)).toBe(0);
             expect(getAutoMaxEditDistance(1)).toBe(0);
             expect(getAutoMaxEditDistance(2)).toBe(0);
-            // 3-5 chars: 1 edit.
-            expect(getAutoMaxEditDistance(3)).toBe(1);
+            expect(getAutoMaxEditDistance(3)).toBe(0);
+            // 4-6 chars: 1 edit.
             expect(getAutoMaxEditDistance(4)).toBe(1);
             expect(getAutoMaxEditDistance(5)).toBe(1);
-            // 6+ chars: 2 edits.
-            expect(getAutoMaxEditDistance(6)).toBe(2);
+            expect(getAutoMaxEditDistance(6)).toBe(1);
+            // 7+ chars: 2 edits.
+            expect(getAutoMaxEditDistance(7)).toBe(2);
             expect(getAutoMaxEditDistance(8)).toBe(2);
             expect(getAutoMaxEditDistance(20)).toBe(2);
         });
 
-        it('rejects distance-2 typos for short (<=5 char) tokens', () => {
+        it('gives a three-character token no edit budget at all', () => {
+            // One edit reaches a different word rather than correcting a typo at this length,
+            // so "for" must not match "fox" nor "not" match "now".
+            expect(getAutoMaxEditDistance(3)).toBe(0);
+            expect(fuzzyMatchWord('for', 'fox')).toBe(false);
+            expect(fuzzyMatchWord('not', 'now')).toBe(false);
+            // The token still matches itself, so an exact hit is unaffected.
+            expect(fuzzyMatchWord('for', 'for')).toBe(true);
+        });
+
+        it('rejects distance-2 typos for short (<=6 char) tokens', () => {
             // "sync" (4) vs "send": d=2 > 1 -> no fuzzy match (was a false positive).
             expect(fuzzyMatchWord('sync', 'send')).toBe(false);
             // "ceck" (4) vs "tech": d=2 > 1 -> no fuzzy match.
             expect(fuzzyMatchWord('ceck', 'tech')).toBe(false);
         });
 
-        it('allows distance-2 typos for longer (6+ char) tokens', () => {
+        it('allows distance-2 typos for longer (7+ char) tokens', () => {
             // "combinef" (8) vs "combined": d=1 <= 2 -> fuzzy match.
             expect(fuzzyMatchWord('combinef', 'combined')).toBe(true);
         });

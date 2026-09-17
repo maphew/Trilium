@@ -207,23 +207,30 @@ describe("Search documentation examples", () => {
         });
     });
 
-    describe('Fuzzy tolerance (AUTO): token length decides allowed edits', () => {
-        // Docs: Search.md § "Fuzzy tolerance (AUTO)", length-3-to-5 tier (1 edit)
-        it("`cat` (length 3) finds `car`: one edit is allowed for 3-5 character tokens", () => {
+    describe('Fuzzy tolerance: token length decides allowed edits', () => {
+        // Docs: Search.md § "Fuzzy tolerance", length-1-to-3 tier (0 edits)
+        it("`cat` (length 3) does NOT find `car`: no edits are allowed below 4 characters", () => {
             const car = contentNote("Vehicle", "a bright red car");
 
-            expect(rank(search("cat"), car.noteId)).toBeGreaterThanOrEqual(0);
+            expect(rank(search("cat"), car.noteId)).toEqual(-1);
         });
 
-        // Docs: Search.md § "Fuzzy tolerance (AUTO)", length-3-to-5 tier rejects 2 edits
+        // Docs: Search.md § "Fuzzy tolerance", length-4-to-6 tier (1 edit)
+        it("`carr` (length 4) finds `card`: one edit is allowed for 4-6 character tokens", () => {
+            const card = contentNote("Wallet", "a blue debit card");
+
+            expect(rank(search("carr"), card.noteId)).toBeGreaterThanOrEqual(0);
+        });
+
+        // Docs: Search.md § "Fuzzy tolerance", length-4-to-6 tier rejects 2 edits
         it("`ceck` (length 4) does NOT find `tech`: two edits exceed the 1-edit budget", () => {
             const tech = contentNote("News", "the latest tech trends");
 
             expect(rank(search("ceck"), tech.noteId)).toEqual(-1);
         });
 
-        // Docs: Search.md § "Fuzzy tolerance (AUTO)", length-6+ tier (2 edits)
-        it("`combinef` (length 8) finds `combined`: two edits are allowed for 6+ character tokens", () => {
+        // Docs: Search.md § "Fuzzy tolerance", length-7+ tier (2 edits)
+        it("`combinef` (length 8) finds `combined`: two edits are allowed for 7+ character tokens", () => {
             const combined = contentNote("Build", "the values were combined together");
 
             expect(rank(search("combinef"), combined.noteId)).toBeGreaterThanOrEqual(0);

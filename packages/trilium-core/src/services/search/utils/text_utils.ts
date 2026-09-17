@@ -280,16 +280,19 @@ function escapeRegExp(string: string): string {
 }
 
 /**
- * Maximum edit distance allowed for a fuzzy match, scaled by token length the way
- * Elasticsearch's `fuzziness: AUTO` does: 0 for 1-2 characters, 1 for 3-5, and
- * `FUZZY_SEARCH_CONFIG.MAX_EDIT_DISTANCE` beyond that. A flat distance of 2 is loose
- * enough to match "sync" against "send".
+ * Maximum edit distance allowed for a fuzzy match, scaled by token length: 0 for 1-3 characters,
+ * 1 for 4-6, and `FUZZY_SEARCH_CONFIG.MAX_EDIT_DISTANCE` beyond that. A flat distance of 2 is
+ * loose enough to match "sync" against "send".
+ *
+ * The thresholds are the ones Typesense and Algolia use for search-as-you-type. One edit spans
+ * too much of a three-letter word to correct a typo rather than reach a different word: "for"
+ * would match "fox", "not" would match "now" and "got".
  */
 export function getAutoMaxEditDistance(tokenLength: number): number {
-    if (tokenLength <= 2) {
+    if (tokenLength <= 3) {
         return 0;
     }
-    if (tokenLength <= 5) {
+    if (tokenLength <= 6) {
         return 1;
     }
     return FUZZY_SEARCH_CONFIG.MAX_EDIT_DISTANCE;
