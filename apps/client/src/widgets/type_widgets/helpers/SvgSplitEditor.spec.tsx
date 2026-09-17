@@ -1,7 +1,8 @@
 import { render } from "preact";
 import { useEffect } from "preact/hooks";
 import { act } from "preact/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import svgPanZoom from "svg-pan-zoom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import SvgSplitEditor from "./SvgSplitEditor";
 import type { SplitEditorProps } from "./SplitEditor";
@@ -67,6 +68,16 @@ const SVG_MARKUP_WITHOUT_VIEW_BOX = `<svg xmlns="http://www.w3.org/2000/svg">`
     + `<rect width="10" height="10"/></svg>`;
 
 describe("SvgSplitEditor", () => {
+    // happy-dom has no layout and measures every element as 0x0, so give the diagram a box.
+    beforeEach(() => {
+        vi.mocked(svgPanZoom).mockClear();
+        mockBoundingClientRect(800, 600);
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it("restores the viewBox on cleanup, undoing what svg-pan-zoom stripped on init", async () => {
         const svgEl = await mountAndUnmount(SVG_MARKUP, (el) => {
             // Sanity check that the mocked library actually ran and stripped the attribute, so a
@@ -118,7 +129,41 @@ describe("SvgSplitEditor", () => {
         unmount();
         container.remove();
     });
+
+    it.each([
+        { name: "a hidden pane", width: 0, height: 0, viewBox: ORIGINAL_VIEW_BOX, starts: false },
+        { name: "a flat pane", width: 800, height: 0, viewBox: ORIGINAL_VIEW_BOX, starts: false },
+        { name: "an empty viewBox", width: 800, height: 600, viewBox: "0 0 0 0", starts: false },
+        { name: "a NaN viewBox", width: 800, height: 600, viewBox: "0 0 NaN NaN", starts: false },
+        { name: "a flat viewBox", width: 800, height: 600, viewBox: "0 0 100 0", starts: false },
+        { name: "a usable box", width: 800, height: 600, viewBox: ORIGINAL_VIEW_BOX, starts: true }
+    ])("starts pan/zoom only on a diagram with a box: $name", async (diagram) => {
+        const { width, height, viewBox, starts } = diagram;
+        mockBoundingClientRect(width, height);
+        const container = document.createElement("div");
+        document.body.appendChild(container);
+
+        await act(async () => {
+            const markup = SVG_MARKUP.replace(ORIGINAL_VIEW_BOX, viewBox);
+            render(<SvgSplitEditor {...svgSplitEditorProps(markup)} />, container);
+        });
+        await vi.waitFor(() => expect(container.querySelector("svg")).not.toBeNull());
+        // Lets the pan/zoom effect and the state update that draws the controls settle.
+        await act(async () => {});
+
+        expect(vi.mocked(svgPanZoom)).toHaveBeenCalledTimes(starts ? 1 : 0);
+        expect(container.querySelector(".svg-preview-controls") !== null).toBe(starts);
+
+        expect(() => act(() => render(null, container))).not.toThrow();
+        container.remove();
+    });
 });
+
+/** Makes every element measure as `width` x `height`, which happy-dom cannot do on its own. */
+function mockBoundingClientRect(width: number, height: number) {
+    vi.spyOn(Element.prototype, "getBoundingClientRect")
+        .mockReturnValue(new DOMRect(0, 0, width, height));
+}
 
 /**
  * Mounts `SvgSplitEditor` and waits for the controls over the rendered diagram to appear, handing

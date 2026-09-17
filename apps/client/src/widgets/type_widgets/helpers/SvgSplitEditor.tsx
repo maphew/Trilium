@@ -242,6 +242,7 @@ function useResizer(containerRef: RefObject<HTMLDivElement>, noteId: string, svg
             }
             return;
         };
+        if (!canFitSvg(svgEl)) return;
 
         // svg-pan-zoom strips the SVG's viewBox attribute on init and never restores it on
         // destroy(), so a re-init (e.g. triggered by a `width` change below) would otherwise
@@ -290,4 +291,19 @@ function useResizer(containerRef: RefObject<HTMLDivElement>, noteId: string, svg
     }, [ width ]);
 
     return panZoom;
+}
+
+/**
+ * `svgPanZoom()` fits the diagram to the box of the SVG. A box or `viewBox` without an area gives a
+ * scale of 0, NaN or Infinity, and `zoom()`, `fit()` and `destroy()` then throw.
+ */
+function canFitSvg(svgEl: SVGSVGElement) {
+    const { width, height } = svgEl.getBoundingClientRect();
+    if (!(width > 0 && height > 0)) return false;
+
+    const viewBox = svgEl.getAttribute("viewBox");
+    if (!viewBox) return true;
+
+    const [ , , boxWidth, boxHeight ] = viewBox.split(/[\s,]+/).filter(Boolean).map(parseFloat);
+    return Number.isFinite(boxWidth) && boxWidth > 0 && Number.isFinite(boxHeight) && boxHeight > 0;
 }
