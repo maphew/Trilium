@@ -34,7 +34,7 @@ interface Box {
     width?: number;
 }
 
-// happy-dom measures nothing, so each case sets the rect the submenu reports.
+// happy-dom does not lay out, so each case stubs `getBoundingClientRect()`.
 function buildSubmenu({ top = 10, height = 100, left = 100, width = 200 }: Box, className = "") {
     const submenu = document.createElement("ul");
     submenu.className = className;

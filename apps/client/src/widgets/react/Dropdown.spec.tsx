@@ -263,4 +263,25 @@ describe("keepMenuInViewport", () => {
             .toEqual({ placement: "bottom-end", modifiers: [ { name: "offset" }, guard ] });
         expect(keepMenuInViewport({})).toEqual({ modifiers: [ guard ] });
     });
+
+    it("keeps Bootstrap's own `preventOverflow` entry, which Popper merges with the guard", () => {
+        const bootstrapEntry = { name: "preventOverflow", options: { boundary: "clippingParents" } };
+
+        expect(keepMenuInViewport({ modifiers: [ bootstrapEntry ] }).modifiers?.[0])
+            .toBe(bootstrapEntry);
+    });
+
+    it("reaches Bootstrap through `dropdownOptions`", () => {
+        vi.clearAllMocks();
+        const el = renderInto(
+            <Dropdown dropdownOptions={{ popperConfig: keepMenuInViewport }}>item</Dropdown>
+        );
+
+        expect(getOrCreateInstance).toHaveBeenCalledWith(
+            expect.anything(), { popperConfig: keepMenuInViewport });
+
+        void act(() => render(null, el));
+        el.remove();
+        container = undefined;
+    });
 });

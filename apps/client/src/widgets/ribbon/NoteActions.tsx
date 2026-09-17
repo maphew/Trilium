@@ -115,7 +115,9 @@ export function NoteContextMenu({ note, noteContext, itemsAtStart, itemsNearNote
         <>
             <Dropdown
                 dropdownRef={dropdownRef}
-                dropdownOptions={{ popperConfig: keepMenuInViewport }}
+                // Desktop only: the tablet layout's menu is taller than most windows, where the
+                // guard would hide the first rows instead of the last ones.
+                dropdownOptions={isMobile ? undefined : { popperConfig: keepMenuInViewport }}
                 buttonClassName={ isNewLayout ? "bx bx-dots-horizontal-rounded" : "bx bx-dots-vertical-rounded" }
                 className="note-actions"
                 dropdownContainerClassName="mobile-bottom-menu"

@@ -71,7 +71,7 @@ describe("FormDropdownSubmenu", () => {
         const submenu = parent?.querySelector<HTMLElement>("ul.dropdown-menu");
         if (!parent || !submenu) throw new Error("expected a submenu");
 
-        // happy-dom measures nothing, so the submenu is told where it stands.
+        // happy-dom does not lay out, so each call stubs `getBoundingClientRect()`.
         const place = (top: number) =>
             Object.defineProperty(submenu, "getBoundingClientRect", {
                 value: () => ({
