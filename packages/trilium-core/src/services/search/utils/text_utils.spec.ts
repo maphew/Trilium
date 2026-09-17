@@ -147,6 +147,26 @@ describe('Fuzzy Search Core', () => {
             // Sanity: a genuine 1-edit typo of a 4-char token still matches.
             expect(fuzzyMatchWordWithResult('sync', 'sinc')).toBe('sinc');
         });
+
+        it('finds a word within the distance wherever the edits land', () => {
+            // The chunk prefilter splits "abcdefg" into "ab", "cd" and "efg". Two edits reach at
+            // most two of those, so every two-substitution variant keeps one chunk intact and
+            // must still be found — a filter that left any chunk out would drop the variants
+            // whose edits fall on the other two.
+            const token = "abcdefg";
+
+            for (let i = 0; i < token.length; i++) {
+                for (let j = i + 1; j < token.length; j++) {
+                    const characters = token.split("");
+                    characters[i] = "z";
+                    characters[j] = "z";
+                    const variant = characters.join("");
+
+                    expect(calculateOptimizedEditDistance(token, variant, 2)).toBeLessThanOrEqual(2);
+                    expect(fuzzyMatchWordWithResult(token, variant, 2)).toBe(variant);
+                }
+            }
+        });
     });
 
     describe('wordsContainPhrase', () => {

@@ -323,6 +323,10 @@ export function fuzzyMatchWordWithResult(token: string, text: string, maxDistanc
         // A substring is not a fuzzy match, so there is no whole-text shortcut here. Callers that
         // want substring semantics run their own `includes()` check first.
 
+        if (!containsAnyChunk(normalizedText, normalizedToken, maxDistance)) {
+            return null;
+        }
+
         // For fuzzy matching, split into words and check each against the token
         const words = normalizedText.split(/\s+/).filter(word => word.length > 0);
         const originalWords = text.split(/\s+/).filter(word => word.length > 0);
@@ -355,6 +359,31 @@ export function fuzzyMatchWordWithResult(token: string, text: string, maxDistanc
         console.warn('Error in fuzzy word matching:', error);
         return null;
     }
+}
+
+/**
+ * Whether `text` can hold a word within `maxDistance` edits of `token`.
+ *
+ * Splitting the token into `maxDistance + 1` contiguous chunks means that many edits can touch at
+ * most `maxDistance` of them, so a word within the distance keeps at least one chunk verbatim —
+ * and so does any text containing that word. Each chunk costs one native substring scan, and the
+ * check never rejects a text the per-word scan would have matched, so it can front that scan.
+ */
+function containsAnyChunk(text: string, token: string, maxDistance: number): boolean {
+    const chunkCount = maxDistance + 1;
+    const chunkLength = Math.floor(token.length / chunkCount);
+
+    for (let i = 0; i < chunkCount; i++) {
+        const start = i * chunkLength;
+        // The last chunk takes the remainder, so no character of the token goes unexamined.
+        const end = i === chunkCount - 1 ? token.length : start + chunkLength;
+
+        if (text.includes(token.slice(start, end))) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**
