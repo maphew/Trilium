@@ -84,10 +84,10 @@ class BNote extends AbstractBeccaEntity<BNote> {
     targetRelations!: BAttribute[];
 
     __flatTextCache!: string | null;
-    __searchableTitleCache!: SearchableTitle | null;
+    __searchableTitleCache: SearchableTitle | null = null;
 
     private __attributeCache!: BAttribute[] | null;
-    private __isArchivedCache!: boolean | null;
+    private __isArchivedCache: boolean | null = null;
     private __inheritableAttributeCache!: BAttribute[] | null;
     private __ancestorCache!: BNote[] | null;
 
