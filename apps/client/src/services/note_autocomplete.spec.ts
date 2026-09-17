@@ -481,8 +481,8 @@ describe("source debounce", () => {
 
     it("holds the window open while typing continues instead of pacing searches", async () => {
         const { dataset } = initAndGetSource();
-        // Keystrokes arriving closer together than the window: only the one that opens the burst
-        // and the one after it ends may reach the server.
+        // Keystrokes arriving closer together than the window: the one that opens the burst
+        // queries at once, and each one after it pushes the pending search back again.
         dataset.source("h", vi.fn());
         for (const term of ["he", "hel", "hell"]) {
             await vi.advanceTimersByTimeAsync(30);
@@ -1050,12 +1050,10 @@ describe("fullTextSearch guards", () => {
         const callsBefore = autocompleteCalls.length;
         const ev = $.Event("keydown", { shiftKey: true, key: "Enter" });
         $el.trigger(ev);
-        // fullTextSearch bailed out at the blank-string guard before re-setting
-        // val / focus. The ONLY autocomplete call it may make is the single getter
-        // read ("val" with datasets === undefined) at its first line. Assert that
-        // NO setter call ("val", <non-undefined>) was added afterwards, which is
-        // what would distinguish the early-return path from the full execution
-        // (which would have written ["val", ""] then ["val", "   "]).
+        // `fullTextSearch` bails out at the blank-string guard, so the only autocomplete call it
+        // can make is the getter read on its first line. Running on would have written
+        // ["val", ""] and then ["val", "   "], so the absence of any setter call is what
+        // separates the two paths.
         const callsAfter = autocompleteCalls.slice(callsBefore);
         const setterCalls = callsAfter.filter((c) => c[0] === "val" && c[1] !== undefined);
         expect(setterCalls).toEqual([]);
