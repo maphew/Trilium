@@ -23,4 +23,9 @@ export interface SearchParams {
     fuzzyAttributeSearch?: boolean;
     /** When true, skip the two-phase fuzzy fallback and use the single-token fast path. */
     autocomplete?: boolean;
+    /**
+     * Rank in two passes, keeping only the best results. Set by callers that show a fixed number of
+     * results and never read the rest, so the full set is never fully ranked.
+     */
+    rankInTwoPasses?: boolean;
 }

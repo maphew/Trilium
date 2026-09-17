@@ -72,9 +72,9 @@ export function precomputeScoringTerms(fulltextQuery: string, tokens: string[]):
 class SearchResult {
     notePathArray: string[];
     score: number;
-    notePathTitle: string;
-    /** The per-segment titles `notePathTitle` joins, kept so scoring can tokenize them separately. */
-    private pathTitleSegments: string[];
+    private segmentTitles?: SegmentTitleCache;
+    private __pathTitleSegments?: string[];
+    private __notePathTitle?: string;
     highlightedNotePathTitle?: string;
     contentSnippet?: string;
     highlightedContentSnippet?: string;
@@ -84,10 +84,29 @@ class SearchResult {
 
     constructor(notePathArray: string[], segmentTitles?: SegmentTitleCache) {
         this.notePathArray = notePathArray;
-        this.pathTitleSegments = becca_service.getNoteTitleArrayForPath(notePathArray, segmentTitles);
-        this.notePathTitle = this.pathTitleSegments.join(" › ");
+        this.segmentTitles = segmentTitles;
         this.score = 0;
         this.fuzzyScore = 0;
+    }
+
+    /**
+     * Resolved on demand. Ranking scores far more results than it returns, and only the ones that
+     * survive to the second pass need their path spelled out.
+     */
+    private get pathTitleSegments(): string[] {
+        if (!this.__pathTitleSegments) {
+            this.__pathTitleSegments = becca_service.getNoteTitleArrayForPath(this.notePathArray, this.segmentTitles);
+        }
+
+        return this.__pathTitleSegments;
+    }
+
+    get notePathTitle(): string {
+        if (this.__notePathTitle === undefined) {
+            this.__notePathTitle = this.pathTitleSegments.join(" › ");
+        }
+
+        return this.__notePathTitle;
     }
 
     get notePath() {
@@ -98,7 +117,7 @@ class SearchResult {
         return this.notePathArray[this.notePathArray.length - 1];
     }
 
-    computeScore(fulltextQuery: string, tokens: string[], enableFuzzyMatching: boolean = true, contentMatch?: ContentMatchQuality, terms?: ScoringTerms) {
+    computeScore(fulltextQuery: string, tokens: string[], enableFuzzyMatching: boolean = true, contentMatch?: ContentMatchQuality, terms?: ScoringTerms, includePathScore: boolean = true) {
         this.score = 0;
         this.fuzzyScore = 0; // Reset fuzzy score tracking
 
@@ -128,7 +147,9 @@ class SearchResult {
 
         // Add scores for token matches
         this.addScoreForChunks(titleWords, tokens, SCORE_WEIGHTS.TITLE_FACTOR, enableFuzzyMatching, normalizedTokens);
-        this.addScoreForChunks(this.getPathWords(pathSegmentWords), tokens, SCORE_WEIGHTS.PATH_FACTOR, enableFuzzyMatching, normalizedTokens);
+        if (includePathScore) {
+            this.addScoreForChunks(this.getPathWords(pathSegmentWords), tokens, SCORE_WEIGHTS.PATH_FACTOR, enableFuzzyMatching, normalizedTokens);
+        }
 
         // Add score for how well the note's body content matched the query.
         if (contentMatch) {

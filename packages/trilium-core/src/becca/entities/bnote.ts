@@ -87,6 +87,7 @@ class BNote extends AbstractBeccaEntity<BNote> {
     __searchableTitleCache!: SearchableTitle | null;
 
     private __attributeCache!: BAttribute[] | null;
+    private __isArchivedCache!: boolean | null;
     private __inheritableAttributeCache!: BAttribute[] | null;
     private __ancestorCache!: BNote[] | null;
 
@@ -148,6 +149,7 @@ class BNote extends AbstractBeccaEntity<BNote> {
         this.children = [];
         this.ownedAttributes = [];
         this.__attributeCache = null;
+        this.__isArchivedCache = null;
         this.__inheritableAttributeCache = null;
         this.targetRelations = [];
 
@@ -718,7 +720,13 @@ class BNote extends AbstractBeccaEntity<BNote> {
     }
 
     get isArchived() {
-        return this.hasAttribute("label", "archived");
+        // Ranking a note path tests this for every note on it, so the attribute walk is cached
+        // alongside the attributes it reads.
+        if (this.__isArchivedCache === null) {
+            this.__isArchivedCache = this.hasAttribute("label", "archived");
+        }
+
+        return this.__isArchivedCache;
     }
 
     areAllNotePathsArchived() {
@@ -830,6 +838,7 @@ class BNote extends AbstractBeccaEntity<BNote> {
         this.__searchableTitleCache = null;
 
         this.__attributeCache = null;
+        this.__isArchivedCache = null;
         this.__inheritableAttributeCache = null;
         this.__ancestorCache = null;
 

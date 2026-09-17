@@ -320,6 +320,13 @@ function findResultsWithExpression(expression: Expression, searchContext: Search
     return mergeExactAndFuzzyResults(exactResults, fuzzyResults);
 }
 
+/**
+ * How many results the second ranking pass keeps. Generous against the 25 a dropdown shows, so the
+ * path contribution -- weighted at {@link SCORE_WEIGHTS.PATH_FACTOR} and worth a few points against
+ * title weights in the hundreds -- cannot promote anything from outside it into what is returned.
+ */
+const RANK_SHORTLIST = 200;
+
 function performSearch(expression: Expression, searchContext: SearchContext, enableFuzzyMatching: boolean): SearchResult[] {
     const allNoteSet = becca.getAllNoteSet();
 
@@ -352,15 +359,29 @@ function performSearch(expression: Expression, searchContext: SearchContext, ena
 
     // Derived once rather than per result: every match is scored against the same query.
     const scoringTerms = precomputeScoringTerms(searchContext.fulltextQuery, searchContext.highlightedTokens);
+    // With a rank limit, score without the path first. That leaves every result's path unresolved,
+    // which is the bulk of the per-result work, and only the shortlist pays for it below.
+    const twoPass = searchContext.rankInTwoPasses && searchResults.length > RANK_SHORTLIST;
+
     for (const res of searchResults) {
-        res.computeScore(searchContext.fulltextQuery, searchContext.highlightedTokens, enableFuzzyMatching, searchContext.contentMatches.get(res.noteId), scoringTerms);
+        res.computeScore(searchContext.fulltextQuery, searchContext.highlightedTokens, enableFuzzyMatching, searchContext.contentMatches.get(res.noteId), scoringTerms, !twoPass);
+    }
+
+    let ranked = searchResults;
+
+    if (twoPass) {
+        ranked = searchResults.sort((a, b) => b.score - a.score).slice(0, RANK_SHORTLIST);
+
+        for (const res of ranked) {
+            res.computeScore(searchContext.fulltextQuery, searchContext.highlightedTokens, enableFuzzyMatching, searchContext.contentMatches.get(res.noteId), scoringTerms);
+        }
     }
 
     // Restore original fuzzy setting
     searchContext.enableFuzzyMatching = originalFuzzyMatching;
 
     if (!noteSet.sorted) {
-        searchResults.sort((a, b) => {
+        ranked.sort((a, b) => {
             if (a.score > b.score) {
                 return -1;
             } else if (a.score < b.score) {
@@ -377,7 +398,7 @@ function performSearch(expression: Expression, searchContext: SearchContext, ena
         });
     }
 
-    return searchResults;
+    return ranked;
 }
 
 function mergeExactAndFuzzyResults(exactResults: SearchResult[], fuzzyResults: SearchResult[]): SearchResult[] {
@@ -754,7 +775,9 @@ function searchNotesForAutocomplete(query: string, fastSearch: boolean = true) {
         includeHiddenNotes: true,
         fuzzyAttributeSearch: true,
         ignoreInternalAttributes: true,
-        ancestorNoteId: hoistedNoteService.isHoistedInHiddenSubtree() ? "root" : hoistedNoteService.getHoistedNoteId()
+        ancestorNoteId: hoistedNoteService.isHoistedInHiddenSubtree() ? "root" : hoistedNoteService.getHoistedNoteId(),
+        // Only the first `AUTOCOMPLETE_RESULT_LIMIT` results are ever read.
+        rankInTwoPasses: true
     });
 
     const trimmed = findResultsWithQuery(query, searchContext).slice(0, AUTOCOMPLETE_RESULT_LIMIT);

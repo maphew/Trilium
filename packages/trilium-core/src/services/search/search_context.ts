@@ -25,6 +25,7 @@ class SearchContext {
     enableFuzzyMatching: boolean; // Controls whether fuzzy matching is enabled for this search phase
     /** When true, skip the two-phase fuzzy fallback and use the single-token fast path. */
     autocomplete: boolean;
+    rankInTwoPasses: boolean;
     highlightedTokens: string[];
     /**
      * Subset of {@link highlightedTokens} that came from the `%=` (regex) operator
@@ -62,6 +63,7 @@ class SearchContext {
         this.debugInfo = null;
         this.fuzzyAttributeSearch = !!params.fuzzyAttributeSearch;
         this.autocomplete = !!params.autocomplete;
+        this.rankInTwoPasses = !!params.rankInTwoPasses;
         try {
             this.enableFuzzyMatching = optionService.getOptionBool("searchEnableFuzzyMatching");
         } catch {
