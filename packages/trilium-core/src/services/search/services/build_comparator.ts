@@ -19,11 +19,13 @@ const stringComparators: Record<string, Comparator<string>> = {
     // in the internal "word=" operator.
     "=": (comparedValue) => {
         const normalizedCompared = normalizeSearchText(comparedValue);
-        return (val) => normalizeSearchText(val) === normalizedCompared;
+        const normalize = repeatAwareNormalizer();
+        return (val) => normalize(val) === normalizedCompared;
     },
     "!=": (comparedValue) => {
         const normalizedCompared = normalizeSearchText(comparedValue);
-        return (val) => normalizeSearchText(val) !== normalizedCompared;
+        const normalize = repeatAwareNormalizer();
+        return (val) => normalize(val) !== normalizedCompared;
     },
     // Internal operator (not user-typable): word/phrase match used by the leading-"="
     // fulltext title comparison. Punctuation-aware via tokenizeIntoWords/stripWordPunctuation.
@@ -112,6 +114,28 @@ const numericComparators: Record<string, Comparator<number>> = {
     "<": (comparedValue) => (val) => parseFloat(val) < comparedValue,
     "<=": (comparedValue) => (val) => parseFloat(val) <= comparedValue
 };
+
+/**
+ * {@link normalizeSearchText} bound to one comparator, holding on to its last input and result.
+ *
+ * `PropertyComparisonExp` and `LabelComparisonExp` apply a comparator value by value across the
+ * database, and a property such as `isArchived`, `type` or `isProtected` yields the same handful
+ * of strings throughout, so the repeated calls collapse into a string comparison. Values that are
+ * distinct per note, such as titles, miss and normalize as before.
+ */
+function repeatAwareNormalizer(): (value: string) => string {
+    let lastValue: string | undefined;
+    let lastNormalized: string | undefined;
+
+    return (value) => {
+        if (lastNormalized === undefined || value !== lastValue) {
+            lastValue = value;
+            lastNormalized = normalizeSearchText(value);
+        }
+
+        return lastNormalized;
+    };
+}
 
 function buildComparator(operator: string, comparedValue: string) {
     comparedValue = comparedValue.toLowerCase();
