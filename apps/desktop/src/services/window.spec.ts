@@ -1,3 +1,4 @@
+import type { MenuItemConstructorOptions } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type Handler = (...args: unknown[]) => unknown;
@@ -172,7 +173,8 @@ const fakeApp = {
     relaunch: vi.fn(),
     exit: vi.fn(),
     quit: vi.fn(),
-    on: vi.fn((event: string, cb: Handler) => state.appOn.set(event, cb))
+    on: vi.fn((event: string, cb: Handler) => state.appOn.set(event, cb)),
+    whenReady: vi.fn(() => Promise.resolve())
 };
 
 const electronSurface = {
@@ -184,6 +186,10 @@ const electronSurface = {
     ClipboardItem: FakeClipboardItem,
     nativeTheme: { themeSource: "system" },
     BrowserWindow: fakeBrowserWindowClass,
+    Menu: {
+        setApplicationMenu: vi.fn(),
+        buildFromTemplate: vi.fn((template: MenuItemConstructorOptions[]) => ({ template }))
+    },
     ipcMain: {
         on: (channel: string, fn: Handler) => state.ipcOn.set(channel, fn),
         handle: (channel: string, fn: Handler) => state.ipcHandle.set(channel, fn),
@@ -1028,6 +1034,54 @@ describe("window service", () => {
             const ev = makeEvent();
             fireOn("navigation-history-go-to-index", ev, 3);
             expect(ev.sender.navigationHistory.goToIndex).toHaveBeenCalledWith(3);
+        });
+    });
+
+    describe("application menu", () => {
+        const realPlatform = process.platform;
+
+        async function setupWindowingOn(platform: NodeJS.Platform) {
+            vi.clearAllMocks();
+            Object.defineProperty(process, "platform", { value: platform, configurable: true });
+            setupWindowing();
+            await Promise.resolve(); // let whenReady().then(...) run
+        }
+
+        function flattenItems(items: MenuItemConstructorOptions[]): MenuItemConstructorOptions[] {
+            return items.flatMap((item) => [
+                item,
+                ...(Array.isArray(item.submenu) ? flattenItems(item.submenu) : [])
+            ]);
+        }
+
+        afterEach(() => {
+            Object.defineProperty(process, "platform", { value: realPlatform, configurable: true });
+        });
+
+        it("installs a menu without the minimize accelerator, except on macOS", async () => {
+            const { buildFromTemplate, setApplicationMenu } = electronSurface.Menu;
+
+            for (const platform of ["linux", "win32"] as const) {
+                await setupWindowingOn(platform);
+
+                expect(buildFromTemplate).toHaveBeenCalledTimes(1);
+                const menu = buildFromTemplate.mock.results[0]?.value;
+                expect(setApplicationMenu.mock.calls).toEqual([[menu]]);
+
+                const items = flattenItems(buildFromTemplate.mock.calls[0]?.[0] ?? []);
+                const roles = items.map((item) => item.role);
+                expect(roles).toEqual(
+                    expect.arrayContaining(["fileMenu", "editMenu", "viewMenu", "close"])
+                );
+                expect(roles).not.toContain("minimize");
+                // Without its own submenu, a `windowMenu` gets Electron's defaults and `minimize`.
+                const defaultWindowMenus = items.filter((item) =>
+                    item.role === "windowMenu" && !Array.isArray(item.submenu));
+                expect(defaultWindowMenus).toEqual([]);
+            }
+
+            await setupWindowingOn("darwin");
+            expect(setApplicationMenu).not.toHaveBeenCalled();
         });
     });
 

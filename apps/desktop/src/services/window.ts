@@ -502,6 +502,8 @@ export function setupWindowing() {
         isQuitting = true;
     });
 
+    electron.app.whenReady().then(setupApplicationMenu);
+
     electron.ipcMain.on("reload-all-windows", () => {
         for (const win of electron.BrowserWindow.getAllWindows()) {
             win.reload();
@@ -671,6 +673,25 @@ export function setupWindowing() {
             getLog().error(`Failed to swap setup window for main window: ${err}`);
         }
     });
+}
+
+/**
+ * Installs an application menu without the `minimize` role. `setMenuBarVisibility(false)` keeps
+ * the menu accelerators active, and `minimize` binds Ctrl+M, the text editor's math shortcut.
+ */
+function setupApplicationMenu() {
+    // Cmd+M is standard on macOS. The app can be ready before `initializeCore()` makes
+    // `coreUtils.isMac()` usable, so this reads `process.platform`.
+    if (process.platform === "darwin") {
+        return;
+    }
+
+    electron.Menu.setApplicationMenu(electron.Menu.buildFromTemplate([
+        { role: "fileMenu" },
+        { role: "editMenu" },
+        { role: "viewMenu" },
+        { role: "windowMenu", submenu: [{ role: "close" }] }
+    ]));
 }
 
 export default {
