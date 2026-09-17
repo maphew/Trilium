@@ -178,6 +178,30 @@ describe("notes service (real DB)", () => {
             );
         });
 
+        it("accepts a well-formed forced noteId and rejects one that links cannot match", () => {
+            for (const noteId of [ "forcedSpecId01", "_specForced01" ]) {
+                const { note } = createNote("root", { title: "spec-forced-id", noteId });
+
+                expect(note.noteId).toBe(noteId);
+                expect(becca.notes[noteId]).toBe(note);
+            }
+
+            const generated = createNote("root", { noteId: null as unknown as string }).note;
+            expect(generated.noteId).toMatch(/^[A-Za-z0-9]{12}$/);
+
+            const dashedId = "0d8949e4-6fe3-4f4b-82c1-679baf64fccb";
+            const countRows = (noteId: string) =>
+                getSql().getValue("SELECT COUNT(*) FROM notes WHERE noteId = ?", [ noteId ]);
+            for (const noteId of [ dashedId, "abc", "bad/id01", "bad id01" ]) {
+                expect(() => createNote("root", { noteId }), noteId).toThrow(/is not valid/);
+                expect(becca.notes[noteId]).toBeUndefined();
+                expect(countRows(noteId)).toBe(0);
+            }
+
+            const numericId = 12345 as unknown as string;
+            expect(() => createNote("root", { noteId: numericId })).toThrow(/is not valid/);
+        });
+
         it("inherits the template's mime and adds a template relation when creating from a template", () => {
             const template = createNote("root", { title: "spec-template", content: "<p>tmpl</p>" });
             // Give the template a non-default mime so we can verify inheritance.
