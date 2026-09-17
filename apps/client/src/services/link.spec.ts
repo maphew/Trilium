@@ -177,6 +177,12 @@ describe("parseNavigationStateFromUrl", () => {
             .toStrictEqual({});
         expect(parseNavigationStateFromUrl("https://host/wiki/Page?x=1#root/WWaBNf3SSA1b", desktop))
             .toStrictEqual({});
+
+        // A different query string, such as the `?print` entry point, is an external document too.
+        expect(parseNavigationStateFromUrl("https://host/?print#root/WWaBNf3SSA1b", new URL("https://host/")))
+            .toStrictEqual({});
+        expect(parseNavigationStateFromUrl("https://host/?print#root/WWaBNf3SSA1b", desktop))
+            .toStrictEqual({});
     });
 
     it("compares against window.location by default", () => {
