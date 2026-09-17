@@ -22,16 +22,53 @@ const SELECTED_EXTERNAL_LINK_KEY = "data-external-link";
 const SEARCH_DEBOUNCE_MS = 50;
 
 /**
- * Debounces one input's searches: the first keystroke after a pause queries immediately, and a burst
- * typed faster than {@link SEARCH_DEBOUNCE_MS} collapses into one search that runs once it stops.
- * Each input holds its own timer, so a keystroke in one cannot cancel a search another is waiting on.
+ * Paces one input's searches: the first keystroke after a pause queries immediately, a burst typed
+ * faster than {@link SEARCH_DEBOUNCE_MS} collapses into one search that runs once it stops, and at
+ * most one search is ever outstanding.
+ *
+ * The single-flight part is what keeps a slow search from compounding. The server answers
+ * autocomplete requests one at a time, so firing a second while the first is still running makes
+ * every later keystroke wait out the whole queue ahead of it. Holding the newest term back until
+ * the outstanding search settles paces requests at whatever the server can actually serve, without
+ * the client having to know how slow that is.
+ *
+ * Each input holds its own timer and its own in-flight search, so a keystroke in one cannot cancel
+ * or delay what another is waiting on.
  */
 function createSearchScheduler() {
+    type Search = () => void | Promise<void>;
+
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let lastCallAt = 0;
+    let running = false;
+    let queued: Search | undefined;
 
-    return (runSearch: () => void) => {
+    function start(runSearch: Search) {
+        // Only the newest term is worth searching for, so a search waiting here replaces the one
+        // before it instead of queueing behind it.
+        if (running) {
+            queued = runSearch;
+            return;
+        }
+
+        running = true;
+        void Promise.resolve(runSearch())
+            .catch((e) => logError(`Autocomplete search failed: ${e}`))
+            .finally(() => {
+                running = false;
+                const next = queued;
+                queued = undefined;
+                if (next) {
+                    start(next);
+                }
+            });
+    }
+
+    return (runSearch: Search) => {
+        // A newer keystroke supersedes whatever the previous one left waiting, be that a pending
+        // timer or a search held back by the one in flight.
         clearTimeout(timeoutId);
+        queued = undefined;
 
         // Measured from the previous keystroke rather than the previous search. Measuring from the
         // search paces requests at a fixed rate instead of ending the window when typing pauses.
@@ -40,9 +77,9 @@ function createSearchScheduler() {
         lastCallAt = now;
 
         if (startsBurst) {
-            runSearch();
+            start(runSearch);
         } else {
-            timeoutId = setTimeout(runSearch, SEARCH_DEBOUNCE_MS);
+            timeoutId = setTimeout(() => start(runSearch), SEARCH_DEBOUNCE_MS);
         }
     };
 }
@@ -390,7 +427,8 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
                         if (isComposingInput) {
                             return;
                         }
-                        autocompleteSource(term, cb, options);
+                        // Returned so the scheduler holds the next search until this one settles.
+                        return autocompleteSource(term, cb, options);
                     });
                 },
                 displayKey: "notePathTitle",

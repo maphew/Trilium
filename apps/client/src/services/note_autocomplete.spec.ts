@@ -5,7 +5,7 @@ import $ from "jquery";
 
 const {
     triggerCommand, getActiveContextNoteId, getActiveContext, chooseNoteType, createNote,
-    getInboxNotePath, getInboxTarget, translate, getAllCommands, searchCommands
+    getInboxNotePath, getInboxTarget, translate, getAllCommands, searchCommands, logError
 } = vi.hoisted(() => ({
     triggerCommand: vi.fn(),
     getActiveContextNoteId: vi.fn<() => string | null>(() => "activeNote"),
@@ -20,7 +20,8 @@ const {
     // keeps the label assertions about which string is chosen rather than about its English.
     translate: vi.fn((key: string, _opts?: Record<string, unknown>) => key),
     getAllCommands: vi.fn(() => [] as any[]),
-    searchCommands: vi.fn(() => [] as any[])
+    searchCommands: vi.fn(() => [] as any[]),
+    logError: vi.fn()
 }));
 
 vi.mock("../components/app_context.js", () => ({
@@ -48,6 +49,18 @@ vi.mock("./i18n.js", async (importOriginal) => ({
 
 vi.mock("./command_registry.js", () => ({
     default: { getAllCommands, searchCommands }
+}));
+
+// Narrows the blanket ws mock from test/setup.ts to a spy, so what the module reports can be asserted.
+vi.mock("./ws.js", () => ({
+    default: {
+        subscribeToMessages() {},
+        async waitForMaxKnownEntityChangeId() {}
+    },
+    subscribeToMessages() {},
+    unsubscribeToMessage() {},
+    async waitForMaxKnownEntityChangeId() {},
+    logError
 }));
 
 // Imports AFTER vi.mock calls.
@@ -430,6 +443,9 @@ describe("autocompleteSource (via dataset)", () => {
     });
 });
 
+// Mirrors SEARCH_DEBOUNCE_MS in note_autocomplete.ts, which is internal.
+const DEBOUNCE_MS = 50;
+
 describe("source debounce", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -493,6 +509,53 @@ describe("source debounce", () => {
         const queries = vi.mocked(server.get).mock.calls.map(([url]) => url);
         expect(queries.some((url) => url.includes("query=a2"))).toBe(true);
         expect(queries.some((url) => url.includes("query=b2"))).toBe(true);
+    });
+
+    it("keeps one search in flight, so a slow one cannot make the rest queue behind it", async () => {
+        const pending: Array<() => void> = [];
+        server.get = vi.fn(
+            () => new Promise<any[]>((resolve) => pending.push(() => resolve([])))
+        ) as typeof server.get;
+
+        const { dataset } = initAndGetSource();
+        dataset.source("h", vi.fn());
+        expect(server.get).toHaveBeenCalledTimes(1);
+
+        // Each keystroke opens its own burst, so without single-flight every one of them would
+        // reach the server while the first search is still running.
+        for (const term of ["he", "hel", "hell", "hello"]) {
+            await vi.advanceTimersByTimeAsync(DEBOUNCE_MS + 10);
+            dataset.source(term, vi.fn());
+        }
+        expect(server.get).toHaveBeenCalledTimes(1);
+
+        pending[0]();
+        await vi.runAllTimersAsync();
+
+        // Only the newest term is searched for; the ones typed past are dropped, not queued.
+        expect(server.get).toHaveBeenCalledTimes(2);
+        expect(server.get).toHaveBeenLastCalledWith(expect.stringContaining("query=hello"));
+    });
+
+    it("reports a failed search and keeps accepting the next one", async () => {
+        server.get = vi.fn(async () => {
+            throw new Error("boom");
+        }) as typeof server.get;
+
+        const { dataset } = initAndGetSource();
+        dataset.source("h", vi.fn());
+        await vi.runAllTimersAsync();
+
+        // The scheduler awaits the search, so a rejection has to be reported here rather than
+        // left to surface as an unhandled one.
+        expect(logError).toHaveBeenCalledWith(expect.stringContaining("boom"));
+
+        server.get = vi.fn(async () => []) as typeof server.get;
+        await vi.advanceTimersByTimeAsync(DEBOUNCE_MS + 10);
+        dataset.source("hi", vi.fn());
+
+        // The failure released the slot, rather than wedging the input for good.
+        expect(server.get).toHaveBeenCalledTimes(1);
     });
 
     it("debounces and skips the search while composing input", async () => {
