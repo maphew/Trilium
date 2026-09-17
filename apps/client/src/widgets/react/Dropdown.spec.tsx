@@ -36,7 +36,7 @@ vi.mock("../../services/utils", async (importOriginal) => ({
     isMobile: () => isMobileMock()
 }));
 
-import Dropdown from "./Dropdown";
+import Dropdown, { keepMenuInViewport } from "./Dropdown";
 
 // happy-dom has no ResizeObserver; the component only needs observe/disconnect to exist.
 class ResizeObserverStub {
@@ -252,5 +252,15 @@ describe("Dropdown", () => {
         // The menu was mounted into the body (via the class-less wrapper) and wired as _menu.
         expect(instance._menu?.classList.contains("dropdown-menu")).toBe(true);
         expect(instance._menu?.closest("body")).toBeTruthy();
+    });
+});
+
+describe("keepMenuInViewport", () => {
+    it("appends the cross-axis overflow guard to Bootstrap's Popper defaults", () => {
+        const guard = { name: "preventOverflow", options: { altAxis: true, padding: 8 } };
+
+        expect(keepMenuInViewport({ placement: "bottom-end", modifiers: [ { name: "offset" } ] }))
+            .toEqual({ placement: "bottom-end", modifiers: [ { name: "offset" }, guard ] });
+        expect(keepMenuInViewport({})).toEqual({ modifiers: [ guard ] });
     });
 });
