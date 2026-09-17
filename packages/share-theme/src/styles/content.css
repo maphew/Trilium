@@ -57,7 +57,20 @@
 }
 
 a.reference-link > span > .tn-icon {
+    /* A line can wrap after an inline-block. An inline box that does not wrap and ends with a
+       word joiner keeps the icon on the line of the first title character. */
+    display: inline;
     margin-inline-end: 3px;
+    white-space: nowrap;
+}
+
+a.reference-link > span > .tn-icon::before {
+    /* An inline-block glyph does not take the underline of the link. */
+    display: inline-block;
+}
+
+a.reference-link > span > .tn-icon::after {
+    content: "\2060";
 }
 
 body:not(.math-loaded) .math-tex {
