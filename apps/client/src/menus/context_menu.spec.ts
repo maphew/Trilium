@@ -184,6 +184,10 @@ describe("contextMenu", () => {
             animation: false,
             trigger: "hover focus"
         });
+        // A field that points `aria-describedby` at its help text has no Bootstrap tooltip.
+        const field = document.createElement("input");
+        field.setAttribute("aria-describedby", "field-help");
+        document.body.append(field);
         const showMenu = () =>
             contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
 
@@ -194,6 +198,7 @@ describe("contextMenu", () => {
         await showMenu();
         expect(document.querySelector(".tooltip")).toBeNull();
         expect(button.hasAttribute("aria-describedby")).toBe(false);
+        expect(field.getAttribute("aria-describedby")).toBe("field-help");
 
         // A right-click also focuses the trigger, which keeps the focus trigger active. Bootstrap
         // shows the tooltip from a timer, so the spec waits for it.
@@ -206,6 +211,7 @@ describe("contextMenu", () => {
 
         tooltip.dispose();
         button.remove();
+        field.remove();
     });
 
     it("says whether it is up, for a host whose own press would otherwise not know", async () => {
