@@ -23,7 +23,7 @@ class SearchContext {
     debugInfo: {} | null;
     fuzzyAttributeSearch: boolean;
     enableFuzzyMatching: boolean; // Controls whether fuzzy matching is enabled for this search phase
-    /** When true, skip the two-phase fuzzy fallback and use the single-token fast path. */
+    /** When true, a single-token flat-text search resolves each match's best note path directly. */
     autocomplete: boolean;
     rankInTwoPasses: boolean;
     highlightedTokens: string[];

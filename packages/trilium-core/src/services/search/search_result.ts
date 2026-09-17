@@ -256,7 +256,7 @@ class SearchResult {
                            normalizedToken.length >= FUZZY_SEARCH_CONFIG.MIN_FUZZY_TOKEN_LENGTH &&
                            this.fuzzyScore < SCORE_WEIGHTS.MAX_TOTAL_FUZZY_SCORE) {
                     // Only compute edit distance when fuzzy matching is enabled.
-                    // Cap the per-chunk distance with the length-scaled (AUTO) bound
+                    // Cap the per-chunk distance with the length-scaled bound
                     // so short tokens can't fuzzy-match at distance 2.
                     const maxEditDistance = getAutoMaxEditDistance(normalizedToken.length);
                     const editDistance = calculateOptimizedEditDistance(chunk, normalizedToken, maxEditDistance);

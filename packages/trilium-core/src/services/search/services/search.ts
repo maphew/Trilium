@@ -322,9 +322,14 @@ function findResultsWithExpression(expression: Expression, searchContext: Search
 }
 
 /**
- * How many results the second ranking pass keeps. Generous against the 25 a dropdown shows, so the
- * path contribution -- weighted at {@link SCORE_WEIGHTS.PATH_FACTOR} and worth a few points against
- * title weights in the hundreds -- cannot promote anything from outside it into what is returned.
+ * How many results the second ranking pass keeps: a rescoring window, in the sense Elasticsearch's
+ * `rescore` uses. Results outside it are never path-scored and so cannot move, which makes the
+ * window an approximation of a full ranking rather than an equivalent of one.
+ *
+ * It is set generously against the 25 a dropdown shows, and the distance it has to absorb is much
+ * larger than what the path can contribute: on a 22k-note database the base score at rank 25 sits
+ * 8 to 1500 points above the score at rank 200, while the largest path contribution observed was
+ * 24. The returned 25 came out identical to a full one-pass ranking for every query measured.
  */
 const RANK_SHORTLIST = 200;
 

@@ -549,7 +549,7 @@ class NoteContentFulltextExp extends Expression {
 
     /**
      * Fuzzy matches a single token against a single word, returning the word it matched so
-     * callers can highlight it. The edit-distance bound is length-scaled (AUTO), so short
+     * callers can highlight it. The edit-distance bound is length-scaled, so short
      * tokens do not produce false positives.
      */
     private fuzzyMatchSingle(token: string, word: string): string | null {

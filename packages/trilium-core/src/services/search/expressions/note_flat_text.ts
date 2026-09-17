@@ -268,8 +268,8 @@ class NoteFlatTextExp extends Expression {
             return true;
         }
 
-        // Fuzzy fallback only if enabled and the token is long enough to allow any
-        // edit distance under the length-scaled (AUTO) rule (i.e. >= 3 characters).
+        // Fuzzy fallback only if enabled and the token is long enough to be allowed any edit
+        // distance under the length-scaled rule, which starts at four characters.
         if (searchContext?.enableFuzzyMatching && getAutoMaxEditDistance(token.length) > 0) {
             const matchedWord = fuzzyMatchWordWithResult(token, text);
             if (matchedWord) {

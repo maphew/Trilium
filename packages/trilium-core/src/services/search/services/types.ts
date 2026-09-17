@@ -21,7 +21,7 @@ export interface SearchParams {
     limit?: number | null;
     debug?: boolean;
     fuzzyAttributeSearch?: boolean;
-    /** When true, skip the two-phase fuzzy fallback and use the single-token fast path. */
+    /** When true, a single-token flat-text search resolves each match's best note path directly. */
     autocomplete?: boolean;
     /**
      * Narrows the `searchEnableFuzzyMatching` option for one surface: false turns fuzzy matching
