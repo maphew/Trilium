@@ -49,6 +49,18 @@ describe("dialog service", () => {
     });
 
     describe("openDialog", () => {
+        afterEach(() => {
+            document.body.innerHTML = "";
+        });
+
+        function focusNewInput(parent: HTMLElement) {
+            const input = document.createElement("input");
+            parent.appendChild(input);
+            input.focus();
+            expect(document.activeElement).toBe(input);
+            return input;
+        }
+
         it("closes the active dialog, sets the new one, saves focus, shows the modal and updates shortcuts", async () => {
             const previous = makeDialog();
             glob.activeDialog = previous;
@@ -114,6 +126,41 @@ describe("dialog service", () => {
             $dialog.trigger("hidden.bs.modal");
 
             expect(focusSavedElement).not.toHaveBeenCalled();
+        });
+
+        it("saves the focused element, then blurs it before the modal shows", async () => {
+            const input = focusNewInput(document.body);
+            let savedElement: Element | null = null;
+            let focusedAtShow: Element | null = null;
+            saveFocusedElement.mockImplementationOnce(() => {
+                savedElement = document.activeElement;
+            });
+            modalShow.mockImplementationOnce(() => {
+                focusedAtShow = document.activeElement;
+            });
+
+            await openDialog(makeDialog(), false);
+
+            expect(savedElement).toBe(input);
+            expect(focusedAtShow).toBe(document.body);
+            expect(document.activeElement).toBe(document.body);
+        });
+
+        it("leaves focus alone when the dialog is opened with focus: false", async () => {
+            const input = focusNewInput(document.body);
+
+            await openDialog(makeDialog(), false, { focus: false });
+
+            expect(document.activeElement).toBe(input);
+        });
+
+        it("does not blur an element inside the dialog itself", async () => {
+            const $dialog = makeDialog().appendTo(document.body);
+            const input = focusNewInput($dialog[0]);
+
+            await openDialog($dialog, false);
+
+            expect(document.activeElement).toBe(input);
         });
 
         it("closes the autocomplete dropdown on hide", async () => {

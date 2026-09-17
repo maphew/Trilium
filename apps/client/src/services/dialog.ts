@@ -21,6 +21,15 @@ export async function openDialog($dialog: JQuery<HTMLElement>, closeActDialog = 
 
     saveFocusedElement();
 
+    // Bootstrap moves focus only when the opening transition ends, so blur now to keep keystrokes
+    // typed during the transition out of the previously focused element, e.g. the note editor.
+    if (config?.focus !== false) {
+        const activeElement = document.activeElement;
+        if (activeElement instanceof HTMLElement && !$dialog[0].contains(activeElement)) {
+            activeElement.blur();
+        }
+    }
+
     // Lift this dialog above whatever is already open, if anything is (see raiseAboveWhatIsOpen).
     const bumpedZIndex = raiseAboveWhatIsOpen($dialog[0], declaredZIndex);
 
