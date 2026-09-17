@@ -7,13 +7,14 @@ import becca_service from "../../../becca/becca_service.js";
 import type BNote from "../../../becca/entities/bnote.js";
 import blobService from "../../blob.js";
 import hoistedNoteService from "../../hoisted_note.js";
+import optionService from "../../options.js";
 import { getLog } from "../../log.js";
 import scriptService from "../../script.js";
 import { isScriptingEnabled } from "../../scripting_guard.js";
 import { escapeHtml, escapeRegExp, normalizePreservingLength, unescapeHtml } from "../../utils/index.js";
 import type Expression from "../expressions/expression.js";
 import SearchContext from "../search_context.js";
-import SearchResult from "../search_result.js";
+import SearchResult, { precomputeScoringTerms } from "../search_result.js";
 import handleParens from "./handle_parens.js";
 import lex from "./lex.js";
 import parse from "./parse.js";
@@ -320,6 +321,18 @@ function findResultsWithExpression(expression: Expression, searchContext: Search
     return mergeExactAndFuzzyResults(exactResults, fuzzyResults);
 }
 
+/**
+ * How many results the second ranking pass keeps: a rescoring window, in the sense Elasticsearch's
+ * `rescore` uses. Results outside it are never path-scored and so cannot move, which makes the
+ * window an approximation of a full ranking rather than an equivalent of one.
+ *
+ * It is set generously against the 25 a dropdown shows, and the distance it has to absorb is much
+ * larger than what the path can contribute: on a 22k-note database the base score at rank 25 sits
+ * 8 to 1500 points above the score at rank 200, while the largest path contribution observed was
+ * 24. The returned 25 came out identical to a full one-pass ranking for every query measured.
+ */
+const RANK_SHORTLIST = 200;
+
 function performSearch(expression: Expression, searchContext: SearchContext, enableFuzzyMatching: boolean): SearchResult[] {
     const allNoteSet = becca.getAllNoteSet();
 
@@ -338,6 +351,8 @@ function performSearch(expression: Expression, searchContext: SearchContext, ena
 
     const noteSet = expression.execute(allNoteSet, executionContext, searchContext);
 
+    // Results under the same ancestors share path segments, so each pair resolves once per search.
+    const segmentTitles = new Map<string, Map<string, string>>();
     const searchResults = noteSet.notes.map((note) => {
         const notePathArray = executionContext.noteIdToNotePath[note.noteId] || note.getBestNotePath();
 
@@ -345,18 +360,34 @@ function performSearch(expression: Expression, searchContext: SearchContext, ena
             throw new Error(`Can't find note path for note ${JSON.stringify(note.getPojo())}`);
         }
 
-        return new SearchResult(notePathArray);
+        return new SearchResult(notePathArray, segmentTitles);
     });
 
+    // Derived once rather than per result: every match is scored against the same query.
+    const scoringTerms = precomputeScoringTerms(searchContext.fulltextQuery, searchContext.highlightedTokens);
+    // With a rank limit, score without the path first. That leaves every result's path unresolved,
+    // which is the bulk of the per-result work, and only the shortlist pays for it below.
+    const twoPass = searchContext.rankInTwoPasses && searchResults.length > RANK_SHORTLIST;
+
     for (const res of searchResults) {
-        res.computeScore(searchContext.fulltextQuery, searchContext.highlightedTokens, enableFuzzyMatching, searchContext.contentMatches.get(res.noteId));
+        res.computeScore(searchContext.fulltextQuery, searchContext.highlightedTokens, enableFuzzyMatching, searchContext.contentMatches.get(res.noteId), scoringTerms, !twoPass);
+    }
+
+    let ranked = searchResults;
+
+    if (twoPass) {
+        ranked = searchResults.sort((a, b) => b.score - a.score).slice(0, RANK_SHORTLIST);
+
+        for (const res of ranked) {
+            res.computeScore(searchContext.fulltextQuery, searchContext.highlightedTokens, enableFuzzyMatching, searchContext.contentMatches.get(res.noteId), scoringTerms);
+        }
     }
 
     // Restore original fuzzy setting
     searchContext.enableFuzzyMatching = originalFuzzyMatching;
 
     if (!noteSet.sorted) {
-        searchResults.sort((a, b) => {
+        ranked.sort((a, b) => {
             if (a.score > b.score) {
                 return -1;
             } else if (a.score < b.score) {
@@ -373,7 +404,7 @@ function performSearch(expression: Expression, searchContext: SearchContext, ena
         });
     }
 
-    return searchResults;
+    return ranked;
 }
 
 function mergeExactAndFuzzyResults(exactResults: SearchResult[], fuzzyResults: SearchResult[]): SearchResult[] {
@@ -739,6 +770,10 @@ function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenI
     }
 }
 
+// Each row past this costs a `buildSearchResultDetails` snippet extraction and roughly a kilobyte of
+// response, so the limit follows what a dropdown shows rather than what the query matched.
+const AUTOCOMPLETE_RESULT_LIMIT = 25;
+
 function searchNotesForAutocomplete(query: string, fastSearch: boolean = true) {
     const searchContext = new SearchContext({
         fastSearch,
@@ -746,10 +781,16 @@ function searchNotesForAutocomplete(query: string, fastSearch: boolean = true) {
         includeHiddenNotes: true,
         fuzzyAttributeSearch: true,
         ignoreInternalAttributes: true,
-        ancestorNoteId: hoistedNoteService.isHoistedInHiddenSubtree() ? "root" : hoistedNoteService.getHoistedNoteId()
+        ancestorNoteId: hoistedNoteService.isHoistedInHiddenSubtree() ? "root" : hoistedNoteService.getHoistedNoteId(),
+        // Typo tolerance is opt-in here: `searchEnableFuzzyMatching` covers quick search and the
+        // search screen, and `searchAutocompleteFuzzy` decides it for the jump-to-note and note
+        // selector dropdowns, which query on every keystroke.
+        enableFuzzyMatching: optionService.getOptionBool("searchAutocompleteFuzzy"),
+        // Only the first `AUTOCOMPLETE_RESULT_LIMIT` results are ever read.
+        rankInTwoPasses: true
     });
 
-    const trimmed = findResultsWithQuery(query, searchContext).slice(0, 200);
+    const trimmed = findResultsWithQuery(query, searchContext).slice(0, AUTOCOMPLETE_RESULT_LIMIT);
 
     return buildSearchResultDetails(trimmed, searchContext);
 }

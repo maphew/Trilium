@@ -1,5 +1,5 @@
 import becca from "../../becca/becca.js";
-import becca_service from "../../becca/becca_service.js";
+import becca_service, { type SegmentTitleCache } from "../../becca/becca_service.js";
 import type { ContentMatchQuality } from "./match_quality.js";
 import {
     calculateOptimizedEditDistance,
@@ -8,6 +8,7 @@ import {
     normalizeSearchText,
     stripWordPunctuation,
     tokenizeIntoWords,
+    tokenizeNormalizedText,
     wordsContainPhrase} from "./utils/text_utils.js";
 
 // Scoring constants for better maintainability
@@ -42,10 +43,38 @@ const SCORE_WEIGHTS = {
 } as const;
 
 
+/**
+ * The query-side strings every result is scored against. They depend on the query alone, so
+ * `performSearch` derives them once and hands the same bundle to every result.
+ */
+export interface ScoringTerms {
+    normalizedQuery: string;
+    queryWords: string[];
+    normalizedTokens: string[];
+    /**
+     * Words per path segment title. Results under the same ancestors repeat those titles, so one
+     * search tokenizes each distinct segment once instead of once per result.
+     */
+    pathSegmentWords: Map<string, string[]>;
+}
+
+export function precomputeScoringTerms(fulltextQuery: string, tokens: string[]): ScoringTerms {
+    const normalizedQuery = normalizeSearchText(fulltextQuery);
+
+    return {
+        normalizedQuery,
+        queryWords: tokenizeNormalizedText(normalizedQuery),
+        normalizedTokens: tokens.map((token) => stripWordPunctuation(normalizeSearchText(token))),
+        pathSegmentWords: new Map()
+    };
+}
+
 class SearchResult {
     notePathArray: string[];
     score: number;
-    notePathTitle: string;
+    private segmentTitles?: SegmentTitleCache;
+    private __pathTitleSegments?: string[];
+    private __notePathTitle?: string;
     highlightedNotePathTitle?: string;
     contentSnippet?: string;
     highlightedContentSnippet?: string;
@@ -53,11 +82,31 @@ class SearchResult {
     highlightedAttributeSnippet?: string;
     private fuzzyScore: number; // Track fuzzy score separately
 
-    constructor(notePathArray: string[]) {
+    constructor(notePathArray: string[], segmentTitles?: SegmentTitleCache) {
         this.notePathArray = notePathArray;
-        this.notePathTitle = becca_service.getNoteTitleForPath(notePathArray);
+        this.segmentTitles = segmentTitles;
         this.score = 0;
         this.fuzzyScore = 0;
+    }
+
+    /**
+     * Resolved on demand. Ranking scores far more results than it returns, and only the ones that
+     * survive to the second pass need their path spelled out.
+     */
+    private get pathTitleSegments(): string[] {
+        if (!this.__pathTitleSegments) {
+            this.__pathTitleSegments = becca_service.getNoteTitleArrayForPath(this.notePathArray, this.segmentTitles);
+        }
+
+        return this.__pathTitleSegments;
+    }
+
+    get notePathTitle(): string {
+        if (this.__notePathTitle === undefined) {
+            this.__notePathTitle = this.pathTitleSegments.join(" › ");
+        }
+
+        return this.__notePathTitle;
     }
 
     get notePath() {
@@ -68,14 +117,14 @@ class SearchResult {
         return this.notePathArray[this.notePathArray.length - 1];
     }
 
-    computeScore(fulltextQuery: string, tokens: string[], enableFuzzyMatching: boolean = true, contentMatch?: ContentMatchQuality) {
+    computeScore(fulltextQuery: string, tokens: string[], enableFuzzyMatching: boolean = true, contentMatch?: ContentMatchQuality, terms?: ScoringTerms, includePathScore: boolean = true) {
         this.score = 0;
         this.fuzzyScore = 0; // Reset fuzzy score tracking
 
         const note = becca.notes[this.noteId];
+        const { normalizedQuery, queryWords, normalizedTokens, pathSegmentWords } = terms ?? precomputeScoringTerms(fulltextQuery, tokens);
         // normalizeSearchText already lowercases — no need for .toLowerCase() first
-        const normalizedQuery = normalizeSearchText(fulltextQuery);
-        const normalizedTitle = normalizeSearchText(note.title);
+        const { normalized: normalizedTitle, words: titleWords } = note.getSearchableTitle();
 
         // Note ID exact match, much higher score
         if (note.noteId.toLowerCase() === fulltextQuery) {
@@ -87,7 +136,7 @@ class SearchResult {
             this.score += SCORE_WEIGHTS.TITLE_EXACT_MATCH;
         } else if (normalizedTitle.startsWith(normalizedQuery)) {
             this.score += SCORE_WEIGHTS.TITLE_PREFIX_MATCH;
-        } else if (this.isWordMatch(normalizedTitle, normalizedQuery)) {
+        } else if (wordsContainPhrase(titleWords, queryWords)) {
             this.score += SCORE_WEIGHTS.TITLE_WORD_MATCH;
         } else if (enableFuzzyMatching) {
             // Try fuzzy matching for typos only if enabled
@@ -97,8 +146,10 @@ class SearchResult {
         }
 
         // Add scores for token matches
-        this.addScoreForStrings(tokens, note.title, SCORE_WEIGHTS.TITLE_FACTOR, enableFuzzyMatching);
-        this.addScoreForStrings(tokens, this.notePathTitle, SCORE_WEIGHTS.PATH_FACTOR, enableFuzzyMatching);
+        this.addScoreForChunks(titleWords, tokens, SCORE_WEIGHTS.TITLE_FACTOR, enableFuzzyMatching, normalizedTokens);
+        if (includePathScore) {
+            this.addScoreForChunks(this.getPathWords(pathSegmentWords), tokens, SCORE_WEIGHTS.PATH_FACTOR, enableFuzzyMatching, normalizedTokens);
+        }
 
         // Add score for how well the note's body content matched the query.
         if (contentMatch) {
@@ -155,14 +206,38 @@ class SearchResult {
         this.score += contentScore;
     }
 
-    addScoreForStrings(tokens: string[], str: string, factor: number, enableFuzzyMatching: boolean = true) {
+    addScoreForStrings(tokens: string[], str: string, factor: number, enableFuzzyMatching: boolean = true, precomputedTokens?: string[]) {
         // Tokenize (strip boundary punctuation) so a chunk like "(sync)" scores as
         // an exact token match for "sync" rather than only a contains match.
         const chunks = tokenizeIntoWords(str);
+        const normalizedTokens = precomputedTokens ?? tokens.map(t => stripWordPunctuation(normalizeSearchText(t)));
 
-        // Pre-normalize and strip tokens once instead of per-chunk
-        const normalizedTokens = tokens.map(t => stripWordPunctuation(normalizeSearchText(t)));
+        this.addScoreForChunks(chunks, tokens, factor, enableFuzzyMatching, normalizedTokens);
+    }
 
+    /**
+     * The words of `notePathTitle`. Splitting on whitespace drops the " › " separators, so tokenizing
+     * each segment and concatenating yields exactly what tokenizing the joined title would.
+     */
+    private getPathWords(cache: Map<string, string[]>): string[] {
+        const words: string[] = [];
+
+        for (const segment of this.pathTitleSegments) {
+            let segmentWords = cache.get(segment);
+
+            if (!segmentWords) {
+                segmentWords = tokenizeIntoWords(segment);
+                cache.set(segment, segmentWords);
+            }
+
+            words.push(...segmentWords);
+        }
+
+        return words;
+    }
+
+    /** Scores already-tokenized text, so a caller holding cached words skips re-tokenizing them. */
+    private addScoreForChunks(chunks: string[], tokens: string[], factor: number, enableFuzzyMatching: boolean, normalizedTokens: string[]) {
         let tokenScore = 0;
         for (const chunk of chunks) {
             for (let ti = 0; ti < normalizedTokens.length; ti++) {
@@ -181,7 +256,7 @@ class SearchResult {
                            normalizedToken.length >= FUZZY_SEARCH_CONFIG.MIN_FUZZY_TOKEN_LENGTH &&
                            this.fuzzyScore < SCORE_WEIGHTS.MAX_TOTAL_FUZZY_SCORE) {
                     // Only compute edit distance when fuzzy matching is enabled.
-                    // Cap the per-chunk distance with the length-scaled (AUTO) bound
+                    // Cap the per-chunk distance with the length-scaled bound
                     // so short tokens can't fuzzy-match at distance 2.
                     const maxEditDistance = getAutoMaxEditDistance(normalizedToken.length);
                     const editDistance = calculateOptimizedEditDistance(chunk, normalizedToken, maxEditDistance);
@@ -207,10 +282,6 @@ class SearchResult {
      * in the text. Tokenizing both sides makes this punctuation-aware, so a title
      * like "(sync) notes" is a word match for the query "sync".
      */
-    private isWordMatch(text: string, query: string): boolean {
-        return wordsContainPhrase(tokenizeIntoWords(text), tokenizeIntoWords(query));
-    }
-
     /**
      * Calculates fuzzy matching score for title matches with caps applied
      */
