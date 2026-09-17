@@ -1,10 +1,11 @@
 <%
 const linkClass = `type-${note.type}` + (activeNote.noteId === note.noteId ? " active" : "");
-const isExternalLink = note.hasLabel("shareExternal");
+const externalHref = note.getLabelValue("shareExternalLink") || note.getLabelValue("shareExternal");
+const isExternalLink = !!externalHref;
 let linkHref;
 
 if (isExternalLink) {
-    linkHref = sanitizeUrl(note.getLabelValue("shareExternal") ?? "");
+    linkHref = sanitizeUrl(externalHref);
 } else if (note.shareId) {
     linkHref = `./${note.shareId}`;
 }

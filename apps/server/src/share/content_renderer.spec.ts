@@ -670,6 +670,31 @@ describe("content_renderer", () => {
             expect(Object.keys(internal?.attributes ?? {}).sort()).toEqual([ "class", "href" ]);
         });
 
+        it("links to the first non-empty value of either external link label", () => {
+            const documented = renderTreeItemAnchor({
+                "id": "external2",
+                "#shareExternalLink": "https://example.com/page"
+            });
+            const bothLabels = renderTreeItemAnchor({
+                "id": "external3",
+                "#shareExternal": "",
+                "#shareExternalLink": "https://example.com/page"
+            });
+
+            for (const anchor of [ documented, bothLabels ]) {
+                expect(anchor?.getAttribute("href")).toBe("https://example.com/page");
+                expect(anchor?.getAttribute("target")).toBe("_blank");
+                expect(anchor?.getAttribute("rel")).toBe("noopener noreferrer");
+                expect(Object.keys(anchor?.attributes ?? {}).sort())
+                    .toEqual([ "class", "href", "rel", "target" ]);
+            }
+
+            const noUrl = renderTreeItemAnchor({ "id": "external4", "#shareExternal": "" });
+
+            expect(noUrl?.getAttribute("href")).toBe("./external4");
+            expect(Object.keys(noUrl?.attributes ?? {}).sort()).toEqual([ "class", "href" ]);
+        });
+
         function renderTreeItemAnchor(noteDef: Parameters<typeof buildShareNote>[0]) {
             const note = buildShareNote(noteDef);
             const subRootNote = buildShareNote({ id: `subRoot-${noteDef.id}` });
@@ -698,10 +723,20 @@ describe("content_renderer", () => {
                         "title": "External",
                         "#shareExternal": "https://example.com/page"
                     },
+                    {
+                        "id": "pageBothLabels",
+                        "title": "Both labels",
+                        "#shareExternal": "",
+                        "#shareExternalLink": "https://example.com/other"
+                    },
                     { id: "pageInternal", title: "Internal" }
                 ]
             });
             const anchors = renderPageAnchors("pageParent");
+
+            const bothLabels = anchors.find((a) => a.textContent === "Both labels");
+            expect(bothLabels?.getAttribute("href")).toBe("https://example.com/other");
+            expect(bothLabels?.getAttribute("target")).toBe("_blank");
 
             const external = anchors.find((a) => a.textContent === "External");
             expect(external?.getAttribute("href")).toBe("https://example.com/page");
