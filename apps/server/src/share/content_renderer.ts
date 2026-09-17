@@ -618,7 +618,10 @@ function cleanUpReferenceLinks(linkEl: HTMLElement, href: string, getNote: GetNo
     }
 
     // `handleAttachmentLink()` removes the `href` of a link whose target is missing.
-    const noteId = linkEl.hasAttribute("href") ? getNoteIdFromLink(href) : "";
+    let noteId = "";
+    if (linkEl.hasAttribute("href")) {
+        noteId = href.startsWith("#") ? getNoteIdFromLink(href) : (href.split("/").at(-1) ?? "");
+    }
     const note = noteId ? getNote(noteId) : undefined;
     if (!note) {
         // If a note is not found, simply replace it with a text.
