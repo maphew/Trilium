@@ -187,7 +187,7 @@ describe("notes service (real DB)", () => {
                 expect(becca.notes[noteId]).toBe(note);
             }
 
-            for (const noteId of [ null as unknown as string, "" ]) {
+            for (const noteId of [ null as unknown as string, "", undefined as unknown as string ]) {
                 expect(createNote("root", { noteId }).note.noteId).toMatch(/^[A-Za-z0-9]{12}$/);
             }
 
@@ -202,6 +202,10 @@ describe("notes service (real DB)", () => {
 
             const numericId = 12345 as unknown as string;
             expect(() => createNote("root", { noteId: numericId })).toThrow(ValidationError);
+
+            for (const noteId of [ 0 as unknown as string, false as unknown as string ]) {
+                expect(() => createNote("root", { noteId }), String(noteId)).toThrow(/is not valid/);
+            }
         });
 
         it("inherits the template's mime and adds a template relation when creating from a template", () => {
