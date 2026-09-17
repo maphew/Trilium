@@ -128,37 +128,52 @@ describe("dialog service", () => {
             expect(focusSavedElement).not.toHaveBeenCalled();
         });
 
-        it("saves the focused element, then blurs it before the modal shows", async () => {
+        it("saves the focused element, then moves focus to the backdrop", async () => {
             const input = focusNewInput(document.body);
+            const backdrop = $("<div class='modal-backdrop'></div>").appendTo(document.body)[0];
             let savedElement: Element | null = null;
-            let focusedAtShow: Element | null = null;
+            let focusTakenBy: EventTarget | null = null;
             saveFocusedElement.mockImplementationOnce(() => {
                 savedElement = document.activeElement;
             });
-            modalShow.mockImplementationOnce(() => {
-                focusedAtShow = document.activeElement;
+            input.addEventListener("focusout", (e) => {
+                focusTakenBy = e.relatedTarget;
             });
 
             await openDialog(makeDialog(), false);
 
             expect(savedElement).toBe(input);
-            expect(focusedAtShow).toBe(document.body);
+            expect(document.activeElement).toBe(backdrop);
+            // Editors that save on focusout (AttributeEditorOverlay) read this to stay open.
+            expect(focusTakenBy).toBe(backdrop);
+        });
+
+        it("blurs the focused element when the dialog has no backdrop", async () => {
+            focusNewInput(document.body);
+            $("<div class='modal-backdrop'></div>").appendTo(document.body);
+
+            await openDialog(makeDialog(), false, { backdrop: false });
+
             expect(document.activeElement).toBe(document.body);
+        });
+
+        it("does not take focus back from a dialog that is shown at once", async () => {
+            focusNewInput(document.body);
+            $("<div class='modal-backdrop'></div>").appendTo(document.body);
+            const $dialog = makeDialog().appendTo(document.body);
+            const dialogInput = document.createElement("input");
+            $dialog[0].appendChild(dialogInput);
+            modalShow.mockImplementationOnce(() => dialogInput.focus());
+
+            await openDialog($dialog, false);
+
+            expect(document.activeElement).toBe(dialogInput);
         });
 
         it("leaves focus alone when the dialog is opened with focus: false", async () => {
             const input = focusNewInput(document.body);
 
             await openDialog(makeDialog(), false, { focus: false });
-
-            expect(document.activeElement).toBe(input);
-        });
-
-        it("does not blur an element inside the dialog itself", async () => {
-            const $dialog = makeDialog().appendTo(document.body);
-            const input = focusNewInput($dialog[0]);
-
-            await openDialog($dialog, false);
 
             expect(document.activeElement).toBe(input);
         });
