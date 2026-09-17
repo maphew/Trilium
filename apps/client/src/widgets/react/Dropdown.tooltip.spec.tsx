@@ -73,3 +73,30 @@ describe("Dropdown tooltip", () => {
         expect(shownTooltips(), "gone with the dropdown").toBe(0);
     });
 });
+
+describe("Dropdown with a disabled toggle", () => {
+    let container: HTMLElement;
+
+    beforeEach(() => {
+        container = document.createElement("div");
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        act(() => render(null, container));
+        container.remove();
+    });
+
+    it("closes an open menu when the toggle becomes disabled", () => {
+        act(() => render(<Dropdown>item</Dropdown>, container));
+        const toggle = container.querySelector("button");
+        const menu = container.querySelector(".dropdown-menu");
+        act(() => toggle?.click());
+        expect(menu?.classList.contains("show"), "opened by the click").toBe(true);
+
+        act(() => render(<Dropdown disabled>item</Dropdown>, container));
+        expect(menu?.classList.contains("show"), "closed by the disable").toBe(false);
+        expect(toggle?.disabled).toBe(true);
+        expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    });
+});
