@@ -16,12 +16,22 @@ import type { SplitEditorProps } from "./SplitEditor";
 // It also keeps a scale, the way the library does: a step multiplies it by the library's own
 // sensitivity and is clamped to the same bounds, a fit takes it back to the view it opened at, and
 // every change is told to whoever asked to be told (`setOnZoom`) — which is what the readout follows.
+//
+// And it fits the `viewBox` to the measured box on init, as the library does. A fit scale that is
+// not a positive number leaves a matrix that cannot be inverted, so every later zoom throws.
 vi.mock("svg-pan-zoom", () => ({
     default: vi.fn((svgEl: SVGElement) => {
+        const box = svgEl.getBoundingClientRect();
+        const [ , , boxWidth, boxHeight ] = (svgEl.getAttribute("viewBox") ?? "0 0 1 1")
+            .split(/[\s,]+/).filter(Boolean).map(parseFloat);
+        const fitScale = Math.min(box.width / boxWidth, box.height / boxHeight);
         svgEl.removeAttribute("viewBox");
         let zoom = 1;
         let onZoom: ((zoom: number) => void) | undefined;
         const setZoom = (value: number) => {
+            if (!(Number.isFinite(fitScale) && fitScale > 0)) {
+                throw new Error("The matrix is not invertible.");
+            }
             zoom = Math.min(10, Math.max(0.5, value));
             onZoom?.(zoom);
             return instance;
@@ -37,7 +47,7 @@ vi.mock("svg-pan-zoom", () => ({
             getPan: () => ({ x: 0, y: 0 }),
             getZoom: () => zoom,
             setOnZoom: (fn: (zoom: number) => void) => { onZoom = fn; return instance; },
-            destroy: () => {}
+            destroy: () => { setZoom(1); }
         };
         return instance;
     })
