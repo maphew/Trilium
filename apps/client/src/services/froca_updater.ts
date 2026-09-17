@@ -148,11 +148,13 @@ async function processBranchChange(loadResults: LoadResults, ec: EntityChange) {
                 delete parentNote.childToBranch[branch.noteId];
             }
 
-            if (ec.componentId) {
-                loadResults.addBranch(ec.entityId, ec.componentId);
-            }
-
             delete froca.branches[ec.entityId];
+        }
+
+        // `froca.addResp()` can remove a moved branch before its deletion arrives here, while
+        // `NoteTreeWidget` still holds a node for it and removes that node by `branchId`.
+        if (ec.componentId && ec.entity) {
+            loadResults.addBranch(ec.entityId, ec.componentId);
         }
 
         return;

@@ -194,6 +194,68 @@ describe("froca_updater - branch changes", () => {
             entity: { isDeleted: true } as any
         })]);
         expect(triggerSpy).not.toHaveBeenCalled();
+
+        // An erased change carries no entity, so `LoadResults` has no row to report.
+        const erased = ec({
+            entityName: "branches",
+            entityId: "unknown-erased-branch",
+            componentId: "comp-b",
+            isErased: true
+        });
+        await process([ erased ]);
+        expect(triggerSpy).not.toHaveBeenCalled();
+    });
+
+    it("reports a deleted branch that froca.addResp() already removed", async () => {
+        const parent = buildNote({ title: "Main", children: [ { title: "Moved" } ] });
+        const target = buildNote({ title: "Collection" });
+        const childId = parent.children[0];
+        const branchId = `${parent.noteId}_${childId}`;
+        const movedNoteRow = {
+            noteId: childId,
+            title: "Moved",
+            isProtected: false,
+            type: "text" as const,
+            mime: "text/html",
+            blobId: ""
+        };
+        const newBranchRow = {
+            branchId: `${target.noteId}_${childId}`,
+            noteId: childId,
+            parentNoteId: target.noteId,
+            notePosition: 10,
+            fromSearchNote: false
+        };
+
+        // A subtree load of the target returns the moved note ahead of the websocket stream.
+        froca.addResp({ notes: [ movedNoteRow ], branches: [ newBranchRow ], attributes: [] });
+        expect(branchId in froca.branches).toBe(false);
+
+        const deletedBranchRow = {
+            branchId,
+            noteId: childId,
+            parentNoteId: parent.noteId,
+            isDeleted: true
+        };
+        const deleted = ec({
+            entityName: "branches",
+            entityId: branchId,
+            componentId: "comp-b",
+            entity: deletedBranchRow as any
+        });
+        await process([ deleted ]);
+
+        expect(triggerSpy).toHaveBeenCalledTimes(1);
+        expect(triggerSpy.mock.calls[0][0]).toBe("entitiesReloaded");
+        const { loadResults } = triggerSpy.mock.calls[0][1] as { loadResults: LoadResults };
+        const branchRows = loadResults.getBranchRows();
+        expect(branchRows).toHaveLength(1);
+        expect(branchRows[0]).toMatchObject({
+            branchId,
+            noteId: childId,
+            isDeleted: true,
+            componentId: "comp-b"
+        });
     });
 
     it("updates an existing branch", async () => {
