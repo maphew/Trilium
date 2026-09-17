@@ -331,37 +331,62 @@ export function fuzzyMatchWordWithResult(token: string, text: string, maxDistanc
         }
 
         // For fuzzy matching, split into words and check each against the token
-        const words = normalizedText.split(/\s+/).filter(word => word.length > 0);
-        const originalWords = text.split(/\s+/).filter(word => word.length > 0);
+        const words = splitIntoWords(normalizedText);
+        const matched = matchingWordIndex(normalizedToken, words, maxDistance);
 
-        for (let i = 0; i < words.length; i++) {
-            const word = words[i];
-            const originalWord = originalWords[i];
-
-            // A word containing the token is a substring relationship, not a typo, so "sync"
-            // must not fuzzy-match "async".
-            if (word.length > normalizedToken.length && word.includes(normalizedToken)) {
-                continue;
-            }
-
-            // Skip if word is too different in length for fuzzy matching
-            if (Math.abs(word.length - normalizedToken.length) > maxDistance) {
-                continue;
-            }
-
-            // Use optimized edit distance calculation
-            const distance = calculateOptimizedEditDistance(normalizedToken, word, maxDistance);
-            if (distance <= maxDistance) {
-                return originalWord; // Return the original word with case preserved
-            }
+        if (matched === -1) {
+            return null;
         }
 
-        return null;
+        // Return the original word with case preserved. Lowercasing neither adds nor removes
+        // whitespace, so the two splits agree position for position.
+        return splitIntoWords(text)[matched];
     } catch (error) {
         // Log error and return null for safety
         console.warn('Error in fuzzy word matching:', error);
         return null;
     }
+}
+
+/**
+ * Splits a normalized text into its words.
+ *
+ * Callers that test many tokens against the same text split it once and pass the result to
+ * {@link fuzzyMatchInWords}, rather than paying for the split per token.
+ */
+export function splitIntoWords(text: string): string[] {
+    return text.split(/\s+/).filter(word => word.length > 0);
+}
+
+/**
+ * The word within `maxDistance` edits of `token`, or null. Both the token and the words are
+ * expected to be normalized; the word is returned as it appears in `words`.
+ */
+export function fuzzyMatchInWords(token: string, words: string[], maxDistance: number): string | null {
+    const matched = matchingWordIndex(token, words, maxDistance);
+    return matched === -1 ? null : words[matched];
+}
+
+/** Index of the first word within `maxDistance` edits of `token`, or -1. */
+function matchingWordIndex(token: string, words: string[], maxDistance: number): number {
+    for (const [index, word] of words.entries()) {
+        // A word containing the token is a substring relationship, not a typo, so "sync"
+        // must not fuzzy-match "async".
+        if (word.length > token.length && word.includes(token)) {
+            continue;
+        }
+
+        // Skip if word is too different in length for fuzzy matching
+        if (Math.abs(word.length - token.length) > maxDistance) {
+            continue;
+        }
+
+        if (calculateOptimizedEditDistance(token, word, maxDistance) <= maxDistance) {
+            return index;
+        }
+    }
+
+    return -1;
 }
 
 /**
@@ -372,7 +397,7 @@ export function fuzzyMatchWordWithResult(token: string, text: string, maxDistanc
  * and so does any text containing that word. Each chunk costs one native substring scan, and the
  * check never rejects a text the per-word scan would have matched, so it can front that scan.
  */
-function containsAnyChunk(text: string, token: string, maxDistance: number): boolean {
+export function containsAnyChunk(text: string, token: string, maxDistance: number): boolean {
     const chunkCount = maxDistance + 1;
     const chunkLength = Math.floor(token.length / chunkCount);
 
