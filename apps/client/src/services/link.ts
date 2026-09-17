@@ -27,9 +27,9 @@ async function getLinkIcon(noteId: string, viewMode: ViewMode | undefined) {
 
         icon = note?.getIcon();
     } else if (viewMode === "source") {
-        icon = "bx bx-code-curly";
+        icon = "tn-icon bx bx-code-curly";
     } else if (viewMode === "attachments") {
-        icon = "bx bx-file";
+        icon = "tn-icon bx bx-file";
     }
     return icon;
 }
