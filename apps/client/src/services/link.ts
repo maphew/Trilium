@@ -332,6 +332,10 @@ function isExtraWindowUrl(url: string, hashIdx: number) {
     return /[?&]extraWindow(?:[=&]|$)/.test(url.slice(0, hashIdx));
 }
 
+/**
+ * Parses the navigation state in the hash of `url`. A full URL is internal when it addresses the
+ * document at `location` or has an accepted internal form. Any other URL is external: `{}`.
+ */
 export function parseNavigationStateFromUrl(
     url: string | undefined,
     location: UrlParts = window.location

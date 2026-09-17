@@ -185,8 +185,7 @@ describe("parseNavigationStateFromUrl", () => {
         happyDOM.setURL("https://host/?desktop");
 
         try {
-            const url = `${window.location.href.replace(/#.*/, "")}#root/WWaBNf3SSA1b`;
-            expect(parseNavigationStateFromUrl(url))
+            expect(parseNavigationStateFromUrl("https://host/?desktop#root/WWaBNf3SSA1b"))
                 .toMatchObject({ notePath: "root/WWaBNf3SSA1b" });
         } finally {
             happyDOM.setURL(previousUrl);
