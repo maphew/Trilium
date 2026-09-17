@@ -341,6 +341,7 @@ function RelationInput({ inputId, ...props }: CellProps & { inputId: string }) {
     return (
         <NoteAutocomplete
             id={inputId}
+            tabIndex={200 + props.cell.definitionAttr.position}
             noteId={props.cell.valueAttr.value}
             opts={{ allowCreatingNotes: true }}
             noteIdChanged={async (value) => {

@@ -94,8 +94,7 @@ describe("RelationValuesInput", () => {
         await mount({ values: [], onCommit: vi.fn(), inputId: "field-id", tabIndex: 205 });
         const input = container.querySelector("input");
         expect(input?.id).toBe("field-id");
-        // Set onto the box by hand: the field does not carry the attribute through to it.
-        expect(input?.getAttribute("tabindex")).toBe("205");
+        expect(autocomplete.current?.tabIndex).toBe(205);
     });
 });
 
