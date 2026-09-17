@@ -701,6 +701,23 @@ describe("content_renderer", () => {
             });
 
             expect(twoUrls?.getAttribute("href")).toBe("https://example.com/documented");
+
+            const whitespaceWithLegacy = renderTreeItemAnchor({
+                "id": "external6",
+                "#shareExternal": "https://example.com/legacy2",
+                "#shareExternalLink": "   "
+            });
+
+            expect(whitespaceWithLegacy?.getAttribute("href")).toBe("https://example.com/legacy2");
+
+            const whitespaceOnly = renderTreeItemAnchor({
+                "id": "external7",
+                "#shareExternalLink": "   "
+            });
+
+            expect(whitespaceOnly?.getAttribute("href")).toBe("./external7");
+            expect(Object.keys(whitespaceOnly?.attributes ?? {}).sort())
+                .toEqual([ "class", "href" ]);
         });
 
         function renderTreeItemAnchor(noteDef: Parameters<typeof buildShareNote>[0]) {
@@ -737,7 +754,24 @@ describe("content_renderer", () => {
                         "#shareExternal": "",
                         "#shareExternalLink": "https://example.com/other"
                     },
-                    { id: "pageInternal", title: "Internal" }
+                    { id: "pageInternal", title: "Internal" },
+                    {
+                        "id": "pageTwoUrls",
+                        "title": "Two URLs",
+                        "#shareExternal": "https://example.com/legacy",
+                        "#shareExternalLink": "https://example.com/documented"
+                    },
+                    {
+                        "id": "pageWhitespaceWithLegacy",
+                        "title": "Whitespace with legacy",
+                        "#shareExternal": "https://example.com/legacy2",
+                        "#shareExternalLink": "   "
+                    },
+                    {
+                        "id": "pageWhitespaceOnly",
+                        "title": "Whitespace only",
+                        "#shareExternalLink": "   "
+                    }
                 ]
             });
             const anchors = renderPageAnchors("pageParent");
@@ -756,6 +790,18 @@ describe("content_renderer", () => {
             const internal = anchors.find((a) => a.textContent === "Internal");
             expect(internal?.getAttribute("href")).toBe("./pageInternal");
             expect(Object.keys(internal?.attributes ?? {}).sort()).toEqual([ "class", "href" ]);
+
+            const twoUrls = anchors.find((a) => a.textContent === "Two URLs");
+            expect(twoUrls?.getAttribute("href")).toBe("https://example.com/documented");
+
+            const whitespaceWithLegacy = anchors
+                .find((a) => a.textContent === "Whitespace with legacy");
+            expect(whitespaceWithLegacy?.getAttribute("href")).toBe("https://example.com/legacy2");
+
+            const whitespaceOnly = anchors.find((a) => a.textContent === "Whitespace only");
+            expect(whitespaceOnly?.getAttribute("href")).toBe("./pageWhitespaceOnly");
+            expect(Object.keys(whitespaceOnly?.attributes ?? {}).sort())
+                .toEqual([ "class", "href" ]);
         });
 
         function renderPageAnchors(noteId: string) {
