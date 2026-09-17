@@ -61,16 +61,16 @@ describe("TabManager tab placement", () => {
         const [a, b, c] = await openEmptyTabs(tm, 3);
         tm.activeNtxId = b.ntxId;
 
+        // openInNewTab() returns nothing, so a tab that is not "a", "b" or "c" reads as "new".
+        const known = [a.ntxId, b.ntxId, c.ntxId];
+        const order = () => ntxOrder(tm).map((ntxId) => (known.includes(ntxId) ? ntxId : "new"));
+
         // An empty note ID makes setNote() return early, so only the placement is exercised.
         await tm.openInNewTab("", null, false, "afterCurrent");
-        const afterCurrent = tm.mainNoteContexts[2];
-        expect(ntxOrder(tm)).toEqual([a.ntxId, b.ntxId, afterCurrent.ntxId, c.ntxId]);
+        expect(order()).toEqual([a.ntxId, b.ntxId, "new", c.ntxId]);
 
         await tm.openInNewTab("", null);
-        const appended = tm.mainNoteContexts[4];
-        expect(ntxOrder(tm)).toEqual([
-            a.ntxId, b.ntxId, afterCurrent.ntxId, c.ntxId, appended.ntxId
-        ]);
+        expect(order()).toEqual([a.ntxId, b.ntxId, "new", c.ntxId, "new"]);
     });
 });
 
