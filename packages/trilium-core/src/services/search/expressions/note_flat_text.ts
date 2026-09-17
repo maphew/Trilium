@@ -12,8 +12,10 @@ class NoteFlatTextExp extends Expression {
     constructor(tokens: string[]) {
         super();
 
-        // Normalize tokens using centralized normalization function
-        this.tokens = tokens.map(token => normalizeSearchText(token));
+        // Every token is matched against each note on its own, so a repeat only repeats the scan.
+        // Deduplicating after normalization also folds tokens that differ solely in case or
+        // diacritics. Order is kept, so the tokens still read as the user typed them.
+        this.tokens = [ ...new Set(tokens.map(token => normalizeSearchText(token))) ];
     }
 
     execute(inputNoteSet: NoteSet, executionContext: any, searchContext: SearchContext) {
