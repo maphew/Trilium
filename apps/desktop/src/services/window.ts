@@ -502,6 +502,12 @@ export function setupWindowing() {
         isQuitting = true;
     });
 
+    // This runs at `ready`, before the first window exists. A menu set after a framed window is
+    // created shows the menu bar of that window again. The log service can be unready here.
+    electron.app.whenReady().then(setupApplicationMenu).catch((e) => {
+        console.error(`Could not set the application menu: ${e}`);
+    });
+
     electron.ipcMain.on("reload-all-windows", () => {
         for (const win of electron.BrowserWindow.getAllWindows()) {
             win.reload();
@@ -671,6 +677,25 @@ export function setupWindowing() {
             getLog().error(`Failed to swap setup window for main window: ${err}`);
         }
     });
+}
+
+/**
+ * Installs an application menu without the `minimize` role. `setMenuBarVisibility(false)` keeps
+ * the menu accelerators active, and `minimize` binds Ctrl+M, the text editor's math shortcut.
+ */
+function setupApplicationMenu() {
+    // Cmd+M is standard on macOS. The app can be ready before `initializeCore()` makes
+    // `coreUtils.isMac()` usable, so this reads `process.platform`.
+    if (process.platform === "darwin") {
+        return;
+    }
+
+    electron.Menu.setApplicationMenu(electron.Menu.buildFromTemplate([
+        { role: "fileMenu" },
+        { role: "editMenu" },
+        { role: "viewMenu" },
+        { role: "windowMenu", submenu: [{ role: "close" }] }
+    ]));
 }
 
 export default {
