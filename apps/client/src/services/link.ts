@@ -439,11 +439,12 @@ export function parseNavigationStateFromUrl(
     };
 }
 
-/** Whether `url` addresses the document at `location`, including its query string, ignoring the hash. */
+/** Whether `url` addresses the document at `location`, query string included, hash ignored. */
 function isSameDocumentUrl(url: string, hashIdx: number, location: UrlParts) {
     const documentUrl = url.slice(0, hashIdx);
 
-    return documentUrl === `${location.protocol}//${location.host}${location.pathname}${location.search}`;
+    const { protocol, host, pathname, search } = location;
+    return documentUrl === `${protocol}//${host}${pathname}${search}`;
 }
 
 /** Iterates the `name=value` pairs of a hash's parameter string, decoding both sides. */
