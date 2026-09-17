@@ -55,6 +55,23 @@ describe("TabManager tab placement", () => {
         // inserting right after p1 would split the pinned group, so it clamps past the group
         expect(ntxOrder(tm)).toEqual([p1.ntxId, p2.ntxId, fromLink.ntxId, a.ntxId]);
     });
+
+    it("places a tab from openInNewTab() after the active tab only when asked to", async () => {
+        const tm = new TabManager();
+        const [a, b, c] = await openEmptyTabs(tm, 3);
+        tm.activeNtxId = b.ntxId;
+
+        // An empty note ID makes setNote() return early, so only the placement is exercised.
+        await tm.openInNewTab("", null, false, "afterCurrent");
+        const afterCurrent = tm.mainNoteContexts[2];
+        expect(ntxOrder(tm)).toEqual([a.ntxId, b.ntxId, afterCurrent.ntxId, c.ntxId]);
+
+        await tm.openInNewTab("", null);
+        const appended = tm.mainNoteContexts[4];
+        expect(ntxOrder(tm)).toEqual([
+            a.ntxId, b.ntxId, afterCurrent.ntxId, c.ntxId, appended.ntxId
+        ]);
+    });
 });
 
 describe("moving a tab with splits into a window of its own", () => {
