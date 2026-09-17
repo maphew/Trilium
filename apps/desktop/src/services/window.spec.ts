@@ -1083,6 +1083,23 @@ describe("window service", () => {
             await setupWindowingOn("darwin");
             expect(setApplicationMenu).not.toHaveBeenCalled();
         });
+
+        it("reports a menu that Electron rejects", async () => {
+            const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+            electronSurface.Menu.buildFromTemplate.mockImplementationOnce(() => {
+                throw new Error("bad template");
+            });
+
+            try {
+                await setupWindowingOn("linux");
+                await new Promise((resolve) => setImmediate(resolve));
+
+                expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("bad template"));
+                expect(electronSurface.Menu.setApplicationMenu).not.toHaveBeenCalled();
+            } finally {
+                consoleError.mockRestore();
+            }
+        });
     });
 
     describe("DB_INITIALIZED subscription", () => {

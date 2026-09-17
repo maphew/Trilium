@@ -502,7 +502,11 @@ export function setupWindowing() {
         isQuitting = true;
     });
 
-    electron.app.whenReady().then(setupApplicationMenu);
+    // This runs at `ready`, before the first window exists. A menu set after a framed window is
+    // created shows the menu bar of that window again. The log service can be unready here.
+    electron.app.whenReady().then(setupApplicationMenu).catch((e) => {
+        console.error(`Could not set the application menu: ${e}`);
+    });
 
     electron.ipcMain.on("reload-all-windows", () => {
         for (const win of electron.BrowserWindow.getAllWindows()) {
