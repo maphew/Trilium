@@ -24,6 +24,11 @@ export interface SearchParams {
     /** When true, skip the two-phase fuzzy fallback and use the single-token fast path. */
     autocomplete?: boolean;
     /**
+     * Narrows the `searchEnableFuzzyMatching` option for one surface: false turns fuzzy matching
+     * off for this search even when the option is on. It cannot turn it on against the option.
+     */
+    enableFuzzyMatching?: boolean;
+    /**
      * Rank in two passes, keeping only the best results. Set by callers that show a fixed number of
      * results and never read the rest, so the full set is never fully ranked.
      */

@@ -7,6 +7,7 @@ import becca_service from "../../../becca/becca_service.js";
 import type BNote from "../../../becca/entities/bnote.js";
 import blobService from "../../blob.js";
 import hoistedNoteService from "../../hoisted_note.js";
+import optionService from "../../options.js";
 import { getLog } from "../../log.js";
 import scriptService from "../../script.js";
 import { isScriptingEnabled } from "../../scripting_guard.js";
@@ -776,6 +777,10 @@ function searchNotesForAutocomplete(query: string, fastSearch: boolean = true) {
         fuzzyAttributeSearch: true,
         ignoreInternalAttributes: true,
         ancestorNoteId: hoistedNoteService.isHoistedInHiddenSubtree() ? "root" : hoistedNoteService.getHoistedNoteId(),
+        // Typo tolerance is opt-in here: `searchEnableFuzzyMatching` covers quick search and the
+        // search screen, and `searchAutocompleteFuzzy` decides it for the jump-to-note and note
+        // selector dropdowns, which query on every keystroke.
+        enableFuzzyMatching: optionService.getOptionBool("searchAutocompleteFuzzy"),
         // Only the first `AUTOCOMPLETE_RESULT_LIMIT` results are ever read.
         rankInTwoPasses: true
     });

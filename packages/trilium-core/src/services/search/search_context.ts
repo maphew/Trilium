@@ -64,11 +64,15 @@ class SearchContext {
         this.fuzzyAttributeSearch = !!params.fuzzyAttributeSearch;
         this.autocomplete = !!params.autocomplete;
         this.rankInTwoPasses = !!params.rankInTwoPasses;
+        let fuzzyMatchingEnabled: boolean;
         try {
-            this.enableFuzzyMatching = optionService.getOptionBool("searchEnableFuzzyMatching");
+            fuzzyMatchingEnabled = optionService.getOptionBool("searchEnableFuzzyMatching");
         } catch {
-            this.enableFuzzyMatching = true; // Default to true if option not yet initialized
+            fuzzyMatchingEnabled = true; // Default to true if option not yet initialized
         }
+        // A caller can only narrow the option, so a surface that opts out stays out whatever the
+        // option says, and one that says nothing follows it.
+        this.enableFuzzyMatching = fuzzyMatchingEnabled && (params.enableFuzzyMatching ?? true);
         this.highlightedTokens = [];
         this.regexTokens = new Set();
         this.originalQuery = "";
