@@ -61,7 +61,7 @@ describe("TabManager tab placement", () => {
         const [a, b, c] = await openEmptyTabs(tm, 3);
         tm.activeNtxId = b.ntxId;
 
-        // A tab that is not "a", "b" or "c" reads as "new".
+        // `order()` maps an unknown tab identifier to "new".
         const known = [a.ntxId, b.ntxId, c.ntxId];
         const order = () =>
             ntxOrder(tm).map((ntxId) => (known.includes(ntxId) ? ntxId : "new"));
