@@ -184,9 +184,12 @@ content = content.replaceAll(headingRe, (...match) => {
                         <%
                         const action = note.type === "book" ? "getChildNotes" : "getVisibleChildNotes";
                         for (const childNote of note[action]()) {
-                            const externalHref = childNote.getLabelValue("shareExternalLink") || childNote.getLabelValue("shareExternal");
+                            const externalHref = childNote.getLabelValue("shareExternalLink")
+                                || childNote.getLabelValue("shareExternal");
                             const isExternalLink = !!externalHref;
-                            const linkHref = isExternalLink ? sanitizeUrl(externalHref) : `./${childNote.shareId}`;
+                            const linkHref = isExternalLink
+                                ? sanitizeUrl(externalHref)
+                                : `./${childNote.shareId}`;
                         %>
                             <li>
                                 <a class="type-<%= childNote.type %>" href="<%= linkHref %>"<% if (isExternalLink) { %> target="_blank" rel="noopener noreferrer"<% } %>><%= childNote.title %></a>

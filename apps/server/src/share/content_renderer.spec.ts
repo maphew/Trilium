@@ -693,6 +693,14 @@ describe("content_renderer", () => {
 
             expect(noUrl?.getAttribute("href")).toBe("./external4");
             expect(Object.keys(noUrl?.attributes ?? {}).sort()).toEqual([ "class", "href" ]);
+
+            const twoUrls = renderTreeItemAnchor({
+                "id": "external5",
+                "#shareExternal": "https://example.com/legacy",
+                "#shareExternalLink": "https://example.com/documented"
+            });
+
+            expect(twoUrls?.getAttribute("href")).toBe("https://example.com/documented");
         });
 
         function renderTreeItemAnchor(noteDef: Parameters<typeof buildShareNote>[0]) {
