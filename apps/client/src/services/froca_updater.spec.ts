@@ -187,7 +187,7 @@ describe("froca_updater - branch changes", () => {
         expect(triggerSpy).toHaveBeenCalledTimes(1);
     });
 
-    it("returns early for a deleted branch that is not loaded", async () => {
+    it("does not report an unloaded deleted branch without a componentId or entity", async () => {
         await process([ec({
             entityName: "branches",
             entityId: "unknown-branch",
