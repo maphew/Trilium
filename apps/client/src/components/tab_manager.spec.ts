@@ -63,7 +63,8 @@ describe("TabManager tab placement", () => {
 
         // A tab that is not "a", "b" or "c" reads as "new".
         const known = [a.ntxId, b.ntxId, c.ntxId];
-        const order = () => ntxOrder(tm).map((ntxId) => (known.includes(ntxId) ? ntxId : "new"));
+        const order = () =>
+            ntxOrder(tm).map((ntxId) => (known.includes(ntxId) ? ntxId : "new"));
 
         // An empty note ID makes setNote() return early, so only the placement is exercised.
         await tm.openInNewTab("", null, false, "afterCurrent");
