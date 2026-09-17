@@ -659,9 +659,15 @@ describe("buildTriliumSlashCommands", () => {
         expect(executeSpy).toHaveBeenCalledWith("alignment", { value });
     });
 
-    it("finds the to-do list by the word todo", () => {
-        expect(matchSlashCommands(buildTriliumSlashCommands(editor), "todo").map((entry) => entry.id))
-            .toContain("todoList");
+    it("finds the to-do list under the names other editors give it", () => {
+        const definitions = buildTriliumSlashCommands(editor);
+
+        // None of these reach the title: the hyphen in "To-do list" keeps "todo" from matching it
+        // as a prefix or a substring, and the rest are words the title never uses.
+        for (const query of [ "todo", "task", "checklist", "checkbox" ]) {
+            expect(matchSlashCommands(definitions, query).map((entry) => entry.id))
+                .toContain("todoList");
+        }
     });
 
     it("finds the collapsible block under the names other editors give it", () => {
