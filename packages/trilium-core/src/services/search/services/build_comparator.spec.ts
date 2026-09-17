@@ -71,6 +71,26 @@ describe("buildComparator", () => {
             expect(eq?.("the cafe is open")).toBe(false);
         });
 
+        it("keeps each value's own verdict when values repeat and alternate", () => {
+            // A comparator is reused across every note in the database and remembers the last
+            // value it normalized, so a run of repeats must not carry a verdict into the next
+            // distinct value — nor an unnormalized value into a repeat of a normalized one.
+            const eq = buildComparator("=", "false");
+            for (const [value, expected] of [
+                ["false", true], ["false", true], ["true", false], ["false", true],
+                ["", false], ["false", true], ["FALSE", true], ["falsey", false], ["false", true]
+            ] as const) {
+                expect([ value, eq?.(value) ]).toEqual([ value, expected ]);
+            }
+
+            const diacritics = buildComparator("=", "café");
+            expect(diacritics?.("café")).toBe(true);
+            expect(diacritics?.("cafe")).toBe(true);
+            expect(diacritics?.("cafè")).toBe(true);
+            expect(diacritics?.("cafes")).toBe(false);
+            expect(diacritics?.("café")).toBe(true);
+        });
+
         it("negates the strict equality match and treats empty value as a match", () => {
             const neq = buildComparator("!=", "vienna");
             expect(neq?.("vienna")).toBe(false);

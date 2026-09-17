@@ -246,6 +246,24 @@ describe("becca_loader", () => {
         });
     });
 
+    describe("note update", () => {
+        it("drops the title-derived search caches so a rename is searchable under its new title", () => {
+            const note = createNote("root");
+            // Populate both caches, as a search would.
+            expect(note.getFlatText()).toContain("becca-loader-spec");
+
+            expect(note.getSearchableTitle().normalized).toBe(note.title.toLowerCase());
+
+            // A local rename assigns the title and saves; `updateFromRow` is not involved.
+            note.title = "Renamed Vienna";
+            getContext().init(() => note.save());
+
+            expect(note.getSearchableTitle().normalized).toBe("renamed vienna");
+            expect(note.getSearchableTitle().words).toEqual([ "renamed", "vienna" ]);
+            expect(note.getFlatText()).toContain("renamed vienna");
+        });
+    });
+
     it("exposes load and reload through the default export", () => {
         expect(typeof beccaLoader.load).toBe("function");
         expect(typeof beccaLoader.reload).toBe("function");
