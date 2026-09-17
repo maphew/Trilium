@@ -11,7 +11,11 @@ vi.mock("../react/NoteAutocomplete", async () => {
     return {
         default: (props: Record<string, unknown>) => {
             autocomplete.current = props;
-            return h("input", { id: props.id as string | undefined, ref: props.inputRef });
+            return h("input", {
+                id: props.id as string | undefined,
+                tabIndex: props.tabIndex as number | undefined,
+                ref: props.inputRef
+            });
         }
     };
 });
@@ -94,7 +98,7 @@ describe("RelationValuesInput", () => {
         await mount({ values: [], onCommit: vi.fn(), inputId: "field-id", tabIndex: 205 });
         const input = container.querySelector("input");
         expect(input?.id).toBe("field-id");
-        expect(autocomplete.current?.tabIndex).toBe(205);
+        expect(input?.getAttribute("tabindex")).toBe("205");
     });
 });
 
