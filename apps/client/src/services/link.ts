@@ -332,7 +332,10 @@ function isExtraWindowUrl(url: string, hashIdx: number) {
     return /[?&]extraWindow(?:[=&]|$)/.test(url.slice(0, hashIdx));
 }
 
-export function parseNavigationStateFromUrl(url: string | undefined) {
+export function parseNavigationStateFromUrl(
+    url: string | undefined,
+    location: UrlParts = window.location
+) {
     if (!url) {
         return {};
     }
@@ -346,7 +349,13 @@ export function parseNavigationStateFromUrl(url: string | undefined) {
     const isExtraWindow = isExtraWindowUrl(url, hashIdx);
 
     // Exclude external links that contain #
-    if (hashIdx !== 0 && !url.includes("/#root") && !url.includes("/#?searchString") && !isExtraWindow) {
+    if (
+        hashIdx !== 0
+        && !url.includes("/#root")
+        && !url.includes("/#?searchString")
+        && !isExtraWindow
+        && !isSameDocumentUrl(url, hashIdx, location)
+    ) {
         return {};
     }
 
@@ -424,6 +433,13 @@ export function parseNavigationStateFromUrl(url: string | undefined) {
         splits,
         activeSplit
     };
+}
+
+/** Whether `url` addresses the document at `location`, ignoring the query string and the hash. */
+function isSameDocumentUrl(url: string, hashIdx: number, location: UrlParts) {
+    const [ documentUrl ] = url.slice(0, hashIdx).split("?");
+
+    return documentUrl === `${location.protocol}//${location.host}${location.pathname}`;
 }
 
 /** Iterates the `name=value` pairs of a hash's parameter string, decoding both sides. */
