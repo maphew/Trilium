@@ -265,10 +265,10 @@ describe("keepMenuInViewport", () => {
     });
 
     it("keeps Bootstrap's own `preventOverflow` entry, which Popper merges with the guard", () => {
-        const bootstrapEntry = { name: "preventOverflow", options: { boundary: "clippingParents" } };
+        const ownEntry = { name: "preventOverflow", options: { boundary: "clippingParents" } };
 
-        expect(keepMenuInViewport({ modifiers: [ bootstrapEntry ] }).modifiers?.[0])
-            .toBe(bootstrapEntry);
+        expect(keepMenuInViewport({ modifiers: [ ownEntry ] }).modifiers?.[0])
+            .toBe(ownEntry);
     });
 
     it("reaches Bootstrap through `dropdownOptions`", () => {
