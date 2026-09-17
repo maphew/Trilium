@@ -346,9 +346,10 @@ describe("content_renderer", () => {
 
             it("does not treat an external URL's query string as a note ID", () => {
                 const target = buildShareNote({ id: "extIdTarget1", title: "Target" });
+                const href = `https://example.com/${target.noteId}?x=1`;
                 const note = buildShareNote({
                     id: "note",
-                    content: `<p><a class="reference-link" href="https://example.com/${target.noteId}?x=1">text</a></p>`
+                    content: `<p><a class="reference-link" href="${href}">text</a></p>`
                 });
                 const result = getContent(note);
                 expect(result.content).toStrictEqual("<p>text</p>");
