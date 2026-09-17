@@ -140,8 +140,16 @@ describe("Dropdown", () => {
         void act(() => render(null, el));
         el.remove();
         instance.hide.mockClear();
-        renderInto(<Dropdown disabled>item</Dropdown>);
+        const closedEl = renderInto(<Dropdown disabled>item</Dropdown>);
         expect(instance.hide).not.toHaveBeenCalled();
+        expect(getToggle().disabled).toBe(true);
+
+        // `forceShown` does not open a disabled dropdown, so the toggle keeps the attribute.
+        void act(() => render(null, closedEl));
+        closedEl.remove();
+        instance.show.mockClear();
+        renderInto(<Dropdown disabled forceShown>item</Dropdown>);
+        expect(instance.show).not.toHaveBeenCalled();
         expect(getToggle().disabled).toBe(true);
     });
 

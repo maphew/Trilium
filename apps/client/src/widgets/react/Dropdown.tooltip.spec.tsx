@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import Dropdown from "./Dropdown";
 
-// Bootstrap is left real here — unlike Dropdown.spec.tsx, which mocks it away to assert the component's
-// wiring — because what is under test is what Bootstrap does with the elements it is handed.
+// This spec keeps Bootstrap real for the tooltip and for closing the menu. Dropdown.spec.tsx mocks
+// Bootstrap to assert the wiring of the component.
 
 class ResizeObserverStub {
     observe() {}
