@@ -243,8 +243,7 @@ function createNewNote(params: NoteParams): {
         throw new Error(error);
     }
 
-    if (params.noteId !== undefined && params.noteId !== null
-        && (typeof params.noteId !== "string" || !isValidEntityId(params.noteId))) {
+    if (params.noteId && (typeof params.noteId !== "string" || !isValidEntityId(params.noteId))) {
         throw new ValidationError(`Note ID '${params.noteId}' is not valid. `
             + "Only letters, digits and underscores are allowed, with a length of 4 to 128.");
     }
