@@ -207,6 +207,9 @@ function noteUpdated(entityRow: NoteRow) {
         // TODO, this wouldn't have worked in the original implementation since the variable was named __flatTextCache.
         // type / mime could have been changed, and they are present in flatTextCache
         note.__flatTextCache = null;
+        // A local rename assigns `title` and saves without going through `updateFromRow`, so this
+        // is the only point where the caches derived from the title are dropped for it.
+        note.__searchableTitleCache = null;
     }
 }
 

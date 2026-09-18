@@ -23,8 +23,9 @@ class SearchContext {
     debugInfo: {} | null;
     fuzzyAttributeSearch: boolean;
     enableFuzzyMatching: boolean; // Controls whether fuzzy matching is enabled for this search phase
-    /** When true, skip the two-phase fuzzy fallback and use the single-token fast path. */
+    /** When true, a single-token flat-text search resolves each match's best note path directly. */
     autocomplete: boolean;
+    rankInTwoPasses: boolean;
     highlightedTokens: string[];
     /**
      * Subset of {@link highlightedTokens} that came from the `%=` (regex) operator
@@ -62,11 +63,16 @@ class SearchContext {
         this.debugInfo = null;
         this.fuzzyAttributeSearch = !!params.fuzzyAttributeSearch;
         this.autocomplete = !!params.autocomplete;
+        this.rankInTwoPasses = !!params.rankInTwoPasses;
+        let fuzzyMatchingEnabled: boolean;
         try {
-            this.enableFuzzyMatching = optionService.getOptionBool("searchEnableFuzzyMatching");
+            fuzzyMatchingEnabled = optionService.getOptionBool("searchEnableFuzzyMatching");
         } catch {
-            this.enableFuzzyMatching = true; // Default to true if option not yet initialized
+            fuzzyMatchingEnabled = true; // Default to true if option not yet initialized
         }
+        // A caller can only narrow the option, so a surface that opts out stays out whatever the
+        // option says, and one that says nothing follows it.
+        this.enableFuzzyMatching = fuzzyMatchingEnabled && (params.enableFuzzyMatching ?? true);
         this.highlightedTokens = [];
         this.regexTokens = new Set();
         this.originalQuery = "";

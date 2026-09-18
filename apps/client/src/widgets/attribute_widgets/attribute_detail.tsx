@@ -33,7 +33,7 @@ import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from 
 import OptionsRow, { OptionsRowWithToggle } from "../type_widgets/options/components/OptionsRow.jsx";
 import { ATTR_HELP, AttrHelpEntry } from "./attr_help.js";
 import { DEFINITION_TYPE_ICONS, RELATION_DEFINITION_TYPE } from "./attribute_types.js";
-import LabelValueInput, { getTypedInputForLabel } from "./label_value_input.js";
+import LabelValueInput, { getTypedInputForLabel, useLabelValueSuggestions } from "./label_value_input.js";
 import ValuesInput from "./values_input.jsx";
 
 export interface AttributeDetailOpts {
@@ -411,24 +411,7 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
         // same place the type came from rather than passed in.
         return labelType && { labelType, selectOptions: getBuiltinLabelSelectOptions(name) };
     }, [ attrType, name ]);
-    // The values known for a label name never change while the popup is open, so they are fetched
-    // once per name and filtered locally afterwards.
-    const knownValues = useRef<{ name: string; values: string[] }>();
-    const suggestLabelValues = useCallback(async (query: string) => {
-        if (!name.trim()) {
-            return [];
-        }
-
-        if (knownValues.current?.name !== name) {
-            knownValues.current = {
-                name,
-                values: await server.get<string[]>(`attribute-values/${encodeURIComponent(name)}`)
-            };
-        }
-
-        const term = query.toLowerCase();
-        return knownValues.current.values.filter((value) => value.toLowerCase().includes(term));
-    }, [ name ]);
+    const suggestLabelValues = useLabelValueSuggestions(name);
     // Committing mid-composition makes the spawning editor re-render and swallow the
     // characters being composed: https://github.com/zadam/trilium/pull/3812
     const isComposing = useRef(false);

@@ -476,6 +476,7 @@ function buildListSlashCommands(editor: Editor): SlashCommandDefinition[] {
             id: "todoList",
             title: t("To-do list"),
             description: t("Create a to-do list"),
+            aliases: [ "todo", "task", "checklist", "checkbox" ],
             icon: IconTodoList,
             commandName: "todoList"
         }

@@ -59,7 +59,9 @@ function handleLinkContextMenuItem(command: string | undefined, e: ContextMenuEv
     }
 
     if (command === "openNoteInNewTab") {
-        appContext.tabManager.openContextWithNote(notePath, { hoistedNoteId, viewScope });
+        appContext.tabManager.openContextWithNote(notePath, {
+            hoistedNoteId, viewScope, placement: "afterCurrent"
+        });
         return true;
     } else if (command === "openNoteInNewSplit") {
         const ntxId = getNtxId(e);

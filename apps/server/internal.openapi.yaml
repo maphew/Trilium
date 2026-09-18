@@ -1998,9 +1998,27 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Note'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    description: Distinct notes matching, counted before the twenty-result cap.
+                  results:
+                    type: array
+                    description: At most twenty, name-and-value matches ahead of name-only ones.
+                    items:
+                      type: object
+                      properties:
+                        notePathArray:
+                          type: array
+                          description: Note IDs from the root down to the matched note.
+                          items:
+                            type: string
+                        score:
+                          type: number
+                          description: Search relevance, higher is better.
+                      required: [notePathArray, score]
+                required: [count, results]
                   
   /api/search-templates:
     get:
@@ -2053,22 +2071,6 @@ paths:
                     path:
                       type: string
                       
-  /api/autocomplete/notesCount:
-    get:
-      tags: [Search]
-      summary: Get total notes count
-      operationId: getNotesCount
-      responses:
-        '200':
-          description: Notes count
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  count:
-                    type: integer
-                    
   /api/similar-notes/{noteId}:
     get:
       tags: [Search]

@@ -194,7 +194,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             // Drop CKEditor's built-in slash commands whose title/icon the palette re-defines: the
             // Mermaid one (generic icon) and the list ones (Title Case titles, normalized to
             // sentence case).
-            removeCommands: ["insertMermaidCommand", "bulletedList", "numberedList", "todoList"],
+            removeCommands: ["insertMermaidCommand", "bulletedList", "numberedList"],
             dropdownLimit: Number.MAX_SAFE_INTEGER
         },
         snippets: {
