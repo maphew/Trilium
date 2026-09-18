@@ -133,7 +133,7 @@ The examples below assume four notes: _Austria_ (`#capital=Vienna`), _Somewhere_
 
 ### Fuzzy operators (`~=` and `~*`)
 
-**Rule:** the fuzzy operators tolerate typos. `~=` (fuzzy-equals) matches a value that is a close whole-word variant of your term. `~*` (fuzzy-contains) matches when your term appears anywhere inside the value, either as a fragment or as a near-miss. Both work on note properties such as `note.title` and `note.content`, and on labels (`#label`). Fuzzy operators require at least 3 characters.
+**Rule:** the fuzzy operators tolerate typos. `~=` (fuzzy-equals) matches a value that is a close whole-word variant of your term. `~*` (fuzzy-contains) matches when your term appears anywhere inside the value, either as a fragment or as a near-miss. Both work on note properties such as `note.title` and `note.content`, and on labels (`#label`). Fuzzy operators accept terms of at least 3 characters, though how many typos each term tolerates depends on its length — see _Fuzzy tolerance_ below.
 
 The examples assume a note titled `Books` carrying the label `#author=Tolkien`, and a note whose content is `learn programming today`.
 
@@ -144,21 +144,22 @@ The examples assume a note titled `Books` carrying the label `#author=Tolkien`, 
 | `note.content ~* progr` | `learn programming today` | Yes | `progr` is a fragment of `programming` |
 | `note.content ~* programing` | `learn programming today` | Yes | `programing` is one edit from `programming` |
 
-### Fuzzy tolerance (AUTO)
+### Fuzzy tolerance
 
-**Rule:** how many typos are tolerated depends on the **length** of your search term (the "AUTO" scheme popularized by Elasticsearch). Short terms must match almost exactly to avoid noise; longer terms tolerate more.
+**Rule:** how many typos are tolerated depends on the **length** of your search term. Short terms must match exactly, because a single edit is enough to turn one short word into an unrelated one; longer terms tolerate more.
 
 | Term length | Edits allowed |
 | --- | --- |
-| 1–2 characters | 0 (exact only) |
-| 3–5 characters | 1 |
-| 6+ characters | 2 |
+| 1–3 characters | 0 (exact only) |
+| 4–6 characters | 1 |
+| 7+ characters | 2 |
 
 | Query | Term length | Example note content | Matches? | Why |
 | --- | --- | --- | --- | --- |
-| `cat` | 3 | `a bright red car` | Yes | 1 edit is within budget for 3–5 character terms |
+| `cat` | 3 | `a bright red car` | No | No edits are allowed below 4 characters, so `cat` does not reach `car` |
+| `carr` | 4 | `a blue debit card` | Yes | 1 edit is within budget for 4–6 character terms |
 | `ceck` | 4 | `the latest tech trends` | No | `ceck`→`tech` needs 2 edits; only 1 is allowed at this length |
-| `combinef` | 8 | `the values were combined together` | Yes | `combinef`→`combined` is 1 edit; up to 2 are allowed at 6+ characters |
+| `combinef` | 8 | `the values were combined together` | Yes | `combinef`→`combined` is 1 edit; up to 2 are allowed at 7+ characters |
 
 ### Relevance ranking
 
@@ -364,8 +365,8 @@ You can open Trilium and automatically trigger a search by including the search 
 
 | Parameter | Value | Description |
 | --- | --- | --- |
-| `MIN_FUZZY_TOKEN_LENGTH` | 3 | Minimum characters for fuzzy matching |
-| `MAX_EDIT_DISTANCE` | 2 | Ceiling on character changes, reached only by 6+ character terms; shorter terms allow fewer. See the _Fuzzy tolerance (AUTO)_ section above |
+| `MIN_FUZZY_TOKEN_LENGTH` | 3 | Minimum characters the `~=` and `~*` operators accept |
+| `MAX_EDIT_DISTANCE` | 2 | Ceiling on character changes, reached only by 7+ character terms; shorter terms allow fewer. See the _Fuzzy tolerance_ section above |
 | `RESULT_SUFFICIENCY_THRESHOLD` | 5 | Minimum exact results before fuzzy fallback |
 | `MAX_CONTENT_SIZE` | 10MB | Maximum note content size for search processing |
 
@@ -373,4 +374,4 @@ You can open Trilium and automatically trigger a search by including the search 
 
 *   Searched note content is limited to 10MB per note to prevent performance issues
 *   Notes exceeding this limit will still be included in title and attribute searches
-*   Fuzzy matching requires tokens of at least 3 characters
+*   Terms of 3 characters or fewer are matched exactly; typo tolerance starts at 4 characters

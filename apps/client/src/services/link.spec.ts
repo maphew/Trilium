@@ -505,7 +505,7 @@ describe("createLink", () => {
             showNoteIcon: true,
             viewScope: { viewMode: "source" }
         });
-        expect($el.find("span.bx.bx-code-curly").length).toBe(1);
+        expect($el.find("span.tn-icon.bx.bx-code-curly").length).toBe(1);
     });
 
     it("uses an attachments-mode icon when showing the icon for an attachments view", async () => {
@@ -515,7 +515,7 @@ describe("createLink", () => {
             showNoteIcon: true,
             viewScope: { viewMode: "attachments", attachmentId: "att-x" }
         });
-        expect($el.find("span.bx.bx-file").length).toBe(1);
+        expect($el.find("span.tn-icon.bx.bx-file").length).toBe(1);
     });
 
     it("renders no icon for a view mode without a dedicated icon", async () => {
@@ -952,6 +952,14 @@ describe("loadReferenceLinkTitle", () => {
         await linkService.loadReferenceLinkTitle($el, `#root/${note.noteId}`);
         expect($el.text()).toContain("NoIconRef");
         expect($el.children("span").length).toBe(0);
+    });
+
+    it("gives the source view icon the tn-icon class that the link CSS targets", async () => {
+        const note = buildNote({ title: "SourceRef" });
+        const href = `#root/${note.noteId}?viewMode=source`;
+        const $el = $("<span>").append($("<a>").attr("href", href));
+        await linkService.loadReferenceLinkTitle($el, href);
+        expect($el.children("span.tn-icon.bx-code-curly").length).toBe(1);
     });
 });
 

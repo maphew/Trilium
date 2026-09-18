@@ -111,13 +111,15 @@ describe("handleLinkContextMenuItem", () => {
         expect(handle("openNoteInNewTab", VIEW_SCOPE, "explicitHoist")).toBe(true);
         expect(mocks.openContextWithNote).toHaveBeenCalledWith("root/n1", {
             hoistedNoteId: "explicitHoist",
-            viewScope: VIEW_SCOPE
+            viewScope: VIEW_SCOPE,
+            placement: "afterCurrent"
         });
 
         handle("openNoteInNewTab");
         expect(mocks.openContextWithNote).toHaveBeenLastCalledWith("root/n1", {
             hoistedNoteId: "hoistedNote",
-            viewScope: {}
+            viewScope: {},
+            placement: "afterCurrent"
         });
     });
 
@@ -162,7 +164,8 @@ describe("handleLinkContextMenuItem", () => {
         expect(handle("openNoteInNewTab")).toBe(true);
         expect(mocks.openContextWithNote).toHaveBeenCalledWith("root/n1", {
             hoistedNoteId: null,
-            viewScope: {}
+            viewScope: {},
+            placement: "afterCurrent"
         });
 
         // On the desktop the split is resolved from that same missing tab.

@@ -55,6 +55,24 @@ describe("NoteFlatTextExp", () => {
         expect(exp.tokens).toEqual(["cafe", "hello"]);
     });
 
+    it("keeps one of each token, in the order they were typed", () => {
+        // A token is matched against every note on its own, so a repeat only repeats the scan.
+        // Normalizing first means case and diacritic variants fold together too.
+        const exp = new NoteFlatTextExp(["The", "quick", "the", "THE", "Café", "cafe"]);
+        expect(exp.tokens).toEqual(["the", "quick", "cafe"]);
+    });
+
+    it("matches the same notes whether or not a token is repeated", () => {
+        const austria = note("Austria Vienna");
+        rootNote.child(austria).child(note("Germany Berlin"));
+
+        const once = execute(new NoteFlatTextExp(["austria", "vienna"]));
+        const repeated = execute(new NoteFlatTextExp(["austria", "vienna", "austria"]));
+
+        expect(noteIds(repeated.result)).toEqual([austria.note.noteId]);
+        expect(noteIds(repeated.result)).toEqual(noteIds(once.result));
+    });
+
     it("matches notes by a title token and records the resolved note path", () => {
         const austria = note("Austria");
         const germany = note("Germany");

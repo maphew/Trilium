@@ -31,14 +31,12 @@ jobs:
   build-and-deploy:
     name: Build and Deploy Documentation
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     # Required permissions for deployment
     permissions:
       contents: read
       deployments: write
-      pull-requests: write # For PR preview comments
-      id-token: write # For OIDC authentication (if needed)
 
     steps:
       - name: Checkout Repository
@@ -69,12 +67,18 @@ jobs:
 
       - name: Deploy
         uses: ./.github/actions/deploy-to-cloudflare-pages
-        if: ${{ github.repository == vars.REPO_MAIN }}
+        if: ${{ github.event_name != 'pull_request' && github.repository == vars.REPO_MAIN }}
         with:
           project_name: "trilium-docs"
-          comment_body: "📚 Documentation preview is ready"
-          production_url: "https://docs.triliumnotes.org"
           deploy_dir: "site"
           cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # A pull request from a fork reaches neither secrets nor vars, so the build
+      # travels to deploy-previews.yml instead of deploying from here.
+      - name: Upload preview
+        uses: ./.github/actions/upload-cloudflare-preview
+        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          artifact_name: "docs-preview"
+          deploy_dir: "site"

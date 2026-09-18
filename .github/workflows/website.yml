@@ -23,7 +23,6 @@ jobs:
     permissions:
       contents: read
       deployments: write
-      pull-requests: write # For PR preview comments
 
     steps:
       - uses: actions/checkout@v7
@@ -42,13 +41,19 @@ jobs:
         run: pnpm website:build
 
       - name: Deploy
-        if: github.repository == vars.REPO_MAIN
+        if: github.event_name != 'pull_request' && github.repository == vars.REPO_MAIN
         uses: ./.github/actions/deploy-to-cloudflare-pages
         with:
           project_name: "trilium-homepage"
-          comment_body: "📚 Website preview is ready"
-          production_url: "https://triliumnotes.org"
           deploy_dir: "apps/website/dist"
           cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # A pull request from a fork reaches neither secrets nor vars, so the build
+      # travels to deploy-previews.yml instead of deploying from here.
+      - name: Upload preview
+        if: github.event_name == 'pull_request'
+        uses: ./.github/actions/upload-cloudflare-preview
+        with:
+          artifact_name: "website-preview"
+          deploy_dir: "apps/website/dist"
