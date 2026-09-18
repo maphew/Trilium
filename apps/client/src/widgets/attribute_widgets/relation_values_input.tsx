@@ -32,14 +32,6 @@ export default function RelationValuesInput({ values, onCommit, inputId, tabInde
     const inputRef = useRef<HTMLInputElement>(null);
     const notes = useNotes(values);
 
-    // Set by hand because {@link NoteAutocomplete} does not carry the attribute through to the box
-    // it builds, which is the element the focus actually lands on.
-    useEffect(() => {
-        if (tabIndex !== undefined) {
-            inputRef.current?.setAttribute("tabindex", String(tabIndex));
-        }
-    }, [ tabIndex ]);
-
     function take(noteId: string) {
         // The box is emptied either way — what was in it is spent on the choice made — but a target
         // already held is not taken twice, and clearing an empty pick has nothing to add.
@@ -72,6 +64,7 @@ export default function RelationValuesInput({ values, onCommit, inputId, tabInde
             <NoteAutocomplete
                 id={inputId}
                 inputRef={inputRef}
+                tabIndex={tabIndex}
                 opts={{ allowCreatingNotes: true, hideAllButtons: true }}
                 noteIdChanged={take}
             />
