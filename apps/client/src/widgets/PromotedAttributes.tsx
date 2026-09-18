@@ -14,7 +14,7 @@ import { t } from "../services/i18n";
 import server from "../services/server";
 import { randomString } from "../services/utils";
 import ws from "../services/ws";
-import LabelValueInput from "./attribute_widgets/label_value_input";
+import LabelValueInput, { useLabelValueSuggestions } from "./attribute_widgets/label_value_input";
 import MultiValueInput from "./attribute_widgets/multi_value_input";
 import RelationValuesInput from "./attribute_widgets/relation_values_input";
 import ColorPicker from "./react/ColorPicker";
@@ -294,6 +294,7 @@ function MultiLabelInput({ inputId, note, cell, componentId, setCells }: CellPro
     const { valueName, definition, definitionAttr, values, uniqueId } = cell;
     const labelType = definition.labelType ?? "text";
     const createOption = useCreateSelectOption(definitionAttr, componentId, setCells);
+    const suggestValues = useLabelValueSuggestions(valueName);
 
     const commit = useCallback(async (edited: string[]) => {
         await attributes.setLabelValues(note, valueName, edited, componentId);
@@ -308,6 +309,9 @@ function MultiLabelInput({ inputId, note, cell, componentId, setCells }: CellPro
             <MultiValueInput
                 labelType={labelType}
                 values={values ?? []}
+                // Matches the single-value field, which useTextLabelAutocomplete limits to
+                // `text`.
+                source={labelType === "text" ? suggestValues : undefined}
                 options={definition.selectOptions}
                 onCreateOption={labelType === "select" ? createOption : undefined}
                 inputId={inputId}

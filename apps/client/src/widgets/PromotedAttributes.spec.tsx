@@ -595,6 +595,27 @@ describe("PromotedAttributesContent rendering", () => {
         await renderCells(note, [ buildCell(note, { name: "fresh", definition: { labelType: "text" }, uniqueId: "fresh" }) ]);
         expect(autocompleteMock).not.toHaveBeenCalled();
     });
+
+    it("hands a multi text field the values the name holds, and the other kinds none", async () => {
+        serverGetMock.mockResolvedValue([ "alpha", "beta" ]);
+        const held = (definition: DefinitionObject, name: string) =>
+            [ { ...buildCell(note, { name, definition, uniqueId: name }), values: [] } ];
+
+        await renderCells(note, held({ labelType: "text" }, "tags"));
+        const source = multiInput.current?.source as (query: string) => Promise<string[]>;
+        // useLabelValueSuggestions requests the values on the first query, not when the grid
+        // renders.
+        expect(serverGetMock).not.toHaveBeenCalledWith("attribute-values/tags");
+        expect(await source("al")).toEqual([ "alpha" ]);
+        expect(serverGetMock).toHaveBeenCalledWith("attribute-values/tags");
+
+        // MultiLabelInput passes the source for `text` alone; a select offers its declared
+        // options instead.
+        await renderCells(note, held({ labelType: "number" }, "size"));
+        expect(multiInput.current?.source).toBeUndefined();
+        await renderCells(note, held({ labelType: "select", selectOptions: [ "Todo" ] }, "status"));
+        expect(multiInput.current?.source).toBeUndefined();
+    });
 });
 
 describe("usePromotedAttributeData", () => {
