@@ -4245,6 +4245,7 @@
     "command_simplify": "Упростить язык",
     "command_table": "Превратить в таблицу",
     "command_tone": "Изменить тон на {{tone}}",
-    "command_translate": "Перевести на {{language}}"
+    "command_translate": "Перевести на {{language}}",
+    "group_adjust": "Откорректировать"
   }
 }
