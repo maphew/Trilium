@@ -33,5 +33,6 @@ Two consequences are worth knowing:
 
 *   `cloudflare-preview.yml` must never check out the pull request's head or install its dependencies. It holds the Cloudflare credentials, and running fork-authored code beside them would hand those credentials away. Its only fork-controlled input is a directory of static files passed to `wrangler`.
 *   A pull request can edit the workflow that writes the artifacts, so the pull request number it claims is checked against `workflow_run.head_sha` before it is used.
+*   The build is served as static files, but Cloudflare Pages runs a `functions/` directory and `_worker.js` server-side, where the project's bindings are reachable. None of the three sites uses them, so a build carrying one fails the deploy rather than publishing it. `_headers` and `_redirects` are published as usual; `apps/standalone/public/_headers` sets the cross-origin isolation the app needs.
 
 Because GitHub only triggers `workflow_run` from workflow files on the default branch, changes to `deploy-previews.yml` and `cloudflare-preview.yml` take effect once they are merged into `main` and cannot be exercised from a branch.

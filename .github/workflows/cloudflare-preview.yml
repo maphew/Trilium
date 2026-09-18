@@ -95,6 +95,22 @@ jobs:
 
             core.setOutput('number', String(claimed));
 
+      # download-artifact confines the artifact to preview/, and nothing here runs
+      # what it holds. Cloudflare Pages does run functions/ and _worker.js though,
+      # server-side, where the project's bindings are reachable. None of the three
+      # sites uses them, so a build that carries them is not a build to publish.
+      # _headers and _redirects stay: apps/standalone/public/_headers sets the
+      # cross-origin isolation the app needs.
+      - name: Reject server-side entry points
+        shell: bash
+        run: |
+          found=$(find preview -maxdepth 1 \( -name functions -o -name '_worker.js' -o -name '_routes.json' \) -print)
+          if [ -n "$found" ]; then
+            echo "::error::The build carries Cloudflare Pages Functions entry points, which this preview does not publish:"
+            echo "$found"
+            exit 1
+          fi
+
       # Install wrangler globally to avoid workspace issues
       - name: Install Wrangler
         shell: bash
