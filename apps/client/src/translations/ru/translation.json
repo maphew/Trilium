@@ -3450,7 +3450,7 @@
       "insert-a-new-admonition": "Вставить новое замечание",
       "ai-0": "ИИ: %0",
       "ai-assistant": "ИИ-помощник",
-      "ask-ai": "Спросить у ИИ…",
+      "ask-ai": "Попросить ИИ…",
       "ask-ai-to": "Попросить ИИ…",
       "ask-ai-to-rewrite-the-selection-or-generate-new-content": "Попросить ИИ переписать выделенный фрагмент или сгенерировать новое содержимое.",
       "changes": "Изменения",
@@ -4225,5 +4225,26 @@
   "blob_stub": {
     "open_on_server": "Открыть на сервере",
     "not_synced": "Содержимое этой заметки слишком велико для синхронизации с данным устройством. Вы можете открыть её на сервере синхронизации."
+  },
+  "ai_assistant": {
+    "action_ask": "Попросить ИИ…",
+    "action_continue": "Продолжить текст",
+    "action_explain": "Объяснить",
+    "action_fix_typos": "Исправить опечатки",
+    "action_improve_writing": "Улучшить текст",
+    "action_summarize": "Пересказать",
+    "adjust_longer": "Удлинить",
+    "adjust_shorter": "Укоротить",
+    "adjust_simpler": "Упростить",
+    "command_action_items": "Извлечь элементы действий",
+    "command_bullet_list": "Преобразовать в маркированный список",
+    "command_collapsible": "Превратить в сворачиваемый блок",
+    "command_diagram": "Превратить в диаграмму",
+    "command_make_longer": "Сделать длиннее",
+    "command_make_shorter": "Сделать короче",
+    "command_simplify": "Упростить язык",
+    "command_table": "Превратить в таблицу",
+    "command_tone": "Изменить тон на {{tone}}",
+    "command_translate": "Перевести на {{language}}"
   }
 }
