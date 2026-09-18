@@ -15,10 +15,12 @@ inputs:
 runs:
   using: composite
   steps:
-    # Install wrangler globally to avoid workspace issues
+    # Installed globally to avoid workspace issues, and at a fixed version so a
+    # production deploy cannot change under the repository. Renovate moves the
+    # pin (see customManagers in renovate.json).
     - name: Install Wrangler
       shell: bash
-      run: npm install -g wrangler
+      run: npm install -g wrangler@4.134.0
 
     # Deploy using Wrangler (use pre-installed wrangler)
     - name: Deploy to Cloudflare Pages
