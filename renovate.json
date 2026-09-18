@@ -31,6 +31,20 @@
     "nix": {
         "enabled": true
     },
+    "customManagers": [
+        {
+            "description": "The deploy workflows install wrangler globally instead of from the lockfile, so the version is pinned inline and Renovate moves the pin",
+            "customType": "regex",
+            "managerFilePatterns": [
+                "/^\\.github/(workflows|actions)/.+\\.ya?ml$/"
+            ],
+            "matchStrings": [
+                "npm install -g wrangler@(?<currentValue>\\S+)"
+            ],
+            "depNameTemplate": "wrangler",
+            "datasourceTemplate": "npm"
+        }
+    ],
     "packageRules": [
         {
             "description": "Never auto-update the Android Gradle Plugin; it must track the installed Android Studio, not the latest release",
