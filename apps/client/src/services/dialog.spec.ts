@@ -49,6 +49,18 @@ describe("dialog service", () => {
     });
 
     describe("openDialog", () => {
+        afterEach(() => {
+            document.body.innerHTML = "";
+        });
+
+        function focusNewInput(parent: HTMLElement) {
+            const input = document.createElement("input");
+            parent.appendChild(input);
+            input.focus();
+            expect(document.activeElement).toBe(input);
+            return input;
+        }
+
         it("closes the active dialog, sets the new one, saves focus, shows the modal and updates shortcuts", async () => {
             const previous = makeDialog();
             glob.activeDialog = previous;
@@ -114,6 +126,56 @@ describe("dialog service", () => {
             $dialog.trigger("hidden.bs.modal");
 
             expect(focusSavedElement).not.toHaveBeenCalled();
+        });
+
+        it("saves the focused element, then moves focus to the backdrop", async () => {
+            const input = focusNewInput(document.body);
+            const backdrop = $("<div class='modal-backdrop'></div>").appendTo(document.body)[0];
+            let savedElement: Element | null = null;
+            let focusTakenBy: EventTarget | null = null;
+            saveFocusedElement.mockImplementationOnce(() => {
+                savedElement = document.activeElement;
+            });
+            input.addEventListener("focusout", (e) => {
+                focusTakenBy = e.relatedTarget;
+            });
+
+            await openDialog(makeDialog(), false);
+
+            expect(savedElement).toBe(input);
+            expect(document.activeElement).toBe(backdrop);
+            // Editors that save on focusout (AttributeEditorOverlay) read this to stay open.
+            expect(focusTakenBy).toBe(backdrop);
+        });
+
+        it("blurs the focused element when the dialog has no backdrop", async () => {
+            focusNewInput(document.body);
+            $("<div class='modal-backdrop'></div>").appendTo(document.body);
+
+            await openDialog(makeDialog(), false, { backdrop: false });
+
+            expect(document.activeElement).toBe(document.body);
+        });
+
+        it("does not take focus back from a dialog that is shown at once", async () => {
+            focusNewInput(document.body);
+            $("<div class='modal-backdrop'></div>").appendTo(document.body);
+            const $dialog = makeDialog().appendTo(document.body);
+            const dialogInput = document.createElement("input");
+            $dialog[0].appendChild(dialogInput);
+            modalShow.mockImplementationOnce(() => dialogInput.focus());
+
+            await openDialog($dialog, false);
+
+            expect(document.activeElement).toBe(dialogInput);
+        });
+
+        it("leaves focus alone when the dialog is opened with focus: false", async () => {
+            const input = focusNewInput(document.body);
+
+            await openDialog(makeDialog(), false, { focus: false });
+
+            expect(document.activeElement).toBe(input);
         });
 
         it("closes the autocomplete dropdown on hide", async () => {

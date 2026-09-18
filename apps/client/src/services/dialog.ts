@@ -44,6 +44,11 @@ export async function openDialog($dialog: JQuery<HTMLElement>, closeActDialog = 
     // would undo the layer this gives it there.
     showAboveWhateverHasTheScreen($dialog[0]);
 
+    // After the backdrop has its final place in the page, because moving an element drops its focus.
+    if (config?.focus !== false) {
+        takeFocusUntilShown($dialog[0], config?.backdrop !== false);
+    }
+
     $dialog.on("hidden.bs.modal", () => {
         sendDialogHome($dialog[0]);
 
@@ -60,6 +65,29 @@ export async function openDialog($dialog: JQuery<HTMLElement>, closeActDialog = 
     keyboardActionsService.updateDisplayedShortcuts($dialog);
 
     return $dialog;
+}
+
+/**
+ * Bootstrap moves focus into the dialog only when the opening transition ends. Until then, keeps
+ * keystrokes out of the element that had focus, e.g. the note editor. Focus goes to the backdrop
+ * where there is one, so a `focusout` handler can tell from `relatedTarget` that a dialog took it.
+ */
+function takeFocusUntilShown(dialogEl: HTMLElement, hasBackdrop: boolean) {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLElement) || dialogEl.contains(activeElement)) {
+        return;
+    }
+
+    const backdrops = document.querySelectorAll<HTMLElement>(".modal-backdrop");
+    const ownBackdrop = hasBackdrop ? backdrops[backdrops.length - 1] : undefined;
+    if (!ownBackdrop) {
+        activeElement.blur();
+        return;
+    }
+
+    ownBackdrop.tabIndex = -1;
+    ownBackdrop.style.outline = "none";
+    ownBackdrop.focus({ preventScroll: true });
 }
 
 /** Where a dialog stands while nothing has the screen, what came with it, and how to stop watching. */
