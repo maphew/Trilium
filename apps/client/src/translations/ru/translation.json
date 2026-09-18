@@ -4246,6 +4246,7 @@
     "command_table": "Превратить в таблицу",
     "command_tone": "Изменить тон на {{tone}}",
     "command_translate": "Перевести на {{language}}",
-    "group_adjust": "Откорректировать"
+    "group_adjust": "Откорректировать",
+    "group_custom": "Пользовательские"
   }
 }
