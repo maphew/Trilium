@@ -191,10 +191,11 @@ describe("setupPrintingHandlers", () => {
             expect(h.showErrorBox).not.toHaveBeenCalled();
         });
 
-        it("reports an error payload when the print window fails to load", async () => {
+        it("reports an error payload and destroys the window when the print window fails to load", async () => {
             h.loadURL.mockRejectedValue(new Error("load failed"));
             const e = await fireOn("print-note", { notePath: "root/abc" });
             expect(e.sender.send).toHaveBeenCalledWith("print-done", expect.objectContaining({ type: "error", message: "load failed" }));
+            expect(h.destroy).toHaveBeenCalledTimes(1);
         });
 
         it("uses offscreen rendering off Linux and forwards console output + progress", async () => {
@@ -232,6 +233,7 @@ describe("setupPrintingHandlers", () => {
                 .mockRejectedValueOnce(new Error("note never ready"));
             const e = await fireOn("print-note", { notePath: "root/abc" });
             expect(e.sender.send).toHaveBeenCalledWith("print-done", expect.objectContaining({ type: "error", message: "note never ready" }));
+            expect(h.destroy).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -294,14 +296,64 @@ describe("setupPrintingHandlers", () => {
             expect(e2.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", error: "render string" });
         });
 
-        it("reports an error payload when the print window fails (Error and non-Error)", async () => {
+        it("returns an error result and destroys the window when the print window fails (Error and non-Error)", async () => {
             h.loadURL.mockRejectedValue(new Error("load failed"));
             const e1 = await fireOn("export-as-pdf-preview", PDF_OPTS);
-            expect(e1.sender.send).toHaveBeenCalledWith("print-done", expect.objectContaining({ type: "error", message: "load failed" }));
+            expect(e1.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", error: "load failed" });
+            expect(e1.sender.send).not.toHaveBeenCalledWith("print-done", expect.anything());
+            expect(h.destroy).toHaveBeenCalledTimes(1);
 
             h.loadURL.mockRejectedValue("load string");
             const e2 = await fireOn("export-as-pdf-preview", PDF_OPTS);
-            expect(e2.sender.send).toHaveBeenCalledWith("print-done", { type: "error", message: "load string", stack: undefined });
+            expect(e2.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", error: "load string" });
+        });
+    });
+
+    describe("render timeout", () => {
+        beforeEach(() => vi.useFakeTimers());
+        afterEach(() => vi.useRealTimers());
+
+        it("fails the preview and destroys the window when the note never becomes ready", async () => {
+            h.executeJavaScript.mockReset()
+                .mockResolvedValueOnce(undefined)
+                .mockReturnValueOnce(new Promise(() => {}));
+            const fn = h.on.get("export-as-pdf-preview");
+            if (!fn) throw new Error("no on-handler for export-as-pdf-preview");
+            const e = makeEvent();
+            const done = fn(e, PDF_OPTS);
+
+            await vi.advanceTimersByTimeAsync(printing.RENDER_STALL_TIMEOUT_MS - 1);
+            expect(e.sender.send).not.toHaveBeenCalled();
+            expect(h.destroy).not.toHaveBeenCalled();
+
+            await vi.advanceTimersByTimeAsync(1);
+            await done;
+            expect(e.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", error: "pdf.render-timeout" });
+            expect(h.printToPDF).not.toHaveBeenCalled();
+            expect(h.destroy).toHaveBeenCalledTimes(1);
+            expect(h.off).toContainEqual(["print-progress", expect.any(Function)]);
+        });
+
+        it("restarts the timeout on every progress report", async () => {
+            let ready: (report: unknown) => void = () => {};
+            h.executeJavaScript.mockReset()
+                .mockResolvedValueOnce(undefined)
+                .mockReturnValueOnce(new Promise((resolve) => { ready = resolve; }));
+            const fn = h.on.get("print-note");
+            if (!fn) throw new Error("no on-handler for print-note");
+            const e = makeEvent();
+            const done = fn(e, { notePath: "root/abc" });
+
+            const progress = h.on.get("print-progress");
+            expect(progress).toBeDefined();
+            await vi.advanceTimersByTimeAsync(printing.RENDER_STALL_TIMEOUT_MS - 1);
+            progress?.({}, 50);
+            await vi.advanceTimersByTimeAsync(printing.RENDER_STALL_TIMEOUT_MS - 1);
+            ready("REPORT");
+            await done;
+
+            expect(h.print).toHaveBeenCalled();
+            expect(e.sender.send).toHaveBeenCalledWith("print-done", "REPORT");
         });
     });
 

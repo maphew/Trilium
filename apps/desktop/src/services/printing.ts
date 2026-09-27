@@ -31,6 +31,9 @@ function getPreloadScript(): string {
     return preloadScriptCache;
 }
 
+/** How long the print page can go without reporting progress before the render is abandoned. */
+export const RENDER_STALL_TIMEOUT_MS = 30_000;
+
 interface PrintOpts {
     notePath: string;
     printToPdf: boolean;
@@ -123,9 +126,6 @@ async function getBrowserWindowForPrinting(e: IpcMainEvent, notePath: string, ac
         },
     });
 
-    const progressCallback = (_e: IpcMainEvent, progress: number) => e.sender.send("print-progress", { progress, action });
-    ipcMain.on("print-progress", progressCallback);
-
     // Capture ALL console output (including errors) for debugging
     browserWindow.webContents.on("console-message", (event, message, line, sourceId) => {
         if (event.level === "debug") return;
@@ -136,18 +136,47 @@ async function getBrowserWindowForPrinting(e: IpcMainEvent, notePath: string, ac
         getLog().info(`[Print Window ${sourceId}:${line}] ${message}`);
     });
 
+    // Collections report progress while they render, so only a render that stops advancing times out.
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
+    let rejectStalled: (err: Error) => void = () => {};
+    const stalled = new Promise<never>((_resolve, reject) => {
+        rejectStalled = reject;
+    });
+    const restartStallTimer = () => {
+        clearTimeout(stallTimer);
+        stallTimer = setTimeout(() => {
+            rejectStalled(new Error(t("pdf.render-timeout", { seconds: RENDER_STALL_TIMEOUT_MS / 1000 })));
+        }, RENDER_STALL_TIMEOUT_MS);
+    };
+
+    const progressCallback = (_e: IpcMainEvent, progress: number) => {
+        restartStallTimer();
+        e.sender.send("print-progress", { progress, action });
+    };
+    ipcMain.on("print-progress", progressCallback);
+    restartStallTimer();
+
     try {
-        // Load through the custom protocol so the print window is same-origin
-        // with the main renderer (`trilium-app://app/`). Loading over HTTP
-        // would split origins — the main window's session cookie wouldn't
-        // reach the print window, auth would redirect to /login, and the
-        // print page would never render.
-        await browserWindow.loadURL(`${TRILIUM_APP_BASE_URL}?print#${notePath}`);
+        const printReport = await Promise.race([ loadPrintPage(browserWindow, notePath), stalled ]);
+        return { browserWindow, printReport };
     } catch (err) {
-        getLog().error(`Failed to load print window: ${err}`);
-        ipcMain.off("print-progress", progressCallback);
+        getLog().error(`Unable to render ${notePath} for printing: ${err}`);
+        browserWindow.destroy();
         throw err;
+    } finally {
+        clearTimeout(stallTimer);
+        ipcMain.off("print-progress", progressCallback);
     }
+}
+
+/** Loads the print page into `browserWindow` and resolves with its report once the note is ready. */
+async function loadPrintPage(browserWindow: Electron.BrowserWindow, notePath: string): Promise<unknown> {
+    // Load through the custom protocol so the print window is same-origin
+    // with the main renderer (`trilium-app://app/`). Loading over HTTP
+    // would split origins — the main window's session cookie wouldn't
+    // reach the print window, auth would redirect to /login, and the
+    // print page would never render.
+    await browserWindow.loadURL(`${TRILIUM_APP_BASE_URL}?print#${notePath}`);
 
     // Set up error tracking and logging in the renderer process
     await browserWindow.webContents.executeJavaScript(`
@@ -176,35 +205,25 @@ async function getBrowserWindowForPrinting(e: IpcMainEvent, notePath: string, ac
         })();
     `).catch(err => getLog().error(`Failed to set up error handlers in print window: ${err}`));
 
-    let printReport;
-    try {
-        printReport = await browserWindow.webContents.executeJavaScript(`
-            new Promise((resolve, reject) => {
-                if (window._noteReady) return resolve(window._noteReady);
+    return await browserWindow.webContents.executeJavaScript(`
+        new Promise((resolve, reject) => {
+            if (window._noteReady) return resolve(window._noteReady);
 
-                // Check for errors periodically
-                const errorChecker = setInterval(() => {
-                    if (window._printWindowErrors && window._printWindowErrors.length > 0) {
-                        clearInterval(errorChecker);
-                        const errors = window._printWindowErrors.map(e => e.message).join('; ');
-                        reject(new Error("Print window errors: " + errors));
-                    }
-                }, 100);
-
-                window.addEventListener("note-ready", (data) => {
+            // Check for errors periodically
+            const errorChecker = setInterval(() => {
+                if (window._printWindowErrors && window._printWindowErrors.length > 0) {
                     clearInterval(errorChecker);
-                    resolve(data.detail);
-                });
-            });
-        `);
-    } catch (err) {
-        getLog().error(`Print window promise failed for ${notePath}: ${err}`);
-        ipcMain.off("print-progress", progressCallback);
-        throw err;
-    }
+                    const errors = window._printWindowErrors.map(e => e.message).join('; ');
+                    reject(new Error("Print window errors: " + errors));
+                }
+            }, 100);
 
-    ipcMain.off("print-progress", progressCallback);
-    return { browserWindow, printReport };
+            window.addEventListener("note-ready", (data) => {
+                clearInterval(errorChecker);
+                resolve(data.detail);
+            });
+        });
+    `);
 }
 
 /** Registers all printing-related IPC handlers. Call once on Electron startup. */
@@ -325,11 +344,8 @@ export function setupPrintingHandlers() {
                 browserWindow.destroy();
             }
         } catch (err) {
-            e.sender.send("print-done", {
-                type: "error",
-                message: err instanceof Error ? err.message : String(err),
-                stack: err instanceof Error ? err.stack : undefined
-            });
+            // The preview dialog reports the error itself, so no `print-done` goes out.
+            e.sender.send("export-as-pdf-preview-result", { notePath, error: err instanceof Error ? err.message : String(err) });
         }
     });
 

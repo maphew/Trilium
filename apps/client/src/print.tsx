@@ -204,6 +204,7 @@ export async function loadCustomCss(note: FNote) {
         const promise = $.Deferred();
         loadPromises.push(promise.promise());
         linkEl.onload = () => promise.resolve();
+        linkEl.onerror = () => promise.resolve();
 
         document.head.appendChild(linkEl);
     }

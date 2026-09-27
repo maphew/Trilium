@@ -189,13 +189,15 @@ describe("SingleNoteRenderer", () => {
 });
 
 describe("loadCustomCss", () => {
-    it("links code/css targets, skips others and tolerates missing targets", async () => {
+    it("links code/css targets, skips others and tolerates missing or failing targets", async () => {
         const codeNote = buildNote({ id: "css-code", title: "Code CSS", type: "code" });
         const cssMimeNote = buildNote({ id: "css-mime", title: "Mime CSS", type: "image" });
         cssMimeNote.mime = "text/css";
         const textNote = buildNote({ id: "css-text", title: "Not CSS", type: "text" });
         const note = buildNote({ id: "host", title: "Host" });
         note.getRelationTargets = async () => [null, codeNote, cssMimeNote, textNote];
+        // Let happy-dom fail the stylesheet loads it blocks, as a missing download would.
+        (window as any).happyDOM.settings.handleDisabledFileLoadingAsSuccess = false;
 
         const promise = loadCustomCss(note);
 
@@ -204,14 +206,10 @@ describe("loadCustomCss", () => {
             expect(link).toBeTruthy();
             return link;
         });
-        // Fire onload so the deferred resolves and loadCustomCss can settle.
-        document.head
-            .querySelectorAll<HTMLLinkElement>('link[href^="/api/notes/"]')
-            .forEach((link) => link.onload?.(new Event("load")));
+        expect(document.head.querySelector('link[href="/api/notes/css-mime/download"]')).toBeTruthy();
         await promise;
 
         expect(codeLink?.rel).toBe("stylesheet");
-        expect(document.head.querySelector('link[href="/api/notes/css-mime/download"]')).toBeTruthy();
         expect(document.head.querySelector('link[href="/api/notes/css-text/download"]')).toBeNull();
     });
 });
