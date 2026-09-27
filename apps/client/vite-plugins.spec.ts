@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readdirSync, readFileSync } from "fs";
 import { createRequire } from "module";
 import { dirname, join } from "path";
 import { describe, expect, it } from "vitest";
@@ -7,7 +7,9 @@ import {
     buildShareMermaidManifest,
     ENGINE_RENDER_ENTRY,
     LANGUAGE_DETECTOR_PACKAGE,
-    resolveUniverHyphenationStub
+    resolveUniverHyphenationStub,
+    stripUniverEmojiSource,
+    UI_ENTRY
 } from "./vite-plugins.mjs";
 
 const entryPath = createRequire(import.meta.url).resolve("@univerjs/engine-render/lib/es/index.js");
@@ -72,6 +74,50 @@ describe("stripUniverHyphenation", () => {
 
         const { franc } = await import("./src/stubs/franc_min.js");
         expect(franc()).toBe("und");
+    });
+});
+
+/**
+ * Canary for `stripUniverEmojiData`. An upgrade that renames the generated regions makes
+ * the plugin throw during the build; one that moves the data elsewhere, or starts reading
+ * it outside the picker, makes the plugin a no-op or breaks live code.
+ */
+describe("stripUniverEmojiData", () => {
+    const uiEntryPath = createRequire(import.meta.url).resolve("@univerjs/ui/lib/es/index.js");
+    const uiEntry = readFileSync(uiEntryPath, "utf8");
+    const localeDir = join(dirname(uiEntryPath), "locale");
+
+    it("empties the emoji table in the entry, keeping its categories", () => {
+        expect(uiEntryPath.replace(/\\/g, "/")).toContain(UI_ENTRY);
+        const stripped = stripUniverEmojiSource(uiEntry, uiEntryPath);
+
+        expect(stripped).toContain(`const emojis = {"frequent":[],"people":[]`);
+        expect(stripped?.length).toBeLessThan(uiEntry.length - 200_000);
+        // The picker reads the locale data through this guard, so an absent index is not an error.
+        expect(uiEntry).toContain("if (!emojiPicker || typeof emojiPicker !== \"object\" || Array.isArray(emojiPicker)) return {};");
+        expect(uiEntry.match(/\bemojis\b/g)?.length).toBe(stripped?.match(/\bemojis\b/g)?.length);
+    });
+
+    it("empties the search index and titles of every locale, leaving its other strings", () => {
+        const locales = readdirSync(localeDir).filter((file) => file.endsWith(".js"));
+        expect(locales.length).toBeGreaterThan(10);
+
+        for (const file of locales) {
+            const path = join(localeDir, file).replace(/\\/g, "/");
+            const source = readFileSync(path, "utf8");
+            const stripped = stripUniverEmojiSource(source, path);
+
+            expect(stripped).toContain("const emojiLocale = {};");
+            expect(stripped).not.toContain("emojiSearchIndex");
+            expect(stripped).not.toContain("emojiTitles");
+            expect(stripped).toContain("...emojiLocale");
+            expect(stripped).toContain("clearFormatting:");
+        }
+    });
+
+    it("leaves every other module alone and fails loudly when the shape changes", () => {
+        expect(stripUniverEmojiSource(uiEntry, "/app/src/services/froca.ts")).toBeNull();
+        expect(() => stripUniverEmojiSource("export {};", uiEntryPath)).toThrow("no longer matches");
     });
 });
 

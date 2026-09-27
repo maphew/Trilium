@@ -51,6 +51,54 @@ function stubPath(name: string): string {
     return fileURLToPath(new URL(`./src/stubs/${name}.ts`, import.meta.url));
 }
 
+/**
+ * Empties the data `@univerjs/ui` generates for its emoji picker: the emoji table in the
+ * entry (about 200 kB) and the search index and titles in every locale (about 520 kB each
+ * in English). Only the Univer Docs ribbon opens the picker, so the spreadsheet note type
+ * never shows it. The table keeps its category keys, which `EMOJI_CATEGORIES` is built
+ * from, and `getEmojiLocaleData()` reads the search index and titles as optional.
+ * `vite-plugins.spec.ts` checks the rules still match the installed dependency.
+ */
+export function stripUniverEmojiData(): Plugin {
+    return {
+        name: "strip-univer-emoji-data",
+        enforce: "pre",
+        transform: (code, id) => stripUniverEmojiSource(code, id)
+    };
+}
+
+/**
+ * Returns `code` with the generated emoji data emptied when `id` is the `@univerjs/ui`
+ * entry or one of its locales, and `null` for every other module.
+ */
+export function stripUniverEmojiSource(code: string, id: string): string | null {
+    const path = id.replace(/\\/g, "/");
+    if (path.endsWith(UI_ENTRY)) {
+        return replaceOnce(code, EMOJI_TABLE, (_, region: string, table: string) => {
+            const categories = Object.keys(JSON.parse(table) as Record<string, unknown>);
+            return `${region}const emojis = ${JSON.stringify(Object.fromEntries(categories.map((key) => [ key, [] ])))};\n`;
+        });
+    }
+
+    if (UI_LOCALE.test(path)) {
+        return replaceOnce(code, EMOJI_LOCALE, (_, region: string) => `${region}const emojiLocale = {};\n`);
+    }
+
+    return null;
+}
+
+export const UI_ENTRY = "@univerjs/ui/lib/es/index.js";
+export const UI_LOCALE = /@univerjs\/ui\/lib\/es\/locale\/[^/]+\.js$/;
+export const EMOJI_TABLE = /(\/\/#region src\/views\/emoji-picker\/emojis\.generated\.ts\n)const emojis = (\{[\s\S]*?\n\});\n/;
+export const EMOJI_LOCALE = /(\/\/#region src\/locale\/emoji-locale\/[^\n]+\.generated\.ts\n)const emojiLocale = \{[\s\S]*?\n\};\n/;
+
+function replaceOnce(code: string, pattern: RegExp, replacer: (match: string, ...groups: string[]) => string): string {
+    if (!pattern.test(code)) {
+        throw new Error(`strip-univer-emoji-data: ${pattern} no longer matches; update vite-plugins.mts.`);
+    }
+    return code.replace(pattern, replacer);
+}
+
 /** The name of the entry the share theme loads mermaid through, `src/share_mermaid.ts`. */
 export const SHARE_MERMAID_ENTRY = "share_mermaid";
 

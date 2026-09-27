@@ -6,7 +6,7 @@ import prefresh from "@prefresh/vite";
 import { defineConfig, type Plugin } from "vite";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
-import { shareMermaidManifest, stripUniverHyphenation } from "../client/vite-plugins.mjs";
+import { shareMermaidManifest, stripUniverEmojiData, stripUniverHyphenation } from "../client/vite-plugins.mjs";
 
 const clientAssets = ["assets", "stylesheets", "fonts", "translations"];
 
@@ -158,6 +158,7 @@ const sqliteWasmPlugin = viteStaticCopy({
 
 let plugins: any = [
     stripUniverHyphenation(),
+    stripUniverEmojiData(),
     sqliteWasmDedupePlugin(),
     sqliteWasmPlugin,
     shareThemeAssetListPlugin(),
