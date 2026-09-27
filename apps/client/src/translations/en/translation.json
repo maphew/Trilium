@@ -3903,7 +3903,6 @@
     "page_size": "Page size",
     "scale": "Scale",
     "margins": "Margins",
-    "render_error": "Unable to render PDF with the current settings. Please check the margins and scale.",
     "margins_default": "Default",
     "margins_none": "None",
     "margins_minimum": "Minimum",
@@ -3915,7 +3914,9 @@
     "page_ranges": "Pages",
     "page_ranges_hint": "Leave empty to print all pages.",
     "page_ranges_invalid": "Invalid format. Use e.g. 1-5, 8, 11-13.",
-    "page_ranges_placeholder": "e.g. 1-5, 8, 11-13"
+    "page_ranges_placeholder": "e.g. 1-5, 8, 11-13",
+    "render_error_title": "Unable to render PDF with the current settings",
+    "render_error_description": "Please check the margins and scale."
   },
   "pdf": {
     "attachments_one": "{{count}} attachment",

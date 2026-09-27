@@ -32,9 +32,14 @@ body.desktop .print-preview-dialog .modal-content-with-sidebar {
         width: 100%;
     }
 
-    .print-preview-pane iframe {
+    .print-preview-pane iframe,
+    .print-preview-pane > .no-items {
         position: absolute;
         inset: 0;
+    }
+
+    .print-preview-pane > .no-items {
+        height: auto;
     }
 
     .print-preview-loading-overlay {
