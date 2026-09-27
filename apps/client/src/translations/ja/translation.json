@@ -3380,7 +3380,6 @@
     "page_size": "ページサイズ",
     "scale": "縮尺",
     "margins": "余白",
-    "render_error": "現在の設定では PDF を生成できません。余白と縮尺を確認してください。",
     "margins_default": "デフォルト",
     "margins_none": "なし",
     "margins_minimum": "最小",

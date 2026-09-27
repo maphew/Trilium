@@ -3045,7 +3045,6 @@
     "page_size": "Dimensiunea paginii",
     "scale": "Scară",
     "margins": "Margini",
-    "render_error": "Nu se poate randa PDF-ul cu setările curente. Vă rugăm să verificați marginile și scara.",
     "margins_default": "Implicite",
     "margins_none": "Fără",
     "margins_minimum": "Minime",

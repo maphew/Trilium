@@ -3620,7 +3620,6 @@
     "page_size": "페이지 크기",
     "scale": "배율",
     "margins": "여백",
-    "render_error": "현재 설정으로 PDF를 렌더링할 수 없습니다. 여백과 배율을 확인하세요.",
     "margins_default": "기본 설정",
     "margins_none": "없음",
     "margins_minimum": "최소",

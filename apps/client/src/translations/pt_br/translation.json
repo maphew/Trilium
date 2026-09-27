@@ -3051,7 +3051,6 @@
     "page_ranges_placeholder": "ex. 1-5, 8, 11-13",
     "page_ranges_invalid": "Formato invalido. Use p. ex. 1-5, 8, 11-13.",
     "margins_none": "Nenhum",
-    "render_error": "Não foi possível gerar o PDF com as configurações atuais. Verifique as margens e a escala.",
     "page_size": "Tamanho da página",
     "destination_printers": "Impressoras",
     "destination_pdf": "Salvar como PDF",

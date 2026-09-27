@@ -2636,7 +2636,6 @@
     "page_size": "頁面大小",
     "scale": "比例",
     "margins": "邊界",
-    "render_error": "無法使用目前設定渲染 PDF。請檢查邊界及縮放比例。",
     "margins_default": "預設",
     "margins_none": "無",
     "margins_minimum": "最小",

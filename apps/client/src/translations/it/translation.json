@@ -3430,7 +3430,6 @@
     "page_size": "Dimensione della pagina",
     "scale": "Scala",
     "margins": "Margini",
-    "render_error": "Impossibile generare il PDF con le impostazioni attuali. Controlla i margini e la scala.",
     "margins_default": "Predefinito",
     "margins_none": "Nessuno",
     "margins_minimum": "Minimo",

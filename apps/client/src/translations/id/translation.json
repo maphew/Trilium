@@ -3243,7 +3243,6 @@
     "page_size": "Ukuran halaman",
     "scale": "Skala",
     "margins": "Margin",
-    "render_error": "Tidak dapat merender PDF dengan pengaturan saat ini. Harap periksa margin dan skala.",
     "margins_default": "Default",
     "margins_none": "Tidak ada",
     "margins_minimum": "Minimum",
