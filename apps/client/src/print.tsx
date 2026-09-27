@@ -208,7 +208,10 @@ export async function loadCustomCss(note: FNote) {
         const promise = $.Deferred();
         loadPromises.push(promise.promise());
         linkEl.onload = () => promise.resolve();
-        linkEl.onerror = () => promise.resolve();
+        linkEl.onerror = () => {
+            console.warn(`Unable to load the print stylesheet ${printCssNote.noteId}; printing without it.`);
+            promise.resolve();
+        };
 
         document.head.appendChild(linkEl);
     }

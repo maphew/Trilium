@@ -202,6 +202,7 @@ describe("loadCustomCss", () => {
         note.getRelationTargets = async () => [null, codeNote, cssMimeNote, textNote];
         // Let happy-dom fail the stylesheet loads it blocks, as a missing download would.
         (window as any).happyDOM.settings.handleDisabledFileLoadingAsSuccess = false;
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
         const promise = loadCustomCss(note);
 
@@ -212,6 +213,9 @@ describe("loadCustomCss", () => {
         });
         expect(document.head.querySelector('link[href="/api/notes/css-mime/download"]')).toBeTruthy();
         await promise;
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining("css-code"));
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining("css-mime"));
+        warn.mockRestore();
 
         expect(codeLink?.rel).toBe("stylesheet");
         expect(document.head.querySelector('link[href="/api/notes/css-text/download"]')).toBeNull();
