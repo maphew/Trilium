@@ -158,12 +158,14 @@ describe("SingleNoteRenderer", () => {
         expect(emptyContainer.querySelector("main")?.innerHTML).toContain("Unable to parse spreadsheet data");
     });
 
-    it("renders a text note and waits for every image (complete, load, error)", async () => {
+    it("renders a text note and waits for every image (complete, load, error, lazy)", async () => {
         const note = buildNote({ id: "rich", title: "Rich", type: "text" });
         const completeImg = makeImage(true);
         const loadImg = makeImage(false);
         const errorImg = makeImage(false);
-        h.getRenderedContent.mockResolvedValueOnce({ $renderedContent: [completeImg, loadImg, errorImg] });
+        const lazyImg = makeImage(false);
+        lazyImg.setAttribute("loading", "lazy");
+        h.getRenderedContent.mockResolvedValueOnce({ $renderedContent: [completeImg, loadImg, errorImg, lazyImg] });
         const onReady = vi.fn();
         renderInto(<SingleNoteRenderer note={note} onReady={onReady} onProgressChanged={() => {}} />);
 
@@ -171,8 +173,10 @@ describe("SingleNoteRenderer", () => {
             // Re-firing once the listeners are attached resolves the pending image promises.
             loadImg.dispatchEvent(new Event("load"));
             errorImg.dispatchEvent(new Event("error"));
+            lazyImg.dispatchEvent(new Event("load"));
             expect(onReady).toHaveBeenCalledWith({ type: "single-note" });
         });
+        expect(lazyImg.getAttribute("loading")).toBe("eager");
         // Printing preserves full include-note nesting via expandNestedIncludes.
         expect(h.getRenderedContent).toHaveBeenCalledWith(note, { noChildrenList: true, expandNestedIncludes: true, mediaEnvironment: "native" });
     });

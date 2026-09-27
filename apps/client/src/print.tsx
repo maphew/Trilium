@@ -126,8 +126,12 @@ export function SingleNoteRenderer({ note, onReady }: RendererProps) {
                 // to settle first; otherwise they land after the capture and are missing from the PDF.
                 await waitForPendingRenders(container);
 
-                // Wait for all images to load.
+                // Wait for all images to load. A lazy image, such as a link embed's favicon, never
+                // scrolls into the print window's viewport, so it would fire neither `load` nor `error`.
                 const images = Array.from(container.querySelectorAll("img"));
+                for (const img of images) {
+                    img.loading = "eager";
+                }
                 await Promise.all(
                     images.map(img => {
                         if (img.complete) return Promise.resolve();
