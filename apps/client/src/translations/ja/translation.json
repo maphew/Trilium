@@ -1842,12 +1842,12 @@
   },
   "highlighting": {
     "title": "コードブロック",
-    "description": "テキストノート内のコードブロックのシンタックスハイライトを制御します。コードノートには影響しません。",
+    "description": "テキストノート内のコードブロックの構文ハイライトを制御します。コードノートには影響しません。",
     "color-scheme": "カラースキーム"
   },
   "code_block": {
     "word_wrapping": "単語の折り返し",
-    "theme_none": "シンタックスハイライトなし",
+    "theme_none": "構文ハイライトなし",
     "theme_group_light": "ライトテーマ",
     "theme_group_dark": "ダークテーマ",
     "copy_title": "クリップボードにコピー",
@@ -3093,8 +3093,34 @@
     },
     "stream_status": {
       "starting_agent": "エージェントを起動しています。しばらく時間がかかる場合があります。",
-      "waiting_for_reply": "応答を待機中…"
-    }
+      "waiting_for_reply": "応答を待機中…",
+      "still_working": "処理中…"
+    },
+    "show_tool_call_details": "入力と出力を表示",
+    "tool_call_no_result": "まだ結果はありません。",
+    "search_notes_count_other": "（{{count}} 件のノート）",
+    "search_notes_limited_other": "合計 {{count}} 件の結果、{{limit}} 件まで表示",
+    "search_notes_scope": "<Note/> 内を検索",
+    "child_notes_count_other": "（{{count}} 件の子ノート）",
+    "child_count_other": "{{count}} 件の子ノート",
+    "search_help_count_other": "（{{count}} ページ）",
+    "subtree_more_other": "+{{count}} 件",
+    "attachment_count_other": "{{count}} 件の添付ファイル",
+    "attribute_count_other": "（{{count}} 件の属性）",
+    "search_icons_count_other": "（{{count}} 個のアイコン）",
+    "attachment_size": "({{size}})",
+    "attachment_ocr": "ファイルから認識されたテキスト",
+    "skills": {
+      "search_syntax": "検索構文",
+      "backend_scripting": "バックエンドスクリプト",
+      "frontend_scripting": "フロントエンドスクリプト",
+      "dashboards": "ダッシュボード"
+    },
+    "web_sources_count_other": "（{{count}} 件のソース）",
+    "attachment_model_cannot_read_image": "{{- model}} は画像を読み込めません。",
+    "attachment_model_cannot_read_file": "{{- model}} はPDFを読み込めません。",
+    "attachment_refused": "\"{{name}}\" は添付されませんでした。{{- reason}}",
+    "remove_unreadable_attachments": "{{- model}} が読み込めない添付ファイルを削除"
   },
   "sidebar_chat": {
     "title": "AI チャット",
@@ -3219,7 +3245,10 @@
       "search_icons": "アイコンを検索",
       "search_help": "ユーザーガイドを検索",
       "get_help_toc": "ユーザーガイドの目次を取得",
-      "read_web_page": "Web ページの読み込み"
+      "read_web_page": "Web ページの読み込み",
+      "note_moved_from": "<Note/> from <From/> to <To/>",
+      "note_moved": "<Note/> to <To/>",
+      "attachment_in_note": "<Title/> in <Note/>"
     },
     "base_url": "ベース URL",
     "base_url_description": "オプション。プロキシやゲートウェイ経由で同じ API に接続します。モデルを自前で実行したい場合は、代わりに Ollama または LM Studio のプロバイダーを追加してください。",
@@ -3274,7 +3303,8 @@
     "antigravity_setup_download": "Trilium を実行しているデバイス上で、Google の <Link>ACP レジストリエントリ</Link> からお使いのプラットフォーム用のアーカイブをダウンロードし、そのまま配置しておけるフォルダに解凍してください。",
     "antigravity_setup_archive": "<Link>Trilium を実行するデバイス用のアーカイブ</Link> をダウンロードし、そのデバイス上で、そのまま配置しておけるフォルダに解凍してください。",
     "antigravity_setup_path": "そのフォルダを <Code>PATH</Code> に追加するか、環境変数 <Code>TRILIUM_ANTIGRAVITY_ACP_PATH</Code> にそのフォルダ内の <Code>agy_acp_server.par</Code> （Windows の場合は <Code>agy_acp_server.exe</Code>）へのパスを設定し、Trilium を再起動してください。",
-    "antigravity_setup_sign_in": "設定が終わったら、この手順に戻ってきてください。初回実行時に、そのデバイス上のブラウザで Google のサインインページが開きます。"
+    "antigravity_setup_sign_in": "設定が終わったら、この手順に戻ってきてください。初回実行時に、そのデバイス上のブラウザで Google のサインインページが開きます。",
+    "codex_agent_description": "OpenAI Codex を通じて、ご利用中の ChatGPT プラン（Free、Go、Plus、Pro、または Business）の Codex 利用枠を使用するため、APIキーは不要です。\n\nTrilium を実行しているデバイスに、セルフホストの場合はサーバー、デスクトップアプリの場合はそのコンピューターに、Codex CLI をインストールする必要があります-。インストールは、例えばそのデバイス上で \"npm install -g @openai/codex\" を実行することで行えます。\n\nモデルの一覧を最初に表示する際、そのデバイスのブラウザで ChatGPT のサインインページが開きます。"
   },
   "ocr": {
     "extracted_text": "抽出されたテキスト（OCR）",
@@ -4338,5 +4368,10 @@
     "label_marker_negated": "ラベルを除外。Enter キーを押すと一覧を表示",
     "relation_marker": "リレーションを指定。Enter キーを押すと一覧を表示",
     "relation_marker_negated": "リレーションを除外。Enter キーを押すと一覧を表示"
+  },
+  "lightbox": {
+    "image": "画像",
+    "pdf": "PDF",
+    "open_original": "オリジナルを新しいタブで開く"
   }
 }
