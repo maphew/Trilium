@@ -101,6 +101,7 @@ export default function PrintPreviewDialog() {
     const bufferRef = useRef<Uint8Array>();
     const notePathRef = useRef("");
     const pdfUrlRef = useRef<string>();
+    const requestIdRef = useRef(0);
 
 
     const [landscape, setLandscape] = useNoteLabelBoolean(note, "printLandscape");
@@ -154,13 +155,14 @@ export default function PrintPreviewDialog() {
     });
 
     // Handle regeneration results via a persistent listener scoped to the
-    // dialog's lifecycle. A generation counter discards stale results when
+    // dialog's lifecycle. `requestIdRef` discards stale results when
     // multiple requests overlap.
     useEffect(() => {
         const api = window.electronApi?.printing;
         if (!shown || !api) return;
 
-        api.onExportAsPdfPreviewResult(({ buffer, error }) => {
+        api.onExportAsPdfPreviewResult(({ buffer, error, requestId }) => {
+            if (requestId !== requestIdRef.current) return;
             toast.closePersistent("printing");
             if (error) {
                 setLoading(false);
@@ -189,6 +191,7 @@ export default function PrintPreviewDialog() {
 
         setLoading(true);
         api.exportAsPdfPreview({
+            requestId: ++requestIdRef.current,
             notePath: notePathRef.current,
             pageSize: opts.pageSize,
             landscape: opts.landscape,
@@ -213,6 +216,7 @@ export default function PrintPreviewDialog() {
     }, [shown, landscape, pageSize, scale, marginsStr, pageRanges, pageRangesValid, regeneratePreview]);
 
     function handleClose() {
+        requestIdRef.current++;
         setShown(false);
         isFirstGenerationRef.current = true;
         setError(undefined);

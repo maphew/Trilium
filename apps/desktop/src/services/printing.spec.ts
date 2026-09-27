@@ -101,7 +101,8 @@ const PDF_OPTS = {
     pageSize: "A4" as const,
     scale: 1,
     margins: "default",
-    pageRanges: ""
+    pageRanges: "",
+    requestId: 7
 };
 
 describe("printing — pure helpers", () => {
@@ -290,30 +291,30 @@ describe("setupPrintingHandlers", () => {
     describe("export-as-pdf-preview", () => {
         it("returns the rendered buffer to the renderer", async () => {
             const e = await fireOn("export-as-pdf-preview", PDF_OPTS);
-            expect(e.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", expect.objectContaining({ notePath: "root/abc", buffer: expect.any(Buffer) }));
+            expect(e.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", expect.objectContaining({ notePath: "root/abc", requestId: 7, buffer: expect.any(Buffer) }));
             expect(e.sender.send).toHaveBeenCalledWith("print-done", "REPORT");
         });
 
         it("returns an error result when rendering fails (Error and non-Error)", async () => {
             h.printToPDF.mockRejectedValue(new Error("render boom"));
             const e1 = await fireOn("export-as-pdf-preview", PDF_OPTS);
-            expect(e1.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", error: "render boom" });
+            expect(e1.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", requestId: 7, error: "render boom" });
 
             h.printToPDF.mockRejectedValue("render string");
             const e2 = await fireOn("export-as-pdf-preview", PDF_OPTS);
-            expect(e2.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", error: "render string" });
+            expect(e2.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", requestId: 7, error: "render string" });
         });
 
         it("returns an error result and destroys the window when the print window fails (Error and non-Error)", async () => {
             h.loadURL.mockRejectedValue(new Error("load failed"));
             const e1 = await fireOn("export-as-pdf-preview", PDF_OPTS);
-            expect(e1.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", error: "load failed" });
+            expect(e1.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", requestId: 7, error: "load failed" });
             expect(e1.sender.send).not.toHaveBeenCalledWith("print-done", expect.anything());
             expect(h.destroy).toHaveBeenCalledTimes(1);
 
             h.loadURL.mockRejectedValue("load string");
             const e2 = await fireOn("export-as-pdf-preview", PDF_OPTS);
-            expect(e2.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", error: "load string" });
+            expect(e2.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", requestId: 7, error: "load string" });
         });
     });
 
@@ -336,7 +337,7 @@ describe("setupPrintingHandlers", () => {
 
             await vi.advanceTimersByTimeAsync(1);
             await done;
-            expect(e.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", error: "pdf.render-timeout" });
+            expect(e.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", requestId: 7, error: "pdf.render-timeout" });
             expect(h.printToPDF).not.toHaveBeenCalled();
             expect(h.destroy).toHaveBeenCalledTimes(1);
             expect(h.off).toContainEqual(["print-progress", expect.any(Function)]);
@@ -381,7 +382,7 @@ describe("setupPrintingHandlers", () => {
 
             await vi.advanceTimersByTimeAsync(1);
             await done;
-            expect(e.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", error: "pdf.render-timeout" });
+            expect(e.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", requestId: 7, error: "pdf.render-timeout" });
             expect(h.destroy).toHaveBeenCalledTimes(1);
         });
     });

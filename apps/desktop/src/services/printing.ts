@@ -49,6 +49,11 @@ interface ExportAsPdfOpts {
     pageRanges: string;
 }
 
+interface PreviewOpts extends ExportAsPdfOpts {
+    /** Echoed back with the result so the dialog can drop results of superseded requests. */
+    requestId: number;
+}
+
 interface PrintFromPreviewOpts extends ExportAsPdfOpts {
     silent: boolean;
     deviceName?: string;
@@ -314,7 +319,7 @@ export function setupPrintingHandlers() {
         }
     });
 
-    electron.ipcMain.on("export-as-pdf-preview", async (e, { notePath, landscape, pageSize, scale, margins, pageRanges }: ExportAsPdfOpts) => {
+    electron.ipcMain.on("export-as-pdf-preview", async (e, { notePath, requestId, landscape, pageSize, scale, margins, pageRanges }: PreviewOpts) => {
         try {
             const { browserWindow, printReport } = await getBrowserWindowForPrinting(e, notePath, "exporting_pdf");
 
@@ -337,17 +342,17 @@ export function setupPrintingHandlers() {
                     `
                 });
 
-                e.sender.send("export-as-pdf-preview-result", { buffer, notePath });
+                e.sender.send("export-as-pdf-preview-result", { buffer, notePath, requestId });
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
-                e.sender.send("export-as-pdf-preview-result", { notePath, error: message });
+                e.sender.send("export-as-pdf-preview-result", { notePath, requestId, error: message });
             } finally {
                 e.sender.send("print-done", printReport);
                 browserWindow.destroy();
             }
         } catch (err) {
             // The preview dialog reports the error itself, so no `print-done` goes out.
-            e.sender.send("export-as-pdf-preview-result", { notePath, error: err instanceof Error ? err.message : String(err) });
+            e.sender.send("export-as-pdf-preview-result", { notePath, requestId, error: err instanceof Error ? err.message : String(err) });
         }
     });
 
