@@ -62,10 +62,14 @@ export default class MathInputView extends View {
 	/** Replaces the editor when MathLive fails to load; resolved up front, while the locale is at hand. */
 	private readonly _unavailableLabel: string;
 
+	/** The editor UI language, which MathLive otherwise reads from `navigator.language`. */
+	private readonly _mathLiveLocale: string;
+
 	constructor( locale: Locale, enableMathField = true ) {
 		super( locale );
 		this._enableMathField = enableMathField;
 		this._unavailableLabel = locale.t( 'Math editor unavailable' );
+		this._mathLiveLocale = toMathLiveLocale( locale.uiLanguage );
 		this.latexTextAreaView = new LatexTextAreaView( locale );
 		this.mathFieldFocusableView = new MathFieldFocusableView( locale, this );
 		this.set( 'value', null );
@@ -169,13 +173,17 @@ export default class MathInputView extends View {
 			if ( this._destroyed ) {
 				return;
 			}
-			if ( !MathInputView._configured ) {
-				const MathfieldClass = customElements.get( 'math-field' ) as any;
-				/* v8 ignore next -- defensive: whenDefined() resolved, so the element is registered */
-				if ( MathfieldClass ) {
+			const MathfieldClass = customElements.get( 'math-field' ) as any;
+			/* v8 ignore next -- defensive: whenDefined() resolved, so the element is registered */
+			if ( MathfieldClass ) {
+				if ( !MathInputView._configured ) {
 					MathfieldClass.soundsDirectory = null;
 					MathfieldClass.plonkSound = null;
 					MathInputView._configured = true;
+				}
+				// Setting the locale re-renders every math field and keyboard, so it is set only on change.
+				if ( MathfieldClass.locale !== this._mathLiveLocale ) {
+					MathfieldClass.locale = this._mathLiveLocale;
 				}
 			}
 			if ( this.element && !this._destroyed ) {
@@ -287,4 +295,10 @@ export default class MathInputView extends View {
 		this.mathfield = null;
 		super.destroy();
 	}
+}
+
+// MathLive looks a locale up as given, then by its first two letters, and files Simplified Chinese
+// under `zh-cn`, which CKEditor calls `zh`.
+function toMathLiveLocale( uiLanguage: string ): string {
+	return uiLanguage === 'zh' ? 'zh-cn' : uiLanguage;
 }
