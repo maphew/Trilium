@@ -20,7 +20,8 @@ const h = vi.hoisted(() => ({
     getFocusedWindow: vi.fn((..._a: unknown[]): unknown => ({})),
     writeFile: vi.fn((..._a: unknown[]) => Promise.resolve()),
     isDev: true as boolean,
-    lastBwOpts: undefined as unknown
+    lastBwOpts: undefined as unknown,
+    webContents: undefined as unknown
 }));
 
 vi.mock("electron", () => {
@@ -35,6 +36,7 @@ vi.mock("electron", () => {
         print: (...a: unknown[]) => (h.print as (...args: unknown[]) => unknown)(...a),
         printToPDF: (...a: unknown[]) => h.printToPDF(...a)
     };
+    h.webContents = webContents;
     class FakeBrowserWindow {
         webContents = webContents;
         loadURL = (...a: unknown[]) => h.loadURL(...a);
@@ -219,7 +221,7 @@ describe("setupPrintingHandlers", () => {
             // Exercise the print-progress relay callback registered for this window.
             const progress = h.on.get("print-progress");
             expect(progress).toBeDefined();
-            progress?.({}, 42);
+            progress?.({ sender: h.webContents }, 42);
             expect(e.sender.send).toHaveBeenCalledWith("print-progress", { progress: 42, action: "printing" });
         });
 
@@ -353,13 +355,34 @@ describe("setupPrintingHandlers", () => {
             const progress = h.on.get("print-progress");
             expect(progress).toBeDefined();
             await vi.advanceTimersByTimeAsync(printing.RENDER_STALL_TIMEOUT_MS - 1);
-            progress?.({}, 50);
+            progress?.({ sender: h.webContents }, 50);
             await vi.advanceTimersByTimeAsync(printing.RENDER_STALL_TIMEOUT_MS - 1);
             ready("REPORT");
             await done;
 
             expect(h.print).toHaveBeenCalled();
             expect(e.sender.send).toHaveBeenCalledWith("print-done", "REPORT");
+        });
+
+        it("ignores progress reports from other print windows", async () => {
+            h.executeJavaScript.mockReset()
+                .mockResolvedValueOnce(undefined)
+                .mockReturnValueOnce(new Promise(() => {}));
+            const fn = h.on.get("export-as-pdf-preview");
+            if (!fn) throw new Error("no on-handler for export-as-pdf-preview");
+            const e = makeEvent();
+            const done = fn(e, PDF_OPTS);
+
+            const progress = h.on.get("print-progress");
+            expect(progress).toBeDefined();
+            await vi.advanceTimersByTimeAsync(printing.RENDER_STALL_TIMEOUT_MS - 1);
+            progress?.({ sender: {} }, 50);
+            expect(e.sender.send).not.toHaveBeenCalledWith("print-progress", expect.anything());
+
+            await vi.advanceTimersByTimeAsync(1);
+            await done;
+            expect(e.sender.send).toHaveBeenCalledWith("export-as-pdf-preview-result", { notePath: "root/abc", error: "pdf.render-timeout" });
+            expect(h.destroy).toHaveBeenCalledTimes(1);
         });
     });
 

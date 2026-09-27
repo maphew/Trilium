@@ -149,7 +149,9 @@ async function getBrowserWindowForPrinting(e: IpcMainEvent, notePath: string, ac
         }, RENDER_STALL_TIMEOUT_MS);
     };
 
-    const progressCallback = (_e: IpcMainEvent, progress: number) => {
+    // Every print window reports on the same channel, so a job only listens to its own.
+    const progressCallback = (progressEvent: IpcMainEvent, progress: number) => {
+        if (progressEvent.sender !== browserWindow.webContents) return;
         restartStallTimer();
         e.sender.send("print-progress", { progress, action });
     };
