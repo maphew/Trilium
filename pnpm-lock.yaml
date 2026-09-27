@@ -249,6 +249,9 @@ importers:
       '@univerjs/preset-sheets-find-replace':
         specifier: 1.0.0
         version: 1.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/preset-sheets-hyper-link':
+        specifier: 1.0.0
+        version: 1.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.2)
       '@univerjs/preset-sheets-note':
         specifier: 1.0.0
         version: 1.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.2)
@@ -5202,6 +5205,13 @@ packages:
       react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
       rxjs: '>=7.0.0'
 
+  '@univerjs/preset-sheets-hyper-link@1.0.0':
+    resolution: {integrity: sha512-Ly+ylP+qrC1MZE3ZLcdlF0NwUFjaI+tOd7PeWCAkLjs5Ozr1HXC3Sooe8V5z3Cadpqs2ShunHOnHkAM6L0k7qQ==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      react-dom: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+
   '@univerjs/preset-sheets-note@1.0.0':
     resolution: {integrity: sha512-HXgsuzuvPi8OaipvJVXXkyzG0hFEA4S5YsEpoEEZ+yCsi4eX33FsUS9H4FqGRQllPuGrjZmuc8Qf0xlR/aNsbw==}
     peerDependencies:
@@ -5283,6 +5293,17 @@ packages:
 
   '@univerjs/sheets-formula@1.0.0':
     resolution: {integrity: sha512-ce89Kq+NZoH1aB8ro+TkIGfgSG0m7CsxWN8+abbbNljphF/O26RZs/IQuaqWHKkmH9G/mndkr5CEB8qe+wseSA==}
+    peerDependencies:
+      rxjs: '>=7.0.0'
+
+  '@univerjs/sheets-hyper-link-ui@1.0.0':
+    resolution: {integrity: sha512-04B9L2SYdPg0ad3kaVVCus3RecQ3KnDk5D5Na/WZ81KPpUymbFdQCzIoeT2BxZP8Jnzf/obqCwoGh56vOPwZ2g==}
+    peerDependencies:
+      react: ^16.9.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+      rxjs: '>=7.0.0'
+
+  '@univerjs/sheets-hyper-link@1.0.0':
+    resolution: {integrity: sha512-XWFeMcGP9LVDvgFG93beIL94ZOkaM/242FSELJ2bThSY11ZNetsd85DFzV8N65pH1AdmYKTUC4hwooS7U0XmDw==}
     peerDependencies:
       rxjs: '>=7.0.0'
 
@@ -16305,6 +16326,17 @@ snapshots:
       - '@types/react'
       - '@types/react-dom'
 
+  '@univerjs/preset-sheets-hyper-link@1.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.2)':
+    dependencies:
+      '@univerjs/sheets-hyper-link': 1.0.0(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/sheets-hyper-link-ui': 1.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.2)
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+
   '@univerjs/preset-sheets-note@1.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.2)':
     dependencies:
       '@univerjs/sheets-note': 1.0.0(react@18.3.1)(rxjs@7.8.2)
@@ -16516,6 +16548,38 @@ snapshots:
       '@univerjs/docs': 1.0.0(react@18.3.1)(rxjs@7.8.2)
       '@univerjs/engine-formula': 1.0.0(react@18.3.1)(rxjs@7.8.2)
       '@univerjs/rpc': 1.0.0(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/sheets': 1.0.0(react@18.3.1)(rxjs@7.8.2)
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - react
+
+  '@univerjs/sheets-hyper-link-ui@1.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.2)':
+    dependencies:
+      '@univerjs/core': 1.0.0(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/design': 1.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@univerjs/docs': 1.0.0(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/docs-ui': 1.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 1.0.0(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/engine-render': 1.0.0(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/icons': 1.43.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@univerjs/sheets': 1.0.0(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/sheets-data-validation': 1.0.0(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/sheets-formula-ui': 1.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/sheets-hyper-link': 1.0.0(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 1.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/ui': 1.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.2)
+      react: 18.3.1
+      rxjs: 7.8.2
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
+
+  '@univerjs/sheets-hyper-link@1.0.0(react@18.3.1)(rxjs@7.8.2)':
+    dependencies:
+      '@univerjs/core': 1.0.0(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/docs': 1.0.0(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs/engine-formula': 1.0.0(react@18.3.1)(rxjs@7.8.2)
       '@univerjs/sheets': 1.0.0(react@18.3.1)(rxjs@7.8.2)
       rxjs: 7.8.2
     transitivePeerDependencies:

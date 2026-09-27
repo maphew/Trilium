@@ -32,6 +32,7 @@
     "@univerjs/preset-sheets-drawing": "1.0.0",
     "@univerjs/preset-sheets-filter": "1.0.0",
     "@univerjs/preset-sheets-find-replace": "1.0.0",
+    "@univerjs/preset-sheets-hyper-link": "1.0.0",
     "@univerjs/preset-sheets-note": "1.0.0",
     "@univerjs/preset-sheets-sort": "1.0.0",
     "@univerjs/presets": "1.0.0",
