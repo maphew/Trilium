@@ -6,7 +6,8 @@ const h = vi.hoisted(() => ({
     on: new Map<string, Handler>(),
     handle: new Map<string, Handler>(),
     off: [] as Array<[string, unknown]>,
-    consoleHandlers: [] as Array<(event: { level: string }, message: string, line: number, sourceId: string) => void>,
+    consoleHandlers: [] as Array<(event: { level: string; message: string; lineNumber: number; sourceId: string }) => void>,
+    log: { info: vi.fn(), error: vi.fn() },
     loadURL: vi.fn((..._a: unknown[]) => Promise.resolve()),
     executeJavaScript: vi.fn((..._a: unknown[]): Promise<unknown> => Promise.resolve("REPORT")),
     print: vi.fn((_opts: unknown, cb: (success: boolean, reason?: string) => void) => cb(true)),
@@ -61,7 +62,7 @@ vi.mock("@triliumnext/core", async (importOriginal) => {
     const actual = await importOriginal<typeof import("@triliumnext/core")>();
     return {
         ...actual,
-        getLog: () => ({ info: vi.fn(), error: vi.fn() }),
+        getLog: () => h.log,
         utils: { ...actual.utils, isDev: () => h.isDev }
     };
 });
@@ -159,6 +160,8 @@ describe("setupPrintingHandlers", () => {
         h.print.mockReset().mockImplementation((_opts, cb) => cb(true));
         h.printToPDF.mockReset().mockResolvedValue(Buffer.from("pdf-bytes"));
         h.destroy.mockReset();
+        h.log.info.mockReset();
+        h.log.error.mockReset();
         h.getPrintersAsync.mockReset().mockResolvedValue([]);
         h.showSaveDialogSync.mockReset().mockReturnValue("/out.pdf");
         h.showErrorBox.mockReset();
@@ -206,9 +209,12 @@ describe("setupPrintingHandlers", () => {
             // Exercise the captured console-message handler at each log level.
             const consoleHandler = h.consoleHandlers[0];
             expect(consoleHandler).toBeDefined();
-            consoleHandler({ level: "debug" }, "dbg", 1, "s");
-            consoleHandler({ level: "error" }, "err", 2, "s");
-            consoleHandler({ level: "info" }, "info", 3, "s");
+            consoleHandler({ level: "debug", message: "dbg", lineNumber: 1, sourceId: "s" });
+            consoleHandler({ level: "error", message: "err", lineNumber: 2, sourceId: "s" });
+            consoleHandler({ level: "info", message: "info", lineNumber: 3, sourceId: "s" });
+            expect(h.log.error).toHaveBeenCalledWith("[Print Window s:2] err");
+            expect(h.log.info).toHaveBeenCalledWith("[Print Window s:3] info");
+            expect(h.log.info).not.toHaveBeenCalledWith(expect.stringContaining("dbg"));
 
             // Exercise the print-progress relay callback registered for this window.
             const progress = h.on.get("print-progress");

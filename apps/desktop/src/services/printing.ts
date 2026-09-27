@@ -127,13 +127,13 @@ async function getBrowserWindowForPrinting(e: IpcMainEvent, notePath: string, ac
     });
 
     // Capture ALL console output (including errors) for debugging
-    browserWindow.webContents.on("console-message", (event, message, line, sourceId) => {
-        if (event.level === "debug") return;
-        if (event.level === "error") {
-            getLog().error(`[Print Window ${sourceId}:${line}] ${message}`);
+    browserWindow.webContents.on("console-message", ({ level, message, lineNumber, sourceId }) => {
+        if (level === "debug") return;
+        if (level === "error") {
+            getLog().error(`[Print Window ${sourceId}:${lineNumber}] ${message}`);
             return;
         }
-        getLog().info(`[Print Window ${sourceId}:${line}] ${message}`);
+        getLog().info(`[Print Window ${sourceId}:${lineNumber}] ${message}`);
     });
 
     // Collections report progress while they render, so only a render that stops advancing times out.
