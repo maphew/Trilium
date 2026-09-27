@@ -35,8 +35,10 @@ Additional interaction:
 
 *   _Print using system dialog_ allows setting more options that are otherwise not available in Trilium.
 
+If the note cannot be rendered with the current options, or stops making progress for 30 seconds, the preview is replaced by an error message. Adjust the options to try again.
+
 > [!NOTE]
-> Most of the options here (expect printer & which pages to print) are managed at note level through <a class="reference-link" href="../../Advanced%20Usage/Attributes.md">Attributes</a> (such as `#printLandscape`, `#printPageSize`, `#printScale`, `#printMargins`).
+> Most of the options here (except printer & which pages to print) are managed at note level through <a class="reference-link" href="../../Advanced%20Usage/Attributes.md">Attributes</a> (such as `#printLandscape`, `#printPageSize`, `#printScale`, `#printMargins`).
 > 
 > This means that the print settings will be restored when printing the same note. There are no default settings that can be configured for all the notes, but this can be achieved via [inheritable attributes](../../Advanced%20Usage/Attributes/Attribute%20Inheritance.md).
 
