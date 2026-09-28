@@ -140,7 +140,6 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
             setActive(closing - 1, parent.item);
         };
         const rtl = handleRightToLeftPlacement("right") !== "right";
-
         /** Moves to the row beside the active one in a menu laid out in columns, if there is one. */
         const moveAcross = (towards: "left" | "right") => {
             const boxes = levelRows.map((item) => rows.get(item)?.getBoundingClientRect());
@@ -269,15 +268,18 @@ function SubmenuLayer<T>({ level, submenu, state }: { level: number, submenu: Op
     return (
         <div className="dropdown-submenu">
             <ul ref={layerRef} className="dropdown-menu show tn-menu" role="menu">
-                {columns
-                    // The columns go on an inner element of their full height, so a capped menu
-                    // scrolls them rather than growing more columns to the side.
-                    ? (
-                        <div className="tn-menu-columns" style={{ columnCount: columns }}>
-                            <MenuList level={level} items={items} state={state} columns />
-                        </div>
-                    )
-                    : <MenuList level={level} items={items} state={state} />}
+                {/* Like the top level, so the blur on the layer's `::before` stays behind its rows. */}
+                <div className="tn-menu-scroll">
+                    {columns
+                        // The columns go on an inner element of their full height, so a capped menu
+                        // scrolls them rather than growing more columns to the side.
+                        ? (
+                            <div className="tn-menu-columns" style={{ columnCount: columns }}>
+                                <MenuList level={level} items={items} state={state} columns />
+                            </div>
+                        )
+                        : <MenuList level={level} items={items} state={state} />}
+                </div>
             </ul>
         </div>
     );

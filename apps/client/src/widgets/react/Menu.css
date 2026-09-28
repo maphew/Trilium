@@ -31,14 +31,23 @@
     overflow-y: auto;
 }
 
-/*
- * A submenu is placed by `placeMenu()`, not beside a parent it is nested in. The theme blurs it on
- * the element itself rather than a `::before`, so it can scroll as a whole.
- */
+/* A submenu is placed by `placeMenu()`, not beside a parent it is nested in. */
 .dropdown-submenu > .dropdown-menu.tn-menu {
     inset: 0 auto auto 0;
     margin: 0;
-    overflow-y: auto;
+}
+
+/*
+ * The theme blurs a nested submenu on the element itself, which over a transparent window (background
+ * effects) composites with the menu's translucent background into a see-through layer with no blur.
+ * A layer is not nested in another menu, so it takes the top level's blur on `::before` instead.
+ */
+body.desktop .dropdown-submenu > .dropdown-menu.tn-menu {
+    backdrop-filter: none;
+
+    &::before {
+        content: "";
+    }
 }
 
 /* The menu holds focus for its keys; the row they act on shows where they are instead. */

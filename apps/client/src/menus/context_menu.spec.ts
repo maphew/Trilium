@@ -359,7 +359,7 @@ describe("contextMenu", () => {
         /** The submenu layers standing open, each as the titles of its rows. */
         function layers() {
             return [ ...menuElement()?.querySelectorAll(":scope > div.dropdown-submenu > ul.dropdown-menu") ?? [] ]
-                .map((layer) => [ ...layer.querySelectorAll(":scope > li") ].map((item) => item.textContent));
+                .map((layer) => [ ...layer.querySelectorAll(":scope > .tn-menu-scroll > li") ].map((item) => item.textContent));
         }
 
         const hover = (element: HTMLElement) => element.dispatchEvent(new PointerEvent("pointerenter"));
@@ -405,6 +405,9 @@ describe("contextMenu", () => {
             hover(row("Templates"));
             await vi.waitFor(() => expect(layers()).toEqual([ [ "Meeting" ] ]));
             expect(scroller?.querySelector("div.dropdown-submenu")).toBeNull();
+            // A layer scrolls its rows the same way, so its own blur stays behind them too.
+            const layer = menuElement()?.querySelector("div.dropdown-submenu > ul");
+            expect([ ...layer?.children ?? [] ].map((child) => child.className)).toEqual([ "tn-menu-scroll" ]);
         });
 
         it("places a layer beside its row, flipped where it does not fit, and hides it while its row is scrolled away", async () => {
@@ -473,7 +476,7 @@ describe("contextMenu", () => {
             });
 
             hover(row("Insert child note"));
-            await vi.waitFor(() => expect(menuElement()?.querySelector("div.dropdown-submenu > ul > .tn-menu-columns")).not.toBeNull());
+            await vi.waitFor(() => expect(menuElement()?.querySelector("div.dropdown-submenu > ul > .tn-menu-scroll > .tn-menu-columns")).not.toBeNull());
             const columns = menuElement()?.querySelector<HTMLElement>(".tn-menu-columns");
             expect(columns?.style.columnCount).toBe("2");
             expect(columns?.textContent).toBe("TextCode");
@@ -510,7 +513,7 @@ describe("contextMenu", () => {
             // A single column has no breaks to avoid, so nothing is grouped.
             hover(row("Insert note after"));
             await vi.waitFor(() => expect(menuElement()?.querySelector(".tn-menu-columns")).toBeNull());
-            expect(layout(menuElement()?.querySelector("div.dropdown-submenu > ul"))).toEqual([
+            expect(layout(menuElement()?.querySelector("div.dropdown-submenu > ul > .tn-menu-scroll"))).toEqual([
                 "Text", "Code", "---", "Templates", "Meeting", "Weekly"
             ]);
         });
