@@ -32,6 +32,11 @@ function menuElement() {
     return document.getElementById("context-menu-container");
 }
 
+/** The top level's rows, which scroll inside the menu. */
+function menuRows() {
+    return [ ...menuElement()?.querySelector(":scope > .tn-menu-scroll")?.children ?? [] ];
+}
+
 /** Puts an element on a screen of its own, as the browser reports one. */
 function setFullscreenElement(element: Element | null) {
     Object.defineProperty(document, "fullscreenElement", { value: element, configurable: true });
@@ -93,7 +98,7 @@ describe("contextMenu", () => {
                 ]
             });
 
-            const rows = [ ...menuElement()?.children ?? [] ]
+            const rows = menuRows()
                 .map(row => `${row.tagName.toLowerCase()}.${row.className} ${row.textContent}`);
             expect(rows).toEqual([
                 "li.dropdown-item Cut",
@@ -192,7 +197,7 @@ describe("contextMenu", () => {
                 ]
             });
 
-            const rows = [ ...menuElement()?.children ?? [] ].map(row => `${row.tagName.toLowerCase()}.${row.className}`);
+            const rows = menuRows().map(row => `${row.tagName.toLowerCase()}.${row.className}`);
             expect(rows).toEqual([
                 "li.dropdown-item", "div.dropdown-divider", "li.dropdown-custom-item", "div.dropdown-divider", "li.dropdown-item"
             ]);
@@ -246,7 +251,7 @@ describe("contextMenu", () => {
                 ]
             });
 
-            const rows = [ ...menuElement()?.children ?? [] ]
+            const rows = menuRows()
                 .map(row => `${row.tagName.toLowerCase()}.${row.className} ${row.innerHTML.includes("<b>") ? "(markup)" : row.textContent}`);
             expect(rows).toEqual([
                 "h6.dropdown-header <b>Doing</b>",
@@ -381,6 +386,20 @@ describe("contextMenu", () => {
             expect(parent.classList.contains("submenu-open")).toBe(false);
         });
 
+        it("scrolls the top level's rows inside the menu, and keeps its submenus out of that scroller", async () => {
+            await openMenu();
+            const menu = menuElement();
+            const [ scroller, ...others ] = [ ...menu?.children ?? [] ];
+            // The menu itself does not scroll, so the blur on its `::before` stays behind every row.
+            expect(scroller?.className).toBe("tn-menu-scroll");
+            expect(others).toEqual([]);
+            expect(scroller?.querySelector("li.dropdown-item")).not.toBeNull();
+
+            hover(row("Templates"));
+            await vi.waitFor(() => expect(layers()).toEqual([ [ "Meeting" ] ]));
+            expect(scroller?.querySelector("div.dropdown-submenu")).toBeNull();
+        });
+
         it("places a layer beside its row, flipped where it does not fit, and hides it while its row is scrolled away", async () => {
             vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1000);
             vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
@@ -388,9 +407,9 @@ describe("contextMenu", () => {
             vi.spyOn(HTMLUListElement.prototype, "offsetWidth", "get").mockReturnValue(150);
             vi.spyOn(HTMLUListElement.prototype, "offsetHeight", "get").mockReturnValue(100);
             await openMenu();
-            const root = menuElement();
+            const root = menuElement()?.querySelector<HTMLElement>(":scope > .tn-menu-scroll");
             if (!root) throw new Error("expected the menu to render");
-            // happy-dom loads no stylesheet, so the menu is made to scroll as `Menu.css` makes it.
+            // happy-dom loads no stylesheet, so the rows are made to scroll as `Menu.css` makes them.
             root.style.overflowY = "auto";
             vi.spyOn(root, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 1000, height: 300 }));
             // Floating UI clips to a scrolling ancestor's client box, which happy-dom leaves at 0.

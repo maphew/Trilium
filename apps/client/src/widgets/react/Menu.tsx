@@ -99,7 +99,11 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
                 e.stopPropagation();
             }}
         >
-            <MenuList level={0} items={items} state={state} />
+            {/* The rows scroll in here rather than the menu itself, so the theme's blur on the
+                menu's `::before` stays behind them. */}
+            <div className="tn-menu-scroll">
+                <MenuList level={0} items={items} state={state} />
+            </div>
             {/* Inside the menu, so the rules scoped to it apply, but none inside another: a fixed
                 layer escapes a scrolling menu only while no ancestor carries a filter. */}
             {submenus.map((submenu, index) => (

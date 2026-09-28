@@ -5,13 +5,40 @@
     left: 0;
     /* `placeMenu()` shows the menu once it has a position. */
     visibility: hidden;
+}
+
+/*
+ * The top level does not scroll, so the blur the theme puts on its `::before` covers it whatever
+ * its rows scroll to. Its rows scroll inside, in the height `placeMenu()` caps it to.
+ */
+.dropdown-menu.tn-menu:has(> .tn-menu-scroll) {
+    display: flex;
+    flex-direction: column;
+}
+
+.tn-menu-scroll {
+    /* Matches the menu's own padding in the theme's `.dropdown-menu:not(.static)` rule. */
+    --tn-menu-inline-padding: var(--padding, var(--menu-padding-size));
+    flex: 1 1 auto;
+    min-height: 0;
+    /*
+     * Spans the menu's inline padding, so the separator and header lines, which the theme draws
+     * that far past a row, stay inside the scroller instead of scrolling it sideways. Without the
+     * theme's variables both fall back to 0, as that theme's menu has no inline padding.
+     */
+    margin-inline: calc(0px - var(--tn-menu-inline-padding));
+    padding-inline: var(--tn-menu-inline-padding);
     overflow-y: auto;
 }
 
-/* A submenu is placed by `placeMenu()`, not beside a parent it is nested in. */
+/*
+ * A submenu is placed by `placeMenu()`, not beside a parent it is nested in. The theme blurs it on
+ * the element itself rather than a `::before`, so it can scroll as a whole.
+ */
 .dropdown-submenu > .dropdown-menu.tn-menu {
     inset: 0 auto auto 0;
     margin: 0;
+    overflow-y: auto;
 }
 
 /* The pointer leaves the row for its submenu, so the row stays marked while the submenu is open. */
