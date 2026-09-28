@@ -292,10 +292,11 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
             }}
         >
             {/* The rows scroll in here rather than the menu itself, so the theme's blur on the
-                menu's `::before` stays behind them. */}
-            <div className="tn-menu-scroll">
+                menu's `::before` stays behind them. A `<menu>`, as rows are its list items, out of
+                the accessibility tree so they read as the menu's own. */}
+            <menu className="tn-menu-scroll" role="none">
                 <MenuList level={0} items={items} state={state} />
-            </div>
+            </menu>
             {/* Inside the menu, so the rules scoped to it apply, but none inside another: a fixed
                 layer escapes a scrolling menu only while no ancestor carries a filter. */}
             {submenus.map((submenu, index) => (
@@ -310,7 +311,7 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
  * so a scrolling menu neither clips it nor scrolls it away.
  */
 function SubmenuLayer<T>({ level, submenu, state }: { level: number, submenu: OpenSubmenu<T>, state: MenuState<T> }) {
-    const layerRef = useRef<HTMLUListElement>(null);
+    const layerRef = useRef<HTMLDivElement>(null);
     const columns = (submenu.item.columns ?? 1) > 1 ? submenu.item.columns : undefined;
     const items = submenu.item.items ?? [];
 
@@ -325,20 +326,27 @@ function SubmenuLayer<T>({ level, submenu, state }: { level: number, submenu: Op
     // In a `.dropdown-submenu`, so the theme's submenu rules apply.
     return (
         <div className="dropdown-submenu">
-            <ul ref={layerRef} className={clsx("dropdown-menu show tn-menu", submenu.immediate && "tn-menu-immediate")} role="menu">
+            <div
+                ref={layerRef} role="menu" aria-labelledby={titleId(submenu.anchor.id)}
+                className={clsx("dropdown-menu show tn-menu", submenu.immediate && "tn-menu-immediate")}
+            >
                 {/* Like the top level, so the blur on the layer's `::before` stays behind its rows. */}
-                <div className="tn-menu-scroll">
-                    {columns
-                        // The columns go on an inner element of their full height, so a capped menu
-                        // scrolls them rather than growing more columns to the side.
-                        ? (
-                            <div className="tn-menu-columns" style={{ columnCount: columns }}>
+                {columns
+                    // The columns go on an inner list of their full height, so a capped menu
+                    // scrolls them rather than growing more columns to the side.
+                    ? (
+                        <div className="tn-menu-scroll">
+                            <menu className="tn-menu-columns" role="none" style={{ columnCount: columns }}>
                                 <MenuList level={level} items={items} state={state} columns />
-                            </div>
-                        )
-                        : <MenuList level={level} items={items} state={state} />}
-                </div>
-            </ul>
+                            </menu>
+                        </div>
+                    )
+                    : (
+                        <menu className="tn-menu-scroll" role="none">
+                            <MenuList level={level} items={items} state={state} />
+                        </menu>
+                    )}
+            </div>
         </div>
     );
 }
@@ -356,9 +364,11 @@ function MenuList<T>({ level, items, state, columns }: {
     return <>
         {unbreakableGroups(rows).map((group, groupIndex) => (group.length > 1
             ? (
-                <div key={groupIndex} className="dropdown-no-break">
-                    {group.map((row, index) => <MenuListRow key={index} level={level} row={row} state={state} />)}
-                </div>
+                <li key={groupIndex} className="dropdown-no-break" role="none">
+                    <menu role="none">
+                        {group.map((row, index) => <MenuListRow key={index} level={level} row={row} state={state} />)}
+                    </menu>
+                </li>
             )
             : <MenuListRow key={groupIndex} level={level} row={group[0]} state={state} />
         ))}
@@ -367,11 +377,14 @@ function MenuList<T>({ level, items, state, columns }: {
 
 function MenuListRow<T>({ level, row, state }: { level: number, row: MenuItem<T>, state: MenuState<T> }) {
     if (!("kind" in row)) return <MenuRow level={level} item={row} state={state} />;
-    if (row.kind === "separator") return <div className="dropdown-divider" role="separator" />;
-    if (row.kind === "header") return <h6 className="dropdown-header">{row.title}</h6>;
+    if (row.kind === "separator") return <li className="dropdown-divider" role="separator" />;
+    // As `FormListHeader` draws one.
+    if (row.kind === "header") return <li role="none"><h6 className="dropdown-header">{row.title}</h6></li>;
     return (
         <li
             className="dropdown-custom-item"
+            // Its content carries the roles of what it acts with.
+            role="none"
             ref={(element) => {
                 if (element) state.rows.set(row, element);
                 else state.rows.delete(row);
@@ -395,6 +408,8 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
     const open = isMobile() ? unfolded : state.openItems[level] === item;
     const active = state.active?.level === level && state.active.item === item;
     const id = useId();
+    // As `MenuIconSlot` reads it: an item with a `checked` key is one that can be checked.
+    const checkable = "checked" in item;
 
     function onPointed(e: { currentTarget: HTMLLIElement }) {
         if (isMobile()) return;
@@ -412,7 +427,8 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
             }}
             className={clsx("dropdown-item", hasSubmenu && "dropdown-submenu", open && "submenu-open",
                 active && "tn-menu-active", disabled && "disabled", item.className)}
-            role="menuitem"
+            role={checkable ? "menuitemcheckbox" : "menuitem"}
+            aria-checked={checkable ? !!item.checked : undefined}
             aria-disabled={disabled || undefined}
             aria-haspopup={hasSubmenu ? "menu" : undefined}
             aria-expanded={hasSubmenu ? open : undefined}
@@ -448,7 +464,7 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
                 <MenuIconSlot item={item} />
                 <span className="tn-menu-gap" />
                 {/* Callers pass HTML: titles escaped with `escapeHtml()` or boxed by `menuName()`. */}
-                <span dangerouslySetInnerHTML={{ __html: item.title }} />
+                <span id={titleId(id)} dangerouslySetInnerHTML={{ __html: item.title }} />
                 {item.badges?.map((badge, index) => (
                     <span key={index} className={clsx("badge", badge.className)}>{badge.title}</span>
                 ))}
@@ -456,12 +472,17 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
                 {item.trailingIcon && <span className={clsx(item.trailingIcon, "tn-icon", "menu-trailing-icon")} />}
             </span>
             {hasSubmenu && isMobile() && (
-                <ul className={clsx("dropdown-menu", unfolded && "show")} role="menu">
+                <ul className={clsx("dropdown-menu", unfolded && "show")} role="menu" aria-labelledby={titleId(id)}>
                     {unfolded && <MenuList level={level + 1} items={item.items ?? []} state={state} />}
                 </ul>
             )}
         </li>
     );
+}
+
+/** The id of a row's title, which names the submenu it opens. */
+function titleId(rowId: string) {
+    return `${rowId}-title`;
 }
 
 /**

@@ -111,7 +111,7 @@ describe("contextMenu", () => {
             expect(rows).toEqual([
                 "li.dropdown-item Cut",
                 "li.dropdown-item destructive-action Copy",
-                "div.dropdown-divider ",
+                "li.dropdown-divider ",
                 "li.dropdown-item Paste"
             ]);
         });
@@ -174,12 +174,13 @@ describe("contextMenu", () => {
             });
 
             const shortcuts = [ ...menuElement()?.querySelectorAll("li.dropdown-item > span") ?? [] ]
-                .map(row => row.lastElementChild?.outerHTML);
+                .map(row => row.lastElementChild)
+                .map(last => last?.id.endsWith("-title") ? `title ${last.textContent}` : last?.outerHTML);
             expect(shortcuts).toEqual([
                 `<span class="keyboard-shortcut"><kbd>Ctrl</kbd>+<kbd>C</kbd>,<kbd>Ctrl</kbd>+<kbd>Insert</kbd></span>`,
                 "<kbd>Ctrl+V</kbd>",
-                // An action with no shortcut assigned shows none.
-                `<span>Cut</span>`
+                // An action with no shortcut assigned shows none: the row ends with its title.
+                "title Cut"
             ]);
         });
 
@@ -207,7 +208,7 @@ describe("contextMenu", () => {
 
             const rows = menuRows().map(row => `${row.tagName.toLowerCase()}.${row.className}`);
             expect(rows).toEqual([
-                "li.dropdown-item", "div.dropdown-divider", "li.dropdown-custom-item", "div.dropdown-divider", "li.dropdown-item"
+                "li.dropdown-item", "li.dropdown-divider", "li.dropdown-custom-item", "li.dropdown-divider", "li.dropdown-item"
             ]);
             const custom = menuElement()?.querySelector<HTMLElement>(".dropdown-custom-item");
             expect(custom?.innerHTML).toBe(`<div class="swatches"><button type="button">red</button></div>`);
@@ -268,12 +269,16 @@ describe("contextMenu", () => {
                 ]
             });
 
-            const rows = menuRows()
-                .map(row => `${row.tagName.toLowerCase()}.${row.className} ${row.innerHTML.includes("<b>") ? "(markup)" : row.textContent}`);
+            const rows = menuRows().map((row) => {
+                // A header is a list item holding the heading, as `FormListHeader` draws one.
+                const shown = row.querySelector(":scope > h6.dropdown-header") ?? row;
+                const tag = shown === row ? `li.${row.className}` : "h6.dropdown-header";
+                return `${tag} ${shown.innerHTML.includes("<b>") ? "(markup)" : shown.textContent}`;
+            });
             expect(rows).toEqual([
                 "h6.dropdown-header <b>Doing</b>",
                 "li.dropdown-item Move left",
-                "div.dropdown-divider ",
+                "li.dropdown-divider ",
                 "h6.dropdown-header Colour",
                 "li.dropdown-item Red"
             ]);
@@ -310,6 +315,65 @@ describe("contextMenu", () => {
                 "span.bx bx-check tn-icon menu-trailing-icon "
             ]);
             expect(doing).toHaveLength(3);
+        });
+
+        it("draws its rows as the list items of <menu> elements, at every level", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [
+                    { kind: "header", title: "Colour" },
+                    { kind: "custom", componentFn: () => null },
+                    { kind: "separator" },
+                    { title: "Insert child note", columns: 2, items: [
+                        { title: "Text" }, { kind: "separator" }, { title: "Code" }, { title: "Weekly" }
+                    ] }
+                ]
+            });
+            const list = menuElement()?.querySelector(":scope > .tn-menu-scroll");
+            expect(list?.tagName).toBe("MENU");
+            // Out of the accessibility tree, so the rows are the menu's own.
+            expect(list?.getAttribute("role")).toBe("none");
+            expect(menuRows().map((row) => `${row.tagName} ${row.getAttribute("role")}`)).toEqual([
+                "LI none", "LI none", "LI separator", "LI menuitem"
+            ]);
+
+            const parent = menuRows().at(-1);
+            parent?.dispatchEvent(new PointerEvent("pointerenter"));
+            await vi.waitFor(() => expect(menuElement()?.querySelector(".tn-menu-columns")).not.toBeNull());
+            const columns = menuElement()?.querySelector(".tn-menu-columns");
+            expect([ columns?.tagName, columns?.getAttribute("role") ]).toEqual([ "MENU", "none" ]);
+            // A group a column must not break is a list item holding a list of its own.
+            const group = columns?.querySelector(":scope > .dropdown-no-break");
+            expect([ group?.tagName, group?.getAttribute("role") ]).toEqual([ "LI", "none" ]);
+            expect(group?.querySelector(":scope > menu")?.getAttribute("role")).toBe("none");
+            for (const element of menuElement()?.querySelectorAll("menu") ?? []) {
+                expect([ ...element.children ].every((child) => child.tagName === "LI")).toBe(true);
+            }
+        });
+
+        it("tells assistive technology which rows are checked and what each submenu belongs to", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [
+                    { title: "Bold", checked: true },
+                    { title: "Italic", checked: false },
+                    { title: "Templates", items: [ { title: "Meeting" } ] }
+                ]
+            });
+            expect(menuRows().map((row) => [ row.getAttribute("role"), row.getAttribute("aria-checked") ])).toEqual([
+                [ "menuitemcheckbox", "true" ], [ "menuitemcheckbox", "false" ], [ "menuitem", null ]
+            ]);
+
+            menuRows()[2]?.dispatchEvent(new PointerEvent("pointerenter"));
+            await vi.waitFor(() => expect(menuElement()?.querySelector("div.dropdown-submenu > .dropdown-menu")).not.toBeNull());
+            const layer = menuElement()?.querySelector("div.dropdown-submenu > .dropdown-menu");
+            expect(layer?.getAttribute("role")).toBe("menu");
+            const label = document.getElementById(layer?.getAttribute("aria-labelledby") ?? "");
+            expect(label?.textContent).toBe("Templates");
         });
 
         it("runs an item pressed with the primary button, then hides", async () => {
@@ -368,7 +432,7 @@ describe("contextMenu", () => {
 
         /** The submenu layers standing open, each as the titles of its rows. */
         function layers() {
-            return [ ...menuElement()?.querySelectorAll(":scope > div.dropdown-submenu > ul.dropdown-menu") ?? [] ]
+            return [ ...menuElement()?.querySelectorAll(":scope > div.dropdown-submenu > .dropdown-menu") ?? [] ]
                 .map((layer) => [ ...layer.querySelectorAll(":scope > .tn-menu-scroll > li") ].map((item) => item.textContent));
         }
 
@@ -416,7 +480,7 @@ describe("contextMenu", () => {
             await vi.waitFor(() => expect(layers()).toEqual([ [ "Meeting" ] ]));
             expect(scroller?.querySelector("div.dropdown-submenu")).toBeNull();
             // A layer scrolls its rows the same way, so its own blur stays behind them too.
-            const layer = menuElement()?.querySelector("div.dropdown-submenu > ul");
+            const layer = menuElement()?.querySelector("div.dropdown-submenu > .dropdown-menu");
             expect([ ...layer?.children ?? [] ].map((child) => child.className)).toEqual([ "tn-menu-scroll" ]);
         });
 
@@ -424,8 +488,14 @@ describe("contextMenu", () => {
             vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1000);
             vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
             // Only the layer: a size unlike its rect would read to Floating UI as a CSS scale.
-            vi.spyOn(HTMLUListElement.prototype, "offsetWidth", "get").mockReturnValue(150);
-            vi.spyOn(HTMLUListElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+            const layerSize = { width: 150, height: 100 };
+            const isLayer = (element: HTMLElement) => element.matches("div.dropdown-submenu > .dropdown-menu");
+            vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) {
+                return isLayer(this) ? layerSize.width : 0;
+            });
+            vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
+                return isLayer(this) ? layerSize.height : 0;
+            });
             await openMenu();
             const root = menuElement()?.querySelector<HTMLElement>(":scope > .tn-menu-scroll");
             if (!root) throw new Error("expected the menu to render");
@@ -440,7 +510,7 @@ describe("contextMenu", () => {
             vi.spyOn(parent, "getBoundingClientRect").mockImplementation(() => rowRect);
 
             hover(parent);
-            const layer = () => menuElement()?.querySelector<HTMLElement>("div.dropdown-submenu > ul");
+            const layer = () => menuElement()?.querySelector<HTMLElement>("div.dropdown-submenu > .dropdown-menu");
             // Overlapping the row by 2px, its top at the row's.
             await vi.waitFor(() => expect([ layer()?.style.left, layer()?.style.top ]).toEqual([ "208px", "100px" ]));
             expect(layer()?.style.visibility).toBe("visible");
@@ -457,7 +527,7 @@ describe("contextMenu", () => {
 
             // Too wide for either side of its row, it is shifted inside the viewport rather than
             // left clipped where it opens.
-            vi.spyOn(HTMLUListElement.prototype, "offsetWidth", "get").mockReturnValue(900);
+            layerSize.width = 900;
             rowRect = DOMRect.fromRect({ x: 400, y: 100, width: 200, height: 24 });
             root.dispatchEvent(new Event("scroll"));
             await vi.waitFor(() => {
@@ -469,7 +539,7 @@ describe("contextMenu", () => {
 
         it("waits before the first submenu it opens under the pointer, and not before one that replaces it", async () => {
             /** Whether the open layer skips the stylesheet's opening delay and fade. */
-            const immediate = () => menuElement()?.querySelector("div.dropdown-submenu > ul")?.classList.contains("tn-menu-immediate");
+            const immediate = () => menuElement()?.querySelector("div.dropdown-submenu > .dropdown-menu")?.classList.contains("tn-menu-immediate");
             await openMenu();
 
             // The pointer might only be passing over the row.
@@ -520,7 +590,7 @@ describe("contextMenu", () => {
             });
 
             hover(row("Insert child note"));
-            await vi.waitFor(() => expect(menuElement()?.querySelector("div.dropdown-submenu > ul > .tn-menu-scroll > .tn-menu-columns")).not.toBeNull());
+            await vi.waitFor(() => expect(menuElement()?.querySelector("div.dropdown-submenu > .dropdown-menu > .tn-menu-scroll > .tn-menu-columns")).not.toBeNull());
             const columns = menuElement()?.querySelector<HTMLElement>(".tn-menu-columns");
             expect(columns?.style.columnCount).toBe("2");
             expect(columns?.textContent).toBe("TextCode");
@@ -545,7 +615,7 @@ describe("contextMenu", () => {
             /** The layer's rows, a group of rows that must not break as the list of its rows. */
             const layout = (list: Element | null | undefined) => [ ...list?.children ?? [] ].map((child) =>
                 child.classList.contains("dropdown-no-break")
-                    ? [ ...child.children ].map((grouped) => grouped.textContent || "---")
+                    ? [ ...child.querySelector(":scope > menu")?.children ?? [] ].map((grouped) => grouped.textContent || "---")
                     : child.textContent || "---");
 
             hover(row("Insert child note"));
@@ -557,7 +627,7 @@ describe("contextMenu", () => {
             // A single column has no breaks to avoid, so nothing is grouped.
             hover(row("Insert note after"));
             await vi.waitFor(() => expect(menuElement()?.querySelector(".tn-menu-columns")).toBeNull());
-            expect(layout(menuElement()?.querySelector("div.dropdown-submenu > ul > .tn-menu-scroll"))).toEqual([
+            expect(layout(menuElement()?.querySelector("div.dropdown-submenu > .dropdown-menu > .tn-menu-scroll"))).toEqual([
                 "Text", "Code", "---", "Templates", "Meeting", "Weekly"
             ]);
         });
@@ -747,7 +817,7 @@ describe("contextMenu", () => {
             key("ArrowRight");
             await vi.waitFor(() => expect(activeRow()).toBe("Meeting"));
             // A key is a choice, so the submenu shows without the stylesheet's opening delay.
-            expect(menuElement()?.querySelector("div.dropdown-submenu > ul")?.classList.contains("tn-menu-immediate")).toBe(true);
+            expect(menuElement()?.querySelector("div.dropdown-submenu > .dropdown-menu")?.classList.contains("tn-menu-immediate")).toBe(true);
 
             key("ArrowLeft");
             await vi.waitFor(() => expect(activeRow()).toBe("Templates"));

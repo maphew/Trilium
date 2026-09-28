@@ -16,6 +16,16 @@
     flex-direction: column;
 }
 
+/*
+ * The lists that hold the rows take none of the browser's list styling. `:where()` keeps this
+ * below `.tn-menu-scroll`, whose inline padding it must not undo.
+ */
+:where(.tn-menu) menu {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
 .tn-menu-scroll {
     /* Matches the menu's own padding in the theme's `.dropdown-menu:not(.static)` rule. */
     --tn-menu-inline-padding: var(--padding, var(--menu-padding-size));
