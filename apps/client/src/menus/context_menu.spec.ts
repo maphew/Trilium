@@ -1,3 +1,4 @@
+import { h } from "preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../services/note_tooltip", () => ({ default: { dismissAllTooltips: vi.fn() } }));
@@ -752,6 +753,45 @@ describe("contextMenu", () => {
             await vi.waitFor(() => expect(activeRow()).toBe("Insert child note"));
             expect(menuElement()?.querySelector("div.dropdown-submenu")).toBeNull();
             vi.restoreAllMocks();
+        });
+
+        it("steps into a custom row that has something to focus, and leaves it the keys it answers", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            const widgetHeard = vi.fn();
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [
+                    { title: "Cut" },
+                    // Nothing to focus, so the keys pass it by.
+                    { kind: "custom", componentFn: () => h("span", {}, "A note") },
+                    // Such as the color picker, whose way in is its selected cell.
+                    { kind: "custom", componentFn: () => h("div", { class: "widget", tabIndex: 0, onKeyDown: (e: KeyboardEvent) => widgetHeard(e.key) }) },
+                    { title: "Paste" }
+                ]
+            });
+            await vi.waitFor(() => expect(document.activeElement).toBe(menuElement()));
+            const widget = menuElement()?.querySelector(".widget");
+
+            key("ArrowDown");
+            await vi.waitFor(() => expect(activeRow()).toBe("Cut"));
+            key("ArrowDown");
+            await vi.waitFor(() => expect(document.activeElement).toBe(widget));
+
+            // Its own keys reach it; the menu keeps Up, Down, Escape and Tab.
+            key("ArrowRight");
+            key("Enter");
+            expect(widgetHeard.mock.calls.map(([ name ]) => name)).toEqual([ "ArrowRight", "Enter" ]);
+
+            key("ArrowDown");
+            await vi.waitFor(() => expect(activeRow()).toBe("Paste"));
+            expect(document.activeElement).toBe(menuElement());
+            key("ArrowUp");
+            await vi.waitFor(() => expect(document.activeElement).toBe(widget));
+            expect(widgetHeard).toHaveBeenCalledTimes(2);
+
+            key("Escape");
+            expect(contextMenu.isShown).toBe(false);
         });
 
         it("closes a submenu the pointer opened once the keys move off its row", async () => {

@@ -4,7 +4,7 @@ import { autoUpdate, computePosition, flip, hide, offset, type Placement, type R
 import clsx from "clsx";
 import { useCallback, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
+import type { CustomMenuItem, MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import { getActionSync } from "../../services/keyboard_actions";
 import { handleRightToLeftPlacement, isMobile } from "../../services/utils";
 import { joinElements } from "./react_utils";
@@ -46,11 +46,17 @@ interface OpenSubmenu<T> {
     key: number;
 }
 
+/** A row the keyboard can stand on: a command, or a custom row with something to focus in it. */
+type NavigableItem<T> = MenuCommandItem<T> | CustomMenuItem;
+
 /** The row the keyboard acts on, and the level it stands at. */
 interface ActiveRow<T> {
     level: number;
-    item: MenuCommandItem<T>;
+    item: NavigableItem<T>;
 }
+
+/** The keys the menu keeps while focus is inside a custom row: those that leave it. */
+const KEYS_LEAVING_CUSTOM_ROW = new Set([ "ArrowUp", "ArrowDown", "Escape", "Tab" ]);
 
 /** How long typed letters keep adding to the text a row is looked up by. */
 const TYPEAHEAD_TIMEOUT = 500;
@@ -67,9 +73,9 @@ interface MenuState<T> {
     /** The item whose submenu stands open at each level. */
     openItems: MenuCommandItem<T>[];
     active?: ActiveRow<T>;
-    setActive(level: number, item: MenuCommandItem<T>): void;
+    setActive(level: number, item: NavigableItem<T>): void;
     /** Each row's element, for `aria-activedescendant` and for anchoring a submenu the keyboard opens. */
-    rows: Map<MenuCommandItem<T>, HTMLElement>;
+    rows: Map<NavigableItem<T>, HTMLElement>;
 }
 
 export default function Menu<T>({ id, className, x, y, orientation, bottomSheet, items, onSelect, onClose }: MenuProps<T>) {
@@ -85,12 +91,12 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
         });
     }, []);
     const [ active, setActiveRow ] = useState<ActiveRow<T>>();
-    const rows = useRef(new Map<MenuCommandItem<T>, HTMLElement>()).current;
+    const rows = useRef(new Map<NavigableItem<T>, HTMLElement>()).current;
     const typeahead = useRef({ text: "", timeout: 0 });
     /** Whether the keys moved the menu since the pointer last did. See `Menu.css`. */
     const [ keyboardDriven, setKeyboardDriven ] = useState(false);
 
-    const setActive = useCallback((level: number, item: MenuCommandItem<T>) => {
+    const setActive = useCallback((level: number, item: NavigableItem<T>) => {
         setActiveRow({ level, item });
         rows.get(item)?.scrollIntoView?.({ block: "nearest" });
     }, [ rows ]);
@@ -100,19 +106,34 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
 
     // After the commit: a submenu's rows register their elements only as they mount.
     useLayoutEffect(() => {
-        const id = active && rows.get(active.item)?.id;
+        const id = active && !isCustom(active.item) ? rows.get(active.item)?.id : undefined;
         if (id) menuRef.current?.setAttribute("aria-activedescendant", id);
         else menuRef.current?.removeAttribute("aria-activedescendant");
     }, [ active, submenus, rows ]);
+
+    // A custom row takes focus in itself, for its own keys; any other row hands it back to the menu.
+    useLayoutEffect(() => {
+        const menu = menuRef.current;
+        if (!menu || !active) return;
+        if (isCustom(active.item)) {
+            focusTarget(rows.get(active.item))?.focus({ preventScroll: true });
+        } else if (document.activeElement !== menu && menu.contains(document.activeElement)) {
+            menu.focus({ preventScroll: true });
+        }
+    }, [ active, rows ]);
 
     const keyHandler = useRef(onKeyDown);
     keyHandler.current = onKeyDown;
     useLayoutEffect(() => {
         // Captured at the window: Bootstrap captures keys at the document for anything inside a
-        // `.dropdown-menu`, and takes them for a dropdown of its own. Only keys the menu itself
-        // receives, so a control inside a custom item keeps its own.
+        // `.dropdown-menu`, and takes them for a dropdown of its own. Inside a custom row, only the
+        // keys that leave it, so the control there keeps its own.
         const listener = (e: KeyboardEvent) => {
-            if (e.target === menuRef.current) keyHandler.current(e);
+            const menu = menuRef.current;
+            if (e.target === menu
+                    || (menu?.contains(e.target as Node) && KEYS_LEAVING_CUSTOM_ROW.has(e.key))) {
+                keyHandler.current(e);
+            }
         };
         window.addEventListener("keydown", listener, true);
         return () => window.removeEventListener("keydown", listener, true);
@@ -120,11 +141,14 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
 
     function onKeyDown(e: KeyboardEvent) {
         const level = active?.level ?? 0;
-        const levelRows = runnableRows(level === 0 ? items : submenus[level - 1]?.item.items ?? []);
+        const levelRows = menuRows(level === 0 ? items : submenus[level - 1]?.item.items ?? [])
+            .filter((row): row is NavigableItem<T> => isCustom(row)
+                ? !!focusTarget(rows.get(row))
+                : isRunnable(row));
         const index = active ? levelRows.indexOf(active.item) : -1;
         const count = levelRows.length;
         // A submenu goes with its row's highlight, as in a native menu, until Right opens it again.
-        const moveTo = (item: MenuCommandItem<T>) => {
+        const moveTo = (item: NavigableItem<T>) => {
             if (submenus[level]?.item !== item) openSubmenu(level);
             setActive(level, item);
         };
@@ -133,7 +157,7 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
             if (item) moveTo(item);
         };
         const openActive = () => {
-            const item = active?.item;
+            const item = active && !isCustom(active.item) ? active.item : undefined;
             const anchor = item && rows.get(item);
             if (!item?.items || !anchor || isMobile()) return;
             openSubmenu(level, item, anchor);
@@ -163,7 +187,7 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
             case "End": goTo(-1); break;
             // Into the active row's submenu, or else across to the next column.
             case rtl ? "ArrowLeft" : "ArrowRight":
-                if (active?.item.items) openActive();
+                if (active && !isCustom(active.item) && active.item.items) openActive();
                 else moveAcross(e.key === "ArrowRight" ? "right" : "left");
                 break;
             // Back across a column, or else out of the submenu.
@@ -172,7 +196,7 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
                 break;
             case "Enter":
             case " ":
-                if (!active) break;
+                if (!active || isCustom(active.item)) break;
                 openActive();
                 onSelect(active.item, e);
                 break;
@@ -322,7 +346,14 @@ function MenuListRow<T>({ level, row, state }: { level: number, row: MenuItem<T>
     if (row.kind === "separator") return <div className="dropdown-divider" role="separator" />;
     if (row.kind === "header") return <h6 className="dropdown-header">{row.title}</h6>;
     return (
-        <li className="dropdown-custom-item" onClick={state.onClose}>
+        <li
+            className="dropdown-custom-item"
+            ref={(element) => {
+                if (element) state.rows.set(row, element);
+                else state.rows.delete(row);
+            }}
+            onClick={state.onClose}
+        >
             <row.componentFn />
         </li>
     );
@@ -472,7 +503,20 @@ export function rowInNextColumn(
 
 /** The rows the keyboard can reach: those that run something, and are enabled. */
 function runnableRows<T>(items: MenuItem<T>[]) {
-    return menuRows(items).filter((row): row is MenuCommandItem<T> => !("kind" in row) && row.enabled !== false);
+    return menuRows(items).filter(isRunnable);
+}
+
+function isRunnable<T>(row: MenuItem<T>): row is MenuCommandItem<T> {
+    return !("kind" in row) && row.enabled !== false;
+}
+
+function isCustom<T>(row: MenuItem<T>): row is CustomMenuItem {
+    return "kind" in row && row.kind === "custom";
+}
+
+/** Where a custom row takes focus: the element its content marks as its way in with `tabindex="0"`. */
+function focusTarget(row: HTMLElement | undefined) {
+    return row?.querySelector<HTMLElement>("[tabindex='0']") ?? null;
 }
 
 /** The items with a run of separators reduced to one. */
