@@ -75,6 +75,11 @@ body.desktop .dropdown-item.dropdown-submenu.submenu-open,
     background-color: var(--hover-item-background-color);
 }
 
+/*
+ * The theme draws the line between columns with the menu's `column-rule`, which is not inherited,
+ * so the scroller hands it on to the columns inside it.
+ */
+.tn-menu-scroll,
 .tn-menu-columns {
     column-rule: inherit;
 }
