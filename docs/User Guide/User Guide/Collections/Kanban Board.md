@@ -102,7 +102,7 @@ When cards are sorted by an attribute, they are ordered according to the followi
 | Number | lowest → greatest |
 | Date, Date & time | oldest → newest |
 | Time | earliest hour (closest to 0) → latest hour (closest to 24) |
-| Boolean | unchecked → checked |
+| Checkbox | unchecked → checked |
 | Select | The order in which the options are declared.     <br>For example, a select attribute declared with “Low”, “Medium”, and “High” options will be sorted as follows: Low → Medium → High. |
 | Color | Grays → colors. Colors are ordered by their color-wheel [hue](https://en.wikipedia.org/wiki/Hue) angle (from 0° to 360°). |
 
@@ -310,7 +310,7 @@ To create a new attribute, follow these steps:
 
 1.  Go to **Note menu** → **Board properties**, find the **Card attributes** section, and then press the <span class="tn-icon bx bx-plus"></span> **Create a new attribute** button.
 2.  Enter a name for the attribute. This is the internal name used by Trilium, so do not use spaces or special characters.
-3.  Select a type (text, number, boolean, and so on).
+3.  Select a type (text, number, checkbox, and so on).
 4.  Set the display name. This is the name shown on the card.
 5.  Press **Save & close**.
 
@@ -323,13 +323,13 @@ Here is an example of the attributes you can define for a typical Kanban board u
 | --- | --- | --- |
 | dueDate | Date & Time | Due date |
 | priority | Select (options: Low, Medium, High, Urgent) | Priority |
-| done | Boolean | Done |
+| done | Checkbox | Done |
 
 #### Modifying the values of custom attributes
 
 To set the value of a custom attribute, click or tap the card, and then enter or select the desired value in the dialog header.
 
-For attributes of the “select” or “boolean” type, you can quickly change the value by using the card's context menu under the **Attributes** section.
+For attributes of the “select” or “checkbox” type, you can quickly change the value by using the card's context menu under the **Attributes** section.
 
 #### Reordering, hiding, redefining, and deleting custom attributes
 

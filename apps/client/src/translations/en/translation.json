@@ -542,7 +542,7 @@
     "text": "Text",
     "textarea": "Multi-line Text",
     "number": "Number",
-    "boolean": "Boolean",
+    "boolean": "Checkbox",
     "date": "Date",
     "date_time": "Date & Time",
     "time": "Time",
