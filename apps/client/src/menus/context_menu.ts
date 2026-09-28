@@ -83,15 +83,30 @@ class ContextMenu {
     /** What `Menu` renders into while a menu is up. */
     private host?: HTMLElement;
     private options?: ContextMenuOptions<any>;
+    /** See {@link dismissedByLastPress}. */
+    private pressDismissed = false;
 
     constructor() {
         this.cover = utils.isMobile() ? document.getElementById("context-menu-cover") : null;
 
-        if (this.cover) {
-            this.cover.addEventListener("click", () => this.hide());
-        } else {
-            document.addEventListener("click", () => this.hide());
-        }
+        // Capture phase, so that a host stopping its own presses, as the note tree does, cannot
+        // keep them from here. `pointerdown` covers every button, including a Ctrl+right-click
+        // that fires no `click`, and a tap on the mobile cover.
+        document.addEventListener("pointerdown", (e) => {
+            const outside = this.isShown() && !this.host?.contains(e.target as Node);
+            this.pressDismissed = outside;
+            if (outside) void this.hide();
+        }, true);
+        // The click a dismissing press makes is handled by then, see `dismissedByLastPress()`.
+        document.addEventListener("click", () => {
+            setTimeout(() => this.pressDismissed = false);
+        }, true);
+        document.addEventListener("keydown", (e) => {
+            if (e.key !== "Escape" || !this.isShown()) return;
+            // A dialog under the menu stays open.
+            e.stopPropagation();
+            void this.hide();
+        }, true);
     }
 
     async show<T>(options: ContextMenuOptions<T>) {
@@ -129,12 +144,17 @@ class ContextMenu {
         }), this.host);
     }
 
-    /**
-     * Whether a menu is up. A host that stops a press from reaching the document, whose click
-     * otherwise hides the menu, uses this to hide the menu itself.
-     */
     isShown() {
         return !!this.options;
+    }
+
+    /**
+     * Whether the press behind the click being handled put a menu away. A host whose click would
+     * otherwise act, such as the calendar opening an event, does nothing for it: one press, one
+     * thing.
+     */
+    dismissedByLastPress() {
+        return this.pressDismissed;
     }
 
     async hide() {

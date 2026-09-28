@@ -270,13 +270,8 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         // chip both of them are drawn beside.
         note_tooltip.dismissAllTooltips();
 
-        // A menu standing open is what the click is for: putting it away is what a click anywhere
-        // means while one is up, and the stop above is what kept this one from saying so on its own
-        // (see isShown in context_menu.ts). The event is not opened as well — one press, one thing.
-        if (contextMenu.isShown()) {
-            void contextMenu.hide();
-            return;
-        }
+        // The press behind this click put a context menu away, so the event does not open too.
+        if (contextMenu.dismissedByLastPress()) return;
 
         const noteId = e.event.extendedProps.noteId;
         if (noteId) {

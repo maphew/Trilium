@@ -569,14 +569,81 @@ describe("contextMenu", () => {
         });
     });
 
-    it("hides on a click anywhere on the page", async () => {
-        buildPage();
-        const contextMenu = await buildContextMenu();
+    describe("dismissal", () => {
+        function pressOn(target: Element | null | undefined, init: PointerEventInit = {}) {
+            target?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, ...init }));
+        }
 
-        await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
-        document.getElementById("app")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        it("hides on a press outside it, with any button, even one its target stops", async () => {
+            buildPage();
+            const app = document.getElementById("app");
+            // As the note tree and the calendar stop their own presses and clicks.
+            app?.addEventListener("pointerdown", (e) => e.stopPropagation());
+            app?.addEventListener("click", (e) => e.stopPropagation());
+            const contextMenu = await buildContextMenu();
 
-        expect(contextMenu.isShown()).toBe(false);
+            await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
+            pressOn(app);
+            expect(contextMenu.isShown()).toBe(false);
+
+            // Ctrl+right-click, which opens a note in a popup instead of a menu, and fires no click.
+            await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
+            pressOn(app, { button: 2, ctrlKey: true });
+            expect(contextMenu.isShown()).toBe(false);
+        });
+
+        it("stays up on a press or a click inside it that runs nothing", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [ { kind: "header", title: "Colour" }, { title: "Red" } ]
+            });
+            const header = menuElement()?.querySelector(".dropdown-header");
+            if (!header) throw new Error("expected a header");
+            pressOn(header);
+            header.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+            expect(contextMenu.isShown()).toBe(true);
+        });
+
+        it("hides on Escape, which goes no further", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            // A dialog under the menu, which Escape would otherwise close too.
+            const dialogHeard = vi.fn();
+            document.addEventListener("keydown", dialogHeard);
+
+            await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
+            document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+            expect(contextMenu.isShown()).toBe(false);
+            expect(dialogHeard).not.toHaveBeenCalled();
+
+            // With no menu up, Escape is left to whatever else listens.
+            document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+            expect(dialogHeard).toHaveBeenCalledTimes(1);
+            document.removeEventListener("keydown", dialogHeard);
+        });
+
+        it("says whether the press behind a click put a menu away, for a host that acts on neither", async () => {
+            buildPage();
+            const app = document.getElementById("app");
+            const contextMenu = await buildContextMenu();
+            const click = () => app?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+            await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
+            pressOn(app);
+            expect(contextMenu.dismissedByLastPress()).toBe(true);
+
+            // Only until the click that press makes has been handled.
+            click();
+            await vi.waitFor(() => expect(contextMenu.dismissedByLastPress()).toBe(false));
+
+            // A press with no menu up put nothing away.
+            pressOn(app);
+            expect(contextMenu.dismissedByLastPress()).toBe(false);
+        });
     });
 
     it("opens inside whatever has the screen, and in the body once nothing does", async () => {

@@ -92,9 +92,6 @@ class ContextMenu {
 
         if (this.isMobile) {
             this.$cover = $("#context-menu-cover");
-            this.$cover.on("click", () => this.hide());
-        } else {
-            $(document).on("click", (e) => this.hide());
         }
     }
 
