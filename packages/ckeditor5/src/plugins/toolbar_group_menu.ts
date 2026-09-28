@@ -1,7 +1,8 @@
 import {
     addMenuToDropdown, BalloonToolbar, BlockToolbar, type Button, ButtonView,
     type DropdownMenuDefinition, DropdownMenuListItemButtonView, DropdownMenuListItemView,
-    type DropdownMenuNestedMenuView, DropdownView, ListItemView, ListSeparatorView, Plugin,
+    type DropdownMenuNestedMenuView, type DropdownMenuRootListView, DropdownView, ListItemView,
+    ListSeparatorView, Plugin,
     SplitButtonView, type ToolbarConfig, type ToolbarConfigItem,
     ToolbarSeparatorView, type ToolbarView, type View
 } from "ckeditor5";
@@ -111,7 +112,7 @@ export default class ToolbarGroupMenu extends Plugin {
 
     private drawMenu(dropdown: DropdownView, toolbar: ToolbarView) {
         if (this.sourceToolbars.has(toolbar)) {
-            discardMenu(dropdown);
+            discardMenu(dropdown, this.plans.get(dropdown));
         } else {
             // The group's views go on serving the menu, so only the strip they were laid out in
             // leaves the panel. It is destroyed with the plugin, since nothing else holds it now.
@@ -143,6 +144,10 @@ export default class ToolbarGroupMenu extends Plugin {
                 button.icon = row.view.icon;
                 button.bind("isEnabled").to(row.view, "isEnabled");
             }
+        }
+
+        for (const [id, source] of plan.mounts) {
+            mountControl(menuView, plan, id, source);
         }
 
         for (const menu of menuView.menus) {
@@ -205,6 +210,29 @@ export default class ToolbarGroupMenu extends Plugin {
 }
 
 /**
+ * Puts a control that carries a panel of its own into the row held for it, in place of the button
+ * standing there. The control keeps its panel and opens it from inside the menu; a row merely
+ * firing it would open that panel on the strip the menu replaced, where nothing can reach it.
+ */
+function mountControl(
+    menuView: DropdownMenuRootListView, plan: MenuPlan, id: string, source: DropdownView
+) {
+    const placeholder = menuView.buttons.find((button) => button.id === id);
+    const row = [...menuView.items].find((item): item is DropdownMenuListItemView =>
+        item instanceof DropdownMenuListItemView && item.childView === placeholder);
+    /* v8 ignore next 3 -- the row was described to the menu under this very id */
+    if (!placeholder || !row) {
+        return;
+    }
+
+    row.children.remove(placeholder);
+    placeholder.destroy();
+    source.buttonView.withText = true;
+    row.children.add(source);
+    plan.mounted.push({ row, source });
+}
+
+/**
  * Runs the action an opener stands for when its row is pressed, and dismisses the menu — hovering
  * still opens the submenu. An opener with no action of its own only opens, as CKEditor has it.
  */
@@ -224,11 +252,17 @@ function bindOpenerAction(
 }
 
 /** Lets go of the menu the previous draw left behind, which nothing else takes out of the panel. */
-function discardMenu(dropdown: DropdownView) {
+function discardMenu(dropdown: DropdownView, plan: MenuPlan | undefined) {
     const previous = dropdown.menuView;
     /* v8 ignore next 3 -- a menu is drawn before this runs, and only a redraw discards one */
     if (!previous) {
         return;
+    }
+
+    // The controls mounted into it belong to the group, so they leave before the menu holding them
+    // is destroyed; the next draw mounts them again.
+    for (const { row, source } of plan?.mounted ?? []) {
+        row.children.remove(source);
     }
 
     for (const menu of previous.menus) {
@@ -267,6 +301,10 @@ interface MenuPlan {
     openers: Map<string, MenuOpener>;
     /** Where a rule goes in the root list, as an index into the list the definition builds. */
     rules: number[];
+    /** The controls whose row holds the control itself, by the id of the row held for it. */
+    mounts: Map<string, DropdownView>;
+    /** Where each of those controls ended up, so a redraw can take it out before destroying it. */
+    mounted: Array<{ row: DropdownMenuListItemView; source: DropdownView }>;
 }
 
 function collectMenuGroupLabels(...configs: (ToolbarConfig | undefined)[]) {
@@ -298,7 +336,9 @@ function planGroupMenu(items: View[]) {
         definition: [],
         rows: new Map(),
         openers: new Map(),
-        rules: []
+        rules: [],
+        mounts: new Map(),
+        mounted: []
     };
     let nextId = 0;
     const takeId = () => `row${nextId++}`;
@@ -334,9 +374,12 @@ function describeRow(plan: MenuPlan, id: string, view: SourceButton) {
 function planSubmenu(plan: MenuPlan, takeId: () => string, dropdown: DropdownView) {
     const opener = dropdown.buttonView;
 
-    // A dropdown offering no rows of its own has nothing to open onto, so it stays a plain row.
+    // A dropdown offering no rows of its own carries a panel instead, so the row holds the dropdown
+    // itself and it opens that panel from the menu.
     if (!listEntriesOf(dropdown).length) {
-        plan.definition.push(describeRow(plan, takeId(), opener));
+        const mountId = takeId();
+        plan.mounts.set(mountId, dropdown);
+        plan.definition.push({ id: mountId, label: opener.label ?? "" });
         return;
     }
 

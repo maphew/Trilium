@@ -172,14 +172,30 @@ describe("ToolbarGroupMenu", () => {
         expect(dropdown.isOpen).toBe(true);
     });
 
-    it("leaves a dropdown with no list of its own as a plain row", async () => {
+    it("holds a dropdown that carries a panel of its own in the row, panel and all", async () => {
         const editor = await createTestEditor(PLUGINS, {
             toolbar: { items: [{ ...MENU_GROUP, items: ["bold", "panelOnly"] }] }
         });
 
-        const menu = openGroup(getToolbar(editor), "Insert");
-        expect(menu.menus).toStrictEqual([]);
-        expect(rowLabels(menu)).toStrictEqual(["Bold", "Panel only"]);
+        const dropdown = openDropdown(getToolbar(editor), "Insert");
+        expect(openGroup(getToolbar(editor), "Insert").menus).toStrictEqual([]);
+
+        const mounted = rowChildren(dropdown).at(-1);
+        expect(mounted).toBeInstanceOf(DropdownView);
+        if (!(mounted instanceof DropdownView)) {
+            return;
+        }
+
+        // Its panel opens from inside the menu, where firing the detached dropdown could only have
+        // opened it on the strip the menu replaced.
+        expect(mounted.buttonView.withText).toBe(true);
+        mounted.isOpen = true;
+        expect(mounted.panelView.isVisible).toBe(true);
+
+        // A redraw leaves it alive: it belongs to the group, not to the menu drawn over it.
+        dropdown.isOpen = false;
+        dropdown.isOpen = true;
+        expect(rowChildren(dropdown).at(-1)).toBe(mounted);
     });
 
     it("converts a group of the block toolbar, filled after the plugin is set up", async () => {
@@ -264,6 +280,12 @@ function submenuRow(submenu: DropdownMenuNestedMenuView, label: string) {
     }
 
     throw new Error(`No "${label}" row in the submenu.`);
+}
+
+/** What each row of the menu holds: a button, a submenu, or a control mounted into the row. */
+function rowChildren(dropdown: DropdownView) {
+    return [...dropdown.menuView?.items ?? []]
+        .map((item) => (item as { children?: { first?: unknown } }).children?.first);
 }
 
 /** The labels the menu shows, top level only, with a rule written as an em dash. */
