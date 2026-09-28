@@ -26,7 +26,9 @@ import toast from "../../../services/toast";
 import ws from "../../../services/ws";
 import { escapeHtml, isMobile } from "../../../services/utils";
 import { type NoteTypeOption, resolveNoteTypeOptions } from "../../../services/note_types";
-import { type PromotedAttributeSetting, resolvePromotedAttributes } from "../promoted_attributes";
+import {
+    type PromotedAttributeSetting, resolvePromotedAttributes, visiblePromotedAttributeNames
+} from "../promoted_attributes";
 import type { SortContext } from "../sorting";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import { FormListItem } from "../../react/FormList";
@@ -72,8 +74,9 @@ import { useBoardReference } from "./reference";
 import { openBoardContextMenu, openCreateColumnMenu } from "./context_menu";
 import { useBoardSort } from "./sort";
 import {
-    affectsSortOrder, applyCardMoves, ColumnMap, filterColumnMap, getBoardData, resolveColumnSorts,
-    resolveSortWatch, sortColumnMap, unfilteredCardIndex
+    affectsCardDefinitions, affectsSortOrder, applyCardMoves, cardNotes, ColumnMap,
+    definitionSources, filterColumnMap, getBoardData, resolveColumnSorts, resolveSortWatch,
+    sortColumnMap, unfilteredCardIndex
 } from "./data";
 import { useBoardKeyboard } from "./keyboard";
 
@@ -528,12 +531,16 @@ export default function BoardView({
         collectionNoteIds: noteIds
     });
     const statusAttribute = groupBy.replace(/^[~#]/, "");
-    // Every promoted attribute the board defines, hidden ones included: a column can sort by a
-    // field its cards do not draw.
+    // Includes the definitions from the cards, and hidden attributes, because a column can sort by
+    // an attribute the cards do not show.
+    const cards = useMemo(() => cardNotes(allByColumn), [ allByColumn ]);
+    // Read again after a definition change, since a card can have gained a template.
+    const cardDefinitionSources = useMemo(
+        () => definitionSources(cards), [ cards, definitionRevision ]);
     const promotedAttributes = useMemo(
         () => resolvePromotedAttributes(
-            parentNote, viewConfig?.promotedAttributes, [ statusAttribute ]),
-        [ parentNote, viewConfig, statusAttribute, definitionRevision ]);
+            parentNote, viewConfig?.promotedAttributes, [ statusAttribute ], cards),
+        [ parentNote, viewConfig, statusAttribute, cards, definitionRevision ]);
     // Keyed on the label rather than on the committed grouping, so the button names what the reader
     // just picked while the columns below are still being read.
     const groupingChoices = useMemo(
@@ -643,7 +650,7 @@ export default function BoardView({
 
     // Held while the names are the same, since a new array would redraw every card on every render.
     const shownAttributesRef = useRef<string[]>([]);
-    const resolvedAttributes = api.getVisiblePromotedAttributeNames();
+    const resolvedAttributes = visiblePromotedAttributeNames(promotedAttributes);
     if (resolvedAttributes.join(",") !== shownAttributesRef.current.join(",")) {
         shownAttributesRef.current = resolvedAttributes;
     }
@@ -1339,9 +1346,11 @@ export default function BoardView({
         // The column list is read off the definition, which may be edited from the attribute panel,
         // another split, or a synced instance. Re-reading it re-runs the refresh through the effect.
         // Any definition the board carries, not only the grouping's: the others are what it offers
-        // to group by instead.
+        // to group by instead. A definition that reaches a card, directly or through `~template`
+        // or `~inherit`, also changes `promotedAttributes`.
         if (loadResults.getAttributeRows().some(attr =>
-                attr.name?.startsWith("label:") && attributes.isAffecting(attr, parentNote))) {
+                attr.name?.startsWith("label:") && attributes.isAffecting(attr, parentNote))
+                || affectsCardDefinitions(loadResults, cardDefinitionSources)) {
             setDefinitionRevision(revision => revision + 1);
         }
 

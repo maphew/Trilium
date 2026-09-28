@@ -50,6 +50,7 @@ export default function BoardProperties({ api, note, shown, onClose }: {
                 note={note}
                 settings={api.getStoredPromotedAttributes()}
                 drawnByCollection={[ api.statusAttribute ]}
+                itemNotes={api.getCardNotes()}
                 onChange={storeAttributes}
             />
 

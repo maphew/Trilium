@@ -315,7 +315,7 @@ To create a new attribute, follow these steps:
 5.  Press **Save & close**.
 
 > [!NOTE]
-> For each newly created attribute, Trilium creates an attribute definition on the board collection note. For an attribute to be displayed on the face of a card, it must be declared as inheritable and promoted on the board note.
+> For each newly created attribute, Trilium creates an attribute definition on the board collection note. A card displays the attributes declared as inheritable on the board note, as well as any attribute the card gets a definition for from elsewhere, for example through <a class="reference-link" href="../Advanced%20Usage/Templates.md">Templates</a> or another parent note it is cloned under. Attributes that only the cards define are listed after the board's own.
 
 Here is an example of the attributes you can define for a typical Kanban board used to track tasks:
 
@@ -339,6 +339,10 @@ Go to **Note menu** → **Board properties**. Under the **Card attributes** sect
 *   Turn off the toggle to hide an attribute from the card's face. The attribute remains available when you edit the card. For the current grouping attribute, the toggle is disabled.
 *   Press the <span class="tn-icon bx bxs-edit"></span> button to modify the definition of an attribute.
 *   Press the <span class="tn-icon bx bx-trash"></span> button to delete the attribute and all its values from every note in the board collection.
+
+Attributes that the cards get from a template or another parent note can be reordered and hidden here, but not modified or deleted. Edit them on the note that defines them.
+
+If cards define an attribute with the same name but a different type or different select options, for example through two different templates, or if a card overrides the board's definition with its own, the attribute is marked **Multiple definitions**. Such an attribute is sorted as text and does not appear in the card's context menu.
 
 ### Managing card templates
 

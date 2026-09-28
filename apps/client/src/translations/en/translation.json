@@ -1407,7 +1407,9 @@
     "values_placeholder": "Type a value and press Enter",
     "add_value": "Add this value",
     "drawn_by_collection": "The collection is arranged by this, so its items do not repeat it",
-    "display_on_items": "Display the attribute on the collection items"
+    "display_on_items": "Display the attribute on the collection items",
+    "conflicting": "Multiple definitions",
+    "conflicting_tooltip": "The items define this attribute in more than one way, so it is sorted as text and cannot be set from the item menu."
   },
   "script_executor": {
     "query": "Query",
