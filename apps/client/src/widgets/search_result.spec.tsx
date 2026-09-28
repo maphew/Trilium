@@ -44,22 +44,23 @@ describe("SearchResult", () => {
         removeHandler: () => {},
         triggerEvent,
     } as unknown as Component;
-    const loadSearchNote = vi.fn(async (noteId: string) => {
+    const defaultLoadSearchNote = async (noteId: string) => {
         const note =
             (froca.notes[noteId] as FNote | undefined) ?? shownContext.current;
         if (note) {
             note.searchResultsLoaded = true;
         }
         return undefined as Awaited<ReturnType<typeof froca.loadSearchNote>>;
-    });
+    };
+    const loadSearchNote = vi.fn(defaultLoadSearchNote);
     const showError = vi.spyOn(toast, "showError");
     let container: HTMLDivElement | null = null;
 
     beforeEach(() => {
         handlers.clear();
         triggerEvent.mockClear();
-        loadSearchNote.mockClear();
-        loadSearchNote.mockResolvedValue(undefined);
+        loadSearchNote.mockReset();
+        loadSearchNote.mockImplementation(defaultLoadSearchNote);
         showError.mockClear();
         shownContext.current = null;
         shownContext.parentComponent = parent;
@@ -96,8 +97,10 @@ describe("SearchResult", () => {
         );
 
         const button = mountedContainer.querySelector("button");
-        expect(button).toBeTruthy();
-        return { savedSearch, button: button! };
+        if (!button) {
+            throw new Error("Search now button not found");
+        }
+        return { savedSearch, button, mountedContainer };
     }
 
     it("surfaces errors returned by a saved search", async () => {
@@ -116,7 +119,8 @@ describe("SearchResult", () => {
     });
 
     it("refreshes a saved search without showing an error when it succeeds", async () => {
-        const { savedSearch, button } = showSavedSearchButton();
+        const { savedSearch, button, mountedContainer } =
+            showSavedSearchButton();
 
         await act(async () => {
             button.click();
@@ -124,6 +128,7 @@ describe("SearchResult", () => {
 
         expect(loadSearchNote).toHaveBeenCalledWith(savedSearch.noteId);
         expect(showError).not.toHaveBeenCalled();
+        expect(mountedContainer.querySelector("button")).toBeNull();
         expect(triggerEvent).toHaveBeenCalledWith("searchRefreshed", {
             ntxId: "ntx1",
         });
