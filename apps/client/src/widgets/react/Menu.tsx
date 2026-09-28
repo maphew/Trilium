@@ -82,7 +82,11 @@ function MenuRow<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect: Me
                 <span className="tn-menu-gap" />
                 {/* Callers pass HTML: titles escaped with `escapeHtml()` or boxed by `menuName()`. */}
                 <span dangerouslySetInnerHTML={{ __html: item.title }} />
+                {item.badges?.map((badge, index) => (
+                    <span key={index} className={clsx("badge", badge.className)}>{badge.title}</span>
+                ))}
                 <MenuShortcut item={item} />
+                {item.trailingIcon && <span className={clsx(item.trailingIcon, "tn-icon", "menu-trailing-icon")} />}
             </span>
         </li>
     );

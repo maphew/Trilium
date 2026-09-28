@@ -239,23 +239,6 @@ class ContextMenu {
     private createMenuItem(item: MenuCommandItem<any>) {
         const $link = $("<span>");
 
-        if ("badges" in item && item.badges) {
-            for (const badge of item.badges) {
-                const badgeElement = $(`<span class="badge">`).text(badge.title);
-
-                if (badge.className) {
-                    badgeElement.addClass(badge.className);
-                }
-
-                $link.append(badgeElement);
-            }
-        }
-
-        if ("trailingIcon" in item && item.trailingIcon) {
-            $link.append($("<span>")
-                .addClass([ item.trailingIcon, "tn-icon", "menu-trailing-icon" ]));
-        }
-
         const $item = $("<li>")
             .addClass("dropdown-item")
             .append($link)

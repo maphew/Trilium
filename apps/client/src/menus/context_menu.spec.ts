@@ -247,6 +247,39 @@ describe("contextMenu", () => {
             ]);
         });
 
+        it("shows badges after the title, and a trailing icon at the end of the row", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [
+                    {
+                        title: "Done", uiIcon: "bx bx-columns",
+                        badges: [ { title: "<i>archived</i>", className: "archived" }, { title: "new" } ],
+                        shortcut: "Ctrl+D",
+                        trailingIcon: "bx bx-check"
+                    },
+                    { title: "Doing", uiIcon: "bx bx-columns", trailingIcon: undefined }
+                ]
+            });
+
+            const [ done, doing ] = [ ...menuElement()?.querySelectorAll("li.dropdown-item > span") ?? [] ]
+                .map(row => [ ...row.children ].map(child => `${child.tagName.toLowerCase()}.${child.className} ${child.textContent}`));
+            expect(done).toEqual([
+                "span.bx bx-columns tn-icon ",
+                "span.tn-menu-gap ",
+                "span. Done",
+                // A badge's title is text, as a column's status is a name the user wrote.
+                "span.badge archived <i>archived</i>",
+                "span.badge new",
+                "kbd. Ctrl+D",
+                // The item's own icon stands, unlike with `checked`.
+                "span.bx bx-check tn-icon menu-trailing-icon "
+            ]);
+            expect(doing).toHaveLength(3);
+        });
+
         it("runs an item pressed with the primary button, then hides", async () => {
             buildPage();
             const contextMenu = await buildContextMenu();
