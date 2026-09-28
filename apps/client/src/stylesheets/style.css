@@ -64,7 +64,7 @@ body#trilium-app.backdrop-effects-disabled *::after {
 }
 
 :root {
-    --submenu-opening-delay: 300ms;
+    --submenu-opening-delay: 150ms;
     --launcher-pane-size: 53px;
     --bs-body-color: var(--main-text-color);
 }
@@ -1669,7 +1669,6 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 
 #context-menu-container {
     max-height: 100vh;
-    /* !!! Cannot set overflow: auto, submenus will break !!! */
 }
 
 body.mobile #context-menu-container.mobile-bottom-menu {

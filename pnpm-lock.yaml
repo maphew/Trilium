@@ -207,6 +207,9 @@ importers:
       '@excalidraw/excalidraw':
         specifier: 0.18.1
         version: 0.18.1(patch_hash=859531a8ff622291b895d36bcd33e07ced6fcb3bcc90631ccaf776789b03f0c2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@floating-ui/dom':
+        specifier: 1.8.0
+        version: 1.8.0
       '@fullcalendar/rrule':
         specifier: 7.1.0
         version: 7.1.0(rrule@2.8.1)(temporal-polyfill@1.0.5)
@@ -851,6 +854,9 @@ importers:
       '@excalidraw/excalidraw':
         specifier: 0.18.1
         version: 0.18.1(patch_hash=859531a8ff622291b895d36bcd33e07ced6fcb3bcc90631ccaf776789b03f0c2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@floating-ui/dom':
+        specifier: 1.8.0
+        version: 1.8.0
       '@popperjs/core':
         specifier: 2.11.8
         version: 2.11.8

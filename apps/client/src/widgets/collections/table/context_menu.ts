@@ -20,13 +20,6 @@ export function useContextMenu(parentNote: FNote, parentComponent: Component | n
         const headerRow = tabulator.current?.element.querySelector(".tabulator-header-contents");
         headerRow?.addEventListener("contextmenu", (e) => showHeaderContextMenu(parentComponent, e as MouseEvent, tabulator.current!));
     }
-    // Pressing the expand button prevents bubbling and the context menu remains menu when it shouldn't.
-    if (tabulator.current?.options.dataTree) {
-        const dismissContextMenu = () => contextMenu.hide();
-        events["dataTreeRowExpanded"] = dismissContextMenu;
-        events["dataTreeRowCollapsed"] = dismissContextMenu;
-    }
-
     return events;
 }
 

@@ -50,6 +50,20 @@ Only in desktop (electron build):
 
 All these keyboard shortcuts do not have a default set, go to <a class="reference-link" href="UI%20Elements/Options.md">Options</a> → _Shortcuts_ and look for the _Split View_ category.
 
+### Context menus
+
+Every context menu can be operated from the keyboard, however it was opened, for example with the <kbd>Menu</kbd> key in a text note to reach the spelling suggestions. These keys are fixed and cannot be changed in the options.
+
+*   <kbd>↑</kbd>, <kbd>↓</kbd> – move to the previous / next item, skipping disabled ones and wrapping around at either end
+*   <kbd>Home</kbd>, <kbd>End</kbd> – move to the first / last item
+*   <kbd>→</kbd> – open the submenu of the current item, or move to the next column in a submenu laid out in columns
+*   <kbd>←</kbd> – move to the previous column, or close the submenu and go back to its item
+*   <kbd>Enter</kbd> or <kbd>Space</kbd> – run the current item, or open its submenu
+*   <kbd>Esc</kbd> – close the innermost submenu, then the menu itself
+*   typing the first letters of an item – jump to the next item whose title starts with them
+
+With a right-to-left language, <kbd>←</kbd> and <kbd>→</kbd> swap roles.
+
 ### Creating notes
 
 *   <kbd>Ctrl</kbd>+<kbd>O</kbd> – creates new note after the current note
