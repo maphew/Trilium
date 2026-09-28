@@ -59,6 +59,7 @@ describe("SearchResult", () => {
         handlers.clear();
         triggerEvent.mockClear();
         loadSearchNote.mockClear();
+        loadSearchNote.mockResolvedValue(undefined);
         showError.mockClear();
         shownContext.current = null;
         shownContext.parentComponent = parent;
@@ -74,7 +75,7 @@ describe("SearchResult", () => {
         }
     });
 
-    it("surfaces errors returned by a saved search", async () => {
+    function showSavedSearchButton() {
         const savedSearch = buildNote({
             title: "My search",
             type: "search",
@@ -96,14 +97,33 @@ describe("SearchResult", () => {
 
         const button = mountedContainer.querySelector("button");
         expect(button).toBeTruthy();
+        return { savedSearch, button: button! };
+    }
+
+    it("surfaces errors returned by a saved search", async () => {
+        const { savedSearch, button } = showSavedSearchButton();
         loadSearchNote.mockResolvedValue({ error: "Invalid saved search" });
 
         await act(async () => {
-            button?.click();
+            button.click();
         });
 
         expect(loadSearchNote).toHaveBeenCalledWith(savedSearch.noteId);
         expect(showError).toHaveBeenCalledWith("Invalid saved search");
+        expect(triggerEvent).toHaveBeenCalledWith("searchRefreshed", {
+            ntxId: "ntx1",
+        });
+    });
+
+    it("refreshes a saved search without showing an error when it succeeds", async () => {
+        const { savedSearch, button } = showSavedSearchButton();
+
+        await act(async () => {
+            button.click();
+        });
+
+        expect(loadSearchNote).toHaveBeenCalledWith(savedSearch.noteId);
+        expect(showError).not.toHaveBeenCalled();
         expect(triggerEvent).toHaveBeenCalledWith("searchRefreshed", {
             ntxId: "ntx1",
         });
