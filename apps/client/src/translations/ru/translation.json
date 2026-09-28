@@ -982,7 +982,9 @@
     "auto_link_previews_enabled": "Автогенерация предварительного просмотра ссылок",
     "auto_link_previews_description": "Автоматически преобразовывать обнаруженную ссылку в предварительный просмотр, отображающий заголовок, описание и изображение веб-страницы. Вставка предварительного просмотра с панели инструментов работает всегда, независимо от этой настройки.",
     "html_support_enabled": "Сохранять неподдерживаемые HTML-теги",
-    "html_support_description": "Сохранять теги HTML, для которых в редакторе нет собственной функции, как указано в разделе «Настройки→ Прочее → Теги HTML для импорта». Они отображаются в виде блоков, которые нельзя редактировать напрямую, а при редактировании неизвестный тег может вообще не отображаться. Если этот параметр выключен, такие теги удаляются из заметки при первом редактировании и сохранении; на импорт это никак не влияет."
+    "html_support_description": "Сохранять теги HTML, для которых в редакторе нет собственной функции, как указано в разделе «Настройки→ Прочее → Теги HTML для импорта». Они отображаются в виде блоков, которые нельзя редактировать напрямую, а при редактировании неизвестный тег может вообще не отображаться. Если этот параметр выключен, такие теги удаляются из заметки при первом редактировании и сохранении; на импорт это никак не влияет.",
+    "mathlive_enabled": "Визуальный редактор MathLive",
+    "mathlive_description": "Математические уравнения можно редактировать с помощью визуального редактора."
   },
   "cpu_arch_warning": {
     "dont_show_again": "Больше не показывать это предупреждение",
@@ -3130,8 +3132,54 @@
     },
     "stream_status": {
       "starting_agent": "Запуск агента. Это может занять некоторое время.",
-      "waiting_for_reply": "Ожидание ответа…"
-    }
+      "waiting_for_reply": "Ожидание ответа…",
+      "still_working": "Всё ещё работаю…"
+    },
+    "show_tool_call_details": "Показать ввод и вывод",
+    "tool_call_no_result": "Результатов пока нет.",
+    "search_notes_count_one": "({{count}} заметка)",
+    "search_notes_count_few": "({{count}} заметки)",
+    "search_notes_count_many": "({{count}} заметок)",
+    "search_notes_limited_one": "Всего {{count}} результат, ограничено до {{limit}}",
+    "search_notes_limited_few": "Всего {{count}} результата, ограничено до {{limit}}",
+    "search_notes_limited_many": "Всего {{count}} результатов, ограничено до {{limit}}",
+    "search_notes_scope": "Выполнен поиск в <Note/>",
+    "child_notes_count_one": "({{count}} дочерняя)",
+    "child_notes_count_few": "({{count}} дочерние)",
+    "child_notes_count_many": "({{count}} дочерних)",
+    "child_count_one": "{{count}} дочерняя",
+    "child_count_few": "{{count}} дочерние",
+    "child_count_many": "{{count}} дочерних",
+    "search_help_count_one": "({{count}} страница)",
+    "search_help_count_few": "({{count}} страницы)",
+    "search_help_count_many": "({{count}} страниц)",
+    "subtree_more_one": "+ещё {{count}}",
+    "subtree_more_few": "+ещё {{count}}",
+    "subtree_more_many": "+ещё {{count}}",
+    "attachment_count_one": "{{count}} вложение",
+    "attachment_count_few": "{{count}} вложения",
+    "attachment_count_many": "{{count}} вложений",
+    "attribute_count_one": "({{count}} атрибут)",
+    "attribute_count_few": "({{count}} атрибута)",
+    "attribute_count_many": "({{count}} атрибутов)",
+    "search_icons_count_one": "({{count}} иконка)",
+    "search_icons_count_few": "({{count}} иконки)",
+    "search_icons_count_many": "({{count}} иконок)",
+    "attachment_size": "({{size}})",
+    "attachment_ocr": "Распознанный из файла текст",
+    "skills": {
+      "search_syntax": "Синтаксис поискового запроса",
+      "backend_scripting": "Серверные скрипты",
+      "frontend_scripting": "Клиентские скрипты",
+      "dashboards": "Панели управления"
+    },
+    "web_sources_count_one": "({{count}} источник)",
+    "web_sources_count_few": "({{count}} источника)",
+    "web_sources_count_many": "({{count}} источников)",
+    "attachment_model_cannot_read_image": "{{- model}} не может читать изображения.",
+    "attachment_model_cannot_read_file": "{{- model}} не может читать PDF-файлы.",
+    "attachment_refused": "\"{{name}}\" не был вложен. {{- reason}}",
+    "remove_unreadable_attachments": "Удалите вложения, которые {{- model}} не может читать"
   },
   "sidebar_chat": {
     "title": "Чат с ИИ",
@@ -3283,7 +3331,10 @@
       "get_help_toc": "Получить содержимое руководства пользователя",
       "search_help": "Поиск в руководстве пользователя",
       "search_icons": "Поиск иконок",
-      "read_web_page": "Прочитать веб-страницу"
+      "read_web_page": "Прочитать веб-страницу",
+      "note_moved_from": "<Note/> из <From/> в <To/>",
+      "note_moved": "<Note/> в <To/>",
+      "attachment_in_note": "<Title/> в <Note/>"
     },
     "feature_not_enabled": "Чтобы использовать ИИ-интеграции, включите экспериментальную функцию LLM в «Настройки → Расширенные → Экспериментальные функции».",
     "mcp_title": "MCP (Model Context Protocol)",
@@ -3550,7 +3601,9 @@
     "page_ranges": "Страницы",
     "page_ranges_hint": "Оставьте пустым, чтобы напечатать все страницы.",
     "page_ranges_invalid": "Неверный формат. Используйте, например, 1-5, 8, 11-13.",
-    "page_ranges_placeholder": "например, 1-5, 8, 11-13"
+    "page_ranges_placeholder": "например, 1-5, 8, 11-13",
+    "render_error_title": "Не удаётся отобразить PDF-файл с текущими настройками",
+    "render_error_description": "Пожалуйста, проверьте поля и масштаб."
   },
   "common": {
     "save": "Сохранить",
@@ -4470,5 +4523,10 @@
     "label_marker_negated": "Исключает метку. Нажмите Enter, чтобы увидеть список меток",
     "relation_marker": "Указывает отношение. Нажмите Enter, чтобы увидеть список отношений",
     "relation_marker_negated": "Исключает отношение. Нажмите Enter, чтобы увидеть список отношений"
+  },
+  "lightbox": {
+    "image": "Изображение",
+    "pdf": "PDF-файл",
+    "open_original": "Открыть оригинал в новой вкладке"
   }
 }
