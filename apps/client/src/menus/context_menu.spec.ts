@@ -7,10 +7,15 @@ vi.mock("../services/keyboard_actions", () => ({
     })
 }));
 const layout = vi.hoisted(() => ({ onMobile: false }));
-vi.mock("../services/utils", async (importOriginal) => ({
-    ...(await importOriginal<typeof import("../services/utils")>()),
-    isMobile: () => layout.onMobile
-}));
+vi.mock("../services/utils", async (importOriginal) => {
+    const original = await importOriginal<typeof import("../services/utils")>();
+    // `Menu` imports `isMobile()` by name, `contextMenu` through the default export.
+    return {
+        ...original,
+        isMobile: () => layout.onMobile,
+        default: { ...original.default, isMobile: () => layout.onMobile }
+    };
+});
 // Key names are translated; the formatting has specs of its own.
 vi.mock("../services/keyboard_shortcut_display", () => ({
     formatShortcut: (shortcut: string) => shortcut.split("+"),
@@ -504,6 +509,39 @@ describe("contextMenu", () => {
 
             press(parent);
             await vi.waitFor(() => expect(parent.classList.contains("submenu-open")).toBe(false));
+        });
+    });
+
+    describe("on a phone", () => {
+        afterEach(() => {
+            layout.onMobile = false;
+        });
+
+        it("rises from the bottom as a sheet, which the stylesheet places and caps", async () => {
+            layout.onMobile = true;
+            buildPage();
+            const contextMenu = await buildContextMenu();
+
+            await contextMenu.show({ x: 10, y: 20, items, selectMenuItemHandler: () => {} });
+
+            const menu = menuElement();
+            expect(menu?.classList.contains("mobile-bottom-menu")).toBe(true);
+            await vi.waitFor(() => expect(menu?.style.visibility).toBe("visible"));
+            // Nothing inline for the sheet's rules to contend with: its `max-height` is not `!important`.
+            expect([ menu?.style.left, menu?.style.top, menu?.style.maxHeight ]).toEqual([ "", "", "" ]);
+        });
+
+        it("opens at the pointer instead when the caller asks", async () => {
+            layout.onMobile = true;
+            buildPage();
+            const contextMenu = await buildContextMenu();
+
+            await contextMenu.show({ x: 10, y: 20, items, selectMenuItemHandler: () => {}, forcePositionOnMobile: true });
+
+            const menu = menuElement();
+            expect(menu?.classList.contains("mobile-bottom-menu")).toBe(false);
+            await vi.waitFor(() => expect(menu?.style.visibility).toBe("visible"));
+            expect(menu?.style.left).not.toBe("");
         });
     });
 

@@ -133,6 +133,7 @@ class ContextMenu {
             x: options.x,
             y: options.y,
             orientation: options.orientation,
+            bottomSheet: utils.isMobile() && !options.forcePositionOnMobile,
             items: options.items,
             onSelect: (item, e) => {
                 // A submenu's row stays up to be opened, unless it runs something of its own.

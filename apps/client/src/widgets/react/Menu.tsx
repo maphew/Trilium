@@ -23,6 +23,11 @@ export interface MenuProps<T> {
     y: number;
     /** Opens the menu towards the left of {@link x} instead of towards the right. */
     orientation?: "left";
+    /**
+     * Shows the menu as a sheet along the bottom of a phone's screen instead of at {@link x} and
+     * {@link y}. The `.mobile-bottom-menu` rules place and cap it.
+     */
+    bottomSheet?: boolean;
     items: MenuItem<T>[];
     /** Called when an item is pressed with the primary button. */
     onSelect(item: MenuCommandItem<T>, e: MouseEvent): void;
@@ -54,7 +59,7 @@ interface MenuState<T> {
     openItems: MenuCommandItem<T>[];
 }
 
-export default function Menu<T>({ id, className, x, y, orientation, items, onSelect, onClose }: MenuProps<T>) {
+export default function Menu<T>({ id, className, x, y, orientation, bottomSheet, items, onSelect, onClose }: MenuProps<T>) {
     const menuRef = useRef<HTMLDivElement>(null);
     const [ submenus, setSubmenus ] = useState<OpenSubmenu<T>[]>([]);
     const nextKey = useRef(0);
@@ -71,15 +76,23 @@ export default function Menu<T>({ id, className, x, y, orientation, items, onSel
     useLayoutEffect(() => {
         const menu = menuRef.current;
         if (!menu) return;
+        if (bottomSheet) {
+            // An inline `max-height` would override the sheet's own, which is not `!important`.
+            menu.style.visibility = "visible";
+            return;
+        }
 
         const anchor = pointAt(x, y);
         const placement = orientation === "left" ? "left-start" : "right-start";
         // Places the menu now, and again whenever the viewport or the menu itself changes size.
         return autoUpdate(anchor, menu, () => void placeMenu(menu, anchor, placement));
-    }, [ x, y, orientation ]);
+    }, [ x, y, orientation, bottomSheet ]);
 
     return (
-        <div ref={menuRef} id={id} className={clsx("dropdown-menu show tn-menu", className)} role="menu">
+        <div
+            ref={menuRef} id={id} role="menu"
+            className={clsx("dropdown-menu show tn-menu", bottomSheet && "mobile-bottom-menu", className)}
+        >
             <MenuList level={0} items={items} state={state} />
             {/* Inside the menu, so the rules scoped to it apply, but none inside another: a fixed
                 layer escapes a scrolling menu only while no ancestor carries a filter. */}

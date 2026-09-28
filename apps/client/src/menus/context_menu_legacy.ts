@@ -6,7 +6,6 @@ import { Tooltip } from "bootstrap";
 import { JSX } from "preact";
 
 import note_tooltip from "../services/note_tooltip.js";
-import utils from "../services/utils.js";
 
 export interface ContextMenuOptions<T> {
     x: number;
@@ -82,17 +81,10 @@ export type ContextMenuEvent = PointerEvent | MouseEvent | JQuery.ContextMenuEve
 
 class ContextMenu {
     private $widget: JQuery<HTMLElement>;
-    private $cover?: JQuery<HTMLElement>;
     private options?: ContextMenuOptions<any>;
-    private isMobile: boolean;
 
     constructor() {
         this.$widget = $("#context-menu-container");
-        this.isMobile = utils.isMobile();
-
-        if (this.isMobile) {
-            this.$cover = $("#context-menu-cover");
-        }
     }
 
     async show<T>(options: ContextMenuOptions<T>) {
@@ -107,8 +99,6 @@ class ContextMenu {
             await this.hide();
         }
 
-        this.$widget.toggleClass("mobile-bottom-menu", !this.options.forcePositionOnMobile);
-        this.$cover?.addClass("show");
         $("body").addClass("context-menu-shown");
 
         this.$widget.empty();
@@ -145,7 +135,6 @@ class ContextMenu {
     async hide() {
         this.options?.onHide?.();
         this.$widget.removeClass("show");
-        this.$cover?.removeClass("show");
         $("body").removeClass("context-menu-shown");
         this.$widget.hide();
     }
