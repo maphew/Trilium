@@ -60,6 +60,11 @@ body.desktop:not(.motion-disabled) .dropdown-submenu > .dropdown-menu.tn-menu {
     animation-fill-mode: backwards;
 }
 
+/* A submenu that replaces an open one, or that a key or a press opened, shows at once. */
+body.desktop .dropdown-submenu > .dropdown-menu.tn-menu.tn-menu-immediate {
+    animation: none;
+}
+
 /* The menu holds focus for its keys; the row they act on shows where they are instead. */
 .dropdown-menu.tn-menu:focus {
     outline: none;

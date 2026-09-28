@@ -458,6 +458,28 @@ describe("contextMenu", () => {
             });
         });
 
+        it("waits before the first submenu it opens under the pointer, and not before one that replaces it", async () => {
+            /** Whether the open layer skips the stylesheet's opening delay and fade. */
+            const immediate = () => menuElement()?.querySelector("div.dropdown-submenu > ul")?.classList.contains("tn-menu-immediate");
+            await openMenu();
+
+            // The pointer might only be passing over the row.
+            hover(row("Insert child note"));
+            await vi.waitFor(() => expect(layers()).toHaveLength(1));
+            expect(immediate()).toBe(false);
+
+            // One submenu is open, so the user is going through them: its sibling shows at once.
+            hover(row("Templates"));
+            await vi.waitFor(() => expect(layers()).toEqual([ [ "Meeting" ] ]));
+            expect(immediate()).toBe(true);
+
+            // So does one a press opens, which is a choice rather than a pass.
+            await openMenu();
+            press(row("Templates"));
+            await vi.waitFor(() => expect(layers()).toEqual([ [ "Meeting" ] ]));
+            expect(immediate()).toBe(true);
+        });
+
         it("runs a submenu's row and closes everything, and keeps a submenu's row that only opens it", async () => {
             const picked: string[] = [];
             const contextMenu = await openMenu((title) => picked.push(title));
@@ -682,7 +704,8 @@ describe("contextMenu", () => {
             await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
             key("ArrowRight");
             await vi.waitFor(() => expect(activeRow()).toBe("Meeting"));
-            expect(menuElement()?.querySelector("div.dropdown-submenu")).not.toBeNull();
+            // A key is a choice, so the submenu shows without the stylesheet's opening delay.
+            expect(menuElement()?.querySelector("div.dropdown-submenu > ul")?.classList.contains("tn-menu-immediate")).toBe(true);
 
             key("ArrowLeft");
             await vi.waitFor(() => expect(activeRow()).toBe("Templates"));

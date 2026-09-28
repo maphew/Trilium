@@ -44,6 +44,11 @@ interface OpenSubmenu<T> {
     anchor: HTMLElement;
     /** Remounts the layer when another submenu replaces it at the same level. */
     key: number;
+    /**
+     * Shows the layer without the stylesheet's opening delay and fade: it replaces a submenu that
+     * was open, or a key or a press chose it, so it is not a pointer passing over its row.
+     */
+    immediate: boolean;
 }
 
 /** A row the keyboard can stand on: a command, or a custom row with something to focus in it. */
@@ -69,7 +74,7 @@ interface MenuState<T> {
      * Opens `item`'s submenu at `level`, closing whatever stood open at that level and deeper, or
      * without an item only closes them.
      */
-    openSubmenu(level: number, item?: MenuCommandItem<T>, anchor?: HTMLElement): void;
+    openSubmenu(level: number, item?: MenuCommandItem<T>, anchor?: HTMLElement, chosen?: boolean): void;
     /** The item whose submenu stands open at each level. */
     openItems: MenuCommandItem<T>[];
     active?: ActiveRow<T>;
@@ -83,11 +88,12 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
     const [ submenus, setSubmenus ] = useState<OpenSubmenu<T>[]>([]);
     const nextKey = useRef(0);
 
-    const openSubmenu = useCallback((level: number, item?: MenuCommandItem<T>, anchor?: HTMLElement) => {
+    const openSubmenu = useCallback((level: number, item?: MenuCommandItem<T>, anchor?: HTMLElement, chosen = false) => {
         setSubmenus((open) => {
             if (item ? open[level]?.item === item : open.length <= level) return open;
             const kept = open.slice(0, level);
-            return item && anchor ? [ ...kept, { item, anchor, key: nextKey.current++ } ] : kept;
+            const immediate = chosen || !!open[level];
+            return item && anchor ? [ ...kept, { item, anchor, key: nextKey.current++, immediate } ] : kept;
         });
     }, []);
     const [ active, setActiveRow ] = useState<ActiveRow<T>>();
@@ -160,7 +166,7 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
             const item = active && !isCustom(active.item) ? active.item : undefined;
             const anchor = item && rows.get(item);
             if (!item?.items || !anchor || isMobile()) return;
-            openSubmenu(level, item, anchor);
+            openSubmenu(level, item, anchor, true);
             const first = runnableRows(item.items)[0];
             if (first) setActive(level + 1, first);
         };
@@ -301,7 +307,7 @@ function SubmenuLayer<T>({ level, submenu, state }: { level: number, submenu: Op
     // In a `.dropdown-submenu`, so the theme's submenu rules apply.
     return (
         <div className="dropdown-submenu">
-            <ul ref={layerRef} className="dropdown-menu show tn-menu" role="menu">
+            <ul ref={layerRef} className={clsx("dropdown-menu show tn-menu", submenu.immediate && "tn-menu-immediate")} role="menu">
                 {/* Like the top level, so the blur on the layer's `::before` stays behind its rows. */}
                 <div className="tn-menu-scroll">
                     {columns
@@ -408,7 +414,7 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
                     setUnfolded(!unfolded);
                     return;
                 }
-                if (hasSubmenu) state.openSubmenu(level, item, e.currentTarget);
+                if (hasSubmenu) state.openSubmenu(level, item, e.currentTarget, true);
                 state.onSelect(item, e);
             }}
         >
