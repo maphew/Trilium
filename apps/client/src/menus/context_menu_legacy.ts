@@ -221,10 +221,6 @@ class ContextMenu {
             }
 
             if (itemKind === "separator") {
-                if (prevItemKind === "separator") {
-                    // Skip consecutive separators
-                    continue;
-                }
                 $group.append($("<div>").addClass("dropdown-divider"));
                 shouldResetGroup = true; // End the group after the next item
             } else if (itemKind === "header") {
@@ -326,14 +322,7 @@ class ContextMenu {
             .addClass("className" in item ? item.className ?? "" : "")
             .append($link)
             .on("contextmenu", (e) => false)
-            // important to use mousedown instead of click since the former does not change focus
-            // (especially important for focused text for spell check)
             .on("mousedown", (e) => {
-                if (e.which !== 1) {
-                    // only left click triggers menu items
-                    return false;
-                }
-
                 if (this.isMobile && "items" in item && item.items) {
                     const $item = $(e.target).closest(".dropdown-item");
 
@@ -350,12 +339,6 @@ class ContextMenu {
                 if (!opensSubmenu || acts) {
                     this.hide();
                 }
-
-                if ("handler" in item && item.handler) {
-                    item.handler(item, e);
-                }
-
-                this.options?.selectMenuItemHandler(item, e);
 
                 // it's important to stop the propagation especially for sub-menus, otherwise the event
                 // might be handled again by top-level menu

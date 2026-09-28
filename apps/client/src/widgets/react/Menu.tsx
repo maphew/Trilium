@@ -3,20 +3,24 @@ import "./Menu.css";
 import { computePosition, flip, type Placement, shift, size, type VirtualElement } from "@floating-ui/dom";
 import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
+import type { MenuCommandItem, MenuItem, MenuSeparatorItem } from "../../menus/context_menu";
 import { useResizeObserver } from "./hooks";
 
-export interface MenuProps {
+export interface MenuProps<T> {
     /** Where the menu opens, in viewport coordinates. */
     x: number;
     y: number;
     /** Opens the menu towards the left of {@link x} instead of towards the right. */
     orientation?: "left";
+    items: MenuItem<T>[];
+    /** Called when an item is pressed with the primary button. */
+    onSelect(item: MenuCommandItem<T>, e: MouseEvent): void;
 }
 
 /** How many pixels the menu keeps from the edges of the viewport. */
 const VIEWPORT_PADDING = 5;
 
-export default function Menu({ x, y, orientation }: MenuProps) {
+export default function Menu<T>({ x, y, orientation, items, onSelect }: MenuProps<T>) {
     const menuRef = useRef<HTMLDivElement>(null);
     const place = useCallback(() => {
         if (!menuRef.current) return;
@@ -29,9 +33,46 @@ export default function Menu({ x, y, orientation }: MenuProps) {
 
     return (
         <div ref={menuRef} className="tn-menu" role="menu">
-            Hello world
+            {menuRows(items).map((row, index) => ("kind" in row && row.kind === "separator"
+                ? <div key={index} className="tn-menu-separator" role="separator" />
+                : <MenuRow key={index} item={row as MenuCommandItem<T>} onSelect={onSelect} />
+            ))}
         </div>
     );
+}
+
+function MenuRow<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect: MenuProps<T>["onSelect"] }) {
+    return (
+        <div
+            className="tn-menu-item"
+            role="menuitem"
+            // `mousedown` rather than `click`, and its default prevented, so the press does not move
+            // focus: a text editor keeps the selection that commands such as a spelling fix act on.
+            onMouseDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                onSelect(item, e);
+            }}
+        >
+            {item.title}
+        </div>
+    );
+}
+
+/** The items `Menu` renders so far, with a run of separators reduced to one. */
+function menuRows<T>(items: MenuItem<T>[]) {
+    const rows: (MenuCommandItem<T> | MenuSeparatorItem)[] = [];
+    for (const item of items) {
+        const kind = "kind" in item ? item.kind : undefined;
+        if (kind === "separator") {
+            const previous = rows.at(-1);
+            if (previous && "kind" in previous) continue;
+            rows.push(item as MenuSeparatorItem);
+        } else if (!kind) {
+            rows.push(item as MenuCommandItem<T>);
+        }
+    }
+    return rows;
 }
 
 /**

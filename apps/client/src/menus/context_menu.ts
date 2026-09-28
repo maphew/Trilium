@@ -75,7 +75,7 @@ export interface MenuCommandItem<T> {
 }
 
 export type MenuItem<T> = MenuCommandItem<T> | CustomMenuItem | MenuSeparatorItem | MenuHeader;
-export type MenuHandler<T> = (item: MenuCommandItem<T>, e: JQuery.MouseDownEvent<HTMLElement, undefined, HTMLElement, HTMLElement>) => void;
+export type MenuHandler<T> = (item: MenuCommandItem<T>, e: MouseEvent) => void;
 export type ContextMenuEvent = PointerEvent | MouseEvent | JQuery.ContextMenuEvent;
 
 class ContextMenu {
@@ -113,7 +113,17 @@ class ContextMenu {
         this.cover?.classList.add("show");
         document.body.classList.add("context-menu-shown");
 
-        render(h(Menu, { x: options.x, y: options.y, orientation: options.orientation }), this.container);
+        render(h(Menu<T>, {
+            x: options.x,
+            y: options.y,
+            orientation: options.orientation,
+            items: options.items,
+            onSelect: (item, e) => {
+                void this.hide();
+                item.handler?.(item, e);
+                options.selectMenuItemHandler(item, e);
+            }
+        }), this.container);
     }
 
     /**

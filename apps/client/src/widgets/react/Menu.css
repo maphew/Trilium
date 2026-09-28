@@ -26,3 +26,23 @@
         backdrop-filter: var(--dropdown-backdrop-filter);
     }
 }
+
+.tn-menu-item {
+    padding-block: var(--menu-item-vertical-padding);
+    padding-inline: var(--menu-item-start-padding) var(--menu-item-end-padding);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+
+    &:hover {
+        color: var(--hover-item-text-color);
+        background-color: var(--hover-item-background-color);
+    }
+}
+
+.tn-menu-separator {
+    /* Spans the menu's padding, like the theme's `.dropdown-divider`. */
+    margin-block: var(--menu-padding-size);
+    margin-inline: calc(0px - var(--menu-padding-size));
+    border-top: 1px solid var(--menu-item-delimiter-color);
+}

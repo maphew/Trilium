@@ -35,7 +35,6 @@ describe("contextMenu", () => {
 
         const menu = container?.querySelector<HTMLElement>(".tn-menu");
         expect(menu?.getAttribute("role")).toBe("menu");
-        expect(menu?.textContent).toBe("Hello world");
         expect(document.body.classList.contains("context-menu-shown")).toBe(true);
 
         await contextMenu.hide();
@@ -46,6 +45,55 @@ describe("contextMenu", () => {
         // A later click on the page hides nothing, so `onHide` does not run again.
         await contextMenu.hide();
         expect(onHide).toHaveBeenCalledTimes(1);
+    });
+
+    describe("items", () => {
+        it("lists the items and separators in order, without repeating a separator", async () => {
+            const container = buildPage();
+            const contextMenu = await buildContextMenu();
+
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [
+                    { title: "Cut" },
+                    { title: "Copy" },
+                    { kind: "separator" },
+                    { kind: "separator" },
+                    { title: "Paste" }
+                ]
+            });
+
+            const rows = [ ...container?.querySelectorAll(".tn-menu > *") ?? [] ]
+                .map(row => row.getAttribute("role") === "separator" ? "---" : row.textContent);
+            expect(rows).toEqual([ "Cut", "Copy", "---", "Paste" ]);
+            expect(container?.querySelector("[role=menuitem]")?.classList.contains("tn-menu-item")).toBe(true);
+        });
+
+        it("runs an item pressed with the primary button, then hides", async () => {
+            const container = buildPage();
+            const contextMenu = await buildContextMenu();
+            const calls: string[] = [];
+            const item = { title: "Copy", handler: () => { calls.push("handler"); } };
+
+            await contextMenu.show({
+                x: 10, y: 10, items: [ item ],
+                selectMenuItemHandler: (selected) => { calls.push(`select ${selected.title}`); }
+            });
+            const row = container?.querySelector<HTMLElement>("[role=menuitem]");
+            if (!row) throw new Error("expected a menu item");
+
+            // Other buttons do nothing.
+            row.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 2 }));
+            expect(calls).toEqual([]);
+            expect(contextMenu.isShown()).toBe(true);
+
+            const press = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
+            row.dispatchEvent(press);
+            expect(calls).toEqual([ "handler", "select Copy" ]);
+            expect(contextMenu.isShown()).toBe(false);
+            // The press does not move focus, so a text editor keeps its selection for the command.
+            expect(press.defaultPrevented).toBe(true);
+        });
     });
 
     describe("placement", () => {
