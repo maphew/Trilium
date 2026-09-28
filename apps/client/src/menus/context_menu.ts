@@ -93,16 +93,16 @@ class ContextMenu {
         // keep them from here. `pointerdown` covers every button, including a Ctrl+right-click
         // that fires no `click`, and a tap on the mobile cover.
         document.addEventListener("pointerdown", (e) => {
-            const outside = this.isShown() && !this.host?.contains(e.target as Node);
+            const outside = this.isShown && !this.host?.contains(e.target as Node);
             this.pressDismissed = outside;
             if (outside) void this.hide();
         }, true);
-        // The click a dismissing press makes is handled by then, see `dismissedByLastPress()`.
+        // The click a dismissing press makes is handled by then, see `dismissedByLastPress`.
         document.addEventListener("click", () => {
             setTimeout(() => this.pressDismissed = false);
         }, true);
         document.addEventListener("keydown", (e) => {
-            if (e.key !== "Escape" || !this.isShown()) return;
+            if (e.key !== "Escape" || !this.isShown) return;
             // A dialog under the menu stays open.
             e.stopPropagation();
             void this.hide();
@@ -113,7 +113,7 @@ class ContextMenu {
         note_tooltip.dismissAllTooltips();
         hideShownTooltips();
 
-        if (this.isShown()) {
+        if (this.isShown) {
             // Unmount first so the menu opens fresh at the new location.
             await this.hide();
         }
@@ -144,7 +144,7 @@ class ContextMenu {
         }), this.host);
     }
 
-    isShown() {
+    get isShown() {
         return !!this.options;
     }
 
@@ -153,7 +153,7 @@ class ContextMenu {
      * otherwise act, such as the calendar opening an event, does nothing for it: one press, one
      * thing.
      */
-    dismissedByLastPress() {
+    get dismissedByLastPress() {
         return this.pressDismissed;
     }
 

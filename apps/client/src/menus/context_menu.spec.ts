@@ -196,7 +196,7 @@ describe("contextMenu", () => {
 
             // On its own, without reaching the page's listener: on mobile only the cover has one.
             custom?.dispatchEvent(new MouseEvent("click", { bubbles: false }));
-            expect(contextMenu.isShown()).toBe(false);
+            expect(contextMenu.isShown).toBe(false);
         });
 
         it("marks an item that is not enabled as disabled, and does not run it", async () => {
@@ -222,7 +222,7 @@ describe("contextMenu", () => {
             rows[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
             expect(handler).not.toHaveBeenCalled();
             expect(selectMenuItemHandler).not.toHaveBeenCalled();
-            expect(contextMenu.isShown()).toBe(true);
+            expect(contextMenu.isShown).toBe(true);
         });
 
         it("shows a header as text above the items it introduces", async () => {
@@ -301,12 +301,12 @@ describe("contextMenu", () => {
             // Other buttons do nothing.
             row.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 2 }));
             expect(calls).toEqual([]);
-            expect(contextMenu.isShown()).toBe(true);
+            expect(contextMenu.isShown).toBe(true);
 
             const press = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
             row.dispatchEvent(press);
             expect(calls).toEqual([ "handler", "select Copy" ]);
-            expect(contextMenu.isShown()).toBe(false);
+            expect(contextMenu.isShown).toBe(false);
             // The press does not move focus, so a text editor keeps its selection for the command.
             expect(press.defaultPrevented).toBe(true);
         });
@@ -419,13 +419,13 @@ describe("contextMenu", () => {
             // Nothing to run, so the menu stays up with its submenu open.
             press(row("Templates"));
             await vi.waitFor(() => expect(layers()).toEqual([ [ "Meeting" ] ]));
-            expect(contextMenu.isShown()).toBe(true);
+            expect(contextMenu.isShown).toBe(true);
 
             press(row("Meeting"));
             await vi.waitFor(() => expect(layers()).toEqual([ [ "Meeting" ], [ "Weekly" ] ]));
             press(row("Weekly"));
             expect(picked).toEqual([ "Templates", "Meeting", "Weekly" ]);
-            expect(contextMenu.isShown()).toBe(false);
+            expect(contextMenu.isShown).toBe(false);
 
             // A row with a command of its own runs it, like any other.
             await openMenu((title) => picked.push(title));
@@ -584,12 +584,12 @@ describe("contextMenu", () => {
 
             await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
             pressOn(app);
-            expect(contextMenu.isShown()).toBe(false);
+            expect(contextMenu.isShown).toBe(false);
 
             // Ctrl+right-click, which opens a note in a popup instead of a menu, and fires no click.
             await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
             pressOn(app, { button: 2, ctrlKey: true });
-            expect(contextMenu.isShown()).toBe(false);
+            expect(contextMenu.isShown).toBe(false);
         });
 
         it("stays up on a press or a click inside it that runs nothing", async () => {
@@ -605,7 +605,7 @@ describe("contextMenu", () => {
             pressOn(header);
             header.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-            expect(contextMenu.isShown()).toBe(true);
+            expect(contextMenu.isShown).toBe(true);
         });
 
         it("hides on Escape, which goes no further", async () => {
@@ -617,7 +617,7 @@ describe("contextMenu", () => {
 
             await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
             document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-            expect(contextMenu.isShown()).toBe(false);
+            expect(contextMenu.isShown).toBe(false);
             expect(dialogHeard).not.toHaveBeenCalled();
 
             // With no menu up, Escape is left to whatever else listens.
@@ -634,15 +634,15 @@ describe("contextMenu", () => {
 
             await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
             pressOn(app);
-            expect(contextMenu.dismissedByLastPress()).toBe(true);
+            expect(contextMenu.dismissedByLastPress).toBe(true);
 
             // Only until the click that press makes has been handled.
             click();
-            await vi.waitFor(() => expect(contextMenu.dismissedByLastPress()).toBe(false));
+            await vi.waitFor(() => expect(contextMenu.dismissedByLastPress).toBe(false));
 
             // A press with no menu up put nothing away.
             pressOn(app);
-            expect(contextMenu.dismissedByLastPress()).toBe(false);
+            expect(contextMenu.dismissedByLastPress).toBe(false);
         });
     });
 
@@ -712,12 +712,12 @@ describe("contextMenu", () => {
         buildPage();
         const contextMenu = await buildContextMenu();
 
-        expect(contextMenu.isShown()).toBe(false);
+        expect(contextMenu.isShown).toBe(false);
 
         await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
-        expect(contextMenu.isShown()).toBe(true);
+        expect(contextMenu.isShown).toBe(true);
 
         await contextMenu.hide();
-        expect(contextMenu.isShown()).toBe(false);
+        expect(contextMenu.isShown).toBe(false);
     });
 });

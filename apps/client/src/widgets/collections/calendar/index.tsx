@@ -271,7 +271,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         note_tooltip.dismissAllTooltips();
 
         // The press behind this click put a context menu away, so the event does not open too.
-        if (contextMenu.dismissedByLastPress()) return;
+        if (contextMenu.dismissedByLastPress) return;
 
         const noteId = e.event.extendedProps.noteId;
         if (noteId) {
