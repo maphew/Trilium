@@ -83,6 +83,8 @@ interface MenuState<T> {
     setActive(level: number, item: NavigableItem<T>): void;
     /** Each row's element, for `aria-activedescendant` and for anchoring a submenu the keyboard opens. */
     rows: Map<NavigableItem<T>, HTMLElement>;
+    /** Whether the keys moved the menu since the pointer last did. */
+    keyboardDriven: boolean;
 }
 
 export default function Menu<T>({ id, className, x, y, orientation, bottomSheet, startAtFirstRow, items, onSelect, onClose }: MenuProps<T>) {
@@ -109,7 +111,8 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
         rows.get(item)?.scrollIntoView?.({ block: "nearest" });
     }, [ rows ]);
     const state: MenuState<T> = {
-        onSelect, onClose, openSubmenu, openItems: submenus.map((submenu) => submenu.item), active, setActive, rows
+        onSelect, onClose, openSubmenu, openItems: submenus.map((submenu) => submenu.item), active, setActive, rows,
+        keyboardDriven
     };
 
     // After the commit: a submenu's rows register their elements only as they mount.
@@ -278,7 +281,9 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
             ref={menuRef} id={id} role="menu" tabIndex={-1}
             className={clsx("dropdown-menu show tn-menu", bottomSheet && "mobile-bottom-menu",
                 keyboardDriven && "tn-menu-keyboard", className)}
-            onPointerMove={() => setKeyboardDriven(false)}
+            onPointerMove={(e) => {
+                if (pointerMoved(e)) setKeyboardDriven(false);
+            }}
             // Neither the browser's menu nor another of the app's opens over this one. Every level
             // is inside this element, so one handler covers them all.
             onContextMenu={(e) => {
@@ -411,11 +416,15 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
             aria-disabled={disabled || undefined}
             aria-haspopup={hasSubmenu ? "menu" : undefined}
             aria-expanded={hasSubmenu ? open : undefined}
-            onPointerEnter={onPointed}
+            // While the keys drive the menu, a row entered by a pointer at rest, as when the menu
+            // appears under it, keeps the keys' row. See `pointerMoved`.
+            onPointerEnter={(e) => {
+                if (!state.keyboardDriven) onPointed(e);
+            }}
             // The keys can move the active row from under a pointer at rest, whose `:hover` would
             // then mark a second row. The next move of the pointer makes its row the active one.
             onPointerMove={(e) => {
-                if (!active) onPointed(e);
+                if (!active && pointerMoved(e)) onPointed(e);
             }}
             // `mousedown` rather than `click`, and its default prevented, so the press does not move
             // focus out of the menu: `contextMenu` hands it back to a text editor before the command
@@ -527,6 +536,15 @@ export function rowInNextColumn(
 /** The rows the keyboard can reach: those that run something, and are enabled. */
 function runnableRows<T>(items: MenuItem<T>[]) {
     return menuRows(items).filter(isRunnable);
+}
+
+/**
+ * Whether the pointer really moved. A menu appearing under a pointer at rest has the browser enter
+ * the row there, and Chromium follow with a `pointermove` that goes nowhere; neither is the user
+ * turning to the pointer.
+ */
+function pointerMoved(e: PointerEvent) {
+    return e.movementX !== 0 || e.movementY !== 0;
 }
 
 function isRunnable<T>(row: MenuItem<T>): row is MenuCommandItem<T> {

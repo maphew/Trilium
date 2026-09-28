@@ -668,6 +668,20 @@ describe("contextMenu", () => {
             // Keyed from the start, so a pointer resting on another row does not mark it too.
             expect(menuElement()?.classList.contains("tn-menu-keyboard")).toBe(true);
 
+            // A menu appearing under a pointer at rest has the browser enter the row there, and
+            // Chromium follow with a move that goes nowhere. Neither takes the active row.
+            const paste = [ ...menuElement()?.querySelectorAll<HTMLElement>("li.dropdown-item") ?? [] ]
+                .find((row) => row.textContent === "Paste");
+            paste?.dispatchEvent(new PointerEvent("pointerenter"));
+            paste?.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+            await new Promise((resolve) => setTimeout(resolve));
+            expect(activeRow()).toBe("Cut");
+            expect(menuElement()?.classList.contains("tn-menu-keyboard")).toBe(true);
+            // A move that goes somewhere hands the menu to the pointer.
+            paste?.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, movementX: 3 }));
+            await vi.waitFor(() => expect(activeRow()).toBe("Paste"));
+            expect(menuElement()?.classList.contains("tn-menu-keyboard")).toBe(false);
+
             // A press opens it with nothing active, for the pointer to choose.
             document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 2 }));
             await show();
@@ -873,7 +887,7 @@ describe("contextMenu", () => {
             expect(menuElement()?.classList.contains("tn-menu-keyboard")).toBe(true);
 
             // The slightest move makes the row under the pointer the active one again.
-            paste?.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+            paste?.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, movementY: 1 }));
             await vi.waitFor(() => expect(activeRow()).toBe("Paste"));
             expect(menuElement()?.classList.contains("tn-menu-keyboard")).toBe(false);
         });
