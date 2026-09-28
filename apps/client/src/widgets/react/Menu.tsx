@@ -28,6 +28,8 @@ export interface MenuProps<T> {
      * {@link y}. The `.mobile-bottom-menu` rules place and cap it.
      */
     bottomSheet?: boolean;
+    /** Makes the first row the active one as the menu takes focus, for a menu a key opened. */
+    startAtFirstRow?: boolean;
     items: MenuItem<T>[];
     /** Called when an item is pressed with the primary button, or run from the keyboard. */
     onSelect(item: MenuCommandItem<T>, e: MouseEvent | KeyboardEvent): void;
@@ -83,7 +85,7 @@ interface MenuState<T> {
     rows: Map<NavigableItem<T>, HTMLElement>;
 }
 
-export default function Menu<T>({ id, className, x, y, orientation, bottomSheet, items, onSelect, onClose }: MenuProps<T>) {
+export default function Menu<T>({ id, className, x, y, orientation, bottomSheet, startAtFirstRow, items, onSelect, onClose }: MenuProps<T>) {
     const menuRef = useRef<HTMLDivElement>(null);
     const [ submenus, setSubmenus ] = useState<OpenSubmenu<T>[]>([]);
     const nextKey = useRef(0);
@@ -145,12 +147,17 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
         return () => window.removeEventListener("keydown", listener, true);
     }, []);
 
-    function onKeyDown(e: KeyboardEvent) {
-        const level = active?.level ?? 0;
-        const levelRows = menuRows(level === 0 ? items : submenus[level - 1]?.item.items ?? [])
+    /** The rows the keys can stand on at `level`: those that run something, and custom rows with something to focus. */
+    function navigableRows(level: number) {
+        return menuRows(level === 0 ? items : submenus[level - 1]?.item.items ?? [])
             .filter((row): row is NavigableItem<T> => isCustom(row)
                 ? !!focusTarget(rows.get(row))
                 : isRunnable(row));
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+        const level = active?.level ?? 0;
+        const levelRows = navigableRows(level);
         const index = active ? levelRows.indexOf(active.item) : -1;
         const count = levelRows.length;
         // A submenu goes with its row's highlight, as in a native menu, until Right opens it again.
@@ -241,7 +248,13 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
         // The keys go to the menu while it is up; `contextMenu` gives focus back once it is hidden.
         // A browser does not focus an element under `visibility: hidden`, so the menu takes focus
         // only once it is shown.
-        const takeFocus = () => menu.focus({ preventScroll: true });
+        const takeFocus = () => {
+            menu.focus({ preventScroll: true });
+            if (!startAtFirstRow) return;
+            const first = navigableRows(0)[0];
+            if (first) setActive(0, first);
+            setKeyboardDriven(true);
+        };
         if (bottomSheet) {
             // An inline `max-height` would override the sheet's own, which is not `!important`.
             menu.style.visibility = "visible";

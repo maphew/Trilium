@@ -89,6 +89,11 @@ class ContextMenu {
     /** What had focus before the menu took it, and gets it back once the menu is hidden. */
     private focusBeforeShow: Element | null = null;
     private restoreModalFocusTraps?: () => void;
+    /**
+     * Whether a key came after the last press. A menu opened then was opened by a key, such as the
+     * Menu key or Shift+F10, as callers pass no event to tell by.
+     */
+    private lastInputWasKey = false;
 
     constructor() {
         this.cover = utils.isMobile() ? document.getElementById("context-menu-cover") : null;
@@ -97,6 +102,7 @@ class ContextMenu {
         // keep them from here. `pointerdown` covers every button, including a Ctrl+right-click
         // that fires no `click`, and a tap on the mobile cover.
         document.addEventListener("pointerdown", (e) => {
+            this.lastInputWasKey = false;
             const outside = this.isShown && !this.host?.contains(e.target as Node);
             this.pressDismissed = outside;
             if (outside) void this.hide();
@@ -106,6 +112,7 @@ class ContextMenu {
             setTimeout(() => this.pressDismissed = false);
         }, true);
         document.addEventListener("keydown", (e) => {
+            this.lastInputWasKey = true;
             // Inside the menu, `Menu` closes one level at a time.
             if (e.key !== "Escape" || !this.isShown || this.host?.contains(e.target as Node)) return;
             // A dialog under the menu stays open.
@@ -142,6 +149,8 @@ class ContextMenu {
             y: options.y,
             orientation: options.orientation,
             bottomSheet: utils.isMobile() && !options.forcePositionOnMobile,
+            // As a native menu opened from the keyboard, it starts at its first row.
+            startAtFirstRow: this.lastInputWasKey,
             items: options.items,
             onSelect: (item, e) => {
                 // A submenu's row stays up to be opened, unless it runs something of its own.

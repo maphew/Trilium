@@ -656,6 +656,25 @@ describe("contextMenu", () => {
             focusTraps.restore.mockClear();
         });
 
+        it("starts at its first row when a key opened it, as the Menu key or Shift+F10 does", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            const show = () => contextMenu.show({ x: 10, y: 10, items: keyboardItems, selectMenuItemHandler: () => {} });
+
+            // The key that opens it comes first, then the `contextmenu` event its caller answers.
+            document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "ContextMenu", bubbles: true }));
+            await show();
+            await vi.waitFor(() => expect(activeRow()).toBe("Cut"));
+            // Keyed from the start, so a pointer resting on another row does not mark it too.
+            expect(menuElement()?.classList.contains("tn-menu-keyboard")).toBe(true);
+
+            // A press opens it with nothing active, for the pointer to choose.
+            document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 2 }));
+            await show();
+            await vi.waitFor(() => expect(document.activeElement).toBe(menuElement()));
+            expect(activeRow()).toBeNull();
+        });
+
         it("takes focus while it is up, gives it back once hidden, and holds off the modals' focus traps meanwhile", async () => {
             // A browser does not focus an element under `visibility: hidden`, which `Menu.css`
             // keeps the menu under until it is placed. happy-dom loads no stylesheet and focuses it
