@@ -67,6 +67,11 @@
             "groupName": "codemirror themes"
         },
         {
+            "description": "The CodeMirror and Lezer runtimes are pinned together in the pnpm-workspace.yaml overrides, and a partial bump leaves two copies of a singleton in the tree",
+            "matchPackageNames": ["@codemirror/**", "@lezer/**"],
+            "groupName": "codemirror"
+        },
+        {
             "matchPackageNames": "**-config-ckeditor5",
             "groupName": "ckeditor5 config packages"
         },
