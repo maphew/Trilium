@@ -7,3 +7,19 @@
     visibility: hidden;
     overflow-y: auto;
 }
+
+/* A submenu is placed by `placeMenu()`, not beside a parent it is nested in. */
+.dropdown-submenu > .dropdown-menu.tn-menu {
+    inset: 0 auto auto 0;
+    margin: 0;
+}
+
+/* The pointer leaves the row for its submenu, so the row stays marked while the submenu is open. */
+body.desktop .dropdown-item.dropdown-submenu.submenu-open {
+    color: var(--hover-item-text-color);
+    background-color: var(--hover-item-background-color);
+}
+
+.tn-menu-columns {
+    column-rule: inherit;
+}

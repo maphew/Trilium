@@ -6,6 +6,11 @@ vi.mock("../services/keyboard_actions", () => ({
         effectiveShortcuts: name === "copyNotesToClipboard" ? [ "Ctrl+C", "Ctrl+Insert" ] : []
     })
 }));
+const layout = vi.hoisted(() => ({ onMobile: false }));
+vi.mock("../services/utils", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../services/utils")>()),
+    isMobile: () => layout.onMobile
+}));
 // Key names are translated; the formatting has specs of its own.
 vi.mock("../services/keyboard_shortcut_display", () => ({
     formatShortcut: (shortcut: string) => shortcut.split("+"),
@@ -304,6 +309,165 @@ describe("contextMenu", () => {
             expect(contextMenu.isShown()).toBe(false);
             // The press does not move focus, so a text editor keeps its selection for the command.
             expect(press.defaultPrevented).toBe(true);
+        });
+    });
+
+    describe("submenus", () => {
+        const noteTypes = [ { title: "Text" }, { title: "Code" } ];
+        const templates = [ { title: "Meeting", items: [ { title: "Weekly" } ] } ];
+        const submenuItems = [
+            { title: "Copy" },
+            { title: "Insert child note", command: "insertChildNote", items: noteTypes },
+            { title: "Templates", items: templates }
+        ];
+
+        async function openMenu(onSelect: (title: string) => void = () => {}) {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            await contextMenu.show({
+                x: 10, y: 10, items: submenuItems,
+                selectMenuItemHandler: (item) => onSelect(String(item.title))
+            });
+            return contextMenu;
+        }
+
+        /** The row titled `title`, read off its own line: a row's text also holds its submenu's. */
+        function row(title: string) {
+            const found = [ ...document.querySelectorAll<HTMLElement>("li.dropdown-item") ]
+                .find((item) => item.querySelector(":scope > span")?.textContent === title);
+            if (!found) throw new Error(`expected a row titled ${title}`);
+            return found;
+        }
+
+        /** The submenu layers standing open, each as the titles of its rows. */
+        function layers() {
+            return [ ...menuElement()?.querySelectorAll(":scope > div.dropdown-submenu > ul.dropdown-menu") ?? [] ]
+                .map((layer) => [ ...layer.querySelectorAll(":scope > li") ].map((item) => item.textContent));
+        }
+
+        const hover = (element: HTMLElement) => element.dispatchEvent(new PointerEvent("pointerenter"));
+        const press = (element: HTMLElement) =>
+            element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+
+        afterEach(() => {
+            layout.onMobile = false;
+            vi.restoreAllMocks();
+        });
+
+        it("opens a layer of its own for each level, beside the row it opens from", async () => {
+            await openMenu();
+            const parent = row("Templates");
+            // The arrow the theme draws, and the markup its submenu rules expect.
+            expect(parent.classList.contains("dropdown-submenu")).toBe(true);
+            expect(parent.querySelector(":scope > span")?.classList.contains("dropdown-toggle")).toBe(true);
+            expect(layers()).toEqual([]);
+
+            hover(parent);
+            await vi.waitFor(() => expect(layers()).toEqual([ [ "Meeting" ] ]));
+            expect(parent.classList.contains("submenu-open")).toBe(true);
+
+            hover(row("Meeting"));
+            // Each level stands beside the others, none nested in another's scrolling box.
+            await vi.waitFor(() => expect(layers()).toEqual([ [ "Meeting" ], [ "Weekly" ] ]));
+
+            // Pointing at another row of the root closes both.
+            hover(row("Copy"));
+            await vi.waitFor(() => expect(layers()).toEqual([]));
+            expect(parent.classList.contains("submenu-open")).toBe(false);
+        });
+
+        it("places a layer beside its row, flipped where it does not fit, and hides it while its row is scrolled away", async () => {
+            vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1000);
+            vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
+            // Only the layer: a size unlike its rect would read to Floating UI as a CSS scale.
+            vi.spyOn(HTMLUListElement.prototype, "offsetWidth", "get").mockReturnValue(150);
+            vi.spyOn(HTMLUListElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+            await openMenu();
+            const root = menuElement();
+            if (!root) throw new Error("expected the menu to render");
+            // happy-dom loads no stylesheet, so the menu is made to scroll as `Menu.css` makes it.
+            root.style.overflowY = "auto";
+            vi.spyOn(root, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 1000, height: 300 }));
+            // Floating UI clips to a scrolling ancestor's client box, which happy-dom leaves at 0.
+            vi.spyOn(root, "clientWidth", "get").mockReturnValue(1000);
+            vi.spyOn(root, "clientHeight", "get").mockReturnValue(300);
+            const parent = row("Templates");
+            let rowRect = DOMRect.fromRect({ x: 10, y: 100, width: 200, height: 24 });
+            vi.spyOn(parent, "getBoundingClientRect").mockImplementation(() => rowRect);
+
+            hover(parent);
+            const layer = () => menuElement()?.querySelector<HTMLElement>("div.dropdown-submenu > ul");
+            // Overlapping the row by 2px, its top at the row's.
+            await vi.waitFor(() => expect([ layer()?.style.left, layer()?.style.top ]).toEqual([ "208px", "100px" ]));
+            expect(layer()?.style.visibility).toBe("visible");
+
+            // Scrolled out of the menu's view, the row takes its submenu out of sight with it.
+            rowRect = DOMRect.fromRect({ x: 10, y: 400, width: 200, height: 24 });
+            root.dispatchEvent(new Event("scroll"));
+            await vi.waitFor(() => expect(layer()?.style.visibility).toBe("hidden"));
+
+            // Near the right edge, it opens to the row's left.
+            rowRect = DOMRect.fromRect({ x: 850, y: 100, width: 100, height: 24 });
+            root.dispatchEvent(new Event("scroll"));
+            await vi.waitFor(() => expect([ layer()?.style.left, layer()?.style.visibility ]).toEqual([ "702px", "visible" ]));
+        });
+
+        it("runs a submenu's row and closes everything, and keeps a submenu's row that only opens it", async () => {
+            const picked: string[] = [];
+            const contextMenu = await openMenu((title) => picked.push(title));
+
+            // Nothing to run, so the menu stays up with its submenu open.
+            press(row("Templates"));
+            await vi.waitFor(() => expect(layers()).toEqual([ [ "Meeting" ] ]));
+            expect(contextMenu.isShown()).toBe(true);
+
+            press(row("Meeting"));
+            await vi.waitFor(() => expect(layers()).toEqual([ [ "Meeting" ], [ "Weekly" ] ]));
+            press(row("Weekly"));
+            expect(picked).toEqual([ "Templates", "Meeting", "Weekly" ]);
+            expect(contextMenu.isShown()).toBe(false);
+
+            // A row with a command of its own runs it, like any other.
+            await openMenu((title) => picked.push(title));
+            press(row("Insert child note"));
+            expect(picked.at(-1)).toBe("Insert child note");
+        });
+
+        it("lays a submenu with columns out on an element of its own, so a capped layer scrolls them", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [ { title: "Insert child note", items: noteTypes, columns: 2 } ]
+            });
+
+            hover(row("Insert child note"));
+            await vi.waitFor(() => expect(menuElement()?.querySelector("div.dropdown-submenu > ul > .tn-menu-columns")).not.toBeNull());
+            const columns = menuElement()?.querySelector<HTMLElement>(".tn-menu-columns");
+            expect(columns?.style.columnCount).toBe("2");
+            expect(columns?.textContent).toBe("TextCode");
+        });
+
+        it("unfolds a submenu under its row on a phone", async () => {
+            layout.onMobile = true;
+            const picked: string[] = [];
+            await openMenu((title) => picked.push(title));
+            const parent = row("Templates");
+
+            hover(parent);
+            expect(layers()).toEqual([]);
+
+            press(parent);
+            await vi.waitFor(() => expect(parent.classList.contains("submenu-open")).toBe(true));
+            const nested = parent.querySelector(":scope > ul.dropdown-menu");
+            expect(nested?.classList.contains("show")).toBe(true);
+            expect(nested?.textContent).toBe("Meeting");
+            // Unfolding runs nothing.
+            expect(picked).toEqual([]);
+            expect(layers()).toEqual([]);
+
+            press(parent);
+            await vi.waitFor(() => expect(parent.classList.contains("submenu-open")).toBe(false));
         });
     });
 

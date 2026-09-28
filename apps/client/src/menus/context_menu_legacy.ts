@@ -85,12 +85,9 @@ class ContextMenu {
     private $cover?: JQuery<HTMLElement>;
     private options?: ContextMenuOptions<any>;
     private isMobile: boolean;
-    /** Where the menu stands while nothing has the screen to itself. See {@link hostInWhateverHasTheScreen}. */
-    private home: HTMLElement | null;
 
     constructor() {
         this.$widget = $("#context-menu-container");
-        this.home = this.$widget[0]?.parentElement ?? null;
         this.isMobile = utils.isMobile();
 
         if (this.isMobile) {
@@ -113,8 +110,6 @@ class ContextMenu {
             await this.hide();
         }
 
-        this.hostInWhateverHasTheScreen();
-
         this.$widget.toggleClass("mobile-bottom-menu", !this.options.forcePositionOnMobile);
         this.$cover?.addClass("show");
         $("body").addClass("context-menu-shown");
@@ -122,55 +117,6 @@ class ContextMenu {
         this.$widget.empty();
 
         this.addItems(this.$widget, options.items);
-    }
-
-    /**
-     * Puts the menu inside the element that currently has the screen to itself, and back where it
-     * belongs once nothing does.
-     *
-     * A browser showing an element fullscreen draws that element and nothing else: this menu lives at
-     * the end of the page, so over a map or a diagram given the screen (see `useFullscreen`) it was
-     * laid out, positioned and left unpainted — a right-click that appeared to do nothing at all.
-     * Moved into whatever is being shown, it is drawn as usual; it is positioned against the viewport
-     * either way, so nothing about where it lands changes.
-     */
-    private hostInWhateverHasTheScreen() {
-        const menu = this.$widget[0];
-        const host = document.fullscreenElement ?? this.home;
-        if (menu && host && menu.parentElement !== host) {
-            host.appendChild(menu);
-        }
-    }
-
-    private repositionSubmenu(submenuEl: HTMLElement) {
-        const CONTEXT_MENU_PADDING = 5;
-
-        // Reset so the natural (downward, trailing) placement is measured on every hover.
-        submenuEl.classList.remove("submenu-flip-up");
-        submenuEl.classList.remove("submenu-flip-start");
-
-        const rect = submenuEl.getBoundingClientRect();
-        const clientHeight = document.documentElement.clientHeight;
-        const clientWidth = document.documentElement.clientWidth;
-        const overflowsBottom = rect.bottom > clientHeight - CONTEXT_MENU_PADDING;
-        // Only flip up if there is actually more room above the parent than below, otherwise flipping
-        // would just clip the other end.
-        const fitsWhenFlippedUp = rect.top - rect.height >= CONTEXT_MENU_PADDING;
-
-        if (overflowsBottom && fitsWhenFlippedUp) {
-            submenuEl.classList.add("submenu-flip-up");
-        }
-
-        // The same for the side it opens on, which is the trailing one by default and the leading
-        // one in a right-to-left page. Whichever edge it runs past, the flip puts it on the other
-        // side of its parent, and only where the whole submenu fits there.
-        const fitsWhenFlippedToStart = rect.left - rect.width >= CONTEXT_MENU_PADDING;
-        const fitsWhenFlippedToEnd = rect.right + rect.width <= clientWidth - CONTEXT_MENU_PADDING;
-
-        if ((rect.right > clientWidth - CONTEXT_MENU_PADDING && fitsWhenFlippedToStart)
-                || (rect.left < CONTEXT_MENU_PADDING && fitsWhenFlippedToEnd)) {
-            submenuEl.classList.add("submenu-flip-start");
-        }
     }
 
     addItems($parent: JQuery<HTMLElement>, items: MenuItem<any>[], multicolumn = false) {
@@ -242,50 +188,8 @@ class ContextMenu {
         const $item = $("<li>")
             .addClass("dropdown-item")
             .append($link)
-            .on("contextmenu", (e) => false)
-            .on("mousedown", (e) => {
-                if (this.isMobile && "items" in item && item.items) {
-                    const $item = $(e.target).closest(".dropdown-item");
+            .on("contextmenu", (e) => false);
 
-                    $item.toggleClass("submenu-open");
-                    $item.find("ul.dropdown-menu").toggleClass("show");
-                    return false;
-                }
-
-                // A submenu's parent stays open so that it can still be expanded. One carrying a
-                // command or handler of its own is dismissed like any other item once it has run.
-                const opensSubmenu = "items" in item && !!item.items;
-                const acts = ("handler" in item && !!item.handler)
-                    || ("command" in item && !!item.command);
-                if (!opensSubmenu || acts) {
-                    this.hide();
-                }
-
-                // it's important to stop the propagation especially for sub-menus, otherwise the event
-                // might be handled again by top-level menu
-                return false;
-            });
-
-        if ("items" in item && item.items) {
-            $item.addClass("dropdown-submenu");
-            $link.addClass("dropdown-toggle");
-
-            const $subMenu = $("<ul>").addClass("dropdown-menu");
-            const hasColumns = !!item.columns && item.columns > 1;
-            if (!this.isMobile && hasColumns) {
-                $subMenu.css("column-count", item.columns!);
-            }
-
-            this.addItems($subMenu, item.items, hasColumns);
-
-            $item.append($subMenu);
-
-            // Submenus open downward by default (CSS `:hover`); flip them up when the parent item sits
-            // near the bottom of the viewport, otherwise the submenu would be clipped off-screen.
-            if (!this.isMobile) {
-                $item.on("mouseenter", () => this.repositionSubmenu($subMenu[0]));
-            }
-        }
         return $item;
     }
 

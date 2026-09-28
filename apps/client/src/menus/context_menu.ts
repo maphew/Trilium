@@ -120,7 +120,8 @@ class ContextMenu {
             orientation: options.orientation,
             items: options.items,
             onSelect: (item, e) => {
-                void this.hide();
+                // A submenu's row stays up to be opened, unless it runs something of its own.
+                if (!item.items || item.handler || item.command) void this.hide();
                 item.handler?.(item, e);
                 options.selectMenuItemHandler(item, e);
             },

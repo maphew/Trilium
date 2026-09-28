@@ -1,11 +1,12 @@
 import "./Menu.css";
 
-import { autoUpdate, computePosition, flip, type Placement, shift, size, type VirtualElement } from "@floating-ui/dom";
+import { autoUpdate, computePosition, flip, hide, offset, type Placement, type ReferenceElement, shift, size, type VirtualElement } from "@floating-ui/dom";
 import clsx from "clsx";
-import { useLayoutEffect, useRef } from "preact/hooks";
+import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import { getActionSync } from "../../services/keyboard_actions";
+import { handleRightToLeftPlacement, isMobile } from "../../services/utils";
 import { joinElements } from "./react_utils";
 import { renderShortcutKbds } from "./shortcut_kbd";
 
@@ -32,8 +33,40 @@ export interface MenuProps<T> {
 /** How many pixels the menu keeps from the edges of the viewport. */
 const VIEWPORT_PADDING = 5;
 
+/** A submenu standing open, and the row it opened from. */
+interface OpenSubmenu<T> {
+    item: MenuCommandItem<T>;
+    anchor: HTMLElement;
+    /** Remounts the layer when another submenu replaces it at the same level. */
+    key: number;
+}
+
+/** What every level of the menu shares. */
+interface MenuState<T> {
+    onSelect: MenuProps<T>["onSelect"];
+    onClose: MenuProps<T>["onClose"];
+    /**
+     * Opens `item`'s submenu at `level`, closing whatever stood open at that level and deeper, or
+     * without an item only closes them.
+     */
+    openSubmenu(level: number, item?: MenuCommandItem<T>, anchor?: HTMLElement): void;
+    /** The item whose submenu stands open at each level. */
+    openItems: MenuCommandItem<T>[];
+}
+
 export default function Menu<T>({ id, className, x, y, orientation, items, onSelect, onClose }: MenuProps<T>) {
     const menuRef = useRef<HTMLDivElement>(null);
+    const [ submenus, setSubmenus ] = useState<OpenSubmenu<T>[]>([]);
+    const nextKey = useRef(0);
+
+    const openSubmenu = useCallback((level: number, item?: MenuCommandItem<T>, anchor?: HTMLElement) => {
+        setSubmenus((open) => {
+            if (item ? open[level]?.item === item : open.length <= level) return open;
+            const kept = open.slice(0, level);
+            return item && anchor ? [ ...kept, { item, anchor, key: nextKey.current++ } ] : kept;
+        });
+    }, []);
+    const state: MenuState<T> = { onSelect, onClose, openSubmenu, openItems: submenus.map((submenu) => submenu.item) };
 
     useLayoutEffect(() => {
         const menu = menuRef.current;
@@ -47,37 +80,103 @@ export default function Menu<T>({ id, className, x, y, orientation, items, onSel
 
     return (
         <div ref={menuRef} id={id} className={clsx("dropdown-menu show tn-menu", className)} role="menu">
-            {menuRows(items).map((row, index) => {
-                if (!("kind" in row)) return <MenuRow key={index} item={row} onSelect={onSelect} />;
-                if (row.kind === "separator") return <div key={index} className="dropdown-divider" role="separator" />;
-                if (row.kind === "header") return <h6 key={index} className="dropdown-header">{row.title}</h6>;
-                return (
-                    <li key={index} className="dropdown-custom-item" onClick={onClose}>
-                        <row.componentFn />
-                    </li>
-                );
-            })}
+            <MenuList level={0} items={items} state={state} />
+            {/* Inside the menu, so the rules scoped to it apply, but none inside another: a fixed
+                layer escapes a scrolling menu only while no ancestor carries a filter. */}
+            {submenus.map((submenu, index) => (
+                <SubmenuLayer key={submenu.key} level={index + 1} submenu={submenu} state={state} />
+            ))}
         </div>
     );
 }
 
-function MenuRow<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect: MenuProps<T>["onSelect"] }) {
+/**
+ * A submenu opened on the desktop, placed beside the row it opened from rather than nested in it,
+ * so a scrolling menu neither clips it nor scrolls it away.
+ */
+function SubmenuLayer<T>({ level, submenu, state }: { level: number, submenu: OpenSubmenu<T>, state: MenuState<T> }) {
+    const layerRef = useRef<HTMLUListElement>(null);
+    const columns = (submenu.item.columns ?? 1) > 1 ? submenu.item.columns : undefined;
+    const items = submenu.item.items ?? [];
+
+    useLayoutEffect(() => {
+        const layer = layerRef.current;
+        if (!layer) return;
+
+        const placement = handleRightToLeftPlacement("right") === "right" ? "right-start" : "left-start";
+        return autoUpdate(submenu.anchor, layer, () => void placeMenu(layer, submenu.anchor, placement, true));
+    }, [ submenu.anchor ]);
+
+    // In a `.dropdown-submenu`, so the theme's submenu rules apply.
+    return (
+        <div className="dropdown-submenu">
+            <ul ref={layerRef} className="dropdown-menu show tn-menu" role="menu">
+                {columns
+                    // The columns go on an inner element of their full height, so a capped menu
+                    // scrolls them rather than growing more columns to the side.
+                    ? (
+                        <div className="tn-menu-columns" style={{ columnCount: columns }}>
+                            <MenuList level={level} items={items} state={state} />
+                        </div>
+                    )
+                    : <MenuList level={level} items={items} state={state} />}
+            </ul>
+        </div>
+    );
+}
+
+function MenuList<T>({ level, items, state }: { level: number, items: MenuItem<T>[], state: MenuState<T> }) {
+    return <>
+        {menuRows(items).map((row, index) => {
+            if (!("kind" in row)) return <MenuRow key={index} level={level} item={row} state={state} />;
+            if (row.kind === "separator") return <div key={index} className="dropdown-divider" role="separator" />;
+            if (row.kind === "header") return <h6 key={index} className="dropdown-header">{row.title}</h6>;
+            return (
+                <li key={index} className="dropdown-custom-item" onClick={state.onClose}>
+                    <row.componentFn />
+                </li>
+            );
+        })}
+    </>;
+}
+
+function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandItem<T>, state: MenuState<T> }) {
     const disabled = item.enabled === false;
+    const hasSubmenu = !!item.items;
+    // A phone has no room beside the menu, so a submenu unfolds under its row instead.
+    const [ unfolded, setUnfolded ] = useState(false);
+    const open = isMobile() ? unfolded : state.openItems[level] === item;
 
     return (
         <li
-            className={clsx("dropdown-item", disabled && "disabled", item.className)}
+            className={clsx("dropdown-item", hasSubmenu && "dropdown-submenu", open && "submenu-open",
+                disabled && "disabled", item.className)}
             role="menuitem"
             aria-disabled={disabled || undefined}
+            aria-haspopup={hasSubmenu ? "menu" : undefined}
+            aria-expanded={hasSubmenu ? open : undefined}
+            onPointerEnter={(e) => {
+                if (isMobile()) return;
+                state.openSubmenu(level, hasSubmenu && !disabled ? item : undefined, e.currentTarget);
+            }}
             // `mousedown` rather than `click`, and its default prevented, so the press does not move
             // focus: a text editor keeps the selection that commands such as a spelling fix act on.
             onMouseDown={(e) => {
                 if (e.button !== 0) return;
                 e.preventDefault();
-                if (!disabled) onSelect(item, e);
+                // An unfolded row holds its submenu's rows, whose presses would reach it too.
+                e.stopPropagation();
+                if (disabled) return;
+
+                if (hasSubmenu && isMobile()) {
+                    setUnfolded(!unfolded);
+                    return;
+                }
+                if (hasSubmenu) state.openSubmenu(level, item, e.currentTarget);
+                state.onSelect(item, e);
             }}
         >
-            <span>
+            <span className={hasSubmenu ? "dropdown-toggle" : undefined}>
                 <MenuIconSlot item={item} />
                 <span className="tn-menu-gap" />
                 {/* Callers pass HTML: titles escaped with `escapeHtml()` or boxed by `menuName()`. */}
@@ -88,6 +187,11 @@ function MenuRow<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect: Me
                 <MenuShortcut item={item} />
                 {item.trailingIcon && <span className={clsx(item.trailingIcon, "tn-icon", "menu-trailing-icon")} />}
             </span>
+            {hasSubmenu && isMobile() && (
+                <ul className={clsx("dropdown-menu", unfolded && "show")} role="menu">
+                    {unfolded && <MenuList level={level + 1} items={item.items ?? []} state={state} />}
+                </ul>
+            )}
         </li>
     );
 }
@@ -142,14 +246,22 @@ function isSeparator<T>(item: MenuItem<T>) {
  * Positions `menu` beside `anchor`, preferring `placement` and then the placements that mirror it,
  * the way a native menu opens above or to the left of a pointer that is near the viewport's edge.
  * The menu stays hidden until it is placed, so it never paints at a stale position.
+ *
+ * A submenu overlaps its row by 2px, so the pointer crosses no gap on its way over, and lines its
+ * first row up with that row. It is hidden while its row is scrolled out of its menu's view.
  */
-async function placeMenu(menu: HTMLElement, anchor: VirtualElement, placement: Placement) {
+async function placeMenu(menu: HTMLElement, anchor: ReferenceElement, placement: Placement, isSubmenu = false) {
     const [ side ] = placement.split("-");
     const otherSide = side === "left" ? "right" : "left";
-    const { x, y } = await computePosition(anchor, menu, {
+    const { x, y, middlewareData } = await computePosition(anchor, menu, {
         strategy: "fixed",
         placement,
         middleware: [
+            isSubmenu && offset(({ elements }) => {
+                const style = getComputedStyle(elements.floating);
+                const inset = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.borderTopWidth) || 0);
+                return { mainAxis: -2, crossAxis: -inset };
+            }),
             flip({
                 fallbackPlacements: [ `${otherSide}-start`, `${side}-end`, `${otherSide}-end` ] as Placement[],
                 padding: VIEWPORT_PADDING
@@ -161,13 +273,14 @@ async function placeMenu(menu: HTMLElement, anchor: VirtualElement, placement: P
                 apply({ availableHeight }) {
                     menu.style.maxHeight = `${availableHeight}px`;
                 }
-            })
+            }),
+            isSubmenu && hide({ strategy: "referenceHidden" })
         ]
     });
 
     menu.style.left = `${x}px`;
     menu.style.top = `${y}px`;
-    menu.style.visibility = "visible";
+    menu.style.visibility = middlewareData.hide?.referenceHidden ? "hidden" : "visible";
 }
 
 /** A zero-size anchor at a point in the viewport, such as where a right-click landed. */
