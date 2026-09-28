@@ -1667,9 +1667,9 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     background: rgba(0, 0, 0, 0.1);
 }
 
+/* Only hosts the rendered `.tn-menu`, so it takes no part in the page's layout. */
 #context-menu-container {
-    max-height: 100vh;
-    /* !!! Cannot set overflow: auto, submenus will break !!! */
+    display: contents;
 }
 
 body.mobile #context-menu-container.mobile-bottom-menu {
@@ -1701,7 +1701,6 @@ body.mobile .dropdown-submenu > .dropdown-menu {
     max-height: none;
 }
 
-#context-menu-container,
 #context-menu-container .dropdown-menu,
 .tabulator-popup-container {
     padding: 3px 0;

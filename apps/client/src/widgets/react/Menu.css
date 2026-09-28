@@ -1,0 +1,23 @@
+.tn-menu {
+    position: fixed;
+    /* Matches the z-index the context menu had, above dialogs and floating panels. */
+    z-index: 2000;
+    min-width: 10rem;
+    padding: var(--menu-padding-size);
+    border: 1px solid var(--dropdown-border-color);
+    border-radius: var(--dropdown-border-radius);
+    background: var(--menu-background-color);
+    color: var(--menu-text-color);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, var(--dropdown-shadow-opacity));
+    font-size: 0.9rem;
+
+    /* The blur sits on a pseudo-element: on the menu itself it blurs nothing over note content. */
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        border-radius: inherit;
+        backdrop-filter: var(--dropdown-backdrop-filter);
+    }
+}

@@ -2,10 +2,9 @@ import { KeyboardActionNames } from "@triliumnext/commons";
 import { Tooltip } from "bootstrap";
 import { h, JSX, render } from "preact";
 
-import keyboardActionService, { getActionSync } from "../services/keyboard_actions.js";
-import { formatShortcut, joinShortcut } from "../services/keyboard_shortcut_display.js";
 import note_tooltip from "../services/note_tooltip.js";
 import utils from "../services/utils.js";
+import Menu from "../widgets/react/Menu";
 
 export interface ContextMenuOptions<T> {
     x: number;
@@ -80,385 +79,73 @@ export type MenuHandler<T> = (item: MenuCommandItem<T>, e: JQuery.MouseDownEvent
 export type ContextMenuEvent = PointerEvent | MouseEvent | JQuery.ContextMenuEvent;
 
 class ContextMenu {
-    private $widget: JQuery<HTMLElement>;
-    private $cover?: JQuery<HTMLElement>;
-    private options?: ContextMenuOptions<any>;
-    private isMobile: boolean;
+    private readonly container: HTMLElement | null;
+    private readonly cover: HTMLElement | null;
     /** Where the menu stands while nothing has the screen to itself. See {@link hostInWhateverHasTheScreen}. */
-    private home: HTMLElement | null;
+    private readonly home: HTMLElement | null;
+    private options?: ContextMenuOptions<any>;
 
     constructor() {
-        this.$widget = $("#context-menu-container");
-        this.$widget.addClass("dropend");
-        this.home = this.$widget[0]?.parentElement ?? null;
-        this.isMobile = utils.isMobile();
+        this.container = document.getElementById("context-menu-container");
+        this.home = this.container?.parentElement ?? null;
+        this.cover = utils.isMobile() ? document.getElementById("context-menu-cover") : null;
 
-        if (this.isMobile) {
-            this.$cover = $("#context-menu-cover");
-            this.$cover.on("click", () => this.hide());
+        if (this.cover) {
+            this.cover.addEventListener("click", () => this.hide());
         } else {
-            $(document).on("click", (e) => this.hide());
+            document.addEventListener("click", () => this.hide());
         }
     }
 
     async show<T>(options: ContextMenuOptions<T>) {
-        this.options = options;
-
         note_tooltip.dismissAllTooltips();
         hideShownTooltips();
 
-        if (this.$widget.hasClass("show")) {
-            // The menu is already visible. Hide the menu then open it again
-            // at the new location to re-trigger the opening animation.
+        if (this.isShown()) {
+            // Unmount first so the menu opens fresh at the new location.
             await this.hide();
         }
 
-        this.hostInWhateverHasTheScreen();
+        if (!this.container) return;
 
-        this.$widget.toggleClass("mobile-bottom-menu", !this.options.forcePositionOnMobile);
-        this.$cover?.addClass("show");
-        $("body").addClass("context-menu-shown");
+        this.options = options;
+        this.hostInWhateverHasTheScreen(this.container);
+        this.cover?.classList.add("show");
+        document.body.classList.add("context-menu-shown");
 
-        this.$widget.empty();
-
-        this.addItems(this.$widget, options.items);
-
-        keyboardActionService.updateDisplayedShortcuts(this.$widget);
-
-        this.positionMenu();
+        render(h(Menu, { x: options.x, y: options.y }), this.container);
     }
 
     /**
      * Puts the menu inside the element that currently has the screen to itself, and back where it
-     * belongs once nothing does.
-     *
-     * A browser showing an element fullscreen draws that element and nothing else: this menu lives at
-     * the end of the page, so over a map or a diagram given the screen (see `useFullscreen`) it was
-     * laid out, positioned and left unpainted — a right-click that appeared to do nothing at all.
-     * Moved into whatever is being shown, it is drawn as usual; it is positioned against the viewport
-     * either way, so nothing about where it lands changes.
+     * belongs once nothing does. A browser showing an element fullscreen paints only that element,
+     * so a menu outside it would never appear.
      */
-    private hostInWhateverHasTheScreen() {
-        const menu = this.$widget[0];
+    private hostInWhateverHasTheScreen(container: HTMLElement) {
         const host = document.fullscreenElement ?? this.home;
-        if (menu && host && menu.parentElement !== host) {
-            host.appendChild(menu);
+        if (host && container.parentElement !== host) {
+            host.appendChild(container);
         }
-    }
-
-    positionMenu() {
-        if (!this.options) {
-            return;
-        }
-
-        // the code below tries to detect when dropdown would overflow from page
-        // in such case we'll position it above click coordinates, so it will fit into the client
-
-        const CONTEXT_MENU_PADDING = 5; // How many pixels to pad the context menu from edge of screen
-        const CONTEXT_MENU_OFFSET = 0; // How many pixels to offset the context menu by relative to cursor, see #3157
-
-        const clientHeight = document.documentElement.clientHeight;
-        const clientWidth = document.documentElement.clientWidth;
-        const contextMenuHeight = this.$widget.outerHeight();
-        const contextMenuWidth = this.$widget.outerWidth();
-        let top, left;
-
-        if (contextMenuHeight && this.options.y + contextMenuHeight - CONTEXT_MENU_OFFSET > clientHeight - CONTEXT_MENU_PADDING) {
-            // Overflow: bottom
-            top = clientHeight - contextMenuHeight - CONTEXT_MENU_PADDING;
-        } else if (this.options.y - CONTEXT_MENU_OFFSET < CONTEXT_MENU_PADDING) {
-            // Overflow: top
-            top = CONTEXT_MENU_PADDING;
-        } else {
-            top = this.options.y - CONTEXT_MENU_OFFSET;
-        }
-
-        if (this.options.orientation === "left" && contextMenuWidth) {
-            if (this.options.x + CONTEXT_MENU_OFFSET > clientWidth - CONTEXT_MENU_PADDING) {
-                // Overflow: right
-                left = clientWidth - contextMenuWidth - CONTEXT_MENU_OFFSET;
-            } else if (this.options.x - contextMenuWidth + CONTEXT_MENU_OFFSET < CONTEXT_MENU_PADDING) {
-                // Overflow: left
-                left = CONTEXT_MENU_PADDING;
-            } else {
-                left = this.options.x - contextMenuWidth + CONTEXT_MENU_OFFSET;
-            }
-        } else if (contextMenuWidth && this.options.x + contextMenuWidth - CONTEXT_MENU_OFFSET > clientWidth - CONTEXT_MENU_PADDING) {
-            // Overflow: right
-            left = clientWidth - contextMenuWidth - CONTEXT_MENU_PADDING;
-        } else if (this.options.x - CONTEXT_MENU_OFFSET < CONTEXT_MENU_PADDING) {
-            // Overflow: left
-            left = CONTEXT_MENU_PADDING;
-        } else {
-            left = this.options.x - CONTEXT_MENU_OFFSET;
-        }
-
-        this.$widget
-            .css({
-                display: "block",
-                top,
-                left
-            })
-            .addClass("show");
-    }
-
-    private repositionSubmenu(submenuEl: HTMLElement) {
-        const CONTEXT_MENU_PADDING = 5;
-
-        // Reset so the natural (downward, trailing) placement is measured on every hover.
-        submenuEl.classList.remove("submenu-flip-up");
-        submenuEl.classList.remove("submenu-flip-start");
-
-        const rect = submenuEl.getBoundingClientRect();
-        const clientHeight = document.documentElement.clientHeight;
-        const clientWidth = document.documentElement.clientWidth;
-        const overflowsBottom = rect.bottom > clientHeight - CONTEXT_MENU_PADDING;
-        // Only flip up if there is actually more room above the parent than below, otherwise flipping
-        // would just clip the other end.
-        const fitsWhenFlippedUp = rect.top - rect.height >= CONTEXT_MENU_PADDING;
-
-        if (overflowsBottom && fitsWhenFlippedUp) {
-            submenuEl.classList.add("submenu-flip-up");
-        }
-
-        // The same for the side it opens on, which is the trailing one by default and the leading
-        // one in a right-to-left page. Whichever edge it runs past, the flip puts it on the other
-        // side of its parent, and only where the whole submenu fits there.
-        const fitsWhenFlippedToStart = rect.left - rect.width >= CONTEXT_MENU_PADDING;
-        const fitsWhenFlippedToEnd = rect.right + rect.width <= clientWidth - CONTEXT_MENU_PADDING;
-
-        if ((rect.right > clientWidth - CONTEXT_MENU_PADDING && fitsWhenFlippedToStart)
-                || (rect.left < CONTEXT_MENU_PADDING && fitsWhenFlippedToEnd)) {
-            submenuEl.classList.add("submenu-flip-start");
-        }
-    }
-
-    addItems($parent: JQuery<HTMLElement>, items: MenuItem<any>[], multicolumn = false) {
-        let $group = $parent; // The current group or parent element to which items are being appended
-        let shouldStartNewGroup = false; // If true, the next item will start a new group
-        let shouldResetGroup = false; // If true, the next item will be the last one from the group
-        let prevItemKind: string = "";
-
-        for (let index = 0; index < items.length; index++) {
-            const item = items[index];
-            const itemKind = ("kind" in item) ? item.kind : "";
-
-            if (!item) {
-                continue;
-            }
-
-            // If the current item is a header, start a new group. This group will contain the
-            // header and the next item that follows the header.
-            if (itemKind === "header") {
-                if (multicolumn && !shouldResetGroup) {
-                    shouldStartNewGroup = true;
-                }
-            }
-
-            // If the next item is a separator, start a new group. This group will contain the
-            // current item, the separator, and the next item after the separator.
-            const nextItem = (index < items.length - 1) ? items[index + 1] : null;
-            if (multicolumn && nextItem && "kind" in nextItem && nextItem.kind === "separator") {
-                if (!shouldResetGroup) {
-                    shouldStartNewGroup = true;
-                } else {
-                    shouldResetGroup = true; // Continue the current group
-                }
-            }
-
-            // Create a new group to avoid column breaks before and after the seaparator / header.
-            // This is a workaround for Firefox not supporting break-before / break-after: avoid
-            // for columns.
-            if (shouldStartNewGroup) {
-                $group = $("<div class='dropdown-no-break'>");
-                $parent.append($group);
-                shouldStartNewGroup = false;
-            }
-
-            if (itemKind === "separator") {
-                if (prevItemKind === "separator") {
-                    // Skip consecutive separators
-                    continue;
-                }
-                $group.append($("<div>").addClass("dropdown-divider"));
-                shouldResetGroup = true; // End the group after the next item
-            } else if (itemKind === "header") {
-                $group.append($("<h6>").addClass("dropdown-header").text((item as MenuHeader).title));
-                shouldResetGroup = true;
-            } else {
-                if (itemKind === "custom") {
-                    // Custom menu item
-                    $group.append(this.createCustomMenuItem(item as CustomMenuItem));
-                } else {
-                    // Standard menu item
-                    $group.append(this.createMenuItem(item as MenuCommandItem<any>));
-                }
-
-                // After adding a menu item, if the previous item was a separator or header,
-                // reset the group so that the next item will be appended directly to the parent.
-                if (shouldResetGroup) {
-                    $group = $parent;
-                    shouldResetGroup = false;
-                };
-            }
-
-            prevItemKind = itemKind;
-
-        }
-    }
-
-    private createCustomMenuItem(item: CustomMenuItem) {
-        const element = document.createElement("li");
-        element.classList.add("dropdown-custom-item");
-        element.onclick = () => this.hide();
-        render(h(item.componentFn, {}), element);
-        return element;
-    }
-
-    private createMenuItem(item: MenuCommandItem<any>) {
-        const $icon = $("<span>");
-
-        if ("uiIcon" in item || "checked" in item) {
-            const icon = (item.checked ? "bx bx-check" : item.uiIcon);
-            if (icon) {
-                $icon.addClass([icon, "tn-icon"]);
-                if (item.iconColorClass) {
-                    $icon.addClass(item.iconColorClass);
-                }
-            } else {
-                $icon.append("&nbsp;");
-            }
-        }
-
-        const $link = $("<span>")
-            .append($icon)
-            // An element, not spaces: in a flex row, text merges with a plain title but is
-            // trimmed before one boxed by `menuName()`, indenting the two kinds of row apart.
-            .append($("<span>").addClass("tn-menu-gap"))
-            .append(item.title);
-
-        if ("badges" in item && item.badges) {
-            for (const badge of item.badges) {
-                const badgeElement = $(`<span class="badge">`).text(badge.title);
-
-                if (badge.className) {
-                    badgeElement.addClass(badge.className);
-                }
-
-                $link.append(badgeElement);
-            }
-        }
-
-        if ("keyboardShortcut" in item && item.keyboardShortcut) {
-            const shortcuts = getActionSync(item.keyboardShortcut).effectiveShortcuts;
-            if (shortcuts) {
-                const allShortcuts: string[] = [];
-                for (const effectiveShortcut of shortcuts) {
-                    const tokens = formatShortcut(effectiveShortcut);
-                    // On macOS the glyphs sit in one <kbd> (⇧⌘J); elsewhere each token gets its own.
-                    allShortcuts.push(utils.isMac()
-                        ? `<kbd>${joinShortcut(tokens)}</kbd>`
-                        : tokens.map(key => `<kbd>${key}</kbd>`).join("+"));
-                }
-
-                if (allShortcuts.length) {
-                    const container = $("<span>").addClass("keyboard-shortcut");
-                    container.append($(allShortcuts.join(",")));
-                    $link.append(container);
-                }
-            }
-        } else if ("shortcut" in item && item.shortcut) {
-            $link.append($("<kbd>").text(item.shortcut));
-        }
-
-        if ("trailingIcon" in item && item.trailingIcon) {
-            $link.append($("<span>")
-                .addClass([ item.trailingIcon, "tn-icon", "menu-trailing-icon" ]));
-        }
-
-        const $item = $("<li>")
-            .addClass("dropdown-item")
-            .addClass("className" in item ? item.className ?? "" : "")
-            .append($link)
-            .on("contextmenu", (e) => false)
-            // important to use mousedown instead of click since the former does not change focus
-            // (especially important for focused text for spell check)
-            .on("mousedown", (e) => {
-                if (e.which !== 1) {
-                    // only left click triggers menu items
-                    return false;
-                }
-
-                if (this.isMobile && "items" in item && item.items) {
-                    const $item = $(e.target).closest(".dropdown-item");
-
-                    $item.toggleClass("submenu-open");
-                    $item.find("ul.dropdown-menu").toggleClass("show");
-                    return false;
-                }
-
-                // A submenu's parent stays open so that it can still be expanded. One carrying a
-                // command or handler of its own is dismissed like any other item once it has run.
-                const opensSubmenu = "items" in item && !!item.items;
-                const acts = ("handler" in item && !!item.handler)
-                    || ("command" in item && !!item.command);
-                if (!opensSubmenu || acts) {
-                    this.hide();
-                }
-
-                if ("handler" in item && item.handler) {
-                    item.handler(item, e);
-                }
-
-                this.options?.selectMenuItemHandler(item, e);
-
-                // it's important to stop the propagation especially for sub-menus, otherwise the event
-                // might be handled again by top-level menu
-                return false;
-            });
-
-        if ("enabled" in item && item.enabled !== undefined && !item.enabled) {
-            $item.addClass("disabled");
-        }
-
-        if ("items" in item && item.items) {
-            $item.addClass("dropdown-submenu");
-            $link.addClass("dropdown-toggle");
-
-            const $subMenu = $("<ul>").addClass("dropdown-menu");
-            const hasColumns = !!item.columns && item.columns > 1;
-            if (!this.isMobile && hasColumns) {
-                $subMenu.css("column-count", item.columns!);
-            }
-
-            this.addItems($subMenu, item.items, hasColumns);
-
-            $item.append($subMenu);
-
-            // Submenus open downward by default (CSS `:hover`); flip them up when the parent item sits
-            // near the bottom of the viewport, otherwise the submenu would be clipped off-screen.
-            if (!this.isMobile) {
-                $item.on("mouseenter", () => this.repositionSubmenu($subMenu[0]));
-            }
-        }
-        return $item;
     }
 
     /**
-     * Whether a menu is up. For a host that answers a press itself and so keeps it from the
-     * document, whose click is what would otherwise put the menu away (see the listener bound in
-     * the constructor): such a host has to know a standing menu is what its press is really for.
+     * Whether a menu is up. A host that stops a press from reaching the document, whose click
+     * otherwise hides the menu, uses this to hide the menu itself.
      */
     isShown() {
-        return this.$widget.hasClass("show");
+        return !!this.options;
     }
 
     async hide() {
-        this.options?.onHide?.();
-        this.$widget.removeClass("show");
-        this.$cover?.removeClass("show");
-        $("body").removeClass("context-menu-shown");
-        this.$widget.hide();
+        const options = this.options;
+        this.options = undefined;
+        this.cover?.classList.remove("show");
+        document.body.classList.remove("context-menu-shown");
+
+        if (options && this.container) {
+            render(null, this.container);
+            options.onHide?.();
+        }
     }
 }
 
