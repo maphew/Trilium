@@ -3694,7 +3694,6 @@
     "page_size": "Sayfa boyutu",
     "scale": "Ölçek",
     "margins": "Kenar boşlukları",
-    "render_error": "Geçerli ayarlarla PDF oluşturulamıyor. Lütfen kenar boşluklarını ve ölçeği kontrol edin.",
     "margins_default": "Varsayılan",
     "margins_none": "Yok",
     "margins_minimum": "En Az",

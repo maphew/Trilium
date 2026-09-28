@@ -2725,7 +2725,6 @@
     "page_size": "Format de page",
     "scale": "Échelle",
     "margins": "Marges",
-    "render_error": "Impossible de générer le PDF avec les paramètres actuels. Veuillez vérifier les marges et l’échelle.",
     "margins_default": "Par défaut",
     "margins_none": "Aucunes",
     "margins_minimum": "Minimums",

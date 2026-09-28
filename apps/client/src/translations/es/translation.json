@@ -3332,7 +3332,6 @@
     "page_size": "Tamaño de página",
     "scale": "Escala",
     "margins": "Márgenes",
-    "render_error": "No se puede generar el PDF con la configuración actual. Comprueba los márgenes y la escala.",
     "margins_default": "Predeterminados",
     "margins_none": "Sin márgenes",
     "margins_minimum": "Mínimos",

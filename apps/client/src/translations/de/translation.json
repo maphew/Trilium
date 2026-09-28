@@ -3070,7 +3070,6 @@
     "page_size": "Seitengröße",
     "scale": "Skalierung",
     "margins": "Seitenränder",
-    "render_error": "PDF kann mit den aktuellen Einstellungen nicht gerendert werden. Bitte prüfen Sie Seitenränder und Skalierung.",
     "margins_default": "Standard",
     "margins_none": "Keine",
     "margins_minimum": "Minimum",

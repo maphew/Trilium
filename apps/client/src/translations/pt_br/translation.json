@@ -364,7 +364,15 @@
     "sort_with_respect_to_different_character_sorting": "classificar de acordo com diferentes regras de ordenação de caracteres e colação em diferentes idiomas ou regiões.",
     "natural_sort_language": "Linguagem da ordenação natural",
     "the_language_code_for_natural_sort": "O código do idioma para ordenação natural, por exemplo, \"zh-CN\" para chinês.",
-    "sort": "Ordenar"
+    "sort": "Ordenar",
+    "sorting_criteria_description": "Anotações são organizadas pelo primeiro nível; o próximo nível apenas decide entre as anotações as últimas deixadas iguais.",
+    "label": "Rótulo",
+    "label_name": "Nome do rótulo",
+    "add_level": "Adicionar nível",
+    "remove_level": "Remover nível",
+    "move_level_up": "Mover nível para cima",
+    "move_level_down": "Mover nível para baixo",
+    "folders_follow_first_level": "No final ao invés de quando o primeiro nível está descendo"
   },
   "upload_attachments": {
     "upload_attachments_to_note": "Enviar anexos para a nota",
@@ -1360,7 +1368,12 @@
     "error": "Erro na busca: {{error}}",
     "search_prefix": "Busca:",
     "placeholder": "palavras-chave fulltext, #tag = valor...",
-    "complete_help": "ajuda completa da sintaxe de busca"
+    "complete_help": "ajuda completa da sintaxe de busca",
+    "hints": {
+      "completions": "Mostrar sugestões",
+      "new_line": "Nova linha",
+      "run_search": "Inicializar a pesquisa"
+    }
   },
   "attachment_list": {
     "open_help_page": "Abrir página de ajuda nos anexos",
@@ -2014,7 +2027,9 @@
     "delete-notes-in-progress": "Exclusão de notas em andamento: {{count}}",
     "delete-finished-successfully": "Exclusão concluída com sucesso.",
     "undeleting-notes-in-progress": "Restauração de notas em andamento: {{count}}",
-    "undeleting-notes-finished-successfully": "Restauração de notas concluída com sucesso."
+    "undeleting-notes-finished-successfully": "Restauração de notas concluída com sucesso.",
+    "delete-notes-in-progress-with-total": "{{progress}} apagado de {{total}} anotações",
+    "erasing-notes": "Apagando anotações…"
   },
   "frontend_script_api": {
     "async_warning": "Você está passando uma função assíncrona para `api.runOnBackend()`, o que provavelmente não irá funcionar como esperado.\\nTorne a função síncrona (removendo a palavra-chave `async`), ou use `api.runAsyncOnBackendWithManualTransactionHandling()`.",
@@ -3051,7 +3066,6 @@
     "page_ranges_placeholder": "ex. 1-5, 8, 11-13",
     "page_ranges_invalid": "Formato invalido. Use p. ex. 1-5, 8, 11-13.",
     "margins_none": "Nenhum",
-    "render_error": "Não foi possível gerar o PDF com as configurações atuais. Verifique as margens e a escala.",
     "page_size": "Tamanho da página",
     "destination_printers": "Impressoras",
     "destination_pdf": "Salvar como PDF",
@@ -3943,5 +3957,27 @@
   "note_picker": {
     "label": "Nota",
     "ok": "Escolha"
+  },
+  "search_lint": {
+    "relation_needs_property": "Relações apontam para uma anotação, então elas não podem ser checadas para igualdade. Use . ao invés para acessar suas propiedades.",
+    "text_needs_contains": "anotação.texto pesquisa o texto e o conteúdo junto, então ela só pode ser combinada com *=*.",
+    "compare_the_title": "Comparar o título",
+    "use_operator": "Use {{operator}}"
+  },
+  "search_completion": {
+    "note": "Título da anotação, propriedades e anotações relacionadas",
+    "operator_equal": "Igual ao valor todo",
+    "operator_not_equal": "Não é igual ao valor todo",
+    "operator_contains": "Contém",
+    "operator_starts_with": "Começa com",
+    "operator_ends_with": "Termina com",
+    "operator_greater_than": "Maior que",
+    "operator_greater_or_equal": "Maior que ou igual a",
+    "operator_less_than": "Menor que",
+    "operator_less_or_equal": "Menor que ou igual a",
+    "operator_regex": "Combina com uma expressão regular",
+    "operator_fuzzy_equal": "Igual, tolerando erros de digitação",
+    "operator_fuzzy_contains": "Contém, tolerando erros de digitação",
+    "property_content": "A estrutura da anotação do texto"
   }
 }

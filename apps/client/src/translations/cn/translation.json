@@ -3401,7 +3401,6 @@
     "page_size": "纸张大小",
     "scale": "缩放",
     "margins": "页边距",
-    "render_error": "当前设置无法生成 PDF，请检查页边距和缩放设置。",
     "margins_default": "默认",
     "margins_none": "无",
     "margins_minimum": "最小",
