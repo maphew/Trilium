@@ -44,7 +44,10 @@ export default function SearchResult() {
             return;
         }
         try {
-            await froca.loadSearchNote(note.noteId);
+            const result = await froca.loadSearchNote(note.noteId);
+            if (result?.error) {
+                toast.showError(result.error);
+            }
         } catch (e: unknown) {
             toast.showError(getErrorMessage(e));
         }
