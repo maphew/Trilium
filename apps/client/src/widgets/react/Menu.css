@@ -50,6 +50,16 @@ body.desktop .dropdown-submenu > .dropdown-menu.tn-menu {
     }
 }
 
+/*
+ * The theme's opening delay holds a submenu's opacity with `animation-fill-mode: forwards`, which
+ * leaves the layer a backdrop root once it is shown, so its `::before` would blur only the layer's
+ * own inside. `backwards` keeps the layer hidden through the delay and then releases it.
+ */
+body.desktop:not(.motion-disabled) .dropdown-submenu > .dropdown-menu.tn-menu {
+    opacity: 1;
+    animation-fill-mode: backwards;
+}
+
 /* The menu holds focus for its keys; the row they act on shows where they are instead. */
 .dropdown-menu.tn-menu:focus {
     outline: none;
