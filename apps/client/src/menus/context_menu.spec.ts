@@ -235,6 +235,18 @@ describe("contextMenu", () => {
             const menu = await place({ x: 10, y: 20, width: 200, height: 2000 });
             expect(menu.style.maxHeight).toBe("790px");
         });
+
+        it("places itself again when the viewport changes size", async () => {
+            const menu = await place({ x: 700, y: 20, width: 200, height: 300 });
+            expect([ menu.style.left, menu.style.maxHeight ]).toEqual([ "700px", "790px" ]);
+
+            vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(800);
+            vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(600);
+            window.dispatchEvent(new Event("resize"));
+
+            // It no longer fits right of the pointer, so it flips to its left, and its cap shrinks.
+            await vi.waitFor(() => expect([ menu.style.left, menu.style.maxHeight ]).toEqual([ "500px", "590px" ]));
+        });
     });
 
     it("hides on a click anywhere on the page", async () => {

@@ -1,12 +1,11 @@
 import "./Menu.css";
 
-import { computePosition, flip, type Placement, shift, size, type VirtualElement } from "@floating-ui/dom";
+import { autoUpdate, computePosition, flip, type Placement, shift, size, type VirtualElement } from "@floating-ui/dom";
 import clsx from "clsx";
-import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
 
 import type { MenuCommandItem, MenuItem, MenuSeparatorItem } from "../../menus/context_menu";
 import { getActionSync } from "../../services/keyboard_actions";
-import { useResizeObserver } from "./hooks";
 import { joinElements } from "./react_utils";
 import { renderShortcutKbds } from "./shortcut_kbd";
 
@@ -33,14 +32,16 @@ const VIEWPORT_PADDING = 5;
 
 export default function Menu<T>({ id, className, x, y, orientation, items, onSelect }: MenuProps<T>) {
     const menuRef = useRef<HTMLDivElement>(null);
-    const place = useCallback(() => {
-        if (!menuRef.current) return;
-        void placeMenu(menuRef.current, pointAt(x, y), orientation === "left" ? "left-start" : "right-start");
-    }, [ x, y, orientation ]);
 
-    useLayoutEffect(place, [ place ]);
-    // The menu's size can change after it opens, e.g. once asynchronously loaded items arrive.
-    useResizeObserver(menuRef, place);
+    useLayoutEffect(() => {
+        const menu = menuRef.current;
+        if (!menu) return;
+
+        const anchor = pointAt(x, y);
+        const placement = orientation === "left" ? "left-start" : "right-start";
+        // Places the menu now, and again whenever the viewport or the menu itself changes size.
+        return autoUpdate(anchor, menu, () => void placeMenu(menu, anchor, placement));
+    }, [ x, y, orientation ]);
 
     return (
         <div ref={menuRef} id={id} className={clsx("dropdown-menu show tn-menu", className)} role="menu">
