@@ -2,10 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../services/note_tooltip", () => ({ default: { dismissAllTooltips: vi.fn() } }));
 
-/** The page as the shell leaves it: the element the menu mounts into, at the end of the body. */
+/** The page as the shell leaves it. */
 function buildPage() {
-    document.body.innerHTML = `<div id="app"></div><div id="context-menu-host"></div>`;
-    return document.getElementById("context-menu-host");
+    document.body.innerHTML = `<div id="app"></div>`;
 }
 
 /** The open menu, under the id the stylesheets and the app's floating layers know it by. */
@@ -31,15 +30,15 @@ beforeEach(() => {
 });
 
 describe("contextMenu", () => {
-    it("renders the menu into its host and removes it on hide", async () => {
-        const host = buildPage();
+    it("mounts the menu while it is up, and leaves nothing behind once hidden", async () => {
+        buildPage();
         const contextMenu = await buildContextMenu();
         const onHide = vi.fn();
 
         await contextMenu.show({ x: 10, y: 20, items, selectMenuItemHandler: () => {}, onHide });
 
         const menu = menuElement();
-        expect(menu?.parentElement).toBe(host);
+        expect(menu?.parentElement?.parentElement).toBe(document.body);
         expect(menu?.getAttribute("role")).toBe("menu");
         // The classes the old menu carried, which the stylesheets and themes style it by.
         expect([ ...menu?.classList ?? [] ]).toEqual(expect.arrayContaining([
@@ -49,6 +48,7 @@ describe("contextMenu", () => {
 
         await contextMenu.hide();
         expect(menuElement()).toBeNull();
+        expect(document.body.innerHTML).toBe(`<div id="app"></div>`);
         expect(document.body.classList.contains("context-menu-shown")).toBe(false);
         expect(onHide).toHaveBeenCalledTimes(1);
 
@@ -214,29 +214,22 @@ describe("contextMenu", () => {
         expect(contextMenu.isShown()).toBe(false);
     });
 
-    it("stands at the end of the page while nothing has the screen", async () => {
-        const menu = buildPage();
-        const contextMenu = await buildContextMenu();
-
-        await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
-
-        expect(menu?.parentElement).toBe(document.body);
-    });
-
-    it("moves inside whatever has the screen, and back once nothing does", async () => {
-        const menu = buildPage();
+    it("opens inside whatever has the screen, and in the body once nothing does", async () => {
+        buildPage();
         const contextMenu = await buildContextMenu();
         const map = document.getElementById("app");
+        const show = () => contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
 
         setFullscreenElement(map);
-        await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
+        await show();
         // A browser paints only the fullscreen element, so a menu outside it never shows.
-        expect(menu?.parentElement).toBe(map);
+        expect(menuElement()?.parentElement?.parentElement).toBe(map);
 
         setFullscreenElement(null);
-        await contextMenu.show({ x: 10, y: 10, items, selectMenuItemHandler: () => {} });
-
-        expect(menu?.parentElement).toBe(document.body);
+        await show();
+        expect(menuElement()?.parentElement?.parentElement).toBe(document.body);
+        // The host the fullscreen menu was mounted into went with it.
+        expect(map?.childElementCount).toBe(0);
     });
 
     it("hides a Bootstrap tooltip that is up when the menu opens", async () => {

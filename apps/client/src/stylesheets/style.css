@@ -1667,11 +1667,6 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     background: rgba(0, 0, 0, 0.1);
 }
 
-/* Only mounts the context menu, so it takes no part in the page's layout. */
-#context-menu-host {
-    display: contents;
-}
-
 #context-menu-container {
     max-height: 100vh;
 }

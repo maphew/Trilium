@@ -79,15 +79,12 @@ export type MenuHandler<T> = (item: MenuCommandItem<T>, e: MouseEvent) => void;
 export type ContextMenuEvent = PointerEvent | MouseEvent | JQuery.ContextMenuEvent;
 
 class ContextMenu {
-    private readonly container: HTMLElement | null;
     private readonly cover: HTMLElement | null;
-    /** Where the menu stands while nothing has the screen to itself. See {@link hostInWhateverHasTheScreen}. */
-    private readonly home: HTMLElement | null;
+    /** What `Menu` renders into while a menu is up. */
+    private host?: HTMLElement;
     private options?: ContextMenuOptions<any>;
 
     constructor() {
-        this.container = document.getElementById("context-menu-host");
-        this.home = this.container?.parentElement ?? null;
         this.cover = utils.isMobile() ? document.getElementById("context-menu-cover") : null;
 
         if (this.cover) {
@@ -106,10 +103,11 @@ class ContextMenu {
             await this.hide();
         }
 
-        if (!this.container) return;
-
         this.options = options;
-        this.hostInWhateverHasTheScreen(this.container);
+        // A browser showing an element fullscreen paints only that element, so the menu goes
+        // inside it.
+        this.host = document.createElement("div");
+        (document.fullscreenElement ?? document.body).append(this.host);
         this.cover?.classList.add("show");
         document.body.classList.add("context-menu-shown");
 
@@ -126,19 +124,7 @@ class ContextMenu {
                 item.handler?.(item, e);
                 options.selectMenuItemHandler(item, e);
             }
-        }), this.container);
-    }
-
-    /**
-     * Puts the menu inside the element that currently has the screen to itself, and back where it
-     * belongs once nothing does. A browser showing an element fullscreen paints only that element,
-     * so a menu outside it would never appear.
-     */
-    private hostInWhateverHasTheScreen(container: HTMLElement) {
-        const host = document.fullscreenElement ?? this.home;
-        if (host && container.parentElement !== host) {
-            host.appendChild(container);
-        }
+        }), this.host);
     }
 
     /**
@@ -155,10 +141,12 @@ class ContextMenu {
         this.cover?.classList.remove("show");
         document.body.classList.remove("context-menu-shown");
 
-        if (options && this.container) {
-            render(null, this.container);
-            options.onHide?.();
+        if (this.host) {
+            render(null, this.host);
+            this.host.remove();
+            this.host = undefined;
         }
+        options?.onHide?.();
     }
 }
 
