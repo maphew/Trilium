@@ -6,7 +6,7 @@ import { ComponentChildren } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../services/i18n";
-import { handleRightToLeftPlacement, isMobile } from "../../services/utils";
+import { handleRightToLeftPlacement } from "../../services/utils";
 import Debouncer from "../../utils/debouncer";
 
 /** Curated default preset palette, using Trilium note-color-friendly CSS colors. */
@@ -188,11 +188,11 @@ function CustomColorCell(props: ColorCellProps) {
     }, [pickedColor]);
 
     return <div style={`--foreground: ${getForegroundColor(props.color)};`}
-        onClick={isMobile() ? (e) => {
-            // The color picker dropdown will close on some browser if the parent context menu is
-            // dismissed, so stop the click propagation to prevent dismissing the menu.
+        onClick={(e) => {
+            // A menu the click reached would close and unmount this cell, and with it the input
+            // whose picker is still open, so the color picked there would be lost.
             e.stopPropagation();
-        } : undefined}>
+        }}>
         <ColorCell {...props}
             color={pickedColor}
             className={clsx("custom-color-cell", {

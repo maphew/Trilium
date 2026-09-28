@@ -376,6 +376,27 @@ describe("contextMenu", () => {
             expect(label?.textContent).toBe("Templates");
         });
 
+        it("stays up while the color picker's custom cell has the browser's picker open", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            const { default: ColorPicker } = await import("../widgets/react/ColorPicker");
+            // The browser's picker opens outside the page; happy-dom would bubble the click back.
+            const openPicker = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [ { kind: "custom", componentFn: () => h(ColorPicker, { currentValue: null, onChange: () => {} }) } ]
+            });
+
+            const cell = menuElement()?.querySelector<HTMLElement>(".custom-color-cell");
+            if (!cell) throw new Error("expected the custom color cell");
+            cell.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            expect(openPicker).toHaveBeenCalled();
+            // Hiding would unmount the input, and the color picked in it would go nowhere.
+            expect(contextMenu.isShown).toBe(true);
+            expect(menuElement()?.querySelector("input[type=color]")).not.toBeNull();
+            openPicker.mockRestore();
+        });
+
         it("runs an item pressed with the primary button, then hides", async () => {
             buildPage();
             const contextMenu = await buildContextMenu();

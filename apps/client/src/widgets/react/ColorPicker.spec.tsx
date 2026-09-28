@@ -2,8 +2,7 @@ import { ComponentChild } from "preact";
 import { act } from "preact/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// `isMobile()` is read at render time inside CustomColorCell; mock the module so both the
-// desktop (no handler) and mobile (stopPropagation) branches can be exercised.
+// Mocked so a spec can check that a behavior holds on the desktop and on a phone alike.
 const isMobileMock = vi.fn(() => false);
 vi.mock("../../services/utils", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../services/utils")>()),
@@ -238,7 +237,7 @@ describe("ColorPicker", () => {
         }
     });
 
-    it("stops click propagation on the custom cell only on mobile", () => {
+    it("stops click propagation on the custom cell on every platform", () => {
         isMobileMock.mockReturnValue(true);
         const mobileContainer = renderInto(<ColorPicker currentValue={null} onChange={vi.fn()} />);
         const mobileWrapper = mobileContainer.querySelector(".custom-color-cell")?.parentElement;
@@ -253,7 +252,8 @@ describe("ColorPicker", () => {
         const desktopEvent = new MouseEvent("click", { bubbles: true, cancelable: true });
         const desktopStop = vi.spyOn(desktopEvent, "stopPropagation");
         desktopWrapper?.dispatchEvent(desktopEvent);
-        expect(desktopStop).not.toHaveBeenCalled();
+        // A menu the click reached would close, and take the input and its picked color with it.
+        expect(desktopStop).toHaveBeenCalled();
     });
 
     it("derives a contrasting foreground for light and dark custom colours", () => {
