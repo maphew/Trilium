@@ -512,6 +512,34 @@ describe("contextMenu", () => {
         });
     });
 
+    it("keeps a right-click or a long press inside it to itself, at every level", async () => {
+        buildPage();
+        const contextMenu = await buildContextMenu();
+        // Such as a host that would open a menu of its own, or Electron's for the editor.
+        const heard = vi.fn();
+        document.addEventListener("contextmenu", heard);
+
+        await contextMenu.show({
+            x: 10, y: 10, selectMenuItemHandler: () => {},
+            items: [ { title: "Copy" }, { title: "Templates", items: [ { title: "Meeting" } ] } ]
+        });
+        const rows = [ ...menuElement()?.querySelectorAll<HTMLElement>("li.dropdown-item") ?? [] ];
+        rows[1]?.dispatchEvent(new PointerEvent("pointerenter"));
+        await vi.waitFor(() => expect(menuElement()?.querySelector("div.dropdown-submenu li")).not.toBeNull());
+        const targets = [ rows[0], menuElement(), menuElement()?.querySelector("div.dropdown-submenu li") ];
+        expect(targets.every(Boolean)).toBe(true);
+
+        for (const target of targets) {
+            const rightClick = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2 });
+            target?.dispatchEvent(rightClick);
+            // The browser's own menu does not open over it.
+            expect(rightClick.defaultPrevented).toBe(true);
+        }
+        expect(heard).not.toHaveBeenCalled();
+        expect(contextMenu.isShown).toBe(true);
+        document.removeEventListener("contextmenu", heard);
+    });
+
     describe("on a phone", () => {
         afterEach(() => {
             layout.onMobile = false;

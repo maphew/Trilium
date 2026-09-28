@@ -92,6 +92,12 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
         <div
             ref={menuRef} id={id} role="menu"
             className={clsx("dropdown-menu show tn-menu", bottomSheet && "mobile-bottom-menu", className)}
+            // Neither the browser's menu nor another of the app's opens over this one. Every level
+            // is inside this element, so one handler covers them all.
+            onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }}
         >
             <MenuList level={0} items={items} state={state} />
             {/* Inside the menu, so the rules scoped to it apply, but none inside another: a fixed
