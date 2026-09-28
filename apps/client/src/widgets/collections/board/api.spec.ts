@@ -2127,6 +2127,32 @@ describe("the promoted attributes a card shows", () => {
         expect(api.getStoredPromotedAttributes()).toBe(stored);
     });
 
+    /** A card shows attributes defined by its template, so `getPromotedAttributes()` lists them. */
+    it("lists what the cards define through another note, after the board's own", () => {
+        buildNote({
+            id: "projectTemplate",
+            title: "Project",
+            "#label:project(inheritable)": "promoted,single,color",
+            "#label:owner(inheritable)": "promoted,single,relation"
+        });
+        const task = buildNote({ title: "Task", "~template": "projectTemplate" });
+        // `buildNote()` caches only the owned attributes. Deleting the entry makes
+        // `getAttributes()` rebuild it, including the template's attributes.
+        delete noteAttributeCache.attributes[task.noteId];
+        const plain = buildNote({ title: "Plain" });
+        const byColumn: ColumnMap = new Map([ [ "To Do", [
+            { note: task, branch: { branchId: "b_task" } as FBranch },
+            { note: plain, branch: { branchId: "b_plain" } as FBranch }
+        ] ] ]);
+        const { api } = createApi({}, [ "To Do" ], boardWithAttributes(), "status", byColumn);
+
+        expect(api.getVisiblePromotedAttributeNames()).toEqual([ "dueDate", "owner", "project" ]);
+        const [ , owner, project ] = api.getPromotedAttributes();
+        // The board and the template both define `owner`; the board's definition wins.
+        expect(owner).toMatchObject({ labelType: "text", isDefinedByItems: false });
+        expect(project).toMatchObject({ labelType: "color", isDefinedByItems: true });
+    });
+
     it("stores the whole list, an attribute the board has dropped along with it", async () => {
         const { api, saved } = createApi(
             { promotedAttributes: [ { name: "gone" } ] }, [], boardWithAttributes());

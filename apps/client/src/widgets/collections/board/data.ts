@@ -395,3 +395,14 @@ async function recursiveGroupBy(
         seenNoteIds.add(note.noteId);
     }
 }
+
+/** Returns the note of every card in `byColumn`, once per note. */
+export function cardNotes(byColumn: ColumnMap | undefined): Set<FNote> {
+    const notes = new Set<FNote>();
+    for (const items of byColumn?.values() ?? []) {
+        for (const { note } of items) {
+            notes.add(note);
+        }
+    }
+    return notes;
+}

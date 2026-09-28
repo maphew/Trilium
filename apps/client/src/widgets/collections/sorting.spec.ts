@@ -277,6 +277,7 @@ function sort(
             labelType: isRelation ? undefined : fieldType,
             selectOptions,
             isOwned: true,
+            isDefinedByItems: false,
             isInheritable: true
         });
     }

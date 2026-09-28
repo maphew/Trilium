@@ -60,6 +60,7 @@ describe("resolvePromotedAttributes", () => {
                 drawnByCollection: false,
                 definitionValue: "promoted,single,text",
                 isOwned: true,
+                isDefinedByItems: false,
                 isInheritable: true
             },
             // No alias, so the name is prefixed by the kind that defines it.
@@ -188,6 +189,27 @@ describe("resolvePromotedAttributes", () => {
         // However it is stored, it is never among what an item draws.
         expect(visiblePromotedAttributeNames(resolved))
             .toEqual([ "dueDate", "requiresResearch" ]);
+    });
+
+    /**
+     * The items' definitions follow the collection's, once per name, including non-inheritable
+     * ones.
+     */
+    it("appends what only the items define, once per name", () => {
+        const resolved = resolvePromotedAttributes(collection(DEFINED), undefined, [], [
+            collection([ definition("label:project", { noteId: "template1" }) ], "task1"),
+            collection([
+                definition("label:project", { noteId: "template1" }),
+                definition("label:dueDate", { noteId: "template1", alias: "Deadline" }),
+                definition("label:estimate", { noteId: "task2", isInheritable: false })
+            ], "task2")
+        ]);
+
+        expect(resolved.map((attribute) => attribute.name))
+            .toEqual([ "dueDate", "requiresResearch", "owner", "project", "estimate" ]);
+        expect(resolved.map((attribute) => attribute.isDefinedByItems))
+            .toEqual([ false, false, false, true, true ]);
+        expect(resolved[0].title).toBe("Due");
     });
 
     /** Two notes in the chain can define the same attribute; the nearer one is what applies. */

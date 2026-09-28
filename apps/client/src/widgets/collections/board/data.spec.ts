@@ -659,6 +659,7 @@ function definitions(name: string, type: "label" | "relation") {
         drawnByCollection: false,
         definitionValue: "",
         isOwned: true,
+        isDefinedByItems: false,
         isInheritable: true
     } ] ]);
 }

@@ -30,7 +30,7 @@ import {
     parseColumnWidth
 } from "./columns";
 import { readColumns, writeColumns } from "./column_storage";
-import { ColumnItem, ColumnMap } from "./data";
+import { cardNotes, ColumnItem, ColumnMap } from "./data";
 import {
     cardReference, ColumnReferenceLabel, columnReference, newColumnId, readColumnId
 } from "./reference";
@@ -976,13 +976,19 @@ export default class BoardApi {
     }
 
     /**
-     * Every promoted attribute the board defines, in the order the reader put them, the one it
-     * groups by included: the properties dialog lists that one so it keeps its place among the
-     * others for whenever the board is grouped by something else.
+     * Returns the promoted attributes defined by the board note or its cards, in the stored order.
+     * Includes the grouping attribute, so that Board Properties keeps its position for when the
+     * board is grouped by another attribute.
      */
     getAllPromotedAttributes() {
         return resolvePromotedAttributes(
-            this.parentNote, this.viewConfig?.promotedAttributes, [ this.statusAttribute ]);
+            this.parentNote, this.viewConfig?.promotedAttributes, [ this.statusAttribute ],
+            this.getCardNotes());
+    }
+
+    /** Returns the note of every card, including the cards the filter hides. */
+    getCardNotes() {
+        return cardNotes(this.allByColumn ?? this.byColumn);
     }
 
     /** Those a card can show or a column sort by, which the columns themselves stand for. */

@@ -91,6 +91,7 @@ describe("Board properties", () => {
             getCardTemplateIds: () => [ "type:text:text/html" ],
             setCardTemplateIds: async (ids: string[]) => { stored.push(ids); },
             getStoredPromotedAttributes: () => [ { name: "dueDate" }, { name: "owner" } ],
+            getCardNotes: () => new Set(),
             setPromotedAttributes: async (attributes: PromotedAttribute[]) => {
                 storedAttributes.push(attributes);
             },
