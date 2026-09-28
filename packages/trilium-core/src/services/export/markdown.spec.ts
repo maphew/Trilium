@@ -499,6 +499,17 @@ describe("Markdown export", () => {
         expect(markdownExportService.toMarkdown(html)).toBe(expected);
     });
 
+    it("indents a nested list to the content column of its item, however wide the number", () => {
+        const html = /*html*/`<ol start="9"><li>Ninth<ol><li>A</li></ol></li><li>Tenth<ol><li>B</li><li>C</li></ol></li></ol>`;
+        const expected = trimIndentation`\
+            9.  Ninth
+                1.  A
+            10.  Tenth
+                 1.  B
+                 2.  C`;
+        expect(markdownExportService.toMarkdown(html)).toBe(expected);
+    });
+
     it("converts inline math expressions into proper Markdown syntax", () => {
         const html = /*html*/String.raw`<span class="math-tex">\(H(X, Y) = \sum_{i=1}^{M} \sum_{j=1}^{L} p(x_i, y_j) \log_2 \frac{1}{p(x_i, y_j)} = - \sum_{i=1}^{M} \sum_{j=1}^{L} p(x_i, y_j) \log_2 p(x_i, y_j) \frac{\text{bits}}{\text{symbol}}\)</span></span>`;
         const expected = String.raw`$H(X, Y) = \sum_{i=1}^{M} \sum_{j=1}^{L} p(x_i, y_j) \log_2 \frac{1}{p(x_i, y_j)} = - \sum_{i=1}^{M} \sum_{j=1}^{L} p(x_i, y_j) \log_2 p(x_i, y_j) \frac{\text{bits}}{\text{symbol}}$`;

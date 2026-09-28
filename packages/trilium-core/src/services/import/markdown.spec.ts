@@ -442,6 +442,15 @@ $$`;
         expect(markdownService.renderToHtml(markdownExportService.toMarkdown(original), "Title")).toStrictEqual(original);
     });
 
+    it("round-trips a list nested under a multi-digit ordered item through the Markdown exporter", () => {
+        for (const position of [ 9, 10, 100 ]) {
+            const siblings = Array.from({ length: position - 1 }, (_, index) => `<li>Item ${index + 1}</li>`).join("");
+            const original = `<ol>${siblings}<li>Parent<ol><li>First</li><li>Second</li></ol></li></ol>`;
+            expect(markdownService.renderToHtml(markdownExportService.toMarkdown(original), "Title"), `item ${position}`)
+                .toStrictEqual(original);
+        }
+    });
+
     it("imports todo list multistate markers as data-trilium-task-state and titles the <li> with the state's human name", () => {
         // The `title` attribute mirrors what the CKEditor data downcast emits — it's
         // the hover tooltip viewers of the shared page, the read-only preview and

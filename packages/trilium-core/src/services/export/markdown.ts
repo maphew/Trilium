@@ -401,15 +401,15 @@ function buildListItemFilter(): Rule {
     return {
         filter: "li",
         replacement(content, node, options) {
-            content = content
-                .trim()
-                .replace(/\n/gm, '\n    '); // indent
             let prefix = `${options.bulletListMarker}   `;
+            let indentWidth = 4;
             const parent = node.parentNode as HTMLElement;
             if (parent.nodeName === 'OL') {
                 const start = parent.getAttribute('start');
                 const index = Array.prototype.indexOf.call(parent.children, node);
                 prefix = `${start ? Number(start) + index : index + 1}.  `;
+                // Nested blocks must reach the item's content column, which moves right from item 10.
+                indentWidth = prefix.length;
             } else if (parent.classList.contains("todo-list")) {
                 const state = (node as HTMLElement).getAttribute("data-trilium-task-state");
                 const stateMarker = state
@@ -423,7 +423,10 @@ function buildListItemFilter(): Rule {
                 }
             }
 
-            const result = prefix + content + (node.nextSibling && !/\n$/.test(content) ? '\n' : '');
+            content = content
+                .trim()
+                .replace(/\n/gm, `\n${" ".repeat(indentWidth)}`);
+            const result = prefix + content +(node.nextSibling && !/\n$/.test(content) ? '\n' : '');
             return result;
         }
     };
