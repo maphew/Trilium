@@ -2358,8 +2358,34 @@
     },
     "stream_status": {
       "starting_agent": "Memulai agen. Ini mungkin memerlukan waktu.",
-      "waiting_for_reply": "Menunggu balasan…"
-    }
+      "waiting_for_reply": "Menunggu balasan…",
+      "still_working": "Masih diproses…"
+    },
+    "show_tool_call_details": "Tampilkan masukan dan keluaran",
+    "tool_call_no_result": "Belum ada hasil.",
+    "search_notes_count_other": "({{count}} catatan)",
+    "search_notes_limited_other": "{{count}} total hasil, dibatasi hingga {{limit}}",
+    "search_notes_scope": "Dicari dalam <Note/>",
+    "child_notes_count_other": "({{count}} turunan)",
+    "child_count_other": "{{count}} turunan",
+    "search_help_count_other": "({{count}} halaman)",
+    "subtree_more_other": "+{{count}} lainnya",
+    "attachment_count_other": "{{count}} lampiran",
+    "attribute_count_other": "({{count}} atribut)",
+    "search_icons_count_other": "({{count}} ikon)",
+    "attachment_size": "({{size}})",
+    "attachment_ocr": "Teks yang dikenali dari file",
+    "skills": {
+      "search_syntax": "Sintaks pencarian",
+      "backend_scripting": "Scripting backend",
+      "frontend_scripting": "Scripting frontend",
+      "dashboards": "Dasbor"
+    },
+    "web_sources_count_other": "({{count}} sumber)",
+    "attachment_model_cannot_read_image": "{{- model}} tidak dapat membaca gambar.",
+    "attachment_model_cannot_read_file": "{{- model}} tidak dapat membaca PDF.",
+    "attachment_refused": "\"{{name}}\" tidak dilampirkan. {{- reason}}",
+    "remove_unreadable_attachments": "Hapus lampiran yang tidak dapat dibaca oleh {{- model}}"
   },
   "sidebar_chat": {
     "title": "AI Chat",
@@ -2834,7 +2860,9 @@
     "auto_link_previews_enabled": "Buat pratinjau tautan secara otomatis",
     "auto_link_previews_description": "Secara otomatis mengubah tautan yang terdeteksi menjadi pratinjau yang menampilkan judul, deskripsi, dan gambar halaman web. Menyisipkan pratinjau dari toolbar akan selalu berfungsi, apa pun pengaturan ini.",
     "html_support_enabled": "Pertahankan tag HTML yang tidak didukung",
-    "html_support_description": "Simpan tag HTML yang tidak memiliki fitur tersendiri oleh penyunting, seperti yang tercantum di bawah Opsi → Lainnya → Tag impor HTML. Tag tersebut muncul sebagai blok yang tidak dapat diedit secara langsung, dan tag yang tidak dikenali mungkin tidak terlihat sama sekali saat mengedit. Dengan ini dimatikan, tag tersebut dihapus dari catatan saat pertama kali diedit dan disimpan; mengimpor tidak terpengaruh dengan cara apa pun."
+    "html_support_description": "Simpan tag HTML yang tidak memiliki fitur tersendiri oleh penyunting, seperti yang tercantum di bawah Opsi → Lainnya → Tag impor HTML. Tag tersebut muncul sebagai blok yang tidak dapat diedit secara langsung, dan tag yang tidak dikenali mungkin tidak terlihat sama sekali saat mengedit. Dengan ini dimatikan, tag tersebut dihapus dari catatan saat pertama kali diedit dan disimpan; mengimpor tidak terpengaruh dengan cara apa pun.",
+    "mathlive_enabled": "Editor visual MathLive",
+    "mathlive_description": "Persamaan matematika dapat diedit menggunakan editor visual."
   },
   "table_view": {
     "new-row": "Baris baru",
@@ -3254,7 +3282,9 @@
     "page_ranges": "Halaman",
     "page_ranges_hint": "Biarkan kosong untuk mencetak semua halaman.",
     "page_ranges_invalid": "Format tidak valid. Gunakan misalnya 1-5, 8, 11-13.",
-    "page_ranges_placeholder": "misalnya 1-5, 8, 11-13"
+    "page_ranges_placeholder": "misalnya 1-5, 8, 11-13",
+    "render_error_title": "Tidak dapat merender PDF dengan pengaturan saat ini",
+    "render_error_description": "Harap periksa margin dan skala."
   },
   "pdf": {
     "attachments_other": "{{count}} lampiran",
@@ -3453,7 +3483,10 @@
       "search_icons": "Cari ikon",
       "search_help": "Cari Panduan Pengguna",
       "get_help_toc": "Ambil isi Panduan Pengguna",
-      "read_web_page": "Baca halaman web"
+      "read_web_page": "Baca halaman web",
+      "note_moved_from": "<Note/> dari <From/> hingga <To/>",
+      "note_moved": "<Note/> hingga <To/>",
+      "attachment_in_note": "<Title/> dalam <Note/>"
     },
     "edit_provider_title": "Edit {{- name}}",
     "edit_provider": "Edit",
@@ -4337,5 +4370,10 @@
     "label_marker_negated": "Mengecualikan label. Tekan Enter untuk melihat daftar label",
     "relation_marker": "Merujuk pada relasi. Tekan Enter untuk melihat daftar relasi",
     "relation_marker_negated": "Mengecualikan relasi. Tekan Enter untuk melihat daftar relasi"
+  },
+  "lightbox": {
+    "image": "Gambar",
+    "pdf": "PDF",
+    "open_original": "Buka dokumen asli di tab baru"
   }
 }
