@@ -124,7 +124,7 @@ The Markdown notes share some of the keyboard shortcuts from <a class="referenc
 
 *   _Cut to note_ (<kbd>Ctrl</kbd>+<kbd>X</kbd>) which cuts the selection into a new child note.
 *   _Add link_ (<kbd>Ctrl</kbd>+<kbd>L</kbd>) which shows the dialog to create external or reference links.
-*   _Insert date/time_ (<kbd>Alt</kbd>+<kbd>T</kbd>) which respects the same formatting as text notes.
+*   _Date/time_ (<kbd>Alt</kbd>+<kbd>T</kbd>) which respects the same formatting as text notes.
 *   _Include note_ (not assigned by default), which triggers the same dialog to insert notes as the one for text notes.
 
 In addition, the following formatting keyboard shortcuts are available:
