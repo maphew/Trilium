@@ -83,6 +83,15 @@ export default function PromotedAttributesCard({
             drawnByCollection: drawnByCollection?.includes(attribute.name) ?? false
         })));
     }
+    // A card that joins through a branch change brings no attribute row for `entitiesReloaded`, so
+    // the list is resolved again when the definition names of `itemNotes` change.
+    const itemDefinitions = definitionNames(itemNotes);
+    const [ lastItemDefinitions, setLastItemDefinitions ] = useState(itemDefinitions);
+    if (lastItemDefinitions !== itemDefinitions) {
+        setLastItemDefinitions(itemDefinitions);
+        setShown((was) => resolvePromotedAttributes(
+            note, storedPromotedAttributes(was), drawnByCollection, itemNotes));
+    }
     const [ detail, setDetail ] = useState<AttributeDetailOpts | null>(null);
     /** The definition the editor last reported, which `save` writes. */
     const edited = useRef<Attribute>();
@@ -297,6 +306,17 @@ export default function PromotedAttributesCard({
                 document.body)}
         </>
     );
+}
+
+/** Returns the definition names of `notes`, sorted and joined, for comparing between renders. */
+function definitionNames(notes: Iterable<FNote> | undefined) {
+    const names = new Set<string>();
+    for (const note of notes ?? []) {
+        for (const definition of note.getAttributeDefinitions()) {
+            names.add(definition.name);
+        }
+    }
+    return [ ...names ].sort().join(",");
 }
 
 /** The kind entry for an attribute: its `labelType`, or the relation kind for a relation. */

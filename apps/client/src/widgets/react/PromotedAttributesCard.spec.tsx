@@ -201,6 +201,27 @@ describe("PromotedAttributesCard", () => {
         expect(stored.at(-1)?.[2]).toMatchObject({ name: "project", hidden: true });
     });
 
+    /**
+     * A card that joins the board through a branch change, such as a sync, brings no attribute row,
+     * so the new `itemNotes` alone must add its definitions.
+     */
+    it("lists what a newly shown item defines, keeping the order and what is hidden", () => {
+        settings = [ { name: "owner" }, { name: "dueDate", hidden: true } ];
+        itemNotes = [];
+        draw();
+
+        itemNotes = [ {
+            noteId: "task1",
+            getAttributeDefinitions: () => [
+                { ...definition("label:project", { alias: "Project" }), noteId: "template1" }
+            ]
+        } as unknown as FNote ];
+        draw();
+
+        expect(names()).toEqual([ unnamed("owner"), "Due", "Project" ]);
+        expect(shown()).toEqual([ true, false, true ]);
+    });
+
     it("reports the whole list in its new order", () => {
         draw();
 
