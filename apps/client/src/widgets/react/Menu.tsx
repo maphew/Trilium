@@ -4,7 +4,7 @@ import { autoUpdate, computePosition, flip, type Placement, shift, size, type Vi
 import clsx from "clsx";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import type { CustomMenuItem, MenuCommandItem, MenuItem, MenuSeparatorItem } from "../../menus/context_menu";
+import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import { getActionSync } from "../../services/keyboard_actions";
 import { joinElements } from "./react_utils";
 import { renderShortcutKbds } from "./shortcut_kbd";
@@ -50,6 +50,7 @@ export default function Menu<T>({ id, className, x, y, orientation, items, onSel
             {menuRows(items).map((row, index) => {
                 if (!("kind" in row)) return <MenuRow key={index} item={row} onSelect={onSelect} />;
                 if (row.kind === "separator") return <div key={index} className="dropdown-divider" role="separator" />;
+                if (row.kind === "header") return <h6 key={index} className="dropdown-header">{row.title}</h6>;
                 return (
                     <li key={index} className="dropdown-custom-item" onClick={onClose}>
                         <row.componentFn />
@@ -118,20 +119,19 @@ function MenuIconSlot<T>({ item }: { item: MenuCommandItem<T> }) {
         : <span>{"\u00a0"}</span>;
 }
 
-/** The items `Menu` renders so far, with a run of separators reduced to one. */
+/** The items with a run of separators reduced to one. */
 function menuRows<T>(items: MenuItem<T>[]) {
-    const rows: (MenuCommandItem<T> | MenuSeparatorItem | CustomMenuItem)[] = [];
+    const rows: MenuItem<T>[] = [];
     for (const item of items) {
-        const kind = "kind" in item ? item.kind : undefined;
-        if (kind === "separator") {
-            const previous = rows.at(-1);
-            if (previous && "kind" in previous && previous.kind === "separator") continue;
-            rows.push(item as MenuSeparatorItem);
-        } else if (kind !== "header") {
-            rows.push(item as MenuCommandItem<T> | CustomMenuItem);
-        }
+        const previous = rows.at(-1);
+        if (isSeparator(item) && previous && isSeparator(previous)) continue;
+        rows.push(item);
     }
     return rows;
+}
+
+function isSeparator<T>(item: MenuItem<T>) {
+    return "kind" in item && item.kind === "separator";
 }
 
 /**

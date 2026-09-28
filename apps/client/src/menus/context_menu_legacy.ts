@@ -219,7 +219,6 @@ class ContextMenu {
                 $group.append($("<div>").addClass("dropdown-divider"));
                 shouldResetGroup = true; // End the group after the next item
             } else if (itemKind === "header") {
-                $group.append($("<h6>").addClass("dropdown-header").text((item as MenuHeader).title));
                 shouldResetGroup = true;
             } else {
                 $group.append(this.createMenuItem(item as MenuCommandItem<any>));

@@ -220,6 +220,33 @@ describe("contextMenu", () => {
             expect(contextMenu.isShown()).toBe(true);
         });
 
+        it("shows a header as text above the items it introduces", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [
+                    // A name the user wrote, such as a board column's status.
+                    { kind: "header", title: "<b>Doing</b>" },
+                    { title: "Move left" },
+                    { kind: "separator" },
+                    { kind: "header", title: "Colour" },
+                    { title: "Red" }
+                ]
+            });
+
+            const rows = [ ...menuElement()?.children ?? [] ]
+                .map(row => `${row.tagName.toLowerCase()}.${row.className} ${row.innerHTML.includes("<b>") ? "(markup)" : row.textContent}`);
+            expect(rows).toEqual([
+                "h6.dropdown-header <b>Doing</b>",
+                "li.dropdown-item Move left",
+                "div.dropdown-divider ",
+                "h6.dropdown-header Colour",
+                "li.dropdown-item Red"
+            ]);
+        });
+
         it("runs an item pressed with the primary button, then hides", async () => {
             buildPage();
             const contextMenu = await buildContextMenu();
