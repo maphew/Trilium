@@ -2,7 +2,7 @@ import "./Menu.css";
 
 import { autoUpdate, computePosition, flip, hide, offset, type Placement, type ReferenceElement, shift, size, type VirtualElement } from "@floating-ui/dom";
 import clsx from "clsx";
-import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import { getActionSync } from "../../services/keyboard_actions";
@@ -29,8 +29,8 @@ export interface MenuProps<T> {
      */
     bottomSheet?: boolean;
     items: MenuItem<T>[];
-    /** Called when an item is pressed with the primary button. */
-    onSelect(item: MenuCommandItem<T>, e: MouseEvent): void;
+    /** Called when an item is pressed with the primary button, or run from the keyboard. */
+    onSelect(item: MenuCommandItem<T>, e: MouseEvent | KeyboardEvent): void;
     /** Called on a click inside a custom item, which closes the menu like a pressed item does. */
     onClose(): void;
 }
@@ -46,6 +46,15 @@ interface OpenSubmenu<T> {
     key: number;
 }
 
+/** The row the keyboard acts on, and the level it stands at. */
+interface ActiveRow<T> {
+    level: number;
+    item: MenuCommandItem<T>;
+}
+
+/** How long typed letters keep adding to the text a row is looked up by. */
+const TYPEAHEAD_TIMEOUT = 500;
+
 /** What every level of the menu shares. */
 interface MenuState<T> {
     onSelect: MenuProps<T>["onSelect"];
@@ -57,6 +66,10 @@ interface MenuState<T> {
     openSubmenu(level: number, item?: MenuCommandItem<T>, anchor?: HTMLElement): void;
     /** The item whose submenu stands open at each level. */
     openItems: MenuCommandItem<T>[];
+    active?: ActiveRow<T>;
+    setActive(level: number, item: MenuCommandItem<T>): void;
+    /** Each row's element, for `aria-activedescendant` and for anchoring a submenu the keyboard opens. */
+    rows: Map<MenuCommandItem<T>, HTMLElement>;
 }
 
 export default function Menu<T>({ id, className, x, y, orientation, bottomSheet, items, onSelect, onClose }: MenuProps<T>) {
@@ -71,26 +84,132 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
             return item && anchor ? [ ...kept, { item, anchor, key: nextKey.current++ } ] : kept;
         });
     }, []);
-    const state: MenuState<T> = { onSelect, onClose, openSubmenu, openItems: submenus.map((submenu) => submenu.item) };
+    const [ active, setActiveRow ] = useState<ActiveRow<T>>();
+    const rows = useRef(new Map<MenuCommandItem<T>, HTMLElement>()).current;
+    const typeahead = useRef({ text: "", timeout: 0 });
+
+    const setActive = useCallback((level: number, item: MenuCommandItem<T>) => {
+        setActiveRow({ level, item });
+        rows.get(item)?.scrollIntoView?.({ block: "nearest" });
+    }, [ rows ]);
+    const state: MenuState<T> = {
+        onSelect, onClose, openSubmenu, openItems: submenus.map((submenu) => submenu.item), active, setActive, rows
+    };
+
+    // After the commit: a submenu's rows register their elements only as they mount.
+    useLayoutEffect(() => {
+        const id = active && rows.get(active.item)?.id;
+        if (id) menuRef.current?.setAttribute("aria-activedescendant", id);
+        else menuRef.current?.removeAttribute("aria-activedescendant");
+    }, [ active, submenus, rows ]);
+
+    const keyHandler = useRef(onKeyDown);
+    keyHandler.current = onKeyDown;
+    useLayoutEffect(() => {
+        // Captured at the window: Bootstrap captures keys at the document for anything inside a
+        // `.dropdown-menu`, and takes them for a dropdown of its own. Only keys the menu itself
+        // receives, so a control inside a custom item keeps its own.
+        const listener = (e: KeyboardEvent) => {
+            if (e.target === menuRef.current) keyHandler.current(e);
+        };
+        window.addEventListener("keydown", listener, true);
+        return () => window.removeEventListener("keydown", listener, true);
+    }, []);
+
+    function onKeyDown(e: KeyboardEvent) {
+        const level = active?.level ?? 0;
+        const levelRows = runnableRows(level === 0 ? items : submenus[level - 1]?.item.items ?? []);
+        const index = active ? levelRows.indexOf(active.item) : -1;
+        const count = levelRows.length;
+        const goTo = (position: number) => {
+            const item = levelRows[((position % count) + count) % count];
+            if (item) setActive(level, item);
+        };
+        const openActive = () => {
+            const item = active?.item;
+            const anchor = item && rows.get(item);
+            if (!item?.items || !anchor || isMobile()) return;
+            openSubmenu(level, item, anchor);
+            const first = runnableRows(item.items)[0];
+            if (first) setActive(level + 1, first);
+        };
+        const closeLevel = (closing: number) => {
+            const parent = submenus[closing - 1];
+            if (!parent) return;
+            openSubmenu(closing - 1);
+            setActive(closing - 1, parent.item);
+        };
+        const rtl = handleRightToLeftPlacement("right") !== "right";
+
+        switch (e.key) {
+            case "ArrowDown": goTo(index + 1); break;
+            case "ArrowUp": goTo(index < 0 ? -1 : index - 1); break;
+            case "Home": goTo(0); break;
+            case "End": goTo(-1); break;
+            case rtl ? "ArrowLeft" : "ArrowRight": openActive(); break;
+            case rtl ? "ArrowRight" : "ArrowLeft": if (level > 0) closeLevel(level); break;
+            case "Enter":
+            case " ":
+                if (!active) break;
+                openActive();
+                onSelect(active.item, e);
+                break;
+            case "Escape":
+                // One level at a time, then the menu itself.
+                if (submenus.length) closeLevel(submenus.length);
+                else onClose();
+                break;
+            // Focus stays in the menu until it closes.
+            case "Tab": break;
+            default: {
+                if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+                const typed = typeahead.current;
+                window.clearTimeout(typed.timeout);
+                typed.timeout = window.setTimeout(() => typed.text = "", TYPEAHEAD_TIMEOUT);
+                typed.text += e.key.toLowerCase();
+                // A first letter looks past the active row, so pressing it again moves on.
+                const skip = typed.text.length === 1 ? 1 : 0;
+                for (let step = skip; step < count + skip; step++) {
+                    const item = levelRows[(index + step + count) % count];
+                    if (item && rows.get(item)?.textContent?.trim().toLowerCase().startsWith(typed.text)) {
+                        setActive(level, item);
+                        break;
+                    }
+                }
+            }
+        }
+        e.preventDefault();
+        e.stopPropagation();
+    }
 
     useLayoutEffect(() => {
         const menu = menuRef.current;
         if (!menu) return;
+        // The keys go to the menu while it is up; `contextMenu` gives focus back once it is hidden.
+        // A browser does not focus an element under `visibility: hidden`, so the menu takes focus
+        // only once it is shown.
+        const takeFocus = () => menu.focus({ preventScroll: true });
         if (bottomSheet) {
             // An inline `max-height` would override the sheet's own, which is not `!important`.
             menu.style.visibility = "visible";
+            takeFocus();
             return;
         }
 
         const anchor = pointAt(x, y);
         const placement = orientation === "left" ? "left-start" : "right-start";
+        let placed = false;
         // Places the menu now, and again whenever the viewport or the menu itself changes size.
-        return autoUpdate(anchor, menu, () => void placeMenu(menu, anchor, placement));
+        return autoUpdate(anchor, menu, () => void placeMenu(menu, anchor, placement).then(() => {
+            if (placed) return;
+            placed = true;
+            takeFocus();
+        }));
     }, [ x, y, orientation, bottomSheet ]);
 
     return (
         <div
-            ref={menuRef} id={id} role="menu"
+            ref={menuRef} id={id} role="menu" tabIndex={-1}
             className={clsx("dropdown-menu show tn-menu", bottomSheet && "mobile-bottom-menu", className)}
             // Neither the browser's menu nor another of the app's opens over this one. Every level
             // is inside this element, so one handler covers them all.
@@ -187,21 +306,31 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
     // A phone has no room beside the menu, so a submenu unfolds under its row instead.
     const [ unfolded, setUnfolded ] = useState(false);
     const open = isMobile() ? unfolded : state.openItems[level] === item;
+    const active = state.active?.level === level && state.active.item === item;
+    const id = useId();
 
     return (
         <li
+            id={id}
+            ref={(element) => {
+                if (element) state.rows.set(item, element);
+                else state.rows.delete(item);
+            }}
             className={clsx("dropdown-item", hasSubmenu && "dropdown-submenu", open && "submenu-open",
-                disabled && "disabled", item.className)}
+                active && "tn-menu-active", disabled && "disabled", item.className)}
             role="menuitem"
             aria-disabled={disabled || undefined}
             aria-haspopup={hasSubmenu ? "menu" : undefined}
             aria-expanded={hasSubmenu ? open : undefined}
             onPointerEnter={(e) => {
                 if (isMobile()) return;
+                // The keyboard goes on from the row the pointer last pointed at.
+                if (!disabled) state.setActive(level, item);
                 state.openSubmenu(level, hasSubmenu && !disabled ? item : undefined, e.currentTarget);
             }}
             // `mousedown` rather than `click`, and its default prevented, so the press does not move
-            // focus: a text editor keeps the selection that commands such as a spelling fix act on.
+            // focus out of the menu: `contextMenu` hands it back to a text editor before the command
+            // runs, with the selection that commands such as a spelling fix act on.
             onMouseDown={(e) => {
                 if (e.button !== 0) return;
                 e.preventDefault();
@@ -266,6 +395,11 @@ function MenuIconSlot<T>({ item }: { item: MenuCommandItem<T> }) {
     return icon
         ? <span className={clsx(icon, "tn-icon", item.iconColorClass)} />
         : <span>{"\u00a0"}</span>;
+}
+
+/** The rows the keyboard can reach: those that run something, and are enabled. */
+function runnableRows<T>(items: MenuItem<T>[]) {
+    return menuRows(items).filter((row): row is MenuCommandItem<T> => !("kind" in row) && row.enabled !== false);
 }
 
 /** The items with a run of separators reduced to one. */

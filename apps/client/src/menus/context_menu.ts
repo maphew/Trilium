@@ -5,6 +5,7 @@ import { h, JSX, render } from "preact";
 import note_tooltip from "../services/note_tooltip.js";
 import utils from "../services/utils.js";
 import Menu from "../widgets/react/Menu";
+import { suspendModalFocusTraps } from "../widgets/react/modal_focustrap";
 
 export interface ContextMenuOptions<T> {
     x: number;
@@ -75,7 +76,7 @@ export interface MenuCommandItem<T> {
 }
 
 export type MenuItem<T> = MenuCommandItem<T> | CustomMenuItem | MenuSeparatorItem | MenuHeader;
-export type MenuHandler<T> = (item: MenuCommandItem<T>, e: MouseEvent) => void;
+export type MenuHandler<T> = (item: MenuCommandItem<T>, e: MouseEvent | KeyboardEvent) => void;
 export type ContextMenuEvent = PointerEvent | MouseEvent | JQuery.ContextMenuEvent;
 
 class ContextMenu {
@@ -85,6 +86,9 @@ class ContextMenu {
     private options?: ContextMenuOptions<any>;
     /** See {@link dismissedByLastPress}. */
     private pressDismissed = false;
+    /** What had focus before the menu took it, and gets it back once the menu is hidden. */
+    private focusBeforeShow: Element | null = null;
+    private restoreModalFocusTraps?: () => void;
 
     constructor() {
         this.cover = utils.isMobile() ? document.getElementById("context-menu-cover") : null;
@@ -102,7 +106,8 @@ class ContextMenu {
             setTimeout(() => this.pressDismissed = false);
         }, true);
         document.addEventListener("keydown", (e) => {
-            if (e.key !== "Escape" || !this.isShown) return;
+            // Inside the menu, `Menu` closes one level at a time.
+            if (e.key !== "Escape" || !this.isShown || this.host?.contains(e.target as Node)) return;
             // A dialog under the menu stays open.
             e.stopPropagation();
             void this.hide();
@@ -119,6 +124,9 @@ class ContextMenu {
         }
 
         this.options = options;
+        this.focusBeforeShow = document.activeElement;
+        // The menu takes focus, which a modal's focus trap would otherwise pull back into the modal.
+        this.restoreModalFocusTraps = suspendModalFocusTraps();
         // A browser showing an element fullscreen paints only that element, so the menu goes
         // inside it.
         this.host = document.createElement("div");
@@ -164,11 +172,21 @@ class ContextMenu {
         this.cover?.classList.remove("show");
         document.body.classList.remove("context-menu-shown");
 
+        const menuHadFocus = !!this.host?.contains(document.activeElement);
         if (this.host) {
             render(null, this.host);
             this.host.remove();
             this.host = undefined;
         }
+
+        // Traps first: re-arming one focuses its modal, which the focus given back then moves on from.
+        this.restoreModalFocusTraps?.();
+        this.restoreModalFocusTraps = undefined;
+        // Only while the menu still held it: a press outside has already moved it where it belongs.
+        if (menuHadFocus && this.focusBeforeShow instanceof HTMLElement && this.focusBeforeShow.isConnected) {
+            this.focusBeforeShow.focus({ preventScroll: true });
+        }
+        this.focusBeforeShow = null;
         options?.onHide?.();
     }
 }

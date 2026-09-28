@@ -16,6 +16,13 @@ vi.mock("../services/utils", async (importOriginal) => {
         default: { ...original.default, isMobile: () => layout.onMobile }
     };
 });
+const focusTraps = vi.hoisted(() => ({ restore: vi.fn(), suspend: vi.fn() }));
+vi.mock("../widgets/react/modal_focustrap", () => ({
+    suspendModalFocusTraps: () => {
+        focusTraps.suspend();
+        return focusTraps.restore;
+    }
+}));
 // Key names are translated; the formatting has specs of its own.
 vi.mock("../services/keyboard_shortcut_display", () => ({
     formatShortcut: (shortcut: string) => shortcut.split("+"),
@@ -557,6 +564,153 @@ describe("contextMenu", () => {
         expect(heard).not.toHaveBeenCalled();
         expect(contextMenu.isShown).toBe(true);
         document.removeEventListener("contextmenu", heard);
+    });
+
+    describe("keyboard", () => {
+        const keyboardItems = [
+            { title: "Cut" },
+            { kind: "separator" as const },
+            { title: "Copy", enabled: false },
+            { title: "Paste" },
+            { title: "Templates", items: [ { title: "Meeting" }, { title: "Weekly" } ] }
+        ];
+
+        async function openMenu(onSelect: (title: string) => void = () => {}) {
+            buildPage();
+            const editor = document.createElement("textarea");
+            document.body.append(editor);
+            editor.focus();
+            const contextMenu = await buildContextMenu();
+            await contextMenu.show({
+                x: 10, y: 10, items: keyboardItems,
+                selectMenuItemHandler: (item) => onSelect(String(item.title))
+            });
+            // The menu takes focus once it is placed, before which no key can reach it.
+            await vi.waitFor(() => expect(document.activeElement).toBe(menuElement()));
+            return { contextMenu, editor };
+        }
+
+        function key(name: string) {
+            const event = new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true });
+            (document.activeElement ?? document.body).dispatchEvent(event);
+            return event;
+        }
+
+        /** The active row's title, as `aria-activedescendant` names it. */
+        function activeRow() {
+            const id = menuElement()?.getAttribute("aria-activedescendant");
+            const row = id ? document.getElementById(id) : null;
+            if (id && !row?.classList.contains("tn-menu-active")) throw new Error("the active row is not marked");
+            return row?.querySelector(":scope > span")?.textContent ?? null;
+        }
+
+        afterEach(() => {
+            focusTraps.suspend.mockClear();
+            focusTraps.restore.mockClear();
+        });
+
+        it("takes focus while it is up, gives it back once hidden, and holds off the modals' focus traps meanwhile", async () => {
+            // A browser does not focus an element under `visibility: hidden`, which `Menu.css`
+            // keeps the menu under until it is placed. happy-dom loads no stylesheet and focuses it
+            // regardless, so the spec records what the menu showed when it was asked to take focus.
+            const visibilityOnFocus: string[] = [];
+            const focus = HTMLElement.prototype.focus;
+            vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (this: HTMLElement, options) {
+                if (this.id === "context-menu-container") visibilityOnFocus.push(this.style.visibility);
+                focus.call(this, options);
+            });
+            const { contextMenu, editor } = await openMenu();
+
+            await vi.waitFor(() => expect(document.activeElement).toBe(menuElement()));
+            expect(visibilityOnFocus).toEqual([ "visible" ]);
+            expect(focusTraps.suspend).toHaveBeenCalledTimes(1);
+            expect(focusTraps.restore).not.toHaveBeenCalled();
+
+            await contextMenu.hide();
+            // A spelling fix acts on the editor's selection, so the editor has focus back by then.
+            expect(document.activeElement).toBe(editor);
+            expect(focusTraps.restore).toHaveBeenCalledTimes(1);
+        });
+
+        it("moves between the rows it can run, around from either end", async () => {
+            await openMenu();
+            expect(activeRow()).toBeNull();
+
+            key("ArrowDown");
+            await vi.waitFor(() => expect(activeRow()).toBe("Cut"));
+            // Past the separator and the disabled row.
+            key("ArrowDown");
+            await vi.waitFor(() => expect(activeRow()).toBe("Paste"));
+            key("ArrowDown");
+            await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
+            key("ArrowDown");
+            await vi.waitFor(() => expect(activeRow()).toBe("Cut"));
+            key("ArrowUp");
+            await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
+            key("Home");
+            await vi.waitFor(() => expect(activeRow()).toBe("Cut"));
+            key("End");
+            await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
+            // Typing a row's first letters goes to it.
+            key("p");
+            await vi.waitFor(() => expect(activeRow()).toBe("Paste"));
+        });
+
+        it("opens a submenu towards it and closes it back, one level at a time", async () => {
+            const dialogHeard = vi.fn();
+            document.addEventListener("keydown", dialogHeard);
+            const { contextMenu } = await openMenu();
+
+            // Each key waits for the one before it to render, as a key press arrives in a task of its own.
+            key("End");
+            await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
+            key("ArrowRight");
+            await vi.waitFor(() => expect(activeRow()).toBe("Meeting"));
+            expect(menuElement()?.querySelector("div.dropdown-submenu")).not.toBeNull();
+
+            key("ArrowLeft");
+            await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
+            expect(menuElement()?.querySelector("div.dropdown-submenu")).toBeNull();
+
+            key("ArrowRight");
+            await vi.waitFor(() => expect(activeRow()).toBe("Meeting"));
+            // Escape closes the submenu, then the menu, and a dialog under it hears neither.
+            key("Escape");
+            await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
+            expect(contextMenu.isShown).toBe(true);
+            key("Escape");
+            expect(contextMenu.isShown).toBe(false);
+            expect(dialogHeard).not.toHaveBeenCalled();
+            document.removeEventListener("keydown", dialogHeard);
+        });
+
+        it("runs the active row on Enter, with focus back where it was", async () => {
+            const picked: string[] = [];
+            const { contextMenu, editor } = await openMenu((title) => {
+                picked.push(title);
+                expect(document.activeElement).toBe(editor);
+            });
+
+            key("ArrowDown");
+            await vi.waitFor(() => expect(activeRow()).toBe("Cut"));
+            key("ArrowDown");
+            await vi.waitFor(() => expect(activeRow()).toBe("Paste"));
+            key("Enter");
+
+            expect(picked).toEqual([ "Paste" ]);
+            expect(contextMenu.isShown).toBe(false);
+        });
+
+        it("goes on from the row the pointer last pointed at", async () => {
+            await openMenu();
+            const paste = [ ...menuElement()?.querySelectorAll<HTMLElement>("li.dropdown-item") ?? [] ]
+                .find((row) => row.textContent === "Paste");
+            paste?.dispatchEvent(new PointerEvent("pointerenter"));
+            await vi.waitFor(() => expect(activeRow()).toBe("Paste"));
+
+            key("ArrowDown");
+            await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
+        });
     });
 
     describe("on a phone", () => {

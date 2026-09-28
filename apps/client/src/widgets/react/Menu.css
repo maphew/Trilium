@@ -41,8 +41,17 @@
     overflow-y: auto;
 }
 
-/* The pointer leaves the row for its submenu, so the row stays marked while the submenu is open. */
-body.desktop .dropdown-item.dropdown-submenu.submenu-open {
+/* The menu holds focus for its keys; the row they act on shows where they are instead. */
+.dropdown-menu.tn-menu:focus {
+    outline: none;
+}
+
+/*
+ * The pointer leaves the row for its submenu, so the row stays marked while the submenu is open.
+ * The row the keyboard acts on is marked the same way.
+ */
+body.desktop .dropdown-item.dropdown-submenu.submenu-open,
+.dropdown-item.tn-menu-active:not(.disabled) {
     color: var(--hover-item-text-color);
     background-color: var(--hover-item-background-color);
 }
