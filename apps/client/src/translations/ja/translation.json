@@ -3398,7 +3398,9 @@
     "destination": "出力先",
     "destination_pdf": "PDF として保存",
     "destination_printers": "プリンター",
-    "destination_default": "デフォルト"
+    "destination_default": "デフォルト",
+    "render_error_title": "現在の設定ではPDFをレンダリングできません",
+    "render_error_description": "余白と倍率を確認してください。"
   },
   "revisions": {
     "note_revisions": "ノートの変更履歴",

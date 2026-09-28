@@ -335,7 +335,8 @@
     "unable-to-export-message": "現在のノートをPDFとしてエクスポートできませんでした。",
     "unable-to-export-title": "PDFとしてエクスポートできません",
     "unable-to-save-message": "選択されたファイルに書き込めませんでした。もう一度試すか、別の保存先を選択してください。",
-    "unable-to-print": "ノートを印刷できません"
+    "unable-to-print": "ノートを印刷できません",
+    "render-timeout": "ノートのレンダリングが {{seconds}} 秒以内に完了しませんでした。"
   },
   "tray": {
     "tooltip": "Trilium Notes",
