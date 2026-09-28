@@ -5,8 +5,6 @@ import { KeyboardActionNames } from "@triliumnext/commons";
 import { Tooltip } from "bootstrap";
 import { h, JSX, render } from "preact";
 
-import keyboardActionService, { getActionSync } from "../services/keyboard_actions.js";
-import { formatShortcut, joinShortcut } from "../services/keyboard_shortcut_display.js";
 import note_tooltip from "../services/note_tooltip.js";
 import utils from "../services/utils.js";
 
@@ -124,8 +122,6 @@ class ContextMenu {
         this.$widget.empty();
 
         this.addItems(this.$widget, options.items);
-
-        keyboardActionService.updateDisplayedShortcuts(this.$widget);
     }
 
     /**
@@ -268,28 +264,6 @@ class ContextMenu {
 
                 $link.append(badgeElement);
             }
-        }
-
-        if ("keyboardShortcut" in item && item.keyboardShortcut) {
-            const shortcuts = getActionSync(item.keyboardShortcut).effectiveShortcuts;
-            if (shortcuts) {
-                const allShortcuts: string[] = [];
-                for (const effectiveShortcut of shortcuts) {
-                    const tokens = formatShortcut(effectiveShortcut);
-                    // On macOS the glyphs sit in one <kbd> (⇧⌘J); elsewhere each token gets its own.
-                    allShortcuts.push(utils.isMac()
-                        ? `<kbd>${joinShortcut(tokens)}</kbd>`
-                        : tokens.map(key => `<kbd>${key}</kbd>`).join("+"));
-                }
-
-                if (allShortcuts.length) {
-                    const container = $("<span>").addClass("keyboard-shortcut");
-                    container.append($(allShortcuts.join(",")));
-                    $link.append(container);
-                }
-            }
-        } else if ("shortcut" in item && item.shortcut) {
-            $link.append($("<kbd>").text(item.shortcut));
         }
 
         if ("trailingIcon" in item && item.trailingIcon) {

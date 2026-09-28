@@ -1,6 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../services/note_tooltip", () => ({ default: { dismissAllTooltips: vi.fn() } }));
+vi.mock("../services/keyboard_actions", () => ({
+    getActionSync: (name: string) => ({
+        effectiveShortcuts: name === "copyNotesToClipboard" ? [ "Ctrl+C", "Ctrl+Insert" ] : []
+    })
+}));
+// Key names are translated; the formatting has specs of its own.
+vi.mock("../services/keyboard_shortcut_display", () => ({
+    formatShortcut: (shortcut: string) => shortcut.split("+"),
+    joinShortcut: (tokens: string[]) => tokens.join("+")
+}));
 
 /** The page as the shell leaves it. */
 function buildPage() {
@@ -125,6 +135,29 @@ describe("contextMenu", () => {
             ]);
             // Only the icon is tinted, so the title keeps the menu's own colour.
             expect(menuElement()?.querySelectorAll(".use-note-color")).toHaveLength(1);
+        });
+
+        it("shows a keyboard action's shortcuts, or a literal shortcut, after the title", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [
+                    { title: "Copy", keyboardShortcut: "copyNotesToClipboard" },
+                    { title: "Paste", shortcut: "Ctrl+V" },
+                    { title: "Cut", keyboardShortcut: "cutNotesToClipboard" }
+                ]
+            });
+
+            const shortcuts = [ ...menuElement()?.querySelectorAll("li.dropdown-item > span") ?? [] ]
+                .map(row => row.lastElementChild?.outerHTML);
+            expect(shortcuts).toEqual([
+                `<span class="keyboard-shortcut"><kbd>Ctrl</kbd>+<kbd>C</kbd>,<kbd>Ctrl</kbd>+<kbd>Insert</kbd></span>`,
+                "<kbd>Ctrl+V</kbd>",
+                // An action with no shortcut assigned shows none.
+                `<span>Cut</span>`
+            ]);
         });
 
         it("runs an item pressed with the primary button, then hides", async () => {

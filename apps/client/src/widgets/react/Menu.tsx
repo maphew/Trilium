@@ -5,7 +5,10 @@ import clsx from "clsx";
 import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
 import type { MenuCommandItem, MenuItem, MenuSeparatorItem } from "../../menus/context_menu";
+import { getActionSync } from "../../services/keyboard_actions";
 import { useResizeObserver } from "./hooks";
+import { joinElements } from "./react_utils";
+import { renderShortcutKbds } from "./shortcut_kbd";
 
 /**
  * A menu of commands, drawn with the markup Bootstrap's dropdowns use (`.dropdown-menu`,
@@ -67,9 +70,28 @@ function MenuRow<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect: Me
                 <span className="tn-menu-gap" />
                 {/* Callers pass HTML: titles escaped with `escapeHtml()` or boxed by `menuName()`. */}
                 <span dangerouslySetInnerHTML={{ __html: item.title }} />
+                <MenuShortcut item={item} />
             </span>
         </li>
     );
+}
+
+/**
+ * The shortcuts of the item's `keyboardShortcut` action as the user configured them, or else its
+ * literal `shortcut`. Read synchronously, so the menu is placed at its final width.
+ */
+function MenuShortcut<T>({ item }: { item: MenuCommandItem<T> }) {
+    if (item.keyboardShortcut) {
+        const shortcuts = getActionSync(item.keyboardShortcut)?.effectiveShortcuts;
+        if (!shortcuts?.length) return null;
+        return (
+            <span className="keyboard-shortcut">
+                {joinElements(shortcuts.map(shortcut => renderShortcutKbds(shortcut)), ",")}
+            </span>
+        );
+    }
+
+    return item.shortcut ? <kbd>{item.shortcut}</kbd> : null;
 }
 
 /**
