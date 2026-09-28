@@ -49,6 +49,12 @@ export interface PromotedAttribute {
      */
     isDefinedByItems: boolean;
     /**
+     * Whether an item defines it with another type or other select options than the listed
+     * definition. Sorting then compares its values as text, and `buildAttributeMenuItems()` leaves
+     * it out.
+     */
+    isConflicting: boolean;
+    /**
      * Whether the definition passes to the notes below. Always true for a resolved attribute, and
      * held so that the editor is handed the definition as it stands.
      */
@@ -84,12 +90,25 @@ export function resolvePromotedAttributes(
 
     const add = (definition: FAttribute, isDefinedByItems: boolean) => {
         const [ type, name ] = definition.name.split(":", 2);
-        if ((type !== "label" && type !== "relation") || !name || defined.has(name)
+        if ((type !== "label" && type !== "relation") || !name
                 || (!isDefinedByItems && !definition.isInheritable)) {
             return;
         }
 
         const parsed = definition.getDefinition();
+        const existing = defined.get(name);
+        if (existing) {
+            // An item inheriting the collection's definition reads the same one back; only an item
+            // that defines the name itself, or through a template, can differ.
+            if (isDefinedByItems
+                    && (existing.type !== type
+                        || (existing.labelType ?? "text") !== (parsed?.labelType ?? "text")
+                        || !sameOptions(existing.selectOptions, parsed?.selectOptions))) {
+                existing.isConflicting = true;
+            }
+            return;
+        }
+
         defined.set(name, {
             name,
             definitionName: definition.name,
@@ -103,6 +122,7 @@ export function resolvePromotedAttributes(
             definitionValue: definition.value,
             isOwned: definition.noteId === note?.noteId,
             isDefinedByItems,
+            isConflicting: false,
             isInheritable: definition.isInheritable
         });
     };
@@ -133,6 +153,13 @@ export function resolvePromotedAttributes(
     }
 
     return ordered;
+}
+
+/** Returns whether two select definitions offer the same options in the same order. */
+function sameOptions(a: string[] | undefined, b: string[] | undefined) {
+    const left = a ?? [];
+    const right = b ?? [];
+    return left.length === right.length && left.every((option, index) => option === right[index]);
 }
 
 /**

@@ -244,6 +244,16 @@ export default function PromotedAttributesCard({
                                 outline
                             />
 
+                            {attribute.isConflicting && (
+                                <Badge
+                                    className="promoted-attribute-conflict"
+                                    icon="bx bx-error-circle"
+                                    text={t("promoted_attributes.conflicting")}
+                                    tooltip={t("promoted_attributes.conflicting_tooltip")}
+                                    outline
+                                />
+                            )}
+
                             {!attribute.isDefinedByItems && <>
                                 <ActionButton
                                     className="promoted-attribute-edit"

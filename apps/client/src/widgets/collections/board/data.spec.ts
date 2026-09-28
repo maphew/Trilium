@@ -660,6 +660,7 @@ function definitions(name: string, type: "label" | "relation") {
         definitionValue: "",
         isOwned: true,
         isDefinedByItems: false,
+        isConflicting: false,
         isInheritable: true
     } ] ]);
 }

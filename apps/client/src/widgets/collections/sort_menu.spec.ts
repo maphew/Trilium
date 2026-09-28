@@ -233,6 +233,7 @@ function attribute(fields: Partial<PromotedAttribute> & { name: string }): Promo
         definitionValue: "",
         isOwned: true,
         isDefinedByItems: false,
+        isConflicting: false,
         isInheritable: true,
         ...fields
     };

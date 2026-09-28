@@ -201,6 +201,21 @@ describe("PromotedAttributesCard", () => {
         expect(stored.at(-1)?.[2]).toMatchObject({ name: "project", hidden: true });
     });
 
+    it("flags what the items define in different ways", () => {
+        const item = (noteId: string, labelType: string) => ({
+            noteId,
+            getAttributeDefinitions: () => [
+                { ...definition("label:priority", { labelType }), noteId: `tpl_${noteId}` }
+            ]
+        }) as unknown as FNote;
+        itemNotes = [ item("task1", "select"), item("task2", "number") ];
+        draw();
+
+        expect(segments().map((segment) =>
+            segment.querySelector(".promoted-attribute-conflict")?.textContent))
+            .toEqual([ undefined, undefined, "promoted_attributes.conflicting" ]);
+    });
+
     /**
      * A card that joins the board through a branch change, such as a sync, brings no attribute row,
      * so the new `itemNotes` alone must add its definitions.

@@ -342,6 +342,8 @@ Go to **Note menu** → **Board properties**. Under the **Card attributes** sect
 
 Attributes that the cards get from a template or another parent note can be reordered and hidden here, but not modified or deleted. Edit them on the note that defines them.
 
+If cards define an attribute with the same name but a different type or different select options, for example through two different templates, or if a card overrides the board's definition with its own, the attribute is marked **Multiple definitions**. Such an attribute is sorted as text and does not appear in the card's context menu.
+
 ### Managing card templates
 
 When you create a new card, Trilium offers four templates by default: **Text**, **Markdown**, **Canvas**, and **Spreadsheet**. You can customize this list to include other note types or custom templates with predefined placeholder content and prefilled card attributes.
