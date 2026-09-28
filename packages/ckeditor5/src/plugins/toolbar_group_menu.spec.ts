@@ -198,6 +198,28 @@ describe("ToolbarGroupMenu", () => {
         expect(rowChildren(dropdown).at(-1)).toBe(mounted);
     });
 
+    it("hands the keyboard to a mounted control when its row takes focus", async () => {
+        const editor = await createTestEditor(PLUGINS, {
+            toolbar: { items: [{ ...MENU_GROUP, items: ["panelOnly"] }] }
+        });
+
+        const dropdown = openDropdown(getToolbar(editor), "Insert");
+        const mounted = rowChildren(dropdown).at(-1);
+        expect(mounted).toBeInstanceOf(DropdownView);
+        if (!(mounted instanceof DropdownView)) {
+            return;
+        }
+
+        // The row goes on naming the button that stood there as its `childView`, which only the
+        // hover behaviour reads, and only to recognize a submenu. Focus takes the other road:
+        // `ListItemView#focus()` reaches for `children.first`, which is the control itself.
+        const [row] = [...dropdown.menuView?.items ?? []] as Array<{ childView?: unknown }>;
+        expect(row?.childView).not.toBe(mounted);
+
+        dropdown.menuView?.focus();
+        expect(document.activeElement).toBe(mounted.buttonView.element);
+    });
+
     it("converts a group of the block toolbar, filled after the plugin is set up", async () => {
         const { BlockToolbar } = await import("ckeditor5");
         const editor = await createTestEditor([BlockToolbar, ...PLUGINS], {
