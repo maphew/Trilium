@@ -46,6 +46,7 @@ export function sanitizeHtml(dirtyHtml: string) {
             a: ["id"],
             h2: ["id"],
             li: ["id"],
+            ol: ["start", "reversed"],
             // Collapsible blocks: keep the native open/closed state (e.g. preserved from a Notion import)
             // so the published/share view, which renders this HTML directly, reflects it.
             details: ["open"],

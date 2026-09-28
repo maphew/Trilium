@@ -451,6 +451,15 @@ $$`;
         }
     });
 
+    it("keeps the starting number of an ordered list, including through the Markdown exporter", () => {
+        const input = trimIndentation`\
+            3.  Third
+            4.  Fourth`;
+        const expected = `<ol start="3"><li>Third</li><li>Fourth</li></ol>`;
+        expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+        expect(markdownService.renderToHtml(markdownExportService.toMarkdown(expected), "Title")).toStrictEqual(expected);
+    });
+
     it("imports todo list multistate markers as data-trilium-task-state and titles the <li> with the state's human name", () => {
         // The `title` attribute mirrors what the CKEditor data downcast emits — it's
         // the hover tooltip viewers of the shared page, the read-only preview and

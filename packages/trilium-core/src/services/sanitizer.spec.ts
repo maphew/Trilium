@@ -64,6 +64,11 @@ describe("sanitize", () => {
         expect(sanitizeHtml(dirty)).toBe(dirty);
     });
 
+    it("keeps the start and reversed attributes on <ol> (CKEditor list properties)", () => {
+        const dirty = `<ol start="3"><li>Third</li></ol><ol reversed><li>Last</li></ol><ol reversed start="10"><li>Ten</li></ol>`;
+        expect(sanitizeHtml(dirty)).toBe(dirty);
+    });
+
     it("keeps the scope attribute on table header cells", () => {
         const dirty = `<table><thead><tr><th scope="col">C</th></tr></thead><tbody><tr><th scope="row">R</th><td>A</td></tr></tbody></table>`;
         expect(sanitizeHtml(dirty)).toBe(dirty);
