@@ -448,6 +448,42 @@ describe("contextMenu", () => {
             expect(columns?.textContent).toBe("TextCode");
         });
 
+        it("keeps a header with the row after it, and a separator with the rows around it, in one column", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            const columnItems = [
+                { title: "Text" }, { title: "Code" },
+                { kind: "separator" as const },
+                { title: "Templates", kind: "header" as const },
+                { title: "Meeting" }, { title: "Weekly" }
+            ];
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [
+                    { title: "Insert child note", items: columnItems, columns: 2 },
+                    { title: "Insert note after", items: columnItems }
+                ]
+            });
+            /** The layer's rows, a group of rows that must not break as the list of its rows. */
+            const layout = (list: Element | null | undefined) => [ ...list?.children ?? [] ].map((child) =>
+                child.classList.contains("dropdown-no-break")
+                    ? [ ...child.children ].map((grouped) => grouped.textContent || "---")
+                    : child.textContent || "---");
+
+            hover(row("Insert child note"));
+            await vi.waitFor(() => expect(menuElement()?.querySelector(".tn-menu-columns")).not.toBeNull());
+            expect(layout(menuElement()?.querySelector(".tn-menu-columns"))).toEqual([
+                "Text", [ "Code", "---", "Templates", "Meeting" ], "Weekly"
+            ]);
+
+            // A single column has no breaks to avoid, so nothing is grouped.
+            hover(row("Insert note after"));
+            await vi.waitFor(() => expect(menuElement()?.querySelector(".tn-menu-columns")).toBeNull());
+            expect(layout(menuElement()?.querySelector("div.dropdown-submenu > ul"))).toEqual([
+                "Text", "Code", "---", "Templates", "Meeting", "Weekly"
+            ]);
+        });
+
         it("unfolds a submenu under its row on a phone", async () => {
             layout.onMobile = true;
             const picked: string[] = [];

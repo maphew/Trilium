@@ -116,7 +116,7 @@ function SubmenuLayer<T>({ level, submenu, state }: { level: number, submenu: Op
                     // scrolls them rather than growing more columns to the side.
                     ? (
                         <div className="tn-menu-columns" style={{ columnCount: columns }}>
-                            <MenuList level={level} items={items} state={state} />
+                            <MenuList level={level} items={items} state={state} columns />
                         </div>
                     )
                     : <MenuList level={level} items={items} state={state} />}
@@ -125,19 +125,37 @@ function SubmenuLayer<T>({ level, submenu, state }: { level: number, submenu: Op
     );
 }
 
-function MenuList<T>({ level, items, state }: { level: number, items: MenuItem<T>[], state: MenuState<T> }) {
+function MenuList<T>({ level, items, state, columns }: {
+    level: number,
+    items: MenuItem<T>[],
+    state: MenuState<T>,
+    /** Wraps the rows a column must not break between in `.dropdown-no-break`. */
+    columns?: boolean
+}) {
+    const rows = menuRows(items);
+    if (!columns) return <>{rows.map((row, index) => <MenuListRow key={index} level={level} row={row} state={state} />)}</>;
+
     return <>
-        {menuRows(items).map((row, index) => {
-            if (!("kind" in row)) return <MenuRow key={index} level={level} item={row} state={state} />;
-            if (row.kind === "separator") return <div key={index} className="dropdown-divider" role="separator" />;
-            if (row.kind === "header") return <h6 key={index} className="dropdown-header">{row.title}</h6>;
-            return (
-                <li key={index} className="dropdown-custom-item" onClick={state.onClose}>
-                    <row.componentFn />
-                </li>
-            );
-        })}
+        {unbreakableGroups(rows).map((group, groupIndex) => (group.length > 1
+            ? (
+                <div key={groupIndex} className="dropdown-no-break">
+                    {group.map((row, index) => <MenuListRow key={index} level={level} row={row} state={state} />)}
+                </div>
+            )
+            : <MenuListRow key={groupIndex} level={level} row={group[0]} state={state} />
+        ))}
     </>;
+}
+
+function MenuListRow<T>({ level, row, state }: { level: number, row: MenuItem<T>, state: MenuState<T> }) {
+    if (!("kind" in row)) return <MenuRow level={level} item={row} state={state} />;
+    if (row.kind === "separator") return <div className="dropdown-divider" role="separator" />;
+    if (row.kind === "header") return <h6 className="dropdown-header">{row.title}</h6>;
+    return (
+        <li className="dropdown-custom-item" onClick={state.onClose}>
+            <row.componentFn />
+        </li>
+    );
 }
 
 function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandItem<T>, state: MenuState<T> }) {
@@ -238,8 +256,31 @@ function menuRows<T>(items: MenuItem<T>[]) {
     return rows;
 }
 
+/**
+ * The rows split where a column can break: a row stays with the one before it when that one is a
+ * header or a separator, or when it is a separator itself. Firefox ignores `break-before` and
+ * `break-after: avoid` in columns, so a group is kept whole with `break-inside: avoid` instead.
+ */
+function unbreakableGroups<T>(rows: MenuItem<T>[]) {
+    const groups: MenuItem<T>[][] = [];
+    for (const [ index, row ] of rows.entries()) {
+        const previous = rows[index - 1];
+        const lastGroup = groups.at(-1);
+        if (previous && lastGroup && (isHeader(previous) || isSeparator(previous) || isSeparator(row))) {
+            lastGroup.push(row);
+        } else {
+            groups.push([ row ]);
+        }
+    }
+    return groups;
+}
+
 function isSeparator<T>(item: MenuItem<T>) {
     return "kind" in item && item.kind === "separator";
+}
+
+function isHeader<T>(item: MenuItem<T>) {
+    return "kind" in item && item.kind === "header";
 }
 
 /**
