@@ -123,7 +123,8 @@ class ContextMenu {
                 void this.hide();
                 item.handler?.(item, e);
                 options.selectMenuItemHandler(item, e);
-            }
+            },
+            onClose: () => void this.hide()
         }), this.host);
     }
 

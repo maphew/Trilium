@@ -4,7 +4,7 @@ import { autoUpdate, computePosition, flip, type Placement, shift, size, type Vi
 import clsx from "clsx";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import type { MenuCommandItem, MenuItem, MenuSeparatorItem } from "../../menus/context_menu";
+import type { CustomMenuItem, MenuCommandItem, MenuItem, MenuSeparatorItem } from "../../menus/context_menu";
 import { getActionSync } from "../../services/keyboard_actions";
 import { joinElements } from "./react_utils";
 import { renderShortcutKbds } from "./shortcut_kbd";
@@ -25,12 +25,14 @@ export interface MenuProps<T> {
     items: MenuItem<T>[];
     /** Called when an item is pressed with the primary button. */
     onSelect(item: MenuCommandItem<T>, e: MouseEvent): void;
+    /** Called on a click inside a custom item, which closes the menu like a pressed item does. */
+    onClose(): void;
 }
 
 /** How many pixels the menu keeps from the edges of the viewport. */
 const VIEWPORT_PADDING = 5;
 
-export default function Menu<T>({ id, className, x, y, orientation, items, onSelect }: MenuProps<T>) {
+export default function Menu<T>({ id, className, x, y, orientation, items, onSelect, onClose }: MenuProps<T>) {
     const menuRef = useRef<HTMLDivElement>(null);
 
     useLayoutEffect(() => {
@@ -45,10 +47,15 @@ export default function Menu<T>({ id, className, x, y, orientation, items, onSel
 
     return (
         <div ref={menuRef} id={id} className={clsx("dropdown-menu show tn-menu", className)} role="menu">
-            {menuRows(items).map((row, index) => ("kind" in row && row.kind === "separator"
-                ? <div key={index} className="dropdown-divider" role="separator" />
-                : <MenuRow key={index} item={row as MenuCommandItem<T>} onSelect={onSelect} />
-            ))}
+            {menuRows(items).map((row, index) => {
+                if (!("kind" in row)) return <MenuRow key={index} item={row} onSelect={onSelect} />;
+                if (row.kind === "separator") return <div key={index} className="dropdown-divider" role="separator" />;
+                return (
+                    <li key={index} className="dropdown-custom-item" onClick={onClose}>
+                        <row.componentFn />
+                    </li>
+                );
+            })}
         </div>
     );
 }
@@ -110,15 +117,15 @@ function MenuIconSlot<T>({ item }: { item: MenuCommandItem<T> }) {
 
 /** The items `Menu` renders so far, with a run of separators reduced to one. */
 function menuRows<T>(items: MenuItem<T>[]) {
-    const rows: (MenuCommandItem<T> | MenuSeparatorItem)[] = [];
+    const rows: (MenuCommandItem<T> | MenuSeparatorItem | CustomMenuItem)[] = [];
     for (const item of items) {
         const kind = "kind" in item ? item.kind : undefined;
         if (kind === "separator") {
             const previous = rows.at(-1);
-            if (previous && "kind" in previous) continue;
+            if (previous && "kind" in previous && previous.kind === "separator") continue;
             rows.push(item as MenuSeparatorItem);
-        } else if (!kind) {
-            rows.push(item as MenuCommandItem<T>);
+        } else if (kind !== "header") {
+            rows.push(item as MenuCommandItem<T> | CustomMenuItem);
         }
     }
     return rows;

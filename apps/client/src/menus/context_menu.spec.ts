@@ -160,6 +160,40 @@ describe("contextMenu", () => {
             ]);
         });
 
+        it("renders a custom item's component in its place, and hides on a click inside it", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            const { h } = await import("preact");
+            const { useState } = await import("preact/hooks");
+            // A component with state of its own, as the colour pickers are.
+            function Swatches() {
+                const [ picked ] = useState("red");
+                return h("div", { className: "swatches" }, picked);
+            }
+
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [
+                    { title: "Delete" },
+                    { kind: "separator" },
+                    { kind: "custom", componentFn: Swatches },
+                    { kind: "separator" },
+                    { title: "Export" }
+                ]
+            });
+
+            const rows = [ ...menuElement()?.children ?? [] ].map(row => `${row.tagName.toLowerCase()}.${row.className}`);
+            expect(rows).toEqual([
+                "li.dropdown-item", "div.dropdown-divider", "li.dropdown-custom-item", "div.dropdown-divider", "li.dropdown-item"
+            ]);
+            const custom = menuElement()?.querySelector<HTMLElement>(".dropdown-custom-item");
+            expect(custom?.innerHTML).toBe(`<div class="swatches">red</div>`);
+
+            // On its own, without reaching the page's listener: on mobile only the cover has one.
+            custom?.dispatchEvent(new MouseEvent("click", { bubbles: false }));
+            expect(contextMenu.isShown()).toBe(false);
+        });
+
         it("runs an item pressed with the primary button, then hides", async () => {
             buildPage();
             const contextMenu = await buildContextMenu();

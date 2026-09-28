@@ -3,7 +3,7 @@
 
 import { KeyboardActionNames } from "@triliumnext/commons";
 import { Tooltip } from "bootstrap";
-import { h, JSX, render } from "preact";
+import { JSX } from "preact";
 
 import note_tooltip from "../services/note_tooltip.js";
 import utils from "../services/utils.js";
@@ -222,13 +222,7 @@ class ContextMenu {
                 $group.append($("<h6>").addClass("dropdown-header").text((item as MenuHeader).title));
                 shouldResetGroup = true;
             } else {
-                if (itemKind === "custom") {
-                    // Custom menu item
-                    $group.append(this.createCustomMenuItem(item as CustomMenuItem));
-                } else {
-                    // Standard menu item
-                    $group.append(this.createMenuItem(item as MenuCommandItem<any>));
-                }
+                $group.append(this.createMenuItem(item as MenuCommandItem<any>));
 
                 // After adding a menu item, if the previous item was a separator or header,
                 // reset the group so that the next item will be appended directly to the parent.
@@ -241,14 +235,6 @@ class ContextMenu {
             prevItemKind = itemKind;
 
         }
-    }
-
-    private createCustomMenuItem(item: CustomMenuItem) {
-        const element = document.createElement("li");
-        element.classList.add("dropdown-custom-item");
-        element.onclick = () => this.hide();
-        render(h(item.componentFn, {}), element);
-        return element;
     }
 
     private createMenuItem(item: MenuCommandItem<any>) {
