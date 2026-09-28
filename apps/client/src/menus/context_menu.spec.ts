@@ -444,6 +444,17 @@ describe("contextMenu", () => {
             rowRect = DOMRect.fromRect({ x: 850, y: 100, width: 100, height: 24 });
             root.dispatchEvent(new Event("scroll"));
             await vi.waitFor(() => expect([ layer()?.style.left, layer()?.style.visibility ]).toEqual([ "702px", "visible" ]));
+
+            // Too wide for either side of its row, it is shifted inside the viewport rather than
+            // left clipped where it opens.
+            vi.spyOn(HTMLUListElement.prototype, "offsetWidth", "get").mockReturnValue(900);
+            rowRect = DOMRect.fromRect({ x: 400, y: 100, width: 200, height: 24 });
+            root.dispatchEvent(new Event("scroll"));
+            await vi.waitFor(() => {
+                const left = parseFloat(layer()?.style.left ?? "");
+                expect(left).toBeGreaterThanOrEqual(5);
+                expect(left + 900).toBeLessThanOrEqual(995);
+            });
         });
 
         it("runs a submenu's row and closes everything, and keeps a submenu's row that only opens it", async () => {
@@ -461,10 +472,11 @@ describe("contextMenu", () => {
             expect(picked).toEqual([ "Templates", "Meeting", "Weekly" ]);
             expect(contextMenu.isShown).toBe(false);
 
-            // A row with a command of its own runs it, like any other.
-            await openMenu((title) => picked.push(title));
+            // A row with a command of its own runs it and closes the menu, like any other.
+            const again = await openMenu((title) => picked.push(title));
             press(row("Insert child note"));
             expect(picked.at(-1)).toBe("Insert child note");
+            expect(again.isShown).toBe(false);
         });
 
         it("lays a submenu with columns out on an element of its own, so a capped layer scrolls them", async () => {
