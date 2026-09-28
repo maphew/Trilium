@@ -175,7 +175,7 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
         const openActive = () => {
             const item = active && !isCustom(active.item) ? active.item : undefined;
             const anchor = item && rows.get(item);
-            if (!item?.items || !anchor || isMobile()) return;
+            if (!item?.items || !anchor) return;
             openSubmenu(level, item, anchor, true);
             const first = runnableRows(item.items)[0];
             if (first) setActive(level + 1, first);
@@ -299,7 +299,8 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
             </menu>
             {/* Inside the menu, so the rules scoped to it apply, but none inside another: a fixed
                 layer escapes a scrolling menu only while no ancestor carries a filter. */}
-            {submenus.map((submenu, index) => (
+            {/* A phone unfolds the open submenus under their rows instead (see MenuRow). */}
+            {!isMobile() && submenus.map((submenu, index) => (
                 <SubmenuLayer key={submenu.key} level={index + 1} submenu={submenu} state={state} />
             ))}
         </div>
@@ -403,9 +404,7 @@ function MenuListRow<T>({ level, row, state }: { level: number, row: MenuItem<T>
 function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandItem<T>, state: MenuState<T> }) {
     const disabled = item.enabled === false;
     const hasSubmenu = !!item.items;
-    // A phone has no room beside the menu, so a submenu unfolds under its row instead.
-    const [ unfolded, setUnfolded ] = useState(false);
-    const open = isMobile() ? unfolded : state.openItems[level] === item;
+    const open = state.openItems[level] === item;
     const active = state.active?.level === level && state.active.item === item;
     const id = useId();
     // As `MenuIconSlot` reads it: an item with a `checked` key is one that can be checked.
@@ -452,8 +451,9 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
                 e.stopPropagation();
                 if (disabled) return;
 
+                // Pressed again, an unfolded row folds its submenu back.
                 if (hasSubmenu && isMobile()) {
-                    setUnfolded(!unfolded);
+                    state.openSubmenu(level, open ? undefined : item, e.currentTarget, true);
                     return;
                 }
                 if (hasSubmenu) state.openSubmenu(level, item, e.currentTarget, true);
@@ -471,9 +471,10 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
                 <MenuShortcut item={item} />
                 {item.trailingIcon && <span className={clsx(item.trailingIcon, "tn-icon", "menu-trailing-icon")} />}
             </span>
+            {/* A phone has no room beside the menu, so an open submenu unfolds under its row. */}
             {hasSubmenu && isMobile() && (
-                <ul className={clsx("dropdown-menu", unfolded && "show")} role="menu" aria-labelledby={titleId(id)}>
-                    {unfolded && <MenuList level={level + 1} items={item.items ?? []} state={state} />}
+                <ul className={clsx("dropdown-menu", open && "show")} role="menu" aria-labelledby={titleId(id)}>
+                    {open && <MenuList level={level + 1} items={item.items ?? []} state={state} />}
                 </ul>
             )}
         </li>

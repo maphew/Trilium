@@ -856,6 +856,34 @@ describe("contextMenu", () => {
             document.removeEventListener("keydown", dialogHeard);
         });
 
+        it("unfolds a submenu on a phone as Right and Enter open one, and folds it back on Escape", async () => {
+            layout.onMobile = true;
+            try {
+                await openMenu();
+                key("End");
+                await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
+                const parent = menuElement()?.querySelector<HTMLElement>("li.dropdown-submenu");
+
+                key("Enter");
+                await vi.waitFor(() => expect(activeRow()).toBe("Meeting"));
+                expect(parent?.classList.contains("submenu-open")).toBe(true);
+                expect(parent?.querySelector(":scope > ul.dropdown-menu.show")?.textContent).toContain("Weekly");
+                // Unfolded in place, not as a layer beside it.
+                expect(menuElement()?.querySelector("div.dropdown-submenu")).toBeNull();
+
+                key("ArrowDown");
+                await vi.waitFor(() => expect(activeRow()).toBe("Weekly"));
+                key("Escape");
+                await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
+                expect(parent?.classList.contains("submenu-open")).toBe(false);
+
+                key("ArrowRight");
+                await vi.waitFor(() => expect(activeRow()).toBe("Meeting"));
+            } finally {
+                layout.onMobile = false;
+            }
+        });
+
         it("runs the active row on Enter, with focus back where it was", async () => {
             const picked: string[] = [];
             const { contextMenu, editor } = await openMenu((title) => {
