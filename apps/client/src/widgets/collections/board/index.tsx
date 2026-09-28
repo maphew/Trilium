@@ -74,8 +74,9 @@ import { useBoardReference } from "./reference";
 import { openBoardContextMenu, openCreateColumnMenu } from "./context_menu";
 import { useBoardSort } from "./sort";
 import {
-    affectsSortOrder, applyCardMoves, cardNotes, ColumnMap, filterColumnMap, getBoardData,
-    resolveColumnSorts, resolveSortWatch, sortColumnMap, unfilteredCardIndex
+    affectsCardDefinitions, affectsSortOrder, applyCardMoves, cardNotes, ColumnMap,
+    definitionSources, filterColumnMap, getBoardData, resolveColumnSorts, resolveSortWatch,
+    sortColumnMap, unfilteredCardIndex
 } from "./data";
 import { useBoardKeyboard } from "./keyboard";
 
@@ -533,6 +534,9 @@ export default function BoardView({
     // Includes the definitions from the cards, and hidden attributes, because a column can sort by
     // an attribute the cards do not show.
     const cards = useMemo(() => cardNotes(allByColumn), [ allByColumn ]);
+    // Read again after a definition change, since a card can have gained a template.
+    const cardDefinitionSources = useMemo(
+        () => definitionSources(cards), [ cards, definitionRevision ]);
     const promotedAttributes = useMemo(
         () => resolvePromotedAttributes(
             parentNote, viewConfig?.promotedAttributes, [ statusAttribute ], cards),
@@ -1345,9 +1349,8 @@ export default function BoardView({
         // to group by instead. A definition that reaches a card, directly or through `~template`
         // or `~inherit`, also changes `promotedAttributes`.
         if (loadResults.getAttributeRows().some(attr =>
-                (attr.name?.startsWith("label:") && attributes.isAffecting(attr, parentNote))
-                || (isDefinitionSource(attr.name)
-                    && [ ...cards ].some(card => attributes.isAffecting(attr, card))))) {
+                attr.name?.startsWith("label:") && attributes.isAffecting(attr, parentNote))
+                || affectsCardDefinitions(loadResults, cardDefinitionSources)) {
             setDefinitionRevision(revision => revision + 1);
         }
 
@@ -1699,12 +1702,6 @@ export function findRefreshReason(loadResults: LoadResults, statusAttribute: str
     }
 
     return null;
-}
-
-/** Returns whether an attribute with this name can change a note's `getAttributeDefinitions()`. */
-function isDefinitionSource(name: string | undefined) {
-    return !!name && (name.startsWith("label:") || name.startsWith("relation:")
-        || name === "template" || name === "inherit");
 }
 
 function AddNewColumn({
