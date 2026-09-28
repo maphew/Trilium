@@ -2,9 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../services/note_tooltip", () => ({ default: { dismissAllTooltips: vi.fn() } }));
 
-/** The page as the shell leaves it: the menu's own element, at the end of the body. */
+/** The page as the shell leaves it: the element the menu mounts into, at the end of the body. */
 function buildPage() {
-    document.body.innerHTML = `<div id="app"></div><div id="context-menu-container"></div>`;
+    document.body.innerHTML = `<div id="app"></div><div id="context-menu-host"></div>`;
+    return document.getElementById("context-menu-host");
+}
+
+/** The open menu, under the id the stylesheets and the app's floating layers know it by. */
+function menuElement() {
     return document.getElementById("context-menu-container");
 }
 
@@ -26,19 +31,24 @@ beforeEach(() => {
 });
 
 describe("contextMenu", () => {
-    it("renders the menu into its container and removes it on hide", async () => {
-        const container = buildPage();
+    it("renders the menu into its host and removes it on hide", async () => {
+        const host = buildPage();
         const contextMenu = await buildContextMenu();
         const onHide = vi.fn();
 
         await contextMenu.show({ x: 10, y: 20, items, selectMenuItemHandler: () => {}, onHide });
 
-        const menu = container?.querySelector<HTMLElement>(".tn-menu");
+        const menu = menuElement();
+        expect(menu?.parentElement).toBe(host);
         expect(menu?.getAttribute("role")).toBe("menu");
+        // The classes the old menu carried, which the stylesheets and themes style it by.
+        expect([ ...menu?.classList ?? [] ]).toEqual(expect.arrayContaining([
+            "dropdown-menu", "dropdown-menu-sm", "dropend", "show"
+        ]));
         expect(document.body.classList.contains("context-menu-shown")).toBe(true);
 
         await contextMenu.hide();
-        expect(container?.querySelector(".tn-menu")).toBeNull();
+        expect(menuElement()).toBeNull();
         expect(document.body.classList.contains("context-menu-shown")).toBe(false);
         expect(onHide).toHaveBeenCalledTimes(1);
 
@@ -49,28 +59,32 @@ describe("contextMenu", () => {
 
     describe("items", () => {
         it("lists the items and separators in order, without repeating a separator", async () => {
-            const container = buildPage();
+            buildPage();
             const contextMenu = await buildContextMenu();
 
             await contextMenu.show({
                 x: 10, y: 10, selectMenuItemHandler: () => {},
                 items: [
                     { title: "Cut" },
-                    { title: "Copy" },
+                    { title: "Copy", className: "destructive-action" },
                     { kind: "separator" },
                     { kind: "separator" },
                     { title: "Paste" }
                 ]
             });
 
-            const rows = [ ...container?.querySelectorAll(".tn-menu > *") ?? [] ]
-                .map(row => row.getAttribute("role") === "separator" ? "---" : row.textContent);
-            expect(rows).toEqual([ "Cut", "Copy", "---", "Paste" ]);
-            expect(container?.querySelector("[role=menuitem]")?.classList.contains("tn-menu-item")).toBe(true);
+            const rows = [ ...menuElement()?.children ?? [] ]
+                .map(row => `${row.tagName.toLowerCase()}.${row.className} ${row.textContent}`);
+            expect(rows).toEqual([
+                "li.dropdown-item Cut",
+                "li.dropdown-item destructive-action Copy",
+                "div.dropdown-divider ",
+                "li.dropdown-item Paste"
+            ]);
         });
 
         it("renders a title as HTML, as callers escape and mark it up", async () => {
-            const container = buildPage();
+            buildPage();
             const contextMenu = await buildContextMenu();
 
             await contextMenu.show({
@@ -78,13 +92,13 @@ describe("contextMenu", () => {
                 items: [ { title: `Tolkien &amp; &lt;sons&gt; <span class="tn-menu-name">Not set</span>` } ]
             });
 
-            const row = container?.querySelector("[role=menuitem]");
+            const row = menuElement()?.querySelector("[role=menuitem]");
             expect(row?.textContent).toBe("Tolkien & <sons> Not set");
             expect(row?.querySelector(".tn-menu-name")).not.toBeNull();
         });
 
         it("shows an item's icon, a check mark in its place when checked, and a slot for none", async () => {
-            const container = buildPage();
+            buildPage();
             const contextMenu = await buildContextMenu();
 
             await contextMenu.show({
@@ -97,20 +111,24 @@ describe("contextMenu", () => {
                 ]
             });
 
-            const icons = [ ...container?.querySelectorAll("[role=menuitem]") ?? [] ]
-                .map(row => row.querySelector(".tn-icon")?.className ?? null);
-            expect(icons).toEqual([
-                "bx bx-list-ul use-note-color color-e64d4d tn-icon",
+            // Each row is a span of icon slot, gap and title, which `.dropdown-item > span` lays out.
+            const slots = [ ...menuElement()?.querySelectorAll("li.dropdown-item") ?? [] ].map(row => {
+                const [ icon, gap ] = row.querySelector(":scope > span")?.children ?? [];
+                expect(gap?.className).toBe("tn-menu-gap");
+                return icon?.className || icon?.textContent;
+            });
+            expect(slots).toEqual([
+                "bx bx-list-ul tn-icon use-note-color color-e64d4d",
                 "bx bx-check tn-icon",
-                "bx bx-empty tn-icon",
-                null
+                "\u00a0",
+                ""
             ]);
             // Only the icon is tinted, so the title keeps the menu's own colour.
-            expect(container?.querySelectorAll(".use-note-color")).toHaveLength(1);
+            expect(menuElement()?.querySelectorAll(".use-note-color")).toHaveLength(1);
         });
 
         it("runs an item pressed with the primary button, then hides", async () => {
-            const container = buildPage();
+            buildPage();
             const contextMenu = await buildContextMenu();
             const calls: string[] = [];
             const item = { title: "Copy", handler: () => { calls.push("handler"); } };
@@ -119,7 +137,7 @@ describe("contextMenu", () => {
                 x: 10, y: 10, items: [ item ],
                 selectMenuItemHandler: (selected) => { calls.push(`select ${selected.title}`); }
             });
-            const row = container?.querySelector<HTMLElement>("[role=menuitem]");
+            const row = menuElement()?.querySelector<HTMLElement>("[role=menuitem]");
             if (!row) throw new Error("expected a menu item");
 
             // Other buttons do nothing.
@@ -139,7 +157,7 @@ describe("contextMenu", () => {
     describe("placement", () => {
         /** Opens the menu with the size a browser would lay it out at; happy-dom lays out nothing. */
         async function place(options: { x: number, y: number, width: number, height: number, orientation?: "left" }) {
-            const container = buildPage();
+            buildPage();
             const contextMenu = await buildContextMenu();
             // Floating UI reads the viewport from the root element's client size.
             vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1000);
@@ -148,7 +166,7 @@ describe("contextMenu", () => {
             vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(options.height);
 
             await contextMenu.show({ ...options, items, selectMenuItemHandler: () => {} });
-            const menu = container?.querySelector<HTMLElement>(".tn-menu");
+            const menu = menuElement();
             if (!menu) throw new Error("expected the menu to render");
             await vi.waitFor(() => expect(menu.style.visibility).toBe("visible"));
             return menu;

@@ -1,13 +1,20 @@
 import "./Menu.css";
 
 import { computePosition, flip, type Placement, shift, size, type VirtualElement } from "@floating-ui/dom";
+import clsx from "clsx";
 import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
 import type { MenuCommandItem, MenuItem, MenuSeparatorItem } from "../../menus/context_menu";
 import { useResizeObserver } from "./hooks";
-import Icon from "./Icon";
 
+/**
+ * A menu of commands, drawn with the markup Bootstrap's dropdowns use (`.dropdown-menu`,
+ * `.dropdown-item`, `.dropdown-divider`), so the stylesheets and themes that style those style
+ * this too. Only the placement is its own.
+ */
 export interface MenuProps<T> {
+    id?: string;
+    className?: string;
     /** Where the menu opens, in viewport coordinates. */
     x: number;
     y: number;
@@ -21,7 +28,7 @@ export interface MenuProps<T> {
 /** How many pixels the menu keeps from the edges of the viewport. */
 const VIEWPORT_PADDING = 5;
 
-export default function Menu<T>({ x, y, orientation, items, onSelect }: MenuProps<T>) {
+export default function Menu<T>({ id, className, x, y, orientation, items, onSelect }: MenuProps<T>) {
     const menuRef = useRef<HTMLDivElement>(null);
     const place = useCallback(() => {
         if (!menuRef.current) return;
@@ -33,9 +40,9 @@ export default function Menu<T>({ x, y, orientation, items, onSelect }: MenuProp
     useResizeObserver(menuRef, place);
 
     return (
-        <div ref={menuRef} className="tn-menu" role="menu">
+        <div ref={menuRef} id={id} className={clsx("dropdown-menu show tn-menu", className)} role="menu">
             {menuRows(items).map((row, index) => ("kind" in row && row.kind === "separator"
-                ? <div key={index} className="tn-menu-separator" role="separator" />
+                ? <div key={index} className="dropdown-divider" role="separator" />
                 : <MenuRow key={index} item={row as MenuCommandItem<T>} onSelect={onSelect} />
             ))}
         </div>
@@ -44,8 +51,8 @@ export default function Menu<T>({ x, y, orientation, items, onSelect }: MenuProp
 
 function MenuRow<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect: MenuProps<T>["onSelect"] }) {
     return (
-        <div
-            className="tn-menu-item"
+        <li
+            className={clsx("dropdown-item", item.className)}
             role="menuitem"
             // `mousedown` rather than `click`, and its default prevented, so the press does not move
             // focus: a text editor keeps the selection that commands such as a spelling fix act on.
@@ -55,13 +62,27 @@ function MenuRow<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect: Me
                 onSelect(item, e);
             }}
         >
-            {("uiIcon" in item || "checked" in item) && (
-                <Icon icon={item.checked ? "bx bx-check" : item.uiIcon} className={item.iconColorClass} />
-            )}
-            {/* Callers pass HTML: titles escaped with `escapeHtml()` or boxed by `menuName()`. */}
-            <span dangerouslySetInnerHTML={{ __html: item.title }} />
-        </div>
+            <span>
+                <MenuIconSlot item={item} />
+                <span className="tn-menu-gap" />
+                {/* Callers pass HTML: titles escaped with `escapeHtml()` or boxed by `menuName()`. */}
+                <span dangerouslySetInnerHTML={{ __html: item.title }} />
+            </span>
+        </li>
     );
+}
+
+/**
+ * The icon, or a check mark in its place. An item that sets `uiIcon` to nothing gets a blank slot,
+ * and one without `uiIcon` or `checked` an empty one.
+ */
+function MenuIconSlot<T>({ item }: { item: MenuCommandItem<T> }) {
+    if (!("uiIcon" in item || "checked" in item)) return <span />;
+
+    const icon = item.checked ? "bx bx-check" : item.uiIcon;
+    return icon
+        ? <span className={clsx(icon, "tn-icon", item.iconColorClass)} />
+        : <span>{"\u00a0"}</span>;
 }
 
 /** The items `Menu` renders so far, with a run of separators reduced to one. */

@@ -1,63 +1,9 @@
-.tn-menu {
+/* The look comes from `.dropdown-menu`; this only places it. */
+.dropdown-menu.tn-menu {
     position: fixed;
     top: 0;
     left: 0;
-    /* Matches the z-index the context menu had, above dialogs and floating panels. */
-    z-index: 2000;
     /* `placeMenu()` shows the menu once it has a position. */
     visibility: hidden;
-    min-width: 10rem;
     overflow-y: auto;
-    padding: var(--menu-padding-size);
-    border: 1px solid var(--dropdown-border-color);
-    border-radius: var(--dropdown-border-radius);
-    background: var(--menu-background-color);
-    color: var(--menu-text-color);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, var(--dropdown-shadow-opacity));
-    font-size: 0.9rem;
-
-    /* The blur sits on a pseudo-element: on the menu itself it blurs nothing over note content. */
-    &::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: -1;
-        border-radius: inherit;
-        backdrop-filter: var(--dropdown-backdrop-filter);
-    }
-}
-
-.tn-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5em;
-    padding-block: var(--menu-item-vertical-padding);
-    padding-inline: var(--menu-item-start-padding) var(--menu-item-end-padding);
-    cursor: pointer;
-    user-select: none;
-    white-space: nowrap;
-
-    &:hover {
-        color: var(--hover-item-text-color);
-        background-color: var(--hover-item-background-color);
-    }
-
-    .tn-icon {
-        flex: none;
-        translate: 0 var(--menu-item-icon-vert-offset);
-        color: var(--menu-item-icon-color);
-        font-size: 1.1em;
-    }
-
-    /* `iconColorClass` tints the icon with the color of what the item stands for. */
-    .tn-icon.use-note-color {
-        color: var(--custom-color, var(--menu-item-icon-color));
-    }
-}
-
-.tn-menu-separator {
-    /* Spans the menu's padding, like the theme's `.dropdown-divider`. */
-    margin-block: var(--menu-padding-size);
-    margin-inline: calc(0px - var(--menu-padding-size));
-    border-top: 1px solid var(--menu-item-delimiter-color);
 }

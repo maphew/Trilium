@@ -92,7 +92,6 @@ class ContextMenu {
 
     constructor() {
         this.$widget = $("#context-menu-container");
-        this.$widget.addClass("dropend");
         this.home = this.$widget[0]?.parentElement ?? null;
         this.isMobile = utils.isMobile();
 
@@ -300,7 +299,6 @@ class ContextMenu {
 
         const $item = $("<li>")
             .addClass("dropdown-item")
-            .addClass("className" in item ? item.className ?? "" : "")
             .append($link)
             .on("contextmenu", (e) => false)
             .on("mousedown", (e) => {

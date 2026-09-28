@@ -86,7 +86,7 @@ class ContextMenu {
     private options?: ContextMenuOptions<any>;
 
     constructor() {
-        this.container = document.getElementById("context-menu-container");
+        this.container = document.getElementById("context-menu-host");
         this.home = this.container?.parentElement ?? null;
         this.cover = utils.isMobile() ? document.getElementById("context-menu-cover") : null;
 
@@ -114,6 +114,9 @@ class ContextMenu {
         document.body.classList.add("context-menu-shown");
 
         render(h(Menu<T>, {
+            // The id and classes the stylesheets, themes and `floating_layers` know this menu by.
+            id: "context-menu-container",
+            className: "dropdown-menu-sm dropend",
             x: options.x,
             y: options.y,
             orientation: options.orientation,
