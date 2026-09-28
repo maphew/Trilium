@@ -127,8 +127,6 @@ class ContextMenu {
         this.addItems(this.$widget, options.items);
 
         keyboardActionService.updateDisplayedShortcuts(this.$widget);
-
-        this.positionMenu();
     }
 
     /**
@@ -147,62 +145,6 @@ class ContextMenu {
         if (menu && host && menu.parentElement !== host) {
             host.appendChild(menu);
         }
-    }
-
-    positionMenu() {
-        if (!this.options) {
-            return;
-        }
-
-        // the code below tries to detect when dropdown would overflow from page
-        // in such case we'll position it above click coordinates, so it will fit into the client
-
-        const CONTEXT_MENU_PADDING = 5; // How many pixels to pad the context menu from edge of screen
-        const CONTEXT_MENU_OFFSET = 0; // How many pixels to offset the context menu by relative to cursor, see #3157
-
-        const clientHeight = document.documentElement.clientHeight;
-        const clientWidth = document.documentElement.clientWidth;
-        const contextMenuHeight = this.$widget.outerHeight();
-        const contextMenuWidth = this.$widget.outerWidth();
-        let top, left;
-
-        if (contextMenuHeight && this.options.y + contextMenuHeight - CONTEXT_MENU_OFFSET > clientHeight - CONTEXT_MENU_PADDING) {
-            // Overflow: bottom
-            top = clientHeight - contextMenuHeight - CONTEXT_MENU_PADDING;
-        } else if (this.options.y - CONTEXT_MENU_OFFSET < CONTEXT_MENU_PADDING) {
-            // Overflow: top
-            top = CONTEXT_MENU_PADDING;
-        } else {
-            top = this.options.y - CONTEXT_MENU_OFFSET;
-        }
-
-        if (this.options.orientation === "left" && contextMenuWidth) {
-            if (this.options.x + CONTEXT_MENU_OFFSET > clientWidth - CONTEXT_MENU_PADDING) {
-                // Overflow: right
-                left = clientWidth - contextMenuWidth - CONTEXT_MENU_OFFSET;
-            } else if (this.options.x - contextMenuWidth + CONTEXT_MENU_OFFSET < CONTEXT_MENU_PADDING) {
-                // Overflow: left
-                left = CONTEXT_MENU_PADDING;
-            } else {
-                left = this.options.x - contextMenuWidth + CONTEXT_MENU_OFFSET;
-            }
-        } else if (contextMenuWidth && this.options.x + contextMenuWidth - CONTEXT_MENU_OFFSET > clientWidth - CONTEXT_MENU_PADDING) {
-            // Overflow: right
-            left = clientWidth - contextMenuWidth - CONTEXT_MENU_PADDING;
-        } else if (this.options.x - CONTEXT_MENU_OFFSET < CONTEXT_MENU_PADDING) {
-            // Overflow: left
-            left = CONTEXT_MENU_PADDING;
-        } else {
-            left = this.options.x - CONTEXT_MENU_OFFSET;
-        }
-
-        this.$widget
-            .css({
-                display: "block",
-                top,
-                left
-            })
-            .addClass("show");
     }
 
     private repositionSubmenu(submenuEl: HTMLElement) {

@@ -1,8 +1,13 @@
 .tn-menu {
     position: fixed;
+    top: 0;
+    left: 0;
     /* Matches the z-index the context menu had, above dialogs and floating panels. */
     z-index: 2000;
+    /* `placeMenu()` shows the menu once it has a position. */
+    visibility: hidden;
     min-width: 10rem;
+    overflow-y: auto;
     padding: var(--menu-padding-size);
     border: 1px solid var(--dropdown-border-color);
     border-radius: var(--dropdown-border-radius);

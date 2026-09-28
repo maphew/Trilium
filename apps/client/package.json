@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",
+    "@floating-ui/dom": "1.8.0",
     "@fullcalendar/rrule": "7.1.0",
     "@popperjs/core": "2.11.8",
     "@preact/signals": "2.11.2",

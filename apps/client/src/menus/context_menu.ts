@@ -113,7 +113,7 @@ class ContextMenu {
         this.cover?.classList.add("show");
         document.body.classList.add("context-menu-shown");
 
-        render(h(Menu, { x: options.x, y: options.y }), this.container);
+        render(h(Menu, { x: options.x, y: options.y, orientation: options.orientation }), this.container);
     }
 
     /**

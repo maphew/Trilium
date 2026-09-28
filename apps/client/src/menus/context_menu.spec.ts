@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../services/note_tooltip", () => ({ default: { dismissAllTooltips: vi.fn() } }));
 
@@ -48,19 +48,54 @@ describe("contextMenu", () => {
         expect(onHide).toHaveBeenCalledTimes(1);
     });
 
-    it("opens at the pointer and stays inside the viewport", async () => {
-        const container = buildPage();
-        const contextMenu = await buildContextMenu();
-        Object.defineProperty(document.documentElement, "clientWidth", { value: 1000, configurable: true });
-        Object.defineProperty(document.documentElement, "clientHeight", { value: 800, configurable: true });
-        const menu = () => container?.querySelector<HTMLElement>(".tn-menu");
+    describe("placement", () => {
+        /** Opens the menu with the size a browser would lay it out at; happy-dom lays out nothing. */
+        async function place(options: { x: number, y: number, width: number, height: number, orientation?: "left" }) {
+            const container = buildPage();
+            const contextMenu = await buildContextMenu();
+            // Floating UI reads the viewport from the root element's client size.
+            vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1000);
+            vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
+            vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(options.width);
+            vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(options.height);
 
-        await contextMenu.show({ x: 10, y: 20, items, selectMenuItemHandler: () => {} });
-        expect([ menu()?.style.left, menu()?.style.top ]).toEqual([ "10px", "20px" ]);
+            await contextMenu.show({ ...options, items, selectMenuItemHandler: () => {} });
+            const menu = container?.querySelector<HTMLElement>(".tn-menu");
+            if (!menu) throw new Error("expected the menu to render");
+            await vi.waitFor(() => expect(menu.style.visibility).toBe("visible"));
+            return menu;
+        }
 
-        // happy-dom measures the menu as 0×0, so it is pushed back to the edge less the padding.
-        await contextMenu.show({ x: 2000, y: 2000, items, selectMenuItemHandler: () => {} });
-        await vi.waitFor(() => expect([ menu()?.style.left, menu()?.style.top ]).toEqual([ "995px", "795px" ]));
+        afterEach(() => {
+            vi.restoreAllMocks();
+        });
+
+        it("opens at the pointer, towards the bottom right", async () => {
+            const menu = await place({ x: 10, y: 20, width: 200, height: 300 });
+            expect([ menu.style.left, menu.style.top ]).toEqual([ "10px", "20px" ]);
+        });
+
+        it("opens towards the left when asked to", async () => {
+            const menu = await place({ x: 500, y: 20, width: 200, height: 300, orientation: "left" });
+            expect([ menu.style.left, menu.style.top ]).toEqual([ "300px", "20px" ]);
+        });
+
+        it("flips to the other side of the pointer where it does not fit", async () => {
+            const menu = await place({ x: 900, y: 700, width: 200, height: 300 });
+            // Its bottom right corner is at the pointer, as a native menu opened in that corner.
+            expect([ menu.style.left, menu.style.top ]).toEqual([ "700px", "400px" ]);
+        });
+
+        it("shifts inside the viewport where it fits on neither side", async () => {
+            // 600px overflows by 155px to the right of the pointer and by 55px to its left.
+            const menu = await place({ x: 550, y: 20, width: 600, height: 300 });
+            expect([ menu.style.left, menu.style.top ]).toEqual([ "5px", "20px" ]);
+        });
+
+        it("caps its height to the viewport so that it scrolls", async () => {
+            const menu = await place({ x: 10, y: 20, width: 200, height: 2000 });
+            expect(menu.style.maxHeight).toBe("790px");
+        });
     });
 
     it("hides on a click anywhere on the page", async () => {
