@@ -2583,7 +2583,9 @@ body.zen:not(.experimental-feature-new-layout) {
         transition: opacity 100ms linear;
     }
 
-    .note-split:focus-within .ribbon-container {
+    /* A group's submenu pins its panel outside the note split, where `:focus-within` cannot see it. */
+    .note-split:focus-within .ribbon-container,
+    &:has(.ck-toolbar-group-menu__panel) .ribbon-container {
         opacity: 1; /* Show when the note split is focused */
     }
 
@@ -2606,7 +2608,8 @@ body.zen:not(.experimental-feature-new-layout) {
         display: none;
     }
 
-    .note-split:focus-within .ribbon-container .classic-toolbar-widget {
+    .note-split:focus-within .ribbon-container .classic-toolbar-widget,
+    &:has(.ck-toolbar-group-menu__panel) .ribbon-container .classic-toolbar-widget {
         pointer-events: all;
     }
 
@@ -2651,8 +2654,10 @@ body.zen.experimental-feature-new-layout {
         backdrop-filter: blur(6px);
     }
 
+    /* A group's submenu pins its panel outside the note split, where `:focus-within` cannot see it. */
     #root-widget:has(.note-split.type-text:focus-within) .classic-toolbar-widget,
-    .classic-toolbar-widget:focus-within {
+    .classic-toolbar-widget:focus-within,
+    &:has(.ck-toolbar-group-menu__panel) .classic-toolbar-widget {
         opacity: 1; /* Show when the note split is focused */
         pointer-events: all;
     }

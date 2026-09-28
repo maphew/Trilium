@@ -143,6 +143,9 @@ describe("ToolbarGroupMenu", () => {
         const submenu = openSubmenu(dropdown);
         expect(submenu.buttonView.label).toBe("Insert sample");
         expect(submenu.buttonView.icon).toBe("<svg />");
+        // The panel is pinned into the editor's body, so the client's stylesheet finds it by this
+        // class alone — Zen mode reads it to keep the toolbar up while the submenu is open.
+        expect(submenu.panelView.class).toBe("ck-toolbar-group-menu__panel");
         expect(itemLabels(submenu.listView.items)).toStrictEqual(["Flowchart", "Sequence"]);
     });
 
