@@ -81,19 +81,20 @@ describe("SearchResult", () => {
             "#searchString": "#tcfindme",
         });
         shownContext.current = savedSearch;
-        container = document.createElement("div");
-        document.body.appendChild(container);
+        const mountedContainer = document.createElement("div");
+        container = mountedContainer;
+        document.body.appendChild(mountedContainer);
 
         act(() =>
             render(
                 <ParentComponent.Provider value={parent}>
                     <SearchResult />
                 </ParentComponent.Provider>,
-                container,
+                mountedContainer,
             ),
         );
 
-        const button = container.querySelector("button");
+        const button = mountedContainer.querySelector("button");
         expect(button).toBeTruthy();
         loadSearchNote.mockResolvedValue({ error: "Invalid saved search" });
 
