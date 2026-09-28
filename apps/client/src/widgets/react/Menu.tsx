@@ -451,9 +451,11 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
                 e.stopPropagation();
                 if (disabled) return;
 
-                // Pressed again, an unfolded row folds its submenu back.
+                // Pressed again, an unfolded row folds its submenu back. The keys go on from this
+                // row, as a folded or replaced submenu's rows are gone.
                 if (hasSubmenu && isMobile()) {
                     state.openSubmenu(level, open ? undefined : item, e.currentTarget, true);
+                    state.setActive(level, item);
                     return;
                 }
                 if (hasSubmenu) state.openSubmenu(level, item, e.currentTarget, true);
