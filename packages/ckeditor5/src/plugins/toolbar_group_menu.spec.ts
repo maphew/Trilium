@@ -2,11 +2,11 @@ import {
     addListToDropdown, Bold, ButtonView, type ClassicEditor, Collection, createDropdown,
     type DropdownMenuNestedMenuView, DropdownView, Essentials, Italic,
     type ListDropdownItemDefinition, ListSeparatorView, type Locale, Paragraph, Plugin,
-    SplitButtonView, type ToolbarView, UIModel
+    SplitButtonView, type ToolbarView, UIModel, View
 } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createTestEditor } from "../../test/editor-kit.js";
+import { createTestEditor, createTestEditorOf } from "../../test/editor-kit.js";
 import ToolbarGroupMenu from "./toolbar_group_menu.js";
 
 const insertedSamples: string[] = [];
@@ -19,6 +19,11 @@ beforeEach(() => {
     blankInserts.mockClear();
     now = "noon";
 });
+
+/** A toolbar item that is neither a button nor a dropdown, focusable as a toolbar wants. */
+class PlainItemView extends View {
+    focus() {}
+}
 
 /**
  * Stands in for the group's dropdown entries — `mermaid` and `dateTime` are split buttons over a
@@ -60,6 +65,36 @@ class SampleDropdown extends Plugin {
             });
 
             return dropdown;
+        });
+
+        // A list carrying everything a dropdown list can hold besides plain rows.
+        this.editor.ui.componentFactory.add("oddList", (locale: Locale) => {
+            const dropdown = createDropdown(locale);
+            dropdown.buttonView.set({ label: "Odd list", icon: "<svg />" });
+
+            const items = new Collection<ListDropdownItemDefinition>();
+            items.add({ type: "separator" });
+            items.add({ type: "button", model: new UIModel({ label: "First", withText: true }) });
+            items.add({ type: "separator" });
+            items.add({ type: "button", model: new UIModel({ withText: true }) });
+            items.add({
+                type: "group",
+                model: new UIModel({ label: "Grouped" }),
+                items: new Collection([{
+                    type: "button" as const,
+                    model: new UIModel({ label: "Inside", withText: true })
+                }])
+            });
+            addListToDropdown(dropdown, items);
+
+            return dropdown;
+        });
+
+        // Neither a button nor a dropdown: a toolbar item the menu has no row to draw for.
+        this.editor.ui.componentFactory.add("plainView", (locale: Locale) => {
+            const view = new PlainItemView(locale);
+            view.setTemplate({ tag: "span", attributes: { class: ["ck"] } });
+            return view;
         });
 
         // A dropdown with no list of its own: nothing to open onto, so it stays a plain row.
@@ -220,6 +255,32 @@ describe("ToolbarGroupMenu", () => {
         expect(document.activeElement).toBe(mounted.buttonView.element);
     });
 
+    it("draws a rule where the list has one, never at its head, and names every row", async () => {
+        const editor = await createTestEditor(PLUGINS, {
+            toolbar: { items: [{ ...MENU_GROUP, items: ["oddList"] }] }
+        });
+
+        const dropdown = openDropdown(getToolbar(editor), "Insert");
+
+        // The group of the list holds rows the menu has no place for, so it is left out; the
+        // unnamed row is drawn all the same, since its view is what runs.
+        const rows = itemLabels(openSubmenu(dropdown).listView.items);
+        expect(rows).toStrictEqual(["First", "—", ""]);
+    });
+
+    // A rule at the very head is CKEditor's to drop, so the only way one reaches the menu with
+    // nothing drawn before it is behind an item the menu passed over.
+    it("passes over an item it has no row for, and the rule that follows it", async () => {
+        const editor = await createTestEditor(PLUGINS, {
+            toolbar: {
+                items: [{ ...MENU_GROUP, items: ["plainView", "|", "bold", "-", "italic"] }]
+            }
+        });
+
+        const menu = openGroup(getToolbar(editor), "Insert");
+        expect(rowLabels(menu)).toStrictEqual(["Bold", "Italic"]);
+    });
+
     it("converts a group of the block toolbar, filled after the plugin is set up", async () => {
         const { BlockToolbar } = await import("ckeditor5");
         const editor = await createTestEditor([BlockToolbar, ...PLUGINS], {
@@ -231,13 +292,15 @@ describe("ToolbarGroupMenu", () => {
         expect(rowLabels(menu)).toStrictEqual(["Bold", "—", "Italic", "Insert sample"]);
     });
 
+    // A real `BalloonEditor`, whose UI view carries no fixed bar at all: the group is reached
+    // through the plugin holding the selection toolbar, and nowhere else.
     it("converts a group of the selection balloon", async () => {
-        const { BalloonToolbar } = await import("ckeditor5");
-        const editor = await createTestEditor([BalloonToolbar, ...PLUGINS], {
-            toolbar: { items: ["bold"] },
-            balloonToolbar: [MENU_GROUP]
+        const { BalloonEditor, BalloonToolbar } = await import("ckeditor5");
+        const editor = await createTestEditorOf(BalloonEditor, PLUGINS, {
+            toolbar: [MENU_GROUP]
         });
 
+        expect((editor.ui.view as { toolbar?: ToolbarView }).toolbar).toBeUndefined();
         const menu = openGroup(editor.plugins.get(BalloonToolbar).toolbarView, "Insert");
         expect(rowLabels(menu)).toStrictEqual(["Bold", "—", "Italic", "Insert sample"]);
     });

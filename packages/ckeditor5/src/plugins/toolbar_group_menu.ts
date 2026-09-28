@@ -130,6 +130,7 @@ export default class ToolbarGroupMenu extends Plugin {
         this.plans.set(dropdown, plan);
 
         const menuView = dropdown.menuView;
+        /* v8 ignore next 3 -- `addMenuToDropdown()` has just set the menu this narrows */
         if (!menuView) {
             return;
         }
@@ -152,6 +153,7 @@ export default class ToolbarGroupMenu extends Plugin {
 
         for (const menu of menuView.menus) {
             const opener = plan.openers.get(menu.id);
+            /* v8 ignore next 3 -- every submenu the menu holds was described from an opener */
             if (!opener) {
                 continue;
             }
@@ -200,7 +202,7 @@ export default class ToolbarGroupMenu extends Plugin {
             plan.rows.set(id, { view: entry, run: () => entry.fire("execute") });
             opener.rowIds.push(id);
 
-            const button = new DropdownMenuListItemButtonView(locale, id, entry.label ?? "");
+            const button = new DropdownMenuListItemButtonView(locale, id, labelOf(entry));
             button.icon = entry.icon;
             button.bind("isEnabled").to(entry, "isEnabled");
             items.add(new DropdownMenuListItemView(locale, menu, button));
@@ -261,6 +263,7 @@ function discardMenu(dropdown: DropdownView, plan: MenuPlan | undefined) {
 
     // The controls mounted into it belong to the group, so they leave before the menu holding them
     // is destroyed; the next draw mounts them again.
+    /* v8 ignore next -- only a redraw discards a menu, and it draws from a plan */
     for (const { row, source } of plan?.mounted ?? []) {
         row.children.remove(source);
     }
@@ -358,10 +361,15 @@ function planGroupMenu(items: View[]) {
     return plan;
 }
 
+/** What a row is called: the label of the view it stands for, or nothing where it sets none. */
+function labelOf(view: { label?: string }) {
+    return view.label ?? "";
+}
+
 /** Records a row against the view it stands for, and describes it to the menu. */
 function describeRow(plan: MenuPlan, id: string, view: SourceButton) {
     plan.rows.set(id, { view, run: () => view.fire("execute") });
-    return { id, label: view.label ?? "" };
+    return { id, label: labelOf(view) };
 }
 
 /**
@@ -379,7 +387,7 @@ function planSubmenu(plan: MenuPlan, takeId: () => string, dropdown: DropdownVie
     if (!listEntriesOf(dropdown).length) {
         const mountId = takeId();
         plan.mounts.set(mountId, dropdown);
-        plan.definition.push({ id: mountId, label: opener.label ?? "" });
+        plan.definition.push({ id: mountId, label: labelOf(opener) });
         return;
     }
 
@@ -390,7 +398,7 @@ function planSubmenu(plan: MenuPlan, takeId: () => string, dropdown: DropdownVie
         rowIds: [],
         run: opener instanceof SplitButtonView ? () => opener.fire("execute") : undefined
     });
-    plan.definition.push({ id, menu: opener.label ?? "", children: [] });
+    plan.definition.push({ id, menu: labelOf(opener), children: [] });
 }
 
 /** The rows a dropdown's own list holds, which it builds the first time it is opened. */
