@@ -61,16 +61,19 @@ export default function Menu<T>({ id, className, x, y, orientation, items, onSel
 }
 
 function MenuRow<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect: MenuProps<T>["onSelect"] }) {
+    const disabled = item.enabled === false;
+
     return (
         <li
-            className={clsx("dropdown-item", item.className)}
+            className={clsx("dropdown-item", disabled && "disabled", item.className)}
             role="menuitem"
+            aria-disabled={disabled || undefined}
             // `mousedown` rather than `click`, and its default prevented, so the press does not move
             // focus: a text editor keeps the selection that commands such as a spelling fix act on.
             onMouseDown={(e) => {
                 if (e.button !== 0) return;
                 e.preventDefault();
-                onSelect(item, e);
+                if (!disabled) onSelect(item, e);
             }}
         >
             <span>

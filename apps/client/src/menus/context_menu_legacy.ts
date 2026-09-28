@@ -284,10 +284,6 @@ class ContextMenu {
                 return false;
             });
 
-        if ("enabled" in item && item.enabled !== undefined && !item.enabled) {
-            $item.addClass("disabled");
-        }
-
         if ("items" in item && item.items) {
             $item.addClass("dropdown-submenu");
             $link.addClass("dropdown-toggle");

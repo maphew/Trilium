@@ -194,6 +194,32 @@ describe("contextMenu", () => {
             expect(contextMenu.isShown()).toBe(false);
         });
 
+        it("marks an item that is not enabled as disabled, and does not run it", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            const handler = vi.fn();
+            const selectMenuItemHandler = vi.fn();
+
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler,
+                items: [
+                    { title: "Delete", enabled: false, handler },
+                    { title: "Export", enabled: true },
+                    { title: "Import" }
+                ]
+            });
+
+            const rows = [ ...menuElement()?.querySelectorAll<HTMLElement>("li.dropdown-item") ?? [] ];
+            expect(rows.map(row => [ row.classList.contains("disabled"), row.getAttribute("aria-disabled") ]))
+                .toEqual([ [ true, "true" ], [ false, null ], [ false, null ] ]);
+
+            // The stylesheets keep the pointer off it; a press that still arrives does nothing.
+            rows[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+            expect(handler).not.toHaveBeenCalled();
+            expect(selectMenuItemHandler).not.toHaveBeenCalled();
+            expect(contextMenu.isShown()).toBe(true);
+        });
+
         it("runs an item pressed with the primary button, then hides", async () => {
             buildPage();
             const contextMenu = await buildContextMenu();
