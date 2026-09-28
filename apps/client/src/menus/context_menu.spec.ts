@@ -69,6 +69,46 @@ describe("contextMenu", () => {
             expect(container?.querySelector("[role=menuitem]")?.classList.contains("tn-menu-item")).toBe(true);
         });
 
+        it("renders a title as HTML, as callers escape and mark it up", async () => {
+            const container = buildPage();
+            const contextMenu = await buildContextMenu();
+
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [ { title: `Tolkien &amp; &lt;sons&gt; <span class="tn-menu-name">Not set</span>` } ]
+            });
+
+            const row = container?.querySelector("[role=menuitem]");
+            expect(row?.textContent).toBe("Tolkien & <sons> Not set");
+            expect(row?.querySelector(".tn-menu-name")).not.toBeNull();
+        });
+
+        it("shows an item's icon, a check mark in its place when checked, and a slot for none", async () => {
+            const container = buildPage();
+            const contextMenu = await buildContextMenu();
+
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [
+                    { title: "To Do", uiIcon: "bx bx-list-ul", iconColorClass: "use-note-color color-e64d4d" },
+                    { title: "Done", uiIcon: "bx bx-list-ul", checked: true },
+                    { title: "Aligned", uiIcon: undefined },
+                    { title: "Plain" }
+                ]
+            });
+
+            const icons = [ ...container?.querySelectorAll("[role=menuitem]") ?? [] ]
+                .map(row => row.querySelector(".tn-icon")?.className ?? null);
+            expect(icons).toEqual([
+                "bx bx-list-ul use-note-color color-e64d4d tn-icon",
+                "bx bx-check tn-icon",
+                "bx bx-empty tn-icon",
+                null
+            ]);
+            // Only the icon is tinted, so the title keeps the menu's own colour.
+            expect(container?.querySelectorAll(".use-note-color")).toHaveLength(1);
+        });
+
         it("runs an item pressed with the primary button, then hides", async () => {
             const container = buildPage();
             const contextMenu = await buildContextMenu();

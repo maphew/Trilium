@@ -5,6 +5,7 @@ import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
 import type { MenuCommandItem, MenuItem, MenuSeparatorItem } from "../../menus/context_menu";
 import { useResizeObserver } from "./hooks";
+import Icon from "./Icon";
 
 export interface MenuProps<T> {
     /** Where the menu opens, in viewport coordinates. */
@@ -54,7 +55,11 @@ function MenuRow<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect: Me
                 onSelect(item, e);
             }}
         >
-            {item.title}
+            {("uiIcon" in item || "checked" in item) && (
+                <Icon icon={item.checked ? "bx bx-check" : item.uiIcon} className={item.iconColorClass} />
+            )}
+            {/* Callers pass HTML: titles escaped with `escapeHtml()` or boxed by `menuName()`. */}
+            <span dangerouslySetInnerHTML={{ __html: item.title }} />
         </div>
     );
 }

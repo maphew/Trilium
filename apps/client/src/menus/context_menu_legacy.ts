@@ -257,26 +257,7 @@ class ContextMenu {
     }
 
     private createMenuItem(item: MenuCommandItem<any>) {
-        const $icon = $("<span>");
-
-        if ("uiIcon" in item || "checked" in item) {
-            const icon = (item.checked ? "bx bx-check" : item.uiIcon);
-            if (icon) {
-                $icon.addClass([icon, "tn-icon"]);
-                if (item.iconColorClass) {
-                    $icon.addClass(item.iconColorClass);
-                }
-            } else {
-                $icon.append("&nbsp;");
-            }
-        }
-
-        const $link = $("<span>")
-            .append($icon)
-            // An element, not spaces: in a flex row, text merges with a plain title but is
-            // trimmed before one boxed by `menuName()`, indenting the two kinds of row apart.
-            .append($("<span>").addClass("tn-menu-gap"))
-            .append(item.title);
+        const $link = $("<span>");
 
         if ("badges" in item && item.badges) {
             for (const badge of item.badges) {

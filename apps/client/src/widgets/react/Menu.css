@@ -28,6 +28,9 @@
 }
 
 .tn-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
     padding-block: var(--menu-item-vertical-padding);
     padding-inline: var(--menu-item-start-padding) var(--menu-item-end-padding);
     cursor: pointer;
@@ -37,6 +40,18 @@
     &:hover {
         color: var(--hover-item-text-color);
         background-color: var(--hover-item-background-color);
+    }
+
+    .tn-icon {
+        flex: none;
+        translate: 0 var(--menu-item-icon-vert-offset);
+        color: var(--menu-item-icon-color);
+        font-size: 1.1em;
+    }
+
+    /* `iconColorClass` tints the icon with the color of what the item stands for. */
+    .tn-icon.use-note-color {
+        color: var(--custom-color, var(--menu-item-icon-color));
     }
 }
 
