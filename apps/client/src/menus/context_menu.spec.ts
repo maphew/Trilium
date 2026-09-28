@@ -183,7 +183,7 @@ describe("contextMenu", () => {
             ]);
         });
 
-        it("renders a custom item's component in its place, and hides on a click inside it", async () => {
+        it("renders a custom item's component in its place, and hides on a click on what it acts with", async () => {
             buildPage();
             const contextMenu = await buildContextMenu();
             const { h } = await import("preact");
@@ -191,7 +191,7 @@ describe("contextMenu", () => {
             // A component with state of its own, as the colour pickers are.
             function Swatches() {
                 const [ picked ] = useState("red");
-                return h("div", { className: "swatches" }, picked);
+                return h("div", { className: "swatches" }, h("button", { type: "button" }, picked));
             }
 
             await contextMenu.show({
@@ -210,10 +210,19 @@ describe("contextMenu", () => {
                 "li.dropdown-item", "div.dropdown-divider", "li.dropdown-custom-item", "div.dropdown-divider", "li.dropdown-item"
             ]);
             const custom = menuElement()?.querySelector<HTMLElement>(".dropdown-custom-item");
-            expect(custom?.innerHTML).toBe(`<div class="swatches">red</div>`);
+            expect(custom?.innerHTML).toBe(`<div class="swatches"><button type="button">red</button></div>`);
 
-            // On its own, without reaching the page's listener: on mobile only the cover has one.
-            custom?.dispatchEvent(new MouseEvent("click", { bubbles: false }));
+            // A click that misses what the component acts with, such as one in the gaps between
+            // the color picker's cells, picks nothing and leaves the menu up.
+            const click = (target: Element | null | undefined) =>
+                target?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            click(custom?.querySelector(".swatches"));
+            click(custom);
+            expect(contextMenu.isShown).toBe(true);
+
+            // One that acts closes the menu of itself, without the page's listener: on mobile only
+            // the cover has one.
+            custom?.querySelector("button")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
             expect(contextMenu.isShown).toBe(false);
         });
 

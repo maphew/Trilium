@@ -358,7 +358,11 @@ function MenuListRow<T>({ level, row, state }: { level: number, row: MenuItem<T>
                 if (element) state.rows.set(row, element);
                 else state.rows.delete(row);
             }}
-            onClick={state.onClose}
+            // Only a click on what the row acts with closes the menu: one in the space around it,
+            // such as between the color picker's cells, picks nothing.
+            onClick={(e) => {
+                if (actsOnClick(e.target, e.currentTarget)) state.onClose();
+            }}
         >
             <row.componentFn />
         </li>
@@ -518,6 +522,17 @@ function isRunnable<T>(row: MenuItem<T>): row is MenuCommandItem<T> {
 
 function isCustom<T>(row: MenuItem<T>): row is CustomMenuItem {
     return "kind" in row && row.kind === "custom";
+}
+
+/** What a custom row's content acts with: the elements a click on does something. */
+const ACTING_ELEMENTS = "button, a[href], input, select, textarea, [tabindex], "
+    + "[role='button'], [role='option'], [role='menuitem'], [role='checkbox'], [role='radio'], [role='switch']";
+
+/** Whether a click on `target` inside `row` landed on an enabled element that acts. */
+function actsOnClick(target: EventTarget | null, row: HTMLElement) {
+    const acting = target instanceof Element ? target.closest(ACTING_ELEMENTS) : null;
+    return !!acting && row.contains(acting) && acting !== row
+        && acting.getAttribute("aria-disabled") !== "true" && !acting.matches(":disabled");
 }
 
 /** Where a custom row takes focus: the element its content marks as its way in with `tabindex="0"`. */
