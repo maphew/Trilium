@@ -742,6 +742,20 @@ describe("contextMenu", () => {
             vi.restoreAllMocks();
         });
 
+        it("closes a submenu the pointer opened once the keys move off its row", async () => {
+            await openMenu();
+            const templates = [ ...menuElement()?.querySelectorAll<HTMLElement>("li.dropdown-item") ?? [] ]
+                .find((row) => row.querySelector(":scope > span")?.textContent === "Templates");
+            templates?.dispatchEvent(new PointerEvent("pointerenter"));
+            await vi.waitFor(() => expect(menuElement()?.querySelector("div.dropdown-submenu")).not.toBeNull());
+
+            key("ArrowUp");
+            await vi.waitFor(() => expect(activeRow()).toBe("Paste"));
+            // As a native menu: the submenu goes with its row's highlight, until Right opens it again.
+            expect(menuElement()?.querySelector("div.dropdown-submenu")).toBeNull();
+            expect(templates?.classList.contains("submenu-open")).toBe(false);
+        });
+
         it("goes on from the row the pointer last pointed at", async () => {
             await openMenu();
             const paste = [ ...menuElement()?.querySelectorAll<HTMLElement>("li.dropdown-item") ?? [] ]

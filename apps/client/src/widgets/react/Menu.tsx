@@ -123,9 +123,14 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
         const levelRows = runnableRows(level === 0 ? items : submenus[level - 1]?.item.items ?? []);
         const index = active ? levelRows.indexOf(active.item) : -1;
         const count = levelRows.length;
+        // A submenu goes with its row's highlight, as in a native menu, until Right opens it again.
+        const moveTo = (item: MenuCommandItem<T>) => {
+            if (submenus[level]?.item !== item) openSubmenu(level);
+            setActive(level, item);
+        };
         const goTo = (position: number) => {
             const item = levelRows[((position % count) + count) % count];
-            if (item) setActive(level, item);
+            if (item) moveTo(item);
         };
         const openActive = () => {
             const item = active?.item;
@@ -147,7 +152,7 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
             const boxes = levelRows.map((item) => rows.get(item)?.getBoundingClientRect());
             const target = rowInNextColumn(boxes, index, towards);
             const item = target !== undefined ? levelRows[target] : undefined;
-            if (item) setActive(level, item);
+            if (item) moveTo(item);
             return !!item;
         };
 
@@ -189,7 +194,7 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
                 for (let step = skip; step < count + skip; step++) {
                     const item = levelRows[(index + step + count) % count];
                     if (item && rows.get(item)?.textContent?.trim().toLowerCase().startsWith(typed.text)) {
-                        setActive(level, item);
+                        moveTo(item);
                         break;
                     }
                 }
