@@ -31,7 +31,7 @@ overrides:
   "@codemirror/lint": "6.9.7"
   "@codemirror/search": "6.7.2"
   "@lezer/common": "1.5.2"
-  "@lezer/highlight": "1.2.3"
+  "@lezer/highlight": "1.2.4"
   "@lezer/lr": "1.4.10"
   # The AI SDK packages each pin @ai-sdk/provider-utils to an exact patch, and they do not move in
   # step: `ai` and the OpenAI/Google providers ask for one, the Anthropic provider for another. Two
