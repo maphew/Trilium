@@ -87,6 +87,8 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
     const [ active, setActiveRow ] = useState<ActiveRow<T>>();
     const rows = useRef(new Map<MenuCommandItem<T>, HTMLElement>()).current;
     const typeahead = useRef({ text: "", timeout: 0 });
+    /** Whether the keys moved the menu since the pointer last did. See `Menu.css`. */
+    const [ keyboardDriven, setKeyboardDriven ] = useState(false);
 
     const setActive = useCallback((level: number, item: MenuCommandItem<T>) => {
         setActiveRow({ level, item });
@@ -193,6 +195,7 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
                 }
             }
         }
+        setKeyboardDriven(true);
         e.preventDefault();
         e.stopPropagation();
     }
@@ -225,7 +228,9 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
     return (
         <div
             ref={menuRef} id={id} role="menu" tabIndex={-1}
-            className={clsx("dropdown-menu show tn-menu", bottomSheet && "mobile-bottom-menu", className)}
+            className={clsx("dropdown-menu show tn-menu", bottomSheet && "mobile-bottom-menu",
+                keyboardDriven && "tn-menu-keyboard", className)}
+            onPointerMove={() => setKeyboardDriven(false)}
             // Neither the browser's menu nor another of the app's opens over this one. Every level
             // is inside this element, so one handler covers them all.
             onContextMenu={(e) => {
@@ -327,6 +332,13 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
     const active = state.active?.level === level && state.active.item === item;
     const id = useId();
 
+    function onPointed(e: { currentTarget: HTMLLIElement }) {
+        if (isMobile()) return;
+        // The keyboard goes on from the row the pointer last pointed at.
+        if (!disabled) state.setActive(level, item);
+        state.openSubmenu(level, hasSubmenu && !disabled ? item : undefined, e.currentTarget);
+    }
+
     return (
         <li
             id={id}
@@ -340,11 +352,11 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
             aria-disabled={disabled || undefined}
             aria-haspopup={hasSubmenu ? "menu" : undefined}
             aria-expanded={hasSubmenu ? open : undefined}
-            onPointerEnter={(e) => {
-                if (isMobile()) return;
-                // The keyboard goes on from the row the pointer last pointed at.
-                if (!disabled) state.setActive(level, item);
-                state.openSubmenu(level, hasSubmenu && !disabled ? item : undefined, e.currentTarget);
+            onPointerEnter={onPointed}
+            // The keys can move the active row from under a pointer at rest, whose `:hover` would
+            // then mark a second row. The next move of the pointer makes its row the active one.
+            onPointerMove={(e) => {
+                if (!active) onPointed(e);
             }}
             // `mousedown` rather than `click`, and its default prevented, so the press does not move
             // focus out of the menu: `contextMenu` hands it back to a text editor before the command

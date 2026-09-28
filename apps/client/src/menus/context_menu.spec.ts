@@ -751,6 +751,14 @@ describe("contextMenu", () => {
 
             key("ArrowDown");
             await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
+            // The pointer still rests on "Paste", whose `:hover` would mark a second row: while the
+            // keys drive the menu, `Menu.css` takes the hover look off every row but the active one.
+            expect(menuElement()?.classList.contains("tn-menu-keyboard")).toBe(true);
+
+            // The slightest move makes the row under the pointer the active one again.
+            paste?.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+            await vi.waitFor(() => expect(activeRow()).toBe("Paste"));
+            expect(menuElement()?.classList.contains("tn-menu-keyboard")).toBe(false);
         });
     });
 
