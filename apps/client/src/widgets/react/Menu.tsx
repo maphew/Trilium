@@ -141,13 +141,29 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
         };
         const rtl = handleRightToLeftPlacement("right") !== "right";
 
+        /** Moves to the row beside the active one in a menu laid out in columns, if there is one. */
+        const moveAcross = (towards: "left" | "right") => {
+            const boxes = levelRows.map((item) => rows.get(item)?.getBoundingClientRect());
+            const target = rowInNextColumn(boxes, index, towards);
+            const item = target !== undefined ? levelRows[target] : undefined;
+            if (item) setActive(level, item);
+            return !!item;
+        };
+
         switch (e.key) {
             case "ArrowDown": goTo(index + 1); break;
             case "ArrowUp": goTo(index < 0 ? -1 : index - 1); break;
             case "Home": goTo(0); break;
             case "End": goTo(-1); break;
-            case rtl ? "ArrowLeft" : "ArrowRight": openActive(); break;
-            case rtl ? "ArrowRight" : "ArrowLeft": if (level > 0) closeLevel(level); break;
+            // Into the active row's submenu, or else across to the next column.
+            case rtl ? "ArrowLeft" : "ArrowRight":
+                if (active?.item.items) openActive();
+                else moveAcross(e.key === "ArrowRight" ? "right" : "left");
+                break;
+            // Back across a column, or else out of the submenu.
+            case rtl ? "ArrowRight" : "ArrowLeft":
+                if (!moveAcross(e.key === "ArrowRight" ? "right" : "left") && level > 0) closeLevel(level);
+                break;
             case "Enter":
             case " ":
                 if (!active) break;
@@ -395,6 +411,44 @@ function MenuIconSlot<T>({ item }: { item: MenuCommandItem<T> }) {
     return icon
         ? <span className={clsx(icon, "tn-icon", item.iconColorClass)} />
         : <span>{"\u00a0"}</span>;
+}
+
+/** How far apart, in pixels, two rows' left edges can be and still stand in one column. */
+const COLUMN_TOLERANCE = 1;
+
+/**
+ * In a menu laid out in columns, the index of the row beside `boxes[index]` in the nearest column
+ * towards `towards`: the one whose middle is nearest its middle. The browser decides where CSS
+ * columns break, so the rows' boxes are all there is to go by. Rows without a box are passed over.
+ */
+export function rowInNextColumn(
+    boxes: (Pick<DOMRect, "left" | "top" | "bottom"> | undefined)[],
+    index: number,
+    towards: "left" | "right"
+): number | undefined {
+    const from = boxes[index];
+    if (!from) return undefined;
+
+    const middle = (box: Pick<DOMRect, "top" | "bottom">) => (box.top + box.bottom) / 2;
+    const beyond: { box: Pick<DOMRect, "left" | "top" | "bottom">, index: number }[] = [];
+    for (const [ candidateIndex, box ] of boxes.entries()) {
+        if (!box) continue;
+        const offset = box.left - from.left;
+        if (towards === "right" ? offset > COLUMN_TOLERANCE : offset < -COLUMN_TOLERANCE) {
+            beyond.push({ box, index: candidateIndex });
+        }
+    }
+    if (!beyond.length) return undefined;
+
+    const lefts = beyond.map(({ box }) => box.left);
+    const columnLeft = towards === "right" ? Math.min(...lefts) : Math.max(...lefts);
+    let nearest: { box: Pick<DOMRect, "left" | "top" | "bottom">, index: number } | undefined;
+    for (const candidate of beyond) {
+        if (Math.abs(candidate.box.left - columnLeft) > COLUMN_TOLERANCE) continue;
+        const distance = Math.abs(middle(candidate.box) - middle(from));
+        if (!nearest || distance < Math.abs(middle(nearest.box) - middle(from))) nearest = candidate;
+    }
+    return nearest?.index;
 }
 
 /** The rows the keyboard can reach: those that run something, and are enabled. */

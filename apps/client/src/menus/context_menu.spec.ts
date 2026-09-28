@@ -701,6 +701,44 @@ describe("contextMenu", () => {
             expect(contextMenu.isShown).toBe(false);
         });
 
+        it("moves across a submenu's columns, and leaves it from its first", async () => {
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            await contextMenu.show({
+                x: 10, y: 10, selectMenuItemHandler: () => {},
+                items: [ {
+                    title: "Insert child note", columns: 2,
+                    items: [ { title: "Text" }, { title: "Code" }, { title: "Meeting" }, { title: "Weekly" } ]
+                } ]
+            });
+            await vi.waitFor(() => expect(document.activeElement).toBe(menuElement()));
+
+            key("ArrowDown");
+            await vi.waitFor(() => expect(activeRow()).toBe("Insert child note"));
+            key("ArrowRight");
+            await vi.waitFor(() => expect(activeRow()).toBe("Text"));
+            // Where the browser broke the columns: happy-dom lays out nothing.
+            const boxes: Record<string, [number, number]> = { Text: [ 0, 0 ], Code: [ 0, 24 ], Meeting: [ 150, 0 ], Weekly: [ 150, 24 ] };
+            for (const layerRow of menuElement()?.querySelectorAll<HTMLElement>("div.dropdown-submenu li") ?? []) {
+                const [ left, top ] = boxes[layerRow.textContent ?? ""] ?? [ 0, 0 ];
+                vi.spyOn(layerRow, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ x: left, y: top, width: 140, height: 24 }));
+            }
+
+            key("ArrowDown");
+            await vi.waitFor(() => expect(activeRow()).toBe("Code"));
+            key("ArrowRight");
+            await vi.waitFor(() => expect(activeRow()).toBe("Weekly"));
+            // Nothing further right, so it stays.
+            key("ArrowRight");
+            key("ArrowLeft");
+            await vi.waitFor(() => expect(activeRow()).toBe("Code"));
+            // From the first column, Left closes the submenu as before.
+            key("ArrowLeft");
+            await vi.waitFor(() => expect(activeRow()).toBe("Insert child note"));
+            expect(menuElement()?.querySelector("div.dropdown-submenu")).toBeNull();
+            vi.restoreAllMocks();
+        });
+
         it("goes on from the row the pointer last pointed at", async () => {
             await openMenu();
             const paste = [ ...menuElement()?.querySelectorAll<HTMLElement>("li.dropdown-item") ?? [] ]
