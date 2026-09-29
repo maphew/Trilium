@@ -65,7 +65,7 @@ const input = (el: Element | null, value: string) =>
 
 /** A Dropdown only mounts its items once Bootstrap announces the open, which is what this stands in for. */
 const openDropdown = () =>
-    act(() => { $(container.querySelector(".dropdown") as HTMLElement).trigger("show.bs.dropdown"); });
+    act(() => { $(container.querySelector(".dropdown") as HTMLElement).children("button:not([aria-expanded=true])").trigger("click"); });
 
 /** Lets a chain of promises inside the component settle, then flushes the renders and effects it caused. */
 const settle = async () => {
@@ -253,7 +253,7 @@ describe("VolumeControl", () => {
 });
 
 describe("PlaybackSpeed", () => {
-    const items = () => Array.from(container.querySelectorAll(".dropdown-item"));
+    const items = () => Array.from(document.querySelectorAll(".dropdown-item"));
 
     it("offers the speeds, marking the element's current one", () => {
         const mediaRef = fakeMedia();
@@ -329,7 +329,7 @@ describe("PlayModeButton", () => {
         act(() => render(<PlayModeButton mode="loop" onSelectMode={onSelectMode} />, container));
         openDropdown();
 
-        const items = Array.from(container.querySelectorAll(".dropdown-item"));
+        const items = Array.from(document.querySelectorAll(".dropdown-item"));
         expect(items).toHaveLength(3);
         const active = items.find(el => el.classList.contains("active"));
         expect(active?.querySelector(".bx-repeat")).not.toBeNull();

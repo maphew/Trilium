@@ -71,6 +71,18 @@ describe("Popup", () => {
         expect(tall.style.maxHeight).toBe(`${800 - 330 - 5}px`);
     });
 
+    it("grows past the viewport without its height cap, stands in a wrapper it is given, and says when it is placed", async () => {
+        vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(1000);
+        anchorAt(100, 300);
+        const onPlaced = vi.fn();
+        const popup = await open({ capHeight: false, portalClassName: "tn-dropdown-portal note-actions", onPlaced });
+
+        expect(popup.style.maxHeight).toBe("");
+        expect(popup.parentElement?.className).toBe("tn-dropdown-portal note-actions");
+        expect(popup.parentElement?.parentElement).toBe(document.body);
+        expect(onPlaced).toHaveBeenCalledTimes(1);
+    });
+
     it("opens at a point, as a menu opened where a right-click landed does", async () => {
         const popup = await open({ anchor: { x: 300, y: 200 }, placement: "right-start" });
 

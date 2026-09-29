@@ -4,14 +4,14 @@ import { autoUpdate, computePosition, flip, offset, type Placement, type Referen
 import clsx from "clsx";
 import type { ComponentChildren, HTMLAttributes } from "preact";
 import { createPortal } from "preact/compat";
-import { useLayoutEffect, useRef } from "preact/hooks";
+import { type MutableRef, useLayoutEffect, useRef } from "preact/hooks";
 
 /**
  * A surface that stands beside something rather than in the page's flow: a dropdown's menu, and
  * anything else that pops up from a control or at a point. It knows nothing of what it holds; it
  * places itself, keeps inside the viewport, and says when it is dismissed.
  */
-export interface PopupProps {
+export interface PopupProps extends Pick<HTMLAttributes<HTMLDivElement>, "id" | "className" | "role" | "style" | "onClick" | "aria-labelledby"> {
     /** What it stands beside: an element, or a point in the viewport such as where a right-click landed. */
     anchor: HTMLElement | { x: number, y: number };
     /**
@@ -22,21 +22,33 @@ export interface PopupProps {
     /** The gap, in pixels, it keeps from its anchor. */
     offset?: number;
     /**
+     * Caps its height to the room on the side it takes, for content that scrolls in it. Without,
+     * it grows past the viewport, as content that must not be clipped needs.
+     */
+    capHeight?: boolean;
+    /**
+     * Classes for an element it stands in, in the page's body, so the CSS scoped under the
+     * classes of what opened it still applies there.
+     */
+    portalClassName?: string;
+    elementRef?: MutableRef<HTMLDivElement | null>;
+    /** Called once it is first placed and shown: a browser focuses nothing inside it before. */
+    onPlaced?(): void;
+    /**
      * Called on a press outside it and its anchor, and on Escape. A press on the anchor is left to
      * the anchor, as a dropdown's toggle closes its own popup.
      */
     onDismiss(reason: "outside" | "escape"): void;
-    id?: string;
-    className?: string;
-    role?: HTMLAttributes<HTMLDivElement>["role"];
     children?: ComponentChildren;
 }
 
 /** How many pixels it keeps from the edges of the viewport. */
 const VIEWPORT_PADDING = 5;
 
-export default function Popup({ anchor, placement = "bottom-start", offset: gap = 0, onDismiss, id, className, role, children }: PopupProps) {
-    const popupRef = useRef<HTMLDivElement>(null);
+export default function Popup({ anchor, placement = "bottom-start", offset: gap = 0, capHeight = true, portalClassName, elementRef, onPlaced, onDismiss, className, children, ...elementProps }: PopupProps) {
+    const popupRef = useRef<HTMLDivElement | null>(null);
+    const placed = useRef(onPlaced);
+    placed.current = onPlaced;
     const anchorX = "x" in anchor ? anchor.x : undefined;
     const anchorY = "y" in anchor ? anchor.y : undefined;
 
@@ -44,9 +56,14 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
         const popup = popupRef.current;
         if (!popup) return;
         const reference = anchor instanceof HTMLElement ? anchor : pointAt(anchor.x, anchor.y);
+        let shown = false;
         // Places it now, and again whenever its anchor moves or the viewport or it changes size.
-        return autoUpdate(reference, popup, () => void placePopup(popup, reference, placement, gap));
-    }, [ anchor instanceof HTMLElement ? anchor : undefined, anchorX, anchorY, placement, gap ]);
+        return autoUpdate(reference, popup, () => void placePopup(popup, reference, placement, gap, capHeight).then(() => {
+            if (shown) return;
+            shown = true;
+            placed.current?.();
+        }));
+    }, [ anchor instanceof HTMLElement ? anchor : undefined, anchorX, anchorY, placement, gap, capHeight ]);
 
     const dismiss = useRef(onDismiss);
     dismiss.current = onDismiss;
@@ -76,19 +93,28 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
 
     // Out of any ancestor that would clip it or, with a transform or a filter, place its fixed
     // position against itself. A browser showing an element fullscreen paints only that element.
-    return createPortal((
-        <div ref={popupRef} id={id} role={role} className={clsx("tn-popup", className)}>
+    const popup = (
+        <div
+            {...elementProps}
+            ref={(element) => {
+                popupRef.current = element;
+                if (elementRef) elementRef.current = element;
+            }}
+            className={clsx("tn-popup", className)}
+        >
             {children}
         </div>
-    ), document.fullscreenElement ?? document.body);
+    );
+    return createPortal(portalClassName ? <div className={portalClassName}>{popup}</div> : popup,
+        document.fullscreenElement ?? document.body);
 }
 
 /**
  * Positions `popup` beside `anchor`, preferring `placement` and flipping to the other side where
- * that has no room, and caps its height to the room on the side it takes. It stays hidden until
- * placed, so it never paints at a stale position.
+ * that has no room, and with `capHeight` caps its height to the room on the side it takes. It
+ * stays hidden until placed, so it never paints at a stale position.
  */
-async function placePopup(popup: HTMLElement, anchor: ReferenceElement, placement: Placement, gap: number) {
+async function placePopup(popup: HTMLElement, anchor: ReferenceElement, placement: Placement, gap: number, capHeight: boolean) {
     const { x, y } = await computePosition(anchor, popup, {
         strategy: "fixed",
         placement,
@@ -98,7 +124,7 @@ async function placePopup(popup: HTMLElement, anchor: ReferenceElement, placemen
             // Over a point it can also move across the side it stands on, as a popup wider than
             // the room on either side of the point must; an element it must not cover.
             shift({ crossAxis: !(anchor instanceof HTMLElement), padding: VIEWPORT_PADDING }),
-            size({
+            capHeight && size({
                 padding: VIEWPORT_PADDING,
                 apply({ availableHeight }) {
                     popup.style.maxHeight = `${availableHeight}px`;

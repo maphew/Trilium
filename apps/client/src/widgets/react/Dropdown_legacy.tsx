@@ -4,11 +4,9 @@
 import type { Dropdown as BootstrapDropdown, Tooltip } from "bootstrap";
 import { ComponentChildren, HTMLAttributes } from "preact";
 import { createPortal, CSSProperties, HTMLProps } from "preact/compat";
-import { MutableRef, useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { MutableRef, useCallback, useEffect, useState } from "preact/hooks";
 
 import { isMobile } from "../../services/utils";
-import { useUniqueName } from "./hooks";
-import { suspendModalFocusTraps } from "./modal_focustrap";
 
 type DataAttributes = {
     [key: `data-${string}`]: string | number | boolean | undefined;
@@ -88,9 +86,8 @@ export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "c
     backdrop?: boolean;
 }
 
-export default function Dropdown({ className, isStatic, children, dropdownContainerStyle, dropdownContainerClassName, noDropdownListStyle, onShown: externalOnShown, onHidden: externalOnHidden, mobileBackdrop: mobileBackdropProp, portalToBody: portalToBodyProp, mobileBottomSheet, backdrop }: DropdownProps) {
-    // Not yet in `Dropdown`: `dropdownOptions` — `popperConfig.placement: "top"` (1 caller),
-    // `autoClose: "outside"` (2), `display: "static"` (1).
+export default function Dropdown({ className, children, onShown: externalOnShown, onHidden: externalOnHidden, mobileBackdrop: mobileBackdropProp, portalToBody: portalToBodyProp, mobileBottomSheet, backdrop }: DropdownProps) {
+    // Not yet in `Dropdown`: `dropdownOptions.display: "static"` (1 caller).
 
     // The sheet is three things at once — placed by the app's own rule, dimming what is behind it,
     // and lifted out of whatever opened it — so it is asked for as one thing and unpacked here.
@@ -98,7 +95,6 @@ export default function Dropdown({ className, isStatic, children, dropdownContai
     const mobileBackdrop = mobileBackdropProp || bottomSheet;
     const portalToBody = portalToBodyProp || bottomSheet;
 
-    const dropdownContainerRef = useRef<HTMLUListElement | null>(null);
     const [ shown ] = useState(false);
 
     const onShown = useCallback(() => {
@@ -120,37 +116,13 @@ export default function Dropdown({ className, isStatic, children, dropdownContai
         else onHidden();
     }, [ shown ]);
 
-    // A portaled menu lives in `document.body`, outside any modal that opened it. That modal's focus-trap
-    // would keep yanking focus back into the modal, so an input in the menu (e.g. the note-icon picker's
-    // search box) could never hold focus. Suspend the shown modals' traps while the menu is open.
-    useEffect(() => {
-        if (!portalToBody || !shown) return;
-        return suspendModalFocusTraps();
-    }, [ portalToBody, shown ]);
-
-    const ariaId = useUniqueName("button");
-
     const menu = (
-        <ul
-            class={`dropdown-menu tn-dropdown-menu ${isStatic ? "static" : ""} ${dropdownContainerClassName ?? ""} ${bottomSheet ? "mobile-bottom-menu" : ""} ${!noDropdownListStyle ? "tn-dropdown-list" : ""}`}
-            style={dropdownContainerStyle}
-            aria-labelledby={ariaId}
-            ref={dropdownContainerRef}
-            onClick={(e) => {
-                // Prevent clicks directly inside the dropdown from closing.
-                if (e.target === dropdownContainerRef.current) {
-                    e.stopPropagation();
-                }
-            }}
-        >
+        <ul class={`dropdown-menu ${bottomSheet ? "mobile-bottom-menu" : ""}`}>
             {shown && children}
         </ul>
     );
 
     return portalToBody
-        // Keep the `className` scope on the portaled wrapper so CSS scoped under it (e.g.
-        // `.note-icon-widget .icon-list`) still applies even though the menu now lives in body.
-        // `tn-dropdown-portal` beside it carries the z-index a menu needs out here (style.css).
         ? createPortal((
             <div class={`tn-dropdown-portal ${className ?? ""}`}>
                 {backdrop && shown && <div class="tn-dropdown-backdrop" />}
