@@ -2583,9 +2583,9 @@ body.zen:not(.experimental-feature-new-layout) {
         transition: opacity 100ms linear;
     }
 
-    /* A group's submenu pins its panel outside the note split, where `:focus-within` cannot see it. */
+    /* An open dropdown holds the toolbar up: hovering its submenu takes focus out of the split. */
     .note-split:focus-within .ribbon-container,
-    &:has(.ck-toolbar-group-menu__panel) .ribbon-container {
+    .ribbon-container:has(.ck-dropdown__panel-visible) {
         opacity: 1; /* Show when the note split is focused */
     }
 
@@ -2609,7 +2609,7 @@ body.zen:not(.experimental-feature-new-layout) {
     }
 
     .note-split:focus-within .ribbon-container .classic-toolbar-widget,
-    &:has(.ck-toolbar-group-menu__panel) .ribbon-container .classic-toolbar-widget {
+    .ribbon-container:has(.ck-dropdown__panel-visible) .classic-toolbar-widget {
         pointer-events: all;
     }
 
@@ -2654,10 +2654,10 @@ body.zen.experimental-feature-new-layout {
         backdrop-filter: blur(6px);
     }
 
-    /* A group's submenu pins its panel outside the note split, where `:focus-within` cannot see it. */
+    /* An open dropdown holds the toolbar up: hovering its submenu takes focus out of the split. */
     #root-widget:has(.note-split.type-text:focus-within) .classic-toolbar-widget,
     .classic-toolbar-widget:focus-within,
-    &:has(.ck-toolbar-group-menu__panel) .classic-toolbar-widget {
+    .classic-toolbar-widget:has(.ck-dropdown__panel-visible) {
         opacity: 1; /* Show when the note split is focused */
         pointer-events: all;
     }

@@ -212,9 +212,7 @@ export default class ToolbarGroupMenu extends Plugin {
 }
 
 /**
- * Puts a control that carries a panel of its own into the row held for it, in place of the button
- * standing there. The control keeps its panel and opens it from inside the menu; a row merely
- * firing it would open that panel on the strip the menu replaced, where nothing can reach it.
+ * Replaces the button in `id`'s row with `source`, so it opens its own panel from the menu.
  */
 function mountControl(
     menuView: DropdownMenuRootListView, plan: MenuPlan, id: string, source: DropdownView
@@ -373,11 +371,8 @@ function describeRow(plan: MenuPlan, id: string, view: SourceButton) {
 }
 
 /**
- * Describes a dropdown of the group as a submenu over the rows of its own list. Where the dropdown
- * is a split button, pressing the opener runs the action of its button half and the submenu stays
- * the way to the rest, as a row of the note tree's context menu does.
- *
- * The submenu is described empty and drawn on the way open, by `ToolbarGroupMenu#fillSubmenu`.
+ * Describes `dropdown` as a submenu, which `ToolbarGroupMenu#fillSubmenu()` draws on the way open.
+ * A `SplitButtonView` opener also runs its own action, as a note tree context menu row does.
  */
 function planSubmenu(plan: MenuPlan, takeId: () => string, dropdown: DropdownView) {
     const opener = dropdown.buttonView;

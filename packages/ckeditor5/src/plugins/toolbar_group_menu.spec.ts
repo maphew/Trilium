@@ -143,8 +143,7 @@ describe("ToolbarGroupMenu", () => {
         const submenu = openSubmenu(dropdown);
         expect(submenu.buttonView.label).toBe("Insert sample");
         expect(submenu.buttonView.icon).toBe("<svg />");
-        // The panel is pinned into the editor's body, so the client's stylesheet finds it by this
-        // class alone — Zen mode reads it to keep the toolbar up while the submenu is open.
+        // `toolbar_group_menu.css` sizes the icons of a panel pinned into the body by this class.
         expect(submenu.panelView.class).toBe("ck-toolbar-group-menu__panel");
         expect(itemLabels(submenu.listView.items)).toStrictEqual(["Flowchart", "Sequence"]);
     });
@@ -265,14 +264,14 @@ describe("ToolbarGroupMenu", () => {
 
         const dropdown = openDropdown(getToolbar(editor), "Insert");
 
-        // The group of the list holds rows the menu has no place for, so it is left out; the
-        // unnamed row is drawn all the same, since its view is what runs.
+        // `listEntriesOf()` skips a `ListItemGroupView`, and `labelOf()` names an unlabeled
+        // button "", which still runs on execute.
         const rows = itemLabels(openSubmenu(dropdown).listView.items);
         expect(rows).toStrictEqual(["First", "—", ""]);
     });
 
-    // A rule at the very head is CKEditor's to drop, so the only way one reaches the menu with
-    // nothing drawn before it is behind an item the menu passed over.
+    // `_cleanSeparatorsAndLineBreaks()` drops a leading `|`, so `plan.definition` can only be
+    // empty at a separator when `planGroupMenu()` skipped the item before it.
     it("passes over an item it has no row for, and the rule that follows it", async () => {
         const editor = await createTestEditor(PLUGINS, {
             toolbar: {
