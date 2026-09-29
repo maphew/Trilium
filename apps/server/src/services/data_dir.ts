@@ -53,7 +53,7 @@ export function getDataDirs(TRILIUM_DATA_DIR: string) {
         OCR_CACHE_DIR: process.env.TRILIUM_OCR_CACHE_DIR || pathJoin(TRILIUM_DATA_DIR, "ocr-cache")
     } as const;
 
-    createDirIfNotExisting(dataDirs.TMP_DIR);
+    createDirIfNotExisting(dataDirs.TMP_DIR, TRILIUM_DATA_DIR);
     checkExistingEntries(dataDirs);
 
     Object.freeze(dataDirs);
@@ -98,26 +98,19 @@ function checkExistingEntries(dataDirs: ReturnType<typeof getDataDirs>) {
         return;
     }
 
+    const dataDir = dataDirs.TRILIUM_DATA_DIR;
     const user = getProcessUser();
-    const lines = [
-        "Trilium cannot start: the user running it cannot use these files in its data directory.",
-        ""
-    ];
-    if (user) {
-        lines.push(`Running as UID:GID ${user}.`);
-    }
-    for (const [ path ] of unusable) {
-        lines.push(`${path} ${describeOwnership(path)}.`);
-    }
-    lines.push("", "To fix this, give the data directory and everything in it to the user running Trilium,");
-    if (user) {
-        lines.push(`for example: sudo chown -R ${user} ${dataDirs.TRILIUM_DATA_DIR}`);
-    }
-    lines.push(
-        "In Docker, run that on the host directory mounted as the data directory, or start the",
-        "container without --user."
-    );
-    stopStartup(lines.join("\n"));
+    stopStartup([
+        `Trilium cannot start because it cannot use some of the files in its data directory, ${dataDir}.`,
+        "",
+        user ? `Trilium runs as UID:GID ${user}, but:` : "The user running Trilium cannot use them:",
+        ...unusable.map(([ path ]) => `  - ${relativeToDir(path, dataDir)} ${describeOwnership(path)}`),
+        "",
+        ...(user
+            ? [ "To fix this, give the data directory and everything in it to that user:", `  sudo chown -R ${user} ${dataDir}` ]
+            : [ "To fix this, give the user running Trilium full control of the data directory and everything in it." ]),
+        ...containerHint()
+    ].join("\n"));
 }
 
 export function getPlatformAppDataDir(platform: ReturnType<typeof os.platform>, ENV_APPDATA_DIR: string | undefined = process.env.APPDATA) {
@@ -157,47 +150,94 @@ function getProcessUser() {
     }
 }
 
-/** Completes a sentence about `path`: "is owned by UID:GID 1000:1000 with permissions 700". */
+/**
+ * Completes a sentence about `path`: "is owned by UID:GID 1000:1000 with permissions 700". Windows
+ * has no UIDs, and `fs.statSync()` reports 0 there, so it only says whether a file is read-only.
+ */
 function describeOwnership(path: string) {
     try {
         const stats = fs.statSync(path);
+        if (!getProcessUser()) {
+            return stats.isFile() && !(stats.mode & 0o200) ? "is read-only" : "cannot be accessed";
+        }
         return `is owned by UID:GID ${stats.uid}:${stats.gid} with permissions ${(stats.mode & 0o777).toString(8)}`;
     } catch {
         return "cannot be inspected";
     }
 }
 
-function failWithPermissionError(targetPath: fs.PathLike, cause: unknown): never {
-    stopStartup(describePermissionError(targetPath.toString()), cause);
+/**
+ * The paths in a message are the ones Trilium sees, which in a container are not the host paths a
+ * fix has to be applied to. Desktop never runs in a container, so its dialog leaves this out.
+ */
+function containerHint() {
+    if (process.versions.electron) {
+        return [];
+    }
+    return [
+        "",
+        "In Docker, the paths above are inside the container. Apply the fix to the directory mounted",
+        "there from the host, or start the container without --user."
+    ];
 }
 
-function describePermissionError(path: string) {
-    const blockedDir = findUnreachableAncestor(dirname(path));
-    const shownDir = blockedDir ?? dirname(path);
-    const user = getProcessUser();
-    const lines = [
-        blockedDir
-            ? `Trilium cannot start: ${path} cannot be reached.`
-            : `Trilium cannot start: permission denied while creating ${path}.`,
-        ""
-    ];
-    if (user) {
-        lines.push(`Running as UID:GID ${user}.`);
-    }
-    lines.push(blockedDir
-        ? `${shownDir} cannot be entered; it ${describeOwnership(shownDir)}.`
-        : `${shownDir} ${describeOwnership(shownDir)}.`);
+function relativeToDir(path: string, dir: string) {
+    const separator = path.charAt(dir.length);
+    return path.startsWith(dir) && (separator === "/" || separator === "\\") ? path.slice(dir.length + 1) : path;
+}
 
-    lines.push(
-        "",
-        "To fix this, either:",
-        "  - make sure the user running Trilium can enter every directory above the data directory",
-        "    and write to the data directory itself",
-        "  - set TRILIUM_DATA_DIR to a directory owned by that user",
-        "  - in Docker, set USER_UID and USER_GID to the owner of the mounted directory, or, if the",
-        "    container runs with --user, give the mounted directory to that user"
-    );
-    return lines.join("\n");
+function failWithPermissionError(targetPath: fs.PathLike, dataDir: string | undefined, cause: unknown): never {
+    stopStartup(describePermissionError(targetPath.toString(), dataDir), cause);
+}
+
+/**
+ * Explains why `path` cannot be created. `dataDir` is the data directory `path` belongs in, or
+ * `undefined` when `path` is the data directory itself.
+ */
+function describePermissionError(path: string, dataDir: string | undefined) {
+    const parent = dirname(path);
+    const blockedDir = findUnreachableAncestor(parent);
+    const user = getProcessUser();
+    const subject = user ? `Trilium runs as UID:GID ${user}, which` : "The user running Trilium";
+
+    let lines: string[];
+    if (blockedDir) {
+        lines = [
+            `Trilium cannot start because it cannot reach ${path}.`,
+            "",
+            `${subject} cannot enter ${blockedDir}: it ${describeOwnership(blockedDir)}.`,
+            "",
+            ...(user
+                ? [ "To fix this, let that user enter it:", `  sudo chmod o+x ${blockedDir}` ]
+                : [ `To fix this, let the user running Trilium enter ${blockedDir}.` ]),
+            "Or set TRILIUM_DATA_DIR to a directory that user can reach."
+        ];
+    } else if (parent === dataDir) {
+        lines = [
+            `Trilium cannot start because it cannot create ${path}.`,
+            "",
+            `${subject} cannot write to its data directory, ${parent}: it ${describeOwnership(parent)}.`,
+            "",
+            ...(user
+                ? [ "To fix this, give the data directory and everything in it to that user:", `  sudo chown -R ${user} ${parent}` ]
+                : [ "To fix this, give the user running Trilium full control of the data directory." ]),
+            "Or set TRILIUM_DATA_DIR to a directory that user owns."
+        ];
+    } else {
+        lines = [
+            `Trilium cannot start because it cannot create ${path}.`,
+            "",
+            `${subject} cannot write to ${parent}: it ${describeOwnership(parent)}.`,
+            "",
+            ...(user
+                ? [ "To fix this, create the directory for that user:", `  sudo mkdir -p ${path} && sudo chown ${user} ${path}` ]
+                : [ "To fix this, create the directory and give the user running Trilium full control of it." ])
+        ];
+        if (!dataDir) {
+            lines.push("Or set TRILIUM_DATA_DIR to a directory that user owns.");
+        }
+    }
+    return [ ...lines, ...containerHint() ].join("\n");
 }
 
 /**
@@ -218,15 +258,16 @@ function findUnreachableAncestor(dir: string) {
     }
 }
 
-function createDirIfNotExisting(path: fs.PathLike, permissionMode: fs.Mode = FOLDER_PERMISSIONS) {
+/** `dataDir` is the data directory `path` belongs in, or `undefined` when `path` is the data directory. */
+function createDirIfNotExisting(path: fs.PathLike, dataDir?: string) {
     try {
-        fs.mkdirSync(path, permissionMode);
+        fs.mkdirSync(path, FOLDER_PERMISSIONS);
     } catch (err: unknown) {
         if (err && typeof err === "object" && "code" in err) {
             const code = (err as { code: string }).code;
 
             if (code === "EACCES") {
-                failWithPermissionError(path, err);
+                failWithPermissionError(path, dataDir, err);
             } else if (code === "EEXIST") {
                 // Directory already exists - verify it's actually a directory
                 try {

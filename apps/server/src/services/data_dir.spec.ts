@@ -68,6 +68,41 @@ describe("data_dir.ts unit tests", () => {
         });
     };
 
+    type ProcessWithIds = NodeJS.Process & { getuid?: () => number; getgid?: () => number };
+    const proc = process as ProcessWithIds;
+    const originalIds = { getuid: proc.getuid, getgid: proc.getgid };
+
+    // Sets the UID and GID process.getuid()/getgid() report, or removes both as on Windows (null).
+    const stubUser = (id: number | null) => {
+        if (id === null) {
+            delete proc.getuid;
+            delete proc.getgid;
+        } else {
+            proc.getuid = () => id;
+            proc.getgid = () => id;
+        }
+    };
+
+    const restoreUser = () => {
+        if (originalIds.getuid && originalIds.getgid) {
+            proc.getuid = originalIds.getuid;
+            proc.getgid = originalIds.getgid;
+        } else {
+            stubUser(null);
+        }
+    };
+
+    // Runs `run` with process.exit stubbed and returns what was printed before exiting.
+    const runUntilExit = (run: () => unknown) => {
+        const exit = vi.spyOn(process, "exit").mockImplementation(() => {
+            throw new Error("process.exit");
+        });
+        expect(run).toThrow("process.exit");
+        expect(exit).toHaveBeenCalledWith(1);
+        expect(console.error).toHaveBeenCalledTimes(1);
+        return String(vi.mocked(console.error).mock.calls[0][0]);
+    };
+
     // helper to set mocked Platform
     const setMockPlatform = (osPlatform: string, homedir: string, pathJoin: string) => {
         mockFn.osPlatformMock.mockImplementation(() => osPlatform);
@@ -368,8 +403,13 @@ describe("data_dir.ts unit tests", () => {
 
         describe("w/ existing entries", () => {
             const W_OK = 2;
-            const proc = process as NodeJS.Process & { getuid?: () => number; getgid?: () => number };
-            let hadGetuid = false;
+            const blockWrites = (...paths: string[]) => {
+                mockFn.accessSyncMock.mockImplementation((path: string, mode: number) => {
+                    if (paths.includes(path) && (mode & W_OK)) {
+                        throw new Error("EACCES");
+                    }
+                });
+            };
 
             beforeEach(() => {
                 resetAllMocks();
@@ -377,19 +417,17 @@ describe("data_dir.ts unit tests", () => {
                 mockFn.pathJoinMock.mockImplementation((...parts: string[]) => parts.join("/"));
                 mockFn.existsSyncMock.mockReturnValue(true);
                 mockFn.statSyncMock.mockImplementation((path: string) => ({
-                    uid: 1000, gid: 1000, mode: path === "/data/log" ? 0o40700 : 0o100644
+                    uid: 1000,
+                    gid: 1000,
+                    mode: path === "/data/log" ? 0o40700 : 0o100644,
+                    isFile: () => path !== "/data/log"
                 }));
                 vi.spyOn(console, "error").mockImplementation(() => {});
-                hadGetuid = "getuid" in proc;
-                proc.getuid = () => 1234;
-                proc.getgid = () => 1234;
+                stubUser(1234);
             });
 
             afterEach(() => {
-                if (!hadGetuid) {
-                    delete proc.getuid;
-                    delete proc.getgid;
-                }
+                restoreUser();
                 vi.restoreAllMocks();
                 resetAllMocks();
             });
@@ -400,27 +438,33 @@ describe("data_dir.ts unit tests", () => {
                 expect(console.error).not.toHaveBeenCalled();
             });
 
-            it("that the user cannot write – lists them and exits", () => {
-                const blocked = new Set([ "/data/document.db", "/data/log", "/data/config.ini" ]);
-                mockFn.accessSyncMock.mockImplementation((path: string, mode: number) => {
-                    if (blocked.has(path) && (mode & W_OK)) {
-                        throw new Error("EACCES");
-                    }
-                });
-                const exit = vi.spyOn(process, "exit").mockImplementation(() => {
-                    throw new Error("process.exit");
-                });
+            it("that the user cannot write – lists them with the chown that fixes them and exits", () => {
+                blockWrites("/data/document.db", "/data/log", "/data/config.ini");
 
-                expect(() => getDataDirs("/data")).toThrow("process.exit");
-                expect(exit).toHaveBeenCalledWith(1);
-                const message = String(vi.mocked(console.error).mock.calls[0][0]);
-                expect(message).toContain("Trilium cannot start: the user running it cannot use these files in its data directory.");
-                expect(message).toContain("Running as UID:GID 1234:1234.");
-                expect(message).toContain("/data/document.db is owned by UID:GID 1000:1000 with permissions 644.");
-                expect(message).toContain("/data/log is owned by UID:GID 1000:1000 with permissions 700.");
-                expect(message).toContain("for example: sudo chown -R 1234:1234 /data");
+                const message = runUntilExit(() => getDataDirs("/data"));
+                expect(message).toContain("Trilium cannot start because it cannot use some of the files in its data directory, /data.");
+                expect(message).toContain([
+                    "Trilium runs as UID:GID 1234:1234, but:",
+                    "  - document.db is owned by UID:GID 1000:1000 with permissions 644",
+                    "  - log is owned by UID:GID 1000:1000 with permissions 700",
+                    ""
+                ].join("\n"));
+                expect(message).toContain("  sudo chown -R 1234:1234 /data");
+                expect(message).toContain("In Docker, the paths above are inside the container.");
                 // config.ini is only read, so a denied write must not flag it.
                 expect(message).not.toContain("config.ini");
+            });
+
+            it("on Windows – says which files are read-only, without UIDs or a chown", () => {
+                stubUser(null);
+                blockWrites("/data/document.db");
+                mockFn.statSyncMock.mockImplementation(() => ({ uid: 0, gid: 0, mode: 0o100444, isFile: () => true }));
+
+                const message = runUntilExit(() => getDataDirs("/data"));
+                expect(message).toContain("The user running Trilium cannot use them:\n  - document.db is read-only\n");
+                expect(message).toContain("give the user running Trilium full control of the data directory");
+                expect(message).not.toContain("UID:GID");
+                expect(message).not.toContain("sudo");
             });
         });
     });
@@ -430,10 +474,12 @@ describe("data_dir.ts unit tests", () => {
             resetAllMocks();
             process.env.TRILIUM_DATA_DIR = "/home/mock/trilium-data-ERR";
             vi.spyOn(console, "error").mockImplementation(() => {});
+            stubUser(1000);
         });
 
         afterEach(() => {
             delete process.env.TRILIUM_DATA_DIR;
+            restoreUser();
             vi.restoreAllMocks();
         });
 
@@ -444,65 +490,62 @@ describe("data_dir.ts unit tests", () => {
             return err;
         };
 
-        // Runs getTriliumDataDir with process.exit stubbed and returns what was printed.
-        const runUntilExit = () => {
-            const exit = vi.spyOn(process, "exit").mockImplementation(() => {
-                throw new Error("process.exit");
-            });
-            expect(() => getTriliumDataDir("trilium-data")).toThrow("process.exit");
-            expect(exit).toHaveBeenCalledWith(1);
-            expect(console.error).toHaveBeenCalledTimes(1);
-            return String(vi.mocked(console.error).mock.calls[0][0]);
-        };
+        const ownedByRoot = () => ({ uid: 0, gid: 0, mode: 0o40755, isFile: () => false });
 
-        it("EACCES – prints why the directory cannot be created and exits", () => {
+        it("EACCES creating the data directory – suggests creating it for the user and exits", () => {
             mkdirThrows("EACCES");
-            mockFn.statSyncMock.mockImplementation(() => ({ uid: 1000, gid: 1000, mode: 0o755 }));
-            // Provide getuid/getgid (absent on Windows) so the UID:GID line is printed.
-            const proc = process as NodeJS.Process & { getuid?: () => number; getgid?: () => number };
-            const hadGetuid = "getuid" in proc;
-            proc.getuid = () => 1000;
-            proc.getgid = () => 1000;
+            mockFn.statSyncMock.mockImplementation(ownedByRoot);
 
-            try {
-                const message = runUntilExit();
-                expect(message).toContain("Trilium cannot start: permission denied while creating /home/mock/trilium-data-ERR.");
-                expect(message).toContain("Running as UID:GID 1000:1000.");
-                expect(message).toContain("/home/mock is owned by UID:GID 1000:1000 with permissions 755.");
-                expect(message).toContain("in Docker, set USER_UID and USER_GID to the owner of the mounted directory");
-                expect(mockFn.statSyncMock).toHaveBeenCalledWith("/home/mock");
-            } finally {
-                if (!hadGetuid) {
-                    delete proc.getuid;
-                    delete proc.getgid;
-                }
-            }
+            const message = runUntilExit(() => getTriliumDataDir("trilium-data"));
+            expect(message).toContain("Trilium cannot start because it cannot create /home/mock/trilium-data-ERR.");
+            expect(message).toContain("Trilium runs as UID:GID 1000:1000, which cannot write to /home/mock: it is owned by UID:GID 0:0 with permissions 755.");
+            expect(message).toContain("  sudo mkdir -p /home/mock/trilium-data-ERR && sudo chown 1000:1000 /home/mock/trilium-data-ERR");
+            expect(message).toContain("Or set TRILIUM_DATA_DIR to a directory that user owns.");
+            expect(message).toContain("In Docker, the paths above are inside the container.");
+            expect(message).not.toContain("chown -R");
+        });
+
+        it("EACCES creating a directory inside the data directory – suggests a chown of the data directory and exits", () => {
+            delete process.env.TRILIUM_TMP_DIR;
+            mockFn.pathJoinMock.mockImplementation((...parts: string[]) => parts.join("/"));
+            mkdirThrows("EACCES");
+            mockFn.statSyncMock.mockImplementation(ownedByRoot);
+
+            const message = runUntilExit(() => getDataDirs("/data"));
+            expect(message).toContain("Trilium cannot start because it cannot create /data/tmp.");
+            expect(message).toContain("Trilium runs as UID:GID 1000:1000, which cannot write to its data directory, /data: it is owned by UID:GID 0:0 with permissions 755.");
+            expect(message).toContain("  sudo chown -R 1000:1000 /data");
+            expect(message).not.toContain("mkdir");
         });
 
         it("EACCES – names the ancestor that cannot be entered and exits", () => {
+            stubUser(1234);
             mkdirThrows("EACCES");
             mockFn.accessSyncMock.mockImplementation((path: string) => {
                 if (path === "/home/mock") {
                     throw new Error("EACCES");
                 }
             });
-            mockFn.statSyncMock.mockImplementation(() => ({ uid: 1000, gid: 1000, mode: 0o700 }));
+            mockFn.statSyncMock.mockImplementation(() => ({ uid: 1000, gid: 1000, mode: 0o40700, isFile: () => false }));
 
-            const message = runUntilExit();
-            expect(message).toContain("Trilium cannot start: /home/mock/trilium-data-ERR cannot be reached.");
-            expect(message).toContain("/home/mock cannot be entered; it is owned by UID:GID 1000:1000 with permissions 700.");
+            const message = runUntilExit(() => getTriliumDataDir("trilium-data"));
+            expect(message).toContain("Trilium cannot start because it cannot reach /home/mock/trilium-data-ERR.");
+            expect(message).toContain("Trilium runs as UID:GID 1234:1234, which cannot enter /home/mock: it is owned by UID:GID 1000:1000 with permissions 700.");
+            expect(message).toContain("  sudo chmod o+x /home/mock");
+            expect(mockFn.statSyncMock).toHaveBeenCalledWith("/home/mock");
         });
 
         it("EACCES – reports a parent that cannot be inspected and exits", () => {
             mkdirThrows("EACCES");
             mockFn.statSyncMock.mockImplementation(() => { throw new Error("no access"); });
 
-            expect(runUntilExit()).toContain("/home/mock cannot be inspected.");
+            expect(runUntilExit(() => getTriliumDataDir("trilium-data")))
+                .toContain("which cannot write to /home/mock: it cannot be inspected.");
         });
 
         it("EACCES under Electron – throws the explanation for the main-process error dialog", () => {
             const err = mkdirThrows("EACCES");
-            mockFn.statSyncMock.mockImplementation(() => ({ uid: 1000, gid: 1000, mode: 0o755 }));
+            mockFn.statSyncMock.mockImplementation(ownedByRoot);
             const exit = vi.spyOn(process, "exit");
             Object.defineProperty(process.versions, "electron", { value: "1.0.0", configurable: true });
 
@@ -514,7 +557,9 @@ describe("data_dir.ts unit tests", () => {
                     thrown = e;
                 }
                 expect(thrown).toBeInstanceOf(Error);
-                expect((thrown as Error).message).toContain("Trilium cannot start: permission denied while creating /home/mock/trilium-data-ERR.");
+                const message = (thrown as Error).message;
+                expect(message).toContain("Trilium cannot start because it cannot create /home/mock/trilium-data-ERR.");
+                expect(message).not.toContain("In Docker");
                 expect((thrown as Error).cause).toBe(err);
                 expect(exit).not.toHaveBeenCalled();
             } finally {
