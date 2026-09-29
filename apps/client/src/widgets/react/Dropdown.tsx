@@ -43,35 +43,14 @@ export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "c
     titleOptions?: Partial<Tooltip.Options>;
     mobileBackdrop?: boolean;
     /**
-     * Render the dropdown menu into `document.body` instead of nesting it next to the toggle.
-     *
-     * Use this when an ancestor establishes a containment/backdrop root (e.g. `container-type`,
-     * `transform`, `filter`) which would otherwise flatten the menu's `backdrop-filter` blur into a
-     * flat tint. The menu is wrapped in a `<div class="tn-dropdown-portal {className}">` so any CSS
-     * scoped under that class keeps applying even though the menu no longer lives inside the
-     * toggle's wrapper, and so the menu outranks whatever stacking context it was lifted out of.
-     */
-    portalToBody?: boolean;
-    /**
-     * On a phone, show the menu as a sheet rising from the bottom of the screen over a dimmed page,
-     * the way the app's other mobile menus appear. No effect on a desktop layout.
-     *
-     * Prefer this to setting the pieces by hand. A menu left to place itself on mobile lands as a
-     * narrow box adrift in the middle of the page — Popper computes an offset that the app's own
-     * `body.mobile .dropdown-menu { position: fixed }` then measures from somewhere else — and one
-     * opened inside a dialog needs {@link portalToBody} besides, since a transformed `.modal-dialog`
-     * is both the box a fixed menu is placed against and a stacking context the backdrop, painting
-     * above the whole modal, would otherwise dim the menu through.
+     * On a phone, shows the popup as a sheet rising from the bottom of the screen over a dimmed
+     * page, the way the app's other mobile menus appear. No effect on a desktop layout.
      */
     mobileBottomSheet?: boolean;
     /**
-     * Dim the page behind the menu on any screen, for a menu that is a task of its own rather than
+     * Dims the page behind the popup on any screen, for one that is a task of its own rather than
      * a list of actions: the icon picker, which holds a search field and a grid of a thousand
-     * icons.
-     *
-     * Drawn inside the same portal as the menu, immediately before it, so what covers what is a
-     * matter of document order and one z-index rather than of two scales meeting. Needs
-     * {@link portalToBody} for that, and does nothing without it.
+     * icons. Drawn in the popup's portal, immediately before it.
      */
     backdrop?: boolean;
 }

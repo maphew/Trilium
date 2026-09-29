@@ -20,7 +20,7 @@
     contain: none;
 }
 
-/* The type menu is portaled to `document.body` (see the Dropdown's `portalToBody`): the popup is a
+/* The type menu is portaled to `document.body`, as every dropdown's is: the popup is a
    scroll container (`overflow: auto` above), so an inline menu could only open by scrolling the form
    under itself. In body it competes with the popup in the root stacking context, where the global
    dropdown z-index (999) loses to the popup's 1060 — raise it above the popup, staying below the

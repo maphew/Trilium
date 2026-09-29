@@ -10,11 +10,11 @@ vi.mock("../../../services/i18n.js", () => ({
 // Renders the toggle's face, its tooltip and class, and the menu, without Bootstrap;
 // the placement options go on data attributes.
 vi.mock("../../react/Dropdown.js", () => ({
-    default: ({ text, title, buttonClassName, children, portalToBody, dropdownOptions }: {
+    default: ({ text, title, buttonClassName, children, dropdownOptions }: {
         text: ComponentChildren; title?: string; buttonClassName?: string; children: ComponentChildren;
-        portalToBody?: boolean; dropdownOptions?: { popperConfig?: { strategy?: string } };
+        dropdownOptions?: { popperConfig?: { strategy?: string } };
     }) => (
-        <div className="dropdown-stub" data-portal={String(!!portalToBody)} data-strategy={dropdownOptions?.popperConfig?.strategy ?? "none"}>
+        <div className="dropdown-stub" data-strategy={dropdownOptions?.popperConfig?.strategy ?? "none"}>
             <button className={buttonClassName} title={title}>{text}</button>
             <div className="menu">{children}</div>
         </div>
@@ -56,15 +56,15 @@ describe("effectiveReasoningEffort", () => {
 });
 
 describe("ReasoningEffortDropdown placement", () => {
-    it("portals the menu with a fixed position in the sidebar", () => {
+    it("fixes the menu's position in the sidebar", () => {
         const stub = renderDropdown(FLASH, undefined, vi.fn(), true).host.querySelector(".dropdown-stub");
-        expect([ stub?.getAttribute("data-portal"), stub?.getAttribute("data-strategy") ]).toEqual([ "true", "fixed" ]);
+        expect(stub?.getAttribute("data-strategy")).toBe("fixed");
     });
 
-    it("keeps the menu in place elsewhere, and lists nothing for a model without levels", () => {
+    it("leaves the position alone elsewhere, and lists nothing for a model without levels", () => {
         const { host: plain } = renderDropdown({ id: "m", name: "M" }, undefined);
         const stub = plain.querySelector(".dropdown-stub");
-        expect([ stub?.getAttribute("data-portal"), stub?.getAttribute("data-strategy") ]).toEqual([ "false", "none" ]);
+        expect(stub?.getAttribute("data-strategy")).toBe("none");
         expect(plain.querySelectorAll(".menu .dropdown-item")).toHaveLength(0);
     });
 });

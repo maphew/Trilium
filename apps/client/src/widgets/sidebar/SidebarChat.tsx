@@ -317,9 +317,6 @@ export default function SidebarChat() {
                         hideToggleArrow
                         dropdownContainerClassName="tn-dropdown-menu-scrollable"
                         dropdownOptions={{ popperConfig: { strategy: "fixed" } }}
-                        // In peek mode #right-pane has a backdrop-filter, which becomes the containing
-                        // block for the fixed-positioned menu and offsets it — portal to body to escape it.
-                        portalToBody
                         dropdownRef={historyDropdownRef}
                         onShown={loadRecentChats}
                     >
@@ -370,9 +367,6 @@ export default function SidebarChat() {
                         iconAction
                         hideToggleArrow
                         dropdownOptions={{ popperConfig: { strategy: "fixed" } }}
-                        // See the history dropdown above: portal to body so peek mode's backdrop-filter
-                        // containing block doesn't offset the fixed menu.
-                        portalToBody
                     >
                         <FormListItem
                             icon="bx bx-save"

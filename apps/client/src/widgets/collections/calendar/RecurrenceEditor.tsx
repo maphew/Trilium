@@ -63,7 +63,6 @@ export default function RecurrenceEditor({ note }: { note: FNote }) {
                 className="calendar-recurrence-dropdown"
                 text={modelTitle(model)}
                 noDropdownListStyle
-                portalToBody
                 dropdownOptions={{ autoClose: "outside" }}
             >
                 <EventFieldList>

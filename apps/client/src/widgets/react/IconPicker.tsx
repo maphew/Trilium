@@ -192,10 +192,6 @@ function IconPickerDropdownButton({
                     ]
                 })
             }}
-            // The menu is wider than some of the places a button stands in, and the inline title
-            // establishes a backdrop root that would flatten its blur into a tint; hand the menu to
-            // the page rather than leaving it to be clipped or dulled.
-            portalToBody
             backdrop={backdrop}
             hideToggleArrow
             onShown={() => {

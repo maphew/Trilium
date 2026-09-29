@@ -228,9 +228,6 @@ export function OpenNoteActions({ note }: { note: FNote }) {
                 title={t("embedded_note.more-ways-to-open")}
                 iconAction
                 hideToggleArrow
-                // The panel clips what overflows it, so a menu nested in the row would be cut off at
-                // its edge; and a panel's backdrop filter would flatten the menu's own.
-                portalToBody
                 disabled={!notePath}
             >
                 {OTHER_WAYS_TO_OPEN.map(({ command, icon, title }) => (
@@ -341,7 +338,6 @@ export function NoteColorAction({ note, title }: { note: FNote; title: string })
             iconAction
             hideToggleArrow
             noDropdownListStyle
-            portalToBody
         >
             <NoteColorPicker note={note} />
         </DropdownPanel>

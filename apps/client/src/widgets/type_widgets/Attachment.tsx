@@ -431,10 +431,6 @@ function AttachmentActions({ attachment, copyAttachmentReferenceToClipboard, onS
                 iconAction
                 dropdownContainerClassName="mobile-bottom-menu"
                 mobileBackdrop
-                // The card clips its overflow, to keep a picture inside its rounded corners, and a menu
-                // opening from the header is taller than the header has room for — so it is rendered
-                // into the body to stand clear of the card, as the highlights card's menu is.
-                portalToBody
             >
                 <FormListItem
                     icon="bx bx-file-find"

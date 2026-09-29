@@ -255,7 +255,7 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
                 // Modals count as belonging to the popup: creating a note straight from the target
                 // note field opens the note type chooser, and dismissing on its clicks would tear
                 // the popup down before the created note could be filled in. The type menu belongs
-                // to it too: it is portaled to the body (see the dropdown's `portalToBody`), so a
+                // to it too: it is portaled to the body, as every dropdown is, so a
                 // press on one of its items lands outside the popup element.
                 || e.target.closest(`${AUTOCOMPLETE_DROPDOWN_SELECTOR}, .algolia-autocomplete, #context-menu-container, .modal, .modal-backdrop, .attr-input-label-type`)) {
                 return;
@@ -597,9 +597,6 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
                     <OptionsRow name="attr-label-type" label={t("attribute_detail.label_type")}>
                         <FormDropdownList
                             className="attr-input-label-type"
-                            // The popup is a scroll container, so an inline menu could only grow by
-                            // scrolling the form under itself — and the type list only gets longer.
-                            portalToBody
                             values={DEFINITION_TYPES}
                             keyProperty="value"
                             titleProperty="title"

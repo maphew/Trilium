@@ -139,9 +139,6 @@ export default function ShortcutSettings() {
                             title={t("shortcuts.filter")}
                             dropdownRef={filterDropdownRef}
                             mobileBottomSheet
-                            // The row is a container, and so a backdrop root: left inside it the
-                            // menu loses its blur and reads as a flat tint.
-                            portalToBody
                         >
                             <FilterContent
                                 activeFilter={activeFilter}

@@ -462,7 +462,7 @@ button kbd {
     display: contents;
 }
 
-/* A portaled menu (the Dropdown's `portalToBody`) stacks in the root context, so it has to clear a
+/* A dropdown's popup, portaled to the body, stacks in the root context, so it has to clear a
    modal (1055) and a stacked quick-edit popup (1100), and stay under the prompts (2000) it can
    summon. */
 body > .tn-dropdown-portal > .dropdown-menu {

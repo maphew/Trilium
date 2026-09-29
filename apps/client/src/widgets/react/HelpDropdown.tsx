@@ -42,10 +42,6 @@ export default function HelpDropdown({ children, helpPage, openInPopup, classNam
             hideToggleArrow
             noSelectButtonStyle
             noDropdownListStyle
-            // Hosts like the ribbon establish their own stacking context (`.ribbon-container` sits at
-            // z-index 998), which would clamp the popup below the body-level widgets it overlaps —
-            // e.g. the attribute detail at 1000. Rendering into the body lets its z-index actually apply.
-            portalToBody
         >
             {children}
 

@@ -436,11 +436,6 @@ export default function ChatInputBar({
                             titlePosition="top"
                             buttonClassName="llm-chat-model-select"
                             className="llm-chat-model-dropdown"
-                            // In the sidebar the menu lives inside `.sidebar-chat-container`'s
-                            // `overflow: hidden`, which clips the leftward-opening legacy submenu.
-                            // Portal it to the body (with a fixed popper) so it can extend past the
-                            // sidebar edge, matching the sidebar's other dropdowns.
-                            portalToBody={inSidebar}
                             dropdownOptions={inSidebar ? { popperConfig: { strategy: "fixed" } } : undefined}
                         >
                             {chat.modelGroups.map(group => (
