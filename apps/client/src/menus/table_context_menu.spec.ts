@@ -23,6 +23,8 @@ const SECTION_TITLES = [
     "table_context_menu.delete_rows",
     "table_context_menu.delete_columns",
     "---",
+    "table_context_menu.distribute_columns",
+    "---",
     "table_context_menu.merge_cells",
     "table_context_menu.split_cells"
 ];
@@ -62,6 +64,7 @@ describe("buildTableMenuItems", () => {
             "triliumInsertTableColumnsRight",
             "removeTableRow",
             "removeTableColumn",
+            "triliumDistributeTableColumns",
             "mergeTableCells",
             "splitTableCellVertically",
             "splitTableCellHorizontally"
@@ -73,10 +76,12 @@ describe("buildTableMenuItems", () => {
         const { editor } = stubEditor([
             "mergeTableCells",
             "splitTableCellVertically",
-            "removeTableRow"
+            "removeTableRow",
+            "triliumDistributeTableColumns"
         ]);
         const items = buildTableMenuItems(editor, cellElement()) ?? [];
 
+        expect(findItem(items, "table_context_menu.distribute_columns")?.enabled).toBe(false);
         expect(findItem(items, "table_context_menu.merge_cells")?.enabled).toBe(false);
         expect(findItem(items, "table_context_menu.split_cells")?.enabled).toBe(false);
         expect(findItem(items, "table_context_menu.delete_rows")?.enabled).toBe(false);

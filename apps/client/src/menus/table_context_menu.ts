@@ -7,8 +7,8 @@ import { getTextEditorContaining } from "./text_editor_context_menu.js";
 
 /**
  * The table section of the text editor's right-click menu: row and column insertion sized by the
- * selection, deletion of every spanned row or column, and merging or splitting of the selected
- * cells.
+ * selection, deletion of every spanned row or column, equal widths for the spanned columns, and
+ * merging or splitting of the selected cells.
  *
  * Returns `null` when the click is not on a table cell of the active text editor.
  */
@@ -60,6 +60,9 @@ export function buildTableMenuItems(
         { kind: "separator" },
         commandItem(t("table_context_menu.delete_rows"), "bx bx-trash", "removeTableRow"),
         commandItem(t("table_context_menu.delete_columns"), "bx bx-trash", "removeTableColumn"),
+        { kind: "separator" },
+        commandItem(t("table_context_menu.distribute_columns"), "bx bx-move-horizontal",
+            "triliumDistributeTableColumns"),
         { kind: "separator" },
         commandItem(t("table_context_menu.merge_cells"), "bx bx-border-outer", "mergeTableCells"),
         {

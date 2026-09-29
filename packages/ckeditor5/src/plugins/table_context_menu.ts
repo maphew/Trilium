@@ -1,20 +1,30 @@
-import { Command, MouseObserver, Plugin, Table, TableSelection, TableUtils } from "ckeditor5";
+import {
+    Command,
+    MouseObserver,
+    Plugin,
+    Table,
+    TableColumnResize,
+    TableSelection,
+    TableUtils
+} from "ckeditor5";
 import type { Editor, ModelElement, ViewDocumentMouseDownEvent } from "ckeditor5";
+
+import { DistributeTableColumnsCommand } from "./table_distribute_columns.js";
 
 /**
  * Editor-side support for the client's table context menu.
  *
  * Registers insert commands that honor the size of the current selection (the upstream
- * `insertTableRow*` / `insertTableColumn*` commands always insert one row or column), keeps a
- * multi-cell selection alive under a right-click, and moves the selection to the cell a context
- * menu is opened on. Merge, split and delete need no counterparts here: the upstream
- * `mergeTableCells`, `splitTableCell*` and `removeTableRow` / `removeTableColumn` commands already
- * act on the whole selection.
+ * `insertTableRow*` / `insertTableColumn*` commands always insert one row or column) and
+ * `triliumDistributeTableColumns`, keeps a multi-cell selection alive under a right-click, and
+ * moves the selection to the cell a context menu is opened on. Merge, split and delete need no
+ * counterparts here: the upstream `mergeTableCells`, `splitTableCell*` and `removeTableRow` /
+ * `removeTableColumn` commands already act on the whole selection.
  */
 export default class TableContextMenu extends Plugin {
 
     static get requires() {
-        return [Table, TableSelection, TableUtils] as const;
+        return [Table, TableColumnResize, TableSelection, TableUtils] as const;
     }
 
     static get pluginName() {
@@ -32,6 +42,8 @@ export default class TableContextMenu extends Plugin {
             new TableMultiInsertCommand(editor, "left"));
         editor.commands.add("triliumInsertTableColumnsRight",
             new TableMultiInsertCommand(editor, "right"));
+        editor.commands.add("triliumDistributeTableColumns",
+            new DistributeTableColumnsCommand(editor));
 
         const view = editor.editing.view;
         view.addObserver(MouseObserver);
@@ -161,5 +173,6 @@ declare module "ckeditor5" {
         triliumInsertTableRowsBelow: TableMultiInsertCommand;
         triliumInsertTableColumnsLeft: TableMultiInsertCommand;
         triliumInsertTableColumnsRight: TableMultiInsertCommand;
+        triliumDistributeTableColumns: DistributeTableColumnsCommand;
     }
 }

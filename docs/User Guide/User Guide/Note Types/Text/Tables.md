@@ -18,6 +18,7 @@ Since v0.106.0, right-clicking anywhere inside a table opens a context menu with
 *   _Insert row above_ and _Insert row below_ insert a blank row next to the row of the current cell. When the selection spans multiple rows, the same number of rows is inserted.
 *   _Insert column to the left_ and _Insert column to the right_ work the same way for columns.
 *   _Delete rows_ and _Delete columns_ remove every row or column the selection touches, even when only some of their cells are selected.
+*   _Distribute columns evenly_ splits the combined width of the columns the selection touches equally between them. The other columns and the width of the table stay as they are. It needs a selection spanning at least two columns; a merged cell counts for every column it covers.
 *   _Merge cells_ merges the selected cells into one. The selected cells must form a rectangle.
 *   _Split cells_ splits each selected cell in two, either _Vertically_ or _Horizontally_.
 *   _Cut_, _Copy_ and _Copy as Markdown_, below the table section, act on the selected cells:
@@ -44,6 +45,7 @@ Right-clicking a cell that is not part of the current selection moves the cursor
 ## Resizing cells
 
 *   Columns can be resized by hovering the mouse over the border of two adjacent cells and dragging it.
+*   To give several columns the same width, select cells across them and choose _Distribute columns evenly_ from the [context menu](#context-menu).
 *   By default, the row height is not adjustable using the mouse, but it can be configured from the cell settings (see below).
 *   To adjust exactly the width (in pixels or percentages) of a cell, select the <span class="tn-icon cke cke-table-cell-properties"></span> button.
 
