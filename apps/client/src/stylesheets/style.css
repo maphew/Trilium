@@ -456,6 +456,12 @@ button kbd {
     --bs-dropdown-link-active-bg: var(--active-item-background-color) !important;
 }
 
+/* Only carries the dropdown's classes to the menu, for the CSS scoped under them, so it takes no
+   part in the page's layout. */
+.tn-dropdown-portal {
+    display: contents;
+}
+
 /* A portaled menu (the Dropdown's `portalToBody`) stacks in the root context, so it has to clear a
    modal (1055) and a stacked quick-edit popup (1100), and stay under the prompts (2000) it can
    summon. */
@@ -2010,10 +2016,12 @@ body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
 }
 
 @media (max-width: 991px) {
-    body.mobile #launcher-pane .dropdown.global-menu > .dropdown-menu.show,
-    body.mobile #launcher-container .dropdown > .dropdown-menu.show,
+    /* The launcher bar's menus stand in the page's body, in a wrapper with their dropdown's class,
+       outside the bar whose `--launcher-pane-size` the theme sets, so its horizontal size is read
+       where the theme defines it. */
+    body.mobile .tn-dropdown-portal:is(.global-menu, .right-dropdown-widget) > .dropdown-menu.show,
     body.mobile .dropdown-menu.mobile-bottom-menu.show {
-        --dropdown-bottom: calc(var(--mobile-bottom-offset) + var(--launcher-pane-size));
+        --dropdown-bottom: calc(var(--mobile-bottom-offset) + var(--launcher-pane-horiz-size, var(--launcher-pane-size)));
         position: fixed !important;
         bottom: var(--dropdown-bottom) !important;
         top: unset !important;
@@ -2024,7 +2032,7 @@ body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
         max-height: calc(var(--tn-modal-max-height) - var(--dropdown-bottom));
     }
 
-    body.mobile #launcher-container .dropdown > .dropdown-menu.show {
+    body.mobile .tn-dropdown-portal.right-dropdown-widget > .dropdown-menu.show {
         border-bottom-left-radius: 0;
         border-bottom-right-radius: 0;
     }

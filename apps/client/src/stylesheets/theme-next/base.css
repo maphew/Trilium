@@ -432,7 +432,7 @@ body.mobile #context-menu-cover {
 }
 
 body.mobile .dropdown-menu.mobile-bottom-menu,
-body.mobile .dropdown.global-menu .dropdown-menu {
+body.mobile .tn-dropdown-portal.global-menu .dropdown-menu {
     border-radius: var(--dropdown-border-radius) var(--dropdown-border-radius) 0 0;
 }
 
