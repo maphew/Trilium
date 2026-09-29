@@ -139,16 +139,26 @@ function buildQuickActionItems(
  * happily report its own stale model selection for it.
  */
 export async function getTextEditorAtSelection(): Promise<CKTextEditor | null> {
-    if (appContext.tabManager.getActiveContextNote()?.type !== "text") {
+    return getTextEditorContaining(window.getSelection()?.anchorNode);
+}
+
+/**
+ * The text editor whose editable contains `node`, or `null` when the node sits anywhere else.
+ * Answers a pointer target rather than the DOM selection, which a right-click does not move in
+ * every browser.
+ */
+export async function getTextEditorContaining(
+    node: Node | null | undefined
+): Promise<CKTextEditor | null> {
+    if (!node || appContext.tabManager.getActiveContextNote()?.type !== "text") {
         return null;
     }
 
     try {
         const editor = await appContext.tabManager.getActiveContext()?.getTextEditor();
         const domRoot = editor?.editing.view.getDomRoot();
-        const anchorNode = window.getSelection()?.anchorNode;
 
-        if (editor && domRoot && anchorNode && domRoot.contains(anchorNode)) {
+        if (editor && domRoot && domRoot.contains(node)) {
             return editor;
         }
     } catch (error) {

@@ -10,6 +10,30 @@
 <p>When a table is selected, a special formatting toolbar will appear:</p>
 <img
 src="3_Tables_image.png" width="384" height="100">
+<h2>Context menu</h2>
+<p>Since v0.106.0, right-clicking anywhere inside a table opens a context
+  menu with the most common table operations:</p>
+<ul>
+  <li><em>Insert row above</em> and <em>Insert row below</em> insert a blank row
+    next to the row of the current cell. When the selection spans multiple
+    rows, the same number of rows is inserted.</li>
+  <li><em>Insert column to the left</em> and <em>Insert column to the right</em> work
+    the same way for columns.</li>
+  <li><em>Delete rows</em> and <em>Delete columns</em> remove every row or column
+    the selection touches, even when only some of their cells are selected.</li>
+  <li><em>Merge cells</em> merges the selected cells into one. The selected cells
+    must form a rectangle.</li>
+  <li><em>Split cells</em> splits each selected cell in two, either <em>Vertically</em> or <em>Horizontally</em>.</li>
+</ul>
+<p>Right-clicking a cell that is not part of the current selection moves
+  the cursor there first, so the menu always applies to the cell under the
+  pointer.</p>
+<aside class="admonition note">
+  <p>In the browser, Trilium's menu replaces the browser's own context menu
+    inside tables. To reach the browser's menu (for example for its spell checking
+    suggestions), hold <kbd>Shift</kbd> while right-clicking. The desktop application
+    is unaffected, since its menu already includes the spelling suggestions.</p>
+</aside>
 <h2>Navigating a table</h2>
 <ul>
   <li>Using the mouse:
@@ -55,6 +79,8 @@ src="3_Tables_image.png" width="384" height="100">
         is to press the <kbd>Tab</kbd> key.</li>
     </ul>
   </li>
+  <li>Both operations are also available in the <a href="#context-menu">context menu</a>,
+    which inserts as many rows or columns as the selection spans.</li>
 </ul>
 <h2>Merging cells</h2>
 <p>To merge two or more cells together, simply select them via drag &amp;
@@ -67,6 +93,8 @@ src="3_Tables_image.png" width="384" height="100">
   <li>Select <em>Split cell vertically</em> or <em>horizontally</em>, to split
     a cell into multiple cells (can also be used to undo a merge).</li>
 </ul>
+<p>Merging and splitting are also available by right-clicking the selected
+  cells, via the <a href="#context-menu">context menu</a>.</p>
 <h2>Table properties</h2>
 <figure class="image image-style-align-right">
   <img style="aspect-ratio:312/311;" src="Tables_image.png" width="312"

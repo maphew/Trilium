@@ -7,6 +7,7 @@ import options from "../services/options.js";
 import server from "../services/server.js";
 import utils from "../services/utils.js";
 import contextMenu, { type MenuItem } from "./context_menu.js";
+import { buildTableContextMenuItems } from "./table_context_menu.js";
 import { buildAiActionsMenuItem, getTextEditorAtSelection } from "./text_editor_context_menu.js";
 
 /** What the pointer was over when the menu was summoned. */
@@ -21,6 +22,8 @@ export interface ContextMenuTarget {
     isEditable: boolean;
     /** The selected text, or an empty string. */
     selectionText: string;
+    /** The element under the pointer, when the host can resolve one. */
+    element?: Element | null;
 }
 
 /**
@@ -66,32 +69,39 @@ export function setupContextMenu() {
             return;
         }
 
+        const element = event.target instanceof HTMLElement ? event.target : null;
+        const isEditable = acceptsTyping(element);
+
         // `window.getSelection()` does not report a selection inside an `<input>` or `<textarea>`,
         // so those keep the browser's menu, which is the better one for a plain text field.
+        // The clipboard and search rows act on the selection, so the pointer has to be on it: a
+        // right-click on the surrounding UI, which takes no selection of its own, leaves an
+        // earlier one standing.
         const selection = window.getSelection();
         const selectionText = selection?.toString() ?? "";
-        if (!selection || !selectionText.trim()) {
-            return;
-        }
+        const isOnSelection = !!selection && !!selectionText.trim()
+            && isPointInSelection(selection, event.clientX, event.clientY);
 
-        // The rows act on the selection, so the pointer has to be on it. A right-click on the
-        // surrounding UI, which takes no selection of its own, leaves an earlier one standing.
-        if (!isPointInSelection(selection, event.clientX, event.clientY)) {
+        // A table cell in the text editor is claimed even at a bare caret, for the table section.
+        const isOnEditableTableCell = isEditable && !!element?.closest("td, th");
+
+        if (!isOnSelection && !isOnEditableTableCell) {
             return;
         }
 
         // Claimed before the items are built: after an await the default action has already run.
         event.preventDefault();
 
-        const element = event.target instanceof HTMLElement ? event.target : null;
         const link = element?.closest("a[href]");
 
         void showBrowserContextMenu(event.pageX, event.pageY, {
             linkURL: link instanceof HTMLAnchorElement ? link.href : "",
             linkText: link?.textContent ?? "",
             isMedia: !!element?.closest("img, video, audio"),
-            isEditable: acceptsTyping(element),
-            selectionText
+            isEditable,
+            // Claimed off the selection (a bare caret in a table cell), those rows get none.
+            selectionText: isOnSelection ? selectionText : "",
+            element
         });
     });
 }
@@ -115,6 +125,7 @@ export async function buildNoteContextMenuItems(
     // depend on how the editor answers, and `isEditable` keeps the lookup off every click that
     // lands somewhere a completion could not be committed anyway (a read-only note, the tree).
     const aiActions = target.isEditable ? await buildAiActionsMenuItem() : null;
+    const tableItems = target.isEditable ? await buildTableContextMenuItems(target.element) : null;
 
     if (host.spelling?.misspelledWord) {
         const { misspelledWord, suggestions, addToDictionary } = host.spelling;
@@ -139,6 +150,10 @@ export async function buildNoteContextMenuItems(
 
     if (aiActions) {
         items.push(aiActions, { kind: "separator" });
+    }
+
+    if (tableItems) {
+        items.push(...tableItems, { kind: "separator" });
     }
 
     if (target.isEditable) {

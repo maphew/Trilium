@@ -27,10 +27,14 @@ vi.mock("../services/utils.js", () => ({
     default: { escapeHtml: (s: string) => s, isMac: () => false }
 }));
 vi.mock("./context_menu.js", () => ({ default: { show: vi.fn() } }));
+vi.mock("./table_context_menu.js", () => ({
+    buildTableContextMenuItems: vi.fn(async () => null)
+}));
 
 import { copyHtml, copyTextWithToast } from "../services/clipboard_ext.js";
 import server from "../services/server.js";
 import contextMenu, { type MenuCommandItem, type MenuItem } from "./context_menu.js";
+import { buildTableContextMenuItems } from "./table_context_menu.js";
 import {
     buildNoteContextMenuItems,
     type ContextMenuHost,
@@ -204,6 +208,37 @@ describe("buildNoteContextMenuItems", () => {
         });
     });
 
+    it("puts the table section ahead of the clipboard rows and hands it the element", async () => {
+        const cell = document.createElement("td");
+        vi.mocked(buildTableContextMenuItems).mockResolvedValueOnce([
+            { title: "T1" },
+            { kind: "separator" },
+            { title: "T2" }
+        ] as MenuItem<any>[]);
+
+        const items = await build({ isEditable: true, element: cell });
+
+        expect(buildTableContextMenuItems).toHaveBeenCalledWith(cell);
+        expect(titles(items)).toEqual([
+            "T1",
+            "---",
+            "T2",
+            "---",
+            "electron_context_menu.cut",
+            "electron_context_menu.copy",
+            "electron_context_menu.copy-as-markdown",
+            "---",
+            "electron_context_menu.search_online",
+            "electron_context_menu.search_in_trilium"
+        ]);
+    });
+
+    it("skips the table section for a non-editable target", async () => {
+        await build({ element: document.createElement("td") });
+
+        expect(buildTableContextMenuItems).not.toHaveBeenCalled();
+    });
+
     it("converts the selection through the to-markdown route", async () => {
         vi.mocked(server.post).mockResolvedValue({ markdownContent: "# Hi" });
         setSelection(document.createElement("span"), "<h1>Hi</h1>");
@@ -273,6 +308,63 @@ describe("setupContextMenu (browser)", () => {
         await vi.waitFor(() => expect(contextMenu.show).toHaveBeenCalled());
         return vi.mocked(contextMenu.show).mock.calls[0][0].items;
     }
+
+    /** A table cell inside an editable, the target a table-section click lands on. */
+    function editableTableCell(readOnly = false) {
+        const content = codeEditable(readOnly);
+        const table = document.createElement("table");
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.textContent = "cell";
+        row.appendChild(cell);
+        table.appendChild(row);
+        content.appendChild(table);
+        return cell;
+    }
+
+    it("claims a bare-caret right-click on an editable table cell", async () => {
+        const cell = editableTableCell();
+        setSelection(null, "", "");
+        vi.mocked(buildTableContextMenuItems).mockResolvedValueOnce([
+            { title: "table_context_menu.merge_cells" }
+        ] as MenuItem<any>[]);
+
+        const event = rightClick(cell);
+
+        expect(event.defaultPrevented).toBe(true);
+        await vi.waitFor(() => expect(contextMenu.show).toHaveBeenCalled());
+        const shown = vi.mocked(contextMenu.show).mock.calls[0][0];
+        expect(titles(shown.items)).toContain("table_context_menu.merge_cells");
+        expect(buildTableContextMenuItems).toHaveBeenCalledWith(cell);
+    });
+
+    it("leaves a table cell to the browser when read-only, non-editable, or Shift is held", async () => {
+        setSelection(null, "", "");
+
+        expect(rightClick(editableTableCell(true)).defaultPrevented).toBe(false);
+
+        const bareCell = document.createElement("td");
+        document.body.appendChild(bareCell);
+        expect(rightClick(bareCell).defaultPrevented).toBe(false);
+
+        expect(rightClick(editableTableCell(), { shiftKey: true }).defaultPrevented).toBe(false);
+
+        await settle();
+        expect(contextMenu.show).not.toHaveBeenCalled();
+    });
+
+    it("still claims the cell when the table section resolves empty", async () => {
+        const cell = editableTableCell();
+        setSelection(null, "", "");
+
+        const event = rightClick(cell);
+
+        expect(event.defaultPrevented).toBe(true);
+        await vi.waitFor(() => expect(contextMenu.show).toHaveBeenCalled());
+        const shown = titles(vi.mocked(contextMenu.show).mock.calls[0][0].items);
+        expect(shown).not.toContain("table_context_menu.merge_cells");
+        expect(shown).toContain("electron_context_menu.copy");
+    });
 
     it("leaves the browser's own menu up when nothing is selected", async () => {
         const div = document.createElement("div");

@@ -25,6 +25,7 @@ export * from "./utils.js";
 // Import with sideffects to ensure that type augmentations are present.
 import "./plugins/math/math.js";
 import "./plugins/mermaid/mermaid.js";
+import "./plugins/table_context_menu.js";
 
 window[Symbol.for("cke distribution")] = "trilium";
 

@@ -11,6 +11,21 @@ When a table is selected, a special formatting toolbar will appear:
 
 <img src="3_Tables_image.png" width="384" height="100">
 
+## Context menu
+
+Since v0.106.0, right-clicking anywhere inside a table opens a context menu with the most common table operations:
+
+*   _Insert row above_ and _Insert row below_ insert a blank row next to the row of the current cell. When the selection spans multiple rows, the same number of rows is inserted.
+*   _Insert column to the left_ and _Insert column to the right_ work the same way for columns.
+*   _Delete rows_ and _Delete columns_ remove every row or column the selection touches, even when only some of their cells are selected.
+*   _Merge cells_ merges the selected cells into one. The selected cells must form a rectangle.
+*   _Split cells_ splits each selected cell in two, either _Vertically_ or _Horizontally_.
+
+Right-clicking a cell that is not part of the current selection moves the cursor there first, so the menu always applies to the cell under the pointer.
+
+> [!NOTE]
+> In the browser, Trilium's menu replaces the browser's own context menu inside tables. To reach the browser's menu (for example for its spell checking suggestions), hold <kbd>Shift</kbd> while right-clicking. The desktop application is unaffected, since its menu already includes the spelling suggestions.
+
 ## Navigating a table
 
 *   Using the mouse:
@@ -34,6 +49,7 @@ When a table is selected, a special formatting toolbar will appear:
 *   To insert a new column, click on a desired location, then press the <span class="tn-icon cke cke-table-column"></span> button from the formatting toolbar and select _Insert column left or right._
 *   To insert a new row, click on a desired location, then press the <span class="tn-icon cke cke-table-row"></span> button and select _Insert row above_ or _below_.
     *   A quicker alternative to creating a new row while at the end of the table is to press the <kbd>Tab</kbd> key.
+*   Both operations are also available in the [context menu](#context-menu), which inserts as many rows or columns as the selection spans.
 
 ## Merging cells
 
@@ -43,6 +59,8 @@ More options are available by pressing the arrow next to it:
 
 *   Click on a single cell and select Merge cell up/down/right/left to merge with an adjacent cell.
 *   Select _Split cell vertically_ or _horizontally_, to split a cell into multiple cells (can also be used to undo a merge).
+
+Merging and splitting are also available by right-clicking the selected cells, via the [context menu](#context-menu).
 
 ## Table properties
 

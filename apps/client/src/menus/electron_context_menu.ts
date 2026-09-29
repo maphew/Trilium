@@ -16,19 +16,22 @@ function setupContextMenu() {
     const api = eApi.contextMenu;
 
     api.onContextMenu(async (params) => {
+        // The IPC params carry window coordinates only, so the element under the pointer is read
+        // back from the page; the zoom factor maps them onto CSS pixels.
+        const zoomLevel = zoomService.getCurrentZoom();
+
         const items = await buildNoteContextMenuItems({
             linkURL: params.linkURL,
             linkText: params.linkText,
             isMedia: params.mediaType !== "none",
             isEditable: params.isEditable,
-            selectionText: params.selectionText
+            selectionText: params.selectionText,
+            element: document.elementFromPoint(params.x / zoomLevel, params.y / zoomLevel)
         }, electronHost(eApi, params));
 
         if (items.length === 0) {
             return;
         }
-
-        const zoomLevel = zoomService.getCurrentZoom();
 
         contextMenu.show({
             x: params.x / zoomLevel,
