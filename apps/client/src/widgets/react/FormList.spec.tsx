@@ -8,7 +8,23 @@ vi.mock("bootstrap", () => ({
     Tooltip: class { static getInstance() { return null; } }
 }));
 
-import FormList, { FormListItem } from "./FormList";
+import FormList, { FormDropdownDivider, FormListItem } from "./FormList";
+
+describe("FormDropdownDivider", () => {
+    it("draws a separator among the rows, whose click closes no menu", () => {
+        const host = document.createElement("div");
+        render(<menu><FormDropdownDivider /></menu>, host);
+        const divider = host.querySelector(".dropdown-divider");
+        const pageHeard = vi.fn();
+        host.addEventListener("click", pageHeard);
+
+        // A list item, as the menu's rows are, and a separator to assistive technology.
+        expect(divider?.tagName).toBe("LI");
+        expect(divider?.getAttribute("role")).toBe("separator");
+        divider?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        expect(pageHeard).not.toHaveBeenCalled();
+    });
+});
 
 describe("FormList keyboard activation", () => {
     it.each([ "Enter", " " ])("activates the focused item on %j like a click", (key) => {

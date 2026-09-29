@@ -4,7 +4,6 @@ import { h, JSX, render } from "preact";
 
 import note_tooltip from "../services/note_tooltip.js";
 import utils from "../services/utils.js";
-import Menu from "../widgets/react/Menu";
 import { suspendModalFocusTraps } from "../widgets/react/modal_focustrap";
 
 export interface ContextMenuOptions<T> {
@@ -129,6 +128,10 @@ class ContextMenu {
             // Unmount first so the menu opens fresh at the new location.
             await this.hide();
         }
+
+        // Loaded here rather than imported: the core services that import this module would
+        // otherwise reach the widget tree through the rows `Menu` draws, in a cycle.
+        const { default: Menu } = await import("../widgets/react/Menu");
 
         this.options = options;
         this.focusBeforeShow = document.activeElement;

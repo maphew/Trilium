@@ -247,11 +247,9 @@ export function FormListHeader({ text, action }: FormListHeaderOpts) {
     );
 }
 
+/** A line between groups of rows. A click on it closes no menu. */
 export function FormDropdownDivider() {
-    return <div
-        className="dropdown-divider"
-        onClick={e => e.stopPropagation()}
-    />;
+    return <li className="dropdown-divider" role="separator" onClick={(e) => e.stopPropagation()} />;
 }
 
 export function FormDropdownSubmenu({ icon, title, children, dropStart, onDropdownToggleClicked }: {
