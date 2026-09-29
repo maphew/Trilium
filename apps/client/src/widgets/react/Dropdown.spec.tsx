@@ -280,6 +280,39 @@ describe("Dropdown", () => {
             expect(picked).toEqual([ "wrap", "title" ]);
         });
 
+        it("stays open on a click on a submenu's row, which unfolds the submenu on a phone", async () => {
+            const toggled = vi.fn();
+            const content = (
+                <FormDropdownSubmenu icon="bx bx-chip" title="Advanced" onDropdownToggleClicked={toggled}>
+                    <FormListItem>Show log</FormListItem>
+                </FormDropdownSubmenu>
+            );
+            const submenuRow = () => popup()?.querySelector<HTMLElement>("li.dropdown-submenu");
+
+            const { toggle } = renderDropdown({}, content);
+            click(toggle);
+            await vi.waitFor(() => expect(submenuRow()).toBeTruthy());
+            submenuRow()?.click();
+            expect(toggled).toHaveBeenCalledOnce();
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            expect(popup()).not.toBeNull();
+
+            render(null, host);
+            layout.onMobile = true;
+            const { toggle: phoneToggle } = renderDropdown({}, content);
+            click(phoneToggle);
+            await vi.waitFor(() => expect(submenuRow()).toBeTruthy());
+            submenuRow()?.click();
+            await vi.waitFor(() => expect(submenuRow()?.querySelector(":scope > .dropdown-menu.show")?.textContent)
+                .toBe("Show log"));
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            expect(popup()).not.toBeNull();
+
+            // A row in the unfolded submenu still closes the menu.
+            submenuRow()?.querySelector<HTMLElement>(".dropdown-menu li.dropdown-item")?.click();
+            await vi.waitFor(() => expect(popup()).toBeNull());
+        });
+
         it("opens a nested submenu as a layer of its own, beside the scroller rather than in it", async () => {
             const { toggle } = renderDropdown({}, (
                 <FormDropdownSubmenu icon="bx bx-chip" title="Advanced">

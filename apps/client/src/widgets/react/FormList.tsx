@@ -7,7 +7,6 @@ import clsx from "clsx";
 import { ComponentChildren, RefObject } from "preact";
 import { createPortal, type CSSProperties, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/compat";
 
-import { CommandNames } from "../../components/app_context";
 import { getActionSync } from "../../services/keyboard_actions";
 import { handleRightToLeftPlacement, isMobile, openInAppHelpFromUrl } from "../../services/utils";
 import FormToggle from "./FormToggle";
@@ -422,7 +421,10 @@ function MenuSubmenu({ menu, icon, title, children, onDropdownToggleClicked, col
                 if (e.button === 0 && !inUnfoldedRows(e)) e.preventDefault();
             }}
             onClick={(e) => {
-                if (disabled || inUnfoldedRows(e)) return;
+                if (inUnfoldedRows(e)) return;
+                // The dropdown's `closeOnClickInside` would close the whole menu.
+                e.stopPropagation();
+                if (disabled) return;
                 // Clicked again, an unfolded row folds its submenu back.
                 if (isMobile()) {
                     menu.openSubmenu(level, open ? undefined : id, e.currentTarget, true);
