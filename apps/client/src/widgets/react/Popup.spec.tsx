@@ -137,4 +137,47 @@ describe("Popup", () => {
         document.removeEventListener("keydown", dialogHeard);
         outside.remove();
     });
+
+    it("counts a popup opened inside it as inside, and leaves Escape to that popup", async () => {
+        anchorAt(100, 50);
+        const onOuterDismiss = vi.fn();
+        const onInnerDismiss = vi.fn();
+        const pressOn = (target: Element) => target.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+        // As the calendar's month list opens from inside the calendar's panel.
+        render((
+            <Popup anchor={anchor} className="outer" onDismiss={onOuterDismiss}>
+                <Popup anchor={{ x: 300, y: 200 }} className="inner" onDismiss={onInnerDismiss}>month</Popup>
+            </Popup>
+        ), host);
+        // A popup of another tree, which is not the outer one's.
+        const unrelatedHost = document.createElement("div");
+        document.body.append(unrelatedHost);
+        render(<Popup anchor={{ x: 0, y: 0 }} className="unrelated">other</Popup>, unrelatedHost);
+        const inner = document.querySelector(".tn-popup.inner");
+        const unrelated = document.querySelector(".tn-popup.unrelated");
+        if (!inner || !unrelated) throw new Error("expected both popups to render");
+        // Portaled to the body, not into the outer popup.
+        expect(document.querySelector(".tn-popup.outer")?.contains(inner)).toBe(false);
+
+        pressOn(inner);
+        expect(onOuterDismiss).not.toHaveBeenCalled();
+        expect(onInnerDismiss).not.toHaveBeenCalled();
+
+        inner.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        expect(onInnerDismiss).toHaveBeenCalledWith("escape");
+        expect(onOuterDismiss).not.toHaveBeenCalled();
+
+        pressOn(unrelated);
+        expect(onOuterDismiss).toHaveBeenCalledWith("outside");
+
+        // Once the inner one is gone, Escape reaches the outer one again.
+        render((
+            <Popup anchor={anchor} className="outer" onDismiss={onOuterDismiss}>content</Popup>
+        ), host);
+        document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        expect(onOuterDismiss).toHaveBeenLastCalledWith("escape");
+
+        render(null, unrelatedHost);
+        unrelatedHost.remove();
+    });
 });

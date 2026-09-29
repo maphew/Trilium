@@ -2,9 +2,9 @@ import "./Popup.css";
 
 import { autoUpdate, computePosition, flip, hide, offset, type OffsetOptions, type Placement, type ReferenceElement, shift, size } from "@floating-ui/dom";
 import clsx from "clsx";
-import type { ComponentChildren, HTMLAttributes, Ref } from "preact";
+import { type ComponentChildren, createContext, type HTMLAttributes, type Ref } from "preact";
 import { createPortal } from "preact/compat";
-import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
+import { useCallback, useContext, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 
 /**
  * A surface that stands beside something rather than in the page's flow: a dropdown's menu, and
@@ -49,7 +49,8 @@ export interface PopupProps extends Pick<HTMLAttributes<HTMLDivElement>, "id" | 
     onPlaced?(): void;
     /**
      * Called on a press outside it and its anchor, and on Escape. A press on the anchor is left to
-     * the anchor, as a dropdown's toggle closes its own popup. Without it, nothing dismisses it.
+     * the anchor, as a dropdown's toggle closes its own popup. A popup opened inside it counts as
+     * inside it, and takes Escape while it is open. Without it, nothing dismisses it.
      */
     onDismiss?(reason: "outside" | "escape"): void;
     /** Whether Escape dismisses it, as it does unless its content answers Escape itself, as a menu does. */
@@ -77,6 +78,22 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
         hasPlaced.current = true;
         placed.current?.();
     };
+    // A popup opened inside this one stands in the page's body too, so it registers here to
+    // count as inside this one.
+    const layers = useRef(new Set<Layer>());
+    const layer = useMemo<Layer>(() => ({
+        contains: (target) => !!popupRef.current?.contains(target)
+            || [ ...layers.current ].some((nested) => nested.contains(target))
+    }), []);
+    const layerRegistry = useMemo<LayerRegistry>(() => ({
+        register(nested) {
+            layers.current.add(nested);
+            return () => layers.current.delete(nested);
+        }
+    }), []);
+    const parentRegistry = useContext(PopupLayerContext);
+    useLayoutEffect(() => parentRegistry?.register(layer), [ parentRegistry ]);
+
     const anchorX = "x" in anchor ? anchor.x : undefined;
     const anchorY = "y" in anchor ? anchor.y : undefined;
 
@@ -113,12 +130,13 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
         // a `.dropdown-menu`, which looks for a toggle beside the popup and crashes without one.
         const onPointerDown = (e: PointerEvent) => {
             const target = e.target as Node;
-            if (popupRef.current?.contains(target)) return;
+            if (layer.contains(target)) return;
             if (anchor instanceof HTMLElement && anchor.contains(target)) return;
             dismiss.current?.("outside");
         };
         const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key !== "Escape" || !escapes.current) return;
+            // A popup open inside this one takes Escape first.
+            if (e.key !== "Escape" || !escapes.current || layers.current.size) return;
             // A dialog under it stays open.
             e.stopPropagation();
             dismiss.current?.("escape");
@@ -139,7 +157,9 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
             ref={setElement}
             className={clsx("tn-popup", className)}
         >
-            {children}
+            <PopupLayerContext.Provider value={layerRegistry}>
+                {children}
+            </PopupLayerContext.Provider>
         </div>
     );
     const drawn = <>
@@ -149,6 +169,20 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
     return createPortal(portalClassName ? <div className={portalClassName}>{drawn}</div> : drawn,
         container ?? document.fullscreenElement ?? document.body);
 }
+
+/** A popup, as the one it opened inside knows it. */
+interface Layer {
+    /** Whether `target` is in the popup or in a popup opened inside it. */
+    contains(target: Node): boolean;
+}
+
+/** Where a popup registers the popups opened inside it. */
+interface LayerRegistry {
+    /** Registers `layer` until the returned function is called. */
+    register(layer: Layer): () => void;
+}
+
+const PopupLayerContext = createContext<LayerRegistry | null>(null);
 
 /** How it is placed beside its anchor. See {@link placeFloating}. */
 export interface FloatingPlacement {
