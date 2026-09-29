@@ -51,6 +51,19 @@ Right-clicking a cell that is not part of the current selection moves the cursor
     *   A quicker alternative to creating a new row while at the end of the table is to press the <kbd>Tab</kbd> key.
 *   Both operations are also available in the [context menu](#context-menu), which inserts as many rows or columns as the selection spans.
 
+## Moving rows and columns
+
+Since v0.106.0, rows and columns can be reordered with the keyboard:
+
+*   <kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd> move the rows touched by the selection up or down.
+*   <kbd>Alt</kbd>+<kbd>Left</kbd> and <kbd>Alt</kbd>+<kbd>Right</kbd> move the columns touched by the selection left or right.
+
+Merged cells are never split by a move. The rows or columns held together by a merged cell travel as one block, and moving toward such a block jumps over it entirely.
+
+When the table has a header row, a header row moved below the header area becomes a regular row, and a regular row moved into the header area becomes a header row. Header columns behave the same way.
+
+Outside of tables, <kbd>Alt</kbd>+<kbd>Left</kbd> and <kbd>Alt</kbd>+<kbd>Right</kbd> keep navigating the note history, and <kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd> keep moving the current paragraph.
+
 ## Merging cells
 
 To merge two or more cells together, simply select them via drag & drop and press the <span class="tn-icon cke cke-table-merge-cell"></span> button from the formatting toolbar.

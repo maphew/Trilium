@@ -82,6 +82,23 @@ src="3_Tables_image.png" width="384" height="100">
   <li>Both operations are also available in the <a href="#context-menu">context menu</a>,
     which inserts as many rows or columns as the selection spans.</li>
 </ul>
+<h2>Moving rows and columns</h2>
+<p>Since v0.106.0, rows and columns can be reordered with the keyboard:</p>
+<ul>
+  <li><kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd> move the
+    rows touched by the selection up or down.</li>
+  <li><kbd>Alt</kbd>+<kbd>Left</kbd> and <kbd>Alt</kbd>+<kbd>Right</kbd> move the
+    columns touched by the selection left or right.</li>
+</ul>
+<p>Merged cells are never split by a move. The rows or columns held together
+  by a merged cell travel as one block, and moving toward such a block jumps
+  over it entirely.</p>
+<p>When the table has a header row, a header row moved below the header area
+  becomes a regular row, and a regular row moved into the header area becomes
+  a header row. Header columns behave the same way.</p>
+<p>Outside of tables, <kbd>Alt</kbd>+<kbd>Left</kbd> and <kbd>Alt</kbd>+<kbd>Right</kbd> keep
+  navigating the note history, and <kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd> keep
+  moving the current paragraph.</p>
 <h2>Merging cells</h2>
 <p>To merge two or more cells together, simply select them via drag &amp;
   drop and press the&nbsp;<span class="tn-icon cke cke-table-merge-cell"></span> button
