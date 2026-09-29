@@ -315,7 +315,6 @@ export default function SidebarChat() {
                         title={t("sidebar_chat.history")}
                         iconAction
                         hideToggleArrow
-                        dropdownOptions={{ popperConfig: { strategy: "fixed" } }}
                         dropdownRef={historyDropdownRef}
                         onShown={loadRecentChats}
                     >
@@ -365,7 +364,6 @@ export default function SidebarChat() {
                         title={t("sidebar_chat.more_actions")}
                         iconAction
                         hideToggleArrow
-                        dropdownOptions={{ popperConfig: { strategy: "fixed" } }}
                     >
                         <FormListItem
                             icon="bx bx-save"
@@ -407,7 +405,6 @@ export default function SidebarChat() {
                         activeNoteId={activeNoteId ?? undefined}
                         activeNoteTitle={activeNote?.title}
                         onSubmit={handleSubmit}
-                        inSidebar
                     />
                 )}
             </div>

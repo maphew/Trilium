@@ -113,7 +113,6 @@ function StatusBarDropdown({ children, icon, text, buttonClassName, dropdownCont
             }}
             dropdownOptions={{
                 popperConfig: {
-                    strategy: "fixed",
                     placement: "top"
                 },
                 ...dropdownOptions

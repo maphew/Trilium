@@ -203,7 +203,7 @@ function BreadcrumbSeparator(props: BreadcrumbSeparatorProps) {
             buttonClassName="icon-action breadcrumb-separator"
             hideToggleArrow
             dropdownContainerClassName="breadcrumb-child-list"
-            dropdownOptions={{  popperConfig: { strategy: "fixed", placement: "top" } }}
+            dropdownOptions={{ popperConfig: { placement: "top" } }}
         >
             <BreadcrumbSeparatorDropdownContent {...props} />
         </Dropdown>
@@ -255,7 +255,6 @@ function BreadcrumbCollapsed({ items, noteContext }: {
             buttonClassName="icon-action"
             dropdownContainerClassName="breadcrumb-child-list"
             hideToggleArrow
-            dropdownOptions={{ popperConfig: { strategy: "fixed" } }}
         >
             {items.map((notePath) => {
                 const notePathComponents = notePath.split("/");

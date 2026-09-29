@@ -78,7 +78,7 @@ export function BadgeWithDropdown({ text, children, tooltip, className, dropdown
                 ...dropdownOptions?.dropdownOptions,
                 popperConfig: {
                     ...dropdownOptions?.dropdownOptions?.popperConfig,
-                    placement: "bottom", strategy: "fixed"
+                    placement: "bottom"
                 }
             }}
         >{children}</Dropdown>
