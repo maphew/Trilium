@@ -10,8 +10,6 @@ import fs from "node:fs";
 import os from "node:os";
 import { dirname, join as pathJoin } from "node:path";
 
-import { HEALTHCHECK_SOCKET_FILE, HEALTHCHECK_URL_FILE } from "./healthcheck.js";
-
 const DIR_NAME = "trilium-data";
 const FOLDER_PERMISSIONS = 0o700;
 
@@ -72,8 +70,6 @@ function checkExistingEntries(dataDirs: ReturnType<typeof getDataDirs>) {
         [ dataDirs.DOCUMENT_PATH, R_OK | W_OK ],
         [ `${dataDirs.DOCUMENT_PATH}-wal`, R_OK | W_OK ],
         [ `${dataDirs.DOCUMENT_PATH}-shm`, R_OK | W_OK ],
-        [ inDataDir(HEALTHCHECK_URL_FILE), R_OK | W_OK ],
-        [ inDataDir(HEALTHCHECK_SOCKET_FILE), R_OK | W_OK ],
         [ dataDirs.LOG_DIR, R_OK | W_OK | X_OK ],
         [ dataDirs.TMP_DIR, R_OK | W_OK | X_OK ],
         [ dataDirs.BACKUP_DIR, R_OK | W_OK | X_OK ],

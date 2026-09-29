@@ -35,6 +35,9 @@ start() {
     owner="${3:-}"
     containers="$containers $name"
     mount="type=volume,src=$name-data,dst=$data_dir"
+    # `docker volume create` reuses an existing volume, such as one an interrupted run left behind.
+    docker rm -f "$name" >/dev/null 2>&1 || true
+    docker volume rm -f "$name-data" >/dev/null
     docker volume create "$name-data" >/dev/null
     if [ -n "$owner" ]; then
         docker run --rm --user 0:0 --entrypoint chown -v "$name-data:/data" "$image" "$owner" /data
