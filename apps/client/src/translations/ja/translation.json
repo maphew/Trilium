@@ -1432,7 +1432,7 @@
     "label_type": "タイプ",
     "text": "テキスト",
     "number": "数値",
-    "boolean": "真偽値",
+    "boolean": "チェックボックス",
     "date": "日付",
     "date_time": "日付と時間",
     "time": "時間",
@@ -2094,7 +2094,9 @@
     "label_name": "ラベル: {{name}}",
     "relation_name": "リレーション: {{name}}",
     "drawn_by_collection": "この基準でコレクションが並べ替えられているため、各アイテムで重複して表示されません",
-    "display_on_items": "コレクションのアイテムに属性を表示"
+    "display_on_items": "コレクションのアイテムに属性を表示",
+    "conflicting": "複数の定義",
+    "conflicting_tooltip": "この属性は複数の方法で定義されているため、テキスト（文字列）として並べ替えられ、アイテムメニューから設定することはできません。"
   },
   "relation_map": {
     "remove_note": "ノートを削除",
@@ -3613,8 +3615,6 @@
       "insert-a-table": "表を挿入。",
       "insert-date-time": "日付 / 時刻を挿入",
       "insert-footnote-0": "脚注を挿入 %0",
-      "insert-math": "数式を挿入",
-      "insert-mermaid-diagram": "マーメイド図を挿入",
       "insert-mermaid-source-code": "マーメイド図ソースコードを挿入",
       "insert-paragraph-after-code-block": "コードブロックの後に段落を挿入",
       "insert-paragraph-before-code-block": "コードブロックの前に段落を挿入",
@@ -3675,7 +3675,6 @@
       "working": "処理中…",
       "upload-an-image-from-your-device": "デバイスから画像をアップロードしてください。",
       "upload-image": "画像をアップロード",
-      "insert-icon": "アイコンを挿入",
       "icon": "アイコン",
       "insert-an-icon-from-an-installed-icon-pack": "インストール済みのアイコンパックからアイコンを挿入",
       "transform-icon": "アイコンを変形",
