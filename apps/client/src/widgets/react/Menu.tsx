@@ -1,6 +1,6 @@
 import "./Menu.css";
 
-import { autoUpdate, computePosition, flip, hide, offset, type Placement, type ReferenceElement, shift, size, type VirtualElement } from "@floating-ui/dom";
+import { autoUpdate, type VirtualElement } from "@floating-ui/dom";
 import clsx from "clsx";
 import type { ComponentChildren } from "preact";
 import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
@@ -8,7 +8,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import { handleRightToLeftPlacement, isMobile } from "../../services/utils";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
-import { type ActiveRow, MenuContext, type MenuContextValue, type OpenSubmenu, pointerMoved, type RowEntry } from "./menu_context";
+import { type ActiveRow, MenuContext, type MenuContextValue, type OpenSubmenu, placeMenu, pointerMoved, type RowEntry } from "./menu_context";
 
 /**
  * A menu of commands, drawn with the markup Bootstrap's dropdowns use (`.dropdown-menu`,
@@ -41,8 +41,6 @@ export interface MenuProps<T> {
     onClose(): void;
 }
 
-/** How many pixels the menu keeps from the edges of the viewport. */
-const VIEWPORT_PADDING = 5;
 
 /** The keys the menu keeps while focus is inside a custom row: those that leave it. */
 const KEYS_LEAVING_CUSTOM_ROW = new Set([ "ArrowUp", "ArrowDown", "Escape", "Tab" ]);
@@ -344,7 +342,10 @@ function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuPro
 
     if (items) {
         return (
-            <FormDropdownSubmenu icon={uiIcon ?? "bx bx-empty"} title={label} onDropdownToggleClicked={select}>
+            <FormDropdownSubmenu
+                icon={uiIcon ?? "bx bx-empty"} title={label} columns={row.columns} disabled={enabled === false}
+                className={className} onDropdownToggleClicked={select}
+            >
                 {/* A phone unfolds a submenu in a single column. */}
                 <MenuItems items={items} onSelect={onSelect} columns={(row.columns ?? 1) > 1 && !isMobile()} />
             </FormDropdownSubmenu>
@@ -444,47 +445,6 @@ function isSeparator<T>(item: MenuItem<T>) {
 
 function isHeader<T>(item: MenuItem<T>) {
     return "kind" in item && item.kind === "header";
-}
-
-/**
- * Positions `menu` beside `anchor`, preferring `placement` and then the placements that mirror it,
- * the way a native menu opens above or to the left of a pointer that is near the viewport's edge.
- * The menu stays hidden until it is placed, so it never paints at a stale position.
- *
- * A submenu overlaps its row by 2px, so the pointer crosses no gap on its way over, and lines its
- * first row up with that row. It is hidden while its row is scrolled out of its menu's view.
- */
-export async function placeMenu(menu: HTMLElement, anchor: ReferenceElement, placement: Placement, isSubmenu = false) {
-    const [ side ] = placement.split("-");
-    const otherSide = side === "left" ? "right" : "left";
-    const { x, y, middlewareData } = await computePosition(anchor, menu, {
-        strategy: "fixed",
-        placement,
-        middleware: [
-            isSubmenu && offset(({ elements }) => {
-                const style = getComputedStyle(elements.floating);
-                const inset = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.borderTopWidth) || 0);
-                return { mainAxis: -2, crossAxis: -inset };
-            }),
-            flip({
-                fallbackPlacements: [ `${otherSide}-start`, `${side}-end`, `${otherSide}-end` ] as Placement[],
-                padding: VIEWPORT_PADDING
-            }),
-            // `crossAxis` also shifts a menu wider than the room on either side of its anchor.
-            shift({ crossAxis: true, padding: VIEWPORT_PADDING }),
-            size({
-                padding: VIEWPORT_PADDING,
-                apply({ availableHeight }) {
-                    menu.style.maxHeight = `${availableHeight}px`;
-                }
-            }),
-            isSubmenu && hide({ strategy: "referenceHidden" })
-        ]
-    });
-
-    menu.style.left = `${x}px`;
-    menu.style.top = `${y}px`;
-    menu.style.visibility = middlewareData.hide?.referenceHidden ? "hidden" : "visible";
 }
 
 /** A zero-size anchor at a point in the viewport, such as where a right-click landed. */

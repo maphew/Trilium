@@ -1,10 +1,11 @@
 import "./FormList.css";
 
+import { autoUpdate } from "@floating-ui/dom";
 import type { KeyboardActionNames } from "@triliumnext/commons";
 import { Dropdown as BootstrapDropdown, Tooltip } from "bootstrap";
 import clsx from "clsx";
 import { ComponentChildren, RefObject } from "preact";
-import { type CSSProperties, useContext, useEffect, useId, useMemo, useRef, useState } from "preact/compat";
+import { createPortal, type CSSProperties, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "preact/compat";
 
 import { CommandNames } from "../../components/app_context";
 import { getActionSync } from "../../services/keyboard_actions";
@@ -13,7 +14,7 @@ import FormToggle from "./FormToggle";
 import HelpTooltipButton from "./HelpTooltipButton";
 import { useStaticTooltip, useSyncedRef } from "./hooks";
 import Icon from "./Icon";
-import { MenuContext, MenuLevelContext, pointerMoved } from "./menu_context";
+import { MenuContext, type MenuContextValue, MenuLevelContext, type OpenSubmenu, placeMenu, pointerMoved } from "./menu_context";
 import { joinElements } from "./react_utils";
 import { renderShortcutKbds } from "./shortcut_kbd";
 
@@ -343,17 +344,112 @@ export function FormDropdownDivider() {
     return <li className="dropdown-divider" role="separator" onClick={(e) => e.stopPropagation()} />;
 }
 
-export function FormDropdownSubmenu({ icon, title, children, dropStart, onDropdownToggleClicked }: {
-    icon: string,
-    title: ComponentChildren,
-    children: ComponentChildren,
-    onDropdownToggleClicked?: (e: MouseEvent) => void,
-    dropStart?: boolean
-}) {
+export interface FormDropdownSubmenuProps {
+    icon: string;
+    title: ComponentChildren;
+    children: ComponentChildren;
+    /** Called when the row is clicked, or run from the keyboard, on the desktop. */
+    onDropdownToggleClicked?: (e: MouseEvent) => void;
+    /** Opens the nested list towards the start. Inside a menu, its layer flips on its own. */
+    dropStart?: boolean;
+    /** Inside a menu, lays the submenu's rows out in this many columns. */
+    columns?: number;
+    disabled?: boolean;
+    className?: string;
+}
+
+/**
+ * A row that opens its children as a submenu. Inside a `Menu` the submenu is a layer of its own
+ * beside the row, which a scrolling menu neither clips nor scrolls away; elsewhere, as in a
+ * dropdown, it is a list nested in the row, shown on hover.
+ */
+export function FormDropdownSubmenu(props: FormDropdownSubmenuProps) {
+    const menu = useContext(MenuContext);
+    return menu ? <MenuSubmenu {...props} menu={menu} /> : <NestedSubmenu {...props} />;
+}
+
+function MenuSubmenu({ menu, icon, title, children, onDropdownToggleClicked, columns, disabled, className }: FormDropdownSubmenuProps & { menu: MenuContextValue }) {
+    const level = useContext(MenuLevelContext);
+    const id = useId();
+    const openSubmenu = menu.open[level];
+    const open = openSubmenu?.id === id;
+    const isActive = menu.active?.id === id;
+
+    /** Runs the row's own action for the keys, with the modifiers of the key that ran it. */
+    function select(e: MouseEvent | KeyboardEvent) {
+        onDropdownToggleClicked?.(new MouseEvent("click", { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey }));
+    }
+
+    function onPointed(e: { currentTarget: HTMLLIElement }) {
+        if (isMobile()) return;
+        // The keyboard goes on from the row the pointer last pointed at.
+        if (!disabled) menu.setActive(level, id);
+        menu.openSubmenu(level, disabled ? undefined : id, e.currentTarget);
+    }
+
+    return (
+        <li
+            id={id}
+            ref={(element) => {
+                menu.registerRow(id, element ? { level, element, custom: false, disabled: !!disabled, hasSubmenu: true, select } : undefined);
+            }}
+            className={clsx("dropdown-item dropdown-submenu", open && "submenu-open", isActive && "tn-menu-active",
+                disabled && "disabled", className)}
+            role="menuitem"
+            aria-disabled={disabled || undefined}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            // While the keys drive the menu, a row entered by a pointer at rest, as when the menu
+            // appears under it, keeps the keys' row. See `pointerMoved`.
+            onPointerEnter={(e) => {
+                if (!menu.keyboardDriven) onPointed(e);
+            }}
+            // The keys can move the active row from under a pointer at rest, whose `:hover` would
+            // then mark a second row. The next move of the pointer makes its row the active one.
+            onPointerMove={(e) => {
+                if (!isActive && pointerMoved(e)) onPointed(e);
+            }}
+            // As any row: the press keeps focus where it was, and the release acts. An unfolded
+            // row holds its submenu's rows, whose presses and clicks reach it too; those are theirs.
+            onMouseDown={(e) => {
+                if (e.button === 0 && !inUnfoldedRows(e)) e.preventDefault();
+            }}
+            onClick={(e) => {
+                if (disabled || inUnfoldedRows(e)) return;
+                // Clicked again, an unfolded row folds its submenu back.
+                if (isMobile()) {
+                    menu.openSubmenu(level, open ? undefined : id, e.currentTarget, true);
+                    return;
+                }
+                menu.openSubmenu(level, id, e.currentTarget, true);
+                onDropdownToggleClicked?.(e);
+            }}
+        >
+            <span className="dropdown-toggle">
+                <Icon icon={icon} />
+                <span className="tn-menu-gap" />
+                <span id={titleId(id)}>{title}</span>
+            </span>
+            {isMobile()
+                // A phone has no room beside the menu, so an open submenu unfolds under its row.
+                ? (
+                    <ul className={clsx("dropdown-menu", open && "show")} role="menu" aria-labelledby={titleId(id)}>
+                        <MenuLevelContext.Provider value={level + 1}>{open && children}</MenuLevelContext.Provider>
+                    </ul>
+                )
+                : open && openSubmenu && menu.layerHost && createPortal((
+                    <SubmenuLayer level={level + 1} submenu={openSubmenu} columns={columns}>{children}</SubmenuLayer>
+                ), menu.layerHost)}
+        </li>
+    );
+}
+
+function NestedSubmenu({ icon, title, children, dropStart, onDropdownToggleClicked, disabled, className }: FormDropdownSubmenuProps) {
     const [ openOnMobile, setOpenOnMobile ] = useState(false);
 
     return (
-        <li className={clsx("dropdown-item dropdown-submenu", { "submenu-open": openOnMobile, "dropstart": dropStart })}>
+        <li className={clsx("dropdown-item dropdown-submenu", { "submenu-open": openOnMobile, "dropstart": dropStart },
+            disabled && "disabled", className)}>
             <span
                 className="dropdown-toggle"
                 onClick={(e) => {
@@ -367,7 +463,7 @@ export function FormDropdownSubmenu({ icon, title, children, dropStart, onDropdo
                 }}
             >
                 <Icon icon={icon} />
-                &nbsp;
+                <span className="tn-menu-gap" />
                 {title}
             </span>
 
@@ -376,6 +472,63 @@ export function FormDropdownSubmenu({ icon, title, children, dropStart, onDropdo
             </ul>
         </li>
     );
+}
+
+/**
+ * A submenu opened on the desktop, placed beside the row it opened from rather than nested in it,
+ * so a scrolling menu neither clips it nor scrolls it away.
+ */
+function SubmenuLayer({ level, submenu, columns, children }: {
+    level: number,
+    submenu: OpenSubmenu,
+    columns?: number,
+    children: ComponentChildren
+}) {
+    const layerRef = useRef<HTMLDivElement>(null);
+    const columnCount = (columns ?? 1) > 1 ? columns : undefined;
+
+    useLayoutEffect(() => {
+        const layer = layerRef.current;
+        if (!layer) return;
+
+        const placement = handleRightToLeftPlacement("right") === "right" ? "right-start" : "left-start";
+        return autoUpdate(submenu.anchor, layer, () => void placeMenu(layer, submenu.anchor, placement, true));
+    }, [ submenu.anchor ]);
+
+    // In a `.dropdown-submenu`, so the theme's submenu rules apply.
+    return (
+        <MenuLevelContext.Provider value={level}>
+            <div className="dropdown-submenu">
+                <div
+                    ref={layerRef} role="menu" aria-labelledby={titleId(submenu.anchor.id)}
+                    className={clsx("dropdown-menu show tn-menu", submenu.immediate && "tn-menu-immediate")}
+                >
+                    {/* Like the top level, so the blur on the layer's `::before` stays behind its rows. */}
+                    {columnCount
+                        // The columns go on an inner list of their full height, so a capped menu
+                        // scrolls them rather than growing more columns to the side.
+                        ? (
+                            <div className="tn-menu-scroll">
+                                <menu className="tn-menu-columns" role="none" style={{ columnCount }}>
+                                    {children}
+                                </menu>
+                            </div>
+                        )
+                        : <menu className="tn-menu-scroll" role="none">{children}</menu>}
+                </div>
+            </div>
+        </MenuLevelContext.Provider>
+    );
+}
+
+/** Whether an event on a submenu's row came from the rows its submenu unfolds inside it, on a phone. */
+function inUnfoldedRows(e: Event & { currentTarget: HTMLElement }) {
+    return e.target instanceof Element && e.target.closest(".dropdown-menu") !== e.currentTarget.closest(".dropdown-menu");
+}
+
+/** The id of a row's title, which names the submenu it opens. */
+function titleId(rowId: string) {
+    return `${rowId}-title`;
 }
 
 /**
