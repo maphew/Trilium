@@ -2,7 +2,7 @@ import { type ComponentChildren, render } from "preact";
 import { useRef } from "preact/hooks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import Dropdown, { type DropdownHandle, DropdownPanel, type DropdownProps } from "./Dropdown";
+import Dropdown, { type DropdownHandle, DropdownPanel, type DropdownPanelProps } from "./Dropdown";
 import { FormDropdownSubmenu, FormListItem } from "./FormList";
 
 // A dialog's focus trap would pull focus out of a menu portaled over it.
@@ -33,7 +33,7 @@ describe("Dropdown", () => {
     });
 
     /** Renders a `Dropdown`, or a `DropdownPanel` for `panel`. */
-    function renderDropdown({ panel, ...props }: Partial<DropdownProps> & { panel?: boolean } = {}, content: ComponentChildren = <li className="dropdown-item">By title</li>) {
+    function renderDropdown({ panel, ...props }: Partial<DropdownPanelProps> & { panel?: boolean } = {}, content: ComponentChildren = <li className="dropdown-item">By title</li>) {
         let handle: { current: DropdownHandle | null } = { current: null };
         const Component = panel ? DropdownPanel : Dropdown;
         function Harness() {
@@ -192,7 +192,8 @@ describe("Dropdown", () => {
             // A plain popup, which assistive technology is not told is a menu.
             expect(toggle.getAttribute("aria-haspopup")).toBe("true");
             expect(popup()?.getAttribute("role")).toBeNull();
-            expect(popup()?.classList.contains("tn-dropdown-list")).toBe(true);
+            // Its frame does not scroll, so the theme's blur stays on its `::before`.
+            expect(popup()?.classList.contains("tn-dropdown-list")).toBe(false);
             // Bootstrap reacts on a toggle only with `data-bs-toggle`, which this one does not carry.
             bootstrapHeard.mockClear();
 
@@ -213,6 +214,23 @@ describe("Dropdown", () => {
             key(field, "ArrowDown");
             expect(bootstrapHeard).toHaveBeenCalledTimes(1);
             document.removeEventListener("keydown", bootstrapHeard, true);
+        });
+
+        it("scrolls a scrollable panel's content inside it, in the room the viewport leaves", async () => {
+            // Content taller than the room: 100px each, in a viewport of 800.
+            const { toggle } = renderDropdown({ panel: true, scrollable: true });
+            click(toggle);
+            await vi.waitFor(() => expect(popup()?.style.visibility).toBe("visible"));
+            expect(popup()?.querySelector(":scope > .tn-panel-scroll")?.textContent).toBe("By title");
+            expect(popup()?.style.maxHeight).not.toBe("");
+            render(null, host);
+
+            // Otherwise the content stands in the panel, which grows with it.
+            const { toggle: plain } = renderDropdown({ panel: true });
+            click(plain);
+            await vi.waitFor(() => expect(popup()?.style.visibility).toBe("visible"));
+            expect(popup()?.querySelector(".tn-panel-scroll")).toBeNull();
+            expect(popup()?.style.maxHeight).toBe("");
         });
 
         it("suspends the focus traps of the dialogs under it while it is up, and restores them after", async () => {

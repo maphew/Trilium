@@ -41,7 +41,6 @@ export default function HelpDropdown({ children, helpPage, openInPopup, classNam
             iconAction
             hideToggleArrow
             noSelectButtonStyle
-            noDropdownListStyle
         >
             {children}
 

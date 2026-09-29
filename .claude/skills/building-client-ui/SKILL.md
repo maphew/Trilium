@@ -113,7 +113,7 @@ Two rules that apply to all of them:
 Both kinds of dropdown share a toggle and open in a `Popup` portaled onto `<body>`, placed by Floating UI, so an ancestor's `overflow`, `transform` or `filter` never clips, displaces or flattens them. Which one to use depends on what opens:
 
 - **`Dropdown`** opens a **menu** (`Menu`). Its rows are `FormListItem`, `FormDropdownSubmenu`, `FormListHeader`, `FormDropdownDivider` and `FormListCustomItem`; the menu takes focus and moves between them with the arrow keys, Home/End and typeahead, and tells assistive technology it is a menu. It caps its height to the viewport and scrolls in `.tn-menu-scroll`, while its backdrop blur stays on the frame's `::before`, so it is frosted everywhere.
-- **`DropdownPanel`** opens anything else: a picker, a form, a list of links, help text. Its fields keep their keys; Up and Down only move between `.dropdown-item`s. It carries `tn-dropdown-list`, which moves the blur onto the element itself — a filter that blurs nothing over note content — so pass **`noDropdownListStyle`** on a panel that does not scroll.
+- **`DropdownPanel`** opens anything else: a picker, a form, a list of links, help text. Its fields keep their keys; Up and Down only move between `.dropdown-item`s. Its blur, like a menu's, is on its `::before`, so its own frame must never scroll: for content that can outgrow the screen, pass **`scrollable`**, which caps the panel to the room it has and scrolls the content inside it.
 
 A wrong pick fails quietly: a form in a `Dropdown` loses Up, Down, Tab and Escape to the menu, and a list of rows in a `DropdownPanel` gets none of the menu's keys. On a phone, pass `mobileBottomSheet` to open either as a sheet from the bottom of the screen over a dimmed page.
 

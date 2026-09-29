@@ -337,7 +337,6 @@ export function NoteColorAction({ note, title }: { note: FNote; title: string })
             title={title}
             iconAction
             hideToggleArrow
-            noDropdownListStyle
         >
             <NoteColorPicker note={note} />
         </DropdownPanel>

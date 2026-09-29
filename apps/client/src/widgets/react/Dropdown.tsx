@@ -1,5 +1,7 @@
 import type { Placement } from "@floating-ui/dom";
 import type { Dropdown as BootstrapDropdown, Tooltip } from "bootstrap";
+import "./Dropdown.css";
+
 import clsx from "clsx";
 import { ComponentChildren, HTMLAttributes } from "preact";
 import { CSSProperties, HTMLProps } from "preact/compat";
@@ -57,14 +59,11 @@ export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "c
 
 export interface DropdownPanelProps extends DropdownProps {
     /**
-     * Drops the `tn-dropdown-list` class the panel otherwise carries.
-     *
-     * That class is for a panel that scrolls: it moves the theme's backdrop blur off the `::before`
-     * layer, which would scroll away with the content, and onto the panel element itself. Over note
-     * content the element's filter blurs nothing, leaving the panel merely translucent, so set this
-     * on a panel that does not scroll. A `Dropdown` menu keeps its blur on a layer that stays put.
+     * Caps the panel to the room beside its toggle and scrolls its content inside it, for content
+     * that can outgrow the screen. The panel's frame stays put, so the theme's blur on its
+     * `::before` covers it whatever the content scrolls to.
      */
-    noDropdownListStyle?: boolean;
+    scrollable?: boolean;
 }
 
 /** Opens and closes a dropdown from outside it, for a caller that decides when. */
@@ -107,7 +106,7 @@ export default function Dropdown(props: DropdownProps) {
  * A popup under a toggle for content other than a menu's rows, such as a picker, a form or a
  * list of links. Its fields keep their keys; Up and Down move between its `.dropdown-item`s.
  */
-export function DropdownPanel({ noDropdownListStyle, ...props }: DropdownPanelProps) {
+export function DropdownPanel({ scrollable, ...props }: DropdownPanelProps) {
     return (
         <DropdownToggle
             {...props}
@@ -116,16 +115,17 @@ export function DropdownPanel({ noDropdownListStyle, ...props }: DropdownPanelPr
             popup={({ popupProps, className, bottomSheet, startAt, dismiss }) => (
                 <PanelPopup
                     {...popupProps}
-                    // Bootstrap's dropdowns grew past the viewport, and a `FormDropdownSubmenu`
-                    // nested in the panel would be clipped by one that scrolls.
-                    capHeight={false}
+                    // Otherwise it grows with its content, as Bootstrap's dropdowns did: a
+                    // `FormDropdownSubmenu` nested in it would be clipped by one that scrolls.
+                    capHeight={!!scrollable}
                     placedByStylesheet={bottomSheet}
-                    className={clsx("dropdown-menu show", className, bottomSheet && "mobile-bottom-menu",
-                        !noDropdownListStyle && "tn-dropdown-list")}
+                    className={clsx("dropdown-menu show", className, bottomSheet && "mobile-bottom-menu")}
                     startAt={startAt}
                     onDismiss={dismiss}
                 >
-                    {props.children}
+                    {scrollable
+                        ? <div className="tn-panel-scroll">{props.children}</div>
+                        : props.children}
                 </PanelPopup>
             )}
         />

@@ -91,7 +91,7 @@ export default function StatusBar() {
     );
 }
 
-function StatusBarDropdown({ children, icon, text, buttonClassName, titleOptions, dropdownOptions, panel, ...dropdownProps }: Omit<DropdownPanelProps, "hideToggleArrow" | "title" | "titlePosition"> & {
+function StatusBarDropdown({ children, icon, text, buttonClassName, dropdownContainerClassName, titleOptions, dropdownOptions, panel, ...dropdownProps }: Omit<DropdownPanelProps,"hideToggleArrow" | "title" | "titlePosition"> & {
     title: string;
     icon?: string;
     /** Opens a {@link DropdownPanel} rather than a menu, for content other than `FormList` rows. */
@@ -101,6 +101,7 @@ function StatusBarDropdown({ children, icon, text, buttonClassName, titleOptions
     return (
         <Component
             buttonClassName={clsx("status-bar-dropdown-button", buttonClassName)}
+            dropdownContainerClassName={clsx("status-bar-dropdown-menu", dropdownContainerClassName)}
             titlePosition="top"
             titleOptions={{
                 popperConfig: {
@@ -350,6 +351,7 @@ function BacklinksBadge({ note, viewScope }: StatusBarContext) {
             text={t("status_bar.backlinks", { count })}
             title={t("status_bar.backlinks_title", { count })}
             dropdownContainerClassName="dropdown-backlinks"
+            scrollable
         >
             <BacklinksWidget note={note} />
         </StatusBarDropdown>
@@ -494,7 +496,6 @@ function NotePaths({ note, hoistedNoteId, notePath }: StatusBarContext) {
             text={t("status_bar.note_paths", { count })}
             dropdownRef={dropdownRef}
             dropdownContainerClassName="dropdown-note-paths"
-            noDropdownListStyle
         >
             <NotePathsWidget sortedNotePaths={sortedNotePaths} currentNotePath={notePath} />
         </StatusBarDropdown>

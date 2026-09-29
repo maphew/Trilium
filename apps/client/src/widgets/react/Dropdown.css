@@ -1,0 +1,18 @@
+/* A scrollable panel's frame does not scroll; its content does, in the height it is capped to. */
+.dropdown-menu:has(> .tn-panel-scroll) {
+    display: flex;
+    flex-direction: column;
+}
+
+.tn-panel-scroll {
+    /* Matches the panel's own padding in the theme's `.dropdown-menu:not(.static)` rule. */
+    --tn-panel-padding: var(--padding, var(--menu-padding-size));
+    flex: 1 1 auto;
+    min-height: 0;
+    /* Spans the panel's padding, so the content scrolls up to its edge rather than being cut off
+       inside it. */
+    margin: calc(0px - var(--tn-panel-padding));
+    padding: var(--tn-panel-padding);
+    border-radius: inherit;
+    overflow-y: auto;
+}
