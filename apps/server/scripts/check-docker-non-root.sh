@@ -8,8 +8,9 @@
 # owns the data directory:
 #   - UID 1000 (`node`) on a fresh named volume, which Docker creates from the image's
 #     mount point, so the image must provide one that `node` can write to.
-#   - An arbitrary UID on a volume it owns, as when matching a host user, so the path to
-#     the data directory must be traversable by users other than `node`.
+#   - An arbitrary UID on a directory it owns, as when mounting a host directory to match a
+#     host user, so the path to the data directory must be traversable by users other than
+#     `node`.
 
 set -eu
 
@@ -33,15 +34,19 @@ start() {
     user="$2"
     owner="${3:-}"
     containers="$containers $name"
+    mount="type=volume,src=$name-data,dst=$data_dir"
     docker volume create "$name-data" >/dev/null
     if [ -n "$owner" ]; then
         docker run --rm --user 0:0 --entrypoint chown -v "$name-data:/data" "$image" "$owner" /data
+        # Docker fills an empty volume from the image's mount point, owner included, but never
+        # a host directory mounted with -v, which this volume stands in for.
+        mount="$mount,volume-nocopy=true"
     fi
     docker run -d --name "$name" \
         --user "$user" \
         --read-only --tmpfs /tmp \
         --cap-drop ALL --security-opt no-new-privileges \
-        -v "$name-data:$data_dir" \
+        --mount "$mount" \
         "$image" >/dev/null
 }
 

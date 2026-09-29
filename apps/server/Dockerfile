@@ -19,6 +19,13 @@ WORKDIR /usr/src/app
 COPY ./dist /usr/src/app
 COPY ./start-docker.sh /usr/src/app
 
+# A new named volume takes its owner from the mount point, so a container started with --user
+# can write to it. Other UIDs need to pass through /home/node to reach a volume of their own.
+RUN mkdir -p /home/node/trilium-data && \
+    chown node:node /home/node/trilium-data && \
+    chmod 700 /home/node/trilium-data && \
+    chmod 711 /home/node
+
 # The healthcheck reads the listening address the server records here.
 ENV TRILIUM_DATA_DIR=/home/node/trilium-data
 

@@ -201,7 +201,7 @@ function describePermissionError(path: string, dataDir: string | undefined) {
     const subject = user ? `Trilium runs as UID:GID ${user}, which` : "The user running Trilium";
 
     let lines: string[];
-    if (blockedDir) {
+    if (blockedDir && blockedDir !== dataDir) {
         lines = [
             `Trilium cannot start because it cannot reach ${path}.`,
             "",
@@ -212,14 +212,16 @@ function describePermissionError(path: string, dataDir: string | undefined) {
                 : [ `To fix this, let the user running Trilium enter ${blockedDir}.` ]),
             "Or set TRILIUM_DATA_DIR to a directory that user can reach."
         ];
-    } else if (parent === dataDir) {
+    } else if (dataDir && (blockedDir === dataDir || parent === dataDir)) {
+        // A data directory the user cannot enter needs the same fix as one it cannot write to.
+        const access = blockedDir ? "use" : "write to";
         lines = [
             `Trilium cannot start because it cannot create ${path}.`,
             "",
-            `${subject} cannot write to its data directory, ${parent}: it ${describeOwnership(parent)}.`,
+            `${subject} cannot ${access} its data directory, ${dataDir}: it ${describeOwnership(dataDir)}.`,
             "",
             ...(user
-                ? [ "To fix this, give the data directory and everything in it to that user:", `  sudo chown -R ${user} ${parent}` ]
+                ? [ "To fix this, give the data directory and everything in it to that user:", `  sudo chown -R ${user} ${dataDir}` ]
                 : [ "To fix this, give the user running Trilium full control of the data directory." ]),
             "Or set TRILIUM_DATA_DIR to a directory that user owns."
         ];

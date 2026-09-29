@@ -518,6 +518,25 @@ describe("data_dir.ts unit tests", () => {
             expect(message).not.toContain("mkdir");
         });
 
+        it("EACCES when the data directory itself cannot be entered – suggests a chown of it and exits", () => {
+            stubUser(1234);
+            delete process.env.TRILIUM_TMP_DIR;
+            mockFn.pathJoinMock.mockImplementation((...parts: string[]) => parts.join("/"));
+            mkdirThrows("EACCES");
+            mockFn.accessSyncMock.mockImplementation((path: string) => {
+                if (path === "/data") {
+                    throw new Error("EACCES");
+                }
+            });
+            mockFn.statSyncMock.mockImplementation(() => ({ uid: 1000, gid: 1000, mode: 0o40700, isFile: () => false }));
+
+            const message = runUntilExit(() => getDataDirs("/data"));
+            expect(message).toContain("Trilium cannot start because it cannot create /data/tmp.");
+            expect(message).toContain("Trilium runs as UID:GID 1234:1234, which cannot use its data directory, /data: it is owned by UID:GID 1000:1000 with permissions 700.");
+            expect(message).toContain("  sudo chown -R 1234:1234 /data");
+            expect(message).not.toContain("chmod");
+        });
+
         it("EACCES – names the ancestor that cannot be entered and exits", () => {
             stubUser(1234);
             mkdirThrows("EACCES");
