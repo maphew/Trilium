@@ -181,7 +181,7 @@ describe("contextMenu", () => {
                 `<span class="keyboard-shortcut"><kbd>Ctrl</kbd>+<kbd>C</kbd>,<kbd>Ctrl</kbd>+<kbd>Insert</kbd></span>`,
                 "<kbd>Ctrl+V</kbd>",
                 // An action with no shortcut assigned shows none: the row ends with its title.
-                "title Cut"
+                "<span>Cut</span>"
             ]);
         });
 

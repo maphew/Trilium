@@ -8,7 +8,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import { handleRightToLeftPlacement, isMobile } from "../../services/utils";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
-import { type ActiveRow, MenuContext, type MenuContextValue, type OpenSubmenu, type RowEntry } from "./menu_context";
+import { type ActiveRow, MenuContext, type MenuContextValue, type OpenSubmenu, pointerMoved, type RowEntry } from "./menu_context";
 
 /**
  * A menu of commands, drawn with the markup Bootstrap's dropdowns use (`.dropdown-menu`,
@@ -355,9 +355,9 @@ function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuPro
         <FormListItem
             // An item with neither keeps no slot for an icon, as an all-text menu such as spelling fixes needs.
             icon={"uiIcon" in row || "checked" in row ? uiIcon : null}
-            iconClassName={iconColorClass} checked={checked} disabled={enabled === false}
+            iconClassName={iconColorClass} checked={checked} checkable={"checked" in row} disabled={enabled === false}
             className={className} badges={badges?.map((badge) => ({ className: badge.className, text: badge.title }))}
-            keyboardShortcut={keyboardShortcut} shortcut={shortcut} trailingIcon={trailingIcon}
+            keyboardShortcut={keyboardShortcut} shortcut={shortcut} trailingIcon={trailingIcon} closeOnSelect={false}
             onClick={select}
         >
             {label}
@@ -401,15 +401,6 @@ export function rowInNextColumn(
         if (!nearest || distance < Math.abs(middle(nearest.box) - middle(from))) nearest = candidate;
     }
     return nearest?.index;
-}
-
-/**
- * Whether the pointer really moved. A menu appearing under a pointer at rest has the browser enter
- * the row there, and Chromium follow with a `pointermove` that goes nowhere; neither is the user
- * turning to the pointer.
- */
-function pointerMoved(e: PointerEvent) {
-    return e.movementX !== 0 || e.movementY !== 0;
 }
 
 /** Where a custom row takes focus: the element its content marks as its way in with `tabindex="0"`. */

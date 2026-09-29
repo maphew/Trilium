@@ -72,3 +72,12 @@ export function useMenu() {
     if (!menu) throw new Error("A menu row must be rendered inside a Menu.");
     return menu;
 }
+
+/**
+ * Whether the pointer really moved. A menu appearing under a pointer at rest has the browser enter
+ * the row there, and Chromium follow with a `pointermove` that goes nowhere; neither is the user
+ * turning to the pointer.
+ */
+export function pointerMoved(e: PointerEvent) {
+    return e.movementX !== 0 || e.movementY !== 0;
+}

@@ -38,7 +38,6 @@ export function MenuCommand(props: MenuCommandProps) {
     const openSubmenu = menu.open[level];
     const open = openSubmenu?.id === id;
     const active = menu.active?.id === id;
-    const checkable = "checked" in props;
 
     function select(e: MouseEvent | KeyboardEvent) {
         if (closeOnSelect ?? !hasSubmenu) menu.close();
@@ -60,8 +59,7 @@ export function MenuCommand(props: MenuCommandProps) {
             }}
             className={clsx("dropdown-item", hasSubmenu && "dropdown-submenu", open && "submenu-open",
                 active && "tn-menu-active", disabled && "disabled", className)}
-            role={checkable ? "menuitemcheckbox" : "menuitem"}
-            aria-checked={checkable ? !!props.checked : undefined}
+            role="menuitem"
             aria-disabled={disabled || undefined}
             aria-haspopup={hasSubmenu ? "menu" : undefined}
             aria-expanded={hasSubmenu ? open : undefined}

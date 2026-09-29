@@ -13,7 +13,7 @@ import FormToggle from "./FormToggle";
 import HelpTooltipButton from "./HelpTooltipButton";
 import { useStaticTooltip, useSyncedRef } from "./hooks";
 import Icon from "./Icon";
-import { MenuContext, MenuLevelContext } from "./menu_context";
+import { MenuContext, MenuLevelContext, pointerMoved } from "./menu_context";
 import { joinElements } from "./react_utils";
 import { renderShortcutKbds } from "./shortcut_kbd";
 
@@ -135,6 +135,16 @@ export interface FormListItemOpts {
     rtl?: boolean;
     postContent?: ComponentChildren;
     itemRef?: RefObject<HTMLLIElement>;
+    /**
+     * Makes the row one that is checked or not, which a menu tells assistive technology;
+     * {@link checked} says which.
+     */
+    checkable?: boolean;
+    /**
+     * Inside a menu, whether running the row closes the menu before its {@link onClick} runs. It
+     * does unless this is `false`, for a caller that decides for itself, as `contextMenu` does.
+     */
+    closeOnSelect?: boolean;
     /** The action whose shortcuts, as the user configured them, show at the end of the row. */
     keyboardShortcut?: KeyboardActionNames;
     /** A shortcut shown as it is written, for a row with no action of its own. */
@@ -153,8 +163,29 @@ const TOOLTIP_CONFIG: Partial<Tooltip.Options> = {
     animation: false
 };
 
-export function FormListItem({ className, icon, iconClassName, value, title, active, disabled, checked, container, onClick, selected, rtl, triggerCommand, description, itemRef: externalItemRef, keyboardShortcut, shortcut, trailingIcon, ...contentProps }: FormListItemOpts) {
+export function FormListItem({ className, icon, iconClassName, value, title, active, disabled, checked, checkable, container, onClick, selected, rtl, triggerCommand, description, itemRef: externalItemRef, keyboardShortcut, shortcut, trailingIcon, closeOnSelect, ...contentProps }: FormListItemOpts) {
     const itemRef = useSyncedRef<HTMLLIElement>(externalItemRef, null);
+    // Inside a `Menu` the row is one of its items; elsewhere, as in a dropdown, it stands alone.
+    const menu = useContext(MenuContext);
+    const level = useContext(MenuLevelContext);
+    const id = useId();
+    const isActive = menu?.active?.id === id;
+
+    /**
+     * Runs the row for the keys, as a click would, with the modifiers of the key that ran it, so
+     * Ctrl+Enter does what a Ctrl+click does.
+     */
+    function select(e: MouseEvent | KeyboardEvent) {
+        if (closeOnSelect !== false) menu?.close();
+        onClick?.(new MouseEvent("click", { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey }));
+    }
+
+    function onPointed(e: { currentTarget: HTMLLIElement }) {
+        if (!menu || isMobile()) return;
+        // The keyboard goes on from the row the pointer last pointed at.
+        if (!disabled) menu.setActive(level, id);
+        menu.openSubmenu(level, undefined, e.currentTarget);
+    }
 
     if (checked) {
         icon = "bx bx-check";
@@ -164,11 +195,31 @@ export function FormListItem({ className, icon, iconClassName, value, title, act
 
     return (
         <li
-            ref={itemRef}
+            ref={(element) => {
+                itemRef.current = element;
+                menu?.registerRow(id, element
+                    ? { level, element, custom: false, disabled: !!disabled, hasSubmenu: false, select }
+                    : undefined);
+            }}
+            id={menu ? id : undefined}
             class={clsx("dropdown-item", active && "active", disabled && "disabled", selected && "selected",
-                container && "dropdown-container-item", className)}
+                container && "dropdown-container-item", isActive && "tn-menu-active", className)}
             data-value={value} title={title}
-            tabIndex={container ? -1 : 0}
+            role={menu ? (checkable ? "menuitemcheckbox" : "menuitem") : undefined}
+            aria-checked={menu && checkable ? !!checked : undefined}
+            aria-disabled={(menu && disabled) || undefined}
+            // A menu keeps focus itself and marks the row its keys act on instead.
+            tabIndex={menu ? undefined : container ? -1 : 0}
+            // While the keys drive the menu, a row entered by a pointer at rest, as when the menu
+            // appears under it, keeps the keys' row. See `pointerMoved`.
+            onPointerEnter={menu ? (e) => {
+                if (!menu.keyboardDriven) onPointed(e);
+            } : undefined}
+            // The keys can move the active row from under a pointer at rest, whose `:hover` would
+            // then mark a second row. The next move of the pointer makes its row the active one.
+            onPointerMove={menu ? (e) => {
+                if (!isActive && pointerMoved(e)) onPointed(e);
+            } : undefined}
             onClick={onClick}
             data-trigger-command={triggerCommand}
             dir={rtl ? "rtl" : undefined}
