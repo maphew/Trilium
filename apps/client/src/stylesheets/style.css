@@ -549,13 +549,14 @@ body.desktop .tabulator-popup-container,
 .dropdown-menu:not(#context-menu-container) .dropdown-item,
 body.desktop .dropdown-menu .dropdown-toggle,
 .dropdown-item > span:not([class]),
-body.mobile .dropdown .dropdown-submenu > span {
+body.mobile .dropdown-menu .dropdown-submenu > span {
     display: flex;
     align-items: center;
 }
 
 
-body.mobile .dropdown .dropdown-submenu {
+/* Scoped by the menu: a dropdown's menu stands in the page's body, outside its `.dropdown`. */
+body.mobile .dropdown-menu .dropdown-submenu {
     flex-wrap: wrap;
 
     & > span {
