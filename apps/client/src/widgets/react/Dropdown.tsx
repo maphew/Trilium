@@ -5,6 +5,7 @@ import { ComponentChildren, HTMLAttributes } from "preact";
 import { CSSProperties, HTMLProps } from "preact/compat";
 import { MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
+import { isMobile } from "../../services/utils";
 import { useTooltip, useUniqueName } from "./hooks";
 import { suspendModalFocusTraps } from "./modal_focustrap";
 import Popup from "./Popup";
@@ -97,7 +98,11 @@ export interface DropdownHandle {
 /** The gap, in pixels, between the toggle and its popup, as Bootstrap's dropdowns kept. */
 const TOGGLE_GAP = 2;
 
-export default function Dropdown({ id, className, buttonClassName, isStatic, children, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, noDropdownListStyle, forceShown, onShown, onHidden, dropdownOptions, buttonProps, dropdownRef, titlePosition, titleOptions }: DropdownProps) {
+export default function Dropdown({ id, className, buttonClassName, isStatic, children, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, noDropdownListStyle, forceShown, onShown, onHidden, dropdownOptions, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop: mobileBackdropProp, mobileBottomSheet, backdrop }: DropdownProps) {
+    // The sheet is placed by the app's own rule and dims what is behind it, so it is asked for as
+    // one thing and unpacked here.
+    const bottomSheet = !!mobileBottomSheet && isMobile();
+    const mobileBackdrop = (!!mobileBackdropProp || bottomSheet) && isMobile();
     const containerRef = useRef<HTMLDivElement | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
     const popupRef = useRef<HTMLDivElement | null>(null);
@@ -163,6 +168,15 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
     useEffect(() => {
         if (shown) callbacks.current.onShown?.();
     }, []);
+
+    // On a phone the shell's cover dims the page under the popup; a tap on it closes the popup,
+    // being one outside it.
+    useEffect(() => {
+        if (!shown || !mobileBackdrop) return;
+        const cover = document.getElementById("context-menu-cover");
+        cover?.classList.add("show", "global-menu-cover");
+        return () => cover?.classList.remove("show", "global-menu-cover");
+    }, [ shown, mobileBackdrop ]);
 
     // A dialog's focus trap would pull focus out of a popup that stands outside the dialog.
     useEffect(() => {
@@ -243,9 +257,12 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
                     // applies to the menu in the page's body. style.css stacks a portaled menu by
                     // `tn-dropdown-portal`.
                     portalClassName={clsx("tn-dropdown-portal", className)}
+                    placedByStylesheet={bottomSheet}
+                    // style.css stacks it just under a portaled menu.
+                    backdropClassName={backdrop ? "tn-dropdown-backdrop" : undefined}
                     elementRef={popupRef}
                     className={clsx("dropdown-menu show tn-dropdown-menu", isStatic && "static", dropdownContainerClassName,
-                        !noDropdownListStyle && "tn-dropdown-list")}
+                        bottomSheet && "mobile-bottom-menu", !noDropdownListStyle && "tn-dropdown-list")}
                     style={dropdownContainerStyle}
                     aria-labelledby={toggleId}
                     onPlaced={() => {

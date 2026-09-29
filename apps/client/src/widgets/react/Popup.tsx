@@ -31,6 +31,13 @@ export interface PopupProps extends Pick<HTMLAttributes<HTMLDivElement>, "id" | 
      * classes of what opened it still applies there.
      */
     portalClassName?: string;
+    /**
+     * Leaves it where the stylesheet puts it rather than beside its anchor, as a sheet along the
+     * bottom of a phone's screen is.
+     */
+    placedByStylesheet?: boolean;
+    /** Classes for an element drawn just before it, which dims the page under it. */
+    backdropClassName?: string;
     elementRef?: MutableRef<HTMLDivElement | null>;
     /** Called once it is first placed and shown: a browser focuses nothing inside it before. */
     onPlaced?(): void;
@@ -45,7 +52,7 @@ export interface PopupProps extends Pick<HTMLAttributes<HTMLDivElement>, "id" | 
 /** How many pixels it keeps from the edges of the viewport. */
 const VIEWPORT_PADDING = 5;
 
-export default function Popup({ anchor, placement = "bottom-start", offset: gap = 0, capHeight = true, portalClassName, elementRef, onPlaced, onDismiss, className, children, ...elementProps }: PopupProps) {
+export default function Popup({ anchor, placement = "bottom-start", offset: gap = 0, capHeight = true, portalClassName, placedByStylesheet, backdropClassName, elementRef, onPlaced, onDismiss, className, children, ...elementProps }: PopupProps) {
     const popupRef = useRef<HTMLDivElement | null>(null);
     const placed = useRef(onPlaced);
     placed.current = onPlaced;
@@ -55,6 +62,11 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
     useLayoutEffect(() => {
         const popup = popupRef.current;
         if (!popup) return;
+        if (placedByStylesheet) {
+            popup.style.visibility = "visible";
+            placed.current?.();
+            return;
+        }
         const reference = anchor instanceof HTMLElement ? anchor : pointAt(anchor.x, anchor.y);
         let shown = false;
         // Places it now, and again whenever its anchor moves or the viewport or it changes size.
@@ -63,7 +75,7 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
             shown = true;
             placed.current?.();
         }));
-    }, [ anchor instanceof HTMLElement ? anchor : undefined, anchorX, anchorY, placement, gap, capHeight ]);
+    }, [ anchor instanceof HTMLElement ? anchor : undefined, anchorX, anchorY, placement, gap, capHeight, placedByStylesheet ]);
 
     const dismiss = useRef(onDismiss);
     dismiss.current = onDismiss;
@@ -105,7 +117,11 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
             {children}
         </div>
     );
-    return createPortal(portalClassName ? <div className={portalClassName}>{popup}</div> : popup,
+    const drawn = <>
+        {backdropClassName && <div className={backdropClassName} />}
+        {popup}
+    </>;
+    return createPortal(portalClassName ? <div className={portalClassName}>{drawn}</div> : drawn,
         document.fullscreenElement ?? document.body);
 }
 

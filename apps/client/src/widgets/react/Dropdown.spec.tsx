@@ -8,6 +8,12 @@ import Dropdown, { type DropdownHandle, type DropdownProps } from "./Dropdown";
 const focusTraps = vi.hoisted(() => ({ suspend: vi.fn(() => () => {}) }));
 vi.mock("./modal_focustrap", () => ({ suspendModalFocusTraps: focusTraps.suspend }));
 
+const layout = vi.hoisted(() => ({ onMobile: false }));
+vi.mock("../../services/utils", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../services/utils")>()),
+    isMobile: () => layout.onMobile
+}));
+
 describe("Dropdown", () => {
     const host = document.createElement("div");
     document.body.append(host);
@@ -22,6 +28,7 @@ describe("Dropdown", () => {
     afterEach(() => {
         render(null, host);
         vi.restoreAllMocks();
+        layout.onMobile = false;
     });
 
     function renderDropdown(props: Partial<DropdownProps> = {}, content: ComponentChildren = <li className="dropdown-item">By title</li>) {
@@ -211,6 +218,56 @@ describe("Dropdown", () => {
             click(toggle);
             await vi.waitFor(() => expect(popup()).toBeNull());
             expect(restore).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe("as a sheet or over a backdrop", () => {
+        /** The dimmed cover the shell keeps for menus on a phone. */
+        function addCover() {
+            const cover = document.createElement("div");
+            cover.id = "context-menu-cover";
+            document.body.append(cover);
+            return cover;
+        }
+
+        it("rises from the bottom of a phone's screen, where the stylesheet places it, over the cover", async () => {
+            layout.onMobile = true;
+            const cover = addCover();
+            const { toggle } = renderDropdown({ mobileBottomSheet: true });
+
+            click(toggle);
+            await vi.waitFor(() => expect(popup()?.style.visibility).toBe("visible"));
+            expect(popup()?.classList.contains("mobile-bottom-menu")).toBe(true);
+            // Nothing placed it beside the toggle; the `.mobile-bottom-menu` rules do.
+            expect([ popup()?.style.left, popup()?.style.top ]).toEqual([ "", "" ]);
+            expect([ ...cover.classList ]).toEqual([ "show", "global-menu-cover" ]);
+
+            // A tap on the cover is one outside the menu.
+            cover.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+            await vi.waitFor(() => expect(popup()).toBeNull());
+            expect(cover.classList.contains("show")).toBe(false);
+            cover.remove();
+        });
+
+        it("is an ordinary menu beside its toggle on a desktop, with no cover", async () => {
+            const cover = addCover();
+            const { toggle } = renderDropdown({ mobileBottomSheet: true, mobileBackdrop: true });
+
+            click(toggle);
+            await vi.waitFor(() => expect(popup()?.style.visibility).toBe("visible"));
+            expect(popup()?.classList.contains("mobile-bottom-menu")).toBe(false);
+            expect(popup()?.style.top).toBe("82px");
+            expect(cover.classList.contains("show")).toBe(false);
+            cover.remove();
+        });
+
+        it("dims the page under it when asked to, drawn just before it", async () => {
+            const { toggle } = renderDropdown({ backdrop: true, className: "icon-picker-dropdown" });
+
+            click(toggle);
+            await vi.waitFor(() => expect(popup()).not.toBeNull());
+            const drawn = [ ...popup()?.parentElement?.children ?? [] ].map((child) => child.classList[0]);
+            expect(drawn).toEqual([ "tn-dropdown-backdrop", "tn-popup" ]);
         });
     });
 });
