@@ -110,7 +110,8 @@ export interface FormListBadge {
 
 export interface FormListItemOpts {
     children: ComponentChildren;
-    icon?: string;
+    /** Without one the row keeps a blank slot, lining it up with the rows that have one; `null` leaves no slot. */
+    icon?: string | null;
     /** Extra class for the icon itself, e.g. to hang a marker off its corner. */
     iconClassName?: string;
     value?: string;
@@ -150,21 +151,28 @@ export function FormListItem({ className, icon, iconClassName, value, title, act
     return (
         <li
             ref={itemRef}
-            class={`dropdown-item ${active ? "active" : ""} ${disabled ? "disabled" : ""} ${selected ? "selected" : ""} ${container ? "dropdown-container-item": ""} ${className ?? ""}`}
+            class={clsx("dropdown-item", active && "active", disabled && "disabled", selected && "selected",
+                container && "dropdown-container-item", className)}
             data-value={value} title={title}
             tabIndex={container ? -1 : 0}
             onClick={onClick}
             data-trigger-command={triggerCommand}
             dir={rtl ? "rtl" : undefined}
         >
-            <Icon icon={icon} className={iconClassName} />&nbsp;
-            {description ? (
-                <div>
+            {/* One classless span holds the row, as the rows of a menu are laid out. */}
+            <span>
+                {icon === null ? <span /> : <Icon icon={icon} className={iconClassName} />}
+                {/* An element, not spaces: in a flex row, text merges with a plain title but is
+                    trimmed before one boxed by `menuName()`, indenting the two kinds of row apart. */}
+                <span className="tn-menu-gap" />
+                {description ? (
+                    <div>
+                        <FormListContent description={description} disabled={disabled} {...contentProps} />
+                    </div>
+                ) : (
                     <FormListContent description={description} disabled={disabled} {...contentProps} />
-                </div>
-            ) : (
-                <FormListContent description={description} disabled={disabled} {...contentProps} />
-            )}
+                )}
+            </span>
         </li>
     );
 }

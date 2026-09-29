@@ -151,9 +151,10 @@ describe("contextMenu", () => {
                 return icon?.className || icon?.textContent;
             });
             expect(slots).toEqual([
-                "bx bx-list-ul tn-icon use-note-color color-e64d4d",
+                "bx bx-list-ul use-note-color color-e64d4d tn-icon",
                 "bx bx-check tn-icon",
-                "\u00a0",
+                // A blank icon of an icon's width, which lines the title up with the others.
+                "bx bx-empty tn-icon",
                 ""
             ]);
             // Only the icon is tinted, so the title keeps the menu's own colour.

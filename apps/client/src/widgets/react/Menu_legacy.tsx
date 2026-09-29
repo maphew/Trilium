@@ -32,7 +32,7 @@ export interface MenuCommandProps extends Pick<MenuCommandItem<unknown>, "title"
  * the icon, and one given `checked` can be checked.
  */
 export function MenuCommand(props: MenuCommandProps) {
-    const { title, enabled, badges, trailingIcon, className, columns, onSelect, closeOnSelect, children } = props;
+    const { title, enabled, trailingIcon, className, columns, onSelect, closeOnSelect, children } = props;
     const menu = useMenu();
     const level = useContext(MenuLevelContext);
     const id = useId();
@@ -98,13 +98,8 @@ export function MenuCommand(props: MenuCommandProps) {
             }}
         >
             <span className={hasSubmenu ? "dropdown-toggle" : undefined}>
-                <MenuIconSlot {...props} />
-                <span className="tn-menu-gap" />
                 {/* Callers pass HTML: titles escaped with `escapeHtml()` or boxed by `menuName()`. */}
                 <span id={titleId(id)} dangerouslySetInnerHTML={{ __html: title }} />
-                {badges?.map((badge, index) => (
-                    <span key={index} className={clsx("badge", badge.className)}>{badge.title}</span>
-                ))}
                 <MenuShortcut {...props} />
                 {trailingIcon && <span className={clsx(trailingIcon, "tn-icon", "menu-trailing-icon")} />}
             </span>
@@ -190,19 +185,6 @@ function MenuShortcut({ keyboardShortcut, shortcut }: Pick<MenuCommandProps, "ke
     }
 
     return shortcut ? <kbd>{shortcut}</kbd> : null;
-}
-
-/**
- * The icon, or a check mark in its place. A row that sets `uiIcon` to nothing gets a blank slot,
- * and one without `uiIcon` or `checked` an empty one.
- */
-function MenuIconSlot(props: Pick<MenuCommandProps, "uiIcon" | "checked" | "iconColorClass">) {
-    if (!("uiIcon" in props || "checked" in props)) return <span />;
-
-    const icon = props.checked ? "bx bx-check" : props.uiIcon;
-    return icon
-        ? <span className={clsx(icon, "tn-icon", props.iconColorClass)} />
-        : <span>{" "}</span>;
 }
 
 /**

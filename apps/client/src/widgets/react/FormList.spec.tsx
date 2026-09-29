@@ -39,6 +39,27 @@ describe("FormListHeader", () => {
     });
 });
 
+describe("FormListItem", () => {
+    it("lays its row out as one span of icon, gap and content, as a menu's rows are", () => {
+        const host = document.createElement("div");
+        render((
+            <menu>
+                <FormListItem icon="bx bx-copy" iconClassName="use-note-color" badges={[ { text: "new" } ]}>Copy</FormListItem>
+            </menu>
+        ), host);
+        const row = host.querySelector("li.dropdown-item");
+
+        const [ span, ...others ] = [ ...row?.children ?? [] ];
+        expect(others).toEqual([]);
+        expect(span?.tagName).toBe("SPAN");
+        expect(span?.className).toBe("");
+        expect([ ...span?.children ?? [] ].map((child) => child.className)).toEqual([
+            "bx bx-copy use-note-color tn-icon", "tn-menu-gap", "badge "
+        ]);
+        expect(span?.textContent).toBe("Copynew");
+    });
+});
+
 describe("FormListCustomItem", () => {
     it("holds a control of its own in a row outside any menu too, where there is none to join", () => {
         const host = document.createElement("div");

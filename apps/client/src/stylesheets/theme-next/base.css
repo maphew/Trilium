@@ -161,7 +161,8 @@ body.backdrop-effects-disabled {
     white-space-collapse: discard;
 }
 
-.dropdown-menu.tn-dropdown-menu .dropdown-item .tn-icon {
+/* The row's own icon is spaced by the `.tn-menu-gap` beside it. */
+.dropdown-menu.tn-dropdown-menu .dropdown-item .tn-icon:not(.dropdown-item > span > :first-child) {
     margin-inline-end: 6px;
 }
 

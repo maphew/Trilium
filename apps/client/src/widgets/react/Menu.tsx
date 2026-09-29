@@ -353,7 +353,9 @@ function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuPro
 
     return (
         <FormListItem
-            icon={uiIcon} iconClassName={iconColorClass} checked={checked} disabled={enabled === false}
+            // An item with neither keeps no slot for an icon, as an all-text menu such as spelling fixes needs.
+            icon={"uiIcon" in row || "checked" in row ? uiIcon : null}
+            iconClassName={iconColorClass} checked={checked} disabled={enabled === false}
             className={className} badges={badges?.map((badge) => ({ className: badge.className, text: badge.title }))}
             onClick={select}
         >
