@@ -258,7 +258,7 @@ export function FormDropdownSubmenu({ icon, title, children, dropStart, onDropdo
     icon: string,
     title: ComponentChildren,
     children: ComponentChildren,
-    onDropdownToggleClicked?: () => void,
+    onDropdownToggleClicked?: (e: MouseEvent) => void,
     dropStart?: boolean
 }) {
     const [ openOnMobile, setOpenOnMobile ] = useState(false);
@@ -273,7 +273,7 @@ export function FormDropdownSubmenu({ icon, title, children, dropStart, onDropdo
                     if (isMobile()) {
                         setOpenOnMobile(!openOnMobile);
                     } else if (onDropdownToggleClicked) {
-                        onDropdownToggleClicked();
+                        onDropdownToggleClicked(e);
                     }
                 }}
             >

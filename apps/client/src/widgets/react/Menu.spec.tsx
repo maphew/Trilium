@@ -1,8 +1,8 @@
 import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { FormDropdownDivider, FormListHeader } from "./FormList";
-import Menu, { MenuCommand, rowInNextColumn } from "./Menu";
+import { FormDropdownDivider, FormDropdownSubmenu, FormListHeader, FormListItem } from "./FormList";
+import Menu, { rowInNextColumn } from "./Menu";
 
 /** A row 20px tall, `left` into the menu and `top` down it. */
 function row(left: number, top: number) {
@@ -53,17 +53,17 @@ describe("Menu with declared rows", () => {
         const onClose = vi.fn(() => calls.push("close"));
         function Advanced() {
             return (
-                <MenuCommand title="Advanced" uiIcon="bx bx-chip">
-                    <MenuCommand title="Show log" onSelect={() => calls.push("log")} />
-                    <MenuCommand title="Reload" onSelect={() => calls.push("reload")} />
-                </MenuCommand>
+                <FormDropdownSubmenu title="Advanced" icon="bx bx-chip">
+                    <FormListItem onClick={() => calls.push("log")}>Show log</FormListItem>
+                    <FormListItem onClick={() => calls.push("reload")}>Reload</FormListItem>
+                </FormDropdownSubmenu>
             );
         }
         render((
             <Menu x={10} y={10} onClose={onClose}>
                 <FormListHeader text="Note" />
-                <MenuCommand title="Copy" keyboardShortcut={undefined} onSelect={() => calls.push("copy")} />
-                <MenuCommand title="Delete" enabled={false} onSelect={() => calls.push("delete")} />
+                <FormListItem onClick={() => calls.push("copy")}>Copy</FormListItem>
+                <FormListItem disabled onClick={() => calls.push("delete")}>Delete</FormListItem>
                 <FormDropdownDivider />
                 <Advanced />
             </Menu>
@@ -146,10 +146,5 @@ describe("Menu with declared rows", () => {
         await vi.waitFor(() => expect(active()).toBe("Show log"));
         key(menu, "Enter");
         expect(calls).toEqual([ "close", "log" ]);
-    });
-
-    it("refuses a row outside a menu", () => {
-        vi.spyOn(console, "error").mockImplementation(() => {});
-        expect(() => render(<MenuCommand title="Stray" />, host)).toThrow("inside a Menu");
     });
 });
