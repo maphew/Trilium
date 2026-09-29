@@ -10,6 +10,8 @@ import fs from "node:fs";
 import os from "node:os";
 import { dirname, join as pathJoin } from "node:path";
 
+import { HEALTHCHECK_SOCKET_FILE, HEALTHCHECK_URL_FILE } from "./healthcheck.js";
+
 const DIR_NAME = "trilium-data";
 const FOLDER_PERMISSIONS = 0o700;
 
@@ -52,9 +54,70 @@ export function getDataDirs(TRILIUM_DATA_DIR: string) {
     } as const;
 
     createDirIfNotExisting(dataDirs.TMP_DIR);
+    checkExistingEntries(dataDirs);
 
     Object.freeze(dataDirs);
     return dataDirs;
+}
+
+/**
+ * Stops startup when entries left in the data directory cannot be used, typically because
+ * an earlier run as another user (root, `sudo`, a container without `--user`) owns them.
+ * Otherwise SQLite opens such a database read-only and only fails at the first write.
+ */
+function checkExistingEntries(dataDirs: ReturnType<typeof getDataDirs>) {
+    const { R_OK, W_OK, X_OK } = fs.constants;
+    const inDataDir = (name: string) => pathJoin(dataDirs.TRILIUM_DATA_DIR, name);
+    const required: [ path: string, mode: number ][] = [
+        [ dataDirs.DOCUMENT_PATH, R_OK | W_OK ],
+        [ `${dataDirs.DOCUMENT_PATH}-wal`, R_OK | W_OK ],
+        [ `${dataDirs.DOCUMENT_PATH}-shm`, R_OK | W_OK ],
+        [ inDataDir(HEALTHCHECK_URL_FILE), R_OK | W_OK ],
+        [ inDataDir(HEALTHCHECK_SOCKET_FILE), R_OK | W_OK ],
+        [ dataDirs.LOG_DIR, R_OK | W_OK | X_OK ],
+        [ dataDirs.TMP_DIR, R_OK | W_OK | X_OK ],
+        [ dataDirs.BACKUP_DIR, R_OK | W_OK | X_OK ],
+        [ dataDirs.ANONYMIZED_DB_DIR, R_OK | W_OK | X_OK ],
+        [ dataDirs.OCR_CACHE_DIR, R_OK | W_OK | X_OK ],
+        [ dataDirs.CONFIG_INI_PATH, R_OK ],
+        [ inDataDir("session_secret.txt"), R_OK ]
+    ];
+
+    const unusable = required.filter(([ path, mode ]) => {
+        if (!fs.existsSync(path)) {
+            return false;
+        }
+        try {
+            fs.accessSync(path, mode);
+            return false;
+        } catch {
+            return true;
+        }
+    });
+    if (!unusable.length) {
+        return;
+    }
+
+    const user = getProcessUser();
+    const lines = [
+        "Trilium cannot start: the user running it cannot use these files in its data directory.",
+        ""
+    ];
+    if (user) {
+        lines.push(`Running as UID:GID ${user}.`);
+    }
+    for (const [ path ] of unusable) {
+        lines.push(`${path} ${describeOwnership(path)}.`);
+    }
+    lines.push("", "To fix this, give the data directory and everything in it to the user running Trilium,");
+    if (user) {
+        lines.push(`for example: sudo chown -R ${user} ${dataDirs.TRILIUM_DATA_DIR}`);
+    }
+    lines.push(
+        "In Docker, run that on the host directory mounted as the data directory, or start the",
+        "container without --user."
+    );
+    stopStartup(lines.join("\n"));
 }
 
 export function getPlatformAppDataDir(platform: ReturnType<typeof os.platform>, ENV_APPDATA_DIR: string | undefined = process.env.APPDATA) {
@@ -75,12 +138,11 @@ export function getPlatformAppDataDir(platform: ReturnType<typeof os.platform>, 
 }
 
 /**
- * Stops startup with an explanation of why `targetPath` cannot be created. The server prints it
- * and exits, since a stack trace adds nothing. Electron shows an uncaught main-process error in a
- * dialog, which is the only place a desktop user sees it, so there the explanation is thrown.
+ * Stops startup with `message`. The server prints it and exits, since a stack trace adds nothing.
+ * Electron shows an uncaught main-process error in a dialog, which is the only place a desktop
+ * user sees it, so there the message is thrown.
  */
-function failWithPermissionError(targetPath: fs.PathLike, cause: unknown): never {
-    const message = describePermissionError(targetPath.toString());
+function stopStartup(message: string, cause?: unknown): never {
     if (process.versions.electron) {
         throw new Error(message, { cause });
     }
@@ -88,30 +150,43 @@ function failWithPermissionError(targetPath: fs.PathLike, cause: unknown): never
     process.exit(1);
 }
 
+/** Returns the process's `UID:GID`, or `undefined` on Windows, which has neither. */
+function getProcessUser() {
+    if (process.getuid && process.getgid) {
+        return `${process.getuid()}:${process.getgid()}`;
+    }
+}
+
+/** Completes a sentence about `path`: "is owned by UID:GID 1000:1000 with permissions 700". */
+function describeOwnership(path: string) {
+    try {
+        const stats = fs.statSync(path);
+        return `is owned by UID:GID ${stats.uid}:${stats.gid} with permissions ${(stats.mode & 0o777).toString(8)}`;
+    } catch {
+        return "cannot be inspected";
+    }
+}
+
+function failWithPermissionError(targetPath: fs.PathLike, cause: unknown): never {
+    stopStartup(describePermissionError(targetPath.toString()), cause);
+}
+
 function describePermissionError(path: string) {
     const blockedDir = findUnreachableAncestor(dirname(path));
     const shownDir = blockedDir ?? dirname(path);
+    const user = getProcessUser();
     const lines = [
         blockedDir
             ? `Trilium cannot start: ${path} cannot be reached.`
             : `Trilium cannot start: permission denied while creating ${path}.`,
         ""
     ];
-
-    // process.getuid() and process.getgid() do not exist on Windows.
-    if (process.getuid && process.getgid) {
-        lines.push(`Running as UID:GID ${process.getuid()}:${process.getgid()}.`);
+    if (user) {
+        lines.push(`Running as UID:GID ${user}.`);
     }
-
-    try {
-        const stats = fs.statSync(shownDir);
-        const ownership = `owned by UID:GID ${stats.uid}:${stats.gid} with permissions ${(stats.mode & 0o777).toString(8)}`;
-        lines.push(blockedDir
-            ? `${shownDir} cannot be entered; it is ${ownership}.`
-            : `${shownDir} is ${ownership}.`);
-    } catch {
-        lines.push(`${shownDir} cannot be inspected.`);
-    }
+    lines.push(blockedDir
+        ? `${shownDir} cannot be entered; it ${describeOwnership(shownDir)}.`
+        : `${shownDir} ${describeOwnership(shownDir)}.`);
 
     lines.push(
         "",

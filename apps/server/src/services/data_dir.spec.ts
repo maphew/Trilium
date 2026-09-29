@@ -30,7 +30,7 @@ describe("data_dir.ts unit tests", () => {
             return {
                 default: {
                     accessSync: mockFn.accessSyncMock,
-                    constants: { X_OK: 1 },
+                    constants: { R_OK: 4, W_OK: 2, X_OK: 1 },
                     existsSync: mockFn.existsSyncMock,
                     mkdirSync: mockFn.mkdirSyncMock,
                     statSync: mockFn.statSyncMock
@@ -364,6 +364,64 @@ describe("data_dir.ts unit tests", () => {
             } else {
                 expect(changeAttemptResult).toBeInstanceOf(TypeError);
             }
+        });
+
+        describe("w/ existing entries", () => {
+            const W_OK = 2;
+            const proc = process as NodeJS.Process & { getuid?: () => number; getgid?: () => number };
+            let hadGetuid = false;
+
+            beforeEach(() => {
+                resetAllMocks();
+                setMockedEnv(null);
+                mockFn.pathJoinMock.mockImplementation((...parts: string[]) => parts.join("/"));
+                mockFn.existsSyncMock.mockReturnValue(true);
+                mockFn.statSyncMock.mockImplementation((path: string) => ({
+                    uid: 1000, gid: 1000, mode: path === "/data/log" ? 0o40700 : 0o100644
+                }));
+                vi.spyOn(console, "error").mockImplementation(() => {});
+                hadGetuid = "getuid" in proc;
+                proc.getuid = () => 1234;
+                proc.getgid = () => 1234;
+            });
+
+            afterEach(() => {
+                if (!hadGetuid) {
+                    delete proc.getuid;
+                    delete proc.getgid;
+                }
+                vi.restoreAllMocks();
+                resetAllMocks();
+            });
+
+            it("that the user can use – returns the paths", () => {
+                expect(getDataDirs("/data").DOCUMENT_PATH).toBe("/data/document.db");
+                expect(mockFn.accessSyncMock).toHaveBeenCalledWith("/data/document.db", expect.any(Number));
+                expect(console.error).not.toHaveBeenCalled();
+            });
+
+            it("that the user cannot write – lists them and exits", () => {
+                const blocked = new Set([ "/data/document.db", "/data/log", "/data/config.ini" ]);
+                mockFn.accessSyncMock.mockImplementation((path: string, mode: number) => {
+                    if (blocked.has(path) && (mode & W_OK)) {
+                        throw new Error("EACCES");
+                    }
+                });
+                const exit = vi.spyOn(process, "exit").mockImplementation(() => {
+                    throw new Error("process.exit");
+                });
+
+                expect(() => getDataDirs("/data")).toThrow("process.exit");
+                expect(exit).toHaveBeenCalledWith(1);
+                const message = String(vi.mocked(console.error).mock.calls[0][0]);
+                expect(message).toContain("Trilium cannot start: the user running it cannot use these files in its data directory.");
+                expect(message).toContain("Running as UID:GID 1234:1234.");
+                expect(message).toContain("/data/document.db is owned by UID:GID 1000:1000 with permissions 644.");
+                expect(message).toContain("/data/log is owned by UID:GID 1000:1000 with permissions 700.");
+                expect(message).toContain("for example: sudo chown -R 1234:1234 /data");
+                // config.ini is only read, so a denied write must not flag it.
+                expect(message).not.toContain("config.ini");
+            });
         });
     });
 
