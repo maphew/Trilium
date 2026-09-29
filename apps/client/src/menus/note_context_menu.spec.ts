@@ -6,8 +6,9 @@ const h = vi.hoisted(() => {
     const tabManager = {
         activeNote: null as { type: string } | null,
         activeContext: null as { getTextEditor: () => Promise<unknown> } | null,
-        getActiveContextNote: () => tabManager.activeNote,
         getActiveContext: () => tabManager.activeContext
+            && { note: tabManager.activeNote, ...tabManager.activeContext },
+        getNoteContexts: () => []
     };
     return { tabManager, triggerCommand: vi.fn() };
 });
@@ -48,11 +49,13 @@ const { tabManager } = h;
 
 /** Builds an editor whose editable DOM root is `domRoot` and selection HTML is `selectedHtml`. */
 function fakeEditor(domRoot: Node | null, selectedHtml: string, plainText = "") {
+    const pasteTarget = { paste: vi.fn(), release: vi.fn() };
     return {
         editing: { view: { getDomRoot: () => domRoot } },
         getSelectedHtml: vi.fn(() => selectedHtml),
         getSelectedPlainText: vi.fn(() => plainText),
-        pasteContent: vi.fn(),
+        pasteTarget,
+        capturePasteTarget: vi.fn(() => pasteTarget),
         // Without the plugin the AI assistant row is skipped, keeping these tests off it.
         plugins: { has: () => false },
         isReadOnly: false,
@@ -527,11 +530,47 @@ describe("setupContextMenu (browser)", () => {
 
             await run(rows, "electron_context_menu.paste");
             await vi.waitFor(() =>
-                expect(editor.pasteContent).toHaveBeenCalledWith("<b>hi</b>", "hi"));
+                expect(editor.pasteTarget.paste).toHaveBeenCalledWith("<b>hi</b>", "hi"));
 
             // Paste as plain text withholds the HTML flavor.
             await run(rows, "electron_context_menu.paste-as-plain-text");
-            await vi.waitFor(() => expect(editor.pasteContent).toHaveBeenCalledWith("", "hi"));
+            await vi.waitFor(() =>
+                expect(editor.pasteTarget.paste).toHaveBeenCalledWith("", "hi"));
+            expect(editor.pasteTarget.release).toHaveBeenCalledTimes(2);
+        } finally {
+            delete (navigator as { clipboard?: unknown }).clipboard;
+        }
+    });
+
+    it("pins the paste target before reading the clipboard, and releases it on failure", async () => {
+        let rejectRead: (error: Error) => void = () => {};
+        Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: {
+                read: vi.fn(() => new Promise((_resolve, reject) => {
+                    rejectRead = reject;
+                }))
+            }
+        });
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        try {
+            const editorRoot = codeEditable();
+            const anchor = document.createElement("span");
+            editorRoot.appendChild(anchor);
+            const editor = fakeEditor(editorRoot, "<p>clean</p>");
+            tabManager.activeNote = { type: "text" };
+            tabManager.activeContext = { getTextEditor: async () => editor };
+            setSelection(anchor, "<p>clean</p>", "clean");
+
+            await run(await menuFor(editorRoot), "electron_context_menu.paste");
+            expect(editor.capturePasteTarget).toHaveBeenCalledTimes(1);
+            expect(editor.pasteTarget.release).not.toHaveBeenCalled();
+
+            rejectRead(new Error("denied"));
+            await vi.waitFor(() => expect(editor.pasteTarget.release).toHaveBeenCalledTimes(1));
+            expect(editor.pasteTarget.paste).not.toHaveBeenCalled();
+            expect(warn).toHaveBeenCalled();
         } finally {
             delete (navigator as { clipboard?: unknown }).clipboard;
         }

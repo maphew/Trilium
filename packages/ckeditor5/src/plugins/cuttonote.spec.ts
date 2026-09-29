@@ -96,6 +96,54 @@ describe("CutToNotePlugin", () => {
         expect(editor.getData()).toContain("ef");
     });
 
+    describe("capturePasteTarget", () => {
+        it("pastes at the selection captured before the content arrived", () => {
+            setModelData(editor.model, "<paragraph>a[]b</paragraph><paragraph>cd</paragraph>");
+            editor.capturePasteTarget().paste("", "X");
+            expect(editor.getData()).toBe("<p>aXb</p><p>cd</p>");
+
+            setModelData(editor.model, "<paragraph>a[]b</paragraph><paragraph>cd</paragraph>");
+            const target = editor.capturePasteTarget();
+            moveCaret(editor, 1, 1);
+            target.paste("", "X");
+            expect(editor.getData()).toBe("<p>aXb</p><p>cd</p>");
+        });
+
+        it("pastes at the current selection when the captured content was removed", () => {
+            setModelData(editor.model, "<paragraph>a[]b</paragraph><paragraph>cd</paragraph>");
+            const target = editor.capturePasteTarget();
+            editor.model.change((writer) => {
+                const first = editor.model.document.getRoot()?.getChild(0);
+                if (first) {
+                    writer.remove(first);
+                }
+            });
+            moveCaret(editor, 0, 1);
+
+            target.paste("", "X");
+
+            expect(editor.getData()).toBe("<p>cXd</p>");
+        });
+
+        it("does nothing once the editor is destroyed", async () => {
+            const element = document.createElement("div");
+            document.body.appendChild(element);
+            try {
+                const shortLived = await ClassicEditor.create(element, {
+                    licenseKey: "GPL",
+                    plugins: [Essentials, Paragraph, CutToNotePlugin]
+                });
+                const target = shortLived.capturePasteTarget();
+                await shortLived.destroy();
+
+                expect(() => target.paste("", "X")).not.toThrow();
+                target.release();
+            } finally {
+                element.remove();
+            }
+        });
+    });
+
     describe("table cell selections", () => {
         let tableEditor: ClassicEditor;
 
@@ -156,6 +204,25 @@ describe("CutToNotePlugin", () => {
             expect(data).toContain("b2");
             expect(data).not.toContain("x1");
         });
+
+        it("capturePasteTarget restores a cell selection before pasting into it", () => {
+            setModelData(tableEditor.model, modelTable([["a1", "b1"], ["a2", "b2"]]));
+            selectCells(tableEditor, [0, 0], [1, 1]);
+            const html = tableEditor.getSelectedHtml();
+
+            setModelData(tableEditor.model,
+                modelTable([["x1", "y1", "z1"], ["x2", "y2", "z2"]]));
+            selectCells(tableEditor, [0, 0], [1, 1]);
+            const target = tableEditor.capturePasteTarget();
+            selectCells(tableEditor, [0, 2], [0, 2]);
+            target.paste(html, "");
+
+            const data = tableEditor.getData();
+            expect(data).toContain("a1");
+            expect(data).toContain("b2");
+            expect(data).not.toContain("x1");
+            expect(data).toContain("z1");
+        });
     });
 
     it("removeSelection deletes the selection, inserts a paragraph and saves the note", async () => {
@@ -188,6 +255,17 @@ function modelTable(rows: string[][], attributes = ""): string {
         })
         .join("");
     return `<table${attributes ? ` ${attributes}` : ""}>${rowsMarkup}</table>`;
+}
+
+/** Moves the caret to `offset` in the root child at `childIndex`. */
+function moveCaret(editor: ClassicEditor, childIndex: number, offset: number) {
+    editor.model.change((writer) => {
+        const block = editor.model.document.getRoot()?.getChild(childIndex);
+        if (!block?.is("element")) {
+            throw new Error(`No element at root child ${childIndex}.`);
+        }
+        writer.setSelection(block, offset);
+    });
 }
 
 function selectCells(editor: ClassicEditor, anchor: [number, number], target: [number, number]) {

@@ -83,10 +83,22 @@ describe("buildTableMenuItems", () => {
 
         expect(findItem(items, "table_context_menu.distribute_columns")?.enabled).toBe(false);
         expect(findItem(items, "table_context_menu.merge_cells")?.enabled).toBe(false);
-        expect(findItem(items, "table_context_menu.split_cells")?.enabled).toBe(false);
+        expect(findItem(items, "table_context_menu.split_cells")?.enabled).toBe(true);
         expect(findItem(items, "table_context_menu.delete_rows")?.enabled).toBe(false);
         expect(findItem(items, "table_context_menu.delete_columns")?.enabled).toBe(true);
         expect(findItem(items, "table_context_menu.insert_rows_above")?.enabled).toBe(true);
+    });
+
+    it("enables the split submenu while either split direction is enabled", () => {
+        const splitRow = (disabled: string[]) => {
+            const { editor } = stubEditor(disabled);
+            const items = buildTableMenuItems(editor, cellElement()) ?? [];
+            return findItem(items, "table_context_menu.split_cells")?.enabled;
+        };
+
+        expect(splitRow(["splitTableCellVertically"])).toBe(true);
+        expect(splitRow(["splitTableCellHorizontally"])).toBe(true);
+        expect(splitRow(["splitTableCellVertically", "splitTableCellHorizontally"])).toBe(false);
     });
 
     it("returns null without the plugin or a table cell at the target", () => {

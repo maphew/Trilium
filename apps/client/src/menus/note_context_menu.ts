@@ -354,9 +354,8 @@ function browserHost(
 }
 
 /**
- * The paste rows for a page, present only where the async clipboard API can read: a secure
- * context, with the user granting the read on first use. Over plain HTTP the browser exposes no
- * way to read the clipboard, so the rows stay out and Ctrl+V remains the way to paste.
+ * The paste rows for a page, supplied when `navigator.clipboard.read()` exists, which requires a
+ * secure context.
  */
 function browserPaste(
     editor: CKTextEditor | null,
@@ -380,13 +379,16 @@ async function pasteFromClipboard(
     element: Element | null | undefined,
     asPlainText: boolean
 ) {
+    // Pinned before the read, which can wait on a permission prompt, so the paste lands where the
+    // menu was opened.
+    const pasteTarget = editor?.capturePasteTarget();
     try {
         const { html, text } = await readClipboard();
 
         // The editor's clipboard pipeline, so a paste lands the way a native one does — a table
         // pasted into a multi-cell selection merges into it.
-        if (editor) {
-            editor.pasteContent(asPlainText ? "" : html, text);
+        if (pasteTarget) {
+            pasteTarget.paste(asPlainText ? "" : html, text);
             return;
         }
 
@@ -399,6 +401,8 @@ async function pasteFromClipboard(
         }
     } catch (error) {
         console.warn("Failed to paste from the clipboard:", error);
+    } finally {
+        pasteTarget?.release();
     }
 }
 

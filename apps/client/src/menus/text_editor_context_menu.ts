@@ -2,6 +2,7 @@ import type { AiQuickAction, AiQuickActionFooter, AiQuickActionGroup, CKTextEdit
 
 import type { CommandNames } from "../components/app_context.js";
 import appContext from "../components/app_context.js";
+import type NoteContext from "../components/note_context.js";
 import { t } from "../services/i18n.js";
 import type { MenuItem } from "./context_menu.js";
 
@@ -146,16 +147,19 @@ export async function getTextEditorAtSelection(): Promise<CKTextEditor | null> {
  * The text editor whose editable contains `node`, or `null` when the node sits anywhere else.
  * Answers a pointer target rather than the DOM selection, which a right-click does not move in
  * every browser.
+ *
+ * The editor is looked up in the split pane holding `node`, which a right-click does not activate.
  */
 export async function getTextEditorContaining(
     node: Node | null | undefined
 ): Promise<CKTextEditor | null> {
-    if (!node || appContext.tabManager.getActiveContextNote()?.type !== "text") {
+    const noteContext = node ? getNoteContextContaining(node) : null;
+    if (!node || noteContext?.note?.type !== "text") {
         return null;
     }
 
     try {
-        const editor = await appContext.tabManager.getActiveContext()?.getTextEditor();
+        const editor = await noteContext.getTextEditor();
         const domRoot = editor?.editing.view.getDomRoot();
 
         if (editor && domRoot && domRoot.contains(node)) {
@@ -167,4 +171,19 @@ export async function getTextEditorContaining(
     }
 
     return null;
+}
+
+/**
+ * The note context of the split pane that holds `node`. Outside every pane, e.g. in a dialog, the
+ * active note context.
+ */
+function getNoteContextContaining(node: Node): NoteContext | null {
+    const { tabManager } = appContext;
+    const element = node instanceof Element ? node : node.parentElement;
+    const ntxId = element?.closest<HTMLElement>("[data-ntx-id]")?.dataset.ntxId;
+    if (!ntxId) {
+        return tabManager.getActiveContext();
+    }
+
+    return tabManager.getNoteContexts().find((noteContext) => noteContext.ntxId === ntxId) ?? null;
 }

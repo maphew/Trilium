@@ -68,7 +68,8 @@ export function buildTableMenuItems(
         {
             title: t("table_context_menu.split_cells"),
             uiIcon: "bx bx-border-inner",
-            enabled: editor.commands.get("splitTableCellVertically")?.isEnabled === true,
+            enabled: editor.commands.get("splitTableCellVertically")?.isEnabled === true
+                || editor.commands.get("splitTableCellHorizontally")?.isEnabled === true,
             items: [
                 commandItem(t("table_context_menu.split_vertically"), "bx bx-empty",
                     "splitTableCellVertically"),

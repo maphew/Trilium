@@ -1,6 +1,22 @@
 import scissorsIcon from '../icons/scissors.svg?raw';
-import { ButtonView, HtmlDataProcessor, Plugin, plainTextToHtml, ViewDataTransfer, viewToPlainText } from 'ckeditor5';
+import {
+	ButtonView,
+	HtmlDataProcessor,
+	ModelLiveRange,
+	Plugin,
+	plainTextToHtml,
+	ViewDataTransfer,
+	viewToPlainText
+} from 'ckeditor5';
 import type { ViewDocumentFragment } from 'ckeditor5';
+
+/** A selection pinned by `capturePasteTarget()` for a paste whose content arrives later. */
+export interface PasteTarget {
+	/** Pastes at the pinned selection, then releases it. */
+	paste(html: string, text: string): void;
+	/** Detaches the pinned ranges without pasting. Safe to call more than once. */
+	release(): void;
+}
 
 export default class CutToNotePlugin extends Plugin {
 
@@ -34,6 +50,7 @@ export default class CutToNotePlugin extends Plugin {
 		this.editor.getSelectedHtml = () => this.getSelectedHtml();
 		this.editor.getSelectedPlainText = () => this.getSelectedPlainText();
 		this.editor.pasteContent = (html, text) => this.pasteContent(html, text);
+		this.editor.capturePasteTarget = () => this.capturePasteTarget();
 		this.editor.removeSelection = () => this.removeSelection();
 	}
 
@@ -88,6 +105,52 @@ export default class CutToNotePlugin extends Plugin {
 			method: "paste",
 			targetRanges: null
 		});
+	}
+
+	/**
+	 * Pins the current selection as live ranges, for a paste whose content arrives asynchronously,
+	 * e.g. from `navigator.clipboard.read()`. `paste()` moves the selection back onto the pinned
+	 * ranges first, so a selection changed while the content was read does not move the paste.
+	 * Ranges whose content was removed in the meantime are dropped; with none left, the paste goes
+	 * to the current selection.
+	 */
+	capturePasteTarget(): PasteTarget {
+		const editor = this.editor;
+		const ranges = [...editor.model.document.selection.getRanges()]
+			.map((range) => ModelLiveRange.fromRange(range));
+		const release = () => {
+			for (const range of ranges) {
+				range.detach();
+			}
+		};
+
+		return {
+			paste: (html, text) => {
+				if (editor.state === "destroyed") {
+					release();
+					return;
+				}
+				this.restoreSelection(ranges);
+				release();
+				this.pasteContent(html, text);
+			},
+			release
+		};
+	}
+
+	private restoreSelection(ranges: ModelLiveRange[]) {
+		const model = this.editor.model;
+		const targets = ranges
+			.filter((range) => range.root !== model.document.graveyard)
+			.map((range) => range.toRange());
+		const current = [...model.document.selection.getRanges()];
+		const isUnchanged = targets.length === current.length
+			&& targets.every((range, index) => range.isEqual(current[index]));
+		if (!targets.length || isUnchanged) {
+			return;
+		}
+
+		model.change((writer) => writer.setSelection(targets));
 	}
 
 	async removeSelection() {
