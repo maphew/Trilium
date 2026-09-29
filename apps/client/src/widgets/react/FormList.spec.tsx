@@ -75,6 +75,56 @@ describe("FormListItem", () => {
     });
 });
 
+describe("FormListItem presses", () => {
+    function renderRow(props: { disabled?: boolean } = {}) {
+        const host = document.createElement("div");
+        const onClick = vi.fn();
+        render((
+            <menu>
+                <FormListItem {...props} onClick={onClick}>Size <input className="size" /><input type="checkbox" /></FormListItem>
+            </menu>
+        ), host);
+        const row = host.querySelector<HTMLElement>("li.dropdown-item");
+        if (!row) throw new Error("expected the row");
+        return { row, onClick };
+    }
+    const mousedown = (target: Element, button = 0) => {
+        const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button });
+        target.dispatchEvent(event);
+        return event;
+    };
+
+    it("keeps focus where it was on a press, and runs on its release", () => {
+        const { row, onClick } = renderRow();
+
+        expect(mousedown(row).defaultPrevented).toBe(true);
+        // As a switch, which works by its click.
+        const checkbox = row.querySelector("input[type=checkbox]");
+        if (!checkbox) throw new Error("expected the checkbox");
+        expect(mousedown(checkbox).defaultPrevented).toBe(true);
+        expect(onClick).not.toHaveBeenCalled();
+
+        row.click();
+        expect(onClick).toHaveBeenCalledTimes(1);
+    });
+
+    it("lets a field in the row take focus, and a button other than the primary one be", () => {
+        const { row } = renderRow();
+        const field = row.querySelector(".size");
+        if (!field) throw new Error("expected the field");
+
+        expect(mousedown(field).defaultPrevented).toBe(false);
+        expect(mousedown(row, 2).defaultPrevented).toBe(false);
+    });
+
+    it("runs nothing when disabled, though a click reaches it", () => {
+        const { row, onClick } = renderRow({ disabled: true });
+
+        row.click();
+        expect(onClick).not.toHaveBeenCalled();
+    });
+});
+
 describe("FormListCustomItem", () => {
     it("holds a control of its own in a row outside any menu too, where there is none to join", () => {
         const host = document.createElement("div");

@@ -157,6 +157,9 @@ export interface FormListItemOpts {
     trailingIcon?: string;
 }
 
+/** What in a row takes focus from a press: the controls that are typed into. */
+const TEXT_ENTRY = "input:not([type='checkbox'], [type='radio']), textarea, select, [contenteditable='true']";
+
 const TOOLTIP_CONFIG: Partial<Tooltip.Options> = {
     placement: handleRightToLeftPlacement("right"),
     fallbackPlacements: [ handleRightToLeftPlacement("right") ],
@@ -220,7 +223,18 @@ export function FormListItem({ className, icon, iconClassName, value, title, act
             onPointerMove={menu ? (e) => {
                 if (!isActive && pointerMoved(e)) onPointed(e);
             } : undefined}
-            onClick={onClick}
+            // A press keeps focus where it was, as in a native menu: a text editor keeps the
+            // selection a command such as a spelling fix acts on, and a field beside a dropdown
+            // stays in focus. A field inside the row takes focus as it would anywhere.
+            onMouseDown={(e) => {
+                if (e.button === 0 && !(e.target instanceof Element && e.target.closest(TEXT_ENTRY))) e.preventDefault();
+            }}
+            // The row runs on the release, so a press can still be taken back by moving off.
+            onClick={(e) => {
+                if (disabled) return;
+                if (closeOnSelect !== false) menu?.close();
+                onClick?.(e);
+            }}
             data-trigger-command={triggerCommand}
             dir={rtl ? "rtl" : undefined}
         >

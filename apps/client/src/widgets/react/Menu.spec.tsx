@@ -87,8 +87,11 @@ describe("Menu with declared rows", () => {
             .map((layer) => [ ...layer.querySelectorAll(":scope > .tn-menu-scroll > li") ].map((item) => item.textContent));
     }
 
-    const press = (element: HTMLElement) =>
+    /** A press and its release, which runs a row. */
+    const press = (element: HTMLElement) => {
         element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+        element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+    };
     const key = (menu: HTMLElement, name: string) =>
         menu.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
 

@@ -247,8 +247,9 @@ describe("contextMenu", () => {
             expect(rows.map(row => [ row.classList.contains("disabled"), row.getAttribute("aria-disabled") ]))
                 .toEqual([ [ true, "true" ], [ false, null ], [ false, null ] ]);
 
-            // The stylesheets keep the pointer off it; a press that still arrives does nothing.
+            // The stylesheets keep the pointer off it; a click that still arrives does nothing.
             rows[0].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+            rows[0].dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
             expect(handler).not.toHaveBeenCalled();
             expect(selectMenuItemHandler).not.toHaveBeenCalled();
             expect(contextMenu.isShown).toBe(true);
@@ -416,12 +417,17 @@ describe("contextMenu", () => {
             expect(calls).toEqual([]);
             expect(contextMenu.isShown).toBe(true);
 
+            // The press does not move focus, so a text editor keeps its selection for the command,
+            // and runs nothing: the row runs on its release, as in a native menu.
             const press = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
             row.dispatchEvent(press);
+            expect(press.defaultPrevented).toBe(true);
+            expect(calls).toEqual([]);
+            expect(contextMenu.isShown).toBe(true);
+
+            row.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
             expect(calls).toEqual([ "handler", "select Copy" ]);
             expect(contextMenu.isShown).toBe(false);
-            // The press does not move focus, so a text editor keeps its selection for the command.
-            expect(press.defaultPrevented).toBe(true);
         });
     });
 
@@ -459,8 +465,11 @@ describe("contextMenu", () => {
         }
 
         const hover = (element: HTMLElement) => element.dispatchEvent(new PointerEvent("pointerenter"));
-        const press = (element: HTMLElement) =>
+        /** A press and its release, which runs a row. */
+        const press = (element: HTMLElement) => {
             element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+            element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+        };
 
         afterEach(() => {
             layout.onMobile = false;
