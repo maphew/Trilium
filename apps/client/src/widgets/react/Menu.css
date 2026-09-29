@@ -8,37 +8,13 @@
 }
 
 /*
- * The top level does not scroll, so the blur the theme puts on its `::before` covers it whatever
- * its rows scroll to. Its rows scroll inside, in the height `placeFloating()` caps it to.
- */
-.dropdown-menu.tn-menu:has(> .tn-menu-scroll) {
-    display: flex;
-    flex-direction: column;
-}
-
-/*
  * The lists that hold the rows take none of the browser's list styling. `:where()` keeps this
- * below `.tn-menu-scroll`, whose inline padding it must not undo.
+ * below `.tn-menu-scroll`, whose padding it must not undo.
  */
 :where(.tn-menu) menu {
     margin: 0;
     padding: 0;
     list-style: none;
-}
-
-.tn-menu-scroll {
-    /* Matches the menu's own padding in the theme's `.dropdown-menu:not(.static)` rule. */
-    --tn-menu-inline-padding: var(--padding, var(--menu-padding-size));
-    flex: 1 1 auto;
-    min-height: 0;
-    /*
-     * Spans the menu's inline padding, so the separator and header lines, which the theme draws
-     * that far past a row, stay inside the scroller instead of scrolling it sideways. Without the
-     * theme's variables both fall back to 0, as that theme's menu has no inline padding.
-     */
-    margin-inline: calc(0px - var(--tn-menu-inline-padding));
-    padding-inline: var(--tn-menu-inline-padding);
-    overflow-y: auto;
 }
 
 /* A submenu is placed by `placeFloating()`, not beside a parent it is nested in. */

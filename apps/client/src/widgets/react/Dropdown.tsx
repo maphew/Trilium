@@ -1,7 +1,5 @@
 import type { Placement } from "@floating-ui/dom";
 import type { Dropdown as BootstrapDropdown, Tooltip } from "bootstrap";
-import "./Dropdown.css";
-
 import clsx from "clsx";
 import { ComponentChildren, HTMLAttributes } from "preact";
 import { CSSProperties, HTMLProps } from "preact/compat";
