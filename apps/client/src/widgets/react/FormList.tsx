@@ -3,7 +3,7 @@ import "./FormList.css";
 import { Dropdown as BootstrapDropdown, Tooltip } from "bootstrap";
 import clsx from "clsx";
 import { ComponentChildren, RefObject } from "preact";
-import { type CSSProperties,useEffect, useMemo, useRef, useState } from "preact/compat";
+import { type CSSProperties, useContext, useEffect, useId, useMemo, useRef, useState } from "preact/compat";
 
 import { CommandNames } from "../../components/app_context";
 import { handleRightToLeftPlacement, isMobile, openInAppHelpFromUrl } from "../../services/utils";
@@ -11,6 +11,7 @@ import FormToggle from "./FormToggle";
 import HelpTooltipButton from "./HelpTooltipButton";
 import { useStaticTooltip, useSyncedRef } from "./hooks";
 import Icon from "./Icon";
+import { MenuContext, MenuLevelContext } from "./menu_context";
 
 interface FormListOpts {
     children: ComponentChildren;
@@ -286,4 +287,47 @@ export function FormDropdownSubmenu({ icon, title, children, dropStart, onDropdo
             </ul>
         </li>
     );
+}
+
+/**
+ * A row holding a control of its own, such as the color picker. The keys stand on it when its
+ * content marks a way in with `tabindex="0"`, and a click on something in it that acts closes the
+ * menu it stands in.
+ */
+export function FormListCustomItem({ children }: { children: ComponentChildren }) {
+    // Outside a `Menu`, as in a dropdown's plain list, there is none to join.
+    const menu = useContext(MenuContext);
+    const level = useContext(MenuLevelContext);
+    const id = useId();
+
+    return (
+        <li
+            className="dropdown-custom-item"
+            // Its content carries the roles of what it acts with.
+            role="none"
+            ref={(element) => {
+                menu?.registerRow(id, element
+                    ? { level, element, custom: true, disabled: false, hasSubmenu: false, select: () => {} }
+                    : undefined);
+            }}
+            // Only a click on what the row acts with closes the menu: one in the space around it,
+            // such as between the color picker's cells, picks nothing.
+            onClick={(e) => {
+                if (menu && actsOnClick(e.target, e.currentTarget)) menu.close();
+            }}
+        >
+            {children}
+        </li>
+    );
+}
+
+/** What a custom row's content acts with: the elements a click on does something. */
+const ACTING_ELEMENTS = "button, a[href], input, select, textarea, [tabindex], "
+    + "[role='button'], [role='option'], [role='menuitem'], [role='checkbox'], [role='radio'], [role='switch']";
+
+/** Whether a click on `target` inside `row` landed on an enabled element that acts. */
+function actsOnClick(target: EventTarget | null, row: HTMLElement) {
+    const acting = target instanceof Element ? target.closest(ACTING_ELEMENTS) : null;
+    return !!acting && row.contains(acting) && acting !== row
+        && acting.getAttribute("aria-disabled") !== "true" && !acting.matches(":disabled");
 }

@@ -8,7 +8,7 @@ vi.mock("bootstrap", () => ({
     Tooltip: class { static getInstance() { return null; } }
 }));
 
-import FormList, { FormDropdownDivider, FormListHeader, FormListItem } from "./FormList";
+import FormList, { FormDropdownDivider, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
 
 describe("FormDropdownDivider", () => {
     it("draws a separator among the rows, whose click closes no menu", () => {
@@ -36,6 +36,19 @@ describe("FormListHeader", () => {
         // Its heading speaks for it, so the row reads as no list item of the menu's.
         expect(row?.getAttribute("role")).toBe("none");
         expect(row?.querySelector("h6.dropdown-header")?.textContent).toBe("<b>Doing</b>");
+    });
+});
+
+describe("FormListCustomItem", () => {
+    it("holds a control of its own in a row outside any menu too, where there is none to join", () => {
+        const host = document.createElement("div");
+        render(<menu><FormListCustomItem><button className="swatch" /></FormListCustomItem></menu>, host);
+        const row = host.querySelector("menu > li");
+
+        expect(row?.className).toBe("dropdown-custom-item");
+        // Its content carries the roles of what it acts with.
+        expect(row?.getAttribute("role")).toBe("none");
+        expect(row?.querySelector("button.swatch")).not.toBeNull();
     });
 });
 

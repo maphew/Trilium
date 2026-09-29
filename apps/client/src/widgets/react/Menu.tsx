@@ -2,14 +2,15 @@ import "./Menu.css";
 
 import { autoUpdate, computePosition, flip, hide, offset, type Placement, type ReferenceElement, shift, size, type VirtualElement } from "@floating-ui/dom";
 import clsx from "clsx";
-import { type ComponentChildren, createContext } from "preact";
+import type { ComponentChildren } from "preact";
 import { createPortal } from "preact/compat";
 import { useCallback, useContext, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import { getActionSync } from "../../services/keyboard_actions";
 import { handleRightToLeftPlacement, isMobile } from "../../services/utils";
-import { FormDropdownDivider, FormListHeader } from "./FormList";
+import { FormDropdownDivider, FormListCustomItem, FormListHeader } from "./FormList";
+import { type ActiveRow, MenuContext, type MenuContextValue, MenuLevelContext, type OpenSubmenu, type RowEntry, useMenu } from "./menu_context";
 import { joinElements } from "./react_utils";
 import { renderShortcutKbds } from "./shortcut_kbd";
 
@@ -19,7 +20,7 @@ import { renderShortcutKbds } from "./shortcut_kbd";
  * this too. Only the placement is its own.
  *
  * The rows come as data in {@link items}, or as components in {@link children}: `MenuCommand`,
- * `FormDropdownDivider`, `FormListHeader` and `MenuCustom`. A `MenuCommand` with children opens them as its
+ * `FormDropdownDivider`, `FormListHeader` and `FormListCustomItem`. A `MenuCommand` with children opens them as its
  * submenu.
  */
 export interface MenuProps<T> {
@@ -48,71 +49,11 @@ export interface MenuProps<T> {
 /** How many pixels the menu keeps from the edges of the viewport. */
 const VIEWPORT_PADDING = 5;
 
-/** A submenu standing open, and the row it opened from. */
-interface OpenSubmenu {
-    /** The id of the row it opened from. */
-    id: string;
-    anchor: HTMLElement;
-    /**
-     * Shows the layer without the stylesheet's opening delay and fade: it replaces a submenu that
-     * was open, or a key or a press chose it, so it is not a pointer passing over its row.
-     */
-    immediate: boolean;
-}
-
-/** A row as it registers with its menu, for the keys to find and act on. */
-interface RowEntry {
-    level: number;
-    element: HTMLElement;
-    /** A custom row takes focus in itself instead of running anything. */
-    custom: boolean;
-    disabled: boolean;
-    hasSubmenu: boolean;
-    /** Runs the row, as a press or Enter does, once its submenu, if it has one, is open. */
-    select(e: MouseEvent | KeyboardEvent): void;
-}
-
-/** The row the keyboard acts on, and the level it stands at. */
-interface ActiveRow {
-    level: number;
-    id: string;
-}
-
 /** The keys the menu keeps while focus is inside a custom row: those that leave it. */
 const KEYS_LEAVING_CUSTOM_ROW = new Set([ "ArrowUp", "ArrowDown", "Escape", "Tab" ]);
 
 /** How long typed letters keep adding to the text a row is looked up by. */
 const TYPEAHEAD_TIMEOUT = 500;
-
-/** What every row of a menu shares, at every level. */
-interface MenuContextValue {
-    /** The submenu standing open at each level, the top level's first. */
-    open: OpenSubmenu[];
-    /**
-     * Opens the submenu of the row `id` at `level`, closing whatever stood open at that level and
-     * deeper, or without a row only closes them.
-     */
-    openSubmenu(level: number, id?: string, anchor?: HTMLElement, chosen?: boolean): void;
-    active?: ActiveRow;
-    setActive(level: number, id: string): void;
-    /** The rows by id, as they registered. */
-    rows: Map<string, RowEntry>;
-    /** Registers a row as it mounts, and with `undefined` takes it back as it unmounts. */
-    registerRow(id: string, row: RowEntry | undefined): void;
-    /** Whether the keys moved the menu since the pointer last did. */
-    keyboardDriven: boolean;
-    close(): void;
-    /**
-     * Where a row renders its submenu's layer: the top level's element, so the rules scoped to the
-     * menu apply, but outside its scroller and any other layer, as a fixed layer escapes a
-     * scrolling menu only while no ancestor carries a filter.
-     */
-    layerHost: HTMLElement | null;
-}
-
-const MenuContext = createContext<MenuContextValue | null>(null);
-/** How deep the rows rendered here stand: 0 at the top level, 1 in its submenus, and so on. */
-const MenuLevelContext = createContext(0);
 
 export default function Menu<T>({ id, className, x, y, orientation, bottomSheet, startAtFirstRow, items, onSelect, children, onClose }: MenuProps<T>) {
     const menuRef = useRef<HTMLDivElement | null>(null);
@@ -473,43 +414,6 @@ export function MenuCommand(props: MenuCommandProps) {
 }
 
 /**
- * A row holding a control of its own, such as the color picker. The keys stand on it when its
- * content marks a way in with `tabindex="0"`, and a click on something in it that acts closes the
- * menu.
- */
-export function MenuCustom({ children }: { children: ComponentChildren }) {
-    const menu = useMenu();
-    const level = useContext(MenuLevelContext);
-    const id = useId();
-
-    return (
-        <li
-            className="dropdown-custom-item"
-            // Its content carries the roles of what it acts with.
-            role="none"
-            ref={(element) => {
-                menu.registerRow(id, element
-                    ? { level, element, custom: true, disabled: false, hasSubmenu: false, select: () => {} }
-                    : undefined);
-            }}
-            // Only a click on what the row acts with closes the menu: one in the space around it,
-            // such as between the color picker's cells, picks nothing.
-            onClick={(e) => {
-                if (actsOnClick(e.target, e.currentTarget)) menu.close();
-            }}
-        >
-            {children}
-        </li>
-    );
-}
-
-function useMenu() {
-    const menu = useContext(MenuContext);
-    if (!menu) throw new Error("A menu row must be rendered inside a Menu.");
-    return menu;
-}
-
-/**
  * A submenu opened on the desktop, placed beside the row it opened from rather than nested in it,
  * so a scrolling menu neither clips it nor scrolls it away.
  */
@@ -587,7 +491,7 @@ function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuPro
         if (row.kind === "separator") return <FormDropdownDivider />;
         // Its title is text, as it can be a name the user wrote.
         if (row.kind === "header") return <FormListHeader text={row.title} />;
-        return <MenuCustom><row.componentFn /></MenuCustom>;
+        return <FormListCustomItem><row.componentFn /></FormListCustomItem>;
     }
 
     // The rest keeps `uiIcon` and `checked` only where the item has them, which `MenuCommand` reads.
@@ -683,17 +587,6 @@ export function rowInNextColumn(
  */
 function pointerMoved(e: PointerEvent) {
     return e.movementX !== 0 || e.movementY !== 0;
-}
-
-/** What a custom row's content acts with: the elements a click on does something. */
-const ACTING_ELEMENTS = "button, a[href], input, select, textarea, [tabindex], "
-    + "[role='button'], [role='option'], [role='menuitem'], [role='checkbox'], [role='radio'], [role='switch']";
-
-/** Whether a click on `target` inside `row` landed on an enabled element that acts. */
-function actsOnClick(target: EventTarget | null, row: HTMLElement) {
-    const acting = target instanceof Element ? target.closest(ACTING_ELEMENTS) : null;
-    return !!acting && row.contains(acting) && acting !== row
-        && acting.getAttribute("aria-disabled") !== "true" && !acting.matches(":disabled");
 }
 
 /** Where a custom row takes focus: the element its content marks as its way in with `tabindex="0"`. */
