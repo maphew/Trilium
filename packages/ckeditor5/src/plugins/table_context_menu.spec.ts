@@ -96,6 +96,52 @@ describe("TableContextMenu", () => {
         });
     });
 
+    describe("delete table", () => {
+        it("is enabled only inside a table", () => {
+            setModelData(editor.model, "<paragraph>fo[]o</paragraph>");
+            expect(editor.commands.get("triliumDeleteTable")?.isEnabled).toBe(false);
+
+            setModelData(editor.model, modelTable([["1[]1"]]));
+            expect(editor.commands.get("triliumDeleteTable")?.isEnabled).toBe(true);
+
+            editor.enableReadOnlyMode("spec");
+            expect(editor.commands.get("triliumDeleteTable")?.isEnabled).toBe(false);
+        });
+
+        it("replaces the table with an empty paragraph holding the caret", () => {
+            setModelData(editor.model,
+                `<paragraph>a</paragraph>${modelTable([["1[]1", "12"]])}<paragraph>b</paragraph>`);
+            editor.execute("triliumDeleteTable");
+            expect(getModelData(editor.model))
+                .toBe("<paragraph>a</paragraph><paragraph>[]</paragraph><paragraph>b</paragraph>");
+
+            setModelData(editor.model, modelTable([["11", "12"], ["21", "22"]]));
+            selectCells(editor, [0, 0], [1, 1]);
+            editor.execute("triliumDeleteTable");
+            expect(getModelData(editor.model)).toBe("<paragraph>[]</paragraph>");
+        });
+
+        it("deletes only the innermost table around the selection", () => {
+            const inner = "<table><tableRow><tableCell><paragraph>in[]ner</paragraph></tableCell>"
+                + "</tableRow></table>";
+            setModelData(editor.model,
+                `<table><tableRow><tableCell>${inner}</tableCell></tableRow></table>`);
+
+            editor.execute("triliumDeleteTable");
+
+            expect(getModelData(editor.model)).toBe(
+                "<table><tableRow><tableCell><paragraph>[]</paragraph></tableCell></tableRow></table>"
+            );
+        });
+
+        it("undoes in one step", () => {
+            setModelData(editor.model, modelTable([["1[]1", "12"]]));
+            editor.execute("triliumDeleteTable");
+            editor.execute("undo");
+            expect(tableData(editor)).toBe(modelTable([["11", "12"]]));
+        });
+    });
+
     describe("syncSelectionToDomTarget", () => {
         it("moves the selection into an unselected cell", () => {
             setModelData(editor.model, modelTable([["1[]1", "12"], ["21", "22"]]));

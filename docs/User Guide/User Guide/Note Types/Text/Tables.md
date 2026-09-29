@@ -18,6 +18,7 @@ Since v0.106.0, right-clicking anywhere inside a table opens a context menu with
 *   _Insert row above_ and _Insert row below_ insert a blank row next to the row of the current cell. When the selection spans multiple rows, the same number of rows is inserted.
 *   _Insert column to the left_ and _Insert column to the right_ work the same way for columns.
 *   _Delete rows_ and _Delete columns_ remove every row or column the selection touches, even when only some of their cells are selected.
+*   _Delete table_ removes the whole table and leaves an empty paragraph in its place. In a table nested inside another, only the inner table is removed.
 *   _Distribute columns evenly_ splits the combined width of the columns the selection touches equally between them. The other columns and the width of the table stay as they are. It needs a selection spanning at least two columns; a merged cell counts for every column it covers.
 *   _Merge cells_ merges the selected cells into one. The selected cells must form a rectangle.
 *   _Split cells_ splits each selected cell in two, either _Vertically_ or _Horizontally_.

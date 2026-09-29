@@ -44,6 +44,7 @@ export default class TableContextMenu extends Plugin {
             new TableMultiInsertCommand(editor, "right"));
         editor.commands.add("triliumDistributeTableColumns",
             new DistributeTableColumnsCommand(editor));
+        editor.commands.add("triliumDeleteTable", new DeleteTableCommand(editor));
 
         const view = editor.editing.view;
         view.addObserver(MouseObserver);
@@ -146,6 +147,40 @@ export class TableMultiInsertCommand extends Command {
 
 }
 
+/**
+ * Deletes the table the selection is in, the innermost one when tables are nested. The table is
+ * replaced by an empty paragraph holding the caret, as when a selected table is deleted with the
+ * Delete key.
+ */
+export class DeleteTableCommand extends Command {
+
+    refresh() {
+        this.isEnabled = this.findTable() !== null;
+    }
+
+    execute() {
+        const table = this.findTable();
+        /* v8 ignore next 3 -- defensive: disabled whenever the selection is outside a table */
+        if (!table) {
+            return;
+        }
+
+        const model = this.editor.model;
+        model.change((writer) => {
+            const selection = writer.createSelection(table, "on");
+            model.deleteContent(selection);
+            writer.setSelection(selection);
+        });
+    }
+
+    private findTable(): ModelElement | null {
+        const tableUtils = this.editor.plugins.get(TableUtils);
+        const selection = this.editor.model.document.selection;
+        return tableUtils.getSelectionAffectedTableCells(selection)[0]?.findAncestor("table") ?? null;
+    }
+
+}
+
 /** The model `tableCell` whose rendered cell contains `domTarget`, or `null` when there is none. */
 function resolveModelCell(editor: Editor, domTarget: Node): ModelElement | null {
     const domElement = domTarget instanceof Element ? domTarget : domTarget.parentElement;
@@ -174,5 +209,6 @@ declare module "ckeditor5" {
         triliumInsertTableColumnsLeft: TableMultiInsertCommand;
         triliumInsertTableColumnsRight: TableMultiInsertCommand;
         triliumDistributeTableColumns: DistributeTableColumnsCommand;
+        triliumDeleteTable: DeleteTableCommand;
     }
 }

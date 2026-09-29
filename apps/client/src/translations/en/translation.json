@@ -3509,6 +3509,7 @@
     "insert_columns_right": "Insert column to the right",
     "delete_rows": "Delete rows",
     "delete_columns": "Delete columns",
+    "delete_table": "Delete table",
     "distribute_columns": "Distribute columns evenly",
     "merge_cells": "Merge cells",
     "split_cells": "Split cells",
