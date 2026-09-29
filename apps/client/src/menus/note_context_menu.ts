@@ -7,7 +7,7 @@ import options from "../services/options.js";
 import server from "../services/server.js";
 import utils from "../services/utils.js";
 import contextMenu, { type MenuItem } from "./context_menu.js";
-import { buildTableContextMenuItems } from "./table_context_menu.js";
+import { buildTableContextMenuItems, hasTableCellSelection } from "./table_context_menu.js";
 import { buildAiActionsMenuItem, getTextEditorAtSelection } from "./text_editor_context_menu.js";
 
 /** What the pointer was over when the menu was summoned. */
@@ -28,8 +28,8 @@ export interface ContextMenuTarget {
 
 /**
  * What the surrounding application can run on the menu's behalf. An optional member the host leaves
- * out drops the rows that depend on it: a page reaches neither the spell checker's state nor a
- * paste cheaper than Ctrl+V, so a browser host supplies neither.
+ * out drops the rows that depend on it: a page never reaches the spell checker's state, and reads
+ * the clipboard only in a secure context, so the browser host leaves out what it cannot serve.
  */
 export interface ContextMenuHost {
     spelling?: {
@@ -117,7 +117,6 @@ export async function buildNoteContextMenuItems(
     target: ContextMenuTarget,
     host: ContextMenuHost
 ): Promise<MenuItem<CommandNames>[]> {
-    const hasText = target.selectionText.trim().length > 0;
     const platformModifier = utils.isMac() ? "Meta" : "Ctrl";
     const items: MenuItem<CommandNames>[] = [];
 
@@ -126,6 +125,13 @@ export async function buildNoteContextMenuItems(
     // lands somewhere a completion could not be committed anyway (a read-only note, the tree).
     const aiActions = target.isEditable ? await buildAiActionsMenuItem() : null;
     const tableItems = target.isEditable ? await buildTableContextMenuItems(target.element) : null;
+
+    // Read after the table section is built, which moves the selection into the clicked cell.
+    // A cell selection supersedes `selectionText`: over one, Electron reports the hidden
+    // fake-selection label as the selected text, which no row should act on.
+    const hasCellSelection = tableItems !== null && await hasTableCellSelection(target.element);
+    const hasText = !hasCellSelection && target.selectionText.trim().length > 0;
+    const hasClipboardContent = hasText || hasCellSelection;
 
     if (host.spelling?.misspelledWord) {
         const { misspelledWord, suggestions, addToDictionary } = host.spelling;
@@ -158,7 +164,7 @@ export async function buildNoteContextMenuItems(
 
     if (target.isEditable) {
         items.push({
-            enabled: host.canCut && hasText,
+            enabled: host.canCut && hasClipboardContent,
             title: t("electron_context_menu.cut"),
             shortcut: `${platformModifier}+X`,
             uiIcon: "bx bx-cut",
@@ -168,7 +174,7 @@ export async function buildNoteContextMenuItems(
 
     if (target.isEditable || hasText) {
         items.push({
-            enabled: host.canCopy && hasText,
+            enabled: host.canCopy && hasClipboardContent,
             title: t("electron_context_menu.copy"),
             shortcut: `${platformModifier}+C`,
             uiIcon: "bx bx-copy",
@@ -176,7 +182,7 @@ export async function buildNoteContextMenuItems(
         });
 
         items.push({
-            enabled: hasText,
+            enabled: hasClipboardContent,
             title: t("electron_context_menu.copy-as-markdown"),
             uiIcon: "bx bx-copy-alt",
             handler: copySelectionAsMarkdown
@@ -284,7 +290,7 @@ export async function getSelectedHtmlForMarkdown(): Promise<string> {
 
 async function showBrowserContextMenu(x: number, y: number, target: ContextMenuTarget) {
     const editor = await getTextEditorAtSelection();
-    const items = await buildNoteContextMenuItems(target, browserHost(editor));
+    const items = await buildNoteContextMenuItems(target, browserHost(editor, target.element));
     if (!items.length) return;
 
     contextMenu.show({ x, y, items, selectMenuItemHandler: () => {} });
@@ -321,8 +327,14 @@ function acceptsTyping(element: HTMLElement | null) {
  * `editor` is what the selection sits in, when it sits in a text note at all — `null` in a code
  * note, which has a CodeMirror instead, and in a plain field.
  */
-function browserHost(editor: CKTextEditor | null): ContextMenuHost {
+function browserHost(
+    editor: CKTextEditor | null,
+    element: Element | null | undefined
+): ContextMenuHost {
+    const paste = browserPaste(editor, element);
+
     return {
+        ...(paste && { paste }),
         canCut: !editor?.isReadOnly,
         cut() {
             // A text note's editor is asked directly, so that the clipboard gets the clean
@@ -341,10 +353,79 @@ function browserHost(editor: CKTextEditor | null): ContextMenuHost {
     };
 }
 
+/**
+ * The paste rows for a page, present only where the async clipboard API can read: a secure
+ * context, with the user granting the read on first use. Over plain HTTP the browser exposes no
+ * way to read the clipboard, so the rows stay out and Ctrl+V remains the way to paste.
+ */
+function browserPaste(
+    editor: CKTextEditor | null,
+    element: Element | null | undefined
+): ContextMenuHost["paste"] {
+    if (!navigator.clipboard?.read) {
+        return undefined;
+    }
+
+    return {
+        // Whether the clipboard holds anything is unknowable without reading it, which prompts
+        // for permission, so the rows stay enabled and an empty clipboard pastes nothing.
+        enabled: true,
+        run: () => void pasteFromClipboard(editor, element, false),
+        runAsPlainText: () => void pasteFromClipboard(editor, element, true)
+    };
+}
+
+async function pasteFromClipboard(
+    editor: CKTextEditor | null,
+    element: Element | null | undefined,
+    asPlainText: boolean
+) {
+    try {
+        const { html, text } = await readClipboard();
+
+        // The editor's clipboard pipeline, so a paste lands the way a native one does — a table
+        // pasted into a multi-cell selection merges into it.
+        if (editor) {
+            editor.pasteContent(asPlainText ? "" : html, text);
+            return;
+        }
+
+        // A non-CKEditor editable (a code note's CodeMirror, a plain field) takes the text
+        // flavor as a typed insertion.
+        const editable = element?.closest<HTMLElement>("[contenteditable]");
+        if (editable && text) {
+            editable.focus();
+            document.execCommand("insertText", false, text);
+        }
+    } catch (error) {
+        console.warn("Failed to paste from the clipboard:", error);
+    }
+}
+
+/** The first `text/html` and `text/plain` flavors on the clipboard, empty when absent. */
+async function readClipboard(): Promise<{ html: string; text: string }> {
+    let html = "";
+    let text = "";
+
+    for (const item of await navigator.clipboard.read()) {
+        if (!html && item.types.includes("text/html")) {
+            html = await (await item.getType("text/html")).text();
+        }
+        if (!text && item.types.includes("text/plain")) {
+            text = await (await item.getType("text/plain")).text();
+        }
+    }
+
+    return { html, text };
+}
+
 /** Copies the selection as rich text, so that it pastes back into a note with its formatting. */
 async function copySelection() {
     const html = await getSelectedHtmlForMarkdown();
-    const plainText = window.getSelection()?.toString() ?? "";
+    // The editor's own plain-text flavor first: over a multi-cell table selection the DOM
+    // selection reads as the hidden fake-selection label, not as cell text.
+    const editor = await getTextEditorAtSelection();
+    const plainText = (editor?.getSelectedPlainText() || window.getSelection()?.toString()) ?? "";
     if (!html && !plainText) return;
 
     await copyHtml(html || utils.escapeHtml(plainText), plainText);
@@ -357,7 +438,9 @@ async function copySelectionAsMarkdown() {
     try {
         const { markdownContent } = await server.post<{ markdownContent: string }>(
             "other/to-markdown",
-            { htmlContent }
+            // The clipboard never reimports, so a headerless table (a copied subset of body
+            // cells) becomes a markdown table under a blank header instead of raw HTML.
+            { htmlContent, headerlessTables: "emptyHeader" }
         );
         copyTextWithToast(markdownContent);
     } catch (error) {

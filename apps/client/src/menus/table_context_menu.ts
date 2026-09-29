@@ -75,3 +75,20 @@ export function buildTableMenuItems(
         }
     ];
 }
+
+/**
+ * Whether the active text editor containing `element` holds a multi-cell table selection.
+ * A caret or a plain text range inside one cell is not one.
+ */
+export async function hasTableCellSelection(element: Element | null | undefined): Promise<boolean> {
+    if (!element) {
+        return false;
+    }
+
+    const editor = await getTextEditorContaining(element);
+    if (!editor?.plugins.has("TableSelection")) {
+        return false;
+    }
+
+    return editor.plugins.get("TableSelection").getSelectedTableCells() !== null;
+}

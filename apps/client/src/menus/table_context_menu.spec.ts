@@ -6,7 +6,11 @@ vi.mock("./text_editor_context_menu.js", () => ({ getTextEditorContaining: vi.fn
 import type { CKTextEditor } from "@triliumnext/ckeditor5";
 
 import type { MenuCommandItem, MenuItem } from "./context_menu.js";
-import { buildTableContextMenuItems, buildTableMenuItems } from "./table_context_menu.js";
+import {
+    buildTableContextMenuItems,
+    buildTableMenuItems,
+    hasTableCellSelection
+} from "./table_context_menu.js";
 import { getTextEditorContaining } from "./text_editor_context_menu.js";
 
 const SECTION_TITLES = [
@@ -116,6 +120,43 @@ describe("buildTableContextMenuItems", () => {
     it("returns null when no text editor contains the target", async () => {
         resolveEditor.mockResolvedValue(null);
         expect(await buildTableContextMenuItems(cellElement())).toBeNull();
+    });
+});
+
+describe("hasTableCellSelection", () => {
+    const resolveEditor = vi.mocked(getTextEditorContaining);
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it("reports the resolved editor's multi-cell selection", async () => {
+        let selected: unknown[] | null = [ {}, {} ];
+        resolveEditor.mockResolvedValue({
+            plugins: {
+                has: (name: string) => name === "TableSelection",
+                get: () => ({ getSelectedTableCells: () => selected })
+            }
+        } as unknown as CKTextEditor);
+
+        expect(await hasTableCellSelection(cellElement())).toBe(true);
+
+        // A caret or a plain text range inside one cell reports null.
+        selected = null;
+        expect(await hasTableCellSelection(cellElement())).toBe(false);
+    });
+
+    it("reports false without an element, an editor, or the plugin", async () => {
+        expect(await hasTableCellSelection(null)).toBe(false);
+        expect(resolveEditor).not.toHaveBeenCalled();
+
+        resolveEditor.mockResolvedValue(null);
+        expect(await hasTableCellSelection(cellElement())).toBe(false);
+
+        resolveEditor.mockResolvedValue(
+            { plugins: { has: () => false } } as unknown as CKTextEditor
+        );
+        expect(await hasTableCellSelection(cellElement())).toBe(false);
     });
 });
 

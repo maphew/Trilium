@@ -20,11 +20,14 @@ Since v0.106.0, right-clicking anywhere inside a table opens a context menu with
 *   _Delete rows_ and _Delete columns_ remove every row or column the selection touches, even when only some of their cells are selected.
 *   _Merge cells_ merges the selected cells into one. The selected cells must form a rectangle.
 *   _Split cells_ splits each selected cell in two, either _Vertically_ or _Horizontally_.
+*   _Cut_, _Copy_ and _Copy as Markdown_, below the table section, act on the selected cells:
+    *   Cutting or copying produces a smaller table holding just the selected cells. Pasting it over a cell selection replaces those cells; pasting elsewhere inserts it as a table of its own. Cutting clears the cells without removing rows or columns.
+    *   _Copy as Markdown_ converts the selected cells to a Markdown table. A selected header row becomes the Markdown header; without one, an empty header row is emitted, since Markdown tables require one.
 
 Right-clicking a cell that is not part of the current selection moves the cursor there first, so the menu always applies to the cell under the pointer.
 
 > [!NOTE]
-> In the browser, Trilium's menu replaces the browser's own context menu inside tables. To reach the browser's menu (for example for its spell checking suggestions), hold <kbd>Shift</kbd> while right-clicking. The desktop application is unaffected, since its menu already includes the spelling suggestions.
+> In the browser, Trilium's menu replaces the browser's own context menu inside tables. To reach the browser's menu (for example for its spell checking suggestions), hold <kbd>Shift</kbd> while right-clicking. The desktop application is unaffected, since its menu already includes the spelling suggestions. In the browser, the menu also offers _Paste_ only when the page can read the clipboard, which requires a secure (HTTPS) context and your permission; otherwise, paste with <kbd>Ctrl</kbd>+<kbd>V</kbd>.
 
 ## Navigating a table
 

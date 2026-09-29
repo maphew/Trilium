@@ -1,5 +1,6 @@
 import scissorsIcon from '../icons/scissors.svg?raw';
-import { ButtonView, HtmlDataProcessor, Plugin } from 'ckeditor5';
+import { ButtonView, HtmlDataProcessor, Plugin, plainTextToHtml, ViewDataTransfer, viewToPlainText } from 'ckeditor5';
+import type { ViewDocumentFragment } from 'ckeditor5';
 
 export default class CutToNotePlugin extends Plugin {
 
@@ -31,20 +32,62 @@ export default class CutToNotePlugin extends Plugin {
 		} );
 
 		this.editor.getSelectedHtml = () => this.getSelectedHtml();
+		this.editor.getSelectedPlainText = () => this.getSelectedPlainText();
+		this.editor.pasteContent = (html, text) => this.pasteContent(html, text);
 		this.editor.removeSelection = () => this.removeSelection();
 	}
 
 	getSelectedHtml() {
+		return this.htmlDataProcessor.toData(this.getSelectedViewFragment());
+	}
+
+	/**
+	 * Returns the selected content as plain text, through the same `viewToPlainText` the native
+	 * copy uses for the `text/plain` clipboard flavor.
+	 */
+	getSelectedPlainText() {
+		return viewToPlainText(this.editor.editing.view.domConverter, this.getSelectedViewFragment());
+	}
+
+	/**
+	 * Returns the selected content as a view fragment.
+	 *
+	 * A multi-cell table selection goes through `TableSelection#getSelectionAsFragment()`, the
+	 * same crop the native table copy uses, so it serializes as a table of just the selected
+	 * cells. The downcast runs through the clipboard pipeline so editor-only list bookkeeping
+	 * (data-list-item-id) is skipped, matching what a native copy produces.
+	 */
+	private getSelectedViewFragment(): ViewDocumentFragment {
 		const model = this.editor.model;
-		const document = model.document;
+		const tableFragment = this.editor.plugins.has("TableSelection")
+			? this.editor.plugins.get("TableSelection").getSelectionAsFragment()
+			: null;
 
-		// Downcast through the clipboard pipeline so editor-only list bookkeeping
-		// (data-list-item-id) is skipped, matching what a native copy produces.
-		const content = this.editor.data.toView(model.getSelectedContent(document.selection), {
-			isClipboardPipeline: true
+		return this.editor.data.toView(
+			tableFragment ?? model.getSelectedContent(model.document.selection),
+			{ isClipboardPipeline: true }
+		);
+	}
+
+	/**
+	 * Runs `html` (or `text` when `html` is empty) through the clipboard paste pipeline, as a
+	 * paste at the current selection. Pasting a table into a multi-cell table selection merges
+	 * it the way a native paste does.
+	 */
+	pasteContent(html: string, text: string) {
+		const content = html || (text ? plainTextToHtml(text) : "");
+		if (!content) {
+			return;
+		}
+
+		const view = this.editor.editing.view;
+		view.focus();
+		view.document.fire("clipboardInput", {
+			dataTransfer: new ViewDataTransfer(new DataTransfer()),
+			content,
+			method: "paste",
+			targetRanges: null
 		});
-
-		return this.htmlDataProcessor.toData(content);
 	}
 
 	async removeSelection() {

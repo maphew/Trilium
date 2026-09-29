@@ -35,6 +35,8 @@ window[Symbol.for("cke distribution")] = "trilium";
  */
 export type CKTextEditor = (ClassicEditor | PopupEditor) & {
     getSelectedHtml(): string;
+    getSelectedPlainText(): string;
+    pasteContent(html: string, text: string): void;
     removeSelection(): Promise<void>;
 };
 
@@ -72,6 +74,8 @@ export class PopupEditor extends BalloonEditor {
 declare module "ckeditor5" {
     interface Editor {
         getSelectedHtml(): string;
+        getSelectedPlainText(): string;
+        pasteContent(html: string, text: string): void;
         removeSelection(): Promise<void>;
     }
 

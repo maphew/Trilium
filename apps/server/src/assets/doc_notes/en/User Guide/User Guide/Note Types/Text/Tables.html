@@ -24,6 +24,18 @@ src="3_Tables_image.png" width="384" height="100">
   <li><em>Merge cells</em> merges the selected cells into one. The selected cells
     must form a rectangle.</li>
   <li><em>Split cells</em> splits each selected cell in two, either <em>Vertically</em> or <em>Horizontally</em>.</li>
+  <li><em>Cut</em>, <em>Copy</em> and <em>Copy as Markdown</em>, below the table
+    section, act on the selected cells:
+    <ul>
+      <li>Cutting or copying produces a smaller table holding just the selected
+        cells. Pasting it over a cell selection replaces those cells; pasting elsewhere
+        inserts it as a table of its own. Cutting clears the cells without removing
+        rows or columns.</li>
+      <li><em>Copy as Markdown</em> converts the selected cells to a Markdown table.
+        A selected header row becomes the Markdown header; without one, an empty
+        header row is emitted, since Markdown tables require one.</li>
+    </ul>
+  </li>
 </ul>
 <p>Right-clicking a cell that is not part of the current selection moves
   the cursor there first, so the menu always applies to the cell under the
@@ -32,7 +44,10 @@ src="3_Tables_image.png" width="384" height="100">
   <p>In the browser, Trilium's menu replaces the browser's own context menu
     inside tables. To reach the browser's menu (for example for its spell checking
     suggestions), hold <kbd>Shift</kbd> while right-clicking. The desktop application
-    is unaffected, since its menu already includes the spelling suggestions.</p>
+    is unaffected, since its menu already includes the spelling suggestions.
+    In the browser, the menu also offers <em>Paste</em> only when the page can
+    read the clipboard, which requires a secure (HTTPS) context and your permission;
+    otherwise, paste with <kbd>Ctrl</kbd>+<kbd>V</kbd>.</p>
 </aside>
 <h2>Navigating a table</h2>
 <ul>

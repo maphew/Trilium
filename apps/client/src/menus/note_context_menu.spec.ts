@@ -28,13 +28,14 @@ vi.mock("../services/utils.js", () => ({
 }));
 vi.mock("./context_menu.js", () => ({ default: { show: vi.fn() } }));
 vi.mock("./table_context_menu.js", () => ({
-    buildTableContextMenuItems: vi.fn(async () => null)
+    buildTableContextMenuItems: vi.fn(async () => null),
+    hasTableCellSelection: vi.fn(async () => false)
 }));
 
 import { copyHtml, copyTextWithToast } from "../services/clipboard_ext.js";
 import server from "../services/server.js";
 import contextMenu, { type MenuCommandItem, type MenuItem } from "./context_menu.js";
-import { buildTableContextMenuItems } from "./table_context_menu.js";
+import { buildTableContextMenuItems, hasTableCellSelection } from "./table_context_menu.js";
 import {
     buildNoteContextMenuItems,
     type ContextMenuHost,
@@ -46,10 +47,12 @@ import {
 const { tabManager } = h;
 
 /** Builds an editor whose editable DOM root is `domRoot` and selection HTML is `selectedHtml`. */
-function fakeEditor(domRoot: Node | null, selectedHtml: string) {
+function fakeEditor(domRoot: Node | null, selectedHtml: string, plainText = "") {
     return {
         editing: { view: { getDomRoot: () => domRoot } },
         getSelectedHtml: vi.fn(() => selectedHtml),
+        getSelectedPlainText: vi.fn(() => plainText),
+        pasteContent: vi.fn(),
         // Without the plugin the AI assistant row is skipped, keeping these tests off it.
         plugins: { has: () => false },
         isReadOnly: false,
@@ -247,9 +250,50 @@ describe("buildNoteContextMenuItems", () => {
         await run(items, "electron_context_menu.copy-as-markdown");
 
         expect(server.post).toHaveBeenCalledWith("other/to-markdown", {
-            htmlContent: "<h1>Hi</h1>"
+            htmlContent: "<h1>Hi</h1>",
+            headerlessTables: "emptyHeader"
         });
         expect(copyTextWithToast).toHaveBeenCalledWith("# Hi");
+    });
+
+    it("enables the clipboard rows over a cell selection with no selection text", async () => {
+        const cell = document.createElement("td");
+        vi.mocked(buildTableContextMenuItems).mockResolvedValue([
+            { title: "T1" }
+        ] as MenuItem<any>[]);
+
+        // No cell selection and no text: the rows show but stay disabled.
+        const disabled = await build({ isEditable: true, element: cell, selectionText: "" });
+        expect(findItem(disabled, "electron_context_menu.cut")?.enabled).toBe(false);
+        expect(findItem(disabled, "electron_context_menu.copy")?.enabled).toBe(false);
+        expect(findItem(disabled, "electron_context_menu.copy-as-markdown")?.enabled).toBe(false);
+
+        vi.mocked(hasTableCellSelection).mockResolvedValue(true);
+        const enabled = await build({ isEditable: true, element: cell, selectionText: "" });
+        expect(findItem(enabled, "electron_context_menu.cut")?.enabled).toBe(true);
+        expect(findItem(enabled, "electron_context_menu.copy")?.enabled).toBe(true);
+        expect(findItem(enabled, "electron_context_menu.copy-as-markdown")?.enabled).toBe(true);
+
+        vi.mocked(buildTableContextMenuItems).mockResolvedValue(null);
+        vi.mocked(hasTableCellSelection).mockResolvedValue(false);
+    });
+
+    it("ignores the fake-selection label Electron reports over a cell selection", async () => {
+        const cell = document.createElement("td");
+        vi.mocked(buildTableContextMenuItems).mockResolvedValueOnce([
+            { title: "T1" }
+        ] as MenuItem<any>[]);
+        vi.mocked(hasTableCellSelection).mockResolvedValueOnce(true);
+
+        const shown = titles(await build({
+            isEditable: true,
+            element: cell,
+            selectionText: "Selected 4 cells"
+        }));
+
+        expect(shown).not.toContain("electron_context_menu.search_online");
+        expect(shown).not.toContain("electron_context_menu.search_in_trilium");
+        expect(shown).toContain("electron_context_menu.copy");
     });
 });
 
@@ -439,6 +483,101 @@ describe("setupContextMenu (browser)", () => {
         expect(copyHtml).toHaveBeenCalledWith("<p>clean</p>", "clean");
         expect(editor.execute).toHaveBeenCalledWith("delete");
         expect(execCommand).not.toHaveBeenCalled();
+    });
+
+    it("copies the editor's plain-text flavor, not the DOM selection's fake label", async () => {
+        const editorRoot = codeEditable();
+        const anchor = document.createElement("span");
+        editorRoot.appendChild(anchor);
+        const editor = fakeEditor(editorRoot, "<table><tr><td>a1</td></tr></table>", "a1");
+        tabManager.activeNote = { type: "text" };
+        tabManager.activeContext = { getTextEditor: async () => editor };
+        setSelection(anchor, "", "Selected 1 cell");
+
+        await run(await menuFor(editorRoot), "electron_context_menu.copy");
+
+        expect(copyHtml).toHaveBeenCalledWith("<table><tr><td>a1</td></tr></table>", "a1");
+    });
+
+    it("offers paste in a secure context and routes it through the editor's pipeline", async () => {
+        const flavor = (type: string) => ({
+            text: async () => type === "text/html" ? "<b>hi</b>" : "hi"
+        });
+        Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: {
+                read: vi.fn(async () => [ {
+                    types: [ "text/html", "text/plain" ],
+                    getType: async (type: string) => flavor(type)
+                } ])
+            }
+        });
+
+        try {
+            const editorRoot = codeEditable();
+            const anchor = document.createElement("span");
+            editorRoot.appendChild(anchor);
+            const editor = fakeEditor(editorRoot, "<p>clean</p>");
+            tabManager.activeNote = { type: "text" };
+            tabManager.activeContext = { getTextEditor: async () => editor };
+            setSelection(anchor, "<p>clean</p>", "clean");
+
+            const rows = await menuFor(editorRoot);
+            expect(findItem(rows, "electron_context_menu.paste")?.enabled).toBe(true);
+
+            await run(rows, "electron_context_menu.paste");
+            await vi.waitFor(() =>
+                expect(editor.pasteContent).toHaveBeenCalledWith("<b>hi</b>", "hi"));
+
+            // Paste as plain text withholds the HTML flavor.
+            await run(rows, "electron_context_menu.paste-as-plain-text");
+            await vi.waitFor(() => expect(editor.pasteContent).toHaveBeenCalledWith("", "hi"));
+        } finally {
+            delete (navigator as { clipboard?: unknown }).clipboard;
+        }
+    });
+
+    it("pastes into a code note as a typed text insertion", async () => {
+        const execCommand = stubExecCommand();
+        Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: {
+                read: vi.fn(async () => [
+                    { types: [ "text/plain" ], getType: async () => ({ text: async () => "hi" }) }
+                ])
+            }
+        });
+
+        try {
+            const content = codeEditable();
+            tabManager.activeNote = { type: "code" };
+            setSelection(content, "<span>code</span>", "code");
+
+            await run(await menuFor(content), "electron_context_menu.paste");
+
+            await vi.waitFor(() =>
+                expect(execCommand).toHaveBeenCalledWith("insertText", false, "hi"));
+        } finally {
+            delete (navigator as { clipboard?: unknown }).clipboard;
+        }
+    });
+
+    it("drops the paste rows where the clipboard cannot be read", async () => {
+        // Plain HTTP, where the async clipboard API is undefined (#10723).
+        Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+
+        try {
+            const content = codeEditable();
+            tabManager.activeNote = { type: "code" };
+            setSelection(content, "<span>code</span>", "code");
+
+            const shown = titles(await menuFor(content));
+
+            expect(shown).not.toContain("electron_context_menu.paste");
+            expect(shown).not.toContain("electron_context_menu.paste-as-plain-text");
+        } finally {
+            delete (navigator as { clipboard?: unknown }).clipboard;
+        }
     });
 
     it("drops the cut row in a read-only code note", async () => {
