@@ -30,7 +30,10 @@ src="3_Tables_image.png" width="384" height="100">
     columns; a merged cell counts for every column it covers.</li>
   <li><em>Merge cells</em> merges the selected cells into one. The selected cells
     must form a rectangle.</li>
-  <li><em>Split cells</em> splits each selected cell in two, either <em>Vertically</em> or <em>Horizontally</em>.</li>
+  <li><em>Split cells</em> splits each selected cell in two, either <em>Vertically</em> or <em>Horizontally</em>. <em>Reset</em> turns
+    each merged cell in the selection back into the single cells it covers,
+    keeping its content in the top-left one; cells that are not merged stay
+    as they are.</li>
   <li><em>Cut</em>, <em>Copy</em> and <em>Copy as Markdown</em>, below the table
     section, act on the selected cells:
     <ul>
@@ -135,7 +138,8 @@ src="3_Tables_image.png" width="384" height="100">
     a cell into multiple cells (can also be used to undo a merge).</li>
 </ul>
 <p>Merging and splitting are also available by right-clicking the selected
-  cells, via the <a href="#context-menu">context menu</a>.</p>
+  cells, via the <a href="#context-menu">context menu</a>. To undo merges
+  entirely, use <em>Split cells</em> → <em>Reset</em> from the same menu.</p>
 <h2>Table properties</h2>
 <figure class="image image-style-align-right">
   <img style="aspect-ratio:312/311;" src="Tables_image.png" width="312"

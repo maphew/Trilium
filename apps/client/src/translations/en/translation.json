@@ -3514,7 +3514,8 @@
     "merge_cells": "Merge cells",
     "split_cells": "Split cells",
     "split_vertically": "Vertically",
-    "split_horizontally": "Horizontally"
+    "split_horizontally": "Horizontally",
+    "split_reset": "Reset"
   },
   "board_view": {
     "delete-note": "Delete note...",

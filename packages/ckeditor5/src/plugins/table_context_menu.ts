@@ -45,6 +45,7 @@ export default class TableContextMenu extends Plugin {
         editor.commands.add("triliumDistributeTableColumns",
             new DistributeTableColumnsCommand(editor));
         editor.commands.add("triliumDeleteTable", new DeleteTableCommand(editor));
+        editor.commands.add("triliumResetTableCellSpans", new ResetTableCellSpansCommand(editor));
 
         const view = editor.editing.view;
         view.addObserver(MouseObserver);
@@ -181,6 +182,58 @@ export class DeleteTableCommand extends Command {
 
 }
 
+/**
+ * Splits every merged cell touched by the selection back into single cells, the reverse of a
+ * merge. The content stays in the top-left cell; the others are created empty. Cells that are not
+ * merged are left alone.
+ */
+export class ResetTableCellSpansCommand extends Command {
+
+    refresh() {
+        this.isEnabled = this.findMergedCells().length > 0;
+    }
+
+    execute() {
+        const tableUtils = this.editor.plugins.get(TableUtils);
+        const mergedCells = this.findMergedCells();
+
+        // Splitting a cell into as many cells as it spans only redistributes the span, so the grid
+        // keeps its size and the other cells stay where they are.
+        this.editor.model.change(() => {
+            for (const cell of mergedCells) {
+                const colspan = getSpan(cell, "colspan");
+                const rowspan = getSpan(cell, "rowspan");
+                const rowCells = [cell];
+
+                if (colspan > 1) {
+                    tableUtils.splitCellVertically(cell, colspan);
+                    let next = cell.nextSibling;
+                    while (rowCells.length < colspan && next?.is("element", "tableCell")) {
+                        rowCells.push(next);
+                        next = next.nextSibling;
+                    }
+                }
+                if (rowspan > 1) {
+                    for (const rowCell of rowCells) {
+                        tableUtils.splitCellHorizontally(rowCell, rowspan);
+                    }
+                }
+            }
+        });
+    }
+
+    private findMergedCells(): ModelElement[] {
+        const tableUtils = this.editor.plugins.get(TableUtils);
+        return tableUtils.getSelectionAffectedTableCells(this.editor.model.document.selection)
+            .filter((cell) => getSpan(cell, "colspan") > 1 || getSpan(cell, "rowspan") > 1);
+    }
+
+}
+
+function getSpan(cell: ModelElement, attribute: "colspan" | "rowspan"): number {
+    return Number(cell.getAttribute(attribute) ?? 1);
+}
+
 /** The model `tableCell` whose rendered cell contains `domTarget`, or `null` when there is none. */
 function resolveModelCell(editor: Editor, domTarget: Node): ModelElement | null {
     const domElement = domTarget instanceof Element ? domTarget : domTarget.parentElement;
@@ -210,5 +263,6 @@ declare module "ckeditor5" {
         triliumInsertTableColumnsRight: TableMultiInsertCommand;
         triliumDistributeTableColumns: DistributeTableColumnsCommand;
         triliumDeleteTable: DeleteTableCommand;
+        triliumResetTableCellSpans: ResetTableCellSpansCommand;
     }
 }

@@ -3,6 +3,7 @@ import type { ClassicEditor, ModelElement } from "ckeditor5";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
+import { modelTable as spannedTable } from "../../test/table-kit.js";
 import TableContextMenu from "./table_context_menu.js";
 
 const INSERT_COMMANDS = [
@@ -139,6 +140,77 @@ describe("TableContextMenu", () => {
             editor.execute("triliumDeleteTable");
             editor.execute("undo");
             expect(tableData(editor)).toBe(modelTable([["11", "12"]]));
+        });
+    });
+
+    describe("reset cell spans", () => {
+        const COMMAND = "triliumResetTableCellSpans";
+
+        it("is enabled only when the selection holds a merged cell", () => {
+            setModelData(editor.model, "<paragraph>fo[]o</paragraph>");
+            expect(editor.commands.get(COMMAND)?.isEnabled).toBe(false);
+
+            setModelData(editor.model,
+                spannedTable([[{ contents: "a", colspan: 2 }], ["b", "c[]"]]));
+            expect(editor.commands.get(COMMAND)?.isEnabled).toBe(false);
+
+            selectCells(editor, [0, 0], [1, 1]);
+            expect(editor.commands.get(COMMAND)?.isEnabled).toBe(true);
+
+            setModelData(editor.model,
+                spannedTable([[{ contents: "a[]", rowspan: 2 }, "b"], ["c"]]));
+            expect(editor.commands.get(COMMAND)?.isEnabled).toBe(true);
+        });
+
+        it("splits a merged cell back into single cells, keeping its content in the first", () => {
+            setModelData(editor.model,
+                spannedTable([[{ contents: "a[]", colspan: 2 }], ["b", "c"]]));
+            editor.execute(COMMAND);
+            expect(tableData(editor)).toBe(modelTable([["a", ""], ["b", "c"]]));
+
+            setModelData(editor.model,
+                spannedTable([[{ contents: "a[]", rowspan: 2 }, "b"], ["c"]]));
+            editor.execute(COMMAND);
+            expect(tableData(editor)).toBe(modelTable([["a", "b"], ["", "c"]]));
+
+            setModelData(editor.model, spannedTable([
+                [{ contents: "a[]", colspan: 2, rowspan: 2 }, "b"],
+                ["c"],
+                ["d", "e", "f"]
+            ]));
+            editor.execute(COMMAND);
+            expect(tableData(editor))
+                .toBe(modelTable([["a", "", "b"], ["", "", "c"], ["d", "e", "f"]]));
+        });
+
+        it("resets every merged cell of a multi-cell selection and ignores the rest", () => {
+            setModelData(editor.model, spannedTable([
+                [{ contents: "a", colspan: 2 }, "b"],
+                ["c", "d", { contents: "e", rowspan: 2 }],
+                ["f", "g"]
+            ]));
+            selectCells(editor, [0, 0], [1, 2]);
+            editor.execute(COMMAND);
+
+            expect(tableData(editor)).toBe(modelTable([
+                ["a", "", "b"],
+                ["c", "d", "e"],
+                ["f", "g", ""]
+            ]));
+        });
+
+        it("undoes in one step", () => {
+            const merged = spannedTable([
+                [{ contents: "a", colspan: 2 }, { contents: "b", rowspan: 2 }],
+                ["c", "d"]
+            ]);
+            setModelData(editor.model, merged);
+            selectCells(editor, [0, 0], [1, 1]);
+
+            editor.execute(COMMAND);
+            editor.execute("undo");
+
+            expect(tableData(editor)).toBe(merged);
         });
     });
 

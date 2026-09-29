@@ -21,7 +21,7 @@ Since v0.106.0, right-clicking anywhere inside a table opens a context menu with
 *   _Delete table_ removes the whole table and leaves an empty paragraph in its place. In a table nested inside another, only the inner table is removed.
 *   _Distribute columns evenly_ splits the combined width of the columns the selection touches equally between them. The other columns and the width of the table stay as they are. It needs a selection spanning at least two columns; a merged cell counts for every column it covers.
 *   _Merge cells_ merges the selected cells into one. The selected cells must form a rectangle.
-*   _Split cells_ splits each selected cell in two, either _Vertically_ or _Horizontally_.
+*   _Split cells_ splits each selected cell in two, either _Vertically_ or _Horizontally_. _Reset_ turns each merged cell in the selection back into the single cells it covers, keeping its content in the top-left one; cells that are not merged stay as they are.
 *   _Cut_, _Copy_ and _Copy as Markdown_, below the table section, act on the selected cells:
     *   Cutting or copying produces a smaller table holding just the selected cells. Pasting it over a cell selection replaces those cells; pasting elsewhere inserts it as a table of its own. Cutting clears the cells without removing rows or columns.
     *   _Copy as Markdown_ converts the selected cells to a Markdown table. A selected header row becomes the Markdown header; without one, an empty header row is emitted, since Markdown tables require one.
@@ -79,7 +79,7 @@ More options are available by pressing the arrow next to it:
 *   Click on a single cell and select Merge cell up/down/right/left to merge with an adjacent cell.
 *   Select _Split cell vertically_ or _horizontally_, to split a cell into multiple cells (can also be used to undo a merge).
 
-Merging and splitting are also available by right-clicking the selected cells, via the [context menu](#context-menu).
+Merging and splitting are also available by right-clicking the selected cells, via the [context menu](#context-menu). To undo merges entirely, use _Split cells_ → _Reset_ from the same menu.
 
 ## Table properties
 

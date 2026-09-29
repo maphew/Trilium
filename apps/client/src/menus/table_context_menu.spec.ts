@@ -43,7 +43,8 @@ describe("buildTableMenuItems", () => {
         const submenu = findItem(items, "table_context_menu.split_cells")?.items ?? [];
         expect(titles(submenu)).toEqual([
             "table_context_menu.split_vertically",
-            "table_context_menu.split_horizontally"
+            "table_context_menu.split_horizontally",
+            "table_context_menu.split_reset"
         ]);
     });
 
@@ -57,6 +58,7 @@ describe("buildTableMenuItems", () => {
         }
         run(submenu, "table_context_menu.split_vertically");
         run(submenu, "table_context_menu.split_horizontally");
+        run(submenu, "table_context_menu.split_reset");
 
         expect(executed).toEqual([
             "triliumInsertTableRowsAbove",
@@ -69,7 +71,8 @@ describe("buildTableMenuItems", () => {
             "triliumDistributeTableColumns",
             "mergeTableCells",
             "splitTableCellVertically",
-            "splitTableCellHorizontally"
+            "splitTableCellHorizontally",
+            "triliumResetTableCellSpans"
         ]);
         expect(focus).toHaveBeenCalledTimes(executed.length);
     });
@@ -91,16 +94,23 @@ describe("buildTableMenuItems", () => {
         expect(findItem(items, "table_context_menu.insert_rows_above")?.enabled).toBe(true);
     });
 
-    it("enables the split submenu while either split direction is enabled", () => {
+    it("enables the split submenu while any of its rows is enabled", () => {
+        const SPLIT_COMMANDS = [
+            "splitTableCellVertically",
+            "splitTableCellHorizontally",
+            "triliumResetTableCellSpans"
+        ];
         const splitRow = (disabled: string[]) => {
             const { editor } = stubEditor(disabled);
             const items = buildTableMenuItems(editor, cellElement()) ?? [];
             return findItem(items, "table_context_menu.split_cells")?.enabled;
         };
 
-        expect(splitRow(["splitTableCellVertically"])).toBe(true);
-        expect(splitRow(["splitTableCellHorizontally"])).toBe(true);
-        expect(splitRow(["splitTableCellVertically", "splitTableCellHorizontally"])).toBe(false);
+        for (const enabled of SPLIT_COMMANDS) {
+            const disabled = SPLIT_COMMANDS.filter((command) => command !== enabled);
+            expect(splitRow(disabled), enabled).toBe(true);
+        }
+        expect(splitRow(SPLIT_COMMANDS)).toBe(false);
     });
 
     it("returns null without the plugin or a table cell at the target", () => {

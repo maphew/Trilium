@@ -47,6 +47,15 @@ export function buildTableMenuItems(
         }
     });
 
+    const splitItems = [
+        commandItem(t("table_context_menu.split_vertically"), "bx bx-empty",
+            "splitTableCellVertically"),
+        commandItem(t("table_context_menu.split_horizontally"), "bx bx-empty",
+            "splitTableCellHorizontally"),
+        commandItem(t("table_context_menu.split_reset"), "bx bx-reset",
+            "triliumResetTableCellSpans")
+    ];
+
     return [
         commandItem(t("table_context_menu.insert_rows_above"),
             "bx bx-horizontal-left bx-rotate-90", "triliumInsertTableRowsAbove"),
@@ -69,14 +78,8 @@ export function buildTableMenuItems(
         {
             title: t("table_context_menu.split_cells"),
             uiIcon: "bx bx-border-inner",
-            enabled: editor.commands.get("splitTableCellVertically")?.isEnabled === true
-                || editor.commands.get("splitTableCellHorizontally")?.isEnabled === true,
-            items: [
-                commandItem(t("table_context_menu.split_vertically"), "bx bx-empty",
-                    "splitTableCellVertically"),
-                commandItem(t("table_context_menu.split_horizontally"), "bx bx-empty",
-                    "splitTableCellHorizontally")
-            ]
+            enabled: splitItems.some((item) => item.enabled),
+            items: splitItems
         }
     ];
 }
