@@ -2581,7 +2581,7 @@ describe("Board column rename", () => {
 
         // Once the menu is done with, the field has the focus again.
         await act(async () => {
-            $(pill.closest(".dropdown") as HTMLElement).trigger("hide.bs.dropdown");
+            $(pill.closest(".dropdown") as HTMLElement).children("button[aria-expanded=true]").trigger("click");
             await flush();
         });
         expect(document.activeElement).toBe(editor);

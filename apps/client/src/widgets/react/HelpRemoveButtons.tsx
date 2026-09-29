@@ -13,6 +13,7 @@ export default function HelpRemoveButtons({ help, removeText, onRemove }: HelpRe
         <td className="button-column">
             {help && <>
                 <Dropdown
+                    panel
                     className="help-dropdown"
                     buttonClassName="bx bx-help-circle icon-action"
                     hideToggleArrow

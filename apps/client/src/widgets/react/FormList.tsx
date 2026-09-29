@@ -143,7 +143,7 @@ export interface FormListItemOpts {
      */
     checkable?: boolean;
     /**
-     * Inside a menu, whether running the row closes the menu before its {@link onClick} runs. It
+     * Inside a menu, whether running the row closes the menu after its {@link onClick} runs. It
      * does unless this is `false`, for a caller that decides for itself, as `contextMenu` does.
      */
     closeOnSelect?: boolean;
@@ -178,12 +178,21 @@ export function FormListItem({ className, icon, iconClassName, value, title, act
     const isActive = menu?.active?.id === id;
 
     /**
+     * Runs the row, then closes the menu it stands in, as Bootstrap's dropdowns did, unless
+     * {@link closeOnSelect} is `false` or the row's handler stopped the click: a row that stays up
+     * to be worked again, such as a toggle, stops it.
+     */
+    function run(e: MouseEvent) {
+        onClick?.(e);
+        if (closeOnSelect !== false && !e.cancelBubble) menu?.close();
+    }
+
+    /**
      * Runs the row for the keys, as a click would, with the modifiers of the key that ran it, so
      * Ctrl+Enter does what a Ctrl+click does.
      */
     function select(e: MouseEvent | KeyboardEvent) {
-        if (closeOnSelect !== false) menu?.close();
-        onClick?.(new MouseEvent("click", { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey }));
+        run(new MouseEvent("click", { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey }));
     }
 
     function onPointed(e: { currentTarget: HTMLLIElement }) {
@@ -234,9 +243,7 @@ export function FormListItem({ className, icon, iconClassName, value, title, act
             }}
             // The row runs on the release, so a press can still be taken back by moving off.
             onClick={(e) => {
-                if (disabled) return;
-                if (closeOnSelect !== false) menu?.close();
-                onClick?.(e);
+                if (!disabled) run(e);
             }}
             data-trigger-command={triggerCommand}
             dir={rtl ? "rtl" : undefined}

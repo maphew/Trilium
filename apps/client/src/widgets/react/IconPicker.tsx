@@ -170,6 +170,7 @@ function IconPickerDropdownButton({
 
     return (
         <Dropdown
+            panel
             // The legacy class dresses the menu the picker sits in, which the themes and the
             // picker's own stylesheet reach through it.
             className={clsx("note-icon-widget", className)}

@@ -33,6 +33,7 @@ interface HelpDropdownProps {
 export default function HelpDropdown({ children, helpPage, openInPopup, className, onShown }: HelpDropdownProps) {
     return (
         <Dropdown
+            panel
             onShown={onShown}
             className={`help-dropdown ${className ?? ""}`}
             buttonClassName="bx bx-help-circle"

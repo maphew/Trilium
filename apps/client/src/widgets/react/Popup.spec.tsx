@@ -83,6 +83,17 @@ describe("Popup", () => {
         expect(onPlaced).toHaveBeenCalledTimes(1);
     });
 
+    it("says nothing of a placement that settles once it has closed", async () => {
+        anchorAt(100, 50);
+        const onPlaced = vi.fn();
+        render(<Popup anchor={anchor} onPlaced={onPlaced}>content</Popup>, host);
+        // Closed before the placement it started has settled, as a row picked at once closes a menu.
+        render(null, host);
+
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(onPlaced).not.toHaveBeenCalled();
+    });
+
     it("opens at a point, as a menu opened where a right-click landed does", async () => {
         const popup = await open({ anchor: { x: 300, y: 200 }, placement: "right-start" });
 

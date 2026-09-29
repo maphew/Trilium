@@ -8,6 +8,7 @@ import { MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, u
 import { isMobile } from "../../services/utils";
 import { useTooltip, useUniqueName } from "./hooks";
 import { suspendModalFocusTraps } from "./modal_focustrap";
+import Menu from "./Menu";
 import Popup from "./Popup";
 
 type DataAttributes = {
@@ -86,6 +87,12 @@ export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "c
      * {@link portalToBody} for that, and does nothing without it.
      */
     backdrop?: boolean;
+    /**
+     * Holds something other than a menu's rows, such as a picker or a form, which stands in a
+     * plain popup: a menu would take the keys its fields need, and tell assistive technology it is
+     * a menu.
+     */
+    panel?: boolean;
 }
 
 /** Opens and closes a dropdown from outside it, for a caller that decides when. */
@@ -98,7 +105,7 @@ export interface DropdownHandle {
 /** The gap, in pixels, between the toggle and its popup, as Bootstrap's dropdowns kept. */
 const TOGGLE_GAP = 2;
 
-export default function Dropdown({ id, className, buttonClassName, isStatic, children, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, noDropdownListStyle, forceShown, onShown, onHidden, dropdownOptions, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop: mobileBackdropProp, mobileBottomSheet, backdrop }: DropdownProps) {
+export default function Dropdown({ id, className, buttonClassName, isStatic, children, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, noDropdownListStyle, forceShown, onShown, onHidden, dropdownOptions, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop: mobileBackdropProp, mobileBottomSheet, backdrop, panel }: DropdownProps) {
     // The sheet is placed by the app's own rule and dims what is behind it, so it is asked for as
     // one thing and unpacked here.
     const bottomSheet = !!mobileBottomSheet && isMobile();
@@ -107,8 +114,9 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
     const triggerRef = useRef<HTMLButtonElement | null>(null);
     const popupRef = useRef<HTMLDivElement | null>(null);
     const [ shown, setShown ] = useState(!!forceShown && !disabled);
-    /** The item to focus once the popup shows, for a popup a key on the toggle opened. */
+    /** The item to start at once the popup shows, for a popup a key on the toggle opened. */
     const pendingFocus = useRef<"first" | "last">();
+    const [ startAt, setStartAt ] = useState<"first" | "last">();
     // As Bootstrap's `autoClose`: `true` closes on a click inside and a press outside, "inside" and
     // "outside" on that one alone, `false` on neither. Escape closes it whatever this says.
     const autoClose = dropdownOptions?.autoClose ?? true;
@@ -137,6 +145,10 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
     const setOpen = useCallback((open: boolean) => {
         if (shownRef.current === open) return;
         shownRef.current = open;
+        // Focus that the popup holds goes back to the toggle, as a native menu button's does; a
+        // command that moved it elsewhere keeps it there.
+        if (!open && popupRef.current?.contains(document.activeElement)) triggerRef.current?.focus();
+        if (!open) setStartAt(undefined);
         setShown(open);
         if (open) {
             callbacks.current.hideTooltip();
@@ -184,10 +196,11 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
         return suspendModalFocusTraps();
     }, [ shown ]);
 
-    // Up and Down move between the items, as Bootstrap's did. Captured at the window, so its
-    // handler for keys in a `.dropdown-menu`, which finds no toggle beside a popup, never sees them.
+    // In a panel, Up and Down move between its items, as Bootstrap's did; a menu has its own keys.
+    // Captured at the window, so Bootstrap's handler for keys in a `.dropdown-menu`, which finds
+    // no toggle beside a popup, never sees them.
     useEffect(() => {
-        if (!shown) return;
+        if (!shown || !panel) return;
         const onKeyDown = (e: KeyboardEvent) => {
             const popup = popupRef.current;
             const target = e.target as Element;
@@ -199,10 +212,19 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
         };
         window.addEventListener("keydown", onKeyDown, true);
         return () => window.removeEventListener("keydown", onKeyDown, true);
-    }, [ shown ]);
+    }, [ shown, panel ]);
 
     const ariaId = useUniqueName("button");
     const toggleId = id ?? ariaId;
+
+    /** Closes it on a click inside, as Bootstrap's `autoClose` did, for content that is no row of a menu. */
+    function closeOnClickInside(e: MouseEvent) {
+        if (autoClose === "outside" || autoClose === false) return;
+        const target = e.target as Element;
+        // Neither the menu's own padding nor a field in it closes it.
+        if (target === e.currentTarget || /input|select|option|textarea|form/i.test(target.tagName)) return;
+        setOpen(false);
+    }
 
     return (
         // `title` stands in only for the moment before the tooltip is wired: Bootstrap moves the
@@ -219,7 +241,7 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
                 )}
                 ref={triggerRef}
                 type="button"
-                aria-haspopup="true"
+                aria-haspopup={panel ? "true" : "menu"}
                 aria-expanded={shown}
                 id={toggleId}
                 disabled={disabled}
@@ -233,10 +255,11 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
                     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
                     e.preventDefault();
                     const edge = e.key === "ArrowDown" ? "first" : "last";
-                    if (shown && popupRef.current) {
-                        focusItem(popupRef.current, edge);
+                    if (shown) {
+                        if (panel && popupRef.current) focusItem(popupRef.current, edge);
                     } else {
                         pendingFocus.current = edge;
+                        setStartAt(edge);
                         setOpen(true);
                     }
                 }}
@@ -245,7 +268,32 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
                 <span className="caret" />
             </button>
 
-            {shown && triggerRef.current && (
+            {shown && triggerRef.current && !panel && (
+                <Menu
+                    anchor={triggerRef.current}
+                    placement={placement}
+                    offset={TOGGLE_GAP}
+                    bottomSheet={bottomSheet}
+                    startAt={startAt}
+                    elementRef={popupRef}
+                    isWanted={() => shownRef.current}
+                    // In a wrapper with the dropdown's classes, so CSS scoped under them still
+                    // applies to the menu in the page's body.
+                    portalClassName={clsx("tn-dropdown-portal", className)}
+                    backdropClassName={backdrop ? "tn-dropdown-backdrop" : undefined}
+                    className={clsx("tn-dropdown-menu", isStatic && "static", dropdownContainerClassName)}
+                    style={dropdownContainerStyle}
+                    aria-labelledby={toggleId}
+                    onClick={closeOnClickInside}
+                    onDismiss={() => {
+                        if (autoClose !== "inside" && autoClose !== false) setOpen(false);
+                    }}
+                    onClose={() => setOpen(false)}
+                >
+                    {children}
+                </Menu>
+            )}
+            {shown && triggerRef.current && panel && (
                 <Popup
                     anchor={triggerRef.current}
                     placement={placement}
@@ -270,17 +318,10 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
                         pendingFocus.current = undefined;
                         if (edge && popupRef.current) focusItem(popupRef.current, edge);
                     }}
-                    onClick={(e) => {
-                        if (autoClose === "outside" || autoClose === false) return;
-                        const target = e.target as Element;
-                        // Neither the menu's own padding nor a field in it closes it, as in Bootstrap's.
-                        if (target === e.currentTarget || /input|select|option|textarea|form/i.test(target.tagName)) return;
-                        setOpen(false);
-                    }}
+                    onClick={closeOnClickInside}
                     onDismiss={(reason) => {
                         if (reason === "outside" && (autoClose === "inside" || autoClose === false)) return;
                         setOpen(false);
-                        if (reason === "escape") triggerRef.current?.focus();
                     }}
                 >
                     {children}

@@ -113,7 +113,7 @@ describe("Menu with declared rows", () => {
         expect(calls).toEqual([]);
     });
 
-    it("closes the menu before running a row, but not for a row that opens a submenu or is disabled", async () => {
+    it("closes the menu after running a row, but not for a row that opens a submenu or is disabled", async () => {
         const { menu, calls } = renderMenu();
 
         press(rowTitled("Delete"));
@@ -121,8 +121,9 @@ describe("Menu with declared rows", () => {
         await vi.waitFor(() => expect(layers(menu)).toHaveLength(1));
         expect(calls).toEqual([]);
 
+        // The row runs first, as in Bootstrap's dropdowns, so a row that stops its click stays up.
         press(rowTitled("Show log"));
-        expect(calls).toEqual([ "close", "log" ]);
+        expect(calls).toEqual([ "log", "close" ]);
     });
 
     it("walks the rows as they are drawn, into a declared submenu and back, skipping what cannot run", async () => {
@@ -148,6 +149,6 @@ describe("Menu with declared rows", () => {
         key(menu, "ArrowRight");
         await vi.waitFor(() => expect(active()).toBe("Show log"));
         key(menu, "Enter");
-        expect(calls).toEqual([ "close", "log" ]);
+        expect(calls).toEqual([ "log", "close" ]);
     });
 });

@@ -186,7 +186,8 @@ describe("BoardGroupBy", () => {
             "Status", "Priority", "promoted_attributes.create_attribute"
         ]);
         // Set apart from the groupings above it: the entry makes one rather than picking one.
-        const menu = [ ...(document.querySelector(".dropdown-menu")?.children ?? []) ];
+        // The rows scroll inside the menu, in its `.tn-menu-scroll`.
+        const menu = [ ...(document.querySelector(".dropdown-menu > .tn-menu-scroll")?.children ?? []) ];
         const divider = menu.findIndex(child => child.classList.contains("dropdown-divider"));
         const create = menu.findIndex(child => child.classList.contains("board-group-by-create"));
         expect(divider).toBeGreaterThan(0);

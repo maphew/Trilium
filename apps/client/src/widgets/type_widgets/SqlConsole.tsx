@@ -157,7 +157,7 @@ export function SqlTableSchemas({ note }: TypeWidgetProps) {
 
                     <span class="sql-table-schemas">
                         {schemas.map(({ name, columns }) => (
-                            <Dropdown key={name} text={name} noSelectButtonStyle hideToggleArrow>
+                            <Dropdown key={name} text={name} noSelectButtonStyle hideToggleArrow panel>
                                 <table className="table-schema">
                                     {columns.map(column => (
                                         <tr key={column.name}>

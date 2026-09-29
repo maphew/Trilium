@@ -20,7 +20,7 @@ import Popup, { type PopupProps } from "./Popup";
  * `FormDropdownSubmenu`, `FormDropdownDivider`, `FormListHeader` and `FormListCustomItem`.
  */
 export interface MenuProps<T> extends Pick<PopupProps, "anchor" | "offset" | "container" | "portalClassName"
-        | "backdropClassName" | "style" | "aria-labelledby"> {
+        | "backdropClassName" | "style" | "onClick" | "elementRef" | "aria-labelledby"> {
     id?: string;
     className?: string;
     /** The side of its anchor it prefers: beside a point towards the right, or below an element. */
@@ -34,6 +34,11 @@ export interface MenuProps<T> extends Pick<PopupProps, "anchor" | "offset" | "co
     startAt?: "first" | "last";
     /** Called on a press outside the menu and its anchor. It answers Escape itself, with {@link onClose}. */
     onDismiss?(): void;
+    /**
+     * Whether its owner still wants it, asked as it is first placed, which can come after the owner
+     * closed it: a menu no longer wanted leaves focus where it is.
+     */
+    isWanted?(): boolean;
     items?: MenuItem<T>[];
     /** Called when one of {@link items} is pressed with the primary button, or run from the keyboard. */
     onSelect?(item: MenuCommandItem<T>, e: MouseEvent | KeyboardEvent): void;
@@ -49,14 +54,16 @@ const KEYS_LEAVING_CUSTOM_ROW = new Set([ "ArrowUp", "ArrowDown", "Escape", "Tab
 /** How long typed letters keep adding to the text a row is looked up by. */
 const TYPEAHEAD_TIMEOUT = 500;
 
-export default function Menu<T>({ id, className, anchor, placement, bottomSheet, startAt, items, onSelect, children, onClose, onDismiss, ...popupProps }: MenuProps<T>) {
+export default function Menu<T>({ id, className, anchor, placement, bottomSheet, startAt, items, onSelect, children, onClose, onDismiss, isWanted, elementRef, ...popupProps }: MenuProps<T>) {
     const menuRef = useRef<HTMLDivElement | null>(null);
     // The submenus' layers render into the menu element, which rows reach through the context.
     const [ layerHost, setLayerHost ] = useState<HTMLElement | null>(null);
     const setMenuElement = useCallback((element: HTMLDivElement | null) => {
         menuRef.current = element;
         setLayerHost(element);
-    }, []);
+        if (typeof elementRef === "function") elementRef(element);
+        else if (elementRef) elementRef.current = element;
+    }, [ elementRef ]);
     const [ open, setOpen ] = useState<OpenSubmenu[]>([]);
 
     const openSubmenu = useCallback((level: number, rowId?: string, anchor?: HTMLElement, chosen = false) => {
@@ -74,6 +81,12 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
     const typeahead = useRef({ text: "", timeout: 0 });
     /** Whether the keys moved the menu since the pointer last did. See `Menu.css`. */
     const [ keyboardDriven, setKeyboardDriven ] = useState(false);
+    /** Whether the menu has asked to close, which it does once. */
+    const closed = useRef(false);
+    const close = useCallback(() => {
+        closed.current = true;
+        onClose();
+    }, [ onClose ]);
 
     const setActive = useCallback((level: number, rowId: string) => {
         setActiveRow({ level, id: rowId });
@@ -95,7 +108,7 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
         });
     }, [ rows ]);
     const context: MenuContextValue = {
-        open, openSubmenu, active, setActive, rows, registerRow, keyboardDriven, close: onClose, layerHost
+        open, openSubmenu, active, setActive, rows, registerRow, keyboardDriven, close, layerHost
     };
 
     /** The ids of the rows the keys can stand on at `level`, in the order they stand in. */
@@ -216,7 +229,7 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
             case "Escape":
                 // One level at a time, then the menu itself.
                 if (open.length) closeLevel(open.length);
-                else onClose();
+                else close();
                 break;
             // Focus stays in the menu until it closes.
             case "Tab": break;
@@ -246,6 +259,8 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
     // browser does not focus an element under `visibility: hidden`, so the menu takes focus only
     // once it is shown.
     function takeFocus() {
+        // A menu already closing, as one whose row ran before it was placed, leaves focus alone.
+        if (closed.current || isWanted?.() === false) return;
         menuRef.current?.focus({ preventScroll: true });
         if (!startAt) return;
         const rowIds = navigableRows(0);

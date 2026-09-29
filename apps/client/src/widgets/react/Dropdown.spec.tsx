@@ -3,6 +3,7 @@ import { useRef } from "preact/hooks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import Dropdown, { type DropdownHandle, type DropdownProps } from "./Dropdown";
+import { FormDropdownSubmenu, FormListItem } from "./FormList";
 
 // A dialog's focus trap would pull focus out of a menu portaled over it.
 const focusTraps = vi.hoisted(() => ({ suspend: vi.fn(() => () => {}) }));
@@ -66,8 +67,10 @@ describe("Dropdown", () => {
         click(toggle);
         await vi.waitFor(() => expect(popup()?.style.visibility).toBe("visible"));
         const opened = popup();
-        expect([ ...opened?.classList ?? [] ]).toEqual([ "tn-popup", "dropdown-menu", "show", "tn-dropdown-menu", "sort-menu", "tn-dropdown-list" ]);
-        expect(opened?.textContent).toBe("By title");
+        // A menu, which lays its rows out in a scroller of its own.
+        expect([ ...opened?.classList ?? [] ]).toEqual([ "tn-popup", "dropdown-menu", "show", "tn-menu", "tn-dropdown-menu", "sort-menu" ]);
+        expect(opened?.getAttribute("role")).toBe("menu");
+        expect(opened?.querySelector(":scope > .tn-menu-scroll")?.textContent).toBe("By title");
         // In the page's body, in a wrapper with the dropdown's class, so CSS scoped under it applies.
         expect(opened?.parentElement?.className).toBe("tn-dropdown-portal sort-dropdown");
         expect(opened?.getAttribute("aria-labelledby")).toBe(toggle.id);
@@ -92,9 +95,9 @@ describe("Dropdown", () => {
         document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
         await vi.waitFor(() => expect(popup()).toBeNull());
 
+        // The menu takes focus as it shows, and gives it back to the toggle as Escape closes it.
         click(toggle);
-        await vi.waitFor(() => expect(popup()).not.toBeNull());
-        document.body.focus();
+        await vi.waitFor(() => expect(document.activeElement).toBe(popup()));
         popup()?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
         await vi.waitFor(() => expect(popup()).toBeNull());
         expect(document.activeElement).toBe(toggle);
@@ -176,7 +179,8 @@ describe("Dropdown", () => {
         it("moves focus over the items with Up and Down, keeping them from Bootstrap, and opens from the toggle", async () => {
             const bootstrapHeard = vi.fn();
             document.addEventListener("keydown", bootstrapHeard, true);
-            const { toggle } = renderDropdown({}, items);
+            // A panel, whose items are no rows of a menu, moves focus over them as Bootstrap's did.
+            const { toggle } = renderDropdown({ panel: true }, items);
             const key = (target: Element, name: string) =>
                 target.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
 
@@ -218,6 +222,52 @@ describe("Dropdown", () => {
             click(toggle);
             await vi.waitFor(() => expect(popup()).toBeNull());
             expect(restore).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe("as a menu", () => {
+        it("caps its height to the room below its toggle, its rows scrolling inside, as the context menu does", async () => {
+            vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(1000);
+            const { toggle } = renderDropdown();
+
+            click(toggle);
+            await vi.waitFor(() => expect(popup()?.style.visibility).toBe("visible"));
+            // Below the toggle's bottom (80) and its 2px gap, less the 5px kept from the viewport's edge.
+            expect(popup()?.style.maxHeight).toBe(`${800 - 82 - 5}px`);
+            expect(popup()?.querySelector(":scope > .tn-menu-scroll")).not.toBeNull();
+        });
+
+        it("closes on a row's click, but not on one the row stopped, as a toggle does to stay up", async () => {
+            const picked: string[] = [];
+            const { toggle } = renderDropdown({}, <>
+                <FormListItem onClick={(e) => { picked.push("wrap"); e.stopPropagation(); }}>Wrap lines</FormListItem>
+                <FormListItem onClick={() => picked.push("title")}>By title</FormListItem>
+            </>);
+            const row = (title: string) => [ ...document.querySelectorAll<HTMLElement>(".tn-popup li.dropdown-item") ]
+                .find((item) => item.textContent === title);
+
+            click(toggle);
+            await vi.waitFor(() => expect(row("Wrap lines")).toBeTruthy());
+            row("Wrap lines")?.click();
+            expect(popup()).not.toBeNull();
+
+            row("By title")?.click();
+            await vi.waitFor(() => expect(popup()).toBeNull());
+            expect(picked).toEqual([ "wrap", "title" ]);
+        });
+
+        it("opens a nested submenu as a layer of its own, beside the scroller rather than in it", async () => {
+            const { toggle } = renderDropdown({}, (
+                <FormDropdownSubmenu icon="bx bx-chip" title="Advanced">
+                    <FormListItem>Show log</FormListItem>
+                </FormDropdownSubmenu>
+            ));
+
+            click(toggle);
+            await vi.waitFor(() => expect(popup()?.querySelector("li.dropdown-submenu")).not.toBeNull());
+            popup()?.querySelector("li.dropdown-submenu")?.dispatchEvent(new PointerEvent("pointerenter"));
+            await vi.waitFor(() => expect(popup()?.querySelector(":scope > div.dropdown-submenu > .dropdown-menu")?.textContent)
+                .toBe("Show log"));
         });
     });
 

@@ -336,6 +336,7 @@ export function MaximizeToQuickEditAction({ note, onClose }: { note: FNote; onCl
 export function NoteColorAction({ note, title }: { note: FNote; title: string }) {
     return (
         <Dropdown
+            panel
             className="tn-embedded-note-color"
             buttonClassName="bx bx-palette"
             title={title}

@@ -57,6 +57,7 @@ export function LaunchBarDropdownButton({ children, icon, dropdownOptions, launc
 
     return (
         <Dropdown
+            panel
             className="right-dropdown-widget"
             buttonClassName="right-dropdown-button launcher-button"
             hideToggleArrow

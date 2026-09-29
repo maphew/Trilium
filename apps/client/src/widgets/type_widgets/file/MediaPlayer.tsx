@@ -589,6 +589,7 @@ export function useMediaPlayMode(noteContext: NoteContext | undefined, mediaRef:
 export function PlayModeButton({ mode, onSelectMode }: { mode: MediaPlayMode, onSelectMode: (mode: MediaPlayMode) => void }) {
     return (
         <Dropdown
+            panel
             iconAction
             hideToggleArrow
             className="play-mode-dropdown"
@@ -637,6 +638,7 @@ export function PlaybackSpeed({ mediaRef }: { mediaRef: RefObject<HTMLVideoEleme
 
     return (
         <Dropdown
+            panel
             iconAction
             hideToggleArrow
             buttonClassName="speed-dropdown"

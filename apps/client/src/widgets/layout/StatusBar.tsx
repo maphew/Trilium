@@ -264,6 +264,7 @@ export function NoteInfoBadge(context: NoteInfoContext) {
 
     return (enabled &&
         <StatusBarDropdown
+            panel
             icon="bx bx-info-circle"
             title={t("status_bar.note_info_title")}
             dropdownRef={dropdownRef}
@@ -340,6 +341,7 @@ function BacklinksBadge({ note, viewScope }: StatusBarContext) {
 
     return (note && count > 0 &&
         <StatusBarDropdown
+            panel
             className="backlinks-badge"
             icon="bx bx-link"
             text={t("status_bar.backlinks", { count })}
@@ -482,6 +484,7 @@ function NotePaths({ note, hoistedNoteId, notePath }: StatusBarContext) {
 
     return (
         <StatusBarDropdown
+            panel
             className="note-paths-button"
             icon="bx bx-directions"
             title={t("status_bar.note_paths_title")}

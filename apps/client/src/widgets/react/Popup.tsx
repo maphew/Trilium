@@ -70,6 +70,13 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
     }, [ elementRef ]);
     const placed = useRef(onPlaced);
     placed.current = onPlaced;
+    /** Whether it has said it is placed, which it says once, however often it is placed again. */
+    const hasPlaced = useRef(false);
+    const reportPlaced = () => {
+        if (hasPlaced.current) return;
+        hasPlaced.current = true;
+        placed.current?.();
+    };
     const anchorX = "x" in anchor ? anchor.x : undefined;
     const anchorY = "y" in anchor ? anchor.y : undefined;
 
@@ -78,18 +85,21 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
         if (!popup) return;
         if (placedByStylesheet) {
             popup.style.visibility = "visible";
-            placed.current?.();
+            reportPlaced();
             return;
         }
         const reference = anchor instanceof HTMLElement ? anchor : pointAt(anchor.x, anchor.y);
-        let shown = false;
+        // A placement settles after the fact, by which time it can have closed.
+        let closed = false;
         // Places it now, and again whenever its anchor moves or the viewport or it changes size.
         const options = { placement, offset: gap, capHeight, shiftAcross: !(anchor instanceof HTMLElement) };
-        return autoUpdate(reference, popup, () => void placeFloating(popup, reference, options).then(() => {
-            if (shown) return;
-            shown = true;
-            placed.current?.();
+        const stopUpdating = autoUpdate(reference, popup, () => void placeFloating(popup, reference, options).then(() => {
+            if (!closed) reportPlaced();
         }));
+        return () => {
+            closed = true;
+            stopUpdating();
+        };
     }, [ anchor instanceof HTMLElement ? anchor : undefined, anchorX, anchorY, placement, gap, capHeight, placedByStylesheet ]);
 
     const dismiss = useRef(onDismiss);

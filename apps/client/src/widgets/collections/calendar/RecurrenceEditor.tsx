@@ -60,6 +60,7 @@ export default function RecurrenceEditor({ note }: { note: FNote }) {
     return (
         <EventField name={t("calendar.recurrence.repeats")}>
             <Dropdown
+                panel
                 className="calendar-recurrence-dropdown"
                 text={modelTitle(model)}
                 noDropdownListStyle
