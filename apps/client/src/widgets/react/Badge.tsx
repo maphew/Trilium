@@ -54,9 +54,9 @@ export function Badge({ icon, className, text, tooltip, href, outline, ...contai
     );
 }
 
-export function BadgeWithDropdown({ text, children, tooltip, className, dropdownOptions, ...props }: BadgeProps & {
+export function BadgeWithDropdown({ text, children, tooltip, className, dropdownProps, ...props }: BadgeProps & {
     children: ComponentChildren,
-    dropdownOptions?: Partial<DropdownProps>
+    dropdownProps?: Partial<DropdownProps>
 }) {
     return (
         <Dropdown
@@ -73,14 +73,8 @@ export function BadgeWithDropdown({ text, children, tooltip, className, dropdown
             hideToggleArrow
             title={tooltip}
             titlePosition="bottom"
-            {...dropdownOptions}
-            dropdownOptions={{
-                ...dropdownOptions?.dropdownOptions,
-                popperConfig: {
-                    ...dropdownOptions?.dropdownOptions?.popperConfig,
-                    placement: "bottom"
-                }
-            }}
+            {...dropdownProps}
+            placement="bottom"
         >{children}</Dropdown>
     );
 }

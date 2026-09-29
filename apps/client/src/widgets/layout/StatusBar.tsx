@@ -91,7 +91,7 @@ export default function StatusBar() {
     );
 }
 
-function StatusBarDropdown({ children, icon, text, buttonClassName, dropdownContainerClassName, titleOptions, dropdownOptions, panel, ...dropdownProps }: Omit<DropdownPanelProps,"hideToggleArrow" | "title" | "titlePosition"> & {
+function StatusBarDropdown({ children, icon, text, buttonClassName, dropdownContainerClassName, titleOptions, panel, ...dropdownProps }: Omit<DropdownPanelProps,"hideToggleArrow" | "title" | "titlePosition"> & {
     title: string;
     icon?: string;
     /** Opens a {@link DropdownPanel} rather than a menu, for content other than `FormList` rows. */
@@ -111,12 +111,7 @@ function StatusBarDropdown({ children, icon, text, buttonClassName, dropdownCont
                 animation: false,
                 ...titleOptions
             }}
-            dropdownOptions={{
-                popperConfig: {
-                    placement: "top"
-                },
-                ...dropdownOptions
-            }}
+            placement="top"
             text={<>
                 {icon && (<><Icon icon={icon} />&nbsp;</>)}
                 <span className="text">{text}</span>
@@ -272,7 +267,7 @@ export function NoteInfoBadge(context: NoteInfoContext) {
             title={t("status_bar.note_info_title")}
             dropdownRef={dropdownRef}
             dropdownContainerClassName="dropdown-note-info"
-            dropdownOptions={{autoClose: "outside" }}
+            autoClose="outside"
             onShown={() => setDropdownShown(true)}
             onHidden={() => setDropdownShown(false)}
         >

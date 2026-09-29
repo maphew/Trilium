@@ -77,9 +77,7 @@ export default function CalendarWidget({ launcherNote }: LauncherNoteProps) {
                 }
             }}
             dropdownRef={dropdownRef}
-            dropdownOptions={{
-                autoClose: "outside"
-            }}
+            autoClose="outside"
         >
             {calendarArgs && date && <div className="calendar-dropdown-widget" style={{ width: 400 }}>
                 <CalendarHeader date={date} setDate={setDate} />
@@ -142,7 +140,6 @@ function CalendarMonthSelector({ date, setDate }: CalendarHeaderProps) {
                 keyProperty="index" titleProperty="text"
                 onChange={(index) => setDate(date.set("month", parseInt(index, 10)))}
                 buttonProps={{ "data-calendar-input": "month" }}
-                dropdownOptions={{ display: "static" }}
             />
             <AdjustDateButton date={date} setDate={setDate} direction="next" unit="month" />
         </div>

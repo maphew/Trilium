@@ -1016,7 +1016,7 @@ function RelatedNotesBadge({ attribute, currentNoteId }: { attribute: Attribute;
             tooltip={t("attribute_detail.other_notes_with_name", { attributeType: type, attributeName: name })}
             // The menu stays nested in the popup: the badge places it with `position: fixed`, and the popup
             // sets `contain: none` and no transform, so it is not a containing block and does not clip it.
-            dropdownOptions={{ dropdownContainerClassName: "related-notes-menu" }}
+            dropdownProps={{ dropdownContainerClassName: "related-notes-menu" }}
         >
             {/* The icon comes from the item rather than from the link, so that the note entries and the
                 search entry below them line up on the same slot. */}

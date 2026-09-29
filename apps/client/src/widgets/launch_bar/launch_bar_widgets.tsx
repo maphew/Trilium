@@ -47,7 +47,7 @@ export function LaunchBarActionButton({ className, launcherNote, onContextMenu, 
     );
 }
 
-export function LaunchBarDropdownButton({ children, icon, dropdownOptions, launcherNote, buttonProps, panel, ...props }: Pick<DropdownProps, "title" | "children" | "onShown" | "dropdownOptions" | "dropdownRef" | "buttonProps"> & {
+export function LaunchBarDropdownButton({ children, icon, launcherNote, buttonProps, panel, ...props }: Pick<DropdownProps, "title" | "children" | "onShown" | "autoClose" | "dropdownRef" | "buttonProps"> & {
     icon: string,
     launcherNote?: FNote,
     /** Opens a {@link DropdownPanel} rather than a menu, for content other than `FormList` rows. */
@@ -69,12 +69,7 @@ export function LaunchBarDropdownButton({ children, icon, dropdownOptions, launc
             text={<Icon icon={icon} />}
             titlePosition={titlePosition}
             titleOptions={DROPDOWN_TITLE_OPTIONS}
-            dropdownOptions={{
-                ...dropdownOptions,
-                popperConfig: {
-                    placement: titlePosition
-                }
-            }}
+            placement={titlePosition}
             mobileBackdrop
             buttonProps={resolvedButtonProps}
             {...props}

@@ -160,7 +160,7 @@ describe("Dropdown", () => {
         });
 
         it("stays up for a click inside when it closes only on one outside", async () => {
-            const { toggle } = renderDropdown({ dropdownOptions: { autoClose: "outside" } }, items);
+            const { toggle } = renderDropdown({ autoClose: "outside" }, items);
             click(toggle);
             await vi.waitFor(() => expect(popup()).not.toBeNull());
 
@@ -171,7 +171,7 @@ describe("Dropdown", () => {
         });
 
         it("opens above its toggle when asked to", async () => {
-            const { toggle } = renderDropdown({ dropdownOptions: { popperConfig: { placement: "top" } } });
+            const { toggle } = renderDropdown({ placement: "top" });
             vi.spyOn(toggle, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ x: 100, y: 500, width: 80, height: 30 }));
             click(toggle);
             // Centered over the toggle, and ending 2px above it: 500 - 100 - 2.

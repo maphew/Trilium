@@ -175,7 +175,7 @@ function ActiveContentBadge({ info, note }: { note: FNote, info: ActiveContentIn
             className={clsx("active-content-badge", info.canToggleEnabled && !info.isEnabled && "disabled")}
             icon={icon}
             text={title}
-            dropdownOptions={{
+            dropdownProps={{
                 dropdownContainerClassName: "mobile-bottom-menu",
                 mobileBackdrop: true
             }}

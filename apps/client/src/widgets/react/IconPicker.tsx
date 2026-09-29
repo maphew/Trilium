@@ -178,20 +178,7 @@ function IconPickerDropdownButton({
             disabled={disabled}
             dropdownRef={dropdownRef}
             dropdownContainerStyle={{ width: "620px" }}
-            dropdownOptions={{
-                autoClose: "outside",
-                // Popper guards only the main axis against overflow, so a menu this tall, hung off
-                // a button with room for it neither above nor below, was left hanging off the
-                // bottom of the screen. Guarding the other axis too slides it back into view; the
-                // side it opens on is still `flip`'s to choose.
-                popperConfig: (defaults) => ({
-                    ...defaults,
-                    modifiers: [
-                        ...(defaults.modifiers ?? []),
-                        { name: "preventOverflow", options: { altAxis: true, padding: 8 } }
-                    ]
-                })
-            }}
+            autoClose="outside"
             backdrop={backdrop}
             hideToggleArrow
             onShown={() => {

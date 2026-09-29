@@ -62,7 +62,7 @@ export default function RecurrenceEditor({ note }: { note: FNote }) {
             <DropdownPanel
                 className="calendar-recurrence-dropdown"
                 text={modelTitle(model)}
-                dropdownOptions={{ autoClose: "outside" }}
+                autoClose="outside"
             >
                 <EventFieldList>
                     <FrequencyField model={model} commit={commit} />

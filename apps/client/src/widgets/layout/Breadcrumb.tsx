@@ -203,7 +203,7 @@ function BreadcrumbSeparator(props: BreadcrumbSeparatorProps) {
             buttonClassName="icon-action breadcrumb-separator"
             hideToggleArrow
             dropdownContainerClassName="breadcrumb-child-list"
-            dropdownOptions={{ popperConfig: { placement: "top" } }}
+            placement="top"
         >
             <BreadcrumbSeparatorDropdownContent {...props} />
         </Dropdown>

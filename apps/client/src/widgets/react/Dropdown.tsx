@@ -1,5 +1,5 @@
 import type { Placement } from "@floating-ui/dom";
-import type { Dropdown as BootstrapDropdown, Tooltip } from "bootstrap";
+import type { Tooltip } from "bootstrap";
 import clsx from "clsx";
 import { ComponentChildren, HTMLAttributes } from "preact";
 import { CSSProperties, HTMLProps } from "preact/compat";
@@ -37,7 +37,14 @@ export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "c
     forceShown?: boolean;
     onShown?: () => void;
     onHidden?: () => void;
-    dropdownOptions?: Partial<BootstrapDropdown.Options>;
+    /** The side of the toggle the popup prefers; it flips to the other near the viewport's edge. */
+    placement?: Placement;
+    /**
+     * What closes the popup besides Escape and the toggle: `true` a click inside and a press
+     * outside, `"inside"` or `"outside"` that one alone, `false` neither. A row that stops its click
+     * keeps a menu open whatever this says.
+     */
+    autoClose?: boolean | "inside" | "outside";
     dropdownRef?: MutableRef<DropdownHandle | null>;
     titlePosition?: "top" | "right" | "bottom" | "left";
     titleOptions?: Partial<Tooltip.Options>;
@@ -149,7 +156,7 @@ interface PopupSlot {
  * The toggle both kinds of dropdown share: the button, its tooltip, the open state and its
  * callbacks, the handle, and the phone's cover. `popup` draws what opens under it.
  */
-function DropdownToggle({ id, className, buttonClassName, isStatic, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, forceShown, onShown, onHidden, dropdownOptions, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop: mobileBackdropProp, mobileBottomSheet, backdrop, hasPopup, onToggleArrow, popup }: Omit<DropdownProps, "children"> & {
+function DropdownToggle({ id, className, buttonClassName, isStatic, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, forceShown, onShown, onHidden, placement, autoClose = true, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop: mobileBackdropProp, mobileBottomSheet, backdrop, hasPopup, onToggleArrow, popup }: Omit<DropdownProps, "children"> & {
     hasPopup: "menu" | "true";
     /** Called for Up or Down on the toggle while the popup is up. */
     onToggleArrow?(popup: HTMLElement, edge: "first" | "last"): void;
@@ -165,11 +172,6 @@ function DropdownToggle({ id, className, buttonClassName, isStatic, title, text,
     const [ shown, setShown ] = useState(!!forceShown && !disabled);
     /** The item to start at once the popup shows, for a popup a key on the toggle opened. */
     const [ startAt, setStartAt ] = useState<"first" | "last">();
-    // As Bootstrap's `autoClose`: `true` closes on a click inside and a press outside, "inside" and
-    // "outside" on that one alone, `false` on neither. Escape closes it whatever this says.
-    const autoClose = dropdownOptions?.autoClose ?? true;
-    const popperConfig = dropdownOptions?.popperConfig;
-    const placement = toFloatingPlacement(popperConfig && typeof popperConfig === "object" ? popperConfig.placement : undefined);
 
     // Memoized so useTooltip's effect (keyed on config identity) doesn't dispose and recreate the
     // Bootstrap tooltip on every re-render — only when the title (or positioning) actually changes.
@@ -379,9 +381,4 @@ function focusItem(popup: HTMLElement, where: "first" | "last" | "next" | "previ
     else if (where === "last" || (where === "previous" && index < 0)) target = items.at(-1);
     else target = items[(index + (where === "next" ? 1 : -1) + items.length) % items.length];
     target?.focus();
-}
-
-/** A placement as Popper names it, as Floating UI does; Popper's `auto` ones fall back to the default. */
-function toFloatingPlacement(placement: string | undefined): Placement | undefined {
-    return placement && !placement.startsWith("auto") ? placement as Placement : undefined;
 }
