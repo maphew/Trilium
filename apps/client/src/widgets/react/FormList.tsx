@@ -1,17 +1,21 @@
 import "./FormList.css";
 
+import type { KeyboardActionNames } from "@triliumnext/commons";
 import { Dropdown as BootstrapDropdown, Tooltip } from "bootstrap";
 import clsx from "clsx";
 import { ComponentChildren, RefObject } from "preact";
 import { type CSSProperties, useContext, useEffect, useId, useMemo, useRef, useState } from "preact/compat";
 
 import { CommandNames } from "../../components/app_context";
+import { getActionSync } from "../../services/keyboard_actions";
 import { handleRightToLeftPlacement, isMobile, openInAppHelpFromUrl } from "../../services/utils";
 import FormToggle from "./FormToggle";
 import HelpTooltipButton from "./HelpTooltipButton";
 import { useStaticTooltip, useSyncedRef } from "./hooks";
 import Icon from "./Icon";
 import { MenuContext, MenuLevelContext } from "./menu_context";
+import { joinElements } from "./react_utils";
+import { renderShortcutKbds } from "./shortcut_kbd";
 
 interface FormListOpts {
     children: ComponentChildren;
@@ -131,6 +135,16 @@ export interface FormListItemOpts {
     rtl?: boolean;
     postContent?: ComponentChildren;
     itemRef?: RefObject<HTMLLIElement>;
+    /** The action whose shortcuts, as the user configured them, show at the end of the row. */
+    keyboardShortcut?: KeyboardActionNames;
+    /** A shortcut shown as it is written, for a row with no action of its own. */
+    shortcut?: string;
+    /**
+     * An icon at the end of the row, where a shortcut would go. Unlike {@link checked}, which takes
+     * the place of {@link icon}, this leaves the row's own icon standing, for a list where that icon
+     * is what tells one row from another.
+     */
+    trailingIcon?: string;
 }
 
 const TOOLTIP_CONFIG: Partial<Tooltip.Options> = {
@@ -139,7 +153,7 @@ const TOOLTIP_CONFIG: Partial<Tooltip.Options> = {
     animation: false
 };
 
-export function FormListItem({ className, icon, iconClassName, value, title, active, disabled, checked, container, onClick, selected, rtl, triggerCommand, description, itemRef: externalItemRef, ...contentProps }: FormListItemOpts) {
+export function FormListItem({ className, icon, iconClassName, value, title, active, disabled, checked, container, onClick, selected, rtl, triggerCommand, description, itemRef: externalItemRef, keyboardShortcut, shortcut, trailingIcon, ...contentProps }: FormListItemOpts) {
     const itemRef = useSyncedRef<HTMLLIElement>(externalItemRef, null);
 
     if (checked) {
@@ -172,6 +186,8 @@ export function FormListItem({ className, icon, iconClassName, value, title, act
                 ) : (
                     <FormListContent description={description} disabled={disabled} {...contentProps} />
                 )}
+                <FormListShortcut keyboardShortcut={keyboardShortcut} shortcut={shortcut} />
+                {trailingIcon && <span className={clsx(trailingIcon, "tn-icon", "menu-trailing-icon")} />}
             </span>
         </li>
     );
@@ -229,7 +245,7 @@ function FormListContent({ children, badges, description, disabled, disabledTool
     return <>
         {children}
         {badges && badges.map(({ className, text }) => (
-            <span className={`badge ${className ?? ""}`}>{text}</span>
+            <span className={clsx("badge", className)}>{text}</span>
         ))}
         {disabled && disabledTooltip && (
             <span class="bx bx-info-circle contextual-help" title={disabledTooltip} />
@@ -338,4 +354,22 @@ function actsOnClick(target: EventTarget | null, row: HTMLElement) {
     const acting = target instanceof Element ? target.closest(ACTING_ELEMENTS) : null;
     return !!acting && row.contains(acting) && acting !== row
         && acting.getAttribute("aria-disabled") !== "true" && !acting.matches(":disabled");
+}
+
+/**
+ * The shortcuts of the row's `keyboardShortcut` action as the user configured them, or else its
+ * literal `shortcut`. Read synchronously, so the menu is placed at its final width.
+ */
+function FormListShortcut({ keyboardShortcut, shortcut }: Pick<FormListItemOpts, "keyboardShortcut" | "shortcut">) {
+    if (keyboardShortcut) {
+        const shortcuts = getActionSync(keyboardShortcut)?.effectiveShortcuts;
+        if (!shortcuts?.length) return null;
+        return (
+            <span className="keyboard-shortcut">
+                {joinElements(shortcuts.map(shortcut => renderShortcutKbds(shortcut)), ",")}
+            </span>
+        );
+    }
+
+    return shortcut ? <kbd>{shortcut}</kbd> : null;
 }

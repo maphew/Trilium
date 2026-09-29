@@ -54,9 +54,24 @@ describe("FormListItem", () => {
         expect(span?.tagName).toBe("SPAN");
         expect(span?.className).toBe("");
         expect([ ...span?.children ?? [] ].map((child) => child.className)).toEqual([
-            "bx bx-copy use-note-color tn-icon", "tn-menu-gap", "badge "
+            "bx bx-copy use-note-color tn-icon", "tn-menu-gap", "badge"
         ]);
         expect(span?.textContent).toBe("Copynew");
+    });
+
+    it("ends its row with a shortcut, then a trailing icon, leaving its own icon standing", () => {
+        const host = document.createElement("div");
+        render((
+            <menu>
+                <FormListItem icon="bx bx-sort" shortcut="Ctrl+S" trailingIcon="bx bx-check">By title</FormListItem>
+            </menu>
+        ), host);
+        const span = host.querySelector("li.dropdown-item > span");
+
+        expect([ ...span?.children ?? [] ].map((child) => `${child.tagName.toLowerCase()}.${child.className}`)).toEqual([
+            "span.bx bx-sort tn-icon", "span.tn-menu-gap", "kbd.", "span.bx bx-check tn-icon menu-trailing-icon"
+        ]);
+        expect(span?.textContent).toBe("By titleCtrl+S");
     });
 });
 

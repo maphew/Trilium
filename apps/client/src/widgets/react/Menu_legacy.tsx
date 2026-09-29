@@ -9,12 +9,9 @@ import { createPortal } from "preact/compat";
 import { useContext, useId, useLayoutEffect, useRef } from "preact/hooks";
 
 import type { MenuCommandItem } from "../../menus/context_menu";
-import { getActionSync } from "../../services/keyboard_actions";
 import { handleRightToLeftPlacement, isMobile } from "../../services/utils";
 import { placeMenu } from "./Menu";
 import { MenuLevelContext, type OpenSubmenu, useMenu } from "./menu_context";
-import { joinElements } from "./react_utils";
-import { renderShortcutKbds } from "./shortcut_kbd";
 
 export interface MenuCommandProps extends Pick<MenuCommandItem<unknown>, "title" | "uiIcon" | "iconColorClass" | "checked"
         | "enabled" | "shortcut" | "keyboardShortcut" | "badges" | "trailingIcon" | "className" | "columns"> {
@@ -32,7 +29,7 @@ export interface MenuCommandProps extends Pick<MenuCommandItem<unknown>, "title"
  * the icon, and one given `checked` can be checked.
  */
 export function MenuCommand(props: MenuCommandProps) {
-    const { title, enabled, trailingIcon, className, columns, onSelect, closeOnSelect, children } = props;
+    const { title, enabled, className, columns, onSelect, closeOnSelect, children } = props;
     const menu = useMenu();
     const level = useContext(MenuLevelContext);
     const id = useId();
@@ -100,8 +97,6 @@ export function MenuCommand(props: MenuCommandProps) {
             <span className={hasSubmenu ? "dropdown-toggle" : undefined}>
                 {/* Callers pass HTML: titles escaped with `escapeHtml()` or boxed by `menuName()`. */}
                 <span id={titleId(id)} dangerouslySetInnerHTML={{ __html: title }} />
-                <MenuShortcut {...props} />
-                {trailingIcon && <span className={clsx(trailingIcon, "tn-icon", "menu-trailing-icon")} />}
             </span>
             {hasSubmenu && (isMobile()
                 // A phone has no room beside the menu, so an open submenu unfolds under its row.
@@ -167,24 +162,6 @@ function SubmenuLayer({ level, submenu, columns, children }: {
 /** The id of a row's title, which names the submenu it opens. */
 function titleId(rowId: string) {
     return `${rowId}-title`;
-}
-
-/**
- * The shortcuts of the row's `keyboardShortcut` action as the user configured them, or else its
- * literal `shortcut`. Read synchronously, so the menu is placed at its final width.
- */
-function MenuShortcut({ keyboardShortcut, shortcut }: Pick<MenuCommandProps, "keyboardShortcut" | "shortcut">) {
-    if (keyboardShortcut) {
-        const shortcuts = getActionSync(keyboardShortcut)?.effectiveShortcuts;
-        if (!shortcuts?.length) return null;
-        return (
-            <span className="keyboard-shortcut">
-                {joinElements(shortcuts.map(shortcut => renderShortcutKbds(shortcut)), ",")}
-            </span>
-        );
-    }
-
-    return shortcut ? <kbd>{shortcut}</kbd> : null;
 }
 
 /**
