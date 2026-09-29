@@ -361,11 +361,11 @@ function DevelopmentActions({ note, noteContext }: { note: FNote, noteContext?: 
 }
 
 export function CommandItem({ icon, text, title, command, disabled }: { icon: string, text: string, title?: string, command: CommandNames | (() => void), disabled?: boolean, destructive?: boolean }) {
+    const parentComponent = useContext(ParentComponent);
     return <FormListItem
         icon={icon}
         title={title}
-        triggerCommand={typeof command === "string" ? command : undefined}
-        onClick={typeof command === "function" ? command : undefined}
+        onClick={typeof command === "function" ? command : () => void parentComponent?.triggerCommand(command)}
         disabled={disabled}
     >{text}</FormListItem>;
 }

@@ -131,7 +131,6 @@ export interface FormListItemOpts {
     selected?: boolean;
     container?: boolean;
     onClick?: (e: MouseEvent) => void;
-    triggerCommand?: CommandNames;
     description?: string;
     className?: string;
     rtl?: boolean;
@@ -168,7 +167,7 @@ const TOOLTIP_CONFIG: Partial<Tooltip.Options> = {
     animation: false
 };
 
-export function FormListItem({ className, icon, iconClassName, value, title, active, disabled, checked, checkable, container, onClick, selected, rtl, triggerCommand, description, itemRef: externalItemRef, keyboardShortcut, shortcut, trailingIcon, closeOnSelect, ...contentProps }: FormListItemOpts) {
+export function FormListItem({ className, icon, iconClassName, value, title, active, disabled, checked, checkable, container, onClick, selected, rtl, description, itemRef: externalItemRef, keyboardShortcut, shortcut, trailingIcon, closeOnSelect, ...contentProps }: FormListItemOpts) {
     const itemRef = useSyncedRef<HTMLLIElement>(externalItemRef, null);
     // Inside a `Menu` the row is one of its items; elsewhere, as in a dropdown, it stands alone.
     const menu = useContext(MenuContext);
@@ -245,7 +244,6 @@ export function FormListItem({ className, icon, iconClassName, value, title, act
             onClick={(e) => {
                 if (!disabled) run(e);
             }}
-            data-trigger-command={triggerCommand}
             dir={rtl ? "rtl" : undefined}
         >
             {/* One classless span holds the row, as the rows of a menu are laid out. */}

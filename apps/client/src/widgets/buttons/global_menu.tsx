@@ -146,11 +146,11 @@ function SwitchToOptions() {
 }
 
 function MenuItem({ icon, text, title, command, disabled, active }: MenuItemProps<KeyboardActionNames | CommandNames | (() => void)>) {
+    const parentComponent = useContext(ParentComponent);
     return <FormListItem
         icon={icon}
         title={title}
-        triggerCommand={typeof command === "string" ? command : undefined}
-        onClick={typeof command === "function" ? command : undefined}
+        onClick={typeof command === "function" ? command : () => void parentComponent?.triggerCommand(command)}
         disabled={disabled}
         active={active}
     >{text}</FormListItem>;
