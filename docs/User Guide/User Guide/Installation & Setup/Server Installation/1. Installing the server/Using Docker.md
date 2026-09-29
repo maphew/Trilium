@@ -156,6 +156,3 @@ If Trilium cannot use its data directory, it stops at startup and prints which d
 
 > [!NOTE]
 > An installation that ran as root leaves its files owned by UID `1000`, or by `USER_UID` if it was set. To switch it to `--user`, either use that same UID, or give the data directory to the new user first, for example with `sudo chown -R 1001:1001 /srv/trilium-data`.
-
-> [!NOTE]
-> Earlier versions of this page described separate `rootless` images. Those images were never published; the standard image covers the same setups.
