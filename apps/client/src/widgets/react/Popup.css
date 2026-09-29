@@ -1,6 +1,6 @@
 /*
  * `body` outranks the position a class it is given sets, such as Bootstrap's `.dropdown-menu`.
- * `placePopup()` shows it once it has a position.
+ * `placeFloating()` shows it once it has a position.
  */
 body .tn-popup {
     position: fixed;

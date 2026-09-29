@@ -60,7 +60,7 @@ describe("Menu with declared rows", () => {
             );
         }
         render((
-            <Menu x={10} y={10} onClose={onClose}>
+            <Menu anchor={{ x: 10, y: 10 }} onClose={onClose}>
                 <FormListHeader text="Note" />
                 <FormListItem onClick={() => calls.push("copy")}>Copy</FormListItem>
                 <FormListItem disabled onClick={() => calls.push("delete")}>Delete</FormListItem>
@@ -69,7 +69,7 @@ describe("Menu with declared rows", () => {
             </Menu>
         ), host);
 
-        const menu = host.querySelector<HTMLElement>(".tn-menu");
+        const menu = document.querySelector<HTMLElement>(".tn-popup.tn-menu");
         if (!menu) throw new Error("expected the menu to render");
         return { menu, calls, onClose };
     }

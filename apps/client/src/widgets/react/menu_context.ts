@@ -1,4 +1,3 @@
-import { computePosition, flip, hide, offset, type Placement, type ReferenceElement, shift, size } from "@floating-ui/dom";
 import { createContext } from "preact";
 import { useContext } from "preact/hooks";
 
@@ -81,48 +80,4 @@ export function useMenu() {
  */
 export function pointerMoved(e: PointerEvent) {
     return e.movementX !== 0 || e.movementY !== 0;
-}
-
-/** How many pixels the menu keeps from the edges of the viewport. */
-const VIEWPORT_PADDING = 5;
-
-/**
- * Positions `menu` beside `anchor`, preferring `placement` and then the placements that mirror it,
- * the way a native menu opens above or to the left of a pointer that is near the viewport's edge.
- * The menu stays hidden until it is placed, so it never paints at a stale position.
- *
- * A submenu overlaps its row by 2px, so the pointer crosses no gap on its way over, and lines its
- * first row up with that row. It is hidden while its row is scrolled out of its menu's view.
- */
-export async function placeMenu(menu: HTMLElement, anchor: ReferenceElement, placement: Placement, isSubmenu = false) {
-    const [ side ] = placement.split("-");
-    const otherSide = side === "left" ? "right" : "left";
-    const { x, y, middlewareData } = await computePosition(anchor, menu, {
-        strategy: "fixed",
-        placement,
-        middleware: [
-            isSubmenu && offset(({ elements }) => {
-                const style = getComputedStyle(elements.floating);
-                const inset = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.borderTopWidth) || 0);
-                return { mainAxis: -2, crossAxis: -inset };
-            }),
-            flip({
-                fallbackPlacements: [ `${otherSide}-start`, `${side}-end`, `${otherSide}-end` ] as Placement[],
-                padding: VIEWPORT_PADDING
-            }),
-            // `crossAxis` also shifts a menu wider than the room on either side of its anchor.
-            shift({ crossAxis: true, padding: VIEWPORT_PADDING }),
-            size({
-                padding: VIEWPORT_PADDING,
-                apply({ availableHeight }) {
-                    menu.style.maxHeight = `${availableHeight}px`;
-                }
-            }),
-            isSubmenu && hide({ strategy: "referenceHidden" })
-        ]
-    });
-
-    menu.style.left = `${x}px`;
-    menu.style.top = `${y}px`;
-    menu.style.visibility = middlewareData.hide?.referenceHidden ? "hidden" : "visible";
 }

@@ -1,6 +1,5 @@
 import "./Menu.css";
 
-import { autoUpdate, type VirtualElement } from "@floating-ui/dom";
 import clsx from "clsx";
 import type { ComponentChildren } from "preact";
 import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
@@ -8,31 +7,33 @@ import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import { handleRightToLeftPlacement, isMobile } from "../../services/utils";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
-import { type ActiveRow, MenuContext, type MenuContextValue, type OpenSubmenu, placeMenu, pointerMoved, type RowEntry } from "./menu_context";
+import { type ActiveRow, MenuContext, type MenuContextValue, type OpenSubmenu, pointerMoved, type RowEntry } from "./menu_context";
+import Popup, { type PopupProps } from "./Popup";
 
 /**
  * A menu of commands, drawn with the markup Bootstrap's dropdowns use (`.dropdown-menu`,
  * `.dropdown-item`, `.dropdown-divider`), so the stylesheets and themes that style those style
- * this too. Only the placement is its own.
+ * this too. It stands in a `Popup`, which places it; the menu is what is inside: its rows, the
+ * layers of their submenus, and the keys.
  *
  * The rows come as data in {@link items}, or as components in {@link children}: `FormListItem`,
  * `FormDropdownSubmenu`, `FormDropdownDivider`, `FormListHeader` and `FormListCustomItem`.
  */
-export interface MenuProps<T> {
+export interface MenuProps<T> extends Pick<PopupProps, "anchor" | "offset" | "container" | "portalClassName"
+        | "backdropClassName" | "style" | "aria-labelledby"> {
     id?: string;
     className?: string;
-    /** Where the menu opens, in viewport coordinates. */
-    x: number;
-    y: number;
-    /** Opens the menu towards the left of {@link x} instead of towards the right. */
-    orientation?: "left";
+    /** The side of its anchor it prefers: beside a point towards the right, or below an element. */
+    placement?: PopupProps["placement"];
     /**
-     * Shows the menu as a sheet along the bottom of a phone's screen instead of at {@link x} and
-     * {@link y}. The `.mobile-bottom-menu` rules place and cap it.
+     * Shows the menu as a sheet along the bottom of a phone's screen instead of beside its anchor.
+     * The `.mobile-bottom-menu` rules place and cap it.
      */
     bottomSheet?: boolean;
-    /** Makes the first row the active one as the menu takes focus, for a menu a key opened. */
-    startAtFirstRow?: boolean;
+    /** Makes the first or the last row the active one as the menu takes focus, for a menu a key opened. */
+    startAt?: "first" | "last";
+    /** Called on a press outside the menu and its anchor. It answers Escape itself, with {@link onClose}. */
+    onDismiss?(): void;
     items?: MenuItem<T>[];
     /** Called when one of {@link items} is pressed with the primary button, or run from the keyboard. */
     onSelect?(item: MenuCommandItem<T>, e: MouseEvent | KeyboardEvent): void;
@@ -48,7 +49,7 @@ const KEYS_LEAVING_CUSTOM_ROW = new Set([ "ArrowUp", "ArrowDown", "Escape", "Tab
 /** How long typed letters keep adding to the text a row is looked up by. */
 const TYPEAHEAD_TIMEOUT = 500;
 
-export default function Menu<T>({ id, className, x, y, orientation, bottomSheet, startAtFirstRow, items, onSelect, children, onClose }: MenuProps<T>) {
+export default function Menu<T>({ id, className, anchor, placement, bottomSheet, startAt, items, onSelect, children, onClose, onDismiss, ...popupProps }: MenuProps<T>) {
     const menuRef = useRef<HTMLDivElement | null>(null);
     // The submenus' layers render into the menu element, which rows reach through the context.
     const [ layerHost, setLayerHost ] = useState<HTMLElement | null>(null);
@@ -241,41 +242,29 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
         e.stopPropagation();
     }
 
-    useLayoutEffect(() => {
-        const menu = menuRef.current;
-        if (!menu) return;
-        // The keys go to the menu while it is up; `contextMenu` gives focus back once it is hidden.
-        // A browser does not focus an element under `visibility: hidden`, so the menu takes focus
-        // only once it is shown.
-        const takeFocus = () => {
-            menu.focus({ preventScroll: true });
-            if (!startAtFirstRow) return;
-            const first = navigableRows(0)[0];
-            if (first) setActive(0, first);
-            setKeyboardDriven(true);
-        };
-        if (bottomSheet) {
-            // An inline `max-height` would override the sheet's own, which is not `!important`.
-            menu.style.visibility = "visible";
-            takeFocus();
-            return;
-        }
-
-        const anchor = pointAt(x, y);
-        const placement = orientation === "left" ? "left-start" : "right-start";
-        let placed = false;
-        // Places the menu now, and again whenever the viewport or the menu itself changes size.
-        return autoUpdate(anchor, menu, () => void placeMenu(menu, anchor, placement).then(() => {
-            if (placed) return;
-            placed = true;
-            takeFocus();
-        }));
-    }, [ x, y, orientation, bottomSheet ]);
+    // The keys go to the menu while it is up; `contextMenu` gives focus back once it is hidden. A
+    // browser does not focus an element under `visibility: hidden`, so the menu takes focus only
+    // once it is shown.
+    function takeFocus() {
+        menuRef.current?.focus({ preventScroll: true });
+        if (!startAt) return;
+        const rowIds = navigableRows(0);
+        const first = startAt === "first" ? rowIds[0] : rowIds.at(-1);
+        if (first) setActive(0, first);
+        setKeyboardDriven(true);
+    }
 
     return (
         <MenuContext.Provider value={context}>
-            <div
-                ref={setMenuElement} id={id} role="menu" tabIndex={-1}
+            <Popup
+                {...popupProps}
+                anchor={anchor}
+                placement={placement ?? (anchor instanceof HTMLElement ? "bottom-start" : "right-start")}
+                placedByStylesheet={bottomSheet}
+                onPlaced={takeFocus}
+                onDismiss={onDismiss && (() => onDismiss())}
+                escapeDismisses={false}
+                elementRef={setMenuElement} id={id} role="menu" tabIndex={-1}
                 className={clsx("dropdown-menu show tn-menu", bottomSheet && "mobile-bottom-menu",
                     keyboardDriven && "tn-menu-keyboard", className)}
                 onPointerMove={(e) => {
@@ -295,7 +284,7 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
                     {items ? <MenuItems items={items} onSelect={onSelect} /> : children}
                 </menu>
                 {/* The submenus' layers follow the scroller in here, portaled by their rows. */}
-            </div>
+            </Popup>
         </MenuContext.Provider>
     );
 }
@@ -445,11 +434,4 @@ function isSeparator<T>(item: MenuItem<T>) {
 
 function isHeader<T>(item: MenuItem<T>) {
     return "kind" in item && item.kind === "header";
-}
-
-/** A zero-size anchor at a point in the viewport, such as where a right-click landed. */
-function pointAt(x: number, y: number): VirtualElement {
-    return {
-        getBoundingClientRect: () => DOMRect.fromRect({ x, y, width: 0, height: 0 })
-    };
 }

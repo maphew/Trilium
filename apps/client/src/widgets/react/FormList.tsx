@@ -5,16 +5,17 @@ import type { KeyboardActionNames } from "@triliumnext/commons";
 import { Dropdown as BootstrapDropdown, Tooltip } from "bootstrap";
 import clsx from "clsx";
 import { ComponentChildren, RefObject } from "preact";
-import { createPortal, type CSSProperties, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "preact/compat";
+import { createPortal, type CSSProperties, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/compat";
 
 import { CommandNames } from "../../components/app_context";
 import { getActionSync } from "../../services/keyboard_actions";
 import { handleRightToLeftPlacement, isMobile, openInAppHelpFromUrl } from "../../services/utils";
 import FormToggle from "./FormToggle";
 import HelpTooltipButton from "./HelpTooltipButton";
-import { useStaticTooltip, useSyncedRef } from "./hooks";
+import { useStaticTooltip, useSyncedRef, useUniqueName } from "./hooks";
 import Icon from "./Icon";
-import { MenuContext, type MenuContextValue, MenuLevelContext, type OpenSubmenu, placeMenu, pointerMoved } from "./menu_context";
+import { MenuContext, type MenuContextValue, MenuLevelContext, type OpenSubmenu, pointerMoved } from "./menu_context";
+import { placeFloating } from "./Popup";
 import { joinElements } from "./react_utils";
 import { renderShortcutKbds } from "./shortcut_kbd";
 
@@ -172,7 +173,8 @@ export function FormListItem({ className, icon, iconClassName, value, title, act
     // Inside a `Menu` the row is one of its items; elsewhere, as in a dropdown, it stands alone.
     const menu = useContext(MenuContext);
     const level = useContext(MenuLevelContext);
-    const id = useId();
+    // Unique across portals, where `useId()` numbers a menu's layers over again.
+    const id = useUniqueName("menu-row");
     const isActive = menu?.active?.id === id;
 
     /**
@@ -370,7 +372,7 @@ export function FormDropdownSubmenu(props: FormDropdownSubmenuProps) {
 
 function MenuSubmenu({ menu, icon, title, children, onDropdownToggleClicked, columns, disabled, className }: FormDropdownSubmenuProps & { menu: MenuContextValue }) {
     const level = useContext(MenuLevelContext);
-    const id = useId();
+    const id = useUniqueName("menu-row");
     const openSubmenu = menu.open[level];
     const open = openSubmenu?.id === id;
     const isActive = menu.active?.id === id;
@@ -492,7 +494,18 @@ function SubmenuLayer({ level, submenu, columns, children }: {
         if (!layer) return;
 
         const placement = handleRightToLeftPlacement("right") === "right" ? "right-start" : "left-start";
-        return autoUpdate(submenu.anchor, layer, () => void placeMenu(layer, submenu.anchor, placement, true));
+        const options = {
+            placement,
+            // Overlaps its row by 2px, so the pointer crosses no gap on its way over, and lines its
+            // first row up with that row.
+            offset: ({ elements }: { elements: { floating: HTMLElement } }) => {
+                const style = getComputedStyle(elements.floating);
+                const inset = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.borderTopWidth) || 0);
+                return { mainAxis: -2, crossAxis: -inset };
+            },
+            shiftAcross: true, capHeight: true, hideWithAnchor: true
+        } as const;
+        return autoUpdate(submenu.anchor, layer, () => void placeFloating(layer, submenu.anchor, options));
     }, [ submenu.anchor ]);
 
     // In a `.dropdown-submenu`, so the theme's submenu rules apply.
@@ -540,7 +553,7 @@ export function FormListCustomItem({ children }: { children: ComponentChildren }
     // Outside a `Menu`, as in a dropdown's plain list, there is none to join.
     const menu = useContext(MenuContext);
     const level = useContext(MenuLevelContext);
-    const id = useId();
+    const id = useUniqueName("menu-row");
 
     return (
         <li

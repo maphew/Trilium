@@ -3,13 +3,13 @@
     position: fixed;
     top: 0;
     left: 0;
-    /* `placeMenu()` shows the menu once it has a position. */
+    /* `placeFloating()` shows the menu once it has a position. */
     visibility: hidden;
 }
 
 /*
  * The top level does not scroll, so the blur the theme puts on its `::before` covers it whatever
- * its rows scroll to. Its rows scroll inside, in the height `placeMenu()` caps it to.
+ * its rows scroll to. Its rows scroll inside, in the height `placeFloating()` caps it to.
  */
 .dropdown-menu.tn-menu:has(> .tn-menu-scroll) {
     display: flex;
@@ -41,7 +41,7 @@
     overflow-y: auto;
 }
 
-/* A submenu is placed by `placeMenu()`, not beside a parent it is nested in. */
+/* A submenu is placed by `placeFloating()`, not beside a parent it is nested in. */
 .dropdown-submenu > .dropdown-menu.tn-menu {
     inset: 0 auto auto 0;
     margin: 0;

@@ -148,12 +148,13 @@ class ContextMenu {
             // The id and classes the stylesheets, themes and `floating_layers` know this menu by.
             id: "context-menu-container",
             className: "dropdown-menu-sm dropend",
-            x: options.x,
-            y: options.y,
-            orientation: options.orientation,
+            anchor: { x: options.x, y: options.y },
+            placement: options.orientation === "left" ? "left-start" : "right-start",
+            // Already where the screen shows it: see the host above.
+            container: this.host,
             bottomSheet: utils.isMobile() && !options.forcePositionOnMobile,
             // As a native menu opened from the keyboard, it starts at its first row.
-            startAtFirstRow: this.lastInputWasKey,
+            startAt: this.lastInputWasKey ? "first" : undefined,
             items: options.items,
             onSelect: (item, e) => {
                 // A submenu's row stays up to be opened, unless it runs something of its own.

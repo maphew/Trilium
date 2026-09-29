@@ -1,17 +1,18 @@
 import "./Popup.css";
 
-import { autoUpdate, computePosition, flip, offset, type Placement, type ReferenceElement, shift, size } from "@floating-ui/dom";
+import { autoUpdate, computePosition, flip, hide, offset, type OffsetOptions, type Placement, type ReferenceElement, shift, size } from "@floating-ui/dom";
 import clsx from "clsx";
-import type { ComponentChildren, HTMLAttributes } from "preact";
+import type { ComponentChildren, HTMLAttributes, Ref } from "preact";
 import { createPortal } from "preact/compat";
-import { type MutableRef, useLayoutEffect, useRef } from "preact/hooks";
+import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
 /**
  * A surface that stands beside something rather than in the page's flow: a dropdown's menu, and
  * anything else that pops up from a control or at a point. It knows nothing of what it holds; it
  * places itself, keeps inside the viewport, and says when it is dismissed.
  */
-export interface PopupProps extends Pick<HTMLAttributes<HTMLDivElement>, "id" | "className" | "role" | "style" | "onClick" | "aria-labelledby"> {
+export interface PopupProps extends Pick<HTMLAttributes<HTMLDivElement>, "id" | "className" | "role" | "style" | "tabIndex"
+        | "onClick" | "onPointerMove" | "onContextMenu" | "aria-labelledby"> {
     /** What it stands beside: an element, or a point in the viewport such as where a right-click landed. */
     anchor: HTMLElement | { x: number, y: number };
     /**
@@ -38,22 +39,35 @@ export interface PopupProps extends Pick<HTMLAttributes<HTMLDivElement>, "id" | 
     placedByStylesheet?: boolean;
     /** Classes for an element drawn just before it, which dims the page under it. */
     backdropClassName?: string;
-    elementRef?: MutableRef<HTMLDivElement | null>;
+    elementRef?: Ref<HTMLDivElement>;
+    /**
+     * Where it renders, for a caller that has placed that itself. By default the element showing
+     * the screen fullscreen, or else the page's body.
+     */
+    container?: HTMLElement;
     /** Called once it is first placed and shown: a browser focuses nothing inside it before. */
     onPlaced?(): void;
     /**
      * Called on a press outside it and its anchor, and on Escape. A press on the anchor is left to
-     * the anchor, as a dropdown's toggle closes its own popup.
+     * the anchor, as a dropdown's toggle closes its own popup. Without it, nothing dismisses it.
      */
-    onDismiss(reason: "outside" | "escape"): void;
+    onDismiss?(reason: "outside" | "escape"): void;
+    /** Whether Escape dismisses it, as it does unless its content answers Escape itself, as a menu does. */
+    escapeDismisses?: boolean;
     children?: ComponentChildren;
 }
 
 /** How many pixels it keeps from the edges of the viewport. */
 const VIEWPORT_PADDING = 5;
 
-export default function Popup({ anchor, placement = "bottom-start", offset: gap = 0, capHeight = true, portalClassName, placedByStylesheet, backdropClassName, elementRef, onPlaced, onDismiss, className, children, ...elementProps }: PopupProps) {
+export default function Popup({ anchor, placement = "bottom-start", offset: gap = 0, capHeight = true, portalClassName, placedByStylesheet, backdropClassName, elementRef, container, onPlaced, onDismiss, escapeDismisses = true, className, children, ...elementProps }: PopupProps) {
     const popupRef = useRef<HTMLDivElement | null>(null);
+    // Stable, so the element is handed on once rather than taken back and given again each render.
+    const setElement = useCallback((element: HTMLDivElement | null) => {
+        popupRef.current = element;
+        if (typeof elementRef === "function") elementRef(element);
+        else if (elementRef) elementRef.current = element;
+    }, [ elementRef ]);
     const placed = useRef(onPlaced);
     placed.current = onPlaced;
     const anchorX = "x" in anchor ? anchor.x : undefined;
@@ -70,7 +84,8 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
         const reference = anchor instanceof HTMLElement ? anchor : pointAt(anchor.x, anchor.y);
         let shown = false;
         // Places it now, and again whenever its anchor moves or the viewport or it changes size.
-        return autoUpdate(reference, popup, () => void placePopup(popup, reference, placement, gap, capHeight).then(() => {
+        const options = { placement, offset: gap, capHeight, shiftAcross: !(anchor instanceof HTMLElement) };
+        return autoUpdate(reference, popup, () => void placeFloating(popup, reference, options).then(() => {
             if (shown) return;
             shown = true;
             placed.current?.();
@@ -79,7 +94,10 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
 
     const dismiss = useRef(onDismiss);
     dismiss.current = onDismiss;
+    const escapes = useRef(escapeDismisses);
+    escapes.current = escapeDismisses;
     useLayoutEffect(() => {
+        if (!dismiss.current) return;
         // Captured at the window, so a host that stops its own presses, as the note tree does,
         // cannot keep them from here, and so Escape arrives before Bootstrap's handler for keys in
         // a `.dropdown-menu`, which looks for a toggle beside the popup and crashes without one.
@@ -87,13 +105,13 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
             const target = e.target as Node;
             if (popupRef.current?.contains(target)) return;
             if (anchor instanceof HTMLElement && anchor.contains(target)) return;
-            dismiss.current("outside");
+            dismiss.current?.("outside");
         };
         const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key !== "Escape") return;
+            if (e.key !== "Escape" || !escapes.current) return;
             // A dialog under it stays open.
             e.stopPropagation();
-            dismiss.current("escape");
+            dismiss.current?.("escape");
         };
         window.addEventListener("pointerdown", onPointerDown, true);
         window.addEventListener("keydown", onKeyDown, true);
@@ -108,10 +126,7 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
     const popup = (
         <div
             {...elementProps}
-            ref={(element) => {
-                popupRef.current = element;
-                if (elementRef) elementRef.current = element;
-            }}
+            ref={setElement}
             className={clsx("tn-popup", className)}
         >
             {children}
@@ -122,40 +137,68 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
         {popup}
     </>;
     return createPortal(portalClassName ? <div className={portalClassName}>{drawn}</div> : drawn,
-        document.fullscreenElement ?? document.body);
+        container ?? document.fullscreenElement ?? document.body);
+}
+
+/** How it is placed beside its anchor. See {@link placeFloating}. */
+export interface FloatingPlacement {
+    /** The side of the anchor it prefers, and its alignment along that side. */
+    placement: Placement;
+    /** Its gap from the anchor, or how far it overlaps it, as Floating UI's `offset()` takes it. */
+    offset?: OffsetOptions;
+    /**
+     * Lets it also move across the side it stands on, over its anchor, as a menu wider than the
+     * room on either side of a point must. A popup under a toggle leaves this off, so it never
+     * covers the toggle.
+     */
+    shiftAcross?: boolean;
+    /** Caps its height to the room on the side it takes, for content that scrolls in it. */
+    capHeight?: boolean;
+    /** Hides it while its anchor is scrolled out of view, as a submenu whose row scrolled away. */
+    hideWithAnchor?: boolean;
 }
 
 /**
- * Positions `popup` beside `anchor`, preferring `placement` and flipping to the other side where
- * that has no room, and with `capHeight` caps its height to the room on the side it takes. It
- * stays hidden until placed, so it never paints at a stale position.
+ * Positions `element` beside `anchor`, preferring its placement, then the side opposite, then the
+ * other alignment on either side, the way a native menu opens above or to the left of a pointer
+ * near the viewport's edge. It stays hidden until placed, so it never paints at a stale position.
  */
-async function placePopup(popup: HTMLElement, anchor: ReferenceElement, placement: Placement, gap: number, capHeight: boolean) {
-    const { x, y } = await computePosition(anchor, popup, {
+export async function placeFloating(element: HTMLElement, anchor: ReferenceElement, { placement, offset: gap, shiftAcross, capHeight, hideWithAnchor }: FloatingPlacement) {
+    const { x, y, middlewareData } = await computePosition(anchor, element, {
         strategy: "fixed",
         placement,
         middleware: [
-            offset(gap),
-            flip({ padding: VIEWPORT_PADDING }),
-            // Over a point it can also move across the side it stands on, as a popup wider than
-            // the room on either side of the point must; an element it must not cover.
-            shift({ crossAxis: !(anchor instanceof HTMLElement), padding: VIEWPORT_PADDING }),
+            gap !== undefined && offset(gap),
+            flip({ fallbackPlacements: mirroredPlacements(placement), padding: VIEWPORT_PADDING }),
+            shift({ crossAxis: !!shiftAcross, padding: VIEWPORT_PADDING }),
             capHeight && size({
                 padding: VIEWPORT_PADDING,
                 apply({ availableHeight }) {
-                    popup.style.maxHeight = `${availableHeight}px`;
+                    element.style.maxHeight = `${availableHeight}px`;
                 }
-            })
+            }),
+            hideWithAnchor && hide({ strategy: "referenceHidden" })
         ]
     });
 
-    popup.style.left = `${x}px`;
-    popup.style.top = `${y}px`;
-    popup.style.visibility = "visible";
+    element.style.left = `${x}px`;
+    element.style.top = `${y}px`;
+    element.style.visibility = middlewareData.hide?.referenceHidden ? "hidden" : "visible";
+}
+
+const OPPOSITE_SIDES = { top: "bottom", bottom: "top", left: "right", right: "left" } as const;
+
+/** The placements to fall back on from `placement`: the opposite side, then the other alignment on each. */
+function mirroredPlacements(placement: Placement): Placement[] {
+    const [ side, alignment ] = placement.split("-") as [ keyof typeof OPPOSITE_SIDES, "start" | "end" | undefined ];
+    const opposite = OPPOSITE_SIDES[side];
+    if (!alignment) return [ opposite ];
+    const other = alignment === "start" ? "end" : "start";
+    return [ `${opposite}-${alignment}`, `${side}-${other}`, `${opposite}-${other}` ];
 }
 
 /** A zero-size anchor at a point in the viewport. */
-function pointAt(x: number, y: number): ReferenceElement {
+export function pointAt(x: number, y: number): ReferenceElement {
     return {
         getBoundingClientRect: () => DOMRect.fromRect({ x, y, width: 0, height: 0 })
     };
