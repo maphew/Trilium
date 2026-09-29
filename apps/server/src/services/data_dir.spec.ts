@@ -8,6 +8,7 @@ describe("data_dir.ts unit tests", () => {
     let getDataDirs: typeof getDataDirsType;
 
     const mockFn = {
+        accessSyncMock: vi.fn(),
         existsSyncMock: vi.fn(),
         mkdirSyncMock: vi.fn(),
         statSyncMock: vi.fn(),
@@ -28,6 +29,8 @@ describe("data_dir.ts unit tests", () => {
         vi.doMock("node:fs", () => {
             return {
                 default: {
+                    accessSync: mockFn.accessSyncMock,
+                    constants: { X_OK: 1 },
                     existsSync: mockFn.existsSyncMock,
                     mkdirSync: mockFn.mkdirSyncMock,
                     statSync: mockFn.statSyncMock
@@ -44,8 +47,10 @@ describe("data_dir.ts unit tests", () => {
             };
         });
 
+        const { dirname } = await vi.importActual<typeof import("node:path")>("node:path");
         vi.doMock("node:path", () => {
             return {
+                dirname,
                 join: mockFn.pathJoinMock
             };
         });
@@ -381,23 +386,33 @@ describe("data_dir.ts unit tests", () => {
             return err;
         };
 
-        it("EACCES – prints permission diagnostics (parent stat ok) and rethrows", () => {
-            const err = mkdirThrows("EACCES");
-            // statSync of the parent dir succeeds -> owner/permission diagnostics branch.
+        // Runs getTriliumDataDir with process.exit stubbed and returns what was printed.
+        const runUntilExit = () => {
+            const exit = vi.spyOn(process, "exit").mockImplementation(() => {
+                throw new Error("process.exit");
+            });
+            expect(() => getTriliumDataDir("trilium-data")).toThrow("process.exit");
+            expect(exit).toHaveBeenCalledWith(1);
+            expect(console.error).toHaveBeenCalledTimes(1);
+            return String(vi.mocked(console.error).mock.calls[0][0]);
+        };
+
+        it("EACCES – prints why the directory cannot be created and exits", () => {
+            mkdirThrows("EACCES");
             mockFn.statSyncMock.mockImplementation(() => ({ uid: 1000, gid: 1000, mode: 0o755 }));
-            // Provide getuid/getgid (absent on Windows) so the UID:GID branch runs.
+            // Provide getuid/getgid (absent on Windows) so the UID:GID line is printed.
             const proc = process as NodeJS.Process & { getuid?: () => number; getgid?: () => number };
             const hadGetuid = "getuid" in proc;
             proc.getuid = () => 1000;
             proc.getgid = () => 1000;
 
             try {
-                expect(() => getTriliumDataDir("trilium-data")).toThrow(err);
-                expect(mockFn.statSyncMock).toHaveBeenCalledTimes(1);
-                // Confirm the owner/permissions diagnostics branch actually ran.
-                expect(console.error).toHaveBeenCalledWith("Process running as UID:GID = 1000:1000");
-                expect(console.error).toHaveBeenCalledWith("  Owner UID:GID = 1000:1000");
-                expect(console.error).toHaveBeenCalledWith("  Permissions = 755 (octal)");
+                const message = runUntilExit();
+                expect(message).toContain("Trilium cannot start: permission denied while creating /home/mock/trilium-data-ERR.");
+                expect(message).toContain("Running as UID:GID 1000:1000.");
+                expect(message).toContain("/home/mock is owned by UID:GID 1000:1000 with permissions 755.");
+                expect(message).toContain("in Docker, set USER_UID and USER_GID to the owner of the mounted directory");
+                expect(mockFn.statSyncMock).toHaveBeenCalledWith("/home/mock");
             } finally {
                 if (!hadGetuid) {
                     delete proc.getuid;
@@ -406,15 +421,47 @@ describe("data_dir.ts unit tests", () => {
             }
         });
 
-        it("EACCES – handles an inaccessible parent dir (stat throws) and rethrows", () => {
-            const err = mkdirThrows("EACCES");
+        it("EACCES – names the ancestor that cannot be entered and exits", () => {
+            mkdirThrows("EACCES");
+            mockFn.accessSyncMock.mockImplementation((path: string) => {
+                if (path === "/home/mock") {
+                    throw new Error("EACCES");
+                }
+            });
+            mockFn.statSyncMock.mockImplementation(() => ({ uid: 1000, gid: 1000, mode: 0o700 }));
+
+            const message = runUntilExit();
+            expect(message).toContain("Trilium cannot start: /home/mock/trilium-data-ERR cannot be reached.");
+            expect(message).toContain("/home/mock cannot be entered; it is owned by UID:GID 1000:1000 with permissions 700.");
+        });
+
+        it("EACCES – reports a parent that cannot be inspected and exits", () => {
+            mkdirThrows("EACCES");
             mockFn.statSyncMock.mockImplementation(() => { throw new Error("no access"); });
 
-            expect(() => getTriliumDataDir("trilium-data")).toThrow(err);
-            // The inaccessible-parent branch (not the owner/permissions one) ran.
-            expect(console.error).toHaveBeenCalledWith(
-                expect.stringContaining("is not accessible")
-            );
+            expect(runUntilExit()).toContain("/home/mock cannot be inspected.");
+        });
+
+        it("EACCES under Electron – throws the explanation for the main-process error dialog", () => {
+            const err = mkdirThrows("EACCES");
+            mockFn.statSyncMock.mockImplementation(() => ({ uid: 1000, gid: 1000, mode: 0o755 }));
+            const exit = vi.spyOn(process, "exit");
+            Object.defineProperty(process.versions, "electron", { value: "1.0.0", configurable: true });
+
+            try {
+                let thrown: unknown;
+                try {
+                    getTriliumDataDir("trilium-data");
+                } catch (e) {
+                    thrown = e;
+                }
+                expect(thrown).toBeInstanceOf(Error);
+                expect((thrown as Error).message).toContain("Trilium cannot start: permission denied while creating /home/mock/trilium-data-ERR.");
+                expect((thrown as Error).cause).toBe(err);
+                expect(exit).not.toHaveBeenCalled();
+            } finally {
+                delete (process.versions as Record<string, string | undefined>).electron;
+            }
         });
 
         it("EEXIST but target is not a directory – rethrows", () => {

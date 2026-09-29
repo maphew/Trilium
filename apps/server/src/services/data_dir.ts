@@ -8,7 +8,7 @@
 
 import fs from "node:fs";
 import os from "node:os";
-import { join as pathJoin } from "node:path";
+import { dirname, join as pathJoin } from "node:path";
 
 const DIR_NAME = "trilium-data";
 const FOLDER_PERMISSIONS = 0o700;
@@ -74,33 +74,73 @@ export function getPlatformAppDataDir(platform: ReturnType<typeof os.platform>, 
     }
 }
 
-function outputPermissionDiagnostics(targetPath: fs.PathLike) {
-    const pathStr = targetPath.toString();
-    const parentDir = pathJoin(pathStr, "..");
+/**
+ * Stops startup with an explanation of why `targetPath` cannot be created. The server prints it
+ * and exits, since a stack trace adds nothing. Electron shows an uncaught main-process error in a
+ * dialog, which is the only place a desktop user sees it, so there the explanation is thrown.
+ */
+function failWithPermissionError(targetPath: fs.PathLike, cause: unknown): never {
+    const message = describePermissionError(targetPath.toString());
+    if (process.versions.electron) {
+        throw new Error(message, { cause });
+    }
+    console.error(`\n${message}\n`);
+    process.exit(1);
+}
 
-    console.error("\n========== PERMISSION ERROR DIAGNOSTICS ==========");
-    console.error(`Failed to create directory: ${pathStr}`);
+function describePermissionError(path: string) {
+    const blockedDir = findUnreachableAncestor(dirname(path));
+    const shownDir = blockedDir ?? dirname(path);
+    const lines = [
+        blockedDir
+            ? `Trilium cannot start: ${path} cannot be reached.`
+            : `Trilium cannot start: permission denied while creating ${path}.`,
+        ""
+    ];
 
-    // Output current process UID:GID (Unix only)
-    if (typeof process.getuid === "function" && typeof process.getgid === "function") {
-        console.error(`Process running as UID:GID = ${process.getuid()}:${process.getgid()}`);
+    // process.getuid() and process.getgid() do not exist on Windows.
+    if (process.getuid && process.getgid) {
+        lines.push(`Running as UID:GID ${process.getuid()}:${process.getgid()}.`);
     }
 
-    // Try to get parent directory stats
     try {
-        const stats = fs.statSync(parentDir);
-        console.error(`Parent directory: ${parentDir}`);
-        console.error(`  Owner UID:GID = ${stats.uid}:${stats.gid}`);
-        console.error(`  Permissions = ${(stats.mode & 0o777).toString(8)} (octal)`);
+        const stats = fs.statSync(shownDir);
+        const ownership = `owned by UID:GID ${stats.uid}:${stats.gid} with permissions ${(stats.mode & 0o777).toString(8)}`;
+        lines.push(blockedDir
+            ? `${shownDir} cannot be entered; it is ${ownership}.`
+            : `${shownDir} is ${ownership}.`);
     } catch {
-        console.error(`Parent directory ${parentDir} is not accessible`);
+        lines.push(`${shownDir} cannot be inspected.`);
     }
 
-    console.error("\nTo fix this issue:");
-    console.error("  - Ensure the data directory is owned by the user running Trilium");
-    console.error("  - Or set USER_UID and USER_GID environment variables to match the directory owner");
-    console.error("  - Example: docker run -e USER_UID=$(id -u) -e USER_GID=$(id -g) ...");
-    console.error("====================================================\n");
+    lines.push(
+        "",
+        "To fix this, either:",
+        "  - make sure the user running Trilium can enter every directory above the data directory",
+        "    and write to the data directory itself",
+        "  - set TRILIUM_DATA_DIR to a directory owned by that user",
+        "  - in Docker, set USER_UID and USER_GID to the owner of the mounted directory, or, if the",
+        "    container runs with --user, give the mounted directory to that user"
+    );
+    return lines.join("\n");
+}
+
+/**
+ * Returns the highest directory on the way to `dir` that the process cannot enter. Every
+ * directory below it fails the same check, so it is the one whose permissions need fixing.
+ */
+function findUnreachableAncestor(dir: string) {
+    let blocked: string | undefined;
+    for (let current = dir; ; current = dirname(current)) {
+        try {
+            fs.accessSync(current, fs.constants.X_OK);
+        } catch {
+            blocked = current;
+        }
+        if (dirname(current) === current) {
+            return blocked;
+        }
+    }
 }
 
 function createDirIfNotExisting(path: fs.PathLike, permissionMode: fs.Mode = FOLDER_PERMISSIONS) {
@@ -111,7 +151,7 @@ function createDirIfNotExisting(path: fs.PathLike, permissionMode: fs.Mode = FOL
             const code = (err as { code: string }).code;
 
             if (code === "EACCES") {
-                outputPermissionDiagnostics(path);
+                failWithPermissionError(path, err);
             } else if (code === "EEXIST") {
                 // Directory already exists - verify it's actually a directory
                 try {
