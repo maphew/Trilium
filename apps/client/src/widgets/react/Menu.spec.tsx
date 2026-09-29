@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { render } from "preact";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { rowInNextColumn } from "./Menu";
+import Menu, { MenuCommand, MenuHeader, MenuSeparator, rowInNextColumn } from "./Menu";
 
 /** A row 20px tall, `left` into the menu and `top` down it. */
 function row(left: number, top: number) {
@@ -34,5 +35,120 @@ describe("rowInNextColumn", () => {
         expect(rowInNextColumn(columns, -1, "right")).toBeUndefined();
         // A row not laid out yet is passed over.
         expect(rowInNextColumn([ row(0, 0), undefined, row(100, 0) ], 0, "right")).toBe(2);
+    });
+});
+
+describe("Menu with declared rows", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    afterEach(() => render(null, host));
+
+    /**
+     * A menu written as components, with a submenu declared inside a component of its own, as the
+     * global menu declares its "Advanced" submenu.
+     */
+    function renderMenu() {
+        const calls: string[] = [];
+        const onClose = vi.fn(() => calls.push("close"));
+        function Advanced() {
+            return (
+                <MenuCommand title="Advanced" uiIcon="bx bx-chip">
+                    <MenuCommand title="Show log" onSelect={() => calls.push("log")} />
+                    <MenuCommand title="Reload" onSelect={() => calls.push("reload")} />
+                </MenuCommand>
+            );
+        }
+        render((
+            <Menu x={10} y={10} onClose={onClose}>
+                <MenuHeader title="Note" />
+                <MenuCommand title="Copy" keyboardShortcut={undefined} onSelect={() => calls.push("copy")} />
+                <MenuCommand title="Delete" enabled={false} onSelect={() => calls.push("delete")} />
+                <MenuSeparator />
+                <Advanced />
+            </Menu>
+        ), host);
+
+        const menu = host.querySelector<HTMLElement>(".tn-menu");
+        if (!menu) throw new Error("expected the menu to render");
+        return { menu, calls, onClose };
+    }
+
+    function rowTitled(title: string) {
+        const found = [ ...document.querySelectorAll<HTMLElement>("li.dropdown-item") ]
+            .find((item) => item.querySelector(":scope > span")?.textContent === title);
+        if (!found) throw new Error(`expected a row titled ${title}`);
+        return found;
+    }
+
+    /** The open submenus' layers, each as the titles of its rows. */
+    function layers(menu: HTMLElement) {
+        return [ ...menu.querySelectorAll(":scope > div.dropdown-submenu > .dropdown-menu") ]
+            .map((layer) => [ ...layer.querySelectorAll(":scope > .tn-menu-scroll > li") ].map((item) => item.textContent));
+    }
+
+    const press = (element: HTMLElement) =>
+        element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+    const key = (menu: HTMLElement, name: string) =>
+        menu.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
+
+    it("draws the rows it is given in order, and opens a declared submenu as a layer beside the scroller", async () => {
+        const { menu, calls } = renderMenu();
+
+        const rows = [ ...menu.querySelectorAll(":scope > .tn-menu-scroll > li") ]
+            .map((item) => `${item.className || item.firstElementChild?.className} ${item.textContent}`);
+        expect(rows).toEqual([
+            "dropdown-header Note",
+            "dropdown-item Copy",
+            "dropdown-item disabled Delete",
+            "dropdown-divider ",
+            "dropdown-item dropdown-submenu Advanced"
+        ]);
+
+        rowTitled("Advanced").dispatchEvent(new PointerEvent("pointerenter"));
+        await vi.waitFor(() => expect(layers(menu)).toEqual([ [ "Show log", "Reload" ] ]));
+        expect(calls).toEqual([]);
+    });
+
+    it("closes the menu before running a row, but not for a row that opens a submenu or is disabled", async () => {
+        const { menu, calls } = renderMenu();
+
+        press(rowTitled("Delete"));
+        press(rowTitled("Advanced"));
+        await vi.waitFor(() => expect(layers(menu)).toHaveLength(1));
+        expect(calls).toEqual([]);
+
+        press(rowTitled("Show log"));
+        expect(calls).toEqual([ "close", "log" ]);
+    });
+
+    it("walks the rows as they are drawn, into a declared submenu and back, skipping what cannot run", async () => {
+        const { menu, calls } = renderMenu();
+        const active = () => menu.querySelector(".tn-menu-active > span")?.textContent;
+
+        key(menu, "ArrowDown");
+        await vi.waitFor(() => expect(active()).toBe("Copy"));
+        // "Delete" is disabled, and the header and the separator are not rows to stand on.
+        key(menu, "ArrowDown");
+        await vi.waitFor(() => expect(active()).toBe("Advanced"));
+
+        key(menu, "ArrowRight");
+        await vi.waitFor(() => expect(layers(menu)).toEqual([ [ "Show log", "Reload" ] ]));
+        await vi.waitFor(() => expect(active()).toBe("Show log"));
+        key(menu, "ArrowDown");
+        await vi.waitFor(() => expect(active()).toBe("Reload"));
+
+        key(menu, "ArrowLeft");
+        await vi.waitFor(() => expect(layers(menu)).toEqual([]));
+        expect(active()).toBe("Advanced");
+
+        key(menu, "ArrowRight");
+        await vi.waitFor(() => expect(active()).toBe("Show log"));
+        key(menu, "Enter");
+        expect(calls).toEqual([ "close", "log" ]);
+    });
+
+    it("refuses a row outside a menu", () => {
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        expect(() => render(<MenuCommand title="Stray" />, host)).toThrow("inside a Menu");
     });
 });

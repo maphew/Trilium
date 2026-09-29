@@ -2,9 +2,11 @@ import "./Menu.css";
 
 import { autoUpdate, computePosition, flip, hide, offset, type Placement, type ReferenceElement, shift, size, type VirtualElement } from "@floating-ui/dom";
 import clsx from "clsx";
-import { useCallback, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { type ComponentChildren, createContext } from "preact";
+import { createPortal } from "preact/compat";
+import { useCallback, useContext, useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import type { CustomMenuItem, MenuCommandItem, MenuItem } from "../../menus/context_menu";
+import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import { getActionSync } from "../../services/keyboard_actions";
 import { handleRightToLeftPlacement, isMobile } from "../../services/utils";
 import { joinElements } from "./react_utils";
@@ -14,6 +16,10 @@ import { renderShortcutKbds } from "./shortcut_kbd";
  * A menu of commands, drawn with the markup Bootstrap's dropdowns use (`.dropdown-menu`,
  * `.dropdown-item`, `.dropdown-divider`), so the stylesheets and themes that style those style
  * this too. Only the placement is its own.
+ *
+ * The rows come as data in {@link items}, or as components in {@link children}: `MenuCommand`,
+ * `MenuSeparator`, `MenuHeader` and `MenuCustom`. A `MenuCommand` with children opens them as its
+ * submenu.
  */
 export interface MenuProps<T> {
     id?: string;
@@ -30,10 +36,11 @@ export interface MenuProps<T> {
     bottomSheet?: boolean;
     /** Makes the first row the active one as the menu takes focus, for a menu a key opened. */
     startAtFirstRow?: boolean;
-    items: MenuItem<T>[];
-    /** Called when an item is pressed with the primary button, or run from the keyboard. */
-    onSelect(item: MenuCommandItem<T>, e: MouseEvent | KeyboardEvent): void;
-    /** Called on a click inside a custom item, which closes the menu like a pressed item does. */
+    items?: MenuItem<T>[];
+    /** Called when one of {@link items} is pressed with the primary button, or run from the keyboard. */
+    onSelect?(item: MenuCommandItem<T>, e: MouseEvent | KeyboardEvent): void;
+    children?: ComponentChildren;
+    /** Called when a row that closes the menu runs, on a click inside a custom row, and on Escape. */
     onClose(): void;
 }
 
@@ -41,11 +48,10 @@ export interface MenuProps<T> {
 const VIEWPORT_PADDING = 5;
 
 /** A submenu standing open, and the row it opened from. */
-interface OpenSubmenu<T> {
-    item: MenuCommandItem<T>;
+interface OpenSubmenu {
+    /** The id of the row it opened from. */
+    id: string;
     anchor: HTMLElement;
-    /** Remounts the layer when another submenu replaces it at the same level. */
-    key: number;
     /**
      * Shows the layer without the stylesheet's opening delay and fade: it replaces a submenu that
      * was open, or a key or a press chose it, so it is not a pointer passing over its row.
@@ -53,13 +59,22 @@ interface OpenSubmenu<T> {
     immediate: boolean;
 }
 
-/** A row the keyboard can stand on: a command, or a custom row with something to focus in it. */
-type NavigableItem<T> = MenuCommandItem<T> | CustomMenuItem;
+/** A row as it registers with its menu, for the keys to find and act on. */
+interface RowEntry {
+    level: number;
+    element: HTMLElement;
+    /** A custom row takes focus in itself instead of running anything. */
+    custom: boolean;
+    disabled: boolean;
+    hasSubmenu: boolean;
+    /** Runs the row, as a press or Enter does, once its submenu, if it has one, is open. */
+    select(e: MouseEvent | KeyboardEvent): void;
+}
 
 /** The row the keyboard acts on, and the level it stands at. */
-interface ActiveRow<T> {
+interface ActiveRow {
     level: number;
-    item: NavigableItem<T>;
+    id: string;
 }
 
 /** The keys the menu keeps while focus is inside a custom row: those that leave it. */
@@ -68,66 +83,121 @@ const KEYS_LEAVING_CUSTOM_ROW = new Set([ "ArrowUp", "ArrowDown", "Escape", "Tab
 /** How long typed letters keep adding to the text a row is looked up by. */
 const TYPEAHEAD_TIMEOUT = 500;
 
-/** What every level of the menu shares. */
-interface MenuState<T> {
-    onSelect: MenuProps<T>["onSelect"];
-    onClose: MenuProps<T>["onClose"];
+/** What every row of a menu shares, at every level. */
+interface MenuContextValue {
+    /** The submenu standing open at each level, the top level's first. */
+    open: OpenSubmenu[];
     /**
-     * Opens `item`'s submenu at `level`, closing whatever stood open at that level and deeper, or
-     * without an item only closes them.
+     * Opens the submenu of the row `id` at `level`, closing whatever stood open at that level and
+     * deeper, or without a row only closes them.
      */
-    openSubmenu(level: number, item?: MenuCommandItem<T>, anchor?: HTMLElement, chosen?: boolean): void;
-    /** The item whose submenu stands open at each level. */
-    openItems: MenuCommandItem<T>[];
-    active?: ActiveRow<T>;
-    setActive(level: number, item: NavigableItem<T>): void;
-    /** Each row's element, for `aria-activedescendant` and for anchoring a submenu the keyboard opens. */
-    rows: Map<NavigableItem<T>, HTMLElement>;
+    openSubmenu(level: number, id?: string, anchor?: HTMLElement, chosen?: boolean): void;
+    active?: ActiveRow;
+    setActive(level: number, id: string): void;
+    /** The rows by id, as they registered. */
+    rows: Map<string, RowEntry>;
+    /** Registers a row as it mounts, and with `undefined` takes it back as it unmounts. */
+    registerRow(id: string, row: RowEntry | undefined): void;
     /** Whether the keys moved the menu since the pointer last did. */
     keyboardDriven: boolean;
+    close(): void;
+    /**
+     * Where a row renders its submenu's layer: the top level's element, so the rules scoped to the
+     * menu apply, but outside its scroller and any other layer, as a fixed layer escapes a
+     * scrolling menu only while no ancestor carries a filter.
+     */
+    layerHost: HTMLElement | null;
 }
 
-export default function Menu<T>({ id, className, x, y, orientation, bottomSheet, startAtFirstRow, items, onSelect, onClose }: MenuProps<T>) {
-    const menuRef = useRef<HTMLDivElement>(null);
-    const [ submenus, setSubmenus ] = useState<OpenSubmenu<T>[]>([]);
-    const nextKey = useRef(0);
+const MenuContext = createContext<MenuContextValue | null>(null);
+/** How deep the rows rendered here stand: 0 at the top level, 1 in its submenus, and so on. */
+const MenuLevelContext = createContext(0);
 
-    const openSubmenu = useCallback((level: number, item?: MenuCommandItem<T>, anchor?: HTMLElement, chosen = false) => {
-        setSubmenus((open) => {
-            if (item ? open[level]?.item === item : open.length <= level) return open;
-            const kept = open.slice(0, level);
-            const immediate = chosen || !!open[level];
-            return item && anchor ? [ ...kept, { item, anchor, key: nextKey.current++, immediate } ] : kept;
+export default function Menu<T>({ id, className, x, y, orientation, bottomSheet, startAtFirstRow, items, onSelect, children, onClose }: MenuProps<T>) {
+    const menuRef = useRef<HTMLDivElement | null>(null);
+    // The submenus' layers render into the menu element, which rows reach through the context.
+    const [ layerHost, setLayerHost ] = useState<HTMLElement | null>(null);
+    const setMenuElement = useCallback((element: HTMLDivElement | null) => {
+        menuRef.current = element;
+        setLayerHost(element);
+    }, []);
+    const [ open, setOpen ] = useState<OpenSubmenu[]>([]);
+
+    const openSubmenu = useCallback((level: number, rowId?: string, anchor?: HTMLElement, chosen = false) => {
+        setOpen((current) => {
+            if (rowId ? current[level]?.id === rowId : current.length <= level) return current;
+            const kept = current.slice(0, level);
+            const immediate = chosen || !!current[level];
+            return rowId && anchor ? [ ...kept, { id: rowId, anchor, immediate } ] : kept;
         });
     }, []);
-    const [ active, setActiveRow ] = useState<ActiveRow<T>>();
-    const rows = useRef(new Map<NavigableItem<T>, HTMLElement>()).current;
+    const [ active, setActiveRow ] = useState<ActiveRow>();
+    const rows = useRef(new Map<string, RowEntry>()).current;
+    /** The level whose first row becomes active once it has rendered, for a submenu a key opened. */
+    const pendingFirstRow = useRef<number>();
     const typeahead = useRef({ text: "", timeout: 0 });
     /** Whether the keys moved the menu since the pointer last did. See `Menu.css`. */
     const [ keyboardDriven, setKeyboardDriven ] = useState(false);
 
-    const setActive = useCallback((level: number, item: NavigableItem<T>) => {
-        setActiveRow({ level, item });
-        rows.get(item)?.scrollIntoView?.({ block: "nearest" });
+    const setActive = useCallback((level: number, rowId: string) => {
+        setActiveRow({ level, id: rowId });
+        rows.get(rowId)?.element.scrollIntoView?.({ block: "nearest" });
     }, [ rows ]);
-    const state: MenuState<T> = {
-        onSelect, onClose, openSubmenu, openItems: submenus.map((submenu) => submenu.item), active, setActive, rows,
-        keyboardDriven
+    const registerRow = useCallback((rowId: string, row: RowEntry | undefined) => {
+        if (!row) {
+            rows.delete(rowId);
+            return;
+        }
+        rows.set(rowId, row);
+        // A portaled submenu can commit after this component's effects, so the level a key opened
+        // looks for its first row once the rows that register with it have all done so.
+        if (pendingFirstRow.current !== row.level) return;
+        queueMicrotask(() => {
+            if (pendingFirstRow.current !== row.level) return;
+            pendingFirstRow.current = undefined;
+            activateFirstRowRef.current(row.level);
+        });
+    }, [ rows ]);
+    const context: MenuContextValue = {
+        open, openSubmenu, active, setActive, rows, registerRow, keyboardDriven, close: onClose, layerHost
     };
+
+    /** The ids of the rows the keys can stand on at `level`, in the order they stand in. */
+    function navigableRows(level: number) {
+        const found: [ string, RowEntry ][] = [];
+        for (const [ rowId, row ] of rows) {
+            if (row.level !== level) continue;
+            if (row.custom ? focusTarget(row.element) : !row.disabled) found.push([ rowId, row ]);
+        }
+        found.sort(([ , a ], [ , b ]) => (a.element.compareDocumentPosition(b.element) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+        return found.map(([ rowId ]) => rowId);
+    }
+
+    /** Makes the first row at `level` that runs something the active one, if the level has rendered. */
+    function activateFirstRow(level: number) {
+        const first = navigableRows(level).find((rowId) => !rows.get(rowId)?.custom);
+        if (first) setActive(level, first);
+        return !!first;
+    }
+
+    const activateFirstRowRef = useRef(activateFirstRow);
+    activateFirstRowRef.current = activateFirstRow;
 
     // After the commit: a submenu's rows register their elements only as they mount.
     useLayoutEffect(() => {
-        const id = active && !isCustom(active.item) ? rows.get(active.item)?.id : undefined;
-        if (id) menuRef.current?.setAttribute("aria-activedescendant", id);
+        const row = active && rows.get(active.id);
+        const rowId = row && !row.custom ? row.element.id : undefined;
+        if (rowId) menuRef.current?.setAttribute("aria-activedescendant", rowId);
         else menuRef.current?.removeAttribute("aria-activedescendant");
-    }, [ active, submenus, rows ]);
+    }, [ active, open, rows ]);
 
     // A custom row takes focus in itself, for its own keys; any other row hands it back to the menu.
     useLayoutEffect(() => {
         const menu = menuRef.current;
-        if (!menu || !active) return;
-        if (isCustom(active.item)) {
-            focusTarget(rows.get(active.item))?.focus({ preventScroll: true });
+        const row = active && rows.get(active.id);
+        if (!menu || !row) return;
+        if (row.custom) {
+            focusTarget(row.element)?.focus({ preventScroll: true });
         } else if (document.activeElement !== menu && menu.contains(document.activeElement)) {
             menu.focus({ preventScroll: true });
         }
@@ -150,50 +220,41 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
         return () => window.removeEventListener("keydown", listener, true);
     }, []);
 
-    /** The rows the keys can stand on at `level`: those that run something, and custom rows with something to focus. */
-    function navigableRows(level: number) {
-        return menuRows(level === 0 ? items : submenus[level - 1]?.item.items ?? [])
-            .filter((row): row is NavigableItem<T> => isCustom(row)
-                ? !!focusTarget(rows.get(row))
-                : isRunnable(row));
-    }
-
     function onKeyDown(e: KeyboardEvent) {
         const level = active?.level ?? 0;
         const levelRows = navigableRows(level);
-        const index = active ? levelRows.indexOf(active.item) : -1;
+        const index = active ? levelRows.indexOf(active.id) : -1;
         const count = levelRows.length;
+        const activeRow = active && rows.get(active.id);
         // A submenu goes with its row's highlight, as in a native menu, until Right opens it again.
-        const moveTo = (item: NavigableItem<T>) => {
-            if (submenus[level]?.item !== item) openSubmenu(level);
-            setActive(level, item);
+        const moveTo = (rowId: string) => {
+            if (open[level]?.id !== rowId) openSubmenu(level);
+            setActive(level, rowId);
         };
         const goTo = (position: number) => {
-            const item = levelRows[((position % count) + count) % count];
-            if (item) moveTo(item);
+            const rowId = levelRows[((position % count) + count) % count];
+            if (rowId) moveTo(rowId);
         };
         const openActive = () => {
-            const item = active && !isCustom(active.item) ? active.item : undefined;
-            const anchor = item && rows.get(item);
-            if (!item?.items || !anchor) return;
-            openSubmenu(level, item, anchor, true);
-            const first = runnableRows(item.items)[0];
-            if (first) setActive(level + 1, first);
+            if (!active || !activeRow?.hasSubmenu || activeRow.custom) return;
+            openSubmenu(level, active.id, activeRow.element, true);
+            // A submenu already open has its rows; one opening now has them once it renders.
+            if (!activateFirstRow(level + 1)) pendingFirstRow.current = level + 1;
         };
         const closeLevel = (closing: number) => {
-            const parent = submenus[closing - 1];
+            const parent = open[closing - 1];
             if (!parent) return;
             openSubmenu(closing - 1);
-            setActive(closing - 1, parent.item);
+            setActive(closing - 1, parent.id);
         };
         const rtl = handleRightToLeftPlacement("right") !== "right";
         /** Moves to the row beside the active one in a menu laid out in columns, if there is one. */
         const moveAcross = (towards: "left" | "right") => {
-            const boxes = levelRows.map((item) => rows.get(item)?.getBoundingClientRect());
+            const boxes = levelRows.map((rowId) => rows.get(rowId)?.element.getBoundingClientRect());
             const target = rowInNextColumn(boxes, index, towards);
-            const item = target !== undefined ? levelRows[target] : undefined;
-            if (item) moveTo(item);
-            return !!item;
+            const rowId = target !== undefined ? levelRows[target] : undefined;
+            if (rowId) moveTo(rowId);
+            return !!rowId;
         };
 
         switch (e.key) {
@@ -203,7 +264,7 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
             case "End": goTo(-1); break;
             // Into the active row's submenu, or else across to the next column.
             case rtl ? "ArrowLeft" : "ArrowRight":
-                if (active && !isCustom(active.item) && active.item.items) openActive();
+                if (activeRow && !activeRow.custom && activeRow.hasSubmenu) openActive();
                 else moveAcross(e.key === "ArrowRight" ? "right" : "left");
                 break;
             // Back across a column, or else out of the submenu.
@@ -212,13 +273,13 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
                 break;
             case "Enter":
             case " ":
-                if (!active || isCustom(active.item)) break;
+                if (!activeRow || activeRow.custom) break;
                 openActive();
-                onSelect(active.item, e);
+                activeRow.select(e);
                 break;
             case "Escape":
                 // One level at a time, then the menu itself.
-                if (submenus.length) closeLevel(submenus.length);
+                if (open.length) closeLevel(open.length);
                 else onClose();
                 break;
             // Focus stays in the menu until it closes.
@@ -232,9 +293,9 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
                 // A first letter looks past the active row, so pressing it again moves on.
                 const skip = typed.text.length === 1 ? 1 : 0;
                 for (let step = skip; step < count + skip; step++) {
-                    const item = levelRows[(index + step + count) % count];
-                    if (item && rows.get(item)?.textContent?.trim().toLowerCase().startsWith(typed.text)) {
-                        moveTo(item);
+                    const rowId = levelRows[(index + step + count) % count];
+                    if (rowId && rows.get(rowId)?.element.textContent?.trim().toLowerCase().startsWith(typed.text)) {
+                        moveTo(rowId);
                         break;
                     }
                 }
@@ -277,164 +338,89 @@ export default function Menu<T>({ id, className, x, y, orientation, bottomSheet,
     }, [ x, y, orientation, bottomSheet ]);
 
     return (
-        <div
-            ref={menuRef} id={id} role="menu" tabIndex={-1}
-            className={clsx("dropdown-menu show tn-menu", bottomSheet && "mobile-bottom-menu",
-                keyboardDriven && "tn-menu-keyboard", className)}
-            onPointerMove={(e) => {
-                if (pointerMoved(e)) setKeyboardDriven(false);
-            }}
-            // Neither the browser's menu nor another of the app's opens over this one. Every level
-            // is inside this element, so one handler covers them all.
-            onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-            }}
-        >
-            {/* The rows scroll in here rather than the menu itself, so the theme's blur on the
-                menu's `::before` stays behind them. A `<menu>`, as rows are its list items, out of
-                the accessibility tree so they read as the menu's own. */}
-            <menu className="tn-menu-scroll" role="none">
-                <MenuList level={0} items={items} state={state} />
-            </menu>
-            {/* Inside the menu, so the rules scoped to it apply, but none inside another: a fixed
-                layer escapes a scrolling menu only while no ancestor carries a filter. */}
-            {/* A phone unfolds the open submenus under their rows instead (see MenuRow). */}
-            {!isMobile() && submenus.map((submenu, index) => (
-                <SubmenuLayer key={submenu.key} level={index + 1} submenu={submenu} state={state} />
-            ))}
-        </div>
+        <MenuContext.Provider value={context}>
+            <div
+                ref={setMenuElement} id={id} role="menu" tabIndex={-1}
+                className={clsx("dropdown-menu show tn-menu", bottomSheet && "mobile-bottom-menu",
+                    keyboardDriven && "tn-menu-keyboard", className)}
+                onPointerMove={(e) => {
+                    if (pointerMoved(e)) setKeyboardDriven(false);
+                }}
+                // Neither the browser's menu nor another of the app's opens over this one. Every level
+                // is inside this element, so one handler covers them all.
+                onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }}
+            >
+                {/* The rows scroll in here rather than the menu itself, so the theme's blur on the
+                    menu's `::before` stays behind them. A `<menu>`, as rows are its list items, out of
+                    the accessibility tree so they read as the menu's own. */}
+                <menu className="tn-menu-scroll" role="none">
+                    {items ? <MenuItems items={items} onSelect={onSelect} /> : children}
+                </menu>
+                {/* The submenus' layers follow the scroller in here, portaled by their rows. */}
+            </div>
+        </MenuContext.Provider>
     );
+}
+
+export interface MenuCommandProps extends Pick<MenuCommandItem<unknown>, "title" | "uiIcon" | "iconColorClass" | "checked"
+        | "enabled" | "shortcut" | "keyboardShortcut" | "badges" | "trailingIcon" | "className" | "columns"> {
+    /** Called when the row is pressed with the primary button, or run from the keyboard. */
+    onSelect?(e: MouseEvent | KeyboardEvent): void;
+    /** Whether running the row closes the menu. A row does, and one that opens a submenu does not. */
+    closeOnSelect?: boolean;
+    /** The rows of the submenu this row opens. */
+    children?: ComponentChildren;
 }
 
 /**
- * A submenu opened on the desktop, placed beside the row it opened from rather than nested in it,
- * so a scrolling menu neither clips it nor scrolls it away.
+ * A row that runs a command, or with children, opens them as its submenu. As with
+ * {@link MenuCommandItem}, a row given `uiIcon` or `checked`, even as nothing, keeps a slot for
+ * the icon, and one given `checked` can be checked.
  */
-function SubmenuLayer<T>({ level, submenu, state }: { level: number, submenu: OpenSubmenu<T>, state: MenuState<T> }) {
-    const layerRef = useRef<HTMLDivElement>(null);
-    const columns = (submenu.item.columns ?? 1) > 1 ? submenu.item.columns : undefined;
-    const items = submenu.item.items ?? [];
-
-    useLayoutEffect(() => {
-        const layer = layerRef.current;
-        if (!layer) return;
-
-        const placement = handleRightToLeftPlacement("right") === "right" ? "right-start" : "left-start";
-        return autoUpdate(submenu.anchor, layer, () => void placeMenu(layer, submenu.anchor, placement, true));
-    }, [ submenu.anchor ]);
-
-    // In a `.dropdown-submenu`, so the theme's submenu rules apply.
-    return (
-        <div className="dropdown-submenu">
-            <div
-                ref={layerRef} role="menu" aria-labelledby={titleId(submenu.anchor.id)}
-                className={clsx("dropdown-menu show tn-menu", submenu.immediate && "tn-menu-immediate")}
-            >
-                {/* Like the top level, so the blur on the layer's `::before` stays behind its rows. */}
-                {columns
-                    // The columns go on an inner list of their full height, so a capped menu
-                    // scrolls them rather than growing more columns to the side.
-                    ? (
-                        <div className="tn-menu-scroll">
-                            <menu className="tn-menu-columns" role="none" style={{ columnCount: columns }}>
-                                <MenuList level={level} items={items} state={state} columns />
-                            </menu>
-                        </div>
-                    )
-                    : (
-                        <menu className="tn-menu-scroll" role="none">
-                            <MenuList level={level} items={items} state={state} />
-                        </menu>
-                    )}
-            </div>
-        </div>
-    );
-}
-
-function MenuList<T>({ level, items, state, columns }: {
-    level: number,
-    items: MenuItem<T>[],
-    state: MenuState<T>,
-    /** Wraps the rows a column must not break between in `.dropdown-no-break`. */
-    columns?: boolean
-}) {
-    const rows = menuRows(items);
-    if (!columns) return <>{rows.map((row, index) => <MenuListRow key={index} level={level} row={row} state={state} />)}</>;
-
-    return <>
-        {unbreakableGroups(rows).map((group, groupIndex) => (group.length > 1
-            ? (
-                <li key={groupIndex} className="dropdown-no-break" role="none">
-                    <menu role="none">
-                        {group.map((row, index) => <MenuListRow key={index} level={level} row={row} state={state} />)}
-                    </menu>
-                </li>
-            )
-            : <MenuListRow key={groupIndex} level={level} row={group[0]} state={state} />
-        ))}
-    </>;
-}
-
-function MenuListRow<T>({ level, row, state }: { level: number, row: MenuItem<T>, state: MenuState<T> }) {
-    if (!("kind" in row)) return <MenuRow level={level} item={row} state={state} />;
-    if (row.kind === "separator") return <li className="dropdown-divider" role="separator" />;
-    // As `FormListHeader` draws one.
-    if (row.kind === "header") return <li role="none"><h6 className="dropdown-header">{row.title}</h6></li>;
-    return (
-        <li
-            className="dropdown-custom-item"
-            // Its content carries the roles of what it acts with.
-            role="none"
-            ref={(element) => {
-                if (element) state.rows.set(row, element);
-                else state.rows.delete(row);
-            }}
-            // Only a click on what the row acts with closes the menu: one in the space around it,
-            // such as between the color picker's cells, picks nothing.
-            onClick={(e) => {
-                if (actsOnClick(e.target, e.currentTarget)) state.onClose();
-            }}
-        >
-            <row.componentFn />
-        </li>
-    );
-}
-
-function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandItem<T>, state: MenuState<T> }) {
-    const disabled = item.enabled === false;
-    const hasSubmenu = !!item.items;
-    const open = state.openItems[level] === item;
-    const active = state.active?.level === level && state.active.item === item;
+export function MenuCommand(props: MenuCommandProps) {
+    const { title, enabled, badges, trailingIcon, className, columns, onSelect, closeOnSelect, children } = props;
+    const menu = useMenu();
+    const level = useContext(MenuLevelContext);
     const id = useId();
-    // As `MenuIconSlot` reads it: an item with a `checked` key is one that can be checked.
-    const checkable = "checked" in item;
+    const disabled = enabled === false;
+    const hasSubmenu = children !== undefined && children !== null && children !== false;
+    const openSubmenu = menu.open[level];
+    const open = openSubmenu?.id === id;
+    const active = menu.active?.id === id;
+    const checkable = "checked" in props;
+
+    function select(e: MouseEvent | KeyboardEvent) {
+        if (closeOnSelect ?? !hasSubmenu) menu.close();
+        onSelect?.(e);
+    }
 
     function onPointed(e: { currentTarget: HTMLLIElement }) {
         if (isMobile()) return;
         // The keyboard goes on from the row the pointer last pointed at.
-        if (!disabled) state.setActive(level, item);
-        state.openSubmenu(level, hasSubmenu && !disabled ? item : undefined, e.currentTarget);
+        if (!disabled) menu.setActive(level, id);
+        menu.openSubmenu(level, hasSubmenu && !disabled ? id : undefined, e.currentTarget);
     }
 
     return (
         <li
             id={id}
             ref={(element) => {
-                if (element) state.rows.set(item, element);
-                else state.rows.delete(item);
+                menu.registerRow(id, element ? { level, element, custom: false, disabled, hasSubmenu, select } : undefined);
             }}
             className={clsx("dropdown-item", hasSubmenu && "dropdown-submenu", open && "submenu-open",
-                active && "tn-menu-active", disabled && "disabled", item.className)}
+                active && "tn-menu-active", disabled && "disabled", className)}
             role={checkable ? "menuitemcheckbox" : "menuitem"}
-            aria-checked={checkable ? !!item.checked : undefined}
+            aria-checked={checkable ? !!props.checked : undefined}
             aria-disabled={disabled || undefined}
             aria-haspopup={hasSubmenu ? "menu" : undefined}
             aria-expanded={hasSubmenu ? open : undefined}
             // While the keys drive the menu, a row entered by a pointer at rest, as when the menu
             // appears under it, keeps the keys' row. See `pointerMoved`.
             onPointerEnter={(e) => {
-                if (!state.keyboardDriven) onPointed(e);
+                if (!menu.keyboardDriven) onPointed(e);
             }}
             // The keys can move the active row from under a pointer at rest, whose `:hover` would
             // then mark a second row. The next move of the pointer makes its row the active one.
@@ -453,31 +439,174 @@ function MenuRow<T>({ level, item, state }: { level: number, item: MenuCommandIt
 
                 // Pressed again, an unfolded row folds its submenu back.
                 if (hasSubmenu && isMobile()) {
-                    state.openSubmenu(level, open ? undefined : item, e.currentTarget, true);
+                    menu.openSubmenu(level, open ? undefined : id, e.currentTarget, true);
                     return;
                 }
-                if (hasSubmenu) state.openSubmenu(level, item, e.currentTarget, true);
-                state.onSelect(item, e);
+                if (hasSubmenu) menu.openSubmenu(level, id, e.currentTarget, true);
+                select(e);
             }}
         >
             <span className={hasSubmenu ? "dropdown-toggle" : undefined}>
-                <MenuIconSlot item={item} />
+                <MenuIconSlot {...props} />
                 <span className="tn-menu-gap" />
                 {/* Callers pass HTML: titles escaped with `escapeHtml()` or boxed by `menuName()`. */}
-                <span id={titleId(id)} dangerouslySetInnerHTML={{ __html: item.title }} />
-                {item.badges?.map((badge, index) => (
+                <span id={titleId(id)} dangerouslySetInnerHTML={{ __html: title }} />
+                {badges?.map((badge, index) => (
                     <span key={index} className={clsx("badge", badge.className)}>{badge.title}</span>
                 ))}
-                <MenuShortcut item={item} />
-                {item.trailingIcon && <span className={clsx(item.trailingIcon, "tn-icon", "menu-trailing-icon")} />}
+                <MenuShortcut {...props} />
+                {trailingIcon && <span className={clsx(trailingIcon, "tn-icon", "menu-trailing-icon")} />}
             </span>
-            {/* A phone has no room beside the menu, so an open submenu unfolds under its row. */}
-            {hasSubmenu && isMobile() && (
-                <ul className={clsx("dropdown-menu", open && "show")} role="menu" aria-labelledby={titleId(id)}>
-                    {open && <MenuList level={level + 1} items={item.items ?? []} state={state} />}
-                </ul>
-            )}
+            {hasSubmenu && (isMobile()
+                // A phone has no room beside the menu, so an open submenu unfolds under its row.
+                ? (
+                    <ul className={clsx("dropdown-menu", open && "show")} role="menu" aria-labelledby={titleId(id)}>
+                        <MenuLevelContext.Provider value={level + 1}>{open && children}</MenuLevelContext.Provider>
+                    </ul>
+                )
+                : open && openSubmenu && menu.layerHost && createPortal((
+                    <SubmenuLayer level={level + 1} submenu={openSubmenu} columns={columns}>{children}</SubmenuLayer>
+                ), menu.layerHost))}
         </li>
+    );
+}
+
+export function MenuSeparator() {
+    return <li className="dropdown-divider" role="separator" />;
+}
+
+/** A heading over the rows after it. Its title is text, as it can be a name the user wrote. */
+export function MenuHeader({ title }: { title: string }) {
+    // As `FormListHeader` draws one.
+    return <li role="none"><h6 className="dropdown-header">{title}</h6></li>;
+}
+
+/**
+ * A row holding a control of its own, such as the color picker. The keys stand on it when its
+ * content marks a way in with `tabindex="0"`, and a click on something in it that acts closes the
+ * menu.
+ */
+export function MenuCustom({ children }: { children: ComponentChildren }) {
+    const menu = useMenu();
+    const level = useContext(MenuLevelContext);
+    const id = useId();
+
+    return (
+        <li
+            className="dropdown-custom-item"
+            // Its content carries the roles of what it acts with.
+            role="none"
+            ref={(element) => {
+                menu.registerRow(id, element
+                    ? { level, element, custom: true, disabled: false, hasSubmenu: false, select: () => {} }
+                    : undefined);
+            }}
+            // Only a click on what the row acts with closes the menu: one in the space around it,
+            // such as between the color picker's cells, picks nothing.
+            onClick={(e) => {
+                if (actsOnClick(e.target, e.currentTarget)) menu.close();
+            }}
+        >
+            {children}
+        </li>
+    );
+}
+
+function useMenu() {
+    const menu = useContext(MenuContext);
+    if (!menu) throw new Error("A menu row must be rendered inside a Menu.");
+    return menu;
+}
+
+/**
+ * A submenu opened on the desktop, placed beside the row it opened from rather than nested in it,
+ * so a scrolling menu neither clips it nor scrolls it away.
+ */
+function SubmenuLayer({ level, submenu, columns, children }: {
+    level: number,
+    submenu: OpenSubmenu,
+    columns?: number,
+    children: ComponentChildren
+}) {
+    const layerRef = useRef<HTMLDivElement>(null);
+    const columnCount = (columns ?? 1) > 1 ? columns : undefined;
+
+    useLayoutEffect(() => {
+        const layer = layerRef.current;
+        if (!layer) return;
+
+        const placement = handleRightToLeftPlacement("right") === "right" ? "right-start" : "left-start";
+        return autoUpdate(submenu.anchor, layer, () => void placeMenu(layer, submenu.anchor, placement, true));
+    }, [ submenu.anchor ]);
+
+    // In a `.dropdown-submenu`, so the theme's submenu rules apply.
+    return (
+        <MenuLevelContext.Provider value={level}>
+            <div className="dropdown-submenu">
+                <div
+                    ref={layerRef} role="menu" aria-labelledby={titleId(submenu.anchor.id)}
+                    className={clsx("dropdown-menu show tn-menu", submenu.immediate && "tn-menu-immediate")}
+                >
+                    {/* Like the top level, so the blur on the layer's `::before` stays behind its rows. */}
+                    {columnCount
+                        // The columns go on an inner list of their full height, so a capped menu
+                        // scrolls them rather than growing more columns to the side.
+                        ? (
+                            <div className="tn-menu-scroll">
+                                <menu className="tn-menu-columns" role="none" style={{ columnCount }}>
+                                    {children}
+                                </menu>
+                            </div>
+                        )
+                        : <menu className="tn-menu-scroll" role="none">{children}</menu>}
+                </div>
+            </div>
+        </MenuLevelContext.Provider>
+    );
+}
+
+/**
+ * `items` drawn as the rows that stand for them, with a run of separators reduced to one. In
+ * `columns`, the rows a column must not break between are wrapped in `.dropdown-no-break`.
+ */
+function MenuItems<T>({ items, onSelect, columns }: {
+    items: MenuItem<T>[],
+    onSelect: MenuProps<T>["onSelect"],
+    columns?: boolean
+}) {
+    const rows = menuRows(items);
+    if (!columns) return <>{rows.map((row, index) => <MenuItemRow key={index} row={row} onSelect={onSelect} />)}</>;
+
+    return <>
+        {unbreakableGroups(rows).map((group, groupIndex) => (group.length > 1
+            ? (
+                <li key={groupIndex} className="dropdown-no-break" role="none">
+                    <menu role="none">
+                        {group.map((row, index) => <MenuItemRow key={index} row={row} onSelect={onSelect} />)}
+                    </menu>
+                </li>
+            )
+            : <MenuItemRow key={groupIndex} row={group[0]} onSelect={onSelect} />
+        ))}
+    </>;
+}
+
+function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuProps<T>["onSelect"] }) {
+    if ("kind" in row) {
+        if (row.kind === "separator") return <MenuSeparator />;
+        if (row.kind === "header") return <MenuHeader title={row.title} />;
+        return <MenuCustom><row.componentFn /></MenuCustom>;
+    }
+
+    // The rest keeps `uiIcon` and `checked` only where the item has them, which `MenuCommand` reads.
+    const { items, command: _command, handler: _handler, type: _type, mime: _mime, templateNoteId: _templateNoteId,
+        spellingSuggestion: _spellingSuggestion, ...props } = row;
+    return (
+        // `onSelect` decides whether the menu closes, as `contextMenu` does.
+        <MenuCommand {...props} closeOnSelect={false} onSelect={(e) => onSelect?.(row, e)}>
+            {/* A phone unfolds a submenu in a single column. */}
+            {items ? <MenuItems items={items} onSelect={onSelect} columns={(row.columns ?? 1) > 1 && !isMobile()} /> : undefined}
+        </MenuCommand>
     );
 }
 
@@ -487,12 +616,12 @@ function titleId(rowId: string) {
 }
 
 /**
- * The shortcuts of the item's `keyboardShortcut` action as the user configured them, or else its
+ * The shortcuts of the row's `keyboardShortcut` action as the user configured them, or else its
  * literal `shortcut`. Read synchronously, so the menu is placed at its final width.
  */
-function MenuShortcut<T>({ item }: { item: MenuCommandItem<T> }) {
-    if (item.keyboardShortcut) {
-        const shortcuts = getActionSync(item.keyboardShortcut)?.effectiveShortcuts;
+function MenuShortcut({ keyboardShortcut, shortcut }: Pick<MenuCommandProps, "keyboardShortcut" | "shortcut">) {
+    if (keyboardShortcut) {
+        const shortcuts = getActionSync(keyboardShortcut)?.effectiveShortcuts;
         if (!shortcuts?.length) return null;
         return (
             <span className="keyboard-shortcut">
@@ -501,20 +630,20 @@ function MenuShortcut<T>({ item }: { item: MenuCommandItem<T> }) {
         );
     }
 
-    return item.shortcut ? <kbd>{item.shortcut}</kbd> : null;
+    return shortcut ? <kbd>{shortcut}</kbd> : null;
 }
 
 /**
- * The icon, or a check mark in its place. An item that sets `uiIcon` to nothing gets a blank slot,
+ * The icon, or a check mark in its place. A row that sets `uiIcon` to nothing gets a blank slot,
  * and one without `uiIcon` or `checked` an empty one.
  */
-function MenuIconSlot<T>({ item }: { item: MenuCommandItem<T> }) {
-    if (!("uiIcon" in item || "checked" in item)) return <span />;
+function MenuIconSlot(props: Pick<MenuCommandProps, "uiIcon" | "checked" | "iconColorClass">) {
+    if (!("uiIcon" in props || "checked" in props)) return <span />;
 
-    const icon = item.checked ? "bx bx-check" : item.uiIcon;
+    const icon = props.checked ? "bx bx-check" : props.uiIcon;
     return icon
-        ? <span className={clsx(icon, "tn-icon", item.iconColorClass)} />
-        : <span>{"\u00a0"}</span>;
+        ? <span className={clsx(icon, "tn-icon", props.iconColorClass)} />
+        : <span>{" "}</span>;
 }
 
 /** How far apart, in pixels, two rows' left edges can be and still stand in one column. */
@@ -555,11 +684,6 @@ export function rowInNextColumn(
     return nearest?.index;
 }
 
-/** The rows the keyboard can reach: those that run something, and are enabled. */
-function runnableRows<T>(items: MenuItem<T>[]) {
-    return menuRows(items).filter(isRunnable);
-}
-
 /**
  * Whether the pointer really moved. A menu appearing under a pointer at rest has the browser enter
  * the row there, and Chromium follow with a `pointermove` that goes nowhere; neither is the user
@@ -567,14 +691,6 @@ function runnableRows<T>(items: MenuItem<T>[]) {
  */
 function pointerMoved(e: PointerEvent) {
     return e.movementX !== 0 || e.movementY !== 0;
-}
-
-function isRunnable<T>(row: MenuItem<T>): row is MenuCommandItem<T> {
-    return !("kind" in row) && row.enabled !== false;
-}
-
-function isCustom<T>(row: MenuItem<T>): row is CustomMenuItem {
-    return "kind" in row && row.kind === "custom";
 }
 
 /** What a custom row's content acts with: the elements a click on does something. */
