@@ -20,7 +20,9 @@ If you need help installing Docker, reference the [Docker Installation Docs](htt
 wget https://raw.githubusercontent.com/TriliumNext/Trilium/master/docker-compose.yml
 ```
 
-Optionally, edit the `docker-compose.yml` file to configure the container settings prior to starting it. Unless configured otherwise, the data directory will be `~/trilium-data` and the container will be accessible at port 8080.
+Optionally, edit the `docker-compose.yml` file to configure the container settings prior to starting it. Unless configured otherwise, the data directory will be `trilium-data` next to `docker-compose.yml` and the container will be accessible at port 8080.
+
+To keep the data somewhere else, edit the `volumes` entry in `docker-compose.yml` and change the host path before the colon (for example `- /srv/trilium-data:/home/node/trilium-data`). Leave the path after the colon unchanged.
 
 ### Start the container:
 
@@ -162,9 +164,6 @@ docker-compose -f docker-compose.rootless.yml up -d
 # Run with custom UID/GID (e.g., match your host user)
 TRILIUM_UID=$(id -u) TRILIUM_GID=$(id -g) docker-compose -f docker-compose.rootless.yml up -d
 
-# Specify a custom data directory
-TRILIUM_DATA_DIR=/path/to/your/data TRILIUM_UID=$(id -u) TRILIUM_GID=$(id -g) docker-compose -f docker-compose.rootless.yml up -d
-
 ```
 
 #### **Using Docker CLI**
@@ -185,7 +184,6 @@ docker run -d --name trilium -p 8080:8080 --user $(id -u):$(id -g) -v ~/trilium-
 
 *   `TRILIUM_UID`: UID to use for the container process (passed to Docker's `--user` flag)
 *   `TRILIUM_GID`: GID to use for the container process (passed to Docker's `--user` flag)
-*   `TRILIUM_DATA_DIR`: Path to the data directory inside the container (default: `/home/node/trilium-data`)
 
 For a complete list of configuration environment variables (network settings, authentication, sync, etc.), see <a class="reference-link" href="../../../Advanced%20Usage/Configuration%20(config.ini%20or%20environment%20variables).md">Configuration (config.ini or environment variables)</a>.
 

@@ -17,8 +17,11 @@
 <h3>Grab the latest docker-compose.yml:</h3><pre><code class="language-text-x-trilium-auto">wget https://raw.githubusercontent.com/TriliumNext/Trilium/master/docker-compose.yml</code></pre>
 <p>Optionally, edit the <code>docker-compose.yml</code> file to configure the
   container settings prior to starting it. Unless configured otherwise, the
-  data directory will be <code>~/trilium-data</code> and the container will
-  be accessible at port 8080.</p>
+  data directory will be <code>trilium-data</code> next to <code>docker-compose.yml</code> and
+  the container will be accessible at port 8080.</p>
+<p>To keep the data somewhere else, edit the <code>volumes</code> entry in <code>docker-compose.yml</code> and
+  change the host path before the colon (for example <code>- /srv/trilium-data:/home/node/trilium-data</code>).
+  Leave the path after the colon unchanged.</p>
 <h3>Start the container:</h3>
 <p>Run the following command to start the container in the background:</p><pre><code class="language-text-x-trilium-auto">docker compose up -d</code></pre>
 <h2>Running without Docker Compose / Further Configuration</h2>
@@ -111,9 +114,6 @@ docker-compose -f docker-compose.rootless.yml up -d
 
 # Run with custom UID/GID (e.g., match your host user)
 TRILIUM_UID=$(id -u) TRILIUM_GID=$(id -g) docker-compose -f docker-compose.rootless.yml up -d
-
-# Specify a custom data directory
-TRILIUM_DATA_DIR=/path/to/your/data TRILIUM_UID=$(id -u) TRILIUM_GID=$(id -g) docker-compose -f docker-compose.rootless.yml up -d
 </code></pre>
 <h4><strong>Using Docker CLI</strong></h4><pre><code class="language-text-x-trilium-auto"># Build the image
 docker build -t triliumnext/trilium:rootless -f apps/server/Dockerfile.rootless .
@@ -130,8 +130,6 @@ docker run -d --name trilium -p 8080:8080 --user $(id -u):$(id -g) -v ~/trilium-
     to Docker's <code>--user</code> flag)</li>
   <li><code>TRILIUM_GID</code>: GID to use for the container process (passed
     to Docker's <code>--user</code> flag)</li>
-  <li><code>TRILIUM_DATA_DIR</code>: Path to the data directory inside the container
-    (default: <code>/home/node/trilium-data</code>)</li>
 </ul>
 <p>For a complete list of configuration environment variables (network settings,
   authentication, sync, etc.), see&nbsp;<a class="reference-link" href="#root/_help_Gzjqa934BdH4">Configuration (config.ini or environment variables)</a>.</p>
