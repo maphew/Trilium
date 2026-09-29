@@ -9,7 +9,7 @@ import { useCallback, useContext, useId, useLayoutEffect, useRef, useState } fro
 import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import { getActionSync } from "../../services/keyboard_actions";
 import { handleRightToLeftPlacement, isMobile } from "../../services/utils";
-import { FormDropdownDivider } from "./FormList";
+import { FormDropdownDivider, FormListHeader } from "./FormList";
 import { joinElements } from "./react_utils";
 import { renderShortcutKbds } from "./shortcut_kbd";
 
@@ -19,7 +19,7 @@ import { renderShortcutKbds } from "./shortcut_kbd";
  * this too. Only the placement is its own.
  *
  * The rows come as data in {@link items}, or as components in {@link children}: `MenuCommand`,
- * `FormDropdownDivider`, `MenuHeader` and `MenuCustom`. A `MenuCommand` with children opens them as its
+ * `FormDropdownDivider`, `FormListHeader` and `MenuCustom`. A `MenuCommand` with children opens them as its
  * submenu.
  */
 export interface MenuProps<T> {
@@ -472,12 +472,6 @@ export function MenuCommand(props: MenuCommandProps) {
     );
 }
 
-/** A heading over the rows after it. Its title is text, as it can be a name the user wrote. */
-export function MenuHeader({ title }: { title: string }) {
-    // As `FormListHeader` draws one.
-    return <li role="none"><h6 className="dropdown-header">{title}</h6></li>;
-}
-
 /**
  * A row holding a control of its own, such as the color picker. The keys stand on it when its
  * content marks a way in with `tabindex="0"`, and a click on something in it that acts closes the
@@ -591,7 +585,8 @@ function MenuItems<T>({ items, onSelect, columns }: {
 function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuProps<T>["onSelect"] }) {
     if ("kind" in row) {
         if (row.kind === "separator") return <FormDropdownDivider />;
-        if (row.kind === "header") return <MenuHeader title={row.title} />;
+        // Its title is text, as it can be a name the user wrote.
+        if (row.kind === "header") return <FormListHeader text={row.title} />;
         return <MenuCustom><row.componentFn /></MenuCustom>;
     }
 

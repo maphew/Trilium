@@ -1,8 +1,8 @@
 import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { FormDropdownDivider } from "./FormList";
-import Menu, { MenuCommand, MenuHeader, rowInNextColumn } from "./Menu";
+import { FormDropdownDivider, FormListHeader } from "./FormList";
+import Menu, { MenuCommand, rowInNextColumn } from "./Menu";
 
 /** A row 20px tall, `left` into the menu and `top` down it. */
 function row(left: number, top: number) {
@@ -61,7 +61,7 @@ describe("Menu with declared rows", () => {
         }
         render((
             <Menu x={10} y={10} onClose={onClose}>
-                <MenuHeader title="Note" />
+                <FormListHeader text="Note" />
                 <MenuCommand title="Copy" keyboardShortcut={undefined} onSelect={() => calls.push("copy")} />
                 <MenuCommand title="Delete" enabled={false} onSelect={() => calls.push("delete")} />
                 <FormDropdownDivider />

@@ -8,7 +8,7 @@ vi.mock("bootstrap", () => ({
     Tooltip: class { static getInstance() { return null; } }
 }));
 
-import FormList, { FormDropdownDivider, FormListItem } from "./FormList";
+import FormList, { FormDropdownDivider, FormListHeader, FormListItem } from "./FormList";
 
 describe("FormDropdownDivider", () => {
     it("draws a separator among the rows, whose click closes no menu", () => {
@@ -23,6 +23,19 @@ describe("FormDropdownDivider", () => {
         expect(divider?.getAttribute("role")).toBe("separator");
         divider?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         expect(pageHeard).not.toHaveBeenCalled();
+    });
+});
+
+describe("FormListHeader", () => {
+    it("heads the rows after it as text, out of the list's own roles", () => {
+        const host = document.createElement("div");
+        // A name the user wrote, such as a board column's status.
+        render(<menu><FormListHeader text="<b>Doing</b>" /></menu>, host);
+        const row = host.querySelector("menu > li");
+
+        // Its heading speaks for it, so the row reads as no list item of the menu's.
+        expect(row?.getAttribute("role")).toBe("none");
+        expect(row?.querySelector("h6.dropdown-header")?.textContent).toBe("<b>Doing</b>");
     });
 });
 

@@ -237,9 +237,10 @@ interface FormListHeaderOpts {
 }
 
 export function FormListHeader({ text, action }: FormListHeaderOpts) {
+    // Its heading speaks for the row, which a menu does not count among its items.
     return (
-        <li>
-            <h6 className={`dropdown-header ${action ? "dropdown-header-with-action" : ""}`}>
+        <li role="none">
+            <h6 className={clsx("dropdown-header", action && "dropdown-header-with-action")}>
                 <span>{text}</span>
                 {action}
             </h6>
