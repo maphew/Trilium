@@ -58,6 +58,7 @@ export default function CalendarWidget({ launcherNote }: LauncherNoteProps) {
 
     return (
         <LaunchBarDropdownButton
+            panel
             launcherNote={launcherNote}
             icon={icon} title={title}
             onShown={async () => {

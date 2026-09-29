@@ -34,8 +34,6 @@ export default function ReasoningEffortDropdown({ model, value, onChange, disabl
             buttonClassName="llm-chat-model-select"
             className="llm-chat-reasoning-effort"
             disabled={disabled}
-            // A few items, so the menu never scrolls and keeps the working backdrop blur.
-            noDropdownListStyle
             // Same reason as the model selector: the sidebar clips an unportaled menu.
             portalToBody={inSidebar}
             dropdownOptions={inSidebar ? { popperConfig: { strategy: "fixed" } } : undefined}

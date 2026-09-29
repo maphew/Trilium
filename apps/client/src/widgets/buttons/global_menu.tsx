@@ -42,7 +42,6 @@ export default function GlobalMenu({ isHorizontalLayout }: { isHorizontalLayout:
                     <span className="bx bxs-down-arrow-alt global-menu-button-update-available-button" title={t("update_available.update_available")} />
                 </div>}
             </>}
-            noDropdownListStyle
             mobileBackdrop
         >
             {isMobile() && <>

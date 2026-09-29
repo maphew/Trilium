@@ -19,7 +19,7 @@ import server from "../../services/server";
 import { openInAppHelpFromUrl } from "../../services/utils";
 import { formatDateTime } from "../../utils/formatters";
 import { BacklinksWidget, useBacklinkCount } from "../FloatingButtonsDefinitions";
-import Dropdown, { DropdownProps } from "../react/Dropdown";
+import Dropdown, { DropdownPanel, type DropdownPanelProps } from "../react/Dropdown";
 import { FormDropdownDivider, FormListHeader, FormListItem } from "../react/FormList";
 import HelpDropdown from "../react/HelpDropdown";
 import { useActiveNoteContext, useLegacyImperativeHandlers, useNoteLabel, useNoteLabelInt, useNoteLabelOptionalBool, useNoteProperty, useStaticTooltip, useTriliumEvent, useTriliumEvents, useTriliumOptionBool, useTriliumOptionInt, useAttachments } from "../react/hooks";
@@ -91,12 +91,15 @@ export default function StatusBar() {
     );
 }
 
-function StatusBarDropdown({ children, icon, text, buttonClassName, titleOptions, dropdownOptions, ...dropdownProps }: Omit<DropdownProps, "hideToggleArrow" | "title" | "titlePosition"> & {
+function StatusBarDropdown({ children, icon, text, buttonClassName, titleOptions, dropdownOptions, panel, ...dropdownProps }: Omit<DropdownPanelProps, "hideToggleArrow" | "title" | "titlePosition"> & {
     title: string;
     icon?: string;
+    /** Opens a {@link DropdownPanel} rather than a menu, for content other than `FormList` rows. */
+    panel?: boolean;
 }) {
+    const Component = panel ? DropdownPanel : Dropdown;
     return (
-        <Dropdown
+        <Component
             buttonClassName={clsx("status-bar-dropdown-button", buttonClassName)}
             titlePosition="top"
             titleOptions={{
@@ -121,7 +124,7 @@ function StatusBarDropdown({ children, icon, text, buttonClassName, titleOptions
             {...dropdownProps}
         >
             {children}
-        </Dropdown>
+        </Component>
     );
 }
 

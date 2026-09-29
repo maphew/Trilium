@@ -69,7 +69,6 @@ export function BadgeWithDropdown({ text, children, tooltip, className, dropdown
                 className={className}
                 {...props}
             />}
-            noDropdownListStyle
             noSelectButtonStyle
             hideToggleArrow
             title={tooltip}

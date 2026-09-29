@@ -3,7 +3,7 @@ import "./HelpDropdown.css";
 import { ComponentChildren } from "preact";
 
 import { t } from "../../services/i18n";
-import Dropdown from "./Dropdown";
+import { DropdownPanel } from "./Dropdown";
 import { openHelpPage } from "./HelpButton";
 import LinkButton from "./LinkButton";
 
@@ -32,8 +32,7 @@ interface HelpDropdownProps {
  */
 export default function HelpDropdown({ children, helpPage, openInPopup, className, onShown }: HelpDropdownProps) {
     return (
-        <Dropdown
-            panel
+        <DropdownPanel
             onShown={onShown}
             className={`help-dropdown ${className ?? ""}`}
             buttonClassName="bx bx-help-circle"
@@ -56,6 +55,6 @@ export default function HelpDropdown({ children, helpPage, openInPopup, classNam
                     onClick={() => openHelpPage(helpPage, !!openInPopup)}
                 />
             )}
-        </Dropdown>
+        </DropdownPanel>
     );
 }

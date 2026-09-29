@@ -120,7 +120,6 @@ export function NoteContextMenu({ note, noteContext, itemsAtStart, itemsNearNote
                 dropdownContainerClassName="mobile-bottom-menu"
                 hideToggleArrow
                 noSelectButtonStyle
-                noDropdownListStyle
                 iconAction
                 onHidden={() => itemToFocusRef.current = null }
                 mobileBackdrop

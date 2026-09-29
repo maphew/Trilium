@@ -12,7 +12,7 @@ import linkContextMenu from "../menus/link_context_menu";
 import { t } from "../services/i18n";
 import link from "../services/link";
 import ActionButton from "./react/ActionButton";
-import Dropdown from "./react/Dropdown";
+import Dropdown, { DropdownPanel } from "./react/Dropdown";
 import { FormListItem } from "./react/FormList";
 import { useNoteContext } from "./react/hooks";
 import { NoteContextContext, ParentComponent } from "./react/react_utils";
@@ -228,7 +228,6 @@ export function OpenNoteActions({ note }: { note: FNote }) {
                 title={t("embedded_note.more-ways-to-open")}
                 iconAction
                 hideToggleArrow
-                noDropdownListStyle
                 // The panel clips what overflows it, so a menu nested in the row would be cut off at
                 // its edge; and a panel's backdrop filter would flatten the menu's own.
                 portalToBody
@@ -335,8 +334,7 @@ export function MaximizeToQuickEditAction({ note, onClose }: { note: FNote; onCl
  */
 export function NoteColorAction({ note, title }: { note: FNote; title: string }) {
     return (
-        <Dropdown
-            panel
+        <DropdownPanel
             className="tn-embedded-note-color"
             buttonClassName="bx bx-palette"
             title={title}
@@ -346,6 +344,6 @@ export function NoteColorAction({ note, title }: { note: FNote; title: string })
             portalToBody
         >
             <NoteColorPicker note={note} />
-        </Dropdown>
+        </DropdownPanel>
     );
 }

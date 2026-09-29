@@ -13,7 +13,7 @@ import { t } from "../../services/i18n";
 import server from "../../services/server";
 import { isDesktop, isMobile } from "../../services/utils";
 import ActionButton from "./ActionButton";
-import Dropdown from "./Dropdown";
+import Dropdown, { DropdownPanel } from "./Dropdown";
 import { FormDropdownDivider, FormListItem } from "./FormList";
 import FormTextBox from "./FormTextBox";
 import { useStaticTooltip, useWindowSize } from "./hooks";
@@ -169,8 +169,7 @@ function IconPickerDropdownButton({
     const [ pickerShown, setPickerShown ] = useState(false);
 
     return (
-        <Dropdown
-            panel
+        <DropdownPanel
             // The legacy class dresses the menu the picker sits in, which the themes and the
             // picker's own stylesheet reach through it.
             className={clsx("note-icon-widget", className)}
@@ -224,7 +223,7 @@ function IconPickerDropdownButton({
                     })}
                 />
             )}
-        </Dropdown>
+        </DropdownPanel>
     );
 }
 
@@ -363,7 +362,6 @@ function FilterRow({ filterByPrefix, search, setSearch, setFilterByPrefix, filte
                         buttonClassName="bx bx-filter-alt"
                         hideToggleArrow
                         noSelectButtonStyle
-                        noDropdownListStyle
                         iconAction
                         title={t("note_icon.filter")}
                     >
@@ -374,7 +372,6 @@ function FilterRow({ filterByPrefix, search, setSearch, setFilterByPrefix, filte
                         buttonClassName="bx bx-dots-vertical-rounded"
                         hideToggleArrow
                         noSelectButtonStyle
-                        noDropdownListStyle
                         iconAction
                         dropdownContainerClassName="mobile-bottom-menu"
                     >

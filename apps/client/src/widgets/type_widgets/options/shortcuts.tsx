@@ -135,7 +135,6 @@ export default function ShortcutSettings() {
                             buttonClassName={`bx bx-filter-alt ${activeFilter ? "active" : ""}`}
                             hideToggleArrow
                             noSelectButtonStyle
-                            noDropdownListStyle
                             iconAction
                             title={t("shortcuts.filter")}
                             dropdownRef={filterDropdownRef}

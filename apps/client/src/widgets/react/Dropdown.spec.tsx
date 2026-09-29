@@ -2,7 +2,7 @@ import { type ComponentChildren, render } from "preact";
 import { useRef } from "preact/hooks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import Dropdown, { type DropdownHandle, type DropdownProps } from "./Dropdown";
+import Dropdown, { type DropdownHandle, DropdownPanel, type DropdownProps } from "./Dropdown";
 import { FormDropdownSubmenu, FormListItem } from "./FormList";
 
 // A dialog's focus trap would pull focus out of a menu portaled over it.
@@ -32,15 +32,17 @@ describe("Dropdown", () => {
         layout.onMobile = false;
     });
 
-    function renderDropdown(props: Partial<DropdownProps> = {}, content: ComponentChildren = <li className="dropdown-item">By title</li>) {
+    /** Renders a `Dropdown`, or a `DropdownPanel` for `panel`. */
+    function renderDropdown({ panel, ...props }: Partial<DropdownProps> & { panel?: boolean } = {}, content: ComponentChildren = <li className="dropdown-item">By title</li>) {
         let handle: { current: DropdownHandle | null } = { current: null };
+        const Component = panel ? DropdownPanel : Dropdown;
         function Harness() {
             const dropdownRef = useRef<DropdownHandle | null>(null);
             handle = dropdownRef;
             return (
-                <Dropdown text="Sort" dropdownRef={dropdownRef} dropdownContainerClassName="sort-menu" {...props}>
+                <Component text="Sort" dropdownRef={dropdownRef} dropdownContainerClassName="sort-menu" {...props}>
                     {content}
-                </Dropdown>
+                </Component>
             );
         }
         render(<Harness />, host);
@@ -187,6 +189,10 @@ describe("Dropdown", () => {
             toggle.focus();
             key(toggle, "ArrowDown");
             await vi.waitFor(() => expect(document.activeElement?.textContent).toBe("By title"));
+            // A plain popup, which assistive technology is not told is a menu.
+            expect(toggle.getAttribute("aria-haspopup")).toBe("true");
+            expect(popup()?.getAttribute("role")).toBeNull();
+            expect(popup()?.classList.contains("tn-dropdown-list")).toBe(true);
             // Bootstrap reacts on a toggle only with `data-bs-toggle`, which this one does not carry.
             bootstrapHeard.mockClear();
 

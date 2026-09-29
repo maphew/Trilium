@@ -6,7 +6,7 @@ import FNote from "../../entities/fnote";
 import { showLauncherContextMenu } from "../../menus/launcher_button_context_menu";
 import utils from "../../services/utils";
 import ActionButton, { ActionButtonProps } from "../react/ActionButton";
-import Dropdown, { DropdownProps } from "../react/Dropdown";
+import Dropdown, { DropdownPanel, DropdownProps } from "../react/Dropdown";
 import { useNoteLabel, useNoteProperty } from "../react/hooks";
 import Icon from "../react/Icon";
 
@@ -47,17 +47,22 @@ export function LaunchBarActionButton({ className, launcherNote, onContextMenu, 
     );
 }
 
-export function LaunchBarDropdownButton({ children, icon, dropdownOptions, launcherNote, buttonProps, ...props }: Pick<DropdownProps, "title" | "children" | "onShown" | "dropdownOptions" | "dropdownRef" | "buttonProps"> & { icon: string, launcherNote?: FNote }) {
+export function LaunchBarDropdownButton({ children, icon, dropdownOptions, launcherNote, buttonProps, panel, ...props }: Pick<DropdownProps, "title" | "children" | "onShown" | "dropdownOptions" | "dropdownRef" | "buttonProps"> & {
+    icon: string,
+    launcherNote?: FNote,
+    /** Opens a {@link DropdownPanel} rather than a menu, for content other than `FormList` rows. */
+    panel?: boolean
+}) {
     const { isHorizontalLayout } = useContext(LaunchBarContext);
     const titlePosition = getTitlePosition(isHorizontalLayout);
 
     const resolvedButtonProps = launcherNote && !buttonProps?.onContextMenu
         ? { ...buttonProps, onContextMenu: launcherContextMenuHandler(launcherNote) }
         : buttonProps;
+    const Component = panel ? DropdownPanel : Dropdown;
 
     return (
-        <Dropdown
-            panel
+        <Component
             className="right-dropdown-widget"
             buttonClassName="right-dropdown-button launcher-button"
             hideToggleArrow
@@ -73,7 +78,7 @@ export function LaunchBarDropdownButton({ children, icon, dropdownOptions, launc
             mobileBackdrop
             buttonProps={resolvedButtonProps}
             {...props}
-        >{children}</Dropdown>
+        >{children}</Component>
     );
 }
 
