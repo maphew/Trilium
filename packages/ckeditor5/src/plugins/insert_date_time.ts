@@ -37,7 +37,7 @@ export default class InsertDateTimePlugin extends Plugin {
             addListToDropdown(dropdownView, items);
 
             dropdownView.buttonView.set({
-                label: t('Insert date/time'),
+                label: t('Date/time'),
                 icon: dateTimeIcon,
                 tooltip: true
             });

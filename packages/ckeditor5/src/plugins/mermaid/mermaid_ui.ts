@@ -76,7 +76,7 @@ export default class MermaidUI extends Plugin {
 			const splitButtonView = dropdownView.buttonView;
 
 			splitButtonView.set( {
-				label: t( 'Insert Mermaid diagram' ),
+				label: t( 'Mermaid diagram' ),
 				icon: insertMermaidIcon,
 				tooltip: true
 			} );
