@@ -616,7 +616,7 @@ function CodeNoteSwitcher({ note }: StatusBarContext) {
                 icon={correspondingMimeType?.icon ?? "bx bx-code-curly"}
                 text={correspondingMimeType?.title}
                 title={t("status_bar.code_note_switcher")}
-                dropdownContainerClassName="dropdown-code-note-switcher tn-dropdown-menu-scrollable"
+                dropdownContainerClassName="dropdown-code-note-switcher"
             >
                 <NoteTypeCodeNoteList
                     currentMimeType={currentNoteMime}

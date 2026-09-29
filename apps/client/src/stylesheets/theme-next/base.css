@@ -166,12 +166,6 @@ body.backdrop-effects-disabled {
     margin-inline-end: 6px;
 }
 
-.dropdown-menu.tn-dropdown-menu-scrollable {
-    /* Note: scrollable dropdowns does not support submenus */
-    max-height: 90vh;
-    overflow-y: auto;
-}
-
 body.desktop .dropdown-menu::before,
 :root .ck.ck-dropdown__panel::before,
 :root .excalidraw .popover::before,

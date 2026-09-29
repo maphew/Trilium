@@ -315,7 +315,6 @@ export default function SidebarChat() {
                         title={t("sidebar_chat.history")}
                         iconAction
                         hideToggleArrow
-                        dropdownContainerClassName="tn-dropdown-menu-scrollable"
                         dropdownOptions={{ popperConfig: { strategy: "fixed" } }}
                         dropdownRef={historyDropdownRef}
                         onShown={loadRecentChats}
