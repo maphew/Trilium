@@ -497,9 +497,12 @@ class="admonition warning">
 </ol>
 <aside class="admonition note">
   <p>For each newly created attribute, Trilium creates an attribute definition
-    on the board collection note. For an attribute to be displayed on the face
-    of a card, it must be declared as inheritable and promoted on the board
-    note.</p>
+    on the board collection note. A card displays the attributes declared as
+    inheritable on the board note, as well as any attribute the card gets a
+    definition for from elsewhere, for example through <a class="reference-link"
+    href="#root/_help_KC1HB96bqqHX">Templates</a> or another parent note it
+    is cloned under. Attributes that only the cards define are listed after
+    the board's own.</p>
 </aside>
 <p>Here is an example of the attributes you can define for a typical Kanban
   board used to track tasks:</p>
@@ -551,6 +554,14 @@ class="admonition warning">
   <li>Press the&nbsp;<span class="tn-icon bx bx-trash"></span> button to delete
     the attribute and all its values from every note in the board collection.</li>
 </ul>
+<p>Attributes that the cards get from a template or another parent note can
+  be reordered and hidden here, but not modified or deleted. Edit them on
+  the note that defines them.</p>
+<p>If cards define an attribute with the same name but a different type or
+  different select options, for example through two different templates,
+  or if a card overrides the board's definition with its own, the attribute
+  is marked <strong>Multiple definitions</strong>. Such an attribute is sorted
+  as text and does not appear in the card's context menu.</p>
 <h3>Managing card templates</h3>
 <p>When you create a new card, Trilium offers four templates by default: <strong>Text</strong>, <strong>Markdown</strong>, <strong>Canvas</strong>,
   and <strong>Spreadsheet</strong>. You can customize this list to include

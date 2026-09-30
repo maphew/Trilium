@@ -39,7 +39,7 @@ export default class InlineIconUI extends Plugin {
         const editor = this.editor;
         const t = editor.t;
 
-        this.addPickerButton(INSERT_ICON_COMMAND, t("Insert icon"));
+        this.addPickerButton(INSERT_ICON_COMMAND, t("Icon"));
         this.addPickerButton(CHANGE_ICON, t("Change icon"));
 
         // Esc reaches the editor only while the caret has focus, and the picker takes focus away,

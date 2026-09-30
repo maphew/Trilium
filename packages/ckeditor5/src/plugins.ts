@@ -57,6 +57,13 @@ import TodoListMultistate from "./plugins/todo_list_multistate/todo_list_multist
 import TodoListUncheckOnEnter from "./plugins/todo_list_uncheck_on_enter.js";
 import CollapsibleListItems from "./plugins/collapsible_list_items.js";
 import TableIndent from "./plugins/table_indent.js";
+import TableContextMenu from "./plugins/table_context_menu.js";
+import TableMove from "./plugins/table_move/table_move.js";
+import TablePasteRows from "./plugins/table_paste_rows.js";
+import TableSort from "./plugins/table_sort.js";
+import TableInsertUI from "./plugins/table_insert/table_insert_ui.js";
+import TableToolbarDropdowns from "./plugins/table_toolbar_dropdowns.js";
+import ToolbarGroupMenu from "./plugins/toolbar_group_menu.js";
 
 /**
  * Plugins that are specific to Trilium and not part of the CKEditor 5 core, included in both text editors but not in the attribute editor.
@@ -92,6 +99,13 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     TodoListMultistate,
     CollapsibleListItems,
     TableIndent,
+    TableContextMenu,
+    TableMove,
+    TablePasteRows,
+    TableSort,
+    TableInsertUI,
+    TableToolbarDropdowns,
+    ToolbarGroupMenu,
     CopyAnchorLinkButton,
     CopyLinkUrlButton,
     ImageActions,

@@ -87,7 +87,7 @@ describe("InsertDateTimePlugin", () => {
             expect(dropdown.buttonView).toBeInstanceOf(SplitButtonView);
             // No dictionary is configured here, so `t()` renders the message id, which is the
             // English label.
-            expect(dropdown.buttonView.label).toBe("Insert date/time");
+            expect(dropdown.buttonView.label).toBe("Date/time");
 
             const spy = vi.spyOn(editor, "execute");
             dropdown.buttonView.fire("execute");

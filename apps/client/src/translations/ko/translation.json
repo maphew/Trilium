@@ -563,7 +563,7 @@
     "text": "텍스트",
     "textarea": "여러 줄 텍스트",
     "number": "숫자",
-    "boolean": "불리언",
+    "boolean": "체크박스",
     "date": "날짜",
     "date_time": "날짜 및 시간",
     "time": "시간",
@@ -1408,7 +1408,9 @@
     "label_name": "라벨: {{name}}",
     "relation_name": "관계: {{name}}",
     "drawn_by_collection": "컬렉션이 이 속성을 기준으로 구성되므로 항목에는 이 속성이 반복해서 표시되지 않습니다",
-    "display_on_items": "컬렉션 항목에 속성 표시"
+    "display_on_items": "컬렉션 항목에 속성 표시",
+    "conflicting": "여러 정의",
+    "conflicting_tooltip": "항목마다 이 속성을 서로 다른 방식으로 정의하고 있어 텍스트로 정렬되며, 항목 메뉴에서는 값을 설정할 수 없습니다."
   },
   "script_executor": {
     "query": "쿼리",
@@ -3268,7 +3270,23 @@
     "vector_auto": "벡터(자동)"
   },
   "table_context_menu": {
-    "delete_row": "행 삭제"
+    "delete_row": "행 삭제",
+    "insert_rows_above": "위에 행 삽입",
+    "insert_rows_below": "아래에 행 삽입",
+    "insert_columns_left": "왼쪽에 열 삽입",
+    "insert_columns_right": "오른쪽에 열 삽입",
+    "delete_rows": "행 삭제",
+    "delete_columns": "열 삭제",
+    "delete_table": "표 삭제",
+    "distribute_columns": "열 너비 균등 분배",
+    "merge_cells": "셀 병합",
+    "split_cells": "셀 분할",
+    "split_vertically": "세로로",
+    "split_horizontally": "가로로",
+    "split_reset": "셀 병합 해제",
+    "sort": "정렬",
+    "sort_ascending": "오름차순",
+    "sort_descending": "내림차순"
   },
   "board_view": {
     "delete-note": "노트 삭제...",
@@ -4024,8 +4042,6 @@
       "insert-a-table": "표를 삽입합니다.",
       "insert-date-time": "날짜/시간 삽입",
       "insert-footnote-0": "각주 %0 삽입",
-      "insert-math": "수식 삽입",
-      "insert-mermaid-diagram": "Mermaid 다이어그램 삽입",
       "insert-mermaid-source-code": "Mermaid 소스 코드 삽입",
       "insert-paragraph-after-code-block": "코드 블록 뒤에 문단 삽입",
       "insert-paragraph-before-code-block": "코드 블록 앞에 문단 삽입",
@@ -4086,7 +4102,6 @@
       "working": "처리 중…",
       "upload-image": "이미지 업로드",
       "upload-an-image-from-your-device": "기기에서 이미지를 업로드하세요.",
-      "insert-icon": "아이콘 삽입",
       "icon": "아이콘",
       "insert-an-icon-from-an-installed-icon-pack": "설치된 아이콘 팩에서 아이콘 삽입",
       "transform-icon": "아이콘 변형",
@@ -4099,7 +4114,25 @@
       "flip-vertically": "수직으로 뒤집기",
       "change-icon": "아이콘 변경",
       "insert-date-time-0": "날짜/시간 삽입: %0",
-      "insert-time-0": "시간 삽입: %0"
+      "insert-time-0": "시간 삽입: %0",
+      "math": "수학",
+      "date-time": "날짜/시간",
+      "move-row-up": "행을 위로 이동",
+      "move-row-down": "행을 아래로 이동",
+      "move-column-left": "열을 왼쪽으로 이동",
+      "move-column-right": "열을 오른쪽으로 이동",
+      "insert-table": "표 삽입…",
+      "rows": "행",
+      "columns": "열",
+      "enter-a-whole-number-between-1-and-0": "1에서 %0 사이의 정수를 입력하세요.",
+      "the-table-is-too-large-max-0-cells": "표가 너무 큽니다(최대 %0개 셀).",
+      "distribute-columns-evenly": "열 너비 균등 분배",
+      "merge-selected-cells": "선택한 셀 병합",
+      "unmerge-cells": "셀 병합 해제",
+      "sort": "정렬",
+      "ascending": "오름차순",
+      "descending": "내림차순",
+      "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "병합된 셀로 서로 연결되어 있어 일부 행이 함께 정렬되었습니다"
     },
     "toolbar-groups": {
       "text-formatting": "텍스트 서식",

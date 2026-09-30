@@ -894,6 +894,33 @@ describe("contextMenu", () => {
             }
         });
 
+        it("keeps the keys on a phone's row that a tap folded, not on the hidden child", async () => {
+            layout.onMobile = true;
+            try {
+                const picked: string[] = [];
+                await openMenu((title) => picked.push(title));
+                key("End");
+                await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
+                key("Enter");
+                await vi.waitFor(() => expect(activeRow()).toBe("Meeting"));
+                const parent = menuElement()?.querySelector<HTMLElement>("li.dropdown-submenu");
+                expect(parent).toBeTruthy();
+
+                parent?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+                parent?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+                await vi.waitFor(() => expect(parent?.classList.contains("submenu-open")).toBe(false));
+                expect(activeRow()).toBe("Templates");
+
+                key("ArrowUp");
+                await vi.waitFor(() => expect(activeRow()).toBe("Paste"));
+                key("Enter");
+                expect(picked).not.toContain("Meeting");
+                expect(picked.at(-1)).toBe("Paste");
+            } finally {
+                layout.onMobile = false;
+            }
+        });
+
         it("runs the active row on Enter, with focus back where it was", async () => {
             const picked: string[] = [];
             const { contextMenu, editor } = await openMenu((title) => {

@@ -89,6 +89,9 @@ jobs:
       - name: Run Playwright tests
         run: TRILIUM_DOCKER=1 TRILIUM_PORT=8082 pnpm --filter=server e2e
 
+      - name: Check that the image runs as a non-root user
+        run: sh apps/server/scripts/check-docker-non-root.sh ${{ env.TEST_TAG }}
+
       - name: Upload Playwright trace
         if: failure()
         uses: actions/upload-artifact@v7

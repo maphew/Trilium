@@ -425,9 +425,11 @@ function MenuSubmenu({ menu, icon, title, children, onDropdownToggleClicked, col
                 // The dropdown's `closeOnClickInside` would close the whole menu.
                 e.stopPropagation();
                 if (disabled) return;
-                // Clicked again, an unfolded row folds its submenu back.
+                // Clicked again, an unfolded row folds its submenu back. The keys go on from this
+                // row, as a folded or replaced submenu's rows are gone.
                 if (isMobile()) {
                     menu.openSubmenu(level, open ? undefined : id, e.currentTarget, true);
+                    menu.setActive(level, id);
                     return;
                 }
                 menu.openSubmenu(level, id, e.currentTarget, true);

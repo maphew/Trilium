@@ -40,7 +40,7 @@ describe( 'MermaidUI', () => {
 		it( 'has the base properties', () => {
 			const dropdown = editor.ui.componentFactory.create( 'mermaid' );
 
-			expect( dropdown.buttonView ).to.have.property( 'label', 'Insert Mermaid diagram' );
+			expect( dropdown.buttonView ).to.have.property( 'label', 'Mermaid diagram' );
 			expect( dropdown.buttonView ).to.have.property( 'icon' );
 			expect( dropdown.buttonView ).to.have.property( 'tooltip', true );
 		} );
