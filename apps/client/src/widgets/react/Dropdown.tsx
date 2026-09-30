@@ -6,6 +6,7 @@ import { CSSProperties, HTMLProps } from "preact/compat";
 import { MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { isMobile } from "../../services/utils";
+import { focusListItem } from "./FormList";
 import { useTooltip, useUniqueName } from "./hooks";
 import { suspendModalFocusTraps } from "./modal_focustrap";
 import Menu from "./Menu";
@@ -116,7 +117,7 @@ export function DropdownPanel({ scrollable, ...props }: DropdownPanelProps) {
         <DropdownToggle
             {...props}
             hasPopup="true"
-            onToggleArrow={(popup, edge) => focusItem(popup, edge)}
+            onToggleArrow={(popup, edge) => focusListItem(popup, edge)}
             popup={({ popupProps, className, bottomSheet, startAt, dismiss }) => (
                 <PanelPopup
                     {...popupProps}
@@ -348,7 +349,7 @@ function PanelPopup({ startAt, elementRef, ...props }: PopupProps & { startAt: "
             if (!popup?.contains(target) || /input|textarea/i.test(target.tagName)) return;
             e.preventDefault();
             e.stopPropagation();
-            focusItem(popup, e.key === "ArrowDown" ? "next" : "previous", target);
+            focusListItem(popup, e.key === "ArrowDown" ? "next" : "previous", target);
         };
         window.addEventListener("keydown", onKeyDown, true);
         return () => window.removeEventListener("keydown", onKeyDown, true);
@@ -365,26 +366,8 @@ function PanelPopup({ startAt, elementRef, ...props }: PopupProps & { startAt: "
             {...props}
             elementRef={setElement}
             onPlaced={() => {
-                if (startAt && popupRef.current) focusItem(popupRef.current, startAt);
+                if (startAt && popupRef.current) focusListItem(popupRef.current, startAt);
             }}
         />
     );
-}
-
-/**
- * Focuses an enabled item of `popup`'s own, not one in a submenu nested in it: the first or the
- * last, or the one after or before `from`, going round at either end, as Bootstrap's did.
- */
-function focusItem(popup: HTMLElement, where: "first" | "last" | "next" | "previous", from?: Element) {
-    const items = [ ...popup.querySelectorAll<HTMLElement>(".dropdown-item:not(.disabled):not(:disabled)") ]
-        .filter((item) => item.parentElement?.closest(".dropdown-menu") === popup);
-    if (!items.length) return;
-
-    const current = from?.closest<HTMLElement>(".dropdown-item");
-    const index = current ? items.indexOf(current) : -1;
-    let target: HTMLElement | undefined;
-    if (where === "first" || (where === "next" && index < 0)) target = items[0];
-    else if (where === "last" || (where === "previous" && index < 0)) target = items.at(-1);
-    else target = items[(index + (where === "next" ? 1 : -1) + items.length) % items.length];
-    target?.focus();
 }

@@ -2,10 +2,10 @@ import "./FormList.css";
 
 import { autoUpdate } from "@floating-ui/dom";
 import type { KeyboardActionNames } from "@triliumnext/commons";
-import { Dropdown as BootstrapDropdown, Tooltip } from "bootstrap";
+import type { Tooltip } from "bootstrap";
 import clsx from "clsx";
 import { ComponentChildren, RefObject } from "preact";
-import { createPortal, type CSSProperties, useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/compat";
+import { createPortal, type CSSProperties, useContext, useLayoutEffect, useMemo, useRef } from "preact/compat";
 
 import { getActionSync } from "../../services/keyboard_actions";
 import { handleRightToLeftPlacement, isMobile, openInAppHelpFromUrl } from "../../services/utils";
@@ -27,23 +27,27 @@ interface FormListOpts {
 }
 
 export default function FormList({ children, onSelect, style, fullHeight, wrapperClassName }: FormListOpts) {
-    const wrapperRef = useRef<HTMLDivElement | null>(null);
-    const triggerRef = useRef<HTMLButtonElement | null>(null);
+    const listRef = useRef<HTMLDivElement | null>(null);
 
-    useEffect(() => {
-        if (!triggerRef.current || !wrapperRef.current) {
-            return;
-        }
-
-        const $wrapperRef = $(wrapperRef.current);
-        const dropdown = BootstrapDropdown.getOrCreateInstance(triggerRef.current);
-        $wrapperRef.on("hide.bs.dropdown", (e) => e.preventDefault());
-
-        return () => {
-            $wrapperRef.off("hide.bs.dropdown");
-            dropdown.dispose();
+    // Captured at the window: Bootstrap captures Escape, Up and Down at the document for any
+    // `.dropdown-menu`, and throws for one with no toggle beside it. Escape goes no further, as
+    // Bootstrap kept it from a dialog around the list too.
+    useLayoutEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            const list = listRef.current;
+            const target = e.target as Element;
+            if (!list?.contains(target)) return;
+            if (e.key === "Escape") {
+                e.stopPropagation();
+            } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !/input|textarea/i.test(target.tagName)) {
+                e.preventDefault();
+                e.stopPropagation();
+                focusListItem(list, e.key === "ArrowDown" ? "next" : "previous", target);
+            }
         };
-    }, [ triggerRef, wrapperRef ]);
+        window.addEventListener("keydown", onKeyDown, true);
+        return () => window.removeEventListener("keydown", onKeyDown, true);
+    }, []);
 
     const builtinStyles = useMemo(() => {
         const style: CSSProperties = {};
@@ -55,14 +59,9 @@ export default function FormList({ children, onSelect, style, fullHeight, wrappe
     }, [ fullHeight ]);
 
     return (
-        <div className={clsx("dropdownWrapper", wrapperClassName)} ref={wrapperRef} style={builtinStyles}>
+        <div className={clsx("dropdownWrapper", wrapperClassName)} style={builtinStyles}>
             <div className="dropdown" style={builtinStyles}>
-                <button
-                    ref={triggerRef}
-                    type="button" style="display: none;"
-                    data-bs-toggle="dropdown" data-bs-display="static" />
-
-                <div class="dropdown-menu static show" style={{
+                <div ref={listRef} class="dropdown-menu static show" style={{
                     ...style ?? {},
                     ...builtinStyles,
                     position: "relative",
@@ -106,6 +105,24 @@ function onDropdownMenuKeyDown(e: KeyboardEvent) {
 
     e.preventDefault();
     dropdownItem.click();
+}
+
+/**
+ * Focuses an enabled item of `list`'s own, not one in a submenu nested in it: the first or the
+ * last, or the one after or before `from`, going round at either end.
+ */
+export function focusListItem(list: HTMLElement, where: "first" | "last" | "next" | "previous", from?: Element) {
+    const items = [ ...list.querySelectorAll<HTMLElement>(".dropdown-item:not(.disabled):not(:disabled)") ]
+        .filter((item) => item.parentElement?.closest(".dropdown-menu") === list);
+    if (!items.length) return;
+
+    const current = from?.closest<HTMLElement>(".dropdown-item");
+    const index = current ? items.indexOf(current) : -1;
+    let target: HTMLElement | undefined;
+    if (where === "first" || (where === "next" && index < 0)) target = items[0];
+    else if (where === "last" || (where === "previous" && index < 0)) target = items.at(-1);
+    else target = items[(index + (where === "next" ? 1 : -1) + items.length) % items.length];
+    target?.focus();
 }
 
 export interface FormListBadge {

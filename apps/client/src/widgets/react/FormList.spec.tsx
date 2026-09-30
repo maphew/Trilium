@@ -1,10 +1,8 @@
 import { type ComponentChildren, render } from "preact";
 import { describe, expect, it, vi } from "vitest";
 
-// FormList instantiates a real Bootstrap dropdown in an effect; stub it so the
-// component mounts without pulling in Bootstrap's layout-dependent machinery.
+// Rows with a tooltip reach Bootstrap's; stub it so they mount without its layout machinery.
 vi.mock("bootstrap", () => ({
-    Dropdown: { getOrCreateInstance: () => ({ dispose() {} }) },
     Tooltip: class { static getInstance() { return null; } }
 }));
 
@@ -195,6 +193,46 @@ describe("FormList keyboard activation", () => {
 
         expect(onSelect).not.toHaveBeenCalled();
         expect(event.defaultPrevented).toBe(false);
+    });
+
+    it("moves focus over the enabled items with Up and Down, keeping the keys from the document", () => {
+        const container = mount(
+            <FormList>
+                <input className="embedded-search" />
+                <FormListItem value="text">Text</FormListItem>
+                <FormListItem value="code" disabled>Code</FormListItem>
+                <FormListItem value="book">Book</FormListItem>
+            </FormList>
+        );
+        // Bootstrap's dropdown handler listens there, and throws for a list with no toggle.
+        const documentHeard = vi.fn();
+        document.addEventListener("keydown", documentHeard, true);
+        expect(container.querySelector("[data-bs-toggle]")).toBeNull();
+
+        press(getItem(container, "text"), "ArrowDown");
+        expect(document.activeElement).toBe(getItem(container, "book"));
+        // Round from the last item to the first.
+        press(getItem(container, "book"), "ArrowDown");
+        expect(document.activeElement).toBe(getItem(container, "text"));
+        press(getItem(container, "text"), "ArrowUp");
+        expect(document.activeElement).toBe(getItem(container, "book"));
+        expect(documentHeard).not.toHaveBeenCalled();
+
+        // A field keeps its own.
+        const input = container.querySelector<HTMLInputElement>(".embedded-search");
+        expect(input).not.toBeNull();
+        const event = press(input as HTMLInputElement, "ArrowDown");
+        expect(event.defaultPrevented).toBe(false);
+        document.removeEventListener("keydown", documentHeard, true);
+    });
+
+    it("keeps Escape from Bootstrap's handler, and from a dialog around it as that handler did", () => {
+        const container = mount(<FormList><FormListItem value="text">Text</FormListItem></FormList>);
+        const dialogHeard = vi.fn();
+        container.addEventListener("keydown", dialogHeard);
+
+        expect(() => press(getItem(container, "text"), "Escape")).not.toThrow();
+        expect(dialogHeard).not.toHaveBeenCalled();
     });
 });
 
