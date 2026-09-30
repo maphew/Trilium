@@ -9,8 +9,20 @@ import { DEFAULT_COLOR_PALETTE } from "../../react/ColorPicker.js";
  */
 export function buildFontColorConfig() {
     return {
-        fontColor: buildPalette("text"),
-        fontBackgroundColor: buildPalette("background")
+        fontColor: { colors: buildAdaptedSwatches("text"), columns: 4 },
+        fontBackgroundColor: { colors: buildAdaptedSwatches("background"), columns: 4 }
+    };
+}
+
+/**
+ * The same swatches for the table and cell properties, as plain colors: the table dialogs reject a
+ * `light-dark()` value, so `AdaptiveColors` turns the color into a pair when it is applied.
+ */
+export function buildTableColorConfig() {
+    const colors = buildSwatches();
+    return {
+        tableProperties: { borderColors: colors, backgroundColors: colors },
+        tableCellProperties: { borderColors: colors, backgroundColors: colors }
     };
 }
 
@@ -27,16 +39,15 @@ const HUE_LABELS = [
     "Blue", "Purple"
 ];
 
-function buildPalette(role: AdaptiveColorRole) {
+function buildAdaptedSwatches(role: AdaptiveColorRole) {
+    return buildSwatches().map((swatch) => ({ ...swatch, color: adaptColor(swatch.color, role) }));
+}
+
+function buildSwatches() {
     // CKEditor has no name for pink, so it comes from the app's own catalogue.
     const hueLabels = [ ...HUE_LABELS, t("text-editor.colors.pink") ];
-    const swatches = [
+    return [
         ...GREYS,
         ...DEFAULT_COLOR_PALETTE.map((color, index) => ({ color, label: hueLabels[index] }))
     ];
-
-    return {
-        colors: swatches.map((swatch) => ({ ...swatch, color: adaptColor(swatch.color, role) })),
-        columns: 4
-    };
 }

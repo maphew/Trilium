@@ -83,7 +83,18 @@ describe("sanitize", () => {
         // Only a pair of hex colors passes; anything else inside light-dark() is dropped.
         expect(sanitizeHtml(`<span style="color:light-dark(red,url(x))">x</span>`))
             .toBe("<span>x</span>");
-        expect(sanitizeHtml(`<td style="border-color:light-dark(#000000,#ffffff)">x</td>`))
+    });
+
+    it("keeps light-dark() table and cell border colors", () => {
+        const pair = "light-dark(#000000,#6f6f6f)";
+        const dirty = `<table style="border-color:${pair}"><tbody><tr>`
+            + `<th style="border-color:${pair}">H</th>`
+            + `<td style="border:1px solid ${pair}">C</td>`
+            + `<td style="border-color:${pair}">D</td>`
+            + "</tr></tbody></table>";
+        expect(sanitizeHtml(dirty)).toBe(dirty);
+
+        expect(sanitizeHtml(`<td style="border-color:light-dark(red,blue)">x</td>`))
             .not.toContain("light-dark");
     });
 

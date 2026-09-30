@@ -40,8 +40,31 @@ describe("adaptColor", () => {
         }
     });
 
+    it("keeps table borders visible and table backgrounds readable in both themes", () => {
+        const colors = [ ...HUES, ...GREYS ];
+        const text = colors.map((color) => pairOf(adaptColor(color, "text")));
+
+        for (const theme of [ "light", "dark" ] as const) {
+            const { background: page, text: defaultText } = PAGE[theme];
+            for (const color of colors) {
+                // 3:1 is the WCAG minimum for graphical objects.
+                const border = pairOf(adaptColor(color, "tableBorder"))[theme];
+                expect(contrast(border, page)).toBeGreaterThanOrEqual(3);
+
+                const cell = pairOf(adaptColor(color, "tableBackground"))[theme];
+                expect(contrast(defaultText, cell)).toBeGreaterThanOrEqual(4.5);
+                for (const textPair of text) {
+                    expect(contrast(textPair[theme], cell)).toBeGreaterThanOrEqual(4.5);
+                }
+            }
+        }
+
+        // A border that is already visible in both themes keeps its color.
+        expect(adaptColor("#e64d4d", "tableBorder")).toBe("light-dark(#e64d4d,#e64d4d)");
+    });
+
     it("gives each grey a shade of its own in both themes", () => {
-        for (const role of [ "text", "background" ] as const) {
+        for (const role of [ "text", "background", "tableBorder", "tableBackground" ] as const) {
             const pairs = GREYS.map((grey) => pairOf(adaptColor(grey, role)));
             expect(new Set(pairs.map(({ light }) => light)).size).toBe(GREYS.length);
             expect(new Set(pairs.map(({ dark }) => dark)).size).toBe(GREYS.length);

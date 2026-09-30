@@ -78,17 +78,17 @@ export function sanitizeHtml(dirtyHtml: string) {
                 height: sizeRegex
             },
             table: {
-                "border-color": [...colorRegex, /^\s*transparent\s*$/],
+                "border-color": [...colorRegex, adaptiveColorRegex, /^\s*transparent\s*$/],
                 "border-style": [/^\s*(none|hidden|dotted|dashed|solid|double|groove|ridge|inset|outset)\s*$/]
             },
             td: {
-                "border-color": [...colorRegex, /^\s*transparent\s*$/],
+                "border-color": [...colorRegex, adaptiveColorRegex, /^\s*transparent\s*$/],
                 border: [
-                    /^\s*\d+(?:px|em|%)\s*(none|hidden|dotted|dashed|solid|double|groove|ridge|inset|outset)\s*(#(0x)?[0-9a-fA-F]+|rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)|hsl\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\))\s*$/
+                    /^\s*\d+(?:px|em|%)\s*(none|hidden|dotted|dashed|solid|double|groove|ridge|inset|outset)\s*(#(0x)?[0-9a-fA-F]+|rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)|hsl\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\)|light-dark\(\s*#[0-9a-fA-F]{6}\s*,\s*#[0-9a-fA-F]{6}\s*\))\s*$/
                 ]
             },
             th: {
-                "border-color": [...colorRegex, /^\s*transparent\s*$/]
+                "border-color": [...colorRegex, adaptiveColorRegex, /^\s*transparent\s*$/]
             },
             col: {
                 width: sizeRegex

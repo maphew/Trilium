@@ -1,10 +1,13 @@
-/** Whether a color is used for text (Font Color) or behind it (Font Background Color). */
-export type AdaptiveColorRole = "text" | "background";
+/**
+ * What a color paints: text (Font Color), the background behind text (Font Background Color), or a
+ * table's or cell's border or background.
+ */
+export type AdaptiveColorRole = "text" | "background" | "tableBorder" | "tableBackground";
 
 /**
- * Turns a color into a `light-dark(#light,#dark)` pair, so text and highlights stay readable in
- * both the light and the dark theme. The hue is kept; the CIELAB lightness is moved into the band
- * of the role and theme, and the chroma is capped.
+ * Turns a color into a `light-dark(#light,#dark)` pair, so text, highlights and tables stay
+ * readable in both the light and the dark theme. The hue is kept; the CIELAB lightness is moved
+ * into the band of the role and theme, and the chroma is capped.
  *
  * @param color a hex, `rgb()` or `hsl()` color. Anything else, including a color that is already
  *     a pair, is returned unchanged.
@@ -30,8 +33,8 @@ interface Band {
 }
 
 /**
- * The CIELAB lightness range and chroma cap per role and theme. The limits keep text at 4.5:1 or
- * more against the Next themes' page and against every highlight.
+ * The CIELAB lightness range and chroma cap per role and theme. Against the Next themes' page, the
+ * limits keep text at 4.5:1 or more, also on every background, and borders at 3:1 or more.
  */
 const BANDS: Record<AdaptiveColorRole, Record<"light" | "dark", Band>> = {
     text: {
@@ -39,6 +42,14 @@ const BANDS: Record<AdaptiveColorRole, Record<"light" | "dark", Band>> = {
         dark: { minLightness: 75, maxLightness: 100, maxChroma: 55 }
     },
     background: {
+        light: { minLightness: 90, maxLightness: 100, maxChroma: 20 },
+        dark: { minLightness: 0, maxLightness: 30, maxChroma: 30 }
+    },
+    tableBorder: {
+        light: { minLightness: 0, maxLightness: 60, maxChroma: Infinity },
+        dark: { minLightness: 47, maxLightness: 100, maxChroma: Infinity }
+    },
+    tableBackground: {
         light: { minLightness: 90, maxLightness: 100, maxChroma: 20 },
         dark: { minLightness: 0, maxLightness: 30, maxChroma: 30 }
     }
