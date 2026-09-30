@@ -21,6 +21,7 @@ const MAIN_TITLES = [
     "table_context_menu.insert_columns_left",
     "table_context_menu.insert_columns_right",
     "---",
+    "table_context_menu.set_header_row",
     "table_context_menu.merge_cells",
     "table_context_menu.split_cells",
     "table_context_menu.distribute_columns"
@@ -37,6 +38,14 @@ const DELETE_TITLES = [
     "table_context_menu.delete_table"
 ];
 
+const SELECT_TITLES = [
+    "table_context_menu.select_row",
+    "table_context_menu.select_column",
+    "table_context_menu.select_table"
+];
+
+const SELECT_COMMANDS = ["selectTableRow", "selectTableColumn", "triliumSelectTable"];
+
 describe("buildTableMenuSections", () => {
     it("returns the sections in order, with a split submenu", () => {
         const { editor, syncSelectionToDomTarget } = stubEditor();
@@ -46,6 +55,7 @@ describe("buildTableMenuSections", () => {
 
         expect(syncSelectionToDomTarget).toHaveBeenCalledWith(element);
         expect(titles(sections?.main ?? [])).toEqual(MAIN_TITLES);
+        expect(sections?.pasteRows).toEqual([]);
         expect(titles(sections?.delete ?? [])).toEqual(DELETE_TITLES);
         expect(titles(sections ? [sections.sort] : [])).toEqual(["table_context_menu.sort"]);
         expect(titles(sortSubmenu(sections))).toEqual(SORT_TITLES);
@@ -53,6 +63,12 @@ describe("buildTableMenuSections", () => {
         expect(sortRow?.uiIcon).toBe("bx bx-sort-alt-2");
         expect(sortSubmenu(sections).map((item) => (item as MenuCommandItem<any>).uiIcon))
             .toEqual(["bx bx-sort-up", "bx bx-sort-down"]);
+        expect(titles(sections ? [sections.select] : [])).toEqual(["table_context_menu.select"]);
+        expect(titles(selectSubmenu(sections))).toEqual(SELECT_TITLES);
+        const selectRow = sections?.select as MenuCommandItem<any> | undefined;
+        expect(selectRow?.uiIcon).toBe("bx bx-select-multiple");
+        expect(selectSubmenu(sections).map((item) => (item as MenuCommandItem<any>).uiIcon))
+            .toEqual(["bx bx-grid-horizontal", "bx bx-grid-vertical", "bx bx-table"]);
 
         const splitRow = findItem(sections?.main ?? [], "table_context_menu.split_cells");
         const submenu = splitRow?.items ?? [];
@@ -79,12 +95,16 @@ describe("buildTableMenuSections", () => {
         for (const title of SORT_TITLES) {
             run(sortSubmenu(sections), title);
         }
+        for (const title of SELECT_TITLES) {
+            run(selectSubmenu(sections), title);
+        }
 
         expect(executed).toEqual([
             "triliumInsertTableRowsAbove",
             "triliumInsertTableRowsBelow",
             "triliumInsertTableColumnsLeft",
             "triliumInsertTableColumnsRight",
+            "triliumSetTableHeaderRow",
             "mergeTableCells",
             "triliumDistributeTableColumns",
             "removeTableRow",
@@ -94,7 +114,8 @@ describe("buildTableMenuSections", () => {
             "splitTableCellHorizontally",
             "triliumResetTableCellSpans",
             "triliumSortTableRowsAscending",
-            "triliumSortTableRowsDescending"
+            "triliumSortTableRowsDescending",
+            ...SELECT_COMMANDS
         ]);
         expect(focus).toHaveBeenCalledTimes(executed.length);
     });
@@ -114,6 +135,35 @@ describe("buildTableMenuSections", () => {
         expect(findItem(items, "table_context_menu.delete_rows")?.enabled).toBe(false);
         expect(findItem(items, "table_context_menu.delete_columns")?.enabled).toBe(true);
         expect(findItem(items, "table_context_menu.insert_rows_above")?.enabled).toBe(true);
+    });
+
+    it("shows only the header item that applies, with a trailing check while it is on", () => {
+        const FIRST_ROWS = "triliumSetTableHeaderRow";
+        const LATER_ROW = "triliumSetTableHeaderUpToRow";
+        const FIRST_ROWS_TITLE = "table_context_menu.set_header_row";
+        const LATER_ROW_TITLE = "table_context_menu.set_header_up_to_row";
+        const build = (disabled: string[], checkedCommands: string[] = []) => {
+            const stub = stubEditor(disabled, { checkedCommands });
+            const main = buildTableMenuSections(stub.editor, cellElement())?.main ?? [];
+            return { ...stub, main };
+        };
+
+        const firstRows = build([LATER_ROW]);
+        expect(titles(firstRows.main)).toEqual(MAIN_TITLES);
+        expect(findItem(firstRows.main, FIRST_ROWS_TITLE))
+            .toMatchObject({ uiIcon: "bx bx-dock-top", trailingIcon: undefined });
+
+        const laterRow = build([FIRST_ROWS], [LATER_ROW]);
+        expect(titles(laterRow.main)).toEqual(MAIN_TITLES
+            .map((title) => (title === FIRST_ROWS_TITLE ? LATER_ROW_TITLE : title)));
+        expect(findItem(laterRow.main, LATER_ROW_TITLE))
+            .toMatchObject({ uiIcon: "bx bx-arrow-to-top", trailingIcon: "bx bx-check" });
+        run(laterRow.main, LATER_ROW_TITLE);
+        expect(laterRow.executed).toEqual([LATER_ROW]);
+
+        // A selection of several rows below the first shows neither item.
+        expect(titles(build([FIRST_ROWS, LATER_ROW]).main))
+            .toEqual(MAIN_TITLES.filter((title) => title !== FIRST_ROWS_TITLE));
     });
 
     it("enables the split submenu while any of its rows is enabled", () => {
@@ -153,12 +203,96 @@ describe("buildTableMenuSections", () => {
         expect(findItem(submenu, SORT_TITLES[1])?.enabled).toBe(false);
     });
 
+    it("enables the select submenu while any of its rows is enabled", () => {
+        const selectSections = (disabled: string[]) => {
+            const { editor } = stubEditor(disabled);
+            return buildTableMenuSections(editor, cellElement());
+        };
+        const selectRowEnabled = (disabled: string[]) =>
+            (selectSections(disabled)?.select as MenuCommandItem<any> | undefined)?.enabled;
+
+        for (const enabled of SELECT_COMMANDS) {
+            const disabled = SELECT_COMMANDS.filter((command) => command !== enabled);
+            expect(selectRowEnabled(disabled), enabled).toBe(true);
+        }
+        expect(selectRowEnabled(SELECT_COMMANDS)).toBe(false);
+
+        const submenu = selectSubmenu(selectSections([SELECT_COMMANDS[2]]));
+        expect(submenu.map((item) => (item as MenuCommandItem<any>).enabled))
+            .toEqual([true, true, false]);
+    });
+
     it("returns null without the plugin or a table cell at the target", () => {
         const { editor: withoutPlugin } = stubEditor([], { hasPlugin: false });
         expect(buildTableMenuSections(withoutPlugin, cellElement())).toBeNull();
 
         const { editor } = stubEditor([], { syncResult: false });
         expect(buildTableMenuSections(editor, cellElement())).toBeNull();
+    });
+});
+
+describe("paste rows", () => {
+    const TITLES = ["table_context_menu.paste_rows_above", "table_context_menu.paste_rows_below"];
+
+    it("shows the items only for a single-row selection and a readable clipboard", () => {
+        const pasteRows = (disabled: string[], clipboard?: ReturnType<typeof clipboardAccess>) => {
+            const { editor } = stubEditor(disabled);
+            return buildTableMenuSections(editor, cellElement(), clipboard)?.pasteRows ?? [];
+        };
+
+        expect(pasteRows([])).toEqual([]);
+        expect(pasteRows(["triliumPasteTableRowsAbove"], clipboardAccess())).toEqual([]);
+
+        const shown = pasteRows([], clipboardAccess());
+        expect(titles(shown)).toEqual(TITLES);
+        expect(shown.map((item) => (item as MenuCommandItem<any>).uiIcon)).toEqual([
+            "bx bx-horizontal-left bx-rotate-90",
+            "bx bx-horizontal-left bx-rotate-270"
+        ]);
+        expect(shown.map((item) => (item as MenuCommandItem<any>).enabled)).toEqual([true, true]);
+
+        const unavailable = pasteRows([], clipboardAccess(false));
+        expect(unavailable.map((item) => (item as MenuCommandItem<any>).enabled))
+            .toEqual([false, false]);
+    });
+
+    it("reads the clipboard and pastes it as rows at the selection pinned beforehand", async () => {
+        const { editor, execute, capturePasteTarget, pasteTarget } = stubEditor();
+        const clipboard = clipboardAccess();
+        const items = buildTableMenuSections(editor, cellElement(), clipboard)?.pasteRows ?? [];
+
+        run(items, TITLES[1]);
+        await vi.waitFor(() => expect(pasteTarget.release).toHaveBeenCalled());
+
+        expect(capturePasteTarget.mock.invocationCallOrder[0])
+            .toBeLessThan(clipboard.read.mock.invocationCallOrder[0]);
+        expect(pasteTarget.restore).toHaveBeenCalled();
+        expect(execute).toHaveBeenCalledWith("triliumPasteTableRowsBelow",
+            { html: "<table></table>", text: "t" });
+    });
+
+    it("drops the paste when the pinned selection is gone or the read fails", async () => {
+        const gone = stubEditor([], { restoreResult: false });
+        run(buildTableMenuSections(gone.editor, cellElement(), clipboardAccess())?.pasteRows ?? [],
+            TITLES[0]);
+        await vi.waitFor(() => expect(gone.pasteTarget.release).toHaveBeenCalled());
+        expect(gone.execute).not.toHaveBeenCalled();
+
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            const failing = stubEditor();
+            const clipboard = clipboardAccess();
+            clipboard.read.mockRejectedValueOnce(new Error("denied"));
+            run(buildTableMenuSections(failing.editor, cellElement(), clipboard)?.pasteRows ?? [],
+                TITLES[0]);
+            await vi.waitFor(() => expect(failing.pasteTarget.release).toHaveBeenCalled());
+
+            expect(failing.pasteTarget.restore).not.toHaveBeenCalled();
+            expect(failing.execute).not.toHaveBeenCalled();
+            expect(warn).toHaveBeenCalled();
+        } finally {
+            warn.mockRestore();
+        }
     });
 });
 
@@ -180,11 +314,15 @@ describe("buildTableContextMenuSections", () => {
         resolveEditor.mockResolvedValue(editor);
         const element = cellElement();
 
-        const sections = await buildTableContextMenuSections(element);
+        const sections = await buildTableContextMenuSections(element, clipboardAccess());
 
         expect(resolveEditor).toHaveBeenCalledWith(element);
         expect(titles(sections?.main ?? [])).toEqual(MAIN_TITLES);
         expect(titles(sections?.delete ?? [])).toEqual(DELETE_TITLES);
+        expect(titles(sections?.pasteRows ?? [])).toEqual([
+            "table_context_menu.paste_rows_above",
+            "table_context_menu.paste_rows_below"
+        ]);
     });
 
     it("returns null when no text editor contains the target", async () => {
@@ -234,25 +372,56 @@ describe("hasTableCellSelection", () => {
  * A minimal editor double: `TableContextMenu` is present unless `hasPlugin` says otherwise, and
  * every command is enabled except the ones in `disabledCommands`.
  */
-function stubEditor(disabledCommands: string[] = [], { hasPlugin = true, syncResult = true } = {}) {
+function stubEditor(
+    disabledCommands: string[] = [],
+    {
+        hasPlugin = true,
+        syncResult = true,
+        checkedCommands = [] as string[],
+        restoreResult = true
+    } = {}
+) {
     const executed: string[] = [];
     const focus = vi.fn();
     const syncSelectionToDomTarget = vi.fn(() => syncResult);
+    const pasteTarget = { restore: vi.fn(() => restoreResult), release: vi.fn() };
+    const capturePasteTarget = vi.fn(() => pasteTarget);
+    const execute = vi.fn((name: string, ..._args: unknown[]) => {
+        executed.push(name);
+    });
     const editor = {
         plugins: {
             has: (name: string) => hasPlugin && name === "TableContextMenu",
             get: () => ({ syncSelectionToDomTarget })
         },
         commands: {
-            get: (name: string) => ({ isEnabled: !disabledCommands.includes(name) })
+            get: (name: string) => ({
+                isEnabled: !disabledCommands.includes(name),
+                value: checkedCommands.includes(name)
+            })
         },
-        execute: (name: string) => {
-            executed.push(name);
-        },
+        execute,
+        capturePasteTarget,
         editing: { view: { focus } }
     };
 
-    return { editor: editor as unknown as CKTextEditor, executed, focus, syncSelectionToDomTarget };
+    return {
+        editor: editor as unknown as CKTextEditor,
+        executed,
+        execute,
+        focus,
+        capturePasteTarget,
+        pasteTarget,
+        syncSelectionToDomTarget
+    };
+}
+
+/** A host's clipboard access, whose `read()` resolves with a one-cell table. */
+function clipboardAccess(enabled = true) {
+    return {
+        enabled,
+        read: vi.fn(() => Promise.resolve({ html: "<table></table>", text: "t" }))
+    };
 }
 
 /** A node nested inside a detached `<td>`, standing in for the right-click target. */
@@ -270,6 +439,10 @@ function allItems(sections: TableMenuSections | null) {
 
 function sortSubmenu(sections: TableMenuSections | null): MenuItem<any>[] {
     return (sections?.sort as MenuCommandItem<any> | undefined)?.items ?? [];
+}
+
+function selectSubmenu(sections: TableMenuSections | null): MenuItem<any>[] {
+    return (sections?.select as MenuCommandItem<any> | undefined)?.items ?? [];
 }
 
 /** The titles of `items`, with separators rendered as "---" so ordering stays readable. */

@@ -59,6 +59,7 @@ import CollapsibleListItems from "./plugins/collapsible_list_items.js";
 import TableIndent from "./plugins/table_indent.js";
 import TableContextMenu from "./plugins/table_context_menu.js";
 import TableMove from "./plugins/table_move/table_move.js";
+import TablePasteRows from "./plugins/table_paste_rows.js";
 import TableSort from "./plugins/table_sort.js";
 import TableInsertUI from "./plugins/table_insert/table_insert_ui.js";
 import TableToolbarDropdowns from "./plugins/table_toolbar_dropdowns.js";
@@ -100,6 +101,7 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     TableIndent,
     TableContextMenu,
     TableMove,
+    TablePasteRows,
     TableSort,
     TableInsertUI,
     TableToolbarDropdowns,

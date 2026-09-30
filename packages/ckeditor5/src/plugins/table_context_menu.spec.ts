@@ -214,6 +214,128 @@ describe("TableContextMenu", () => {
         });
     });
 
+    describe("header rows", () => {
+        const FIRST_ROWS = "triliumSetTableHeaderRow";
+        const LATER_ROW = "triliumSetTableHeaderUpToRow";
+        const isEnabled = (name: string) => editor.commands.get(name)?.isEnabled;
+        const value = (name: string) => editor.commands.get(name)?.value;
+
+        it("enables one command for rows from the first, the other for a single later row", () => {
+            setModelData(editor.model, "<paragraph>fo[]o</paragraph>");
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([false, false]);
+
+            setModelData(editor.model, modelTable([["1[]1", "12"], ["21", "22"], ["31", "32"]]));
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([true, false]);
+
+            selectCells(editor, [0, 0], [1, 1]);
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([true, false]);
+
+            selectCells(editor, [1, 0], [1, 1]);
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([false, true]);
+
+            selectCells(editor, [1, 0], [2, 0]);
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([false, false]);
+
+            setModelData(editor.model, modelTable([["11"], ["2[]1"]]));
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([false, true]);
+
+            editor.enableReadOnlyMode("spec");
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([false, false]);
+        });
+
+        it("holds true while every selected row is a header row", () => {
+            setModelData(editor.model, modelTable([["1[]1"], ["21"], ["31"]], 'headingRows="2"'));
+            expect(value(FIRST_ROWS)).toBe(true);
+
+            selectCells(editor, [0, 0], [1, 0]);
+            expect(value(FIRST_ROWS)).toBe(true);
+
+            selectCells(editor, [0, 0], [2, 0]);
+            expect(value(FIRST_ROWS)).toBe(false);
+
+            selectCells(editor, [1, 0], [1, 0]);
+            expect(value(LATER_ROW)).toBe(true);
+
+            selectCells(editor, [2, 0], [2, 0]);
+            expect(value(LATER_ROW)).toBe(false);
+        });
+
+        it("extends the header rows down to the selected rows", () => {
+            setModelData(editor.model, modelTable([["11"], ["21"], ["31"]]));
+            selectCells(editor, [0, 0], [1, 0]);
+            editor.execute(FIRST_ROWS);
+            expect(tableData(editor))
+                .toBe(modelTable([["11"], ["21"], ["31"]], 'headingRows="2"'));
+
+            setModelData(editor.model,
+                modelTable([["11"], ["21"], ["31"], ["4[]1"]], 'headingRows="1"'));
+            editor.execute(LATER_ROW);
+            expect(tableData(editor))
+                .toBe(modelTable([["11"], ["21"], ["31"], ["41"]], 'headingRows="4"'));
+        });
+
+        it("turns the selected row and every header row below it into body rows", () => {
+            const rows = [["11"], ["21"], ["31"], ["41"], ["51"]];
+
+            setModelData(editor.model, modelTable([["11"], ["2[]1"], ["31"], ["41"], ["51"]],
+                'headingRows="5"'));
+            editor.execute(LATER_ROW);
+            expect(tableData(editor)).toBe(modelTable(rows, 'headingRows="1"'));
+
+            setModelData(editor.model, modelTable([["1[]1"], ["21"], ["31"], ["41"], ["51"]],
+                'headingRows="5"'));
+            editor.execute(FIRST_ROWS);
+            expect(tableData(editor)).toBe(modelTable(rows));
+
+            editor.execute("undo");
+            expect(tableData(editor)).toBe(modelTable(rows, 'headingRows="5"'));
+        });
+    });
+
+    describe("select table", () => {
+        const COMMAND = "triliumSelectTable";
+
+        it("is enabled inside a table, in read-only mode too", () => {
+            setModelData(editor.model, "<paragraph>fo[]o</paragraph>");
+            expect(editor.commands.get(COMMAND)?.isEnabled).toBe(false);
+
+            setModelData(editor.model, modelTable([["1[]1"]]));
+            expect(editor.commands.get(COMMAND)?.isEnabled).toBe(true);
+
+            editor.enableReadOnlyMode("spec");
+            expect(editor.commands.get(COMMAND)?.isEnabled).toBe(true);
+        });
+
+        it("selects every cell of the table, merged cells included", () => {
+            const rows = [
+                [{ contents: "a", colspan: 2 }, "b"],
+                ["c", "d", { contents: "e", rowspan: 2 }],
+                ["f", "g"]
+            ];
+            const columns = ["20%", "30%", "50%"]
+                .map((width) => `<tableColumn columnWidth="${width}"></tableColumn>`)
+                .join("");
+            const table = spannedTable(rows)
+                .replace(/<\/table>$/, `<tableColumnGroup>${columns}</tableColumnGroup></table>`);
+            setModelData(editor.model, table.replace(">d<", ">d[]<"));
+
+            editor.execute(COMMAND);
+
+            expect(getModelData(editor.model)).toBe(withEveryCellSelected(table));
+        });
+
+        it("selects only the innermost table around the selection", () => {
+            const inner = modelTable([["11", "12"]]);
+            const outer = (content: string) => "<table><tableRow><tableCell><paragraph>outer"
+                + `</paragraph></tableCell><tableCell>${content}</tableCell></tableRow></table>`;
+            setModelData(editor.model, outer(inner.replace("11", "1[]1")));
+
+            editor.execute(COMMAND);
+
+            expect(getModelData(editor.model)).toBe(outer(withEveryCellSelected(inner)));
+        });
+    });
+
     describe("syncSelectionToDomTarget", () => {
         it("moves the selection into an unselected cell", () => {
             setModelData(editor.model, modelTable([["1[]1", "12"], ["21", "22"]]));
@@ -325,6 +447,11 @@ function modelTable(rows: string[][], attributes = ""): string {
 
 function tableData(editor: ClassicEditor): string {
     return getModelData(editor.model, { withoutSelection: true });
+}
+
+/** Marks every cell of `markup` as selected, the way `getModelData` prints a cell selection. */
+function withEveryCellSelected(markup: string): string {
+    return markup.replace(/<tableCell[^>]*>.*?<\/tableCell>/g, "[$&]");
 }
 
 function getCell(editor: ClassicEditor, row: number, column: number): ModelElement {

@@ -5,7 +5,8 @@ import {
     Table,
     TableColumnResize,
     TableSelection,
-    TableUtils
+    TableUtils,
+    TableWalker
 } from "ckeditor5";
 import type { Editor, ModelElement, ViewDocumentMouseDownEvent } from "ckeditor5";
 
@@ -46,6 +47,11 @@ export default class TableContextMenu extends Plugin {
             new DistributeTableColumnsCommand(editor));
         editor.commands.add("triliumDeleteTable", new DeleteTableCommand(editor));
         editor.commands.add("triliumResetTableCellSpans", new ResetTableCellSpansCommand(editor));
+        editor.commands.add("triliumSelectTable", new SelectTableCommand(editor));
+        editor.commands.add("triliumSetTableHeaderRow",
+            new TableHeaderRowsCommand(editor, "firstRows"));
+        editor.commands.add("triliumSetTableHeaderUpToRow",
+            new TableHeaderRowsCommand(editor, "laterRow"));
 
         const view = editor.editing.view;
         view.addObserver(MouseObserver);
@@ -156,11 +162,11 @@ export class TableMultiInsertCommand extends Command {
 export class DeleteTableCommand extends Command {
 
     refresh() {
-        this.isEnabled = this.findTable() !== null;
+        this.isEnabled = findSelectionTable(this.editor) !== null;
     }
 
     execute() {
-        const table = this.findTable();
+        const table = findSelectionTable(this.editor);
         /* v8 ignore next 3 -- defensive: disabled whenever the selection is outside a table */
         if (!table) {
             return;
@@ -174,10 +180,78 @@ export class DeleteTableCommand extends Command {
         });
     }
 
-    private findTable(): ModelElement | null {
+}
+
+/**
+ * The selections a {@link TableHeaderRowsCommand} acts on: rows starting at the first row of the
+ * table, or a single row below it.
+ */
+export type TableHeaderRowsScope = "firstRows" | "laterRow";
+
+/**
+ * Toggles the heading rows through the upstream `setTableRowHeader`, for the selections of its
+ * `scope`. `value` is `true` while every selected row is a heading row.
+ */
+export class TableHeaderRowsCommand extends Command {
+
+    private readonly scope: TableHeaderRowsScope;
+
+    constructor(editor: Editor, scope: TableHeaderRowsScope) {
+        super(editor);
+        this.scope = scope;
+    }
+
+    refresh() {
         const tableUtils = this.editor.plugins.get(TableUtils);
         const selection = this.editor.model.document.selection;
-        return tableUtils.getSelectionAffectedTableCells(selection)[0]?.findAncestor("table") ?? null;
+        const cells = tableUtils.getSelectionAffectedTableCells(selection);
+        const table = cells[0]?.findAncestor("table");
+        if (!table) {
+            this.isEnabled = false;
+            this.value = false;
+            return;
+        }
+
+        const { first, last } = tableUtils.getRowIndexes(cells);
+        this.isEnabled = this.scope === "firstRows"
+            ? first === 0
+            : first === last && first > 0;
+        this.value = this.isEnabled && last < Number(table.getAttribute("headingRows") ?? 0);
+    }
+
+    execute() {
+        this.editor.execute("setTableRowHeader", { forceValue: !this.value });
+    }
+
+}
+
+/**
+ * Selects every cell of the table the selection is in, the innermost one when tables are nested.
+ * Like `selectTableRow` and `selectTableColumn`, it stays enabled in read-only mode.
+ */
+export class SelectTableCommand extends Command {
+
+    constructor(editor: Editor) {
+        super(editor);
+        this.affectsData = false;
+    }
+
+    refresh() {
+        this.isEnabled = findSelectionTable(this.editor) !== null;
+    }
+
+    execute() {
+        const table = findSelectionTable(this.editor);
+        /* v8 ignore next 3 -- defensive: disabled whenever the selection is outside a table */
+        if (!table) {
+            return;
+        }
+
+        const model = this.editor.model;
+        const ranges = Array.from(new TableWalker(table), ({ cell }) => model.createRangeOn(cell));
+        model.change((writer) => {
+            writer.setSelection(ranges);
+        });
     }
 
 }
@@ -230,6 +304,13 @@ export class ResetTableCellSpansCommand extends Command {
 
 }
 
+/** The table the selection is in, the innermost one when tables are nested. */
+function findSelectionTable(editor: Editor): ModelElement | null {
+    const tableUtils = editor.plugins.get(TableUtils);
+    const selection = editor.model.document.selection;
+    return tableUtils.getSelectionAffectedTableCells(selection)[0]?.findAncestor("table") ?? null;
+}
+
 function getSpan(cell: ModelElement, attribute: "colspan" | "rowspan"): number {
     return Number(cell.getAttribute(attribute) ?? 1);
 }
@@ -264,5 +345,8 @@ declare module "ckeditor5" {
         triliumDistributeTableColumns: DistributeTableColumnsCommand;
         triliumDeleteTable: DeleteTableCommand;
         triliumResetTableCellSpans: ResetTableCellSpansCommand;
+        triliumSelectTable: SelectTableCommand;
+        triliumSetTableHeaderRow: TableHeaderRowsCommand;
+        triliumSetTableHeaderUpToRow: TableHeaderRowsCommand;
     }
 }

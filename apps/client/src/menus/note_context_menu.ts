@@ -7,6 +7,7 @@ import options from "../services/options.js";
 import server from "../services/server.js";
 import utils from "../services/utils.js";
 import contextMenu, { type MenuItem } from "./context_menu.js";
+import { splitMenuItem } from "./context_menu_utils.js";
 import { buildTableContextMenuSections, hasTableCellSelection } from "./table_context_menu.js";
 import { buildAiActionsMenuItem, getTextEditorAtSelection } from "./text_editor_context_menu.js";
 
@@ -41,6 +42,8 @@ export interface ContextMenuHost {
         enabled: boolean;
         run(): void;
         runAsPlainText(): void;
+        /** Reads the clipboard, for the rows that paste through an editor command. */
+        read(): Promise<{ html: string; text: string }>;
     };
     canCut: boolean;
     cut(): void | Promise<void>;
@@ -125,7 +128,7 @@ export async function buildNoteContextMenuItems(
     // lands somewhere a completion could not be committed anyway (a read-only note, the tree).
     const aiActions = target.isEditable ? await buildAiActionsMenuItem() : null;
     const tableSections = target.isEditable
-        ? await buildTableContextMenuSections(target.element)
+        ? await buildTableContextMenuSections(target.element, host.paste)
         : null;
 
     // Read after the table sections are built, which moves the selection into the clicked cell.
@@ -175,20 +178,22 @@ export async function buildNoteContextMenuItems(
     }
 
     if (target.isEditable || hasText) {
-        items.push({
+        const copyVariants: MenuItem<CommandNames>[] = [
+            {
+                enabled: hasClipboardContent,
+                title: t("electron_context_menu.copy-as-markdown"),
+                uiIcon: "bx bx-copy-alt",
+                handler: copySelectionAsMarkdown
+            }
+        ];
+
+        items.push(splitMenuItem({
             enabled: host.canCopy && hasClipboardContent,
             title: t("electron_context_menu.copy"),
             shortcut: `${platformModifier}+C`,
             uiIcon: "bx bx-copy",
             handler: () => host.copy()
-        });
-
-        items.push({
-            enabled: hasClipboardContent,
-            title: t("electron_context_menu.copy-as-markdown"),
-            uiIcon: "bx bx-copy-alt",
-            handler: copySelectionAsMarkdown
-        });
+        }, copyVariants));
     }
 
     const unlinkable = [ "", "javascript:", "about:blank#blocked" ];
@@ -206,27 +211,31 @@ export async function buildNoteContextMenuItems(
 
     if (host.paste && target.isEditable) {
         const { enabled, run, runAsPlainText } = host.paste;
+        const pasteVariants: MenuItem<CommandNames>[] = [
+            {
+                enabled,
+                title: t("electron_context_menu.paste-as-plain-text"),
+                shortcut: `${platformModifier}+Shift+V`,
+                uiIcon: "bx bx-paste",
+                handler: runAsPlainText
+            }
+        ];
+        if (tableSections?.pasteRows.length) {
+            pasteVariants.push({ kind: "separator" }, ...tableSections.pasteRows);
+        }
 
-        items.push({
+        items.push(splitMenuItem({
             enabled,
             title: t("electron_context_menu.paste"),
             shortcut: `${platformModifier}+V`,
             uiIcon: "bx bx-paste",
             handler: run
-        });
-
-        items.push({
-            enabled,
-            title: t("electron_context_menu.paste-as-plain-text"),
-            shortcut: `${platformModifier}+Shift+V`,
-            uiIcon: "bx bx-paste",
-            handler: runAsPlainText
-        });
+        }, pasteVariants));
     }
 
     if (tableSections) {
         items.push({ kind: "separator" }, tableSections.sort, { kind: "separator" },
-            ...tableSections.delete);
+            ...tableSections.delete, { kind: "separator" }, tableSections.select);
     }
 
     if (hasText) {
@@ -377,7 +386,8 @@ function browserPaste(
         // for permission, so the rows stay enabled and an empty clipboard pastes nothing.
         enabled: true,
         run: () => void pasteFromClipboard(editor, element, false),
-        runAsPlainText: () => void pasteFromClipboard(editor, element, true)
+        runAsPlainText: () => void pasteFromClipboard(editor, element, true),
+        read: readClipboard
     };
 }
 

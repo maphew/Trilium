@@ -32,6 +32,21 @@ src="3_Tables_image.png" width="384" height="100">
     rows, the same number of rows is inserted.</li>
   <li><em>Insert column to the left</em> and <em>Insert column to the right</em> work
     the same way for columns.</li>
+  <li>Since v0.107.0, <em>Set as header</em> or <em>Set header up to this row</em>,
+    depending on the selection, turns rows into header rows, which always start
+    at the top of the table:
+    <ul>
+      <li><em>Set as header</em> shows when the selection starts at the first row,
+        and makes every selected row a header row.</li>
+      <li><em>Set header up to this row</em> shows when the selection is in a single
+        row below the first, and makes that row and every row above it header rows.</li>
+      <li>Neither shows when the selection spans several rows below the first.</li>
+      <li>A check mark shows that the rows are already header rows. Choosing the
+        item again turns them, and every header row below them, back into regular
+        rows. For example, in a table with five header rows, choosing <em>Set header up to this row</em> on
+        the third row leaves only the first two as header rows.</li>
+    </ul>
+  </li>
   <li><em>Merge cells</em> merges the selected cells into one. The selected cells
     must form a rectangle.</li>
   <li><em>Split cell</em> splits each selected cell in two, either <em>Vertically</em> or <em>Horizontally</em>. <em>Unmerge cells</em>,
@@ -43,7 +58,9 @@ src="3_Tables_image.png" width="384" height="100">
     of the table stay as they are. It needs a selection spanning at least two
     columns; a merged cell counts for every column it covers.</li>
   <li><em>Cut</em>, <em>Copy</em> and <em>Copy as Markdown</em> act on the selected
-    cells:
+    cells. Since v0.107.0, <em>Copy</em> and <em>Paste</em> open submenus with
+    their variants, such as <em>Copy as Markdown</em> and <em>Paste as plain text</em>;
+    clicking <em>Copy</em> or <em>Paste</em> itself still copies or pastes:
     <ul>
       <li>Cutting or copying produces a smaller table holding just the selected
         cells. Pasting it over a cell selection replaces those cells; pasting elsewhere
@@ -52,6 +69,21 @@ src="3_Tables_image.png" width="384" height="100">
       <li><em>Copy as Markdown</em> converts the selected cells to a Markdown table.
         A selected header row becomes the Markdown header; without one, an empty
         header row is emitted, since Markdown tables require one.</li>
+    </ul>
+  </li>
+  <li>Since v0.107.0, <em>Paste rows above</em> and <em>Paste rows below</em>,
+    in the <em>Paste</em> submenu, paste the clipboard as new rows next to the
+    row of the current cell, instead of over the cells from the cursor on.
+    They show only when the selection is in a single row, and, like <em>Paste</em>,
+    only where the clipboard can be read:
+    <ul>
+      <li>A copied table becomes one new row for each of its rows, filled from the
+        first column. When it has more columns than the table, the table gains
+        columns, as with a regular paste. Other content goes in the first cell
+        of a single new row.</li>
+      <li>The new rows are selected afterwards.</li>
+      <li>When merged cells join the row to others, the new rows go above or below
+        that whole block of rows.</li>
     </ul>
   </li>
   <li><em>Sort</em>, below the clipboard section, sorts the rows by the column
@@ -63,6 +95,13 @@ src="3_Tables_image.png" width="384" height="100">
   <li><em>Delete table</em> removes the whole table and leaves an empty paragraph
     in its place. In a table nested inside another, only the inner table is
     removed.</li>
+  <li>Since v0.107.0, <em>Select</em>, below <em>Delete table</em>, selects the
+    cells of every row (<em>Row</em>) or column (<em>Column</em>) the selection
+    touches, or every cell of the table (<em>Table</em>). Unlike the <span class="tn-icon cke cke-drag-handle"></span> button,
+    which selects the table as a whole, <em>Table</em> selects its cells, so
+    cell operations such as <em>Merge cells</em> apply to all of them. In a table
+    nested inside another, <em>Table</em> selects only the cells of the inner
+    table.</li>
 </ul>
 <p>Right-clicking a cell that is not part of the current selection moves
   the cursor there first, so the menu always applies to the cell under the
