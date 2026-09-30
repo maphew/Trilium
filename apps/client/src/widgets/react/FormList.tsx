@@ -356,8 +356,6 @@ export interface FormDropdownSubmenuProps {
     children: ComponentChildren;
     /** Called when the row is clicked, or run from the keyboard, on the desktop. */
     onDropdownToggleClicked?: (e: MouseEvent) => void;
-    /** Opens the nested list towards the start. Inside a menu, its layer flips on its own. */
-    dropStart?: boolean;
     /** Inside a menu, lays the submenu's rows out in this many columns. */
     columns?: number;
     disabled?: boolean;

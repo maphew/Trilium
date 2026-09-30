@@ -63,7 +63,7 @@ export default function GlobalMenu({ isHorizontalLayout }: { isHorizontalLayout:
 
             <SwitchToOptions />
             <MenuItem command="showLaunchBarSubtree" icon={`bx ${isMobile() ? "bx-mobile" : "bx-sidebar"}`} text={t("global_menu.configure_launchbar")} />
-            <AdvancedMenu dropStart={!isVerticalLayout} />
+            <AdvancedMenu />
             <MenuItem command="showOptions" icon="bx bx-cog" text={t("global_menu.options")} />
             <FormDropdownDivider />
 
@@ -79,14 +79,14 @@ export default function GlobalMenu({ isHorizontalLayout }: { isHorizontalLayout:
             </>}
 
             {!isElectron() && !isStandalone && <BrowserOnlyOptions />}
-            {glob.isDev && <DevelopmentOptions dropStart={!isVerticalLayout} />}
+            {glob.isDev && <DevelopmentOptions />}
         </Dropdown>
     );
 }
 
-function AdvancedMenu({ dropStart }: { dropStart: boolean }) {
+function AdvancedMenu() {
     return (
-        <FormDropdownSubmenu icon="bx bx-chip" title={t("global_menu.advanced")} dropStart={dropStart}>
+        <FormDropdownSubmenu icon="bx bx-chip" title={t("global_menu.advanced")}>
             <MenuItem command="showHiddenSubtree" icon="bx bx-hide" text={t("global_menu.show_hidden_subtree")} />
             <MenuItem command="showSearchHistory" icon="bx bx-search-alt" text={t("global_menu.open_search_history")} />
             <FormDropdownDivider />
@@ -109,10 +109,10 @@ function BrowserOnlyOptions() {
     </>;
 }
 
-function DevelopmentOptions({ dropStart }: { dropStart: boolean }) {
+function DevelopmentOptions() {
     return <>
         <FormListHeader text="Development Options" />
-        <FormDropdownSubmenu icon="bx bx-test-tube" title="Experimental features" dropStart={dropStart}>
+        <FormDropdownSubmenu icon="bx bx-test-tube" title="Experimental features">
             {getAvailableExperimentalFeatures().map((feature) => (
                 <ExperimentalFeatureToggle key={feature.id} experimentalFeature={feature as ExperimentalFeature} />
             ))}

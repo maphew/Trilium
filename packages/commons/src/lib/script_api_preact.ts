@@ -243,8 +243,8 @@ interface FormDropdownSubmenuProps {
     title: ComponentChildren;
     children?: ComponentChildren;
     onDropdownToggleClicked?: () => void;
-    dropStart?: boolean;
 }
+/** A row that opens its children as a submenu. Outside a `Dropdown` menu, its title heads them. */
 export declare const FormDropdownSubmenu: FunctionComponent<FormDropdownSubmenuProps>;
 
 interface FormRadioGroupProps {

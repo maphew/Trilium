@@ -191,7 +191,7 @@ export function NoteContextMenu({ note, noteContext, itemsAtStart, itemsNearNote
                 {isBoard && <CommandItem icon="bx bx-cog" text={t("board_view.properties")}
                     command={() => parentComponent?.triggerEvent("showBoardProperties", { ntxId: noteContext?.ntxId })} />}
 
-                <FormDropdownSubmenu icon="bx bx-wrench" title={t("note_actions.advanced")} dropStart>
+                <FormDropdownSubmenu icon="bx bx-wrench" title={t("note_actions.advanced")}>
                     <CommandItem command="openNoteExternally" icon="bx bx-file-find" disabled={isSearchOrBook || !isElectron} text={t("note_actions.open_note_externally")} title={t("note_actions.open_note_externally_title")} />
                     <CommandItem command="openNoteCustom" icon="bx bx-customize" disabled={isSearchOrBook || isMac || !isElectron} text={t("note_actions.open_note_custom")} />
                     <CommandItem command="showNoteSource" icon="bx bx-code" disabled={!hasSource} text={t("note_actions.note_source")} />
@@ -226,7 +226,7 @@ function CodeProperties({ note }: { note: FNote }) {
 
     return (
         <>
-            <FormDropdownSubmenu title={t("note_actions.word_wrap")} icon="bx bx-align-justify" dropStart>
+            <FormDropdownSubmenu title={t("note_actions.word_wrap")} icon="bx bx-align-justify">
                 <FormListItem checked={wrapLines == null} onClick={() => setWrapLines(null)} description={t("note_actions.word_wrap_auto_description")}>
                     {t("note_actions.word_wrap_auto")}
                 </FormListItem>
@@ -312,7 +312,7 @@ function EditabilityDropdown({ note }: { note: FNote }) {
     }
 
     return (
-        <FormDropdownSubmenu title={t("basic_properties.editable")} icon="bx bx-edit-alt" dropStart>
+        <FormDropdownSubmenu title={t("basic_properties.editable")} icon="bx bx-edit-alt">
             <FormListItem checked={!readOnly && !autoReadOnlyDisabled} onClick={() => setState(false, false)} description={t("editability_select.note_is_editable")}>{t("editability_select.auto")}</FormListItem>
             <FormListItem checked={readOnly && !autoReadOnlyDisabled} onClick={() => setState(true, false)} description={t("editability_select.note_is_read_only")}>{t("editability_select.read_only")}</FormListItem>
             <FormListItem checked={!readOnly && autoReadOnlyDisabled} onClick={() => setState(false, true)} description={t("editability_select.note_is_always_editable")}>{t("editability_select.always_editable")}</FormListItem>
@@ -325,7 +325,7 @@ function NoteTypeDropdown({ note }: { note: FNote }) {
     const currentNoteMime = useNoteProperty(note, "mime");
 
     return (
-        <FormDropdownSubmenu title={t("basic_properties.note_type")} icon="bx bx-file" dropStart>
+        <FormDropdownSubmenu title={t("basic_properties.note_type")} icon="bx bx-file">
             <NoteTypeDropdownContent
                 currentNoteType={currentNoteType}
                 currentNoteMime={currentNoteMime}
@@ -429,7 +429,6 @@ function ExportAsImage({ ntxId, parentComponent }: { ntxId: string | null | unde
         <FormDropdownSubmenu
             icon="bx bxs-file-image"
             title={t("note_actions.export_as_image")}
-            dropStart
         >
             <FormListItem
                 icon="bx bxs-file-png"
