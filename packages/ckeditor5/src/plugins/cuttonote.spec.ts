@@ -1,4 +1,13 @@
-import { _setModelData as setModelData, ClassicEditor, Essentials, List, Paragraph, Table, TableSelection } from "ckeditor5";
+import {
+    _getModelData as getModelData,
+    _setModelData as setModelData,
+    ClassicEditor,
+    Essentials,
+    List,
+    Paragraph,
+    Table,
+    TableSelection
+} from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
@@ -107,6 +116,21 @@ describe("CutToNotePlugin", () => {
             moveCaret(editor, 1, 1);
             target.paste("", "X");
             expect(editor.getData()).toBe("<p>aXb</p><p>cd</p>");
+        });
+
+        it("restores the captured selection, or reports that its content is gone", () => {
+            setModelData(editor.model, "<paragraph>a[]b</paragraph><paragraph>cd</paragraph>");
+            const target = editor.capturePasteTarget();
+            moveCaret(editor, 1, 1);
+
+            expect(target.restore()).toBe(true);
+            expect(getModelData(editor.model))
+                .toBe("<paragraph>a[]b</paragraph><paragraph>cd</paragraph>");
+
+            const gone = editor.capturePasteTarget();
+            editor.setData("<p>other</p>");
+            expect(gone.restore()).toBe(false);
+            expect(getModelData(editor.model)).toBe("<paragraph>[]other</paragraph>");
         });
 
         it("discards the paste when the captured content was removed", () => {

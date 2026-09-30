@@ -55,6 +55,7 @@ describe("buildTableMenuSections", () => {
 
         expect(syncSelectionToDomTarget).toHaveBeenCalledWith(element);
         expect(titles(sections?.main ?? [])).toEqual(MAIN_TITLES);
+        expect(sections?.pasteRows).toEqual([]);
         expect(titles(sections?.delete ?? [])).toEqual(DELETE_TITLES);
         expect(titles(sections ? [sections.sort] : [])).toEqual(["table_context_menu.sort"]);
         expect(titles(sortSubmenu(sections))).toEqual(SORT_TITLES);
@@ -230,6 +231,71 @@ describe("buildTableMenuSections", () => {
     });
 });
 
+describe("paste rows", () => {
+    const TITLES = ["table_context_menu.paste_rows_above", "table_context_menu.paste_rows_below"];
+
+    it("shows the items only for a single-row selection and a readable clipboard", () => {
+        const pasteRows = (disabled: string[], clipboard?: ReturnType<typeof clipboardAccess>) => {
+            const { editor } = stubEditor(disabled);
+            return buildTableMenuSections(editor, cellElement(), clipboard)?.pasteRows ?? [];
+        };
+
+        expect(pasteRows([])).toEqual([]);
+        expect(pasteRows(["triliumPasteTableRowsAbove"], clipboardAccess())).toEqual([]);
+
+        const shown = pasteRows([], clipboardAccess());
+        expect(titles(shown)).toEqual(TITLES);
+        expect(shown.map((item) => (item as MenuCommandItem<any>).uiIcon)).toEqual([
+            "bx bx-horizontal-left bx-rotate-90",
+            "bx bx-horizontal-left bx-rotate-270"
+        ]);
+        expect(shown.map((item) => (item as MenuCommandItem<any>).enabled)).toEqual([true, true]);
+
+        const unavailable = pasteRows([], clipboardAccess(false));
+        expect(unavailable.map((item) => (item as MenuCommandItem<any>).enabled))
+            .toEqual([false, false]);
+    });
+
+    it("reads the clipboard and pastes it as rows at the selection pinned beforehand", async () => {
+        const { editor, execute, capturePasteTarget, pasteTarget } = stubEditor();
+        const clipboard = clipboardAccess();
+        const items = buildTableMenuSections(editor, cellElement(), clipboard)?.pasteRows ?? [];
+
+        run(items, TITLES[1]);
+        await vi.waitFor(() => expect(pasteTarget.release).toHaveBeenCalled());
+
+        expect(capturePasteTarget.mock.invocationCallOrder[0])
+            .toBeLessThan(clipboard.read.mock.invocationCallOrder[0]);
+        expect(pasteTarget.restore).toHaveBeenCalled();
+        expect(execute).toHaveBeenCalledWith("triliumPasteTableRowsBelow",
+            { html: "<table></table>", text: "t" });
+    });
+
+    it("drops the paste when the pinned selection is gone or the read fails", async () => {
+        const gone = stubEditor([], { restoreResult: false });
+        run(buildTableMenuSections(gone.editor, cellElement(), clipboardAccess())?.pasteRows ?? [],
+            TITLES[0]);
+        await vi.waitFor(() => expect(gone.pasteTarget.release).toHaveBeenCalled());
+        expect(gone.execute).not.toHaveBeenCalled();
+
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            const failing = stubEditor();
+            const clipboard = clipboardAccess();
+            clipboard.read.mockRejectedValueOnce(new Error("denied"));
+            run(buildTableMenuSections(failing.editor, cellElement(), clipboard)?.pasteRows ?? [],
+                TITLES[0]);
+            await vi.waitFor(() => expect(failing.pasteTarget.release).toHaveBeenCalled());
+
+            expect(failing.pasteTarget.restore).not.toHaveBeenCalled();
+            expect(failing.execute).not.toHaveBeenCalled();
+            expect(warn).toHaveBeenCalled();
+        } finally {
+            warn.mockRestore();
+        }
+    });
+});
+
 describe("buildTableContextMenuSections", () => {
     const resolveEditor = vi.mocked(getTextEditorContaining);
 
@@ -248,11 +314,15 @@ describe("buildTableContextMenuSections", () => {
         resolveEditor.mockResolvedValue(editor);
         const element = cellElement();
 
-        const sections = await buildTableContextMenuSections(element);
+        const sections = await buildTableContextMenuSections(element, clipboardAccess());
 
         expect(resolveEditor).toHaveBeenCalledWith(element);
         expect(titles(sections?.main ?? [])).toEqual(MAIN_TITLES);
         expect(titles(sections?.delete ?? [])).toEqual(DELETE_TITLES);
+        expect(titles(sections?.pasteRows ?? [])).toEqual([
+            "table_context_menu.paste_rows_above",
+            "table_context_menu.paste_rows_below"
+        ]);
     });
 
     it("returns null when no text editor contains the target", async () => {
@@ -301,15 +371,26 @@ describe("hasTableCellSelection", () => {
 /**
  * A minimal editor double: `TableContextMenu` is present unless `hasPlugin` says otherwise, every
  * command is enabled except the ones in `disabledCommands`, and only the ones in
- * `checkedCommands` have a `true` value.
+ * `checkedCommands` have a `true` value. Its paste target restores the selection unless
+ * `restoreResult` is `false`.
  */
 function stubEditor(
     disabledCommands: string[] = [],
-    { hasPlugin = true, syncResult = true, checkedCommands = [] as string[] } = {}
+    {
+        hasPlugin = true,
+        syncResult = true,
+        checkedCommands = [] as string[],
+        restoreResult = true
+    } = {}
 ) {
     const executed: string[] = [];
     const focus = vi.fn();
     const syncSelectionToDomTarget = vi.fn(() => syncResult);
+    const pasteTarget = { restore: vi.fn(() => restoreResult), release: vi.fn() };
+    const capturePasteTarget = vi.fn(() => pasteTarget);
+    const execute = vi.fn((name: string, ..._args: unknown[]) => {
+        executed.push(name);
+    });
     const editor = {
         plugins: {
             has: (name: string) => hasPlugin && name === "TableContextMenu",
@@ -321,13 +402,28 @@ function stubEditor(
                 value: checkedCommands.includes(name)
             })
         },
-        execute: (name: string) => {
-            executed.push(name);
-        },
+        execute,
+        capturePasteTarget,
         editing: { view: { focus } }
     };
 
-    return { editor: editor as unknown as CKTextEditor, executed, focus, syncSelectionToDomTarget };
+    return {
+        editor: editor as unknown as CKTextEditor,
+        executed,
+        execute,
+        focus,
+        capturePasteTarget,
+        pasteTarget,
+        syncSelectionToDomTarget
+    };
+}
+
+/** A host's clipboard access, whose `read()` resolves with a one-cell table. */
+function clipboardAccess(enabled = true) {
+    return {
+        enabled,
+        read: vi.fn(() => Promise.resolve({ html: "<table></table>", text: "t" }))
+    };
 }
 
 /** A node nested inside a detached `<td>`, standing in for the right-click target. */

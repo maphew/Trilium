@@ -172,7 +172,7 @@ describe("buildNoteContextMenuItems", () => {
         const addToDictionary = vi.fn();
         const items = await build({ isEditable: true }, browserLikeHost({
             spelling: { misspelledWord: "teh", suggestions: [ "the", "ten" ], addToDictionary },
-            paste: { enabled: true, run: vi.fn(), runAsPlainText: vi.fn() }
+            paste: { enabled: true, run: vi.fn(), runAsPlainText: vi.fn(), read: vi.fn() }
         }));
 
         expect(titles(items).slice(0, 4)).toEqual([
@@ -224,15 +224,16 @@ describe("buildNoteContextMenuItems", () => {
             main: [ { title: "T1" }, { kind: "separator" }, { title: "T2" } ],
             sort: { title: "S" },
             delete: [ { title: "D1" }, { title: "D2" } ],
-            select: { title: "SEL" }
+            select: { title: "SEL" },
+            pasteRows: [ { title: "PR1" }, { title: "PR2" } ]
         } as TableMenuSections);
         const host = browserLikeHost({
-            paste: { enabled: true, run: vi.fn(), runAsPlainText: vi.fn() }
+            paste: { enabled: true, run: vi.fn(), runAsPlainText: vi.fn(), read: vi.fn() }
         });
 
         const items = await build({ isEditable: true, element: cell }, host);
 
-        expect(buildTableContextMenuSections).toHaveBeenCalledWith(cell);
+        expect(buildTableContextMenuSections).toHaveBeenCalledWith(cell, host.paste);
         expect(titles(items)).toEqual([
             "T1",
             "---",
@@ -243,6 +244,8 @@ describe("buildNoteContextMenuItems", () => {
             "electron_context_menu.copy-as-markdown",
             "electron_context_menu.paste",
             "electron_context_menu.paste-as-plain-text",
+            "PR1",
+            "PR2",
             "---",
             "S",
             "---",
@@ -282,7 +285,8 @@ describe("buildNoteContextMenuItems", () => {
             main: [ { title: "T1" } ],
             sort: { title: "S" },
             delete: [],
-            select: { title: "SEL" }
+            select: { title: "SEL" },
+            pasteRows: []
         } as TableMenuSections);
 
         // No cell selection and no text: the rows show but stay disabled.
@@ -307,7 +311,8 @@ describe("buildNoteContextMenuItems", () => {
             main: [ { title: "T1" } ],
             sort: { title: "S" },
             delete: [],
-            select: { title: "SEL" }
+            select: { title: "SEL" },
+            pasteRows: []
         } as TableMenuSections);
         vi.mocked(hasTableCellSelection).mockResolvedValueOnce(true);
 
@@ -399,7 +404,8 @@ describe("setupContextMenu (browser)", () => {
             main: [ { title: "table_context_menu.merge_cells" } ],
             sort: { title: "S" },
             delete: [],
-            select: { title: "SEL" }
+            select: { title: "SEL" },
+            pasteRows: []
         } as TableMenuSections);
 
         const event = rightClick(cell);
@@ -408,7 +414,33 @@ describe("setupContextMenu (browser)", () => {
         await vi.waitFor(() => expect(contextMenu.show).toHaveBeenCalled());
         const shown = vi.mocked(contextMenu.show).mock.calls[0][0];
         expect(titles(shown.items)).toContain("table_context_menu.merge_cells");
-        expect(buildTableContextMenuSections).toHaveBeenCalledWith(cell);
+        expect(vi.mocked(buildTableContextMenuSections).mock.calls[0]?.[0]).toBe(cell);
+    });
+
+    it("hands the table section the page's clipboard reader", async () => {
+        Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: {
+                read: vi.fn(async () => [ {
+                    types: [ "text/html", "text/plain" ],
+                    getType: async (type: string) => ({
+                        text: async () => type === "text/html" ? "<table></table>" : "t"
+                    })
+                } ])
+            }
+        });
+
+        try {
+            setSelection(null, "", "");
+            rightClick(editableTableCell());
+            await vi.waitFor(() => expect(buildTableContextMenuSections).toHaveBeenCalled());
+
+            const [ , clipboard ] = vi.mocked(buildTableContextMenuSections).mock.calls[0];
+            expect(clipboard?.enabled).toBe(true);
+            expect(await clipboard?.read()).toEqual({ html: "<table></table>", text: "t" });
+        } finally {
+            delete (navigator as { clipboard?: unknown }).clipboard;
+        }
     });
 
     it("leaves a table cell to the browser when read-only, non-editable, or Shift is held", async () => {

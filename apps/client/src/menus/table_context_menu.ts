@@ -6,19 +6,21 @@ import type { MenuItem } from "./context_menu.js";
 import { getTextEditorContaining } from "./text_editor_context_menu.js";
 
 /**
- * The table sections of the text editor's right-click menu.
+ * The table sections of the text editor's right-click menu. `clipboard` is the host's clipboard
+ * access, which the paste rows items need.
  *
  * Returns `null` when the click is not on a table cell of the active text editor.
  */
 export async function buildTableContextMenuSections(
-    element: Element | null | undefined
+    element: Element | null | undefined,
+    clipboard?: ClipboardAccess
 ): Promise<TableMenuSections | null> {
     if (!element?.closest("td, th")) {
         return null;
     }
 
     const editor = await getTextEditorContaining(element);
-    return editor && buildTableMenuSections(editor, element);
+    return editor && buildTableMenuSections(editor, element, clipboard);
 }
 
 /**
@@ -28,7 +30,8 @@ export async function buildTableContextMenuSections(
  */
 export function buildTableMenuSections(
     editor: CKTextEditor,
-    element: Element
+    element: Element,
+    clipboard?: ClipboardAccess
 ): TableMenuSections | null {
     if (!editor.plugins.has("TableContextMenu")
             || !editor.plugins.get("TableContextMenu").syncSelectionToDomTarget(element)) {
@@ -119,11 +122,20 @@ export function buildTableMenuSections(
             uiIcon: "bx bx-select-multiple",
             enabled: selectItems.some((item) => item.enabled),
             items: selectItems
-        }
+        },
+        pasteRows: buildPasteRowsItems(editor, clipboard)
     };
 }
 
-/** The table rows of the text editor's right-click menu, in four sections. */
+/** The part of the menu host's paste support that the paste rows items use. */
+export interface ClipboardAccess {
+    /** Whether the clipboard holds anything to paste. */
+    enabled: boolean;
+    /** Reads the HTML and plain-text flavors of the clipboard, empty when absent. */
+    read(): Promise<{ html: string; text: string }>;
+}
+
+/** The table rows of the text editor's right-click menu, in five sections. */
 export interface TableMenuSections {
     /**
      * Row and column insertion sized by the selection, the header rows, merging or splitting of
@@ -136,6 +148,12 @@ export interface TableMenuSections {
     delete: MenuItem<CommandNames>[];
     /** Selection of the spanned rows or columns, or of the whole table. Shown below deletion. */
     select: MenuItem<CommandNames>;
+    /**
+     * Pasting the clipboard as new rows above or below the row of the selection. Shown below the
+     * paste rows of the clipboard section; empty unless the selection is in one row and the host
+     * can read the clipboard.
+     */
+    pasteRows: MenuItem<CommandNames>[];
 }
 
 /**
@@ -153,4 +171,51 @@ export async function hasTableCellSelection(element: Element | null | undefined)
     }
 
     return editor.plugins.get("TableSelection").getSelectedTableCells() !== null;
+}
+
+/** The paste rows items, for a selection in a single row and a host that reads the clipboard. */
+function buildPasteRowsItems(
+    editor: CKTextEditor,
+    clipboard: ClipboardAccess | undefined
+): MenuItem<CommandNames>[] {
+    if (!clipboard || editor.commands.get("triliumPasteTableRowsAbove")?.isEnabled !== true) {
+        return [];
+    }
+
+    const item = (title: string, uiIcon: string, commandName: PasteRowsCommand) => ({
+        title,
+        uiIcon,
+        enabled: clipboard.enabled,
+        handler: () => void pasteRows(editor, clipboard, commandName)
+    });
+    return [
+        item(t("table_context_menu.paste_rows_above"), "bx bx-horizontal-left bx-rotate-90",
+            "triliumPasteTableRowsAbove"),
+        item(t("table_context_menu.paste_rows_below"), "bx bx-horizontal-left bx-rotate-270",
+            "triliumPasteTableRowsBelow")
+    ];
+}
+
+type PasteRowsCommand = "triliumPasteTableRowsAbove" | "triliumPasteTableRowsBelow";
+
+/**
+ * Reads the clipboard and pastes it as rows next to the selection the menu was opened on. The
+ * selection is pinned before the read, which can wait on a permission prompt.
+ */
+async function pasteRows(
+    editor: CKTextEditor,
+    clipboard: ClipboardAccess,
+    commandName: PasteRowsCommand
+) {
+    const target = editor.capturePasteTarget();
+    try {
+        const { html, text } = await clipboard.read();
+        if (target.restore()) {
+            editor.execute(commandName, { html, text });
+        }
+    } catch (error) {
+        console.warn("Failed to paste rows from the clipboard:", error);
+    } finally {
+        target.release();
+    }
 }

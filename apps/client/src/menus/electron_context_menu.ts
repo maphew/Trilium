@@ -60,7 +60,14 @@ function electronHost(eApi: ElectronApi, params: ElectronContextMenuParams): Con
         paste: {
             enabled: editFlags.canPaste,
             run: () => api.webContentsAction("paste"),
-            runAsPlainText: () => api.webContentsAction("pasteAndMatchStyle")
+            runAsPlainText: () => api.webContentsAction("pasteAndMatchStyle"),
+            read: async () => {
+                const [html, text] = await Promise.all([
+                    eApi.clipboard.readHTML(),
+                    eApi.clipboard.readText()
+                ]);
+                return { html, text };
+            }
         },
         canCut: editFlags.canCut,
         cut: () => api.webContentsAction("cut"),

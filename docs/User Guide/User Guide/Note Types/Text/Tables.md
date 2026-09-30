@@ -36,6 +36,10 @@ Since v0.106.0, right-clicking anywhere inside a table opens a context menu with
 *   _Cut_, _Copy_ and _Copy as Markdown_ act on the selected cells:
     *   Cutting or copying produces a smaller table holding just the selected cells. Pasting it over a cell selection replaces those cells; pasting elsewhere inserts it as a table of its own. Cutting clears the cells without removing rows or columns.
     *   _Copy as Markdown_ converts the selected cells to a Markdown table. A selected header row becomes the Markdown header; without one, an empty header row is emitted, since Markdown tables require one.
+*   Since v0.107.0, _Paste rows above_ and _Paste rows below_, after _Paste as plain text_, paste the clipboard as new rows next to the row of the current cell, instead of over the cells from the cursor on. They show only when the selection is in a single row, and, like _Paste_, only where the clipboard can be read:
+    *   A copied table becomes one new row for each of its rows, filled from the first column. When it has more columns than the table, the table gains columns, as with a regular paste. Other content goes in the first cell of a single new row.
+    *   The new rows are selected afterwards.
+    *   When merged cells join the row to others, the new rows go above or below that whole block of rows.
 *   _Sort_, below the clipboard section, sorts the rows by the column of the current cell, in _Ascending_ or _Descending_ order. See [Sorting rows](#sorting-rows).
 *   _Delete row_ and _Delete column_, below _Sort_, remove every row or column the selection touches, even when only some of their cells are selected.
 *   _Delete table_ removes the whole table and leaves an empty paragraph in its place. In a table nested inside another, only the inner table is removed.

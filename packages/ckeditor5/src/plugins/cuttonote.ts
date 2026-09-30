@@ -17,6 +17,12 @@ export interface PasteTarget {
 	 * gone.
 	 */
 	paste(html: string, text: string): void;
+	/**
+	 * Moves the selection back onto the pinned ranges and releases them, for a paste that runs
+	 * through a command instead of `paste()`. Returns `false`, leaving the selection alone, when
+	 * the pinned content is gone.
+	 */
+	restore(): boolean;
 	/** Detaches the pinned ranges without pasting. Safe to call more than once. */
 	release(): void;
 }
@@ -126,16 +132,22 @@ export default class CutToNotePlugin extends Plugin {
 				range.detach();
 			}
 		};
+		const restore = () => {
+			const targets = editor.state === "destroyed" ? [] : this.getRemainingRanges(ranges);
+			release();
+			if (targets.length) {
+				this.restoreSelection(targets);
+			}
+			return targets.length > 0;
+		};
 
 		return {
 			paste: (html, text) => {
-				const targets = editor.state === "destroyed" ? [] : this.getRemainingRanges(ranges);
-				release();
-				if (targets.length) {
-					this.restoreSelection(targets);
+				if (restore()) {
 					this.pasteContent(html, text);
 				}
 			},
+			restore,
 			release
 		};
 	}

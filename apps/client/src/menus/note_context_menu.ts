@@ -41,6 +41,8 @@ export interface ContextMenuHost {
         enabled: boolean;
         run(): void;
         runAsPlainText(): void;
+        /** Reads the clipboard, for the rows that paste through an editor command. */
+        read(): Promise<{ html: string; text: string }>;
     };
     canCut: boolean;
     cut(): void | Promise<void>;
@@ -125,7 +127,7 @@ export async function buildNoteContextMenuItems(
     // lands somewhere a completion could not be committed anyway (a read-only note, the tree).
     const aiActions = target.isEditable ? await buildAiActionsMenuItem() : null;
     const tableSections = target.isEditable
-        ? await buildTableContextMenuSections(target.element)
+        ? await buildTableContextMenuSections(target.element, host.paste)
         : null;
 
     // Read after the table sections are built, which moves the selection into the clicked cell.
@@ -222,6 +224,10 @@ export async function buildNoteContextMenuItems(
             uiIcon: "bx bx-paste",
             handler: runAsPlainText
         });
+
+        if (tableSections) {
+            items.push(...tableSections.pasteRows);
+        }
     }
 
     if (tableSections) {
@@ -377,7 +383,8 @@ function browserPaste(
         // for permission, so the rows stay enabled and an empty clipboard pastes nothing.
         enabled: true,
         run: () => void pasteFromClipboard(editor, element, false),
-        runAsPlainText: () => void pasteFromClipboard(editor, element, true)
+        runAsPlainText: () => void pasteFromClipboard(editor, element, true),
+        read: readClipboard
     };
 }
 

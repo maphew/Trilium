@@ -3524,7 +3524,9 @@
     "select_column": "Column",
     "select_table": "Table",
     "set_header_row": "Set as header",
-    "set_header_up_to_row": "Set header up to this row"
+    "set_header_up_to_row": "Set header up to this row",
+    "paste_rows_above": "Paste rows above",
+    "paste_rows_below": "Paste rows below"
   },
   "board_view": {
     "delete-note": "Delete note...",

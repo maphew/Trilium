@@ -28,6 +28,7 @@ export * from "./utils.js";
 import "./plugins/math/math.js";
 import "./plugins/mermaid/mermaid.js";
 import "./plugins/table_context_menu.js";
+import "./plugins/table_paste_rows.js";
 
 window[Symbol.for("cke distribution")] = "trilium";
 
