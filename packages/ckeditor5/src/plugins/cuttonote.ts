@@ -8,11 +8,14 @@ import {
 	ViewDataTransfer,
 	viewToPlainText
 } from 'ckeditor5';
-import type { ViewDocumentFragment } from 'ckeditor5';
+import type { ModelRange, ViewDocumentFragment } from 'ckeditor5';
 
 /** A selection pinned by `capturePasteTarget()` for a paste whose content arrives later. */
 export interface PasteTarget {
-	/** Pastes at the pinned selection, then releases it. */
+	/**
+	 * Pastes at the pinned selection, then releases it. Does nothing when the pinned content is
+	 * gone.
+	 */
 	paste(html: string, text: string): void;
 	/** Detaches the pinned ranges without pasting. Safe to call more than once. */
 	release(): void;
@@ -111,8 +114,8 @@ export default class CutToNotePlugin extends Plugin {
 	 * Pins the current selection as live ranges, for a paste whose content arrives asynchronously,
 	 * e.g. from `navigator.clipboard.read()`. `paste()` moves the selection back onto the pinned
 	 * ranges first, so a selection changed while the content was read does not move the paste.
-	 * Ranges whose content was removed in the meantime are dropped; with none left, the paste goes
-	 * to the current selection.
+	 * Ranges whose content was removed in the meantime are dropped. With none left, for example
+	 * after `setData()` loaded another note into the editor, the paste is discarded.
 	 */
 	capturePasteTarget(): PasteTarget {
 		const editor = this.editor;
@@ -126,31 +129,33 @@ export default class CutToNotePlugin extends Plugin {
 
 		return {
 			paste: (html, text) => {
-				if (editor.state === "destroyed") {
-					release();
-					return;
-				}
-				this.restoreSelection(ranges);
+				const targets = editor.state === "destroyed" ? [] : this.getRemainingRanges(ranges);
 				release();
-				this.pasteContent(html, text);
+				if (targets.length) {
+					this.restoreSelection(targets);
+					this.pasteContent(html, text);
+				}
 			},
 			release
 		};
 	}
 
-	private restoreSelection(ranges: ModelLiveRange[]) {
-		const model = this.editor.model;
-		const targets = ranges
-			.filter((range) => range.root !== model.document.graveyard)
+	/** The pinned ranges whose content is still in the document. */
+	private getRemainingRanges(ranges: ModelLiveRange[]): ModelRange[] {
+		const graveyard = this.editor.model.document.graveyard;
+		return ranges
+			.filter((range) => range.root !== graveyard)
 			.map((range) => range.toRange());
+	}
+
+	private restoreSelection(targets: ModelRange[]) {
+		const model = this.editor.model;
 		const current = [...model.document.selection.getRanges()];
 		const isUnchanged = targets.length === current.length
 			&& targets.every((range, index) => range.isEqual(current[index]));
-		if (!targets.length || isUnchanged) {
-			return;
+		if (!isUnchanged) {
+			model.change((writer) => writer.setSelection(targets));
 		}
-
-		model.change((writer) => writer.setSelection(targets));
 	}
 
 	async removeSelection() {

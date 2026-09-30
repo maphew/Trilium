@@ -109,7 +109,7 @@ describe("CutToNotePlugin", () => {
             expect(editor.getData()).toBe("<p>aXb</p><p>cd</p>");
         });
 
-        it("pastes at the current selection when the captured content was removed", () => {
+        it("discards the paste when the captured content was removed", () => {
             setModelData(editor.model, "<paragraph>a[]b</paragraph><paragraph>cd</paragraph>");
             const target = editor.capturePasteTarget();
             editor.model.change((writer) => {
@@ -122,7 +122,23 @@ describe("CutToNotePlugin", () => {
 
             target.paste("", "X");
 
-            expect(editor.getData()).toBe("<p>cXd</p>");
+            expect(editor.getData()).toBe("<p>cd</p>");
+        });
+
+        it("discards the paste when the editor loads other content, such as another note", () => {
+            for (const data of [
+                "<paragraph>a[]b</paragraph>",
+                "<paragraph>a[b</paragraph><paragraph>c]d</paragraph>",
+                "<paragraph>[abcd]</paragraph>"
+            ]) {
+                setModelData(editor.model, data);
+                const target = editor.capturePasteTarget();
+                editor.setData("<p>other</p>");
+
+                target.paste("", "X");
+
+                expect(editor.getData(), data).toBe("<p>other</p>");
+            }
         });
 
         it("does nothing once the editor is destroyed", async () => {
@@ -205,6 +221,26 @@ describe("CutToNotePlugin", () => {
             expect(data).not.toContain("x1");
         });
 
+        it("capturePasteTarget discards a table paste when the editor loads other content", () => {
+            const html = "<table><tbody><tr><td>new</td></tr></tbody></table>";
+            const selections: (() => void)[] = [
+                () => selectCells(tableEditor, [0, 0], [1, 1]),
+                () => selectRoot(tableEditor, "on"),
+                () => selectRoot(tableEditor, "in")
+            ];
+
+            for (const [index, select] of selections.entries()) {
+                setModelData(tableEditor.model, modelTable([["a1", "b1"], ["a2", "b2"]]));
+                select();
+                const target = tableEditor.capturePasteTarget();
+                tableEditor.setData("<p>other</p>");
+
+                target.paste(html, "");
+
+                expect(tableEditor.getData(), `selection ${index}`).toBe("<p>other</p>");
+            }
+        });
+
         it("capturePasteTarget restores a cell selection before pasting into it", () => {
             setModelData(tableEditor.model, modelTable([["a1", "b1"], ["a2", "b2"]]));
             selectCells(tableEditor, [0, 0], [1, 1]);
@@ -281,4 +317,21 @@ function selectCells(editor: ClassicEditor, anchor: [number, number], target: [n
         getCell(anchor[0], anchor[1]),
         getCell(target[0], target[1])
     );
+}
+
+/** Selects the first element of the root (`"on"`) or the whole content of the root (`"in"`). */
+function selectRoot(editor: ClassicEditor, placement: "on" | "in") {
+    const root = editor.model.document.getRoot();
+    const first = root?.getChild(0);
+    if (!root || !first) {
+        throw new Error("The document is empty.");
+    }
+
+    editor.model.change((writer) => {
+        if (placement === "on") {
+            writer.setSelection(first, "on");
+        } else {
+            writer.setSelection(writer.createRangeIn(root));
+        }
+    });
 }
