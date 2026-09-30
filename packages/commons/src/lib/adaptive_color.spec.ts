@@ -79,6 +79,7 @@ describe("adaptColor", () => {
         expect(adaptColor("rgb(230, 77, 77)", "text")).toBe(expected);
         expect(adaptColor("rgb(230 77 77)", "text")).toBe(expected);
         expect(adaptColor("#f00", "text")).toBe(adaptColor("#ff0000", "text"));
+        expect(adaptColor("rgb(100%, 0%, 0%)", "text")).toBe(adaptColor("#ff0000", "text"));
 
         // The color picker's output, and the same value after CKEditor strips its spaces.
         const fromPicker = adaptColor("hsl(210, 75%, 60%)", "background");
@@ -90,7 +91,7 @@ describe("adaptColor", () => {
     it("returns pairs, alpha colors and unknown values unchanged", () => {
         for (const value of [
             "light-dark(#b81e2c,#ff9f96)", "rgba(0, 0, 0, 0.5)", "rgb(0 0 0 / 50%)",
-            "#11223344", "red", "var(--accent)", "#12345", ""
+            "#11223344", "red", "var(--accent)", "#12345", "hsl(none 50% 50%)", ""
         ]) {
             expect(adaptColor(value, "text")).toBe(value);
         }
