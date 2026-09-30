@@ -243,7 +243,7 @@ body.desktop .dropdown-item.dropdown-submenu .dropdown-toggle,
     }
 }
 
-/* A level's rows are all in its `.tn-menu-scroll`, and its submenus' layers outside it. */
+/* Each menu level holds its rows in its own `.tn-menu-scroll`; submenu layers are outside it. */
 body.desktop .tn-menu-scroll:has(.dropdown-submenu.dropstart) .dropdown-item:not(.dropdown-submenu),
 body.desktop .tn-menu-scroll:has(.dropdown-submenu.dropstart) .dropdown-item.dropdown-submenu .dropdown-toggle {
     padding-inline-end: var(--menu-item-start-padding) !important;

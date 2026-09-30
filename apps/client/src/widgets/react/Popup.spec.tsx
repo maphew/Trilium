@@ -164,12 +164,12 @@ describe("Popup", () => {
         outside.remove();
     });
 
-    it("keeps the click of a dismissing press from what the press uncovered, but not from what it pressed", async () => {
+    it("drops the click after a dismissing press unless it lands on what was pressed", async () => {
         anchorAt(100, 50);
         const popup = await open({ onDismiss: vi.fn() });
         const press = (target: Element) => target.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
         const click = (target: Element) => target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-        // A phone's cover, which the popup takes away before the tap's click, and an icon under it.
+        // A phone's cover, hidden with the popup before the tap's click, and an icon under it.
         const cover = document.createElement("div");
         const icon = document.createElement("button");
         const iconClicked = vi.fn();
@@ -179,7 +179,7 @@ describe("Popup", () => {
         press(cover);
         click(icon);
         expect(iconClicked).not.toHaveBeenCalled();
-        // Only the one click.
+        // Only the first click is dropped.
         click(icon);
         expect(iconClicked).toHaveBeenCalledTimes(1);
 
@@ -187,7 +187,7 @@ describe("Popup", () => {
         click(icon);
         expect(iconClicked).toHaveBeenCalledTimes(2);
 
-        // A press inside dismisses nothing, so its click goes where it lands.
+        // A press inside the popup does not dismiss it, so its click is kept.
         press(popup);
         click(icon);
         expect(iconClicked).toHaveBeenCalledTimes(3);

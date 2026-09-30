@@ -13,13 +13,13 @@ describe("SplitButton", () => {
     document.body.append(host);
     afterEach(() => render(null, host));
 
-    /** A press and its release, as a pointer makes them. */
+    /** Dispatches a press and its click. */
     const press = (element: Element) => {
         element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
         element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     };
 
-    it("runs its own action from the main half, and opens the others as a menu from the split", async () => {
+    it("runs its action from the main button, and opens the rest from the toggle", async () => {
         const calls: string[] = [];
         render((
             <SplitButton text="Search" icon="bx bx-search" onClick={() => calls.push("search")}>
@@ -35,7 +35,7 @@ describe("SplitButton", () => {
         expect(calls).toEqual([ "search" ]);
         expect(document.querySelector("[role=menu]")).toBeNull();
 
-        // A menu of the app's own, which Bootstrap's data API has no part in.
+        // The app's own menu, not one opened by Bootstrap's data API.
         expect(toggle.hasAttribute("data-bs-toggle")).toBe(false);
         expect(toggle.getAttribute("aria-label")).toBe("split_button.more_actions");
         expect(toggle.getAttribute("aria-haspopup")).toBe("menu");

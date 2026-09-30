@@ -30,8 +30,8 @@ export default function FormList({ children, onSelect, style, fullHeight, wrappe
     const listRef = useRef<HTMLDivElement | null>(null);
 
     // Captured at the window: Bootstrap captures Escape, Up and Down at the document for any
-    // `.dropdown-menu`, and throws for one with no toggle beside it. Escape goes no further, as
-    // Bootstrap kept it from a dialog around the list too.
+    // `.dropdown-menu`, and throws when no toggle is next to it. Escape is stopped here, as
+    // Bootstrap's handler also kept it from a dialog around the list.
     useLayoutEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             const list = listRef.current;
@@ -108,8 +108,8 @@ function onDropdownMenuKeyDown(e: KeyboardEvent) {
 }
 
 /**
- * Focuses an enabled item of `list`'s own, not one in a submenu nested in it: the first or the
- * last, or the one after or before `from`, going round at either end.
+ * Focuses an enabled item that belongs to `list` itself, not to a nested submenu: the first, the
+ * last, or the one after or before `from`, wrapping at either end.
  */
 export function focusListItem(list: HTMLElement, where: "first" | "last" | "next" | "previous", from?: Element) {
     const items = [ ...list.querySelectorAll<HTMLElement>(".dropdown-item:not(.disabled):not(:disabled)") ]
@@ -380,9 +380,9 @@ export interface FormDropdownSubmenuProps {
 }
 
 /**
- * A row that opens its children as a submenu, in a layer of its own beside the row, which a
- * scrolling menu neither clips nor scrolls away. Outside a `Menu`, which only a script can render,
- * its title heads its children in the list.
+ * A row that opens its children as a submenu, in a separate layer beside the row, so a scrolling
+ * menu neither clips it nor scrolls it away. Outside a `Menu`, which only a script can arrange, it
+ * renders its title as a `FormListHeader` above its children.
  */
 export function FormDropdownSubmenu(props: FormDropdownSubmenuProps) {
     const menu = useContext(MenuContext);
@@ -505,7 +505,7 @@ function SubmenuLayer({ level, submenu, columns, children }: {
             shiftAcross: true, capHeight: true, hideWithAnchor: true
         } as const;
         return autoUpdate(submenu.anchor, layer, () => void placeFloating(layer, submenu.anchor, options).then((placed) => {
-            // Flipped for want of room, it turns the arrows of its parent level's rows with it.
+            // After a flip, the parent level follows, so its rows' arrows match.
             const placedDropStart = placed.startsWith(startSide);
             if (placedDropStart !== dropStart) {
                 setDropStart(level - 1, placedDropStart);

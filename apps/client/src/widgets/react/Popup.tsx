@@ -173,8 +173,8 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
 
 /**
  * Drops the click that follows a press dismissing a popup when it lands on something other than
- * `pressed`. A cover or a backdrop goes away with the popup before a tap's click, which then lands
- * on whatever stood under it, as an icon under the icon picker's menu.
+ * `pressed`. A cover or backdrop is removed with the popup before a tap's click, so the click lands
+ * on the element under it, such as an icon under the icon picker's menu.
  */
 function swallowStrayClick(pressed: Node) {
     const onClick = (e: MouseEvent) => {
@@ -183,7 +183,8 @@ function swallowStrayClick(pressed: Node) {
         e.preventDefault();
         e.stopPropagation();
     };
-    // A press that makes no click, as one that scrolls, leaves nothing for the next press's.
+    // The next press removes the listener, so a press without a click, such as a scroll, cannot
+    // drop a later click.
     const stop = () => {
         window.removeEventListener("click", onClick, true);
         window.removeEventListener("pointerdown", stop, true);
@@ -233,7 +234,7 @@ export interface FloatingPlacement {
  * Positions `element` beside `anchor`, preferring its placement, then the side opposite, then the
  * other alignment on either side, the way a native menu opens above or to the left of a pointer
  * near the viewport's edge. It stays hidden until placed, so it never paints at a stale position.
- * Resolves to the placement it took.
+ * Resolves to the placement Floating UI chose.
  */
 export async function placeFloating(element: HTMLElement, anchor: ReferenceElement, { placement, offset: gap, shiftAcross, capHeight, hideWithAnchor, arrow: pointer }: FloatingPlacement) {
     const { x, y, placement: placed, middlewareData } = await computePosition(anchor, element, {

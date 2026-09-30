@@ -56,8 +56,8 @@ export interface MenuContextValue {
     /** Whether the keys moved the menu since the pointer last did. */
     keyboardDriven: boolean;
     /**
-     * Whether the submenus of each level's rows open towards the start, the top level's first. The
-     * rows show it as `.dropstart`, which turns their arrow that way.
+     * Whether the submenus of each level's rows open towards the start, indexed by level. The rows
+     * of a level that does carry `.dropstart`, which points their arrow that way.
      */
     dropStart: boolean[];
     /** Records the side the submenus of `level`'s rows open on. */
@@ -83,9 +83,9 @@ export function useMenu() {
 }
 
 /**
- * Whether the submenus of a level's rows open towards the start, from where the level's menu or
- * layer stands. They keep to `preferStart`, the side the level itself opened towards, unless that
- * side has less room than the level is wide and the other side has more.
+ * Whether the submenus of a level's rows open towards the start, given `frame`, the level's menu
+ * or layer. They open towards the side `preferStart` names, which is where the level itself opened,
+ * unless that side has less room than `frame` is wide and the other side has more.
  */
 export function shouldDropStart(frame: Pick<DOMRect, "left" | "right" | "width">, viewportWidth: number, rtl: boolean, preferStart: boolean) {
     const roomAtEnd = rtl ? frame.left : viewportWidth - frame.right;
@@ -94,7 +94,7 @@ export function shouldDropStart(frame: Pick<DOMRect, "left" | "right" | "width">
     return preferred < frame.width && other > preferred ? !preferStart : preferStart;
 }
 
-/** Whether the page reads right to left, so a menu's end side is its left. */
+/** Whether the page is right to left, which makes a menu's end side its left. */
 export function isRightToLeft() {
     return handleRightToLeftPlacement("right") !== "right";
 }

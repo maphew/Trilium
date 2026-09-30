@@ -41,22 +41,22 @@ describe("rowInNextColumn", () => {
 });
 
 describe("shouldDropStart", () => {
-    /** A level 200px wide, standing at `left` in a viewport 1000px wide. */
+    /** A level 200px wide at `left`, in a viewport 1000px wide. */
     const at = (left: number) => ({ left, right: left + 200, width: 200 });
 
-    it("opens towards the end while there is room there, and turns only for more room at the start", () => {
+    it("opens towards the end, and towards the start only when the start has more room", () => {
         expect(shouldDropStart(at(100), 1000, false, false)).toBe(false);
         expect(shouldDropStart(at(750), 1000, false, false)).toBe(true);
-        // Cramped on both sides, it keeps to the end unless the start has more.
+        // Short of room on both sides, it stays at the end unless the start has more.
         expect(shouldDropStart(at(50), 300, false, false)).toBe(false);
     });
 
-    it("keeps to the start once its level opened that way, until the room there runs out", () => {
+    it("stays at the start once its level opened that way, until the room runs out", () => {
         expect(shouldDropStart(at(400), 1000, false, true)).toBe(true);
         expect(shouldDropStart(at(100), 1000, false, true)).toBe(false);
     });
 
-    it("measures the end on the left when the page reads right to left", () => {
+    it("treats the left as the end in a right-to-left layout", () => {
         expect(shouldDropStart(at(750), 1000, true, false)).toBe(false);
         expect(shouldDropStart(at(50), 1000, true, false)).toBe(true);
     });
@@ -175,8 +175,8 @@ describe("Menu with declared rows", () => {
         expect(calls).toEqual([ "log", "close" ]);
     });
 
-    it("turns its submenus and their arrows towards the start where the end has no room", async () => {
-        // The menus and their rows stand 120px wide against the right edge of a 1024px viewport.
+    it("opens submenus towards the start, arrows too, when the end has no room", async () => {
+        // The menus and their rows are 120px wide, at the right edge of a 1024px viewport.
         vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1024);
         vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(768);
         const measure = HTMLElement.prototype.getBoundingClientRect;
@@ -193,8 +193,8 @@ describe("Menu with declared rows", () => {
             advanced.dispatchEvent(new PointerEvent("pointerenter"));
             await vi.waitFor(() => expect(layers(menu)).toHaveLength(1));
             const layer = menu.querySelector<HTMLElement>(":scope > div.dropdown-submenu > .dropdown-menu");
-            // By the row's left edge, at 900px, rather than its right edge, at 1020px. happy-dom lays
-            // the layer out 0px wide.
+            // Next to the row's left edge (900px), not its right edge (1020px). happy-dom gives the
+            // layer no width.
             await vi.waitFor(() => expect(parseFloat(layer?.style.left ?? "")).toBeLessThan(910));
             expect(advanced.classList).toContain("dropstart");
         } finally {

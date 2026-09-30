@@ -462,8 +462,8 @@ button kbd {
     display: contents;
 }
 
-/* Just under the popup it is drawn for, whose z-index (1200) is set in `Popup.css`. Dressed as a
-   dialog's backdrop, a menu that dims the page being the same thing to the reader. */
+/* Just under its popup, whose z-index (1200) is set in `Popup.css`. Styled as a dialog's
+   backdrop. */
 body > .tn-dropdown-portal > .tn-dropdown-backdrop {
     position: fixed;
     inset: 0;
