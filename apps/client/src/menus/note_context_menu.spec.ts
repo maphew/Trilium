@@ -223,7 +223,8 @@ describe("buildNoteContextMenuItems", () => {
         vi.mocked(buildTableContextMenuSections).mockResolvedValueOnce({
             main: [ { title: "T1" }, { kind: "separator" }, { title: "T2" } ],
             sort: { title: "S" },
-            delete: [ { title: "D1" }, { title: "D2" } ]
+            delete: [ { title: "D1" }, { title: "D2" } ],
+            select: { title: "SEL" }
         } as TableMenuSections);
         const host = browserLikeHost({
             paste: { enabled: true, run: vi.fn(), runAsPlainText: vi.fn() }
@@ -247,6 +248,8 @@ describe("buildNoteContextMenuItems", () => {
             "---",
             "D1",
             "D2",
+            "---",
+            "SEL",
             "---",
             "electron_context_menu.search_online",
             "electron_context_menu.search_in_trilium"
@@ -278,7 +281,8 @@ describe("buildNoteContextMenuItems", () => {
         vi.mocked(buildTableContextMenuSections).mockResolvedValue({
             main: [ { title: "T1" } ],
             sort: { title: "S" },
-            delete: []
+            delete: [],
+            select: { title: "SEL" }
         } as TableMenuSections);
 
         // No cell selection and no text: the rows show but stay disabled.
@@ -302,7 +306,8 @@ describe("buildNoteContextMenuItems", () => {
         vi.mocked(buildTableContextMenuSections).mockResolvedValueOnce({
             main: [ { title: "T1" } ],
             sort: { title: "S" },
-            delete: []
+            delete: [],
+            select: { title: "SEL" }
         } as TableMenuSections);
         vi.mocked(hasTableCellSelection).mockResolvedValueOnce(true);
 
@@ -393,7 +398,8 @@ describe("setupContextMenu (browser)", () => {
         vi.mocked(buildTableContextMenuSections).mockResolvedValueOnce({
             main: [ { title: "table_context_menu.merge_cells" } ],
             sort: { title: "S" },
-            delete: []
+            delete: [],
+            select: { title: "SEL" }
         } as TableMenuSections);
 
         const event = rightClick(cell);

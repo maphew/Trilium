@@ -5,7 +5,8 @@ import {
     Table,
     TableColumnResize,
     TableSelection,
-    TableUtils
+    TableUtils,
+    TableWalker
 } from "ckeditor5";
 import type { Editor, ModelElement, ViewDocumentMouseDownEvent } from "ckeditor5";
 
@@ -15,11 +16,12 @@ import { DistributeTableColumnsCommand } from "./table_distribute_columns.js";
  * Editor-side support for the client's table context menu.
  *
  * Registers insert commands that honor the size of the current selection (the upstream
- * `insertTableRow*` / `insertTableColumn*` commands always insert one row or column) and
- * `triliumDistributeTableColumns`, keeps a multi-cell selection alive under a right-click, and
- * moves the selection to the cell a context menu is opened on. Merge, split and delete need no
- * counterparts here: the upstream `mergeTableCells`, `splitTableCell*` and `removeTableRow` /
- * `removeTableColumn` commands already act on the whole selection.
+ * `insertTableRow*` / `insertTableColumn*` commands always insert one row or column),
+ * `triliumDistributeTableColumns` and `triliumSelectTable`, the whole-table counterpart of the
+ * upstream `selectTableRow` / `selectTableColumn`. Keeps a multi-cell selection alive under a
+ * right-click, and moves the selection to the cell a context menu is opened on. Merge, split and
+ * delete need no counterparts here: the upstream `mergeTableCells`, `splitTableCell*` and
+ * `removeTableRow` / `removeTableColumn` commands already act on the whole selection.
  */
 export default class TableContextMenu extends Plugin {
 
@@ -46,6 +48,7 @@ export default class TableContextMenu extends Plugin {
             new DistributeTableColumnsCommand(editor));
         editor.commands.add("triliumDeleteTable", new DeleteTableCommand(editor));
         editor.commands.add("triliumResetTableCellSpans", new ResetTableCellSpansCommand(editor));
+        editor.commands.add("triliumSelectTable", new SelectTableCommand(editor));
 
         const view = editor.editing.view;
         view.addObserver(MouseObserver);
@@ -156,11 +159,11 @@ export class TableMultiInsertCommand extends Command {
 export class DeleteTableCommand extends Command {
 
     refresh() {
-        this.isEnabled = this.findTable() !== null;
+        this.isEnabled = findSelectionTable(this.editor) !== null;
     }
 
     execute() {
-        const table = this.findTable();
+        const table = findSelectionTable(this.editor);
         /* v8 ignore next 3 -- defensive: disabled whenever the selection is outside a table */
         if (!table) {
             return;
@@ -174,10 +177,35 @@ export class DeleteTableCommand extends Command {
         });
     }
 
-    private findTable(): ModelElement | null {
-        const tableUtils = this.editor.plugins.get(TableUtils);
-        const selection = this.editor.model.document.selection;
-        return tableUtils.getSelectionAffectedTableCells(selection)[0]?.findAncestor("table") ?? null;
+}
+
+/**
+ * Selects every cell of the table the selection is in, the innermost one when tables are nested.
+ * Like `selectTableRow` and `selectTableColumn`, it stays enabled in read-only mode.
+ */
+export class SelectTableCommand extends Command {
+
+    constructor(editor: Editor) {
+        super(editor);
+        this.affectsData = false;
+    }
+
+    refresh() {
+        this.isEnabled = findSelectionTable(this.editor) !== null;
+    }
+
+    execute() {
+        const table = findSelectionTable(this.editor);
+        /* v8 ignore next 3 -- defensive: disabled whenever the selection is outside a table */
+        if (!table) {
+            return;
+        }
+
+        const model = this.editor.model;
+        const ranges = Array.from(new TableWalker(table), ({ cell }) => model.createRangeOn(cell));
+        model.change((writer) => {
+            writer.setSelection(ranges);
+        });
     }
 
 }
@@ -230,6 +258,13 @@ export class ResetTableCellSpansCommand extends Command {
 
 }
 
+/** The table the selection is in, the innermost one when tables are nested. */
+function findSelectionTable(editor: Editor): ModelElement | null {
+    const tableUtils = editor.plugins.get(TableUtils);
+    const selection = editor.model.document.selection;
+    return tableUtils.getSelectionAffectedTableCells(selection)[0]?.findAncestor("table") ?? null;
+}
+
 function getSpan(cell: ModelElement, attribute: "colspan" | "rowspan"): number {
     return Number(cell.getAttribute(attribute) ?? 1);
 }
@@ -264,5 +299,6 @@ declare module "ckeditor5" {
         triliumDistributeTableColumns: DistributeTableColumnsCommand;
         triliumDeleteTable: DeleteTableCommand;
         triliumResetTableCellSpans: ResetTableCellSpansCommand;
+        triliumSelectTable: SelectTableCommand;
     }
 }

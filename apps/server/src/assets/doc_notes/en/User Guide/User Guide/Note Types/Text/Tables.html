@@ -63,6 +63,13 @@ src="3_Tables_image.png" width="384" height="100">
   <li><em>Delete table</em> removes the whole table and leaves an empty paragraph
     in its place. In a table nested inside another, only the inner table is
     removed.</li>
+  <li>Since v0.107.0, <em>Select</em>, below <em>Delete table</em>, selects the
+    cells of every row (<em>Row</em>) or column (<em>Column</em>) the selection
+    touches, or every cell of the table (<em>Table</em>). Unlike the <span class="tn-icon cke cke-drag-handle"></span> button,
+    which selects the table as a whole, <em>Table</em> selects its cells, so
+    cell operations such as <em>Merge cells</em> apply to all of them. In a table
+    nested inside another, <em>Table</em> selects only the cells of the inner
+    table.</li>
 </ul>
 <p>Right-clicking a cell that is not part of the current selection moves
   the cursor there first, so the menu always applies to the cell under the

@@ -226,7 +226,7 @@ export async function buildNoteContextMenuItems(
 
     if (tableSections) {
         items.push({ kind: "separator" }, tableSections.sort, { kind: "separator" },
-            ...tableSections.delete);
+            ...tableSections.delete, { kind: "separator" }, tableSections.select);
     }
 
     if (hasText) {

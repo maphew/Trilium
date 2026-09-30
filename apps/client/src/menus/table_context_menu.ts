@@ -59,6 +59,12 @@ export function buildTableMenuSections(
         commandItem(t("table_context_menu.sort_descending"), "bx bx-sort-down",
             "triliumSortTableRowsDescending")
     ];
+    const selectItems = [
+        commandItem(t("table_context_menu.select_row"), "bx bx-grid-horizontal", "selectTableRow"),
+        commandItem(t("table_context_menu.select_column"), "bx bx-grid-vertical",
+            "selectTableColumn"),
+        commandItem(t("table_context_menu.select_table"), "bx bx-table", "triliumSelectTable")
+    ];
 
     return {
         main: [
@@ -94,11 +100,17 @@ export function buildTableMenuSections(
             commandItem(t("table_context_menu.delete_columns"), "bx bx-trash",
                 "removeTableColumn"),
             commandItem(t("table_context_menu.delete_table"), "bx bx-trash", "triliumDeleteTable")
-        ]
+        ],
+        select: {
+            title: t("table_context_menu.select"),
+            uiIcon: "bx bx-select-multiple",
+            enabled: selectItems.some((item) => item.enabled),
+            items: selectItems
+        }
     };
 }
 
-/** The table rows of the text editor's right-click menu, in two sections. */
+/** The table rows of the text editor's right-click menu, in four sections. */
 export interface TableMenuSections {
     /**
      * Row and column insertion sized by the selection, merging or splitting of the selected cells,
@@ -109,6 +121,8 @@ export interface TableMenuSections {
     sort: MenuItem<CommandNames>;
     /** Deletion of the spanned rows or columns, or of the table. Shown below the clipboard. */
     delete: MenuItem<CommandNames>[];
+    /** Selection of the spanned rows or columns, or of the whole table. Shown below deletion. */
+    select: MenuItem<CommandNames>;
 }
 
 /**

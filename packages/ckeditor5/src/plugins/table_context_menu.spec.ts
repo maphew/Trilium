@@ -214,6 +214,50 @@ describe("TableContextMenu", () => {
         });
     });
 
+    describe("select table", () => {
+        const COMMAND = "triliumSelectTable";
+
+        it("is enabled inside a table, in read-only mode too", () => {
+            setModelData(editor.model, "<paragraph>fo[]o</paragraph>");
+            expect(editor.commands.get(COMMAND)?.isEnabled).toBe(false);
+
+            setModelData(editor.model, modelTable([["1[]1"]]));
+            expect(editor.commands.get(COMMAND)?.isEnabled).toBe(true);
+
+            editor.enableReadOnlyMode("spec");
+            expect(editor.commands.get(COMMAND)?.isEnabled).toBe(true);
+        });
+
+        it("selects every cell of the table, merged cells included", () => {
+            const rows = [
+                [{ contents: "a", colspan: 2 }, "b"],
+                ["c", "d", { contents: "e", rowspan: 2 }],
+                ["f", "g"]
+            ];
+            const columns = ["20%", "30%", "50%"]
+                .map((width) => `<tableColumn columnWidth="${width}"></tableColumn>`)
+                .join("");
+            const table = spannedTable(rows)
+                .replace(/<\/table>$/, `<tableColumnGroup>${columns}</tableColumnGroup></table>`);
+            setModelData(editor.model, table.replace(">d<", ">d[]<"));
+
+            editor.execute(COMMAND);
+
+            expect(getModelData(editor.model)).toBe(withEveryCellSelected(table));
+        });
+
+        it("selects only the innermost table around the selection", () => {
+            const inner = modelTable([["11", "12"]]);
+            const outer = (content: string) => "<table><tableRow><tableCell><paragraph>outer"
+                + `</paragraph></tableCell><tableCell>${content}</tableCell></tableRow></table>`;
+            setModelData(editor.model, outer(inner.replace("11", "1[]1")));
+
+            editor.execute(COMMAND);
+
+            expect(getModelData(editor.model)).toBe(outer(withEveryCellSelected(inner)));
+        });
+    });
+
     describe("syncSelectionToDomTarget", () => {
         it("moves the selection into an unselected cell", () => {
             setModelData(editor.model, modelTable([["1[]1", "12"], ["21", "22"]]));
@@ -325,6 +369,11 @@ function modelTable(rows: string[][], attributes = ""): string {
 
 function tableData(editor: ClassicEditor): string {
     return getModelData(editor.model, { withoutSelection: true });
+}
+
+/** Marks every cell of `markup` as selected, the way `getModelData` prints a cell selection. */
+function withEveryCellSelected(markup: string): string {
+    return markup.replace(/<tableCell[^>]*>.*?<\/tableCell>/g, "[$&]");
 }
 
 function getCell(editor: ClassicEditor, row: number, column: number): ModelElement {

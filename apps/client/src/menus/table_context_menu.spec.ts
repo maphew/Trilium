@@ -37,6 +37,14 @@ const DELETE_TITLES = [
     "table_context_menu.delete_table"
 ];
 
+const SELECT_TITLES = [
+    "table_context_menu.select_row",
+    "table_context_menu.select_column",
+    "table_context_menu.select_table"
+];
+
+const SELECT_COMMANDS = ["selectTableRow", "selectTableColumn", "triliumSelectTable"];
+
 describe("buildTableMenuSections", () => {
     it("returns the sections in order, with a split submenu", () => {
         const { editor, syncSelectionToDomTarget } = stubEditor();
@@ -53,6 +61,12 @@ describe("buildTableMenuSections", () => {
         expect(sortRow?.uiIcon).toBe("bx bx-sort-alt-2");
         expect(sortSubmenu(sections).map((item) => (item as MenuCommandItem<any>).uiIcon))
             .toEqual(["bx bx-sort-up", "bx bx-sort-down"]);
+        expect(titles(sections ? [sections.select] : [])).toEqual(["table_context_menu.select"]);
+        expect(titles(selectSubmenu(sections))).toEqual(SELECT_TITLES);
+        const selectRow = sections?.select as MenuCommandItem<any> | undefined;
+        expect(selectRow?.uiIcon).toBe("bx bx-select-multiple");
+        expect(selectSubmenu(sections).map((item) => (item as MenuCommandItem<any>).uiIcon))
+            .toEqual(["bx bx-grid-horizontal", "bx bx-grid-vertical", "bx bx-table"]);
 
         const splitRow = findItem(sections?.main ?? [], "table_context_menu.split_cells");
         const submenu = splitRow?.items ?? [];
@@ -79,6 +93,9 @@ describe("buildTableMenuSections", () => {
         for (const title of SORT_TITLES) {
             run(sortSubmenu(sections), title);
         }
+        for (const title of SELECT_TITLES) {
+            run(selectSubmenu(sections), title);
+        }
 
         expect(executed).toEqual([
             "triliumInsertTableRowsAbove",
@@ -94,7 +111,8 @@ describe("buildTableMenuSections", () => {
             "splitTableCellHorizontally",
             "triliumResetTableCellSpans",
             "triliumSortTableRowsAscending",
-            "triliumSortTableRowsDescending"
+            "triliumSortTableRowsDescending",
+            ...SELECT_COMMANDS
         ]);
         expect(focus).toHaveBeenCalledTimes(executed.length);
     });
@@ -151,6 +169,25 @@ describe("buildTableMenuSections", () => {
         const submenu = sortSubmenu(buildTableMenuSections(editor, cellElement()));
         expect(findItem(submenu, SORT_TITLES[0])?.enabled).toBe(true);
         expect(findItem(submenu, SORT_TITLES[1])?.enabled).toBe(false);
+    });
+
+    it("enables the select submenu while any of its rows is enabled", () => {
+        const selectSections = (disabled: string[]) => {
+            const { editor } = stubEditor(disabled);
+            return buildTableMenuSections(editor, cellElement());
+        };
+        const selectRowEnabled = (disabled: string[]) =>
+            (selectSections(disabled)?.select as MenuCommandItem<any> | undefined)?.enabled;
+
+        for (const enabled of SELECT_COMMANDS) {
+            const disabled = SELECT_COMMANDS.filter((command) => command !== enabled);
+            expect(selectRowEnabled(disabled), enabled).toBe(true);
+        }
+        expect(selectRowEnabled(SELECT_COMMANDS)).toBe(false);
+
+        const submenu = selectSubmenu(selectSections([SELECT_COMMANDS[2]]));
+        expect(submenu.map((item) => (item as MenuCommandItem<any>).enabled))
+            .toEqual([true, true, false]);
     });
 
     it("returns null without the plugin or a table cell at the target", () => {
@@ -270,6 +307,10 @@ function allItems(sections: TableMenuSections | null) {
 
 function sortSubmenu(sections: TableMenuSections | null): MenuItem<any>[] {
     return (sections?.sort as MenuCommandItem<any> | undefined)?.items ?? [];
+}
+
+function selectSubmenu(sections: TableMenuSections | null): MenuItem<any>[] {
+    return (sections?.select as MenuCommandItem<any> | undefined)?.items ?? [];
 }
 
 /** The titles of `items`, with separators rendered as "---" so ordering stays readable. */
