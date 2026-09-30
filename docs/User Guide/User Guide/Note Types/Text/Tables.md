@@ -5,6 +5,14 @@ Tables are a powerful feature for <a class="reference-link" href="../Text.md">T
 
 To create a table, simply press the table button and select with the mouse the desired amount of columns and rows, as indicated in the adjacent figure.
 
+Since v0.107.0, the same menu starts with an _Insert table…_ item, for a table larger than the grid or to type its size instead:
+
+1.  Click the <span class="tn-icon cke cke-table"></span> button and select _Insert table…_. A small form opens at the cursor.
+2.  Enter the number of _Rows_ (up to 1000) and _Columns_ (up to 100).
+3.  Press _Insert_ or <kbd>Enter</kbd>.
+
+To close the form without inserting a table, press <kbd>Esc</kbd> or click outside it. From the keyboard, <kbd>Tab</kbd> moves between _Insert table…_ and the grid while the menu is open.
+
 ## Formatting toolbar
 
 When a table is selected, a special formatting toolbar will appear:

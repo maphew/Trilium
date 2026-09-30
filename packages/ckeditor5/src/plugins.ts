@@ -59,6 +59,7 @@ import CollapsibleListItems from "./plugins/collapsible_list_items.js";
 import TableIndent from "./plugins/table_indent.js";
 import TableContextMenu from "./plugins/table_context_menu.js";
 import TableMove from "./plugins/table_move/table_move.js";
+import TableInsertUI from "./plugins/table_insert/table_insert_ui.js";
 
 /**
  * Plugins that are specific to Trilium and not part of the CKEditor 5 core, included in both text editors but not in the attribute editor.
@@ -96,6 +97,7 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     TableIndent,
     TableContextMenu,
     TableMove,
+    TableInsertUI,
     CopyAnchorLinkButton,
     CopyLinkUrlButton,
     ImageActions,

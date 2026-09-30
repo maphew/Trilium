@@ -4366,7 +4366,11 @@
       "move-row-up": "Move row up",
       "move-row-down": "Move row down",
       "move-column-left": "Move column left",
-      "move-column-right": "Move column right"
+      "move-column-right": "Move column right",
+      "insert-table": "Insert table…",
+      "rows": "Rows",
+      "columns": "Columns",
+      "enter-a-whole-number-between-1-and-0": "Enter a whole number between 1 and %0."
     },
     "task-state-dropped-title": "Invalid task states",
     "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",
