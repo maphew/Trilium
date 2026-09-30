@@ -1,7 +1,7 @@
 import "./IconPicker.css";
 
 import { IconRegistry } from "@triliumnext/commons";
-import { Dropdown as BootstrapDropdown, Tooltip } from "bootstrap";
+import type { Tooltip } from "bootstrap";
 import clsx from "clsx";
 import { CSSProperties } from "preact";
 import { createPortal } from "preact/compat";
@@ -13,7 +13,7 @@ import { t } from "../../services/i18n";
 import server from "../../services/server";
 import { isDesktop, isMobile } from "../../services/utils";
 import ActionButton from "./ActionButton";
-import Dropdown, { DropdownPanel } from "./Dropdown";
+import Dropdown, { type DropdownHandle, DropdownPanel } from "./Dropdown";
 import { FormDropdownDivider, FormListItem } from "./FormList";
 import FormTextBox from "./FormTextBox";
 import { useStaticTooltip, useWindowSize } from "./hooks";
@@ -165,7 +165,7 @@ export function IconPickerButton({ className, ...props }: IconPickerButtonProps)
 function IconPickerDropdownButton({
     icon, title, className, disabled, onSelect, onReset, resetText, onOpened, onClosed, backdrop
 }: IconPickerButtonProps) {
-    const dropdownRef = useRef<BootstrapDropdown>(null);
+    const dropdownRef = useRef<DropdownHandle>(null);
     const [ pickerShown, setPickerShown ] = useState(false);
 
     return (

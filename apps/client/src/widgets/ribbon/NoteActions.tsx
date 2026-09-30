@@ -1,7 +1,6 @@
 import "./NoteActions.css";
 
 import { ConvertToAttachmentResponse } from "@triliumnext/commons";
-import { Dropdown as BootstrapDropdown } from "bootstrap";
 import { ComponentChildren, RefObject } from "preact";
 import { useContext, useEffect, useRef } from "preact/hooks";
 
@@ -24,7 +23,7 @@ import MovePaneButton from "../buttons/move_pane_button";
 import { showImageCompressionDialog } from "../dialogs/image_compression/image_compression_dialog";
 import { isAlwaysFullWidthByType } from "../note_wrapper";
 import ActionButton from "../react/ActionButton";
-import Dropdown from "../react/Dropdown";
+import Dropdown, { type DropdownHandle } from "../react/Dropdown";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListHeader, FormListItem, FormListToggleableItem } from "../react/FormList";
 import { useIsNoteReadOnly, useNoteContext, useNoteLabel, useNoteLabelBoolean, useNoteLabelOptionalBool, useNoteProperty, useSyncedRef, useTriliumEvent, useTriliumOption } from "../react/hooks";
 import { ParentComponent } from "../react/react_utils";
@@ -72,9 +71,9 @@ export function NoteContextMenu({ note, noteContext, itemsAtStart, itemsNearNote
     noteContext?: NoteContext,
     itemsAtStart?: ComponentChildren;
     itemsNearNoteSettings?: ComponentChildren;
-    dropdownRef?: RefObject<BootstrapDropdown>;
+    dropdownRef?: RefObject<DropdownHandle>;
 }) {
-    const dropdownRef = useSyncedRef<BootstrapDropdown>(externalDropdownRef, null);
+    const dropdownRef = useSyncedRef<DropdownHandle>(externalDropdownRef, null);
     const parentComponent = useContext(ParentComponent);
     const noteType = useNoteProperty(note, "type") ?? "";
     const [viewType] = useNoteLabel(note, "viewType");

@@ -1,7 +1,6 @@
 import "./StatusBar.css";
 
 import { Locale, NOTE_TYPE_ICONS, NoteType } from "@triliumnext/commons";
-import { Dropdown as BootstrapDropdown } from "bootstrap";
 import clsx from "clsx";
 import { type ComponentChildren, RefObject } from "preact";
 import { createPortal } from "preact/compat";
@@ -19,7 +18,7 @@ import server from "../../services/server";
 import { openInAppHelpFromUrl } from "../../services/utils";
 import { formatDateTime } from "../../utils/formatters";
 import { BacklinksWidget, useBacklinkCount } from "../FloatingButtonsDefinitions";
-import Dropdown, { DropdownPanel, type DropdownPanelProps } from "../react/Dropdown";
+import Dropdown, { type DropdownHandle, DropdownPanel, type DropdownPanelProps } from "../react/Dropdown";
 import { FormDropdownDivider, FormListHeader, FormListItem } from "../react/FormList";
 import HelpDropdown from "../react/HelpDropdown";
 import { useActiveNoteContext, useLegacyImperativeHandlers, useNoteLabel, useNoteLabelInt, useNoteLabelOptionalBool, useNoteProperty, useStaticTooltip, useTriliumEvent, useTriliumEvents, useTriliumOptionBool, useTriliumOptionInt, useAttachments } from "../react/hooks";
@@ -250,7 +249,7 @@ interface NoteInfoContext extends StatusBarContext {
 }
 
 export function NoteInfoBadge(context: NoteInfoContext) {
-    const dropdownRef = useRef<BootstrapDropdown>(null);
+    const dropdownRef = useRef<DropdownHandle>(null);
     const [ dropdownShown, setDropdownShown ] = useState(false);
     const { note, similarNotesShown, setSimilarNotesShown } = context;
     const noteType = useNoteProperty(note, "type");
@@ -277,7 +276,7 @@ export function NoteInfoBadge(context: NoteInfoContext) {
 }
 
 export function NoteInfoContent({ note, noteType, dropdownRef, setSimilarNotesShown }: Pick<NoteInfoContext, "note" | "setSimilarNotesShown"> & {
-    dropdownRef?: RefObject<BootstrapDropdown>;
+    dropdownRef?: RefObject<DropdownHandle>;
     noteType: NoteType;
 }) {
     const { metadata, ...sizeProps } = useNoteMetadata(note);
@@ -474,7 +473,7 @@ function AttributesPane({ note, noteContext, attributesShown, setAttributesShown
  * sidebar's connections tab holds, which stays the place to keep it open beside the note.
  */
 function NotePaths({ note, hoistedNoteId, notePath }: StatusBarContext) {
-    const dropdownRef = useRef<BootstrapDropdown>(null);
+    const dropdownRef = useRef<DropdownHandle>(null);
     const sortedNotePaths = useSortedNotePaths(note, hoistedNoteId);
     const count = sortedNotePaths?.length ?? 0;
 

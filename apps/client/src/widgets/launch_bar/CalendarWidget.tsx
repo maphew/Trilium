@@ -7,11 +7,11 @@ import "./CalendarWidget.css";
 import Calendar, { CalendarArgs } from "./Calendar";
 import ActionButton from "../react/ActionButton";
 import { t } from "../../services/i18n";
+import type { DropdownHandle } from "../react/Dropdown";
 import FormDropdownList from "../react/FormDropdownList";
 import FormTextBox from "../react/FormTextBox";
 import toast from "../../services/toast";
 import date_notes from "../../services/date_notes";
-import { Dropdown } from "bootstrap";
 import search from "../../services/search";
 import server from "../../services/server";
 
@@ -34,7 +34,7 @@ export default function CalendarWidget({ launcherNote }: LauncherNoteProps) {
     const { title, icon } = useLauncherIconAndTitle(launcherNote);
     const [ calendarArgs, setCalendarArgs ] = useState<Pick<CalendarArgs, "activeDate" | "todaysDate">>();
     const [ date, setDate ] = useState<Dayjs>();
-    const dropdownRef = useRef<Dropdown>(null);
+    const dropdownRef = useRef<DropdownHandle>(null);
     const [ enableWeekNotes, setEnableWeekNotes ] = useState(false);
     const [ weekNotes, setWeekNotes ] = useState<string[]>([]);
     const calendarRootRef = useRef<FNote>();
