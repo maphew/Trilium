@@ -19,7 +19,6 @@ type DataAttributes = {
 export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "className"> {
     buttonClassName?: string;
     buttonProps?: Partial<HTMLAttributes<HTMLButtonElement> & DataAttributes>;
-    isStatic?: boolean;
     children: ComponentChildren;
     title?: string;
     dropdownContainerStyle?: CSSProperties;
@@ -29,13 +28,9 @@ export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "c
     /** If set to true, then the dropdown button will be considered an icon action (without normal border and sized for icons only). */
     iconAction?: boolean;
     noSelectButtonStyle?: boolean;
-    /**
-     * The only supported way to disable the toggle. Bootstrap cannot close a menu whose toggle is
-     * disabled through `buttonProps` or a `disabled` class.
-     */
+    /** Disables the toggle, and closes the popup if it is open. */
     disabled?: boolean;
     text?: ComponentChildren;
-    forceShown?: boolean;
     onShown?: () => void;
     onHidden?: () => void;
     /** The side of the toggle the popup prefers; it flips to the other near the viewport's edge. */
@@ -156,7 +151,7 @@ interface PopupSlot {
  * The toggle both kinds of dropdown share: the button, its tooltip, the open state and its
  * callbacks, the handle, and the phone's cover. `popup` draws what opens under it.
  */
-function DropdownToggle({ id, className, buttonClassName, isStatic, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, forceShown, onShown, onHidden, placement, autoClose = true, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop: mobileBackdropProp, mobileBottomSheet, backdrop, hasPopup, onToggleArrow, popup }: Omit<DropdownProps, "children"> & {
+function DropdownToggle({ id, className, buttonClassName, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, onShown, onHidden, placement, autoClose = true, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop: mobileBackdropProp, mobileBottomSheet, backdrop, hasPopup, onToggleArrow, popup }: Omit<DropdownProps, "children"> & {
     hasPopup: "menu" | "true";
     /** Called for Up or Down on the toggle while the popup is up. */
     onToggleArrow?(popup: HTMLElement, edge: "first" | "last"): void;
@@ -169,7 +164,7 @@ function DropdownToggle({ id, className, buttonClassName, isStatic, title, text,
     const containerRef = useRef<HTMLDivElement | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
     const popupRef = useRef<HTMLDivElement | null>(null);
-    const [ shown, setShown ] = useState(!!forceShown && !disabled);
+    const [ shown, setShown ] = useState(false);
     /** The item to start at once the popup shows, for a popup a key on the toggle opened. */
     const [ startAt, setStartAt ] = useState<"first" | "last">();
 
@@ -231,11 +226,6 @@ function DropdownToggle({ id, className, buttonClassName, isStatic, title, text,
     const [ , setTriggerMounted ] = useState(false);
     useLayoutEffect(() => {
         if (shownRef.current) setTriggerMounted(true);
-    }, []);
-
-    // One shown from the start says so once it is mounted. `shown` is the first render's here.
-    useEffect(() => {
-        if (shown) callbacks.current.onShown?.();
     }, []);
 
     // On a phone the shell's cover dims the page under the popup; a tap on it closes the popup,
@@ -321,7 +311,7 @@ function DropdownToggle({ id, className, buttonClassName, isStatic, title, text,
                     "aria-labelledby": toggleId,
                     onClick: closeOnClickInside
                 },
-                className: clsx("tn-dropdown-menu", isStatic && "static", dropdownContainerClassName),
+                className: clsx("tn-dropdown-menu", dropdownContainerClassName),
                 bottomSheet,
                 startAt,
                 isWanted: () => shownRef.current,

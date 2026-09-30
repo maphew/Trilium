@@ -119,16 +119,6 @@ describe("Dropdown", () => {
         await vi.waitFor(() => expect(popup()).toBeNull());
     });
 
-    it("shows its popup from the start when forced open, and says so once", async () => {
-        const onShown = vi.fn();
-        const { toggle } = renderDropdown({ forceShown: true, onShown });
-
-        await vi.waitFor(() => expect(popup()?.style.visibility).toBe("visible"));
-        expect(popup()?.textContent).toBe("By title");
-        expect(toggle.getAttribute("aria-expanded")).toBe("true");
-        expect(onShown).toHaveBeenCalledTimes(1);
-    });
-
     it("closes an open popup once it is disabled, and does not open while it is", async () => {
         const { toggle } = renderDropdown();
         click(toggle);

@@ -138,7 +138,6 @@ interface DropdownProps {
     className?: string;
     buttonClassName?: string;
     buttonProps?: Record<string, unknown>;
-    isStatic?: boolean;
     children?: ComponentChildren;
     title?: string;
     dropdownContainerStyle?: Css;
@@ -149,7 +148,6 @@ interface DropdownProps {
     noSelectButtonStyle?: boolean;
     disabled?: boolean;
     text?: ComponentChildren;
-    forceShown?: boolean;
     onShown?: () => void;
     onHidden?: () => void;
     /** The side of the toggle the popup prefers, as Floating UI names it: `"top"`, `"bottom-start"`, … */
