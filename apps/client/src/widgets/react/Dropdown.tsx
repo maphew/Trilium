@@ -225,6 +225,13 @@ function DropdownToggle({ id, className, buttonClassName, isStatic, title, text,
         if (disabled) setOpen(false);
     }, [ disabled ]);
 
+    // The popup anchors to `triggerRef`, which is empty during the first render, so a dropdown shown
+    // from the start renders again once the toggle is mounted, before the browser paints.
+    const [ , setTriggerMounted ] = useState(false);
+    useLayoutEffect(() => {
+        if (shownRef.current) setTriggerMounted(true);
+    }, []);
+
     // One shown from the start says so once it is mounted. `shown` is the first render's here.
     useEffect(() => {
         if (shown) callbacks.current.onShown?.();
