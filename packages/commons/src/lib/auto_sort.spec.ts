@@ -162,6 +162,11 @@ describe("autoSort", () => {
         ]);
     });
 
+    it("sorts years below 100 before later years", () => {
+        expect(sort(["1999-09-30", "0099-09-30", "1000-01-01"], { locale: "en" }))
+            .toEqual(["0099-09-30", "1000-01-01", "1999-09-30"]);
+    });
+
     it("sorts 12-hour and 24-hour times together", () => {
         expect(sort(["3:02 PM", "14:00", "9:30 AM", "12:00 AM"], { locale: "en" }))
             .toEqual(["12:00 AM", "9:30 AM", "14:00", "3:02 PM"]);

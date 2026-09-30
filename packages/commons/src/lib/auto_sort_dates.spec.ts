@@ -63,6 +63,18 @@ describe("createDateParser", () => {
             expect(parseDate("2026-09-30 3:02 PM")).toBe(Date.UTC(2026, 8, 30, 15, 2));
         });
 
+        it("keeps years below 100 as written", () => {
+            const isoOf = (text: string) => {
+                const time = parseDate(text);
+                return time === null ? null : new Date(time).toISOString();
+            };
+            expect(isoOf("0044-03-15")).toBe("0044-03-15T00:00:00.000Z");
+            expect(isoOf("0099-09-30T15:02+03:00")).toBe("0099-09-30T12:02:00.000Z");
+            expect(isoOf("15 March 0044")).toBe("0044-03-15T00:00:00.000Z");
+            expect(isoOf("0000-02-29")).toBe("0000-02-29T00:00:00.000Z");
+            expect(isoOf("0001-02-29")).toBeNull();
+        });
+
         it("reads written dates with English names", () => {
             const expected = Date.UTC(2026, 8, 30);
             const texts = [

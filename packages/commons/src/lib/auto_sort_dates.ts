@@ -345,7 +345,9 @@ function toEpoch(fields: DateFields): number | null {
     }
 
     const seconds = timeOfDay(fields);
-    const date = new Date(Date.UTC(year, month - 1, day));
+    // `setUTCFullYear` keeps years 0 to 99 as written, unlike `Date.UTC`.
+    const date = new Date(0);
+    date.setUTCFullYear(year, month - 1, day);
     if (seconds === null || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
         return null;
     }
