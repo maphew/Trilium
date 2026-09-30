@@ -302,11 +302,6 @@
     color: var(--muted-text-color);
 }
 
-.llm-chat-model-dropdown .dropdown-menu {
-    max-height: 80vh;
-    overflow: auto;
-}
-
 /*
  * The model picker stays the theme's own combo box (`.select-button.dropdown-toggle.btn`
  * — its fill, its 6px radius, its caret, its focus outline), so it reads as the same

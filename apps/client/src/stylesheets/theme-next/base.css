@@ -364,8 +364,13 @@ body.desktop .dropdown-submenu.dropstart .dropdown-toggle::before {
     color: var(--menu-item-arrow-color) !important;
 }
 
-body[dir=rtl] .dropdown-menu:not([data-popper-placement="bottom-start"]) .dropdown-toggle::after {
+/* Right to left, the end side is the left, so both arrows point the other way. */
+body.desktop[dir=rtl] .dropdown-submenu:not(.dropstart) .dropdown-toggle::after {
     content: "\ea4d" !important;
+}
+
+body.desktop[dir=rtl] .dropdown-submenu.dropstart .dropdown-toggle::before {
+    content: "\ed3b" !important;
 }
 
 /* Menu item group heading */
