@@ -58,7 +58,9 @@ src="3_Tables_image.png" width="384" height="100">
     of the table stay as they are. It needs a selection spanning at least two
     columns; a merged cell counts for every column it covers.</li>
   <li><em>Cut</em>, <em>Copy</em> and <em>Copy as Markdown</em> act on the selected
-    cells:
+    cells. Since v0.107.0, <em>Copy</em> and <em>Paste</em> open submenus with
+    their variants, such as <em>Copy as Markdown</em> and <em>Paste as plain text</em>;
+    clicking <em>Copy</em> or <em>Paste</em> itself still copies or pastes:
     <ul>
       <li>Cutting or copying produces a smaller table holding just the selected
         cells. Pasting it over a cell selection replaces those cells; pasting elsewhere
@@ -70,9 +72,9 @@ src="3_Tables_image.png" width="384" height="100">
     </ul>
   </li>
   <li>Since v0.107.0, <em>Paste rows above</em> and <em>Paste rows below</em>,
-    after <em>Paste as plain text</em>, paste the clipboard as new rows next
-    to the row of the current cell, instead of over the cells from the cursor
-    on. They show only when the selection is in a single row, and, like <em>Paste</em>,
+    in the <em>Paste</em> submenu, paste the clipboard as new rows next to the
+    row of the current cell, instead of over the cells from the cursor on.
+    They show only when the selection is in a single row, and, like <em>Paste</em>,
     only where the clipboard can be read:
     <ul>
       <li>A copied table becomes one new row for each of its rows, filled from the

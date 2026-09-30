@@ -7,6 +7,7 @@ import options from "../services/options.js";
 import server from "../services/server.js";
 import utils from "../services/utils.js";
 import contextMenu, { type MenuItem } from "./context_menu.js";
+import { splitMenuItem } from "./context_menu_utils.js";
 import { buildTableContextMenuSections, hasTableCellSelection } from "./table_context_menu.js";
 import { buildAiActionsMenuItem, getTextEditorAtSelection } from "./text_editor_context_menu.js";
 
@@ -177,20 +178,22 @@ export async function buildNoteContextMenuItems(
     }
 
     if (target.isEditable || hasText) {
-        items.push({
+        const copyVariants: MenuItem<CommandNames>[] = [
+            {
+                enabled: hasClipboardContent,
+                title: t("electron_context_menu.copy-as-markdown"),
+                uiIcon: "bx bx-copy-alt",
+                handler: copySelectionAsMarkdown
+            }
+        ];
+
+        items.push(splitMenuItem({
             enabled: host.canCopy && hasClipboardContent,
             title: t("electron_context_menu.copy"),
             shortcut: `${platformModifier}+C`,
             uiIcon: "bx bx-copy",
             handler: () => host.copy()
-        });
-
-        items.push({
-            enabled: hasClipboardContent,
-            title: t("electron_context_menu.copy-as-markdown"),
-            uiIcon: "bx bx-copy-alt",
-            handler: copySelectionAsMarkdown
-        });
+        }, copyVariants));
     }
 
     const unlinkable = [ "", "javascript:", "about:blank#blocked" ];
@@ -208,26 +211,26 @@ export async function buildNoteContextMenuItems(
 
     if (host.paste && target.isEditable) {
         const { enabled, run, runAsPlainText } = host.paste;
+        const pasteVariants: MenuItem<CommandNames>[] = [
+            {
+                enabled,
+                title: t("electron_context_menu.paste-as-plain-text"),
+                shortcut: `${platformModifier}+Shift+V`,
+                uiIcon: "bx bx-paste",
+                handler: runAsPlainText
+            }
+        ];
+        if (tableSections?.pasteRows.length) {
+            pasteVariants.push({ kind: "separator" }, ...tableSections.pasteRows);
+        }
 
-        items.push({
+        items.push(splitMenuItem({
             enabled,
             title: t("electron_context_menu.paste"),
             shortcut: `${platformModifier}+V`,
             uiIcon: "bx bx-paste",
             handler: run
-        });
-
-        items.push({
-            enabled,
-            title: t("electron_context_menu.paste-as-plain-text"),
-            shortcut: `${platformModifier}+Shift+V`,
-            uiIcon: "bx bx-paste",
-            handler: runAsPlainText
-        });
-
-        if (tableSections) {
-            items.push(...tableSections.pasteRows);
-        }
+        }, pasteVariants));
     }
 
     if (tableSections) {

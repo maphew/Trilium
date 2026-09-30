@@ -3,6 +3,7 @@ import type { CKTextEditor } from "@triliumnext/ckeditor5";
 import type { CommandNames } from "../components/app_context.js";
 import { t } from "../services/i18n.js";
 import type { MenuItem } from "./context_menu.js";
+import { submenuItem } from "./context_menu_utils.js";
 import { getTextEditorContaining } from "./text_editor_context_menu.js";
 
 /**
@@ -96,33 +97,27 @@ export function buildTableMenuSections(
             ...(headerItem ? [headerItem] : []),
             commandItem(t("table_context_menu.merge_cells"), "bx bx-border-outer",
                 "mergeTableCells"),
-            {
-                title: t("table_context_menu.split_cells"),
-                uiIcon: "bx bx-border-inner",
-                enabled: [...splitItems, unmergeItem].some((item) => item.enabled),
-                items: [...splitItems, { kind: "separator" }, unmergeItem]
-            },
+            submenuItem(
+                { title: t("table_context_menu.split_cells"), uiIcon: "bx bx-border-inner" },
+                [...splitItems, { kind: "separator" }, unmergeItem]
+            ),
             commandItem(t("table_context_menu.distribute_columns"), "bx bx-move-horizontal",
                 "triliumDistributeTableColumns")
         ],
-        sort: {
-            title: t("table_context_menu.sort"),
-            uiIcon: "bx bx-sort-alt-2",
-            enabled: sortItems.some((item) => item.enabled),
-            items: sortItems
-        },
+        sort: submenuItem(
+            { title: t("table_context_menu.sort"), uiIcon: "bx bx-sort-alt-2" },
+            sortItems
+        ),
         delete: [
             commandItem(t("table_context_menu.delete_rows"), "bx bx-trash", "removeTableRow"),
             commandItem(t("table_context_menu.delete_columns"), "bx bx-trash",
                 "removeTableColumn"),
             commandItem(t("table_context_menu.delete_table"), "bx bx-trash", "triliumDeleteTable")
         ],
-        select: {
-            title: t("table_context_menu.select"),
-            uiIcon: "bx bx-select-multiple",
-            enabled: selectItems.some((item) => item.enabled),
-            items: selectItems
-        },
+        select: submenuItem(
+            { title: t("table_context_menu.select"), uiIcon: "bx bx-select-multiple" },
+            selectItems
+        ),
         pasteRows: buildPasteRowsItems(editor, clipboard)
     };
 }
@@ -149,9 +144,9 @@ export interface TableMenuSections {
     /** Selection of the spanned rows or columns, or of the whole table. Shown below deletion. */
     select: MenuItem<CommandNames>;
     /**
-     * Pasting the clipboard as new rows above or below the row of the selection. Shown below the
-     * paste rows of the clipboard section; empty unless the selection is in one row and the host
-     * can read the clipboard.
+     * Pasting the clipboard as new rows above or below the row of the selection. Shown in the
+     * _Paste_ submenu; empty unless the selection is in one row and the host can read the
+     * clipboard.
      */
     pasteRows: MenuItem<CommandNames>[];
 }

@@ -139,6 +139,11 @@ function run(items: MenuItem<any>[], title: string): void | Promise<void> {
     return findItem(items, title)?.handler?.({} as never, {} as never);
 }
 
+/** The rows of the submenu that the row titled `title` opens. */
+function submenu(items: MenuItem<any>[], title: string): MenuItem<any>[] {
+    return findItem(items, title)?.items ?? [];
+}
+
 describe("buildNoteContextMenuItems", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -151,11 +156,46 @@ describe("buildNoteContextMenuItems", () => {
 
         expect(titles(items)).toEqual([
             "electron_context_menu.copy",
-            "electron_context_menu.copy-as-markdown",
             "---",
             "electron_context_menu.search_online",
             "electron_context_menu.search_in_trilium"
         ]);
+        expect(titles(submenu(items, "electron_context_menu.copy"))).toEqual([
+            "electron_context_menu.copy",
+            "electron_context_menu.copy-as-markdown"
+        ]);
+    });
+
+    it("groups the copy and paste variants under rows that copy or paste on a click", async () => {
+        const host = browserLikeHost({
+            paste: { enabled: true, run: vi.fn(), runAsPlainText: vi.fn(), read: vi.fn() }
+        });
+        const items = await build({ isEditable: true }, host);
+
+        expect(titles(items)).toEqual([
+            "electron_context_menu.cut",
+            "electron_context_menu.copy",
+            "electron_context_menu.paste",
+            "---",
+            "electron_context_menu.search_online",
+            "electron_context_menu.search_in_trilium"
+        ]);
+        expect(titles(submenu(items, "electron_context_menu.paste"))).toEqual([
+            "electron_context_menu.paste",
+            "electron_context_menu.paste-as-plain-text"
+        ]);
+        expect(findItem(items, "electron_context_menu.copy"))
+            .toMatchObject({ uiIcon: "bx bx-copy", shortcut: "Ctrl+C" });
+        expect(findItem(items, "electron_context_menu.paste"))
+            .toMatchObject({ uiIcon: "bx bx-paste", shortcut: "Ctrl+V" });
+
+        run(items, "electron_context_menu.copy");
+        expect(host.copy).toHaveBeenCalledTimes(1);
+        run(items, "electron_context_menu.paste");
+        expect(host.paste?.run).toHaveBeenCalledTimes(1);
+        run(submenu(items, "electron_context_menu.paste"),
+            "electron_context_menu.paste-as-plain-text");
+        expect(host.paste?.runAsPlainText).toHaveBeenCalledTimes(1);
     });
 
     it("omits the spelling and paste rows when the host does not supply them", async () => {
@@ -184,7 +224,8 @@ describe("buildNoteContextMenuItems", () => {
         // The suggestions carry a command rather than a handler: only the host can commit one.
         expect(findItem(items, "the")?.command).toBe("replaceMisspelling");
         expect(findItem(items, "the")?.spellingSuggestion).toBe("the");
-        expect(titles(items)).toContain("electron_context_menu.paste-as-plain-text");
+        expect(titles(submenu(items, "electron_context_menu.paste")))
+            .toContain("electron_context_menu.paste-as-plain-text");
 
         run(items, "electron_context_menu.add-term-to-dictionary");
         expect(addToDictionary).toHaveBeenCalledWith("teh");
@@ -241,11 +282,7 @@ describe("buildNoteContextMenuItems", () => {
             "---",
             "electron_context_menu.cut",
             "electron_context_menu.copy",
-            "electron_context_menu.copy-as-markdown",
             "electron_context_menu.paste",
-            "electron_context_menu.paste-as-plain-text",
-            "PR1",
-            "PR2",
             "---",
             "S",
             "---",
@@ -256,6 +293,14 @@ describe("buildNoteContextMenuItems", () => {
             "---",
             "electron_context_menu.search_online",
             "electron_context_menu.search_in_trilium"
+        ]);
+        // The table's paste rows join the paste variants, as a group of their own.
+        expect(titles(submenu(items, "electron_context_menu.paste"))).toEqual([
+            "electron_context_menu.paste",
+            "electron_context_menu.paste-as-plain-text",
+            "---",
+            "PR1",
+            "PR2"
         ]);
     });
 
@@ -270,7 +315,8 @@ describe("buildNoteContextMenuItems", () => {
         setSelection(document.createElement("span"), "<h1>Hi</h1>");
 
         const items = await build();
-        await run(items, "electron_context_menu.copy-as-markdown");
+        await run(submenu(items, "electron_context_menu.copy"),
+            "electron_context_menu.copy-as-markdown");
 
         expect(server.post).toHaveBeenCalledWith("other/to-markdown", {
             htmlContent: "<h1>Hi</h1>",
@@ -290,16 +336,19 @@ describe("buildNoteContextMenuItems", () => {
         } as TableMenuSections);
 
         // No cell selection and no text: the rows show but stay disabled.
+        const copyRows = (items: MenuItem<any>[]) => [
+            findItem(items, "electron_context_menu.cut")?.enabled,
+            findItem(items, "electron_context_menu.copy")?.enabled,
+            ...submenu(items, "electron_context_menu.copy")
+                .map((item) => (item as MenuCommandItem<any>).enabled)
+        ];
+
         const disabled = await build({ isEditable: true, element: cell, selectionText: "" });
-        expect(findItem(disabled, "electron_context_menu.cut")?.enabled).toBe(false);
-        expect(findItem(disabled, "electron_context_menu.copy")?.enabled).toBe(false);
-        expect(findItem(disabled, "electron_context_menu.copy-as-markdown")?.enabled).toBe(false);
+        expect(copyRows(disabled)).toEqual([ false, false, false, false ]);
 
         vi.mocked(hasTableCellSelection).mockResolvedValue(true);
         const enabled = await build({ isEditable: true, element: cell, selectionText: "" });
-        expect(findItem(enabled, "electron_context_menu.cut")?.enabled).toBe(true);
-        expect(findItem(enabled, "electron_context_menu.copy")?.enabled).toBe(true);
-        expect(findItem(enabled, "electron_context_menu.copy-as-markdown")?.enabled).toBe(true);
+        expect(copyRows(enabled)).toEqual([ true, true, true, true ]);
 
         vi.mocked(buildTableContextMenuSections).mockResolvedValue(null);
         vi.mocked(hasTableCellSelection).mockResolvedValue(false);
@@ -591,7 +640,8 @@ describe("setupContextMenu (browser)", () => {
                 expect(editor.pasteTarget.paste).toHaveBeenCalledWith("<b>hi</b>", "hi"));
 
             // Paste as plain text withholds the HTML flavor.
-            await run(rows, "electron_context_menu.paste-as-plain-text");
+            await run(submenu(rows, "electron_context_menu.paste"),
+                "electron_context_menu.paste-as-plain-text");
             await vi.waitFor(() =>
                 expect(editor.pasteTarget.paste).toHaveBeenCalledWith("", "hi"));
             expect(editor.pasteTarget.release).toHaveBeenCalledTimes(2);
@@ -682,11 +732,12 @@ describe("setupContextMenu (browser)", () => {
         tabManager.activeNote = { type: "code" };
         setSelection(content, "<span>code</span>", "code");
 
-        const shown = titles(await menuFor(content));
+        const rows = await menuFor(content);
 
-        expect(shown).not.toContain("electron_context_menu.cut");
-        expect(shown).toContain("electron_context_menu.copy");
-        expect(shown).toContain("electron_context_menu.copy-as-markdown");
+        expect(titles(rows)).not.toContain("electron_context_menu.cut");
+        expect(titles(rows)).toContain("electron_context_menu.copy");
+        expect(titles(submenu(rows, "electron_context_menu.copy")))
+            .toContain("electron_context_menu.copy-as-markdown");
     });
 
     it("takes the menu over for a selection, and reads the link under the pointer", async () => {
@@ -703,7 +754,6 @@ describe("setupContextMenu (browser)", () => {
         const shown = vi.mocked(contextMenu.show).mock.calls[0][0];
         expect(titles(shown.items)).toEqual([
             "electron_context_menu.copy",
-            "electron_context_menu.copy-as-markdown",
             "electron_context_menu.copy-link",
             "---",
             "electron_context_menu.search_online",
