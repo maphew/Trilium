@@ -3687,7 +3687,9 @@
       "flip-vertically": "上下反転",
       "change-icon": "アイコンを変更",
       "insert-date-time-0": "日付/時刻を挿入: %0",
-      "insert-time-0": "時刻を挿入: %0"
+      "insert-time-0": "時刻を挿入: %0",
+      "math": "数式",
+      "date-time": "日付 / 時刻"
     },
     "toolbar-groups": {
       "text-formatting": "テキストの書式設定",
