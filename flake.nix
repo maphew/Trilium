@@ -61,14 +61,21 @@
         # and ships no libEGL.so/libGLESv2.so, so the glob expands to nothing and patchelf
         # exits with "missing filename". Let that one command tolerate an empty match; it
         # still patches the libraries on releases that do ship them.
+        #
+        # nixpkgs fixed this itself in NixOS/nixpkgs@b3041dc18a ("electron_44-bin: fix
+        # build", on nixpkgs-unstable and nixos-26.05), which skips that patchelf for
+        # Electron >= 44. Against such a nixpkgs the glob is gone and the replacement below
+        # is a no-op, on purpose: consumers who point this flake at their own nixpkgs via
+        # `inputs.nixpkgs.follows` get the fixed builder long before flake.lock does, and
+        # must still evaluate. Nothing can break silently this way — if nixpkgs ever
+        # reworded the command but kept it unguarded, patchelf would still fail the build
+        # with "missing filename". Drop this override once flake.lock's nixpkgs includes
+        # b3041dc18a.
         angleLibGlob = "$out/libexec/electron/lib*GL*";
         tolerateMissingAngleLibs =
           drv:
           drv.overrideAttrs (prev: {
-            postFixup = lib.throwIf (!lib.hasInfix angleLibGlob prev.postFixup) ''
-              The nixpkgs Electron builder no longer runs patchelf over ${angleLibGlob};
-              drop tolerateMissingAngleLibs from flake.nix.
-            '' (builtins.replaceStrings [ angleLibGlob ] [ "${angleLibGlob} || true" ] prev.postFixup);
+            postFixup = builtins.replaceStrings [ angleLibGlob ] [ "${angleLibGlob} || true" ] prev.postFixup;
           });
 
         # Guarded on Linux because only that branch of the builder defines postFixup.
