@@ -22,8 +22,8 @@ export interface AutoSortValue {
 /**
  * Sorts strings whose type is not known in advance, such as table cells or lines. Each value is
  * detected as a time, a date, a number, text or empty. Ascending order is times, dates, numbers,
- * then text; descending order reverses it. Empty values are always last. Equal values keep their
- * order. Typed data, such as attributes, has its own comparators instead.
+ * then text; descending order reverses it. Empty values are always last. Text ignores case, and
+ * equal values keep their order. Typed data, such as attributes, has its own comparators instead.
  */
 export function autoSort<T>(
     items: readonly T[],
@@ -32,7 +32,8 @@ export function autoSort<T>(
 ): T[] {
     const locale = resolveLocale(options.locale);
     const classify = createClassifier(locale, options.dateFormats ?? []);
-    const collator = new Intl.Collator(locale, { numeric: true });
+    // Case-insensitive but accent-sensitive, as spreadsheets sort by default.
+    const collator = new Intl.Collator(locale, { numeric: true, sensitivity: "accent" });
     const direction = options.isDescending ? -1 : 1;
 
     return items

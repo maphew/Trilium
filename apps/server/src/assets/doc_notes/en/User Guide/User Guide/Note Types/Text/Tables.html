@@ -192,7 +192,8 @@ src="3_Tables_image.png" width="384" height="100">
       <tr>
         <td>Text</td>
         <td>Anything else.</td>
-        <td>Alphabetically, with numbers inside the text in numeric order (<code>Item 9</code> before <code>Item 10</code>).</td>
+        <td>Alphabetically, ignoring case, with numbers inside the text in numeric
+          order (<code>Item 9</code> before <code>Item 10</code>). Accents count, so <code>a</code> and <code>á</code> differ.</td>
       </tr>
       <tr>
         <td>Empty</td>
@@ -203,8 +204,10 @@ src="3_Tables_image.png" width="384" height="100">
   </table>
 </figure>
 <p>Ascending order puts times first, then dates, numbers and text. Descending
-  order reverses it. Empty cells go last in both directions, and rows with
-  equal values keep their relative order.</p>
+  order reverses it. Empty cells go last in both directions.</p>
+<p>Numbers, dates and times with the same value are ordered by their text,
+  so <code>5 apples</code> comes before <code>5 pears</code>. Rows whose cells
+  hold the same text, ignoring case, keep their relative order.</p>
 <ul>
   <li>Dates are also recognized in the formats of the note's language, such
     as <code>30.09.2026</code> or <code>30. September 2026</code> for German, and

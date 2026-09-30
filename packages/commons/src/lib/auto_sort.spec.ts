@@ -181,6 +181,18 @@ describe("autoSort", () => {
         expect(sort(["Äpple", "Zebra"], { locale: "sv" })).toEqual(["Zebra", "Äpple"]);
     });
 
+    it("ignores case but not accents in text, in both directions", () => {
+        for (const isDescending of [false, true]) {
+            const options = { locale: "en", isDescending };
+            expect(sort(["Apple", "apple"], options)).toEqual(["Apple", "apple"]);
+            expect(sort(["apple", "Apple"], options)).toEqual(["apple", "Apple"]);
+            expect(sort(["5 Apples", "5 apples"], options)).toEqual(["5 Apples", "5 apples"]);
+        }
+        expect(sort(["á", "a", "b"], { locale: "en" })).toEqual(["a", "á", "b"]);
+        expect(sort(["a", "á", "b"], { locale: "en", isDescending: true }))
+            .toEqual(["b", "á", "a"]);
+    });
+
     it("uses the decimal mark of the locale", () => {
         expect(sort(["1.500", "2"], { locale: "en" })).toEqual(["1.500", "2"]);
         expect(sort(["1.500", "2"], { locale: "de" })).toEqual(["2", "1.500"]);

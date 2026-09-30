@@ -97,10 +97,12 @@ Each cell is read as plain text, so formatting does not affect the order. Triliu
 | Time | `15:02`, `15:02:38`, `3:02 PM` | The time of day. |
 | Date | `2026-09-30`, `2026-09-30 15:02`, `30 September 2026`, `Wednesday, 30 September 2026`, `2026-09-30T15:02:38+03:00` | The date and time. |
 | Number | `12`, `-3.5`, `1,234.56`, `$ 12.04`, `21 RON`, `24.5m` | The numeric value. |
-| Text | Anything else. | Alphabetically, with numbers inside the text in numeric order (`Item 9` before `Item 10`). |
+| Text | Anything else. | Alphabetically, ignoring case, with numbers inside the text in numeric order (`Item 9` before `Item 10`). Accents count, so `a` and `á` differ. |
 | Empty | An empty cell, or one holding only spaces. | Not compared. Empty cells always go last. |
 
-Ascending order puts times first, then dates, numbers and text. Descending order reverses it. Empty cells go last in both directions, and rows with equal values keep their relative order.
+Ascending order puts times first, then dates, numbers and text. Descending order reverses it. Empty cells go last in both directions.
+
+Numbers, dates and times with the same value are ordered by their text, so `5 apples` comes before `5 pears`. Rows whose cells hold the same text, ignoring case, keep their relative order.
 
 *   Dates are also recognized in the formats of the note's language, such as `30.09.2026` or `30. September 2026` for German, and in the format chosen in <a class="reference-link" href="../../Basic%20Concepts%20and%20Features/UI%20Elements/Options.md">Options</a> → _Text Notes_ → _Editor_ → _Date/time format_ for [inserting the date and time](Insert%20buttons.md).
 *   A number can start with a currency symbol, such as `$`, `€` or `£`. Whatever follows the number, such as a unit, is ignored, so units are not converted: `1 km` sorts before `500 m`. A cell that starts with letters, such as `RON 21`, is text.
