@@ -238,7 +238,7 @@ function DropdownToggle({ id, className, buttonClassName, title, text, dropdownC
     }, [ shown, mobileBackdrop ]);
 
     // A dialog's focus trap would pull focus out of a popup that stands outside the dialog.
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!shown) return;
         return suspendModalFocusTraps();
     }, [ shown ]);
