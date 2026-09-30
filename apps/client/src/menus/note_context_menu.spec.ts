@@ -294,7 +294,7 @@ describe("buildNoteContextMenuItems", () => {
             "electron_context_menu.search_online",
             "electron_context_menu.search_in_trilium"
         ]);
-        // The table's paste rows join the paste variants, as a group of their own.
+        // The table's paste rows come after the paste variants and a separator.
         expect(titles(submenu(items, "electron_context_menu.paste"))).toEqual([
             "electron_context_menu.paste",
             "electron_context_menu.paste-as-plain-text",

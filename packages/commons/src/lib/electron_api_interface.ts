@@ -233,7 +233,7 @@ export interface ElectronClipboardApi {
 
     /**
      * Reads the HTML flavor of the system clipboard, the same way as {@link readText}. Empty when
-     * the clipboard holds no HTML.
+     * the clipboard has no HTML.
      */
     readHTML(): Promise<string>;
 }

@@ -161,7 +161,7 @@ describe("buildTableMenuSections", () => {
         run(laterRow.main, LATER_ROW_TITLE);
         expect(laterRow.executed).toEqual([LATER_ROW]);
 
-        // Several rows below the first take neither item.
+        // A selection of several rows below the first shows neither item.
         expect(titles(build([FIRST_ROWS, LATER_ROW]).main))
             .toEqual(MAIN_TITLES.filter((title) => title !== FIRST_ROWS_TITLE));
     });
@@ -369,10 +369,8 @@ describe("hasTableCellSelection", () => {
 });
 
 /**
- * A minimal editor double: `TableContextMenu` is present unless `hasPlugin` says otherwise, every
- * command is enabled except the ones in `disabledCommands`, and only the ones in
- * `checkedCommands` have a `true` value. Its paste target restores the selection unless
- * `restoreResult` is `false`.
+ * A minimal editor double: `TableContextMenu` is present unless `hasPlugin` says otherwise, and
+ * every command is enabled except the ones in `disabledCommands`.
  */
 function stubEditor(
     disabledCommands: string[] = [],

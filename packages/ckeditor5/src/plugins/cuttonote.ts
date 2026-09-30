@@ -18,9 +18,8 @@ export interface PasteTarget {
 	 */
 	paste(html: string, text: string): void;
 	/**
-	 * Moves the selection back onto the pinned ranges and releases them, for a paste that runs
-	 * through a command instead of `paste()`. Returns `false`, leaving the selection alone, when
-	 * the pinned content is gone.
+	 * Moves the selection back onto the pinned ranges and releases them. Returns `false` when the
+	 * pinned content is gone.
 	 */
 	restore(): boolean;
 	/** Detaches the pinned ranges without pasting. Safe to call more than once. */

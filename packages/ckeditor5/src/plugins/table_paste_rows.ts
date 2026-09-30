@@ -35,11 +35,8 @@ export interface TablePasteRowsOptions {
 }
 
 /**
- * Pastes clipboard content as new rows above or below the row of the selection, then selects
- * them. A pasted table becomes one row per table row, starting at the first column, and widens
- * the table when it has more columns; other content goes in the first cell of one new row. The
- * rows go outside any block of rows that a merged cell joins. Enabled while the selection is in
- * a single row.
+ * Pastes clipboard content as new rows next to the row of the selection, and selects them.
+ * Enabled while the selection is in a single row.
  */
 export class TablePasteRowsCommand extends Command {
 
@@ -74,6 +71,7 @@ export class TablePasteRowsCommand extends Command {
             return;
         }
 
+        // The new rows go outside the block of rows that merged cells join to this one.
         const [group] = splitIntoGroups(table, "row", tableUtils.getRowIndexes(cells));
         const at = this.direction === "above" ? group.first : group.last + 1;
         let insertedRows = 0;

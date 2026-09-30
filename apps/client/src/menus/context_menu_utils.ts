@@ -48,9 +48,8 @@ export function submenuItem<T>(
 }
 
 /**
- * A row that runs `primary` when clicked and opens `primary` and its `variants` as a submenu. The
- * row shows the shortcut of `primary`. The submenu lists `primary` again because a tap on a touch
- * device only unfolds a submenu row. While `primary` is disabled, the row only opens the submenu.
+ * A row that runs `primary` on click and shows its shortcut. Its submenu lists `primary`, then
+ * `variants`: a tap on a touch device only opens a submenu row.
  */
 export function splitMenuItem<T>(
     primary: MenuCommandItem<T>,

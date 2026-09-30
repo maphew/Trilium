@@ -16,14 +16,11 @@ import { DistributeTableColumnsCommand } from "./table_distribute_columns.js";
  * Editor-side support for the client's table context menu.
  *
  * Registers insert commands that honor the size of the current selection (the upstream
- * `insertTableRow*` / `insertTableColumn*` commands always insert one row or column),
- * `triliumDistributeTableColumns` and `triliumSelectTable`, the whole-table counterpart of the
- * upstream `selectTableRow` / `selectTableColumn`, and the two header-row commands over the
- * upstream `setTableRowHeader`, which differ in the selections they accept. Keeps a multi-cell
- * selection alive under a right-click, and moves the selection to the cell a context menu is
- * opened on. Merge, split and delete need no counterparts here: the upstream `mergeTableCells`,
- * `splitTableCell*` and `removeTableRow` / `removeTableColumn` commands already act on the whole
- * selection.
+ * `insertTableRow*` / `insertTableColumn*` commands always insert one row or column) and
+ * `triliumDistributeTableColumns`, keeps a multi-cell selection alive under a right-click, and
+ * moves the selection to the cell a context menu is opened on. Merge, split and delete need no
+ * counterparts here: the upstream `mergeTableCells`, `splitTableCell*` and `removeTableRow` /
+ * `removeTableColumn` commands already act on the whole selection.
  */
 export default class TableContextMenu extends Plugin {
 
@@ -192,10 +189,8 @@ export class DeleteTableCommand extends Command {
 export type TableHeaderRowsScope = "firstRows" | "laterRow";
 
 /**
- * Toggles the heading rows through the upstream `setTableRowHeader`, enabled only for the
- * selections its scope covers. `value` is `true` while every selected row is a heading row;
- * executing then turns the selected rows and the heading rows below them into body rows.
- * Otherwise, it extends the heading rows down to the last selected row.
+ * Toggles the heading rows through the upstream `setTableRowHeader`, for the selections of its
+ * `scope`. `value` is `true` while every selected row is a heading row.
  */
 export class TableHeaderRowsCommand extends Command {
 

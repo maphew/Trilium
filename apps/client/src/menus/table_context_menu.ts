@@ -7,8 +7,7 @@ import { submenuItem } from "./context_menu_utils.js";
 import { getTextEditorContaining } from "./text_editor_context_menu.js";
 
 /**
- * The table sections of the text editor's right-click menu. `clipboard` is the host's clipboard
- * access, which the paste rows items need.
+ * The table sections of the text editor's right-click menu. `clipboard` enables the paste rows.
  *
  * Returns `null` when the click is not on a table cell of the active text editor.
  */
@@ -53,8 +52,7 @@ export function buildTableMenuSections(
         trailingIcon: editor.commands.get(commandName)?.value === true ? "bx bx-check" : undefined
     });
 
-    // The header items are one toggle under two labels, so only the one enabled for the
-    // selection is shown.
+    // One toggle under two labels: only the item enabled for the selection is shown.
     const headerItem = [
         toggleItem(t("table_context_menu.set_header_row"), "bx bx-dock-top",
             "triliumSetTableHeaderRow"),
@@ -124,7 +122,7 @@ export function buildTableMenuSections(
 
 /** The part of the menu host's paste support that the paste rows items use. */
 export interface ClipboardAccess {
-    /** Whether the clipboard holds anything to paste. */
+    /** Whether the clipboard has anything to paste. */
     enabled: boolean;
     /** Reads the HTML and plain-text flavors of the clipboard, empty when absent. */
     read(): Promise<{ html: string; text: string }>;
@@ -144,9 +142,8 @@ export interface TableMenuSections {
     /** Selection of the spanned rows or columns, or of the whole table. Shown below deletion. */
     select: MenuItem<CommandNames>;
     /**
-     * Pasting the clipboard as new rows above or below the row of the selection. Shown in the
-     * _Paste_ submenu; empty unless the selection is in one row and the host can read the
-     * clipboard.
+     * Pasting the clipboard as new rows, shown in the _Paste_ submenu. Empty unless the selection
+     * is in one row and the host can read the clipboard.
      */
     pasteRows: MenuItem<CommandNames>[];
 }
