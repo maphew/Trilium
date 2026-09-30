@@ -6,7 +6,13 @@ vi.mock("bootstrap", () => ({
     Tooltip: class { static getInstance() { return null; } }
 }));
 
-import FormList, { FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
+const help = vi.hoisted(() => ({ open: vi.fn() }));
+vi.mock("../../services/utils", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../services/utils")>()),
+    openInAppHelpFromUrl: help.open
+}));
+
+import FormList, { focusListItem, FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem, FormListToggleableItem } from "./FormList";
 
 describe("FormDropdownDivider", () => {
     it("draws a separator among the rows, whose click closes no menu", () => {
@@ -150,6 +156,90 @@ describe("FormDropdownSubmenu", () => {
     });
 });
 
+describe("focusListItem", () => {
+    /** A list of three items, the middle one disabled, the last holding a nested list of its own. */
+    function list() {
+        const root = document.createElement("ul");
+        root.className = "dropdown-menu";
+        root.innerHTML = `
+            <li class="dropdown-item" tabindex="0">A</li>
+            <li class="dropdown-item disabled" tabindex="0">B</li>
+            <li class="dropdown-item" tabindex="0">C<ul class="dropdown-menu"><li class="dropdown-item" tabindex="0">Nested</li></ul></li>`;
+        document.body.append(root);
+        return root;
+    }
+    const focused = () => document.activeElement?.firstChild?.textContent;
+
+    it("focuses the list's own enabled items, from either end when none is current", () => {
+        const root = list();
+        focusListItem(root, "last");
+        expect(focused()).toBe("C");
+        focusListItem(root, "first");
+        expect(focused()).toBe("A");
+        focusListItem(root, "previous");
+        expect(focused()).toBe("C");
+        focusListItem(root, "next");
+        expect(focused()).toBe("A");
+        root.remove();
+    });
+
+    it("leaves focus alone in a list with no enabled item", () => {
+        const root = document.createElement("ul");
+        root.innerHTML = `<li class="dropdown-item disabled" tabindex="0">B</li>`;
+        document.body.append(root);
+        const before = document.activeElement;
+        focusListItem(root, "first");
+        expect(document.activeElement).toBe(before);
+        root.remove();
+    });
+});
+
+describe("FormListToggleableItem", () => {
+    function mountToggle(props: { onChange(value: boolean): void | Promise<void>, disabled?: boolean }) {
+        const pageHeard = vi.fn();
+        const container = mount(
+            <menu onClick={pageHeard}>
+                <FormListToggleableItem title="Shared" currentValue={false} helpPage="R9pX4DGra2Vt" {...props} />
+            </menu>
+        );
+        const row = container.querySelector<HTMLElement>("li.dropdown-item");
+        if (!row) throw new Error("expected the row");
+        return { row, pageHeard };
+    }
+
+    it("flips its value once per click, ignoring clicks while the change is still running", async () => {
+        let finish = () => {};
+        const onChange = vi.fn(() => new Promise<void>((resolve) => finish = resolve));
+        const { row, pageHeard } = mountToggle({ onChange });
+
+        row.click();
+        row.click();
+        expect(onChange).toHaveBeenCalledExactlyOnceWith(true);
+        // A menu around it stays open.
+        expect(pageHeard).not.toHaveBeenCalled();
+
+        finish();
+        await vi.waitFor(() => {
+            row.click();
+            expect(onChange).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    it("does not change when disabled, and opens its help page without changing", () => {
+        const onChange = vi.fn();
+        const { row } = mountToggle({ onChange, disabled: true });
+        row.click();
+        expect(onChange).not.toHaveBeenCalled();
+
+        const { row: enabled } = mountToggle({ onChange });
+        const helpIcon = enabled.querySelector<HTMLElement>(".contextual-help");
+        if (!helpIcon) throw new Error("expected the help icon");
+        helpIcon.click();
+        expect(help.open).toHaveBeenCalledExactlyOnceWith("R9pX4DGra2Vt");
+        expect(onChange).not.toHaveBeenCalled();
+    });
+});
+
 describe("FormList keyboard activation", () => {
     it.each([ "Enter", " " ])("activates the focused item on %j like a click", (key) => {
         const { container, onSelect } = renderList();
@@ -190,6 +280,22 @@ describe("FormList keyboard activation", () => {
         expect(input).not.toBeNull();
 
         const event = press(input as HTMLInputElement, "Enter");
+
+        expect(onSelect).not.toHaveBeenCalled();
+        expect(event.defaultPrevented).toBe(false);
+    });
+
+    it("leaves Enter on a control inside an item to that control", () => {
+        const onSelect = vi.fn();
+        const container = mount(
+            <FormList onSelect={onSelect}>
+                <FormListItem value="text"><button className="inner-action">Edit</button> Text</FormListItem>
+            </FormList>
+        );
+        const button = container.querySelector<HTMLButtonElement>(".inner-action");
+        if (!button) throw new Error("expected the inner button");
+
+        const event = press(button, "Enter");
 
         expect(onSelect).not.toHaveBeenCalled();
         expect(event.defaultPrevented).toBe(false);

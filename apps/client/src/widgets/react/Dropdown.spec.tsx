@@ -170,6 +170,50 @@ describe("Dropdown", () => {
             await vi.waitFor(() => expect(popup()).toBeNull());
         });
 
+        it("closes only on a click inside, or on neither, when asked to", async () => {
+            const outside = () => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+            // A close is rendered after the fact, so a popup still there is checked a turn later.
+            const settle = () => new Promise((resolve) => setTimeout(resolve));
+            const { toggle } = renderDropdown({ autoClose: "inside" }, items);
+            click(toggle);
+            await vi.waitFor(() => expect(popup()).not.toBeNull());
+            outside();
+            await settle();
+            expect(popup()).not.toBeNull();
+            item("By title").click();
+            await vi.waitFor(() => expect(popup()).toBeNull());
+            render(null, host);
+
+            const { toggle: manual } = renderDropdown({ autoClose: false }, items);
+            click(manual);
+            await vi.waitFor(() => expect(popup()).not.toBeNull());
+            outside();
+            item("By title").click();
+            await settle();
+            expect(popup()).not.toBeNull();
+            // Escape and the toggle still close it.
+            popup()?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+            await vi.waitFor(() => expect(popup()).toBeNull());
+        });
+
+        it("opens at its last item on Up from the toggle, and moves in from the toggle while open", async () => {
+            const { toggle } = renderDropdown({ panel: true }, items);
+            const key = (name: string) =>
+                toggle.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
+
+            // Other keys are the toggle's own.
+            expect(key("a")).toBe(true);
+            expect(popup()).toBeNull();
+
+            toggle.focus();
+            key("ArrowUp");
+            await vi.waitFor(() => expect(document.activeElement?.textContent).toBe("By date"));
+
+            toggle.focus();
+            key("ArrowDown");
+            expect(document.activeElement?.textContent).toBe("By title");
+        });
+
         it("opens above its toggle when asked to", async () => {
             const { toggle } = renderDropdown({ placement: "top" });
             vi.spyOn(toggle, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ x: 100, y: 500, width: 80, height: 30 }));

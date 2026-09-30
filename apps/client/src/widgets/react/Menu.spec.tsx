@@ -2,7 +2,7 @@ import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FormDropdownDivider, FormDropdownSubmenu, FormListHeader, FormListItem } from "./FormList";
-import Menu, { rowInNextColumn } from "./Menu";
+import Menu, { type MenuProps, rowInNextColumn } from "./Menu";
 import { shouldDropStart } from "./menu_context";
 
 /** A row 20px tall, `left` into the menu and `top` down it. */
@@ -71,7 +71,7 @@ describe("Menu with declared rows", () => {
      * A menu written as components, with a submenu declared inside a component of its own, as the
      * global menu declares its "Advanced" submenu.
      */
-    function renderMenu() {
+    function renderMenu(props: Partial<MenuProps<unknown>> = {}) {
         const calls: string[] = [];
         const onClose = vi.fn(() => calls.push("close"));
         function Advanced() {
@@ -83,7 +83,7 @@ describe("Menu with declared rows", () => {
             );
         }
         render((
-            <Menu anchor={{ x: 10, y: 10 }} onClose={onClose}>
+            <Menu anchor={{ x: 10, y: 10 }} onClose={onClose} {...props}>
                 <FormListHeader text="Note" />
                 <FormListItem onClick={() => calls.push("copy")}>Copy</FormListItem>
                 <FormListItem disabled onClick={() => calls.push("delete")}>Delete</FormListItem>
@@ -115,8 +115,9 @@ describe("Menu with declared rows", () => {
         element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
         element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
     };
-    const key = (menu: HTMLElement, name: string) =>
-        menu.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
+    const key = (menu: HTMLElement, name: string, init: KeyboardEventInit = {}) =>
+        menu.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true, ...init }));
+    const activeTitle = (menu: HTMLElement) => menu.querySelector(".tn-menu-active > span")?.textContent;
 
     it("draws the rows it is given in order, and opens a declared submenu as a layer beside the scroller", async () => {
         const { menu, calls } = renderMenu();
@@ -173,6 +174,69 @@ describe("Menu with declared rows", () => {
         await vi.waitFor(() => expect(active()).toBe("Show log"));
         key(menu, "Enter");
         expect(calls).toEqual([ "log", "close" ]);
+    });
+
+    it("does nothing with the keys that have nothing to act on", async () => {
+        const { menu, calls, onClose } = renderMenu();
+
+        // No row is active yet, so Enter runs nothing.
+        key(menu, "Enter");
+        // A letter with a modifier is a shortcut, not typeahead, and is left to the page.
+        expect(key(menu, "c", { ctrlKey: true })).toBe(true);
+        expect(activeTitle(menu)).toBeUndefined();
+
+        // Up with no active row goes to the last row that can run.
+        key(menu, "ArrowUp");
+        await vi.waitFor(() => expect(activeTitle(menu)).toBe("Advanced"));
+        // Left at the top level has no submenu to leave.
+        key(menu, "ArrowLeft");
+        // Tab keeps focus in the menu.
+        expect(key(menu, "Tab")).toBe(false);
+        expect(activeTitle(menu)).toBe("Advanced");
+        expect(layers(menu)).toEqual([]);
+        expect(calls).toEqual([]);
+        expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("starts at the last row when asked to, and takes no focus once it is no longer wanted", async () => {
+        const { menu } = renderMenu({ startAt: "last" });
+        await vi.waitFor(() => expect(activeTitle(menu)).toBe("Advanced"));
+        expect(document.activeElement).toBe(menu);
+        render(null, host);
+
+        const { menu: unwanted } = renderMenu({ startAt: "first", isWanted: () => false });
+        await vi.waitFor(() => expect(unwanted.style.visibility).toBe("visible"));
+        expect(document.activeElement).not.toBe(unwanted);
+        expect(activeTitle(unwanted)).toBeUndefined();
+    });
+
+    it("neither opens nor runs a disabled submenu row", async () => {
+        const toggled = vi.fn();
+        render((
+            <Menu anchor={{ x: 10, y: 10 }} onClose={vi.fn()}>
+                <FormListItem>Copy</FormListItem>
+                <FormDropdownSubmenu title="Export" icon="bx bx-export" disabled onDropdownToggleClicked={toggled}>
+                    <FormListItem>As PDF</FormListItem>
+                </FormDropdownSubmenu>
+            </Menu>
+        ), host);
+        const menu = document.querySelector<HTMLElement>(".tn-popup.tn-menu");
+        if (!menu) throw new Error("expected the menu to render");
+        const exportRow = rowTitled("Export");
+        expect(exportRow.getAttribute("aria-disabled")).toBe("true");
+
+        exportRow.dispatchEvent(new PointerEvent("pointerenter"));
+        press(exportRow);
+        // Anything opened is rendered after the fact, so the layers are checked a turn later.
+        await new Promise((resolve) => setTimeout(resolve));
+        expect(layers(menu)).toEqual([]);
+        expect(toggled).not.toHaveBeenCalled();
+
+        // The keys pass over it.
+        key(menu, "ArrowDown");
+        await vi.waitFor(() => expect(activeTitle(menu)).toBe("Copy"));
+        key(menu, "ArrowDown");
+        expect(activeTitle(menu)).toBe("Copy");
     });
 
     it("opens submenus towards the start, arrows too, when the end has no room", async () => {
