@@ -26,7 +26,7 @@ export default class AdaptiveColors extends Plugin {
 
         this.listenTo<CommandExecuteEvent>(command, "execute", (_eventInfo, args) => {
             const options = args[0] as { value?: unknown } | undefined;
-            if (typeof options?.value === "string" && options.value) {
+            if (typeof options?.value === "string") {
                 args[0] = { ...options, value: adaptColor(options.value, role) };
             }
         }, { priority: "high" });

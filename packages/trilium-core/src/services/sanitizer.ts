@@ -39,6 +39,18 @@ export function sanitizeHtml(dirtyHtml: string) {
     // The light and dark theme pair the text editor writes (see `adaptColor`).
     const adaptiveColorRegex = /^light-dark\(\s*#[0-9a-f]{6}\s*,\s*#[0-9a-f]{6}\s*\)$/i;
     const sizeRegex = [/^\d+\.?\d*(?:px|em|%)$/];
+    // The border styles CKEditor writes for tables and cells: the shorthand for a border with a
+    // custom width, separate properties otherwise.
+    const tableBorderStyles = {
+        "border": [
+            /^\s*\d+\.?\d*(?:px|em|%)\s*(none|hidden|dotted|dashed|solid|double|groove|ridge|inset|outset)\s*(#(0x)?[0-9a-fA-F]+|rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)|hsl\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\)|light-dark\(\s*#[0-9a-fA-F]{6}\s*,\s*#[0-9a-fA-F]{6}\s*\))\s*$/
+        ],
+        "border-color": [ ...colorRegex, adaptiveColorRegex, /^\s*transparent\s*$/ ],
+        "border-style": [
+            /^\s*(none|hidden|dotted|dashed|solid|double|groove|ridge|inset|outset)\s*$/
+        ],
+        "border-width": sizeRegex
+    };
 
     // to minimize document changes, compress H
     return sanitizeHtmlCustom(dirtyHtml, {
@@ -77,19 +89,9 @@ export function sanitizeHtml(dirtyHtml: string) {
                 width: sizeRegex,
                 height: sizeRegex
             },
-            table: {
-                "border-color": [...colorRegex, adaptiveColorRegex, /^\s*transparent\s*$/],
-                "border-style": [/^\s*(none|hidden|dotted|dashed|solid|double|groove|ridge|inset|outset)\s*$/]
-            },
-            td: {
-                "border-color": [...colorRegex, adaptiveColorRegex, /^\s*transparent\s*$/],
-                border: [
-                    /^\s*\d+(?:px|em|%)\s*(none|hidden|dotted|dashed|solid|double|groove|ridge|inset|outset)\s*(#(0x)?[0-9a-fA-F]+|rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)|hsl\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\)|light-dark\(\s*#[0-9a-fA-F]{6}\s*,\s*#[0-9a-fA-F]{6}\s*\))\s*$/
-                ]
-            },
-            th: {
-                "border-color": [...colorRegex, adaptiveColorRegex, /^\s*transparent\s*$/]
-            },
+            table: tableBorderStyles,
+            td: tableBorderStyles,
+            th: tableBorderStyles,
             col: {
                 width: sizeRegex
             }

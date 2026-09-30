@@ -98,6 +98,18 @@ describe("sanitize", () => {
             .not.toContain("light-dark");
     });
 
+    it("keeps the border styles CKEditor writes for tables and cells", () => {
+        // A border with a custom width is written as the shorthand, one with the default width as
+        // separate properties.
+        const dirty = `<figure class="table">`
+            + `<table style="border:2px solid light-dark(#4795e1,#4d99e6)"><tbody><tr>`
+            + `<th style="border:1.5px double #000000">H</th>`
+            + `<td style="border-color:light-dark(#000000,#6f6f6f);border-style:dashed">C</td>`
+            + `<td style="border-style:dotted;border-width:3px">D</td>`
+            + "</tr></tbody></table></figure>";
+        expect(sanitizeHtml(dirty)).toBe(dirty);
+    });
+
     it("keeps a fractional image aspect-ratio (OneNote reports fractional pixel dimensions)", () => {
         // CKEditor's usual integer ratio still passes...
         expect(sanitizeHtml(`<img style="aspect-ratio:991/403" src="x.png" />`)).toContain("aspect-ratio:991/403");

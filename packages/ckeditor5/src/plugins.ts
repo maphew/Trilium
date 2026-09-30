@@ -4,6 +4,7 @@ import { Autoformat, AutoLink, BlockQuote, BlockToolbar, Bold, CKFinderUploadAda
 // `FormatPainter` -> `TriliumFormatPainter`, `Template` -> `TriliumSnippets`. See each plugin's
 // doc comment for the details.
 import type { Plugin } from "ckeditor5";
+import AdaptiveColors from "./plugins/adaptive_colors.js";
 import CutToNotePlugin from "./plugins/cuttonote.js";
 import UploadimagePlugin from "./plugins/uploadimage.js";
 import ItalicAsEmPlugin from "./plugins/italic_as_em.js";
@@ -37,7 +38,6 @@ import CopyLinkUrlButton from "./plugins/copy_link_url.js";
 import ImageActions from "./plugins/image_actions.js";
 import ClipboardBareImage from "./plugins/clipboard_bare_image.js";
 import ClipboardImageEmbed from "./plugins/clipboard_image_embed.js";
-import AdaptiveColors from "./plugins/adaptive_colors.js";
 import TriliumSnippets from "./plugins/snippets/snippets.js";
 import TriliumAiAssistant from "./plugins/ai_assistant/ai_assistant.js";
 

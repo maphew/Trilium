@@ -58,6 +58,23 @@ describe("AdaptiveColors", () => {
         editor.execute("fontColor");
         expect(getModelData(editor.model, { withoutSelection: true }))
             .toBe("<paragraph>text</paragraph>");
+
+        editor.execute("fontBackgroundColor", { value: "#e64d4d" });
+        editor.execute("fontBackgroundColor", { value: "" });
+        expect(getModelData(editor.model, { withoutSelection: true }))
+            .toBe("<paragraph>text</paragraph>");
+    });
+
+    it("converts text colors in an editor without the table properties plugins", async () => {
+        const textOnly = await createTestEditor([
+            Essentials, Paragraph, FontColor, FontBackgroundColor, AdaptiveColors
+        ]);
+        setModelData(textOnly.model, "<paragraph>[text]</paragraph>");
+
+        textOnly.execute("fontColor", { value: "#e64d4d" });
+        const pair = adaptColor("#e64d4d", "text");
+        expect(getModelData(textOnly.model, { withoutSelection: true }))
+            .toBe(`<paragraph><$text fontColor="${pair}">text</$text></paragraph>`);
     });
 
     it("stores table and cell colors as pairs, through saving and loading", () => {
