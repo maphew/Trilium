@@ -144,11 +144,12 @@ export async function getTextEditorAtSelection(): Promise<CKTextEditor | null> {
 }
 
 /**
- * The text editor whose editable contains `node`, or `null` when the node sits anywhere else.
- * Answers a pointer target rather than the DOM selection, which a right-click does not move in
- * every browser.
+ * Returns the text editor whose editable contains `node`, or `null` when no text editor does.
+ * Takes the right-click target instead of the DOM selection, because a right-click does not move
+ * the selection in every browser.
  *
- * The editor is looked up in the split pane holding `node`, which a right-click does not activate.
+ * Looks up the editor in the split pane that contains `node`, because a right-click does not
+ * activate that pane.
  */
 export async function getTextEditorContaining(
     node: Node | null | undefined
@@ -174,8 +175,8 @@ export async function getTextEditorContaining(
 }
 
 /**
- * The note context of the split pane that holds `node`. Outside every pane, e.g. in a dialog, the
- * active note context.
+ * Returns the note context whose `ntxId` matches the `data-ntx-id` of the split pane that contains
+ * `node`, or the active note context when `node` is outside every pane, e.g. in a dialog.
  */
 function getNoteContextContaining(node: Node): NoteContext | null {
     const { tabManager } = appContext;

@@ -16,8 +16,8 @@ function setupContextMenu() {
     const api = eApi.contextMenu;
 
     api.onContextMenu(async (params) => {
-        // The IPC params carry window coordinates only, so the element under the pointer is read
-        // back from the page; the zoom factor maps them onto CSS pixels.
+        // The IPC params contain only window coordinates, so `document.elementFromPoint()` finds
+        // the element under the pointer. Dividing by the zoom factor converts them to CSS pixels.
         const zoomLevel = zoomService.getCurrentZoom();
 
         const items = await buildNoteContextMenuItems({

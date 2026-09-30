@@ -1,5 +1,5 @@
 import { _getModelData as getModelData, _setModelData as setModelData, Essentials, Paragraph, Table, TableSelection, TableUtils } from "ckeditor5";
-import type { ClassicEditor, ModelElement } from "ckeditor5";
+import type { ClassicEditor, Editor, ModelElement } from "ckeditor5";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
@@ -227,6 +227,12 @@ describe("TableContextMenu", () => {
             const nested = domCell(editor, 0, 1).firstChild;
             expect(nested && plugin.syncSelectionToDomTarget(nested)).toBe(true);
             expect(selectionCells(editor)[0]).toBe(getCell(editor, 0, 1));
+
+            // So does a text node.
+            const text = document.createTreeWalker(domCell(editor, 1, 0), NodeFilter.SHOW_TEXT)
+                .nextNode();
+            expect(text && plugin.syncSelectionToDomTarget(text)).toBe(true);
+            expect(selectionCells(editor)[0]).toBe(getCell(editor, 1, 0));
         });
 
         it("keeps a multi-cell selection that contains the target", () => {
@@ -255,6 +261,18 @@ describe("TableContextMenu", () => {
                 strayCell.remove();
             }
         });
+
+        it("rejects a cell drawn inside another widget's raw content", async () => {
+            const widgetEditor = await createTestEditor([
+                Essentials, Paragraph, Table, TableSelection, TableContextMenu, RawTableWidget
+            ]);
+            setModelData(widgetEditor.model, "<rawTable></rawTable>");
+            const plugin = widgetEditor.plugins.get(TableContextMenu);
+
+            const rawCell = widgetEditor.editing.view.getDomRoot()?.querySelector(".raw-table td");
+            expect(rawCell).toBeInstanceOf(HTMLTableCellElement);
+            expect(rawCell && plugin.syncSelectionToDomTarget(rawCell)).toBe(false);
+        });
     });
 
     describe("right-button mousedown", () => {
@@ -281,6 +299,14 @@ describe("TableContextMenu", () => {
             // Right button with a plain in-cell selection.
             setModelData(editor.model, modelTable([["1[]1"]]));
             expect(mouseDown(domCell(editor, 0, 0), 2).defaultPrevented).toBe(false);
+
+            // Right button outside the table.
+            setModelData(editor.model, `${modelTable([["11", "12"]])}<paragraph>foo</paragraph>`);
+            selectCells(editor, [0, 0], [0, 1]);
+            const paragraph = editor.editing.view.getDomRoot()
+                ?.querySelector<HTMLElement>(":scope > p");
+            expect(paragraph).toBeInstanceOf(HTMLParagraphElement);
+            expect(paragraph && mouseDown(paragraph, 2).defaultPrevented).toBe(false);
         });
     });
 });
@@ -327,6 +353,18 @@ function selectCells(editor: ClassicEditor, anchor: [number, number], target: [n
 
 function selectionCells(editor: ClassicEditor): ModelElement[] {
     return editor.plugins.get(TableUtils).getSelectionAffectedTableCells(editor.model.document.selection);
+}
+
+/** A widget whose raw view element holds a rendered table, like an included note's preview. */
+function RawTableWidget(editor: Editor) {
+    editor.model.schema.register("rawTable", { inheritAllFrom: "$blockObject" });
+    editor.conversion.for("editingDowncast").elementToElement({
+        model: "rawTable",
+        view: (_element, { writer }) => writer.createRawElement("div", { class: "raw-table" },
+            (domElement) => {
+                domElement.innerHTML = "<table><tbody><tr><td>raw</td></tr></tbody></table>";
+            })
+    });
 }
 
 function mouseDown(target: HTMLElement, button: number): MouseEvent {
