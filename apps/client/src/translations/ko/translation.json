@@ -4098,7 +4098,9 @@
       "flip-vertically": "수직으로 뒤집기",
       "change-icon": "아이콘 변경",
       "insert-date-time-0": "날짜/시간 삽입: %0",
-      "insert-time-0": "시간 삽입: %0"
+      "insert-time-0": "시간 삽입: %0",
+      "math": "수학",
+      "date-time": "날짜/시간"
     },
     "toolbar-groups": {
       "text-formatting": "텍스트 서식",
