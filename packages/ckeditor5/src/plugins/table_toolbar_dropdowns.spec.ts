@@ -1,4 +1,6 @@
+import bxSortAlt2 from "boxicons/svg/regular/bx-sort-alt-2.svg?raw";
 import {
+    _getModelData as getModelData,
     _setModelData as setModelData,
     ButtonView,
     Essentials,
@@ -152,6 +154,31 @@ describe("TableToolbarDropdowns", () => {
 
             getElement(dropdown).remove();
             dropdown.destroy();
+        });
+    });
+
+    describe("the Sort dropdown", () => {
+        it("sorts the rows with the clicked direction", async () => {
+            const editor = await createTestEditor(
+                [Essentials, Paragraph, Table, TableToolbarDropdowns], { toolbar: ["tableSort"] });
+            const dropdown = editor.ui.view.toolbar.items.get(0) as DropdownView;
+            const tableData = () => getModelData(editor.model, { withoutSelection: true });
+
+            expect(dropdown.buttonView.label).toBe("Sort");
+            expect(dropdown.buttonView.icon).toBe(bxSortAlt2);
+            expect(dropdown.isEnabled).toBe(false);
+
+            setModelData(editor.model, modelTable([["b[]"], ["c"], ["a"]]));
+            expect(dropdown.isEnabled).toBe(true);
+            expect(getItems(dropdown)).toEqual([
+                "triliumSortTableRowsAscending: Ascending",
+                "triliumSortTableRowsDescending: Descending"
+            ]);
+
+            clickItem(dropdown, "Ascending");
+            expect(tableData()).toBe(modelTable([["a"], ["b"], ["c"]]));
+            clickItem(dropdown, "Descending");
+            expect(tableData()).toBe(modelTable([["c"], ["b"], ["a"]]));
         });
     });
 });

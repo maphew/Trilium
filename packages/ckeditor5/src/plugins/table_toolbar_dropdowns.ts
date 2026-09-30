@@ -1,3 +1,4 @@
+import bxSortAlt2 from "boxicons/svg/regular/bx-sort-alt-2.svg?raw";
 import {
     addListToDropdown,
     Collection,
@@ -19,11 +20,12 @@ import type {
 } from "ckeditor5";
 
 import TableContextMenu from "./table_context_menu.js";
+import TableSort from "./table_sort.js";
 
 /**
  * Replaces the `tableColumn` and `mergeTableCells` dropdowns of `TableUI` with copies that add
  * commands of the table context menu: "Distribute columns evenly", "Merge selected cells" and
- * "Unmerge cells".
+ * "Unmerge cells". Adds the `tableSort` dropdown.
  *
  * `TableUI` builds its item lists in private methods, so the dropdowns are rebuilt from public
  * helpers and command names instead of patched. The spec compares them with the upstream
@@ -32,7 +34,7 @@ import TableContextMenu from "./table_context_menu.js";
 export default class TableToolbarDropdowns extends Plugin {
 
     static get requires() {
-        return [Table, TableContextMenu] as const;
+        return [Table, TableContextMenu, TableSort] as const;
     }
 
     static get pluginName() {
@@ -79,6 +81,15 @@ export default class TableToolbarDropdowns extends Plugin {
                 buttonItem("splitTableCellVertically", t("Split cell vertically")),
                 buttonItem("splitTableCellHorizontally", t("Split cell horizontally")),
                 buttonItem("triliumResetTableCellSpans", t("Unmerge cells"))
+            ]
+        }));
+
+        factory.add("tableSort", (locale) => this.createDropdown(locale, {
+            label: t("Sort"),
+            icon: bxSortAlt2,
+            items: [
+                buttonItem("triliumSortTableRowsAscending", t("Ascending")),
+                buttonItem("triliumSortTableRowsDescending", t("Descending"))
             ]
         }));
     }

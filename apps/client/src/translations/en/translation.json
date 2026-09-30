@@ -3515,7 +3515,10 @@
     "split_cells": "Split cell",
     "split_vertically": "Vertically",
     "split_horizontally": "Horizontally",
-    "split_reset": "Unmerge cells"
+    "split_reset": "Unmerge cells",
+    "sort": "Sort",
+    "sort_ascending": "Ascending",
+    "sort_descending": "Descending"
   },
   "board_view": {
     "delete-note": "Delete note...",
@@ -4373,7 +4376,11 @@
       "date-time": "Date/time",
       "distribute-columns-evenly": "Distribute columns evenly",
       "merge-selected-cells": "Merge selected cells",
-      "unmerge-cells": "Unmerge cells"
+      "unmerge-cells": "Unmerge cells",
+      "sort": "Sort",
+      "ascending": "Ascending",
+      "descending": "Descending",
+      "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "Some rows were sorted together because merged cells tie them to each other"
     },
     "task-state-dropped-title": "Invalid task states",
     "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",

@@ -106,6 +106,10 @@ declare module "ckeditor5" {
              */
             copyHtml?(html: string, plainText: string): void;
         },
-        clipboardImageEmbed?: ClipboardImageEmbedConfig
+        clipboardImageEmbed?: ClipboardImageEmbedConfig,
+        autoSort?: {
+            /** More date formats for table sorting to recognize, in Day.js syntax. */
+            dateFormats?: string[];
+        }
     }
 }
