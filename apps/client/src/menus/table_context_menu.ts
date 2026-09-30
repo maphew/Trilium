@@ -44,7 +44,22 @@ export function buildTableMenuSections(
             editor.editing.view.focus();
         }
     });
+    const toggleItem = (title: string, uiIcon: string, commandName: string) => ({
+        ...commandItem(title, uiIcon, commandName),
+        trailingIcon: editor.commands.get(commandName)?.value === true ? "bx bx-check" : undefined
+    });
 
+    // The header items are one toggle under two labels, so only the one enabled for the
+    // selection is shown.
+    const headerItem = [
+        toggleItem(t("table_context_menu.set_header_row"), "bx bx-dock-top",
+            "triliumSetTableHeaderRow"),
+        toggleItem(t("table_context_menu.set_header_up_to_row"), "bx bx-arrow-to-top",
+            "triliumSetTableHeaderUpToRow")
+    ].find((item) => item.enabled);
+    const headerGroup: MenuItem<CommandNames>[] = headerItem
+        ? [headerItem, { kind: "separator" }]
+        : [];
     const splitItems = [
         commandItem(t("table_context_menu.split_vertically"), "bx bx-reflect-vertical",
             "splitTableCellVertically"),
@@ -78,6 +93,7 @@ export function buildTableMenuSections(
             commandItem(t("table_context_menu.insert_columns_right"),
                 "bx bx-horizontal-right", "triliumInsertTableColumnsRight"),
             { kind: "separator" },
+            ...headerGroup,
             commandItem(t("table_context_menu.merge_cells"), "bx bx-border-outer",
                 "mergeTableCells"),
             {
@@ -113,8 +129,8 @@ export function buildTableMenuSections(
 /** The table rows of the text editor's right-click menu, in four sections. */
 export interface TableMenuSections {
     /**
-     * Row and column insertion sized by the selection, merging or splitting of the selected cells,
-     * and equal widths for the spanned columns. Shown above the clipboard.
+     * Row and column insertion sized by the selection, the header rows, merging or splitting of
+     * the selected cells, and equal widths for the spanned columns. Shown above the clipboard.
      */
     main: MenuItem<CommandNames>[];
     /** Sorting of the rows by the column of the selection. Shown above the deletion rows. */

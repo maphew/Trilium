@@ -25,6 +25,11 @@ Since v0.106.0, right-clicking anywhere inside a table opens a context menu with
 
 *   _Insert row above_ and _Insert row below_ insert a blank row next to the row of the current cell. When the selection spans multiple rows, the same number of rows is inserted.
 *   _Insert column to the left_ and _Insert column to the right_ work the same way for columns.
+*   Since v0.107.0, _Set as header row_ or _Set header up to this row_, depending on the selection, turns rows into header rows, which always start at the top of the table:
+    *   _Set as header row_ shows when the selection starts at the first row, and makes every selected row a header row.
+    *   _Set header up to this row_ shows when the selection is in a single row below the first, and makes that row and every row above it header rows.
+    *   Neither shows when the selection spans several rows below the first.
+    *   A check mark shows that the rows are already header rows. Choosing the item again turns them, and every header row below them, back into regular rows. For example, in a table with five header rows, choosing _Set header up to this row_ on the third row leaves only the first two as header rows.
 *   _Merge cells_ merges the selected cells into one. The selected cells must form a rectangle.
 *   _Split cell_ splits each selected cell in two, either _Vertically_ or _Horizontally_. _Unmerge cells_, in the same submenu, turns each merged cell in the selection back into the single cells it covers, keeping its content in the top-left one; cells that are not merged stay as they are.
 *   _Distribute columns evenly_ splits the combined width of the columns the selection touches equally between them. The other columns and the width of the table stay as they are. It needs a selection spanning at least two columns; a merged cell counts for every column it covers.

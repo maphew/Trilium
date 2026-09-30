@@ -18,10 +18,12 @@ import { DistributeTableColumnsCommand } from "./table_distribute_columns.js";
  * Registers insert commands that honor the size of the current selection (the upstream
  * `insertTableRow*` / `insertTableColumn*` commands always insert one row or column),
  * `triliumDistributeTableColumns` and `triliumSelectTable`, the whole-table counterpart of the
- * upstream `selectTableRow` / `selectTableColumn`. Keeps a multi-cell selection alive under a
- * right-click, and moves the selection to the cell a context menu is opened on. Merge, split and
- * delete need no counterparts here: the upstream `mergeTableCells`, `splitTableCell*` and
- * `removeTableRow` / `removeTableColumn` commands already act on the whole selection.
+ * upstream `selectTableRow` / `selectTableColumn`, and the two header-row commands over the
+ * upstream `setTableRowHeader`, which differ in the selections they accept. Keeps a multi-cell
+ * selection alive under a right-click, and moves the selection to the cell a context menu is
+ * opened on. Merge, split and delete need no counterparts here: the upstream `mergeTableCells`,
+ * `splitTableCell*` and `removeTableRow` / `removeTableColumn` commands already act on the whole
+ * selection.
  */
 export default class TableContextMenu extends Plugin {
 
@@ -49,6 +51,10 @@ export default class TableContextMenu extends Plugin {
         editor.commands.add("triliumDeleteTable", new DeleteTableCommand(editor));
         editor.commands.add("triliumResetTableCellSpans", new ResetTableCellSpansCommand(editor));
         editor.commands.add("triliumSelectTable", new SelectTableCommand(editor));
+        editor.commands.add("triliumSetTableHeaderRow",
+            new TableHeaderRowsCommand(editor, "firstRows"));
+        editor.commands.add("triliumSetTableHeaderUpToRow",
+            new TableHeaderRowsCommand(editor, "laterRow"));
 
         const view = editor.editing.view;
         view.addObserver(MouseObserver);
@@ -180,6 +186,51 @@ export class DeleteTableCommand extends Command {
 }
 
 /**
+ * The selections a {@link TableHeaderRowsCommand} acts on: rows starting at the first row of the
+ * table, or a single row below it.
+ */
+export type TableHeaderRowsScope = "firstRows" | "laterRow";
+
+/**
+ * Toggles the heading rows through the upstream `setTableRowHeader`, enabled only for the
+ * selections its scope covers. `value` is `true` while every selected row is a heading row;
+ * executing then turns the selected rows and the heading rows below them into body rows.
+ * Otherwise, it extends the heading rows down to the last selected row.
+ */
+export class TableHeaderRowsCommand extends Command {
+
+    private readonly scope: TableHeaderRowsScope;
+
+    constructor(editor: Editor, scope: TableHeaderRowsScope) {
+        super(editor);
+        this.scope = scope;
+    }
+
+    refresh() {
+        const tableUtils = this.editor.plugins.get(TableUtils);
+        const selection = this.editor.model.document.selection;
+        const cells = tableUtils.getSelectionAffectedTableCells(selection);
+        const table = cells[0]?.findAncestor("table");
+        if (!table) {
+            this.isEnabled = false;
+            this.value = false;
+            return;
+        }
+
+        const { first, last } = tableUtils.getRowIndexes(cells);
+        this.isEnabled = this.scope === "firstRows"
+            ? first === 0
+            : first === last && first > 0;
+        this.value = this.isEnabled && last < Number(table.getAttribute("headingRows") ?? 0);
+    }
+
+    execute() {
+        this.editor.execute("setTableRowHeader", { forceValue: !this.value });
+    }
+
+}
+
+/**
  * Selects every cell of the table the selection is in, the innermost one when tables are nested.
  * Like `selectTableRow` and `selectTableColumn`, it stays enabled in read-only mode.
  */
@@ -300,5 +351,7 @@ declare module "ckeditor5" {
         triliumDeleteTable: DeleteTableCommand;
         triliumResetTableCellSpans: ResetTableCellSpansCommand;
         triliumSelectTable: SelectTableCommand;
+        triliumSetTableHeaderRow: TableHeaderRowsCommand;
+        triliumSetTableHeaderUpToRow: TableHeaderRowsCommand;
     }
 }

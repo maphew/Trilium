@@ -21,6 +21,8 @@ const MAIN_TITLES = [
     "table_context_menu.insert_columns_left",
     "table_context_menu.insert_columns_right",
     "---",
+    "table_context_menu.set_header_row",
+    "---",
     "table_context_menu.merge_cells",
     "table_context_menu.split_cells",
     "table_context_menu.distribute_columns"
@@ -102,6 +104,7 @@ describe("buildTableMenuSections", () => {
             "triliumInsertTableRowsBelow",
             "triliumInsertTableColumnsLeft",
             "triliumInsertTableColumnsRight",
+            "triliumSetTableHeaderRow",
             "mergeTableCells",
             "triliumDistributeTableColumns",
             "removeTableRow",
@@ -132,6 +135,36 @@ describe("buildTableMenuSections", () => {
         expect(findItem(items, "table_context_menu.delete_rows")?.enabled).toBe(false);
         expect(findItem(items, "table_context_menu.delete_columns")?.enabled).toBe(true);
         expect(findItem(items, "table_context_menu.insert_rows_above")?.enabled).toBe(true);
+    });
+
+    it("shows only the header item that applies, with a trailing check while it is on", () => {
+        const FIRST_ROWS = "triliumSetTableHeaderRow";
+        const LATER_ROW = "triliumSetTableHeaderUpToRow";
+        const FIRST_ROWS_TITLE = "table_context_menu.set_header_row";
+        const LATER_ROW_TITLE = "table_context_menu.set_header_up_to_row";
+        const build = (disabled: string[], checkedCommands: string[] = []) => {
+            const stub = stubEditor(disabled, { checkedCommands });
+            const main = buildTableMenuSections(stub.editor, cellElement())?.main ?? [];
+            return { ...stub, main };
+        };
+
+        const firstRows = build([LATER_ROW]);
+        expect(titles(firstRows.main)).toEqual(MAIN_TITLES);
+        expect(findItem(firstRows.main, FIRST_ROWS_TITLE))
+            .toMatchObject({ uiIcon: "bx bx-dock-top", trailingIcon: undefined });
+
+        const laterRow = build([FIRST_ROWS], [LATER_ROW]);
+        expect(titles(laterRow.main)).toEqual(MAIN_TITLES
+            .map((title) => (title === FIRST_ROWS_TITLE ? LATER_ROW_TITLE : title)));
+        expect(findItem(laterRow.main, LATER_ROW_TITLE))
+            .toMatchObject({ uiIcon: "bx bx-arrow-to-top", trailingIcon: "bx bx-check" });
+        run(laterRow.main, LATER_ROW_TITLE);
+        expect(laterRow.executed).toEqual([LATER_ROW]);
+
+        // Several rows below the first take neither item, nor the separator that follows it.
+        const index = MAIN_TITLES.indexOf(FIRST_ROWS_TITLE);
+        expect(titles(build([FIRST_ROWS, LATER_ROW]).main))
+            .toEqual([...MAIN_TITLES.slice(0, index), ...MAIN_TITLES.slice(index + 2)]);
     });
 
     it("enables the split submenu while any of its rows is enabled", () => {
@@ -268,10 +301,14 @@ describe("hasTableCellSelection", () => {
 });
 
 /**
- * A minimal editor double: `TableContextMenu` is present unless `hasPlugin` says otherwise, and
- * every command is enabled except the ones in `disabledCommands`.
+ * A minimal editor double: `TableContextMenu` is present unless `hasPlugin` says otherwise, every
+ * command is enabled except the ones in `disabledCommands`, and only the ones in
+ * `checkedCommands` have a `true` value.
  */
-function stubEditor(disabledCommands: string[] = [], { hasPlugin = true, syncResult = true } = {}) {
+function stubEditor(
+    disabledCommands: string[] = [],
+    { hasPlugin = true, syncResult = true, checkedCommands = [] as string[] } = {}
+) {
     const executed: string[] = [];
     const focus = vi.fn();
     const syncSelectionToDomTarget = vi.fn(() => syncResult);
@@ -281,7 +318,10 @@ function stubEditor(disabledCommands: string[] = [], { hasPlugin = true, syncRes
             get: () => ({ syncSelectionToDomTarget })
         },
         commands: {
-            get: (name: string) => ({ isEnabled: !disabledCommands.includes(name) })
+            get: (name: string) => ({
+                isEnabled: !disabledCommands.includes(name),
+                value: checkedCommands.includes(name)
+            })
         },
         execute: (name: string) => {
             executed.push(name);

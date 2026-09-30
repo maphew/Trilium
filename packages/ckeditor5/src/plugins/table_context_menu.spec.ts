@@ -214,6 +214,84 @@ describe("TableContextMenu", () => {
         });
     });
 
+    describe("header rows", () => {
+        const FIRST_ROWS = "triliumSetTableHeaderRow";
+        const LATER_ROW = "triliumSetTableHeaderUpToRow";
+        const isEnabled = (name: string) => editor.commands.get(name)?.isEnabled;
+        const value = (name: string) => editor.commands.get(name)?.value;
+
+        it("enables one command for rows from the first, the other for a single later row", () => {
+            setModelData(editor.model, "<paragraph>fo[]o</paragraph>");
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([false, false]);
+
+            setModelData(editor.model, modelTable([["1[]1", "12"], ["21", "22"], ["31", "32"]]));
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([true, false]);
+
+            selectCells(editor, [0, 0], [1, 1]);
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([true, false]);
+
+            selectCells(editor, [1, 0], [1, 1]);
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([false, true]);
+
+            selectCells(editor, [1, 0], [2, 0]);
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([false, false]);
+
+            setModelData(editor.model, modelTable([["11"], ["2[]1"]]));
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([false, true]);
+
+            editor.enableReadOnlyMode("spec");
+            expect([isEnabled(FIRST_ROWS), isEnabled(LATER_ROW)]).toEqual([false, false]);
+        });
+
+        it("holds true while every selected row is a header row", () => {
+            setModelData(editor.model, modelTable([["1[]1"], ["21"], ["31"]], 'headingRows="2"'));
+            expect(value(FIRST_ROWS)).toBe(true);
+
+            selectCells(editor, [0, 0], [1, 0]);
+            expect(value(FIRST_ROWS)).toBe(true);
+
+            selectCells(editor, [0, 0], [2, 0]);
+            expect(value(FIRST_ROWS)).toBe(false);
+
+            selectCells(editor, [1, 0], [1, 0]);
+            expect(value(LATER_ROW)).toBe(true);
+
+            selectCells(editor, [2, 0], [2, 0]);
+            expect(value(LATER_ROW)).toBe(false);
+        });
+
+        it("extends the header rows down to the selected rows", () => {
+            setModelData(editor.model, modelTable([["11"], ["21"], ["31"]]));
+            selectCells(editor, [0, 0], [1, 0]);
+            editor.execute(FIRST_ROWS);
+            expect(tableData(editor))
+                .toBe(modelTable([["11"], ["21"], ["31"]], 'headingRows="2"'));
+
+            setModelData(editor.model,
+                modelTable([["11"], ["21"], ["31"], ["4[]1"]], 'headingRows="1"'));
+            editor.execute(LATER_ROW);
+            expect(tableData(editor))
+                .toBe(modelTable([["11"], ["21"], ["31"], ["41"]], 'headingRows="4"'));
+        });
+
+        it("turns the selected row and every header row below it into body rows", () => {
+            const rows = [["11"], ["21"], ["31"], ["41"], ["51"]];
+
+            setModelData(editor.model, modelTable([["11"], ["2[]1"], ["31"], ["41"], ["51"]],
+                'headingRows="5"'));
+            editor.execute(LATER_ROW);
+            expect(tableData(editor)).toBe(modelTable(rows, 'headingRows="1"'));
+
+            setModelData(editor.model, modelTable([["1[]1"], ["21"], ["31"], ["41"], ["51"]],
+                'headingRows="5"'));
+            editor.execute(FIRST_ROWS);
+            expect(tableData(editor)).toBe(modelTable(rows));
+
+            editor.execute("undo");
+            expect(tableData(editor)).toBe(modelTable(rows, 'headingRows="5"'));
+        });
+    });
+
     describe("select table", () => {
         const COMMAND = "triliumSelectTable";
 
