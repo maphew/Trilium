@@ -1,6 +1,6 @@
 import "./Popup.css";
 
-import { autoUpdate, computePosition, flip, hide, offset, type OffsetOptions, type Placement, type ReferenceElement, shift, size } from "@floating-ui/dom";
+import { arrow, autoUpdate, computePosition, flip, hide, offset, type OffsetOptions, type Placement, type ReferenceElement, shift, size } from "@floating-ui/dom";
 import clsx from "clsx";
 import { type ComponentChildren, createContext, type HTMLAttributes, type Ref } from "preact";
 import { createPortal } from "preact/compat";
@@ -222,6 +222,11 @@ export interface FloatingPlacement {
     capHeight?: boolean;
     /** Hides it while its anchor is scrolled out of view, as a submenu whose row scrolled away. */
     hideWithAnchor?: boolean;
+    /**
+     * An arrow element inside it. Its offset along the edge facing the anchor is set to point at
+     * the anchor, at least `padding` pixels from the corners.
+     */
+    arrow?: { element: HTMLElement, padding?: number };
 }
 
 /**
@@ -230,7 +235,7 @@ export interface FloatingPlacement {
  * near the viewport's edge. It stays hidden until placed, so it never paints at a stale position.
  * Resolves to the placement it took.
  */
-export async function placeFloating(element: HTMLElement, anchor: ReferenceElement, { placement, offset: gap, shiftAcross, capHeight, hideWithAnchor }: FloatingPlacement) {
+export async function placeFloating(element: HTMLElement, anchor: ReferenceElement, { placement, offset: gap, shiftAcross, capHeight, hideWithAnchor, arrow: pointer }: FloatingPlacement) {
     const { x, y, placement: placed, middlewareData } = await computePosition(anchor, element, {
         strategy: "fixed",
         placement,
@@ -238,6 +243,7 @@ export async function placeFloating(element: HTMLElement, anchor: ReferenceEleme
             gap !== undefined && offset(gap),
             flip({ fallbackPlacements: mirroredPlacements(placement), padding: VIEWPORT_PADDING }),
             shift({ crossAxis: !!shiftAcross, padding: VIEWPORT_PADDING }),
+            pointer && arrow({ element: pointer.element, padding: pointer.padding }),
             capHeight && size({
                 padding: VIEWPORT_PADDING,
                 apply({ availableHeight }) {
@@ -251,6 +257,12 @@ export async function placeFloating(element: HTMLElement, anchor: ReferenceEleme
     element.style.left = `${x}px`;
     element.style.top = `${y}px`;
     element.style.visibility = middlewareData.hide?.referenceHidden ? "hidden" : "visible";
+    if (pointer) {
+        // Only the offset along the facing edge; the stylesheet sets the other axis.
+        const { x: arrowX, y: arrowY } = middlewareData.arrow ?? {};
+        pointer.element.style.left = arrowX !== undefined ? `${arrowX}px` : "";
+        pointer.element.style.top = arrowY !== undefined ? `${arrowY}px` : "";
+    }
     return placed;
 }
 

@@ -1,7 +1,7 @@
 import { render } from "preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import Popup, { type PopupProps } from "./Popup";
+import Popup, { placeFloating, type PopupProps } from "./Popup";
 
 describe("Popup", () => {
     const host = document.createElement("div");
@@ -55,6 +55,32 @@ describe("Popup", () => {
         const popup = await open({ offset: 2 });
 
         expect(popup.style.top).toBe("82px");
+    });
+
+    it("offsets an arrow along the edge facing the anchor, clear of the corners", async () => {
+        const card = document.createElement("div");
+        const pointer = document.createElement("div");
+        Object.defineProperty(pointer, "offsetWidth", { value: 12 });
+        Object.defineProperty(pointer, "offsetHeight", { value: 12 });
+        card.append(pointer);
+        document.body.append(card);
+        const arrow = { element: pointer, padding: 10 };
+
+        // Right of the anchor: the arrow's offset is along the card's left edge, and the
+        // stylesheet sets the other axis.
+        anchorAt(100, 350);
+        expect(await placeFloating(card, anchor, { placement: "right-start", offset: 10, arrow })).toBe("right-start");
+        expect(card.style.left).toBe("190px");
+        const top = parseFloat(pointer.style.top);
+        expect(top).toBeGreaterThanOrEqual(10);
+        expect(top).toBeLessThanOrEqual(100 - 12 - 10);
+        expect(pointer.style.left).toBe("");
+
+        // Below the anchor: along the top edge, and the stylesheet sets the other axis.
+        expect(await placeFloating(card, anchor, { placement: "bottom-start", offset: 10, arrow })).toBe("bottom-start");
+        expect(pointer.style.left).not.toBe("");
+        expect(pointer.style.top).toBe("");
+        card.remove();
     });
 
     it("flips above its anchor where there is no room below, and caps its height to the room it has", async () => {
