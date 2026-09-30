@@ -1,4 +1,4 @@
-import { trimIndentation } from "@triliumnext/commons";
+import { HIGHLIGHT_BACKGROUND, trimIndentation } from "@triliumnext/commons";
 import { describe, expect,it } from "vitest";
 
 import markdownExportService, { DEFAULT_ADMONITION_TYPE } from "./markdown.js";
@@ -850,6 +850,16 @@ describe("Markdown export", () => {
 
             expect(markdownExportService.toMarkdown(/*html*/`<p>A <mark>highlight</mark> here.</p>`))
                 .toBe("A ==highlight== here.");
+        });
+
+        it("renders the theme-adaptive yellow highlight as ==text==", () => {
+            const yellow = `<span style="background-color:${HIGHLIGHT_BACKGROUND};">highlight</span>`;
+            expect(markdownExportService.toMarkdown(`<p>A ${yellow} here.</p>`))
+                .toBe("A ==highlight== here.");
+
+            // Another adaptive pair keeps its colour.
+            const red = `<span style="background-color:light-dark(#ffdad6,#713531)">red</span>`;
+            expect(markdownExportService.toMarkdown(`<p>${red}</p>`)).toBe(red);
         });
 
         it("keeps any other colour as inline HTML rather than repainting it yellow", () => {

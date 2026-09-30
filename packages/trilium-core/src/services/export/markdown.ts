@@ -547,8 +547,11 @@ function isPlainDefaultHighlight(node: HTMLElement): boolean {
     const [ declaration ] = declarations;
 
     return declaration.property === "background-color"
-        && normalizeColor(declaration.value) === normalizeColor(HIGHLIGHT_BACKGROUND);
+        && DEFAULT_HIGHLIGHT_BACKGROUNDS.includes(normalizeColor(declaration.value));
 }
+
+/** The current yellow, and the one highlights got before colors adapted to the theme. */
+const DEFAULT_HIGHLIGHT_BACKGROUNDS = [ HIGHLIGHT_BACKGROUND, "hsl(60, 75%, 60%)" ].map(normalizeColor);
 
 function parseStyleDeclarations(style: string | null) {
     return (style ?? "")

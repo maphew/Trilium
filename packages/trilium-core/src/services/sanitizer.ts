@@ -36,6 +36,8 @@ export function sanitizeHtml(dirtyHtml: string) {
     }
 
     const colorRegex = [/^#(0x)?[0-9a-f]+$/i, /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/, /^hsl\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\s*\)$/];
+    // The light and dark theme pair the text editor writes (see `adaptColor`).
+    const adaptiveColorRegex = /^light-dark\(\s*#[0-9a-f]{6}\s*,\s*#[0-9a-f]{6}\s*\)$/i;
     const sizeRegex = [/^\d+\.?\d*(?:px|em|%)$/];
 
     // to minimize document changes, compress H
@@ -57,8 +59,8 @@ export function sanitizeHtml(dirtyHtml: string) {
         },
         allowedStyles: {
             "*": {
-                color: colorRegex,
-                "background-color": colorRegex,
+                color: [ ...colorRegex, adaptiveColorRegex ],
+                "background-color": [ ...colorRegex, adaptiveColorRegex ],
                 "margin-left": sizeRegex,
                 "padding-left": sizeRegex,
                 "text-align": [/^\s*(left|center|right|justify)\s*$/],

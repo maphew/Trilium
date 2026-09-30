@@ -1,5 +1,7 @@
 import type { Token, TokenizerAndRendererExtension } from "marked";
 
+import { adaptColor } from "./adaptive_color.js";
+
 /**
  * Escapes HTML special characters to prevent XSS attacks.
  * Used for both attribute values and text content.
@@ -101,7 +103,7 @@ export function createTransclusionExtension(options: TransclusionOptions = {}): 
 }
 
 /**
- * Background colour for highlights: CKEditor's stock palette yellow (`==…==` carries no colour
+ * Background colour for highlights: the text editor's palette Yellow (`==…==` carries no colour
  * of its own). Matches the `<span style="background-color:…">` markup CKEditor's Font
  * Background Color feature emits, so a highlight rendered into a text note round-trips as an
  * editable highlight. Deliberately not `<mark>`, which General HTML Support does keep but
@@ -112,7 +114,7 @@ export function createTransclusionExtension(options: TransclusionOptions = {}): 
  * `==…==` and which have to keep their colour as inline HTML, so the two directions must agree
  * on the exact value.
  */
-export const HIGHLIGHT_BACKGROUND = "hsl(60, 75%, 60%)";
+export const HIGHLIGHT_BACKGROUND = adaptColor("#e5e64d", "background");
 
 /**
  * Creates an extension for highlights: `==text==` → a background-coloured `<span>`.

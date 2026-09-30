@@ -65,7 +65,9 @@ Selected text can be colored with one of the predefined colors from a palette or
 
 Once there is at least one color defined in the document, it will appear in the list for easy reuse.
 
-When selecting a foreground or a background color, consider the contrast if switching between a dark theme or a light [theme](../../Basic%20Concepts%20and%20Features/Themes.md).
+Colors adapt to the [theme](../../Basic%20Concepts%20and%20Features/Themes.md). When a color is applied, Trilium saves two shades of it, one for light themes and one for dark themes, so the text stays readable after switching between them. The hue stays the same: red text is red in both themes, only lighter or darker. This applies to the palette, the color picker and the document colors alike.
+
+Colors applied with older versions of Trilium are kept exactly as they are, until a new color is applied to that text.
 
 To remove either the background or foreground color of a text, select the corresponding formatting button and press _Remove color_ or use the _Remove formatting_ toolbar item.
 

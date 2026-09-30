@@ -32,6 +32,9 @@
 
     --tree-item-light-theme-max-color-lightness: 50;
     --tree-item-dark-theme-min-color-lightness: 75;
+
+    /* Picks the half of the light-dark() text colors that matches the theme. */
+    color-scheme: var(--theme-style);
 }
 
 body#trilium-app.motion-disabled *,

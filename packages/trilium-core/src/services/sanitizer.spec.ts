@@ -74,6 +74,19 @@ describe("sanitize", () => {
         expect(sanitizeHtml(dirty)).toBe(dirty);
     });
 
+    it("keeps a light-dark() text and background color pair", () => {
+        const style = "color:light-dark(#b81e2c,#ff9f96);"
+            + "background-color:light-dark(#e8e4bd,#494917)";
+        const dirty = `<p><span style="${style}">x</span></p>`;
+        expect(sanitizeHtml(dirty)).toBe(dirty);
+
+        // Only a pair of hex colors passes; anything else inside light-dark() is dropped.
+        expect(sanitizeHtml(`<span style="color:light-dark(red,url(x))">x</span>`))
+            .toBe("<span>x</span>");
+        expect(sanitizeHtml(`<td style="border-color:light-dark(#000000,#ffffff)">x</td>`))
+            .not.toContain("light-dark");
+    });
+
     it("keeps a fractional image aspect-ratio (OneNote reports fractional pixel dimensions)", () => {
         // CKEditor's usual integer ratio still passes...
         expect(sanitizeHtml(`<img style="aspect-ratio:991/403" src="x.png" />`)).toContain("aspect-ratio:991/403");
