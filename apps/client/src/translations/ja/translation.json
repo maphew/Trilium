@@ -1973,7 +1973,10 @@
     "split_cells": "セルを分割",
     "split_vertically": "垂直に",
     "split_horizontally": "水平に",
-    "split_reset": "セルの結合を解除"
+    "split_reset": "セルの結合を解除",
+    "sort": "並べ替え",
+    "sort_ascending": "昇順",
+    "sort_descending": "降順"
   },
   "content_renderer": {
     "open_externally": "外部で開く",
@@ -3714,7 +3717,11 @@
       "the-table-is-too-large-max-0-cells": "表が大きすぎます（最大 %0 セルまで）。",
       "distribute-columns-evenly": "列の幅を均等にする",
       "merge-selected-cells": "選択したセルを結合",
-      "unmerge-cells": "セルの結合を解除"
+      "unmerge-cells": "セルの結合を解除",
+      "sort": "並べ替え",
+      "ascending": "昇順",
+      "descending": "降順",
+      "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "結合されたセルによって互いに関連付けられているため、一部の行はまとめて並べ替えられました"
     },
     "toolbar-groups": {
       "text-formatting": "テキストの書式設定",
