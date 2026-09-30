@@ -6,32 +6,30 @@ import type { MenuItem } from "./context_menu.js";
 import { getTextEditorContaining } from "./text_editor_context_menu.js";
 
 /**
- * The table section of the text editor's right-click menu: row and column insertion sized by the
- * selection, deletion of every spanned row or column or of the whole table, equal widths for the
- * spanned columns, and merging or splitting of the selected cells.
+ * The table sections of the text editor's right-click menu.
  *
  * Returns `null` when the click is not on a table cell of the active text editor.
  */
-export async function buildTableContextMenuItems(
+export async function buildTableContextMenuSections(
     element: Element | null | undefined
-): Promise<MenuItem<CommandNames>[] | null> {
+): Promise<TableMenuSections | null> {
     if (!element?.closest("td, th")) {
         return null;
     }
 
     const editor = await getTextEditorContaining(element);
-    return editor && buildTableMenuItems(editor, element);
+    return editor && buildTableMenuSections(editor, element);
 }
 
 /**
- * Builds the section against a resolved editor. The selection is first moved into the clicked
+ * Builds the sections against a resolved editor. The selection is first moved into the clicked
  * cell (and kept when the cell is already part of it), so the enablement snapshots and the
  * executed commands agree with the cell the menu is opened on.
  */
-export function buildTableMenuItems(
+export function buildTableMenuSections(
     editor: CKTextEditor,
     element: Element
-): MenuItem<CommandNames>[] | null {
+): TableMenuSections | null {
     if (!editor.plugins.has("TableContextMenu")
             || !editor.plugins.get("TableContextMenu").syncSelectionToDomTarget(element)) {
         return null;
@@ -48,40 +46,55 @@ export function buildTableMenuItems(
     });
 
     const splitItems = [
-        commandItem(t("table_context_menu.split_vertically"), "bx bx-empty",
+        commandItem(t("table_context_menu.split_vertically"), "bx bx-reflect-vertical",
             "splitTableCellVertically"),
-        commandItem(t("table_context_menu.split_horizontally"), "bx bx-empty",
-            "splitTableCellHorizontally"),
-        commandItem(t("table_context_menu.split_reset"), "bx bx-reset",
-            "triliumResetTableCellSpans")
+        commandItem(t("table_context_menu.split_horizontally"), "bx bx-reflect-horizontal",
+            "splitTableCellHorizontally")
     ];
+    const unmergeItem = commandItem(t("table_context_menu.split_reset"), "bx bx-reset",
+        "triliumResetTableCellSpans");
 
-    return [
-        commandItem(t("table_context_menu.insert_rows_above"),
-            "bx bx-horizontal-left bx-rotate-90", "triliumInsertTableRowsAbove"),
-        commandItem(t("table_context_menu.insert_rows_below"),
-            "bx bx-horizontal-left bx-rotate-270", "triliumInsertTableRowsBelow"),
-        { kind: "separator" },
-        commandItem(t("table_context_menu.insert_columns_left"),
-            "bx bx-horizontal-left", "triliumInsertTableColumnsLeft"),
-        commandItem(t("table_context_menu.insert_columns_right"),
-            "bx bx-horizontal-right", "triliumInsertTableColumnsRight"),
-        { kind: "separator" },
-        commandItem(t("table_context_menu.delete_rows"), "bx bx-trash", "removeTableRow"),
-        commandItem(t("table_context_menu.delete_columns"), "bx bx-trash", "removeTableColumn"),
-        commandItem(t("table_context_menu.delete_table"), "bx bx-trash", "triliumDeleteTable"),
-        { kind: "separator" },
-        commandItem(t("table_context_menu.distribute_columns"), "bx bx-move-horizontal",
-            "triliumDistributeTableColumns"),
-        { kind: "separator" },
-        commandItem(t("table_context_menu.merge_cells"), "bx bx-border-outer", "mergeTableCells"),
-        {
-            title: t("table_context_menu.split_cells"),
-            uiIcon: "bx bx-border-inner",
-            enabled: splitItems.some((item) => item.enabled),
-            items: splitItems
-        }
-    ];
+    return {
+        main: [
+            commandItem(t("table_context_menu.insert_rows_above"),
+                "bx bx-horizontal-left bx-rotate-90", "triliumInsertTableRowsAbove"),
+            commandItem(t("table_context_menu.insert_rows_below"),
+                "bx bx-horizontal-left bx-rotate-270", "triliumInsertTableRowsBelow"),
+            { kind: "separator" },
+            commandItem(t("table_context_menu.insert_columns_left"),
+                "bx bx-horizontal-left", "triliumInsertTableColumnsLeft"),
+            commandItem(t("table_context_menu.insert_columns_right"),
+                "bx bx-horizontal-right", "triliumInsertTableColumnsRight"),
+            { kind: "separator" },
+            commandItem(t("table_context_menu.merge_cells"), "bx bx-border-outer",
+                "mergeTableCells"),
+            {
+                title: t("table_context_menu.split_cells"),
+                uiIcon: "bx bx-border-inner",
+                enabled: [...splitItems, unmergeItem].some((item) => item.enabled),
+                items: [...splitItems, { kind: "separator" }, unmergeItem]
+            },
+            commandItem(t("table_context_menu.distribute_columns"), "bx bx-move-horizontal",
+                "triliumDistributeTableColumns")
+        ],
+        delete: [
+            commandItem(t("table_context_menu.delete_rows"), "bx bx-trash", "removeTableRow"),
+            commandItem(t("table_context_menu.delete_columns"), "bx bx-trash",
+                "removeTableColumn"),
+            commandItem(t("table_context_menu.delete_table"), "bx bx-trash", "triliumDeleteTable")
+        ]
+    };
+}
+
+/** The table rows of the text editor's right-click menu, in two sections. */
+export interface TableMenuSections {
+    /**
+     * Row and column insertion sized by the selection, merging or splitting of the selected cells,
+     * and equal widths for the spanned columns. Shown above the clipboard.
+     */
+    main: MenuItem<CommandNames>[];
+    /** Deletion of the spanned rows or columns, or of the table. Shown below the clipboard. */
+    delete: MenuItem<CommandNames>[];
 }
 
 /**

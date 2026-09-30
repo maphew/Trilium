@@ -32,23 +32,18 @@ src="3_Tables_image.png" width="384" height="100">
     rows, the same number of rows is inserted.</li>
   <li><em>Insert column to the left</em> and <em>Insert column to the right</em> work
     the same way for columns.</li>
-  <li><em>Delete rows</em> and <em>Delete columns</em> remove every row or column
-    the selection touches, even when only some of their cells are selected.</li>
-  <li><em>Delete table</em> removes the whole table and leaves an empty paragraph
-    in its place. In a table nested inside another, only the inner table is
-    removed.</li>
+  <li><em>Merge cells</em> merges the selected cells into one. The selected cells
+    must form a rectangle.</li>
+  <li><em>Split cell</em> splits each selected cell in two, either <em>Vertically</em> or <em>Horizontally</em>. <em>Unmerge cells</em>,
+    in the same submenu, turns each merged cell in the selection back into
+    the single cells it covers, keeping its content in the top-left one; cells
+    that are not merged stay as they are.</li>
   <li><em>Distribute columns evenly</em> splits the combined width of the columns
     the selection touches equally between them. The other columns and the width
     of the table stay as they are. It needs a selection spanning at least two
     columns; a merged cell counts for every column it covers.</li>
-  <li><em>Merge cells</em> merges the selected cells into one. The selected cells
-    must form a rectangle.</li>
-  <li><em>Split cells</em> splits each selected cell in two, either <em>Vertically</em> or <em>Horizontally</em>. <em>Reset</em> turns
-    each merged cell in the selection back into the single cells it covers,
-    keeping its content in the top-left one; cells that are not merged stay
-    as they are.</li>
-  <li><em>Cut</em>, <em>Copy</em> and <em>Copy as Markdown</em>, below the table
-    section, act on the selected cells:
+  <li><em>Cut</em>, <em>Copy</em> and <em>Copy as Markdown</em> act on the selected
+    cells:
     <ul>
       <li>Cutting or copying produces a smaller table holding just the selected
         cells. Pasting it over a cell selection replaces those cells; pasting elsewhere
@@ -59,6 +54,12 @@ src="3_Tables_image.png" width="384" height="100">
         header row is emitted, since Markdown tables require one.</li>
     </ul>
   </li>
+  <li><em>Delete row</em> and <em>Delete column</em>, below the clipboard section,
+    remove every row or column the selection touches, even when only some of
+    their cells are selected.</li>
+  <li><em>Delete table</em> removes the whole table and leaves an empty paragraph
+    in its place. In a table nested inside another, only the inner table is
+    removed.</li>
 </ul>
 <p>Right-clicking a cell that is not part of the current selection moves
   the cursor there first, so the menu always applies to the cell under the
@@ -158,7 +159,7 @@ src="3_Tables_image.png" width="384" height="100">
 </ul>
 <p><em>Merge selected cells</em> and <em>Reset merged cells</em> are available
   since v0.107.0. Merging and splitting are also available by right-clicking
-  the selected cells, via the <a href="#context-menu">context menu</a>, where <em>Split cells</em> → <em>Reset</em> does
+  the selected cells, via the <a href="#context-menu">context menu</a>, where <em>Split cell</em> → <em>Unmerge cells</em> does
   the same as <em>Reset merged cells</em>.</p>
 <h2>Table properties</h2>
 <figure class="image image-style-align-right">

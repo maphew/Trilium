@@ -29,14 +29,18 @@ vi.mock("../services/utils.js", () => ({
 }));
 vi.mock("./context_menu.js", () => ({ default: { show: vi.fn() } }));
 vi.mock("./table_context_menu.js", () => ({
-    buildTableContextMenuItems: vi.fn(async () => null),
+    buildTableContextMenuSections: vi.fn(async () => null),
     hasTableCellSelection: vi.fn(async () => false)
 }));
 
 import { copyHtml, copyTextWithToast } from "../services/clipboard_ext.js";
 import server from "../services/server.js";
 import contextMenu, { type MenuCommandItem, type MenuItem } from "./context_menu.js";
-import { buildTableContextMenuItems, hasTableCellSelection } from "./table_context_menu.js";
+import {
+    buildTableContextMenuSections,
+    hasTableCellSelection,
+    type TableMenuSections
+} from "./table_context_menu.js";
 import {
     buildNoteContextMenuItems,
     type ContextMenuHost,
@@ -214,17 +218,19 @@ describe("buildNoteContextMenuItems", () => {
         });
     });
 
-    it("puts the table section ahead of the clipboard rows and hands it the element", async () => {
+    it("puts the table sections around the clipboard rows and hands them the element", async () => {
         const cell = document.createElement("td");
-        vi.mocked(buildTableContextMenuItems).mockResolvedValueOnce([
-            { title: "T1" },
-            { kind: "separator" },
-            { title: "T2" }
-        ] as MenuItem<any>[]);
+        vi.mocked(buildTableContextMenuSections).mockResolvedValueOnce({
+            main: [ { title: "T1" }, { kind: "separator" }, { title: "T2" } ],
+            delete: [ { title: "D1" }, { title: "D2" } ]
+        } as TableMenuSections);
+        const host = browserLikeHost({
+            paste: { enabled: true, run: vi.fn(), runAsPlainText: vi.fn() }
+        });
 
-        const items = await build({ isEditable: true, element: cell });
+        const items = await build({ isEditable: true, element: cell }, host);
 
-        expect(buildTableContextMenuItems).toHaveBeenCalledWith(cell);
+        expect(buildTableContextMenuSections).toHaveBeenCalledWith(cell);
         expect(titles(items)).toEqual([
             "T1",
             "---",
@@ -233,6 +239,11 @@ describe("buildNoteContextMenuItems", () => {
             "electron_context_menu.cut",
             "electron_context_menu.copy",
             "electron_context_menu.copy-as-markdown",
+            "electron_context_menu.paste",
+            "electron_context_menu.paste-as-plain-text",
+            "---",
+            "D1",
+            "D2",
             "---",
             "electron_context_menu.search_online",
             "electron_context_menu.search_in_trilium"
@@ -242,7 +253,7 @@ describe("buildNoteContextMenuItems", () => {
     it("skips the table section for a non-editable target", async () => {
         await build({ element: document.createElement("td") });
 
-        expect(buildTableContextMenuItems).not.toHaveBeenCalled();
+        expect(buildTableContextMenuSections).not.toHaveBeenCalled();
     });
 
     it("converts the selection through the to-markdown route", async () => {
@@ -261,9 +272,10 @@ describe("buildNoteContextMenuItems", () => {
 
     it("enables the clipboard rows over a cell selection with no selection text", async () => {
         const cell = document.createElement("td");
-        vi.mocked(buildTableContextMenuItems).mockResolvedValue([
-            { title: "T1" }
-        ] as MenuItem<any>[]);
+        vi.mocked(buildTableContextMenuSections).mockResolvedValue({
+            main: [ { title: "T1" } ],
+            delete: []
+        } as TableMenuSections);
 
         // No cell selection and no text: the rows show but stay disabled.
         const disabled = await build({ isEditable: true, element: cell, selectionText: "" });
@@ -277,15 +289,16 @@ describe("buildNoteContextMenuItems", () => {
         expect(findItem(enabled, "electron_context_menu.copy")?.enabled).toBe(true);
         expect(findItem(enabled, "electron_context_menu.copy-as-markdown")?.enabled).toBe(true);
 
-        vi.mocked(buildTableContextMenuItems).mockResolvedValue(null);
+        vi.mocked(buildTableContextMenuSections).mockResolvedValue(null);
         vi.mocked(hasTableCellSelection).mockResolvedValue(false);
     });
 
     it("ignores the fake-selection label Electron reports over a cell selection", async () => {
         const cell = document.createElement("td");
-        vi.mocked(buildTableContextMenuItems).mockResolvedValueOnce([
-            { title: "T1" }
-        ] as MenuItem<any>[]);
+        vi.mocked(buildTableContextMenuSections).mockResolvedValueOnce({
+            main: [ { title: "T1" } ],
+            delete: []
+        } as TableMenuSections);
         vi.mocked(hasTableCellSelection).mockResolvedValueOnce(true);
 
         const shown = titles(await build({
@@ -372,9 +385,10 @@ describe("setupContextMenu (browser)", () => {
     it("claims a bare-caret right-click on an editable table cell", async () => {
         const cell = editableTableCell();
         setSelection(null, "", "");
-        vi.mocked(buildTableContextMenuItems).mockResolvedValueOnce([
-            { title: "table_context_menu.merge_cells" }
-        ] as MenuItem<any>[]);
+        vi.mocked(buildTableContextMenuSections).mockResolvedValueOnce({
+            main: [ { title: "table_context_menu.merge_cells" } ],
+            delete: []
+        } as TableMenuSections);
 
         const event = rightClick(cell);
 
@@ -382,7 +396,7 @@ describe("setupContextMenu (browser)", () => {
         await vi.waitFor(() => expect(contextMenu.show).toHaveBeenCalled());
         const shown = vi.mocked(contextMenu.show).mock.calls[0][0];
         expect(titles(shown.items)).toContain("table_context_menu.merge_cells");
-        expect(buildTableContextMenuItems).toHaveBeenCalledWith(cell);
+        expect(buildTableContextMenuSections).toHaveBeenCalledWith(cell);
     });
 
     it("leaves a table cell to the browser when read-only, non-editable, or Shift is held", async () => {

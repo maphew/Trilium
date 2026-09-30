@@ -7,50 +7,55 @@ import type { CKTextEditor } from "@triliumnext/ckeditor5";
 
 import type { MenuCommandItem, MenuItem } from "./context_menu.js";
 import {
-    buildTableContextMenuItems,
-    buildTableMenuItems,
-    hasTableCellSelection
+    buildTableContextMenuSections,
+    buildTableMenuSections,
+    hasTableCellSelection,
+    type TableMenuSections
 } from "./table_context_menu.js";
 import { getTextEditorContaining } from "./text_editor_context_menu.js";
 
-const SECTION_TITLES = [
+const MAIN_TITLES = [
     "table_context_menu.insert_rows_above",
     "table_context_menu.insert_rows_below",
     "---",
     "table_context_menu.insert_columns_left",
     "table_context_menu.insert_columns_right",
     "---",
-    "table_context_menu.delete_rows",
-    "table_context_menu.delete_columns",
-    "table_context_menu.delete_table",
-    "---",
-    "table_context_menu.distribute_columns",
-    "---",
     "table_context_menu.merge_cells",
-    "table_context_menu.split_cells"
+    "table_context_menu.split_cells",
+    "table_context_menu.distribute_columns"
 ];
 
-describe("buildTableMenuItems", () => {
-    it("returns the section in order, with a split submenu", () => {
+const DELETE_TITLES = [
+    "table_context_menu.delete_rows",
+    "table_context_menu.delete_columns",
+    "table_context_menu.delete_table"
+];
+
+describe("buildTableMenuSections", () => {
+    it("returns the sections in order, with a split submenu", () => {
         const { editor, syncSelectionToDomTarget } = stubEditor();
         const element = cellElement();
 
-        const items = buildTableMenuItems(editor, element) ?? [];
+        const sections = buildTableMenuSections(editor, element);
 
         expect(syncSelectionToDomTarget).toHaveBeenCalledWith(element);
-        expect(titles(items)).toEqual(SECTION_TITLES);
+        expect(titles(sections?.main ?? [])).toEqual(MAIN_TITLES);
+        expect(titles(sections?.delete ?? [])).toEqual(DELETE_TITLES);
 
-        const submenu = findItem(items, "table_context_menu.split_cells")?.items ?? [];
+        const splitRow = findItem(sections?.main ?? [], "table_context_menu.split_cells");
+        const submenu = splitRow?.items ?? [];
         expect(titles(submenu)).toEqual([
             "table_context_menu.split_vertically",
             "table_context_menu.split_horizontally",
+            "---",
             "table_context_menu.split_reset"
         ]);
     });
 
     it("executes the mapped command and refocuses the editor", () => {
         const { editor, executed, focus } = stubEditor();
-        const items = buildTableMenuItems(editor, cellElement()) ?? [];
+        const items = allItems(buildTableMenuSections(editor, cellElement()));
         const submenu = findItem(items, "table_context_menu.split_cells")?.items ?? [];
 
         for (const title of titles(items).filter((t) => t !== "---")) {
@@ -65,11 +70,11 @@ describe("buildTableMenuItems", () => {
             "triliumInsertTableRowsBelow",
             "triliumInsertTableColumnsLeft",
             "triliumInsertTableColumnsRight",
+            "mergeTableCells",
+            "triliumDistributeTableColumns",
             "removeTableRow",
             "removeTableColumn",
             "triliumDeleteTable",
-            "triliumDistributeTableColumns",
-            "mergeTableCells",
             "splitTableCellVertically",
             "splitTableCellHorizontally",
             "triliumResetTableCellSpans"
@@ -84,7 +89,7 @@ describe("buildTableMenuItems", () => {
             "removeTableRow",
             "triliumDistributeTableColumns"
         ]);
-        const items = buildTableMenuItems(editor, cellElement()) ?? [];
+        const items = allItems(buildTableMenuSections(editor, cellElement()));
 
         expect(findItem(items, "table_context_menu.distribute_columns")?.enabled).toBe(false);
         expect(findItem(items, "table_context_menu.merge_cells")?.enabled).toBe(false);
@@ -102,8 +107,8 @@ describe("buildTableMenuItems", () => {
         ];
         const splitRow = (disabled: string[]) => {
             const { editor } = stubEditor(disabled);
-            const items = buildTableMenuItems(editor, cellElement()) ?? [];
-            return findItem(items, "table_context_menu.split_cells")?.enabled;
+            const main = buildTableMenuSections(editor, cellElement())?.main ?? [];
+            return findItem(main, "table_context_menu.split_cells")?.enabled;
         };
 
         for (const enabled of SPLIT_COMMANDS) {
@@ -115,14 +120,14 @@ describe("buildTableMenuItems", () => {
 
     it("returns null without the plugin or a table cell at the target", () => {
         const { editor: withoutPlugin } = stubEditor([], { hasPlugin: false });
-        expect(buildTableMenuItems(withoutPlugin, cellElement())).toBeNull();
+        expect(buildTableMenuSections(withoutPlugin, cellElement())).toBeNull();
 
         const { editor } = stubEditor([], { syncResult: false });
-        expect(buildTableMenuItems(editor, cellElement())).toBeNull();
+        expect(buildTableMenuSections(editor, cellElement())).toBeNull();
     });
 });
 
-describe("buildTableContextMenuItems", () => {
+describe("buildTableContextMenuSections", () => {
     const resolveEditor = vi.mocked(getTextEditorContaining);
 
     beforeEach(() => {
@@ -130,25 +135,26 @@ describe("buildTableContextMenuItems", () => {
     });
 
     it("ignores targets outside a table cell without resolving the editor", async () => {
-        expect(await buildTableContextMenuItems(null)).toBeNull();
-        expect(await buildTableContextMenuItems(document.createElement("div"))).toBeNull();
+        expect(await buildTableContextMenuSections(null)).toBeNull();
+        expect(await buildTableContextMenuSections(document.createElement("div"))).toBeNull();
         expect(resolveEditor).not.toHaveBeenCalled();
     });
 
-    it("builds the section for a cell target inside the active text editor", async () => {
+    it("builds the sections for a cell target inside the active text editor", async () => {
         const { editor } = stubEditor();
         resolveEditor.mockResolvedValue(editor);
         const element = cellElement();
 
-        const items = (await buildTableContextMenuItems(element)) ?? [];
+        const sections = await buildTableContextMenuSections(element);
 
         expect(resolveEditor).toHaveBeenCalledWith(element);
-        expect(titles(items)).toEqual(SECTION_TITLES);
+        expect(titles(sections?.main ?? [])).toEqual(MAIN_TITLES);
+        expect(titles(sections?.delete ?? [])).toEqual(DELETE_TITLES);
     });
 
     it("returns null when no text editor contains the target", async () => {
         resolveEditor.mockResolvedValue(null);
-        expect(await buildTableContextMenuItems(cellElement())).toBeNull();
+        expect(await buildTableContextMenuSections(cellElement())).toBeNull();
     });
 });
 
@@ -220,6 +226,11 @@ function cellElement(): Element {
     const inner = document.createElement("span");
     cell.appendChild(inner);
     return inner;
+}
+
+/** Both sections as one list, main first. */
+function allItems(sections: TableMenuSections | null) {
+    return [...(sections?.main ?? []), ...(sections?.delete ?? [])];
 }
 
 /** The titles of `items`, with separators rendered as "---" so ordering stays readable. */

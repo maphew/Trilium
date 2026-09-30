@@ -25,14 +25,14 @@ Since v0.106.0, right-clicking anywhere inside a table opens a context menu with
 
 *   _Insert row above_ and _Insert row below_ insert a blank row next to the row of the current cell. When the selection spans multiple rows, the same number of rows is inserted.
 *   _Insert column to the left_ and _Insert column to the right_ work the same way for columns.
-*   _Delete rows_ and _Delete columns_ remove every row or column the selection touches, even when only some of their cells are selected.
-*   _Delete table_ removes the whole table and leaves an empty paragraph in its place. In a table nested inside another, only the inner table is removed.
-*   _Distribute columns evenly_ splits the combined width of the columns the selection touches equally between them. The other columns and the width of the table stay as they are. It needs a selection spanning at least two columns; a merged cell counts for every column it covers.
 *   _Merge cells_ merges the selected cells into one. The selected cells must form a rectangle.
-*   _Split cells_ splits each selected cell in two, either _Vertically_ or _Horizontally_. _Reset_ turns each merged cell in the selection back into the single cells it covers, keeping its content in the top-left one; cells that are not merged stay as they are.
-*   _Cut_, _Copy_ and _Copy as Markdown_, below the table section, act on the selected cells:
+*   _Split cell_ splits each selected cell in two, either _Vertically_ or _Horizontally_. _Unmerge cells_, in the same submenu, turns each merged cell in the selection back into the single cells it covers, keeping its content in the top-left one; cells that are not merged stay as they are.
+*   _Distribute columns evenly_ splits the combined width of the columns the selection touches equally between them. The other columns and the width of the table stay as they are. It needs a selection spanning at least two columns; a merged cell counts for every column it covers.
+*   _Cut_, _Copy_ and _Copy as Markdown_ act on the selected cells:
     *   Cutting or copying produces a smaller table holding just the selected cells. Pasting it over a cell selection replaces those cells; pasting elsewhere inserts it as a table of its own. Cutting clears the cells without removing rows or columns.
     *   _Copy as Markdown_ converts the selected cells to a Markdown table. A selected header row becomes the Markdown header; without one, an empty header row is emitted, since Markdown tables require one.
+*   _Delete row_ and _Delete column_, below the clipboard section, remove every row or column the selection touches, even when only some of their cells are selected.
+*   _Delete table_ removes the whole table and leaves an empty paragraph in its place. In a table nested inside another, only the inner table is removed.
 
 Right-clicking a cell that is not part of the current selection moves the cursor there first, so the menu always applies to the cell under the pointer.
 
@@ -89,7 +89,7 @@ More options are available by pressing the arrow next to it:
 *   Select _Split cell vertically_ or _horizontally_, to split a cell into multiple cells (can also be used to undo a merge).
 *   Select _Reset merged cells_ to turn each merged cell in the selection back into the single cells it covers, keeping its content in the top-left one.
 
-_Merge selected cells_ and _Reset merged cells_ are available since v0.107.0. Merging and splitting are also available by right-clicking the selected cells, via the [context menu](#context-menu), where _Split cells_ → _Reset_ does the same as _Reset merged cells_.
+_Merge selected cells_ and _Reset merged cells_ are available since v0.107.0. Merging and splitting are also available by right-clicking the selected cells, via the [context menu](#context-menu), where _Split cell_ → _Unmerge cells_ does the same as _Reset merged cells_.
 
 ## Table properties
 

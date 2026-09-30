@@ -7,7 +7,7 @@ import options from "../services/options.js";
 import server from "../services/server.js";
 import utils from "../services/utils.js";
 import contextMenu, { type MenuItem } from "./context_menu.js";
-import { buildTableContextMenuItems, hasTableCellSelection } from "./table_context_menu.js";
+import { buildTableContextMenuSections, hasTableCellSelection } from "./table_context_menu.js";
 import { buildAiActionsMenuItem, getTextEditorAtSelection } from "./text_editor_context_menu.js";
 
 /** What the pointer was over when the menu was summoned. */
@@ -124,12 +124,14 @@ export async function buildNoteContextMenuItems(
     // depend on how the editor answers, and `isEditable` keeps the lookup off every click that
     // lands somewhere a completion could not be committed anyway (a read-only note, the tree).
     const aiActions = target.isEditable ? await buildAiActionsMenuItem() : null;
-    const tableItems = target.isEditable ? await buildTableContextMenuItems(target.element) : null;
+    const tableSections = target.isEditable
+        ? await buildTableContextMenuSections(target.element)
+        : null;
 
-    // Read after the table section is built, which moves the selection into the clicked cell.
+    // Read after the table sections are built, which moves the selection into the clicked cell.
     // A cell selection supersedes `selectionText`: over one, Electron reports the hidden
     // fake-selection label as the selected text, which no row should act on.
-    const hasCellSelection = tableItems !== null && await hasTableCellSelection(target.element);
+    const hasCellSelection = tableSections !== null && await hasTableCellSelection(target.element);
     const hasText = !hasCellSelection && target.selectionText.trim().length > 0;
     const hasClipboardContent = hasText || hasCellSelection;
 
@@ -158,8 +160,8 @@ export async function buildNoteContextMenuItems(
         items.push(aiActions, { kind: "separator" });
     }
 
-    if (tableItems) {
-        items.push(...tableItems, { kind: "separator" });
+    if (tableSections) {
+        items.push(...tableSections.main, { kind: "separator" });
     }
 
     if (target.isEditable) {
@@ -220,6 +222,10 @@ export async function buildNoteContextMenuItems(
             uiIcon: "bx bx-paste",
             handler: runAsPlainText
         });
+    }
+
+    if (tableSections) {
+        items.push({ kind: "separator" }, ...tableSections.delete);
     }
 
     if (hasText) {
