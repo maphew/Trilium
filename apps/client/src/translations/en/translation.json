@@ -4373,7 +4373,7 @@
       "date-time": "Date/time",
       "distribute-columns-evenly": "Distribute columns evenly",
       "merge-selected-cells": "Merge selected cells",
-      "reset-merged-cells": "Reset merged cells"
+      "unmerge-cells": "Unmerge cells"
     },
     "task-state-dropped-title": "Invalid task states",
     "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",

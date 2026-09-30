@@ -87,9 +87,9 @@ More options are available by pressing the arrow next to it:
 *   Click on a single cell and select Merge cell up/down/right/left to merge with an adjacent cell.
 *   Select _Merge selected cells_ to merge the selected cells, the same as pressing the button itself.
 *   Select _Split cell vertically_ or _horizontally_, to split a cell into multiple cells (can also be used to undo a merge).
-*   Select _Reset merged cells_ to turn each merged cell in the selection back into the single cells it covers, keeping its content in the top-left one.
+*   Select _Unmerge cells_ to turn each merged cell in the selection back into the single cells it covers, keeping its content in the top-left one.
 
-_Merge selected cells_ and _Reset merged cells_ are available since v0.107.0. Merging and splitting are also available by right-clicking the selected cells, via the [context menu](#context-menu), where _Split cell_ → _Unmerge cells_ does the same as _Reset merged cells_.
+_Merge selected cells_ and _Unmerge cells_ are available since v0.107.0. Merging and splitting are also available by right-clicking the selected cells, via the [context menu](#context-menu), where _Unmerge cells_ is in the _Split cell_ submenu.
 
 ## Table properties
 

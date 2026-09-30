@@ -50,7 +50,7 @@ describe("TableToolbarDropdowns", () => {
                     ...upstreamMergeItems.slice(0, splitIndex),
                     "mergeTableCells: Merge selected cells",
                     ...upstreamMergeItems.slice(splitIndex),
-                    "triliumResetTableCellSpans: Reset merged cells"
+                    "triliumResetTableCellSpans: Unmerge cells"
                 ]);
             });
         }
@@ -82,15 +82,15 @@ describe("TableToolbarDropdowns", () => {
             const mergeDropdown = getDropdown(editor, "mergeTableCells");
             expect(getItem(columnDropdown, "Distribute columns evenly").isEnabled).toBe(false);
             expect(getItem(mergeDropdown, "Merge selected cells").isEnabled).toBe(false);
-            expect(getItem(mergeDropdown, "Reset merged cells").isEnabled).toBe(false);
+            expect(getItem(mergeDropdown, "Unmerge cells").isEnabled).toBe(false);
 
             selectCells(editor, [0, 0], [0, 1]);
             expect(getItem(columnDropdown, "Distribute columns evenly").isEnabled).toBe(true);
             expect(getItem(mergeDropdown, "Merge selected cells").isEnabled).toBe(true);
-            expect(getItem(mergeDropdown, "Reset merged cells").isEnabled).toBe(false);
+            expect(getItem(mergeDropdown, "Unmerge cells").isEnabled).toBe(false);
 
             editor.execute("mergeTableCells");
-            expect(getItem(mergeDropdown, "Reset merged cells").isEnabled).toBe(true);
+            expect(getItem(mergeDropdown, "Unmerge cells").isEnabled).toBe(true);
         });
 
         it("runs the command of a clicked item and focuses the editing view", () => {
@@ -107,7 +107,7 @@ describe("TableToolbarDropdowns", () => {
             const mergeDropdown = getDropdown(editor, "mergeTableCells");
             clickItem(mergeDropdown, "Merge selected cells");
             expect(execute).toHaveBeenLastCalledWith("mergeTableCells");
-            clickItem(mergeDropdown, "Reset merged cells");
+            clickItem(mergeDropdown, "Unmerge cells");
             expect(execute).toHaveBeenLastCalledWith("triliumResetTableCellSpans");
             expect(mergeDropdown.isOpen).toBe(false);
             expect(focus).toHaveBeenCalledTimes(3);
@@ -133,7 +133,7 @@ describe("TableToolbarDropdowns", () => {
             getElement(splitButton.actionView).click();
             expect(execute).toHaveBeenCalledWith("mergeTableCells");
             expect(dropdown.isOpen).toBe(false);
-            expect(getItem(dropdown, "Reset merged cells").isEnabled).toBe(true);
+            expect(getItem(dropdown, "Unmerge cells").isEnabled).toBe(true);
         });
 
         it("leaves out an item whose command is not registered", () => {

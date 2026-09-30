@@ -23,7 +23,7 @@ import TableContextMenu from "./table_context_menu.js";
 /**
  * Replaces the `tableColumn` and `mergeTableCells` dropdowns of `TableUI` with copies that add
  * commands of the table context menu: "Distribute columns evenly", "Merge selected cells" and
- * "Reset merged cells".
+ * "Unmerge cells".
  *
  * `TableUI` builds its item lists in private methods, so the dropdowns are rebuilt from public
  * helpers and command names instead of patched. The spec compares them with the upstream
@@ -78,7 +78,7 @@ export default class TableToolbarDropdowns extends Plugin {
                 SEPARATOR_ITEM,
                 buttonItem("splitTableCellVertically", t("Split cell vertically")),
                 buttonItem("splitTableCellHorizontally", t("Split cell horizontally")),
-                buttonItem("triliumResetTableCellSpans", t("Reset merged cells"))
+                buttonItem("triliumResetTableCellSpans", t("Unmerge cells"))
             ]
         }));
     }
