@@ -968,7 +968,14 @@
     "sort": "Сортировать",
     "sort_ascending": "По возрастанию",
     "sort_descending": "По убыванию",
-    "select": "Выбрать"
+    "select": "Выбрать",
+    "select_row": "Строку",
+    "select_column": "Столбец",
+    "select_table": "Таблицу",
+    "set_header_row": "Установить как заголовок",
+    "set_header_up_to_row": "Установить заголовок до этой строки",
+    "paste_rows_above": "Вставить строки сверху",
+    "paste_rows_below": "Вставить строки снизу"
   },
   "book_properties_config": {
     "vector_dark": "Векторная (Темная)",
@@ -3803,7 +3810,20 @@
       "math": "Математика",
       "ascending": "По возрастанию",
       "sort": "Сортировать",
-      "descending": "По убыванию"
+      "descending": "По убыванию",
+      "move-row-up": "Переместить строку вверх",
+      "move-row-down": "Переместить строку вниз",
+      "move-column-left": "Переместить столбец влево",
+      "move-column-right": "Переместить столбец вправо",
+      "insert-table": "Вставить таблицу…",
+      "rows": "Строки",
+      "columns": "Столбцы",
+      "enter-a-whole-number-between-1-and-0": "Введите целое число от 1 до %0.",
+      "the-table-is-too-large-max-0-cells": "Таблица слишком большая (макс. %0 ячеек).",
+      "distribute-columns-evenly": "Равномерно распределить столбцы",
+      "merge-selected-cells": "Объединить выделенные ячейки",
+      "unmerge-cells": "Разъединить ячейки",
+      "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "Несколько строк были отсортированы вместе, потому что объединенные ячейки связывают их друг с другом"
     },
     "task-state-dropped-title": "Недопустимые состояния задачи",
     "task-state-dropped-configure": "Настроить состояния задач",
@@ -4549,5 +4569,8 @@
     "image": "Изображение",
     "pdf": "PDF-файл",
     "open_original": "Открыть оригинал в новой вкладке"
+  },
+  "split_button": {
+    "more_actions": "Другие действия"
   }
 }
