@@ -100,7 +100,8 @@ src="3_Tables_image.png" width="384" height="100">
   <li>Columns can be resized by hovering the mouse over the border of two adjacent
     cells and dragging it.</li>
   <li>To give several columns the same width, select cells across them and choose <em>Distribute columns evenly</em> from
-    the <a href="#context-menu">context menu</a>.</li>
+    the <span class="tn-icon cke cke-table-column"></span> button of the formatting
+    toolbar or from the <a href="#context-menu">context menu</a>.</li>
   <li>By default, the row height is not adjustable using the mouse, but it can
     be configured from the cell settings (see below).</li>
   <li>To adjust exactly the width (in pixels or percentages) of a cell, select
@@ -147,12 +148,18 @@ src="3_Tables_image.png" width="384" height="100">
 <ul>
   <li>Click on a single cell and select Merge cell up/down/right/left to merge
     with an adjacent cell.</li>
+  <li>Select <em>Merge selected cells</em> to merge the selected cells, the same
+    as pressing the button itself.</li>
   <li>Select <em>Split cell vertically</em> or <em>horizontally</em>, to split
     a cell into multiple cells (can also be used to undo a merge).</li>
+  <li>Select <em>Reset merged cells</em> to turn each merged cell in the selection
+    back into the single cells it covers, keeping its content in the top-left
+    one.</li>
 </ul>
-<p>Merging and splitting are also available by right-clicking the selected
-  cells, via the <a href="#context-menu">context menu</a>. To undo merges
-  entirely, use <em>Split cells</em> → <em>Reset</em> from the same menu.</p>
+<p><em>Merge selected cells</em> and <em>Reset merged cells</em> are available
+  since v0.107.0. Merging and splitting are also available by right-clicking
+  the selected cells, via the <a href="#context-menu">context menu</a>, where <em>Split cells</em> → <em>Reset</em> does
+  the same as <em>Reset merged cells</em>.</p>
 <h2>Table properties</h2>
 <figure class="image image-style-align-right">
   <img style="aspect-ratio:312/311;" src="Tables_image.png" width="312"

@@ -60,6 +60,7 @@ import TableIndent from "./plugins/table_indent.js";
 import TableContextMenu from "./plugins/table_context_menu.js";
 import TableMove from "./plugins/table_move/table_move.js";
 import TableInsertUI from "./plugins/table_insert/table_insert_ui.js";
+import TableToolbarDropdowns from "./plugins/table_toolbar_dropdowns.js";
 import ToolbarGroupMenu from "./plugins/toolbar_group_menu.js";
 
 /**
@@ -99,6 +100,7 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     TableContextMenu,
     TableMove,
     TableInsertUI,
+    TableToolbarDropdowns,
     ToolbarGroupMenu,
     CopyAnchorLinkButton,
     CopyLinkUrlButton,

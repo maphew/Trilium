@@ -54,7 +54,7 @@ Right-clicking a cell that is not part of the current selection moves the cursor
 ## Resizing cells
 
 *   Columns can be resized by hovering the mouse over the border of two adjacent cells and dragging it.
-*   To give several columns the same width, select cells across them and choose _Distribute columns evenly_ from the [context menu](#context-menu).
+*   To give several columns the same width, select cells across them and choose _Distribute columns evenly_ from the <span class="tn-icon cke cke-table-column"></span> button of the formatting toolbar or from the [context menu](#context-menu).
 *   By default, the row height is not adjustable using the mouse, but it can be configured from the cell settings (see below).
 *   To adjust exactly the width (in pixels or percentages) of a cell, select the <span class="tn-icon cke cke-table-cell-properties"></span> button.
 
@@ -85,9 +85,11 @@ To merge two or more cells together, simply select them via drag & drop and pres
 More options are available by pressing the arrow next to it:
 
 *   Click on a single cell and select Merge cell up/down/right/left to merge with an adjacent cell.
+*   Select _Merge selected cells_ to merge the selected cells, the same as pressing the button itself.
 *   Select _Split cell vertically_ or _horizontally_, to split a cell into multiple cells (can also be used to undo a merge).
+*   Select _Reset merged cells_ to turn each merged cell in the selection back into the single cells it covers, keeping its content in the top-left one.
 
-Merging and splitting are also available by right-clicking the selected cells, via the [context menu](#context-menu). To undo merges entirely, use _Split cells_ → _Reset_ from the same menu.
+_Merge selected cells_ and _Reset merged cells_ are available since v0.107.0. Merging and splitting are also available by right-clicking the selected cells, via the [context menu](#context-menu), where _Split cells_ → _Reset_ does the same as _Reset merged cells_.
 
 ## Table properties
 
