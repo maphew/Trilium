@@ -53,6 +53,12 @@ export function buildTableMenuSections(
     ];
     const unmergeItem = commandItem(t("table_context_menu.split_reset"), "bx bx-reset",
         "triliumResetTableCellSpans");
+    const sortItems = [
+        commandItem(t("table_context_menu.sort_ascending"), "bx bx-sort-a-z",
+            "triliumSortTableRowsAscending"),
+        commandItem(t("table_context_menu.sort_descending"), "bx bx-sort-z-a",
+            "triliumSortTableRowsDescending")
+    ];
 
     return {
         main: [
@@ -77,6 +83,12 @@ export function buildTableMenuSections(
             commandItem(t("table_context_menu.distribute_columns"), "bx bx-move-horizontal",
                 "triliumDistributeTableColumns")
         ],
+        sort: {
+            title: t("table_context_menu.sort"),
+            uiIcon: "bx bx-sort",
+            enabled: sortItems.some((item) => item.enabled),
+            items: sortItems
+        },
         delete: [
             commandItem(t("table_context_menu.delete_rows"), "bx bx-trash", "removeTableRow"),
             commandItem(t("table_context_menu.delete_columns"), "bx bx-trash",
@@ -93,6 +105,8 @@ export interface TableMenuSections {
      * and equal widths for the spanned columns. Shown above the clipboard.
      */
     main: MenuItem<CommandNames>[];
+    /** Sorting of the rows by the column of the selection. Shown above the deletion rows. */
+    sort: MenuItem<CommandNames>;
     /** Deletion of the spanned rows or columns, or of the table. Shown below the clipboard. */
     delete: MenuItem<CommandNames>[];
 }

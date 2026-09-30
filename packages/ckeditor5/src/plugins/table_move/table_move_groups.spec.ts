@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
 import { modelTable } from "../../../test/table-kit.js";
-import { adjustedHeadingCount, planGroupMove } from "./table_move_groups.js";
+import { adjustedHeadingCount, planGroupMove, splitIntoGroups } from "./table_move_groups.js";
 
 describe("planGroupMove", () => {
     let editor: ClassicEditor;
@@ -139,5 +139,52 @@ describe("adjustedHeadingCount", () => {
 
         const up = { source: { first: 1, last: 2 }, target: { first: 0, last: 0 } };
         expect(adjustedHeadingCount(1, up, false)).toBe(3);
+    });
+});
+
+describe("splitIntoGroups", () => {
+    let editor: ClassicEditor;
+
+    beforeEach(async () => {
+        editor = await createTestEditor([Essentials, Paragraph, Table]);
+    });
+
+    function getTable(markup: string): ModelElement {
+        setModelData(editor.model, markup);
+        const table = editor.model.document.getRoot()?.getChild(0);
+        if (!table?.is("element", "table")) {
+            throw new Error("Fixture did not produce a table.");
+        }
+        return table;
+    }
+
+    it("puts every row of a table without merged cells in a group of its own", () => {
+        const table = getTable(modelTable([["a"], ["b"], ["c"]]));
+        expect(splitIntoGroups(table, "row", { first: 0, last: 2 }))
+            .toEqual([{ first: 0, last: 0 }, { first: 1, last: 1 }, { first: 2, last: 2 }]);
+        expect(splitIntoGroups(table, "row", { first: 1, last: 1 }))
+            .toEqual([{ first: 1, last: 1 }]);
+    });
+
+    it("keeps the rows of a merged cell together and widens the range to them", () => {
+        const table = getTable(modelTable([
+            [{ contents: "a", rowspan: 2 }, "b"],
+            ["c"],
+            ["d", "e"]
+        ]));
+        const expected = [{ first: 0, last: 1 }, { first: 2, last: 2 }];
+        expect(splitIntoGroups(table, "row", { first: 0, last: 2 })).toEqual(expected);
+        expect(splitIntoGroups(table, "row", { first: 1, last: 2 })).toEqual(expected);
+        expect(splitIntoGroups(table, "row", { first: 2, last: 2 }))
+            .toEqual([{ first: 2, last: 2 }]);
+    });
+
+    it("groups columns the same way", () => {
+        const table = getTable(modelTable([
+            [{ contents: "a", colspan: 2 }, "b"],
+            ["c", "d", "e"]
+        ]));
+        expect(splitIntoGroups(table, "column", { first: 0, last: 2 }))
+            .toEqual([{ first: 0, last: 1 }, { first: 2, last: 2 }]);
     });
 });

@@ -222,6 +222,7 @@ describe("buildNoteContextMenuItems", () => {
         const cell = document.createElement("td");
         vi.mocked(buildTableContextMenuSections).mockResolvedValueOnce({
             main: [ { title: "T1" }, { kind: "separator" }, { title: "T2" } ],
+            sort: { title: "S" },
             delete: [ { title: "D1" }, { title: "D2" } ]
         } as TableMenuSections);
         const host = browserLikeHost({
@@ -241,6 +242,8 @@ describe("buildNoteContextMenuItems", () => {
             "electron_context_menu.copy-as-markdown",
             "electron_context_menu.paste",
             "electron_context_menu.paste-as-plain-text",
+            "---",
+            "S",
             "---",
             "D1",
             "D2",
@@ -274,6 +277,7 @@ describe("buildNoteContextMenuItems", () => {
         const cell = document.createElement("td");
         vi.mocked(buildTableContextMenuSections).mockResolvedValue({
             main: [ { title: "T1" } ],
+            sort: { title: "S" },
             delete: []
         } as TableMenuSections);
 
@@ -297,6 +301,7 @@ describe("buildNoteContextMenuItems", () => {
         const cell = document.createElement("td");
         vi.mocked(buildTableContextMenuSections).mockResolvedValueOnce({
             main: [ { title: "T1" } ],
+            sort: { title: "S" },
             delete: []
         } as TableMenuSections);
         vi.mocked(hasTableCellSelection).mockResolvedValueOnce(true);
@@ -387,6 +392,7 @@ describe("setupContextMenu (browser)", () => {
         setSelection(null, "", "");
         vi.mocked(buildTableContextMenuSections).mockResolvedValueOnce({
             main: [ { title: "table_context_menu.merge_cells" } ],
+            sort: { title: "S" },
             delete: []
         } as TableMenuSections);
 

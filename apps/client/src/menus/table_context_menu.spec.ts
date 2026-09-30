@@ -26,6 +26,11 @@ const MAIN_TITLES = [
     "table_context_menu.distribute_columns"
 ];
 
+const SORT_TITLES = [
+    "table_context_menu.sort_ascending",
+    "table_context_menu.sort_descending"
+];
+
 const DELETE_TITLES = [
     "table_context_menu.delete_rows",
     "table_context_menu.delete_columns",
@@ -42,6 +47,8 @@ describe("buildTableMenuSections", () => {
         expect(syncSelectionToDomTarget).toHaveBeenCalledWith(element);
         expect(titles(sections?.main ?? [])).toEqual(MAIN_TITLES);
         expect(titles(sections?.delete ?? [])).toEqual(DELETE_TITLES);
+        expect(titles(sections ? [sections.sort] : [])).toEqual(["table_context_menu.sort"]);
+        expect(titles(sortSubmenu(sections))).toEqual(SORT_TITLES);
 
         const splitRow = findItem(sections?.main ?? [], "table_context_menu.split_cells");
         const submenu = splitRow?.items ?? [];
@@ -55,7 +62,8 @@ describe("buildTableMenuSections", () => {
 
     it("executes the mapped command and refocuses the editor", () => {
         const { editor, executed, focus } = stubEditor();
-        const items = allItems(buildTableMenuSections(editor, cellElement()));
+        const sections = buildTableMenuSections(editor, cellElement());
+        const items = allItems(sections);
         const submenu = findItem(items, "table_context_menu.split_cells")?.items ?? [];
 
         for (const title of titles(items).filter((t) => t !== "---")) {
@@ -64,6 +72,9 @@ describe("buildTableMenuSections", () => {
         run(submenu, "table_context_menu.split_vertically");
         run(submenu, "table_context_menu.split_horizontally");
         run(submenu, "table_context_menu.split_reset");
+        for (const title of SORT_TITLES) {
+            run(sortSubmenu(sections), title);
+        }
 
         expect(executed).toEqual([
             "triliumInsertTableRowsAbove",
@@ -77,7 +88,9 @@ describe("buildTableMenuSections", () => {
             "triliumDeleteTable",
             "splitTableCellVertically",
             "splitTableCellHorizontally",
-            "triliumResetTableCellSpans"
+            "triliumResetTableCellSpans",
+            "triliumSortTableRowsAscending",
+            "triliumSortTableRowsDescending"
         ]);
         expect(focus).toHaveBeenCalledTimes(executed.length);
     });
@@ -116,6 +129,24 @@ describe("buildTableMenuSections", () => {
             expect(splitRow(disabled), enabled).toBe(true);
         }
         expect(splitRow(SPLIT_COMMANDS)).toBe(false);
+    });
+
+    it("enables the sort submenu while either direction is enabled", () => {
+        const SORT_COMMANDS = ["triliumSortTableRowsAscending", "triliumSortTableRowsDescending"];
+        const sortRow = (disabled: string[]) => {
+            const { editor } = stubEditor(disabled);
+            const sections = buildTableMenuSections(editor, cellElement());
+            return (sections?.sort as MenuCommandItem<any> | undefined)?.enabled;
+        };
+
+        expect(sortRow([])).toBe(true);
+        expect(sortRow([SORT_COMMANDS[0]])).toBe(true);
+        expect(sortRow(SORT_COMMANDS)).toBe(false);
+
+        const { editor } = stubEditor([SORT_COMMANDS[1]]);
+        const submenu = sortSubmenu(buildTableMenuSections(editor, cellElement()));
+        expect(findItem(submenu, SORT_TITLES[0])?.enabled).toBe(true);
+        expect(findItem(submenu, SORT_TITLES[1])?.enabled).toBe(false);
     });
 
     it("returns null without the plugin or a table cell at the target", () => {
@@ -231,6 +262,10 @@ function cellElement(): Element {
 /** Both sections as one list, main first. */
 function allItems(sections: TableMenuSections | null) {
     return [...(sections?.main ?? []), ...(sections?.delete ?? [])];
+}
+
+function sortSubmenu(sections: TableMenuSections | null): MenuItem<any>[] {
+    return (sections?.sort as MenuCommandItem<any> | undefined)?.items ?? [];
 }
 
 /** The titles of `items`, with separators rendered as "---" so ordering stays readable. */

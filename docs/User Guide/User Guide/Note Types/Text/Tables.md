@@ -31,7 +31,8 @@ Since v0.106.0, right-clicking anywhere inside a table opens a context menu with
 *   _Cut_, _Copy_ and _Copy as Markdown_ act on the selected cells:
     *   Cutting or copying produces a smaller table holding just the selected cells. Pasting it over a cell selection replaces those cells; pasting elsewhere inserts it as a table of its own. Cutting clears the cells without removing rows or columns.
     *   _Copy as Markdown_ converts the selected cells to a Markdown table. A selected header row becomes the Markdown header; without one, an empty header row is emitted, since Markdown tables require one.
-*   _Delete row_ and _Delete column_, below the clipboard section, remove every row or column the selection touches, even when only some of their cells are selected.
+*   _Sort_, below the clipboard section, sorts the rows by the column of the current cell, in _Ascending_ or _Descending_ order. See [Sorting rows](#sorting-rows).
+*   _Delete row_ and _Delete column_, below _Sort_, remove every row or column the selection touches, even when only some of their cells are selected.
 *   _Delete table_ removes the whole table and leaves an empty paragraph in its place. In a table nested inside another, only the inner table is removed.
 
 Right-clicking a cell that is not part of the current selection moves the cursor there first, so the menu always applies to the cell under the pointer.
@@ -77,6 +78,40 @@ Merged cells are never split by a move. The rows or columns held together by a m
 When the table has a header row, a header row moved below the header area becomes a regular row, and a regular row moved into the header area becomes a header row. Header columns behave the same way.
 
 Outside of tables, <kbd>Alt</kbd>+<kbd>Left</kbd> and <kbd>Alt</kbd>+<kbd>Right</kbd> keep navigating the note history, and <kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd> keep moving the current paragraph.
+
+## Sorting rows
+
+Since v0.107.0, the rows of a table can be sorted by the values of one column:
+
+*   To sort all the rows, place the cursor in any cell of the column to sort by, then select _Sort_ → _Ascending_ or _Descending_ from the [context menu](#context-menu). The same items are in the <span class="tn-icon bx bx-sort"></span> button of the formatting toolbar.
+*   To sort only some of the rows, select their cells in the column to sort by, then sort the same way. Sorting is not available while the selection spans more than one column.
+
+Header rows always stay at the top of the table and are never sorted. A sort can be undone with <kbd>Ctrl</kbd>+<kbd>Z</kbd>.
+
+### How values are compared
+
+Each cell is read as plain text, so formatting does not affect the order. Trilium then detects what kind of value the cell holds:
+
+| Kind | Examples | Compared by |
+| --- | --- | --- |
+| Time | `15:02`, `15:02:38`, `3:02 PM` | The time of day. |
+| Date | `2026-09-30`, `2026-09-30 15:02`, `30 September 2026`, `Wednesday, 30 September 2026`, `2026-09-30T15:02:38+03:00` | The date and time. |
+| Number | `12`, `-3.5`, `1,234.56`, `$ 12.04`, `21 RON`, `24.5m` | The numeric value. |
+| Text | Anything else. | Alphabetically, with numbers inside the text in numeric order (`Item 9` before `Item 10`). |
+| Empty | An empty cell, or one holding only spaces. | Not compared. Empty cells always go last. |
+
+Ascending order puts times first, then dates, numbers and text. Descending order reverses it. Empty cells go last in both directions, and rows with equal values keep their relative order.
+
+*   Dates are also recognized in the formats of the note's language, such as `30.09.2026` or `30. September 2026` for German, and in the format chosen in <a class="reference-link" href="../../Basic%20Concepts%20and%20Features/UI%20Elements/Options.md">Options</a> → _Text Notes_ → _Editor_ → _Date/time format_ for [inserting the date and time](Insert%20buttons.md).
+*   A number can start with a currency symbol, such as `$`, `€` or `£`. Whatever follows the number, such as a unit, is ignored, so units are not converted: `1 km` sorts before `500 m`. A cell that starts with letters, such as `RON 21`, is text.
+*   The decimal separator follows the language of the note: `1.500` is one and a half in English, but one thousand five hundred in German. A comma or period that is not followed by exactly three digits is always read as a decimal separator, so `1,5` is one and a half in either language.
+*   The language of the note is the one set in its Basic Properties, or else the default content language. See <a class="reference-link" href="Content%20language%20%26%20Right-to-left%20support.md">Content language &amp; Right-to-left support</a>.
+
+### Merged cells
+
+Rows joined by a merged cell are kept together and move as one block. The block is sorted by the value in its first row. When the block has more than one cell in the sorted column, the other cells do not affect the order, and a message says so: _Some rows were sorted together because merged cells tie them to each other_.
+
+When the selection covers only part of such a block, the whole block is sorted.
 
 ## Merging cells
 
