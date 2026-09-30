@@ -5,7 +5,7 @@ import type { KeyboardActionNames } from "@triliumnext/commons";
 import { Dropdown as BootstrapDropdown, Tooltip } from "bootstrap";
 import clsx from "clsx";
 import { ComponentChildren, RefObject } from "preact";
-import { createPortal, type CSSProperties, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/compat";
+import { createPortal, type CSSProperties, useContext, useEffect, useLayoutEffect, useMemo, useRef } from "preact/compat";
 
 import { getActionSync } from "../../services/keyboard_actions";
 import { handleRightToLeftPlacement, isMobile, openInAppHelpFromUrl } from "../../services/utils";
@@ -365,13 +365,14 @@ export interface FormDropdownSubmenuProps {
 }
 
 /**
- * A row that opens its children as a submenu. Inside a `Menu` the submenu is a layer of its own
- * beside the row, which a scrolling menu neither clips nor scrolls away; elsewhere, as in a
- * dropdown, it is a list nested in the row, shown on hover.
+ * A row that opens its children as a submenu, in a layer of its own beside the row, which a
+ * scrolling menu neither clips nor scrolls away. Outside a `Menu`, which only a script can render,
+ * its title heads its children in the list.
  */
 export function FormDropdownSubmenu(props: FormDropdownSubmenuProps) {
     const menu = useContext(MenuContext);
-    return menu ? <MenuSubmenu {...props} menu={menu} /> : <NestedSubmenu {...props} />;
+    if (!menu) return <><FormListHeader text={props.title} />{props.children}</>;
+    return <MenuSubmenu {...props} menu={menu} />;
 }
 
 function MenuSubmenu({ menu, icon, title, children, onDropdownToggleClicked, columns, disabled, className }: FormDropdownSubmenuProps & { menu: MenuContextValue }) {
@@ -451,36 +452,6 @@ function MenuSubmenu({ menu, icon, title, children, onDropdownToggleClicked, col
                 : open && openSubmenu && menu.layerHost && createPortal((
                     <SubmenuLayer level={level + 1} submenu={openSubmenu} columns={columns}>{children}</SubmenuLayer>
                 ), menu.layerHost)}
-        </li>
-    );
-}
-
-function NestedSubmenu({ icon, title, children, dropStart, onDropdownToggleClicked, disabled, className }: FormDropdownSubmenuProps) {
-    const [ openOnMobile, setOpenOnMobile ] = useState(false);
-
-    return (
-        <li className={clsx("dropdown-item dropdown-submenu", { "submenu-open": openOnMobile, "dropstart": dropStart },
-            disabled && "disabled", className)}>
-            <span
-                className="dropdown-toggle"
-                onClick={(e) => {
-                    e.stopPropagation();
-
-                    if (isMobile()) {
-                        setOpenOnMobile(!openOnMobile);
-                    } else if (onDropdownToggleClicked) {
-                        onDropdownToggleClicked(e);
-                    }
-                }}
-            >
-                <Icon icon={icon} />
-                <span className="tn-menu-gap" />
-                {title}
-            </span>
-
-            <ul className={`dropdown-menu ${openOnMobile ? "show" : ""}`}>
-                {children}
-            </ul>
         </li>
     );
 }

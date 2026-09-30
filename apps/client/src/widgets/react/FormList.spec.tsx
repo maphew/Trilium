@@ -8,7 +8,7 @@ vi.mock("bootstrap", () => ({
     Tooltip: class { static getInstance() { return null; } }
 }));
 
-import FormList, { FormDropdownDivider, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
+import FormList, { FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
 
 describe("FormDropdownDivider", () => {
     it("draws a separator among the rows, whose click closes no menu", () => {
@@ -135,6 +135,20 @@ describe("FormListCustomItem", () => {
         // Its content carries the roles of what it acts with.
         expect(row?.getAttribute("role")).toBe("none");
         expect(row?.querySelector("button.swatch")).not.toBeNull();
+    });
+});
+
+describe("FormDropdownSubmenu", () => {
+    it("heads its rows with its title outside any menu, where there is no layer to open", () => {
+        const host = document.createElement("div");
+        render(<menu><FormDropdownSubmenu icon="bx bx-chip" title="Advanced">
+            <FormListItem>Reload</FormListItem>
+        </FormDropdownSubmenu></menu>, host);
+        const rows = [ ...host.querySelectorAll("menu > li") ];
+
+        expect(rows.map((row) => row.textContent)).toEqual([ "Advanced", "Reload" ]);
+        expect(rows[0]?.querySelector("h6.dropdown-header")).not.toBeNull();
+        expect(host.querySelector(".dropdown-submenu")).toBeNull();
     });
 });
 

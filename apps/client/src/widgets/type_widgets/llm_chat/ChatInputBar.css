@@ -307,12 +307,6 @@
     overflow: auto;
 }
 
-/* Position legacy models submenu to open upward */
-.llm-chat-model-dropdown .dropdown-submenu .dropdown-menu {
-    bottom: 0;
-    top: auto;
-}
-
 /*
  * The model picker stays the theme's own combo box (`.select-button.dropdown-toggle.btn`
  * — its fill, its 6px radius, its caret, its focus outline), so it reads as the same

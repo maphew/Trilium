@@ -120,8 +120,7 @@ export function DropdownPanel({ scrollable, ...props }: DropdownPanelProps) {
             popup={({ popupProps, className, bottomSheet, startAt, dismiss }) => (
                 <PanelPopup
                     {...popupProps}
-                    // Otherwise it grows with its content, as Bootstrap's dropdowns did: a
-                    // `FormDropdownSubmenu` nested in it would be clipped by one that scrolls.
+                    // Otherwise it grows with its content, as Bootstrap's dropdowns did.
                     capHeight={!!scrollable}
                     placedByStylesheet={bottomSheet}
                     className={clsx("dropdown-menu show", className, bottomSheet && "mobile-bottom-menu")}
