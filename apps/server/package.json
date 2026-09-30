@@ -21,12 +21,8 @@
     "circular-deps": "dpdm -T src/**/*.ts --tree=false --warning=false --skip-dynamic-imports=circular",
     "docker-build-debian": "pnpm build && docker build . -t triliumnext-debian -f Dockerfile",
     "docker-build-alpine": "pnpm build && docker build . -t triliumnext-alpine -f Dockerfile.alpine",
-    "docker-build-rootless-debian": "pnpm build && docker build . -t triliumnext-rootless-debian -f Dockerfile.rootless",
-    "docker-build-rootless-alpine": "pnpm build && docker build . -t triliumnext-rootless-alpine -f Dockerfile.alpine.rootless",
     "docker-start-debian": "pnpm docker-build-debian && docker run -p 8081:8080 triliumnext-debian",
     "docker-start-alpine": "pnpm docker-build-alpine && docker run -p 8081:8080 triliumnext-alpine",
-    "docker-start-rootless-debian": "pnpm docker-build-rootless-debian && docker run -p 8081:8080 triliumnext-rootless-debian",
-    "docker-start-rootless-alpine": "pnpm docker-build-rootless-alpine && docker run -p 8081:8080 triliumnext-rootless-alpine",
     "generate-document": "cross-env TRILIUM_ENV=dev TRILIUM_DATA_DIR=data TRILIUM_RESOURCE_DIR=src tsx ./scripts/generate_document.ts",
     "proxy-traefik": "docker run --name trilium-traefik --rm --network=host -v ./docker/traefik/traefik.yml:/etc/traefik/traefik.yml:ro -v ./docker/traefik/dynamic:/etc/traefik/dynamic traefik:latest",
     "proxy-nginx-subdir": "docker run --name trilium-nginx-subdir --rm -p 8095:8095 --add-host=host.docker.internal:host-gateway -v ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro nginx:latest"

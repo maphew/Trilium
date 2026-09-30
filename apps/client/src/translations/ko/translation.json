@@ -563,7 +563,7 @@
     "text": "텍스트",
     "textarea": "여러 줄 텍스트",
     "number": "숫자",
-    "boolean": "불리언",
+    "boolean": "체크박스",
     "date": "날짜",
     "date_time": "날짜 및 시간",
     "time": "시간",
@@ -1408,7 +1408,9 @@
     "label_name": "라벨: {{name}}",
     "relation_name": "관계: {{name}}",
     "drawn_by_collection": "컬렉션이 이 속성을 기준으로 구성되므로 항목에는 이 속성이 반복해서 표시되지 않습니다",
-    "display_on_items": "컬렉션 항목에 속성 표시"
+    "display_on_items": "컬렉션 항목에 속성 표시",
+    "conflicting": "여러 정의",
+    "conflicting_tooltip": "항목마다 이 속성을 서로 다른 방식으로 정의하고 있어 텍스트로 정렬되며, 항목 메뉴에서는 값을 설정할 수 없습니다."
   },
   "script_executor": {
     "query": "쿼리",
@@ -4024,8 +4026,6 @@
       "insert-a-table": "표를 삽입합니다.",
       "insert-date-time": "날짜/시간 삽입",
       "insert-footnote-0": "각주 %0 삽입",
-      "insert-math": "수식 삽입",
-      "insert-mermaid-diagram": "Mermaid 다이어그램 삽입",
       "insert-mermaid-source-code": "Mermaid 소스 코드 삽입",
       "insert-paragraph-after-code-block": "코드 블록 뒤에 문단 삽입",
       "insert-paragraph-before-code-block": "코드 블록 앞에 문단 삽입",
@@ -4086,7 +4086,6 @@
       "working": "처리 중…",
       "upload-image": "이미지 업로드",
       "upload-an-image-from-your-device": "기기에서 이미지를 업로드하세요.",
-      "insert-icon": "아이콘 삽입",
       "icon": "아이콘",
       "insert-an-icon-from-an-installed-icon-pack": "설치된 아이콘 팩에서 아이콘 삽입",
       "transform-icon": "아이콘 변형",

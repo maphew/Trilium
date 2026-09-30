@@ -516,7 +516,7 @@
     "label_type": "Тип",
     "text": "Текст",
     "number": "Число",
-    "boolean": "Булево",
+    "boolean": "Галочка",
     "date": "Дата",
     "time": "Время",
     "url": "URL",
@@ -1658,7 +1658,9 @@
     "label_name": "Метка: {{name}}",
     "relation_name": "Отношение: {{name}}",
     "display_on_items": "Отображать атрибут на элементах коллекции",
-    "drawn_by_collection": "Коллекция упорядочена по нему, чтобы они не повторялись"
+    "drawn_by_collection": "Коллекция упорядочена по нему, чтобы они не повторялись",
+    "conflicting_tooltip": "Элементы определяют этот атрибут несколькими способами, поэтому он сортируется как текст и не может быть задан через меню элемента.",
+    "conflicting": "Несколько определений"
   },
   "script_executor": {
     "query": "Запрос",
@@ -3714,8 +3716,6 @@
       "insert-an-empty-mermaid-diagram": "Вставить пустую диаграмму Mermaid",
       "insert-date-time": "Вставить дату/время",
       "insert-footnote-0": "Вставить сноску %0",
-      "insert-math": "Вставить математику",
-      "insert-mermaid-diagram": "Вставить диаграмму Mermaid",
       "insert-mermaid-source-code": "Вставить исходный код Mermaid",
       "insert-paragraph-after-code-block": "Вставить параграф после блока кода",
       "insert-paragraph-before-code-block": "Вставить параграф перед блоком кода",
@@ -3769,7 +3769,6 @@
       "include-note-widget": "виджет включения заметки",
       "link-embed-widget": "виджет встраивания ссылки",
       "link-mention-widget": "виджет упоминания ссылки",
-      "insert-icon": "Вставить иконку",
       "icon": "Иконка",
       "insert-an-icon-from-an-installed-icon-pack": "Вставить иконку из установленного набора иконок",
       "transform-icon": "Трансформировать иконку",

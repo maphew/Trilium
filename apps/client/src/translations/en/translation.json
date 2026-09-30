@@ -4284,8 +4284,6 @@
       "insert-date-time": "Insert date/time",
       "insert-date-time-0": "Insert date/time: %0",
       "insert-footnote-0": "Insert footnote %0",
-      "insert-math": "Insert math",
-      "insert-mermaid-diagram": "Insert Mermaid diagram",
       "insert-mermaid-source-code": "Insert Mermaid source code",
       "insert-paragraph-after-code-block": "Insert paragraph after code block",
       "insert-paragraph-before-code-block": "Insert paragraph before code block",
@@ -4351,7 +4349,6 @@
       "upload-image": "Upload image",
       "warning": "Warning",
       "working": "Working…",
-      "insert-icon": "Insert icon",
       "icon": "Icon",
       "insert-an-icon-from-an-installed-icon-pack": "Insert an icon from an installed icon pack",
       "transform-icon": "Transform icon",
@@ -4371,7 +4368,9 @@
       "rows": "Rows",
       "columns": "Columns",
       "enter-a-whole-number-between-1-and-0": "Enter a whole number between 1 and %0.",
-      "the-table-is-too-large-max-0-cells": "The table is too large (max %0 cells)."
+      "the-table-is-too-large-max-0-cells": "The table is too large (max %0 cells).",
+      "math": "Math",
+      "date-time": "Date/time"
     },
     "task-state-dropped-title": "Invalid task states",
     "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",
