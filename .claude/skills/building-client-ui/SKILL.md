@@ -68,7 +68,7 @@ Form controls:
 
 Buttons and links:
 
-- `Button` — the general button (also carries the tooltip for a *disabled* control via a wrapper, since a disabled `<button>` emits no pointer events). `ActionButton` — icon button with consistent styling.
+- `Button` — the general button (also carries the tooltip for a *disabled* control via a wrapper, since a disabled `<button>` emits no pointer events). `ActionButton` — icon button with consistent styling. `SplitButton` — a button with its related actions in a `Dropdown` menu on a toggle beside it; its rows are `FormListItem`s.
 - `HelpButton`, `HelpTooltipButton`, `HelpDropdown` — open in-app help pages; don't invent a new "?" affordance.
 - `KeyboardShortcut` — renders a shortcut as keycaps.
 
@@ -93,7 +93,7 @@ Display and layout:
 - `Alert`, `InfoBar`, `Admonition`, `ContentErrorMessage`, `RenderErrorCard` — inline notices and error surfaces of increasing weight.
 - `Card` — a titled group of sections (filter-aware under `FilterProvider`). `Collapsible` — animated, theme-styled expandable section with self-managed `initiallyExpanded`; `ExternallyControlledCollapsible` is the controlled variant (caller owns `expanded`/`setExpanded`).
 - `TabStrip` — a row of icon-only tabs named by tooltips, heading a panel divided into groups.
-- `Modal`, `WizardModal` — dialogs; `Popover` — a small surface anchored beside something (portaled to the body, so no scroll container clips it).
+- `Modal`, `WizardModal` — dialogs; `Popover` — a card anchored beside something, with an arrow pointing at it, as the calendar's event card (portaled to the body and placed by `placeFloating()`, so no scroll container clips it).
 - `LoadingSpinner`, `LazyComponent`, `Icon`, `MaskedIcon`, `NoteList`, `SiblingNavigator`, `ImageViewer`, `CodeBlock`, `charts/DonutChart`, `charts/Treemap`.
 
 Data grids and calendars (outside `widgets/react/`, but equally generic):
@@ -116,6 +116,21 @@ Both kinds of dropdown share a toggle and open in a `Popup` portaled onto `<body
 - **`DropdownPanel`** opens anything else: a picker, a form, a list of links, help text. Its fields keep their keys; Up and Down only move between `.dropdown-item`s. Its blur, like a menu's, is on its `::before`, so its own frame must never scroll: for content that can outgrow the screen, pass **`scrollable`**, which caps the panel to the room it has and scrolls the content inside it.
 
 A wrong pick fails quietly: a form in a `Dropdown` loses Up, Down, Tab and Escape to the menu, and a list of rows in a `DropdownPanel` gets none of the menu's keys. On a phone, pass `mobileBottomSheet` to open either as a sheet from the bottom of the screen over a dimmed page.
+
+Rules for both:
+
+- **Placement and closing are props of their own**: `placement` takes Floating UI's names (`"top"`, `"bottom-end"`, …) and flips near the viewport's edge; `autoClose` is `true`, `"inside"`, `"outside"` or `false`. There is no Bootstrap or Popper config to pass.
+- **A bottom sheet is only ever `mobileBottomSheet`.** Never put `mobile-bottom-menu` in `dropdownContainerClassName`: the stylesheet then pins the popup to the bottom while Floating UI still places it beside its toggle, and Floating UI's inline `max-height` caps the sheet to the room the toggle had. `mobileBottomSheet` also dims the page, so it needs no `mobileBackdrop`.
+- **`dropdownRef` holds a `DropdownHandle`** (`show`, `hide`, `toggle`), exported from `Dropdown.tsx`. Type the ref with it, never with Bootstrap's `Dropdown`, which compiles but promises methods the handle doesn't have.
+- **Submenus**: `FormDropdownSubmenu` opens a submenu only inside a `Dropdown` menu (elsewhere, its title is rendered as a header above its rows). Which side a submenu opens on, and which way its row's arrow points, is detected from the room around the menu; there is no prop for it.
+- **Style a popup by its own classes.** It lives in `<body>`, inside a `.tn-dropdown-portal` wrapper that carries the dropdown's `className`, so a rule scoped under the toggle's ancestors (`.status-bar .dropdown-menu`) never matches it. Use `dropdownContainerClassName` with top-level rules. Its z-index (1200, over dialogs) is set in `Popup.css`; `--bs-dropdown-zindex` doesn't reach it.
+
+Other floating surfaces:
+
+- **Position with `placeFloating()`** from `Popup.tsx`, under Floating UI's `autoUpdate()`, as `Popup`, submenu layers and `Popover` do. Its `arrow` option places a pointer element. Don't bring back Popper (`createPopper`): the client no longer uses it directly, and it stays installed only as Bootstrap's peer dependency.
+- **A cover or backdrop that disappears with its popup lets the dismissing tap's click through.** The press closes the popup and hides the cover before the browser sends the click, which then lands on whatever was under the cover. `Popup` drops that click (`swallowStrayClick`); a custom surface with a cover needs the same.
+- **Any element with `.dropdown-menu` that isn't a Bootstrap dropdown must capture Up, Down and Escape on `window`.** Bootstrap's handler captures them on `document` for every `.dropdown-menu` and throws when no `data-bs-toggle` is next to it. `Popup`, `Menu` and `FormList` do this; a new surface that reuses the class for its styling needs it too.
+- **`FormList`**, the always-open list in the note type chooser, revisions and font pickers, moves focus with Up and Down through `focusListItem()`, as `DropdownPanel` does, not with the menu's keyboard model.
 
 ## Controls floating over a note's content
 
