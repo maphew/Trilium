@@ -5,9 +5,9 @@ import type { ComponentChildren } from "preact";
 import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
-import { handleRightToLeftPlacement, isMobile } from "../../services/utils";
+import { isMobile } from "../../services/utils";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
-import { type ActiveRow, MenuContext, type MenuContextValue, type OpenSubmenu, pointerMoved, type RowEntry } from "./menu_context";
+import { type ActiveRow, isRightToLeft, MenuContext, type MenuContextValue, type OpenSubmenu, pointerMoved, type RowEntry, shouldDropStart } from "./menu_context";
 import Popup, { type PopupProps } from "./Popup";
 
 /**
@@ -74,6 +74,15 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
             return rowId && anchor ? [ ...kept, { id: rowId, anchor, immediate } ] : kept;
         });
     }, []);
+    const [ dropStart, setDropStartLevels ] = useState<boolean[]>([]);
+    const setDropStart = useCallback((level: number, value: boolean) => {
+        setDropStartLevels((current) => {
+            if (current[level] === value) return current;
+            const next = [ ...current ];
+            next[level] = value;
+            return next;
+        });
+    }, []);
     const [ active, setActiveRow ] = useState<ActiveRow>();
     const rows = useRef(new Map<string, RowEntry>()).current;
     /** The level whose first row becomes active once it has rendered, for a submenu a key opened. */
@@ -108,7 +117,7 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
         });
     }, [ rows ]);
     const context: MenuContextValue = {
-        open, openSubmenu, active, setActive, rows, registerRow, keyboardDriven, close, layerHost
+        open, openSubmenu, active, setActive, rows, registerRow, keyboardDriven, dropStart, setDropStart, close, layerHost
     };
 
     /** The ids of the rows the keys can stand on at `level`, in the order they stand in. */
@@ -196,7 +205,7 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
             openSubmenu(closing - 1);
             setActive(closing - 1, parent.id);
         };
-        const rtl = handleRightToLeftPlacement("right") !== "right";
+        const rtl = isRightToLeft();
         /** Moves to the row beside the active one in a menu laid out in columns, if there is one. */
         const moveAcross = (towards: "left" | "right") => {
             const boxes = levelRows.map((rowId) => rows.get(rowId)?.element.getBoundingClientRect());
@@ -276,7 +285,14 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
                 anchor={anchor}
                 placement={placement ?? (anchor instanceof HTMLElement ? "bottom-start" : "right-start")}
                 placedByStylesheet={bottomSheet}
-                onPlaced={takeFocus}
+                onPlaced={() => {
+                    const menu = menuRef.current;
+                    if (menu) {
+                        setDropStart(0, shouldDropStart(menu.getBoundingClientRect(),
+                            document.documentElement.clientWidth, isRightToLeft(), false));
+                    }
+                    takeFocus();
+                }}
                 onDismiss={onDismiss && (() => onDismiss())}
                 escapeDismisses={false}
                 elementRef={setMenuElement} id={id} role="menu" tabIndex={-1}

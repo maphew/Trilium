@@ -243,8 +243,9 @@ body.desktop .dropdown-item.dropdown-submenu .dropdown-toggle,
     }
 }
 
-body.desktop .dropdown-menu:has(> .dropdown-submenu.dropstart) > .dropdown-item:not(.dropdown-submenu),
-body.desktop .dropdown-menu:has(> .dropdown-submenu.dropstart) > .dropdown-item.dropdown-submenu .dropdown-toggle {
+/* A level's rows are all in its `.tn-menu-scroll`, and its submenus' layers outside it. */
+body.desktop .tn-menu-scroll:has(.dropdown-submenu.dropstart) .dropdown-item:not(.dropdown-submenu),
+body.desktop .tn-menu-scroll:has(.dropdown-submenu.dropstart) .dropdown-item.dropdown-submenu .dropdown-toggle {
     padding-inline-end: var(--menu-item-start-padding) !important;
     padding-inline-start: var(--menu-item-end-padding) !important;
 }

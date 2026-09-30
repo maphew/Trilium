@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FormDropdownDivider, FormDropdownSubmenu, FormListHeader, FormListItem } from "./FormList";
 import Menu, { rowInNextColumn } from "./Menu";
+import { shouldDropStart } from "./menu_context";
 
 /** A row 20px tall, `left` into the menu and `top` down it. */
 function row(left: number, top: number) {
@@ -36,6 +37,28 @@ describe("rowInNextColumn", () => {
         expect(rowInNextColumn(columns, -1, "right")).toBeUndefined();
         // A row not laid out yet is passed over.
         expect(rowInNextColumn([ row(0, 0), undefined, row(100, 0) ], 0, "right")).toBe(2);
+    });
+});
+
+describe("shouldDropStart", () => {
+    /** A level 200px wide, standing at `left` in a viewport 1000px wide. */
+    const at = (left: number) => ({ left, right: left + 200, width: 200 });
+
+    it("opens towards the end while there is room there, and turns only for more room at the start", () => {
+        expect(shouldDropStart(at(100), 1000, false, false)).toBe(false);
+        expect(shouldDropStart(at(750), 1000, false, false)).toBe(true);
+        // Cramped on both sides, it keeps to the end unless the start has more.
+        expect(shouldDropStart(at(50), 300, false, false)).toBe(false);
+    });
+
+    it("keeps to the start once its level opened that way, until the room there runs out", () => {
+        expect(shouldDropStart(at(400), 1000, false, true)).toBe(true);
+        expect(shouldDropStart(at(100), 1000, false, true)).toBe(false);
+    });
+
+    it("measures the end on the left when the page reads right to left", () => {
+        expect(shouldDropStart(at(750), 1000, true, false)).toBe(false);
+        expect(shouldDropStart(at(50), 1000, true, false)).toBe(true);
     });
 });
 
@@ -150,5 +173,32 @@ describe("Menu with declared rows", () => {
         await vi.waitFor(() => expect(active()).toBe("Show log"));
         key(menu, "Enter");
         expect(calls).toEqual([ "log", "close" ]);
+    });
+
+    it("turns its submenus and their arrows towards the start where the end has no room", async () => {
+        // The menus and their rows stand 120px wide against the right edge of a 1024px viewport.
+        vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1024);
+        vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(768);
+        const measure = HTMLElement.prototype.getBoundingClientRect;
+        vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+            return this.matches(".tn-menu, .dropdown-item")
+                ? DOMRect.fromRect({ x: 900, y: 10, width: 120, height: 20 })
+                : measure.call(this);
+        });
+        try {
+            const { menu } = renderMenu();
+            const advanced = rowTitled("Advanced");
+            await vi.waitFor(() => expect(advanced.classList).toContain("dropstart"));
+
+            advanced.dispatchEvent(new PointerEvent("pointerenter"));
+            await vi.waitFor(() => expect(layers(menu)).toHaveLength(1));
+            const layer = menu.querySelector<HTMLElement>(":scope > div.dropdown-submenu > .dropdown-menu");
+            // By the row's left edge, at 900px, rather than its right edge, at 1020px. happy-dom lays
+            // the layer out 0px wide.
+            await vi.waitFor(() => expect(parseFloat(layer?.style.left ?? "")).toBeLessThan(910));
+            expect(advanced.classList).toContain("dropstart");
+        } finally {
+            vi.restoreAllMocks();
+        }
     });
 });

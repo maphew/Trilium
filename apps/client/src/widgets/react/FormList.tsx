@@ -13,7 +13,7 @@ import FormToggle from "./FormToggle";
 import HelpTooltipButton from "./HelpTooltipButton";
 import { useStaticTooltip, useSyncedRef, useUniqueName } from "./hooks";
 import Icon from "./Icon";
-import { MenuContext, type MenuContextValue, MenuLevelContext, type OpenSubmenu, pointerMoved } from "./menu_context";
+import { isRightToLeft, MenuContext, type MenuContextValue, MenuLevelContext, type OpenSubmenu, pointerMoved, shouldDropStart, useMenu } from "./menu_context";
 import { placeFloating } from "./Popup";
 import { joinElements } from "./react_utils";
 import { renderShortcutKbds } from "./shortcut_kbd";
@@ -399,7 +399,7 @@ function MenuSubmenu({ menu, icon, title, children, onDropdownToggleClicked, col
                 menu.registerRow(id, element ? { level, element, custom: false, disabled: !!disabled, hasSubmenu: true, select } : undefined);
             }}
             className={clsx("dropdown-item dropdown-submenu", open && "submenu-open", isActive && "tn-menu-active",
-                disabled && "disabled", className)}
+                menu.dropStart[level] && "dropstart", disabled && "disabled", className)}
             role="menuitem"
             aria-disabled={disabled || undefined}
             aria-haspopup="menu"
@@ -466,14 +466,18 @@ function SubmenuLayer({ level, submenu, columns, children }: {
 }) {
     const layerRef = useRef<HTMLDivElement>(null);
     const columnCount = (columns ?? 1) > 1 ? columns : undefined;
+    const { dropStart: dropStartLevels, setDropStart } = useMenu();
+    const dropStart = !!dropStartLevels[level - 1];
 
     useLayoutEffect(() => {
         const layer = layerRef.current;
         if (!layer) return;
 
-        const placement = handleRightToLeftPlacement("right") === "right" ? "right-start" : "left-start";
+        const rtl = isRightToLeft();
+        const startSide = rtl ? "right" : "left";
+        const endSide = rtl ? "left" : "right";
         const options = {
-            placement,
+            placement: `${dropStart ? startSide : endSide}-start`,
             // Overlaps its row by 2px, so the pointer crosses no gap on its way over, and lines its
             // first row up with that row.
             offset: ({ elements }: { elements: { floating: HTMLElement } }) => {
@@ -483,8 +487,17 @@ function SubmenuLayer({ level, submenu, columns, children }: {
             },
             shiftAcross: true, capHeight: true, hideWithAnchor: true
         } as const;
-        return autoUpdate(submenu.anchor, layer, () => void placeFloating(layer, submenu.anchor, options));
-    }, [ submenu.anchor ]);
+        return autoUpdate(submenu.anchor, layer, () => void placeFloating(layer, submenu.anchor, options).then((placed) => {
+            // Flipped for want of room, it turns the arrows of its parent level's rows with it.
+            const placedDropStart = placed.startsWith(startSide);
+            if (placedDropStart !== dropStart) {
+                setDropStart(level - 1, placedDropStart);
+                return;
+            }
+            setDropStart(level, shouldDropStart(layer.getBoundingClientRect(),
+                document.documentElement.clientWidth, rtl, dropStart));
+        }));
+    }, [ submenu.anchor, dropStart, level, setDropStart ]);
 
     // In a `.dropdown-submenu`, so the theme's submenu rules apply.
     return (

@@ -1,6 +1,8 @@
 import { createContext } from "preact";
 import { useContext } from "preact/hooks";
 
+import { handleRightToLeftPlacement } from "../../services/utils";
+
 /*
  * What a `Menu` shares with its rows, apart from the menu itself so the rows `FormList` draws can
  * join one without `FormList` and `Menu` importing each other.
@@ -53,6 +55,13 @@ export interface MenuContextValue {
     registerRow(id: string, row: RowEntry | undefined): void;
     /** Whether the keys moved the menu since the pointer last did. */
     keyboardDriven: boolean;
+    /**
+     * Whether the submenus of each level's rows open towards the start, the top level's first. The
+     * rows show it as `.dropstart`, which turns their arrow that way.
+     */
+    dropStart: boolean[];
+    /** Records the side the submenus of `level`'s rows open on. */
+    setDropStart(level: number, dropStart: boolean): void;
     close(): void;
     /**
      * Where a row renders its submenu's layer: the top level's element, so the rules scoped to the
@@ -71,6 +80,23 @@ export function useMenu() {
     const menu = useContext(MenuContext);
     if (!menu) throw new Error("A menu row must be rendered inside a Menu.");
     return menu;
+}
+
+/**
+ * Whether the submenus of a level's rows open towards the start, from where the level's menu or
+ * layer stands. They keep to `preferStart`, the side the level itself opened towards, unless that
+ * side has less room than the level is wide and the other side has more.
+ */
+export function shouldDropStart(frame: Pick<DOMRect, "left" | "right" | "width">, viewportWidth: number, rtl: boolean, preferStart: boolean) {
+    const roomAtEnd = rtl ? frame.left : viewportWidth - frame.right;
+    const roomAtStart = rtl ? viewportWidth - frame.right : frame.left;
+    const [ preferred, other ] = preferStart ? [ roomAtStart, roomAtEnd ] : [ roomAtEnd, roomAtStart ];
+    return preferred < frame.width && other > preferred ? !preferStart : preferStart;
+}
+
+/** Whether the page reads right to left, so a menu's end side is its left. */
+export function isRightToLeft() {
+    return handleRightToLeftPlacement("right") !== "right";
 }
 
 /**

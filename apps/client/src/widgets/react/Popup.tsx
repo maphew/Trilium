@@ -206,9 +206,10 @@ export interface FloatingPlacement {
  * Positions `element` beside `anchor`, preferring its placement, then the side opposite, then the
  * other alignment on either side, the way a native menu opens above or to the left of a pointer
  * near the viewport's edge. It stays hidden until placed, so it never paints at a stale position.
+ * Resolves to the placement it took.
  */
 export async function placeFloating(element: HTMLElement, anchor: ReferenceElement, { placement, offset: gap, shiftAcross, capHeight, hideWithAnchor }: FloatingPlacement) {
-    const { x, y, middlewareData } = await computePosition(anchor, element, {
+    const { x, y, placement: placed, middlewareData } = await computePosition(anchor, element, {
         strategy: "fixed",
         placement,
         middleware: [
@@ -228,6 +229,7 @@ export async function placeFloating(element: HTMLElement, anchor: ReferenceEleme
     element.style.left = `${x}px`;
     element.style.top = `${y}px`;
     element.style.visibility = middlewareData.hide?.referenceHidden ? "hidden" : "visible";
+    return placed;
 }
 
 const OPPOSITE_SIDES = { top: "bottom", bottom: "top", left: "right", right: "left" } as const;
