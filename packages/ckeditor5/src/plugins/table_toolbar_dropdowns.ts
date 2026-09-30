@@ -1,4 +1,4 @@
-import bxSort from "boxicons/svg/regular/bx-sort.svg?raw";
+import bxSortAlt2 from "boxicons/svg/regular/bx-sort-alt-2.svg?raw";
 import {
     addListToDropdown,
     Collection,
@@ -86,7 +86,7 @@ export default class TableToolbarDropdowns extends Plugin {
 
         factory.add("tableSort", (locale) => this.createDropdown(locale, {
             label: t("Sort"),
-            icon: bxSort,
+            icon: bxSortAlt2,
             items: [
                 buttonItem("triliumSortTableRowsAscending", t("Ascending")),
                 buttonItem("triliumSortTableRowsDescending", t("Descending"))

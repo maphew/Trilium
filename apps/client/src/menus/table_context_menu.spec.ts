@@ -49,6 +49,10 @@ describe("buildTableMenuSections", () => {
         expect(titles(sections?.delete ?? [])).toEqual(DELETE_TITLES);
         expect(titles(sections ? [sections.sort] : [])).toEqual(["table_context_menu.sort"]);
         expect(titles(sortSubmenu(sections))).toEqual(SORT_TITLES);
+        const sortRow = sections?.sort as MenuCommandItem<any> | undefined;
+        expect(sortRow?.uiIcon).toBe("bx bx-sort-alt-2");
+        expect(sortSubmenu(sections).map((item) => (item as MenuCommandItem<any>).uiIcon))
+            .toEqual(["bx bx-sort-up", "bx bx-sort-down"]);
 
         const splitRow = findItem(sections?.main ?? [], "table_context_menu.split_cells");
         const submenu = splitRow?.items ?? [];

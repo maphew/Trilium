@@ -1,3 +1,4 @@
+import bxSortAlt2 from "boxicons/svg/regular/bx-sort-alt-2.svg?raw";
 import {
     _getModelData as getModelData,
     _setModelData as setModelData,
@@ -164,7 +165,7 @@ describe("TableToolbarDropdowns", () => {
             const tableData = () => getModelData(editor.model, { withoutSelection: true });
 
             expect(dropdown.buttonView.label).toBe("Sort");
-            expect(dropdown.buttonView.icon).toContain("<svg");
+            expect(dropdown.buttonView.icon).toBe(bxSortAlt2);
             expect(dropdown.isEnabled).toBe(false);
 
             setModelData(editor.model, modelTable([["b[]"], ["c"], ["a"]]));

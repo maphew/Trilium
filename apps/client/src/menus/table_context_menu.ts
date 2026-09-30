@@ -54,9 +54,9 @@ export function buildTableMenuSections(
     const unmergeItem = commandItem(t("table_context_menu.split_reset"), "bx bx-reset",
         "triliumResetTableCellSpans");
     const sortItems = [
-        commandItem(t("table_context_menu.sort_ascending"), "bx bx-sort-a-z",
+        commandItem(t("table_context_menu.sort_ascending"), "bx bx-sort-up",
             "triliumSortTableRowsAscending"),
-        commandItem(t("table_context_menu.sort_descending"), "bx bx-sort-z-a",
+        commandItem(t("table_context_menu.sort_descending"), "bx bx-sort-down",
             "triliumSortTableRowsDescending")
     ];
 
@@ -85,7 +85,7 @@ export function buildTableMenuSections(
         ],
         sort: {
             title: t("table_context_menu.sort"),
-            uiIcon: "bx bx-sort",
+            uiIcon: "bx bx-sort-alt-2",
             enabled: sortItems.some((item) => item.enabled),
             items: sortItems
         },
