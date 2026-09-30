@@ -90,6 +90,23 @@ describe("contextMenu", () => {
         expect(onHide).toHaveBeenCalledTimes(1);
     });
 
+    it("shows only the last of two menus asked for while `Menu` still loads, and hides it", async () => {
+        buildPage();
+        const contextMenu = await buildContextMenu();
+
+        await Promise.all([
+            contextMenu.show({ x: 10, y: 20, items: [ { title: "First" } ], selectMenuItemHandler: () => {} }),
+            contextMenu.show({ x: 30, y: 40, items: [ { title: "Second" } ], selectMenuItemHandler: () => {} })
+        ]);
+
+        const menus = document.querySelectorAll("#context-menu-container");
+        expect(menus).toHaveLength(1);
+        expect(menus[0].textContent).toContain("Second");
+
+        await contextMenu.hide();
+        expect(document.body.innerHTML).toBe(`<div id="app"></div>`);
+    });
+
     describe("items", () => {
         it("lists the items and separators in order, without repeating a separator", async () => {
             buildPage();

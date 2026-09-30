@@ -93,6 +93,8 @@ class ContextMenu {
      * Menu key or Shift+F10, as callers pass no event to tell by.
      */
     private lastInputWasKey = false;
+    /** Counts `show()` calls, so that only the latest one mounts a menu. */
+    private lastShowRequest = 0;
 
     constructor() {
         this.cover = utils.isMobile() ? document.getElementById("context-menu-cover") : null;
@@ -124,14 +126,17 @@ class ContextMenu {
         note_tooltip.dismissAllTooltips();
         hideShownTooltips();
 
+        const request = ++this.lastShowRequest;
+        // Loaded here rather than imported: the core services that import this module would
+        // otherwise reach the widget tree through the rows `Menu` draws, in a cycle.
+        const { default: Menu } = await import("../widgets/react/Menu");
+        // A later `show()` made during the import replaces this one.
+        if (request !== this.lastShowRequest) return;
+
         if (this.isShown) {
             // Unmount first so the menu opens fresh at the new location.
             await this.hide();
         }
-
-        // Loaded here rather than imported: the core services that import this module would
-        // otherwise reach the widget tree through the rows `Menu` draws, in a cycle.
-        const { default: Menu } = await import("../widgets/react/Menu");
 
         this.options = options;
         this.focusBeforeShow = document.activeElement;
