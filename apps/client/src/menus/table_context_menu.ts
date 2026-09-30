@@ -57,9 +57,6 @@ export function buildTableMenuSections(
         toggleItem(t("table_context_menu.set_header_up_to_row"), "bx bx-arrow-to-top",
             "triliumSetTableHeaderUpToRow")
     ].find((item) => item.enabled);
-    const headerGroup: MenuItem<CommandNames>[] = headerItem
-        ? [headerItem, { kind: "separator" }]
-        : [];
     const splitItems = [
         commandItem(t("table_context_menu.split_vertically"), "bx bx-reflect-vertical",
             "splitTableCellVertically"),
@@ -93,7 +90,7 @@ export function buildTableMenuSections(
             commandItem(t("table_context_menu.insert_columns_right"),
                 "bx bx-horizontal-right", "triliumInsertTableColumnsRight"),
             { kind: "separator" },
-            ...headerGroup,
+            ...(headerItem ? [headerItem] : []),
             commandItem(t("table_context_menu.merge_cells"), "bx bx-border-outer",
                 "mergeTableCells"),
             {

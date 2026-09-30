@@ -22,7 +22,6 @@ const MAIN_TITLES = [
     "table_context_menu.insert_columns_right",
     "---",
     "table_context_menu.set_header_row",
-    "---",
     "table_context_menu.merge_cells",
     "table_context_menu.split_cells",
     "table_context_menu.distribute_columns"
@@ -161,10 +160,9 @@ describe("buildTableMenuSections", () => {
         run(laterRow.main, LATER_ROW_TITLE);
         expect(laterRow.executed).toEqual([LATER_ROW]);
 
-        // Several rows below the first take neither item, nor the separator that follows it.
-        const index = MAIN_TITLES.indexOf(FIRST_ROWS_TITLE);
+        // Several rows below the first take neither item.
         expect(titles(build([FIRST_ROWS, LATER_ROW]).main))
-            .toEqual([...MAIN_TITLES.slice(0, index), ...MAIN_TITLES.slice(index + 2)]);
+            .toEqual(MAIN_TITLES.filter((title) => title !== FIRST_ROWS_TITLE));
     });
 
     it("enables the split submenu while any of its rows is enabled", () => {

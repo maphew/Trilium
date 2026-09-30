@@ -25,8 +25,8 @@ Since v0.106.0, right-clicking anywhere inside a table opens a context menu with
 
 *   _Insert row above_ and _Insert row below_ insert a blank row next to the row of the current cell. When the selection spans multiple rows, the same number of rows is inserted.
 *   _Insert column to the left_ and _Insert column to the right_ work the same way for columns.
-*   Since v0.107.0, _Set as header row_ or _Set header up to this row_, depending on the selection, turns rows into header rows, which always start at the top of the table:
-    *   _Set as header row_ shows when the selection starts at the first row, and makes every selected row a header row.
+*   Since v0.107.0, _Set as header_ or _Set header up to this row_, depending on the selection, turns rows into header rows, which always start at the top of the table:
+    *   _Set as header_ shows when the selection starts at the first row, and makes every selected row a header row.
     *   _Set header up to this row_ shows when the selection is in a single row below the first, and makes that row and every row above it header rows.
     *   Neither shows when the selection spans several rows below the first.
     *   A check mark shows that the rows are already header rows. Choosing the item again turns them, and every header row below them, back into regular rows. For example, in a table with five header rows, choosing _Set header up to this row_ on the third row leaves only the first two as header rows.

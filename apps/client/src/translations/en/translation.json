@@ -3523,7 +3523,7 @@
     "select_row": "Row",
     "select_column": "Column",
     "select_table": "Table",
-    "set_header_row": "Set as header row",
+    "set_header_row": "Set as header",
     "set_header_up_to_row": "Set header up to this row"
   },
   "board_view": {
