@@ -3502,7 +3502,20 @@
     "presentation-theme": "Theme"
   },
   "table_context_menu": {
-    "delete_row": "Delete row"
+    "delete_row": "Delete row",
+    "insert_rows_above": "Insert row above",
+    "insert_rows_below": "Insert row below",
+    "insert_columns_left": "Insert column to the left",
+    "insert_columns_right": "Insert column to the right",
+    "delete_rows": "Delete row",
+    "delete_columns": "Delete column",
+    "delete_table": "Delete table",
+    "distribute_columns": "Distribute columns evenly",
+    "merge_cells": "Merge cells",
+    "split_cells": "Split cell",
+    "split_vertically": "Vertically",
+    "split_horizontally": "Horizontally",
+    "split_reset": "Unmerge cells"
   },
   "board_view": {
     "delete-note": "Delete note...",
@@ -4347,8 +4360,20 @@
       "flip-horizontally": "Flip horizontally",
       "flip-vertically": "Flip vertically",
       "change-icon": "Change icon",
+      "move-row-up": "Move row up",
+      "move-row-down": "Move row down",
+      "move-column-left": "Move column left",
+      "move-column-right": "Move column right",
+      "insert-table": "Insert table…",
+      "rows": "Rows",
+      "columns": "Columns",
+      "enter-a-whole-number-between-1-and-0": "Enter a whole number between 1 and %0.",
+      "the-table-is-too-large-max-0-cells": "The table is too large (max %0 cells).",
       "math": "Math",
-      "date-time": "Date/time"
+      "date-time": "Date/time",
+      "distribute-columns-evenly": "Distribute columns evenly",
+      "merge-selected-cells": "Merge selected cells",
+      "unmerge-cells": "Unmerge cells"
     },
     "task-state-dropped-title": "Invalid task states",
     "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",

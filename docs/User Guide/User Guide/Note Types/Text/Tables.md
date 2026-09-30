@@ -5,11 +5,39 @@ Tables are a powerful feature for <a class="reference-link" href="../Text.md">T
 
 To create a table, simply press the table button and select with the mouse the desired amount of columns and rows, as indicated in the adjacent figure.
 
+Since v0.107.0, the same menu starts with an _Insert table…_ item, for a table larger than the grid or to type its size instead:
+
+1.  Click the <span class="tn-icon cke cke-table"></span> button and select _Insert table…_. A small form opens at the cursor.
+2.  Enter the number of _Rows_ (up to 1000) and _Columns_ (up to 100). The table can have at most 5000 cells in total, for example 1000 rows of 5 columns.
+3.  Press _Insert_ or <kbd>Enter</kbd>.
+
+To close the form without inserting a table, press <kbd>Esc</kbd> or click outside it. From the keyboard, <kbd>Tab</kbd> moves between _Insert table…_ and the grid while the menu is open.
+
 ## Formatting toolbar
 
 When a table is selected, a special formatting toolbar will appear:
 
 <img src="3_Tables_image.png" width="384" height="100">
+
+## Context menu
+
+Since v0.106.0, right-clicking anywhere inside a table opens a context menu with the most common table operations:
+
+*   _Insert row above_ and _Insert row below_ insert a blank row next to the row of the current cell. When the selection spans multiple rows, the same number of rows is inserted.
+*   _Insert column to the left_ and _Insert column to the right_ work the same way for columns.
+*   _Merge cells_ merges the selected cells into one. The selected cells must form a rectangle.
+*   _Split cell_ splits each selected cell in two, either _Vertically_ or _Horizontally_. _Unmerge cells_, in the same submenu, turns each merged cell in the selection back into the single cells it covers, keeping its content in the top-left one; cells that are not merged stay as they are.
+*   _Distribute columns evenly_ splits the combined width of the columns the selection touches equally between them. The other columns and the width of the table stay as they are. It needs a selection spanning at least two columns; a merged cell counts for every column it covers.
+*   _Cut_, _Copy_ and _Copy as Markdown_ act on the selected cells:
+    *   Cutting or copying produces a smaller table holding just the selected cells. Pasting it over a cell selection replaces those cells; pasting elsewhere inserts it as a table of its own. Cutting clears the cells without removing rows or columns.
+    *   _Copy as Markdown_ converts the selected cells to a Markdown table. A selected header row becomes the Markdown header; without one, an empty header row is emitted, since Markdown tables require one.
+*   _Delete row_ and _Delete column_, below the clipboard section, remove every row or column the selection touches, even when only some of their cells are selected.
+*   _Delete table_ removes the whole table and leaves an empty paragraph in its place. In a table nested inside another, only the inner table is removed.
+
+Right-clicking a cell that is not part of the current selection moves the cursor there first, so the menu always applies to the cell under the pointer.
+
+> [!NOTE]
+> In the browser, Trilium's menu replaces the browser's own context menu inside tables. To reach the browser's menu (for example for its spell checking suggestions), hold <kbd>Shift</kbd> while right-clicking. The desktop application is unaffected, since its menu already includes the spelling suggestions. In the browser, the menu also offers _Paste_ only when the page can read the clipboard, which requires a secure (HTTPS) context and your permission; otherwise, paste with <kbd>Ctrl</kbd>+<kbd>V</kbd>.
 
 ## Navigating a table
 
@@ -26,6 +54,7 @@ When a table is selected, a special formatting toolbar will appear:
 ## Resizing cells
 
 *   Columns can be resized by hovering the mouse over the border of two adjacent cells and dragging it.
+*   To give several columns the same width, select cells across them and choose _Distribute columns evenly_ from the <span class="tn-icon cke cke-table-column"></span> button of the formatting toolbar or from the [context menu](#context-menu).
 *   By default, the row height is not adjustable using the mouse, but it can be configured from the cell settings (see below).
 *   To adjust exactly the width (in pixels or percentages) of a cell, select the <span class="tn-icon cke cke-table-cell-properties"></span> button.
 
@@ -34,6 +63,20 @@ When a table is selected, a special formatting toolbar will appear:
 *   To insert a new column, click on a desired location, then press the <span class="tn-icon cke cke-table-column"></span> button from the formatting toolbar and select _Insert column left or right._
 *   To insert a new row, click on a desired location, then press the <span class="tn-icon cke cke-table-row"></span> button and select _Insert row above_ or _below_.
     *   A quicker alternative to creating a new row while at the end of the table is to press the <kbd>Tab</kbd> key.
+*   Both operations are also available in the [context menu](#context-menu), which inserts as many rows or columns as the selection spans.
+
+## Moving rows and columns
+
+Since v0.106.0, rows and columns can be reordered with the keyboard:
+
+*   <kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd> move the rows touched by the selection up or down.
+*   <kbd>Alt</kbd>+<kbd>Left</kbd> and <kbd>Alt</kbd>+<kbd>Right</kbd> move the columns touched by the selection left or right.
+
+Merged cells are never split by a move. The rows or columns held together by a merged cell travel as one block, and moving toward such a block jumps over it entirely.
+
+When the table has a header row, a header row moved below the header area becomes a regular row, and a regular row moved into the header area becomes a header row. Header columns behave the same way.
+
+Outside of tables, <kbd>Alt</kbd>+<kbd>Left</kbd> and <kbd>Alt</kbd>+<kbd>Right</kbd> keep navigating the note history, and <kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd> keep moving the current paragraph.
 
 ## Merging cells
 
@@ -42,7 +85,11 @@ To merge two or more cells together, simply select them via drag & drop and pres
 More options are available by pressing the arrow next to it:
 
 *   Click on a single cell and select Merge cell up/down/right/left to merge with an adjacent cell.
+*   Select _Merge selected cells_ to merge the selected cells, the same as pressing the button itself.
 *   Select _Split cell vertically_ or _horizontally_, to split a cell into multiple cells (can also be used to undo a merge).
+*   Select _Unmerge cells_ to turn each merged cell in the selection back into the single cells it covers, keeping its content in the top-left one.
+
+_Merge selected cells_ and _Unmerge cells_ are available since v0.107.0. Merging and splitting are also available by right-clicking the selected cells, via the [context menu](#context-menu), where _Unmerge cells_ is in the _Split cell_ submenu.
 
 ## Table properties
 
