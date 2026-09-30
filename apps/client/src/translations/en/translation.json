@@ -4370,7 +4370,8 @@
       "insert-table": "Insert table…",
       "rows": "Rows",
       "columns": "Columns",
-      "enter-a-whole-number-between-1-and-0": "Enter a whole number between 1 and %0."
+      "enter-a-whole-number-between-1-and-0": "Enter a whole number between 1 and %0.",
+      "the-table-is-too-large-max-0-cells": "The table is too large (max %0 cells)."
     },
     "task-state-dropped-title": "Invalid task states",
     "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",

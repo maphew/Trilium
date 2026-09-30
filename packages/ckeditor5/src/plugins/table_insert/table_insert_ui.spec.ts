@@ -18,7 +18,11 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
-import TableInsertFormView, { DEFAULT_TABLE_SIZE, MAX_TABLE_COLUMNS } from "./table_insert_form.js";
+import TableInsertFormView, {
+    DEFAULT_TABLE_SIZE,
+    MAX_TABLE_CELLS,
+    MAX_TABLE_COLUMNS
+} from "./table_insert_form.js";
 import TableInsertUI from "./table_insert_ui.js";
 
 describe("TableInsertUI", () => {
@@ -212,6 +216,30 @@ describe("TableInsertUI", () => {
             await userEvent.fill(getInput(form, "columns"), "4");
             await userEvent.keyboard("{Enter}");
             expect(getTableSize(editor)).toEqual({ rows: 3, columns: 4 });
+        });
+
+        it("reports a table with too many cells and inserts nothing", async () => {
+            const form = await openForm(editor);
+
+            await userEvent.fill(getInput(form, "rows"), "1000");
+            await userEvent.fill(getInput(form, "columns"), "6");
+            await userEvent.keyboard("{Enter}");
+
+            const message = getElement(form)
+                .querySelector<HTMLElement>(".ck-table-insert-form__size-error");
+            expect(getTableSize(editor)).toBeNull();
+            expect(balloon.visibleView).toBe(form);
+            expect(message?.textContent)
+                .toBe(`The table is too large (max ${MAX_TABLE_CELLS} cells).`);
+            expect(message?.checkVisibility()).toBe(true);
+            expect(document.activeElement).toBe(getInput(form, "rows"));
+
+            await userEvent.fill(getInput(form, "rows"), "100");
+            expect(message?.checkVisibility()).toBe(false);
+
+            await userEvent.keyboard("{Enter}");
+            expect(getTableSize(editor)).toEqual({ rows: 100, columns: 6 });
+            expect(balloon.hasView(form)).toBe(false);
         });
 
         it("closes on Esc without inserting", async () => {

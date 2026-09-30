@@ -4,6 +4,7 @@ import { userEvent } from "vitest/browser";
 
 import TableInsertFormView, {
     DEFAULT_TABLE_SIZE,
+    MAX_TABLE_CELLS,
     MAX_TABLE_COLUMNS,
     MAX_TABLE_ROWS,
     parseTableSize,
@@ -73,18 +74,54 @@ describe("TableInsertFormView", () => {
         expect(form.columnsField.errorText).toBeNull();
     });
 
-    it("accepts the largest sizes and rejects one more", () => {
-        getInput(form.rowsField).value = String(MAX_TABLE_ROWS);
-        getInput(form.columnsField).value = String(MAX_TABLE_COLUMNS);
-        expect(form.validate()).toEqual({ rows: MAX_TABLE_ROWS, columns: MAX_TABLE_COLUMNS });
+    it("accepts the largest value of each field and rejects one more", () => {
+        setSize(form, MAX_TABLE_ROWS, 1);
+        expect(form.validate()).toEqual({ rows: MAX_TABLE_ROWS, columns: 1 });
+        setSize(form, 1, MAX_TABLE_COLUMNS);
+        expect(form.validate()).toEqual({ rows: 1, columns: MAX_TABLE_COLUMNS });
 
-        getInput(form.rowsField).value = String(MAX_TABLE_ROWS + 1);
-        getInput(form.columnsField).value = String(MAX_TABLE_COLUMNS + 1);
+        setSize(form, MAX_TABLE_ROWS + 1, MAX_TABLE_COLUMNS + 1);
         expect(form.validate()).toBeNull();
         expect(form.rowsField.errorText)
             .toBe(`Enter a whole number between 1 and ${MAX_TABLE_ROWS}.`);
         expect(form.columnsField.errorText)
             .toBe(`Enter a whole number between 1 and ${MAX_TABLE_COLUMNS}.`);
+        expect(form.sizeErrorText).toBeNull();
+    });
+
+    it("accepts a table at the cell limit and rejects a larger one", () => {
+        const rowsAtLimit = MAX_TABLE_CELLS / MAX_TABLE_COLUMNS;
+        setSize(form, rowsAtLimit, MAX_TABLE_COLUMNS);
+        expect(form.validate()).toEqual({ rows: rowsAtLimit, columns: MAX_TABLE_COLUMNS });
+        expect(getSizeError(form).classList.contains("ck-hidden")).toBe(true);
+
+        setSize(form, rowsAtLimit + 1, MAX_TABLE_COLUMNS);
+        expect(form.validate()).toBeNull();
+
+        const error = getSizeError(form);
+        expect(form.sizeErrorText)
+            .toBe(`The table is too large (max ${MAX_TABLE_CELLS} cells).`);
+        expect(error.textContent).toBe(form.sizeErrorText);
+        expect(error.classList.contains("ck-hidden")).toBe(false);
+        expect(error.getAttribute("role")).toBe("alert");
+        expectValid(form.rowsField);
+        expectValid(form.columnsField);
+        expect(document.activeElement).toBe(getInput(form.rowsField));
+    });
+
+    it("clears the size error when either field is edited", async () => {
+        setSize(form, MAX_TABLE_ROWS, MAX_TABLE_COLUMNS);
+        form.validate();
+        expect(form.sizeErrorText).not.toBeNull();
+
+        await userEvent.fill(getInput(form.rowsField), "999");
+        expect(form.sizeErrorText).toBeNull();
+        expect(getSizeError(form).classList.contains("ck-hidden")).toBe(true);
+
+        form.validate();
+        expect(form.sizeErrorText).not.toBeNull();
+        await userEvent.fill(getInput(form.columnsField), "99");
+        expect(form.sizeErrorText).toBeNull();
     });
 
     it("shows the error of an invalid field and focuses it", () => {
@@ -122,8 +159,11 @@ describe("TableInsertFormView", () => {
         await userEvent.fill(getInput(form.rowsField), "9");
         getInput(form.columnsField).value = "0";
         form.validate();
+        setSize(form, MAX_TABLE_ROWS, MAX_TABLE_COLUMNS);
+        form.validate();
 
         form.reset();
+        expect(form.sizeErrorText).toBeNull();
 
         const defaultText = String(DEFAULT_TABLE_SIZE);
         expect(getInput(form.rowsField).value).toBe(defaultText);
@@ -177,6 +217,19 @@ function getElement(view: { element: HTMLElement | null }): HTMLElement {
 
 function getInput(field: TableSizeFieldView): HTMLInputElement {
     return getElement(field.inputView) as HTMLInputElement;
+}
+
+function setSize(form: TableInsertFormView, rows: number, columns: number) {
+    getInput(form.rowsField).value = String(rows);
+    getInput(form.columnsField).value = String(columns);
+}
+
+function getSizeError(form: TableInsertFormView): HTMLElement {
+    const error = getElement(form).querySelector<HTMLElement>(".ck-table-insert-form__size-error");
+    if (!error) {
+        throw new Error("The form has no size error element.");
+    }
+    return error;
 }
 
 function getError(field: TableSizeFieldView): HTMLElement {

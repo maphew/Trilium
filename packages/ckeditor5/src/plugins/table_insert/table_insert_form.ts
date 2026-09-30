@@ -18,6 +18,9 @@ export const MAX_TABLE_ROWS = 1000;
 /** The largest number of columns the form accepts. */
 export const MAX_TABLE_COLUMNS = 100;
 
+/** The largest number of cells the form accepts, as rows × columns. */
+export const MAX_TABLE_CELLS = 5000;
+
 /** The number of rows and columns the form shows when it opens. */
 export const DEFAULT_TABLE_SIZE = 2;
 
@@ -28,9 +31,13 @@ export interface TableSize {
 
 /**
  * The balloon form behind "Insert table…": a "Rows" field, a "Columns" field and an Insert button.
- * Invalid values are reported under their field when the form is submitted.
+ * Invalid values are reported under their field when the form is submitted, and a table with more
+ * than {@link MAX_TABLE_CELLS} cells is reported above the button.
  */
 export default class TableInsertFormView extends View {
+
+    /** The error shown when the table has too many cells, or `null`. */
+    declare public sizeErrorText: string | null;
 
     public readonly rowsField: TableSizeFieldView;
     public readonly columnsField: TableSizeFieldView;
@@ -41,10 +48,15 @@ export default class TableInsertFormView extends View {
 
     private readonly focusables = new ViewCollection<FocusableView>();
     private readonly focusCycler: FocusCycler;
+    private readonly tooLargeText: string;
 
     constructor(locale: Locale) {
         super(locale);
         const t = locale.t;
+        const bind = this.bindTemplate;
+
+        this.set("sizeErrorText", null);
+        this.tooLargeText = t("The table is too large (max %0 cells).", MAX_TABLE_CELLS);
 
         this.rowsField = new TableSizeFieldView(locale, t("Rows"), MAX_TABLE_ROWS);
         this.columnsField = new TableSizeFieldView(locale, t("Columns"), MAX_TABLE_COLUMNS);
@@ -66,8 +78,32 @@ export default class TableInsertFormView extends View {
                 // The fields are checked by `validate()`, which shows translated errors.
                 novalidate: true
             },
-            children: [this.rowsField, this.columnsField, this.insertButtonView]
+            children: [
+                this.rowsField,
+                this.columnsField,
+                {
+                    tag: "div",
+                    attributes: {
+                        class: [
+                            "ck",
+                            "ck-table-insert-form__error",
+                            "ck-table-insert-form__size-error",
+                            bind.if("sizeErrorText", "ck-hidden", (text) => !text)
+                        ],
+                        role: bind.if("sizeErrorText", "alert")
+                    },
+                    children: [{ text: bind.to("sizeErrorText") }]
+                },
+                this.insertButtonView
+            ]
         });
+
+        // The size error is cleared as soon as either value is edited.
+        for (const field of [this.rowsField, this.columnsField]) {
+            field.inputView.on("input", () => {
+                this.sizeErrorText = null;
+            });
+        }
 
         this.focusCycler = new FocusCycler({
             focusables: this.focusables,
@@ -113,17 +149,19 @@ export default class TableInsertFormView extends View {
         this.rowsField.inputView.select();
     }
 
-    /** Sets both fields to {@link DEFAULT_TABLE_SIZE} and clears their errors. */
+    /** Sets both fields to {@link DEFAULT_TABLE_SIZE} and clears the errors. */
     public reset(): void {
+        this.sizeErrorText = null;
         this.rowsField.reset(DEFAULT_TABLE_SIZE);
         this.columnsField.reset(DEFAULT_TABLE_SIZE);
     }
 
     /**
-     * Returns the entered size, or `null` when a field is invalid. Every invalid field shows its
-     * error, and the first one is focused.
+     * Returns the entered size, or `null` when a field is invalid or the table has more than
+     * {@link MAX_TABLE_CELLS} cells. The errors are shown, and the first field to fix is focused.
      */
     public validate(): TableSize | null {
+        this.sizeErrorText = null;
         const rows = this.rowsField.validate();
         const columns = this.columnsField.validate();
 
@@ -133,6 +171,11 @@ export default class TableInsertFormView extends View {
         }
         if (columns === null) {
             this.columnsField.focus();
+            return null;
+        }
+        if (rows * columns > MAX_TABLE_CELLS) {
+            this.sizeErrorText = this.tooLargeText;
+            this.rowsField.focus();
             return null;
         }
         return { rows, columns };
