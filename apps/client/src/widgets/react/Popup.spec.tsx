@@ -138,6 +138,37 @@ describe("Popup", () => {
         outside.remove();
     });
 
+    it("keeps the click of a dismissing press from what the press uncovered, but not from what it pressed", async () => {
+        anchorAt(100, 50);
+        const popup = await open({ onDismiss: vi.fn() });
+        const press = (target: Element) => target.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+        const click = (target: Element) => target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        // A phone's cover, which the popup takes away before the tap's click, and an icon under it.
+        const cover = document.createElement("div");
+        const icon = document.createElement("button");
+        const iconClicked = vi.fn();
+        icon.addEventListener("click", iconClicked);
+        document.body.append(cover, icon);
+
+        press(cover);
+        click(icon);
+        expect(iconClicked).not.toHaveBeenCalled();
+        // Only the one click.
+        click(icon);
+        expect(iconClicked).toHaveBeenCalledTimes(1);
+
+        press(icon);
+        click(icon);
+        expect(iconClicked).toHaveBeenCalledTimes(2);
+
+        // A press inside dismisses nothing, so its click goes where it lands.
+        press(popup);
+        click(icon);
+        expect(iconClicked).toHaveBeenCalledTimes(3);
+        cover.remove();
+        icon.remove();
+    });
+
     it("counts a popup opened inside it as inside, and leaves Escape to that popup", async () => {
         anchorAt(100, 50);
         const onOuterDismiss = vi.fn();

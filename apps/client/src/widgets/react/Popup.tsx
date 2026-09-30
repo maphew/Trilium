@@ -133,6 +133,7 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
             if (layer.contains(target)) return;
             if (anchor instanceof HTMLElement && anchor.contains(target)) return;
             dismiss.current?.("outside");
+            swallowStrayClick(target);
         };
         const onKeyDown = (e: KeyboardEvent) => {
             // A popup open inside this one takes Escape first.
@@ -168,6 +169,27 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
     </>;
     return createPortal(portalClassName ? <div className={portalClassName}>{drawn}</div> : drawn,
         container ?? document.fullscreenElement ?? document.body);
+}
+
+/**
+ * Drops the click that follows a press dismissing a popup when it lands on something other than
+ * `pressed`. A cover or a backdrop goes away with the popup before a tap's click, which then lands
+ * on whatever stood under it, as an icon under the icon picker's menu.
+ */
+function swallowStrayClick(pressed: Node) {
+    const onClick = (e: MouseEvent) => {
+        stop();
+        if (e.target instanceof Node && pressed.contains(e.target)) return;
+        e.preventDefault();
+        e.stopPropagation();
+    };
+    // A press that makes no click, as one that scrolls, leaves nothing for the next press's.
+    const stop = () => {
+        window.removeEventListener("click", onClick, true);
+        window.removeEventListener("pointerdown", stop, true);
+    };
+    window.addEventListener("click", onClick, true);
+    window.addEventListener("pointerdown", stop, true);
 }
 
 /** A popup, as the one it opened inside knows it. */
