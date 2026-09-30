@@ -356,7 +356,7 @@ function FilterRow({ filterByPrefix, search, setSearch, setFilterByPrefix, filte
                         hideToggleArrow
                         noSelectButtonStyle
                         iconAction
-                        dropdownContainerClassName="mobile-bottom-menu"
+                        mobileBottomSheet
                     >
                         {onReset && <>
                             <FormListItem

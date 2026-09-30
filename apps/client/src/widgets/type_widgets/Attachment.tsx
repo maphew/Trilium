@@ -429,8 +429,7 @@ function AttachmentActions({ attachment, copyAttachmentReferenceToClipboard, onS
                 text={<Icon icon="bx bx-dots-vertical-rounded" />}
                 buttonClassName="icon-action-always-border"
                 iconAction
-                dropdownContainerClassName="mobile-bottom-menu"
-                mobileBackdrop
+                mobileBottomSheet
             >
                 <FormListItem
                     icon="bx bx-file-find"

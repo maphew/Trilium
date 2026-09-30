@@ -117,12 +117,11 @@ export function NoteContextMenu({ note, noteContext, itemsAtStart, itemsNearNote
                 dropdownRef={dropdownRef}
                 buttonClassName={ isNewLayout ? "bx bx-dots-horizontal-rounded" : "bx bx-dots-vertical-rounded" }
                 className="note-actions"
-                dropdownContainerClassName="mobile-bottom-menu"
+                mobileBottomSheet
                 hideToggleArrow
                 noSelectButtonStyle
                 iconAction
                 onHidden={() => itemToFocusRef.current = null }
-                mobileBackdrop
             >
                 {itemsAtStart}
 
