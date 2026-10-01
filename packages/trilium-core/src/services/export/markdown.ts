@@ -532,7 +532,9 @@ function isPlainDefaultHighlight(node: HTMLElement): boolean {
         return false;
     }
 
-    const declarations = parseStyleDeclarations(node.getAttribute("style"));
+    // The text editor repeats every color in a `--tn-*` variable for the theme to adapt.
+    const declarations = parseStyleDeclarations(node.getAttribute("style"))
+        .filter(({ property }) => !property.startsWith("--tn-"));
 
     // A bare `<mark>` is a highlight with no colour of its own; a span always has a declaration,
     // since that is what the filter matched on.
@@ -547,8 +549,12 @@ function isPlainDefaultHighlight(node: HTMLElement): boolean {
     const [ declaration ] = declarations;
 
     return declaration.property === "background-color"
-        && normalizeColor(declaration.value) === normalizeColor(HIGHLIGHT_BACKGROUND);
+        && DEFAULT_HIGHLIGHT_BACKGROUNDS.includes(normalizeColor(declaration.value));
 }
+
+/** The palette Yellow, and CKEditor's stock yellow that Markdown imports used before it. */
+const DEFAULT_HIGHLIGHT_BACKGROUNDS = [ HIGHLIGHT_BACKGROUND, "hsl(60, 75%, 60%)" ]
+    .map(normalizeColor);
 
 function parseStyleDeclarations(style: string | null) {
     return (style ?? "")

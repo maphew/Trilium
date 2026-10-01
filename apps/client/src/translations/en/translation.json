@@ -4408,6 +4408,9 @@
       "missing-icon": "missing icon",
       "invalid-symbol": "the markdown symbol should be one character, excepting \"[\", \" \", \"X\", and \"]\"",
       "duplicate-symbol": "duplicate markdown symbol"
+    },
+    "colors": {
+      "pink": "Pink"
     }
   },
   "collection_filter": {

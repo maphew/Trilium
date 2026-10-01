@@ -1,4 +1,5 @@
 @import "./boxicons-compat.css";
+@import "./adaptive-colors.css";
 
 @font-face {
     font-family: Montserrat;

@@ -18,6 +18,7 @@ import { resolveContentLanguage } from "../../../utils/formatters.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
 import buildAiAssistantStream, { type AiNoteLocationProvider, buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
 import diffAiResponse from "./ai_diff.js";
+import { buildFontColorConfig, buildTableColorConfig } from "./color_palette.js";
 import { buildQuoteTransformation, resolveQuoteSetting } from "./quotes.js";
 import { buildCustomTransformations, parseCustomReplacements } from "./replacements.js";
 import { buildToolbarConfig } from "./toolbar.js";
@@ -149,7 +150,8 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             contentToolbar: [
                 "tableColumn", "tableRow", "mergeTableCells", "tableSort", "tableProperties",
                 "tableCellProperties", "toggleTableCaption"
-            ]
+            ],
+            ...buildTableColorConfig()
         },
         list: {
             properties: {
@@ -161,6 +163,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         alignment: {
             options: [ "left", "right", "center", "justify"]
         },
+        ...buildFontColorConfig(),
         link: {
             defaultProtocol: "https://",
             allowedProtocols: ALLOWED_PROTOCOLS,

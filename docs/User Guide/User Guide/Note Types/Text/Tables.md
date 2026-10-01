@@ -169,6 +169,14 @@ The following options can be adjusted:
 
 The cell will immediately update to reflect the changes, but the _Save_ button must be pressed for the changes to persist.
 
+## Border and background colors
+
+The border and background colors of tables and cells adapt to the [theme](../../Basic%20Concepts%20and%20Features/Themes.md), the same way as [text colors](General%20formatting.md) do. A color picked from the palette, chosen with the color picker or typed in is shown in a lighter or darker shade that suits the current theme, so borders stay visible and text stays readable on the background. The hue stays the same, and the table keeps the color as it was picked.
+
+Colors applied with older versions of Trilium are shown exactly as they were picked, until the note is next edited.
+
+Older browsers that can't adapt colors show them exactly as they were picked.
+
 ## Caption
 
 Press the <span class="tn-icon cke cke-caption"></span> button to insert a caption or a text description of the table, which is going to be displayed above the table.
