@@ -26,8 +26,13 @@ describe("readAdaptiveColorBands", () => {
 
     it("finds a limit for every variable in style.css, set to its default", () => {
         const pattern = /--adaptive-([a-z-]+?)-(light|dark)-([a-z-]+):\s*([^;]+);/g;
-        const variables = [ ...styleCss.matchAll(pattern) ];
+        // Themes load before style.css, so only a zero-specificity block lets their `:root` win.
+        const defaults = [ ...styleCss.matchAll(/:where\(:root\)\s*\{([^}]*)\}/g) ]
+            .map(([ , block ]) => block)
+            .join("\n");
+        const variables = [ ...defaults.matchAll(pattern) ];
         expect(variables).toHaveLength(16);
+        expect([ ...styleCss.matchAll(pattern) ]).toHaveLength(16);
 
         for (const [ , role, theme, bound, value ] of variables) {
             const field = BOUNDS[bound as keyof typeof BOUNDS];

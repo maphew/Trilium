@@ -33,6 +33,12 @@
     --tree-item-light-theme-max-color-lightness: 50;
     --tree-item-dark-theme-min-color-lightness: 75;
 
+    /* Picks the half of the light-dark() text colors that matches the theme. */
+    color-scheme: var(--theme-style);
+}
+
+/* Zero specificity, so that a theme's :root wins although themes load before this file. */
+:where(:root) {
     /* Adaptive font color limits */
     --adaptive-text-light-max-lightness: 40;
     --adaptive-text-light-max-chroma: none;
@@ -56,9 +62,6 @@
     --adaptive-table-background-light-max-chroma: 20;
     --adaptive-table-background-dark-max-lightness: 30;
     --adaptive-table-background-dark-max-chroma: 30;
-
-    /* Picks the half of the light-dark() text colors that matches the theme. */
-    color-scheme: var(--theme-style);
 }
 
 body#trilium-app.motion-disabled *,
