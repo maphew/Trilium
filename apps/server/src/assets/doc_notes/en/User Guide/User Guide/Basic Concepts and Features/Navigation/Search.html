@@ -91,6 +91,14 @@
 <h3>Autocomplete</h3>
 <p>To help with the syntax, Trilium offers an autocomplete functionality
   which can be triggered by pressing <kbd>Ctrl</kbd>+<kbd>Space</kbd>.</p>
+<p>Some suggestions also open on their own as you type: label and relation
+  names after <code>#</code> and <code>~</code>, fields after <code>.</code>,
+  operators, values, and notes after <code>@</code>. Keywords such as <code>and</code>, <code>or</code>, <code>not</code>, <code>orderBy</code> and <code>limit</code> appear
+  only on <kbd>Ctrl</kbd>+<kbd>Space</kbd>, since a plain word is usually
+  a search term.</p>
+<p>No suggestion is selected when the list opens, so <kbd>Enter</kbd> runs
+  the search as typed. To insert a suggestion, select it with <kbd>Down</kbd> and
+  press <kbd>Enter</kbd>.</p>
 <p>The autocomplete offers:</p>
 <ul>
   <li>
@@ -139,6 +147,10 @@
   <li>Search errors which are checked by the server, without indicating the
     exact place the error occurred.</li>
 </ul>
+<p>An error the search only runs into while running, such as an operator
+  that note content cannot be searched with, is shown in a <em>Search error</em> card
+  instead: below the search string, or at the top of the <a class="reference-link"
+  href="#root/_help_Ms1nauBra7gq">Quick search</a> results.</p>
 <h3>Multiline</h3>
 <p>Long or complicated searches can be formatted by using newlines, similar
   to SQL queries. Newlines are treated just like spaces.</p>

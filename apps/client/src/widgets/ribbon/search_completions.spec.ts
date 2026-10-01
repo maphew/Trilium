@@ -21,8 +21,11 @@ beforeEach(() => {
 });
 
 describe("searchCompletionSource", () => {
-    it("offers the note object and the keywords while a word is being typed, anchored at its start", async () => {
-        const result = await complete("#book AND no");
+    it("offers the note object and the keywords for a word only when asked, anchored at its start", async () => {
+        // A plain word is most often a search term, so typing one opens nothing.
+        expect(await complete("#book AND no")).toBeNull();
+
+        const result = await complete("#book AND no", { explicit: true });
 
         expect(result?.from).toBe(10);
         expect(labelsOf(result)).toEqual([ "#", "#!", "~", "~!", "note", "and", "or", "not", "orderBy", "limit" ]);
@@ -33,9 +36,9 @@ describe("searchCompletionSource", () => {
     });
 
     it("offers the sort directions only once an orderBy is open", async () => {
-        expect(labelsOf(await complete("#book de"))).not.toContain("desc");
+        expect(labelsOf(await complete("#book de", { explicit: true }))).not.toContain("desc");
 
-        const ordering = await complete("#book orderBy #year de");
+        const ordering = await complete("#book orderBy #year de", { explicit: true });
 
         expect(labelsOf(ordering)).toContain("desc");
         expect(optionFor(ordering, "asc")?.detail).toBe("order_by.asc");
@@ -43,23 +46,23 @@ describe("searchCompletionSource", () => {
 
     it("narrows an orderBy to what can follow the key being written", async () => {
         // A key is a property path or an attribute name, which the branches above answer for.
-        expect(labelsOf(await complete("#book orderBy n"))).toEqual([ "#", "~", "note" ]);
+        expect(labelsOf(await complete("#book orderBy n", { explicit: true }))).toEqual([ "#", "~", "note" ]);
         expect(labelsOf(await complete("#book orderBy ", { explicit: true }))).toEqual([ "#", "~", "note" ]);
 
         // Once a key stands there it can be sorted, followed by another, or cut short.
-        expect(labelsOf(await complete("#book orderBy note.title d")))
+        expect(labelsOf(await complete("#book orderBy note.title d", { explicit: true })))
             .toEqual([ "asc", "desc", "limit" ]);
-        expect(labelsOf(await complete("#book orderBy note.title desc, note.dateCreated a")))
+        expect(labelsOf(await complete("#book orderBy note.title desc, note.dateCreated a", { explicit: true })))
             .toEqual([ "asc", "desc", "limit" ]);
 
         // A comma opens the next key, which has no direction of its own yet.
-        expect(labelsOf(await complete("#book orderBy note.title, n"))).toEqual([ "#", "~", "note" ]);
+        expect(labelsOf(await complete("#book orderBy note.title, n", { explicit: true }))).toEqual([ "#", "~", "note" ]);
 
         // An ordering names a key and sorts on it; nothing in it is compared.
         expect(await complete("#book orderBy note.title =")).toBeNull();
 
         // Outside an ordering the keywords are untouched.
-        expect(labelsOf(await complete("#book n")))
+        expect(labelsOf(await complete("#book n", { explicit: true })))
             .toEqual([ "#", "#!", "~", "~!", "note", "and", "or", "not", "orderBy", "limit" ]);
     });
 
@@ -229,8 +232,8 @@ describe("searchCompletionSource", () => {
         });
 
         it("stops once the value is finished, so the keywords follow it", async () => {
-            expect(labelsOf(await complete("#genre = fiction an"))).toContain("and");
-            expect(labelsOf(await complete("#genre = \"science fiction\" an"))).toContain("and");
+            expect(labelsOf(await complete("#genre = fiction an", { explicit: true }))).toContain("and");
+            expect(labelsOf(await complete("#genre = \"science fiction\" an", { explicit: true }))).toContain("and");
             expect(server.get).not.toHaveBeenCalled();
         });
 
@@ -281,9 +284,11 @@ describe("searchCompletionSource", () => {
             expect(labelsOf(await complete("note.type = code and note.mime = pyt"))).toContain("text/x-python");
             expect(labelsOf(await complete("~author.type = co"))).toContain("code");
 
-            // A property whose values nothing can enumerate falls through to the keywords, and a
-            // label that happens to share a property's name is still a label.
-            expect(labelsOf(await complete("note.title = so")))
+            // A property whose values nothing can enumerate falls through to the keywords, which
+            // wait to be asked for, and a label that happens to share a property's name is still a
+            // label.
+            expect(await complete("note.title = so")).toBeNull();
+            expect(labelsOf(await complete("note.title = so", { explicit: true })))
                 .toEqual([ "#", "#!", "~", "~!", "note", "and", "or", "not", "orderBy", "limit" ]);
             expect(labelsOf(await complete("note.labels.type = fic"))).toEqual([ "fiction", "science fiction" ]);
         });
@@ -326,12 +331,12 @@ describe("searchCompletionIcon", () => {
     });
 
     it("leaves everything else undrawn", async () => {
-        expect(iconFor(await complete("no"), "note")).toBeUndefined();
-        expect(iconFor(await complete("or"), "orderBy")).toBeUndefined();
+        expect(iconFor(await complete("no", { explicit: true }), "note")).toBeUndefined();
+        expect(iconFor(await complete("or", { explicit: true }), "orderBy")).toBeUndefined();
         expect(iconFor(await complete("note."), "title")).toBeUndefined();
         // The marker is the icon; drawing one beside it reads as noise.
-        expect(iconFor(await complete("no"), "#")).toBeUndefined();
-        expect(iconFor(await complete("no"), "~")).toBeUndefined();
+        expect(iconFor(await complete("no", { explicit: true }), "#")).toBeUndefined();
+        expect(iconFor(await complete("no", { explicit: true }), "~")).toBeUndefined();
         expect(iconFor(await complete("#year >"), ">=")).toBeUndefined();
     });
 });

@@ -55,13 +55,18 @@ export interface PopupProps extends Pick<HTMLAttributes<HTMLDivElement>, "id" | 
     onDismiss?(reason: "outside" | "escape"): void;
     /** Whether Escape dismisses it, as it does unless its content answers Escape itself, as a menu does. */
     escapeDismisses?: boolean;
+    /**
+     * A press in an element this selector matches does not dismiss it, for a surface it summons that
+     * renders elsewhere in the page, as the shortcut-hints pane does. Named as on `Popover`.
+     */
+    keepOpenSelector?: string;
     children?: ComponentChildren;
 }
 
 /** How many pixels it keeps from the edges of the viewport. */
 const VIEWPORT_PADDING = 5;
 
-export default function Popup({ anchor, placement = "bottom-start", offset: gap = 0, capHeight = true, portalClassName, placedByStylesheet, backdropClassName, elementRef, container, onPlaced, onDismiss, escapeDismisses = true, className, children, ...elementProps }: PopupProps) {
+export default function Popup({ anchor, placement = "bottom-start", offset: gap = 0, capHeight = true, portalClassName, placedByStylesheet, backdropClassName, elementRef, container, onPlaced, onDismiss, escapeDismisses = true, keepOpenSelector, className, children, ...elementProps }: PopupProps) {
     const popupRef = useRef<HTMLDivElement | null>(null);
     // Stable, so the element is handed on once rather than taken back and given again each render.
     const setElement = useCallback((element: HTMLDivElement | null) => {
@@ -128,6 +133,8 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
     dismiss.current = onDismiss;
     const escapes = useRef(escapeDismisses);
     escapes.current = escapeDismisses;
+    const keepOpen = useRef(keepOpenSelector);
+    keepOpen.current = keepOpenSelector;
     useLayoutEffect(() => {
         if (!dismiss.current) return;
         // Captured at the window, so a host that stops its own presses, as the note tree does,
@@ -137,6 +144,7 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
             const target = e.target as Node;
             if (layer.contains(target)) return;
             if (anchor instanceof HTMLElement && anchor.contains(target)) return;
+            if (keepOpen.current && target instanceof Element && target.closest(keepOpen.current)) return;
             dismiss.current?.("outside");
             swallowStrayClick(target);
         };

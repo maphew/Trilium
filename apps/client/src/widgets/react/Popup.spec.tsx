@@ -159,6 +159,23 @@ describe("Popup", () => {
         fullscreen.remove();
     });
 
+    it("stays open for a press in what `keepOpenSelector` names, elsewhere in the page", async () => {
+        anchorAt(100, 50);
+        const onDismiss = vi.fn();
+        await open({ onDismiss, keepOpenSelector: ".hints-pane" });
+        const pane = document.createElement("div");
+        pane.className = "hints-pane";
+        pane.innerHTML = "<span>Ctrl+Space</span>";
+        document.body.append(pane);
+
+        pane.firstElementChild?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+        expect(onDismiss).not.toHaveBeenCalled();
+
+        document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+        expect(onDismiss).toHaveBeenCalledWith("outside");
+        pane.remove();
+    });
+
     it("is dismissed by a press outside it and its anchor, and by Escape, which goes no further", async () => {
         anchorAt(100, 50);
         const onDismiss = vi.fn();

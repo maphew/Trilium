@@ -114,9 +114,12 @@ export function createFieldEditor(config: FieldEditorConfig): FieldEditor {
 
         // The completion keymap is registered at the highest precedence, so Enter picks the
         // selected option while the popup is open and reaches `onEnter` the rest of the time.
+        // Nothing is selected as the popup opens, so Enter on a plain search term runs the search
+        // instead of completing the term; ArrowDown selects an option first.
         extensions.push(autocompletion({
             override: [ config.completionSource ],
             activateOnTyping: true,
+            selectOnOpen: false,
             activateOnCompletion: config.activateOnCompletion,
             icons: !icon,
             addToOptions: icon ? [ { position: ICON_POSITION, render: (completion) => renderIcon(icon(completion)) } ] : []

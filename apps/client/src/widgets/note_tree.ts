@@ -488,9 +488,6 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
                 return true;
             },
             activate: async (event, data) => {
-                // hide all dropdowns, fix calendar widget dropdown doesn't close when click on a note
-                $('.dropdown-menu').parent('.dropdown').find('[data-bs-toggle="dropdown"]').dropdown('hide');
-
                 this.clearSelectedNodes();
 
                 const notePath = treeService.getNotePath(data.node);

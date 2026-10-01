@@ -1533,7 +1533,7 @@
     "label_rock_or_pop": "only one of the labels must be present",
     "label_year_comparison": "numerical comparison (also >, >=, <).",
     "label_date_created": "notes created in the last month",
-    "error": "Search error: {{error}}",
+    "error_title": "Search error",
     "search_prefix": "Search:",
     "hints": {
       "title": "Search string",
@@ -2755,8 +2755,13 @@
     "placeholder": "Quick search",
     "searching": "Searching...",
     "no-results": "No results found",
-    "more-results": "... and {{number}} more results.",
-    "show-in-full-search": "Show in full search"
+    "show-in-full-search": "Show in full search",
+    "hints": {
+      "title": "Quick search results",
+      "to_results": "Move to the results",
+      "page": "Move a page through the results",
+      "close": "Close the results"
+    }
   },
   "note_tree": {
     "collapse-title": "Collapse note tree",

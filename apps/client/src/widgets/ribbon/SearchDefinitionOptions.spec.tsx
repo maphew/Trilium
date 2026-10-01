@@ -7,6 +7,12 @@ import attributes from "../../services/attributes";
 import { renderInto } from "../../test/render";
 import { SEARCH_OPTIONS } from "./SearchDefinitionOptions";
 
+// Echoes the key, so a spec can tell which string a title shows.
+vi.mock("../../services/i18n", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../services/i18n")>()),
+    t: (key: string) => key
+}));
+
 // Stands in for the CodeMirror editor, which loads on demand and is covered by its own spec.
 let editorProps: { noteId: string, currentValue: string, onChange(value: string): void } | undefined;
 vi.mock("./SearchStringEditor", () => ({
@@ -55,6 +61,19 @@ describe("the search string option", () => {
         expect(attributes.setLabel).toHaveBeenCalledTimes(1);
         expect(attributes.setLabel).toHaveBeenCalledWith("search2", "searchString", "#author = tolkien");
     });
+
+    it("shows the error the search ran into as a titled caution card", () => {
+        const container = renderOption(noteWith("search1", "note.content > 3"), undefined, {
+            message: "Note content can be searched only with operators"
+        });
+
+        const card = container.querySelector(".admonition");
+        expect(card?.classList.contains("extended-admonition")).toBe(true);
+        expect(card?.classList.contains("caution")).toBe(true);
+        expect(card?.querySelector(".admonition-title")?.textContent).toBe("search_string.error_title");
+        expect(card?.querySelector(".admonition-body")?.textContent)
+            .toBe("Note content can be searched only with operators");
+    });
 });
 
 function noteWith(noteId: string, searchString: string) {
@@ -67,7 +86,7 @@ function noteWith(noteId: string, searchString: string) {
     } as unknown as FNote;
 }
 
-function renderOption(note: FNote, container?: HTMLDivElement) {
+function renderOption(note: FNote, container?: HTMLDivElement, error?: { message: string }) {
     const option = SEARCH_OPTIONS.find(({ attributeName }) => attributeName === "searchString");
     if (!option) {
         throw new Error("The search string option is missing from SEARCH_OPTIONS.");
@@ -79,6 +98,7 @@ function renderOption(note: FNote, container?: HTMLDivElement) {
             <Component
                 note={note}
                 refreshResults={() => {}}
+                error={error}
                 attributeName="searchString"
                 attributeType="label"
             />

@@ -68,8 +68,10 @@ export function searchCompletionSource(context: CompletionContext): CompletionOu
         return options.length ? { from: operator.from, options, validFor: OPERATOR_PREFIX } : null;
     }
 
+    // A plain word is most often a search term, so the keywords wait for Ctrl-Space.
     const word = context.matchBefore(WORD_PREFIX);
     if (word) {
+        if (!context.explicit) return null;
         return { from: word.from, options: wordOptions(ordering), validFor: WORD_PREFIX };
     }
 
