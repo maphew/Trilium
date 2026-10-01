@@ -1,9 +1,13 @@
 import {
+    _getModelData as getModelData,
     _getViewData as getViewData,
     _setModelData as setModelData,
+    ButtonView,
     ClassicEditor,
     Essentials,
+    LinkEditing,
     Paragraph,
+    Undo,
     Widget,
     type ModelElement
 } from "ckeditor5";
@@ -11,7 +15,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
 import { installGlobMock } from "../../test/globals-test-kit.js";
-import IncludeNote, { BOX_SIZE_COMMAND_NAME, BOX_SIZES, COMMAND_NAME } from "./includenote.js";
+import IncludeNote, {
+    BOX_SIZE_COMMAND_NAME,
+    BOX_SIZES,
+    COMMAND_NAME,
+    EMBED_ATTACHMENT_LINK_COMMAND,
+    CONVERT_EMBED_TO_LINK_COMMAND
+} from "./includenote.js";
+import ReferenceLink from "./referencelink.js";
 
 describe("IncludeNote", () => {
     let editor: ClassicEditor;
@@ -472,16 +483,226 @@ describe("IncludeNote", () => {
         // Exercise the falsy `if (command)` branch in IncludeNoteUI: when the command lookup
         // returns undefined, the button must still be created (just without the binding).
         const realGet = editor.commands.get.bind(editor.commands);
+        const absent: string[] = [ COMMAND_NAME, CONVERT_EMBED_TO_LINK_COMMAND ];
         const getSpy = vi
             .spyOn(editor.commands, "get")
-            .mockImplementation((name) => (name === COMMAND_NAME ? undefined : realGet(name)));
+            .mockImplementation((name) => (absent.includes(name) ? undefined : realGet(name)));
 
         try {
             const view = editor.ui.componentFactory.create("includeNote") as unknown as { label: string };
             expect(view.label).toBe("Include note");
+            const convert = editor.ui.componentFactory.create(CONVERT_EMBED_TO_LINK_COMMAND);
+            expect((convert as unknown as { label: string }).label).toBe("Convert to link");
         } finally {
             getSpy.mockRestore();
         }
+    });
+});
+
+describe("IncludeNote with attachments", () => {
+    const LINK_HREF = "#root/owner?viewMode=attachments&attachmentId=att1";
+    const embedHtml = (attachmentId = "att1") =>
+        `<section class="include-note" data-attachment-id="${attachmentId}" data-box-size="small">`
+        + "</section>";
+    let editor: ClassicEditor;
+    let loadIncludedNote: ReturnType<typeof vi.fn>;
+    let loadIncludedAttachment: ReturnType<typeof vi.fn>;
+    let getAttachmentHref: ReturnType<typeof vi.fn>;
+
+    beforeEach(async () => {
+        loadIncludedNote = vi.fn();
+        loadIncludedAttachment = vi.fn();
+        getAttachmentHref = vi.fn(async () => LINK_HREF);
+        installGlobMock({
+            getComponentByEl: () => ({
+                loadIncludedNote,
+                loadIncludedAttachment,
+                getAttachmentHref,
+                loadReferenceLinkTitle: vi.fn(async () => undefined)
+            }),
+            getReferenceLinkTitleSync: () => "report.pdf"
+        });
+
+        editor = await createTestEditor([
+            Essentials, Paragraph, Undo, Widget, LinkEditing, ReferenceLink, IncludeNote
+        ]);
+    });
+
+    /** Querying the DOM root forces the UIElement render callbacks to run. */
+    function renderEmbeds() {
+        return editor.editing.view.getDomRoot()?.querySelectorAll("div.include-note-wrapper");
+    }
+
+    function selectEmbed() {
+        editor.model.change((writer) => {
+            const element = findIncludeNote(editor);
+            if (element) {
+                writer.setSelection(element, "on");
+            }
+        });
+    }
+
+    it("stores, saves and renders an embed by its attachment", () => {
+        editor.setData(embedHtml());
+
+        const element = findIncludeNote(editor);
+        expect(element?.getAttribute("attachmentId")).toBe("att1");
+        expect(element?.hasAttribute("noteId")).toBe(false);
+        expect(editor.getData()).toContain('data-attachment-id="att1"');
+        expect(editor.getData()).not.toContain("data-note-id");
+
+        expect(renderEmbeds()).toHaveLength(1);
+        expect(loadIncludedNote).not.toHaveBeenCalled();
+        expect(loadIncludedAttachment).toHaveBeenCalledTimes(1);
+        expect(loadIncludedAttachment.mock.calls[0]?.[0]).toBe("att1");
+        expect(loadIncludedAttachment.mock.calls[0]?.[2]).toBe("small");
+
+        selectEmbed();
+        editor.execute(BOX_SIZE_COMMAND_NAME, { value: "full" });
+        expect(loadIncludedAttachment.mock.calls.at(-1)?.[2]).toBe("full");
+    });
+
+    it("shows an embed by its file name while it uploads, and saves it naming nothing", () => {
+        setModelData(
+            editor.model,
+            "<includeNote boxSize=\"small\" uploadFileName=\"report.pdf\" uploadId=\"u1\">"
+            + "</includeNote>"
+        );
+
+        const wrapper = renderEmbeds()?.[0];
+        const title = wrapper?.querySelector(".include-note-title");
+        expect(title?.textContent).toBe("report.pdf");
+        expect(title?.querySelector(".bx.bx-loader-alt.bx-spin")).not.toBeNull();
+        expect(loadIncludedAttachment).not.toHaveBeenCalled();
+        expect(loadIncludedNote).not.toHaveBeenCalled();
+        const data = editor.getData();
+        expect(data).toContain("<section class=\"include-note\" data-box-size=\"small\">");
+        expect(data).not.toMatch(/data-(note|attachment)-id/);
+
+        editor.model.change((writer) => {
+            const element = findIncludeNote(editor);
+            if (element) {
+                writer.setAttribute("attachmentId", "att1", element);
+                writer.removeAttribute("uploadFileName", element);
+            }
+        });
+        renderEmbeds();
+        expect(loadIncludedAttachment).toHaveBeenCalledWith("att1", expect.anything(), "small");
+    });
+
+    it("turns an attachment link into an embed in its place, as one undo step", () => {
+        editor.setData(`<p>Before <a class="reference-link" href="${LINK_HREF}">x</a> after</p>`);
+        const link = editor.editing.view.getDomRoot()?.querySelector("a.reference-link");
+
+        editor.execute(EMBED_ATTACHMENT_LINK_COMMAND, { domElement: link, boxSize: "expandable" });
+
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+            "<paragraph>Before </paragraph>" +
+            "<includeNote attachmentId=\"att1\" boxSize=\"expandable\"></includeNote>" +
+            "<paragraph> after</paragraph>"
+        );
+
+        editor.execute("undo");
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+            `<paragraph>Before <reference href="${LINK_HREF}"></reference> after</paragraph>`
+        );
+
+        const relinked = editor.editing.view.getDomRoot()?.querySelector("a.reference-link");
+        editor.execute(EMBED_ATTACHMENT_LINK_COMMAND, { domElement: relinked });
+        expect(findIncludeNote(editor)?.getAttribute("boxSize")).toBe("medium");
+    });
+
+    it("leaves a link to a note, and anything other than a link, alone", () => {
+        editor.setData(`<p>Before <a class="reference-link" href="#root/noteAbc">x</a></p>`);
+        const before = getModelData(editor.model, { withoutSelection: true });
+        const domRoot = editor.editing.view.getDomRoot();
+        const link = domRoot?.querySelector("a.reference-link");
+        const paragraph = domRoot?.querySelector("p");
+        const detached = document.createElement("a");
+
+        for (const domElement of [ link, paragraph, detached ]) {
+            editor.execute(EMBED_ATTACHMENT_LINK_COMMAND, { domElement });
+        }
+
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(before);
+    });
+
+    it("loads an include that names nothing, as one saved mid-upload, as an empty box", () => {
+        editor.setData("<section class=\"include-note\" data-box-size=\"small\"></section>");
+
+        expect(renderEmbeds()).toHaveLength(1);
+        expect(loadIncludedNote).not.toHaveBeenCalled();
+        expect(loadIncludedAttachment).not.toHaveBeenCalled();
+    });
+
+    it("turns an attachment embed back into a link, and offers it only for one", async () => {
+        const command = editor.commands.get(CONVERT_EMBED_TO_LINK_COMMAND);
+        const button = editor.ui.componentFactory.create(CONVERT_EMBED_TO_LINK_COMMAND);
+        if (!(button instanceof ButtonView)) {
+            throw new Error("Expected a button.");
+        }
+        expect(button.label).toBe("Convert to link");
+
+        insertIncludeNote(editor, "noteX", "small");
+        expect(command?.isEnabled).toBe(false);
+        expect(button.isVisible).toBe(false);
+
+        editor.setData(embedHtml());
+        selectEmbed();
+        expect(command?.isEnabled).toBe(true);
+        expect(button.isVisible).toBe(true);
+
+        button.fire("execute");
+
+        expect(getAttachmentHref).toHaveBeenCalledWith("att1");
+        await vi.waitFor(() => expect(getModelData(editor.model, { withoutSelection: true }))
+            .toBe(`<paragraph><reference href="${LINK_HREF}"></reference></paragraph>`));
+    });
+
+    it("converts nothing when no attachment embed is selected", async () => {
+        editor.setData(embedHtml() + "<p>after</p>");
+        setModelData(editor.model, "<paragraph>foo[]bar</paragraph>");
+        const before = editor.getData();
+
+        // The decorated `Command#execute()` skips a disabled command, so the command is forced
+        // enabled to run `execute()` with no embed selected.
+        const command = editor.commands.get(CONVERT_EMBED_TO_LINK_COMMAND) as {
+            isEnabled: boolean;
+            execute(): Promise<void>;
+        };
+        command.isEnabled = true;
+        await command.execute();
+
+        expect(getAttachmentHref).not.toHaveBeenCalled();
+        expect(editor.getData()).toBe(before);
+    });
+
+    it("keeps an embed whose attachment has no link to go back to", async () => {
+        getAttachmentHref.mockResolvedValue(null);
+        editor.setData(embedHtml());
+        selectEmbed();
+
+        await editor.execute(CONVERT_EMBED_TO_LINK_COMMAND);
+
+        expect(findIncludeNote(editor)?.getAttribute("attachmentId")).toBe("att1");
+    });
+
+    it("redraws the embeds of a changed attachment and removes those of a deleted one", () => {
+        editor.setData(embedHtml("att1") + embedHtml("att2"));
+        renderEmbeds();
+        loadIncludedAttachment.mockClear();
+
+        editor.plugins.get("ReferenceLinkEditing").updateAttachmentLinks([
+            { attachmentId: "att1", isDeleted: false },
+            { attachmentId: "att2", isDeleted: true }
+        ]);
+        renderEmbeds();
+
+        const redrawn = loadIncludedAttachment.mock.calls.map(([ attachmentId ]) => attachmentId);
+        expect(redrawn).toContain("att1");
+        expect(redrawn).not.toContain("att2");
+        expect(getModelData(editor.model, { withoutSelection: true }))
+            .toBe("<includeNote attachmentId=\"att1\" boxSize=\"small\"></includeNote>");
     });
 });
 

@@ -401,6 +401,37 @@ describe("renderIncludedNotes via postProcessRichContent", () => {
     });
 });
 
+describe("Attachment embeds", () => {
+    it("renders an embedded attachment in place, and links to it one level down", async () => {
+        const owner = buildNote({
+            title: "Embed owner",
+            content: `<section class="include-note" data-attachment-id="embedPic">&nbsp;</section>`
+        });
+        new FAttachment(froca, {
+            attachmentId: "embedPic",
+            ownerId: owner.noteId,
+            role: "image",
+            mime: "image/png",
+            title: "photo.png",
+            dateModified: "",
+            utcDateModified: "",
+            utcDateScheduledForErasureSince: "",
+            contentLength: 0
+        });
+
+        const contentEl = document.createElement("div");
+        await renderText(owner, $(contentEl));
+        expect(contentEl.querySelector("section.include-note img")?.getAttribute("src"))
+            .toContain("api/attachments/embedPic/image/");
+
+        const nestedEl = document.createElement("div");
+        await renderText(owner, $(nestedEl), { includesAsReferenceLinks: true });
+        expect(nestedEl.querySelector("section.include-note")).toBeNull();
+        expect(nestedEl.querySelector("a.reference-link")?.getAttribute("href"))
+            .toBe(`#root/${owner.noteId}?viewMode=attachments&attachmentId=embedPic`);
+    });
+});
+
 describe("postProcessRichContent with FAttachment", () => {
     it("adds the attachmentId to seenNoteIds for an attachment owner", async () => {
         const owner = buildNote({ title: "Owner" });

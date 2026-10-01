@@ -1,17 +1,35 @@
 import type { GeoMouseEvent } from "../widgets/collections/geomap/map.js";
 
 import appContext, { type CommandNames } from "../components/app_context.js";
+import froca from "../services/froca.js";
 import { t } from "../services/i18n.js";
 import type { ViewScope } from "../services/link.js";
+import options from "../services/options.js";
 import utils, { isMobile } from "../services/utils.js";
 import { getClosestNtxId } from "../widgets/widget_utils.js";
 import contextMenu, { type ContextMenuEvent, type MenuItem } from "./context_menu.js";
+import { getTextEditorContaining } from "./text_editor_context_menu.js";
 
-function openContextMenu(notePath: string, e: ContextMenuEvent, viewScope: ViewScope = {}, hoistedNoteId: string | null = null) {
+let lastMenuRequest = 0;
+
+async function openContextMenu(
+    notePath: string,
+    e: ContextMenuEvent,
+    viewScope: ViewScope = {},
+    hoistedNoteId: string | null = null
+) {
+    const request = ++lastMenuRequest;
+    const noteId = notePath.split("/").at(-1) ?? notePath;
+    const attachmentItems = await getAttachmentItems(noteId, viewScope, e);
+    // A later right-click opened its own menu while this one waited for the attachment.
+    if (request !== lastMenuRequest) {
+        return;
+    }
+
     contextMenu.show({
         x: e.pageX,
         y: e.pageY,
-        items: getItems(e),
+        items: [ ...getItems(e), ...attachmentItems ],
         selectMenuItemHandler: ({ command }) => handleLinkContextMenuItem(command, e, notePath, viewScope, hoistedNoteId)
     });
 }
@@ -77,6 +95,65 @@ function handleLinkContextMenuItem(command: string | undefined, e: ContextMenuEv
     }
 
     return false;
+}
+
+/** The actions on the attachment a link points to, each group after a separator. */
+async function getAttachmentItems(
+    noteId: string,
+    { viewMode, attachmentId }: ViewScope,
+    e: ContextMenuEvent
+): Promise<MenuItem<CommandNames>[]> {
+    if (viewMode !== "attachments" || !attachmentId) {
+        return [];
+    }
+
+    // Imported on demand: `attachment_actions` imports `link`, which imports this module.
+    const [ attachment, { getAttachmentActionGroups }, embedItem ] = await Promise.all([
+        froca.getAttachmentOfNote(noteId, attachmentId),
+        import("../services/attachment_actions.js"),
+        getConvertToEmbedItem(e)
+    ]);
+    if (!attachment) {
+        return [];
+    }
+
+    const groups = getAttachmentActionGroups(attachment);
+    const actionItems = groups.flatMap((group): MenuItem<CommandNames>[] => [
+        { kind: "separator" },
+        ...group.map((action) => ({
+            title: action.title,
+            uiIcon: action.icon,
+            enabled: !action.disabledReason,
+            handler: () => void action.run()
+        }))
+    ]);
+
+    return embedItem ? [ ...actionItems, embedItem ] : actionItems;
+}
+
+/** "Convert link to an embed", for an attachment link in a text note open for editing. */
+async function getConvertToEmbedItem(e: ContextMenuEvent): Promise<MenuItem<CommandNames> | null> {
+    const link = e.target instanceof Element
+        ? e.target.closest<HTMLElement>("a.reference-link")
+        : null;
+    // Checked first: a note shown read-only has no editor, and asking for one waits for a timeout.
+    if (!link?.closest(".ck-editor__editable[contenteditable='true']")) {
+        return null;
+    }
+
+    const editor = await getTextEditorContaining(link);
+    if (!editor?.commands.get("embedAttachmentLink")?.isEnabled) {
+        return null;
+    }
+
+    return {
+        title: t("link_context_menu.convert_link_to_embed"),
+        uiIcon: "bx bx-window-alt",
+        handler: () => editor.execute("embedAttachmentLink", {
+            domElement: link,
+            boxSize: options.get("includeNoteDefaultBoxSize")
+        })
+    };
 }
 
 function getNtxId(e: ContextMenuEvent | GeoMouseEvent) {

@@ -1,7 +1,14 @@
 import "./EditableText.css";
 import "./LinkEmbed.css";
 
-import { CKTextEditor, EditorWatchdog, SnippetDefinition } from "@triliumnext/ckeditor5";
+import {
+    type AttachmentLinkChange,
+    CKTextEditor,
+    EditorWatchdog,
+    type FileUploadData,
+    type FileUploadEvent,
+    SnippetDefinition
+} from "@triliumnext/ckeditor5";
 import { deferred } from "@triliumnext/commons";
 import { createPortal } from "preact/compat";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
@@ -12,6 +19,7 @@ import dateNoteService from "../../../services/date_notes";
 import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import link, { parseNavigationStateFromUrl } from "../../../services/link";
+import type LoadResults from "../../../services/load_results";
 import note_create from "../../../services/note_create";
 import options from "../../../services/options";
 import { consumeSearchTerms } from "../../../services/search_jump";
@@ -26,7 +34,13 @@ import CKEditorWithWatchdog, { CKEditorApi, NotificationEventData, NotificationE
 import getTemplates, { updateTemplateCache } from "./snippets.js";
 import linkEmbedService from "../../../services/link_embed";
 import { usesClassicToolbar } from "./toolbar";
-import { loadIncludedNote, refreshIncludedNote, setupImageOpening } from "./utils";
+import {
+    getAttachmentHref,
+    loadIncludedAttachment,
+    loadIncludedNote,
+    refreshIncludedNote,
+    setupImageOpening
+} from "./utils";
 
 /**
  * The editor can operate into two distinct modes:
@@ -39,6 +53,7 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
     const contentRef = useRef<string>("");
     /** The note `contentRef` holds the content of, so a restarted editor can be marked as holding it. */
     const contentNoteIdRef = useRef<string>();
+    const pendingAttachmentChangesRef = useRef<PendingAttachmentChanges>();
     const watchdogRef = useRef<EditorWatchdog>(null);
     const editorApiRef = useRef<CKEditorApi>(null);
     /** The open icon picker request and its balloon container, or `null` when none is open. */
@@ -80,6 +95,10 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
                 setEditorNoteId(editor, note.noteId);
             }
             editor?.setData(newContent);
+            if (editor && note) {
+                const textEditor = editor as CKTextEditor;
+                applyPendingAttachmentChanges(textEditor, note.noteId, pendingAttachmentChangesRef);
+            }
 
             // Jump to the first search match when navigated from search results.
             consumeSearchTerms(noteContext, ntxId);
@@ -170,6 +189,14 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
             });
         },
         loadIncludedNote,
+        loadIncludedAttachment,
+        getAttachmentHref,
+        getNoteId() {
+            return note.noteId;
+        },
+        getIncludeNoteDefaultBoxSize() {
+            return options.get("includeNoteDefaultBoxSize");
+        },
         // Link preview functionality. The insert flow itself lives in the editor (a balloon form),
         // so the host only has to supply the metadata and the rendering.
         async fetchLinkMetadata(url: string) {
@@ -260,6 +287,19 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
     useTriliumEvent("refreshIncludedNote", ({ noteId }) => {
         if (!containerRef.current) return;
         refreshIncludedNote(containerRef.current, noteId);
+    });
+
+    useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
+        const editor = watchdogRef.current?.editor as CKTextEditor | null | undefined;
+        if (editor && note) {
+            notifyAttachmentChanges(
+                editor,
+                loadResults,
+                note.noteId,
+                parentComponent?.componentId,
+                pendingAttachmentChangesRef
+            );
+        }
     });
 
     useTriliumEvent("executeWithTextEditor", async ({ callback, resolve, ntxId: eventNtxId }) => {
@@ -492,6 +532,9 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
                         setupImageOpening(containerRef.current, false);
                     }
 
+                    editor.plugins.get("FileUploadEditing")
+                        .on<FileUploadEvent>("upload", showFileUploadProgress);
+
                     initialized.current.resolve();
                     // Restore the data, either on the first render or if the editor crashes.
                     // We are not using CKEditor's built-in watch dog content, instead we are using the data we store regularly in the spaced update (see `dataSaved`).
@@ -650,4 +693,85 @@ export function onNotificationWarning(evt: NotificationEventInfo, data: Notifica
  */
 export function onNotificationInfo(_evt: NotificationEventInfo, data: NotificationEventData) {
     toast.showMessage(data.message);
+}
+
+interface PendingAttachmentChanges {
+    noteId: string;
+    changes: AttachmentLinkChange[];
+}
+
+/**
+ * Passes the attachments changed in `loadResults` to the editor's reference links, so a link shows
+ * the new title of its attachment or goes away with it.
+ *
+ * When `loadResults` also reloads the note's content, the changes wait in `pending` until
+ * `applyPendingAttachmentChanges()` runs on the reloaded content.
+ *
+ * Exported for testing.
+ */
+export function notifyAttachmentChanges(
+    editor: CKTextEditor,
+    loadResults: LoadResults,
+    noteId: string,
+    componentId: string | undefined,
+    pending: { current: PendingAttachmentChanges | undefined }
+) {
+    const changes = loadResults.getAttachmentRows().flatMap(({ attachmentId, isDeleted }) =>
+        attachmentId ? [ { attachmentId, isDeleted: !!isDeleted } ] : []
+    );
+    if (!changes.length) {
+        return;
+    }
+
+    // `useNoteBlob()` reloads the content under the same condition, and `setData()` would discard
+    // the updated links.
+    if (loadResults.isNoteContentReloaded(noteId, componentId)) {
+        const held = pending.current?.noteId === noteId ? pending.current.changes : [];
+        pending.current = { noteId, changes: [ ...held, ...changes ] };
+        return;
+    }
+
+    editor.plugins.get("ReferenceLinkEditing").updateAttachmentLinks(changes);
+}
+
+/**
+ * Applies the changes `notifyAttachmentChanges()` held for `noteId`, once the editor holds its
+ * reloaded content. Changes held for another note are dropped.
+ *
+ * Exported for testing.
+ */
+export function applyPendingAttachmentChanges(
+    editor: CKTextEditor,
+    noteId: string,
+    pending: { current: PendingAttachmentChanges | undefined }
+) {
+    const held = pending.current;
+    pending.current = undefined;
+    if (held?.noteId === noteId) {
+        editor.plugins.get("ReferenceLinkEditing").updateAttachmentLinks(held.changes);
+    }
+}
+
+/**
+ * Shows the progress of a file attachment upload in a toast until the upload ends.
+ *
+ * Exported for testing.
+ */
+export function showFileUploadProgress(_evt: unknown, { fileName, loader, done }: FileUploadData) {
+    const id = `file-upload-${loader.id}`;
+    const showProgress = () => toast.showPersistent({
+        id,
+        icon: "bx bx-paperclip",
+        title: t("editable_text.uploading_attachment"),
+        message: fileName,
+        progress: loader.uploadedPercent / 100,
+        dismissible: false
+    });
+
+    showProgress();
+    loader.on("change:uploadedPercent", showProgress);
+    void done.then(() => {
+        loader.off("change:uploadedPercent", showProgress);
+        toast.closePersistent(id);
+    });
 }

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type FAttachment from "../../../entities/fattachment";
 import type FNote from "../../../entities/fnote";
 
 vi.mock("../../../services/froca", () => ({
-    default: { getNote: vi.fn() }
+    default: { getNote: vi.fn(), getAttachment: vi.fn() }
 }));
 vi.mock("../../../services/link", () => ({
     default: { createLink: vi.fn() }
@@ -15,7 +16,7 @@ vi.mock("../../../services/content_renderer", () => ({
 import content_renderer from "../../../services/content_renderer";
 import froca from "../../../services/froca";
 import link from "../../../services/link";
-import { loadIncludedNote } from "./utils";
+import { getAttachmentHref, loadIncludedAttachment, loadIncludedNote } from "./utils";
 
 const note = { noteId: "noteY" } as unknown as FNote;
 
@@ -69,5 +70,60 @@ describe("loadIncludedNote", () => {
         await loadIncludedNote("noteY", $el, "small");
 
         expect(content_renderer.disposeInteractiveContent).toHaveBeenCalledWith($el);
+    });
+});
+
+describe("loadIncludedAttachment", () => {
+    const attachment = {
+        attachmentId: "att1",
+        ownerId: "owner",
+        title: "report.pdf"
+    } as unknown as FAttachment;
+
+    beforeEach(() => {
+        vi.mocked(froca.getAttachment).mockResolvedValue(attachment);
+        vi.mocked(link.createLink).mockResolvedValue($('<span><a href="#">report.pdf</a></span>'));
+        vi.mocked(content_renderer.getRenderedContent)
+            .mockResolvedValue({ $renderedContent: $("<p>body</p>"), type: "pdf" } as never);
+    });
+
+    it("fills the box with the attachment, under a title linking to it", async () => {
+        const $el = $('<div class="include-note-wrapper">');
+
+        await loadIncludedAttachment("att1", $el, "expandable");
+
+        expect(froca.getAttachment).toHaveBeenCalledWith("att1", true);
+        expect(link.createLink).toHaveBeenCalledWith("owner", {
+            showTooltip: false,
+            showNoteIcon: true,
+            viewScope: { viewMode: "attachments", attachmentId: "att1" }
+        });
+        expect(content_renderer.getRenderedContent)
+            .toHaveBeenCalledWith(attachment, { interactive: true, mediaEnvironment: "embedded" });
+        expect($el.find("button.include-note-toggle").length).toBe(1);
+        expect($el.find(".include-note-content.type-pdf").text()).toBe("body");
+    });
+
+    it("leaves the box alone for a deleted attachment", async () => {
+        vi.mocked(froca.getAttachment).mockResolvedValue(null);
+        vi.mocked(link.createLink).mockClear();
+        const $el = $('<div class="include-note-wrapper"><span>kept</span></div>');
+
+        await loadIncludedAttachment("att1", $el, "small");
+
+        expect(link.createLink).not.toHaveBeenCalled();
+        expect($el.text()).toBe("kept");
+    });
+});
+
+describe("getAttachmentHref", () => {
+    it("links to the attachment in its note, or to nothing once it is deleted", async () => {
+        vi.mocked(froca.getAttachment)
+            .mockResolvedValueOnce({ ownerId: "owner" } as unknown as FAttachment)
+            .mockResolvedValueOnce(null);
+
+        expect(await getAttachmentHref("att1"))
+            .toBe("#root/owner?viewMode=attachments&attachmentId=att1");
+        expect(await getAttachmentHref("att1")).toBeNull();
     });
 });

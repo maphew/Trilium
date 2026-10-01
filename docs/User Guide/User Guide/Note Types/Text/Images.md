@@ -11,6 +11,9 @@ To add an image to the note:
 *   Alternatively, from the <a class="reference-link" href="Formatting%20toolbar.md">Formatting toolbar</a> look for the _Insert image_ icon.
 *   You can also copy and paste an image from web (see section below).
 
+> [!TIP]
+> To link a picture instead of displaying it, attach it with the <span class="tn-icon cke cke-paper-clip"></span> _Attach file_ button. See <a class="reference-link" href="../../Basic%20Concepts%20and%20Features/Notes/Attachments.md">Attachments</a>.
+
 ## Clipboard & automatic download of images
 
 Trilium has a special handling for images copied to and pasted from the clipboard.

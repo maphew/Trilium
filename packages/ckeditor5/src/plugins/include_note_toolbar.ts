@@ -1,5 +1,5 @@
 import { Plugin, WidgetToolbarRepository, isWidget, type ViewElement } from "ckeditor5";
-import IncludeNote from "./includenote.js";
+import IncludeNote, { CONVERT_EMBED_TO_LINK_COMMAND } from "./includenote.js";
 import IncludeNoteBoxSizeDropdown from "./include_note_box_size_dropdown.js";
 
 export default class IncludeNoteToolbar extends Plugin {
@@ -14,7 +14,8 @@ export default class IncludeNoteToolbar extends Plugin {
 
         widgetToolbarRepository.register("includeNote", {
             items: [
-                "includeNoteBoxSizeDropdown"
+                "includeNoteBoxSizeDropdown",
+                CONVERT_EMBED_TO_LINK_COMMAND
             ],
             balloonClassName: "ck-toolbar-container include-note-toolbar",
             getRelatedElement(selection) {

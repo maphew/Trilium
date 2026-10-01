@@ -8,6 +8,57 @@ export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>,
     const note = await froca.getNote(noteId);
     if (!note) return;
 
+    const $link = await link.createLink(note.noteId, {
+        showTooltip: false,
+        showNoteIcon: true
+    });
+
+    // The include widget itself is the first level of inclusion, so the included note's own
+    // includes are rendered as reference links rather than expanded (see includesAsReferenceLinks).
+    await fillIncludeBox($el, boxSize, $link, () => content_renderer.getRenderedContent(note, {
+        interactive: true,
+        includesAsReferenceLinks: true,
+        mediaEnvironment: "embedded"
+    }));
+}
+
+/** Fills an include box with an embedded attachment, under a title linking to it. */
+export async function loadIncludedAttachment(
+    attachmentId: string,
+    $el: JQuery<HTMLElement>,
+    boxSize?: string
+) {
+    const attachment = await froca.getAttachment(attachmentId, true);
+    if (!attachment) return;
+
+    const $link = await link.createLink(attachment.ownerId, {
+        showTooltip: false,
+        showNoteIcon: true,
+        viewScope: { viewMode: "attachments", attachmentId }
+    });
+
+    await fillIncludeBox($el, boxSize, $link, () => content_renderer.getRenderedContent(
+        attachment,
+        { interactive: true, mediaEnvironment: "embedded" }
+    ));
+}
+
+/** The href of a reference link to the attachment, or `null` once it is deleted. */
+export async function getAttachmentHref(attachmentId: string) {
+    const attachment = await froca.getAttachment(attachmentId, true);
+    if (!attachment) return null;
+
+    return `#root/${attachment.ownerId}?viewMode=attachments&attachmentId=${attachmentId}`;
+}
+
+type RenderedContent = Awaited<ReturnType<typeof content_renderer.getRenderedContent>>;
+
+async function fillIncludeBox(
+    $el: JQuery<HTMLElement>,
+    boxSize: string | undefined,
+    $link: JQuery<HTMLElement>,
+    renderContent: () => Promise<RenderedContent>
+) {
     // The box size is supplied explicitly by the editing-view downcast; for the other
     // callers (read-only rendering, script API refresh) fall back to reading it from the DOM.
     const effectiveBoxSize = boxSize ?? $el.closest('section.include-note').attr('data-box-size');
@@ -20,10 +71,6 @@ export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>,
     // into it instead of nesting a redundant second `.include-note-wrapper`.
     const isWrapper = $el.hasClass('include-note-wrapper');
     const $wrapper = $('<div class="include-note-wrapper">');
-    const $link = await link.createLink(note.noteId, {
-        showTooltip: false,
-        showNoteIcon: true
-    });
 
     if (isExpandable) {
         // Create expandable structure with toggle
@@ -34,9 +81,7 @@ export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>,
         $titleRow.append($toggle, $title);
         $wrapper.append($titleRow);
 
-        // The include widget itself is the first level of inclusion, so the included note's own
-        // includes are rendered as reference links rather than expanded (see includesAsReferenceLinks).
-        const { $renderedContent, type } = await content_renderer.getRenderedContent(note, { interactive: true, includesAsReferenceLinks: true, mediaEnvironment: "embedded" });
+        const { $renderedContent, type } = await renderContent();
         const $content = $(`<div class="include-note-content type-${type}" style="display: none;">`).append($renderedContent);
         $wrapper.append($content);
 
@@ -52,9 +97,7 @@ export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>,
         // Standard display
         $wrapper.append($('<h4 class="include-note-title">').append($link));
 
-        // The include widget itself is the first level of inclusion, so the included note's own
-        // includes are rendered as reference links rather than expanded (see includesAsReferenceLinks).
-        const { $renderedContent, type } = await content_renderer.getRenderedContent(note, { interactive: true, includesAsReferenceLinks: true, mediaEnvironment: "embedded" });
+        const { $renderedContent, type } = await renderContent();
         $wrapper.append($(`<div class="include-note-content type-${type}">`).append($renderedContent));
     }
 

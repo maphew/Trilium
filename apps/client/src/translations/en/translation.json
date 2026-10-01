@@ -1589,7 +1589,8 @@
     "editor_crashed_details_title": "Technical information",
     "auto-detect-language": "Auto-detected",
     "keeps-crashing": "Editing component keeps crashing. Please try restarting Trilium. If problem persists, consider creating a bug report.",
-    "nothing_selected_to_cut": "Select some text first to cut it into a sub-note."
+    "nothing_selected_to_cut": "Select some text first to cut it into a sub-note.",
+    "uploading_attachment": "Uploading attachment"
   },
   "empty": {
     "open_note_instruction": "Open a note by typing the note's title into the input below or choose a note in the tree.",
@@ -3056,7 +3057,8 @@
     "open_note_in_new_split": "Open note in a new split",
     "open_note_in_other_split": "Open note in the other split",
     "open_note_in_new_window": "Open note in a new window",
-    "open_note_in_popup": "Quick edit"
+    "open_note_in_popup": "Quick edit",
+    "convert_link_to_embed": "Convert link to an embed"
   },
   "electron_integration": {
     "desktop-application": "Desktop Application",
@@ -3081,7 +3083,8 @@
   },
   "note_tooltip": {
     "note-has-been-deleted": "Note has been deleted.",
-    "quick-edit": "Quick edit"
+    "quick-edit": "Quick edit",
+    "attachment-info": "Attachment • {{size}}"
   },
   "geo-map": {
     "expand-details": "Expand the note to fill the map",
@@ -4243,6 +4246,9 @@
       "ask-ai": "Ask AI…",
       "ask-ai-to": "Ask AI to…",
       "ask-ai-to-rewrite-the-selection-or-generate-new-content": "Ask AI to rewrite the selection or generate new content.",
+      "attach-and-embed-file": "Attach and embed file",
+      "attach-file": "Attach file",
+      "attach-file-as-a-link": "Attach file as a link",
       "box-size": "Box size",
       "bulleted-list": "Bulleted list",
       "card": "Card",
@@ -4250,6 +4256,7 @@
       "changes": "Changes",
       "click-on-the-arrow-or-press-0-to-collapse-expand": "Click on the arrow or press %0 to collapse/expand.",
       "collapsible-block": "Collapsible block",
+      "convert-to-link": "Convert to link",
       "copy-anchor-reference-link": "Copy anchor reference link",
       "copy-formatting": "Copy formatting",
       "copy-image-to-clipboard": "Copy image to clipboard",
@@ -4362,6 +4369,8 @@
       "undefined-custom-task-state": "Undefined custom task state",
       "url": "URL",
       "upload-an-image-from-your-device": "Upload an image from your device.",
+      "upload-files-as-attachments-and-insert-embeds": "Upload files as attachments and insert embeds.",
+      "upload-files-as-attachments-and-insert-links": "Upload files as attachments and insert links.",
       "upload-image": "Upload image",
       "warning": "Warning",
       "working": "Working…",

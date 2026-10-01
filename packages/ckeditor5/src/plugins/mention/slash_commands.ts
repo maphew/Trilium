@@ -18,6 +18,7 @@ import {
     IconNumberedList,
     IconOutdent,
     IconPageBreak,
+    IconPaperClip,
     IconParagraph,
     IconQuote,
     IconTable,
@@ -362,6 +363,33 @@ export function buildTriliumSlashCommands(editor: Editor): SlashCommandDefinitio
             commandName: INTERNAL_LINK_COMMAND
         },
         {
+            id: "attach-file",
+            title: t("Attach file as a link"),
+            description: t("Upload files as attachments and insert links."),
+            aliases: [ "attachment", "upload" ],
+            icon: IconPaperClip,
+            commandName: "fileUpload",
+            execute: (target: Editor) => pickFiles("", (files) => {
+                target.execute("fileUpload", { file: files });
+                target.editing.view.focus();
+            })
+        },
+        {
+            id: "attach-and-embed-file",
+            title: t("Attach and embed file"),
+            description: t("Upload files as attachments and insert embeds."),
+            aliases: [ "attachment", "upload", "embed" ],
+            icon: IconPaperClip,
+            commandName: "fileUpload",
+            // Embedding goes wherever the "Include note" button can insert an include.
+            isEnabled: (target: Editor) => !!target.commands.get("fileUpload")?.isEnabled
+                && !!target.commands.get(INCLUDE_NOTE_COMMAND)?.isEnabled,
+            execute: (target: Editor) => pickFiles("", (files) => {
+                target.execute("fileUpload", { file: files, asEmbed: true });
+                target.editing.view.focus();
+            })
+        },
+        {
             id: "math",
             title: t("Math equation"),
             description: t("Insert a math equation"),
@@ -696,30 +724,41 @@ function buildImageUploadCommand(editor: Editor): SlashCommandDefinition {
         execute(target) {
             const imageTypes = target.config.get("image.upload.types") ?? [];
             const imageTypesRegExp = createImageTypeRegExp(imageTypes);
-            const input = document.createElement("input");
+            const accept = imageTypes.map((type) => `image/${type}`).join(",");
 
-            input.type = "file";
-            input.accept = imageTypes.map((type) => `image/${type}`).join(",");
-            input.multiple = true;
-            input.style.display = "none";
-
-            input.addEventListener("change", () => {
-                /* v8 ignore next -- `files` is only null on an input that is not of type `file` */
-                const imagesToUpload = Array.from(input.files ?? [])
-                    .filter((file) => imageTypesRegExp.test(file.type));
+            pickFiles(accept, (files) => {
+                const imagesToUpload = files.filter((file) => imageTypesRegExp.test(file.type));
 
                 if (imagesToUpload.length) {
                     target.execute("uploadImage", { file: imagesToUpload });
                     target.editing.view.focus();
                 }
-
-                input.remove();
-            }, { once: true });
-
-            document.body.appendChild(input);
-            input.click();
+            });
         }
     };
+}
+
+/**
+ * Opens the browser's file picker and passes the picked files to `onPick`.
+ *
+ * @param accept the `accept` attribute of the file input, empty for any type.
+ */
+function pickFiles(accept: string, onPick: (files: File[]) => void) {
+    const input = document.createElement("input");
+
+    input.type = "file";
+    input.accept = accept;
+    input.multiple = true;
+    input.style.display = "none";
+
+    input.addEventListener("change", () => {
+        /* v8 ignore next -- `files` is only null on an input that is not of type `file` */
+        onPick(Array.from(input.files ?? []));
+        input.remove();
+    }, { once: true });
+
+    document.body.appendChild(input);
+    input.click();
 }
 
 // Source: https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-image/src/imageupload/utils.ts
