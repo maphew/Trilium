@@ -555,6 +555,14 @@ select.form-control:focus,
         outline-offset 200ms ease-out;
 }
 
+select:disabled,
+select.form-select:disabled,
+select.form-control:disabled {
+    background: var(--input-background-color) var(--dropdown-arrow);
+    color: var(--input-text-color);
+    opacity: 0.65;
+}
+
 option {
     color: var(--select-dropdown-text-color);
 }

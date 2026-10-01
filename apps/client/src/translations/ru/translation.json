@@ -516,7 +516,7 @@
     "label_type": "Тип",
     "text": "Текст",
     "number": "Число",
-    "boolean": "Булево",
+    "boolean": "Галочка",
     "date": "Дата",
     "time": "Время",
     "url": "URL",
@@ -777,7 +777,11 @@
     "share_open_graph_image": "Задает свойство <code>og:image</code> метаданных общедоступной страницы, адрес используется как есть. Укажите отношение с таким же именем на заметку изображения, чтобы отобразить изображение из Trilium.",
     "share_open_graph_image_relation": "Изображение используемое в качестве <code>og:image</code> на общедоступной странице. Укажите отношение с таким же именем, чтобы использовать адрес.",
     "share_open_graph_url": "Задает свойства <code>og:url</code> и <code>twitter:url</code> метаданных общедоступной страницы.",
-    "hoisted_note": "Заметка, которую следует поднять (hoist), когда лаунчер открывает цель."
+    "hoisted_note": "Заметка, которую следует поднять (hoist), когда лаунчер открывает цель.",
+    "board_column_width": "Для досок, указывает ширину столбцов: <code>narrow</code>, <code>medium</code> или <code>wide</code>. Не учитывается на мобильных устройствах, где ширина столбцов определяется автоматически.",
+    "board_show_inbox": "Для досок, отображает столбец \"Входящие\", в котором перечислены все дочерние заметки, не назначенные столбцу доски.",
+    "board_sort_columns": "Для досок, порядок сортировки карточек в столбцах, которому следует каждый столбец, если ему не задан собственный порядок. Содержит <code>title</code>, <code>creationDate</code> или <code>attr:</code>, за которыми следует имя закреплённого атрибута.",
+    "board_sort_columns_descending": "Для досок, изменяет порядок сортировки в <code>#board:sortColumns</code> на обратный."
   },
   "command_palette": {
     "configure_launch_bar_description": "Откройте конфигурацию панели запуска, чтобы добавить или удалить элементы.",
@@ -806,7 +810,7 @@
     "insert-below": "Вставить новую снизу",
     "insert-above": "Вставить новую сверху",
     "delete-note": "Удалить заметку...",
-    "remove-from-board": "Удалить с канбан-доски",
+    "remove-from-board": "Удалить из столбца",
     "archive-note": "Архивировать заметку",
     "unarchive-note": "Разархивировать заметку",
     "edit-note-title": "Нажмите, чтобы изменить название карточки",
@@ -837,7 +841,9 @@
       "selection": "Выбор",
       "select_column": "Выбрать все карточки в столбце",
       "clear_selection": "Очистить выбор",
-      "toggle_column": "Свернуть / развернуть столбец (на заголовке столбца)"
+      "toggle_column": "Свернуть / развернуть столбец (на заголовке столбца)",
+      "extend_selection": "Расширить выделение вниз / вверх",
+      "toggle_selection": "Выбрать карточку или положить её обратно"
     },
     "column-definition-save-error": "Столбцы были сохранены на доске, но их не удалось сохранить в атрибуте статуса.",
     "status-alias": "Статус",
@@ -941,10 +947,35 @@
     "selection-mode": "Выбрать карточки",
     "delete-column-notes_one": "Также удалить {{count}} заметку в этом столбце",
     "delete-column-notes_few": "Также удалить {{count}} заметки в этом столбце",
-    "delete-column-notes_many": "Также удалить {{count}} заметок в этом столбце"
+    "delete-column-notes_many": "Также удалить {{count}} заметок в этом столбце",
+    "select-all-cards": "Выбрать все карточки"
   },
   "table_context_menu": {
-    "delete_row": "Удалить строку"
+    "delete_row": "Удалить строку",
+    "insert_columns_left": "Вставить столбец слева",
+    "insert_rows_above": "Вставить строку сверху",
+    "insert_rows_below": "Вставить строку снизу",
+    "insert_columns_right": "Вставить столбец справа",
+    "delete_rows": "Удалить строку",
+    "delete_columns": "Удалить столбец",
+    "delete_table": "Удалить таблицу",
+    "distribute_columns": "Равномерно распределить столбцы",
+    "merge_cells": "Объединить ячейки",
+    "split_cells": "Разделить ячейку",
+    "split_vertically": "Вертикально",
+    "split_horizontally": "Горизонтально",
+    "split_reset": "Разъединить ячейки",
+    "sort": "Сортировать",
+    "sort_ascending": "По возрастанию",
+    "sort_descending": "По убыванию",
+    "select": "Выбрать",
+    "select_row": "Строку",
+    "select_column": "Столбец",
+    "select_table": "Таблицу",
+    "set_header_row": "Установить как заголовок",
+    "set_header_up_to_row": "Установить заголовок до этой строки",
+    "paste_rows_above": "Вставить строки сверху",
+    "paste_rows_below": "Вставить строки снизу"
   },
   "book_properties_config": {
     "vector_dark": "Векторная (Темная)",
@@ -975,7 +1006,9 @@
     "auto_link_previews_enabled": "Автогенерация предварительного просмотра ссылок",
     "auto_link_previews_description": "Автоматически преобразовывать обнаруженную ссылку в предварительный просмотр, отображающий заголовок, описание и изображение веб-страницы. Вставка предварительного просмотра с панели инструментов работает всегда, независимо от этой настройки.",
     "html_support_enabled": "Сохранять неподдерживаемые HTML-теги",
-    "html_support_description": "Сохранять теги HTML, для которых в редакторе нет собственной функции, как указано в разделе «Настройки→ Прочее → Теги HTML для импорта». Они отображаются в виде блоков, которые нельзя редактировать напрямую, а при редактировании неизвестный тег может вообще не отображаться. Если этот параметр выключен, такие теги удаляются из заметки при первом редактировании и сохранении; на импорт это никак не влияет."
+    "html_support_description": "Сохранять теги HTML, для которых в редакторе нет собственной функции, как указано в разделе «Настройки→ Прочее → Теги HTML для импорта». Они отображаются в виде блоков, которые нельзя редактировать напрямую, а при редактировании неизвестный тег может вообще не отображаться. Если этот параметр выключен, такие теги удаляются из заметки при первом редактировании и сохранении; на импорт это никак не влияет.",
+    "mathlive_enabled": "Визуальный редактор MathLive",
+    "mathlive_description": "Математические уравнения можно редактировать с помощью визуального редактора."
   },
   "cpu_arch_warning": {
     "dont_show_again": "Больше не показывать это предупреждение",
@@ -1237,8 +1270,7 @@
     "no-results": "Результаты не найдены",
     "placeholder": "Быстрый поиск",
     "searching": "Поиск...",
-    "show-in-full-search": "Расширенный поиск",
-    "more-results": "... и еще {{number}} результатов."
+    "show-in-full-search": "Расширенный поиск"
   },
   "find": {
     "replace_all": "Заменить все",
@@ -1649,7 +1681,9 @@
     "label_name": "Метка: {{name}}",
     "relation_name": "Отношение: {{name}}",
     "display_on_items": "Отображать атрибут на элементах коллекции",
-    "drawn_by_collection": "Коллекция упорядочена по нему, чтобы они не повторялись"
+    "drawn_by_collection": "Коллекция упорядочена по нему, чтобы они не повторялись",
+    "conflicting_tooltip": "Элементы определяют этот атрибут несколькими способами, поэтому он сортируется как текст и не может быть задан через меню элемента.",
+    "conflicting": "Несколько определений"
   },
   "script_executor": {
     "query": "Запрос",
@@ -1733,7 +1767,6 @@
     "label_rock_or_pop": "должна присутствовать только одна из меток",
     "label_year_comparison": "числовое сравнение (также >, >=, <).",
     "label_date_created": "заметки, созданные за последний месяц",
-    "error": "Ошибка поиска: {{error}}",
     "placeholder": "Ctrl+Space — подсказки, @ — заметки, Shift+Enter — новая строка, Enter — поиск",
     "hints": {
       "title": "Строка поиска",
@@ -3098,7 +3131,6 @@
     "highlight_remove": "Удалить акцент",
     "highlight_remove_confirm": "Удалить этот акцент?",
     "highlights_empty": "Пока нет акцентов. Выделите текст в сообщении и нажмите \"Акцент\".",
-    "input_streaming": "Ввод (потоковая передача…)",
     "model_cost_included": "Подписка",
     "no_model_selected": "Выберите модель",
     "no_models_selected": "Модель не выбрана — нажмите на карандаш, чтобы выбрать",
@@ -3124,8 +3156,54 @@
     },
     "stream_status": {
       "starting_agent": "Запуск агента. Это может занять некоторое время.",
-      "waiting_for_reply": "Ожидание ответа…"
-    }
+      "waiting_for_reply": "Ожидание ответа…",
+      "still_working": "Всё ещё работаю…"
+    },
+    "show_tool_call_details": "Показать ввод и вывод",
+    "tool_call_no_result": "Результатов пока нет.",
+    "search_notes_count_one": "({{count}} заметка)",
+    "search_notes_count_few": "({{count}} заметки)",
+    "search_notes_count_many": "({{count}} заметок)",
+    "search_notes_limited_one": "Всего {{count}} результат, ограничено до {{limit}}",
+    "search_notes_limited_few": "Всего {{count}} результата, ограничено до {{limit}}",
+    "search_notes_limited_many": "Всего {{count}} результатов, ограничено до {{limit}}",
+    "search_notes_scope": "Выполнен поиск в <Note/>",
+    "child_notes_count_one": "({{count}} дочерняя)",
+    "child_notes_count_few": "({{count}} дочерние)",
+    "child_notes_count_many": "({{count}} дочерних)",
+    "child_count_one": "{{count}} дочерняя",
+    "child_count_few": "{{count}} дочерние",
+    "child_count_many": "{{count}} дочерних",
+    "search_help_count_one": "({{count}} страница)",
+    "search_help_count_few": "({{count}} страницы)",
+    "search_help_count_many": "({{count}} страниц)",
+    "subtree_more_one": "+ещё {{count}}",
+    "subtree_more_few": "+ещё {{count}}",
+    "subtree_more_many": "+ещё {{count}}",
+    "attachment_count_one": "{{count}} вложение",
+    "attachment_count_few": "{{count}} вложения",
+    "attachment_count_many": "{{count}} вложений",
+    "attribute_count_one": "({{count}} атрибут)",
+    "attribute_count_few": "({{count}} атрибута)",
+    "attribute_count_many": "({{count}} атрибутов)",
+    "search_icons_count_one": "({{count}} иконка)",
+    "search_icons_count_few": "({{count}} иконки)",
+    "search_icons_count_many": "({{count}} иконок)",
+    "attachment_size": "({{size}})",
+    "attachment_ocr": "Распознанный из файла текст",
+    "skills": {
+      "search_syntax": "Синтаксис поискового запроса",
+      "backend_scripting": "Серверные скрипты",
+      "frontend_scripting": "Клиентские скрипты",
+      "dashboards": "Панели управления"
+    },
+    "web_sources_count_one": "({{count}} источник)",
+    "web_sources_count_few": "({{count}} источника)",
+    "web_sources_count_many": "({{count}} источников)",
+    "attachment_model_cannot_read_image": "{{- model}} не может читать изображения.",
+    "attachment_model_cannot_read_file": "{{- model}} не может читать PDF-файлы.",
+    "attachment_refused": "\"{{name}}\" не был вложен. {{- reason}}",
+    "remove_unreadable_attachments": "Удалите вложения, которые {{- model}} не может читать"
   },
   "sidebar_chat": {
     "title": "Чат с ИИ",
@@ -3277,7 +3355,10 @@
       "get_help_toc": "Получить содержимое руководства пользователя",
       "search_help": "Поиск в руководстве пользователя",
       "search_icons": "Поиск иконок",
-      "read_web_page": "Прочитать веб-страницу"
+      "read_web_page": "Прочитать веб-страницу",
+      "note_moved_from": "<Note/> из <From/> в <To/>",
+      "note_moved": "<Note/> в <To/>",
+      "attachment_in_note": "<Title/> в <Note/>"
     },
     "feature_not_enabled": "Чтобы использовать ИИ-интеграции, включите экспериментальную функцию LLM в «Настройки → Расширенные → Экспериментальные функции».",
     "mcp_title": "MCP (Model Context Protocol)",
@@ -3336,11 +3417,12 @@
     "troubleshoot_port": "Совпадает ли порт в URL-адресе с указанным сервером?",
     "troubleshoot_remote": "Если сервер находится на другом компьютере, настроен ли он на прием подключений из сети, а не только с локальных?",
     "troubleshoot_server_running": "Запущен ли сервер на том компьютере, который вы ожидаете?",
-    "antigravity_agent_description": "Использует квоту Gemini вашей учётной записи Google (бесплатной, Google AI Pro или Ultra) через Google Antigravity, поэтому ключ API не требуется.\n\nСервер Antigravity ACP должен быть скачан на устройство, на котором запущен Trilium (на сервер при самостоятельном хостинге или на этот компьютер в случае настольной версии). Если он ещё не установлен, на следующем шаге показано, как его установить.\n\nПри первом отображении списка моделей, в браузере на том устройстве откроется страница входа в Google.",
+    "antigravity_agent_description": "Использует квоту Gemini вашей учётной записи Google (бесплатной, Google AI Pro или Ultra) через Google Antigravity, поэтому ключ API не требуется.\n\nСервер Antigravity ACP должен быть скачан на устройство, на котором запущен Trilium: на сервер при самостоятельном хостинге или на этот компьютер для настольной версии. Если он ещё не установлен, на следующем шаге показано, как его установить.\n\nПри первом отображении списка моделей, в браузере на том устройстве откроется страница входа в Google.",
     "antigravity_setup_download": "Скачайте на устройстве с Trilium архив для своей платформы из <Link>реестра ACP</Link> Google и распакуйте его в папку, в которой он может храниться.",
     "antigravity_setup_archive": "Скачайте <Link>архив для устройства с Trilium</Link> и распакуйте его в папку, в которой он может храниться.",
     "antigravity_setup_path": "Добавьте эту папку в <Code>PATH</Code> или установите для переменной среды <Code>TRILIUM_ANTIGRAVITY_ACP_PATH</Code> значение <Code>agy_acp_server.par</Code> (в Windows — <Code>agy_acp_server.exe</Code>), затем перезапустите Trilium.",
-    "antigravity_setup_sign_in": "Вернитесь к этому шагу. В первый раз в браузере на устройстве откроется страница входа в Google."
+    "antigravity_setup_sign_in": "Вернитесь к этому шагу. В первый раз в браузере на устройстве откроется страница входа в Google.",
+    "codex_agent_description": "Использует Codex вашего тарифного плана ChatGPT (Free, Go, Plus, Pro или Business) через OpenAI Codex, поэтому ключ API не требуется.\n\nCodex CLI должен быть установлен на устройстве, на котором запущен Trilium: на сервер при самостоятельном хостинге или на этот компьютер для настольной версии, например, с помощью команды «npm install -g @openai/codex».\n\nПри первом отображении списка моделей, в браузере на том устройстве откроется страница входа в ChatGPT."
   },
   "database": {
     "title": "База данных",
@@ -3532,7 +3614,6 @@
     "page_size": "Размер страницы",
     "scale": "Масштаб",
     "margins": "Поля",
-    "render_error": "Не удалось сформировать PDF с текущими настройками. Проверьте поля и масштаб.",
     "margins_default": "По умолчанию",
     "margins_none": "Без полей",
     "margins_minimum": "Минимальные",
@@ -3544,7 +3625,9 @@
     "page_ranges": "Страницы",
     "page_ranges_hint": "Оставьте пустым, чтобы напечатать все страницы.",
     "page_ranges_invalid": "Неверный формат. Используйте, например, 1-5, 8, 11-13.",
-    "page_ranges_placeholder": "например, 1-5, 8, 11-13"
+    "page_ranges_placeholder": "например, 1-5, 8, 11-13",
+    "render_error_title": "Не удаётся отобразить PDF-файл с текущими настройками",
+    "render_error_description": "Пожалуйста, проверьте поля и масштаб."
   },
   "common": {
     "save": "Сохранить",
@@ -3655,8 +3738,6 @@
       "insert-an-empty-mermaid-diagram": "Вставить пустую диаграмму Mermaid",
       "insert-date-time": "Вставить дату/время",
       "insert-footnote-0": "Вставить сноску %0",
-      "insert-math": "Вставить математику",
-      "insert-mermaid-diagram": "Вставить диаграмму Mermaid",
       "insert-mermaid-source-code": "Вставить исходный код Mermaid",
       "insert-paragraph-after-code-block": "Вставить параграф после блока кода",
       "insert-paragraph-before-code-block": "Вставить параграф перед блоком кода",
@@ -3710,7 +3791,6 @@
       "include-note-widget": "виджет включения заметки",
       "link-embed-widget": "виджет встраивания ссылки",
       "link-mention-widget": "виджет упоминания ссылки",
-      "insert-icon": "Вставить иконку",
       "icon": "Иконка",
       "insert-an-icon-from-an-installed-icon-pack": "Вставить иконку из установленного набора иконок",
       "transform-icon": "Трансформировать иконку",
@@ -3721,7 +3801,27 @@
       "rotate-270": "Повернуть на 270°",
       "flip-horizontally": "Отразить горизонтально",
       "flip-vertically": "Отразить вертикально",
-      "change-icon": "Изменить иконку"
+      "change-icon": "Изменить иконку",
+      "insert-date-time-0": "Вставить дату/время: %0",
+      "insert-time-0": "Вставить время: %0",
+      "date-time": "Дата/время",
+      "math": "Математика",
+      "ascending": "По возрастанию",
+      "sort": "Сортировать",
+      "descending": "По убыванию",
+      "move-row-up": "Переместить строку вверх",
+      "move-row-down": "Переместить строку вниз",
+      "move-column-left": "Переместить столбец влево",
+      "move-column-right": "Переместить столбец вправо",
+      "insert-table": "Вставить таблицу…",
+      "rows": "Строки",
+      "columns": "Столбцы",
+      "enter-a-whole-number-between-1-and-0": "Введите целое число от 1 до %0.",
+      "the-table-is-too-large-max-0-cells": "Таблица слишком большая (макс. %0 ячеек).",
+      "distribute-columns-evenly": "Равномерно распределить столбцы",
+      "merge-selected-cells": "Объединить выделенные ячейки",
+      "unmerge-cells": "Разъединить ячейки",
+      "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "Несколько строк были отсортированы вместе, потому что объединенные ячейки связывают их друг с другом"
     },
     "task-state-dropped-title": "Недопустимые состояния задачи",
     "task-state-dropped-configure": "Настроить состояния задач",
@@ -4462,5 +4562,13 @@
     "label_marker_negated": "Исключает метку. Нажмите Enter, чтобы увидеть список меток",
     "relation_marker": "Указывает отношение. Нажмите Enter, чтобы увидеть список отношений",
     "relation_marker_negated": "Исключает отношение. Нажмите Enter, чтобы увидеть список отношений"
+  },
+  "lightbox": {
+    "image": "Изображение",
+    "pdf": "PDF-файл",
+    "open_original": "Открыть оригинал в новой вкладке"
+  },
+  "split_button": {
+    "more_actions": "Другие действия"
   }
 }

@@ -294,7 +294,7 @@ describe("related notes menu", () => {
         expect(searchItem).toMatchObject({ uiIcon: "bx bx-search-alt" });
 
         // A note entry navigates to it; the search entry searches for every carrier of the name.
-        const pressEvent = {} as JQuery.MouseDownEvent<HTMLElement, undefined, HTMLElement, HTMLElement>;
+        const pressEvent = new MouseEvent("mousedown");
         if ("handler" in noteItem) {
             noteItem.handler?.(noteItem, pressEvent);
         }

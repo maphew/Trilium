@@ -23,10 +23,7 @@ const AGENT_CWD = path.resolve(os.tmpdir(), "trilium-copilot-agent-spec", "copil
 
 // BYO binary resolution shells out to the user's `copilot`; stub it.
 const resolveCopilotBinaryMock = vi.hoisted(() => vi.fn(async () => "/usr/bin/copilot"));
-vi.mock("./copilot_binary.js", () => ({
-    resolveCopilotBinaryPath: resolveCopilotBinaryMock,
-    needsShell: () => false
-}));
+vi.mock("./copilot_binary.js", () => ({ resolveCopilotBinaryPath: resolveCopilotBinaryMock }));
 
 // The loopback MCP endpoint opens a real socket; stub it to a fixed URL.
 const mcpEndpointMock = vi.hoisted(() => vi.fn(async () => "http://127.0.0.1:12345/mcp-secret"));
@@ -36,7 +33,10 @@ const buildNoteHintMock = vi.hoisted(() => vi.fn((noteId: string): string | null
 vi.mock("@triliumnext/core/src/services/llm/note_hint.js", () => ({ buildNoteHint: buildNoteHintMock }));
 
 const resolveAttachmentPartMock = vi.hoisted(() => vi.fn());
-vi.mock("@triliumnext/core/src/services/llm/attachment_content.js", () => ({ resolveAttachmentPart: resolveAttachmentPartMock }));
+vi.mock("@triliumnext/core/src/services/llm/attachment_content.js", async (importOriginal) => ({
+    ...await importOriginal<typeof import("@triliumnext/core/src/services/llm/attachment_content.js")>(),
+    resolveAttachmentPart: resolveAttachmentPartMock
+}));
 
 // A scriptable fake ACP client. `AcpClient.start` returns the active instance;
 // each test scripts what `session/prompt` streams via onNotification and what

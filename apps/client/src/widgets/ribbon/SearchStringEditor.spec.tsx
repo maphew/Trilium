@@ -47,6 +47,17 @@ describe("SearchStringEditor", () => {
         editor.dispatch({ changes: { from: 11, insert: " = 1954" } });
         expect(onChange).toHaveBeenCalledWith("#book #year = 1954");
     });
+
+    it("leaves ArrowDown to the caret when no handler takes it", async () => {
+        const { editor } = await mount({ noteId: "search1", currentValue: "#book\n#year", onChange: () => {} });
+        editor.dispatch({ selection: { anchor: 0 } });
+
+        editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", {
+            key: "ArrowDown", bubbles: true, cancelable: true
+        }));
+        expect(editor.state.doc.lineAt(editor.state.selection.main.head).number).toBe(2);
+    });
+
     it("registers the keys the field answers on the host component", () => {
         const host = new Component();
         act(() => {

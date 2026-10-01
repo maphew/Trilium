@@ -9,9 +9,13 @@ import { useContextualShortcutHints } from "../react/hooks";
 import { createSearchFieldEditor, SEARCH_FIELD_EDITOR_CLASS } from "../search_field_editor";
 
 interface SearchStringEditorProps {
-    currentValue: string;
-    /** The note `currentValue` belongs to. A change to it replaces the document. */
-    noteId: string;
+    /**
+     * The query to show. Without it, the editor owns its document and only reports edits through
+     * `onChange`, for a caller that re-renders nothing as the query is typed.
+     */
+    currentValue?: string;
+    /** The note `currentValue` belongs to, if any. A change to it replaces the document. */
+    noteId?: string;
     placeholder?: string;
     /** Names the field where the placeholder is a hint rather than a name for it. */
     ariaLabel?: string;
@@ -19,11 +23,21 @@ interface SearchStringEditorProps {
     autoFocus?: boolean;
     /** Whether the query is held to one line, for a field laid out as an input. */
     singleLine?: boolean;
+    /**
+     * Shortcut-hint sections listed after the field's own, for a caller whose keys go beyond the
+     * field's. A host takes one set of hints, so the caller hands them here rather than registering.
+     */
+    extraShortcutHints?: ShortcutHintDefinition;
     /** Handed the editor once built, for a caller that has to focus or select what it holds. */
     editorRef?: MutableRef<FieldEditor | undefined>;
     onChange(newValue: string): void;
     /** Runs when Enter is pressed, which the editor treats as "run this search". */
     onEnter(): void;
+    /**
+     * Runs on ArrowDown while no completion is open, for a field with results listed below it.
+     * Returns whether the field took it; `false` moves the caret.
+     */
+    onArrowDown?(): boolean;
     /**
      * Runs on Escape, once the completion popup has passed the key on. Returns whether the field
      * took it; `false` leaves it to whatever the field sits in.
@@ -62,18 +76,21 @@ const SINGLE_LINE_HINTS: ShortcutHintDefinition = [
  *
  * Written to edit the `#searchString` of a saved search, and used for a collection filter too.
  */
-export default function SearchStringEditor({ currentValue, noteId, placeholder, ariaLabel, className, autoFocus, singleLine, editorRef: exposedRef, onChange, onEnter, onEscape }: SearchStringEditorProps) {
+export default function SearchStringEditor({ currentValue, noteId, placeholder, ariaLabel, className, autoFocus, singleLine, extraShortcutHints, editorRef: exposedRef, onChange, onEnter, onArrowDown, onEscape }: SearchStringEditorProps) {
     const parentRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<FieldEditor>();
     // The editor is built once, so it reaches the current props through a ref rather than
     // through the closure of the render that created it.
-    const propsRef = useRef({ currentValue, onChange, onEnter, onEscape });
-    propsRef.current = { currentValue, onChange, onEnter, onEscape };
+    const propsRef = useRef({ currentValue, onChange, onEnter, onArrowDown, onEscape });
+    propsRef.current = { currentValue, onChange, onEnter, onArrowDown, onEscape };
     // Set while the effect below writes `currentValue` into the document, so `onChange` does not
     // report it as an edit the user made.
     const isAdopting = useRef(false);
 
-    useContextualShortcutHints(singleLine ? SINGLE_LINE_HINTS : SEARCH_STRING_HINTS);
+    useContextualShortcutHints(() => [
+        ...(singleLine ? SINGLE_LINE_HINTS : SEARCH_STRING_HINTS),
+        ...(extraShortcutHints ?? [])
+    ]);
 
     useEffect(() => {
         if (!parentRef.current) {
@@ -92,6 +109,7 @@ export default function SearchStringEditor({ currentValue, noteId, placeholder, 
                 }
             },
             onEnter: () => propsRef.current.onEnter(),
+            onArrowDown: () => propsRef.current.onArrowDown?.() ?? false,
             onEscape: () => propsRef.current.onEscape?.() ?? false
         });
         editorRef.current = editor;
@@ -123,7 +141,8 @@ export default function SearchStringEditor({ currentValue, noteId, placeholder, 
         const switchedNote = shownNoteId.current !== noteId;
         shownNoteId.current = noteId;
 
-        if (!editor || editor.state.doc.toString() === currentValue || (editor.hasFocus && !switchedNote)) {
+        if (!editor || currentValue === undefined || editor.state.doc.toString() === currentValue
+            || (editor.hasFocus && !switchedNote)) {
             return;
         }
 

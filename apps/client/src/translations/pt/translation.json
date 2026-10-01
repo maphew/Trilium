@@ -2,7 +2,17 @@
   "about": {
     "data_directory": "Diretório de dados:",
     "version_label": "Versão:",
-    "contributors_label": "Contribuidores:"
+    "contributors_label": "Contribuidores:",
+    "contributor_roles": {
+      "original-dev": "desenvolvedor original",
+      "lead-dev": "desenvolvedor principal"
+    },
+    "role_brief_history": {
+      "lead-dev": "Elian Doran fundou TrilliumNext em 2024, uma bifurcação (fork) criado desde que Zadam se afastou do projeto. Zadam depois transferious o repositório original para o time TrilliumNext, juntando ambos projetos em apenas um novamente."
+    },
+    "license_tooltip": "Ver licença",
+    "donate": "Doar",
+    "donate_tooltip": "Doe para apoiar esse projeto"
   },
   "toast": {
     "critical-error": {
@@ -933,7 +943,6 @@
     "label_rock_or_pop": "apenas uma das etiquetas deve estar presente",
     "label_year_comparison": "comparação numérica (também >, >=, <).",
     "label_date_created": "notas criadas no último mês",
-    "error": "Erro na pesquisa: {{error}}",
     "search_prefix": "Pesquisa:"
   },
   "attachment_detail": {
@@ -1481,7 +1490,6 @@
     "placeholder": "Pesquisa rápida",
     "searching": "A pesquisar...",
     "no-results": "Nenhum resultado encontrado",
-    "more-results": "... e mais {{number}} resultados.",
     "show-in-full-search": "Exibir na pesquisa completa"
   },
   "note_tree": {

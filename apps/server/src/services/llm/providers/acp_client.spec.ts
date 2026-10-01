@@ -1,4 +1,7 @@
 import { EventEmitter } from "events";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { PassThrough } from "stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -352,5 +355,56 @@ describe("AcpClient", () => {
         // after dispose()). An "error" event with no listener is re-thrown by
         // EventEmitter, which would take the server down.
         expect(() => proc.stdin.emit("error", new Error("write EPIPE"))).not.toThrow();
+    });
+});
+
+describe("AcpClient.startWorker", () => {
+    /** An agent that answers every request with what it sees of its environment, and exits when stdin closes. */
+    const ECHO_AGENT = `
+        import { createInterface } from "node:readline";
+        createInterface({ input: process.stdin }).on("line", line => {
+            const { id, method } = JSON.parse(line);
+            if (method === "crash") throw new Error("agent crashed");
+            process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, result: { mark: process.env.MARK, argv: process.argv.slice(2) } }) + "\\n");
+        });
+        process.stdin.on("close", async () => {
+            (await import("node:fs")).writeFileSync(process.env.CLOSED_MARKER, "");
+            process.exit(0);
+        });
+    `;
+    let dir: string;
+    let script: string;
+
+    beforeEach(() => {
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), "trilium-acp-worker-"));
+        script = path.join(dir, "agent.mjs");
+        fs.writeFileSync(script, ECHO_AGENT);
+    });
+
+    afterEach(() => {
+        fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    it("speaks to a script in a worker thread over its stdio, with the given args and environment", async () => {
+        const onExit = vi.fn();
+        const marker = `${script}.closed`;
+        const client = AcpClient.startWorker(script, { cwd: "/unused", args: ["--flag"], env: { MARK: "worker", CLOSED_MARKER: marker }, onExit });
+
+        await expect(client.request("ping", {})).resolves.toEqual({ mark: "worker", argv: ["--flag"] });
+
+        // Closing stdin lets the agent exit on its own; a deliberate dispose is no failure.
+        client.dispose();
+        await vi.waitFor(() => expect(fs.existsSync(marker)).toBe(true));
+        await new Promise(resolve => setTimeout(resolve, 50));
+        expect(onExit).not.toHaveBeenCalled();
+    });
+
+    it("fails in-flight requests and reports the death when the worker throws", async () => {
+        const onExit = vi.fn();
+        const client = AcpClient.startWorker(script, { cwd: "/unused", onExit });
+
+        await expect(client.request("crash", {})).rejects.toThrow(/agent crashed/);
+        expect(onExit).toHaveBeenCalledOnce();
+        expect(client.alive).toBe(false);
     });
 });

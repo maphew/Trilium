@@ -996,7 +996,6 @@
     "label_rock_or_pop": "दिए गए लेबल्स में से कम से कम एक होना चाहिए",
     "label_year_comparison": "नंबरों की तुलना (साथ ही >, >=, < भी)।",
     "label_date_created": "पिछले महीने बने नोट्स",
-    "error": "सर्च एरर: {{error}}",
     "search_prefix": "खोजें:"
   },
   "attachment_detail": {
@@ -1755,7 +1754,6 @@
     "placeholder": "तुरंत खोजें (Quick search)",
     "searching": "खोजा जा रहा है..।",
     "no-results": "कोई परिणाम नहीं मिला",
-    "more-results": "... और {{number}} परिणाम।",
     "show-in-full-search": "पूरी खोज (Full search) में दिखाएं"
   },
   "note_tree": {
@@ -2564,7 +2562,6 @@
     "thought_process": "विचार प्रक्रिया",
     "tool_calls": "{{count}} टूल कॉल",
     "input": "इनपुट",
-    "input_streaming": "इनपुट (स्ट्रीमिंग…)",
     "edit_index": "{{total}} में से {{index}} संपादित करें",
     "result": "परिणाम",
     "error": "त्रुटि",
@@ -2649,7 +2646,6 @@
     "page_size": "पेज साइज",
     "scale": "स्केल",
     "margins": "मार्जिन",
-    "render_error": "वर्तमान सेटिंग्स के साथ PDF रेंडर करने में असमर्थ। कृपया मार्जिन और स्केल की जांच करें।",
     "margins_default": "डिफ़ॉल्ट",
     "margins_none": "कोई नहीं",
     "margins_minimum": "न्यूनतम",

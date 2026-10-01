@@ -1280,7 +1280,6 @@
     "label_rock_or_pop": "sólo una de las etiquetas debe estar presente",
     "label_year_comparison": "comparación numérica (también >, >=, <).",
     "label_date_created": "notas creadas en el último mes",
-    "error": "Error de búsqueda: {{error}}",
     "search_prefix": "Buscar:",
     "hints": {
       "title": "Cadena de búsqueda",
@@ -2089,7 +2088,6 @@
     "placeholder": "Búsqueda rápida",
     "searching": "Buscando...",
     "no-results": "No se encontraron resultados",
-    "more-results": "... y {{number}} resultados más.",
     "show-in-full-search": "Mostrar en búsqueda completa"
   },
   "note_tree": {
@@ -3220,7 +3218,6 @@
     "no_models_selected": "No hay modelos seleccionados: haga clic en el lápiz para elegir",
     "no_model_selected": "Seleccione un modelo",
     "edit_models": "Editar modelos",
-    "input_streaming": "Entrada (transmitiendo…)",
     "edit_index": "Edición {{index}} de {{total}}",
     "free": "Gratis",
     "retry": "Reintentar",
@@ -3333,7 +3330,6 @@
     "page_size": "Tamaño de página",
     "scale": "Escala",
     "margins": "Márgenes",
-    "render_error": "No se puede generar el PDF con la configuración actual. Comprueba los márgenes y la escala.",
     "margins_default": "Predeterminados",
     "margins_none": "Sin márgenes",
     "margins_minimum": "Mínimos",
@@ -3943,8 +3939,6 @@
       "insert-a-table": "Insertar una tabla.",
       "insert-date-time": "Insertar fecha/hora",
       "insert-footnote-0": "Insertar nota al pie %0",
-      "insert-math": "Insertar matemática",
-      "insert-mermaid-diagram": "Insertar diagrama Mermaid",
       "insert-mermaid-source-code": "Insertar código fuente Mermaid",
       "insert-paragraph-after-code-block": "Insertar párrafo después del bloque de código",
       "insert-paragraph-before-code-block": "Insertar párrafo antes del bloque de código",
@@ -4005,7 +3999,6 @@
       "upload-an-image-from-your-device": "Suba una imagen desde su dispositivo.",
       "upload-image": "Subir imagen",
       "working": "Trabajando…",
-      "insert-icon": "Insertar icono",
       "icon": "Icono",
       "insert-an-icon-from-an-installed-icon-pack": "Insertar un icono de un paquete de iconos instalado",
       "transform-icon": "Transformar icono",

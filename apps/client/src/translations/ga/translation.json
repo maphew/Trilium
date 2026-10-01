@@ -1296,7 +1296,6 @@
     "label_rock_or_pop": "ní mór ach ceann amháin de na lipéid a bheith i láthair",
     "label_year_comparison": "comparáid uimhriúil (chomh maith >, >=, <).",
     "label_date_created": "nótaí a cruthaíodh sa mhí seo caite",
-    "error": "Earráid chuardaigh: {{error}}",
     "search_prefix": "Cuardaigh:",
     "hints": {
       "title": "Teaghrán cuardaigh",
@@ -2138,7 +2137,6 @@
     "placeholder": "Cuardach tapa",
     "searching": "Ag cuardach...",
     "no-results": "Níor aimsíodh aon torthaí",
-    "more-results": "... agus {{number}} torthaí eile.",
     "show-in-full-search": "Taispeáin sa chuardach iomlán"
   },
   "note_tree": {
@@ -3181,7 +3179,6 @@
     "edit_index": "Cuir in eagar {{index}} de {{total}}",
     "retry": "Déan iarracht eile",
     "web_search_unavailable_gemini": "Ní bheidh sé ar fáil ar mhúnlaí Gemini agus rochtain nótaí ar siúl — ní cheadaíonn API Google an dá rud a chomhcheangal. Díchumasaigh rochtain nótaí nó aistrigh chuig soláthraí difriúil chun cuardach gréasáin a úsáid.",
-    "input_streaming": "Ionchur (sruthú…)",
     "attach_file": "Ceangail íomhá, PDF, nó comhad téacs",
     "remove_attachment": "Bain an ceangaltán",
     "attachment_upload_failed": "Theip ar \"{{name}}\" a uaslódáil.",
@@ -3501,7 +3498,6 @@
     "page_size": "Méid leathanaigh",
     "scale": "Scála",
     "margins": "Imill",
-    "render_error": "Ní féidir PDF a rindreáil leis na socruithe reatha. Seiceáil na corrlaigh agus an scála le do thoil.",
     "margins_default": "Réamhshocrú",
     "margins_none": "Dada",
     "margins_minimum": "Íosmhéid",
@@ -3722,8 +3718,6 @@
       "insert-a-table": "Cuir tábla isteach.",
       "insert-date-time": "Cuir isteach dáta/am",
       "insert-footnote-0": "Cuir nóta coise %0 isteach",
-      "insert-math": "Cuir matamaitic isteach",
-      "insert-mermaid-diagram": "Cuir isteach léaráid Maighdeann Mhara",
       "insert-mermaid-source-code": "Cuir isteach cód foinse Mermaid",
       "insert-paragraph-after-code-block": "Cuir mír isteach i ndiaidh bhloc cóid",
       "insert-paragraph-before-code-block": "Cuir mír isteach roimh bhloc cóid",
@@ -3788,7 +3782,6 @@
       "working": "Ag obair…",
       "upload-an-image-from-your-device": "Uaslódáil íomhá ó do ghléas.",
       "upload-image": "Uaslódáil íomhá",
-      "insert-icon": "Cuir isteach deilbhín",
       "icon": "Deilbhín",
       "insert-an-icon-from-an-installed-icon-pack": "Cuir isteach deilbhín ó phacáiste deilbhíní atá suiteáilte",
       "transform-icon": "Deilbhín claochlaithe",

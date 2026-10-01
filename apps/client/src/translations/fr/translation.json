@@ -1024,7 +1024,6 @@
     "label_rock_or_pop": "un seul des labels doit être présent",
     "label_year_comparison": "comparaison numérique (également >, >=, <).",
     "label_date_created": "notes créées le mois dernier",
-    "error": "Erreur de recherche : {{error}}",
     "search_prefix": "Recherche :"
   },
   "attachment_detail": {
@@ -1653,7 +1652,6 @@
     "placeholder": "Recherche rapide",
     "searching": "Recherche...",
     "no-results": "Aucun résultat trouvé",
-    "more-results": "... et {{number}} autres résultats.",
     "show-in-full-search": "Afficher dans la recherche complète"
   },
   "note_tree": {
@@ -2305,7 +2303,6 @@
     "retry": "Réessayer",
     "edit_index": "Modification {{index}} sur {{total}}",
     "web_search_unavailable_gemini": "Non disponible sur les modèles Gemini lorsque l'accès aux notes est activé — l'API de Google ne permet pas de combiner les deux. Désactivez l'accès aux notes ou changez de fournisseur pour utiliser la recherche web.",
-    "input_streaming": "Entrée (streaming…)",
     "attach_file": "Joindre une image, un PDF ou un fichier texte",
     "remove_attachment": "Supprimer la pièce jointe",
     "attachment_upload_failed": "Impossible de téléverser \"{{name}}\".",
@@ -2726,7 +2723,6 @@
     "page_size": "Format de page",
     "scale": "Échelle",
     "margins": "Marges",
-    "render_error": "Impossible de générer le PDF avec les paramètres actuels. Veuillez vérifier les marges et l’échelle.",
     "margins_default": "Par défaut",
     "margins_none": "Aucunes",
     "margins_minimum": "Minimums",

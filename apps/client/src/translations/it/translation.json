@@ -528,8 +528,7 @@
     "label_rock_pop": "corrisponde alle note che hanno sia etichette rock che pop",
     "label_rock_or_pop": "deve essere presente solo una delle etichette",
     "label_year_comparison": "confronto numerico (anche >, >=, <).",
-    "label_date_created": "note create nell'ultimo mese",
-    "error": "Errore di ricerca: {{error}}"
+    "label_date_created": "note create nell'ultimo mese"
   },
   "attachment_detail": {
     "open_help_page": "Apri la pagina di aiuto sugli allegati",
@@ -886,7 +885,6 @@
     "placeholder": "Ricerca rapida",
     "searching": "Ricerca in corso...",
     "no-results": "Nessun risultato trovato",
-    "more-results": "... e altri {{number}} risultati.",
     "show-in-full-search": "Mostra nella ricerca completa"
   },
   "help": {
@@ -3070,7 +3068,6 @@
     "edit_index": "Modifica {{index}} di {{total}}",
     "retry": "Riprova",
     "web_search_unavailable_gemini": "Non disponibile sui modelli Gemini quando l'accesso alle note è attivo: l'API di Google non consente di combinare entrambe le funzioni. Disattiva l'accesso alle note o passa a un altro provider per utilizzare la ricerca sul web.",
-    "input_streaming": "Input (in streaming…)",
     "attach_file": "Allega un'immagine, un PDF o un file di testo",
     "remove_attachment": "Rimuovi allegato",
     "attachment_upload_failed": "Caricamento non riuscito \"{{name}}\".",
@@ -3431,7 +3428,6 @@
     "page_size": "Dimensione della pagina",
     "scale": "Scala",
     "margins": "Margini",
-    "render_error": "Impossibile generare il PDF con le impostazioni attuali. Controlla i margini e la scala.",
     "margins_default": "Predefinito",
     "margins_none": "Nessuno",
     "margins_minimum": "Minimo",
@@ -3576,8 +3572,6 @@
       "insert-a-table": "Inserisci una tabella.",
       "insert-date-time": "Inserire data/ora",
       "insert-footnote-0": "Inserire nota a piè di pagina %0",
-      "insert-math": "Inserisci matematica",
-      "insert-mermaid-diagram": "Inserire il diagramma Mermaid",
       "insert-mermaid-source-code": "Inserisci il codice sorgente di Mermaid",
       "insert-paragraph-after-code-block": "Inserire il paragrafo dopo il blocco di codice",
       "insert-paragraph-before-code-block": "Inserire il paragrafo prima del blocco di codice",

@@ -33,6 +33,10 @@ async function bootstrap() {
     initThemeChangeNotifier();
     loadIcons();
     setBodyAttributes();
+    const debugSafeAreaInsets = import.meta.env.VITE_DEBUG_SAFE_AREA_INSETS;
+    if (debugSafeAreaInsets) {
+        (await import("./services/debug_safe_area")).default(debugSafeAreaInsets);
+    }
     reportSplashPhase("application");
     await loadScripts();
     hideSplash();

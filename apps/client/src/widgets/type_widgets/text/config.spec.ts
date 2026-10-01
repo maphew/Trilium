@@ -117,7 +117,7 @@ interface DynamicConfig {
         copyToClipboard(src: string): void;
         download(src: string): void;
     };
-    math: { lazyLoad(): Promise<void> };
+    math: { enableMathField: boolean; lazyLoad(): Promise<void> };
     mermaid: { lazyLoad(): Promise<unknown> };
     syntaxHighlighting: { loadHighlightJs(): Promise<{ default: unknown }> };
     mention?: {
@@ -310,6 +310,22 @@ describe("CK config - HTML support", () => {
         expect(names).not.toContain("div");
         // Everything else the default list names still comes through.
         expect(names).toEqual(SANITIZER_DEFAULT_ALLOWED_TAGS.filter((tag) => tag !== "div"));
+    });
+});
+
+describe("CK config - tables", () => {
+    it("offers the Sort dropdown just before the table properties", async () => {
+        const toolbar = (await buildConfig(baseOpts())).table?.contentToolbar ?? [];
+        expect(toolbar).toContain("tableSort");
+        expect(toolbar.indexOf("tableSort")).toBe(toolbar.indexOf("tableProperties") - 1);
+    });
+
+    it("hands the user's date format to table sorting", async () => {
+        expect((await buildConfig(baseOpts())).autoSort).toEqual({ dateFormats: [] });
+
+        optionsState.map.customDateTimeFormat = "DD.MM.YYYY HH:mm";
+        expect((await buildConfig(baseOpts())).autoSort)
+            .toEqual({ dateFormats: ["DD.MM.YYYY HH:mm"] });
     });
 });
 
@@ -620,6 +636,15 @@ function toolbarItems(config: EditorConfig): unknown[] {
 }
 
 describe("CK config - disabled plugins", () => {
+    it("passes the MathLive option to the math editor", async () => {
+        const defaultConfig = await buildDynamicConfig();
+        expect(defaultConfig.math.enableMathField).toBe(true);
+
+        optionsState.map["mathFieldEnabled"] = "false";
+        const disabledConfig = await buildDynamicConfig();
+        expect(disabledConfig.math.enableMathField).toBe(false);
+    });
+
     it("removes the emoji and slash-command plugins based on their option toggles", async () => {
         const disabled = await buildConfig(baseOpts());
         expect(disabled.removePlugins).toContain("TriliumEmojiMention");

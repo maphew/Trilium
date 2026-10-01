@@ -29,11 +29,13 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
+import nativePath from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SKILL_DIR = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(SKILL_DIR, "../../..");
+// Repo-relative paths use `/` on every platform, to match git output and the `TREES` paths.
+const path = nativePath.posix;
+const SKILL_DIR = nativePath.dirname(fileURLToPath(import.meta.url));
+const ROOT = nativePath.resolve(SKILL_DIR, "../../..");
 
 const BASE_URL = "https://docs.triliumnotes.org";
 
@@ -238,7 +240,7 @@ function image() {
     if (!pageQuery || !file) die("usage: image <page> <file.png|.gif|.webp|.jpg> [--title name.png]");
     const page = resolvePage(pageQuery, flags.tree);
     if (!page.file) die("the page has no data file; images attach to a page with content");
-    const source = path.resolve(file);
+    const source = nativePath.resolve(file);
     if (!fs.existsSync(source)) die(`${file} not found`);
     const ext = path.extname(source).toLowerCase();
     const mime = { ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml" }[ext];
@@ -459,9 +461,11 @@ function check() {
 function sync() {
     console.log("regenerating every docs tree headless (import → export, ~10 s)…");
     const before = gitStatusDocs();
-    const result = spawnSync("pnpm", ["edit-docs:sync-docs"], { cwd: ROOT, stdio: ["ignore", "pipe", "inherit"], encoding: "utf-8" });
+    // On Windows `pnpm` resolves only through the shell (a `.cmd` shim or a PATHEXT lookup).
+    const result = spawnSync("pnpm", ["edit-docs:sync-docs"], { cwd: ROOT, stdio: ["ignore", "pipe", "inherit"], encoding: "utf-8", shell: process.platform === "win32" });
     if (result.status !== 0) {
-        console.error(result.stdout.split("\n").slice(-30).join("\n"));
+        if (result.error) console.error(result.error.message);
+        console.error((result.stdout ?? "").split("\n").slice(-30).join("\n"));
         die("sync failed — the import rejects a tree whose !!!meta.json and files disagree; run `check`");
     }
     const after = gitStatusDocs();

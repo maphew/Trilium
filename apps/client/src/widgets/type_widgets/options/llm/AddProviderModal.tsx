@@ -132,6 +132,8 @@ export const PROVIDER_TYPES: ProviderType[] = [
     // That sign-in runs inside the model-list request, so the request outlasts the
     // server's own 5-minute wait for it (`SIGN_IN_TIMEOUT_MS`).
     { id: "antigravity-agent", name: "Google Antigravity", group: "subscription", defaultBaseUrl: "", iconUrl: PROVIDER_ICONS["antigravity-agent"], connectionDescription: t("llm.antigravity_agent_description"), beta: true, apiKey: "none", baseUrl: "none", needsHostProcess: true, modelListTimeoutMs: 6 * 60_000 },
+    // A ChatGPT plan through the Codex ACP adapter, which signs in the same way.
+    { id: "codex-agent", name: "OpenAI Codex", group: "subscription", defaultBaseUrl: "", iconUrl: PROVIDER_ICONS["codex-agent"], connectionDescription: t("llm.codex_agent_description"), beta: true, apiKey: "none", baseUrl: "none", needsHostProcess: true, modelListTimeoutMs: 6 * 60_000 },
     // The three self-hosted cards share one server-side provider; they differ only in
     // the endpoint they prefill and the setup hint they show.
     // No blurbs: the group heading already says local/self-hosted, and how to start

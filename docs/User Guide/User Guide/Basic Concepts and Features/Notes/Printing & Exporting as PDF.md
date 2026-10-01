@@ -35,8 +35,10 @@ Additional interaction:
 
 *   _Print using system dialog_ allows setting more options that are otherwise not available in Trilium.
 
+If the note cannot be rendered with the current options, or stops making progress for 30 seconds, the preview is replaced by an error message. Adjust the options to try again.
+
 > [!NOTE]
-> Most of the options here (expect printer & which pages to print) are managed at note level through <a class="reference-link" href="../../Advanced%20Usage/Attributes.md">Attributes</a> (such as `#printLandscape`, `#printPageSize`, `#printScale`, `#printMargins`).
+> Most of the options here (except printer & which pages to print) are managed at note level through <a class="reference-link" href="../../Advanced%20Usage/Attributes.md">Attributes</a> (such as `#printLandscape`, `#printPageSize`, `#printScale`, `#printMargins`).
 > 
 > This means that the print settings will be restored when printing the same note. There are no default settings that can be configured for all the notes, but this can be achieved via [inheritable attributes](../../Advanced%20Usage/Attributes/Attribute%20Inheritance.md).
 
@@ -93,6 +95,7 @@ It's possible to trigger both printing and export as PDF from the keyboard by go
 
 Not all <a class="reference-link" href="../../Note%20Types.md">Note Types</a> are supported when printing, in which case the _Print_ and _Export as PDF_ options will be disabled.
 
+*   For <a class="reference-link" href="../../Note%20Types/Text.md">Text</a> notes, font, background and table colors are printed in the shades of light themes, whatever the current theme (see <a class="reference-link" href="../../Note%20Types/Text/General%20formatting.md">General formatting</a>).
 *   For <a class="reference-link" href="../../Note%20Types/Code.md">Code</a> notes:
     *   Line numbers are not printed.
     *   Syntax highlighting is enabled, however a default theme (Visual Studio) is enforced.

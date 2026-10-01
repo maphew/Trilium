@@ -18,6 +18,7 @@ import { resolveContentLanguage } from "../../../utils/formatters.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
 import buildAiAssistantStream, { type AiNoteLocationProvider, buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
 import diffAiResponse from "./ai_diff.js";
+import { buildFontColorConfig, buildTableColorConfig } from "./color_palette.js";
 import { buildQuoteTransformation, resolveQuoteSetting } from "./quotes.js";
 import { buildCustomTransformations, parseCustomReplacements } from "./replacements.js";
 import { buildToolbarConfig } from "./toolbar.js";
@@ -61,7 +62,8 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             enablePreview: true, // Enable preview view
             // Map MathLive-only commands (e.g. \differentialD) onto KaTeX equivalents so
             // formulas produced by the visual editor render instead of erroring out (#9523).
-            katexRenderOptions: { macros: KATEX_MACROS }
+            katexRenderOptions: { macros: KATEX_MACROS },
+            enableMathField: options.get("mathFieldEnabled") !== "false"
         },
         mermaid: {
             lazyLoad: async () => (await import("mermaid")).default, // FIXME
@@ -145,7 +147,11 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             ]
         },
         table: {
-            contentToolbar: ["tableColumn", "tableRow", "mergeTableCells", "tableProperties", "tableCellProperties", "toggleTableCaption"]
+            contentToolbar: [
+                "tableColumn", "tableRow", "mergeTableCells", "tableSort", "tableProperties",
+                "tableCellProperties", "toggleTableCaption"
+            ],
+            ...buildTableColorConfig()
         },
         list: {
             properties: {
@@ -157,6 +163,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         alignment: {
             options: [ "left", "right", "center", "justify"]
         },
+        ...buildFontColorConfig(),
         link: {
             defaultProtocol: "https://",
             allowedProtocols: ALLOWED_PROTOCOLS,
@@ -267,6 +274,10 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         enabled: () => options.get("clipboardImageEmbedEnabled") === "true",
         embedImage: (src: string) => imageService.embedReferenceImageAsDataUrl(src)
     };
+
+    // Table sorting reads dates inserted in the user's own format.
+    const customDateTimeFormat = options.get("customDateTimeFormat");
+    config.autoSort = { dateFormats: customDateTimeFormat ? [customDateTimeFormat] : [] };
 
     // The language this note is written in, which governs both its text direction and which
     // typographic quotes typing produces.

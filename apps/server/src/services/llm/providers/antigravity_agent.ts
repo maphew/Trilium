@@ -18,18 +18,19 @@
  *     Trilium's note tools.
  */
 
-import { LLM_REASONING_EFFORTS, type LlmReasoningEffort } from "@triliumnext/commons";
+import type { LlmReasoningEffort } from "@triliumnext/commons";
 import { getLog } from "@triliumnext/core";
 import type { LlmProviderConfig, ModelInfo } from "@triliumnext/core/src/services/llm/types.js";
 import { existsSync } from "fs";
 import path from "path";
 
 import dataDirs from "../../data_dir.js";
-import { AcpAgentProvider, type AcpLaunchSpec, type AcpNewSessionParams, type AcpPermissionOutcome, type AcpPermissionRequest, type AcpSessionModelState, type AcpToolCallUpdate, type BuiltInToolDisplay, denyPermission, describeError, NOTE_TOOLS_MCP_SERVER_NAME } from "./acp_agent.js";
-import { type AcpClient, AcpError } from "./acp_client.js";
+import { AcpAgentProvider, type AcpLaunchSpec, type AcpNewSessionParams, type AcpPermissionOutcome, type AcpPermissionRequest, type AcpSessionModelState, type AcpToolCallUpdate, type BuiltInToolDisplay, denyPermission, describeError, nearestEffort, NOTE_TOOLS_MCP_SERVER_NAME, sortEfforts } from "./acp_agent.js";
+import type { AcpClient } from "./acp_client.js";
 import { getAcpHookEndpointUrl } from "./acp_mcp_endpoint.js";
 import { resolveAntigravityBinaryPath } from "./antigravity_binary.js";
-import { type AntigravityDirs, type AntigravityHookDecision, buildHookCommand, decideAntigravityToolCall, resolveCurlPath, writeAntigravityHooks } from "./antigravity_hook.js";
+import { buildHookCommand, resolveCurlPath } from "./acp_hook.js";
+import { type AntigravityDirs, type AntigravityHookDecision, decideAntigravityToolCall, writeAntigravityHooks } from "./antigravity_hook.js";
 import { isPublicHttpUrl } from "./public_url.js";
 
 /** The model id that leaves the session on the model the server picks. */
@@ -51,9 +52,6 @@ const AVAILABLE_MODELS: ModelInfo[] = [
  * already serves better.
  */
 const SIGN_IN_METHOD = "oauth-personal";
-
-/** How long the add-provider screen waits for the user to finish signing in in the browser. */
-export const SIGN_IN_TIMEOUT_MS = 5 * 60_000;
 
 /** CA bundle locations on common Linux distributions, in the order Go's crypto/x509 tries them. */
 const LINUX_CA_BUNDLES = [
@@ -79,6 +77,7 @@ export class AntigravityAgentProvider extends AcpAgentProvider {
     protected readonly fallbackModels = AVAILABLE_MODELS;
     protected readonly defaultModelId = DEFAULT_MODEL_ID;
     protected readonly agentDirName = path.join("antigravity-agent", "workspace");
+    protected readonly signIn = { methodId: SIGN_IN_METHOD, product: "Google Antigravity", account: "Google" };
 
     /**
      * The newest version of each family, every effort level included, plus
@@ -125,7 +124,7 @@ export class AntigravityAgentProvider extends AcpAgentProvider {
         const [ binary, curl, hookUrl ] = await Promise.all([
             resolveAntigravityBinaryPath(),
             resolveCurlPath(),
-            getAcpHookEndpointUrl(payload => this.decideToolCall(payload, dirs))
+            getAcpHookEndpointUrl("antigravity", payload => this.decideToolCall(payload, dirs))
         ]);
         writeAntigravityHooks(home, buildHookCommand(curl, hookUrl));
         return {
@@ -183,24 +182,9 @@ export class AntigravityAgentProvider extends AcpAgentProvider {
         return undefined;
     }
 
-    /**
-     * Open a session, signing in first when the server has no saved sign-in and
-     * the user is on the add-provider screen to complete it. The server opens
-     * the Google sign-in page in a browser on the device running Trilium and
-     * answers `authenticate` once the user has finished there; it keeps the
-     * sign-in under `GEMINI_HOME`, so later sessions need none.
-     */
+    /** Remember the catalog of every session opened, which picks the variant a turn runs on. */
     protected async createSession(client: AcpClient, params: AcpNewSessionParams, interactive: boolean, timeoutMs: number) {
-        let created: Awaited<ReturnType<AcpAgentProvider["createSession"]>>;
-        try {
-            created = await super.createSession(client, params, interactive, timeoutMs);
-        } catch (err) {
-            if (!interactive || !isSignInRequired(err)) {
-                throw err;
-            }
-            await client.request("authenticate", { methodId: SIGN_IN_METHOD }, SIGN_IN_TIMEOUT_MS);
-            created = await super.createSession(client, params, interactive, timeoutMs);
-        }
+        const created = await super.createSession(client, params, interactive, timeoutMs);
         if (created.models) {
             recordCatalog(created.models);
         }
@@ -209,11 +193,9 @@ export class AntigravityAgentProvider extends AcpAgentProvider {
 
     protected describeFailure(error: unknown): string {
         const text = describeError(error);
-        if (isSignInRequired(error)) {
-            return "Google Antigravity is not signed in. Open this provider in the AI settings and go to the model selection, which opens the Google sign-in page in a browser on the device running Trilium.";
-        }
-        if (/"authenticate" timed out/.test(text)) {
-            return "The Google sign-in was not completed in time. Try again, and finish signing in in the browser window that opens on the device running Trilium.";
+        const signInFailure = this.describeSignInFailure(error);
+        if (signInFailure) {
+            return signInFailure;
         }
         if (/ENOENT|spawn/i.test(text)) {
             return `Failed to start Google's Antigravity ACP server: ${text}`;
@@ -288,15 +270,8 @@ export function resolveAntigravityModel(model: string, effort: LlmReasoningEffor
         return model;
     }
     const levels = sortEfforts([ ...byEffort.keys() ]);
-    const wanted = LLM_REASONING_EFFORTS.indexOf(effort ?? defaultEffort(levels));
-    let chosen = levels[0];
-    for (const level of levels) {
-        if (Math.abs(LLM_REASONING_EFFORTS.indexOf(level) - wanted) <= Math.abs(LLM_REASONING_EFFORTS.indexOf(chosen) - wanted)) {
-            chosen = level;
-        }
-    }
-    /* v8 ignore next -- `chosen` is one of `byEffort`'s own keys. */
-    return byEffort.get(chosen) ?? model;
+    /* v8 ignore next -- the level chosen is one of `byEffort`'s own keys. */
+    return byEffort.get(nearestEffort(levels, effort ?? defaultEffort(levels))) ?? model;
 }
 
 /**
@@ -400,10 +375,6 @@ function recordCatalog(remote: AcpSessionModelState) {
     catalog = { variants, titleModel };
 }
 
-function sortEfforts(efforts: LlmReasoningEffort[]): LlmReasoningEffort[] {
-    return [ ...efforts ].sort((a, b) => LLM_REASONING_EFFORTS.indexOf(a) - LLM_REASONING_EFFORTS.indexOf(b));
-}
-
 /** High where the model has it, as the server itself defaults to a High variant; the strongest otherwise. */
 function defaultEffort(sortedEfforts: LlmReasoningEffort[]): LlmReasoningEffort {
     return sortedEfforts.includes("high") ? "high" : sortedEfforts[sortedEfforts.length - 1];
@@ -462,6 +433,3 @@ function isWebSearch(toolCall: { kind?: string; title?: string } | undefined): b
     return toolCall?.kind === "search" && /^Run(?:ning)? search_web\??$/.test(toolCall.title ?? "");
 }
 
-function isSignInRequired(error: unknown): boolean {
-    return error instanceof AcpError && error.code === -32000 && /authentication required/i.test(error.message);
-}

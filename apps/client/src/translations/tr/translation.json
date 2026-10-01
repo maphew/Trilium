@@ -548,8 +548,6 @@
       "insert-an-empty-mermaid-diagram": "Boş bir Mermaid diyagramı ekle",
       "insert-date-time": "Tarih/saat ekle",
       "insert-footnote-0": "%0 dipnotunu ekle",
-      "insert-math": "Matematik ekle",
-      "insert-mermaid-diagram": "Mermaid diyagramı ekle",
       "insert-mermaid-source-code": "Mermaid kaynak kodu ekle",
       "insert-paragraph-after-code-block": "Kod bloğundan sonra paragraf ekle",
       "insert-paragraph-before-code-block": "Kod bloğundan önce paragraf ekle",
@@ -1790,7 +1788,6 @@
     "label_rock_or_pop": "etiketlerden yalnızca biri bulunmalıdır",
     "label_year_comparison": "sayısal karşılaştırma (ayrıca >, >=, <).",
     "label_date_created": "geçen ay oluşturulan notlar",
-    "error": "Arama hatası: {{error}}",
     "search_prefix": "Ara:"
   },
   "attachment_detail": {
@@ -2715,7 +2712,6 @@
     "thought_process": "Düşünme süreci",
     "tool_calls": "{{count}} araç çağrısı",
     "input": "Girdi",
-    "input_streaming": "Girdi (akış halinde…)",
     "edit_index": "{{total}} içinden {{index}}. düzenleme",
     "result": "Sonuç",
     "error": "Hata",
@@ -2820,7 +2816,6 @@
     "placeholder": "Hızlı arama",
     "searching": "Aranıyor...",
     "no-results": "Sonuç bulunamadı",
-    "more-results": "... ve {{number}} sonuç daha.",
     "show-in-full-search": "Tam aramada göster"
   },
   "mobile_note_navigator": {
@@ -3695,7 +3690,6 @@
     "page_size": "Sayfa boyutu",
     "scale": "Ölçek",
     "margins": "Kenar boşlukları",
-    "render_error": "Geçerli ayarlarla PDF oluşturulamıyor. Lütfen kenar boşluklarını ve ölçeği kontrol edin.",
     "margins_default": "Varsayılan",
     "margins_none": "Yok",
     "margins_minimum": "En Az",

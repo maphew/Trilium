@@ -671,7 +671,7 @@
     "delete-column-confirmation": "本当にこの列を削除しますか？対応する属性は、この列の下のノートでも削除されます。",
     "new-item": "新しいカード",
     "add-column": "列を追加",
-    "remove-from-board": "ボードから削除",
+    "remove-from-board": "列から削除",
     "archive-note": "アーカイブノート",
     "unarchive-note": "ノートのアーカイブを解除",
     "new-item-placeholder": "カードのタイトルを入力...",
@@ -724,7 +724,9 @@
       "selection": "選択",
       "select_column": "列のすべてのカードを選択",
       "clear_selection": "選択を解除",
-      "toggle_column": "列を折りたたむ／展開する（列ヘッダー上で）"
+      "toggle_column": "列を折りたたむ／展開する（列ヘッダー上で）",
+      "extend_selection": "選択範囲を下/上に拡張",
+      "toggle_selection": "カードを取り出す、または戻す"
     },
     "inbox": "インボックス",
     "inherited-column": "このカードは、テンプレートまたは親ノートから列情報を取得するため、そこで変更できます。",
@@ -798,7 +800,8 @@
     "select-column-cards": "列のすべてのカードを選択",
     "reset-selection": "選択を解除",
     "expand-column": "列を展開",
-    "delete-column-notes_other": "この列にある {{count}} 件のノートも削除"
+    "delete-column-notes_other": "この列にある {{count}} 件のノートも削除",
+    "select-all-cards": "すべてのカードを選択"
   },
   "code_buttons": {
     "execute_button_title": "スクリプトを実行",
@@ -1429,7 +1432,7 @@
     "label_type": "タイプ",
     "text": "テキスト",
     "number": "数値",
-    "boolean": "真偽値",
+    "boolean": "チェックボックス",
     "date": "日付",
     "date_time": "日付と時間",
     "time": "時間",
@@ -1684,7 +1687,11 @@
     "template_new_note_default_parent": "テンプレートノートに設定した場合: テンプレートから作成されたノート（例: @補完機能によるもの）は、明示的に別の場所が選択されない限り、対象のノートの配下に配置されます。",
     "custom_font": "Trilium のオプションにあるフォント選択画面で、ノートのタイトルの下に表示されるフォントファイルを指定します。",
     "board_card_redirect_to": "ボード上のカードを開いたとき、カード自体を開くのではなく、そのカードが指し示しているノートに移動します。",
-    "geo_shape": "ジオマップ上にノートを描画する際の形状指定: 形状の種類に続けて、各ポイントの緯度・経度を指定します。例: <code>line:48.85,2.29 48.86,2.35</code> — または、中心を円とし、メートル単位で到達範囲を指定します。<code>circle:48.85,2.29 500</code>。"
+    "geo_shape": "ジオマップ上にノートを描画する際の形状指定: 形状の種類に続けて、各ポイントの緯度・経度を指定します。例: <code>line:48.85,2.29 48.86,2.35</code> — または、中心を円とし、メートル単位で到達範囲を指定します。<code>circle:48.85,2.29 500</code>。",
+    "board_column_width": "ボードコレクションでの列幅の指定: <code>narrow</code>、<code>medium</code>、<code>wide</code> （狭い、中、広い ）。モバイル環境では独自の幅で描画されるため、この設定は無視されます。",
+    "board_show_inbox": "ボードコレクションに inbox 列を表示します。この列には、どのボード列にも割り当てられていないすべての子ノートが一覧表示されます。",
+    "board_sort_columns": "ボードコレクションの列内でのカードの並び順を指定します。個別の並び順が設定されていない限り、列はこの設定に従います。値には <code>title</code>、<code>creationDate</code>、または <code>attr:</code> に続けて昇格された属性名を指定します。",
+    "board_sort_columns_descending": "ボードコレクションでは、<code>#board:sortColumns</code> の並び順が逆向きに適用されます。"
   },
   "link_context_menu": {
     "open_note_in_popup": "クイック編集",
@@ -1735,7 +1742,6 @@
     "placeholder": "クイック検索",
     "searching": "検索中...",
     "no-results": "結果は見つかりませんでした",
-    "more-results": "... および {{number}} 件の他の結果。",
     "show-in-full-search": "検索結果をすべて表示"
   },
   "note_tree": {
@@ -1835,12 +1841,12 @@
   },
   "highlighting": {
     "title": "コードブロック",
-    "description": "テキストノート内のコードブロックのシンタックスハイライトを制御します。コードノートには影響しません。",
+    "description": "テキストノート内のコードブロックの構文ハイライトを制御します。コードノートには影響しません。",
     "color-scheme": "カラースキーム"
   },
   "code_block": {
     "word_wrapping": "単語の折り返し",
-    "theme_none": "シンタックスハイライトなし",
+    "theme_none": "構文ハイライトなし",
     "theme_group_light": "ライトテーマ",
     "theme_group_dark": "ダークテーマ",
     "copy_title": "クリップボードにコピー",
@@ -1948,10 +1954,36 @@
     "auto_link_previews_enabled": "リンクプレビューを自動生成",
     "auto_link_previews_description": "検出されたリンクを、ウェブページのタイトル、説明、画像を表示するプレビューに自動的に変換します。ツールバーからプレビューを挿入する操作は、この設定にかかわらず常に機能します。",
     "html_support_enabled": "サポートされていない HTML タグを保持する",
-    "html_support_description": "「オプション」→「その他」→「HTMLインポートタグ」に記載されている、エディタが独自機能を持たないHTMLタグを保持します。これらは直接編集できないブロックとして表示されますが、認識されないタグは編集画面上で全く表示されない場合もあります。この設定を無効にすると、該当するタグは、ノートを最初に編集・保存した時点で削除されます（インポート処理自体には影響しません）。"
+    "html_support_description": "「オプション」→「その他」→「HTMLインポートタグ」に記載されている、エディタが独自機能を持たないHTMLタグを保持します。これらは直接編集できないブロックとして表示されますが、認識されないタグは編集画面上で全く表示されない場合もあります。この設定を無効にすると、該当するタグは、ノートを最初に編集・保存した時点で削除されます（インポート処理自体には影響しません）。",
+    "mathlive_enabled": "MathLive ビジュアルエディター",
+    "mathlive_description": "ビジュアルエディターを使用して数式を編集できます。"
   },
   "table_context_menu": {
-    "delete_row": "行を削除"
+    "delete_row": "行を削除",
+    "insert_rows_above": "行を上に挿入",
+    "insert_rows_below": "行を下に挿入",
+    "insert_columns_left": "列を左に挿入",
+    "insert_columns_right": "列を右に挿入",
+    "delete_rows": "行を削除",
+    "delete_columns": "列を削除",
+    "delete_table": "表を削除",
+    "distribute_columns": "列の幅を均等にする",
+    "merge_cells": "セルを結合",
+    "split_cells": "セルを分割",
+    "split_vertically": "垂直に",
+    "split_horizontally": "水平に",
+    "split_reset": "セルの結合を解除",
+    "sort": "並べ替え",
+    "sort_ascending": "昇順",
+    "sort_descending": "降順",
+    "select": "選択",
+    "select_row": "行",
+    "select_column": "列",
+    "select_table": "表",
+    "set_header_row": "ヘッダーに設定",
+    "set_header_up_to_row": "この行までをヘッダーに設定",
+    "paste_rows_above": "行を上に貼り付け",
+    "paste_rows_below": "行を下に貼り付け"
   },
   "content_renderer": {
     "open_externally": "外部で開く",
@@ -2085,7 +2117,9 @@
     "label_name": "ラベル: {{name}}",
     "relation_name": "リレーション: {{name}}",
     "drawn_by_collection": "この基準でコレクションが並べ替えられているため、各アイテムで重複して表示されません",
-    "display_on_items": "コレクションのアイテムに属性を表示"
+    "display_on_items": "コレクションのアイテムに属性を表示",
+    "conflicting": "複数の定義",
+    "conflicting_tooltip": "この属性は複数の方法で定義されているため、テキスト（文字列）として並べ替えられ、アイテムメニューから設定することはできません。"
   },
   "relation_map": {
     "remove_note": "ノートを削除",
@@ -2152,7 +2186,6 @@
     "label_rock_or_pop": "どれかのラベルが存在すること",
     "label_year_comparison": "数値比較（>、>=、<も含む）。",
     "label_date_created": "過去1ヶ月以内に作成されたノート",
-    "error": "検索エラー: {{error}}",
     "search_prefix": "検索:",
     "placeholder": "Ctrl + Space で候補を表示、@ でノートを追加、Shift + Enter で改行、Enter で検索",
     "hints": {
@@ -3041,7 +3074,6 @@
     "edit_index": "{{total}} 件中 {{index}} 件目を編集",
     "retry": "再試行",
     "web_search_unavailable_gemini": "ノートへのアクセスが有効になっている場合は Gemini モデルは利用できません — Google の API では、両方を同時に使用できないためです。ウェブ検索を使用するには、ノートへのアクセスを無効にするか、別のプロバイダに切り替えてください。",
-    "input_streaming": "入力（ストリーミング…）",
     "attach_file": "画像、PDF、またはテキストファイルを添付",
     "remove_attachment": "添付ファイルを削除",
     "attachment_upload_failed": "\"{{name}}\" のアップロードに失敗しました。",
@@ -3087,8 +3119,34 @@
     },
     "stream_status": {
       "starting_agent": "エージェントを起動しています。しばらく時間がかかる場合があります。",
-      "waiting_for_reply": "応答を待機中…"
-    }
+      "waiting_for_reply": "応答を待機中…",
+      "still_working": "処理中…"
+    },
+    "show_tool_call_details": "入力と出力を表示",
+    "tool_call_no_result": "まだ結果はありません。",
+    "search_notes_count_other": "（{{count}} 件のノート）",
+    "search_notes_limited_other": "合計 {{count}} 件の結果、{{limit}} 件まで表示",
+    "search_notes_scope": "<Note/> 内を検索",
+    "child_notes_count_other": "（{{count}} 件の子ノート）",
+    "child_count_other": "{{count}} 件の子ノート",
+    "search_help_count_other": "（{{count}} ページ）",
+    "subtree_more_other": "+{{count}} 件",
+    "attachment_count_other": "{{count}} 件の添付ファイル",
+    "attribute_count_other": "（{{count}} 件の属性）",
+    "search_icons_count_other": "（{{count}} 個のアイコン）",
+    "attachment_size": "({{size}})",
+    "attachment_ocr": "ファイルから認識されたテキスト",
+    "skills": {
+      "search_syntax": "検索構文",
+      "backend_scripting": "バックエンドスクリプト",
+      "frontend_scripting": "フロントエンドスクリプト",
+      "dashboards": "ダッシュボード"
+    },
+    "web_sources_count_other": "（{{count}} 件のソース）",
+    "attachment_model_cannot_read_image": "{{- model}} は画像を読み込めません。",
+    "attachment_model_cannot_read_file": "{{- model}} はPDFを読み込めません。",
+    "attachment_refused": "\"{{name}}\" は添付されませんでした。{{- reason}}",
+    "remove_unreadable_attachments": "{{- model}} が読み込めない添付ファイルを削除"
   },
   "sidebar_chat": {
     "title": "AI チャット",
@@ -3213,7 +3271,10 @@
       "search_icons": "アイコンを検索",
       "search_help": "ユーザーガイドを検索",
       "get_help_toc": "ユーザーガイドの目次を取得",
-      "read_web_page": "Web ページの読み込み"
+      "read_web_page": "Web ページの読み込み",
+      "note_moved_from": "<Note/> from <From/> to <To/>",
+      "note_moved": "<Note/> to <To/>",
+      "attachment_in_note": "<Title/> in <Note/>"
     },
     "base_url": "ベース URL",
     "base_url_description": "オプション。プロキシやゲートウェイ経由で同じ API に接続します。モデルを自前で実行したい場合は、代わりに Ollama または LM Studio のプロバイダーを追加してください。",
@@ -3268,7 +3329,8 @@
     "antigravity_setup_download": "Trilium を実行しているデバイス上で、Google の <Link>ACP レジストリエントリ</Link> からお使いのプラットフォーム用のアーカイブをダウンロードし、そのまま配置しておけるフォルダに解凍してください。",
     "antigravity_setup_archive": "<Link>Trilium を実行するデバイス用のアーカイブ</Link> をダウンロードし、そのデバイス上で、そのまま配置しておけるフォルダに解凍してください。",
     "antigravity_setup_path": "そのフォルダを <Code>PATH</Code> に追加するか、環境変数 <Code>TRILIUM_ANTIGRAVITY_ACP_PATH</Code> にそのフォルダ内の <Code>agy_acp_server.par</Code> （Windows の場合は <Code>agy_acp_server.exe</Code>）へのパスを設定し、Trilium を再起動してください。",
-    "antigravity_setup_sign_in": "設定が終わったら、この手順に戻ってきてください。初回実行時に、そのデバイス上のブラウザで Google のサインインページが開きます。"
+    "antigravity_setup_sign_in": "設定が終わったら、この手順に戻ってきてください。初回実行時に、そのデバイス上のブラウザで Google のサインインページが開きます。",
+    "codex_agent_description": "OpenAI Codex を通じて、ご利用中の ChatGPT プラン（Free、Go、Plus、Pro、または Business）の Codex 利用枠を使用するため、APIキーは不要です。\n\nTrilium を実行しているデバイスに、セルフホストの場合はサーバー、デスクトップアプリの場合はそのコンピューターに、Codex CLI をインストールする必要があります-。インストールは、例えばそのデバイス上で \"npm install -g @openai/codex\" を実行することで行えます。\n\nモデルの一覧を最初に表示する際、そのデバイスのブラウザで ChatGPT のサインインページが開きます。"
   },
   "ocr": {
     "extracted_text": "抽出されたテキスト（OCR）",
@@ -3342,7 +3404,6 @@
     "page_size": "ページサイズ",
     "scale": "縮尺",
     "margins": "余白",
-    "render_error": "現在の設定では PDF を生成できません。余白と縮尺を確認してください。",
     "margins_default": "デフォルト",
     "margins_none": "なし",
     "margins_minimum": "最小",
@@ -3361,7 +3422,9 @@
     "destination": "出力先",
     "destination_pdf": "PDF として保存",
     "destination_printers": "プリンター",
-    "destination_default": "デフォルト"
+    "destination_default": "デフォルト",
+    "render_error_title": "現在の設定ではPDFをレンダリングできません",
+    "render_error_description": "余白と倍率を確認してください。"
   },
   "revisions": {
     "note_revisions": "ノートの変更履歴",
@@ -3574,8 +3637,6 @@
       "insert-a-table": "表を挿入。",
       "insert-date-time": "日付 / 時刻を挿入",
       "insert-footnote-0": "脚注を挿入 %0",
-      "insert-math": "数式を挿入",
-      "insert-mermaid-diagram": "マーメイド図を挿入",
       "insert-mermaid-source-code": "マーメイド図ソースコードを挿入",
       "insert-paragraph-after-code-block": "コードブロックの後に段落を挿入",
       "insert-paragraph-before-code-block": "コードブロックの前に段落を挿入",
@@ -3636,7 +3697,6 @@
       "working": "処理中…",
       "upload-an-image-from-your-device": "デバイスから画像をアップロードしてください。",
       "upload-image": "画像をアップロード",
-      "insert-icon": "アイコンを挿入",
       "icon": "アイコン",
       "insert-an-icon-from-an-installed-icon-pack": "インストール済みのアイコンパックからアイコンを挿入",
       "transform-icon": "アイコンを変形",
@@ -3647,7 +3707,27 @@
       "rotate-270": "270° 回転",
       "flip-horizontally": "左右反転",
       "flip-vertically": "上下反転",
-      "change-icon": "アイコンを変更"
+      "change-icon": "アイコンを変更",
+      "insert-date-time-0": "日付/時刻を挿入: %0",
+      "insert-time-0": "時刻を挿入: %0",
+      "math": "数式",
+      "date-time": "日付 / 時刻",
+      "move-row-up": "行を上に移動",
+      "move-row-down": "行を下に移動",
+      "move-column-left": "列を左に移動",
+      "move-column-right": "列を右に移動",
+      "insert-table": "表を挿入…",
+      "rows": "行",
+      "columns": "列",
+      "enter-a-whole-number-between-1-and-0": "1 から %0 までの整数を入力してください。",
+      "the-table-is-too-large-max-0-cells": "表が大きすぎます（最大 %0 セルまで）。",
+      "distribute-columns-evenly": "列の幅を均等にする",
+      "merge-selected-cells": "選択したセルを結合",
+      "unmerge-cells": "セルの結合を解除",
+      "sort": "並べ替え",
+      "ascending": "昇順",
+      "descending": "降順",
+      "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "結合されたセルによって互いに関連付けられているため、一部の行はまとめて並べ替えられました"
     },
     "toolbar-groups": {
       "text-formatting": "テキストの書式設定",
@@ -4330,5 +4410,13 @@
     "label_marker_negated": "ラベルを除外。Enter キーを押すと一覧を表示",
     "relation_marker": "リレーションを指定。Enter キーを押すと一覧を表示",
     "relation_marker_negated": "リレーションを除外。Enter キーを押すと一覧を表示"
+  },
+  "lightbox": {
+    "image": "画像",
+    "pdf": "PDF",
+    "open_original": "オリジナルを新しいタブで開く"
+  },
+  "split_button": {
+    "more_actions": "その他の操作"
   }
 }
