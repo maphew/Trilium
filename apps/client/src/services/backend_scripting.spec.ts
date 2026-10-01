@@ -28,14 +28,11 @@ describe("readScriptFailure", () => {
             .toEqual({ message: "boom", noteId: "child1" });
     });
 
-    it("answers without a note where the server named none", () => {
-        expect(readScriptFailure(responseBody({ message: "boom" }))).toEqual({ message: "boom" });
-    });
-
-    it("falls back to what it was given", () => {
-        expect(readScriptFailure("not json at all")).toEqual({ message: "not json at all" });
-        expect(readScriptFailure(new Error("thrown"))).toEqual({ message: "thrown" });
-        expect(readScriptFailure(undefined)).toEqual({ message: "undefined" });
+    it("answers nothing for a response that is not a script failure", () => {
+        expect(readScriptFailure(responseBody({ message: "Note 'x' doesn't exist." }))).toBeUndefined();
+        expect(readScriptFailure("not json at all")).toBeUndefined();
+        expect(readScriptFailure(new Error("thrown"))).toBeUndefined();
+        expect(readScriptFailure(undefined)).toBeUndefined();
     });
 });
 
@@ -73,5 +70,15 @@ describe("runBackendScript", () => {
 
         expect(mocks.showErrorForScriptNote).toHaveBeenCalledWith(
             "childModule", "boom", { monospace: true });
+    });
+
+    // `server.ts` has already reported a failure that is not the route's script failure, such as a
+    // 404 for a deleted note or a dropped connection.
+    it("adds no scripting error to a failure the request reported itself", async () => {
+        mocks.post.mockRejectedValue(responseBody({ message: "Note 'gone' doesn't exist." }));
+
+        await expect(runBackendScript("gone")).rejects.toBeDefined();
+
+        expect(mocks.showErrorForScriptNote).not.toHaveBeenCalled();
     });
 });

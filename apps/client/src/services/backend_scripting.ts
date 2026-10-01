@@ -67,39 +67,43 @@ export function showBackendScriptingDisabledToast(noteId: string) {
  * Runs a backend script note, reporting a failure as a scripting error rather than as a request
  * that went wrong.
  *
- * The generic report names a status code and a URL, which say where the failure was noticed rather
- * than what a script author did — and the toast raised here shows the note itself, so it can be
- * opened from the failure. Rethrows, so a caller can still tell the run did not happen.
+ * The toast names the failing note, so it can be opened from the failure. Rethrows, so a caller can
+ * still tell the run did not happen.
  */
 export async function runBackendScript(noteId: string): Promise<void> {
     try {
         await server.postWithSilentInternalServerError(`script/run/${noteId}`);
     } catch (e) {
+        // Anything other than the route's own script failure was already reported by `server.ts`.
         const failure = readScriptFailure(e);
-        // The note the server named is the one that failed, which is a child module note where one
-        // of those did; the note asked for is the fallback where it named none.
-        showErrorForScriptNote(failure.noteId ?? noteId, failure.message, { monospace: true });
+        if (failure) {
+            showErrorForScriptNote(failure.noteId, failure.message, { monospace: true });
+        }
         throw e;
     }
 }
 
-/** What the server said failed, as it answers it — parts rather than one sentence to unpick. */
-export function readScriptFailure(e: unknown): ScriptFailure {
+/**
+ * Reads the script failure `POST script/run` answers with, or `undefined` for any other failure.
+ *
+ * The route always names a note in a script failure, which tells it apart from the `{ message }`
+ * body of an error raised before the script ran.
+ */
+export function readScriptFailure(e: unknown): Required<ScriptFailure> | undefined {
     if (typeof e !== "string") {
-        return { message: e instanceof Error ? e.message : String(e) };
+        return undefined;
     }
 
     try {
-        const parsed = JSON.parse(e);
-        if (parsed && typeof parsed.message === "string") {
-            return {
-                message: parsed.message,
-                ...(typeof parsed.noteId === "string" ? { noteId: parsed.noteId } : {})
-            };
+        const parsed: unknown = JSON.parse(e);
+        if (parsed && typeof parsed === "object"
+            && "message" in parsed && typeof parsed.message === "string"
+            && "noteId" in parsed && typeof parsed.noteId === "string") {
+            return { message: parsed.message, noteId: parsed.noteId };
         }
     } catch {
-        // Not JSON, so the body is the best the server said.
+        // Not JSON, so not a script failure.
     }
 
-    return { message: e };
+    return undefined;
 }

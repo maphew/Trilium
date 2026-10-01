@@ -4,6 +4,7 @@ import type { Request } from "../../http_interface";
 
 import becca from "../../becca/becca.js";
 import attributeService from "../../services/attributes.js";
+import { getLog } from "../../services/log.js";
 import { getPlatform } from "../../services/platform.js";
 import scriptService, { type Bundle, describeScriptFailure } from "../../services/script.js";
 import syncService from "../../services/sync.js";
@@ -48,16 +49,22 @@ async function exec(req: Request) {
 }
 
 function run(req: Request<{ noteId: string }>) {
-    assertScriptingEnabled();
     const note = becca.getNoteOrThrow(req.params.noteId);
 
     try {
-        return { executionResult: scriptService.executeNote(note, { originEntity: note }) };
+        assertScriptingEnabled();
+        // A nested `transactional()` is a savepoint, so a script that throws leaves nothing it
+        // wrote behind even though the route returns rather than throws.
+        const executionResult = getSql().transactional(
+            () => scriptService.executeNote(note, { originEntity: note }));
+        return { executionResult };
     } catch (e) {
-        // Answered in parts rather than as one sentence: the cause chain does not survive the
-        // response, and what the caller wants out of it — what failed, and which note — would
-        // otherwise have to be read back out of the text on the other side.
-        return [ 500, describeScriptFailure(e) ];
+        const [ message, stack ] = safeExtractMessageAndStackFromError(e);
+        getLog().error(`Script note ${note.noteId} failed: '${message}', stack: ${stack}`);
+
+        // The client reads the failing note from the body, as the cause chain is not serialized.
+        const failure = describeScriptFailure(e);
+        return [ 500, { ...failure, noteId: failure.noteId ?? note.noteId } ];
     }
 }
 
