@@ -478,12 +478,8 @@ export default class CodeMirror extends EditorView {
 }
 
 /**
- * The body-level element CodeMirror renders its tooltips into, created on first use.
- *
- * Tooltips otherwise live inside `.cm-editor`, which is `overflow: hidden`, and CodeMirror falls
- * back to absolute positioning on Safari and iOS — clipping the completion popup to the editor's
- * box, which for a one- or two-line note leaves only a sliver of it. The host also gives the app one
- * class to size the tooltips by and to lift them over the dialogs an editor can sit in.
+ * Returns the body-level element CodeMirror renders tooltips into, outside `.cm-editor`, whose
+ * `overflow: hidden` clips an absolutely positioned tooltip (Safari, iOS).
  */
 function getTooltipHost() {
     const existing = document.body.querySelector(".cm-tooltip-host");

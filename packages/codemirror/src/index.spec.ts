@@ -1,6 +1,6 @@
 import { indentUnit } from "@codemirror/language";
-import { EditorSelection, EditorState } from "@codemirror/state";
-import { EditorView, type ViewUpdate } from "@codemirror/view";
+import { EditorSelection, EditorState, StateEffect } from "@codemirror/state";
+import { EditorView, showTooltip, type ViewUpdate } from "@codemirror/view";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import CodeMirror, { type EditorConfig, getThemeById } from "./index.js";
@@ -119,6 +119,28 @@ describe("CodeMirror", () => {
                 expect(document.body.querySelectorAll(".cm-tooltip-host")).toHaveLength(1);
             } finally {
                 second.destroy();
+            }
+        });
+
+        it("renders a tooltip into the host, under the editor's theme classes", () => {
+            editor = build();
+            const dom = document.createElement("div");
+            dom.className = "cm-tooltip-lint";
+            editor.dispatch({
+                effects: StateEffect.appendConfig.of(showTooltip.of({ pos: 0, create: () => ({ dom }) }))
+            });
+
+            const host = document.body.querySelector(".cm-tooltip-host");
+            expect(host?.contains(dom)).toBe(true);
+            expect(editor.dom.contains(dom)).toBe(false);
+            // The editor's scoped base themes, such as the lint tooltip's width cap, match through
+            // these classes on the container.
+            const container = dom.closest(".cm-tooltip-host > *");
+            expect(container).not.toBeNull();
+            const themeClasses = editor.themeClasses.split(" ").filter(Boolean);
+            expect(themeClasses.length).toBeGreaterThan(0);
+            for (const cls of themeClasses) {
+                expect(container?.classList.contains(cls)).toBe(true);
             }
         });
     });
