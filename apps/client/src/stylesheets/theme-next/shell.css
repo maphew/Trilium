@@ -654,52 +654,45 @@ div.quick-search .search-button.show {
     transition: background-color 100ms ease-out !important;
 }
 
-div.quick-search .dropdown-menu {
+/* The results popup is portaled to `<body>`, outside `div.quick-search`. `:root` outranks the
+   popup's own rules in quick_search.css. */
+:root .dropdown-menu.quick-search-menu {
     --quick-search-item-delimiter-color: transparent;
     --menu-item-icon-vert-offset: -.065em;
-}
 
-/* Item */
-.quick-search .dropdown-menu *.dropdown-item {
-    padding: 8px 12px !important;
-}
+    /* Item */
+    .dropdown-item {
+        padding: 8px 12px !important;
+    }
 
-:root .quick-search .dropdown-item:not(.disabled):hover,
-:root .quick-search .dropdown-item:not(.disabled):focus,
-:root .quick-search .dropdown-item:not(.disabled):focus-visible {
-    outline: none !important;
-    background: var(--hover-item-background-color);
-    color: var(--hover-item-text-color);
-}
+    .dropdown-item:not(.disabled):hover,
+    .dropdown-item:not(.disabled):focus,
+    .dropdown-item:not(.disabled):focus-visible {
+        outline: none !important;
+        background: var(--hover-item-background-color);
+        color: var(--hover-item-text-color);
+    }
 
-.quick-search .quick-search-item-icon {
-    vertical-align: text-bottom;
-}
+    .quick-search-item-icon {
+        vertical-align: text-bottom;
+    }
 
-/* Note path */
-.quick-search .dropdown-menu small {
-    display: block;
-    opacity: 0.5;
-    font-size: 0.75em;
-    overflow: hidden;
-}
+    /* Note content snippet */
+    .search-result-content {
+        background-color: var(--quick-search-result-content-background);
+        border-radius: 4px;
+    }
 
-/* Note content snippet */
-:root .quick-search .search-result-content {
-    background-color: var(--quick-search-result-content-background);
-    border-radius: 4px;
-}
+    /* Highlighted search terms */
+    :is(.search-result-title, .search-result-content, .search-result-attributes)
+        b:not(.search-fuzzy-match) {
+        color: var(--quick-search-result-highlight-color);
+        font-weight: 600;
+    }
 
-/* Highlighted search terms */
-:root .quick-search .search-result-title b,
-:root .quick-search .search-result-content b,
-:root .quick-search .search-result-attributes b {
-    color: var(--quick-search-result-highlight-color);
-    font-weight: 600;
-}
-
-.quick-search div.dropdown-divider {
-    margin: 8px 0;
+    .dropdown-divider {
+        margin: 8px 0;
+    }
 }
 
 /*

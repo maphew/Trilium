@@ -23,7 +23,7 @@ kbd {
 .quick-search {
     margin: 0;
 }
-.quick-search .dropdown-menu {
+:root .dropdown-menu.quick-search-menu {
     max-width: 350px;
 }
 
