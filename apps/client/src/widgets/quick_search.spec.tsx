@@ -128,6 +128,27 @@ describe("QuickSearch", () => {
         await act(async () => first.click());
         await vi.waitFor(() => expect(menu()).toBeNull());
     });
+
+    it("stands the results under the search box, which a press does not close them from", async () => {
+        vi.spyOn(server, "get").mockResolvedValue(response(3, []));
+        // happy-dom lays nothing out, so the viewport is given a size to place the popup in.
+        vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1000);
+        vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
+        const { container, editor } = await mount();
+        const box = container.querySelector<HTMLElement>(".quick-search-box");
+        if (!box) throw new Error("The search box did not render.");
+        vi.spyOn(box, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ x: 20, y: 40, width: 300, height: 30 }));
+
+        typeQuery(editor, "hello");
+        pressEnter(editor);
+        await waitForResults(3);
+        await vi.waitFor(() => expect(menu()?.style.left).toBe("20px"));
+
+        await act(async () => {
+            editor.contentDOM.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+        });
+        expect(menu()).not.toBeNull();
+    });
 });
 
 /** Renders the component and waits for the CodeMirror modules it imports on demand. */

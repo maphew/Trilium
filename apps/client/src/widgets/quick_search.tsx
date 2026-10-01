@@ -25,6 +25,7 @@ export default function QuickSearch() {
     const [ searchState, setSearchState ] = useState<SearchState>();
     const editorRef = useRef<FieldEditor>();
     const dropdownRef = useRef<DropdownHandle | null>(null);
+    const boxRef = useRef<HTMLDivElement>(null);
     const isOpenRef = useRef(false);
     // Each search takes a number, so a slower earlier response cannot overwrite a later one.
     const requestIdRef = useRef(0);
@@ -55,53 +56,56 @@ export default function QuickSearch() {
 
     return (
         <div className={clsx("quick-search", searchString && "has-query")}>
-            <DropdownPanel
-                className="quick-search-toggle"
-                buttonClassName="search-button"
-                dropdownContainerClassName="quick-search-menu"
-                text={<Icon icon="bx bx-search" />}
-                hideToggleArrow
-                noSelectButtonStyle
-                placement="bottom-start"
-                dropdownRef={dropdownRef}
-                onShown={() => {
-                    isOpenRef.current = true;
-                    void search();
-                }}
-                onHidden={() => {
-                    isOpenRef.current = false;
-                }}
-            >
-                <div className="quick-search-results">
-                    <QuickSearchResults
-                        searchState={searchState}
-                        onOpenResult={() => dropdownRef.current?.hide()}
-                    />
-                </div>
-            </DropdownPanel>
-
-            <SearchStringEditor
-                className="search-string"
-                currentValue={searchString}
-                placeholder={t("quick-search.placeholder")}
-                singleLine
-                editorRef={editorRef}
-                onChange={setSearchString}
-                onEnter={() => {
-                    // Opening the results runs the search; open results are refreshed.
-                    if (isOpenRef.current) {
+            <div ref={boxRef} className="quick-search-box">
+                <DropdownPanel
+                    className="quick-search-toggle"
+                    buttonClassName="search-button"
+                    dropdownContainerClassName="quick-search-menu"
+                    text={<Icon icon="bx bx-search" />}
+                    hideToggleArrow
+                    noSelectButtonStyle
+                    placement="bottom-start"
+                    anchorRef={boxRef}
+                    dropdownRef={dropdownRef}
+                    onShown={() => {
+                        isOpenRef.current = true;
                         void search();
-                    } else {
-                        dropdownRef.current?.show();
-                    }
-                    editorRef.current?.focus();
-                }}
-                onEscape={() => {
-                    if (!isOpenRef.current) return false;
-                    dropdownRef.current?.hide();
-                    return true;
-                }}
-            />
+                    }}
+                    onHidden={() => {
+                        isOpenRef.current = false;
+                    }}
+                >
+                    <div className="quick-search-results">
+                        <QuickSearchResults
+                            searchState={searchState}
+                            onOpenResult={() => dropdownRef.current?.hide()}
+                        />
+                    </div>
+                </DropdownPanel>
+
+                <SearchStringEditor
+                    className="search-string"
+                    currentValue={searchString}
+                    placeholder={t("quick-search.placeholder")}
+                    singleLine
+                    editorRef={editorRef}
+                    onChange={setSearchString}
+                    onEnter={() => {
+                        // Opening the results runs the search; open results are refreshed.
+                        if (isOpenRef.current) {
+                            void search();
+                        } else {
+                            dropdownRef.current?.show();
+                        }
+                        editorRef.current?.focus();
+                    }}
+                    onEscape={() => {
+                        if (!isOpenRef.current) return false;
+                        dropdownRef.current?.hide();
+                        return true;
+                    }}
+                />
+            </div>
         </div>
     );
 }

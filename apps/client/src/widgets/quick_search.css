@@ -1,8 +1,6 @@
 /* Colors come from the theme's `--quick-search-*` variables; the fallbacks cover the themes that
    define none of them. */
 .quick-search {
-    /* The room between the widget's edge and the box drawn inside it. */
-    --quick-search-inset: 8px;
     --quick-search-button-active-background:
         var(--left-pane-item-action-button-background, var(--hover-item-background-color));
     --quick-search-button-hover-background:
@@ -10,43 +8,36 @@
     --quick-search-button-active-color:
         var(--left-pane-item-action-button-color, var(--main-text-color));
 
-    position: relative;
     display: flex;
-    flex-direction: row-reverse;
-    align-items: center;
-    padding: var(--quick-search-inset);
+    /* Around the box, and still part of the widget. */
+    padding: 8px;
 
     /* `.component`, which `BasicWidget` adds, sets `contain: size` and would collapse the box. */
     &.component {
         contain: unset;
     }
 
-    /* The box. Drawn inside the padding, which stays part of the widget. */
-    &::before {
-        content: "";
-        position: absolute;
-        inset: var(--quick-search-inset);
-        z-index: 0;
+    .quick-search-box {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: row-reverse;
+        align-items: center;
+        min-width: 0;
         border: 2px solid transparent;
         border-radius: 6px;
         background: var(--quick-search-background, var(--accented-background-color));
         transition: background-color 200ms ease-in;
     }
 
-    &:hover::before {
+    &:hover .quick-search-box {
         background: var(--quick-search-hover-background, var(--accented-background-color));
         transition: background-color 75ms ease-out;
     }
 
-    &:focus-within::before {
+    &:focus-within .quick-search-box {
         border-color: var(--quick-search-focus-border, var(--main-border-color));
         background: var(--quick-search-focus-background, var(--main-background-color));
         transition: background-color 100ms ease-out;
-    }
-
-    /* Over the box. */
-    & > * {
-        position: relative;
     }
 
     .search-string {
