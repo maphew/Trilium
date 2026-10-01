@@ -299,7 +299,7 @@ function QuickSearchResults({ searchState, onOpenResult }: {
         <ExtendedAdmonition
             type="caution"
             icon="bx bx-error-circle"
-            title={t("quick-search.error")}
+            title={t("search_string.error_title")}
             className="quick-search-error"
         >
             {searchState.error}

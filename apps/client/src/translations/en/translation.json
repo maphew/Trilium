@@ -1533,7 +1533,7 @@
     "label_rock_or_pop": "only one of the labels must be present",
     "label_year_comparison": "numerical comparison (also >, >=, <).",
     "label_date_created": "notes created in the last month",
-    "error": "Search error: {{error}}",
+    "error_title": "Search error",
     "search_prefix": "Search:",
     "hints": {
       "title": "Search string",
@@ -2761,8 +2761,7 @@
       "to_results": "Move to the results",
       "page": "Move a page through the results",
       "close": "Close the results"
-    },
-    "error": "Search error"
+    }
   },
   "note_tree": {
     "collapse-title": "Collapse note tree",

@@ -80,6 +80,8 @@ The search is also checked for errors in two phases, which will be displayed as 
 *   Linter errors which identify common error patterns and also provide a way to fix them.
 *   Search errors which are checked by the server, without indicating the exact place the error occurred.
 
+An error the search only runs into while running, such as an operator that note content cannot be searched with, is shown in a _Search error_ card instead: below the search string, or at the top of the <a class="reference-link" href="Quick%20search.md">Quick search</a> results.
+
 ### Multiline
 
 Long or complicated searches can be formatted by using newlines, similar to SQL queries. Newlines are treated just like spaces.

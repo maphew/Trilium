@@ -123,7 +123,7 @@ describe("QuickSearch", () => {
         // A caution card titled as an error, with the server's message as its body.
         expect(error?.classList.contains("extended-admonition")).toBe(true);
         expect(error?.classList.contains("caution")).toBe(true);
-        expect(error?.querySelector(".admonition-title")?.textContent).toBe("quick-search.error");
+        expect(error?.querySelector(".admonition-title")?.textContent).toBe("search_string.error_title");
         expect(error?.querySelector(".admonition-body")?.textContent)
             .toBe("Note content can be searched only with operators");
         expect(placeholderItems()).toEqual([]);
