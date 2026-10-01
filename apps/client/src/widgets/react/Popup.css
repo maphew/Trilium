@@ -7,7 +7,8 @@ body .tn-popup {
     top: 0;
     left: 0;
     /* As a portaled dropdown menu: over a modal (1055) and a stacked quick-edit popup (1100), under
-       the prompts (2000) it can summon. */
+       a search field's completions (1210, search_field_editor.css) and the prompts (2000) it can
+       summon. */
     z-index: 1200;
     visibility: hidden;
 }

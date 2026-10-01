@@ -33,10 +33,10 @@
         white-space: pre-wrap;
     }
 
-    /* Over Bootstrap dropdowns, which sit at 1000: the quick search hangs its results off this
-       same field, and the popup and its lint tooltips have to cover them. */
+    /* Over a `Popup` (1200, Popup.css): the quick search's results hang off this field, and the
+       completions and lint tooltips have to cover them. */
     .cm-editor .cm-tooltip {
-        z-index: 1010;
+        z-index: 1210;
     }
 
     /* Outweighs CodeMirror's `&light .cm-tooltip`, which carries two classes. */
