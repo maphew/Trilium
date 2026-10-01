@@ -125,8 +125,12 @@
     --quick-search-item-delimiter-color: var(--dropdown-border-color);
 
     max-height: 80vh;
+    /* A fixed popup is otherwise as wide as the room right of its `left`, so each pass of `shift()`
+       away from the viewport's edge widens it, and the next pass moves it again. */
+    width: max-content;
     min-width: 400px;
-    max-width: 720px;
+    /* The 10px are the 5px `Popup` keeps from each edge of the viewport. */
+    max-width: min(720px, calc(100vw - 10px));
     overflow: hidden;
     text-overflow: ellipsis;
     box-shadow: -30px 50px 93px -50px black;
