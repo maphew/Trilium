@@ -1,17 +1,25 @@
 import type { GeoMouseEvent } from "../widgets/collections/geomap/map.js";
 
 import appContext, { type CommandNames } from "../components/app_context.js";
+import froca from "../services/froca.js";
 import { t } from "../services/i18n.js";
 import type { ViewScope } from "../services/link.js";
 import utils, { isMobile } from "../services/utils.js";
 import { getClosestNtxId } from "../widgets/widget_utils.js";
 import contextMenu, { type ContextMenuEvent, type MenuItem } from "./context_menu.js";
 
-function openContextMenu(notePath: string, e: ContextMenuEvent, viewScope: ViewScope = {}, hoistedNoteId: string | null = null) {
+async function openContextMenu(
+    notePath: string,
+    e: ContextMenuEvent,
+    viewScope: ViewScope = {},
+    hoistedNoteId: string | null = null
+) {
+    const attachmentItems = await getAttachmentItems(viewScope);
+
     contextMenu.show({
         x: e.pageX,
         y: e.pageY,
-        items: getItems(e),
+        items: [ ...getItems(e), ...attachmentItems ],
         selectMenuItemHandler: ({ command }) => handleLinkContextMenuItem(command, e, notePath, viewScope, hoistedNoteId)
     });
 }
@@ -77,6 +85,34 @@ function handleLinkContextMenuItem(command: string | undefined, e: ContextMenuEv
     }
 
     return false;
+}
+
+/** The actions on the attachment a link points to, each group after a separator. */
+async function getAttachmentItems(
+    { viewMode, attachmentId }: ViewScope
+): Promise<MenuItem<CommandNames>[]> {
+    if (viewMode !== "attachments" || !attachmentId) {
+        return [];
+    }
+
+    // Imported on demand: `attachment_actions` imports `link`, which imports this module.
+    const [ attachment, { getAttachmentActionGroups } ] = await Promise.all([
+        froca.getAttachment(attachmentId, true),
+        import("../services/attachment_actions.js")
+    ]);
+    if (!attachment) {
+        return [];
+    }
+
+    return getAttachmentActionGroups(attachment).flatMap((group): MenuItem<CommandNames>[] => [
+        { kind: "separator" },
+        ...group.map((action) => ({
+            title: action.title,
+            uiIcon: action.icon,
+            enabled: !action.disabledReason,
+            handler: () => void action.run()
+        }))
+    ]);
 }
 
 function getNtxId(e: ContextMenuEvent | GeoMouseEvent) {

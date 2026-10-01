@@ -13,10 +13,18 @@ const mocks = vi.hoisted(() => ({
     subContexts: [ { ntxId: "ntx-first" }, { ntxId: "ntx-last" } ] as { ntxId: string }[],
     activeNtxId: "ntx-active" as string | null,
     /** False when no tab is open at all, which leaves both the hoisting and the split unresolvable. */
-    hasActiveContext: true
+    hasActiveContext: true,
+    getAttachment: vi.fn(),
+    getAttachmentActionGroups: vi.fn()
 }));
 
 vi.mock("./context_menu", () => ({ default: { show: mocks.show } }));
+
+vi.mock("../services/froca", () => ({ default: { getAttachment: mocks.getAttachment } }));
+
+vi.mock("../services/attachment_actions", () => ({
+    getAttachmentActionGroups: mocks.getAttachmentActionGroups
+}));
 
 vi.mock("../services/i18n", () => ({ t: (key: string) => key }));
 
@@ -65,6 +73,7 @@ beforeEach(() => {
     mocks.subContexts = [ { ntxId: "ntx-first" }, { ntxId: "ntx-last" } ];
     mocks.activeNtxId = "ntx-active";
     mocks.hasActiveContext = true;
+    mocks.getAttachment.mockResolvedValue(null);
 });
 
 describe("getItems", () => {
@@ -191,8 +200,9 @@ describe("handleLinkContextMenuItem", () => {
 });
 
 describe("openContextMenu", () => {
-    it("shows the menu at the pointer and routes the chosen item with the link's own state", () => {
-        linkContextMenu.openContextMenu("root/n1", contextMenuEvent(), VIEW_SCOPE, "explicitHoist");
+    it("shows the menu at the pointer and routes the choice with the link's state", async () => {
+        const event = contextMenuEvent();
+        await linkContextMenu.openContextMenu("root/n1", event, VIEW_SCOPE, "explicitHoist");
 
         const shown = mocks.show.mock.calls[0][0];
         expect(shown).toMatchObject({ x: 12, y: 34 });
@@ -203,5 +213,46 @@ describe("openContextMenu", () => {
             noteIdOrPath: "root/n1",
             viewScope: VIEW_SCOPE
         });
+    });
+
+    it("appends the actions on a linked attachment, each group after a separator", async () => {
+        const attachment = { attachmentId: "att-1" };
+        const download = vi.fn();
+        mocks.getAttachment.mockResolvedValue(attachment);
+        mocks.getAttachmentActionGroups.mockReturnValue([
+            [ { title: "Download", icon: "bx bx-download", run: download } ],
+            [ {
+                title: "Open custom",
+                icon: "bx bx-customize",
+                disabledReason: "Desktop only",
+                run: vi.fn()
+            } ]
+        ]);
+
+        await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(), VIEW_SCOPE);
+
+        expect(mocks.getAttachment).toHaveBeenCalledWith("att-1", true);
+        expect(mocks.getAttachmentActionGroups).toHaveBeenCalledWith(attachment);
+        const { items } = mocks.show.mock.calls[0][0];
+        expect(items.slice(4)).toMatchObject([
+            { kind: "separator" },
+            { title: "Download", uiIcon: "bx bx-download", enabled: true },
+            { kind: "separator" },
+            { title: "Open custom", uiIcon: "bx bx-customize", enabled: false }
+        ]);
+
+        items[5].handler();
+        expect(download).toHaveBeenCalledOnce();
+    });
+
+    it("adds nothing for a link to a note, or to an attachment that no longer exists", async () => {
+        await linkContextMenu.openContextMenu("root/n1", contextMenuEvent());
+        expect(mocks.getAttachment).not.toHaveBeenCalled();
+
+        await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(), VIEW_SCOPE);
+        expect(mocks.getAttachment).toHaveBeenCalledWith("att-1", true);
+
+        expect(mocks.show.mock.calls.map(([ shown ]) => shown.items.length)).toEqual([ 4, 4 ]);
+        expect(mocks.getAttachmentActionGroups).not.toHaveBeenCalled();
     });
 });

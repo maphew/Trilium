@@ -29,6 +29,7 @@ export * from "./utils.js";
 import "./plugins/file_upload/uploadfileplugin.js";
 import "./plugins/math/math.js";
 import "./plugins/mermaid/mermaid.js";
+import "./plugins/referencelink.js";
 import "./plugins/table_context_menu.js";
 import "./plugins/table_paste_rows.js";
 

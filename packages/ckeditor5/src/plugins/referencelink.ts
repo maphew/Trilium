@@ -60,9 +60,59 @@ class ReferenceLinkCommand extends Command {
 	}
 }
 
-class ReferenceLinkEditing extends Plugin {
+/** An attachment that changed, as `ReferenceLinkEditing#updateAttachmentLinks` takes it. */
+export interface AttachmentLinkChange {
+	attachmentId: string;
+	isDeleted: boolean;
+}
+
+export class ReferenceLinkEditing extends Plugin {
 	static get requires() {
 		return [ Widget, LinkEditing ];
+	}
+
+	static get pluginName() {
+		return 'ReferenceLinkEditing' as const;
+	}
+
+	/**
+	 * Redraws the links to changed attachments, so they show the current title, and removes the
+	 * links to deleted ones.
+	 */
+	updateAttachmentLinks( changes: AttachmentLinkChange[] ) {
+		const editor = this.editor;
+		const isDeletedById = new Map(
+			changes.map( change => [ change.attachmentId, change.isDeleted ] )
+		);
+		const changedLinks: ModelElement[] = [];
+		const deletedLinks: ModelElement[] = [];
+
+		for ( const root of editor.model.document.getRoots() ) {
+			for ( const { item } of editor.model.createRangeIn( root ) ) {
+				if ( !item.is( 'element', 'reference' ) ) {
+					continue;
+				}
+
+				const attachmentId = getAttachmentId( item.getAttribute( 'href' ) );
+				const isDeleted = attachmentId ? isDeletedById.get( attachmentId ) : undefined;
+				if ( isDeleted !== undefined ) {
+					( isDeleted ? deletedLinks : changedLinks ).push( item );
+				}
+			}
+		}
+
+		for ( const link of changedLinks ) {
+			editor.editing.reconvertItem( link );
+		}
+
+		if ( deletedLinks.length ) {
+			// The attachment changed outside this editor, so undo does not bring its link back.
+			editor.model.enqueueChange( { isUndoable: false }, writer => {
+				for ( const link of deletedLinks ) {
+					writer.remove( link );
+				}
+			} );
+		}
 	}
 
 	init() {
@@ -174,5 +224,17 @@ class ReferenceLinkEditing extends Plugin {
 				return referenceLinkView;
 			}
 		} );
+	}
+}
+
+/** The attachment a reference link points to, or `null` for a link to a note. */
+function getAttachmentId( href: unknown ) {
+	const query = typeof href === 'string' ? href.split( '?' )[ 1 ] : undefined;
+	return query ? new URLSearchParams( query ).get( 'attachmentId' ) : null;
+}
+
+declare module "ckeditor5" {
+	interface PluginsMap {
+		[ReferenceLinkEditing.pluginName]: ReferenceLinkEditing;
 	}
 }

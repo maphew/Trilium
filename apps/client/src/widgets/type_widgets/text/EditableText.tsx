@@ -18,6 +18,7 @@ import dateNoteService from "../../../services/date_notes";
 import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import link, { parseNavigationStateFromUrl } from "../../../services/link";
+import type LoadResults from "../../../services/load_results";
 import note_create from "../../../services/note_create";
 import options from "../../../services/options";
 import { consumeSearchTerms } from "../../../services/search_jump";
@@ -266,6 +267,13 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
     useTriliumEvent("refreshIncludedNote", ({ noteId }) => {
         if (!containerRef.current) return;
         refreshIncludedNote(containerRef.current, noteId);
+    });
+
+    useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
+        const editor = watchdogRef.current?.editor as CKTextEditor | null | undefined;
+        if (editor && note) {
+            notifyAttachmentChanges(editor, loadResults, note.noteId, parentComponent?.componentId);
+        }
     });
 
     useTriliumEvent("executeWithTextEditor", async ({ callback, resolve, ntxId: eventNtxId }) => {
@@ -659,6 +667,30 @@ export function onNotificationWarning(evt: NotificationEventInfo, data: Notifica
  */
 export function onNotificationInfo(_evt: NotificationEventInfo, data: NotificationEventData) {
     toast.showMessage(data.message);
+}
+
+/**
+ * Passes the attachments changed in `loadResults` to the editor's reference links, so a link shows
+ * the new title of its attachment or goes away with it.
+ *
+ * Exported for testing.
+ */
+export function notifyAttachmentChanges(
+    editor: CKTextEditor,
+    loadResults: LoadResults,
+    noteId: string,
+    componentId?: string
+) {
+    const changes = loadResults.getAttachmentRows().flatMap(({ attachmentId, isDeleted }) =>
+        attachmentId ? [ { attachmentId, isDeleted: !!isDeleted } ] : []
+    );
+
+    // The server rewrote the links in reloaded content itself, as when converting an attachment.
+    if (!changes.length || loadResults.isNoteContentReloaded(noteId, componentId)) {
+        return;
+    }
+
+    editor.plugins.get("ReferenceLinkEditing").updateAttachmentLinks(changes);
 }
 
 /**

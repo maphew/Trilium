@@ -29,6 +29,12 @@ To attach files to a <a class="reference-link" href="../../Note%20Types/Text.md
 
 Dragging a file that is not a picture from the file explorer onto the text also attaches it and inserts a link to it.
 
+## Acting on an attachment link
+
+Right-clicking a link to an attachment shows the ways to open it, followed by actions on the attachment: opening it externally, downloading it, uploading a new revision, renaming or deleting it, and converting it into a note.
+
+Links follow changes to their attachment: renaming it updates the title they show, and deleting it removes them from the text notes open for editing at that moment. Converting it into a note turns its links into links to the new note.
+
 ## Converting notes to attachments
 
 <a class="reference-link" href="../../Note%20Types/File.md">File</a> notes can be easily converted to attachments of the parent note.

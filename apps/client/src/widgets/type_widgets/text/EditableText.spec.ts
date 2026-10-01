@@ -6,8 +6,10 @@
  * crash and restarted the editor, which reverted the note to its last saved content — the images
  * being uploaded flickered and vanished instead of a "cannot upload" toast appearing.
  */
-import type { FileUploadData } from "@triliumnext/ckeditor5";
+import type { CKTextEditor, FileUploadData } from "@triliumnext/ckeditor5";
 import { describe, expect, it, vi } from "vitest";
+
+import type LoadResults from "../../../services/load_results";
 
 const showError = vi.hoisted(() => vi.fn());
 const showErrorTitleAndMessage = vi.hoisted(() => vi.fn());
@@ -26,6 +28,7 @@ vi.mock("../../../services/i18n", async (importOriginal) => ({
 vi.mock("@triliumnext/ckeditor5", () => ({}));
 
 const {
+    notifyAttachmentChanges,
     onNotificationInfo,
     onNotificationWarning,
     showFileUploadProgress
@@ -123,5 +126,50 @@ describe("showFileUploadProgress", () => {
             "change:uploadedPercent",
             listeners.get("change:uploadedPercent")
         );
+    });
+});
+
+describe("notifyAttachmentChanges", () => {
+    type Row = { attachmentId?: string; isDeleted?: boolean };
+
+    function setUp(rows: Row[], isContentReloaded = false) {
+        const updateAttachmentLinks = vi.fn();
+        const editor = {
+            plugins: { get: () => ({ updateAttachmentLinks }) }
+        } as unknown as CKTextEditor;
+        const loadResults = {
+            getAttachmentRows: () => rows,
+            isNoteContentReloaded: vi.fn(() => isContentReloaded)
+        };
+
+        return { editor, loadResults, updateAttachmentLinks };
+    }
+
+    it("passes the changed attachments to the editor's reference links", () => {
+        const { editor, loadResults, updateAttachmentLinks } = setUp([
+            { attachmentId: "renamed" },
+            { attachmentId: "deleted", isDeleted: true }
+        ]);
+
+        const results = loadResults as unknown as LoadResults;
+        notifyAttachmentChanges(editor, results, "note1", "component1");
+
+        expect(loadResults.isNoteContentReloaded).toHaveBeenCalledWith("note1", "component1");
+        expect(updateAttachmentLinks).toHaveBeenCalledWith([
+            { attachmentId: "renamed", isDeleted: false },
+            { attachmentId: "deleted", isDeleted: true }
+        ]);
+    });
+
+    it("leaves the links alone when no attachment changed, or the content was reloaded", () => {
+        const cases: [ Row[], boolean ][] = [ [ [], false ], [ [ { attachmentId: "a" } ], true ] ];
+
+        for (const [ rows, isContentReloaded ] of cases) {
+            const { editor, loadResults, updateAttachmentLinks } = setUp(rows, isContentReloaded);
+
+            notifyAttachmentChanges(editor, loadResults as unknown as LoadResults, "note1");
+
+            expect(updateAttachmentLinks).not.toHaveBeenCalled();
+        }
     });
 });

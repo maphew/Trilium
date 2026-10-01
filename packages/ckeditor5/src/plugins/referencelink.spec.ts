@@ -213,6 +213,33 @@ describe("ReferenceLink", () => {
         expect(loadReferenceLinkTitle).toHaveBeenCalledWith(expect.anything(), "#root/abc");
     });
 
+    it("redraws the links to a changed attachment and removes those to a deleted one", () => {
+        const attachmentHref = (id: string) =>
+            `#root/owner?viewMode=attachments&amp;attachmentId=${id}`;
+        editor.setData(
+            `<p><a class="reference-link" href="${attachmentHref("renamed")}">a</a></p>` +
+            `<p><a class="reference-link" href="${attachmentHref("deleted")}">b</a></p>` +
+            "<p><a class=\"reference-link\" href=\"#root/noteAbc\">c</a></p>"
+        );
+        loadReferenceLinkTitle.mockClear();
+
+        editor.plugins.get("ReferenceLinkEditing").updateAttachmentLinks([
+            { attachmentId: "renamed", isDeleted: false },
+            { attachmentId: "deleted", isDeleted: true }
+        ]);
+
+        const redrawnHrefs = new Set(loadReferenceLinkTitle.mock.calls.map(([ , href ]) => href));
+        const renamedHref = "#root/owner?viewMode=attachments&attachmentId=renamed";
+        expect([ ...redrawnHrefs ]).toEqual([ renamedHref ]);
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+            `<paragraph><reference href="${renamedHref}"></reference></paragraph>` +
+            "<paragraph></paragraph>" +
+            "<paragraph><reference href=\"#root/noteAbc\"></reference></paragraph>"
+        );
+        // The removal records a change made elsewhere, so undo cannot bring the link back.
+        expect(editor.commands.get("undo")?.isEnabled).toBe(false);
+    });
+
     it("dataDowncasts a reference back to an anchor, resolving the title synchronously", () => {
         editor.setData('<p><a class="reference-link" href="#root/noteAbc">old</a></p>');
 
