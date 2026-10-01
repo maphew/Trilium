@@ -364,13 +364,28 @@ export function buildTriliumSlashCommands(editor: Editor): SlashCommandDefinitio
         },
         {
             id: "attach-file",
-            title: t("Attach file"),
-            description: t("Upload files as attachments and insert links to them."),
+            title: t("Attach file as a link"),
+            description: t("Upload files as attachments and insert links."),
             aliases: [ "attachment", "upload" ],
             icon: IconPaperClip,
             commandName: "fileUpload",
             execute: (target: Editor) => pickFiles("", (files) => {
                 target.execute("fileUpload", { file: files });
+                target.editing.view.focus();
+            })
+        },
+        {
+            id: "attach-and-embed-file",
+            title: t("Attach and embed file"),
+            description: t("Upload files as attachments and insert embeds."),
+            aliases: [ "attachment", "upload", "embed" ],
+            icon: IconPaperClip,
+            commandName: "fileUpload",
+            // Embedding goes wherever the "Include note" button can insert an include.
+            isEnabled: (target: Editor) => !!target.commands.get("fileUpload")?.isEnabled
+                && !!target.commands.get(INCLUDE_NOTE_COMMAND)?.isEnabled,
+            execute: (target: Editor) => pickFiles("", (files) => {
+                target.execute("fileUpload", { file: files, asEmbed: true });
                 target.editing.view.focus();
             })
         },

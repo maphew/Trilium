@@ -559,6 +559,34 @@ describe("IncludeNote with attachments", () => {
         expect(loadIncludedAttachment.mock.calls.at(-1)?.[2]).toBe("full");
     });
 
+    it("shows an embed by its file name while it uploads, and saves it naming nothing", () => {
+        setModelData(
+            editor.model,
+            "<includeNote boxSize=\"small\" uploadFileName=\"report.pdf\" uploadId=\"u1\">"
+            + "</includeNote>"
+        );
+
+        const wrapper = renderEmbeds()?.[0];
+        const title = wrapper?.querySelector(".include-note-title");
+        expect(title?.textContent).toBe("report.pdf");
+        expect(title?.querySelector(".bx.bx-loader-alt.bx-spin")).not.toBeNull();
+        expect(loadIncludedAttachment).not.toHaveBeenCalled();
+        expect(loadIncludedNote).not.toHaveBeenCalled();
+        const data = editor.getData();
+        expect(data).toContain("<section class=\"include-note\" data-box-size=\"small\">");
+        expect(data).not.toMatch(/data-(note|attachment)-id/);
+
+        editor.model.change((writer) => {
+            const element = findIncludeNote(editor);
+            if (element) {
+                writer.setAttribute("attachmentId", "att1", element);
+                writer.removeAttribute("uploadFileName", element);
+            }
+        });
+        renderEmbeds();
+        expect(loadIncludedAttachment).toHaveBeenCalledWith("att1", expect.anything(), "small");
+    });
+
     it("turns an attachment link into an embed in its place, as one undo step", () => {
         editor.setData(`<p>Before <a class="reference-link" href="${LINK_HREF}">x</a> after</p>`);
         const link = editor.editing.view.getDomRoot()?.querySelector("a.reference-link");

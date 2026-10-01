@@ -1,10 +1,14 @@
 import {
     ClassicEditor,
     Command,
+    DropdownView,
     Essentials,
     FileDialogButtonView,
+    FileDialogListItemButtonView,
     IconPaperClip,
-    Paragraph
+    ListItemView,
+    Paragraph,
+    SplitButtonView
 } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -14,52 +18,123 @@ import FileUploadUI from "./file_upload_ui.js";
 describe("FileUploadUI", () => {
     let editor: ClassicEditor;
     let command: Command;
+    let includeCommand: Command;
 
     beforeEach(async () => {
         editor = await createTestEditor([Essentials, Paragraph, FileUploadUI]);
         command = new Command(editor);
         command.refresh();
         editor.commands.add("fileUpload", command);
+        includeCommand = new Command(editor);
+        includeCommand.refresh();
+        editor.commands.add("insertIncludeNote", includeCommand);
     });
 
-    function createButton() {
-        const button = editor.ui.componentFactory.create("fileUpload");
-        if (!(button instanceof FileDialogButtonView)) {
-            throw new Error("Expected a file dialog button.");
+    function createDropdown() {
+        const dropdown = editor.ui.componentFactory.create("fileUpload");
+        if (
+            !(dropdown instanceof DropdownView)
+            || !(dropdown.buttonView instanceof SplitButtonView)
+        ) {
+            throw new Error("Expected a split button dropdown.");
         }
-        return button;
+        const { actionView } = dropdown.buttonView;
+        if (!(actionView instanceof FileDialogButtonView)) {
+            throw new Error("Expected a file dialog button as the action.");
+        }
+
+        const items = Array.from(dropdown.listView?.items ?? []).map((item) => {
+            const button = item instanceof ListItemView ? item.children.first : null;
+            if (!(button instanceof FileDialogListItemButtonView)) {
+                throw new Error("Expected a file dialog list item.");
+            }
+            return button;
+        });
+
+        return { dropdown, splitButton: dropdown.buttonView, actionView, items };
     }
 
-    it("registers a paperclip button that picks any number of files of any type", () => {
-        const button = createButton();
-
-        expect(button.label).toBe("Attach file");
-        expect(button.icon).toBe(IconPaperClip);
-        expect(button.tooltip).toBe(true);
-        expect(button.allowMultipleFiles).toBe(true);
-        expect(button.acceptedType).toBeUndefined();
-    });
-
-    it("follows the enabled state of the `fileUpload` command", () => {
-        const button = createButton();
-        expect(button.isEnabled).toBe(true);
-
-        command.forceDisabled("spec");
-        expect(button.isEnabled).toBe(false);
-    });
-
-    it("attaches the picked files and returns the focus to the editor", () => {
-        const button = createButton();
-        const execute = vi.spyOn(editor, "execute").mockImplementation(() => undefined);
-        const focus = vi.spyOn(editor.editing.view, "focus");
-        const files = [
+    function pickFiles() {
+        return [
             new File(["a"], "a.pdf", { type: "application/pdf" }),
             new File(["b"], "b.png", { type: "image/png" })
         ];
+    }
 
-        button.fire("done", files);
+    it("registers a paperclip split button that picks any number of files of any type", () => {
+        const { splitButton, actionView } = createDropdown();
+
+        expect(splitButton.label).toBe("Attach file");
+        expect(splitButton.tooltip).toBe(true);
+        expect(actionView.label).toBe("Attach file");
+        expect(actionView.icon).toBe(IconPaperClip);
+        expect(actionView.tooltip).toBe(true);
+        expect(actionView.allowMultipleFiles).toBe(true);
+        expect(actionView.acceptedType).toBeUndefined();
+    });
+
+    it("links the files picked through the button and returns the focus to the editor", () => {
+        const { actionView } = createDropdown();
+        const execute = vi.spyOn(editor, "execute").mockImplementation(() => undefined);
+        const focus = vi.spyOn(editor.editing.view, "focus");
+        const files = pickFiles();
+
+        actionView.fire("done", files);
 
         expect(execute).toHaveBeenCalledWith("fileUpload", { file: files });
         expect(focus).toHaveBeenCalled();
+    });
+
+    it("lists attaching as links and as embeds, each closing the dropdown when picked", () => {
+        const { dropdown, items } = createDropdown();
+        const execute = vi.spyOn(editor, "execute").mockImplementation(() => undefined);
+        const focus = vi.spyOn(editor.editing.view, "focus");
+        const openDialog = vi.spyOn(HTMLInputElement.prototype, "click")
+            .mockImplementation(() => undefined);
+        const files = pickFiles();
+
+        expect(items.map((item) => [ item.label, item.withText, item.allowMultipleFiles ]))
+            .toEqual([
+                [ "Attach file as a link", true, true ],
+                [ "Attach and embed file", true, true ]
+            ]);
+
+        const [ linkItem, embedItem ] = items;
+        dropdown.render();
+        dropdown.isOpen = true;
+        linkItem.fire("execute");
+        expect(dropdown.isOpen).toBe(false);
+        expect(openDialog).toHaveBeenCalledOnce();
+        openDialog.mockRestore();
+
+        linkItem.fire("done", files);
+        embedItem.fire("done", files);
+        expect(execute.mock.calls).toEqual([
+            [ "fileUpload", { file: files } ],
+            [ "fileUpload", { file: files, asEmbed: true } ]
+        ]);
+        expect(focus).toHaveBeenCalledTimes(2);
+        dropdown.destroy();
+    });
+
+    it("follows the `fileUpload` command, and offers embeds only where an include can go", () => {
+        const { dropdown, actionView, items: [ linkItem, embedItem ] } = createDropdown();
+        expect([ dropdown.isEnabled, actionView.isEnabled ]).toEqual([ true, true ]);
+        expect([ linkItem.isEnabled, embedItem.isEnabled ]).toEqual([ true, true ]);
+
+        includeCommand.forceDisabled("spec");
+        expect([ linkItem.isEnabled, embedItem.isEnabled ]).toEqual([ true, false ]);
+
+        command.forceDisabled("spec");
+        expect([ dropdown.isEnabled, actionView.isEnabled ]).toEqual([ false, false ]);
+    });
+
+    it("lists no embeds in an editor without includes", async () => {
+        const withoutIncludes = await createTestEditor([Essentials, Paragraph, FileUploadUI]);
+        withoutIncludes.commands.add("fileUpload", new Command(withoutIncludes));
+        editor = withoutIncludes;
+
+        const labels = createDropdown().items.map((item) => item.label);
+        expect(labels).toEqual([ "Attach file as a link" ]);
     });
 });

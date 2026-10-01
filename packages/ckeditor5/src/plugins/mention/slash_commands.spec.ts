@@ -622,7 +622,8 @@ describe("buildTriliumSlashCommands", () => {
         [ "collapsible", "Collapsible block", "collapsible" ],
         [ "footnote", "Footnote", "InsertFootnote" ],
         [ "internal-link", "Internal link", INTERNAL_LINK_COMMAND ],
-        [ "attach-file", "Attach file", "fileUpload" ],
+        [ "attach-file", "Attach file as a link", "fileUpload" ],
+        [ "attach-and-embed-file", "Attach and embed file", "fileUpload" ],
         [ "include-note", "Include note", INCLUDE_NOTE_COMMAND ],
         [ "page-break", "Page break", "pageBreak" ],
         [ "markdown-import", "Markdown import", MARKDOWN_IMPORT_COMMAND ],
@@ -640,12 +641,15 @@ describe("buildTriliumSlashCommands", () => {
         expect(entry.icon).toContain("<svg");
     });
 
-    it("attach-file attaches every file picked, of any type, and returns the focus", () => {
+    it.each([
+        [ "attach-file", {} ],
+        [ "attach-and-embed-file", { asEmbed: true } ]
+    ])("%s attaches every file picked, of any type, and returns the focus", (id, options) => {
         const execute = vi.spyOn(editor, "execute").mockReturnValue(undefined);
         const focus = vi.spyOn(editor.editing.view, "focus");
         const click = vi.spyOn(HTMLInputElement.prototype, "click").mockReturnValue(undefined);
 
-        definition("attach-file").execute?.(editor);
+        definition(id).execute?.(editor);
 
         expect(click).toHaveBeenCalledOnce();
         const input = click.mock.instances[0] as HTMLInputElement;
@@ -659,9 +663,29 @@ describe("buildTriliumSlashCommands", () => {
         input.files = filesOf(pdf, png);
         input.dispatchEvent(new Event("change"));
 
-        expect(execute).toHaveBeenCalledWith("fileUpload", { file: [ pdf, png ] });
+        expect(execute).toHaveBeenCalledWith("fileUpload", { file: [ pdf, png ], ...options });
         expect(focus).toHaveBeenCalled();
         expect(input.isConnected).toBe(false);
+        click.mockRestore();
+    });
+
+    it("offers embedding a file only where both a file and an include can go", () => {
+        const fileUpload = { isEnabled: true };
+        const includeNote = { isEnabled: true };
+        const { fake } = makeFakeEditor({
+            fileUpload, [INCLUDE_NOTE_COMMAND]: includeNote
+        });
+        const isEnabled = definition("attach-and-embed-file").isEnabled;
+        expect(isEnabled?.(fake)).toBe(true);
+
+        includeNote.isEnabled = false;
+        expect(isEnabled?.(fake)).toBe(false);
+
+        includeNote.isEnabled = true;
+        fileUpload.isEnabled = false;
+        expect(isEnabled?.(fake)).toBe(false);
+
+        expect(isEnabled?.(makeFakeEditor().fake)).toBe(false);
     });
 
     it.each([

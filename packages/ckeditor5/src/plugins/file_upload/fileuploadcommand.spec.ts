@@ -14,6 +14,8 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
+import { installGlobMock } from "../../../test/globals-test-kit.js";
+import IncludeNote from "../includenote.js";
 import { isUploadAsLink } from "../uploadimage.js";
 import FileUploadCommand from "./fileuploadcommand.js";
 
@@ -91,7 +93,9 @@ describe("FileUploadCommand", () => {
     let editor: ClassicEditor;
 
     beforeEach(async () => {
-        editor = await createTestEditor([Essentials, Paragraph, FileRepository, ReferenceSchema]);
+        editor = await createTestEditor([
+            Essentials, Paragraph, FileRepository, ReferenceSchema, IncludeNote
+        ]);
 
         // Provide a minimal upload adapter so FileRepository.createLoader() succeeds.
         createUploadAdapterPlugin(editor);
@@ -142,7 +146,44 @@ describe("FileUploadCommand", () => {
         ));
     });
 
-    it("marks the loader of every file to upload as a link", () => {
+    it("inserts an embed placeholder per file, each a block in the host's default size", () => {
+        installGlobMock({
+            getComponentByEl: () => ({ getIncludeNoteDefaultBoxSize: () => "expandable" })
+        });
+        setModelData(editor.model, "<paragraph>foo[]bar</paragraph>");
+
+        editor.execute("fileUpload", {
+            file: [
+                new File(["a"], "a.txt", { type: "text/plain" }),
+                new File(["b"], "b.png", { type: "image/png" })
+            ],
+            asEmbed: true
+        });
+
+        expect(getModelData(editor.model)).toMatch(new RegExp(
+            "^<paragraph>foo</paragraph>" +
+            "<includeNote boxSize=\"expandable\" uploadFileName=\"a.txt\" uploadId=\"\\w+\">" +
+            "</includeNote>" +
+            "<includeNote boxSize=\"expandable\" uploadFileName=\"b.png\" uploadId=\"\\w+\">" +
+            "</includeNote>" +
+            "<paragraph>\\[\\]bar</paragraph>$"
+        ));
+    });
+
+    it("sizes the embeds medium for a host that names no default size", () => {
+        installGlobMock({ getComponentByEl: () => ({}) });
+        setModelData(editor.model, "<paragraph>[]</paragraph>");
+
+        editor.execute("fileUpload", {
+            file: [ new File(["a"], "a.txt", { type: "text/plain" }) ],
+            asEmbed: true
+        });
+
+        expect(getModelData(editor.model)).toMatch(/^<includeNote boxSize="medium" /);
+    });
+
+    it("marks the loader of every file to upload as a link, for an embed too", () => {
+        installGlobMock({ getComponentByEl: () => ({}) });
         setModelData(editor.model, "<paragraph>[]</paragraph>");
         const createLoaderSpy = vi.spyOn(editor.plugins.get(FileRepository), "createLoader");
 
@@ -150,7 +191,8 @@ describe("FileUploadCommand", () => {
             new File(["1"], "one.txt", { type: "text/plain" }),
             new File(["2"], "two.png", { type: "image/png" })
         ];
-        editor.execute("fileUpload", { file: files });
+        editor.execute("fileUpload", { file: [ files[0] ] });
+        editor.execute("fileUpload", { file: [ files[1] ], asEmbed: true });
 
         expect(createLoaderSpy.mock.calls).toEqual([ [ files[0] ], [ files[1] ] ]);
         for (const { value } of createLoaderSpy.mock.results) {

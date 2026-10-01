@@ -8,6 +8,7 @@ import {
 	type ModelItem,
 	type ViewRange
 } from 'ckeditor5';
+import { getAttachmentId } from '../referencelink.js';
 import FileUploadCommand from './fileuploadcommand';
 
 /** A file attachment upload, announced by the `upload` event of `FileUploadEditing`. */
@@ -93,7 +94,7 @@ export default class FileUploadEditing extends Plugin {
 					/* v8 ignore next -- defensive: an "insert" differ change always reports the inserted node as position.nodeAfter, so `item` is never null here (the falsy branch is unreachable from any model operation). */
 					if ( item ) {
 						const isInGraveyard = entry.position.root.rootName == '$graveyard';
-						for ( const file of getFileLinksFromChangeItem( editor, item ) ) {
+						for ( const file of getUploadPlaceholders( editor, item ) ) {
 							// Check if the file element still has upload id.
 							const uploadId = file.getAttribute( 'uploadId' ) as string | number;
 							if ( !uploadId ) {
@@ -155,7 +156,12 @@ export default class FileUploadEditing extends Plugin {
 			} )
 			.then( data => {
 				model.enqueueChange( { isUndoable: false }, writer => {
-					writer.setAttribute( 'href', data.default, fileElement );
+					if ( fileElement.is( 'element', 'includeNote' ) ) {
+						const attachmentId = getAttachmentId( data.default );
+						writer.setAttribute( 'attachmentId', attachmentId, fileElement );
+					} else {
+						writer.setAttribute( 'href', data.default, fileElement );
+					}
 				} );
 
 				clean();
@@ -204,8 +210,9 @@ export function isHtmlIncluded( dataTransfer: DataTransfer ) {
 	return Array.from( dataTransfer.types ).includes( 'text/html' ) && dataTransfer.getData( 'text/html' ) !== '';
 }
 
-function getFileLinksFromChangeItem( editor: Editor, item: ModelItem ) {
+/** The links and embeds `FileUploadCommand` inserted, in `item` or inside it. */
+function getUploadPlaceholders( editor: Editor, item: ModelItem ) {
 	return Array.from( editor.model.createRangeOn( item ) )
-		.filter( value => value.item.hasAttribute( 'href' ) )
-		.map( value => value.item );
+		.map( value => value.item )
+		.filter( node => node.is( 'element', 'reference' ) || node.is( 'element', 'includeNote' ) );
 }

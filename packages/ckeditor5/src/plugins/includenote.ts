@@ -135,8 +135,11 @@ class IncludeNoteEditing extends Plugin {
 			// Behaves like a self-contained object (e.g. an image).
 			isObject: true,
 
-			// An include shows either a note or, as an embed, an attachment.
-			allowAttributes: [ 'noteId', 'attachmentId', 'boxSize' ],
+			// An include shows either a note or, as an embed, an attachment. An embed that
+			// `FileUploadEditing` is uploading carries the upload attributes instead of its id.
+			allowAttributes: [
+				'noteId', 'attachmentId', 'boxSize', 'uploadId', 'uploadStatus', 'uploadFileName'
+			],
 
 			// Allow in places where other blocks are allowed (e.g. directly in the root).
 			allowWhere: '$block'
@@ -177,10 +180,14 @@ class IncludeNoteEditing extends Plugin {
 			}
 		} );
 		conversion.for( 'editingDowncast' ).elementToElement( {
-			model: 'includeNote',
+			// Redraws an uploading embed when its upload sets `attachmentId` and clears
+			// `uploadFileName`.
+			model: { name: 'includeNote', attributes: [ 'attachmentId', 'uploadFileName' ] },
 			view: ( modelElement, { writer: viewWriter } ) => {
 
 				const boxSize = modelElement.getAttribute( 'boxSize' ) as string | undefined;
+				const uploadFileName = modelElement.getAttribute( 'uploadFileName' ) as
+					string | undefined;
 
 				const section = viewWriter.createContainerElement( 'section', {
 					class: 'include-note box-size-' + boxSize,
@@ -194,7 +201,11 @@ class IncludeNoteEditing extends Plugin {
 				}, function( domDocument ) {
 					const domElement = this.toDomElement( domDocument );
 
-					loadIncludedContent( editor, modelElement, $( domElement ), boxSize );
+					if ( uploadFileName ) {
+						domElement.append( createUploadTitle( domDocument, uploadFileName ) );
+					} else {
+						loadIncludedContent( editor, modelElement, $( domElement ), boxSize );
+					}
 
 					preventCKEditorHandling( domElement, editor );
 
@@ -363,13 +374,32 @@ function getSelectedIncludeNote( editor: Editor ) {
 	return selection.getFirstPosition()?.findAncestor( 'includeNote' ) ?? null;
 }
 
-/** The `data-*` attribute naming what an include shows: an attachment, or a note. */
+/**
+ * The `data-*` attribute naming what an include shows: an attachment, or a note. An embed whose
+ * upload has not ended names nothing.
+ */
 function getIncludedEntityAttributes( element: ModelElement ): Record<string, string> {
 	const attachmentId = element.getAttribute( 'attachmentId' ) as string | undefined;
+	const noteId = element.getAttribute( 'noteId' ) as string | undefined;
 
-	return attachmentId
-		? { 'data-attachment-id': attachmentId }
-		: { 'data-note-id': element.getAttribute( 'noteId' ) as string };
+	if ( attachmentId ) {
+		return { 'data-attachment-id': attachmentId };
+	}
+
+	return noteId ? { 'data-note-id': noteId } : {};
+}
+
+/** The title of an embed whose upload is under way: a spinner and the name of the file. */
+function createUploadTitle( domDocument: Document, fileName: string ) {
+	const title = domDocument.createElement( 'h4' );
+	const label = domDocument.createElement( 'span' );
+	const spinner = domDocument.createElement( 'span' );
+	title.className = 'include-note-title';
+	spinner.className = 'bx bx-loader-alt bx-spin';
+	label.append( spinner, fileName );
+	title.append( label );
+
+	return title;
 }
 
 /** Has the host render what an include shows into its wrapper. */

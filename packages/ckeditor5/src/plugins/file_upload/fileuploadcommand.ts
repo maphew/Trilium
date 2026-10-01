@@ -1,14 +1,17 @@
-import { Command, FileRepository, type Model, type ModelWriter } from "ckeditor5";
+import { Command, FileRepository, type Editor, type Model, type ModelWriter } from "ckeditor5";
 
 import { uploadAsLink } from "../uploadimage.js";
 
 export interface FileUploadOptions {
     file: File[];
+    /** Embeds each file in a block of its own instead of linking it. */
+    asEmbed?: boolean;
 }
 
 /**
  * Uploads files as attachments of the note and inserts a reference link to each, separated by
- * spaces. Pictures are linked too, rather than shown.
+ * spaces. Pictures are linked too, rather than shown. With `asEmbed`, each file is embedded
+ * instead.
  */
 export default class FileUploadCommand extends Command {
     override refresh() {
@@ -18,9 +21,10 @@ export default class FileUploadCommand extends Command {
         this.isEnabled = !!position && model.schema.checkChild(position, "reference");
     }
 
-    override execute({ file: files }: FileUploadOptions) {
+    override execute({ file: files, asEmbed }: FileUploadOptions) {
         const model = this.editor.model;
         const fileRepository = this.editor.plugins.get(FileRepository);
+        const boxSize = asEmbed ? getDefaultBoxSize(this.editor) : undefined;
 
         model.change((writer) => {
             for (const file of files) {
@@ -31,7 +35,11 @@ export default class FileUploadCommand extends Command {
                 }
 
                 uploadAsLink(loader);
-                insertPlaceholder(writer, model, loader.id, file.name);
+                if (boxSize) {
+                    insertEmbedPlaceholder(writer, model, loader.id, file.name, boxSize);
+                } else {
+                    insertPlaceholder(writer, model, loader.id, file.name);
+                }
             }
         });
     }
@@ -49,4 +57,26 @@ function insertPlaceholder(writer: ModelWriter, model: Model, uploadId: string, 
     const afterPlaceholder = writer.createPositionAfter(placeholder);
     writer.insertText(" ", afterPlaceholder);
     writer.setSelection(afterPlaceholder.getShiftedBy(1));
+}
+
+/** Inserts the embed `FileUploadEditing` completes once the upload ends, as a block of its own. */
+function insertEmbedPlaceholder(
+    writer: ModelWriter,
+    model: Model,
+    uploadId: string,
+    fileName: string,
+    boxSize: string
+) {
+    const placeholder = writer.createElement("includeNote", {
+        boxSize,
+        uploadId,
+        uploadFileName: fileName
+    });
+    model.insertObject(placeholder, model.document.selection, null, { setSelection: "after" });
+}
+
+/** The box size the user gives a new include, `medium` when the host does not say. */
+function getDefaultBoxSize(editor: Editor) {
+    const component = glob.getComponentByEl<EditorComponent>(editor.editing.view.getDomRoot());
+    return component.getIncludeNoteDefaultBoxSize?.() ?? "medium";
 }

@@ -194,6 +194,9 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
         getNoteId() {
             return note.noteId;
         },
+        getIncludeNoteDefaultBoxSize() {
+            return options.get("includeNoteDefaultBoxSize");
+        },
         // Link preview functionality. The insert flow itself lives in the editor (a balloon form),
         // so the host only has to supply the metadata and the rendering.
         async fetchLinkMetadata(url: string) {

@@ -20,6 +20,8 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
+import { installGlobMock } from "../../../test/globals-test-kit.js";
+import IncludeNote from "../includenote.js";
 import FileUploadEditing, {
     isHtmlIncluded,
     type FileUploadData,
@@ -585,3 +587,34 @@ class ReferenceSchema extends Plugin {
         );
     }
 }
+
+describe("FileUploadEditing with embeds", () => {
+    it("completes an embed placeholder with the attachment it uploaded", async () => {
+        const loadIncludedAttachment = vi.fn();
+        installGlobMock({
+            getComponentByEl: () => ({
+                getIncludeNoteDefaultBoxSize: () => "small",
+                loadIncludedAttachment
+            })
+        });
+        const editor = await createTestEditor([
+            Essentials, Paragraph, FileRepository, Notification, Clipboard, ReferenceSchema,
+            IncludeNote, FileUploadEditing
+        ]);
+        const controls = installUploadAdapter(editor);
+        setModelData(editor.model, "<paragraph>[]</paragraph>");
+
+        const file = new File(["content"], "report.pdf", { type: "application/pdf" });
+        editor.execute("fileUpload", { file: [ file ], asEmbed: true });
+        await waitFor(() => controls.uploadCalled());
+        controls.resolveUpload({ default: "#root/owner?viewMode=attachments&attachmentId=att1" });
+        await waitFor(() => !getModelData(editor.model).includes("uploadId"));
+
+        expect(getModelData(editor.model)).toBe(
+            "<includeNote attachmentId=\"att1\" boxSize=\"small\"></includeNote>" +
+            "<paragraph>[]</paragraph>"
+        );
+        editor.editing.view.getDomRoot()?.querySelectorAll("div.include-note-wrapper");
+        expect(loadIncludedAttachment).toHaveBeenCalledWith("att1", expect.anything(), "small");
+    });
+});
