@@ -21,7 +21,9 @@ type SearchState =
     | { status: "done", results: SearchResultDetails[], viewScope: ViewScope | undefined };
 
 export default function QuickSearch() {
-    const [ searchString, setSearchString ] = useState("");
+    // In a ref rather than state, so typing re-renders nothing; only its emptiness is state.
+    const searchStringRef = useRef("");
+    const [ hasQuery, setHasQuery ] = useState(false);
     const [ searchState, setSearchState ] = useState<SearchState>();
     const editorRef = useRef<FieldEditor>();
     const dropdownRef = useRef<DropdownHandle | null>(null);
@@ -33,7 +35,7 @@ export default function QuickSearch() {
     useTriliumEvent("quickSearch", () => editorRef.current?.focus());
 
     async function search() {
-        const query = searchString.trim();
+        const query = searchStringRef.current.trim();
         if (!query) {
             dropdownRef.current?.hide();
             return;
@@ -55,7 +57,7 @@ export default function QuickSearch() {
     }
 
     return (
-        <div className={clsx("quick-search", searchString && "has-query")}>
+        <div className={clsx("quick-search", hasQuery && "has-query")}>
             <div ref={boxRef} className="quick-search-box">
                 <DropdownPanel
                     className="quick-search-toggle"
@@ -85,11 +87,13 @@ export default function QuickSearch() {
 
                 <SearchStringEditor
                     className="search-string"
-                    currentValue={searchString}
                     placeholder={t("quick-search.placeholder")}
                     singleLine
                     editorRef={editorRef}
-                    onChange={setSearchString}
+                    onChange={(value) => {
+                        searchStringRef.current = value;
+                        setHasQuery(value.length > 0);
+                    }}
                     onEnter={() => {
                         // Opening the results runs the search; open results are refreshed.
                         if (isOpenRef.current) {

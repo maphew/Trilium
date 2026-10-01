@@ -1,5 +1,6 @@
 import type { EditorView } from "@codemirror/view";
 import type { QuickSearchResponse } from "@triliumnext/commons";
+import { options, type VNode } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -127,6 +128,30 @@ describe("QuickSearch", () => {
 
         await act(async () => first.click());
         await vi.waitFor(() => expect(menu()).toBeNull());
+    });
+
+    it("leaves the open results alone while the query is typed", async () => {
+        vi.spyOn(server, "get").mockResolvedValue(response(15, []));
+        const { editor } = await mount();
+
+        typeQuery(editor, "h");
+        pressEnter(editor);
+        await waitForResults(15);
+
+        let resultRenders = 0;
+        const previousDiffed = options.diffed;
+        options.diffed = (vnode: VNode) => {
+            if (typeof vnode.type === "function" && vnode.type.name === "QuickSearchResult") resultRenders++;
+            previousDiffed?.(vnode);
+        };
+        try {
+            typeQuery(editor, "he");
+            typeQuery(editor, "hel");
+            typeQuery(editor, "hell");
+        } finally {
+            options.diffed = previousDiffed;
+        }
+        expect(resultRenders).toBe(0);
     });
 
     it("stands the results under the search box, which a press does not close them from", async () => {

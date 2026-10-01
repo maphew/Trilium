@@ -9,7 +9,11 @@ import { useContextualShortcutHints } from "../react/hooks";
 import { createSearchFieldEditor, SEARCH_FIELD_EDITOR_CLASS } from "../search_field_editor";
 
 interface SearchStringEditorProps {
-    currentValue: string;
+    /**
+     * The query to show. Without it, the editor owns its document and only reports edits through
+     * `onChange`, for a caller that re-renders nothing as the query is typed.
+     */
+    currentValue?: string;
     /** The note `currentValue` belongs to, if any. A change to it replaces the document. */
     noteId?: string;
     placeholder?: string;
@@ -123,7 +127,8 @@ export default function SearchStringEditor({ currentValue, noteId, placeholder, 
         const switchedNote = shownNoteId.current !== noteId;
         shownNoteId.current = noteId;
 
-        if (!editor || editor.state.doc.toString() === currentValue || (editor.hasFocus && !switchedNote)) {
+        if (!editor || currentValue === undefined || editor.state.doc.toString() === currentValue
+            || (editor.hasFocus && !switchedNote)) {
             return;
         }
 
