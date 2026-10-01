@@ -45,7 +45,10 @@
         flex: 1 1 auto;
         align-items: center;
         min-width: 0;
-        padding-inline-start: 15px;
+        /* With the box's 2px border, a 34px box around a line of text, the height of a
+           `.form-control-sm`. */
+        padding-block: 3px;
+        padding-inline: 8px;
         border: 0;
         font-size: 100% !important;
 
