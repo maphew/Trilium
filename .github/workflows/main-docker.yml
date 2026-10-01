@@ -293,12 +293,14 @@ jobs:
             MANIFEST_ARGS="${MANIFEST_ARGS} -m ${GHCR_IMAGE}@sha256:${d}"
           done
 
-          # Create multi-arch manifest for each tag from metadata, plus copy to DockerHub
+          # Create multi-arch manifest for each tag from metadata, plus copy to DockerHub.
+          # Per-commit sha-* tags stay on GHCR only.
           while IFS= read -r TAG; do
             echo "Creating manifest: ${TAG}"
             crane index append ${MANIFEST_ARGS} -t "${TAG}"
 
             SUFFIX="${TAG#*:}"
+            [[ "${SUFFIX}" == sha-* ]] && continue
             echo "Copying to DockerHub: ${DOCKERHUB_IMAGE}:${SUFFIX}"
             crane copy "${TAG}" "${DOCKERHUB_IMAGE}:${SUFFIX}"
           done <<< "${{ steps.meta.outputs.tags }}"
