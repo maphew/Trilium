@@ -22,7 +22,12 @@ import { useNoteBlob, useNoteLabel, useSearchTermsConsumer, useSyncedRef, useTri
 import { RawHtmlBlock } from "../../react/RawHtml";
 import { TypeWidgetProps } from "../type_widget";
 import { applyReferenceLinks } from "./read_only_helper";
-import { loadIncludedNote, refreshIncludedNote, setupImageOpening } from "./utils";
+import {
+    loadIncludedAttachment,
+    loadIncludedNote,
+    refreshIncludedNote,
+    setupImageOpening
+} from "./utils";
 
 export default function ReadOnlyText({ note, noteContext, ntxId, parentComponent, isVisible }: TypeWidgetProps) {
     // The componentId matters: the WS echo of a save made by the editable-text editor in the same
@@ -157,9 +162,12 @@ function applyIncludedNotes(container: HTMLDivElement) {
     const loaded: Promise<unknown>[] = [];
     const includedNotes = container.querySelectorAll<HTMLElement>("section.include-note");
     for (const includedNote of includedNotes) {
-        const noteId = includedNote.dataset.noteId;
-        if (!noteId) continue;
-        loaded.push(loadIncludedNote(noteId, $(includedNote)));
+        const { attachmentId, noteId } = includedNote.dataset;
+        if (attachmentId) {
+            loaded.push(loadIncludedAttachment(attachmentId, $(includedNote)));
+        } else if (noteId) {
+            loaded.push(loadIncludedNote(noteId, $(includedNote)));
+        }
     }
     return Promise.all(loaded);
 }

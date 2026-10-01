@@ -76,8 +76,8 @@ export class ReferenceLinkEditing extends Plugin {
 	}
 
 	/**
-	 * Redraws the links to changed attachments, so they show the current title, and removes the
-	 * links to deleted ones.
+	 * Redraws the links and embeds of changed attachments, so they show the current state, and
+	 * removes those of deleted ones.
 	 */
 	updateAttachmentLinks( changes: AttachmentLinkChange[] ) {
 		const editor = this.editor;
@@ -89,12 +89,18 @@ export class ReferenceLinkEditing extends Plugin {
 
 		for ( const root of editor.model.document.getRoots() ) {
 			for ( const { item } of editor.model.createRangeIn( root ) ) {
-				if ( !item.is( 'element', 'reference' ) ) {
+				let attachmentId: unknown;
+				if ( item.is( 'element', 'reference' ) ) {
+					attachmentId = getAttachmentId( item.getAttribute( 'href' ) );
+				} else if ( item.is( 'element', 'includeNote' ) ) {
+					attachmentId = item.getAttribute( 'attachmentId' );
+				} else {
 					continue;
 				}
 
-				const attachmentId = getAttachmentId( item.getAttribute( 'href' ) );
-				const isDeleted = attachmentId ? isDeletedById.get( attachmentId ) : undefined;
+				const isDeleted = typeof attachmentId === 'string'
+					? isDeletedById.get( attachmentId )
+					: undefined;
 				if ( isDeleted !== undefined ) {
 					( isDeleted ? deletedLinks : changedLinks ).push( item );
 				}
@@ -228,7 +234,7 @@ export class ReferenceLinkEditing extends Plugin {
 }
 
 /** The attachment a reference link points to, or `null` for a link to a note. */
-function getAttachmentId( href: unknown ) {
+export function getAttachmentId( href: unknown ) {
 	const query = typeof href === 'string' ? href.split( '?' )[ 1 ] : undefined;
 	return query ? new URLSearchParams( query ).get( 'attachmentId' ) : null;
 }

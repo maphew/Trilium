@@ -40,7 +40,7 @@ export async function postProcessRichContent(note: FNote | FAttachment, $rendere
     } else if (options.includesAsReferenceLinks) {
         // This note is itself an included note in display mode: stop after the first level by
         // degrading its own includes to reference links instead of expanding them.
-        replaceIncludesWithReferenceLinks($renderedContent[0]);
+        await replaceIncludesWithReferenceLinks($renderedContent[0]);
     } else {
         await renderIncludedNotes($renderedContent[0], seenNoteIds, options.expandNestedIncludes ?? false);
     }
@@ -93,6 +93,13 @@ async function renderIncludedNotes(contentEl: HTMLElement, seenNoteIds: Set<stri
 
     // Render and integrate the notes.
     for (const includeNoteEl of includeNoteEls) {
+        const attachment = await getEmbeddedAttachment(includeNoteEl);
+        if (attachment) {
+            const { $renderedContent } = await content_renderer.getRenderedContent(attachment);
+            includeNoteEl.replaceChildren(...$renderedContent);
+            continue;
+        }
+
         const noteId = includeNoteEl.getAttribute("data-note-id");
         if (!noteId) continue;
 
@@ -127,8 +134,19 @@ async function renderIncludedNotes(contentEl: HTMLElement, seenNoteIds: Set<stri
  * filled in by the reference-link post-processing pass in `postProcessRichContent` (the same pass
  * that resolves reference links authored in the note), which also batch-prefetches the note.
  */
-function replaceIncludesWithReferenceLinks(contentEl: HTMLElement) {
+async function replaceIncludesWithReferenceLinks(contentEl: HTMLElement) {
     for (const includeNoteEl of contentEl.querySelectorAll("section.include-note")) {
+        const attachment = await getEmbeddedAttachment(includeNoteEl);
+        if (attachment) {
+            const { ownerId, attachmentId } = attachment;
+            const href = `#root/${ownerId}?viewMode=attachments&attachmentId=${attachmentId}`;
+            const referenceLink = document.createElement("a");
+            referenceLink.className = "reference-link";
+            referenceLink.setAttribute("href", href);
+            includeNoteEl.replaceWith(referenceLink);
+            continue;
+        }
+
         const noteId = includeNoteEl.getAttribute("data-note-id");
         // Validate the ID against a note-ID allow-list before interpolating it into the href: it
         // comes from note HTML, and the reference-link pass later reinterprets that href.
@@ -139,6 +157,17 @@ function replaceIncludesWithReferenceLinks(contentEl: HTMLElement) {
         referenceLink.setAttribute("href", `#root/${noteId}`);
         includeNoteEl.replaceWith(referenceLink);
     }
+}
+
+/** The attachment an include section embeds, or `null` for an include of a note. */
+async function getEmbeddedAttachment(includeNoteEl: Element) {
+    const attachmentId = includeNoteEl.getAttribute("data-attachment-id");
+    // The ID comes from note HTML, so it is checked before it reaches a request or an href.
+    if (!attachmentId || !/^[a-zA-Z0-9_]+$/.test(attachmentId)) {
+        return null;
+    }
+
+    return await froca.getAttachment(attachmentId, true);
 }
 
 /** Rewrite the code block from <pre><code> to <div> in order not to apply a codeblock style to it. */

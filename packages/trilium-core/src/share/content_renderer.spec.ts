@@ -328,6 +328,27 @@ describe("content_renderer", () => {
             expect(code?.innerHTML).not.toContain("hljs-tag");
         });
 
+        it("renders an embedded picture as an image, any other attachment as a download", () => {
+            const embed = (id: string) =>
+                `<section class="include-note" data-attachment-id="${id}">&nbsp;</section>`;
+            const note = buildShareNote({
+                content: embed("embedPic1") + embed("embedPdf1") + embed("embedGone"),
+                attachments: [
+                    { id: "embedPic1", role: "image", mime: "image/png", title: "my photo.png" },
+                    { id: "embedPdf1", role: "file", mime: "application/pdf", title: "report.pdf" }
+                ]
+            });
+
+            const content = getContent(note).content as string;
+
+            const src = "api/attachments/embedPic1/image/my%20photo.png";
+            expect(content).toContain(`<img src="${src}" alt="my photo.png">`);
+            expect(content).toContain(`href="api/attachments/embedPdf1/download"`);
+            expect(content).toContain("report.pdf");
+            expect(content).not.toContain("include-note");
+            expect(content).not.toContain("embedGone");
+        });
+
         describe("Reference links", () => {
             it("handles attachment link", () => {
                 const content = trimIndentation`\

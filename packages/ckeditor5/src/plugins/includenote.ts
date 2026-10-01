@@ -1,8 +1,22 @@
-import { ButtonView, Command, type Editor, type ModelElement, Plugin, toWidget, type ViewElement, Widget, type Observable } from 'ckeditor5';
+import {
+	ButtonView,
+	Command,
+	type Editor,
+	IconLink,
+	type ModelElement,
+	Plugin,
+	toWidget,
+	type ViewElement,
+	Widget,
+	type Observable
+} from 'ckeditor5';
 import noteIcon from '../icons/note.svg?raw';
+import { getAttachmentId } from './referencelink.js';
 
 export const COMMAND_NAME = 'insertIncludeNote';
 export const BOX_SIZE_COMMAND_NAME = 'includeNoteBoxSize';
+export const EMBED_ATTACHMENT_LINK_COMMAND = 'embedAttachmentLink';
+export const CONVERT_EMBED_TO_LINK_COMMAND = 'convertEmbedToLink';
 
 export const BOX_SIZES = [ 'small', 'medium', 'full', 'expandable' ] as const;
 
@@ -71,6 +85,29 @@ class IncludeNoteUI extends Plugin {
 
 			return buttonView;
 		} );
+
+		editor.ui.componentFactory.add( CONVERT_EMBED_TO_LINK_COMMAND, locale => {
+			const command = editor.commands.get( CONVERT_EMBED_TO_LINK_COMMAND );
+			const buttonView = new ButtonView( locale );
+
+			buttonView.set( {
+				label: t( 'Convert to link' ),
+				icon: IconLink,
+				tooltip: true
+			} );
+
+			// Shown only on an attachment embed, the one include the command applies to.
+			if ( command ) {
+				buttonView.bind( 'isEnabled' ).to( command );
+				buttonView.bind( 'isVisible' ).to( command, 'isEnabled' );
+			}
+
+			this.listenTo( buttonView, 'execute', () => {
+				editor.execute( CONVERT_EMBED_TO_LINK_COMMAND );
+			} );
+
+			return buttonView;
+		} );
 	}
 }
 
@@ -83,8 +120,12 @@ class IncludeNoteEditing extends Plugin {
 		this._defineSchema();
 		this._defineConverters();
 
-		this.editor.commands.add( COMMAND_NAME, new InsertIncludeNoteCommand( this.editor ) );
-		this.editor.commands.add( BOX_SIZE_COMMAND_NAME, new IncludeNoteBoxSizeCommand( this.editor ) );
+		const editor = this.editor;
+		const commands = editor.commands;
+		commands.add( COMMAND_NAME, new InsertIncludeNoteCommand( editor ) );
+		commands.add( BOX_SIZE_COMMAND_NAME, new IncludeNoteBoxSizeCommand( editor ) );
+		commands.add( EMBED_ATTACHMENT_LINK_COMMAND, new EmbedAttachmentLinkCommand( editor ) );
+		commands.add( CONVERT_EMBED_TO_LINK_COMMAND, new ConvertEmbedToLinkCommand( editor ) );
 	}
 
 	_defineSchema() {
@@ -94,7 +135,8 @@ class IncludeNoteEditing extends Plugin {
 			// Behaves like a self-contained object (e.g. an image).
 			isObject: true,
 
-			allowAttributes: [ 'noteId', 'boxSize' ],
+			// An include shows either a note or, as an embed, an attachment.
+			allowAttributes: [ 'noteId', 'attachmentId', 'boxSize' ],
 
 			// Allow in places where other blocks are allowed (e.g. directly in the root).
 			allowWhere: '$block'
@@ -108,9 +150,13 @@ class IncludeNoteEditing extends Plugin {
 		// <includeNote> converters
 		conversion.for( 'upcast' ).elementToElement( {
 			model: ( viewElement, { writer: modelWriter } ) => {
+				const attachmentId = viewElement.getAttribute( 'data-attachment-id' );
+				const included = attachmentId
+					? { attachmentId }
+					: { noteId: viewElement.getAttribute( 'data-note-id' ) };
 
 				return modelWriter.createElement( 'includeNote', {
-					noteId: viewElement.getAttribute( 'data-note-id' ),
+					...included,
 					boxSize: viewElement.getAttribute( 'data-box-size' ),
 				} );
 			},
@@ -125,7 +171,7 @@ class IncludeNoteEditing extends Plugin {
 				// it would make sense here to downcast to <iframe>, with this even HTML export can support note inclusion
 				return viewWriter.createContainerElement( 'section', {
 					class: 'include-note',
-					'data-note-id': modelElement.getAttribute( 'noteId' ),
+					...getIncludedEntityAttributes( modelElement ),
 					'data-box-size': modelElement.getAttribute( 'boxSize' ),
 				} );
 			}
@@ -134,12 +180,11 @@ class IncludeNoteEditing extends Plugin {
 			model: 'includeNote',
 			view: ( modelElement, { writer: viewWriter } ) => {
 
-				const noteId = modelElement.getAttribute( 'noteId' ) as string;
 				const boxSize = modelElement.getAttribute( 'boxSize' ) as string | undefined;
 
 				const section = viewWriter.createContainerElement( 'section', {
 					class: 'include-note box-size-' + boxSize,
-					'data-note-id': noteId,
+					...getIncludedEntityAttributes( modelElement ),
 					'data-box-size': boxSize
 				} );
 
@@ -149,10 +194,7 @@ class IncludeNoteEditing extends Plugin {
 				}, function( domDocument ) {
 					const domElement = this.toDomElement( domDocument );
 
-					const editorEl = editor.editing.view.getDomRoot();
-					const component = glob.getComponentByEl<EditorComponent>( editorEl );
-
-					component.loadIncludedNote( noteId, $( domElement ), boxSize );
+					loadIncludedContent( editor, modelElement, $( domElement ), boxSize );
 
 					preventCKEditorHandling( domElement, editor );
 
@@ -224,7 +266,7 @@ class IncludeNoteBoxSizeCommand extends Command {
 
 	override execute( options: { value: BoxSizeValue } ) {
 		const model = this.editor.model;
-		const includeNoteElement = this._getSelectedIncludeNote();
+		const includeNoteElement = getSelectedIncludeNote( this.editor );
 
 		if ( includeNoteElement ) {
 			model.change( writer => {
@@ -234,23 +276,118 @@ class IncludeNoteBoxSizeCommand extends Command {
 	}
 
 	override refresh() {
-		const includeNoteElement = this._getSelectedIncludeNote();
+		const includeNoteElement = getSelectedIncludeNote( this.editor );
 
 		this.isEnabled = !!includeNoteElement;
 		this.value = includeNoteElement?.getAttribute( 'boxSize' ) as BoxSizeValue | null ?? null;
 	}
+}
 
-	private _getSelectedIncludeNote() {
-		const selection = this.editor.model.document.selection;
-		const selectedElement = selection.getSelectedElement();
-
-		if ( selectedElement?.name === 'includeNote' ) {
-			return selectedElement;
+/** Replaces an attachment link with an embed of the attachment, in the same place. */
+class EmbedAttachmentLinkCommand extends Command {
+	/**
+	 * @param options.domElement the link, as the editing view renders it.
+	 * @param options.boxSize the size of the embed, `medium` when not given.
+	 */
+	override execute( { domElement, boxSize }: { domElement: HTMLElement; boxSize?: string } ) {
+		const editor = this.editor;
+		const viewElement = editor.editing.view.domConverter.mapDomToView( domElement );
+		const reference = viewElement?.is( 'element' )
+			? editor.editing.mapper.toModelElement( viewElement )
+			: undefined;
+		const attachmentId = reference?.is( 'element', 'reference' )
+			? getAttachmentId( reference.getAttribute( 'href' ) )
+			: null;
+		if ( !reference || !attachmentId ) {
+			return;
 		}
 
-		// Check if we're inside an include note
-		const firstPosition = selection.getFirstPosition();
-		return firstPosition?.findAncestor( 'includeNote' ) ?? null;
+		editor.model.change( writer => {
+			const embed = writer.createElement( 'includeNote', {
+				attachmentId,
+				boxSize: boxSize ?? 'medium'
+			} );
+			const range = writer.createRangeOn( reference );
+			editor.model.insertObject( embed, range, null, { setSelection: 'on' } );
+		} );
+	}
+}
+
+/** Replaces the selected attachment embed with a link to the attachment. */
+class ConvertEmbedToLinkCommand extends Command {
+	override refresh() {
+		const embed = getSelectedIncludeNote( this.editor );
+		const canHoldLink = this.editor.model.schema.isRegistered( 'reference' );
+
+		this.isEnabled = !!embed?.hasAttribute( 'attachmentId' ) && canHoldLink;
+	}
+
+	override async execute() {
+		const editor = this.editor;
+		const embed = getSelectedIncludeNote( editor );
+		const attachmentId = embed?.getAttribute( 'attachmentId' ) as string | undefined;
+		if ( !embed || !attachmentId ) {
+			return;
+		}
+
+		const editorEl = editor.editing.view.getDomRoot();
+		const component = glob.getComponentByEl<EditorComponent>( editorEl );
+		const href = await component.getAttachmentHref( attachmentId );
+
+		// The embed can be removed while the host looks the link up.
+		const root = embed.root;
+		if ( !href || !root.is( 'rootElement' ) || root.rootName === '$graveyard' ) {
+			return;
+		}
+
+		editor.model.change( writer => {
+			const reference = writer.createElement( 'reference', { href } );
+			const paragraph = writer.createElement( 'paragraph' );
+			writer.append( reference, paragraph );
+			writer.insert( paragraph, writer.createPositionBefore( embed ) );
+			writer.remove( embed );
+			writer.setSelection( reference, 'after' );
+		} );
+	}
+}
+
+/** The include the selection is on or inside, or `null`. */
+function getSelectedIncludeNote( editor: Editor ) {
+	const selection = editor.model.document.selection;
+	const selectedElement = selection.getSelectedElement();
+
+	if ( selectedElement?.name === 'includeNote' ) {
+		return selectedElement;
+	}
+
+	return selection.getFirstPosition()?.findAncestor( 'includeNote' ) ?? null;
+}
+
+/** The `data-*` attribute naming what an include shows: an attachment, or a note. */
+function getIncludedEntityAttributes( element: ModelElement ): Record<string, string> {
+	const attachmentId = element.getAttribute( 'attachmentId' ) as string | undefined;
+
+	return attachmentId
+		? { 'data-attachment-id': attachmentId }
+		: { 'data-note-id': element.getAttribute( 'noteId' ) as string };
+}
+
+/** Has the host render what an include shows into its wrapper. */
+function loadIncludedContent(
+	editor: Editor,
+	element: ModelElement,
+	$wrapper: JQuery<HTMLElement>,
+	boxSize: string | undefined
+) {
+	const editorEl = editor.editing.view.getDomRoot();
+	const component = glob.getComponentByEl<EditorComponent>( editorEl );
+	const attachmentId = element.getAttribute( 'attachmentId' ) as string | undefined;
+	const noteId = element.getAttribute( 'noteId' ) as string | undefined;
+
+	if ( attachmentId ) {
+		component.loadIncludedAttachment( attachmentId, $wrapper, boxSize );
+	} else if ( noteId ) {
+		component.loadIncludedNote( noteId, $wrapper, boxSize );
 	}
 }
 
@@ -268,11 +405,9 @@ class IncludeNoteBoxSizeCommand extends Command {
 function reloadIncludedNote( editor: Editor, viewElement: ViewElement, modelElement: ModelElement, boxSize: string ) {
 	const sectionDom = editor.editing.view.domConverter.mapViewToDom( viewElement );
 	const wrapperDom = sectionDom?.querySelector<HTMLElement>( '.include-note-wrapper' );
-	const noteId = modelElement.getAttribute( 'noteId' ) as string | undefined;
 
-	if ( wrapperDom && noteId ) {
-		const component = glob.getComponentByEl<EditorComponent>( editor.editing.view.getDomRoot() );
-		component.loadIncludedNote( noteId, $( wrapperDom ), boxSize );
+	if ( wrapperDom ) {
+		loadIncludedContent( editor, modelElement, $( wrapperDom ), boxSize );
 	}
 }
 

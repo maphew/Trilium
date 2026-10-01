@@ -529,7 +529,9 @@ export function checkImageAttachments(note: BNote, content: string) {
                 // data-favicon="api/attachments/{id}/image/...">
                 { pattern: /data-(?:image|favicon)="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image/g, previewPicture: true },
                 // <a href="...attachmentId={id}">
-                { pattern: /href="[^"]+attachmentId=([a-zA-Z0-9_]+)/g }
+                { pattern: /href="[^"]+attachmentId=([a-zA-Z0-9_]+)/g },
+                // <section class="include-note" data-attachment-id="{id}">
+                { pattern: /data-attachment-id="([a-zA-Z0-9_]+)"/g }
             ];
 
         for (const { pattern, previewPicture } of patterns) {
@@ -641,6 +643,12 @@ export function checkImageAttachments(note: BNote, content: string) {
         content = content.replace(
             new RegExp(`href="[^"]+attachmentId=${unknownAttachment.attachmentId}[^"]*"`, "g"),
             `href="#root/${localAttachment.ownerId}?viewMode=attachments&amp;attachmentId=${localAttachment.attachmentId}"`
+        );
+        // replace embeds
+        content = replaceAll(
+            content,
+            `data-attachment-id="${unknownAttachment.attachmentId}"`,
+            `data-attachment-id="${localAttachment.attachmentId}"`
         );
     }
 

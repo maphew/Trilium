@@ -35,6 +35,16 @@ Right-clicking a link to an attachment shows the ways to open it, followed by ac
 
 Links follow changes to their attachment: renaming it updates the title they show, and deleting it removes them from the text notes open for editing at that moment. Converting it into a note turns its links into links to the new note.
 
+## Embedding an attachment
+
+An attachment can be shown in the text instead of linked, the way <a class="reference-link" href="../../Note%20Types/Text/Include%20Note.md">Include Note</a> shows a note: a picture is displayed, and a PDF, a video or a document is previewed.
+
+*   To embed an attachment, right-click a link to it in a text note being edited and select _Convert link to an embed_, at the end of the menu. The embed takes the default box size of included notes.
+*   To change its size, select the embed and use the box size menu in its toolbar.
+*   To turn the embed back into a link, select it and press the <span class="tn-icon cke cke-link"></span> _Convert to link_ button in its toolbar.
+
+An embed follows its attachment like a link does. Converting the attachment into a note turns the embed into an included note. In a [shared note](../../Advanced%20Usage/Sharing.md), an embedded picture is displayed, and any other attachment appears as a link to download it.
+
 ## Converting notes to attachments
 
 <a class="reference-link" href="../../Note%20Types/File.md">File</a> notes can be easily converted to attachments of the parent note.

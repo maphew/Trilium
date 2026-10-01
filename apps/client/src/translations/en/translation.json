@@ -3052,7 +3052,8 @@
     "open_note_in_new_split": "Open note in a new split",
     "open_note_in_other_split": "Open note in the other split",
     "open_note_in_new_window": "Open note in a new window",
-    "open_note_in_popup": "Quick edit"
+    "open_note_in_popup": "Quick edit",
+    "convert_link_to_embed": "Convert link to an embed"
   },
   "electron_integration": {
     "desktop-application": "Desktop Application",
@@ -4248,6 +4249,7 @@
       "changes": "Changes",
       "click-on-the-arrow-or-press-0-to-collapse-expand": "Click on the arrow or press %0 to collapse/expand.",
       "collapsible-block": "Collapsible block",
+      "convert-to-link": "Convert to link",
       "copy-anchor-reference-link": "Copy anchor reference link",
       "copy-formatting": "Copy formatting",
       "copy-image-to-clipboard": "Copy image to clipboard",

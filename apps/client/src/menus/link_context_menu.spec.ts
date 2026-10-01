@@ -15,8 +15,15 @@ const mocks = vi.hoisted(() => ({
     /** False when no tab is open at all, which leaves both the hoisting and the split unresolvable. */
     hasActiveContext: true,
     getAttachment: vi.fn(),
-    getAttachmentActionGroups: vi.fn()
+    getAttachmentActionGroups: vi.fn(),
+    getTextEditorContaining: vi.fn()
 }));
+
+vi.mock("./text_editor_context_menu", () => ({
+    getTextEditorContaining: mocks.getTextEditorContaining
+}));
+
+vi.mock("../services/options", () => ({ default: { get: () => "expandable" } }));
 
 vi.mock("./context_menu", () => ({ default: { show: mocks.show } }));
 
@@ -243,6 +250,44 @@ describe("openContextMenu", () => {
 
         items[5].handler();
         expect(download).toHaveBeenCalledOnce();
+    });
+
+    it("ends with converting an attachment link to an embed, only in a note being edited", async () => {
+        const execute = vi.fn();
+        mocks.getAttachment.mockResolvedValue({ attachmentId: "att-1" });
+        mocks.getAttachmentActionGroups.mockReturnValue([
+            [ { title: "Download", icon: "bx bx-download", run: vi.fn() } ]
+        ]);
+        mocks.getTextEditorContaining.mockResolvedValue({
+            commands: { get: () => ({ isEnabled: true }) },
+            execute
+        });
+        const editable = document.createElement("div");
+        editable.className = "ck-editor__editable";
+        editable.setAttribute("contenteditable", "true");
+        editable.innerHTML = `<a class="reference-link" href="#"><span>report.pdf</span></a>`;
+        const link = editable.querySelector("a");
+
+        const title = link?.querySelector("span") ?? undefined;
+        await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(title), VIEW_SCOPE);
+
+        const { items } = mocks.show.mock.calls[0][0];
+        expect(items.slice(4)).toMatchObject([
+            { kind: "separator" },
+            { title: "Download" },
+            { title: "link_context_menu.convert_link_to_embed" }
+        ]);
+        items.at(-1).handler();
+        expect(execute).toHaveBeenCalledWith("embedAttachmentLink", {
+            domElement: link,
+            boxSize: "expandable"
+        });
+
+        editable.removeAttribute("contenteditable");
+        const event = contextMenuEvent(link ?? undefined);
+        await linkContextMenu.openContextMenu("root/n1", event, VIEW_SCOPE);
+        expect(mocks.show.mock.calls[1][0].items).toHaveLength(6);
+        expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(1);
     });
 
     it("adds nothing for a link to a note, or to an attachment that no longer exists", async () => {

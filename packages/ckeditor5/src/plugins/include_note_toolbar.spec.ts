@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
 import { installGlobMock } from "../../test/globals-test-kit.js";
-import IncludeNote from "./includenote.js";
+import IncludeNote, { CONVERT_EMBED_TO_LINK_COMMAND } from "./includenote.js";
 import IncludeNoteBoxSizeDropdown from "./include_note_box_size_dropdown.js";
 import IncludeNoteToolbar from "./include_note_toolbar.js";
 import LinkEmbed from "./link_embed/link_embed.js";
@@ -91,6 +91,15 @@ describe("IncludeNoteToolbar", () => {
         expect(requires).toContain(WidgetToolbarRepository);
         expect(requires).toContain(IncludeNote);
         expect(requires).toContain(IncludeNoteBoxSizeDropdown);
+    });
+
+    it("offers, next to the box size, the way from an attachment embed back to a link", () => {
+        const repository = editor.plugins.get(WidgetToolbarRepository) as unknown as {
+            _toolbarDefinitions: Map<string, { itemsConfig: string[] }>;
+        };
+
+        expect(repository._toolbarDefinitions.get("includeNote")?.itemsConfig)
+            .toEqual([ "includeNoteBoxSizeDropdown", CONVERT_EMBED_TO_LINK_COMMAND ]);
     });
 
     it("registers the includeNote toolbar in WidgetToolbarRepository", () => {

@@ -1,9 +1,13 @@
 import {
+    _getModelData as getModelData,
     _getViewData as getViewData,
     _setModelData as setModelData,
+    ButtonView,
     ClassicEditor,
     Essentials,
+    LinkEditing,
     Paragraph,
+    Undo,
     Widget,
     type ModelElement
 } from "ckeditor5";
@@ -11,7 +15,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
 import { installGlobMock } from "../../test/globals-test-kit.js";
-import IncludeNote, { BOX_SIZE_COMMAND_NAME, BOX_SIZES, COMMAND_NAME } from "./includenote.js";
+import IncludeNote, {
+    BOX_SIZE_COMMAND_NAME,
+    BOX_SIZES,
+    COMMAND_NAME,
+    EMBED_ATTACHMENT_LINK_COMMAND,
+    CONVERT_EMBED_TO_LINK_COMMAND
+} from "./includenote.js";
+import ReferenceLink from "./referencelink.js";
 
 describe("IncludeNote", () => {
     let editor: ClassicEditor;
@@ -482,6 +493,150 @@ describe("IncludeNote", () => {
         } finally {
             getSpy.mockRestore();
         }
+    });
+});
+
+describe("IncludeNote with attachments", () => {
+    const LINK_HREF = "#root/owner?viewMode=attachments&attachmentId=att1";
+    const embedHtml = (attachmentId = "att1") =>
+        `<section class="include-note" data-attachment-id="${attachmentId}" data-box-size="small">`
+        + "</section>";
+    let editor: ClassicEditor;
+    let loadIncludedNote: ReturnType<typeof vi.fn>;
+    let loadIncludedAttachment: ReturnType<typeof vi.fn>;
+    let getAttachmentHref: ReturnType<typeof vi.fn>;
+
+    beforeEach(async () => {
+        loadIncludedNote = vi.fn();
+        loadIncludedAttachment = vi.fn();
+        getAttachmentHref = vi.fn(async () => LINK_HREF);
+        installGlobMock({
+            getComponentByEl: () => ({
+                loadIncludedNote,
+                loadIncludedAttachment,
+                getAttachmentHref,
+                loadReferenceLinkTitle: vi.fn(async () => undefined)
+            }),
+            getReferenceLinkTitleSync: () => "report.pdf"
+        });
+
+        editor = await createTestEditor([
+            Essentials, Paragraph, Undo, Widget, LinkEditing, ReferenceLink, IncludeNote
+        ]);
+    });
+
+    /** Querying the DOM root forces the UIElement render callbacks to run. */
+    function renderEmbeds() {
+        return editor.editing.view.getDomRoot()?.querySelectorAll("div.include-note-wrapper");
+    }
+
+    function selectEmbed() {
+        editor.model.change((writer) => {
+            const element = findIncludeNote(editor);
+            if (element) {
+                writer.setSelection(element, "on");
+            }
+        });
+    }
+
+    it("stores, saves and renders an embed by its attachment", () => {
+        editor.setData(embedHtml());
+
+        const element = findIncludeNote(editor);
+        expect(element?.getAttribute("attachmentId")).toBe("att1");
+        expect(element?.hasAttribute("noteId")).toBe(false);
+        expect(editor.getData()).toContain('data-attachment-id="att1"');
+        expect(editor.getData()).not.toContain("data-note-id");
+
+        expect(renderEmbeds()).toHaveLength(1);
+        expect(loadIncludedNote).not.toHaveBeenCalled();
+        expect(loadIncludedAttachment).toHaveBeenCalledTimes(1);
+        expect(loadIncludedAttachment.mock.calls[0]?.[0]).toBe("att1");
+        expect(loadIncludedAttachment.mock.calls[0]?.[2]).toBe("small");
+
+        selectEmbed();
+        editor.execute(BOX_SIZE_COMMAND_NAME, { value: "full" });
+        expect(loadIncludedAttachment.mock.calls.at(-1)?.[2]).toBe("full");
+    });
+
+    it("turns an attachment link into an embed in its place, as one undo step", () => {
+        editor.setData(`<p>Before <a class="reference-link" href="${LINK_HREF}">x</a> after</p>`);
+        const link = editor.editing.view.getDomRoot()?.querySelector("a.reference-link");
+
+        editor.execute(EMBED_ATTACHMENT_LINK_COMMAND, { domElement: link, boxSize: "expandable" });
+
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+            "<paragraph>Before </paragraph>" +
+            "<includeNote attachmentId=\"att1\" boxSize=\"expandable\"></includeNote>" +
+            "<paragraph> after</paragraph>"
+        );
+
+        editor.execute("undo");
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+            `<paragraph>Before <reference href="${LINK_HREF}"></reference> after</paragraph>`
+        );
+    });
+
+    it("leaves a link to a note alone", () => {
+        editor.setData(`<p>Before <a class="reference-link" href="#root/noteAbc">x</a></p>`);
+        const before = getModelData(editor.model, { withoutSelection: true });
+        const link = editor.editing.view.getDomRoot()?.querySelector("a.reference-link");
+
+        editor.execute(EMBED_ATTACHMENT_LINK_COMMAND, { domElement: link });
+
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(before);
+    });
+
+    it("turns an attachment embed back into a link, and offers it only for one", async () => {
+        const command = editor.commands.get(CONVERT_EMBED_TO_LINK_COMMAND);
+        const button = editor.ui.componentFactory.create(CONVERT_EMBED_TO_LINK_COMMAND);
+        if (!(button instanceof ButtonView)) {
+            throw new Error("Expected a button.");
+        }
+        expect(button.label).toBe("Convert to link");
+
+        insertIncludeNote(editor, "noteX", "small");
+        expect(command?.isEnabled).toBe(false);
+        expect(button.isVisible).toBe(false);
+
+        editor.setData(embedHtml());
+        selectEmbed();
+        expect(command?.isEnabled).toBe(true);
+        expect(button.isVisible).toBe(true);
+
+        await editor.execute(CONVERT_EMBED_TO_LINK_COMMAND);
+
+        expect(getAttachmentHref).toHaveBeenCalledWith("att1");
+        expect(getModelData(editor.model, { withoutSelection: true }))
+            .toBe(`<paragraph><reference href="${LINK_HREF}"></reference></paragraph>`);
+    });
+
+    it("keeps an embed whose attachment has no link to go back to", async () => {
+        getAttachmentHref.mockResolvedValue(null);
+        editor.setData(embedHtml());
+        selectEmbed();
+
+        await editor.execute(CONVERT_EMBED_TO_LINK_COMMAND);
+
+        expect(findIncludeNote(editor)?.getAttribute("attachmentId")).toBe("att1");
+    });
+
+    it("redraws the embeds of a changed attachment and removes those of a deleted one", () => {
+        editor.setData(embedHtml("att1") + embedHtml("att2"));
+        renderEmbeds();
+        loadIncludedAttachment.mockClear();
+
+        editor.plugins.get("ReferenceLinkEditing").updateAttachmentLinks([
+            { attachmentId: "att1", isDeleted: false },
+            { attachmentId: "att2", isDeleted: true }
+        ]);
+        renderEmbeds();
+
+        const redrawn = loadIncludedAttachment.mock.calls.map(([ attachmentId ]) => attachmentId);
+        expect(redrawn).toContain("att1");
+        expect(redrawn).not.toContain("att2");
+        expect(getModelData(editor.model, { withoutSelection: true }))
+            .toBe("<includeNote attachmentId=\"att1\" boxSize=\"small\"></includeNote>");
     });
 });
 

@@ -33,7 +33,13 @@ import CKEditorWithWatchdog, { CKEditorApi, NotificationEventData, NotificationE
 import getTemplates, { updateTemplateCache } from "./snippets.js";
 import linkEmbedService from "../../../services/link_embed";
 import { usesClassicToolbar } from "./toolbar";
-import { loadIncludedNote, refreshIncludedNote, setupImageOpening } from "./utils";
+import {
+    getAttachmentHref,
+    loadIncludedAttachment,
+    loadIncludedNote,
+    refreshIncludedNote,
+    setupImageOpening
+} from "./utils";
 
 /**
  * The editor can operate into two distinct modes:
@@ -177,6 +183,8 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
             });
         },
         loadIncludedNote,
+        loadIncludedAttachment,
+        getAttachmentHref,
         // Link preview functionality. The insert flow itself lives in the editor (a balloon form),
         // so the host only has to supply the metadata and the rendering.
         async fetchLinkMetadata(url: string) {

@@ -4,9 +4,11 @@ import appContext, { type CommandNames } from "../components/app_context.js";
 import froca from "../services/froca.js";
 import { t } from "../services/i18n.js";
 import type { ViewScope } from "../services/link.js";
+import options from "../services/options.js";
 import utils, { isMobile } from "../services/utils.js";
 import { getClosestNtxId } from "../widgets/widget_utils.js";
 import contextMenu, { type ContextMenuEvent, type MenuItem } from "./context_menu.js";
+import { getTextEditorContaining } from "./text_editor_context_menu.js";
 
 async function openContextMenu(
     notePath: string,
@@ -14,7 +16,7 @@ async function openContextMenu(
     viewScope: ViewScope = {},
     hoistedNoteId: string | null = null
 ) {
-    const attachmentItems = await getAttachmentItems(viewScope);
+    const attachmentItems = await getAttachmentItems(viewScope, e);
 
     contextMenu.show({
         x: e.pageX,
@@ -89,22 +91,25 @@ function handleLinkContextMenuItem(command: string | undefined, e: ContextMenuEv
 
 /** The actions on the attachment a link points to, each group after a separator. */
 async function getAttachmentItems(
-    { viewMode, attachmentId }: ViewScope
+    { viewMode, attachmentId }: ViewScope,
+    e: ContextMenuEvent
 ): Promise<MenuItem<CommandNames>[]> {
     if (viewMode !== "attachments" || !attachmentId) {
         return [];
     }
 
     // Imported on demand: `attachment_actions` imports `link`, which imports this module.
-    const [ attachment, { getAttachmentActionGroups } ] = await Promise.all([
+    const [ attachment, { getAttachmentActionGroups }, embedItem ] = await Promise.all([
         froca.getAttachment(attachmentId, true),
-        import("../services/attachment_actions.js")
+        import("../services/attachment_actions.js"),
+        getConvertToEmbedItem(e)
     ]);
     if (!attachment) {
         return [];
     }
 
-    return getAttachmentActionGroups(attachment).flatMap((group): MenuItem<CommandNames>[] => [
+    const groups = getAttachmentActionGroups(attachment);
+    const actionItems = groups.flatMap((group): MenuItem<CommandNames>[] => [
         { kind: "separator" },
         ...group.map((action) => ({
             title: action.title,
@@ -113,6 +118,33 @@ async function getAttachmentItems(
             handler: () => void action.run()
         }))
     ]);
+
+    return embedItem ? [ ...actionItems, embedItem ] : actionItems;
+}
+
+/** "Convert link to an embed", for an attachment link in a text note open for editing. */
+async function getConvertToEmbedItem(e: ContextMenuEvent): Promise<MenuItem<CommandNames> | null> {
+    const link = e.target instanceof Element
+        ? e.target.closest<HTMLElement>("a.reference-link")
+        : null;
+    // Checked first: a note shown read-only has no editor, and asking for one waits for a timeout.
+    if (!link?.closest(".ck-editor__editable[contenteditable='true']")) {
+        return null;
+    }
+
+    const editor = await getTextEditorContaining(link);
+    if (!editor?.commands.get("embedAttachmentLink")?.isEnabled) {
+        return null;
+    }
+
+    return {
+        title: t("link_context_menu.convert_link_to_embed"),
+        uiIcon: "bx bx-window-alt",
+        handler: () => editor.execute("embedAttachmentLink", {
+            domElement: link,
+            boxSize: options.get("includeNoteDefaultBoxSize")
+        })
+    };
 }
 
 function getNtxId(e: ContextMenuEvent | GeoMouseEvent) {

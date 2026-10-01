@@ -1,6 +1,6 @@
 import {
-    extractYouTubeVideoId, isHttpUrl, MIME_TYPE_AUTO, type MimeType, MIME_TYPES_DICT,
-    normalizeMimeTypeForCKEditor, safeLinkPreviewHref, safeLinkPreviewImageSrc
+    extractYouTubeVideoId, isHttpUrl, isImageAttachmentRole, MIME_TYPE_AUTO, type MimeType,
+    MIME_TYPES_DICT, normalizeMimeTypeForCKEditor, safeLinkPreviewHref, safeLinkPreviewImageSrc
 } from "@triliumnext/commons";
 import { renderToHtml as renderMarkdownToHtml } from "@triliumnext/commons/src/lib/markdown_renderer.js";
 import { renderSpreadsheetToHtml } from "@triliumnext/commons/src/lib/spreadsheet/render_to_html.js";
@@ -482,9 +482,25 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
     // (expandNestedIncludes) keeps expanding recursively. seenNoteIds tracks the current ancestor
     // path (cloned per descent below) so the recursive path can break cycles without treating a note
     // included in two sibling sub-trees as circular.
+    const getNote: GetNoteFunction = note instanceof BNote
+        ? (noteId: string) => becca.getNote(noteId)
+        : (noteId: string) => shaca.getNote(noteId);
+    const getAttachment = note instanceof BNote
+        ? (attachmentId: string) => becca.getAttachment(attachmentId)
+        : (attachmentId: string) => shaca.getAttachment(attachmentId);
+
     const seenNoteIds = new Set(options.seenNoteIds);
     seenNoteIds.add(note.noteId);
     for (const includeNoteEl of document.querySelectorAll("section.include-note")) {
+        const attachmentId = includeNoteEl.getAttribute("data-attachment-id");
+        if (attachmentId) {
+            const attachment = getAttachment(attachmentId);
+            const asLink = !!options.includesAsReferenceLinks;
+            const html = attachment ? renderAttachmentEmbed(attachmentId, attachment, asLink) : "";
+            includeNoteEl.replaceWith(...parse(html, parseOpts).childNodes);
+            continue;
+        }
+
         const noteId = includeNoteEl.getAttribute("data-note-id");
         if (!noteId) continue;
 
@@ -518,13 +534,6 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
     }
 
     result.isEmpty = document.textContent?.trim().length === 0 && document.querySelectorAll("img").length === 0;
-
-    const getNote: GetNoteFunction = note instanceof BNote
-        ? (noteId: string) => becca.getNote(noteId)
-        : (noteId: string) => shaca.getNote(noteId);
-    const getAttachment = note instanceof BNote
-        ? (attachmentId: string) => becca.getAttachment(attachmentId)
-        : (attachmentId: string) => shaca.getAttachment(attachmentId);
 
     if (!result.isEmpty) {
         // Process attachment links.
@@ -561,6 +570,28 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
             renderIndex(result);
         }
     }
+}
+
+/**
+ * The markup that stands in for an embedded attachment: a picture as an image, anything else as the
+ * attachment link that `handleAttachmentLink` then resolves.
+ *
+ * @param asLink renders a picture as a link too, for an embed below the first level of inclusion.
+ */
+function renderAttachmentEmbed(
+    attachmentId: string,
+    attachment: BAttachment | SAttachment,
+    asLink: boolean
+) {
+    const { ownerId, title } = attachment;
+
+    if (!asLink && isImageAttachmentRole(attachment.role)) {
+        const src = `api/attachments/${attachmentId}/image/${encodeURIComponent(title)}`;
+        return `<img src="${src}" alt="${escapeHtml(title)}">`;
+    }
+
+    const href = `#root/${ownerId}?viewMode=attachments&amp;attachmentId=${attachmentId}`;
+    return `<a class="reference-link" href="${href}">${escapeHtml(title)}</a>`;
 }
 
 function handleAttachmentLink(linkEl: HTMLElement, href: string, getNote: GetNoteFunction, getAttachment: (id: string) => BAttachment | SAttachment | null) {

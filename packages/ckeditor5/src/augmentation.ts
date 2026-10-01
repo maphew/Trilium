@@ -44,6 +44,13 @@ declare global {
         loadReferenceLinkTitle($el: JQuery<HTMLElement>, href: string): Promise<void>;
         createNoteForReferenceLink(title: string, intoInbox: boolean): Promise<string | undefined>;
         loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>, boxSize?: string): void;
+        loadIncludedAttachment(
+            attachmentId: string,
+            $el: JQuery<HTMLElement>,
+            boxSize?: string
+        ): void;
+        /** The href of a reference link to the attachment, or `null` once it is deleted. */
+        getAttachmentHref(attachmentId: string): Promise<string | null>;
         /**
          * Reads a page's preview metadata through the host. Never rejects: any failure — network
          * error, HTTP error, unparseable page — resolves as `{ unresolved: true }` with
