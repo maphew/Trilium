@@ -13,6 +13,7 @@ import server from "../services/server";
 import type { ShortcutHintDefinition } from "../services/shortcut_hints";
 import { isMobile } from "../services/utils";
 import ActionButton from "./react/ActionButton";
+import { ExtendedAdmonition } from "./react/Admonition";
 import Button from "./react/Button";
 import { focusListItem } from "./react/FormList";
 import { useTriliumEvent } from "./react/hooks";
@@ -42,7 +43,12 @@ const NAVIGATION_KEYS = new Set([ "ArrowDown", "ArrowUp", "PageDown", "PageUp" ]
 
 type SearchState =
     | { status: "searching" }
-    | { status: "done", results: SearchResultDetails[], viewScope: ViewScope | undefined };
+    | {
+        status: "done";
+        results: SearchResultDetails[];
+        viewScope: ViewScope | undefined;
+        error: string | null;
+    };
 
 export default function QuickSearch() {
     // In a ref rather than state, so typing re-renders nothing; only its emptiness is state.
@@ -76,7 +82,7 @@ export default function QuickSearch() {
         setOpen(true);
         const requestId = ++requestIdRef.current;
         setSearchState({ status: "searching" });
-        const { searchResults, highlightedTokens } = await server.get<QuickSearchResponse>(
+        const { searchResults, highlightedTokens, error } = await server.get<QuickSearchResponse>(
             `quick-search/${encodeURIComponent(query)}`
         );
         if (requestId !== requestIdRef.current) return;
@@ -85,7 +91,8 @@ export default function QuickSearch() {
             status: "done",
             results: searchResults,
             // Opens the note at its first match; with nothing highlighted, at the plain path.
-            viewScope: highlightedTokens.length ? { searchTerms: highlightedTokens } : undefined
+            viewScope: highlightedTokens.length ? { searchTerms: highlightedTokens } : undefined,
+            error
         });
     }
 
@@ -286,18 +293,36 @@ function QuickSearchResults({ searchState, onOpenResult }: {
         );
     }
 
+    // What the search ran into while running; the field's linter shows a query that fails to parse
+    // before it is run.
+    const error = searchState.error && (
+        <ExtendedAdmonition
+            type="caution"
+            icon="bx bx-error-circle"
+            title={t("quick-search.error")}
+            className="quick-search-error"
+        >
+            {searchState.error}
+        </ExtendedAdmonition>
+    );
+
     if (!searchState.results.length) {
-        return <span className="dropdown-item disabled">{t("quick-search.no-results")}</span>;
+        return error || (
+            <span className="dropdown-item disabled">{t("quick-search.no-results")}</span>
+        );
     }
 
-    return searchState.results.map((result) => (
-        <QuickSearchResult
-            key={result.notePath}
-            result={result}
-            viewScope={searchState.viewScope}
-            onOpen={onOpenResult}
-        />
-    ));
+    return <>
+        {error}
+        {searchState.results.map((result) => (
+            <QuickSearchResult
+                key={result.notePath}
+                result={result}
+                viewScope={searchState.viewScope}
+                onOpen={onOpenResult}
+            />
+        ))}
+    </>;
 }
 
 function QuickSearchResult({ result, viewScope, onOpen }: {

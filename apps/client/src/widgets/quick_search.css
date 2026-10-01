@@ -241,4 +241,9 @@
     .bx-loader {
         margin-inline-end: 4px;
     }
+
+    .quick-search-error {
+        margin: 4px 8px;
+        white-space: normal;
+    }
 }

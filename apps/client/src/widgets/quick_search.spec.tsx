@@ -18,6 +18,12 @@ import { ParentComponent } from "./react/react_utils";
 const completions = vi.hoisted(() => ({
     source: null as ((context: CompletionContext) => unknown) | null
 }));
+// Echoes the key and its interpolation, so a spec can tell which message a row shows.
+vi.mock("../services/i18n", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../services/i18n")>()),
+    t: (key: string, options?: object) => (options ? `${key} ${JSON.stringify(options)}` : key)
+}));
+
 vi.mock("./ribbon/search_completions", () => ({
     searchCompletionSource: (context: CompletionContext) => completions.source?.(context) ?? null,
     searchCompletionIcon: () => undefined,
@@ -98,6 +104,34 @@ describe("QuickSearch", () => {
         await vi.waitFor(() => expect(placeholderItems()[0]?.querySelector(".bx-loader")).toBeNull());
         expect(placeholderItems()).toHaveLength(1);
         expect(resultItems()).toHaveLength(0);
+    });
+
+    it("shows the error the search ran into, above whatever it still found", async () => {
+        const failed = { ...response(0, []), error: "Note content can be searched only with operators" };
+        const get = vi.spyOn(server, "get").mockResolvedValue(failed);
+        const { editor } = await mount();
+
+        typeQuery(editor, "note.content > 3");
+        pressEnter(editor);
+
+        // In place of "No results found", which would hide why.
+        const error = await vi.waitFor(() => {
+            const row = menu()?.querySelector(".quick-search-error");
+            expect(row).not.toBeNull();
+            return row;
+        });
+        // A caution card titled as an error, with the server's message as its body.
+        expect(error?.classList.contains("extended-admonition")).toBe(true);
+        expect(error?.classList.contains("caution")).toBe(true);
+        expect(error?.querySelector(".admonition-title")?.textContent).toBe("quick-search.error");
+        expect(error?.querySelector(".admonition-body")?.textContent)
+            .toBe("Note content can be searched only with operators");
+        expect(placeholderItems()).toEqual([]);
+
+        get.mockResolvedValue({ ...response(2, []), error: "Note content can be searched only with operators" });
+        pressEnter(editor);
+        await waitForResults(2);
+        expect(menu()?.querySelector(".quick-search-results")?.firstElementChild?.classList.contains("quick-search-error")).toBe(true);
     });
 
     it("keeps the results of the latest search when an earlier one answers last", async () => {

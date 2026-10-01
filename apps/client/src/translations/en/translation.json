@@ -2755,14 +2755,14 @@
     "placeholder": "Quick search",
     "searching": "Searching...",
     "no-results": "No results found",
-    "more-results": "... and {{number}} more results.",
     "show-in-full-search": "Show in full search",
     "hints": {
       "title": "Quick search results",
       "to_results": "Move to the results",
       "page": "Move a page through the results",
       "close": "Close the results"
-    }
+    },
+    "error": "Search error"
   },
   "note_tree": {
     "collapse-title": "Collapse note tree",
