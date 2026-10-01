@@ -106,6 +106,30 @@ describe("createFieldEditor", () => {
         expect(onEscape).toHaveBeenCalledOnce();
     });
 
+    it("selects no completion on opening, so Enter runs the field's command until one is picked", async () => {
+        const onEnter = vi.fn();
+        const view = build({
+            doc: "a",
+            completionSource: () => ({ from: 0, options: [ { label: "and" }, { label: "asc" } ] }),
+            onEnter
+        });
+        editor = view;
+        view.dispatch({ selection: EditorSelection.cursor(1) });
+
+        await openCompletion(view);
+        await waitOutInteractionDelay();
+        pressKey(view, "Enter");
+        expect(onEnter).toHaveBeenCalledOnce();
+        expect(view.state.doc.toString()).toBe("a");
+
+        await openCompletion(view);
+        await waitOutInteractionDelay();
+        pressKey(view, "ArrowDown");
+        pressKey(view, "Enter");
+        expect(onEnter).toHaveBeenCalledOnce();
+        expect(view.state.doc.toString()).toBe("and");
+    });
+
     it("holds a single-line field to one line, flattening the breaks in what is inserted", () => {
         const onChange = vi.fn();
         editor = build({ singleLine: true, onChange });
@@ -190,6 +214,11 @@ function build(config: Partial<FieldEditorConfig> = {}): FieldEditor {
 async function openCompletion(view: FieldEditor) {
     startCompletion(view);
     await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+}
+
+/** The popup drops the keys pressed within `interactionDelay` (75ms by default) of opening. */
+function waitOutInteractionDelay() {
+    return new Promise((resolve) => setTimeout(resolve, 100));
 }
 
 /** Presses a key on the editor and answers whether a binding handled it. */
