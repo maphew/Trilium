@@ -50,6 +50,8 @@ To search for notes, click on the magnifying glass icon on the toolbar or press 
 
 To help with the syntax, Trilium offers an autocomplete functionality which can be triggered by pressing <kbd>Ctrl</kbd>+<kbd>Space</kbd>.
 
+Some suggestions also open on their own as you type: label and relation names after `#` and `~`, fields after `.`, operators, values, and notes after `@`. Keywords such as `and`, `or`, `not`, `orderBy` and `limit` appear only on <kbd>Ctrl</kbd>+<kbd>Space</kbd>, since a plain word is usually a search term.
+
 No suggestion is selected when the list opens, so <kbd>Enter</kbd> runs the search as typed. To insert a suggestion, select it with <kbd>Down</kbd> and press <kbd>Enter</kbd>.
 
 The autocomplete offers:
