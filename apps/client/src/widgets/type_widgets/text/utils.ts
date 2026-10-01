@@ -23,7 +23,7 @@ export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>,
         interactive: true,
         includesAsReferenceLinks: true,
         mediaEnvironment: "embedded"
-    }));
+    }), { notePath: note.noteId });
 }
 
 /** Fills an include box with an embedded attachment, under a title linking to it. */
@@ -35,16 +35,17 @@ export async function loadIncludedAttachment(
     const attachment = await froca.getAttachment(attachmentId, true);
     if (!attachment) return;
 
+    const viewScope: ViewScope = { viewMode: "attachments", attachmentId };
     const $link = await link.createLink(attachment.ownerId, {
         showTooltip: false,
         showNoteIcon: true,
-        viewScope: { viewMode: "attachments", attachmentId }
+        viewScope
     });
 
     await fillIncludeBox($el, boxSize, $link, () => content_renderer.getRenderedContent(
         attachment,
         { interactive: true, mediaEnvironment: "embedded" }
-    ), { offersFullscreen: true });
+    ), { notePath: attachment.ownerId, viewScope, offersFullscreen: true });
 }
 
 /** The href of a reference link to the attachment, or `null` once it is deleted. */
@@ -58,6 +59,10 @@ export async function getAttachmentHref(attachmentId: string) {
 type RenderedContent = Awaited<ReturnType<typeof content_renderer.getRenderedContent>>;
 
 interface IncludeBoxOptions {
+    /** The note that the box's button opens in a new tab. */
+    notePath: string;
+    /** The view of that note to open, such as one of its attachments. */
+    viewScope?: ViewScope;
     /** Whether a medium or full box ends its title row with a fullscreen button. */
     offersFullscreen?: boolean;
 }
@@ -67,7 +72,7 @@ async function fillIncludeBox(
     boxSize: string | undefined,
     $link: JQuery<HTMLElement>,
     renderContent: () => Promise<RenderedContent>,
-    { offersFullscreen = false }: IncludeBoxOptions = {}
+    { notePath, viewScope, offersFullscreen = false }: IncludeBoxOptions
 ) {
     // The box size is supplied explicitly by the editing-view downcast; for the other
     // callers (read-only rendering, script API refresh) fall back to reading it from the DOM.
@@ -88,7 +93,7 @@ async function fillIncludeBox(
         const $toggle = $('<button class="include-note-toggle bx bx-chevron-right" aria-expanded="false">');
         const $title = $('<h4 class="include-note-title">').append($link);
 
-        $titleRow.append($toggle, $title);
+        $titleRow.append($toggle, $title, createOpenInNewTabButton(notePath, viewScope));
         $wrapper.append($titleRow);
 
         const { $renderedContent, type } = await renderContent();
@@ -108,15 +113,15 @@ async function fillIncludeBox(
         const { $renderedContent, type } = await renderContent();
         const $content = $(`<div class="include-note-content type-${type}">`)
             .append($renderedContent);
+        const $titleRow = $('<div class="include-note-title-row">')
+            .append($title, createOpenInNewTabButton(notePath, viewScope));
 
         if (offersFullscreen && (effectiveBoxSize === "medium" || effectiveBoxSize === "full")) {
-            const $titleRow = $('<div class="include-note-title-row">')
-                .append($title, createFullscreenButton($content[0]));
+            $titleRow.append(createFullscreenButton($content[0]));
             await mountExitFullscreenControls($content);
-            $wrapper.append($titleRow, $content);
-        } else {
-            $wrapper.append($title, $content);
         }
+
+        $wrapper.append($titleRow, $content);
     }
 
     // Unmount any interactive widgets from a previous render of this include (e.g. on a box-size
@@ -124,6 +129,20 @@ async function fillIncludeBox(
     // standalone Preact roots (collections, web views) would leak.
     content_renderer.disposeInteractiveContent($el);
     $el.empty().append(isWrapper ? $wrapper.children() : $wrapper);
+}
+
+/** A button opening a note in a new tab after the current one and switching to it. */
+function createOpenInNewTabButton(notePath: string, viewScope: ViewScope | undefined) {
+    return $('<button type="button" class="include-note-open bx bx-link-external">')
+        .attr({ title: t("common.open_in_new_tab") })
+        .on("click", (e) => {
+            e.stopPropagation();
+            void appContext.tabManager.openTabWithNoteWithHoisting(notePath, {
+                viewScope,
+                activate: true,
+                placement: "afterCurrent"
+            });
+        });
 }
 
 /** A button giving `content` the whole screen. */

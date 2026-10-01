@@ -23,6 +23,10 @@ vi.mock("../../../services/content_renderer", async () => {
     };
 });
 vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
+const openTabWithNoteWithHoisting = vi.hoisted(() => vi.fn());
+vi.mock("../../../components/app_context", () => ({
+    default: { tabManager: { openTabWithNoteWithHoisting } }
+}));
 
 import content_renderer from "../../../services/content_renderer";
 import froca from "../../../services/froca";
@@ -47,7 +51,8 @@ describe("loadIncludedNote", () => {
 
         const wrappers = $el.find(".include-note-wrapper");
         expect(wrappers.length).toBe(0);
-        expect($el.children(".include-note-title").length).toBe(1);
+        expect($el.children(".include-note-title-row").children(".include-note-title").length)
+            .toBe(1);
         expect($el.children(".include-note-content").length).toBe(1);
     });
 
@@ -59,7 +64,8 @@ describe("loadIncludedNote", () => {
 
         const wrappers = $el.find(".include-note-wrapper");
         expect(wrappers.length).toBe(1);
-        expect(wrappers.children(".include-note-title").length).toBe(1);
+        expect(wrappers.children(".include-note-title-row").children(".include-note-title").length)
+            .toBe(1);
         expect(wrappers.children(".include-note-content").length).toBe(1);
     });
 
@@ -137,8 +143,11 @@ describe("loadIncludedAttachment", () => {
 
             const $row = $el.find(".include-note-title-row");
             const button = $row.children("button.include-note-fullscreen.bx-fullscreen")[0];
-            expect($row.children().map((_, child) => child.className).get())
-                .toEqual([ "include-note-title", "include-note-fullscreen bx bx-fullscreen" ]);
+            expect($row.children().map((_, child) => child.className).get()).toEqual([
+                "include-note-title",
+                "include-note-open bx bx-link-external",
+                "include-note-fullscreen bx bx-fullscreen"
+            ]);
             expect(button.title).toBe("common.fullscreen");
 
             const content = $el.find(".include-note-content")[0];
@@ -211,6 +220,52 @@ describe("loadIncludedAttachment", () => {
 
         expect(link.createLink).not.toHaveBeenCalled();
         expect($el.text()).toBe("kept");
+    });
+});
+
+describe("the button opening an include in a new tab", () => {
+    beforeEach(() => {
+        vi.mocked(froca.getNote).mockResolvedValue(note);
+        vi.mocked(froca.getAttachment).mockResolvedValue(
+            { attachmentId: "att1", ownerId: "owner" } as unknown as FAttachment
+        );
+        vi.mocked(link.createLink)
+            .mockImplementation(async () => $('<span><a href="#">x</a></span>'));
+        vi.mocked(content_renderer.getRenderedContent).mockImplementation(async () => (
+            { $renderedContent: $("<p>body</p>"), type: "text" } as never
+        ));
+    });
+
+    it("follows the title of a note or attachment at any size, and opens it", async () => {
+        const attachmentScope = { viewMode: "attachments", attachmentId: "att1" };
+
+        for (const boxSize of [ "small", "medium", "full", "expandable" ]) {
+            const $note = $('<div class="include-note-wrapper">');
+            const $attachment = $('<div class="include-note-wrapper">');
+            await loadIncludedNote("noteY", $note, boxSize);
+            await loadIncludedAttachment("att1", $attachment, boxSize);
+
+            const boxes: [ JQuery<HTMLElement>, string, object | undefined ][] = [
+                [ $note, "noteY", undefined ],
+                [ $attachment, "owner", attachmentScope ]
+            ];
+            for (const [ $el, notePath, viewScope ] of boxes) {
+                const $button = $el.find(".include-note-title").next();
+                expect($button.attr("class")).toBe("include-note-open bx bx-link-external");
+                expect($button.attr("title")).toBe("common.open_in_new_tab");
+
+                const click = new MouseEvent("click", { bubbles: true });
+                const stopPropagation = vi.spyOn(click, "stopPropagation");
+                $button[0].dispatchEvent(click);
+                expect(openTabWithNoteWithHoisting).toHaveBeenLastCalledWith(notePath, {
+                    viewScope,
+                    activate: true,
+                    placement: "afterCurrent"
+                });
+                expect(stopPropagation).toHaveBeenCalled();
+            }
+        }
+        expect(openTabWithNoteWithHoisting).toHaveBeenCalledTimes(8);
     });
 });
 
