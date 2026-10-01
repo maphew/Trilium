@@ -130,15 +130,18 @@
     text-overflow: ellipsis;
     box-shadow: -30px 50px 93px -50px black;
 
-    /* Outranks Bootstrap's `.dropdown-menu.show { display: block }`. */
+    /* Outranks Bootstrap's `.dropdown-menu.show { display: block }` and the theme's
+       `.dropdown-menu:not(.static)` padding. */
     &.show {
         display: flex;
         flex-direction: column;
+        padding-block: 0 !important;
     }
 
     .quick-search-results {
         flex: 1 1 auto;
         min-height: 0;
+        padding-block: var(--menu-padding-size, .5rem);
         overflow-y: auto;
         overflow-x: hidden;
     }
