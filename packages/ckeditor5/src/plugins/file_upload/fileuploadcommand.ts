@@ -1,52 +1,52 @@
-import { Command, FileRepository, Model, type ModelNodeAttributes, type ModelWriter } from "ckeditor5";
+import { Command, FileRepository, type Model, type ModelWriter } from "ckeditor5";
 
-interface FileUploadOpts {
+import { uploadAsFileAttachment } from "../uploadimage.js";
+
+export interface FileUploadOptions {
     file: File[];
 }
 
-export default class FileUploadCommand extends Command {
-	override refresh() {
-		this.isEnabled = true;
-	}
-
-	/**
-	 * Executes the command.
-	 *
-	 * @fires execute
-	 * @param {Object} options Options for the executed command.
-	 * @param {File|Array.<File>} options.file The file or an array of files to upload.
-	 */
-	override execute( options: FileUploadOpts ) {
-		const editor = this.editor;
-		const model = editor.model;
-
-		const fileRepository = editor.plugins.get( FileRepository );
-
-		model.change( writer => {
-			const filesToUpload = options.file;
-			for ( const file of filesToUpload ) {
-				uploadFile( writer, model, fileRepository, file );
-			}
-		} );
-	}
-}
-
 /**
- * 	Handles uploading single file.
+ * Uploads files as attachments of the note and inserts a reference link to each, separated by
+ * spaces. Pictures become file attachments too, so they are linked rather than shown.
  */
-function uploadFile( writer: ModelWriter, model: Model, fileRepository: FileRepository, file: File ) {
-	const loader = fileRepository.createLoader( file );
+export default class FileUploadCommand extends Command {
+    override refresh() {
+        const model = this.editor.model;
+        const position = model.document.selection.getFirstPosition();
 
-	// Do not throw when upload adapter is not set. FileRepository will log an error anyway.
-	if ( !loader ) {
-		return;
-	}
+        this.isEnabled = !!position && model.schema.checkChild(position, "reference");
+    }
 
-	insertFileLink( writer, model, { href: '', uploadId: loader.id }, file );
+    override execute({ file: files }: FileUploadOptions) {
+        const model = this.editor.model;
+        const fileRepository = this.editor.plugins.get(FileRepository);
+
+        model.change((writer) => {
+            for (const file of files) {
+                // `createLoader()` logs an error and returns null when no upload adapter is set.
+                const loader = fileRepository.createLoader(file);
+                if (!loader) {
+                    continue;
+                }
+
+                uploadAsFileAttachment(loader);
+                insertPlaceholder(writer, model, loader.id, file.name);
+            }
+        });
+    }
 }
 
-function insertFileLink( writer: ModelWriter, model: Model, attributes: ModelNodeAttributes = {}, file: File ) {
-	const placeholder = writer.createElement( 'reference', attributes );
-	model.insertContent( placeholder, model.document.selection );
-	writer.insertText( ' ', placeholder, 'after' );
+/** Inserts the link `FileUploadEditing` completes once the upload ends, and a space after it. */
+function insertPlaceholder(writer: ModelWriter, model: Model, uploadId: string, fileName: string) {
+    const placeholder = writer.createElement("reference", {
+        href: "",
+        uploadId,
+        uploadFileName: fileName
+    });
+    model.insertContent(placeholder, model.document.selection);
+
+    const afterPlaceholder = writer.createPositionAfter(placeholder);
+    writer.insertText(" ", afterPlaceholder);
+    writer.setSelection(afterPlaceholder.getShiftedBy(1));
 }

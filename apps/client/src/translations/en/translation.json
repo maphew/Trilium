@@ -1589,7 +1589,8 @@
     "editor_crashed_details_title": "Technical information",
     "auto-detect-language": "Auto-detected",
     "keeps-crashing": "Editing component keeps crashing. Please try restarting Trilium. If problem persists, consider creating a bug report.",
-    "nothing_selected_to_cut": "Select some text first to cut it into a sub-note."
+    "nothing_selected_to_cut": "Select some text first to cut it into a sub-note.",
+    "uploading_attachment": "Uploading attachment"
   },
   "empty": {
     "open_note_instruction": "Open a note by typing the note's title into the input below or choose a note in the tree.",
@@ -4238,6 +4239,7 @@
       "ask-ai": "Ask AI…",
       "ask-ai-to": "Ask AI to…",
       "ask-ai-to-rewrite-the-selection-or-generate-new-content": "Ask AI to rewrite the selection or generate new content.",
+      "attach-file": "Attach file",
       "box-size": "Box size",
       "bulleted-list": "Bulleted list",
       "card": "Card",
@@ -4357,6 +4359,7 @@
       "undefined-custom-task-state": "Undefined custom task state",
       "url": "URL",
       "upload-an-image-from-your-device": "Upload an image from your device.",
+      "upload-files-as-attachments-and-insert-links-to-them": "Upload files as attachments and insert links to them.",
       "upload-image": "Upload image",
       "warning": "Warning",
       "working": "Working…",

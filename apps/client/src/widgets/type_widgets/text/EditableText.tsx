@@ -1,7 +1,13 @@
 import "./EditableText.css";
 import "./LinkEmbed.css";
 
-import { CKTextEditor, EditorWatchdog, SnippetDefinition } from "@triliumnext/ckeditor5";
+import {
+    CKTextEditor,
+    EditorWatchdog,
+    type FileUploadData,
+    type FileUploadEvent,
+    SnippetDefinition
+} from "@triliumnext/ckeditor5";
 import { deferred } from "@triliumnext/commons";
 import { createPortal } from "preact/compat";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
@@ -492,6 +498,9 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
                         setupImageOpening(containerRef.current, false);
                     }
 
+                    editor.plugins.get("FileUploadEditing")
+                        .on<FileUploadEvent>("upload", showFileUploadProgress);
+
                     initialized.current.resolve();
                     // Restore the data, either on the first render or if the editor crashes.
                     // We are not using CKEditor's built-in watch dog content, instead we are using the data we store regularly in the spaced update (see `dataSaved`).
@@ -650,4 +659,28 @@ export function onNotificationWarning(evt: NotificationEventInfo, data: Notifica
  */
 export function onNotificationInfo(_evt: NotificationEventInfo, data: NotificationEventData) {
     toast.showMessage(data.message);
+}
+
+/**
+ * Shows the progress of a file attachment upload in a toast until the upload ends.
+ *
+ * Exported for testing.
+ */
+export function showFileUploadProgress(_evt: unknown, { fileName, loader, done }: FileUploadData) {
+    const id = `file-upload-${loader.id}`;
+    const showProgress = () => toast.showPersistent({
+        id,
+        icon: "bx bx-paperclip",
+        title: t("editable_text.uploading_attachment"),
+        message: fileName,
+        progress: loader.uploadedPercent / 100,
+        dismissible: false
+    });
+
+    showProgress();
+    loader.on("change:uploadedPercent", showProgress);
+    void done.then(() => {
+        loader.off("change:uploadedPercent", showProgress);
+        toast.closePersistent(id);
+    });
 }

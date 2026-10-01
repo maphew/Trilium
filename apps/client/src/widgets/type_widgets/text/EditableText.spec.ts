@@ -6,19 +6,30 @@
  * crash and restarted the editor, which reverted the note to its last saved content — the images
  * being uploaded flickered and vanished instead of a "cannot upload" toast appearing.
  */
+import type { FileUploadData } from "@triliumnext/ckeditor5";
 import { describe, expect, it, vi } from "vitest";
 
 const showError = vi.hoisted(() => vi.fn());
 const showErrorTitleAndMessage = vi.hoisted(() => vi.fn());
 const showMessage = vi.hoisted(() => vi.fn());
+const showPersistent = vi.hoisted(() => vi.fn());
+const closePersistent = vi.hoisted(() => vi.fn());
 vi.mock("../../../services/toast", () => ({
-    default: { showError, showErrorTitleAndMessage, showMessage }
+    default: { showError, showErrorTitleAndMessage, showMessage, showPersistent, closePersistent }
+}));
+vi.mock("../../../services/i18n", async (importOriginal) => ({
+    ...await importOriginal<typeof import("../../../services/i18n")>(),
+    t: (key: string) => key
 }));
 
 // Imported by EditableText for editor types and content styles; irrelevant (and heavy) here.
 vi.mock("@triliumnext/ckeditor5", () => ({}));
 
-const { onNotificationInfo, onNotificationWarning } = await import("./EditableText");
+const {
+    onNotificationInfo,
+    onNotificationWarning,
+    showFileUploadProgress
+} = await import("./EditableText");
 
 describe("onNotificationWarning", () => {
     /** The payload `Notification#_showNotification` builds, with the `EventInfo` before it. */
@@ -68,5 +79,49 @@ describe("onNotificationInfo", () => {
 
         expect(showMessage).toHaveBeenCalledWith("Rows sorted.");
         expect(evt.stop).not.toHaveBeenCalled();
+    });
+});
+
+describe("showFileUploadProgress", () => {
+    it("shows the progress of an upload in a toast until the upload ends", async () => {
+        vi.clearAllMocks();
+        let finish = () => {};
+        const done = new Promise<void>((resolve) => {
+            finish = () => resolve();
+        });
+        const listeners = new Map<string, () => void>();
+        const loader = {
+            id: "loader1",
+            uploadedPercent: 0,
+            on: vi.fn((event: string, callback: () => void) => listeners.set(event, callback)),
+            off: vi.fn()
+        };
+
+        const upload = { fileName: "report.pdf", loader, done } as unknown as FileUploadData;
+
+        showFileUploadProgress({}, upload);
+        expect(showPersistent).toHaveBeenLastCalledWith(expect.objectContaining({
+            id: "file-upload-loader1",
+            title: "editable_text.uploading_attachment",
+            message: "report.pdf",
+            progress: 0,
+            dismissible: false
+        }));
+
+        loader.uploadedPercent = 40;
+        listeners.get("change:uploadedPercent")?.();
+        expect(showPersistent).toHaveBeenLastCalledWith(expect.objectContaining({
+            id: "file-upload-loader1",
+            progress: 0.4
+        }));
+        expect(closePersistent).not.toHaveBeenCalled();
+
+        finish();
+        await done;
+        expect(closePersistent).toHaveBeenCalledWith("file-upload-loader1");
+        expect(loader.off).toHaveBeenCalledWith(
+            "change:uploadedPercent",
+            listeners.get("change:uploadedPercent")
+        );
     });
 });

@@ -282,16 +282,6 @@ describe("TriliumSlashCommands", () => {
             return definition;
         }
 
-        function filesOf(...files: File[]): FileList {
-            const transfer = new DataTransfer();
-
-            for (const file of files) {
-                transfer.items.add(file);
-            }
-
-            return transfer.files;
-        }
-
         it("is offered only where an `uploadImage` command is registered", async () => {
             // The entry runs a file picker rather than naming the command, so `commandName` cannot
             // gate it and `isEnabled` has to.
@@ -632,6 +622,7 @@ describe("buildTriliumSlashCommands", () => {
         [ "collapsible", "Collapsible block", "collapsible" ],
         [ "footnote", "Footnote", "InsertFootnote" ],
         [ "internal-link", "Internal link", INTERNAL_LINK_COMMAND ],
+        [ "attach-file", "Attach file", "fileUpload" ],
         [ "include-note", "Include note", INCLUDE_NOTE_COMMAND ],
         [ "page-break", "Page break", "pageBreak" ],
         [ "markdown-import", "Markdown import", MARKDOWN_IMPORT_COMMAND ],
@@ -647,6 +638,30 @@ describe("buildTriliumSlashCommands", () => {
         expect(entry.commandName).toBe(commandName);
         expect(entry.description).toBeTruthy();
         expect(entry.icon).toContain("<svg");
+    });
+
+    it("attach-file attaches every file picked, of any type, and returns the focus", () => {
+        const execute = vi.spyOn(editor, "execute").mockReturnValue(undefined);
+        const focus = vi.spyOn(editor.editing.view, "focus");
+        const click = vi.spyOn(HTMLInputElement.prototype, "click").mockReturnValue(undefined);
+
+        definition("attach-file").execute?.(editor);
+
+        expect(click).toHaveBeenCalledOnce();
+        const input = click.mock.instances[0] as HTMLInputElement;
+        expect(input.type).toBe("file");
+        expect(input.accept).toBe("");
+        expect(input.multiple).toBe(true);
+        expect(input.isConnected).toBe(true);
+
+        const pdf = new File([ "" ], "a.pdf", { type: "application/pdf" });
+        const png = new File([ "" ], "b.png", { type: "image/png" });
+        input.files = filesOf(pdf, png);
+        input.dispatchEvent(new Event("change"));
+
+        expect(execute).toHaveBeenCalledWith("fileUpload", { file: [ pdf, png ] });
+        expect(focus).toHaveBeenCalled();
+        expect(input.isConnected).toBe(false);
     });
 
     it.each([
@@ -922,3 +937,14 @@ describe("buildTriliumSlashCommands", () => {
         expect(definition("page-break").title).toBe("Întrerupere de pagină");
     });
 });
+
+/** Builds the `FileList` a file input holds after the user picks `files`. */
+function filesOf(...files: File[]): FileList {
+    const transfer = new DataTransfer();
+
+    for (const file of files) {
+        transfer.items.add(file);
+    }
+
+    return transfer.files;
+}

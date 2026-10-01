@@ -96,7 +96,7 @@ class ReferenceLinkEditing extends Plugin {
 			// The inline widget is self-contained, so it cannot be split by the caret, and it can be selected:
 			isObject: true,
 
-			allowAttributes: [ 'href', 'uploadId', 'uploadStatus' ]
+			allowAttributes: [ 'href', 'uploadId', 'uploadStatus', 'uploadFileName' ]
 		} );
 	}
 
@@ -117,9 +117,11 @@ class ReferenceLinkEditing extends Plugin {
 		} );
 
 		conversion.for( 'editingDowncast' ).elementToElement( {
-			model: 'reference',
+			// Redraws a placeholder when its upload sets `href` and clears `uploadFileName`.
+			model: { name: 'reference', attributes: [ 'href', 'uploadFileName' ] },
 			view: ( modelItem, { writer: viewWriter } ) => {
 				const href = modelItem.getAttribute('href') as string;
+				const uploadFileName = String(modelItem.getAttribute('uploadFileName') ?? '');
 
 				const referenceLinkView = viewWriter.createContainerElement( 'a', {
 						href,
@@ -131,6 +133,13 @@ class ReferenceLinkEditing extends Plugin {
 
 				const noteTitleView = viewWriter.createUIElement('span', {}, function( domDocument ) {
 					const domElement = this.toDomElement( domDocument );
+
+					if (uploadFileName) {
+						const spinner = domDocument.createElement("span");
+						spinner.className = "bx bx-loader-alt bx-spin";
+						domElement.append(spinner, uploadFileName);
+						return domElement;
+					}
 
 					const editorEl = editor.editing.view.getDomRoot();
 					const component = glob.getComponentByEl<EditorComponent>(editorEl);

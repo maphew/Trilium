@@ -718,7 +718,8 @@ async function getReferenceLinkTitle(href: string) {
     }
 
     if (viewScope?.viewMode === "attachments" && viewScope?.attachmentId) {
-        const attachment = await note.getAttachmentById(viewScope.attachmentId);
+        // `froca.getAttachment()` reloads the attachments when the cached list lacks this one.
+        const attachment = await froca.getAttachment(viewScope.attachmentId, true);
 
         return attachment ? attachment.title : "[missing attachment]";
     }

@@ -236,6 +236,30 @@ describe("Attachments API (core)", () => {
             expect(attachment).toMatchObject({ role: "image", mime: "image/x-icon" });
         });
 
+        it("uploads a picture as a 'file' attachment when the file role is asked for", async () => {
+            const { noteId } = await createTextNote(api, { title: "Picture as file target" });
+
+            const res = await api.post<{ uploaded: boolean; url: string }>(
+                `/api/notes/${noteId}/attachments/upload`,
+                {
+                    query: { role: "file" },
+                    file: {
+                        originalname: "pixel.png",
+                        mimetype: "image/png",
+                        buffer: PIXEL_PNG
+                    }
+                }
+            );
+            expect(res.status).toBe(200);
+            expect(res.body.uploaded).toBe(true);
+            expect(res.body.url).toContain(`#root/${noteId}?viewMode=attachments&attachmentId=`);
+
+            const list = await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`);
+            expect(list.body).toEqual([
+                expect.objectContaining({ role: "file", mime: "image/png", title: "pixel.png" })
+            ]);
+        });
+
         it("reports a missing upload when no file is present", async () => {
             const { noteId } = await createTextNote(api, { title: "No file target" });
 

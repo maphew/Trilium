@@ -1405,6 +1405,14 @@ paths:
       operationId: uploadAttachment
       parameters:
         - $ref: '#/components/parameters/noteId'
+        - name: role
+          in: query
+          description: >-
+            `file` stores a picture as a file attachment and answers with a link to it, instead of
+            an image URL.
+          schema:
+            type: string
+            enum: [file]
       requestBody:
         required: true
         content:

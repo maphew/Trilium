@@ -185,6 +185,34 @@ describe("ReferenceLink", () => {
         expect(loadReferenceLinkTitle.mock.calls[0]?.[1]).toBe("#root/noteAbc");
     });
 
+    it("shows a placeholder's file name, then redraws it as a titled link once uploaded", () => {
+        setModelData(editor.model, "<paragraph>[]</paragraph>");
+        const reference = editor.model.change((writer) => {
+            const element = writer.createElement("reference", {
+                href: "",
+                uploadId: "u1",
+                uploadFileName: "report.pdf"
+            });
+            editor.model.insertContent(element);
+            return element;
+        });
+        const findAnchor = () =>
+            editor.editing.view.getDomRoot()?.querySelector("a.reference-link");
+
+        expect(findAnchor()?.textContent).toBe("report.pdf");
+        expect(findAnchor()?.querySelector(".bx-spin")).not.toBeNull();
+        expect(loadReferenceLinkTitle).not.toHaveBeenCalled();
+
+        editor.model.change((writer) => {
+            writer.setAttribute("href", "#root/abc", reference);
+            writer.removeAttribute("uploadFileName", reference);
+        });
+
+        expect(findAnchor()?.getAttribute("href")).toBe("#root/abc");
+        expect(findAnchor()?.querySelector(".bx-spin")).toBeNull();
+        expect(loadReferenceLinkTitle).toHaveBeenCalledWith(expect.anything(), "#root/abc");
+    });
+
     it("dataDowncasts a reference back to an anchor, resolving the title synchronously", () => {
         editor.setData('<p><a class="reference-link" href="#root/noteAbc">old</a></p>');
 

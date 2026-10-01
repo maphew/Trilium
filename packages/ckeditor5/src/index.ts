@@ -13,6 +13,7 @@ export { default as EditorWatchdog } from "./custom_watchdog";
 export { CHAT_INPUT_PLUGINS, MEMO_PLUGINS } from "./plugins.js";
 export type { EditorConfig, MentionFeed, MentionFeedObjectItem, ModelNode, ModelPosition, ModelElement, ModelText, TextTransformationConfig, TextTypingTransformationDescription, WatchdogConfig, WatchdogState } from "ckeditor5";
 export type { ClipboardImageEmbedConfig } from "./plugins/clipboard_image_embed.js";
+export type { FileUploadData, FileUploadEvent } from "./plugins/file_upload/fileuploadediting.js";
 export type { PasteTarget } from "./plugins/cuttonote.js";
 export type { SlashCommandConfig, SlashCommandDefinition } from "./plugins/mention/slash_commands.js";
 export type { TriliumMentionFeed } from "./plugins/mention/types.js";
@@ -25,6 +26,7 @@ export { MESSAGE_KEY_PREFIX, MESSAGE_OVERRIDES, slugify } from "./messages.js";
 export * from "./utils.js";
 
 // Import with sideffects to ensure that type augmentations are present.
+import "./plugins/file_upload/uploadfileplugin.js";
 import "./plugins/math/math.js";
 import "./plugins/mermaid/mermaid.js";
 import "./plugins/table_context_menu.js";

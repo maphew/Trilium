@@ -61,7 +61,10 @@ async function uploadAttachment(req: Request<{ noteId: string }>) {
     // Convert buffer to Uint8Array (Buffer extends Uint8Array, string needs encoding)
     const buffer = wrapStringOrBuffer(file.buffer as string | Uint8Array);
 
-    if (isAcceptedImageMime(file.mimetype)) {
+    // `role=file` stores a picture as a file attachment, so the caller gets a link, not an image.
+    const isFileRoleRequested = req.query.role === "file";
+
+    if (!isFileRoleRequested && isAcceptedImageMime(file.mimetype)) {
         // Always the user's own image: the pictures the app fetches for itself — a link preview's
         // favicon and cover — are stored by the code that fetched them, never uploaded through here.
         const attachment = imageService.saveImageToAttachment(noteId, buffer, file.originalname, true, true);

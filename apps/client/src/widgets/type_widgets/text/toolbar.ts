@@ -94,6 +94,7 @@ export function buildClassicToolbar(multilineToolbar: boolean, aiAssistant: bool
                 // width.
                 ...(aiAssistant ? ["aiAssistant"] : []),
                 "imageUpload",
+                "fileUpload",
                 "blockQuote",
                 "admonition",
                 "insertTable",
@@ -167,6 +168,7 @@ export function buildFloatingToolbar(aiAssistant: boolean) {
             "todoList",
             "|",
             "imageUpload",
+            "fileUpload",
             "blockQuote",
             "admonition",
             "codeBlock",

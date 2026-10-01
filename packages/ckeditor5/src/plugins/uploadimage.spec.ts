@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
 import { installGlobMock } from "../../test/globals-test-kit.js";
-import UploadimagePlugin from "./uploadimage.js";
+import UploadimagePlugin, {
+    isFileAttachmentUpload,
+    uploadAsFileAttachment
+} from "./uploadimage.js";
 
 /**
  * A fake XMLHttpRequest that records the calls the adapter makes and lets the
@@ -156,6 +159,20 @@ describe("UploadimagePlugin", () => {
         xhr.fireLoad();
 
         await expect(uploadPromise).resolves.toEqual({ default: "http://example.com/pic.png" });
+    });
+
+    it("asks for a file attachment only for a loader marked as one", async () => {
+        const fileRepository = editor.plugins.get(FileRepository);
+        const marked = createFakeLoader(new File(["content"], "pic.png", { type: "image/png" }));
+        uploadAsFileAttachment(marked);
+        expect(isFileAttachmentUpload(marked)).toBe(true);
+
+        void fileRepository.createUploadAdapter?.(marked).upload();
+        expect((await awaitSentXhr()).url).toBe("api/notes/noteAbc/attachments/upload?role=file");
+
+        FakeXHR.last = undefined;
+        void createAdapter(new File(["content"], "pic.png", { type: "image/png" })).upload();
+        expect((await awaitSentXhr()).url).toBe("api/notes/noteAbc/attachments/upload");
     });
 
     it("rejects with the server error message when the response carries one", async () => {
