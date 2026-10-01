@@ -4,7 +4,7 @@ import appContext from "../components/app_context.js";
 import froca from "../services/froca.js";
 import linkService from "../services/link.js";
 import server from "../services/server.js";
-import QuickSearchWidget from "./quick_search.js";
+import QuickSearchWidget from "./quick_search_old.js";
 
 // The completions fetch attribute names and values through the server; nothing here opens the popup.
 vi.mock("./ribbon/search_completions", () => ({
