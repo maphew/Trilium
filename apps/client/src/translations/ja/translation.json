@@ -1976,7 +1976,15 @@
     "split_reset": "セルの結合を解除",
     "sort": "並べ替え",
     "sort_ascending": "昇順",
-    "sort_descending": "降順"
+    "sort_descending": "降順",
+    "select": "選択",
+    "select_row": "行",
+    "select_column": "列",
+    "select_table": "表",
+    "set_header_row": "ヘッダーに設定",
+    "set_header_up_to_row": "この行までをヘッダーに設定",
+    "paste_rows_above": "行を上に貼り付け",
+    "paste_rows_below": "行を下に貼り付け"
   },
   "content_renderer": {
     "open_externally": "外部で開く",
@@ -4409,5 +4417,8 @@
     "image": "画像",
     "pdf": "PDF",
     "open_original": "オリジナルを新しいタブで開く"
+  },
+  "split_button": {
+    "more_actions": "その他の操作"
   }
 }

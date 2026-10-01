@@ -3286,7 +3286,15 @@
     "split_reset": "셀 병합 해제",
     "sort": "정렬",
     "sort_ascending": "오름차순",
-    "sort_descending": "내림차순"
+    "sort_descending": "내림차순",
+    "select": "선택",
+    "select_row": "행",
+    "select_column": "열",
+    "select_table": "표",
+    "set_header_row": "머리글로 설정",
+    "set_header_up_to_row": "이 행까지 머리글로 설정",
+    "paste_rows_above": "위에 행 붙여넣기",
+    "paste_rows_below": "위에 행 붙여넣기"
   },
   "board_view": {
     "delete-note": "노트 삭제...",
@@ -4409,5 +4417,8 @@
     "image": "이미지",
     "pdf": "PDF",
     "open_original": "원본을 새 탭에서 열기"
+  },
+  "split_button": {
+    "more_actions": "추가 작업"
   }
 }
