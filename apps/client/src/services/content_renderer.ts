@@ -576,7 +576,7 @@ const INTERACTIVE_MOUNT_ATTR = "data-interactive-mount";
  * `useTriliumEvent` subscriptions actually receive events — a bare standalone Preact root has no
  * parent component in context, so otherwise e.g. an embedded collection never reacts to new notes.
  */
-async function mountInteractiveWidget(vnode: JSX.Element, container: HTMLElement) {
+export async function mountInteractiveWidget(vnode: JSX.Element, container: HTMLElement) {
     const [ { renderReactWidgetAtElement }, { default: appContext } ] = await Promise.all([
         import("../widgets/react/react_utils"),
         import("../components/app_context")
@@ -711,5 +711,6 @@ function getRenderingType(entity: FNote | FAttachment) {
 
 export default {
     getRenderedContent,
-    disposeInteractiveContent
+    disposeInteractiveContent,
+    mountInteractiveWidget
 };

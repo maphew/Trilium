@@ -1565,7 +1565,7 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 /* Expandable include note styles */
-.include-note-title-row {
+.include-note[data-box-size="expandable"] .include-note-title-row {
     cursor: pointer;
 }
 
@@ -1580,7 +1580,8 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     flex-grow: 1;
 }
 
-.include-note-toggle {
+.include-note-toggle,
+.include-note-fullscreen {
     background: none;
     border: none;
     padding: 2px;
@@ -1594,7 +1595,8 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     flex-shrink: 0;
 }
 
-.include-note-toggle:hover {
+.include-note-toggle:hover,
+.include-note-fullscreen:hover {
     color: var(--main-link-color);
 }
 
@@ -1624,6 +1626,35 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 
 .include-note[data-box-size="expandable"] .include-note-content {
     padding-top: 0;
+}
+
+.include-note-content:fullscreen {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--main-background-color);
+}
+
+/* Scrolls in place of the fullscreen box, so that the exit button stays put. */
+.include-note-content:fullscreen > .rendered-content {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.include-note-content:not(:fullscreen) > .include-note-fullscreen-controls {
+    display: none;
+}
+
+.include-note-exit-fullscreen {
+    --overlay-group-inset-top:
+        calc(var(--safe-area-inset-top, env(safe-area-inset-top)) + var(--overlay-group-inset));
+    --overlay-group-inset-end:
+        calc(var(--safe-area-inset-right, env(safe-area-inset-right)) + var(--overlay-group-inset));
+    z-index: 1;
+}
+
+.include-note-exit-fullscreen > button {
+    gap: 8px;
 }
 
 .alert {

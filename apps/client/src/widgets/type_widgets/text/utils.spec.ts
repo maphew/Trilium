@@ -1,3 +1,4 @@
+import type { VNode } from "preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type FAttachment from "../../../entities/fattachment";
@@ -9,9 +10,19 @@ vi.mock("../../../services/froca", () => ({
 vi.mock("../../../services/link", () => ({
     default: { createLink: vi.fn() }
 }));
-vi.mock("../../../services/content_renderer", () => ({
-    default: { getRenderedContent: vi.fn(), disposeInteractiveContent: vi.fn() }
-}));
+vi.mock("../../../services/content_renderer", async () => {
+    const { render } = await import("preact");
+    return {
+        default: {
+            getRenderedContent: vi.fn(),
+            disposeInteractiveContent: vi.fn(),
+            mountInteractiveWidget: vi.fn(async (vnode: VNode, container: HTMLElement) => {
+                render(vnode, container);
+            })
+        }
+    };
+});
+vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
 
 import content_renderer from "../../../services/content_renderer";
 import froca from "../../../services/froca";
@@ -64,6 +75,15 @@ describe("loadIncludedNote", () => {
         expect(content_renderer.getRenderedContent).toHaveBeenCalledWith(note, { interactive: true, includesAsReferenceLinks: true, mediaEnvironment: "embedded" });
     });
 
+    it("offers no fullscreen button at any box size", async () => {
+        for (const boxSize of [ "small", "medium", "full", "expandable" ]) {
+            const $el = $('<div class="include-note-wrapper">');
+            await loadIncludedNote("noteY", $el, boxSize);
+            expect($el.find(".include-note-fullscreen, .include-note-fullscreen-controls"))
+                .toHaveLength(0);
+        }
+    });
+
     it("disposes interactive content of a previous render before replacing it", async () => {
         const $el = $('<div class="include-note-wrapper">');
 
@@ -102,6 +122,84 @@ describe("loadIncludedAttachment", () => {
             .toHaveBeenCalledWith(attachment, { interactive: true, mediaEnvironment: "embedded" });
         expect($el.find("button.include-note-toggle").length).toBe(1);
         expect($el.find(".include-note-content.type-pdf").text()).toBe("body");
+    });
+
+    it("offers fullscreen from the end of a medium or full box's title row", async () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        // The read-only path reads the box size from the section rather than taking it.
+        const boxes: [ JQuery<HTMLElement>, string | undefined ][] = [
+            [ $('<div class="include-note-wrapper">'), "medium" ],
+            [ $('<section class="include-note" data-box-size="full">'), undefined ]
+        ];
+
+        for (const [ $el, boxSize ] of boxes) {
+            await loadIncludedAttachment("att1", $el, boxSize);
+
+            const $row = $el.find(".include-note-title-row");
+            const button = $row.children("button.include-note-fullscreen.bx-fullscreen")[0];
+            expect($row.children().map((_, child) => child.className).get())
+                .toEqual([ "include-note-title", "include-note-fullscreen bx bx-fullscreen" ]);
+            expect(button.title).toBe("common.fullscreen");
+
+            const content = $el.find(".include-note-content")[0];
+            content.requestFullscreen = vi.fn(async () => {});
+            const click = new MouseEvent("click", { bubbles: true });
+            const stopPropagation = vi.spyOn(click, "stopPropagation");
+            button.dispatchEvent(click);
+            expect(content.requestFullscreen).toHaveBeenCalledOnce();
+            expect(stopPropagation).toHaveBeenCalled();
+        }
+
+        // A refused request is logged rather than left unhandled.
+        const content = boxes[1][0].find(".include-note-content")[0];
+        content.requestFullscreen = vi.fn(async () => {
+            throw new Error("Denied");
+        });
+        boxes[1][0].find("button.include-note-fullscreen")[0].click();
+        await vi.waitFor(() => expect(warn).toHaveBeenCalled());
+        warn.mockRestore();
+
+        for (const boxSize of [ "small", "expandable" ]) {
+            const $el = $('<div class="include-note-wrapper">');
+            await loadIncludedAttachment("att1", $el, boxSize);
+            expect($el.find(".include-note-fullscreen, .include-note-fullscreen-controls"))
+                .toHaveLength(0);
+        }
+    });
+
+    it("puts a labeled button leaving fullscreen over the top end of the content", async () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const exitFullscreen = vi.fn<() => Promise<void>>(async () => {});
+        Object.defineProperty(document, "exitFullscreen", {
+            value: exitFullscreen,
+            configurable: true
+        });
+        const $el = $('<div class="include-note-wrapper">');
+
+        await loadIncludedAttachment("att1", $el, "full");
+
+        const controls = $el.children(".include-note-content")[0].firstElementChild;
+        const group = controls?.querySelector<HTMLElement>(".tn-overlay-control-group");
+        const button = group?.querySelector("button");
+        expect(controls?.className).toBe("include-note-fullscreen-controls");
+        expect(group?.className).toContain("include-note-exit-fullscreen");
+        expect(group?.dataset.placement).toBe("top-end");
+        expect(button?.textContent).toBe("common.exit_fullscreen");
+        expect(button?.querySelector(".bx.bx-exit")).not.toBeNull();
+
+        const click = new MouseEvent("click", { bubbles: true });
+        const stopPropagation = vi.spyOn(click, "stopPropagation");
+        button?.dispatchEvent(click);
+        expect(exitFullscreen).toHaveBeenCalledOnce();
+        expect(stopPropagation).toHaveBeenCalled();
+
+        // A refused request is logged rather than left unhandled.
+        exitFullscreen.mockRejectedValueOnce(new Error("Not in fullscreen"));
+        button?.click();
+        await vi.waitFor(() => expect(warn).toHaveBeenCalled());
+
+        warn.mockRestore();
+        Reflect.deleteProperty(document, "exitFullscreen");
     });
 
     it("leaves the box alone for a deleted attachment", async () => {

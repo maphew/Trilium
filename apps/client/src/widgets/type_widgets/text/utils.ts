@@ -1,8 +1,12 @@
+import { h } from "preact";
+
 import appContext from "../../../components/app_context";
 import content_renderer from "../../../services/content_renderer";
 import froca from "../../../services/froca";
+import { t } from "../../../services/i18n";
 import link, { ViewScope } from "../../../services/link";
 import utils from "../../../services/utils";
+import OverlayControlGroup, { OverlayControlButton } from "../../react/OverlayControlGroup";
 
 export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>, boxSize?: string) {
     const note = await froca.getNote(noteId);
@@ -40,7 +44,7 @@ export async function loadIncludedAttachment(
     await fillIncludeBox($el, boxSize, $link, () => content_renderer.getRenderedContent(
         attachment,
         { interactive: true, mediaEnvironment: "embedded" }
-    ));
+    ), { offersFullscreen: true });
 }
 
 /** The href of a reference link to the attachment, or `null` once it is deleted. */
@@ -53,11 +57,17 @@ export async function getAttachmentHref(attachmentId: string) {
 
 type RenderedContent = Awaited<ReturnType<typeof content_renderer.getRenderedContent>>;
 
+interface IncludeBoxOptions {
+    /** Whether a medium or full box ends its title row with a fullscreen button. */
+    offersFullscreen?: boolean;
+}
+
 async function fillIncludeBox(
     $el: JQuery<HTMLElement>,
     boxSize: string | undefined,
     $link: JQuery<HTMLElement>,
-    renderContent: () => Promise<RenderedContent>
+    renderContent: () => Promise<RenderedContent>,
+    { offersFullscreen = false }: IncludeBoxOptions = {}
 ) {
     // The box size is supplied explicitly by the editing-view downcast; for the other
     // callers (read-only rendering, script API refresh) fall back to reading it from the DOM.
@@ -94,11 +104,19 @@ async function fillIncludeBox(
             $content.slideToggle(200);
         });
     } else {
-        // Standard display
-        $wrapper.append($('<h4 class="include-note-title">').append($link));
-
+        const $title = $('<h4 class="include-note-title">').append($link);
         const { $renderedContent, type } = await renderContent();
-        $wrapper.append($(`<div class="include-note-content type-${type}">`).append($renderedContent));
+        const $content = $(`<div class="include-note-content type-${type}">`)
+            .append($renderedContent);
+
+        if (offersFullscreen && (effectiveBoxSize === "medium" || effectiveBoxSize === "full")) {
+            const $titleRow = $('<div class="include-note-title-row">')
+                .append($title, createFullscreenButton($content[0]));
+            await mountExitFullscreenControls($content);
+            $wrapper.append($titleRow, $content);
+        } else {
+            $wrapper.append($title, $content);
+        }
     }
 
     // Unmount any interactive widgets from a previous render of this include (e.g. on a box-size
@@ -106,6 +124,44 @@ async function fillIncludeBox(
     // standalone Preact roots (collections, web views) would leak.
     content_renderer.disposeInteractiveContent($el);
     $el.empty().append(isWrapper ? $wrapper.children() : $wrapper);
+}
+
+/** A button giving `content` the whole screen. */
+function createFullscreenButton(content: HTMLElement) {
+    return $('<button type="button" class="include-note-fullscreen bx bx-fullscreen">')
+        .attr({ title: t("common.fullscreen") })
+        .on("click", (e) => {
+            e.stopPropagation();
+            content.requestFullscreen().catch((error: unknown) => {
+                console.warn("Could not show the included content in fullscreen:", error);
+            });
+        });
+}
+
+/**
+ * Mounts the button leaving fullscreen at the start of `$content`. The stylesheet shows it only
+ * while `$content` has the screen.
+ */
+async function mountExitFullscreenControls($content: JQuery<HTMLElement>) {
+    const container = document.createElement("div");
+    container.className = "include-note-fullscreen-controls";
+    $content.prepend(container);
+
+    const exitButton = h(OverlayControlButton, {
+        icon: "bx-exit",
+        text: t("common.exit_fullscreen"),
+        onClick: (e) => {
+            e.stopPropagation();
+            document.exitFullscreen().catch((error: unknown) => {
+                console.warn("Could not leave fullscreen:", error);
+            });
+        }
+    });
+    await content_renderer.mountInteractiveWidget(h(OverlayControlGroup, {
+        placement: "top-end",
+        className: "include-note-exit-fullscreen",
+        children: exitButton
+    }), container);
 }
 
 export function refreshIncludedNote(container: HTMLDivElement, noteId: string) {
