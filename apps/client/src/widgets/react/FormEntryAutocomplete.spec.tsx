@@ -1,7 +1,3 @@
-/**
- * The dropdown whose rows are objects: what a row is drawn as, what picking it reports, and when the
- * list stands down and comes back.
- */
 import { useCallback, useState } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderInto } from "../../test/render";
 import FormEntryAutocomplete, { type AutocompleteEntry } from "./FormEntryAutocomplete";
 
-/** A row that reports a pick, standing for a marker or a package. */
+/** A pickable row. */
 function choice(key: string, extra: Partial<AutocompleteEntry> = {}): AutocompleteEntry {
     return { key, label: key, ...extra };
 }
@@ -17,10 +13,13 @@ function choice(key: string, extra: Partial<AutocompleteEntry> = {}): Autocomple
 let picked: { entry: AutocompleteEntry; offered: string[] }[] = [];
 
 /**
- * Renders the field over a fixed set of rows, and reports what the query was asked for so a test can
- * tell a lookup that ran from one that was never made.
+ * Renders the field over `entries` and returns `asked`, the queries `entries` was called with, so
+ * a test can tell whether a lookup ran.
  */
-function renderField(entries: AutocompleteEntry[], { minQueryLength = 1, openOnEnter = false } = {}) {
+function renderField(
+    entries: AutocompleteEntry[] | ((query: string) => Promise<AutocompleteEntry[]>),
+    { minQueryLength = 1, openOnEnter = false } = {}
+) {
     picked = [];
     const asked: string[] = [];
 
@@ -32,8 +31,13 @@ function renderField(entries: AutocompleteEntry[], { minQueryLength = 1, openOnE
                 className="entries"
                 currentValue={value}
                 onChange={setValue}
-                entries={useCallback(async (query: string) => { asked.push(query); return entries; }, [])}
-                onPick={(entry, offered) => picked.push({ entry, offered: offered.map((row) => row.key) })}
+                entries={useCallback(async (query: string) => {
+                    asked.push(query);
+                    return typeof entries === "function" ? entries(query) : entries;
+                }, [])}
+                onPick={(entry, offered) => {
+                    picked.push({ entry, offered: offered.map((row) => row.key) });
+                }}
                 minQueryLength={minQueryLength}
                 openOnEnter={openOnEnter}
                 openOnFocus
@@ -59,7 +63,7 @@ function field() {
 
 async function type(text: string) {
     const input = field();
-    // Two acts: the field has to re-render as open before the effect that schedules the lookup runs.
+    // Two acts: the field re-renders as open before the effect that schedules the lookup runs.
     await act(async () => {
         input.value = text;
         input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -94,7 +98,7 @@ afterEach(() => {
 });
 
 describe("FormEntryAutocomplete", () => {
-    it("draws a row from what it carries, and names a heading without offering it", async () => {
+    it("renders a row's fields, and a heading row", async () => {
         renderField([
             { key: "heading", label: "Nearby", heading: true },
             choice("a", { label: "Corfu", icon: "bx bx-map", detail: "Greece", trailing: "2 km" })
@@ -131,7 +135,7 @@ describe("FormEntryAutocomplete", () => {
         expect(picked).toEqual([ { entry: { key: "b", label: "b" }, offered: [ "a", "b" ] } ]);
     });
 
-    it("stands the list down once a row is taken, and puts it back when the query moves on", async () => {
+    it("empties the list after a pick and lists rows again when the query changes", async () => {
         renderField([ choice("a") ]);
         await type("c");
 
@@ -142,7 +146,7 @@ describe("FormEntryAutocomplete", () => {
         expect(rows()).toHaveLength(1);
     });
 
-    it("leaves the list up for a row that starts something rather than settling it", async () => {
+    it("keeps the list open after picking a keepsListOpen row", async () => {
         renderField([ choice("search", { keepsListOpen: true }) ]);
         await type("c");
 
@@ -152,7 +156,7 @@ describe("FormEntryAutocomplete", () => {
         expect(rows()).toHaveLength(1);
     });
 
-    it("takes no pick from a row that only reports", async () => {
+    it("ignores a pick of an inert row", async () => {
         renderField([ choice("status", { inert: true }) ]);
         await type("c");
 
@@ -162,7 +166,7 @@ describe("FormEntryAutocomplete", () => {
         expect(rows()[0].querySelector(".form-autocomplete-entry-inert")).not.toBeNull();
     });
 
-    it("puts the rows back when the field is come back to, and on Enter where Enter opens the list", async () => {
+    it("lists the rows again on focus, and on Enter with openOnEnter", async () => {
         renderField([ choice("a") ], { openOnEnter: true });
         await type("c");
         await click(0);
@@ -173,14 +177,32 @@ describe("FormEntryAutocomplete", () => {
         await click(0);
         expect(rows()).toEqual([]);
 
-        // Coming back to the field is asking for what it was offering, no key being pressed.
+        // Focus alone lists the rows again.
         await act(async () => { field().blur(); });
         await act(async () => { field().focus(); });
         await settle();
         expect(rows()).toHaveLength(1);
     });
 
-    it("leaves Enter alone where the list is not opened by it", async () => {
+    it("picks from the rows on display when an older lookup resolves last", async () => {
+        const pending = new Map<string, (rows: AutocompleteEntry[]) => void>();
+        renderField((query) => new Promise((resolve) => pending.set(query, resolve)));
+
+        await type("a");
+        await type("ab");
+        await act(async () => { pending.get("ab")?.([ choice("ab-row") ]); });
+        await settle();
+        await act(async () => { pending.get("a")?.([ choice("a-row") ]); });
+        await settle();
+
+        expect(rows().map((row) => row.textContent)).toEqual([ "ab-row" ]);
+        await click(0);
+        expect(picked).toEqual([
+            { entry: { key: "ab-row", label: "ab-row" }, offered: [ "ab-row" ] }
+        ]);
+    });
+
+    it("leaves Enter to the form without openOnEnter", async () => {
         renderField([ choice("a") ]);
         await type("c");
         await click(0);

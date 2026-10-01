@@ -52,7 +52,7 @@ interface SearchBoxProps {
     onPickResult(picked: { results: SearchResult[]; index: number } | null): void;
 }
 
-/** One row of the result list, drawn by `FormEntryAutocomplete` from what it carries. */
+/** One row of the result list, as `FormEntryAutocomplete` renders it. */
 type SearchEntry = AutocompleteEntry & {
     /** How far the place is from the middle of the map, in metres. */
     distance?: number;
@@ -70,7 +70,7 @@ type SearchEntry = AutocompleteEntry & {
      * typed rather than something found for them.
      */
     | { kind: "point"; center: [number, number]; result: GeoSearchResult }
-    /** Names the run of rows below it; not a choice. */
+    /** A header for the rows below it, which cannot be picked. */
     | { kind: "heading" }
     /** Runs the geocoder for `query`. */
     | { kind: "geocode"; query: string }
@@ -101,9 +101,9 @@ interface GeocodeRun {
  * Enter takes it — `autoActivate`, as the attribute pickers use it. From a field holding nothing but
  * a name, that is: Enter, which runs the geocoder, and Enter again, which takes what it found.
  *
- * `FormEntryAutocomplete` handles the debounce, the stale-response guard, keyboard navigation, a
- * dropdown portalled out of the map's scrolling container, and standing the list down once a row has
- * been taken — the geocoder row saying it starts something rather than settling it (`keepsListOpen`).
+ * `FormEntryAutocomplete` handles the debounce, stale responses, keyboard navigation, a dropdown
+ * portalled out of the map's scrolling container, and emptying the list after a pick. The geocoder
+ * row sets `keepsListOpen`, since picking it runs a search.
  */
 export default function SearchBox({ notes, onPickResult }: SearchBoxProps) {
     const map = useContext(ParentMap);
@@ -421,7 +421,7 @@ function pointEntry(query: string): SearchEntry | null {
     };
 }
 
-/** Two lines: what the place is called, and under it the address that places it. */
+/** The place's name, with its address as the detail line. */
 function placeEntry(result: GeoSearchResult): SearchEntry {
     return {
         kind: "place",
