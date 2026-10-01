@@ -84,6 +84,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        flex: none;
         width: 25px;
         height: 25px;
         margin-inline-end: 8px;
