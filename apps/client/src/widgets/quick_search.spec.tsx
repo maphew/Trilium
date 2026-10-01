@@ -57,6 +57,8 @@ describe("QuickSearch", () => {
             notePath: "root/note0",
             viewScope: { searchTerms: [ "hello" ] }
         }));
+        // The row already shows the note's path and snippets, so the hover preview stays away.
+        expect(first.classList.contains("no-tooltip-preview")).toBe(true);
         expect(first.querySelector(".quick-search-item-icon")?.classList.contains("bx-note")).toBe(true);
         expect(first.querySelector(".search-result-title")?.innerHTML).toBe("<b>Note</b> 0");
         expect(first.querySelector(".search-result-attributes")?.innerHTML).toBe("#year=1954 #author=tolkien");

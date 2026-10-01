@@ -190,7 +190,7 @@ function QuickSearchResult({ result, viewScope, onOpen }: {
 }) {
     return (
         <a
-            className="dropdown-item"
+            className="dropdown-item no-tooltip-preview"
             tabIndex={0}
             href={calculateHash({ notePath: result.notePath, viewScope })}
             onClick={onOpen}
