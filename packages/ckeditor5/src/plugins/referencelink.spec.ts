@@ -242,8 +242,10 @@ describe("ReferenceLink", () => {
 
     it("redraws the links to a renamed attachment without changing the document", () => {
         const href = "#root/owner?viewMode=attachments&attachmentId=renamed";
-        const htmlHref = href.replace("&", "&amp;");
-        editor.setData(`<p><a class="reference-link" href="${htmlHref}">a</a></p>`);
+        editor.setData(
+            "<p><a class=\"reference-link\" "
+            + "href=\"#root/owner?viewMode=attachments&amp;attachmentId=renamed\">a</a></p>"
+        );
         const before = getModelData(editor.model);
         loadReferenceLinkTitle.mockClear();
 
