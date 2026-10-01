@@ -79,7 +79,9 @@ describe("QuickSearch", () => {
     });
 
     it("links to the plain note path when the search highlighted nothing", async () => {
-        vi.spyOn(server, "get").mockResolvedValue(response(1, []));
+        const plain = response(1, []);
+        delete plain.searchResults[0].highlightedNotePathTitle;
+        vi.spyOn(server, "get").mockResolvedValue(plain);
         const { editor } = await mount();
 
         typeQuery(editor, "#book");
@@ -87,6 +89,8 @@ describe("QuickSearch", () => {
 
         const [ first ] = await waitForResults(1);
         expect(first.getAttribute("href")).toBe(calculateHash({ notePath: "root/note0" }));
+        // Nor its title, which then shows as it stands.
+        expect(first.querySelector(".search-result-title")?.innerHTML).toBe("Note 0");
     });
 
     it("shows progress while searching, then says when nothing matches", async () => {
@@ -202,6 +206,11 @@ describe("QuickSearch", () => {
             target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
         });
         first.focus();
+        // A key the results do not answer stays where it was pressed.
+        expect(first.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true, cancelable: true })))
+            .toBe(true);
+        expect(document.activeElement).toBe(first);
+
         press(first, "ArrowDown");
         expect(document.activeElement).toBe(second);
         press(second, "ArrowUp");
@@ -322,6 +331,11 @@ describe("QuickSearch", () => {
         pressKey(editor.contentDOM, "Escape");
         await vi.waitFor(() => expect(menu()).toBeNull());
         expect(editor.hasFocus).toBe(true);
+
+        // With the results closed, Escape is left to whatever the field sits in.
+        expect(editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", {
+            key: "Escape", bubbles: true, cancelable: true
+        }))).toBe(true);
     });
 
     it("leaves ArrowDown to the field while the results are closed or hold nothing to focus", async () => {
