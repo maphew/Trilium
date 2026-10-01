@@ -12,7 +12,6 @@ import utils, { isElectron, isMobile, isStandalone, reloadFrontendApp } from "..
 import Dropdown from "../react/Dropdown";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListHeader, FormListItem } from "../react/FormList";
 import { useStaticTooltip, useStaticTooltipWithKeyboardShortcut, useTriliumOption, useTriliumOptionBool } from "../react/hooks";
-import KeyboardShortcut from "../react/KeyboardShortcut";
 import { ParentComponent } from "../react/react_utils";
 
 interface MenuItemProps<T> {
@@ -23,6 +22,7 @@ interface MenuItemProps<T> {
     disabled?: boolean
     active?: boolean;
     outsideChildren?: ComponentChildren;
+    keyboardShortcut?: KeyboardActionNames;
 }
 
 export default function GlobalMenu({ isHorizontalLayout }: { isHorizontalLayout: boolean }) {
@@ -145,23 +145,20 @@ function SwitchToOptions() {
 
 }
 
-function MenuItem({ icon, text, title, command, disabled, active }: MenuItemProps<KeyboardActionNames | CommandNames | (() => void)>) {
+function MenuItem({ icon, text, title, command, disabled, active, keyboardShortcut }: MenuItemProps<KeyboardActionNames | CommandNames | (() => void)>) {
     const parentComponent = useContext(ParentComponent);
     return <FormListItem
         icon={icon}
         title={title}
+        keyboardShortcut={keyboardShortcut}
         onClick={typeof command === "function" ? command : () => void parentComponent?.triggerCommand(command)}
         disabled={disabled}
         active={active}
     >{text}</FormListItem>;
 }
 
-function KeyboardActionMenuItem({ text, command, ...props }: MenuItemProps<KeyboardActionNames>) {
-    return <MenuItem
-        {...props}
-        command={command}
-        text={<>{text} <KeyboardShortcut actionName={command as KeyboardActionNames} /></>}
-    />;
+function KeyboardActionMenuItem({ command, ...props }: MenuItemProps<KeyboardActionNames>) {
+    return <MenuItem {...props} command={command} keyboardShortcut={command} />;
 }
 
 export function VerticalLayoutIcon({ logoRef }: { logoRef?: RefObject<SVGSVGElement> }) {

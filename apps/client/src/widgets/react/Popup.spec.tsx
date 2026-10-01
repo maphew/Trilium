@@ -97,6 +97,28 @@ describe("Popup", () => {
         expect(tall.style.maxHeight).toBe(`${800 - 330 - 5}px`);
     });
 
+    it("keeps clear of the screen's safe areas, such as a notch or a gesture bar", async () => {
+        // The insets a device reports, as the probe reads them from the stylesheet.
+        const measure = window.getComputedStyle.bind(window);
+        vi.spyOn(window, "getComputedStyle").mockImplementation((element, pseudo) => {
+            if (!element.classList.contains("tn-safe-area-probe")) return measure(element, pseudo);
+            const insets = { paddingTop: "20px", paddingRight: "0px", paddingBottom: "30px", paddingLeft: "0px" };
+            return insets as CSSStyleDeclaration;
+        });
+        vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(1000);
+
+        // Below the anchor, short of the bottom inset as well as the gap from the edge.
+        anchorAt(100, 300);
+        const below = await open();
+        expect(below.style.maxHeight).toBe(`${800 - 330 - 5 - 30}px`);
+        render(null, host);
+
+        // Above it, short of the top inset.
+        anchorAt(100, 740);
+        const above = await open();
+        expect(above.style.maxHeight).toBe(`${740 - 5 - 20}px`);
+    });
+
     it("grows past the viewport without its height cap, stands in a wrapper it is given, and says when it is placed", async () => {
         vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(1000);
         anchorAt(100, 300);

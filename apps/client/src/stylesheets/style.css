@@ -2150,6 +2150,19 @@ body.desktop .dropdown-submenu > .dropdown-menu {
         background-color: var(--launcher-pane-background-color);
     }
 
+    /* `column-reverse` puts `#mobile-bottom-bar` at the top, so the panes clear the navigation bar
+       instead. The open keyboard covers the navigation bar, as in phone mode. */
+    body.mobile #mobile-bottom-bar {
+        padding-bottom: 0;
+    }
+
+    body.mobile #root-widget:not(.virtual-keyboard-opened) {
+        #mobile-rest-container > #mobile-sidebar-wrapper,
+        #detail-container {
+            padding-bottom: var(--mobile-bottom-offset);
+        }
+    }
+
     #mobile-sidebar-wrapper {
         transform: none !important;
         background-color: var(--left-pane-background-color) !important;

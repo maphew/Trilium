@@ -600,6 +600,8 @@ function actsOnClick(target: EventTarget | null, row: HTMLElement) {
  * literal `shortcut`. Read synchronously, so the menu is placed at its final width.
  */
 function FormListShortcut({ keyboardShortcut, shortcut }: Pick<FormListItemOpts, "keyboardShortcut" | "shortcut">) {
+    // A phone has no keyboard to press them on.
+    if (isMobile()) return null;
     if (keyboardShortcut) {
         const shortcuts = getActionSync(keyboardShortcut)?.effectiveShortcuts;
         if (!shortcuts?.length) return null;

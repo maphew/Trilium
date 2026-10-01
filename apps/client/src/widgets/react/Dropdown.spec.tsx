@@ -9,7 +9,11 @@ import { FormDropdownSubmenu, FormListItem } from "./FormList";
 const focusTraps = vi.hoisted(() => ({ suspend: vi.fn(() => () => {}) }));
 vi.mock("./modal_focustrap", () => ({ suspendModalFocusTraps: focusTraps.suspend }));
 
-const layout = vi.hoisted(() => ({ onMobile: false }));
+const layout = vi.hoisted(() => ({
+    onMobile: false,
+    narrow: true,
+    onChange: new Set<() => void>()
+}));
 vi.mock("../../services/utils", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../services/utils")>()),
     isMobile: () => layout.onMobile
@@ -24,12 +28,23 @@ describe("Dropdown", () => {
         vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
         vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(200);
         vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+        // A phone's width unless a spec says otherwise; happy-dom's window is 1024px wide.
+        vi.spyOn(window, "matchMedia").mockImplementation((media) => ({
+            matches: layout.narrow,
+            media,
+            addEventListener: (_: string, listener: () => void) => layout.onChange.add(listener),
+            removeEventListener: (_: string, listener: () => void) => {
+                layout.onChange.delete(listener);
+            }
+        }) as unknown as MediaQueryList);
     });
 
     afterEach(() => {
         render(null, host);
         vi.restoreAllMocks();
         layout.onMobile = false;
+        layout.narrow = true;
+        layout.onChange.clear();
     });
 
     /** Renders a `Dropdown`, or a `DropdownPanel` for `panel`. */
@@ -398,6 +413,43 @@ describe("Dropdown", () => {
             await vi.waitFor(() => expect(popup()).toBeNull());
             expect(cover.classList.contains("show")).toBe(false);
             cover.remove();
+        });
+
+        it("opens beside its toggle, capped, on a tablet's wider mobile layout", async () => {
+            layout.onMobile = true;
+            layout.narrow = false;
+            const cover = addCover();
+            const { toggle } = renderDropdown({ mobileBottomSheet: true });
+
+            click(toggle);
+            await vi.waitFor(() => expect(popup()?.style.visibility).toBe("visible"));
+            expect(popup()?.classList.contains("mobile-bottom-menu")).toBe(false);
+            expect(popup()?.style.top).toBe("82px");
+            expect(popup()?.style.maxHeight).not.toBe("");
+            expect([ ...cover.classList ]).toEqual([ "show", "global-menu-cover" ]);
+            cover.remove();
+        });
+
+        it("turns into a placed menu and back as a tablet turns while it is open", async () => {
+            layout.onMobile = true;
+            const turn = (narrow: boolean) => {
+                layout.narrow = narrow;
+                for (const listener of layout.onChange) listener();
+            };
+            const { toggle } = renderDropdown({ mobileBottomSheet: true });
+            click(toggle);
+            await vi.waitFor(() => expect(popup()?.classList).toContain("mobile-bottom-menu"));
+
+            turn(false);
+            await vi.waitFor(() => expect(popup()?.style.top).toBe("82px"));
+            expect(popup()?.classList.contains("mobile-bottom-menu")).toBe(false);
+            expect(popup()?.style.maxHeight).not.toBe("");
+
+            // Back to the sheet, with nothing inline left for its rules to contend with.
+            turn(true);
+            await vi.waitFor(() => expect(popup()?.classList).toContain("mobile-bottom-menu"));
+            const { left, top, maxHeight } = popup()?.style ?? {};
+            expect([ left, top, maxHeight ]).toEqual([ "", "", "" ]);
         });
 
         it("is an ordinary menu beside its toggle on a desktop, with no cover", async () => {

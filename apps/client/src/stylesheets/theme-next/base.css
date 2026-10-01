@@ -431,9 +431,22 @@ body.mobile #context-menu-cover {
     }
 }
 
-body.mobile .dropdown-menu.mobile-bottom-menu,
-body.mobile .tn-dropdown-portal.global-menu .dropdown-menu {
+body.mobile .dropdown-menu.mobile-bottom-menu {
     border-radius: var(--dropdown-border-radius) var(--dropdown-border-radius) 0 0;
+}
+
+/* Pinned to the bottom like a sheet only in the phone layout; see style.css. */
+@media (max-width: 991px) {
+    body.mobile .tn-dropdown-portal.global-menu .dropdown-menu {
+        border-radius: var(--dropdown-border-radius) var(--dropdown-border-radius) 0 0;
+    }
+}
+
+/* Beside its toggle in a tablet's wider mobile layout, wide enough for its rows to be tapped. */
+@media (min-width: 992px) {
+    body.mobile .tn-popup.tn-menu {
+        min-width: 260px;
+    }
 }
 
 body.mobile .dropdown-menu {

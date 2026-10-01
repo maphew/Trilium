@@ -97,10 +97,13 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
     const anchorX = "x" in anchor ? anchor.x : undefined;
     const anchorY = "y" in anchor ? anchor.y : undefined;
 
+    const stylesheetPlaces = useRef(placedByStylesheet);
+    stylesheetPlaces.current = placedByStylesheet;
     useLayoutEffect(() => {
         const popup = popupRef.current;
         if (!popup) return;
         if (placedByStylesheet) {
+            clearPlacement(popup);
             popup.style.visibility = "visible";
             reportPlaced();
             return;
@@ -112,6 +115,8 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
         const options = { placement, offset: gap, capHeight, shiftAcross: !(anchor instanceof HTMLElement) };
         const stopUpdating = autoUpdate(reference, popup, () => void placeFloating(popup, reference, options).then(() => {
             if (!closed) reportPlaced();
+            // Resolved after the stylesheet took over, so what it wrote goes again.
+            else if (stylesheetPlaces.current) clearPlacement(popup);
         }));
         return () => {
             closed = true;
@@ -193,6 +198,13 @@ function swallowStrayClick(pressed: Node) {
     window.addEventListener("pointerdown", stop, true);
 }
 
+/** Removes what `placeFloating()` wrote on `popup`, so the stylesheet places it. */
+function clearPlacement(popup: HTMLElement) {
+    popup.style.removeProperty("left");
+    popup.style.removeProperty("top");
+    popup.style.removeProperty("max-height");
+}
+
 /** A popup, as the one it opened inside knows it. */
 interface Layer {
     /** Whether `target` is in the popup or in a popup opened inside it. */
@@ -237,16 +249,17 @@ export interface FloatingPlacement {
  * Resolves to the placement Floating UI chose.
  */
 export async function placeFloating(element: HTMLElement, anchor: ReferenceElement, { placement, offset: gap, shiftAcross, capHeight, hideWithAnchor, arrow: pointer }: FloatingPlacement) {
+    const padding = viewportPadding();
     const { x, y, placement: placed, middlewareData } = await computePosition(anchor, element, {
         strategy: "fixed",
         placement,
         middleware: [
             gap !== undefined && offset(gap),
-            flip({ fallbackPlacements: mirroredPlacements(placement), padding: VIEWPORT_PADDING }),
-            shift({ crossAxis: !!shiftAcross, padding: VIEWPORT_PADDING }),
+            flip({ fallbackPlacements: mirroredPlacements(placement), padding }),
+            shift({ crossAxis: !!shiftAcross, padding }),
             pointer && arrow({ element: pointer.element, padding: pointer.padding }),
             capHeight && size({
-                padding: VIEWPORT_PADDING,
+                padding,
                 apply({ availableHeight }) {
                     element.style.maxHeight = `${availableHeight}px`;
                 }
@@ -265,6 +278,28 @@ export async function placeFloating(element: HTMLElement, anchor: ReferenceEleme
         pointer.element.style.top = arrowY !== undefined ? `${arrowY}px` : "";
     }
     return placed;
+}
+
+/**
+ * How far a popup keeps from each edge of the viewport: `VIEWPORT_PADDING` past the safe-area
+ * inset there, such as a notch or a gesture bar.
+ */
+function viewportPadding() {
+    // An element whose padding is the insets (see Popup.css), as script cannot read `env()`. It
+    // is in the page only while it is measured.
+    const probe = document.createElement("div");
+    probe.className = "tn-safe-area-probe";
+    document.body.append(probe);
+    const style = getComputedStyle(probe);
+    const past = (inset: string) => VIEWPORT_PADDING + (parseFloat(inset) || 0);
+    const padding = {
+        top: past(style.paddingTop),
+        right: past(style.paddingRight),
+        bottom: past(style.paddingBottom),
+        left: past(style.paddingLeft)
+    };
+    probe.remove();
+    return padding;
 }
 
 const OPPOSITE_SIDES = { top: "bottom", bottom: "top", left: "right", right: "left" } as const;

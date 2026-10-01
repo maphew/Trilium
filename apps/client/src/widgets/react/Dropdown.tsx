@@ -5,7 +5,7 @@ import { ComponentChildren, HTMLAttributes } from "preact";
 import { CSSProperties, HTMLProps } from "preact/compat";
 import { MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import { isMobile } from "../../services/utils";
+import { isMobile, isNarrowLayout, onNarrowLayoutChange } from "../../services/utils";
 import { focusListItem } from "./FormList";
 import { useTooltip, useUniqueName } from "./hooks";
 import { suspendModalFocusTraps } from "./modal_focustrap";
@@ -47,7 +47,8 @@ export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "c
     mobileBackdrop?: boolean;
     /**
      * On a phone, shows the popup as a sheet rising from the bottom of the screen over a dimmed
-     * page, the way the app's other mobile menus appear. No effect on a desktop layout.
+     * page, the way the app's other mobile menus appear. On a tablet's wider mobile layout, the
+     * popup opens beside its toggle over the dimmed page instead. No effect on a desktop layout.
      */
     mobileBottomSheet?: boolean;
     /**
@@ -158,9 +159,16 @@ function DropdownToggle({ id, className, buttonClassName, title, text, dropdownC
     popup(slot: PopupSlot): ComponentChildren;
 }) {
     // The sheet is placed by the app's own rule and dims what is behind it, so it is asked for as
-    // one thing and unpacked here.
-    const bottomSheet = !!mobileBottomSheet && isMobile();
-    const mobileBackdrop = (!!mobileBackdropProp || bottomSheet) && isMobile();
+    // one thing and unpacked here. It follows the layout, as a tablet can turn while it is open.
+    const followsLayout = !!mobileBottomSheet && isMobile();
+    const [ narrow, setNarrow ] = useState(isNarrowLayout);
+    useEffect(() => {
+        if (!followsLayout) return;
+        setNarrow(isNarrowLayout());
+        return onNarrowLayoutChange(() => setNarrow(isNarrowLayout()));
+    }, [ followsLayout ]);
+    const bottomSheet = followsLayout && narrow;
+    const mobileBackdrop = (!!mobileBackdropProp || !!mobileBottomSheet) && isMobile();
     const containerRef = useRef<HTMLDivElement | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
     const popupRef = useRef<HTMLDivElement | null>(null);

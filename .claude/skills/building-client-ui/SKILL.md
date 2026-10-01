@@ -70,7 +70,7 @@ Buttons and links:
 
 - `Button` — the general button (also carries the tooltip for a *disabled* control via a wrapper, since a disabled `<button>` emits no pointer events). `ActionButton` — icon button with consistent styling. `SplitButton` — a button with its related actions in a `Dropdown` menu on a toggle beside it; its rows are `FormListItem`s.
 - `HelpButton`, `HelpTooltipButton`, `HelpDropdown` — open in-app help pages; don't invent a new "?" affordance.
-- `KeyboardShortcut` — renders a shortcut as keycaps.
+- A menu row's shortcut is `FormListItem`'s `keyboardShortcut` (an action's configured keys) or `shortcut` (literal text); never put keycaps into its label by hand.
 
 **Never hand-roll `<a className="tn-link">`.** Which link component to reach for depends on what the link *is*:
 

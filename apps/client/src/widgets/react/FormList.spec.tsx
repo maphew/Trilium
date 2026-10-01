@@ -7,9 +7,14 @@ vi.mock("bootstrap", () => ({
 }));
 
 const help = vi.hoisted(() => ({ open: vi.fn() }));
+const layout = vi.hoisted(() => ({ onMobile: false }));
 vi.mock("../../services/utils", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../services/utils")>()),
+    isMobile: () => layout.onMobile,
     openInAppHelpFromUrl: help.open
+}));
+vi.mock("../../services/keyboard_actions", () => ({
+    getActionSync: () => ({ effectiveShortcuts: [ "CommandOrControl+Q" ] })
 }));
 
 import FormList, { focusListItem, FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem, FormListToggleableItem } from "./FormList";
@@ -76,6 +81,29 @@ describe("FormListItem", () => {
             "span.bx bx-sort tn-icon", "span.tn-menu-gap", "kbd.", "span.bx bx-check tn-icon menu-trailing-icon"
         ]);
         expect(span?.textContent).toBe("By titleCtrl+S");
+    });
+
+    it("shows no shortcuts on a phone, which has no keyboard to press them on", () => {
+        const host = document.createElement("div");
+        const rows = () => render((
+            <menu>
+                <FormListItem shortcut="Ctrl+S">Save</FormListItem>
+                <FormListItem keyboardShortcut="copyNotesToClipboard">Copy</FormListItem>
+            </menu>
+        ), host);
+        rows();
+        expect(host.querySelectorAll("kbd").length).toBeGreaterThan(1);
+        expect(host.querySelector(".keyboard-shortcut")).not.toBeNull();
+
+        layout.onMobile = true;
+        try {
+            rows();
+            expect(host.querySelector("kbd")).toBeNull();
+            expect(host.querySelector(".keyboard-shortcut")).toBeNull();
+            expect(host.textContent).toBe("SaveCopy");
+        } finally {
+            layout.onMobile = false;
+        }
     });
 });
 
