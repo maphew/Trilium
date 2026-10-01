@@ -88,7 +88,7 @@ The following features are supported by Trilium's Markdown format and will show 
     
     ```
     ==highlighted==
-    <span style="background-color:light-dark(#e8e4bd,#494917);">Highlighted</span>
+    <span style="background-color:light-dark(#e8e4bd,#494917);--tn-background:#e5e64d;">Highlighted</span>
     ```
 
 ### Links

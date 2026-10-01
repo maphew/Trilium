@@ -1,4 +1,4 @@
-import { HIGHLIGHT_BACKGROUND, trimIndentation } from "@triliumnext/commons";
+import { HIGHLIGHT_BACKGROUND, HIGHLIGHT_SOURCE, HIGHLIGHT_STYLE, trimIndentation } from "@triliumnext/commons";
 import { describe, expect,it } from "vitest";
 
 import markdownExportService, { DEFAULT_ADMONITION_TYPE } from "./markdown.js";
@@ -860,6 +860,20 @@ describe("Markdown export", () => {
             // Another adaptive pair keeps its colour.
             const red = `<span style="background-color:light-dark(#ffdad6,#713531)">red</span>`;
             expect(markdownExportService.toMarkdown(`<p>${red}</p>`)).toBe(red);
+        });
+
+        it("recognises the yellow highlight by its colour as picked, whatever the theme made of it", () => {
+            expect(markdownExportService.toMarkdown(`<p><span style="${HIGHLIGHT_STYLE}">a</span></p>`))
+                .toBe("==a==");
+
+            // A theme with other limits stores another pair for the same yellow.
+            const themed = `<span style="--tn-background:${HIGHLIGHT_SOURCE};`
+                + "background-color:light-dark(#fffbd0,#333300);\">b</span>";
+            expect(markdownExportService.toMarkdown(`<p>${themed}</p>`)).toBe("==b==");
+
+            // Another colour as picked keeps its colour, even with the default yellow's pair.
+            const other = `<span style="--tn-background:#e64d4d;background-color:${HIGHLIGHT_BACKGROUND}">c</span>`;
+            expect(markdownExportService.toMarkdown(`<p>${other}</p>`)).toBe(other);
         });
 
         it("keeps any other colour as inline HTML rather than repainting it yellow", () => {

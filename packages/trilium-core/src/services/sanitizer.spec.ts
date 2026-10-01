@@ -85,6 +85,18 @@ describe("sanitize", () => {
             .toBe("<span>x</span>");
     });
 
+    it("keeps the color as picked that comes with an adaptive color", () => {
+        const style = "--tn-color:#e64d4d;color:light-dark(#b81e2c,#ff9f96);"
+            + "--tn-background:#e5e64d;background-color:light-dark(#e8e4bd,#494917)";
+        const dirty = `<p><span style="${style}">x</span></p>`
+            + `<table><tbody><tr><td style="--tn-background:#e64d4d">c</td></tr></tbody></table>`;
+        expect(sanitizeHtml(dirty)).toBe(dirty);
+
+        // Only a hex color passes, and only under these two names.
+        expect(sanitizeHtml(`<span style="--tn-color:url(x)">x</span>`)).toBe("<span>x</span>");
+        expect(sanitizeHtml(`<span style="--tn-other:#e64d4d">x</span>`)).toBe("<span>x</span>");
+    });
+
     it("keeps light-dark() table and cell border colors", () => {
         const pair = "light-dark(#000000,#6f6f6f)";
         const dirty = `<table style="border-color:${pair}"><tbody><tr>`

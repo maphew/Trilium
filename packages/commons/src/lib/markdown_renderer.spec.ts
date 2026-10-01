@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CustomMarkdownRenderer, demoteHeadings, extractCodeBlocks, renderToHtml } from "./markdown_renderer.js";
-import { HIGHLIGHT_BACKGROUND } from "./marked_extensions.js";
+import { HIGHLIGHT_STYLE } from "./marked_extensions.js";
 import { DEFAULT_TASK_STATES, DONE_TASK_STATE, NONE_TASK_STATE, type TaskStateDef } from "./task_states.js";
 
 /** Identity sanitizer so we can assert the raw rendered HTML. */
@@ -631,7 +631,7 @@ describe("renderToHtml", () => {
     });
 
     describe("highlights (==text==)", () => {
-        const HL = `<span style="background-color:${HIGHLIGHT_BACKGROUND};">`;
+        const HL = `<span style="${HIGHLIGHT_STYLE}">`;
 
         it("renders ==text== as a background-coloured span without any flag", () => {
             expect(render("==hi==")).toBe(`<p>${HL}hi</span></p>`);

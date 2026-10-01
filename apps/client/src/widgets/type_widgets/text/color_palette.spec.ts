@@ -1,7 +1,9 @@
 import {
-    adaptColor,
     DEFAULT_ADAPTIVE_COLOR_BANDS as DEFAULTS,
-    HIGHLIGHT_BACKGROUND
+    HIGHLIGHT_BACKGROUND,
+    HIGHLIGHT_SOURCE,
+    splitAdaptiveColorValue,
+    toAdaptiveColorValue
 } from "@triliumnext/commons";
 import { describe, expect, it, vi } from "vitest";
 
@@ -25,16 +27,16 @@ describe("buildFontColorConfig", () => {
         }
     });
 
-    it("stores each swatch as the pair for its role, without spaces", () => {
+    it("stores each swatch as its role's pair and the color as picked, without spaces", () => {
         const { fontColor, fontBackgroundColor } = buildFontColorConfig(DEFAULTS);
         expect(fontColor.colors.map(({ color }) => color))
-            .toEqual(SOURCES.map((color) => adaptColor(color, "text")));
+            .toEqual(SOURCES.map((color) => toAdaptiveColorValue(color, "text")));
         expect(fontBackgroundColor.colors.map(({ color }) => color))
-            .toEqual(SOURCES.map((color) => adaptColor(color, "background")));
+            .toEqual(SOURCES.map((color) => toAdaptiveColorValue(color, "background")));
 
         // CKEditor strips spaces from a color when a note loads, and matches swatches exactly.
         for (const { color } of [ ...fontColor.colors, ...fontBackgroundColor.colors ]) {
-            expect(color).toMatch(/^light-dark\(#[0-9a-f]{6},#[0-9a-f]{6}\)$/);
+            expect(color).toMatch(/^light-dark\(#[0-9a-f]{6},#[0-9a-f]{6}\)\/\*#[0-9a-f]{6}\*\/$/);
         }
     });
 
@@ -48,13 +50,15 @@ describe("buildFontColorConfig", () => {
         };
         const { colors } = buildFontColorConfig(bands).fontBackgroundColor;
         expect(colors.map(({ color }) => color))
-            .toEqual(SOURCES.map((color) => adaptColor(color, "background", bands)));
-        expect(colors[4].color).not.toBe(adaptColor(SOURCES[4], "background"));
+            .toEqual(SOURCES.map((color) => toAdaptiveColorValue(color, "background", bands)));
+        expect(colors[4].color).not.toBe(toAdaptiveColorValue(SOURCES[4], "background"));
     });
 
     it("matches the Markdown highlight's yellow with the default limits", () => {
         const { colors } = buildFontColorConfig(DEFAULTS).fontBackgroundColor;
-        expect(colors.find(({ label }) => label === "Yellow")?.color).toBe(HIGHLIGHT_BACKGROUND);
+        const yellow = colors.find(({ label }) => label === "Yellow")?.color ?? "";
+        expect(splitAdaptiveColorValue(yellow))
+            .toEqual({ color: HIGHLIGHT_BACKGROUND, source: HIGHLIGHT_SOURCE });
     });
 });
 

@@ -73,6 +73,9 @@ export function sanitizeHtml(dirtyHtml: string) {
             "*": {
                 color: [ ...colorRegex, adaptiveColorRegex ],
                 "background-color": [ ...colorRegex, adaptiveColorRegex ],
+                // The color as picked behind an adaptive color, for browsers without light-dark().
+                "--tn-color": [ /^#[0-9a-f]{6}$/i ],
+                "--tn-background": [ /^#[0-9a-f]{6}$/i ],
                 "margin-left": sizeRegex,
                 "padding-left": sizeRegex,
                 "text-align": [/^\s*(left|center|right|justify)\s*$/],

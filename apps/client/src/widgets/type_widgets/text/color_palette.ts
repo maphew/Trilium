@@ -1,11 +1,16 @@
-import { adaptColor, type AdaptiveColorBands, type AdaptiveColorRole } from "@triliumnext/commons";
+import {
+    type AdaptiveColorBands,
+    type AdaptiveColorRole,
+    toAdaptiveColorValue
+} from "@triliumnext/commons";
 
 import { t } from "../../../services/i18n.js";
 import { DEFAULT_COLOR_PALETTE } from "../../react/ColorPicker.js";
 
 /**
  * The swatches of the Font Color and Font Background Color dropdowns: four greys, then the hues of
- * the note color palette, each turned into a light and dark theme pair with the theme's `bands`.
+ * the note color palette, each turned into a light and dark theme pair with the theme's `bands`,
+ * with the color as picked kept (see `toAdaptiveColorValue`).
  */
 export function buildFontColorConfig(bands: AdaptiveColorBands) {
     return {
@@ -42,7 +47,7 @@ const HUE_LABELS = [
 function buildAdaptedSwatches(role: AdaptiveColorRole, bands: AdaptiveColorBands) {
     return buildSwatches().map((swatch) => ({
         ...swatch,
-        color: adaptColor(swatch.color, role, bands)
+        color: toAdaptiveColorValue(swatch.color, role, bands)
     }));
 }
 

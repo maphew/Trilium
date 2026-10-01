@@ -69,6 +69,8 @@ Colors adapt to the [theme](../../Basic%20Concepts%20and%20Features/Themes.md). 
 
 Colors applied with older versions of Trilium are kept exactly as they are, until a new color is applied to that text.
 
+Browsers too old to show the two shades, such as the mobile app on iOS versions before 17.5, show the color exactly as it was picked instead.
+
 To remove either the background or foreground color of a text, select the corresponding formatting button and press _Remove color_ or use the _Remove formatting_ toolbar item.
 
 ## Remove formatting

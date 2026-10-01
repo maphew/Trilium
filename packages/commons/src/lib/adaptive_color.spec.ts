@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { adaptColor, DEFAULT_ADAPTIVE_COLOR_BANDS } from "./adaptive_color.js";
+import {
+    adaptColor,
+    DEFAULT_ADAPTIVE_COLOR_BANDS,
+    joinAdaptiveColorValue,
+    splitAdaptiveColorValue,
+    toAdaptiveColorValue
+} from "./adaptive_color.js";
 
 const HUES = [
     "#e64d4d", "#e6994d", "#e5e64d", "#99e64d", "#4de64d", "#4de699",
@@ -98,6 +104,29 @@ describe("adaptColor", () => {
         expect(fromPicker).toMatch(/^light-dark\(#[0-9a-f]{6},#[0-9a-f]{6}\)$/);
         expect(adaptColor("hsl(210,75%,60%)", "background")).toBe(fromPicker);
         expect(adaptColor("hsl(210deg 75% 60%)", "background")).toBe(fromPicker);
+    });
+
+    it("builds the editor's value from the pair and the color as picked, in hex", () => {
+        const value = toAdaptiveColorValue("#E64D4D", "text");
+        expect(value).toBe("light-dark(#b81e2c,#ff9f96)/*#e64d4d*/");
+        expect(toAdaptiveColorValue("rgb(230, 77, 77)", "text")).toBe(value);
+        expect(toAdaptiveColorValue("hsl(0, 75%, 60%)", "text")).toMatch(/\/\*#[0-9a-f]{6}\*\/$/);
+        expect(splitAdaptiveColorValue(value))
+            .toEqual({ color: "light-dark(#b81e2c,#ff9f96)", source: "#e64d4d" });
+
+        // A value that is already built, a plain pair and a color that cannot be adapted stay.
+        for (const unchanged of [ value, "light-dark(#b81e2c,#ff9f96)", "red" ]) {
+            expect(toAdaptiveColorValue(unchanged, "text")).toBe(unchanged);
+        }
+        expect(splitAdaptiveColorValue("red")).toEqual({ color: "red" });
+    });
+
+    it("joins a loaded pair and color as picked, and ignores anything else", () => {
+        expect(joinAdaptiveColorValue("light-dark(#b81e2c,#ff9f96)", "#E64D4D"))
+            .toBe("light-dark(#b81e2c,#ff9f96)/*#e64d4d*/");
+        expect(joinAdaptiveColorValue("light-dark(#b81e2c,#ff9f96)", "red"))
+            .toBe("light-dark(#b81e2c,#ff9f96)");
+        expect(joinAdaptiveColorValue("#ff0000", "#e64d4d")).toBe("#ff0000");
     });
 
     it("returns pairs, alpha colors and unknown values unchanged", () => {

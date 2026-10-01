@@ -39,6 +39,41 @@ export function adaptColor(
 }
 
 /**
+ * The text editor's value for an adaptive color: the `adaptColor` pair, followed by the color as
+ * picked, in hex, inside a CSS comment. The comment keeps the value a valid CSS color, and the
+ * editor saves the picked color as a `--tn-color` or `--tn-background` property.
+ *
+ * @returns the value, or `color` unchanged if it cannot be adapted.
+ */
+export function toAdaptiveColorValue(
+    color: string,
+    role: AdaptiveColorRole,
+    bands: AdaptiveColorBands = DEFAULT_ADAPTIVE_COLOR_BANDS
+): string {
+    const rgb = parseColor(color.trim());
+    if (!rgb) {
+        return color;
+    }
+
+    return joinAdaptiveColorValue(adaptColor(color, role, bands), toHex(rgb));
+}
+
+/**
+ * Builds the text editor's value from a pair and the color as picked, as read from a saved note.
+ * Anything other than a `light-dark()` pair of hex colors and a hex color returns `pair` alone.
+ */
+export function joinAdaptiveColorValue(pair: string, source: string): string {
+    const isAdaptive = ADAPTIVE_PAIR.test(pair) && /^#[0-9a-f]{6}$/i.test(source);
+    return isAdaptive ? `${pair}/*${source.toLowerCase()}*/` : pair;
+}
+
+/** Splits the text editor's value into the color to show and the color as picked, if any. */
+export function splitAdaptiveColorValue(value: string): { color: string; source?: string } {
+    const match = /^(.+)\/\*(#[0-9a-f]{6})\*\/$/i.exec(value);
+    return match ? { color: match[1], source: match[2] } : { color: value };
+}
+
+/**
  * The limits used where no theme defines them, such as on the server. Against the Next themes'
  * page, they keep text at 4.5:1 or more, also on every background, and borders at 3:1 or more.
  * The client reads the theme's values from the `--adaptive-*` CSS variables in `style.css`.
@@ -67,6 +102,9 @@ type Lab = [number, number, number];
 
 /** Below this CIELAB chroma a color counts as grey. */
 const GREY_CHROMA = 1.5;
+
+/** A pair as `adaptColor` writes it. */
+const ADAPTIVE_PAIR = /^light-dark\(#[0-9a-f]{6},#[0-9a-f]{6}\)$/i;
 
 const D65_WHITE: Lab = [ 0.95047, 1, 1.08883 ];
 const LAB_EPSILON = 216 / 24389;
@@ -174,8 +212,13 @@ function lchToHex(lightness: number, chroma: number, hue: number): string {
         rgb = lchToLinearRgb(lightness, low, hue);
     }
 
+    return toHex(rgb.map((c) => fromLinear(Math.min(1, Math.max(0, c)))) as Rgb);
+}
+
+/** Formats sRGB channels from 0 to 1 as `#rrggbb`. */
+function toHex(rgb: Rgb): string {
     return `#${rgb
-        .map((c) => Math.round(fromLinear(Math.min(1, Math.max(0, c))) * 255))
+        .map((c) => Math.round(Math.min(1, Math.max(0, c)) * 255))
         .map((c) => c.toString(16).padStart(2, "0"))
         .join("")}`;
 }

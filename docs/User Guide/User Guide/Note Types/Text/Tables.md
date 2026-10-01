@@ -177,6 +177,8 @@ Once a color is applied, its field shows the saved value as `light-dark(…)`. T
 
 Colors applied with older versions of Trilium are kept exactly as they are, until a new color is applied.
 
+Browsers too old to show the two shades, such as the mobile app on iOS versions before 17.5, show background colors exactly as they were picked, and borders in their default color.
+
 ## Caption
 
 Press the <span class="tn-icon cke cke-caption"></span> button to insert a caption or a text description of the table, which is going to be displayed above the table.
