@@ -9,7 +9,7 @@ import { FormDropdownSubmenu, FormListItem } from "./FormList";
 const focusTraps = vi.hoisted(() => ({ suspend: vi.fn(() => () => {}) }));
 vi.mock("./modal_focustrap", () => ({ suspendModalFocusTraps: focusTraps.suspend }));
 
-const layout = vi.hoisted(() => ({ onMobile: false }));
+const layout = vi.hoisted(() => ({ onMobile: false, narrow: true }));
 vi.mock("../../services/utils", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../services/utils")>()),
     isMobile: () => layout.onMobile
@@ -24,12 +24,17 @@ describe("Dropdown", () => {
         vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
         vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(200);
         vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+        // A phone's width unless a spec says otherwise; happy-dom's window is 1024px wide.
+        vi.spyOn(window, "matchMedia").mockImplementation((media) => ({
+            matches: layout.narrow, media, addEventListener() {}, removeEventListener() {}
+        }) as unknown as MediaQueryList);
     });
 
     afterEach(() => {
         render(null, host);
         vi.restoreAllMocks();
         layout.onMobile = false;
+        layout.narrow = true;
     });
 
     /** Renders a `Dropdown`, or a `DropdownPanel` for `panel`. */
@@ -397,6 +402,21 @@ describe("Dropdown", () => {
             cover.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
             await vi.waitFor(() => expect(popup()).toBeNull());
             expect(cover.classList.contains("show")).toBe(false);
+            cover.remove();
+        });
+
+        it("opens beside its toggle, capped, on a tablet's wider mobile layout", async () => {
+            layout.onMobile = true;
+            layout.narrow = false;
+            const cover = addCover();
+            const { toggle } = renderDropdown({ mobileBottomSheet: true });
+
+            click(toggle);
+            await vi.waitFor(() => expect(popup()?.style.visibility).toBe("visible"));
+            expect(popup()?.classList.contains("mobile-bottom-menu")).toBe(false);
+            expect(popup()?.style.top).toBe("82px");
+            expect(popup()?.style.maxHeight).not.toBe("");
+            expect([ ...cover.classList ]).toEqual([ "show", "global-menu-cover" ]);
             cover.remove();
         });
 

@@ -160,6 +160,9 @@ describe("SegmentedChoice", () => {
 
         it("comes up from the bottom of the screen, out of the dialog and over a backdrop", () => {
             isMobileMock.mockReturnValue(true);
+            // A phone's width; happy-dom's window is 1024px wide, a tablet's.
+            const narrow = vi.spyOn(window, "matchMedia")
+                .mockReturnValue({ matches: true } as MediaQueryList);
             renderOpened(<SegmentedChoice options={iconOptions} currentValue="dark" onChange={() => {}} collapseOnMobile />);
 
             // Placed by the app's own bottom-sheet rule rather than by Popper, which mobile's forced
@@ -171,6 +174,7 @@ describe("SegmentedChoice", () => {
             // context the backdrop would then cover the menu through.
             expect(container.contains(menu)).toBe(false);
             expect(document.getElementById("context-menu-cover")?.classList.contains("show")).toBe(true);
+            narrow.mockRestore();
         });
 
         it("shows a count beside the name rather than as a badge, the menu line having room for it", () => {
