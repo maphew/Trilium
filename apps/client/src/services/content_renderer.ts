@@ -1,6 +1,12 @@
 import "./content_renderer.css";
 
-import { isImageAttachmentRole, isOfficeMimeType, normalizeMimeTypeForCKEditor, type TextRepresentationResponse } from "@triliumnext/commons";
+import {
+    attachmentIcon,
+    isImageAttachmentRole,
+    isOfficeMimeType,
+    normalizeMimeTypeForCKEditor,
+    type TextRepresentationResponse
+} from "@triliumnext/commons";
 import DOMPurify from "dompurify";
 import { h, type JSX, render } from "preact";
 
@@ -132,13 +138,16 @@ export async function getRenderedContent(this: {} | { ctx: string }, entity: FNo
         await renderWebView(entity, $renderedContent);
     } else if (type === "llmChat" && entity instanceof FNote) {
         await renderLlmChat(entity, $renderedContent, options);
-    } else if (entity instanceof FNote) {
+    } else if (entity instanceof FNote || entity instanceof FAttachment) {
+        const icon = entity instanceof FNote
+            ? entity.getIcon()
+            : attachmentIcon(entity.role, entity.mime);
         $renderedContent.addClass("no-preview");
         $renderedContent.append(
-            $("<div>").append($("<span>").addClass(entity.getIcon()))
+            $("<div>").append($("<span>").addClass(icon))
         );
 
-        if (entity.type === "webView" && entity.hasLabel("webViewSrc")) {
+        if (entity instanceof FNote && entity.type === "webView" && entity.hasLabel("webViewSrc")) {
             const $footer = $("<footer>")
                 .addClass("webview-footer");
             const $openButton = $(`

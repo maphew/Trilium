@@ -1,5 +1,6 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { getImageProvider } from "../../services/image_provider";
 import { getSql } from "../../services/sql/index";
 import { createTextNote } from "../../test/api_fixtures";
 import { CoreApiTester } from "../../test/api_tester";
@@ -236,28 +237,33 @@ describe("Attachments API (core)", () => {
             expect(attachment).toMatchObject({ role: "image", mime: "image/x-icon" });
         });
 
-        it("uploads a picture as a 'file' attachment when the file role is asked for", async () => {
-            const { noteId } = await createTextNote(api, { title: "Picture as file target" });
+        it("stores a picture unchanged as an image, linked to on request", async () => {
+            const { noteId } = await createTextNote(api, { title: "Picture as link target" });
+            // Past the 40 characters at which "Upload image" names a picture plain "image".
+            const originalname = "a picture with a name long enough to be trimmed.png";
+            const processImage = vi.spyOn(getImageProvider(), "processImage");
 
             const res = await api.post<{ uploaded: boolean; url: string }>(
                 `/api/notes/${noteId}/attachments/upload`,
                 {
-                    query: { role: "file" },
-                    file: {
-                        originalname: "pixel.png",
-                        mimetype: "image/png",
-                        buffer: PIXEL_PNG
-                    }
+                    query: { link: "true" },
+                    file: { originalname, mimetype: "image/png", buffer: PIXEL_PNG }
                 }
             );
             expect(res.status).toBe(200);
             expect(res.body.uploaded).toBe(true);
-            expect(res.body.url).toContain(`#root/${noteId}?viewMode=attachments&attachmentId=`);
 
             const list = await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`);
-            expect(list.body).toEqual([
-                expect.objectContaining({ role: "file", mime: "image/png", title: "pixel.png" })
-            ]);
+            const [ attachment ] = list.body;
+            expect(attachment)
+                .toMatchObject({ role: "image", mime: "image/png", title: originalname });
+            const { attachmentId } = attachment;
+            expect(res.body.url)
+                .toBe(`#root/${noteId}?viewMode=attachments&attachmentId=${attachmentId}`);
+
+            // Not shrunk, whatever the image compression option says.
+            expect(processImage).toHaveBeenCalledWith(expect.anything(), originalname, false);
+            processImage.mockRestore();
         });
 
         it("reports a missing upload when no file is present", async () => {

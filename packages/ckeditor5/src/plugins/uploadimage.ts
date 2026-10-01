@@ -1,14 +1,14 @@
 import { FileRepository, Plugin, type FileLoader, type LocaleTranslate, type UploadAdapter } from "ckeditor5";
 
-const fileAttachmentLoaders = new WeakSet<FileLoader>();
+const linkLoaders = new WeakSet<FileLoader>();
 
-/** Makes the loader store its file as a file attachment, even when the file is a picture. */
-export function uploadAsFileAttachment(loader: FileLoader) {
-	fileAttachmentLoaders.add(loader);
+/** Makes the upload answer with a link to the attachment, and store a picture as uploaded. */
+export function uploadAsLink(loader: FileLoader) {
+	linkLoaders.add(loader);
 }
 
-export function isFileAttachmentUpload(loader: FileLoader) {
-	return fileAttachmentLoaders.has(loader);
+export function isUploadAsLink(loader: FileLoader) {
+	return linkLoaders.has(loader);
 }
 
 export default class UploadimagePlugin extends Plugin {
@@ -79,7 +79,7 @@ class Adapter implements UploadAdapter {
 			const xhr = this.xhr = new XMLHttpRequest();
 
 			const {noteId} = glob.getActiveContextNote();
-			const query = isFileAttachmentUpload(this.loader) ? "?role=file" : "";
+			const query = isUploadAsLink(this.loader) ? "?link=true" : "";
 
 			// this must be a relative path
 			const url = `api/notes/${noteId}/attachments/upload${query}`;

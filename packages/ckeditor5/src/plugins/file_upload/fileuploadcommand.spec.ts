@@ -14,7 +14,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
-import { isFileAttachmentUpload } from "../uploadimage.js";
+import { isUploadAsLink } from "../uploadimage.js";
 import FileUploadCommand from "./fileuploadcommand.js";
 
 /**
@@ -142,7 +142,7 @@ describe("FileUploadCommand", () => {
         ));
     });
 
-    it("marks the loader of every file as a file attachment upload", () => {
+    it("marks the loader of every file to upload as a link", () => {
         setModelData(editor.model, "<paragraph>[]</paragraph>");
         const createLoaderSpy = vi.spyOn(editor.plugins.get(FileRepository), "createLoader");
 
@@ -154,7 +154,7 @@ describe("FileUploadCommand", () => {
 
         expect(createLoaderSpy.mock.calls).toEqual([ [ files[0] ], [ files[1] ] ]);
         for (const { value } of createLoaderSpy.mock.results) {
-            expect(isFileAttachmentUpload(value as FileLoader)).toBe(true);
+            expect(isUploadAsLink(value as FileLoader)).toBe(true);
         }
     });
 

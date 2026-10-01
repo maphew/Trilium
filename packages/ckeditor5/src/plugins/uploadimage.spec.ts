@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestEditor } from "../../test/editor-kit.js";
 import { installGlobMock } from "../../test/globals-test-kit.js";
 import UploadimagePlugin, {
-    isFileAttachmentUpload,
-    uploadAsFileAttachment
+    isUploadAsLink,
+    uploadAsLink
 } from "./uploadimage.js";
 
 /**
@@ -161,14 +161,14 @@ describe("UploadimagePlugin", () => {
         await expect(uploadPromise).resolves.toEqual({ default: "http://example.com/pic.png" });
     });
 
-    it("asks for a file attachment only for a loader marked as one", async () => {
+    it("asks for a link only for a loader marked to upload as one", async () => {
         const fileRepository = editor.plugins.get(FileRepository);
         const marked = createFakeLoader(new File(["content"], "pic.png", { type: "image/png" }));
-        uploadAsFileAttachment(marked);
-        expect(isFileAttachmentUpload(marked)).toBe(true);
+        uploadAsLink(marked);
+        expect(isUploadAsLink(marked)).toBe(true);
 
         void fileRepository.createUploadAdapter?.(marked).upload();
-        expect((await awaitSentXhr()).url).toBe("api/notes/noteAbc/attachments/upload?role=file");
+        expect((await awaitSentXhr()).url).toBe("api/notes/noteAbc/attachments/upload?link=true");
 
         FakeXHR.last = undefined;
         void createAdapter(new File(["content"], "pic.png", { type: "image/png" })).upload();

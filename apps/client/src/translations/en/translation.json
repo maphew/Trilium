@@ -3077,7 +3077,8 @@
   },
   "note_tooltip": {
     "note-has-been-deleted": "Note has been deleted.",
-    "quick-edit": "Quick edit"
+    "quick-edit": "Quick edit",
+    "attachment-info": "Attachment • {{size}}"
   },
   "geo-map": {
     "expand-details": "Expand the note to fill the map",

@@ -61,13 +61,19 @@ async function uploadAttachment(req: Request<{ noteId: string }>) {
     // Convert buffer to Uint8Array (Buffer extends Uint8Array, string needs encoding)
     const buffer = wrapStringOrBuffer(file.buffer as string | Uint8Array);
 
-    // `role=file` stores a picture as a file attachment, so the caller gets a link, not an image.
-    const isFileRoleRequested = req.query.role === "file";
+    // With `link=true`, the response links to the attachment and a picture is stored as uploaded.
+    const isLinkRequested = req.query.link === "true";
 
-    if (!isFileRoleRequested && isAcceptedImageMime(file.mimetype)) {
+    if (isAcceptedImageMime(file.mimetype)) {
         // Always the user's own image: the pictures the app fetches for itself — a link preview's
         // favicon and cover — are stored by the code that fetched them, never uploaded through here.
-        const attachment = imageService.saveImageToAttachment(noteId, buffer, file.originalname, true, true);
+        const attachment = imageService.saveImageToAttachment(
+            noteId,
+            buffer,
+            file.originalname,
+            !isLinkRequested,
+            !isLinkRequested
+        );
 
         // The URL below is fetched the moment this answers — the editor puts it straight into the
         // document as the source of an image. Answering before the bytes are stored hands it the
@@ -75,7 +81,10 @@ async function uploadAttachment(req: Request<{ noteId: string }>) {
         // something reloads the note. So this one image is waited for; nothing else is.
         await imageService.awaitImageWrite(attachment.attachmentId);
 
-        url = `api/attachments/${attachment.attachmentId}/image/${encodeURIComponent(attachment.title)}`;
+        const { attachmentId, title } = attachment;
+        url = isLinkRequested
+            ? getAttachmentLinkUrl(noteId, attachmentId)
+            : `api/attachments/${attachmentId}/image/${encodeURIComponent(title)}`;
     } else {
         const attachment = note.saveAttachment({
             role: "file",
@@ -84,13 +93,17 @@ async function uploadAttachment(req: Request<{ noteId: string }>) {
             content: file.buffer
         });
 
-        url = `#root/${noteId}?viewMode=attachments&attachmentId=${attachment.attachmentId}`;
+        url = getAttachmentLinkUrl(noteId, attachment.attachmentId);
     }
 
     return {
         uploaded: true,
         url
     };
+}
+
+function getAttachmentLinkUrl(noteId: string, attachmentId: string | undefined) {
+    return `#root/${noteId}?viewMode=attachments&attachmentId=${attachmentId}`;
 }
 
 function renameAttachment(req: Request<{ attachmentId: string }>) {

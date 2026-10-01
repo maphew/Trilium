@@ -25,7 +25,7 @@ To attach files to a <a class="reference-link" href="../../Note%20Types/Text.md
 
 *   Each file becomes an attachment of the note, and a link to it is inserted at the cursor. Several files produce several links, separated by a space.
 *   While a file uploads, its link shows the file name and a toast shows the progress.
-*   Pictures are attached as files too, so they appear as links rather than images. To display a picture in the text, use the image upload button instead (see <a class="reference-link" href="../../Note%20Types/Text/Images.md">Images</a>).
+*   Pictures appear as links rather than images, and are attached exactly as they are, without being compressed. To display a picture in the text, use the image upload button instead (see <a class="reference-link" href="../../Note%20Types/Text/Images.md">Images</a>).
 
 Dragging a file that is not a picture from the file explorer onto the text also attaches it and inserts a link to it.
 

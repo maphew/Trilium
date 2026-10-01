@@ -1,6 +1,6 @@
 import { Command, FileRepository, type Model, type ModelWriter } from "ckeditor5";
 
-import { uploadAsFileAttachment } from "../uploadimage.js";
+import { uploadAsLink } from "../uploadimage.js";
 
 export interface FileUploadOptions {
     file: File[];
@@ -8,7 +8,7 @@ export interface FileUploadOptions {
 
 /**
  * Uploads files as attachments of the note and inserts a reference link to each, separated by
- * spaces. Pictures become file attachments too, so they are linked rather than shown.
+ * spaces. Pictures are linked too, rather than shown.
  */
 export default class FileUploadCommand extends Command {
     override refresh() {
@@ -30,7 +30,7 @@ export default class FileUploadCommand extends Command {
                     continue;
                 }
 
-                uploadAsFileAttachment(loader);
+                uploadAsLink(loader);
                 insertPlaceholder(writer, model, loader.id, file.name);
             }
         });

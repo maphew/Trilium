@@ -1,3 +1,4 @@
+import { attachmentIcon } from "@triliumnext/commons";
 import { h, VNode } from "preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -547,6 +548,21 @@ describe("generic FNote fallback / webView", () => {
         expect($renderedContent.find("span").length).toBeGreaterThan(0);
     });
 
+    it("gives an attachment without a preview its own icon, as a note gets", async () => {
+        const pdf = buildAttachment({ role: "file", mime: "application/pdf" });
+        const library = buildAttachment({ role: "canvasLibraryItem", mime: "application/json" });
+
+        const cases = [ [ pdf, { tooltip: true } ], [ library, {} ] ] as const;
+
+        for (const [ attachment, options ] of cases) {
+            const { $renderedContent } = await getRenderedContent(attachment, options);
+
+            expect($renderedContent.hasClass("no-preview")).toBe(true);
+            expect($renderedContent.find("span").attr("class"))
+                .toBe(attachmentIcon(attachment.role, attachment.mime));
+        }
+    });
+
     it("renders a webView footer that opens in a new window when not in electron", async () => {
         const note = buildNote({ title: "W", type: "webView", "#webViewSrc": "https://example.com" });
         const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
@@ -800,13 +816,13 @@ describe("getRenderingType detection", () => {
         expect((await getRenderedContent(att)).type).toBe("file");
     });
 
-    it("returns the raw role for an attachment with an unhandled role (no rendering branch)", async () => {
+    it("returns the raw role of an attachment with no branch, drawn as an icon", async () => {
         const att = buildAttachment({ role: "unknownRole" });
         const { type, $renderedContent } = await getRenderedContent(att);
         expect(type).toBe("unknownRole");
-        // attachment falls through to the final `entity instanceof FNote` check (false) -> empty content
-        expect($renderedContent.hasClass("no-preview")).toBe(false);
-        expect($renderedContent.children().length).toBe(0);
+        expect($renderedContent.hasClass("no-preview")).toBe(true);
+        expect($renderedContent.find("span").attr("class"))
+            .toBe(attachmentIcon(att.role, att.mime));
     });
 
     it("maps json file notes to code unless tagged as an icon pack", async () => {
