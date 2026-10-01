@@ -6,13 +6,6 @@ import linkService from "../services/link.js";
 import server from "../services/server.js";
 import QuickSearchWidget from "./quick_search_old.js";
 
-// The completions fetch attribute names and values through the server; nothing here opens the popup.
-vi.mock("./ribbon/search_completions", () => ({
-    searchCompletionSource: () => null,
-    searchCompletionIcon: () => undefined,
-    searchCompletionReactivates: () => false
-}));
-
 describe("QuickSearchWidget", () => {
     beforeEach(() => {
         vi.restoreAllMocks();
@@ -22,25 +15,17 @@ describe("QuickSearchWidget", () => {
         document.body.innerHTML = "";
     });
 
-    it("moves focus from the search box to the first result on ArrowDown", async () => {
-        const widget = await renderAndSearch();
-        const $items = widget.$widget.find(".dropdown-menu .dropdown-item");
-
-        pressArrowDown(widget);
-        expect(document.activeElement).toBe($items[0]);
-    });
-
-    it("leaves ArrowDown to the search box while the popup is closed or a modifier is held", async () => {
+    it("moves focus to the first result on ArrowDown, only while the popup is open", async () => {
         const widget = await renderAndSearch();
         const $firstItem = widget.$widget.find(".dropdown-menu .dropdown-item").first();
 
-        pressArrowDown(widget, { ctrlKey: true });
-        pressArrowDown(widget, { shiftKey: true });
+        widget.$widget.find(".dropdown-menu").removeClass("show");
+        expect(widget.focusFirstResult()).toBe(false);
         expect(document.activeElement).not.toBe($firstItem[0]);
 
-        widget.$widget.find(".dropdown-menu").removeClass("show");
-        pressArrowDown(widget);
-        expect(document.activeElement).not.toBe($firstItem[0]);
+        widget.$widget.find(".dropdown-menu").addClass("show");
+        expect(widget.focusFirstResult()).toBe(true);
+        expect(document.activeElement).toBe($firstItem[0]);
     });
 
     it("leaves ArrowDown alone when the popup holds no result to focus", async () => {
@@ -49,16 +34,16 @@ describe("QuickSearchWidget", () => {
         const $disabled = widget.$widget.find(".dropdown-menu .dropdown-item.disabled");
         expect($disabled.length).toBe(1);
 
-        pressArrowDown(widget);
+        expect(widget.focusFirstResult()).toBe(false);
         expect(document.activeElement).not.toBe($disabled[0]);
     });
 
-    it("reads the query out of the CodeMirror field, for the search and the full-search handoff", async () => {
+    it("searches for the query and hands it to the full search", async () => {
         const triggerCommand = vi.spyOn(appContext, "triggerCommand").mockResolvedValue(undefined);
         const widget = renderWidget();
         mockResults(1);
 
-        setSearchString(widget, "#book AND tolkien");
+        widget.searchString = "#book AND tolkien";
         await widget.search();
 
         expect(server.get).toHaveBeenCalledWith(`quick-search/${encodeURIComponent("#book AND tolkien")}`);
@@ -141,31 +126,6 @@ describe("QuickSearchWidget", () => {
     });
 });
 
-/**
- * Presses ArrowDown in the search field. The editor always claims the key to move its own caret,
- * so where the focus lands is what says whether the widget stepped into the results.
- */
-function pressArrowDown(widget: QuickSearchWidget, modifiers: KeyboardEventInit = {}) {
-    editorOf(widget).contentDOM.dispatchEvent(new KeyboardEvent("keydown", {
-        key: "ArrowDown", code: "ArrowDown", bubbles: true, cancelable: true, ...modifiers
-    }));
-}
-
-function setSearchString(widget: QuickSearchWidget, value: string) {
-    const editor = editorOf(widget);
-    editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: value } });
-}
-
-function editorOf(widget: QuickSearchWidget) {
-    const editor = widget.editor;
-
-    if (!editor) {
-        throw new Error("The widget was not rendered, so it has no search field.");
-    }
-
-    return editor;
-}
-
 async function renderAndSearch(resultCount = 3) {
     const searchResults = Array.from({ length: resultCount }, (_, index) => ({
         notePath: `note${index}`,
@@ -185,7 +145,7 @@ async function renderAndSearch(resultCount = 3) {
     widget.render();
     // Focus only moves within the document, and `show` is the class Bootstrap opens the menu with.
     widget.$widget.appendTo(document.body);
-    setSearchString(widget, "hello");
+    widget.searchString = "hello";
     await widget.search();
     widget.$widget.find(".dropdown-menu").addClass("show");
 
@@ -196,7 +156,7 @@ function renderWidget() {
     const widget = new QuickSearchWidget();
     widget.render();
     widget.$widget.appendTo(document.body);
-    setSearchString(widget, "hello");
+    widget.searchString = "hello";
     return widget;
 }
 

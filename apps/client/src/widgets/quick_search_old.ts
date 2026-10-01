@@ -1,4 +1,3 @@
-import type { FieldEditor } from "@triliumnext/codemirror/src/field_editor";
 import { Dropdown, Tooltip } from "bootstrap";
 
 import appContext from "../components/app_context.js";
@@ -9,7 +8,6 @@ import server from "../services/server.js";
 import shortcutService from "../services/shortcuts.js";
 import utils, { handleRightToLeftPlacement } from "../services/utils.js";
 import BasicWidget from "./basic_widget.js";
-import { createSearchFieldEditor, SEARCH_FIELD_EDITOR_CLASS } from "./search_field_editor.js";
 
 const TPL = /*html*/`
 <div class="quick-search input-group input-group-sm">
@@ -25,7 +23,6 @@ const TPL = /*html*/`
         </div>
     </div>
   </div>
-  <div class="form-control form-control-sm search-string ${SEARCH_FIELD_EDITOR_CLASS}"></div>
 </div>`;
 
 const INITIAL_DISPLAYED_NOTES = 15;
@@ -54,9 +51,8 @@ interface QuickSearchResponse {
 export default class QuickSearchWidget extends BasicWidget {
 
     private dropdown!: bootstrap.Dropdown;
-    private $searchField!: JQuery<HTMLElement>;
-    /** Holds the query. The widget reads it instead of an input's value. */
-    editor?: FieldEditor;
+    /** The query, set by the field that holds it. */
+    searchString = "";
     private $dropdownMenu!: JQuery<HTMLElement>;
     private $searchResults!: JQuery<HTMLElement>;
     private $footer!: JQuery<HTMLElement>;
@@ -73,26 +69,15 @@ export default class QuickSearchWidget extends BasicWidget {
 
     doRender() {
         this.$widget = $(TPL);
-        this.$searchField = this.$widget.find(".search-string");
         this.$dropdownMenu = this.$widget.find(".dropdown-menu");
         this.$searchResults = this.$dropdownMenu.find(".quick-search-results");
         this.$footer = this.$dropdownMenu.find(".quick-search-footer");
 
         this.dropdown = Dropdown.getOrCreateInstance(this.$widget.find("[data-bs-toggle='dropdown']")[0], {
-            reference: this.$searchField[0],
             popperConfig: {
                 strategy: "fixed",
                 placement: "bottom"
             }
-        });
-
-        this.editor = createSearchFieldEditor({
-            parent: this.$searchField[0],
-            placeholder: t("quick-search.placeholder"),
-            singleLine: true,
-            onEnter: () => this.runSearch(),
-            onArrowDown: () => this.focusFirstResult(),
-            onEscape: () => this.closeDropdown()
         });
 
         this.$widget.find(".input-group-prepend").on("shown.bs.dropdown", () => this.search());
@@ -109,32 +94,20 @@ export default class QuickSearchWidget extends BasicWidget {
         return this.$widget;
     }
 
-    cleanup() {
-        this.editor?.destroy();
-        this.editor = undefined;
-    }
-
-    /** The query as it stands in the field. */
-    private get searchString() {
-        return this.editor?.state.doc.toString() ?? "";
-    }
-
     /** Runs on Enter: opens the results, or refreshes them when they are already open. */
-    private runSearch() {
+    runSearch() {
         if (this.isDropdownOpen()) {
             void this.search();
         } else {
             this.dropdown.show();
         }
-
-        this.editor?.focus();
     }
 
     /**
      * Steps from the field into the results on ArrowDown, which Bootstrap does not do on its own.
      * Searching and no-results leave only a disabled item, and the caret keeps the key.
      */
-    private focusFirstResult() {
+    focusFirstResult() {
         if (!this.isDropdownOpen()) {
             return false;
         }
@@ -150,7 +123,7 @@ export default class QuickSearchWidget extends BasicWidget {
     }
 
     /** Closes the results on Escape, leaving the key to CodeMirror when they are already closed. */
-    private closeDropdown() {
+    closeDropdown() {
         if (!this.isDropdownOpen()) {
             return false;
         }
@@ -186,7 +159,7 @@ export default class QuickSearchWidget extends BasicWidget {
         this.lastResultViewScope = highlightedTokens?.length ? { searchTerms: highlightedTokens } : undefined;
 
         if (error) {
-            const tooltip = new Tooltip(this.$searchField[0], {
+            const tooltip = new Tooltip(this.$widget[0], {
                 trigger: "manual",
                 title: `Search error: ${error}`,
                 placement: handleRightToLeftPlacement("right")
@@ -212,7 +185,6 @@ export default class QuickSearchWidget extends BasicWidget {
         await this.displayMoreResults(INITIAL_DISPLAYED_NOTES);
 
         this.$footer.removeClass("hidden-ext");
-        shortcutService.bindElShortcut(this.$searchResults.find(".dropdown-item:first"), "up", () => this.editor?.focus());
 
         this.dropdown.update();
     }
@@ -333,9 +305,5 @@ export default class QuickSearchWidget extends BasicWidget {
         await appContext.triggerCommand("searchNotes", {
             searchString: this.searchString
         });
-    }
-
-    quickSearchEvent() {
-        this.editor?.focus();
     }
 }

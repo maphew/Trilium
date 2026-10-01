@@ -10,8 +10,8 @@ import { createSearchFieldEditor, SEARCH_FIELD_EDITOR_CLASS } from "../search_fi
 
 interface SearchStringEditorProps {
     currentValue: string;
-    /** The note `currentValue` belongs to. A change to it replaces the document. */
-    noteId: string;
+    /** The note `currentValue` belongs to, if any. A change to it replaces the document. */
+    noteId?: string;
     placeholder?: string;
     /** Names the field where the placeholder is a hint rather than a name for it. */
     ariaLabel?: string;
