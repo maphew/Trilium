@@ -2,6 +2,7 @@ import "./EditableText.css";
 import "./LinkEmbed.css";
 
 import {
+    type AttachmentLinkChange,
     CKTextEditor,
     EditorWatchdog,
     type FileUploadData,
@@ -52,6 +53,7 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
     const contentRef = useRef<string>("");
     /** The note `contentRef` holds the content of, so a restarted editor can be marked as holding it. */
     const contentNoteIdRef = useRef<string>();
+    const pendingAttachmentChangesRef = useRef<PendingAttachmentChanges>();
     const watchdogRef = useRef<EditorWatchdog>(null);
     const editorApiRef = useRef<CKEditorApi>(null);
     /** The open icon picker request and its balloon container, or `null` when none is open. */
@@ -93,6 +95,10 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
                 setEditorNoteId(editor, note.noteId);
             }
             editor?.setData(newContent);
+            if (editor && note) {
+                const textEditor = editor as CKTextEditor;
+                applyPendingAttachmentChanges(textEditor, note.noteId, pendingAttachmentChangesRef);
+            }
 
             // Jump to the first search match when navigated from search results.
             consumeSearchTerms(noteContext, ntxId);
@@ -185,6 +191,9 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
         loadIncludedNote,
         loadIncludedAttachment,
         getAttachmentHref,
+        getNoteId() {
+            return note.noteId;
+        },
         // Link preview functionality. The insert flow itself lives in the editor (a balloon form),
         // so the host only has to supply the metadata and the rendering.
         async fetchLinkMetadata(url: string) {
@@ -280,7 +289,13 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         const editor = watchdogRef.current?.editor as CKTextEditor | null | undefined;
         if (editor && note) {
-            notifyAttachmentChanges(editor, loadResults, note.noteId, parentComponent?.componentId);
+            notifyAttachmentChanges(
+                editor,
+                loadResults,
+                note.noteId,
+                parentComponent?.componentId,
+                pendingAttachmentChangesRef
+            );
         }
     });
 
@@ -677,9 +692,17 @@ export function onNotificationInfo(_evt: NotificationEventInfo, data: Notificati
     toast.showMessage(data.message);
 }
 
+interface PendingAttachmentChanges {
+    noteId: string;
+    changes: AttachmentLinkChange[];
+}
+
 /**
  * Passes the attachments changed in `loadResults` to the editor's reference links, so a link shows
  * the new title of its attachment or goes away with it.
+ *
+ * When `loadResults` also reloads the note's content, the changes wait in `pending` until
+ * `applyPendingAttachmentChanges()` runs on the reloaded content.
  *
  * Exported for testing.
  */
@@ -687,18 +710,43 @@ export function notifyAttachmentChanges(
     editor: CKTextEditor,
     loadResults: LoadResults,
     noteId: string,
-    componentId?: string
+    componentId: string | undefined,
+    pending: { current: PendingAttachmentChanges | undefined }
 ) {
     const changes = loadResults.getAttachmentRows().flatMap(({ attachmentId, isDeleted }) =>
         attachmentId ? [ { attachmentId, isDeleted: !!isDeleted } ] : []
     );
+    if (!changes.length) {
+        return;
+    }
 
-    // The server rewrote the links in reloaded content itself, as when converting an attachment.
-    if (!changes.length || loadResults.isNoteContentReloaded(noteId, componentId)) {
+    // `useNoteBlob()` reloads the content under the same condition, and `setData()` would discard
+    // the updated links.
+    if (loadResults.isNoteContentReloaded(noteId, componentId)) {
+        const held = pending.current?.noteId === noteId ? pending.current.changes : [];
+        pending.current = { noteId, changes: [ ...held, ...changes ] };
         return;
     }
 
     editor.plugins.get("ReferenceLinkEditing").updateAttachmentLinks(changes);
+}
+
+/**
+ * Applies the changes `notifyAttachmentChanges()` held for `noteId`, once the editor holds its
+ * reloaded content. Changes held for another note are dropped.
+ *
+ * Exported for testing.
+ */
+export function applyPendingAttachmentChanges(
+    editor: CKTextEditor,
+    noteId: string,
+    pending: { current: PendingAttachmentChanges | undefined }
+) {
+    const held = pending.current;
+    pending.current = undefined;
+    if (held?.noteId === noteId) {
+        editor.plugins.get("ReferenceLinkEditing").updateAttachmentLinks(held.changes);
+    }
 }
 
 /**

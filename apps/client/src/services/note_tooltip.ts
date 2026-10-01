@@ -99,7 +99,8 @@ export async function mouseEnterHandler<T>(this: HTMLElement, e: JQuery.Triggere
     if (url && url.startsWith("#") && !url.startsWith("#root/") && !url.includes("?")) {
         renderPromise = renderFootnoteOrAnchor($link, url);
     } else if (attachmentId) {
-        renderPromise = renderTooltip(await froca.getAttachment(attachmentId, true), detail);
+        const attachment = await froca.getAttachmentOfNote(noteId, attachmentId);
+        renderPromise = renderTooltip(attachment, detail);
     } else if ($link.attr("data-note-deleted") != null) {
         // The element explicitly targets a soft-deleted note (e.g. an entry in the deleted-notes
         // dialog): read it via the deleted-content route. `DeletedFNote.load` returns null once the

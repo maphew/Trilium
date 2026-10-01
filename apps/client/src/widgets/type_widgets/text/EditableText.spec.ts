@@ -7,7 +7,7 @@
  * being uploaded flickered and vanished instead of a "cannot upload" toast appearing.
  */
 import type { CKTextEditor, FileUploadData } from "@triliumnext/ckeditor5";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type LoadResults from "../../../services/load_results";
 
@@ -28,6 +28,7 @@ vi.mock("../../../services/i18n", async (importOriginal) => ({
 vi.mock("@triliumnext/ckeditor5", () => ({}));
 
 const {
+    applyPendingAttachmentChanges,
     notifyAttachmentChanges,
     onNotificationInfo,
     onNotificationWarning,
@@ -132,27 +133,35 @@ describe("showFileUploadProgress", () => {
 describe("notifyAttachmentChanges", () => {
     type Row = { attachmentId?: string; isDeleted?: boolean };
 
-    function setUp(rows: Row[], isContentReloaded = false) {
-        const updateAttachmentLinks = vi.fn();
-        const editor = {
-            plugins: { get: () => ({ updateAttachmentLinks }) }
-        } as unknown as CKTextEditor;
-        const loadResults = {
+    const updateAttachmentLinks = vi.fn();
+    const editor = {
+        plugins: { get: () => ({ updateAttachmentLinks }) }
+    } as unknown as CKTextEditor;
+
+    function loadResultsOf(rows: Row[], isContentReloaded = false) {
+        return {
             getAttachmentRows: () => rows,
             isNoteContentReloaded: vi.fn(() => isContentReloaded)
         };
-
-        return { editor, loadResults, updateAttachmentLinks };
     }
 
+    function notify(loadResults: ReturnType<typeof loadResultsOf>, pending: PendingRef) {
+        notifyAttachmentChanges(
+            editor, loadResults as unknown as LoadResults, "note1", "component1", pending
+        );
+    }
+
+    type PendingRef = Parameters<typeof notifyAttachmentChanges>[4];
+
+    beforeEach(() => updateAttachmentLinks.mockClear());
+
     it("passes the changed attachments to the editor's reference links", () => {
-        const { editor, loadResults, updateAttachmentLinks } = setUp([
+        const loadResults = loadResultsOf([
             { attachmentId: "renamed" },
             { attachmentId: "deleted", isDeleted: true }
         ]);
 
-        const results = loadResults as unknown as LoadResults;
-        notifyAttachmentChanges(editor, results, "note1", "component1");
+        notify(loadResults, { current: undefined });
 
         expect(loadResults.isNoteContentReloaded).toHaveBeenCalledWith("note1", "component1");
         expect(updateAttachmentLinks).toHaveBeenCalledWith([
@@ -161,15 +170,39 @@ describe("notifyAttachmentChanges", () => {
         ]);
     });
 
-    it("leaves the links alone when no attachment changed, or the content was reloaded", () => {
-        const cases: [ Row[], boolean ][] = [ [ [], false ], [ [ { attachmentId: "a" } ], true ] ];
+    it("leaves the links alone when no attachment changed", () => {
+        const pending: PendingRef = { current: undefined };
 
-        for (const [ rows, isContentReloaded ] of cases) {
-            const { editor, loadResults, updateAttachmentLinks } = setUp(rows, isContentReloaded);
+        notify(loadResultsOf([]), pending);
 
-            notifyAttachmentChanges(editor, loadResults as unknown as LoadResults, "note1");
+        expect(updateAttachmentLinks).not.toHaveBeenCalled();
+        expect(pending.current).toBeUndefined();
+    });
 
-            expect(updateAttachmentLinks).not.toHaveBeenCalled();
-        }
+    it("holds the changes while the note content reloads, until the editor takes it", () => {
+        const pending: PendingRef = { current: undefined };
+
+        notify(loadResultsOf([ { attachmentId: "renamed" } ], true), pending);
+        notify(loadResultsOf([ { attachmentId: "deleted", isDeleted: true } ], true), pending);
+        expect(updateAttachmentLinks).not.toHaveBeenCalled();
+
+        applyPendingAttachmentChanges(editor, "note1", pending);
+        expect(updateAttachmentLinks).toHaveBeenCalledExactlyOnceWith([
+            { attachmentId: "renamed", isDeleted: false },
+            { attachmentId: "deleted", isDeleted: true }
+        ]);
+
+        applyPendingAttachmentChanges(editor, "note1", pending);
+        expect(updateAttachmentLinks).toHaveBeenCalledOnce();
+    });
+
+    it("drops the held changes when the editor takes another note's content", () => {
+        const pending: PendingRef = { current: undefined };
+        notify(loadResultsOf([ { attachmentId: "renamed" } ], true), pending);
+
+        applyPendingAttachmentChanges(editor, "note2", pending);
+        applyPendingAttachmentChanges(editor, "note1", pending);
+
+        expect(updateAttachmentLinks).not.toHaveBeenCalled();
     });
 });

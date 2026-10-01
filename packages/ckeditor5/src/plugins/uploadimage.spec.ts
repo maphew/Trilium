@@ -98,7 +98,9 @@ describe("UploadimagePlugin", () => {
         getHeaders = vi.fn(async () => ({ Authorization: "Bearer token", "x-csrf": "abc" }));
         installGlobMock({
             getHeaders,
-            getActiveContextNote: () => ({ noteId: "noteAbc" })
+            getActiveContextNote: () => ({ noteId: "noteAbc" }),
+            // A host whose editor does not name its note, such as the chat input.
+            getComponentByEl: () => ({})
         });
 
         originalXHR = window.XMLHttpRequest;
@@ -159,6 +161,18 @@ describe("UploadimagePlugin", () => {
         xhr.fireLoad();
 
         await expect(uploadPromise).resolves.toEqual({ default: "http://example.com/pic.png" });
+    });
+
+    it("uploads to the note its editor holds, rather than to the active tab's", async () => {
+        installGlobMock({
+            getHeaders,
+            getActiveContextNote: () => ({ noteId: "noteAbc" }),
+            getComponentByEl: () => ({ getNoteId: () => "editorNote" })
+        });
+
+        void createAdapter(new File(["content"], "pic.png", { type: "image/png" })).upload();
+
+        expect((await awaitSentXhr()).url).toBe("api/notes/editorNote/attachments/upload");
     });
 
     it("asks for a link only for a loader marked to upload as one", async () => {

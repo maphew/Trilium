@@ -447,7 +447,7 @@ describe("mouseEnterHandler", () => {
     it("previews the attachment an attachment link points to, rather than its note", async () => {
         vi.useFakeTimers();
         froca.getNote = vi.fn(async () => null) as any;
-        froca.getAttachment = vi.fn(async () => ({
+        froca.getAttachmentOfNote = vi.fn(async () => ({
             attachmentId: "att1",
             ownerId: "owner",
             title: "report.pdf",
@@ -466,7 +466,7 @@ describe("mouseEnterHandler", () => {
         await vi.advanceTimersByTimeAsync(600);
         await promise;
 
-        expect(froca.getAttachment).toHaveBeenCalledWith("att1", true);
+        expect(froca.getAttachmentOfNote).toHaveBeenCalledWith("owner", "att1");
         expect(froca.getNote).not.toHaveBeenCalled();
         const [ options ] = ($.fn.tooltip as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
         expect(options.title).toContain("attachmentId=att1");

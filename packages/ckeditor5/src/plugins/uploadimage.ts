@@ -1,4 +1,27 @@
-import { FileRepository, Plugin, type FileLoader, type LocaleTranslate, type UploadAdapter } from "ckeditor5";
+import {
+	FileRepository,
+	Plugin,
+	type Editor,
+	type FileLoader,
+	type LocaleTranslate,
+	type UploadAdapter
+} from "ckeditor5";
+
+export default class UploadimagePlugin extends Plugin {
+	static get requires() {
+		return [ FileRepository ];
+	}
+
+	static get pluginName() {
+		return 'UploadimagePlugin';
+	}
+
+	init() {
+		const editor = this.editor;
+		const fileRepository = editor.plugins.get('FileRepository');
+		fileRepository.createUploadAdapter = loader => new Adapter(loader, editor);
+	}
+}
 
 const linkLoaders = new WeakSet<FileLoader>();
 
@@ -11,35 +34,22 @@ export function isUploadAsLink(loader: FileLoader) {
 	return linkLoaders.has(loader);
 }
 
-export default class UploadimagePlugin extends Plugin {
-	static get requires() {
-		return [ FileRepository ];
-	}
-
-	static get pluginName() {
-		return 'UploadimagePlugin';
-	}
-
-	init() {
-		const t = this.editor.t;
-		this.editor.plugins.get('FileRepository').createUploadAdapter = loader => new Adapter(loader, t);
-	}
-}
-
 class Adapter implements UploadAdapter {
     private loader: FileLoader;
+    private editor: Editor;
     private t: LocaleTranslate;
     private xhr?: XMLHttpRequest;
 
 	/**
 	 * Creates a new adapter instance.
 	 */
-	constructor(loader: FileLoader, t: LocaleTranslate) {
+	constructor(loader: FileLoader, editor: Editor) {
 		/**
 		 * FileLoader instance to use during the upload.
 		 */
 		this.loader = loader;
-		this.t = t;
+		this.editor = editor;
+		this.t = editor.t;
 	}
 
 	/**
@@ -78,7 +88,11 @@ class Adapter implements UploadAdapter {
 		return glob.getHeaders().then(headers => {
 			const xhr = this.xhr = new XMLHttpRequest();
 
-			const {noteId} = glob.getActiveContextNote();
+			// The note the editor holds, which is not the active tab's in a split or the quick edit
+			// popup. A host that does not say falls back to the active tab's.
+			const domRoot = this.editor.editing.view.getDomRoot();
+			const component = glob.getComponentByEl<EditorComponent>( domRoot );
+			const noteId = component?.getNoteId?.() ?? glob.getActiveContextNote().noteId;
 			const query = isUploadAsLink(this.loader) ? "?link=true" : "";
 
 			// this must be a relative path

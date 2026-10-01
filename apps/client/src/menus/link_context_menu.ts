@@ -10,13 +10,21 @@ import { getClosestNtxId } from "../widgets/widget_utils.js";
 import contextMenu, { type ContextMenuEvent, type MenuItem } from "./context_menu.js";
 import { getTextEditorContaining } from "./text_editor_context_menu.js";
 
+let lastMenuRequest = 0;
+
 async function openContextMenu(
     notePath: string,
     e: ContextMenuEvent,
     viewScope: ViewScope = {},
     hoistedNoteId: string | null = null
 ) {
-    const attachmentItems = await getAttachmentItems(viewScope, e);
+    const request = ++lastMenuRequest;
+    const noteId = notePath.split("/").at(-1) ?? notePath;
+    const attachmentItems = await getAttachmentItems(noteId, viewScope, e);
+    // A later right-click opened its own menu while this one waited for the attachment.
+    if (request !== lastMenuRequest) {
+        return;
+    }
 
     contextMenu.show({
         x: e.pageX,
@@ -91,6 +99,7 @@ function handleLinkContextMenuItem(command: string | undefined, e: ContextMenuEv
 
 /** The actions on the attachment a link points to, each group after a separator. */
 async function getAttachmentItems(
+    noteId: string,
     { viewMode, attachmentId }: ViewScope,
     e: ContextMenuEvent
 ): Promise<MenuItem<CommandNames>[]> {
@@ -100,7 +109,7 @@ async function getAttachmentItems(
 
     // Imported on demand: `attachment_actions` imports `link`, which imports this module.
     const [ attachment, { getAttachmentActionGroups }, embedItem ] = await Promise.all([
-        froca.getAttachment(attachmentId, true),
+        froca.getAttachmentOfNote(noteId, attachmentId),
         import("../services/attachment_actions.js"),
         getConvertToEmbedItem(e)
     ]);
