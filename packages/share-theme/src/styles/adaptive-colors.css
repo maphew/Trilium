@@ -22,7 +22,7 @@
     /* Adaptive table border color limits */
     --adaptive-table-border-light-max-lightness: 60;
     --adaptive-table-border-light-max-chroma: 150;
-    /* Higher than in the app, for 3:1 against the lighter dark page. */
+    /* Higher than in the app, for the share theme's lighter dark page. */
     --adaptive-table-border-dark-min-lightness: 52;
     --adaptive-table-border-dark-max-chroma: 150;
 

@@ -225,6 +225,4 @@ The defaults are:
 | `table-border` | `max-lightness: 60`, `max-chroma: 150` | `min-lightness: 47`, `max-chroma: 150` |
 | `table-background` | `min-lightness: 90`, `max-chroma: 20` | `max-lightness: 30`, `max-chroma: 30` |
 
-With these values, colored text stays at a contrast of at least 4.5:1 against the page, and so does the theme's own text on every background; borders stay at 3:1.
-
 The limits apply while a note is displayed, so a change to them affects every note at once. The note itself keeps each color as it was picked, in its `color`, `background-color` or `border-color` style, and a second time in a `--tn-color`, `--tn-background` or `--tn-border-color` variable, which the adaptation reads.
