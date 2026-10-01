@@ -1024,7 +1024,6 @@
     "label_rock_or_pop": "має бути лише одна з міток",
     "label_year_comparison": "числове порівняння (також >, >=, <).",
     "label_date_created": "нотатки, створені за останній місяць",
-    "error": "Помилка пошуку: {{error}}",
     "search_prefix": "Пошук:"
   },
   "attachment_detail": {
@@ -1398,7 +1397,6 @@
   },
   "quick-search": {
     "no-results": "Результатів не знайдено",
-    "more-results": "... та ще {{number}} результатів.",
     "show-in-full-search": "Показати в повному пошуку",
     "placeholder": "Швидкий пошук",
     "searching": "Пошук..."

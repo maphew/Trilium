@@ -982,7 +982,6 @@
     "label_rock_or_pop": "stačí, aby byl přítomen jeden ze štítků",
     "label_year_comparison": "numerické porovnání (také >, >=, <).",
     "label_date_created": "poznámky vytvořené za poslední měsíc",
-    "error": "Chyba vyhledávání: {{error}}",
     "search_prefix": "Hledání:"
   },
   "attachment_detail": {
@@ -1634,7 +1633,6 @@
     "placeholder": "Rychlé hledání",
     "searching": "Hledání...",
     "no-results": "Nebyla nalezena žádná výsledná",
-    "more-results": "... a dalších {{number}} výsledků.",
     "show-in-full-search": "Zobrazit v úplném vyhledávání"
   },
   "note_tree": {

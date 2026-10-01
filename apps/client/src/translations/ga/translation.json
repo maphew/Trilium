@@ -1296,7 +1296,6 @@
     "label_rock_or_pop": "ní mór ach ceann amháin de na lipéid a bheith i láthair",
     "label_year_comparison": "comparáid uimhriúil (chomh maith >, >=, <).",
     "label_date_created": "nótaí a cruthaíodh sa mhí seo caite",
-    "error": "Earráid chuardaigh: {{error}}",
     "search_prefix": "Cuardaigh:",
     "hints": {
       "title": "Teaghrán cuardaigh",
@@ -2138,7 +2137,6 @@
     "placeholder": "Cuardach tapa",
     "searching": "Ag cuardach...",
     "no-results": "Níor aimsíodh aon torthaí",
-    "more-results": "... agus {{number}} torthaí eile.",
     "show-in-full-search": "Taispeáin sa chuardach iomlán"
   },
   "note_tree": {

@@ -1742,7 +1742,6 @@
     "placeholder": "クイック検索",
     "searching": "検索中...",
     "no-results": "結果は見つかりませんでした",
-    "more-results": "... および {{number}} 件の他の結果。",
     "show-in-full-search": "検索結果をすべて表示"
   },
   "note_tree": {
@@ -2187,7 +2186,6 @@
     "label_rock_or_pop": "どれかのラベルが存在すること",
     "label_year_comparison": "数値比較（>、>=、<も含む）。",
     "label_date_created": "過去1ヶ月以内に作成されたノート",
-    "error": "検索エラー: {{error}}",
     "search_prefix": "検索:",
     "placeholder": "Ctrl + Space で候補を表示、@ でノートを追加、Shift + Enter で改行、Enter で検索",
     "hints": {

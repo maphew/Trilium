@@ -530,7 +530,6 @@
     "title_column": "سلسلة البحث:",
     "search_syntax": "صياغة البحث",
     "also_see": "انظر ايضا",
-    "error": "خطأ في البحث: {{error}}",
     "complete_help": "دليل شامل لصياغة البحث",
     "full_text_search": "أدخل أي نص لإجراء بحث نصي كامل",
     "label_abc": "يعيد الملاحظات التي تحتوي على التسميةabc",
@@ -1216,8 +1215,7 @@
     "searching": "جار البحث...",
     "placeholder": "البحث السريع",
     "no-results": "لم يتم العثور على نتائج",
-    "show-in-full-search": "عرض في البحث الكامل",
-    "more-results": "… و {{number}} نتيجة أخرى."
+    "show-in-full-search": "عرض في البحث الكامل"
   },
   "note_tree": {
     "unhoist": "ارجاع الى الترتيب الطبيعي",

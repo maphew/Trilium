@@ -1518,7 +1518,6 @@
     "label_rock_or_pop": "라벨 중 하나만 있어야 합니다",
     "label_year_comparison": "숫자 비교입니다(>, >=, <도 사용 가능).",
     "label_date_created": "지난 한 달 동안 작성한 노트",
-    "error": "검색 오류: {{error}}",
     "search_prefix": "검색:",
     "hints": {
       "title": "검색 문자열",
@@ -2620,7 +2619,6 @@
     "placeholder": "빠른 검색",
     "searching": "검색 중...",
     "no-results": "검색 결과가 없음",
-    "more-results": "... 그리고 결과 {{number}}개가 더 있습니다.",
     "show-in-full-search": "전체 검색에서 보기"
   },
   "note_tree": {

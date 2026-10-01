@@ -1061,7 +1061,6 @@
     "label_rock_or_pop": "只需一個標籤存在即可",
     "label_year_comparison": "數字比較（也包括>，>=，<）。",
     "label_date_created": "上個月新增的筆記",
-    "error": "搜尋錯誤：{{error}}",
     "search_prefix": "搜尋："
   },
   "attachment_detail": {
@@ -1651,7 +1650,6 @@
     "placeholder": "快速搜尋",
     "searching": "正在搜尋…",
     "no-results": "未找到結果",
-    "more-results": "…以及另外 {{number}} 個結果。",
     "show-in-full-search": "在完整的搜尋界面中顯示"
   },
   "note_tree": {
