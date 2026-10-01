@@ -15,6 +15,15 @@
     border-radius: 6px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 
+    /* Beside a button, where `placeFloating()` sets `left` and `top` and shows it once placed. */
+    &.anchored {
+        top: 0;
+        left: 0;
+        right: auto;
+        bottom: auto;
+        visibility: hidden;
+    }
+
     .shortcut-hints-section {
         &:not(:last-child) {
             margin-bottom: 0.75rem;
