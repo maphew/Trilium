@@ -1,7 +1,7 @@
 import type { Placement } from "@floating-ui/dom";
 import type { Tooltip } from "bootstrap";
 import clsx from "clsx";
-import { ComponentChildren, HTMLAttributes, type RefObject } from "preact";
+import { ComponentChildren, HTMLAttributes } from "preact";
 import { CSSProperties, HTMLProps } from "preact/compat";
 import { MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
@@ -35,11 +35,6 @@ export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "c
     onHidden?: () => void;
     /** The side of the toggle the popup prefers; it flips to the other near the viewport's edge. */
     placement?: Placement;
-    /**
-     * The element the popup stands beside instead of the toggle, such as the field a search
-     * button belongs to. A press on it does not close the popup.
-     */
-    anchorRef?: RefObject<HTMLElement | null>;
     /**
      * What closes the popup besides Escape and the toggle: `true` a click inside and a press
      * outside, `"inside"` or `"outside"` that one alone, `false` neither. A row that stops its click
@@ -157,7 +152,7 @@ interface PopupSlot {
  * The toggle both kinds of dropdown share: the button, its tooltip, the open state and its
  * callbacks, the handle, and the phone's cover. `popup` draws what opens under it.
  */
-function DropdownToggle({ id, className, buttonClassName, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, onShown, onHidden, placement, anchorRef, autoClose = true, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop: mobileBackdropProp, mobileBottomSheet, backdrop, hasPopup, onToggleArrow, popup }: Omit<DropdownProps, "children"> & {
+function DropdownToggle({ id, className, buttonClassName, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, onShown, onHidden, placement, autoClose = true, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop: mobileBackdropProp, mobileBottomSheet, backdrop, hasPopup, onToggleArrow, popup }: Omit<DropdownProps, "children"> & {
     hasPopup: "menu" | "true";
     /** Called for Up or Down on the toggle while the popup is up. */
     onToggleArrow?(popup: HTMLElement, edge: "first" | "last"): void;
@@ -311,7 +306,7 @@ function DropdownToggle({ id, className, buttonClassName, title, text, dropdownC
 
             {shown && triggerRef.current && popup({
                 popupProps: {
-                    anchor: anchorRef?.current ?? triggerRef.current,
+                    anchor: triggerRef.current,
                     placement,
                     offset: TOGGLE_GAP,
                     // In a wrapper with the dropdown's classes, so CSS scoped under them still

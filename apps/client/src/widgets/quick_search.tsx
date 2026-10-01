@@ -3,14 +3,17 @@ import "./quick_search.css";
 import type { FieldEditor } from "@triliumnext/codemirror/src/field_editor";
 import type { QuickSearchResponse, SearchResultDetails } from "@triliumnext/commons";
 import clsx from "clsx";
-import { useRef, useState } from "preact/hooks";
+import type { RefObject } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../services/i18n";
 import { calculateHash, type ViewScope } from "../services/link";
 import server from "../services/server";
-import { DropdownPanel, type DropdownHandle } from "./react/Dropdown";
+import ActionButton from "./react/ActionButton";
+import { focusListItem } from "./react/FormList";
 import { useTriliumEvent } from "./react/hooks";
 import Icon from "./react/Icon";
+import Popup from "./react/Popup";
 import RawHtml, { RawHtmlBlock } from "./react/RawHtml";
 import SearchStringEditor from "./ribbon/SearchStringEditor";
 
@@ -25,22 +28,25 @@ export default function QuickSearch() {
     const searchStringRef = useRef("");
     const [ hasQuery, setHasQuery ] = useState(false);
     const [ searchState, setSearchState ] = useState<SearchState>();
+    const [ open, setOpen ] = useState(false);
     const editorRef = useRef<FieldEditor>();
-    const dropdownRef = useRef<DropdownHandle | null>(null);
     const boxRef = useRef<HTMLDivElement>(null);
-    const isOpenRef = useRef(false);
+    const popupRef = useRef<HTMLDivElement | null>(null);
     // Each search takes a number, so a slower earlier response cannot overwrite a later one.
     const requestIdRef = useRef(0);
 
     useTriliumEvent("quickSearch", () => editorRef.current?.focus());
+    useResultNavigation(popupRef, open);
 
+    /** Opens the results with a search for the query, or refreshes the open results. */
     async function search() {
         const query = searchStringRef.current.trim();
         if (!query) {
-            dropdownRef.current?.hide();
+            close();
             return;
         }
 
+        setOpen(true);
         const requestId = ++requestIdRef.current;
         setSearchState({ status: "searching" });
         const { searchResults, highlightedTokens } = await server.get<QuickSearchResponse>(
@@ -56,34 +62,23 @@ export default function QuickSearch() {
         });
     }
 
+    function close() {
+        // Focus on a result goes back to the field, rather than to the page's body.
+        if (popupRef.current?.contains(document.activeElement)) editorRef.current?.focus();
+        setOpen(false);
+    }
+
     return (
         <div className={clsx("quick-search", hasQuery && "has-query")}>
             <div ref={boxRef} className="quick-search-box">
-                <DropdownPanel
-                    className="quick-search-toggle"
-                    buttonClassName="search-button"
-                    dropdownContainerClassName="quick-search-menu"
-                    text={<Icon icon="bx bx-search" />}
-                    hideToggleArrow
-                    noSelectButtonStyle
-                    placement="bottom-start"
-                    anchorRef={boxRef}
-                    dropdownRef={dropdownRef}
-                    onShown={() => {
-                        isOpenRef.current = true;
-                        void search();
-                    }}
-                    onHidden={() => {
-                        isOpenRef.current = false;
-                    }}
-                >
-                    <div className="quick-search-results">
-                        <QuickSearchResults
-                            searchState={searchState}
-                            onOpenResult={() => dropdownRef.current?.hide()}
-                        />
-                    </div>
-                </DropdownPanel>
+                <ActionButton
+                    className="search-button"
+                    icon="bx bx-search"
+                    text={t("quick-search.placeholder")}
+                    noIconActionClass
+                    active={open}
+                    onClick={() => (open ? close() : void search())}
+                />
 
                 <SearchStringEditor
                     className="search-string"
@@ -94,24 +89,47 @@ export default function QuickSearch() {
                         searchStringRef.current = value;
                         setHasQuery(value.length > 0);
                     }}
-                    onEnter={() => {
-                        // Opening the results runs the search; open results are refreshed.
-                        if (isOpenRef.current) {
-                            void search();
-                        } else {
-                            dropdownRef.current?.show();
-                        }
-                        editorRef.current?.focus();
-                    }}
-                    onEscape={() => {
-                        if (!isOpenRef.current) return false;
-                        dropdownRef.current?.hide();
-                        return true;
-                    }}
+                    onEnter={() => void search()}
                 />
             </div>
+
+            {open && boxRef.current && (
+                <Popup
+                    anchor={boxRef.current}
+                    placement="bottom-start"
+                    offset={2}
+                    capHeight={false}
+                    className="dropdown-menu show tn-dropdown-menu quick-search-menu"
+                    elementRef={popupRef}
+                    onDismiss={close}
+                >
+                    <div className="quick-search-results">
+                        <QuickSearchResults searchState={searchState} onOpenResult={close} />
+                    </div>
+                </Popup>
+            )}
         </div>
     );
+}
+
+/**
+ * Moves focus between the results with Up and Down. Captured at the window, as Bootstrap's handler
+ * for keys in a `.dropdown-menu` crashes on one with no toggle beside it.
+ */
+function useResultNavigation(popupRef: RefObject<HTMLElement>, open: boolean) {
+    useEffect(() => {
+        if (!open) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            const popup = popupRef.current;
+            if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+            if (!popup?.contains(e.target as Node)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            focusListItem(popup, e.key === "ArrowDown" ? "next" : "previous", e.target as Element);
+        };
+        window.addEventListener("keydown", onKeyDown, true);
+        return () => window.removeEventListener("keydown", onKeyDown, true);
+    }, [ open ]);
 }
 
 function QuickSearchResults({ searchState, onOpenResult }: {
@@ -153,6 +171,7 @@ function QuickSearchResult({ result, viewScope, onOpen }: {
             className="dropdown-item"
             tabIndex={0}
             href={calculateHash({ notePath: result.notePath, viewScope })}
+            onClick={onOpen}
             onAuxClick={onOpen}
         >
             <div className="quick-search-item">

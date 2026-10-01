@@ -130,6 +130,45 @@ describe("QuickSearch", () => {
         await vi.waitFor(() => expect(menu()).toBeNull());
     });
 
+    it("opens and closes the results from the search button", async () => {
+        const get = vi.spyOn(server, "get").mockResolvedValue(response(3, []));
+        const { container, editor } = await mount();
+        const button = container.querySelector<HTMLButtonElement>(".search-button");
+        if (!button) throw new Error("The search button did not render.");
+
+        typeQuery(editor, "hello");
+        await act(async () => button.click());
+        await waitForResults(3);
+        expect(get).toHaveBeenCalledWith("quick-search/hello");
+        expect(button.classList.contains("active")).toBe(true);
+
+        await act(async () => button.click());
+        await vi.waitFor(() => expect(menu()).toBeNull());
+        expect(button.classList.contains("active")).toBe(false);
+    });
+
+    it("moves between the results with Up and Down, and gives the field focus back on Escape", async () => {
+        vi.spyOn(server, "get").mockResolvedValue(response(3, []));
+        const { editor } = await mount();
+
+        typeQuery(editor, "hello");
+        pressEnter(editor);
+        const [ first, second ] = await waitForResults(3);
+
+        const press = (target: HTMLElement, key: string) => act(() => {
+            target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+        });
+        first.focus();
+        press(first, "ArrowDown");
+        expect(document.activeElement).toBe(second);
+        press(second, "ArrowUp");
+        expect(document.activeElement).toBe(first);
+
+        press(first, "Escape");
+        await vi.waitFor(() => expect(menu()).toBeNull());
+        expect(editor.hasFocus).toBe(true);
+    });
+
     it("leaves the open results alone while the query is typed", async () => {
         vi.spyOn(server, "get").mockResolvedValue(response(15, []));
         const { editor } = await mount();

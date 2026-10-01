@@ -104,24 +104,6 @@ describe("Dropdown", () => {
         expect(onHidden).toHaveBeenCalledTimes(1);
     });
 
-    it("stands under `anchorRef` when given, and stays open for a press on it", async () => {
-        const anchor = document.createElement("div");
-        const field = document.createElement("input");
-        anchor.append(field);
-        document.body.append(anchor);
-        vi.spyOn(anchor, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ x: 20, y: 40, width: 300, height: 30 }));
-        const { toggle } = renderDropdown({ panel: true, anchorRef: { current: anchor } });
-
-        click(toggle);
-        await vi.waitFor(() => expect(popup()?.style.visibility).toBe("visible"));
-        expect([ popup()?.style.left, popup()?.style.top ]).toEqual([ "20px", "72px" ]);
-
-        field.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(popup()).not.toBeNull();
-        anchor.remove();
-    });
-
     it("closes on a press outside, and on Escape, which hands focus back to the toggle", async () => {
         const { toggle } = renderDropdown();
 

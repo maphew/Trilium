@@ -104,7 +104,7 @@
     }
 
     &:focus-within .search-button:hover,
-    .search-button.show {
+    .search-button.active {
         background: var(--quick-search-button-hover-background) !important;
         color: var(--quick-search-button-active-color) !important;
         transition: background-color 100ms ease-out !important;
