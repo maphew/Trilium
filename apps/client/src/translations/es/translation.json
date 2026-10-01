@@ -1280,7 +1280,6 @@
     "label_rock_or_pop": "sólo una de las etiquetas debe estar presente",
     "label_year_comparison": "comparación numérica (también >, >=, <).",
     "label_date_created": "notas creadas en el último mes",
-    "error": "Error de búsqueda: {{error}}",
     "search_prefix": "Buscar:",
     "hints": {
       "title": "Cadena de búsqueda",
@@ -2089,7 +2088,6 @@
     "placeholder": "Búsqueda rápida",
     "searching": "Buscando...",
     "no-results": "No se encontraron resultados",
-    "more-results": "... y {{number}} resultados más.",
     "show-in-full-search": "Mostrar en búsqueda completa"
   },
   "note_tree": {

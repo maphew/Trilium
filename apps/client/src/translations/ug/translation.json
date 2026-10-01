@@ -987,7 +987,6 @@
     "label_rock_or_pop": "بەلگىلەرنىڭ پەقەت بىرىلا بولۇشى شەرت",
     "label_year_comparison": "سانلىق قىممەت سېلىشتۇرۇش (يەنە >، >=، < قاتارلىقلار).",
     "label_date_created": "ئۆتكەن بىر ئاي ئىچىدە قۇرۇلغان خاتىرىلەر",
-    "error": "ئىزدەش خاتالىقى: {{error}}",
     "search_prefix": "ئىزدەش:"
   },
   "attachment_detail": {

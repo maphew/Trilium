@@ -1250,7 +1250,6 @@
     "label_rock_or_pop": "Es darf nur eines der Labels vorhanden sein",
     "label_year_comparison": "numerischer Vergleich (auch >, >=, <).",
     "label_date_created": "Notizen, die im letzten Monat erstellt wurden",
-    "error": "Suchfehler: {{error}}",
     "search_prefix": "Suche:"
   },
   "attachment_detail": {
@@ -1882,7 +1881,6 @@
     "placeholder": "Schnellsuche",
     "searching": "Suche läuft...",
     "no-results": "Keine Ergebnisse gefunden",
-    "more-results": "... und {{number}} weitere Ergebnisse.",
     "show-in-full-search": "In der vollständigen Suche anzeigen"
   },
   "note_tree": {

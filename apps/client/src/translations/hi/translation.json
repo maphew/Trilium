@@ -996,7 +996,6 @@
     "label_rock_or_pop": "दिए गए लेबल्स में से कम से कम एक होना चाहिए",
     "label_year_comparison": "नंबरों की तुलना (साथ ही >, >=, < भी)।",
     "label_date_created": "पिछले महीने बने नोट्स",
-    "error": "सर्च एरर: {{error}}",
     "search_prefix": "खोजें:"
   },
   "attachment_detail": {
@@ -1755,7 +1754,6 @@
     "placeholder": "तुरंत खोजें (Quick search)",
     "searching": "खोजा जा रहा है..।",
     "no-results": "कोई परिणाम नहीं मिला",
-    "more-results": "... और {{number}} परिणाम।",
     "show-in-full-search": "पूरी खोज (Full search) में दिखाएं"
   },
   "note_tree": {

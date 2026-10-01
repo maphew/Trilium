@@ -1531,7 +1531,6 @@
   "search_string": {
     "also_see": "vedeți și",
     "complete_help": "informații complete despre sintaxa de căutare",
-    "error": "Eroare la căutare: {{error}}",
     "full_text_search": "Introduceți orice text pentru a căuta în conținutul notițelor",
     "label_abc": "reîntoarce notițele cu eticheta „abc”",
     "label_date_created": "notițe create în ultima lună",
@@ -1927,7 +1926,6 @@
     "unknown": "<p>Starea sincronizării va fi cunoscută după o încercare de sincronizare.</p><p>Clic pentru a rula sincronizarea acum.</p>"
   },
   "quick-search": {
-    "more-results": "... și încă {{number}} rezultate.",
     "no-results": "Niciun rezultat găsit",
     "placeholder": "Căutare rapidă",
     "searching": "Se caută...",

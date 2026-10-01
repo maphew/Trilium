@@ -1358,7 +1358,6 @@
     "label_rock_or_pop": "hanya satu dari label tersebut yang harus ada",
     "label_year_comparison": "perbandingan numerik (juga >, >=, <).",
     "label_date_created": "catatan yang dibuat dalam satu bulan terakhir",
-    "error": "Kesalahan pencarian: {{error}}",
     "search_prefix": "Pencarian:",
     "hints": {
       "title": "String pencarian",
@@ -2437,7 +2436,6 @@
     "placeholder": "Pencarian cepat",
     "searching": "Sedang mencari...",
     "no-results": "Tidak ada hasil ditemukan",
-    "more-results": "... dan {{number}} hasil lainnya.",
     "show-in-full-search": "Tampilkan di pencarian penuh"
   },
   "note_tree": {

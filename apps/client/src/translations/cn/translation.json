@@ -1270,7 +1270,6 @@
     "label_rock_or_pop": "只需一个标签存在即可",
     "label_year_comparison": "数字比较（也包括>，>=，<）。",
     "label_date_created": "上个月创建的笔记",
-    "error": "搜索错误：{{error}}",
     "search_prefix": "搜索:",
     "hints": {
       "title": "搜索字符串",
@@ -2056,7 +2055,6 @@
     "placeholder": "快速搜索",
     "searching": "正在搜索...",
     "no-results": "未找到结果",
-    "more-results": "... 以及另外 {{number}} 个结果。",
     "show-in-full-search": "在完整的搜索界面中显示"
   },
   "note_tree": {

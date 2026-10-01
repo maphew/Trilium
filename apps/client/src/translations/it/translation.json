@@ -528,8 +528,7 @@
     "label_rock_pop": "corrisponde alle note che hanno sia etichette rock che pop",
     "label_rock_or_pop": "deve essere presente solo una delle etichette",
     "label_year_comparison": "confronto numerico (anche >, >=, <).",
-    "label_date_created": "note create nell'ultimo mese",
-    "error": "Errore di ricerca: {{error}}"
+    "label_date_created": "note create nell'ultimo mese"
   },
   "attachment_detail": {
     "open_help_page": "Apri la pagina di aiuto sugli allegati",
@@ -886,7 +885,6 @@
     "placeholder": "Ricerca rapida",
     "searching": "Ricerca in corso...",
     "no-results": "Nessun risultato trovato",
-    "more-results": "... e altri {{number}} risultati.",
     "show-in-full-search": "Mostra nella ricerca completa"
   },
   "help": {

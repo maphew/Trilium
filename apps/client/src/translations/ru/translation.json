@@ -1270,8 +1270,7 @@
     "no-results": "Результаты не найдены",
     "placeholder": "Быстрый поиск",
     "searching": "Поиск...",
-    "show-in-full-search": "Расширенный поиск",
-    "more-results": "... и еще {{number}} результатов."
+    "show-in-full-search": "Расширенный поиск"
   },
   "find": {
     "replace_all": "Заменить все",
@@ -1768,7 +1767,6 @@
     "label_rock_or_pop": "должна присутствовать только одна из меток",
     "label_year_comparison": "числовое сравнение (также >, >=, <).",
     "label_date_created": "заметки, созданные за последний месяц",
-    "error": "Ошибка поиска: {{error}}",
     "placeholder": "Ctrl+Space — подсказки, @ — заметки, Shift+Enter — новая строка, Enter — поиск",
     "hints": {
       "title": "Строка поиска",
