@@ -71,25 +71,6 @@ export default class QuickSearchWidget extends BasicWidget {
         return this.$widget;
     }
 
-    /**
-     * Steps from the field into the results on ArrowDown, which Bootstrap does not do on its own.
-     * Searching and no-results leave only a disabled item, and the caret keeps the key.
-     */
-    focusFirstResult() {
-        if (!this.isDropdownOpen()) {
-            return false;
-        }
-
-        const $firstResult = this.$searchResults.find(".dropdown-item:not(.disabled)").first();
-
-        if (!$firstResult.length) {
-            return false;
-        }
-
-        $firstResult.focus();
-        return true;
-    }
-
     async search() {
         const searchString = this.searchString.trim();
 
@@ -215,11 +196,6 @@ export default class QuickSearchWidget extends BasicWidget {
                 this.displayMoreResults(LOAD_MORE_BATCH_SIZE).then(() => this.dropdown.update());
             }
         }
-    }
-
-    /** Whether the results popup is open, which is what makes ArrowDown move focus into it. */
-    private isDropdownOpen() {
-        return this.$dropdownMenu.hasClass("show");
     }
 
     async showInFullSearch() {

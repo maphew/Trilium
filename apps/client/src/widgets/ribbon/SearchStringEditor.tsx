@@ -29,6 +29,11 @@ interface SearchStringEditorProps {
     /** Runs when Enter is pressed, which the editor treats as "run this search". */
     onEnter(): void;
     /**
+     * Runs on ArrowDown while no completion is open, for a field with results listed below it.
+     * Returns whether the field took it; `false` moves the caret.
+     */
+    onArrowDown?(): boolean;
+    /**
      * Runs on Escape, once the completion popup has passed the key on. Returns whether the field
      * took it; `false` leaves it to whatever the field sits in.
      */
@@ -66,13 +71,13 @@ const SINGLE_LINE_HINTS: ShortcutHintDefinition = [
  *
  * Written to edit the `#searchString` of a saved search, and used for a collection filter too.
  */
-export default function SearchStringEditor({ currentValue, noteId, placeholder, ariaLabel, className, autoFocus, singleLine, editorRef: exposedRef, onChange, onEnter, onEscape }: SearchStringEditorProps) {
+export default function SearchStringEditor({ currentValue, noteId, placeholder, ariaLabel, className, autoFocus, singleLine, editorRef: exposedRef, onChange, onEnter, onArrowDown, onEscape }: SearchStringEditorProps) {
     const parentRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<FieldEditor>();
     // The editor is built once, so it reaches the current props through a ref rather than
     // through the closure of the render that created it.
-    const propsRef = useRef({ currentValue, onChange, onEnter, onEscape });
-    propsRef.current = { currentValue, onChange, onEnter, onEscape };
+    const propsRef = useRef({ currentValue, onChange, onEnter, onArrowDown, onEscape });
+    propsRef.current = { currentValue, onChange, onEnter, onArrowDown, onEscape };
     // Set while the effect below writes `currentValue` into the document, so `onChange` does not
     // report it as an edit the user made.
     const isAdopting = useRef(false);
@@ -96,6 +101,7 @@ export default function SearchStringEditor({ currentValue, noteId, placeholder, 
                 }
             },
             onEnter: () => propsRef.current.onEnter(),
+            onArrowDown: () => propsRef.current.onArrowDown?.() ?? false,
             onEscape: () => propsRef.current.onEscape?.() ?? false
         });
         editorRef.current = editor;

@@ -169,6 +169,47 @@ describe("QuickSearch", () => {
         expect(editor.hasFocus).toBe(true);
     });
 
+    it("steps from the field into the first result on ArrowDown, and back on ArrowUp", async () => {
+        vi.spyOn(server, "get").mockResolvedValue(response(3, []));
+        const { editor } = await mount();
+
+        typeQuery(editor, "hello");
+        pressEnter(editor);
+        const [ first ] = await waitForResults(3);
+        editor.focus();
+
+        // A modifier leaves the key to the field.
+        pressArrowDown(editor, { ctrlKey: true });
+        pressArrowDown(editor, { shiftKey: true });
+        expect(editor.hasFocus).toBe(true);
+
+        pressArrowDown(editor);
+        expect(document.activeElement).toBe(first);
+
+        act(() => {
+            first.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }));
+        });
+        expect(editor.hasFocus).toBe(true);
+        expect(menu()).not.toBeNull();
+    });
+
+    it("leaves ArrowDown to the field while the results are closed or hold nothing to focus", async () => {
+        const get = vi.spyOn(server, "get").mockResolvedValue(response(0, []));
+        const { editor } = await mount();
+
+        typeQuery(editor, "nothing");
+        editor.focus();
+        pressArrowDown(editor);
+        expect(editor.hasFocus).toBe(true);
+        expect(menu()).toBeNull();
+
+        pressEnter(editor);
+        await vi.waitFor(() => expect(get).toHaveBeenCalled());
+        await vi.waitFor(() => expect(placeholderItems()[0]?.querySelector(".bx-loader")).toBeNull());
+        pressArrowDown(editor);
+        expect(editor.hasFocus).toBe(true);
+    });
+
     it("leaves the open results alone while the query is typed", async () => {
         vi.spyOn(server, "get").mockResolvedValue(response(15, []));
         const { editor } = await mount();
@@ -254,6 +295,14 @@ function pressEnter(editor: EditorView) {
     act(() => {
         editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", {
             key: "Enter", code: "Enter", bubbles: true, cancelable: true
+        }));
+    });
+}
+
+function pressArrowDown(editor: EditorView, modifiers: KeyboardEventInit = {}) {
+    act(() => {
+        editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", {
+            key: "ArrowDown", code: "ArrowDown", bubbles: true, cancelable: true, ...modifiers
         }));
     });
 }

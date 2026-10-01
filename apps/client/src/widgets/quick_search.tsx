@@ -36,7 +36,7 @@ export default function QuickSearch() {
     const requestIdRef = useRef(0);
 
     useTriliumEvent("quickSearch", () => editorRef.current?.focus());
-    useResultNavigation(popupRef, open);
+    useResultNavigation(popupRef, open, () => editorRef.current?.focus());
 
     /** Opens the results with a search for the query, or refreshes the open results. */
     async function search() {
@@ -90,6 +90,12 @@ export default function QuickSearch() {
                         setHasQuery(value.length > 0);
                     }}
                     onEnter={() => void search()}
+                    onArrowDown={() => {
+                        const popup = popupRef.current;
+                        if (!popup || !firstResult(popup)) return false;
+                        focusListItem(popup, "first");
+                        return true;
+                    }}
                 />
             </div>
 
@@ -113,23 +119,41 @@ export default function QuickSearch() {
 }
 
 /**
- * Moves focus between the results with Up and Down. Captured at the window, as Bootstrap's handler
- * for keys in a `.dropdown-menu` crashes on one with no toggle beside it.
+ * Moves focus between the results with Up and Down, and from the first result up to the field.
+ * Captured at the window, as Bootstrap's handler for keys in a `.dropdown-menu` crashes on one with
+ * no toggle beside it.
  */
-function useResultNavigation(popupRef: RefObject<HTMLElement>, open: boolean) {
+function useResultNavigation(
+    popupRef: RefObject<HTMLElement>,
+    open: boolean,
+    focusField: () => void
+) {
+    const focusFieldRef = useRef(focusField);
+    focusFieldRef.current = focusField;
+
     useEffect(() => {
         if (!open) return;
         const onKeyDown = (e: KeyboardEvent) => {
             const popup = popupRef.current;
+            const target = e.target as Element;
             if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-            if (!popup?.contains(e.target as Node)) return;
+            if (!popup?.contains(target)) return;
             e.preventDefault();
             e.stopPropagation();
-            focusListItem(popup, e.key === "ArrowDown" ? "next" : "previous", e.target as Element);
+            if (e.key === "ArrowUp" && target.closest(".dropdown-item") === firstResult(popup)) {
+                focusFieldRef.current();
+            } else {
+                focusListItem(popup, e.key === "ArrowDown" ? "next" : "previous", target);
+            }
         };
         window.addEventListener("keydown", onKeyDown, true);
         return () => window.removeEventListener("keydown", onKeyDown, true);
     }, [ open ]);
+}
+
+/** The first result focus can move to; the searching and no-results rows are disabled. */
+function firstResult(popup: HTMLElement) {
+    return popup.querySelector(".dropdown-item:not(.disabled)");
 }
 
 function QuickSearchResults({ searchState, onOpenResult }: {

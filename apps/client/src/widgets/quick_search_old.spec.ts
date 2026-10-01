@@ -13,29 +13,6 @@ describe("QuickSearchWidget", () => {
         document.body.innerHTML = "";
     });
 
-    it("moves focus to the first result on ArrowDown, only while the popup is open", async () => {
-        const widget = await renderAndSearch();
-        const $firstItem = widget.$widget.find(".dropdown-menu .dropdown-item").first();
-
-        widget.$widget.find(".dropdown-menu").removeClass("show");
-        expect(widget.focusFirstResult()).toBe(false);
-        expect(document.activeElement).not.toBe($firstItem[0]);
-
-        widget.$widget.find(".dropdown-menu").addClass("show");
-        expect(widget.focusFirstResult()).toBe(true);
-        expect(document.activeElement).toBe($firstItem[0]);
-    });
-
-    it("leaves ArrowDown alone when the popup holds no result to focus", async () => {
-        const widget = await renderAndSearch(0);
-
-        const $disabled = widget.$widget.find(".dropdown-menu .dropdown-item.disabled");
-        expect($disabled.length).toBe(1);
-
-        expect(widget.focusFirstResult()).toBe(false);
-        expect(document.activeElement).not.toBe($disabled[0]);
-    });
-
     it("searches for the query and hands it to the full search", async () => {
         const triggerCommand = vi.spyOn(appContext, "triggerCommand").mockResolvedValue(undefined);
         const widget = renderWidget();
@@ -107,33 +84,6 @@ describe("QuickSearchWidget", () => {
         expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "hello" });
     });
 });
-
-async function renderAndSearch(resultCount = 3) {
-    const searchResults = Array.from({ length: resultCount }, (_, index) => ({
-        notePath: `note${index}`,
-        noteTitle: `Note ${index}`,
-        notePathTitle: `Note ${index}`,
-        highlightedNotePathTitle: `Note ${index}`,
-        icon: "bx bx-note"
-    }));
-
-    vi.spyOn(server, "get").mockResolvedValue({
-        searchResultNoteIds: searchResults.map((result) => result.notePath),
-        searchResults,
-        highlightedTokens: [],
-        error: ""
-    } as never);
-
-    const widget = new QuickSearchWidget();
-    widget.render();
-    // Focus only moves within the document, and `show` is the class Bootstrap opens the menu with.
-    widget.$widget.appendTo(document.body);
-    widget.searchString = "hello";
-    await widget.search();
-    widget.$widget.find(".dropdown-menu").addClass("show");
-
-    return widget;
-}
 
 function renderWidget() {
     const widget = new QuickSearchWidget();
