@@ -4496,5 +4496,8 @@
     "label_marker_negated": "Excludes a label. Press Enter to see the list of labels",
     "relation_marker": "Refers to a relation. Press Enter to see the list of relations",
     "relation_marker_negated": "Excludes a relation. Press Enter to see the list of relations"
+  },
+  "split_button": {
+    "more_actions": "More actions"
   }
 }
