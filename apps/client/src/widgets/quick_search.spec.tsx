@@ -22,17 +22,24 @@ describe("QuickSearch", () => {
         vi.restoreAllMocks();
     });
 
-    it("renders the search field and focuses it on the quickSearch shortcut", async () => {
+    it("renders the search field, focuses it on the quickSearch shortcut and marks a typed query", async () => {
         const host = new Component();
         const { container, editor } = await mount(host);
+        const root = container.querySelector(".quick-search");
 
-        expect(container.querySelector(".quick-search .search-string .cm-editor")).not.toBeNull();
+        expect(root?.querySelector(".search-string .cm-editor")).not.toBeNull();
 
         expect(editor.hasFocus).toBe(false);
         await act(async () => {
             await host.handleEvent("quickSearch", {});
         });
         expect(editor.hasFocus).toBe(true);
+
+        expect(root?.classList.contains("has-query")).toBe(false);
+        typeQuery(editor, "hello");
+        expect(root?.classList.contains("has-query")).toBe(true);
+        typeQuery(editor, "");
+        expect(root?.classList.contains("has-query")).toBe(false);
     });
 
     it("searches on Enter and lists the first results with their highlighted snippets", async () => {

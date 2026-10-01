@@ -1,11 +1,52 @@
+/* Colors come from the theme's `--quick-search-*` variables; the fallbacks cover the themes that
+   define none of them. */
 .quick-search {
-    display: flex;
-    padding: 10px 10px 10px 0px;
-    height: 50px;
+    /* The room between the widget's edge and the box drawn inside it. */
+    --quick-search-inset: 8px;
+    --quick-search-button-active-background:
+        var(--left-pane-item-action-button-background, var(--hover-item-background-color));
+    --quick-search-button-hover-background:
+        var(--left-pane-item-action-button-hover-background, var(--hover-item-background-color));
+    --quick-search-button-active-color:
+        var(--left-pane-item-action-button-color, var(--main-text-color));
 
-    button, .search-string {
-        border: 0;
-        font-size: 100% !important;
+    position: relative;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    padding: var(--quick-search-inset);
+
+    /* `.component`, which `BasicWidget` adds, sets `contain: size` and would collapse the box. */
+    &.component {
+        contain: unset;
+    }
+
+    /* The box. Drawn inside the padding, which stays part of the widget. */
+    &::before {
+        content: "";
+        position: absolute;
+        inset: var(--quick-search-inset);
+        z-index: 0;
+        border: 2px solid transparent;
+        border-radius: 6px;
+        background: var(--quick-search-background, var(--accented-background-color));
+        transition: background-color 200ms ease-in;
+    }
+
+    &:hover::before {
+        background: var(--quick-search-hover-background, var(--accented-background-color));
+        transition: background-color 75ms ease-out;
+    }
+
+    &:focus-within::before {
+        border-color: var(--quick-search-focus-border, var(--main-border-color));
+        background: var(--quick-search-focus-background, var(--main-background-color));
+        transition: background-color 100ms ease-out;
+    }
+
+    /* Over the box. */
+    & > * {
+        position: relative;
     }
 
     .search-string {
@@ -13,6 +54,18 @@
         flex: 1 1 auto;
         align-items: center;
         min-width: 0;
+        padding-inline-start: 15px;
+        border: 0;
+        font-size: 100% !important;
+
+        /* The box behind the field takes the place of the field's own fill and focus outline. */
+        &,
+        &:hover,
+        &:focus-within {
+            background: transparent;
+            outline: none;
+            box-shadow: none;
+        }
 
         .cm-editor {
             width: 100%;
@@ -22,6 +75,48 @@
         .cm-line {
             white-space: pre;
         }
+
+        .cm-placeholder {
+            color: var(--quick-search-color, var(--muted-text-color));
+        }
+    }
+
+    &:focus-within .search-string {
+        color: var(--quick-search-focus-color, var(--main-text-color));
+    }
+
+    /* `!important` outranks Bootstrap's `.btn` state rules (`:hover`, `:active`, `.show`). */
+    .search-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 25px;
+        height: 25px;
+        margin-inline-end: 8px;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        font-size: 100% !important;
+        color: var(--quick-search-color, var(--muted-text-color)) !important;
+        transition: background-color 200ms ease-in !important;
+
+        &:active {
+            transform: scale(0.85);
+        }
+    }
+
+    &.has-query:focus-within .search-button {
+        background: var(--quick-search-button-active-background) !important;
+        color: var(--quick-search-button-active-color) !important;
+        transition: background-color 500ms ease-out !important;
+    }
+
+    &:focus-within .search-button:hover,
+    .search-button.show {
+        background: var(--quick-search-button-hover-background) !important;
+        color: var(--quick-search-button-active-color) !important;
+        transition: background-color 100ms ease-out !important;
     }
 }
 
@@ -118,7 +213,8 @@
     /* Uses the same highlight variables as SearchResultsList.css and ListOrGridView.css. */
     :is(.search-result-title, .search-result-content, .search-result-attributes) b {
         background: var(--note-list-view-search-result-highlight-background, transparent);
-        color: var(--note-list-view-search-result-highlight-color, var(--admonition-warning-accent-color));
+        color:
+            var(--note-list-view-search-result-highlight-color, var(--admonition-warning-accent-color));
         font-weight: 600;
         text-decoration: underline;
 

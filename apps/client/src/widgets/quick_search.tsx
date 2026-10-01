@@ -2,6 +2,7 @@ import "./quick_search.css";
 
 import type { FieldEditor } from "@triliumnext/codemirror/src/field_editor";
 import type { QuickSearchResponse, SearchResultDetails } from "@triliumnext/commons";
+import clsx from "clsx";
 import { useRef, useState } from "preact/hooks";
 
 import { t } from "../services/i18n";
@@ -53,7 +54,7 @@ export default function QuickSearch() {
     }
 
     return (
-        <div className="quick-search">
+        <div className={clsx("quick-search", searchString && "has-query")}>
             <DropdownPanel
                 className="quick-search-toggle"
                 buttonClassName="search-button"
