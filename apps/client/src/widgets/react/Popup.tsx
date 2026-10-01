@@ -97,10 +97,13 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
     const anchorX = "x" in anchor ? anchor.x : undefined;
     const anchorY = "y" in anchor ? anchor.y : undefined;
 
+    const stylesheetPlaces = useRef(placedByStylesheet);
+    stylesheetPlaces.current = placedByStylesheet;
     useLayoutEffect(() => {
         const popup = popupRef.current;
         if (!popup) return;
         if (placedByStylesheet) {
+            clearPlacement(popup);
             popup.style.visibility = "visible";
             reportPlaced();
             return;
@@ -112,6 +115,8 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
         const options = { placement, offset: gap, capHeight, shiftAcross: !(anchor instanceof HTMLElement) };
         const stopUpdating = autoUpdate(reference, popup, () => void placeFloating(popup, reference, options).then(() => {
             if (!closed) reportPlaced();
+            // Resolved after the stylesheet took over, so what it wrote goes again.
+            else if (stylesheetPlaces.current) clearPlacement(popup);
         }));
         return () => {
             closed = true;
@@ -191,6 +196,13 @@ function swallowStrayClick(pressed: Node) {
     };
     window.addEventListener("click", onClick, true);
     window.addEventListener("pointerdown", stop, true);
+}
+
+/** Removes what `placeFloating()` wrote on `popup`, so the stylesheet places it. */
+function clearPlacement(popup: HTMLElement) {
+    popup.style.removeProperty("left");
+    popup.style.removeProperty("top");
+    popup.style.removeProperty("max-height");
 }
 
 /** A popup, as the one it opened inside knows it. */

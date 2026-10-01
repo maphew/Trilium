@@ -314,8 +314,17 @@ export function isMobile() {
  * around the `.mobile-bottom-menu` rules in style.css.
  */
 export function isNarrowLayout() {
-    return window.matchMedia("(max-width: 991px)").matches;
+    return window.matchMedia(NARROW_LAYOUT).matches;
 }
+
+/** Calls `onChange` whenever {@link isNarrowLayout} changes, until the returned function runs. */
+export function onNarrowLayoutChange(onChange: () => void) {
+    const query = window.matchMedia(NARROW_LAYOUT);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+}
+
+const NARROW_LAYOUT = "(max-width: 991px)";
 
 /**
  * Returns true if the client device is an Apple iOS one (iPad, iPhone, iPod).
@@ -990,6 +999,7 @@ export default {
     randomString,
     isMobile,
     isNarrowLayout,
+    onNarrowLayoutChange,
     isDesktop,
     setCookie,
     getNoteTypeClass,

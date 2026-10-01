@@ -7,11 +7,22 @@ vi.mock("../services/keyboard_actions", () => ({
         effectiveShortcuts: name === "copyNotesToClipboard" ? [ "Ctrl+C", "Ctrl+Insert" ] : []
     })
 }));
-const layout = vi.hoisted(() => ({ onMobile: false, narrow: true }));
+const layout = vi.hoisted(() => ({
+    onMobile: false,
+    narrow: true,
+    onChange: new Set<() => void>()
+}));
 vi.mock("../services/utils", async (importOriginal) => {
     const original = await importOriginal<typeof import("../services/utils")>();
     // `Menu` imports `isMobile()` by name, `contextMenu` through the default export.
-    const overrides = { isMobile: () => layout.onMobile, isNarrowLayout: () => layout.narrow };
+    const overrides = {
+        isMobile: () => layout.onMobile,
+        isNarrowLayout: () => layout.narrow,
+        onNarrowLayoutChange: (listener: () => void) => {
+            layout.onChange.add(listener);
+            return () => layout.onChange.delete(listener);
+        }
+    };
     return { ...original, ...overrides, default: { ...original.default, ...overrides } };
 });
 const focusTraps = vi.hoisted(() => ({ restore: vi.fn(), suspend: vi.fn() }));
@@ -1096,6 +1107,20 @@ describe("contextMenu", () => {
             await vi.waitFor(() => expect(menu?.style.visibility).toBe("visible"));
             expect([ menu?.style.left, menu?.style.top ]).not.toEqual([ "", "" ]);
             expect(menu?.style.maxHeight).not.toBe("");
+        });
+
+        it("closes as a tablet turns past the phone layout's width", async () => {
+            layout.onMobile = true;
+            buildPage();
+            const contextMenu = await buildContextMenu();
+            await contextMenu.show({ x: 10, y: 20, items, selectMenuItemHandler: () => {} });
+            expect(menuElement()).not.toBeNull();
+
+            layout.narrow = false;
+            for (const listener of [ ...layout.onChange ]) listener();
+            await vi.waitFor(() => expect(menuElement()).toBeNull());
+            expect(contextMenu.isShown).toBe(false);
+            expect(layout.onChange.size).toBe(0);
         });
 
         it("opens at the pointer instead when the caller asks", async () => {

@@ -161,8 +161,9 @@ describe("SegmentedChoice", () => {
         it("comes up from the bottom of the screen, out of the dialog and over a backdrop", () => {
             isMobileMock.mockReturnValue(true);
             // A phone's width; happy-dom's window is 1024px wide, a tablet's.
+            const phone = { matches: true, addEventListener() {}, removeEventListener() {} };
             const narrow = vi.spyOn(window, "matchMedia")
-                .mockReturnValue({ matches: true } as MediaQueryList);
+                .mockReturnValue(phone as unknown as MediaQueryList);
             renderOpened(<SegmentedChoice options={iconOptions} currentValue="dark" onChange={() => {}} collapseOnMobile />);
 
             // Placed by the app's own bottom-sheet rule rather than by Popper, which mobile's forced

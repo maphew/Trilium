@@ -95,6 +95,8 @@ class ContextMenu {
     private lastInputWasKey = false;
     /** Counts `show()` calls, so that only the latest one mounts a menu. */
     private lastShowRequest = 0;
+    /** Stops closing the menu when the layout changes; see `show()`. */
+    private stopFollowingLayout?: () => void;
 
     constructor() {
         this.cover = utils.isMobile() ? document.getElementById("context-menu-cover") : null;
@@ -148,6 +150,11 @@ class ContextMenu {
         (document.fullscreenElement ?? document.body).append(this.host);
         this.cover?.classList.add("show");
         document.body.classList.add("context-menu-shown");
+        // A mobile menu is a sheet or placed at the press depending on the layout, decided here,
+        // so it closes when a tablet turns past that width.
+        if (utils.isMobile() && !options.forcePositionOnMobile) {
+            this.stopFollowingLayout = utils.onNarrowLayoutChange(() => void this.hide());
+        }
 
         render(h(Menu<T>, {
             // The id and classes the stylesheets, themes and `floating_layers` know this menu by.
@@ -188,6 +195,8 @@ class ContextMenu {
     async hide() {
         const options = this.options;
         this.options = undefined;
+        this.stopFollowingLayout?.();
+        this.stopFollowingLayout = undefined;
         this.cover?.classList.remove("show");
         document.body.classList.remove("context-menu-shown");
 
