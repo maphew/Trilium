@@ -10,6 +10,8 @@ import {
     Paragraph,
     SplitButtonView
 } from "ckeditor5";
+import bxLink from "boxicons/svg/regular/bx-link.svg?raw";
+import bxShapeSquare from "boxicons/svg/regular/bx-shape-square.svg?raw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
@@ -93,11 +95,12 @@ describe("FileUploadUI", () => {
             .mockImplementation(() => undefined);
         const files = pickFiles();
 
-        expect(items.map((item) => [ item.label, item.withText, item.allowMultipleFiles ]))
-            .toEqual([
-                [ "Attach file as a link", true, true ],
-                [ "Attach and embed file", true, true ]
-            ]);
+        expect(items.map((item) => [
+            item.label, item.icon, item.withText, item.allowMultipleFiles
+        ])).toEqual([
+            [ "Attach file as a link", bxLink, true, true ],
+            [ "Attach and embed file", bxShapeSquare, true, true ]
+        ]);
 
         const [ linkItem, embedItem ] = items;
         dropdown.render();

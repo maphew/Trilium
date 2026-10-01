@@ -10,6 +10,8 @@ import {
     type FileInputViewDoneEvent,
     type Locale
 } from "ckeditor5";
+import bxLink from "boxicons/svg/regular/bx-link.svg?raw";
+import bxShapeSquare from "boxicons/svg/regular/bx-shape-square.svg?raw";
 
 import type { FileUploadOptions } from "./fileuploadcommand.js";
 
@@ -45,13 +47,15 @@ export default class FileUploadUI extends Plugin {
                 dropdownView.bind("isEnabled").to(command);
             }
 
-            const buttons = [ this.createListButton(locale, t("Attach file as a link"), {}) ];
+            const buttons = [
+                this.createListButton(locale, t("Attach file as a link"), bxLink, {})
+            ];
 
             // Embedding goes wherever the "Include note" button can insert an include.
             const includeCommand = editor.commands.get("insertIncludeNote");
             if (includeCommand) {
                 const embedButton = this.createListButton(
-                    locale, t("Attach and embed file"), { asEmbed: true }
+                    locale, t("Attach and embed file"), bxShapeSquare, { asEmbed: true }
                 );
                 embedButton.bind("isEnabled").to(includeCommand);
                 buttons.push(embedButton);
@@ -70,9 +74,14 @@ export default class FileUploadUI extends Plugin {
         });
     }
 
-    private createListButton(locale: Locale, label: string, options: Partial<FileUploadOptions>) {
+    private createListButton(
+        locale: Locale,
+        label: string,
+        icon: string,
+        options: Partial<FileUploadOptions>
+    ) {
         const button = new FileDialogListItemButtonView(locale);
-        button.set({ label, withText: true, allowMultipleFiles: true });
+        button.set({ label, icon, withText: true, allowMultipleFiles: true });
         this.attachOnDone(button, options);
 
         return button;
