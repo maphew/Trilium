@@ -44,7 +44,8 @@ export default function QuickSearch() {
     useTriliumEvent("quickSearch", () => editorRef.current?.focus());
     useResultNavigation(popupRef, open, {
         focusField: () => editorRef.current?.focus(),
-        onMoved: () => setKeyboardDriven(true)
+        onMoved: () => setKeyboardDriven(true),
+        onEscape: close
     });
 
     /** Opens the results with a search for the query, or refreshes the open results. */
@@ -116,6 +117,12 @@ export default function QuickSearch() {
                         setHasQuery(value.length > 0);
                     }}
                     onEnter={() => void search()}
+                    // Reached only once the field's completion list, if open, has dropped the key.
+                    onEscape={() => {
+                        if (!open) return false;
+                        close();
+                        return true;
+                    }}
                     onArrowDown={() => {
                         const popup = popupRef.current;
                         if (!popup || !firstResult(popup)) return false;
@@ -135,6 +142,7 @@ export default function QuickSearch() {
                     className={clsx("dropdown-menu show tn-dropdown-menu quick-search-menu",
                         keyboardDriven && "tn-menu-keyboard")}
                     elementRef={popupRef}
+                    escapeDismisses={false}
                     onPointerMove={(e) => {
                         if (!pointerMoved(e)) return;
                         setKeyboardDriven(false);
@@ -166,15 +174,17 @@ export default function QuickSearch() {
 }
 
 /**
- * Moves focus between the results with Up and Down, and from the first result up to the field.
- * Captured at the window, as Bootstrap's handler for keys in a `.dropdown-menu` crashes on one with
- * no toggle beside it.
+ * Moves focus between the results with the arrow and page keys, and from the first result up to
+ * the field, and closes them on Escape. Captured at the window, as Bootstrap's handler for keys in
+ * a `.dropdown-menu` crashes on one with no toggle beside it.
  */
 function useResultNavigation(popupRef: RefObject<HTMLElement>, open: boolean, callbacks: {
     /** Runs for ArrowUp on the first result. */
     focusField(): void;
     /** Runs once the keys have moved focus to another result. */
     onMoved(): void;
+    /** Runs for Escape on a result. */
+    onEscape(): void;
 }) {
     const callbacksRef = useRef(callbacks);
     callbacksRef.current = callbacks;
@@ -184,7 +194,15 @@ function useResultNavigation(popupRef: RefObject<HTMLElement>, open: boolean, ca
         const onKeyDown = (e: KeyboardEvent) => {
             const popup = popupRef.current;
             const target = e.target as Element;
-            if (!NAVIGATION_KEYS.has(e.key) || !popup?.contains(target)) return;
+            if (!popup?.contains(target)) return;
+            if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                callbacksRef.current.onEscape();
+                return;
+            }
+
+            if (!NAVIGATION_KEYS.has(e.key)) return;
             e.preventDefault();
             e.stopPropagation();
             const row = target.closest<HTMLElement>(".dropdown-item");

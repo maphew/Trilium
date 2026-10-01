@@ -1,3 +1,4 @@
+import { type CompletionContext, completionStatus, startCompletion } from "@codemirror/autocomplete";
 import type { EditorView } from "@codemirror/view";
 import type { QuickSearchResponse } from "@triliumnext/commons";
 import { options, type VNode } from "preact";
@@ -12,9 +13,13 @@ import { renderInto } from "../test/render";
 import QuickSearch from "./quick_search";
 import { ParentComponent } from "./react/react_utils";
 
-// The completions fetch attribute names and values through the server; nothing here opens the popup.
+// The completions fetch attribute names and values through the server, so a spec that opens them
+// supplies its own source.
+const completions = vi.hoisted(() => ({
+    source: null as ((context: CompletionContext) => unknown) | null
+}));
 vi.mock("./ribbon/search_completions", () => ({
-    searchCompletionSource: () => null,
+    searchCompletionSource: (context: CompletionContext) => completions.source?.(context) ?? null,
     searchCompletionIcon: () => undefined,
     searchCompletionReactivates: () => false
 }));
@@ -22,6 +27,7 @@ vi.mock("./ribbon/search_completions", () => ({
 describe("QuickSearch", () => {
     afterEach(() => {
         vi.restoreAllMocks();
+        completions.source = null;
     });
 
     it("renders the search field, focuses it on the quickSearch shortcut and marks a typed query", async () => {
@@ -260,6 +266,30 @@ describe("QuickSearch", () => {
         expect(document.activeElement).toBe(rows[29]);
     });
 
+    it("drops an open completion list on Escape before the results", async () => {
+        vi.spyOn(server, "get").mockResolvedValue(response(3, []));
+        completions.source = () => ({ from: 0, options: [ { label: "and" }, { label: "asc" } ] });
+        const { editor } = await mount();
+
+        typeQuery(editor, "a");
+        pressEnter(editor);
+        await waitForResults(3);
+        editor.focus();
+
+        startCompletion(editor);
+        await vi.waitFor(() => expect(completionStatus(editor.state)).toBe("active"));
+        // The list drops the keys pressed within its `interactionDelay` of opening.
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        pressKey(editor.contentDOM, "Escape");
+        expect(completionStatus(editor.state)).toBe(null);
+        expect(menu()).not.toBeNull();
+
+        pressKey(editor.contentDOM, "Escape");
+        await vi.waitFor(() => expect(menu()).toBeNull());
+        expect(editor.hasFocus).toBe(true);
+    });
+
     it("leaves ArrowDown to the field while the results are closed or hold nothing to focus", async () => {
         const get = vi.spyOn(server, "get").mockResolvedValue(response(0, []));
         const { editor } = await mount();
@@ -401,6 +431,12 @@ function pressArrowDown(editor: EditorView, modifiers: KeyboardEventInit = {}) {
         editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", {
             key: "ArrowDown", code: "ArrowDown", bubbles: true, cancelable: true, ...modifiers
         }));
+    });
+}
+
+function pressKey(target: Element, key: string) {
+    act(() => {
+        target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
     });
 }
 
