@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import becca from "../../becca/becca";
 import attributeService from "../../services/attributes";
 import config from "../../services/config";
 import { getLog } from "../../services/log";
@@ -123,7 +124,9 @@ describe("Script API (core)", () => {
             const noteId = await createCodeNote("return 0;");
             const before = getSql().getValue<string>("SELECT title FROM notes WHERE noteId = ?", [noteId]);
             vi.spyOn(scriptService, "executeNote").mockImplementation(() => {
-                getSql().execute("UPDATE notes SET title = 'written by the script' WHERE noteId = ?", [noteId]);
+                const note = becca.getNoteOrThrow(noteId);
+                note.title = "written by the script";
+                note.save();
                 throw new Error("boom");
             });
             const logError = vi.spyOn(getLog(), "error");

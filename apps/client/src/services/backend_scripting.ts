@@ -74,10 +74,13 @@ export async function runBackendScript(noteId: string): Promise<void> {
     try {
         await server.postWithSilentInternalServerError(`script/run/${noteId}`);
     } catch (e) {
-        // Anything other than the route's own script failure was already reported by `server.ts`.
         const failure = readScriptFailure(e);
         if (failure) {
             showErrorForScriptNote(failure.noteId, failure.message, { monospace: true });
+        } else if (typeof e === "string" && e.trim() && !isTriliumError(e)) {
+            // Trilium's own `{ message }` errors other than a 500 were reported by `server.ts`. Any
+            // other body, such as a proxy's 500 page, is reported here, since a 500 is silenced.
+            showErrorForScriptNote(noteId, e, { monospace: true });
         }
         throw e;
     }
@@ -106,4 +109,15 @@ export function readScriptFailure(e: unknown): Required<ScriptFailure> | undefin
     }
 
     return undefined;
+}
+
+/** Whether a response body is the `{ message }` JSON that Trilium's routes answer an error with. */
+function isTriliumError(body: string): boolean {
+    try {
+        const parsed: unknown = JSON.parse(body);
+        return !!parsed && typeof parsed === "object"
+            && "message" in parsed && typeof parsed.message === "string";
+    } catch {
+        return false;
+    }
 }

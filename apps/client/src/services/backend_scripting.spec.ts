@@ -81,4 +81,14 @@ describe("runBackendScript", () => {
 
         expect(mocks.showErrorForScriptNote).not.toHaveBeenCalled();
     });
+
+    // A 500 is silenced for this request, so a body that is not Trilium's own reaches no other toast.
+    it("reports a failure that is not Trilium's against the note that was run", async () => {
+        mocks.post.mockRejectedValue("<html>Internal Server Error</html>");
+
+        await expect(runBackendScript("note1")).rejects.toBeDefined();
+
+        expect(mocks.showErrorForScriptNote).toHaveBeenCalledWith(
+            "note1", "<html>Internal Server Error</html>", { monospace: true });
+    });
 });
