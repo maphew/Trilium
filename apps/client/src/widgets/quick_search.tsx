@@ -20,6 +20,9 @@ import Popup from "./react/Popup";
 import RawHtml, { RawHtmlBlock } from "./react/RawHtml";
 import SearchStringEditor from "./ribbon/SearchStringEditor";
 
+/** The keys that move focus through the results. */
+const NAVIGATION_KEYS = new Set([ "ArrowDown", "ArrowUp", "PageDown", "PageUp" ]);
+
 type SearchState =
     | { status: "searching" }
     | { status: "done", results: SearchResultDetails[], viewScope: ViewScope | undefined };
@@ -181,20 +184,43 @@ function useResultNavigation(popupRef: RefObject<HTMLElement>, open: boolean, ca
         const onKeyDown = (e: KeyboardEvent) => {
             const popup = popupRef.current;
             const target = e.target as Element;
-            if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-            if (!popup?.contains(target)) return;
+            if (!NAVIGATION_KEYS.has(e.key) || !popup?.contains(target)) return;
             e.preventDefault();
             e.stopPropagation();
-            if (e.key === "ArrowUp" && target.closest(".dropdown-item") === firstResult(popup)) {
+            const row = target.closest<HTMLElement>(".dropdown-item");
+            if (e.key === "ArrowUp" && row === firstResult(popup)) {
                 callbacksRef.current.focusField();
+                return;
+            }
+
+            if (e.key === "PageDown" || e.key === "PageUp") {
+                if (row) resultAPageFrom(popup, row, e.key === "PageDown" ? 1 : -1)?.focus();
             } else {
                 focusListItem(popup, e.key === "ArrowDown" ? "next" : "previous", target);
-                callbacksRef.current.onMoved();
             }
+            callbacksRef.current.onMoved();
         };
         window.addEventListener("keydown", onKeyDown, true);
         return () => window.removeEventListener("keydown", onKeyDown, true);
     }, [ open ]);
+}
+
+/**
+ * The result a page away from `row`: the farthest one that starts within the scroller's height of
+ * it, and at least the next one. Nothing past either end, so the keys stop there.
+ */
+function resultAPageFrom(popup: HTMLElement, row: HTMLElement, direction: 1 | -1) {
+    const rows = [ ...popup.querySelectorAll<HTMLElement>(".dropdown-item:not(.disabled)") ];
+    const index = rows.indexOf(row);
+    if (index < 0) return undefined;
+
+    const pageHeight = popup.querySelector(".quick-search-results")?.clientHeight ?? 0;
+    let found: HTMLElement | undefined = rows[index + direction];
+    for (let i = index + direction; i >= 0 && i < rows.length; i += direction) {
+        if (Math.abs(rows[i].offsetTop - row.offsetTop) > pageHeight) break;
+        found = rows[i];
+    }
+    return found;
 }
 
 /** The first result focus can move to; the searching and no-results rows are disabled. */

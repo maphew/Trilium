@@ -224,6 +224,42 @@ describe("QuickSearch", () => {
         expect(menu()?.classList.contains("tn-menu-keyboard")).toBe(false);
     });
 
+    it("moves a page of results at a time with PageDown and PageUp", async () => {
+        vi.spyOn(server, "get").mockResolvedValue(response(30, []));
+        const { editor } = await mount();
+
+        typeQuery(editor, "hello");
+        pressEnter(editor);
+        const rows = await waitForResults(30);
+
+        // Rows 50px tall in a scroller that shows four of them.
+        const scroller = menu()?.querySelector<HTMLElement>(".quick-search-results");
+        if (!scroller) throw new Error("The results did not render.");
+        Object.defineProperty(scroller, "clientHeight", { configurable: true, get: () => 200 });
+        for (const [ index, row ] of rows.entries()) {
+            Object.defineProperty(row, "offsetTop", { configurable: true, get: () => index * 50 });
+        }
+
+        const press = (key: string) => act(() => {
+            document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+        });
+        rows[0].focus();
+        press("PageDown");
+        expect(document.activeElement).toBe(rows[4]);
+        expect(menu()?.classList.contains("tn-menu-keyboard")).toBe(true);
+        press("PageUp");
+        expect(document.activeElement).toBe(rows[0]);
+
+        // Held at either end rather than wrapping round.
+        press("PageUp");
+        expect(document.activeElement).toBe(rows[0]);
+        rows[27].focus();
+        press("PageDown");
+        expect(document.activeElement).toBe(rows[29]);
+        press("PageDown");
+        expect(document.activeElement).toBe(rows[29]);
+    });
+
     it("leaves ArrowDown to the field while the results are closed or hold nothing to focus", async () => {
         const get = vi.spyOn(server, "get").mockResolvedValue(response(0, []));
         const { editor } = await mount();

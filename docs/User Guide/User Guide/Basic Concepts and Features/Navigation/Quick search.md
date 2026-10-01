@@ -58,6 +58,7 @@ To search the whole database while hoisted, use the full <a class="reference-li
 
 *   Press <kbd>Enter</kbd> in the search field to search, or to refresh the results already shown.
 *   Press <kbd>Down</kbd> in the search field to move to the first result, then <kbd>Up</kbd> and <kbd>Down</kbd> to move between results. <kbd>Up</kbd> on the first result returns to the search field.
+*   Press <kbd>Page Down</kbd> and <kbd>Page Up</kbd> to move through the results a page at a time.
 *   Press <kbd>Enter</kbd> on a result to open it.
 *   Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to open the query in the full search.
 *   Press <kbd>Escape</kbd> to close the results.
