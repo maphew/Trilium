@@ -18,6 +18,9 @@ import RawHtml, { RawHtmlBlock } from "./react/RawHtml";
 import SearchStringEditor from "./ribbon/SearchStringEditor";
 
 const INITIAL_DISPLAYED_NOTES = 15;
+const LOAD_MORE_BATCH_SIZE = 10;
+/** How close to the end of the list, in pixels, scrolling shows the next batch. */
+const LOAD_MORE_THRESHOLD = 50;
 
 type SearchState =
     | { status: "searching" }
@@ -29,6 +32,7 @@ export default function QuickSearch() {
     const [ hasQuery, setHasQuery ] = useState(false);
     const [ searchState, setSearchState ] = useState<SearchState>();
     const [ open, setOpen ] = useState(false);
+    const [ displayedCount, setDisplayedCount ] = useState(INITIAL_DISPLAYED_NOTES);
     const editorRef = useRef<FieldEditor>();
     const boxRef = useRef<HTMLDivElement>(null);
     const popupRef = useRef<HTMLDivElement | null>(null);
@@ -54,12 +58,23 @@ export default function QuickSearch() {
         );
         if (requestId !== requestIdRef.current) return;
 
+        setDisplayedCount(INITIAL_DISPLAYED_NOTES);
         setSearchState({
             status: "done",
             results: searchResults,
             // Opens the note at its first match; with nothing highlighted, at the plain path.
             viewScope: highlightedTokens.length ? { searchTerms: highlightedTokens } : undefined
         });
+    }
+
+    /** Shows the next batch of results once `scroller` is scrolled near its end. */
+    function showMoreAtEnd(scroller: HTMLElement) {
+        const total = searchState?.status === "done" ? searchState.results.length : 0;
+        const { scrollTop, clientHeight, scrollHeight } = scroller;
+        const nearEnd = scrollTop + clientHeight >= scrollHeight - LOAD_MORE_THRESHOLD;
+        if (displayedCount >= total || !nearEnd) return;
+        // From the rendered count, so scroll events before the next render ask for the same one.
+        setDisplayedCount(displayedCount + LOAD_MORE_BATCH_SIZE);
     }
 
     function close() {
@@ -109,8 +124,15 @@ export default function QuickSearch() {
                     elementRef={popupRef}
                     onDismiss={close}
                 >
-                    <div className="quick-search-results">
-                        <QuickSearchResults searchState={searchState} onOpenResult={close} />
+                    <div
+                        className="quick-search-results"
+                        onScroll={(e) => showMoreAtEnd(e.currentTarget)}
+                    >
+                        <QuickSearchResults
+                            searchState={searchState}
+                            displayedCount={displayedCount}
+                            onOpenResult={close}
+                        />
                     </div>
                 </Popup>
             )}
@@ -156,8 +178,9 @@ function firstResult(popup: HTMLElement) {
     return popup.querySelector(".dropdown-item:not(.disabled)");
 }
 
-function QuickSearchResults({ searchState, onOpenResult }: {
+function QuickSearchResults({ searchState, displayedCount, onOpenResult }: {
     searchState: SearchState | undefined;
+    displayedCount: number;
     onOpenResult(): void;
 }) {
     if (!searchState) return null;
@@ -175,7 +198,7 @@ function QuickSearchResults({ searchState, onOpenResult }: {
         return <span className="dropdown-item disabled">{t("quick-search.no-results")}</span>;
     }
 
-    return searchState.results.slice(0, INITIAL_DISPLAYED_NOTES).map((result) => (
+    return searchState.results.slice(0, displayedCount).map((result) => (
         <QuickSearchResult
             key={result.notePath}
             result={result}

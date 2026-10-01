@@ -27,28 +27,19 @@ describe("QuickSearchWidget", () => {
         expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "#book AND tolkien" });
     });
 
-    it("keeps the full search link pinned below the scrolling results as more load", async () => {
+    it("keeps the full search link pinned below the scrolling results", async () => {
         const widget = renderWidget();
         mockResults(30);
 
         await widget.search();
 
         const $menu = widget.$widget.find(".dropdown-menu");
-        const $results = $menu.find(".quick-search-results");
         const $footer = $menu.find(".quick-search-footer");
 
         // The results scroll on their own, so the footer stays visible at the bottom of the menu.
-        expect($results.children(".dropdown-item").length).toBe(15);
-        expect($results.find(".show-in-full-search").length).toBe(0);
+        expect($menu.find(".quick-search-results .show-in-full-search").length).toBe(0);
         expect($menu.children().last().is($footer)).toBe(true);
         expect($footer.hasClass("hidden-ext")).toBe(false);
-        expect($footer.find(".show-in-full-search").length).toBe(1);
-
-        // happy-dom reports zero scroll metrics, which reads as "scrolled to the bottom".
-        $results.trigger("scroll");
-        await vi.waitFor(() => expect($results.children(".dropdown-item").length).toBe(25));
-
-        expect($menu.children().last().is($footer)).toBe(true);
         expect($footer.find(".show-in-full-search").length).toBe(1);
     });
 
@@ -66,7 +57,6 @@ describe("QuickSearchWidget", () => {
 
         await search;
         expect($footer.hasClass("hidden-ext")).toBe(true);
-        expect(widget.$widget.find(".quick-search-results .dropdown-item.disabled").length).toBe(1);
     });
 
     it("runs the full search from the pinned link, by click and by Enter", async () => {

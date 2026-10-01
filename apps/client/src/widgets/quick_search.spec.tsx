@@ -210,6 +210,36 @@ describe("QuickSearch", () => {
         expect(editor.hasFocus).toBe(true);
     });
 
+    it("shows more results as the list is scrolled to its end, and starts over on a new search", async () => {
+        vi.spyOn(server, "get").mockResolvedValue(response(30, []));
+        const { editor } = await mount();
+
+        typeQuery(editor, "hello");
+        pressEnter(editor);
+        await waitForResults(15);
+
+        const scroller = menu()?.querySelector<HTMLElement>(".quick-search-results");
+        if (!scroller) throw new Error("The results did not render.");
+        const scrollTo = (scrollTop: number) => act(() => {
+            setScrollMetrics(scroller, { scrollTop, clientHeight: 400, scrollHeight: 1000 });
+            scroller.dispatchEvent(new Event("scroll"));
+        });
+
+        scrollTo(500);
+        expect(resultItems()).toHaveLength(15);
+
+        // Within 50px of the end.
+        scrollTo(560);
+        await waitForResults(25);
+        scrollTo(600);
+        await waitForResults(30);
+        scrollTo(600);
+        expect(resultItems()).toHaveLength(30);
+
+        pressEnter(editor);
+        await waitForResults(15);
+    });
+
     it("leaves the open results alone while the query is typed", async () => {
         vi.spyOn(server, "get").mockResolvedValue(response(15, []));
         const { editor } = await mount();
@@ -305,6 +335,13 @@ function pressArrowDown(editor: EditorView, modifiers: KeyboardEventInit = {}) {
             key: "ArrowDown", code: "ArrowDown", bubbles: true, cancelable: true, ...modifiers
         }));
     });
+}
+
+/** Gives `element` the scroll metrics happy-dom, which lays nothing out, leaves at 0. */
+function setScrollMetrics(element: HTMLElement, metrics: { scrollTop: number, clientHeight: number, scrollHeight: number }) {
+    for (const [ name, value ] of Object.entries(metrics)) {
+        Object.defineProperty(element, name, { configurable: true, get: () => value });
+    }
 }
 
 /** The popup is portaled to `<body>`, outside the rendered container. */
