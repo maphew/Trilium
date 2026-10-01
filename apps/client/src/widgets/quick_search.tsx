@@ -15,6 +15,7 @@ import Button from "./react/Button";
 import { focusListItem } from "./react/FormList";
 import { useTriliumEvent } from "./react/hooks";
 import Icon from "./react/Icon";
+import { pointerMoved } from "./react/menu_context";
 import Popup from "./react/Popup";
 import RawHtml, { RawHtmlBlock } from "./react/RawHtml";
 import SearchStringEditor from "./ribbon/SearchStringEditor";
@@ -29,6 +30,8 @@ export default function QuickSearch() {
     const [ hasQuery, setHasQuery ] = useState(false);
     const [ searchState, setSearchState ] = useState<SearchState>();
     const [ open, setOpen ] = useState(false);
+    // Set while the keys move through the results; see `.tn-menu-keyboard` in Menu.css.
+    const [ keyboardDriven, setKeyboardDriven ] = useState(false);
     const editorRef = useRef<FieldEditor>();
     const boxRef = useRef<HTMLDivElement>(null);
     const popupRef = useRef<HTMLDivElement | null>(null);
@@ -36,7 +39,10 @@ export default function QuickSearch() {
     const requestIdRef = useRef(0);
 
     useTriliumEvent("quickSearch", () => editorRef.current?.focus());
-    useResultNavigation(popupRef, open, () => editorRef.current?.focus());
+    useResultNavigation(popupRef, open, {
+        focusField: () => editorRef.current?.focus(),
+        onMoved: () => setKeyboardDriven(true)
+    });
 
     /** Opens the results with a search for the query, or refreshes the open results. */
     async function search() {
@@ -64,13 +70,15 @@ export default function QuickSearch() {
 
     function showInFullSearch() {
         close();
-        void appContext.triggerCommand("searchNotes", { searchString: searchStringRef.current.trim() });
+        const searchString = searchStringRef.current.trim();
+        void appContext.triggerCommand("searchNotes", { searchString });
     }
 
     function close() {
         // Focus on a result goes back to the field, rather than to the page's body.
         if (popupRef.current?.contains(document.activeElement)) editorRef.current?.focus();
         setOpen(false);
+        setKeyboardDriven(false);
     }
 
     return (
@@ -109,6 +117,7 @@ export default function QuickSearch() {
                         const popup = popupRef.current;
                         if (!popup || !firstResult(popup)) return false;
                         focusListItem(popup, "first");
+                        setKeyboardDriven(true);
                         return true;
                     }}
                 />
@@ -120,8 +129,20 @@ export default function QuickSearch() {
                     placement="bottom-start"
                     offset={2}
                     capHeight={false}
-                    className="dropdown-menu show tn-dropdown-menu quick-search-menu"
+                    className={clsx("dropdown-menu show tn-dropdown-menu quick-search-menu",
+                        keyboardDriven && "tn-menu-keyboard")}
                     elementRef={popupRef}
+                    onPointerMove={(e) => {
+                        if (!pointerMoved(e)) return;
+                        setKeyboardDriven(false);
+                        // With focus in the results, the pointer's row takes it, so the keys go on
+                        // from there; with focus in the field, the field keeps it.
+                        const row = (e.target as Element).closest<HTMLElement>(".dropdown-item");
+                        if (row && !row.classList.contains("disabled")
+                            && popupRef.current?.contains(document.activeElement)) {
+                            row.focus({ preventScroll: true });
+                        }
+                    }}
                     onDismiss={close}
                 >
                     <div className="quick-search-results">
@@ -146,13 +167,14 @@ export default function QuickSearch() {
  * Captured at the window, as Bootstrap's handler for keys in a `.dropdown-menu` crashes on one with
  * no toggle beside it.
  */
-function useResultNavigation(
-    popupRef: RefObject<HTMLElement>,
-    open: boolean,
-    focusField: () => void
-) {
-    const focusFieldRef = useRef(focusField);
-    focusFieldRef.current = focusField;
+function useResultNavigation(popupRef: RefObject<HTMLElement>, open: boolean, callbacks: {
+    /** Runs for ArrowUp on the first result. */
+    focusField(): void;
+    /** Runs once the keys have moved focus to another result. */
+    onMoved(): void;
+}) {
+    const callbacksRef = useRef(callbacks);
+    callbacksRef.current = callbacks;
 
     useEffect(() => {
         if (!open) return;
@@ -164,9 +186,10 @@ function useResultNavigation(
             e.preventDefault();
             e.stopPropagation();
             if (e.key === "ArrowUp" && target.closest(".dropdown-item") === firstResult(popup)) {
-                focusFieldRef.current();
+                callbacksRef.current.focusField();
             } else {
                 focusListItem(popup, e.key === "ArrowDown" ? "next" : "previous", target);
+                callbacksRef.current.onMoved();
             }
         };
         window.addEventListener("keydown", onKeyDown, true);

@@ -70,9 +70,10 @@ body.desktop .dropdown-item.dropdown-submenu.submenu-open,
  * Once the keys move the active row, a pointer at rest still hovers the row it left, which would
  * mark a second row until the pointer moves. The row looks unhovered meanwhile, as in the resting
  * `.dropdown-item` rule. `!important` and the extra classes outrank the theme's `:hover` rule in
- * style.css, whose values these undo.
+ * style.css, whose values these undo. A popup whose rows take focus themselves, such as the quick
+ * search's results, sets the class too; its focused row is the keys' row.
  */
-.tn-menu.tn-menu-keyboard .dropdown-item:hover:not(.disabled, .active, .dropdown-container-item, .tn-menu-active, .submenu-open) {
+.tn-menu-keyboard .dropdown-item:hover:not(.disabled, .active, .dropdown-container-item, .tn-menu-active, .submenu-open, :focus) {
     color: var(--menu-text-color) !important;
     background-color: transparent !important;
     border-color: transparent !important;

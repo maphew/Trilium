@@ -196,6 +196,34 @@ describe("QuickSearch", () => {
         expect(menu()).not.toBeNull();
     });
 
+    it("lets the keys and the pointer take turns marking a result", async () => {
+        vi.spyOn(server, "get").mockResolvedValue(response(3, []));
+        const { editor } = await mount();
+
+        typeQuery(editor, "hello");
+        pressEnter(editor);
+        const [ first, , third ] = await waitForResults(3);
+        editor.focus();
+
+        // With focus in the field, a pointer moving over a result leaves the focus there.
+        movePointer(third, 4);
+        expect(editor.hasFocus).toBe(true);
+
+        // The keys mark their row and silence the hover a resting pointer would add.
+        pressArrowDown(editor);
+        expect(document.activeElement).toBe(first);
+        expect(menu()?.classList.contains("tn-menu-keyboard")).toBe(true);
+
+        // A pointer that does not move, as when a row slides under it, changes nothing.
+        movePointer(third, 0);
+        expect(document.activeElement).toBe(first);
+
+        // A pointer that moves takes over: its row gets the focus, so the keys go on from there.
+        movePointer(third, 4);
+        expect(document.activeElement).toBe(third);
+        expect(menu()?.classList.contains("tn-menu-keyboard")).toBe(false);
+    });
+
     it("leaves ArrowDown to the field while the results are closed or hold nothing to focus", async () => {
         const get = vi.spyOn(server, "get").mockResolvedValue(response(0, []));
         const { editor } = await mount();
@@ -337,6 +365,12 @@ function pressArrowDown(editor: EditorView, modifiers: KeyboardEventInit = {}) {
         editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", {
             key: "ArrowDown", code: "ArrowDown", bubbles: true, cancelable: true, ...modifiers
         }));
+    });
+}
+
+function movePointer(target: HTMLElement, movement: number) {
+    act(() => {
+        target.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, movementX: movement }));
     });
 }
 
