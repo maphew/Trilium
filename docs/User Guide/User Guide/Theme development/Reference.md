@@ -198,3 +198,33 @@ If the theme is auto (e.g. supports both light or dark based on `prefers-color-s
 ```
 
 This will affect the behavior of the Electron application by informing the operating system of the color preference (e.g. background effects will appear correct on Windows).
+
+## Adaptive text and table colors
+
+Colors applied in a text note, from the font color and background color buttons (see <a class="reference-link" href="../Note%20Types/Text/General%20formatting.md">General formatting</a>) or from the table and cell properties (see <a class="reference-link" href="../Note%20Types/Text/Tables.md">Tables</a>), are saved in two shades: one for light themes and one for dark themes. A theme can change the limits these shades are kept within, for example if its page background is much darker or lighter than the one of the built-in themes:
+
+```css
+:root {
+    --adaptive-text-light-max-lightness: 35;
+    --adaptive-text-dark-min-lightness: 80;
+}
+```
+
+Each variable is named `--adaptive-<role>-<light|dark>-<limit>`:
+
+*   The role is `text` (font color), `background` (font background color), `table-border` or `table-background` (tables and cells).
+*   `light` or `dark` is the shade the limit applies to.
+*   The limit is `min-lightness` or `max-lightness` (the CIELAB lightness, from 0 for black to 100 for white), or `max-chroma` (how saturated the color can be, with `none` for no limit).
+
+The defaults are:
+
+| Role | Light shade | Dark shade |
+| --- | --- | --- |
+| `text` | `max-lightness: 40`, `max-chroma: none` | `min-lightness: 75`, `max-chroma: 55` |
+| `background` | `min-lightness: 90`, `max-chroma: 20` | `max-lightness: 30`, `max-chroma: 30` |
+| `table-border` | `max-lightness: 60`, `max-chroma: none` | `min-lightness: 47`, `max-chroma: none` |
+| `table-background` | `min-lightness: 90`, `max-chroma: 20` | `max-lightness: 30`, `max-chroma: 30` |
+
+With these values, text stays at a contrast of at least 4.5:1 against the page and on every background, and borders at 3:1.
+
+The variables are read once, when Trilium starts. They apply to colors applied from then on; colors already in notes keep the shades they were saved with.

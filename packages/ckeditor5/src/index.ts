@@ -5,6 +5,7 @@ import "ckeditor5/ckeditor5.css";
 import "./theme/blockquote.css";
 import "./theme/code_block_toolbar.css";
 import "./theme/link_embed_form.css";
+import type { AdaptiveColorBands } from "@triliumnext/commons";
 import type { ClipboardImageEmbedConfig } from "./plugins/clipboard_image_embed.js";
 import type { PasteTarget } from "./plugins/cuttonote.js";
 import { COMMON_PLUGINS, CORE_PLUGINS, POPUP_EDITOR_PLUGINS } from "./plugins.js";
@@ -108,6 +109,8 @@ declare module "ckeditor5" {
             copyHtml?(html: string, plainText: string): void;
         },
         clipboardImageEmbed?: ClipboardImageEmbedConfig,
+        /** The theme's limits for the colors `AdaptiveColors` stores (see `adaptColor`). */
+        adaptiveColorBands?: AdaptiveColorBands,
         autoSort?: {
             /** More date formats for table sorting to recognize, in Day.js syntax. */
             dateFormats?: string[];

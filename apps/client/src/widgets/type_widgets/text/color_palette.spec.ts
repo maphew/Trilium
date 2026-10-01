@@ -1,4 +1,8 @@
-import { adaptColor, HIGHLIGHT_BACKGROUND } from "@triliumnext/commons";
+import {
+    adaptColor,
+    DEFAULT_ADAPTIVE_COLOR_BANDS as DEFAULTS,
+    HIGHLIGHT_BACKGROUND
+} from "@triliumnext/commons";
 import { describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_COLOR_PALETTE } from "../../react/ColorPicker.js";
@@ -15,14 +19,14 @@ const LABELS = [
 
 describe("buildFontColorConfig", () => {
     it("lists four greys, then every note color hue, four to a row", () => {
-        for (const palette of Object.values(buildFontColorConfig())) {
+        for (const palette of Object.values(buildFontColorConfig(DEFAULTS))) {
             expect(palette.columns).toBe(4);
             expect(palette.colors.map(({ label }) => label)).toEqual(LABELS);
         }
     });
 
     it("stores each swatch as the pair for its role, without spaces", () => {
-        const { fontColor, fontBackgroundColor } = buildFontColorConfig();
+        const { fontColor, fontBackgroundColor } = buildFontColorConfig(DEFAULTS);
         expect(fontColor.colors.map(({ color }) => color))
             .toEqual(SOURCES.map((color) => adaptColor(color, "text")));
         expect(fontBackgroundColor.colors.map(({ color }) => color))
@@ -34,8 +38,22 @@ describe("buildFontColorConfig", () => {
         }
     });
 
-    it("uses the palette's yellow for Markdown highlights", () => {
-        const { colors } = buildFontColorConfig().fontBackgroundColor;
+    it("turns the swatches into pairs with the theme's limits", () => {
+        const bands = {
+            ...DEFAULTS,
+            background: {
+                ...DEFAULTS.background,
+                dark: { minLightness: 0, maxLightness: 20, maxChroma: 10 }
+            }
+        };
+        const { colors } = buildFontColorConfig(bands).fontBackgroundColor;
+        expect(colors.map(({ color }) => color))
+            .toEqual(SOURCES.map((color) => adaptColor(color, "background", bands)));
+        expect(colors[4].color).not.toBe(adaptColor(SOURCES[4], "background"));
+    });
+
+    it("matches the Markdown highlight's yellow with the default limits", () => {
+        const { colors } = buildFontColorConfig(DEFAULTS).fontBackgroundColor;
         expect(colors.find(({ label }) => label === "Yellow")?.color).toBe(HIGHLIGHT_BACKGROUND);
     });
 });

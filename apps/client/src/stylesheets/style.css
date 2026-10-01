@@ -33,6 +33,30 @@
     --tree-item-light-theme-max-color-lightness: 50;
     --tree-item-dark-theme-min-color-lightness: 75;
 
+    /* Adaptive font color limits */
+    --adaptive-text-light-max-lightness: 40;
+    --adaptive-text-light-max-chroma: none;
+    --adaptive-text-dark-min-lightness: 75;
+    --adaptive-text-dark-max-chroma: 55;
+
+    /* Adaptive font background color limits */
+    --adaptive-background-light-min-lightness: 90;
+    --adaptive-background-light-max-chroma: 20;
+    --adaptive-background-dark-max-lightness: 30;
+    --adaptive-background-dark-max-chroma: 30;
+
+    /* Adaptive table border color limits */
+    --adaptive-table-border-light-max-lightness: 60;
+    --adaptive-table-border-light-max-chroma: none;
+    --adaptive-table-border-dark-min-lightness: 47;
+    --adaptive-table-border-dark-max-chroma: none;
+
+    /* Adaptive table background color limits */
+    --adaptive-table-background-light-min-lightness: 90;
+    --adaptive-table-background-light-max-chroma: 20;
+    --adaptive-table-background-dark-max-lightness: 30;
+    --adaptive-table-background-dark-max-chroma: 30;
+
     /* Picks the half of the light-dark() text colors that matches the theme. */
     color-scheme: var(--theme-style);
 }

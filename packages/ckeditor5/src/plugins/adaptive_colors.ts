@@ -1,4 +1,4 @@
-import { adaptColor, type AdaptiveColorRole } from "@triliumnext/commons";
+import { adaptColor, type AdaptiveColorBands, type AdaptiveColorRole } from "@triliumnext/commons";
 import { type CommandExecuteEvent, Plugin } from "ckeditor5";
 
 /**
@@ -12,12 +12,17 @@ export default class AdaptiveColors extends Plugin {
     }
 
     afterInit() {
+        const bands = this.editor.config.get("adaptiveColorBands");
         for (const [ commandName, role ] of Object.entries(COMMAND_ROLES)) {
-            this.adaptCommandValue(commandName, role);
+            this.adaptCommandValue(commandName, role, bands);
         }
     }
 
-    private adaptCommandValue(commandName: string, role: AdaptiveColorRole) {
+    private adaptCommandValue(
+        commandName: string,
+        role: AdaptiveColorRole,
+        bands: AdaptiveColorBands | undefined
+    ) {
         // An editor without the table properties plugins has no table color commands.
         const command = this.editor.commands.get(commandName);
         if (!command) {
@@ -27,7 +32,7 @@ export default class AdaptiveColors extends Plugin {
         this.listenTo<CommandExecuteEvent>(command, "execute", (_eventInfo, args) => {
             const options = args[0] as { value?: unknown } | undefined;
             if (typeof options?.value === "string") {
-                args[0] = { ...options, value: adaptColor(options.value, role) };
+                args[0] = { ...options, value: adaptColor(options.value, role, bands) };
             }
         }, { priority: "high" });
     }

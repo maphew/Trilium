@@ -1,4 +1,4 @@
-import { adaptColor } from "@triliumnext/commons";
+import { adaptColor, DEFAULT_ADAPTIVE_COLOR_BANDS } from "@triliumnext/commons";
 import {
     _getModelData as getModelData,
     _setModelData as setModelData,
@@ -63,6 +63,27 @@ describe("AdaptiveColors", () => {
         editor.execute("fontBackgroundColor", { value: "" });
         expect(getModelData(editor.model, { withoutSelection: true }))
             .toBe("<paragraph>text</paragraph>");
+    });
+
+    it("uses the theme's limits from the editor config", async () => {
+        const bands = {
+            ...DEFAULT_ADAPTIVE_COLOR_BANDS,
+            text: {
+                ...DEFAULT_ADAPTIVE_COLOR_BANDS.text,
+                light: { minLightness: 0, maxLightness: 0, maxChroma: Infinity }
+            }
+        };
+        const themed = await createTestEditor(
+            [ Essentials, Paragraph, FontColor, AdaptiveColors ],
+            { adaptiveColorBands: bands }
+        );
+        setModelData(themed.model, "<paragraph>[text]</paragraph>");
+
+        themed.execute("fontColor", { value: "#e64d4d" });
+        const pair = adaptColor("#e64d4d", "text", bands);
+        expect(pair).toMatch(/^light-dark\(#000000,/);
+        expect(getModelData(themed.model, { withoutSelection: true }))
+            .toBe(`<paragraph><$text fontColor="${pair}">text</$text></paragraph>`);
     });
 
     it("converts text colors in an editor without the table properties plugins", async () => {

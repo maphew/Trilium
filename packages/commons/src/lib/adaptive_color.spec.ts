@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { adaptColor } from "./adaptive_color.js";
+import { adaptColor, DEFAULT_ADAPTIVE_COLOR_BANDS } from "./adaptive_color.js";
 
 const HUES = [
     "#e64d4d", "#e6994d", "#e5e64d", "#99e64d", "#4de64d", "#4de699",
@@ -61,6 +61,18 @@ describe("adaptColor", () => {
 
         // A border that is already visible in both themes keeps its color.
         expect(adaptColor("#e64d4d", "tableBorder")).toBe("light-dark(#e64d4d,#e64d4d)");
+    });
+
+    it("uses the limits it is given instead of the defaults", () => {
+        const bands = {
+            ...DEFAULT_ADAPTIVE_COLOR_BANDS,
+            text: {
+                ...DEFAULT_ADAPTIVE_COLOR_BANDS.text,
+                light: { minLightness: 0, maxLightness: 0, maxChroma: Infinity }
+            }
+        };
+        const defaultDark = pairOf(adaptColor("#e64d4d", "text")).dark;
+        expect(adaptColor("#e64d4d", "text", bands)).toBe(`light-dark(#000000,${defaultDark})`);
     });
 
     it("gives each grey a shade of its own in both themes", () => {

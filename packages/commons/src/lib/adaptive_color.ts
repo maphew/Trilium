@@ -4,6 +4,16 @@
  */
 export type AdaptiveColorRole = "text" | "background" | "tableBorder" | "tableBackground";
 
+/** The CIELAB lightness range and chroma cap of a role in one theme. */
+export interface AdaptiveColorBand {
+    minLightness: number;
+    maxLightness: number;
+    maxChroma: number;
+}
+
+export type AdaptiveColorBands =
+    Record<AdaptiveColorRole, Record<"light" | "dark", AdaptiveColorBand>>;
+
 /**
  * Turns a color into a `light-dark(#light,#dark)` pair, so text, highlights and tables stay
  * readable in both the light and the dark theme. The hue is kept; the CIELAB lightness is moved
@@ -11,32 +21,29 @@ export type AdaptiveColorRole = "text" | "background" | "tableBorder" | "tableBa
  *
  * @param color a hex, `rgb()` or `hsl()` color. Anything else, including a color that is already
  *     a pair, is returned unchanged.
+ * @param bands the limits to use, for example the ones a theme defines.
  */
-export function adaptColor(color: string, role: AdaptiveColorRole): string {
+export function adaptColor(
+    color: string,
+    role: AdaptiveColorRole,
+    bands: AdaptiveColorBands = DEFAULT_ADAPTIVE_COLOR_BANDS
+): string {
     const rgb = parseColor(color.trim());
     if (!rgb) {
         return color;
     }
 
     const lab = rgbToLab(rgb);
-    const bands = BANDS[role];
-    return `light-dark(${fitToBand(lab, bands.light)},${fitToBand(lab, bands.dark)})`;
-}
-
-type Rgb = [number, number, number];
-type Lab = [number, number, number];
-
-interface Band {
-    minLightness: number;
-    maxLightness: number;
-    maxChroma: number;
+    const { light, dark } = bands[role];
+    return `light-dark(${fitToBand(lab, light)},${fitToBand(lab, dark)})`;
 }
 
 /**
- * The CIELAB lightness range and chroma cap per role and theme. Against the Next themes' page, the
- * limits keep text at 4.5:1 or more, also on every background, and borders at 3:1 or more.
+ * The limits used where no theme defines them, such as on the server. Against the Next themes'
+ * page, they keep text at 4.5:1 or more, also on every background, and borders at 3:1 or more.
+ * The client reads the theme's values from the `--adaptive-*` CSS variables in `style.css`.
  */
-const BANDS: Record<AdaptiveColorRole, Record<"light" | "dark", Band>> = {
+export const DEFAULT_ADAPTIVE_COLOR_BANDS: AdaptiveColorBands = {
     text: {
         light: { minLightness: 0, maxLightness: 40, maxChroma: Infinity },
         dark: { minLightness: 75, maxLightness: 100, maxChroma: 55 }
@@ -55,6 +62,9 @@ const BANDS: Record<AdaptiveColorRole, Record<"light" | "dark", Band>> = {
     }
 };
 
+type Rgb = [number, number, number];
+type Lab = [number, number, number];
+
 /** Below this CIELAB chroma a color counts as grey. */
 const GREY_CHROMA = 1.5;
 
@@ -62,7 +72,7 @@ const D65_WHITE: Lab = [ 0.95047, 1, 1.08883 ];
 const LAB_EPSILON = 216 / 24389;
 const LAB_KAPPA = 24389 / 27;
 
-function fitToBand([ lightness, a, b ]: Lab, band: Band): string {
+function fitToBand([ lightness, a, b ]: Lab, band: AdaptiveColorBand): string {
     const chroma = Math.hypot(a, b);
     const hue = Math.atan2(b, a);
 
