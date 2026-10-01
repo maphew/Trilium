@@ -10,8 +10,8 @@ on:
         description: "Tag of ghcr.io/triliumnext/trilium to copy"
         default: "stable"
       tags:
-        description: "Space-separated tags to write on the target repositories"
-        default: "mirror-test"
+        description: "Space-separated tags to write; empty writes each repository's release tags"
+        default: ""
       target:
         description: "Repositories to write"
         type: choice
