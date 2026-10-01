@@ -3,7 +3,6 @@ import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en
 import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, formatShortcut, IMAGE_UPLOAD_SUBTYPES, joinShortcut, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
 import i18next from "i18next";
 
-import { ADAPTIVE_COLOR_BANDS } from "../../../services/adaptive_colors.js";
 import { copyHtmlWithToast, copyTextWithToast } from "../../../services/clipboard_ext.js";
 import { t } from "../../../services/i18n.js";
 import imageService from "../../../services/image.js";
@@ -164,8 +163,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         alignment: {
             options: [ "left", "right", "center", "justify"]
         },
-        ...buildFontColorConfig(ADAPTIVE_COLOR_BANDS),
-        adaptiveColorBands: ADAPTIVE_COLOR_BANDS,
+        ...buildFontColorConfig(),
         link: {
             defaultProtocol: "https://",
             allowedProtocols: ALLOWED_PROTOCOLS,

@@ -5,17 +5,6 @@
     --ck-content-line-height: inherit !important;
 }
 
-/* Without light-dark(), the inline adaptive color is dropped; show the color as picked instead. */
-@supports not (color: light-dark(#000, #fff)) {
-    [style*="--tn-color"] {
-        color: var(--tn-color) !important;
-    }
-
-    [style*="--tn-background"] {
-        background-color: var(--tn-background) !important;
-    }
-}
-
 .ck-content code,
 .ck-content pre {
     color: var(--text-primary);

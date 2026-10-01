@@ -1,4 +1,5 @@
 @import "./boxicons-compat.css";
+@import "./adaptive-colors.css";
 
 @font-face {
     font-family: Montserrat;
@@ -32,47 +33,6 @@
 
     --tree-item-light-theme-max-color-lightness: 50;
     --tree-item-dark-theme-min-color-lightness: 75;
-
-    /* Picks the half of the light-dark() text colors that matches the theme. */
-    color-scheme: var(--theme-style);
-}
-
-/* Zero specificity, so that a theme's :root wins although themes load before this file. */
-:where(:root) {
-    /* Adaptive font color limits */
-    --adaptive-text-light-max-lightness: 40;
-    --adaptive-text-light-max-chroma: none;
-    --adaptive-text-dark-min-lightness: 75;
-    --adaptive-text-dark-max-chroma: 55;
-
-    /* Adaptive font background color limits */
-    --adaptive-background-light-min-lightness: 90;
-    --adaptive-background-light-max-chroma: 20;
-    --adaptive-background-dark-max-lightness: 30;
-    --adaptive-background-dark-max-chroma: 30;
-
-    /* Adaptive table border color limits */
-    --adaptive-table-border-light-max-lightness: 60;
-    --adaptive-table-border-light-max-chroma: none;
-    --adaptive-table-border-dark-min-lightness: 47;
-    --adaptive-table-border-dark-max-chroma: none;
-
-    /* Adaptive table background color limits */
-    --adaptive-table-background-light-min-lightness: 90;
-    --adaptive-table-background-light-max-chroma: 20;
-    --adaptive-table-background-dark-max-lightness: 30;
-    --adaptive-table-background-dark-max-chroma: 30;
-}
-
-/* Without light-dark(), the inline adaptive color is dropped; show the color as picked instead. */
-@supports not (color: light-dark(#000, #fff)) {
-    [style*="--tn-color"] {
-        color: var(--tn-color) !important;
-    }
-
-    [style*="--tn-background"] {
-        background-color: var(--tn-background) !important;
-    }
 }
 
 body#trilium-app.motion-disabled *,

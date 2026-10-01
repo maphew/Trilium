@@ -171,13 +171,11 @@ The cell will immediately update to reflect the changes, but the _Save_ button m
 
 ## Border and background colors
 
-The border and background colors of tables and cells adapt to the [theme](../../Basic%20Concepts%20and%20Features/Themes.md), the same way as [text colors](General%20formatting.md) do. A color picked from the palette, chosen with the color picker or typed in is saved in two shades, one for light themes and one for dark themes, so borders stay visible and text stays readable on the background in both. The hue stays the same.
+The border and background colors of tables and cells adapt to the [theme](../../Basic%20Concepts%20and%20Features/Themes.md), the same way as [text colors](General%20formatting.md) do. A color picked from the palette, chosen with the color picker or typed in is shown in a lighter or darker shade that suits the current theme, so borders stay visible and text stays readable on the background. The hue stays the same, and the table keeps the color as it was picked.
 
-Once a color is applied, its field shows the saved value as `light-dark(…)`. To change the color, pick or type a new one.
+Colors applied with older versions of Trilium are shown exactly as they were picked, until the note is next edited.
 
-Colors applied with older versions of Trilium are kept exactly as they are, until a new color is applied.
-
-Browsers too old to show the two shades, such as the mobile app on iOS versions before 17.5, show background colors exactly as they were picked, and borders in their default color.
+Older browsers that can't adapt colors show them exactly as they were picked.
 
 ## Caption
 

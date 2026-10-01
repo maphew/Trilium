@@ -36,16 +36,16 @@ export function sanitizeHtml(dirtyHtml: string) {
     }
 
     const colorRegex = [/^#(0x)?[0-9a-f]+$/i, /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/, /^hsl\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\s*\)$/];
-    // The light and dark theme pair the text editor writes (see `adaptColor`).
-    const adaptiveColorRegex = /^light-dark\(\s*#[0-9a-f]{6}\s*,\s*#[0-9a-f]{6}\s*\)$/i;
+    const borderColorRegex = [ ...colorRegex, /^\s*transparent\s*$/ ];
     const sizeRegex = [/^\d+\.?\d*(?:px|em|%)$/];
     // The border styles CKEditor writes for tables and cells: the shorthand for a border with a
     // custom width, separate properties otherwise.
     const tableBorderStyles = {
         "border": [
-            /^\s*\d+\.?\d*(?:px|em|%)\s*(none|hidden|dotted|dashed|solid|double|groove|ridge|inset|outset)\s*(#(0x)?[0-9a-fA-F]+|rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)|hsl\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\)|light-dark\(\s*#[0-9a-fA-F]{6}\s*,\s*#[0-9a-fA-F]{6}\s*\))\s*$/
+            /^\s*\d+\.?\d*(?:px|em|%)\s*(none|hidden|dotted|dashed|solid|double|groove|ridge|inset|outset)\s*(#(0x)?[0-9a-fA-F]+|rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)|hsl\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\))\s*$/
         ],
-        "border-color": [ ...colorRegex, adaptiveColorRegex, /^\s*transparent\s*$/ ],
+        "border-color": borderColorRegex,
+        "--tn-border-color": borderColorRegex,
         "border-style": [
             /^\s*(none|hidden|dotted|dashed|solid|double|groove|ridge|inset|outset)\s*$/
         ],
@@ -71,11 +71,11 @@ export function sanitizeHtml(dirtyHtml: string) {
         },
         allowedStyles: {
             "*": {
-                color: [ ...colorRegex, adaptiveColorRegex ],
-                "background-color": [ ...colorRegex, adaptiveColorRegex ],
-                // The color as picked behind an adaptive color, for browsers without light-dark().
-                "--tn-color": [ /^#[0-9a-f]{6}$/i ],
-                "--tn-background": [ /^#[0-9a-f]{6}$/i ],
+                color: colorRegex,
+                "background-color": colorRegex,
+                // Copies of the colors that the app's and the share theme's stylesheets adapt.
+                "--tn-color": colorRegex,
+                "--tn-background": colorRegex,
                 "margin-left": sizeRegex,
                 "padding-left": sizeRegex,
                 "text-align": [/^\s*(left|center|right|justify)\s*$/],

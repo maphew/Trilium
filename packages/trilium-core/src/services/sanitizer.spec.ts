@@ -74,49 +74,27 @@ describe("sanitize", () => {
         expect(sanitizeHtml(dirty)).toBe(dirty);
     });
 
-    it("keeps a light-dark() text and background color pair", () => {
-        const style = "color:light-dark(#b81e2c,#ff9f96);"
-            + "background-color:light-dark(#e8e4bd,#494917)";
-        const dirty = `<p><span style="${style}">x</span></p>`;
-        expect(sanitizeHtml(dirty)).toBe(dirty);
-
-        // Only a pair of hex colors passes; anything else inside light-dark() is dropped.
-        expect(sanitizeHtml(`<span style="color:light-dark(red,url(x))">x</span>`))
-            .toBe("<span>x</span>");
-    });
-
-    it("keeps the color as picked that comes with an adaptive color", () => {
-        const style = "--tn-color:#e64d4d;color:light-dark(#b81e2c,#ff9f96);"
-            + "--tn-background:#e5e64d;background-color:light-dark(#e8e4bd,#494917)";
+    it("keeps the theme-adaptive color variables next to the colors", () => {
+        const style = "color:#e64d4d;--tn-color:#e64d4d;"
+            + "background-color:#e5e64d;--tn-background:#e5e64d";
         const dirty = `<p><span style="${style}">x</span></p>`
             + `<table><tbody><tr><td style="--tn-background:#e64d4d">c</td></tr></tbody></table>`;
         expect(sanitizeHtml(dirty)).toBe(dirty);
 
-        // Only a hex color passes, and only under these two names.
+        // Only a color passes, only under these names, and a border color only on tables.
         expect(sanitizeHtml(`<span style="--tn-color:url(x)">x</span>`)).toBe("<span>x</span>");
         expect(sanitizeHtml(`<span style="--tn-other:#e64d4d">x</span>`)).toBe("<span>x</span>");
-    });
-
-    it("keeps light-dark() table and cell border colors", () => {
-        const pair = "light-dark(#000000,#6f6f6f)";
-        const dirty = `<table style="border-color:${pair}"><tbody><tr>`
-            + `<th style="border-color:${pair}">H</th>`
-            + `<td style="border:1px solid ${pair}">C</td>`
-            + `<td style="border-color:${pair}">D</td>`
-            + "</tr></tbody></table>";
-        expect(sanitizeHtml(dirty)).toBe(dirty);
-
-        expect(sanitizeHtml(`<td style="border-color:light-dark(red,blue)">x</td>`))
-            .not.toContain("light-dark");
+        expect(sanitizeHtml(`<span style="--tn-border-color:#e64d4d">x</span>`))
+            .toBe("<span>x</span>");
     });
 
     it("keeps the border styles CKEditor writes for tables and cells", () => {
         // A border with a custom width is written as the shorthand, one with the default width as
         // separate properties.
         const dirty = `<figure class="table">`
-            + `<table style="border:2px solid light-dark(#4795e1,#4d99e6)"><tbody><tr>`
+            + `<table style="border:2px solid #4d99e6;--tn-border-color:#4d99e6"><tbody><tr>`
             + `<th style="border:1.5px double #000000">H</th>`
-            + `<td style="border-color:light-dark(#000000,#6f6f6f);border-style:dashed">C</td>`
+            + `<td style="border-color:#555;--tn-border-color:#555;border-style:dashed">C</td>`
             + `<td style="border-style:dotted;border-width:3px">D</td>`
             + "</tr></tbody></table></figure>";
         expect(sanitizeHtml(dirty)).toBe(dirty);

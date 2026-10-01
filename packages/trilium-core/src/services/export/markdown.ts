@@ -1,6 +1,6 @@
 import { safeLinkPreviewHref, type TaskStateDef } from "@triliumnext/commons";
 import { ADMONITION_TYPE_MAPPINGS } from "@triliumnext/commons/src/lib/markdown_renderer.js";
-import { HIGHLIGHT_BACKGROUND, HIGHLIGHT_SOURCE } from "@triliumnext/commons/src/lib/marked_extensions.js";
+import { HIGHLIGHT_BACKGROUND } from "@triliumnext/commons/src/lib/marked_extensions.js";
 import { gfm, serializeStructuralHtml } from "@triliumnext/turndown-plugin-gfm";
 import escapeHtml from "escape-html";
 import { parse as parseHtml } from "node-html-parser";
@@ -532,21 +532,14 @@ function isPlainDefaultHighlight(node: HTMLElement): boolean {
         return false;
     }
 
-    const declarations = parseStyleDeclarations(node.getAttribute("style"));
+    // The text editor repeats every color in a `--tn-*` variable for the theme to adapt.
+    const declarations = parseStyleDeclarations(node.getAttribute("style"))
+        .filter(({ property }) => !property.startsWith("--tn-"));
 
     // A bare `<mark>` is a highlight with no colour of its own; a span always has a declaration,
     // since that is what the filter matched on.
     if (declarations.length === 0) {
         return true;
-    }
-
-    // A highlight saved with its colour as picked is recognised by that colour, whatever pair the
-    // theme's limits gave it.
-    const source = declarations.find(({ property }) => property === "--tn-background");
-    if (source) {
-        return declarations.length === 2
-            && declarations.some(({ property }) => property === "background-color")
-            && normalizeColor(source.value) === normalizeColor(HIGHLIGHT_SOURCE);
     }
 
     if (declarations.length > 1) {
@@ -559,8 +552,9 @@ function isPlainDefaultHighlight(node: HTMLElement): boolean {
         && DEFAULT_HIGHLIGHT_BACKGROUNDS.includes(normalizeColor(declaration.value));
 }
 
-/** The current yellow, and the one highlights got before colors adapted to the theme. */
-const DEFAULT_HIGHLIGHT_BACKGROUNDS = [ HIGHLIGHT_BACKGROUND, "hsl(60, 75%, 60%)" ].map(normalizeColor);
+/** The palette Yellow, and CKEditor's stock yellow that Markdown imports used before it. */
+const DEFAULT_HIGHLIGHT_BACKGROUNDS = [ HIGHLIGHT_BACKGROUND, "hsl(60, 75%, 60%)" ]
+    .map(normalizeColor);
 
 function parseStyleDeclarations(style: string | null) {
     return (style ?? "")

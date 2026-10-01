@@ -1,7 +1,5 @@
 import type { Token, TokenizerAndRendererExtension } from "marked";
 
-import { adaptColor } from "./adaptive_color.js";
-
 /**
  * Escapes HTML special characters to prevent XSS attacks.
  * Used for both attribute values and text content.
@@ -102,9 +100,6 @@ export function createTransclusionExtension(options: TransclusionOptions = {}): 
     };
 }
 
-/** The colour of a highlight as picked: the text editor's palette Yellow. */
-export const HIGHLIGHT_SOURCE = "#e5e64d";
-
 /**
  * Background colour for highlights: the text editor's palette Yellow (`==…==` carries no colour
  * of its own). Matches the `<span style="background-color:…">` markup CKEditor's Font
@@ -113,15 +108,15 @@ export const HIGHLIGHT_SOURCE = "#e5e64d";
  * leaves inert: there is no Highlight plugin to apply or lift one, and the allow-list is bare
  * element names, so a colour on it never reaches the editor's model.
  *
- * The Markdown exporter compares against this and `HIGHLIGHT_SOURCE` to decide which highlights
- * can collapse back to `==…==` and which have to keep their colour as inline HTML, so the two
- * directions must agree on the exact value.
+ * The Markdown exporter compares against this to decide which highlights can collapse back to
+ * `==…==` and which have to keep their colour as inline HTML, so the two directions must agree
+ * on the exact value.
  */
-export const HIGHLIGHT_BACKGROUND = adaptColor(HIGHLIGHT_SOURCE, "background");
+export const HIGHLIGHT_BACKGROUND = "#e5e64d";
 
-/** The style of a highlight, with the colour as picked as the text editor saves it. */
+/** The style of a highlight as the text editor saves it, with the theme-adaptive variable. */
 export const HIGHLIGHT_STYLE =
-    `background-color:${HIGHLIGHT_BACKGROUND};--tn-background:${HIGHLIGHT_SOURCE};`;
+    `background-color:${HIGHLIGHT_BACKGROUND};--tn-background:${HIGHLIGHT_BACKGROUND};`;
 
 /**
  * Creates an extension for highlights: `==text==` → a background-coloured `<span>`.
@@ -155,7 +150,8 @@ export function createHighlightExtension(): TokenizerAndRendererExtension {
         },
 
         renderer(token) {
-            return `<span style="${HIGHLIGHT_STYLE}">${this.parser.parseInline(token.tokens as Token[])}</span>`;
+            const content = this.parser.parseInline(token.tokens as Token[]);
+            return `<span style="${HIGHLIGHT_STYLE}">${content}</span>`;
         }
     };
 }
