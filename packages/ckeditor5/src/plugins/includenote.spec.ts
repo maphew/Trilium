@@ -479,6 +479,28 @@ describe("IncludeNote", () => {
         }).not.toThrow();
     });
 
+    it("selects the include that a DOM element is part of, for a context menu opened on it", () => {
+        editor.setData("<p>foo</p>"
+            + "<section class=\"include-note\" data-note-id=\"noteMenu\" data-box-size=\"small\">"
+            + "</section>");
+        const domRoot = editor.editing.view.getDomRoot();
+        const wrapper = domRoot?.querySelector("div.include-note-wrapper");
+        const paragraph = domRoot?.querySelector("p");
+        if (!wrapper || !paragraph) {
+            throw new Error("Expected a rendered include and paragraph.");
+        }
+        const title = document.createElement("h4");
+        wrapper.append(title);
+        const plugin = editor.plugins.get("IncludeNote");
+
+        expect(plugin.selectIncludeAt(paragraph)).toBe(false);
+        expect(editor.model.document.selection.getSelectedElement()).toBeNull();
+
+        expect(plugin.selectIncludeAt(title)).toBe(true);
+        expect(editor.model.document.selection.getSelectedElement()?.getAttribute("noteId"))
+            .toBe("noteMenu");
+    });
+
     it("falls back gracefully in the button factory when the insert command is absent", () => {
         // Exercise the falsy `if (command)` branch in IncludeNoteUI: when the command lookup
         // returns undefined, the button must still be created (just without the binding).

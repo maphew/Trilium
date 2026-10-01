@@ -108,10 +108,11 @@ async function getAttachmentItems(
     }
 
     // Imported on demand: `attachment_actions` imports `link`, which imports this module.
-    const [ attachment, { getAttachmentActionGroups }, embedItem ] = await Promise.all([
+    const [ attachment, { getAttachmentActionGroups }, embedItem, linkItem ] = await Promise.all([
         froca.getAttachmentOfNote(noteId, attachmentId),
         import("../services/attachment_actions.js"),
-        getConvertToEmbedItem(e)
+        getConvertToEmbedItem(e),
+        getConvertToLinkItem(e)
     ]);
     if (!attachment) {
         return [];
@@ -128,7 +129,8 @@ async function getAttachmentItems(
         }))
     ]);
 
-    return embedItem ? [ ...actionItems, embedItem ] : actionItems;
+    const conversionItems = [ embedItem, linkItem ].filter((item) => item !== null);
+    return [ ...actionItems, ...conversionItems ];
 }
 
 /** "Convert link to an embed", for an attachment link in a text note open for editing. */
@@ -136,13 +138,8 @@ async function getConvertToEmbedItem(e: ContextMenuEvent): Promise<MenuItem<Comm
     const link = e.target instanceof Element
         ? e.target.closest<HTMLElement>("a.reference-link")
         : null;
-    // Checked first: a note shown read-only has no editor, and asking for one waits for a timeout.
-    if (!link?.closest(".ck-editor__editable[contenteditable='true']")) {
-        return null;
-    }
-
-    const editor = await getTextEditorContaining(link);
-    if (!editor?.commands.get("embedAttachmentLink")?.isEnabled) {
+    const editor = await getEditingTextEditor(link);
+    if (!link || !editor?.commands.get("embedAttachmentLink")?.isEnabled) {
         return null;
     }
 
@@ -154,6 +151,36 @@ async function getConvertToEmbedItem(e: ContextMenuEvent): Promise<MenuItem<Comm
             boxSize: options.get("includeNoteDefaultBoxSize")
         })
     };
+}
+
+/** "Convert to link", for the title of an attachment embed in a text note open for editing. */
+async function getConvertToLinkItem(e: ContextMenuEvent): Promise<MenuItem<CommandNames> | null> {
+    const title = e.target instanceof Element
+        ? e.target.closest<HTMLElement>(".include-note-title")
+        : null;
+    const editor = await getEditingTextEditor(title);
+    // `convertEmbedToLink` acts on the selected embed, so the right-clicked one is selected first.
+    if (!title || !editor?.plugins.has("IncludeNote")
+            || !editor.plugins.get("IncludeNote").selectIncludeAt(title)
+            || !editor.commands.get("convertEmbedToLink")?.isEnabled) {
+        return null;
+    }
+
+    return {
+        title: t("link_context_menu.convert_embed_to_link"),
+        uiIcon: "bx bx-link",
+        handler: () => editor.execute("convertEmbedToLink")
+    };
+}
+
+/** The text editor containing `element`, or `null` when there is none or it is read-only. */
+async function getEditingTextEditor(element: Element | null) {
+    // Checked first: a note shown read-only has no editor, and asking for one waits for a timeout.
+    if (!element?.closest(".ck-editor__editable[contenteditable='true']")) {
+        return null;
+    }
+
+    return getTextEditorContaining(element);
 }
 
 function getNtxId(e: ContextMenuEvent | GeoMouseEvent) {

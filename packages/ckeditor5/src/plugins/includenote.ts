@@ -51,6 +51,27 @@ export default class IncludeNote extends Plugin {
 	static get requires() {
 		return [ IncludeNoteEditing, IncludeNoteUI ];
 	}
+
+	static get pluginName() {
+		return 'IncludeNote' as const;
+	}
+
+	/**
+	 * Selects the include that `domElement` is part of, so that commands act on the include a
+	 * context menu is opened on. Returns `false` when `domElement` is not part of an include of
+	 * this editor.
+	 */
+	selectIncludeAt( domElement: Element ): boolean {
+		const include = getIncludeNoteAt( this.editor, domElement );
+		if ( !include ) {
+			return false;
+		}
+
+		this.editor.model.enqueueChange( { isUndoable: false }, writer => {
+			writer.setSelection( include, 'on' );
+		} );
+		return true;
+	}
 }
 
 class IncludeNoteUI extends Plugin {
@@ -374,6 +395,18 @@ function getSelectedIncludeNote( editor: Editor ) {
 	return selection.getFirstPosition()?.findAncestor( 'includeNote' ) ?? null;
 }
 
+/** The include whose rendering contains `domElement`, or `null`. */
+function getIncludeNoteAt( editor: Editor, domElement: Element ) {
+	const sectionElement = domElement.closest<HTMLElement>( 'section.include-note' );
+	const viewElement = sectionElement
+		&& editor.editing.view.domConverter.mapDomToView( sectionElement );
+	if ( !viewElement?.is( 'element' ) ) {
+		return null;
+	}
+
+	return editor.editing.mapper.toModelElement( viewElement ) ?? null;
+}
+
 /**
  * The `data-*` attribute naming what an include shows: an attachment, or a note. An embed whose
  * upload has not ended names nothing.
@@ -512,20 +545,7 @@ function isInteractiveTarget( target: EventTarget | null, boundary: HTMLElement 
 }
 
 function selectIncludeNoteWidget( domElement: HTMLElement, editor: Editor ) {
-	// Find the parent section element (the widget container)
-	const sectionElement = domElement.closest( 'section.include-note' ) as HTMLElement | null;
-	if ( !sectionElement ) {
-		return;
-	}
-
-	// Get the view element from the DOM element
-	const viewElement = editor.editing.view.domConverter.mapDomToView( sectionElement );
-	if ( !viewElement || !viewElement.is( 'element' ) ) {
-		return;
-	}
-
-	// Get the model element from the view element
-	const modelElement = editor.editing.mapper.toModelElement( viewElement );
+	const modelElement = getIncludeNoteAt( editor, domElement );
 	if ( !modelElement ) {
 		return;
 	}
@@ -537,4 +557,10 @@ function selectIncludeNoteWidget( domElement: HTMLElement, editor: Editor ) {
 	editor.model.enqueueChange( { isUndoable: false }, writer => {
 		writer.setSelection( modelElement, 'on' );
 	} );
+}
+
+declare module 'ckeditor5' {
+	interface PluginsMap {
+		[ IncludeNote.pluginName ]: IncludeNote;
+	}
 }

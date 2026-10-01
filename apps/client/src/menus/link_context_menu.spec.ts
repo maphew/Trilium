@@ -292,6 +292,77 @@ describe("openContextMenu", () => {
         expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(1);
     });
 
+    describe("on the title of an attachment embed", () => {
+        const execute = vi.fn();
+        const selectIncludeAt = vi.fn();
+        const convertCommand = { isEnabled: true };
+        let hasPlugin = true;
+        let editable: HTMLElement;
+
+        beforeEach(() => {
+            selectIncludeAt.mockReturnValue(true);
+            convertCommand.isEnabled = true;
+            hasPlugin = true;
+            mocks.getAttachmentOfNote.mockResolvedValue({ attachmentId: "att-1" });
+            mocks.getAttachmentActionGroups.mockReturnValue([
+                [ { title: "Download", icon: "bx bx-download", run: vi.fn() } ]
+            ]);
+            mocks.getTextEditorContaining.mockResolvedValue({
+                plugins: { has: () => hasPlugin, get: () => ({ selectIncludeAt }) },
+                commands: {
+                    get: (name: string) => (name === "convertEmbedToLink"
+                        ? convertCommand
+                        : undefined)
+                },
+                execute
+            });
+            editable = document.createElement("div");
+            editable.className = "ck-editor__editable";
+            editable.setAttribute("contenteditable", "true");
+            editable.innerHTML = `<section class="include-note"><h4 class="include-note-title">`
+                + `<span><a href="#">report.pdf</a></span></h4></section>`;
+        });
+
+        async function openOnTitle() {
+            const link = editable.querySelector("a") ?? undefined;
+            await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(link), VIEW_SCOPE);
+            return mocks.show.mock.lastCall?.[0].items;
+        }
+
+        it("ends the menu with converting the embed to a link, selecting it first", async () => {
+            const items = await openOnTitle();
+
+            const title = editable.querySelector(".include-note-title");
+            expect(selectIncludeAt).toHaveBeenCalledWith(title);
+            expect(items.slice(4)).toMatchObject([
+                { kind: "separator" },
+                { title: "Download" },
+                { title: "link_context_menu.convert_embed_to_link", uiIcon: "bx bx-link" }
+            ]);
+            items.at(-1).handler();
+            expect(execute).toHaveBeenCalledWith("convertEmbedToLink");
+        });
+
+        it("leaves it out in a read-only note, or for an embed it cannot convert", async () => {
+            hasPlugin = false;
+            expect(await openOnTitle()).toHaveLength(6);
+            expect(selectIncludeAt).not.toHaveBeenCalled();
+
+            hasPlugin = true;
+            selectIncludeAt.mockReturnValue(false);
+            expect(await openOnTitle()).toHaveLength(6);
+
+            selectIncludeAt.mockReturnValue(true);
+            convertCommand.isEnabled = false;
+            expect(await openOnTitle()).toHaveLength(6);
+
+            convertCommand.isEnabled = true;
+            editable.removeAttribute("contenteditable");
+            expect(await openOnTitle()).toHaveLength(6);
+            expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(3);
+        });
+    });
+
     it("adds nothing for a link to a note, or to an attachment that no longer exists", async () => {
         await linkContextMenu.openContextMenu("root/n1", contextMenuEvent());
         expect(mocks.getAttachmentOfNote).not.toHaveBeenCalled();

@@ -28,6 +28,7 @@ export * from "./utils.js";
 
 // Import with sideffects to ensure that type augmentations are present.
 import "./plugins/file_upload/uploadfileplugin.js";
+import "./plugins/includenote.js";
 import "./plugins/math/math.js";
 import "./plugins/mermaid/mermaid.js";
 import "./plugins/referencelink.js";

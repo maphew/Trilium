@@ -3058,7 +3058,8 @@
     "open_note_in_other_split": "Open note in the other split",
     "open_note_in_new_window": "Open note in a new window",
     "open_note_in_popup": "Quick edit",
-    "convert_link_to_embed": "Convert link to an embed"
+    "convert_link_to_embed": "Convert link to an embed",
+    "convert_embed_to_link": "Convert to link"
   },
   "electron_integration": {
     "desktop-application": "Desktop Application",
