@@ -7,15 +7,12 @@ vi.mock("../services/keyboard_actions", () => ({
         effectiveShortcuts: name === "copyNotesToClipboard" ? [ "Ctrl+C", "Ctrl+Insert" ] : []
     })
 }));
-const layout = vi.hoisted(() => ({ onMobile: false }));
+const layout = vi.hoisted(() => ({ onMobile: false, narrow: true }));
 vi.mock("../services/utils", async (importOriginal) => {
     const original = await importOriginal<typeof import("../services/utils")>();
     // `Menu` imports `isMobile()` by name, `contextMenu` through the default export.
-    return {
-        ...original,
-        isMobile: () => layout.onMobile,
-        default: { ...original.default, isMobile: () => layout.onMobile }
-    };
+    const overrides = { isMobile: () => layout.onMobile, isNarrowLayout: () => layout.narrow };
+    return { ...original, ...overrides, default: { ...original.default, ...overrides } };
 });
 const focusTraps = vi.hoisted(() => ({ restore: vi.fn(), suspend: vi.fn() }));
 vi.mock("../widgets/react/modal_focustrap", () => ({
@@ -1069,6 +1066,7 @@ describe("contextMenu", () => {
     describe("on a phone", () => {
         afterEach(() => {
             layout.onMobile = false;
+            layout.narrow = true;
         });
 
         it("rises from the bottom as a sheet, which the stylesheet places and caps", async () => {
@@ -1083,6 +1081,21 @@ describe("contextMenu", () => {
             await vi.waitFor(() => expect(menu?.style.visibility).toBe("visible"));
             // Nothing inline for the sheet's rules to contend with: its `max-height` is not `!important`.
             expect([ menu?.style.left, menu?.style.top, menu?.style.maxHeight ]).toEqual([ "", "", "" ]);
+        });
+
+        it("opens at the press on a tablet's wider mobile layout, capped", async () => {
+            layout.onMobile = true;
+            layout.narrow = false;
+            buildPage();
+            const contextMenu = await buildContextMenu();
+
+            await contextMenu.show({ x: 10, y: 20, items, selectMenuItemHandler: () => {} });
+
+            const menu = menuElement();
+            expect(menu?.classList.contains("mobile-bottom-menu")).toBe(false);
+            await vi.waitFor(() => expect(menu?.style.visibility).toBe("visible"));
+            expect([ menu?.style.left, menu?.style.top ]).not.toEqual([ "", "" ]);
+            expect(menu?.style.maxHeight).not.toBe("");
         });
 
         it("opens at the pointer instead when the caller asks", async () => {

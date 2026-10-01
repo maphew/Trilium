@@ -157,7 +157,8 @@ class ContextMenu {
             placement: options.orientation === "left" ? "left-start" : "right-start",
             // Already where the screen shows it: see the host above.
             container: this.host,
-            bottomSheet: utils.isMobile() && !options.forcePositionOnMobile,
+            bottomSheet: utils.isMobile() && utils.isNarrowLayout()
+                && !options.forcePositionOnMobile,
             // As a native menu opened from the keyboard, it starts at its first row.
             startAt: this.lastInputWasKey ? "first" : undefined,
             items: options.items,

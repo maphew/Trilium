@@ -309,6 +309,15 @@ export function isMobile() {
 }
 
 /**
+ * Whether the viewport is as narrow as a phone's. In the mobile layout, a menu is a bottom sheet
+ * only then; a tablet's wider layout places it beside what opened it. Must match the media query
+ * around the `.mobile-bottom-menu` rules in style.css.
+ */
+export function isNarrowLayout() {
+    return window.matchMedia("(max-width: 991px)").matches;
+}
+
+/**
  * Returns true if the client device is an Apple iOS one (iPad, iPhone, iPod).
  * Does not check if the user requested the mobile or desktop layout, use {@link isMobile} for that.
  *
@@ -980,6 +989,7 @@ export default {
     toObject,
     randomString,
     isMobile,
+    isNarrowLayout,
     isDesktop,
     setCookie,
     getNoteTypeClass,

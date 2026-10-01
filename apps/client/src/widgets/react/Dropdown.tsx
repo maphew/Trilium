@@ -5,7 +5,7 @@ import { ComponentChildren, HTMLAttributes } from "preact";
 import { CSSProperties, HTMLProps } from "preact/compat";
 import { MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import { isMobile } from "../../services/utils";
+import { isMobile, isNarrowLayout } from "../../services/utils";
 import { focusListItem } from "./FormList";
 import { useTooltip, useUniqueName } from "./hooks";
 import { suspendModalFocusTraps } from "./modal_focustrap";
@@ -74,9 +74,6 @@ export interface DropdownHandle {
     hide(): void;
     toggle(): void;
 }
-
-/** The phone layout. Must match the media query around `.mobile-bottom-menu` in style.css. */
-const NARROW_LAYOUT = "(max-width: 991px)";
 
 /** The gap, in pixels, between the toggle and its popup, as Bootstrap's dropdowns kept. */
 const TOGGLE_GAP = 2;
@@ -162,10 +159,8 @@ function DropdownToggle({ id, className, buttonClassName, title, text, dropdownC
     popup(slot: PopupSlot): ComponentChildren;
 }) {
     // The sheet is placed by the app's own rule and dims what is behind it, so it is asked for as
-    // one thing and unpacked here. The `.mobile-bottom-menu` rules apply only below
-    // `NARROW_LAYOUT`, so a wider mobile layout places the popup beside its toggle.
-    const bottomSheet = !!mobileBottomSheet && isMobile()
-        && window.matchMedia(NARROW_LAYOUT).matches;
+    // one thing and unpacked here.
+    const bottomSheet = !!mobileBottomSheet && isMobile() && isNarrowLayout();
     const mobileBackdrop = (!!mobileBackdropProp || !!mobileBottomSheet) && isMobile();
     const containerRef = useRef<HTMLDivElement | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
