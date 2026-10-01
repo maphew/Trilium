@@ -23,10 +23,14 @@ vi.mock("../../../services/content_renderer", async () => {
     };
 });
 vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
-const openTabWithNoteWithHoisting = vi.hoisted(() => vi.fn());
+const { openTabWithNoteWithHoisting, openContextMenu } = vi.hoisted(() => ({
+    openTabWithNoteWithHoisting: vi.fn(),
+    openContextMenu: vi.fn()
+}));
 vi.mock("../../../components/app_context", () => ({
     default: { tabManager: { openTabWithNoteWithHoisting } }
 }));
+vi.mock("../../../menus/link_context_menu", () => ({ default: { openContextMenu } }));
 
 import content_renderer from "../../../services/content_renderer";
 import froca from "../../../services/froca";
@@ -146,7 +150,8 @@ describe("loadIncludedAttachment", () => {
             expect($row.children().map((_, child) => child.className).get()).toEqual([
                 "include-note-title",
                 "include-note-open bx bx-link-external",
-                "include-note-fullscreen bx bx-fullscreen"
+                "include-note-fullscreen bx bx-fullscreen",
+                "include-note-menu bx bx-dots-vertical-rounded"
             ]);
             expect(button.title).toBe("common.fullscreen");
 
@@ -223,8 +228,12 @@ describe("loadIncludedAttachment", () => {
     });
 });
 
-describe("the button opening an include in a new tab", () => {
+describe("the buttons after the title of an include", () => {
+    const attachmentScope = { viewMode: "attachments", attachmentId: "att1" };
+
     beforeEach(() => {
+        openTabWithNoteWithHoisting.mockClear();
+        openContextMenu.mockClear();
         vi.mocked(froca.getNote).mockResolvedValue(note);
         vi.mocked(froca.getAttachment).mockResolvedValue(
             { attachmentId: "att1", ownerId: "owner" } as unknown as FAttachment
@@ -236,36 +245,54 @@ describe("the button opening an include in a new tab", () => {
         ));
     });
 
-    it("follows the title of a note or attachment at any size, and opens it", async () => {
-        const attachmentScope = { viewMode: "attachments", attachmentId: "att1" };
-
+    /** A note box and an attachment box of each size, with the note and view scope each shows. */
+    async function loadEveryBox() {
+        const boxes: [ JQuery<HTMLElement>, string, object | undefined ][] = [];
         for (const boxSize of [ "small", "medium", "full", "expandable" ]) {
             const $note = $('<div class="include-note-wrapper">');
             const $attachment = $('<div class="include-note-wrapper">');
             await loadIncludedNote("noteY", $note, boxSize);
             await loadIncludedAttachment("att1", $attachment, boxSize);
+            boxes.push([ $note, "noteY", undefined ], [ $attachment, "owner", attachmentScope ]);
+        }
+        return boxes;
+    }
 
-            const boxes: [ JQuery<HTMLElement>, string, object | undefined ][] = [
-                [ $note, "noteY", undefined ],
-                [ $attachment, "owner", attachmentScope ]
-            ];
-            for (const [ $el, notePath, viewScope ] of boxes) {
-                const $button = $el.find(".include-note-title").next();
-                expect($button.attr("class")).toBe("include-note-open bx bx-link-external");
-                expect($button.attr("title")).toBe("common.open_in_new_tab");
+    function click(button: HTMLElement) {
+        const event = new MouseEvent("click", { bubbles: true });
+        const stopPropagation = vi.spyOn(event, "stopPropagation");
+        button.dispatchEvent(event);
+        return { event, stopPropagation };
+    }
 
-                const click = new MouseEvent("click", { bubbles: true });
-                const stopPropagation = vi.spyOn(click, "stopPropagation");
-                $button[0].dispatchEvent(click);
-                expect(openTabWithNoteWithHoisting).toHaveBeenLastCalledWith(notePath, {
-                    viewScope,
-                    activate: true,
-                    placement: "afterCurrent"
-                });
-                expect(stopPropagation).toHaveBeenCalled();
-            }
+    it("opens the note or attachment in a new tab, from right after the title", async () => {
+        for (const [ $el, notePath, viewScope ] of await loadEveryBox()) {
+            const $button = $el.find(".include-note-title").next();
+            expect($button.attr("class")).toBe("include-note-open bx bx-link-external");
+            expect($button.attr("title")).toBe("common.open_in_new_tab");
+
+            const { stopPropagation } = click($button[0]);
+            expect(openTabWithNoteWithHoisting).toHaveBeenLastCalledWith(notePath, {
+                viewScope,
+                activate: true,
+                placement: "afterCurrent"
+            });
+            expect(stopPropagation).toHaveBeenCalled();
         }
         expect(openTabWithNoteWithHoisting).toHaveBeenCalledTimes(8);
+    });
+
+    it("opens the context menu of the note or attachment from the end of the row", async () => {
+        for (const [ $el, notePath, viewScope ] of await loadEveryBox()) {
+            const $button = $el.find(".include-note-title-row").children().last();
+            expect($button.attr("class")).toBe("include-note-menu bx bx-dots-vertical-rounded");
+            expect($button.attr("title")).toBe("common.more_actions");
+
+            const { event, stopPropagation } = click($button[0]);
+            expect(openContextMenu).toHaveBeenLastCalledWith(notePath, event, viewScope);
+            expect(stopPropagation).toHaveBeenCalled();
+        }
+        expect(openContextMenu).toHaveBeenCalledTimes(8);
     });
 });
 

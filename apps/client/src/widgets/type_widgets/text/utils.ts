@@ -1,6 +1,7 @@
 import { h } from "preact";
 
 import appContext from "../../../components/app_context";
+import linkContextMenu from "../../../menus/link_context_menu";
 import content_renderer from "../../../services/content_renderer";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
@@ -93,7 +94,12 @@ async function fillIncludeBox(
         const $toggle = $('<button class="include-note-toggle bx bx-chevron-right" aria-expanded="false">');
         const $title = $('<h4 class="include-note-title">').append($link);
 
-        $titleRow.append($toggle, $title, createOpenInNewTabButton(notePath, viewScope));
+        $titleRow.append(
+            $toggle,
+            $title,
+            createOpenInNewTabButton(notePath, viewScope),
+            createMenuButton(notePath, viewScope)
+        );
         $wrapper.append($titleRow);
 
         const { $renderedContent, type } = await renderContent();
@@ -121,6 +127,7 @@ async function fillIncludeBox(
             await mountExitFullscreenControls($content);
         }
 
+        $titleRow.append(createMenuButton(notePath, viewScope));
         $wrapper.append($titleRow, $content);
     }
 
@@ -142,6 +149,18 @@ function createOpenInNewTabButton(notePath: string, viewScope: ViewScope | undef
                 activate: true,
                 placement: "afterCurrent"
             });
+        });
+}
+
+/** A button opening the context menu that right-clicking the title of an include box opens. */
+function createMenuButton(notePath: string, viewScope: ViewScope | undefined) {
+    return $('<button type="button" class="include-note-menu bx bx-dots-vertical-rounded">')
+        .attr({ title: t("common.more_actions") })
+        .on("click", (e) => {
+            e.stopPropagation();
+            if (e.originalEvent) {
+                void linkContextMenu.openContextMenu(notePath, e.originalEvent, viewScope);
+            }
         });
 }
 

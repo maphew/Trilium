@@ -153,15 +153,18 @@ async function getConvertToEmbedItem(e: ContextMenuEvent): Promise<MenuItem<Comm
     };
 }
 
-/** "Convert to link", for the title of an attachment embed in a text note open for editing. */
+/**
+ * "Convert to link", for a menu opened from the title row of an attachment embed in a text note
+ * open for editing.
+ */
 async function getConvertToLinkItem(e: ContextMenuEvent): Promise<MenuItem<CommandNames> | null> {
-    const title = e.target instanceof Element
-        ? e.target.closest<HTMLElement>(".include-note-title")
+    const titleRow = e.target instanceof Element
+        ? e.target.closest<HTMLElement>(".include-note-title-row")
         : null;
-    const editor = await getEditingTextEditor(title);
-    // `convertEmbedToLink` acts on the selected embed, so the right-clicked one is selected first.
-    if (!title || !editor?.plugins.has("IncludeNote")
-            || !editor.plugins.get("IncludeNote").selectIncludeAt(title)
+    const editor = await getEditingTextEditor(titleRow);
+    // `convertEmbedToLink` acts on the selected embed, so the embed of the menu is selected first.
+    if (!titleRow || !editor?.plugins.has("IncludeNote")
+            || !editor.plugins.get("IncludeNote").selectIncludeAt(titleRow)
             || !editor.commands.get("convertEmbedToLink")?.isEnabled) {
         return null;
     }

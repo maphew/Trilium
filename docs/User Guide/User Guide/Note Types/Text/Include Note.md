@@ -13,6 +13,8 @@ An [attachment](../../Basic%20Concepts%20and%20Features/Notes/Attachments.md) ca
 
 To open an included note in a new tab, press the <span class="tn-icon bx bx-link-external"></span> _Open in new tab_ button at the end of its title. An embedded attachment has the same button.
 
+The <span class="tn-icon bx bx-dots-vertical-rounded"></span> _More actions_ button at the end of the title row opens the same menu as right-clicking the title: the other places to open the note in and, for an embedded attachment, the actions on the attachment.
+
 ## Included notes in the share functionality
 
 If a [shared note](../../Advanced%20Usage/Sharing.md) contains one or more included notes, they will be displayed in the content of the note as if they were part of the note itself.

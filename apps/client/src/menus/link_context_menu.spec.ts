@@ -292,7 +292,7 @@ describe("openContextMenu", () => {
         expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(1);
     });
 
-    describe("on the title of an attachment embed", () => {
+    describe("from the title row of an attachment embed", () => {
         const execute = vi.fn();
         const selectIncludeAt = vi.fn();
         const convertCommand = { isEnabled: true };
@@ -319,28 +319,36 @@ describe("openContextMenu", () => {
             editable = document.createElement("div");
             editable.className = "ck-editor__editable";
             editable.setAttribute("contenteditable", "true");
-            editable.innerHTML = `<section class="include-note"><h4 class="include-note-title">`
-                + `<span><a href="#">report.pdf</a></span></h4></section>`;
+            editable.innerHTML = `<section class="include-note">`
+                + `<div class="include-note-title-row">`
+                + `<h4 class="include-note-title"><span><a href="#">report.pdf</a></span></h4>`
+                + `<button class="include-note-menu"></button></div></section>`;
         });
 
-        async function openOnTitle() {
-            const link = editable.querySelector("a") ?? undefined;
-            await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(link), VIEW_SCOPE);
+        /** Opens the menu as right-clicking `selector`, the title link by default, does. */
+        async function openOnTitle(selector = "a") {
+            const target = editable.querySelector<HTMLElement>(selector) ?? undefined;
+            await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(target), VIEW_SCOPE);
             return mocks.show.mock.lastCall?.[0].items;
         }
 
         it("ends the menu with converting the embed to a link, selecting it first", async () => {
-            const items = await openOnTitle();
+            // Right-clicking the title, then pressing the menu button beside it.
+            for (const selector of [ "a", "button.include-note-menu" ]) {
+                selectIncludeAt.mockClear();
+                execute.mockClear();
+                const items = await openOnTitle(selector);
 
-            const title = editable.querySelector(".include-note-title");
-            expect(selectIncludeAt).toHaveBeenCalledWith(title);
-            expect(items.slice(4)).toMatchObject([
-                { kind: "separator" },
-                { title: "Download" },
-                { title: "link_context_menu.convert_embed_to_link", uiIcon: "bx bx-link" }
-            ]);
-            items.at(-1).handler();
-            expect(execute).toHaveBeenCalledWith("convertEmbedToLink");
+                const titleRow = editable.querySelector(".include-note-title-row");
+                expect(selectIncludeAt).toHaveBeenCalledWith(titleRow);
+                expect(items.slice(4)).toMatchObject([
+                    { kind: "separator" },
+                    { title: "Download" },
+                    { title: "link_context_menu.convert_embed_to_link", uiIcon: "bx bx-link" }
+                ]);
+                items.at(-1).handler();
+                expect(execute).toHaveBeenCalledWith("convertEmbedToLink");
+            }
         });
 
         it("leaves it out in a read-only note, or for an embed it cannot convert", async () => {

@@ -1582,7 +1582,8 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 
 .include-note-toggle,
 .include-note-open,
-.include-note-fullscreen {
+.include-note-fullscreen,
+.include-note-menu {
     background: none;
     border: none;
     padding: 2px;
@@ -1598,7 +1599,8 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 
 .include-note-toggle:hover,
 .include-note-open:hover,
-.include-note-fullscreen:hover {
+.include-note-fullscreen:hover,
+.include-note-menu:hover {
     color: var(--main-link-color);
 }
 

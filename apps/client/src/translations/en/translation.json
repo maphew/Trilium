@@ -4219,7 +4219,8 @@
     "cancel": "Cancel",
     "fullscreen": "Fullscreen",
     "exit_fullscreen": "Exit fullscreen",
-    "open_in_new_tab": "Open in new tab"
+    "open_in_new_tab": "Open in new tab",
+    "more_actions": "More actions"
   },
   "spreadsheet": {
     "read-only": "This note is read-only.",

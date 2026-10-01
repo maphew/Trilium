@@ -44,7 +44,7 @@ An attachment can be shown in the text instead of linked, the way <a class="ref
 *   An embed takes the default box size of included notes. To change its size, select the embed and use the box size menu in its toolbar.
 *   To open the attachment in a new tab, press the <span class="tn-icon bx bx-link-external"></span> _Open in new tab_ button at the end of the embed's title.
 *   To show an embed of size _Medium_ or _Full_ on the whole screen, press the <span class="tn-icon bx bx-fullscreen"></span> _Fullscreen_ button at the end of its title. To return, press <span class="tn-icon bx bx-exit"></span> _Exit fullscreen_ in the top-right corner, or <kbd>Esc</kbd>.
-*   To turn the embed back into a link, select it and press the <span class="tn-icon cke cke-link"></span> _Convert to link_ button in its toolbar, or right-click its title and select _Convert to link_, at the end of the menu.
+*   To turn the embed back into a link, select it and press the <span class="tn-icon cke cke-link"></span> _Convert to link_ button in its toolbar. _Convert to link_ also ends the menu that right-clicking the title of the embed or pressing its <span class="tn-icon bx bx-dots-vertical-rounded"></span> _More actions_ button opens.
 
 An embed follows its attachment like a link does. Converting the attachment into a note turns the embed into an included note. In a [shared note](../../Advanced%20Usage/Sharing.md), an embedded picture is displayed, and any other attachment appears as a link to download it.
 
