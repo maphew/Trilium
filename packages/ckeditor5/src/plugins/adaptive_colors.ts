@@ -56,6 +56,8 @@ export default class AdaptiveColors extends Plugin {
                     }
 
                     const element = findStyledElement(mapper.toViewElement(data.item));
+                    /* v8 ignore next -- CKEditor gives every table and cell a view element, and
+                       draws a table as a `<figure>` holding its `<table>`. */
                     if (!element) {
                         return;
                     }
@@ -99,6 +101,6 @@ function findStyledElement(viewElement: ViewElement | undefined) {
         return viewElement;
     }
 
-    const table = [ ...viewElement.getChildren() ].find((child) => child.is("element", "table"));
-    return table?.is("element") ? table : undefined;
+    return [ ...viewElement.getChildren() ]
+        .find((child): child is ViewElement => child.is("element", "table"));
 }

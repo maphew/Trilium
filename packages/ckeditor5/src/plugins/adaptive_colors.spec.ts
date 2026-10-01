@@ -2,10 +2,12 @@ import {
     _getModelData as getModelData,
     _setModelData as setModelData,
     type ClassicEditor,
+    type DowncastAttributeEvent,
     Essentials,
     FontBackgroundColor,
     FontColor,
     GeneralHtmlSupport,
+    type ModelElement,
     Paragraph,
     Table,
     TableCellProperties,
@@ -96,6 +98,26 @@ describe("AdaptiveColors", () => {
         const cleared = editor.getData();
         expect(cleared).not.toContain("--tn-background:#e64d4d");
         expect(cleared).not.toContain("--tn-border-color:#000000");
+    });
+
+    it("adds no variable for a table color another converter has already handled", () => {
+        editor.conversion.for("downcast").add((dispatcher) => {
+            dispatcher.on<DowncastAttributeEvent<ModelElement>>(
+                "attribute:tableBorderColor:table",
+                (eventInfo, data, { consumable }) => {
+                    consumable.consume(data.item, eventInfo.name);
+                },
+                { priority: "highest" }
+            );
+        });
+        setModelData(editor.model, "<table><tableRow><tableCell><paragraph>[]a</paragraph>"
+            + "</tableCell></tableRow></table>");
+        editor.execute("tableBorderStyle", { value: "solid" });
+        editor.execute("tableBorderColor", { value: "#4d99e6" });
+
+        const saved = editor.getData();
+        expect(saved).toContain("border-style:solid;");
+        expect(saved).not.toContain("--tn-border-color");
     });
 
     it("keeps a variable out of the model, also with General HTML Support", async () => {
