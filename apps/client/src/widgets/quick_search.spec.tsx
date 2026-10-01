@@ -4,6 +4,7 @@ import { options, type VNode } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import appContext from "../components/app_context";
 import Component from "../components/component";
 import { calculateHash } from "../services/link";
 import server from "../services/server";
@@ -210,6 +211,36 @@ describe("QuickSearch", () => {
         await vi.waitFor(() => expect(placeholderItems()[0]?.querySelector(".bx-loader")).toBeNull());
         pressArrowDown(editor);
         expect(editor.hasFocus).toBe(true);
+    });
+
+    it("hands the query to the full search from a footer below the results, and on Ctrl+Enter", async () => {
+        vi.spyOn(server, "get").mockResolvedValue(response(30, []));
+        const triggerCommand = vi.spyOn(appContext, "triggerCommand").mockResolvedValue(undefined);
+        const { editor } = await mount();
+
+        typeQuery(editor, " #book AND tolkien ");
+        pressEnter(editor);
+        await waitForResults(30);
+
+        // Pinned below the scroller rather than at the end of the list, so it is always in reach.
+        const footer = menu()?.lastElementChild;
+        expect(footer?.classList.contains("quick-search-footer")).toBe(true);
+        const button = footer?.querySelector<HTMLButtonElement>("button");
+        if (!button) throw new Error("The footer has no button.");
+
+        await act(async () => button.click());
+        expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "#book AND tolkien" });
+        await vi.waitFor(() => expect(menu()).toBeNull());
+
+        // From the field too, with the results closed.
+        triggerCommand.mockClear();
+        act(() => {
+            editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", {
+                key: "Enter", ctrlKey: true, bubbles: true, cancelable: true
+            }));
+        });
+        expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "#book AND tolkien" });
+        expect(menu()).toBeNull();
     });
 
     it("leaves the open results alone while the query is typed", async () => {

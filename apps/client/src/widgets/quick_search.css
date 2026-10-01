@@ -9,7 +9,6 @@
         var(--left-pane-item-action-button-color, var(--main-text-color));
 
     display: flex;
-    /* Around the box, and still part of the widget. */
     padding: 8px;
 
     /* `.component`, which `BasicWidget` adds, sets `contain: size` and would collapse the box. */
@@ -79,7 +78,7 @@
         color: var(--quick-search-focus-color, var(--main-text-color));
     }
 
-    /* `!important` outranks Bootstrap's `.btn` state rules (`:hover`, `:active`, `.show`). */
+    /* `!important` outranks Bootstrap's `.btn` state rules (`:hover`, `:active`, `.active`). */
     .search-button {
         display: flex;
         align-items: center;
@@ -135,19 +134,27 @@
     &.show {
         display: flex;
         flex-direction: column;
-        padding-block: 0 !important;
+        padding: 0 !important;
     }
 
     .quick-search-results {
         flex: 1 1 auto;
         min-height: 0;
-        padding-block: var(--menu-padding-size, .5rem);
+        padding: var(--menu-padding-size, .5rem 0);
         overflow-y: auto;
         overflow-x: hidden;
     }
 
     .quick-search-footer {
+        display: flex;
         flex: 0 0 auto;
+        justify-content: flex-end;
+        padding: var(--menu-padding-size, .5rem);
+        border-top: 1px solid var(--dropdown-border-color, var(--main-border-color));
+
+        kbd {
+            padding: .1875rem .375rem;
+        }
     }
 
     .dropdown-item {
@@ -225,10 +232,6 @@
             font-weight: 400;
             text-decoration: underline dotted;
         }
-    }
-
-    .dropdown-divider {
-        margin: 0;
     }
 
     .bx-loader {

@@ -6,10 +6,12 @@ import clsx from "clsx";
 import type { RefObject } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 
+import appContext from "../components/app_context";
 import { t } from "../services/i18n";
 import { calculateHash, type ViewScope } from "../services/link";
 import server from "../services/server";
 import ActionButton from "./react/ActionButton";
+import Button from "./react/Button";
 import { focusListItem } from "./react/FormList";
 import { useTriliumEvent } from "./react/hooks";
 import Icon from "./react/Icon";
@@ -60,6 +62,11 @@ export default function QuickSearch() {
         });
     }
 
+    function showInFullSearch() {
+        close();
+        void appContext.triggerCommand("searchNotes", { searchString: searchStringRef.current.trim() });
+    }
+
     function close() {
         // Focus on a result goes back to the field, rather than to the page's body.
         if (popupRef.current?.contains(document.activeElement)) editorRef.current?.focus();
@@ -68,7 +75,17 @@ export default function QuickSearch() {
 
     return (
         <div className={clsx("quick-search", hasQuery && "has-query")}>
-            <div ref={boxRef} className="quick-search-box">
+            <div
+                ref={boxRef}
+                className="quick-search-box"
+                // Captured, so the field never takes the Enter for its own search.
+                onKeyDownCapture={(e) => {
+                    if (e.key !== "Enter" || !e.ctrlKey) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showInFullSearch();
+                }}
+            >
                 <ActionButton
                     className="search-button"
                     icon="bx bx-search"
@@ -109,6 +126,14 @@ export default function QuickSearch() {
                 >
                     <div className="quick-search-results">
                         <QuickSearchResults searchState={searchState} onOpenResult={close} />
+                    </div>
+                    <div className="quick-search-footer">
+                        <Button
+                            text={t("quick-search.show-in-full-search")}
+                            keyboardShortcut="Ctrl+Enter"
+                            size="small"
+                            onClick={showInFullSearch}
+                        />
                     </div>
                 </Popup>
             )}

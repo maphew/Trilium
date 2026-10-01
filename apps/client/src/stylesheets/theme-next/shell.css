@@ -593,10 +593,6 @@ div.bookmark-folder-widget .note-link .tn-icon {
         color: var(--quick-search-result-highlight-color);
         font-weight: 600;
     }
-
-    .dropdown-divider {
-        margin: 8px 0;
-    }
 }
 
 /*
