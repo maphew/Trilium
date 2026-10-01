@@ -2,7 +2,8 @@
     position: fixed;
     right: 1rem;
     bottom: 1rem;
-    z-index: 1080;
+    /* Over a `Popup` (1200, Popup.css), from which its button can open it. */
+    z-index: 1210;
     /* Grow to fit the widest shortcut row (so keys never wrap), capped to the viewport. */
     width: max-content;
     max-width: min(90vw, 640px);

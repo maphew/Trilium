@@ -10,15 +10,32 @@ import appContext from "../components/app_context";
 import { t } from "../services/i18n";
 import { calculateHash, type ViewScope } from "../services/link";
 import server from "../services/server";
+import type { ShortcutHintDefinition } from "../services/shortcut_hints";
+import { isMobile } from "../services/utils";
 import ActionButton from "./react/ActionButton";
 import Button from "./react/Button";
 import { focusListItem } from "./react/FormList";
 import { useTriliumEvent } from "./react/hooks";
 import Icon from "./react/Icon";
 import { pointerMoved } from "./react/menu_context";
+import OverlayControlGroup from "./react/OverlayControlGroup";
 import Popup from "./react/Popup";
 import RawHtml, { RawHtmlBlock } from "./react/RawHtml";
 import SearchStringEditor from "./ribbon/SearchStringEditor";
+import { ShortcutHintOverlayButton } from "./shortcut_hints/shortcut_hint_button";
+
+/** The keys the results answer, beside the field's own, for the shortcut-hints pane. */
+const QUICK_SEARCH_HINTS: ShortcutHintDefinition = [
+    {
+        titleKey: "quick-search.hints.title",
+        hints: [
+            { keys: [ "Down" ], labelKey: "quick-search.hints.to_results" },
+            { keys: [ "PageDown", "PageUp" ], labelKey: "quick-search.hints.page" },
+            { keys: [ "Ctrl+Enter" ], labelKey: "quick-search.show-in-full-search" },
+            { keys: [ "Escape" ], labelKey: "quick-search.hints.close" }
+        ]
+    }
+];
 
 /** The keys that move focus through the results. */
 const NAVIGATION_KEYS = new Set([ "ArrowDown", "ArrowUp", "PageDown", "PageUp" ]);
@@ -111,6 +128,7 @@ export default function QuickSearch() {
                     className="search-string"
                     placeholder={t("quick-search.placeholder")}
                     singleLine
+                    extraShortcutHints={QUICK_SEARCH_HINTS}
                     editorRef={editorRef}
                     onChange={(value) => {
                         searchStringRef.current = value;
@@ -143,6 +161,7 @@ export default function QuickSearch() {
                         keyboardDriven && "tn-menu-keyboard")}
                     elementRef={popupRef}
                     escapeDismisses={false}
+                    keepOpenSelector=".shortcut-hints-panel"
                     onPointerMove={(e) => {
                         if (!pointerMoved(e)) return;
                         setKeyboardDriven(false);
@@ -160,7 +179,13 @@ export default function QuickSearch() {
                         <QuickSearchResults searchState={searchState} onOpenResult={close} />
                     </div>
                     <div className="quick-search-footer">
+                        {!isMobile() && (
+                            <OverlayControlGroup>
+                                <ShortcutHintOverlayButton />
+                            </OverlayControlGroup>
+                        )}
                         <Button
+                            className="show-in-full-search"
                             text={t("quick-search.show-in-full-search")}
                             keyboardShortcut="Ctrl+Enter"
                             size="small"

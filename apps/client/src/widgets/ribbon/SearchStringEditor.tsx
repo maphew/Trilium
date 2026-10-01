@@ -23,6 +23,11 @@ interface SearchStringEditorProps {
     autoFocus?: boolean;
     /** Whether the query is held to one line, for a field laid out as an input. */
     singleLine?: boolean;
+    /**
+     * Shortcut-hint sections listed after the field's own, for a caller whose keys go beyond the
+     * field's. A host takes one set of hints, so the caller hands them here rather than registering.
+     */
+    extraShortcutHints?: ShortcutHintDefinition;
     /** Handed the editor once built, for a caller that has to focus or select what it holds. */
     editorRef?: MutableRef<FieldEditor | undefined>;
     onChange(newValue: string): void;
@@ -71,7 +76,7 @@ const SINGLE_LINE_HINTS: ShortcutHintDefinition = [
  *
  * Written to edit the `#searchString` of a saved search, and used for a collection filter too.
  */
-export default function SearchStringEditor({ currentValue, noteId, placeholder, ariaLabel, className, autoFocus, singleLine, editorRef: exposedRef, onChange, onEnter, onArrowDown, onEscape }: SearchStringEditorProps) {
+export default function SearchStringEditor({ currentValue, noteId, placeholder, ariaLabel, className, autoFocus, singleLine, extraShortcutHints, editorRef: exposedRef, onChange, onEnter, onArrowDown, onEscape }: SearchStringEditorProps) {
     const parentRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<FieldEditor>();
     // The editor is built once, so it reaches the current props through a ref rather than
@@ -82,7 +87,10 @@ export default function SearchStringEditor({ currentValue, noteId, placeholder, 
     // report it as an edit the user made.
     const isAdopting = useRef(false);
 
-    useContextualShortcutHints(singleLine ? SINGLE_LINE_HINTS : SEARCH_STRING_HINTS);
+    useContextualShortcutHints(() => [
+        ...(singleLine ? SINGLE_LINE_HINTS : SEARCH_STRING_HINTS),
+        ...(extraShortcutHints ?? [])
+    ]);
 
     useEffect(() => {
         if (!parentRef.current) {

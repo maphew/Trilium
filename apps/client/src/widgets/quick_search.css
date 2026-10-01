@@ -148,9 +148,13 @@
     .quick-search-footer {
         display: flex;
         flex: 0 0 auto;
-        justify-content: flex-end;
+        align-items: center;
         padding: var(--menu-padding-size, .5rem);
         border-top: 1px solid var(--dropdown-border-color, var(--main-border-color));
+
+        .show-in-full-search {
+            margin-inline-start: auto;
+        }
 
         kbd {
             padding: .1875rem .375rem;

@@ -319,8 +319,8 @@ describe("QuickSearch", () => {
         // Pinned below the scroller rather than at the end of the list, so it is always in reach.
         const footer = menu()?.lastElementChild;
         expect(footer?.classList.contains("quick-search-footer")).toBe(true);
-        const button = footer?.querySelector<HTMLButtonElement>("button");
-        if (!button) throw new Error("The footer has no button.");
+        const button = footer?.querySelector<HTMLButtonElement>(".show-in-full-search");
+        if (!button) throw new Error("The footer has no full search button.");
 
         await act(async () => button.click());
         expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "#book AND tolkien" });
@@ -335,6 +335,34 @@ describe("QuickSearch", () => {
         });
         expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "#book AND tolkien" });
         expect(menu()).toBeNull();
+    });
+
+    it("opens the shortcut hints from the footer, and stays open for a press in them", async () => {
+        vi.spyOn(server, "get").mockResolvedValue(response(3, []));
+        const triggerEvent = vi.spyOn(appContext, "triggerEvent").mockResolvedValue(undefined);
+        const { editor } = await mount();
+
+        typeQuery(editor, "hello");
+        pressEnter(editor);
+        await waitForResults(3);
+
+        const button = menu()?.querySelector<HTMLButtonElement>(".quick-search-footer .shortcut-hint-button");
+        if (!button) throw new Error("The footer has no shortcut hints button.");
+        await act(async () => button.click());
+
+        const [ name, data ] = triggerEvent.mock.calls.find(([ event ]) => event === "shortcutHintsRequested") ?? [];
+        expect(name).toBe("shortcutHintsRequested");
+        const titles = (data as { sections: { titleKey?: string }[] }).sections.map((section) => section.titleKey);
+        expect(titles).toEqual(expect.arrayContaining([ "search_string.hints.title", "quick-search.hints.title" ]));
+
+        const pane = document.createElement("div");
+        pane.className = "shortcut-hints-panel";
+        document.body.append(pane);
+        act(() => {
+            pane.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+        });
+        expect(menu()).not.toBeNull();
+        pane.remove();
     });
 
     it("leaves the open results alone while the query is typed", async () => {

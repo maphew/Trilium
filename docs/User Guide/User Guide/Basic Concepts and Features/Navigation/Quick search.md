@@ -63,6 +63,8 @@ To search the whole database while hoisted, use the full <a class="reference-li
 *   Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to open the query in the full search.
 *   Press <kbd>Escape</kbd> to close the results.
 
+To see these shortcuts on screen, click the <kbd>?</kbd> button below the results, or press <kbd>Alt</kbd>+<kbd>F1</kbd> while the search field is focused.
+
 ## Using Quick Search
 
 1.  **Typo tolerance**: Search finds results despite minor typos
