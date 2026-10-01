@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import appContext from "../components/app_context.js";
-import froca from "../services/froca.js";
-import linkService from "../services/link.js";
 import server from "../services/server.js";
 import QuickSearchWidget from "./quick_search_old.js";
 
@@ -108,22 +106,6 @@ describe("QuickSearchWidget", () => {
         $link[0].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
         expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "hello" });
     });
-
-    it("puts the results of a search the server did not highlight in the same scroller", async () => {
-        const widget = renderWidget();
-        vi.spyOn(server, "get").mockResolvedValue({
-            searchResultNoteIds: [ "note0", "note1" ],
-            error: ""
-        } as never);
-        vi.spyOn(froca, "getNotes").mockResolvedValue([ { noteId: "note0" }, { noteId: "note1" } ] as never);
-        vi.spyOn(linkService, "createLink").mockImplementation(async (notePath) => $("<span>").text(String(notePath)));
-
-        await widget.search();
-
-        const $menu = widget.$widget.find(".dropdown-menu");
-        expect($menu.find(".quick-search-results > .dropdown-item").length).toBe(2);
-        expect($menu.children().last().hasClass("quick-search-footer")).toBe(true);
-    });
 });
 
 async function renderAndSearch(resultCount = 3) {
@@ -138,6 +120,7 @@ async function renderAndSearch(resultCount = 3) {
     vi.spyOn(server, "get").mockResolvedValue({
         searchResultNoteIds: searchResults.map((result) => result.notePath),
         searchResults,
+        highlightedTokens: [],
         error: ""
     } as never);
 

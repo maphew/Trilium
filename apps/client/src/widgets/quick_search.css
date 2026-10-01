@@ -1,4 +1,5 @@
 .quick-search {
+    display: flex;
     padding: 10px 10px 10px 0px;
     height: 50px;
 
@@ -9,6 +10,7 @@
 
     .search-string {
         display: flex;
+        flex: 1 1 auto;
         align-items: center;
         min-width: 0;
 
@@ -21,22 +23,23 @@
             white-space: pre;
         }
     }
+}
 
-    .dropdown-menu {
-        --quick-search-item-delimiter-color: var(--dropdown-border-color);
+/* The popup is portaled to `<body>`, outside `.quick-search`. */
+.dropdown-menu.quick-search-menu {
+    --quick-search-item-delimiter-color: var(--dropdown-border-color);
 
-        max-height: 80vh;
-        min-width: 400px;
-        max-width: 720px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        box-shadow: -30px 50px 93px -50px black;
+    max-height: 80vh;
+    min-width: 400px;
+    max-width: 720px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: -30px 50px 93px -50px black;
 
-        /* Bootstrap opens the menu by setting `display`, so the column layout applies only to `.show`. */
-        &.show {
-            display: flex;
-            flex-direction: column;
-        }
+    /* Outranks Bootstrap's `.dropdown-menu.show { display: block }`. */
+    &.show {
+        display: flex;
+        flex-direction: column;
     }
 
     .quick-search-results {

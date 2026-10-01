@@ -389,6 +389,15 @@ export interface SearchResultDetails {
     icon: string;
 }
 
+/** Response for `GET /api/quick-search/:searchString`. */
+export interface QuickSearchResponse {
+    searchResultNoteIds: string[];
+    searchResults: SearchResultDetails[];
+    /** Plain search tokens the server highlighted, for jumping to the first match. */
+    highlightedTokens: string[];
+    error: string | null;
+}
+
 /** Response for `POST /api/search-note/:noteId/result-details`. */
 export interface SearchResultDetailsResponse {
     /** Requested-order details; requested ids not in the result set are omitted. */

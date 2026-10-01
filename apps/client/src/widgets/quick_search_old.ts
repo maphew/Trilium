@@ -1,9 +1,9 @@
+import type { QuickSearchResponse, SearchResultDetails } from "@triliumnext/commons";
 import { Dropdown, Tooltip } from "bootstrap";
 
 import appContext from "../components/app_context.js";
-import froca from "../services/froca.js";
 import { t } from "../services/i18n.js";
-import linkService, { calculateHash, type ViewScope } from "../services/link.js";
+import { calculateHash, type ViewScope } from "../services/link.js";
 import server from "../services/server.js";
 import shortcutService from "../services/shortcuts.js";
 import utils, { handleRightToLeftPlacement } from "../services/utils.js";
@@ -28,26 +28,6 @@ const TPL = /*html*/`
 const INITIAL_DISPLAYED_NOTES = 15;
 const LOAD_MORE_BATCH_SIZE = 10;
 
-
-// TODO: Deduplicate with server.
-interface QuickSearchResponse {
-    searchResultNoteIds: string[];
-    searchResults?: Array<{
-        notePath: string;
-        noteTitle: string;
-        notePathTitle: string;
-        highlightedNotePathTitle: string;
-        contentSnippet?: string;
-        highlightedContentSnippet?: string;
-        attributeSnippet?: string;
-        highlightedAttributeSnippet?: string;
-        icon: string;
-    }>;
-    /** Plain search tokens the server highlighted; consumed by jump-to-match producers. */
-    highlightedTokens?: string[];
-    error: string;
-}
-
 export default class QuickSearchWidget extends BasicWidget {
 
     private dropdown!: bootstrap.Dropdown;
@@ -58,8 +38,7 @@ export default class QuickSearchWidget extends BasicWidget {
     private $footer!: JQuery<HTMLElement>;
 
     // State for infinite scrolling
-    private allSearchResults: Array<any> = [];
-    private allSearchResultNoteIds: string[] = [];
+    private allSearchResults: SearchResultDetails[] = [];
     private currentDisplayedCount: number = 0;
     private isLoadingMore: boolean = false;
 
@@ -80,8 +59,6 @@ export default class QuickSearchWidget extends BasicWidget {
             }
         });
 
-        this.$widget.find(".input-group-prepend").on("shown.bs.dropdown", () => this.search());
-
         // Add scroll event listener for infinite scrolling
         this.$searchResults.on("scroll", () => {
             this.handleScroll();
@@ -92,15 +69,6 @@ export default class QuickSearchWidget extends BasicWidget {
         shortcutService.bindElShortcut($showInFullSearchButton, "return", () => this.showInFullSearch());
 
         return this.$widget;
-    }
-
-    /** Runs on Enter: opens the results, or refreshes them when they are already open. */
-    runSearch() {
-        if (this.isDropdownOpen()) {
-            void this.search();
-        } else {
-            this.dropdown.show();
-        }
     }
 
     /**
@@ -122,16 +90,6 @@ export default class QuickSearchWidget extends BasicWidget {
         return true;
     }
 
-    /** Closes the results on Escape, leaving the key to CodeMirror when they are already closed. */
-    closeDropdown() {
-        if (!this.isDropdownOpen()) {
-            return false;
-        }
-
-        this.dropdown.hide();
-        return true;
-    }
-
     async search() {
         const searchString = this.searchString.trim();
 
@@ -142,7 +100,6 @@ export default class QuickSearchWidget extends BasicWidget {
 
         // Reset state for new search
         this.allSearchResults = [];
-        this.allSearchResultNoteIds = [];
         this.currentDisplayedCount = 0;
         this.isLoadingMore = false;
 
@@ -154,9 +111,9 @@ export default class QuickSearchWidget extends BasicWidget {
                 ${t("quick-search.searching")}
             </span>`);
 
-        const { searchResultNoteIds, searchResults, highlightedTokens, error } = await server.get<QuickSearchResponse>(`quick-search/${encodeURIComponent(searchString)}`);
+        const { searchResults, highlightedTokens, error } = await server.get<QuickSearchResponse>(`quick-search/${encodeURIComponent(searchString)}`);
 
-        this.lastResultViewScope = highlightedTokens?.length ? { searchTerms: highlightedTokens } : undefined;
+        this.lastResultViewScope = highlightedTokens.length ? { searchTerms: highlightedTokens } : undefined;
 
         if (error) {
             const tooltip = new Tooltip(this.$widget[0], {
@@ -171,12 +128,11 @@ export default class QuickSearchWidget extends BasicWidget {
         }
 
         // Store all results for infinite scrolling
-        this.allSearchResults = searchResults || [];
-        this.allSearchResultNoteIds = searchResultNoteIds || [];
+        this.allSearchResults = searchResults;
 
         this.$searchResults.empty();
 
-        if (this.allSearchResults.length === 0 && this.allSearchResultNoteIds.length === 0) {
+        if (this.allSearchResults.length === 0) {
             this.$searchResults.append(`<span class="dropdown-item disabled">${t("quick-search.no-results")}</span>`);
             return;
         }
@@ -193,85 +149,54 @@ export default class QuickSearchWidget extends BasicWidget {
         if (this.isLoadingMore) return;
         this.isLoadingMore = true;
 
-        // Use highlighted search results if available, otherwise fall back to basic display
-        if (this.allSearchResults.length > 0) {
-            const startIndex = this.currentDisplayedCount;
-            const endIndex = Math.min(startIndex + batchSize, this.allSearchResults.length);
-            const resultsToDisplay = this.allSearchResults.slice(startIndex, endIndex);
+        const startIndex = this.currentDisplayedCount;
+        const endIndex = Math.min(startIndex + batchSize, this.allSearchResults.length);
+        const resultsToDisplay = this.allSearchResults.slice(startIndex, endIndex);
 
-            for (const result of resultsToDisplay) {
-                if (!result.notePath) continue;
+        for (const result of resultsToDisplay) {
+            if (!result.notePath) continue;
 
-                // Set the href with .attr() rather than interpolating it into the HTML string, so
-                // the query separators are not parsed as HTML entities.
-                const $item = $(`<a class="dropdown-item" tabindex="0">`);
-                $item.attr("href", calculateHash({ notePath: result.notePath, viewScope: this.lastResultViewScope }));
+            // Set the href with .attr() rather than interpolating it into the HTML string, so
+            // the query separators are not parsed as HTML entities.
+            const $item = $(`<a class="dropdown-item" tabindex="0">`);
+            $item.attr("href", calculateHash({ notePath: result.notePath, viewScope: this.lastResultViewScope }));
 
-                // Build the display HTML with content snippet below the title
-                let itemHtml = `<div class="quick-search-item">
-                    <div class="quick-search-item-header">
-                        <span class="quick-search-item-icon ${utils.escapeHtml(result.icon)}"></span>
-                        <span class="search-result-title">${result.highlightedNotePathTitle}</span>
-                    </div>`;
+            // Build the display HTML with content snippet below the title
+            let itemHtml = `<div class="quick-search-item">
+                <div class="quick-search-item-header">
+                    <span class="quick-search-item-icon ${utils.escapeHtml(result.icon)}"></span>
+                    <span class="search-result-title">${result.highlightedNotePathTitle}</span>
+                </div>`;
 
-                // Add attribute snippet (tags/attributes) below the title if available
-                if (result.highlightedAttributeSnippet) {
-                    // Replace <br> with a blank space to join the atributes on the same single line
-                    const snippet = (result.highlightedAttributeSnippet as string).replace(/<br\s?\/?>/g, " ");
-                    itemHtml += `<div class="search-result-attributes">${snippet}</div>`;
-                }
-
-                // Add content snippet below the attributes if available
-                if (result.highlightedContentSnippet) {
-                    itemHtml += `<div class="search-result-content">${result.highlightedContentSnippet}</div>`;
-                }
-
-                itemHtml += `</div>`;
-
-                $item.html(itemHtml);
-
-                $item.on("click auxclick", () => {
-                    this.dropdown.hide();
-                });
-
-                shortcutService.bindElShortcut($item, "return", () => {
-                    this.dropdown.hide();
-                    $item[0].click();
-                });
-
-                this.$searchResults.append($item);
+            // Add attribute snippet (tags/attributes) below the title if available
+            if (result.highlightedAttributeSnippet) {
+                // Replace <br> with a blank space to join the atributes on the same single line
+                const snippet = (result.highlightedAttributeSnippet as string).replace(/<br\s?\/?>/g, " ");
+                itemHtml += `<div class="search-result-attributes">${snippet}</div>`;
             }
 
-            this.currentDisplayedCount = endIndex;
-        } else {
-            // Fallback to original behavior if no highlighted results
-            const startIndex = this.currentDisplayedCount;
-            const endIndex = Math.min(startIndex + batchSize, this.allSearchResultNoteIds.length);
-            const noteIdsToDisplay = this.allSearchResultNoteIds.slice(startIndex, endIndex);
-
-            for (const note of await froca.getNotes(noteIdsToDisplay)) {
-                const $link = await linkService.createLink(note.noteId, { showNotePath: true, showNoteIcon: true, viewScope: this.lastResultViewScope });
-                $link.addClass("dropdown-item");
-                $link.attr("tabIndex", "0");
-                $link.on("click auxclick", (e) => {
-                    this.dropdown.hide();
-
-                    if (!e.target || (e.target as HTMLElement).nodeName !== "A") {
-                        // click on the <a> is handled by the global goToLink handler,
-                        // but we want the whole item clickable
-                        $link.find("a")[0]?.dispatchEvent(new MouseEvent(e.type, e.originalEvent as MouseEventInit));
-                    }
-                });
-                shortcutService.bindElShortcut($link, "return", () => {
-                    this.dropdown.hide();
-                    $link.find("a")[0]?.click();
-                });
-
-                this.$searchResults.append($link);
+            // Add content snippet below the attributes if available
+            if (result.highlightedContentSnippet) {
+                itemHtml += `<div class="search-result-content">${result.highlightedContentSnippet}</div>`;
             }
 
-            this.currentDisplayedCount = endIndex;
+            itemHtml += `</div>`;
+
+            $item.html(itemHtml);
+
+            $item.on("click auxclick", () => {
+                this.dropdown.hide();
+            });
+
+            shortcutService.bindElShortcut($item, "return", () => {
+                this.dropdown.hide();
+                $item[0].click();
+            });
+
+            this.$searchResults.append($item);
         }
+
+        this.currentDisplayedCount = endIndex;
 
         this.isLoadingMore = false;
     }
@@ -286,9 +211,7 @@ export default class QuickSearchWidget extends BasicWidget {
 
         // Trigger loading more when user scrolls near the bottom (within 50px)
         if (scrollTop + clientHeight >= scrollHeight - 50) {
-            const totalResults = this.allSearchResults.length > 0 ? this.allSearchResults.length : this.allSearchResultNoteIds.length;
-
-            if (this.currentDisplayedCount < totalResults) {
+            if (this.currentDisplayedCount < this.allSearchResults.length) {
                 this.displayMoreResults(LOAD_MORE_BATCH_SIZE).then(() => this.dropdown.update());
             }
         }
