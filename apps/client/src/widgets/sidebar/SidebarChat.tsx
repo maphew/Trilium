@@ -149,7 +149,7 @@ export default function SidebarChat() {
         let noteId = chatNoteId;
         if (!noteId) {
             try {
-                const note = await dateNoteService.getOrCreateLlmChat();
+                const note = await dateNoteService.createLlmChat();
                 if (note) {
                     setChatNoteId(note.noteId);
                     noteId = note.noteId;
