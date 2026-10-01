@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
 import { installGlobMock } from "../../test/globals-test-kit.js";
-import ReferenceLink from "./referencelink.js";
+import ReferenceLink, { getAttachmentId } from "./referencelink.js";
 
 describe("ReferenceLink", () => {
     let editor: ClassicEditor;
@@ -238,6 +238,27 @@ describe("ReferenceLink", () => {
         );
         // The removal records a change made elsewhere, so undo cannot bring the link back.
         expect(editor.commands.get("undo")?.isEnabled).toBe(false);
+    });
+
+    it("redraws the links to a renamed attachment without changing the document", () => {
+        const href = "#root/owner?viewMode=attachments&attachmentId=renamed";
+        const htmlHref = href.replace("&", "&amp;");
+        editor.setData(`<p><a class="reference-link" href="${htmlHref}">a</a></p>`);
+        const before = getModelData(editor.model);
+        loadReferenceLinkTitle.mockClear();
+
+        editor.plugins.get("ReferenceLinkEditing").updateAttachmentLinks([
+            { attachmentId: "renamed", isDeleted: false }
+        ]);
+
+        expect(loadReferenceLinkTitle).toHaveBeenCalledWith(expect.anything(), href);
+        expect(getModelData(editor.model)).toBe(before);
+    });
+
+    it("reads the attachment a link points to, and none from a note link or a missing href", () => {
+        expect(getAttachmentId("#root/owner?viewMode=attachments&attachmentId=att1")).toBe("att1");
+        expect(getAttachmentId("#root/noteAbc")).toBeNull();
+        expect(getAttachmentId(undefined)).toBeNull();
     });
 
     it("dataDowncasts a reference back to an anchor, resolving the title synchronously", () => {

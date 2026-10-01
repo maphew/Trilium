@@ -134,17 +134,7 @@ export default class FileUploadEditing extends Plugin {
 			writer.setAttribute( 'uploadStatus', 'reading', fileElement );
 		} );
 
-		let finish = () => {};
-		const done = new Promise<void>( resolve => {
-			finish = () => resolve();
-		} );
-		this.fire<FileUploadEvent>( 'upload', {
-			fileName: String( fileElement.getAttribute( 'uploadFileName' ) ?? '' ),
-			loader,
-			done
-		} );
-
-		return loader.read()
+		const upload = loader.read()
 			.then( () => {
 				const promise = loader.upload();
 
@@ -187,8 +177,15 @@ export default class FileUploadEditing extends Plugin {
 				model.enqueueChange( { isUndoable: false }, writer => {
 					writer.remove( fileElement );
 				} );
-			} )
-			.finally( finish );
+			} );
+
+		this.fire<FileUploadEvent>( 'upload', {
+			fileName: String( fileElement.getAttribute( 'uploadFileName' ) ?? '' ),
+			loader,
+			done: Promise.allSettled( [ upload ] ).then( () => undefined )
+		} );
+
+		return upload;
 
 		function clean() {
 			model.enqueueChange( { isUndoable: false }, writer => {

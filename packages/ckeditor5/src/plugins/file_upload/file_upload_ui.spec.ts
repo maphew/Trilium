@@ -132,10 +132,8 @@ describe("FileUploadUI", () => {
         expect([ dropdown.isEnabled, actionView.isEnabled ]).toEqual([ false, false ]);
     });
 
-    it("lists no embeds in an editor without includes", async () => {
-        const withoutIncludes = await createTestEditor([Essentials, Paragraph, FileUploadUI]);
-        withoutIncludes.commands.add("fileUpload", new Command(withoutIncludes));
-        editor = withoutIncludes;
+    it("builds the button in an editor without the commands, listing no embeds", async () => {
+        editor = await createTestEditor([Essentials, Paragraph, FileUploadUI]);
 
         const labels = createDropdown().items.map((item) => item.label);
         expect(labels).toEqual([ "Attach file as a link" ]);

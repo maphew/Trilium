@@ -483,13 +483,16 @@ describe("IncludeNote", () => {
         // Exercise the falsy `if (command)` branch in IncludeNoteUI: when the command lookup
         // returns undefined, the button must still be created (just without the binding).
         const realGet = editor.commands.get.bind(editor.commands);
+        const absent: string[] = [ COMMAND_NAME, CONVERT_EMBED_TO_LINK_COMMAND ];
         const getSpy = vi
             .spyOn(editor.commands, "get")
-            .mockImplementation((name) => (name === COMMAND_NAME ? undefined : realGet(name)));
+            .mockImplementation((name) => (absent.includes(name) ? undefined : realGet(name)));
 
         try {
             const view = editor.ui.componentFactory.create("includeNote") as unknown as { label: string };
             expect(view.label).toBe("Include note");
+            const convert = editor.ui.componentFactory.create(CONVERT_EMBED_TO_LINK_COMMAND);
+            expect((convert as unknown as { label: string }).label).toBe("Convert to link");
         } finally {
             getSpy.mockRestore();
         }
@@ -603,16 +606,33 @@ describe("IncludeNote with attachments", () => {
         expect(getModelData(editor.model, { withoutSelection: true })).toBe(
             `<paragraph>Before <reference href="${LINK_HREF}"></reference> after</paragraph>`
         );
+
+        const relinked = editor.editing.view.getDomRoot()?.querySelector("a.reference-link");
+        editor.execute(EMBED_ATTACHMENT_LINK_COMMAND, { domElement: relinked });
+        expect(findIncludeNote(editor)?.getAttribute("boxSize")).toBe("medium");
     });
 
-    it("leaves a link to a note alone", () => {
+    it("leaves a link to a note, and anything other than a link, alone", () => {
         editor.setData(`<p>Before <a class="reference-link" href="#root/noteAbc">x</a></p>`);
         const before = getModelData(editor.model, { withoutSelection: true });
-        const link = editor.editing.view.getDomRoot()?.querySelector("a.reference-link");
+        const domRoot = editor.editing.view.getDomRoot();
+        const link = domRoot?.querySelector("a.reference-link");
+        const paragraph = domRoot?.querySelector("p");
+        const detached = document.createElement("a");
 
-        editor.execute(EMBED_ATTACHMENT_LINK_COMMAND, { domElement: link });
+        for (const domElement of [ link, paragraph, detached ]) {
+            editor.execute(EMBED_ATTACHMENT_LINK_COMMAND, { domElement });
+        }
 
         expect(getModelData(editor.model, { withoutSelection: true })).toBe(before);
+    });
+
+    it("loads an include that names nothing, as one saved mid-upload, as an empty box", () => {
+        editor.setData("<section class=\"include-note\" data-box-size=\"small\"></section>");
+
+        expect(renderEmbeds()).toHaveLength(1);
+        expect(loadIncludedNote).not.toHaveBeenCalled();
+        expect(loadIncludedAttachment).not.toHaveBeenCalled();
     });
 
     it("turns an attachment embed back into a link, and offers it only for one", async () => {
@@ -632,11 +652,29 @@ describe("IncludeNote with attachments", () => {
         expect(command?.isEnabled).toBe(true);
         expect(button.isVisible).toBe(true);
 
-        await editor.execute(CONVERT_EMBED_TO_LINK_COMMAND);
+        button.fire("execute");
 
         expect(getAttachmentHref).toHaveBeenCalledWith("att1");
-        expect(getModelData(editor.model, { withoutSelection: true }))
-            .toBe(`<paragraph><reference href="${LINK_HREF}"></reference></paragraph>`);
+        await vi.waitFor(() => expect(getModelData(editor.model, { withoutSelection: true }))
+            .toBe(`<paragraph><reference href="${LINK_HREF}"></reference></paragraph>`));
+    });
+
+    it("converts nothing when no attachment embed is selected", async () => {
+        editor.setData(embedHtml() + "<p>after</p>");
+        setModelData(editor.model, "<paragraph>foo[]bar</paragraph>");
+        const before = editor.getData();
+
+        // The decorated `Command#execute()` skips a disabled command, so the command is forced
+        // enabled to run `execute()` with no embed selected.
+        const command = editor.commands.get(CONVERT_EMBED_TO_LINK_COMMAND) as {
+            isEnabled: boolean;
+            execute(): Promise<void>;
+        };
+        command.isEnabled = true;
+        await command.execute();
+
+        expect(getAttachmentHref).not.toHaveBeenCalled();
+        expect(editor.getData()).toBe(before);
     });
 
     it("keeps an embed whose attachment has no link to go back to", async () => {
