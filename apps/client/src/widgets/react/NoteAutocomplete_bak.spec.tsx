@@ -8,7 +8,7 @@ vi.mock("../../services/note_autocomplete", () => ({
 import $ from "jquery";
 
 import { renderInto } from "../../test/render";
-import NoteAutocomplete from "./NoteAutocomplete";
+import NoteAutocomplete from "./NoteAutocomplete_bak";
 
 // The autocomplete plugin is not loaded here, so the calls that clear an empty input are stubbed.
 type PluggedIn = {

@@ -67,7 +67,7 @@ vi.mock("./ws.js", () => ({
 import server from "./server.js";
 import froca from "./froca.js";
 import { buildNote } from "../test/easy-froca.js";
-import noteAutocomplete, { triggerRecentNotes } from "./note_autocomplete.js";
+import noteAutocomplete, { triggerRecentNotes } from "./note_autocomplete_bak.js";
 
 type Dataset = {
     displayKey: string;
