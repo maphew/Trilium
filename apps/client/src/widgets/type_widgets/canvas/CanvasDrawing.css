@@ -37,24 +37,9 @@
         background: none;
     }
 
-    /* The Library button follows the menu button, in the first column of the top bar. */
-    .excalidraw .App-menu.App-menu_top {
-        > .App-menu_top__left,
-        > .layer-ui__wrapper__top-right {
-            grid-row: 1;
-            grid-column: 1;
-        }
-
-        > .shapes-section {
-            grid-row: 1;
-            grid-column: 2;
-        }
-
-        > .layer-ui__wrapper__top-right {
-            flex-direction: row;
-            justify-content: flex-start;
-            padding-inline-start: calc(var(--lg-button-size) + 0.5rem);
-        }
+    /* The main menu offers the library and help. */
+    .excalidraw :is(.sidebar-trigger, .help-icon) {
+        display: none;
     }
 
     /* The properties panel spans the height of the canvas. */
@@ -68,11 +53,6 @@
     /* Below the toolbar, which is `--lg-button-size` tall plus its padding. */
     .toolbar-over-panel .Island.App-menu__left {
         top: calc(var(--lg-button-size) + 1rem);
-    }
-
-    /* The help button is in the corner that the properties panel covers. */
-    .excalidraw:has(.App-menu__left) .layer-ui__wrapper__footer-right {
-        visibility: hidden;
     }
 
     /* Matches the 1rem of the icons of Excalidraw's own menu items. */
@@ -102,10 +82,6 @@
         /* Overrides the height limit that Excalidraw sets inline. */
         max-height: var(--side-panel-max-height) !important;
         color: inherit;
-    }
-
-    .layer-ui__wrapper__footer-right {
-        visibility: inherit;
     }
 }
 
