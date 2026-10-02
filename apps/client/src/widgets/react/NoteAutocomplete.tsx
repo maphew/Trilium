@@ -3,7 +3,7 @@ import type { CSSProperties } from "preact/compat";
 
 import type { Options, Suggestion } from "../../services/note_autocomplete";
 
-interface NoteAutocompleteProps {
+export interface NoteAutocompleteProps {
     id?: string;
     inputRef?: RefObject<HTMLInputElement>;
     text?: string;

@@ -389,6 +389,13 @@ export interface SearchResultDetails {
     icon: string;
 }
 
+/**
+ * One row of `GET /api/autocomplete`: a recently visited note when the query is empty, a search
+ * result otherwise. Only search results carry the attribute snippet.
+ */
+export type AutocompleteResult = Pick<SearchResultDetails, "notePath" | "noteTitle" | "notePathTitle"
+    | "highlightedNotePathTitle" | "attributeSnippet" | "highlightedAttributeSnippet" | "icon">;
+
 /** Response for `GET /api/quick-search/:searchString`. */
 export interface QuickSearchResponse {
     searchResultNoteIds: string[];

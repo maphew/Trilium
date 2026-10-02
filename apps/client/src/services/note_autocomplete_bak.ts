@@ -6,6 +6,7 @@ import commandRegistry from "./command_registry.js";
 import dateNoteService from "./date_notes.js";
 import froca from "./froca.js";
 import { t } from "./i18n.js";
+import type { Options, Suggestion } from "./note_autocomplete.js";
 import noteCreateService from "./note_create.js";
 import server from "./server.js";
 import { escapeHtml } from "./utils.js";
@@ -114,37 +115,6 @@ function buildCreateNoteTitle(term: string, target: InboxTargetResponse | null) 
     }
 
     return t("note_autocomplete.create-note-into", { term: escapeHtml(term), parentTitle: escapeHtml(target.title) });
-}
-
-// TODO: Deduplicate with server.
-export interface Suggestion {
-    noteTitle?: string;
-    externalLink?: string;
-    notePathTitle?: string;
-    notePath?: string;
-    highlightedNotePathTitle?: string;
-    action?: string | "create-note" | "create-child-note" | "search-notes" | "external-link" | "command";
-    parentNoteId?: string;
-    icon?: string;
-    commandId?: string;
-    commandDescription?: string;
-    commandShortcut?: string;
-    attributeSnippet?: string;
-    highlightedAttributeSnippet?: string;
-}
-
-export interface Options {
-    container?: HTMLElement | null;
-    fastSearch?: boolean;
-    allowCreatingNotes?: boolean;
-    allowJumpToSearchNotes?: boolean;
-    allowExternalLinks?: boolean;
-    /** If set, hides the right-side button corresponding to go to selected note. */
-    hideGoToSelectedNoteButton?: boolean;
-    /** If set, hides all right-side buttons in the autocomplete dropdown */
-    hideAllButtons?: boolean;
-    /** If set, enables command palette mode */
-    isCommandPalette?: boolean;
 }
 
 /**

@@ -1,20 +1,17 @@
 import type { MentionFeedObjectItem } from "@triliumnext/ckeditor5";
+import type { AutocompleteResult } from "@triliumnext/commons";
 
-// TODO: Deduplicate with server.
-export interface Suggestion {
-    noteTitle?: string;
-    externalLink?: string;
-    notePathTitle?: string;
-    notePath?: string;
-    highlightedNotePathTitle?: string;
+/**
+ * One row of the dropdown: a note from `GET /api/autocomplete`, or a row added by the client.
+ * A client row sets `action` to its kind and fills in only the fields that kind uses.
+ */
+export interface Suggestion extends Partial<AutocompleteResult> {
     action?: string | "create-note" | "create-child-note" | "search-notes" | "external-link" | "command";
+    externalLink?: string;
     parentNoteId?: string;
-    icon?: string;
     commandId?: string;
     commandDescription?: string;
     commandShortcut?: string;
-    attributeSnippet?: string;
-    highlightedAttributeSnippet?: string;
 }
 
 export interface Options {

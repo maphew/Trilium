@@ -1,8 +1,7 @@
 import type { Completion, CompletionContext, CompletionResult } from "@triliumnext/codemirror/src/field_editor";
-import { ALLOWED_NOTE_TYPES, allowedSearchOperators, MIME_TYPES_DICT, SEARCH_NOTE_PATH, SEARCH_NOTE_PATH_SEGMENTS } from "@triliumnext/commons";
+import { ALLOWED_NOTE_TYPES, allowedSearchOperators, type AutocompleteResult, MIME_TYPES_DICT, SEARCH_NOTE_PATH, SEARCH_NOTE_PATH_SEGMENTS } from "@triliumnext/commons";
 
 import { isBuiltinAttribute } from "../../services/attributes";
-import type { Suggestion } from "../../services/note_autocomplete";
 import { t } from "../../services/i18n";
 import server from "../../services/server";
 import { fetchAttributeNames } from "../attribute_widgets/attribute_detail";
@@ -144,9 +143,9 @@ interface NoteCompletion extends Completion {
  * note after a rename; with nothing typed yet the call answers with the recently visited notes.
  */
 async function noteCompletions(term: string, atPos: number): Promise<CompletionResult | null> {
-    let suggestions: Suggestion[];
+    let suggestions: AutocompleteResult[];
     try {
-        suggestions = await server.get<Suggestion[]>(
+        suggestions = await server.get<AutocompleteResult[]>(
             `autocomplete?query=${encodeURIComponent(term)}&activeNoteId=none&fastSearch=true`
         );
     } catch {

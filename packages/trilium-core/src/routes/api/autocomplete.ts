@@ -1,3 +1,5 @@
+import type { AutocompleteResult } from "@triliumnext/commons";
+
 import type { Request } from "../../http_interface";
 
 import becca from "../../becca/becca.js";
@@ -8,7 +10,7 @@ import { escapeHtml } from "../../services/utils/index.js";
 import { ValidationError } from "../../errors.js";
 import becca_service from "../../becca/becca_service.js";
 
-function getAutocomplete(req: Request) {
+function getAutocomplete(req: Request): AutocompleteResult[] {
     if (typeof req.query.query !== "string") {
         throw new ValidationError("Invalid query data type.");
     }
@@ -17,7 +19,7 @@ function getAutocomplete(req: Request) {
 
     const activeNoteId = req.query.activeNoteId || "none";
 
-    let results;
+    let results: AutocompleteResult[];
 
     const timestampStarted = Date.now();
 
@@ -36,7 +38,7 @@ function getAutocomplete(req: Request) {
     return results;
 }
 
-function getRecentNotes(activeNoteId: string) {
+function getRecentNotes(activeNoteId: string): AutocompleteResult[] {
     let extraCondition = "";
     const params = [activeNoteId];
 
