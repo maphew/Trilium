@@ -327,6 +327,26 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(onChange).toHaveBeenCalledWith(notes[1]);
     });
 
+    it("holds an Enter pressed before the newer query's notes come, then picks among them", async () => {
+        const onChange = vi.fn();
+        const input = await mount({ onChange });
+        await type(input, "al");
+        expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+
+        let resolve: (suggestions: Suggestion[]) => void = () => {};
+        getNoteSuggestions.mockImplementationOnce(() => new Promise((r) => { resolve = r; }));
+        await type(input, "be");
+        const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+        await act(async () => { input.dispatchEvent(enter); });
+
+        expect(enter.defaultPrevented).toBe(true);
+        expect(onChange).not.toHaveBeenCalled();
+
+        await act(async () => { resolve([ notes[1] ]); });
+        expect(onChange).toHaveBeenCalledOnce();
+        expect(onChange).toHaveBeenCalledWith(notes[1]);
+    });
+
     it("searches on the first keystroke, and paces the rest of a burst", async () => {
         const input = await mount();
 
@@ -861,6 +881,20 @@ describe("NoteAutocomplete's suggestion list", () => {
         await type(input, "a");
 
         expect(document.querySelector<HTMLElement>(".note-autocomplete-menu")?.style.width).toBe("680px");
+    });
+
+    it("lists inside the modal around the field, above the modal's own layer", async () => {
+        let modal: HTMLElement | null = null;
+        await act(async () => {
+            modal = renderInto(<div className="modal"><NoteAutocomplete /></div>).querySelector(".modal");
+        });
+        const input = (modal as HTMLElement | null)?.querySelector("input");
+        if (!modal || !input) throw new Error("no input rendered");
+        await type(input, "a");
+
+        const menu = document.querySelector(".note-autocomplete-menu");
+        expect(menu).not.toBe(null);
+        expect(menu?.closest(".modal")).toBe(modal);
     });
 
     it("widens past a narrow field, and spans a wide one", async () => {

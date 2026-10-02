@@ -3,9 +3,12 @@
  * measured from the layout, which a headless DOM has none of, so the field and the viewport are
  * given the measurements a browser would have taken.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { useState } from "preact/hooks";
+import { act } from "preact/test-utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { computeDropdownPosition, stepOver } from "./FormAutocomplete";
+import { renderInto } from "../../test/render";
+import FormAutocomplete, { computeDropdownPosition, stepOver } from "./FormAutocomplete";
 
 /** The room the placement keeps between the list and the edge of the screen. */
 const MARGIN = 8;
@@ -98,5 +101,42 @@ describe("computeDropdownPosition", () => {
         // Near the foot of the screen, where what is under the field would show barely an entry.
         setViewport(1200, 200);
         expect(computeDropdownPosition(fieldAt({ top: 150 })).top).not.toBe("180px");
+    });
+});
+
+describe("an input method composing in the field", () => {
+    it("looks up what the input method commits, not what it is composing, and passes the events on", async () => {
+        vi.useFakeTimers();
+        const source = vi.fn(async (query: string) => [ `${query}!` ]);
+        const onCompositionStart = vi.fn();
+        const onCompositionEnd = vi.fn();
+        function Field() {
+            const [ value, setValue ] = useState("");
+            return <FormAutocomplete currentValue={value} onChange={setValue} source={source}
+                onCompositionStart={onCompositionStart} onCompositionEnd={onCompositionEnd} />;
+        }
+        const found = renderInto(<Field />).querySelector("input");
+        if (!found) throw new Error("no input rendered");
+        const input: HTMLInputElement = found;
+
+        async function type(text: string) {
+            await act(async () => {
+                input.value = text;
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+            });
+            await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+        }
+
+        await act(async () => { input.dispatchEvent(new Event("compositionstart", { bubbles: true })); });
+        await type("n");
+        await type("ni");
+        expect(source).not.toHaveBeenCalled();
+
+        await act(async () => { input.dispatchEvent(new Event("compositionend", { bubbles: true })); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+        expect(source.mock.calls).toEqual([ [ "ni" ] ]);
+        expect(onCompositionStart).toHaveBeenCalledOnce();
+        expect(onCompositionEnd).toHaveBeenCalledOnce();
+        vi.useRealTimers();
     });
 });

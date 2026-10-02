@@ -325,6 +325,9 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 : anchor && (
                     <Popup
                         anchor={anchor}
+                        // Rendered in the field's modal so the list stacks above it: the note picker
+                        // raises its modal (2000) over `.tn-popup` in the body (1200).
+                        container={anchor.closest<HTMLElement>(".modal") ?? undefined}
                         placement="bottom-start"
                         // The pointer moves the highlighted row, so `:hover` marks no second one.
                         className="dropdown-menu show tn-dropdown-menu tn-menu-keyboard note-autocomplete-menu"
