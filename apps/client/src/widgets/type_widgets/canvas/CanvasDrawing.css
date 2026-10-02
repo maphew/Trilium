@@ -74,6 +74,12 @@
     .excalidraw:has(.App-menu__left) .layer-ui__wrapper__footer-right {
         visibility: hidden;
     }
+
+    /* Matches the 1rem of the icons of Excalidraw's own menu items. */
+    .dropdown-menu-item__icon > .tn-icon {
+        display: block;
+        font-size: 1rem;
+    }
 }
 
 /* Excalidraw's toolbars, menus, panels and selection show only while the drawing has the focus.

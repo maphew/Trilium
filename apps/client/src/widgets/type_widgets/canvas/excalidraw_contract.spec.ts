@@ -4,17 +4,18 @@ import { dirname, join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@excalidraw/excalidraw", () => ({ useI18n: vi.fn() }));
+vi.mock("@excalidraw/excalidraw", () => ({ MainMenu: {}, useI18n: vi.fn() }));
 
 const {
     HISTORY_ACTIONS, LOCK, MAX_ZOOM, MIN_ZOOM, TOOLS, ZOOM_STEP, ZOOMS
 } = await import("./CanvasEmbedTools");
+const { LIBRARY_SIDEBAR } = await import("./CanvasDrawingMenu");
 
 /** The classes of Trilium that `CanvasDrawing.css` selects. Every other class is Excalidraw's. */
 const TRILIUM_CLASSES = new Set([
     "note-detail", "canvas-drawing", "canvas-drawing-editor", "canvas-render",
     "canvas-drawing-picture", "toolbar-over-panel", "include-note", "include-note-body",
-    "include-note-content", "active"
+    "include-note-content", "active", "tn-icon"
 ]);
 
 /** The classes of Excalidraw that `CanvasDrawing.tsx` and `CanvasEmbedTools.tsx` look up. */
@@ -78,6 +79,12 @@ describe("Excalidraw contract of the canvas drawing", () => {
         expect(source).toContain("viewportX:appState.width/2+appState.offsetLeft");
         expect(source).toContain("baseScrollX=appState.scrollX+(appLayerX-appLayerX/currentZoom)");
         expect(source).toContain("zoomOffsetScrollX=-(appLayerX-appLayerX/nextZoom)");
+    });
+
+    it("opens the library in the sidebar that the main menu names", () => {
+        const source = readBundle(developmentDir, [ ".js" ]).replace(/\s+/g, "");
+
+        expect(source).toContain(`varDEFAULT_SIDEBAR={name:"${LIBRARY_SIDEBAR}"`);
     });
 });
 

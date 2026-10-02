@@ -52,8 +52,7 @@ interface CanvasEmbedToolsProps {
  * drawing. Renders inside `<Excalidraw>`, for its translations.
  */
 export default function CanvasEmbedTools({ rootRef, apiRef }: CanvasEmbedToolsProps) {
-    // Excalidraw types the key of `t()` as a union that TypeScript cannot check a string against.
-    const { t, langCode } = useI18n() as unknown as { t: Translate; langCode: string };
+    const { t, langCode } = useExcalidrawTranslation();
     const [ tools ] = useState(() => new CanvasTools(rootRef));
 
     useEffect(() => tools.setTranslate(t), [ tools, t, langCode ]);
@@ -72,6 +71,12 @@ export default function CanvasEmbedTools({ rootRef, apiRef }: CanvasEmbedToolsPr
     }, [ tools, rootRef, apiRef ]);
 
     return null;
+}
+
+/** Excalidraw's `t()` and language, for a component that renders inside `<Excalidraw>`. */
+export function useExcalidrawTranslation() {
+    // Excalidraw types the key of `t()` as a union that TypeScript cannot check a string against.
+    return useI18n() as unknown as { t: Translate; langCode: string };
 }
 
 /** Excalidraw's tools and commands, as buttons of the toolbar of the embed with the drawing. */

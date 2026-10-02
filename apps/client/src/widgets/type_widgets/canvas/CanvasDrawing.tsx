@@ -12,6 +12,7 @@ import type { AttachmentEditor } from "../../../services/content_renderer";
 import options from "../../../services/options";
 import { useColorScheme } from "../../react/hooks";
 import { CanvasEditor } from "./Canvas";
+import CanvasDrawingMenu from "./CanvasDrawingMenu";
 import CanvasEmbedTools from "./CanvasEmbedTools";
 import { getInlineFiles, parseContent, useCanvasDrawingPersistence } from "./persistence";
 
@@ -49,6 +50,7 @@ export default function CanvasDrawing({ attachment, editor }: CanvasDrawingProps
                 persistence={persistence}
                 isEmbedded
             >
+                <CanvasDrawingMenu apiRef={apiRef} isEditable={isEditable} />
                 {isEditable && <CanvasEmbedTools rootRef={rootRef} apiRef={apiRef} />}
             </CanvasEditor>
         </div>
