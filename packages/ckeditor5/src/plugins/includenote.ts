@@ -18,7 +18,7 @@ export const BOX_SIZE_COMMAND_NAME = 'includeNoteBoxSize';
 export const EMBED_ATTACHMENT_LINK_COMMAND = 'embedAttachmentLink';
 export const CONVERT_EMBED_TO_LINK_COMMAND = 'convertEmbedToLink';
 
-export const BOX_SIZES = [ 'small', 'medium', 'full', 'expandable' ] as const;
+export const BOX_SIZES = [ 'tiny', 'small', 'medium', 'full', 'expandable' ] as const;
 
 export type BoxSizeValue = typeof BOX_SIZES[number];
 
@@ -34,6 +34,8 @@ export type BoxSizeValue = typeof BOX_SIZES[number];
  */
 export function getBoxSizeLabel(t: (message: string) => string, size: BoxSizeValue): string {
 	switch (size) {
+		case 'tiny':
+			return t('Tiny');
 		case 'small':
 			return t('Small');
 		case 'medium':

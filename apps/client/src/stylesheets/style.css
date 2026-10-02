@@ -1606,6 +1606,52 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     transform: rotate(90deg);
 }
 
+/* The selector must outrank the `display` that the icon pack sets on its own class. */
+.include-note-title-row > .include-note-icon {
+    --size: calc(1em + 12px);
+
+    display: flex;
+    flex-shrink: 0;
+    justify-content: center;
+    align-items: center;
+    margin-inline-end: 4px;
+    border-radius: 50%;
+    width: var(--size);
+    height: var(--size);
+    background: var(--note-list-view-large-icon-background, var(--main-background-color));
+    font-size: 1.2em;
+    color: var(--note-list-view-large-icon-color, var(--muted-text-color));
+}
+
+/* The glyph and its circle differ by a whole, even number of pixels. */
+@supports (width: round(1px, 1px)) {
+    .include-note-title-row > .include-note-icon {
+        font-size: round(1.2em, 1px);
+    }
+}
+
+.include-note-heading {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+
+    /* The note path from createLink() goes above the title. */
+    .include-note-title > span {
+        flex-direction: column-reverse;
+        align-items: flex-start;
+        gap: 0;
+    }
+
+    small {
+        font-size: .7em;
+        font-weight: 500;
+        line-height: 1;
+        letter-spacing: .5pt;
+        opacity: .5;
+    }
+}
+
 .include-note-content {
     border-top: 2px solid var(--main-background-color);
     padding: .75rem 1rem;

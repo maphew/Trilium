@@ -43,6 +43,7 @@ An attachment can be shown in the text instead of linked, the way <a class="ref
 *   To embed an attachment that is already linked, right-click a link to it in a text note being edited and select _Convert link to an embed_, at the end of the menu.
 *   An embed takes the default box size of included notes. To change its size, select the embed and use the box size menu in its toolbar.
 *   To open the attachment in a new tab, press the <span class="tn-icon bx bx-link-external"></span> _Open in new tab_ button at the end of the embed's title.
+*   An embed of size _Tiny_ shows only the title of the attachment and its size, in a single row. Its buttons are <span class="tn-icon bx bx-file-find"></span> _Open externally_ and <span class="tn-icon bx bx-download"></span> _Download_.
 *   To show an embed of size _Medium_ or _Full_ on the whole screen, press the <span class="tn-icon bx bx-fullscreen"></span> _Fullscreen_ button at the end of its title. To return, press <span class="tn-icon bx bx-exit"></span> _Exit fullscreen_ in the top-right corner, or <kbd>Esc</kbd>.
 *   To turn the embed back into a link, select it and press the <span class="tn-icon cke cke-link"></span> _Convert to link_ button in its toolbar. _Convert to link_ also ends the menu that right-clicking the title of the embed or pressing its <span class="tn-icon bx bx-dots-vertical-rounded"></span> _More actions_ button opens.
 

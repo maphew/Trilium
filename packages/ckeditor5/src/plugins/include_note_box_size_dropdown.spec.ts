@@ -86,7 +86,7 @@ describe("IncludeNoteBoxSizeDropdown", () => {
             // Extend schema temporarily by bypassing schema checks for test
             const includeNote = writer.createElement("includeNote", {
                 noteId: "test-note",
-                boxSize: "tiny"
+                boxSize: "huge"
             });
             writer.insert(includeNote, root, 0);
             writer.setSelection(includeNote, "on");
@@ -97,11 +97,11 @@ describe("IncludeNoteBoxSizeDropdown", () => {
         };
 
         const command = editor.commands.get(BOX_SIZE_COMMAND_NAME) as { value: string | null };
-        // "tiny" is not in BOX_SIZES, so label falls back to the raw value
-        if (command.value === "tiny") {
-            expect(dropdownView.buttonView.label).toBe("tiny");
+        // "huge" is not in BOX_SIZES, so label falls back to the raw value
+        if (command.value === "huge") {
+            expect(dropdownView.buttonView.label).toBe("huge");
         } else {
-            // If schema rejected "tiny", value is null -> label is "Box size"
+            // If schema rejected "huge", value is null -> label is "Box size"
             expect(dropdownView.buttonView.label).toBe("Box size");
         }
     });

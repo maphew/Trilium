@@ -1,3 +1,4 @@
+import { attachmentIcon } from "@triliumnext/commons";
 import type { VNode } from "preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -17,12 +18,27 @@ vi.mock("../../../services/content_renderer", () => ({
         mountInteractiveWidget: vi.fn()
     }
 }));
-vi.mock("./IncludeNote", () => ({ default: () => null }));
+vi.mock("./IncludeNote", () => ({
+    default: () => null,
+    TinyIncludeNote: () => null,
+    getNoteActions: vi.fn()
+}));
+vi.mock("../../../services/attachment_actions", () => ({
+    getOpenExternallyAction: vi.fn(),
+    getDownloadAction: vi.fn()
+}));
 
+import { getDownloadAction, getOpenExternallyAction } from "../../../services/attachment_actions";
 import content_renderer from "../../../services/content_renderer";
 import froca from "../../../services/froca";
 import link from "../../../services/link";
-import IncludeNote, { type IncludeNoteProps } from "./IncludeNote";
+import IncludeNote, {
+    getNoteActions,
+    type IncludeNoteAction,
+    type IncludeNoteProps,
+    TinyIncludeNote,
+    type TinyIncludeNoteProps
+} from "./IncludeNote";
 import {
     getAttachmentHref,
     loadIncludedAttachment,
@@ -30,8 +46,14 @@ import {
     watchIncludedNotes
 } from "./utils";
 
-const note = { noteId: "noteY" } as unknown as FNote;
-const attachment = { attachmentId: "att1", ownerId: "owner" } as unknown as FAttachment;
+const note = { noteId: "noteY", getIcon: () => "bx bx-note" } as unknown as FNote;
+const attachment = {
+    attachmentId: "att1",
+    ownerId: "owner",
+    role: "file",
+    mime: "application/pdf",
+    contentLength: 2048
+} as unknown as FAttachment;
 const ATTACHMENT_SCOPE = { viewMode: "attachments", attachmentId: "att1" };
 
 let title: HTMLElement;
@@ -48,13 +70,17 @@ beforeEach(() => {
         .mockResolvedValue({ $renderedContent: $(content), type: "pdf" } as never);
 });
 
+function action(title: string): IncludeNoteAction {
+    return { title, icon: `bx bx-${title}`, run: vi.fn() };
+}
+
 /** The include box mounted last, and the element it was mounted in. */
 function lastMount() {
     const call = vi.mocked(content_renderer.mountInteractiveWidget).mock.lastCall;
     if (!call) {
         throw new Error("Expected a mounted include box.");
     }
-    const vnode = call[0] as VNode<IncludeNoteProps>;
+    const vnode = call[0] as VNode<IncludeNoteProps & TinyIncludeNoteProps>;
     return { type: vnode.type, props: vnode.props, container: call[1] };
 }
 
@@ -99,6 +125,32 @@ describe("loadIncludedNote", () => {
         expect(link.createLink).not.toHaveBeenCalled();
         expect(content_renderer.mountInteractiveWidget).not.toHaveBeenCalled();
     });
+
+    it("mounts a tiny box with the note's path, without rendering the note", async () => {
+        const actions = [ action("edit"), action("open") ];
+        vi.mocked(getNoteActions).mockReturnValue(actions);
+        const section = document.createElement("section");
+        section.className = "include-note";
+        section.dataset.boxSize = "tiny";
+
+        await loadIncludedNote("noteY", $(section));
+
+        expect(link.createLink).toHaveBeenCalledWith("noteY", {
+            showTooltip: false,
+            showNotePath: true
+        });
+        expect(content_renderer.getRenderedContent).not.toHaveBeenCalled();
+        expect(getNoteActions).toHaveBeenCalledWith("noteY");
+        const mount = lastMount();
+        expect(mount.type).toBe(TinyIncludeNote);
+        expect(mount.container.parentElement).toBe(section);
+        expect(mount.props).toEqual({
+            icon: "bx bx-note",
+            title,
+            notePath: "noteY",
+            actions
+        });
+    });
 });
 
 describe("loadIncludedAttachment", () => {
@@ -136,6 +188,34 @@ describe("loadIncludedAttachment", () => {
 
         expect(link.createLink).not.toHaveBeenCalled();
         expect(content_renderer.mountInteractiveWidget).not.toHaveBeenCalled();
+    });
+
+    it("mounts a tiny box with the size of the attachment, and its file actions", async () => {
+        const [ openExternally, download ] = [ action("open-externally"), action("download") ];
+        vi.mocked(getOpenExternallyAction).mockReturnValue(openExternally);
+        vi.mocked(getDownloadAction).mockReturnValue(download);
+        const wrapper = createWrapper();
+
+        await loadIncludedAttachment("att1", $(wrapper), "tiny");
+
+        expect(link.createLink).toHaveBeenCalledWith("owner", {
+            showTooltip: false,
+            viewScope: ATTACHMENT_SCOPE
+        });
+        expect(content_renderer.getRenderedContent).not.toHaveBeenCalled();
+        expect(getOpenExternallyAction).toHaveBeenCalledWith(attachment);
+        expect(getDownloadAction).toHaveBeenCalledWith(attachment);
+        const mount = lastMount();
+        expect(mount.type).toBe(TinyIncludeNote);
+        expect(mount.container).toBe(wrapper);
+        expect(mount.props).toEqual({
+            icon: attachmentIcon("file", "application/pdf"),
+            title,
+            description: "2 KiB",
+            notePath: "owner",
+            viewScope: ATTACHMENT_SCOPE,
+            actions: [ openExternally, download ]
+        });
     });
 });
 

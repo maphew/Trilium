@@ -42,12 +42,7 @@ export function getAttachmentActionGroups(
 
     return [
         [
-            {
-                title: t("attachments_actions.open_externally"),
-                tooltip: t("attachments_actions.open_externally_title"),
-                icon: "bx bx-file-find",
-                run: () => open.openAttachmentExternally(attachmentId, mime)
-            },
+            getOpenExternallyAction(attachment),
             {
                 title: t("attachments_actions.open_custom"),
                 tooltip: t("attachments_actions.open_custom_title"),
@@ -57,11 +52,7 @@ export function getAttachmentActionGroups(
                     : t("attachments_actions.open_custom_client_only"),
                 run: () => open.openAttachmentCustom(attachmentId, mime)
             },
-            {
-                title: t("attachments_actions.download"),
-                icon: "bx bx-download",
-                run: () => open.downloadAttachment(attachmentId)
-            },
+            getDownloadAction(attachment),
             ...(copyReference ? [ {
                 title: t("attachments_actions.copy_link_to_clipboard"),
                 icon: "bx bx-copy",
@@ -70,10 +61,12 @@ export function getAttachmentActionGroups(
             ...(supportsOcr(attachment) ? [ {
                 title: t("ocr.view_extracted_text"),
                 icon: "bx bx-text",
-                run: () => appContext.triggerCommand("showOcrTextDialog", {
-                    textUrl: `ocr/attachments/${attachmentId}/text`,
-                    processUrl: `ocr/process-attachment/${attachmentId}`
-                })
+                run: () => {
+                    appContext.triggerCommand("showOcrTextDialog", {
+                        textUrl: `ocr/attachments/${attachmentId}/text`,
+                        processUrl: `ocr/process-attachment/${attachmentId}`
+                    });
+                }
             } ] : [])
         ],
         [
@@ -111,6 +104,23 @@ export function getAttachmentActionGroups(
             }
         ]
     ];
+}
+
+export function getOpenExternallyAction({ attachmentId, mime }: FAttachment): AttachmentAction {
+    return {
+        title: t("attachments_actions.open_externally"),
+        tooltip: t("attachments_actions.open_externally_title"),
+        icon: "bx bx-file-find",
+        run: () => open.openAttachmentExternally(attachmentId, mime)
+    };
+}
+
+export function getDownloadAction({ attachmentId }: FAttachment): AttachmentAction {
+    return {
+        title: t("attachments_actions.download"),
+        icon: "bx bx-download",
+        run: () => open.downloadAttachment(attachmentId)
+    };
 }
 
 /** Whether the attachment is an ordinary file, previewed and linked like one. */

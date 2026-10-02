@@ -66,6 +66,7 @@ export default function IncludeNoteDialog() {
                     name="include-note-box-size"
                     currentValue={boxSize} onChange={setBoxSize}
                     values={[
+                        { label: t("include_note.box_size_tiny"), value: "tiny" },
                         { label: t("include_note.box_size_small"), value: "small" },
                         { label: t("include_note.box_size_medium"), value: "medium" },
                         { label: t("include_note.box_size_full"), value: "full" },

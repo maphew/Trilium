@@ -10,7 +10,7 @@ import type { AiNoteLocation } from "./ai_assistant_stream";
 import { useAiMenuFooter, useAiQuickActions } from "./ai_quick_actions";
 import { buildConfig, BuildEditorOptions } from "./config";
 
-export type BoxSize = "small" | "medium" | "full" | "expandable";
+export type BoxSize = "tiny" | "small" | "medium" | "full" | "expandable";
 
 export interface CKEditorApi {
     /** returns true if user selected some text, false if there's no selection */

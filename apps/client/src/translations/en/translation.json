@@ -340,7 +340,8 @@
     "box_size_medium": "medium (~ 30 lines)",
     "box_size_full": "full (box shows complete text)",
     "box_size_expandable": "expandable (collapsed by default)",
-    "button_include": "Include note"
+    "button_include": "Include note",
+    "box_size_tiny": "tiny (a single row with the title and the actions)"
   },
   "info": {
     "modalTitle": "Info message",
@@ -4405,7 +4406,8 @@
       "sort": "Sort",
       "ascending": "Ascending",
       "descending": "Descending",
-      "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "Some rows were sorted together because merged cells tie them to each other"
+      "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "Some rows were sorted together because merged cells tie them to each other",
+      "tiny": "Tiny"
     },
     "task-state-dropped-title": "Invalid task states",
     "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",

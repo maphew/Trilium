@@ -317,7 +317,7 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     experimentalFeatures: string;
 
     // Include note settings
-    includeNoteDefaultBoxSize: "small" | "medium" | "full" | "expandable";
+    includeNoteDefaultBoxSize: "tiny" | "small" | "medium" | "full" | "expandable";
 
     // AI / LLM
     /** Whether the AI/LLM features (chat sidebar, LLM chat notes) are enabled. */

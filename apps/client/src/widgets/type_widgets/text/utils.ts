@@ -1,3 +1,4 @@
+import { attachmentIcon } from "@triliumnext/commons";
 import { h } from "preact";
 
 import appContext from "../../../components/app_context";
@@ -5,11 +6,32 @@ import content_renderer from "../../../services/content_renderer";
 import froca from "../../../services/froca";
 import link, { ViewScope } from "../../../services/link";
 import utils from "../../../services/utils";
-import IncludeNote, { type IncludeNoteProps } from "./IncludeNote";
+import IncludeNote, { getNoteActions, TinyIncludeNote } from "./IncludeNote";
 
+/**
+ * Fills an include box with a note. Without a box size of its own, the box takes the one of its
+ * section.
+ */
 export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>, boxSize?: string) {
     const note = await froca.getNote(noteId);
     if (!note) return;
+
+    const el = $el[0];
+    const size = boxSize ?? getSectionBoxSize(el);
+    if (size === "tiny") {
+        const $link = await link.createLink(note.noteId, {
+            showTooltip: false,
+            showNotePath: true
+        });
+        const box = h(TinyIncludeNote, {
+            icon: note.getIcon(),
+            title: $link[0],
+            notePath: note.noteId,
+            actions: getNoteActions(note.noteId)
+        });
+        await content_renderer.mountInteractiveWidget(box, getWrapper(el));
+        return;
+    }
 
     const $link = await link.createLink(note.noteId, {
         showTooltip: false,
@@ -24,16 +46,20 @@ export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>,
         mediaEnvironment: "embedded"
     });
 
-    await mountIncludeNote($el[0], {
-        boxSize,
+    const box = h(IncludeNote, {
+        boxSize: size,
         title: $link[0],
         content: $renderedContent[0],
         contentType: type,
         notePath: note.noteId
     });
+    await content_renderer.mountInteractiveWidget(box, getWrapper(el));
 }
 
-/** Fills an include box with an embedded attachment, under a title linking to it. */
+/**
+ * Fills an include box with an embedded attachment, under a title linking to it. Without a box
+ * size of its own, the box takes the one of its section.
+ */
 export async function loadIncludedAttachment(
     attachmentId: string,
     $el: JQuery<HTMLElement>,
@@ -42,7 +68,27 @@ export async function loadIncludedAttachment(
     const attachment = await froca.getAttachment(attachmentId, true);
     if (!attachment) return;
 
+    const el = $el[0];
+    const size = boxSize ?? getSectionBoxSize(el);
     const viewScope: ViewScope = { viewMode: "attachments", attachmentId };
+    if (size === "tiny") {
+        // `attachment_actions` is imported on demand: it imports the image compression dialog.
+        const [ $link, { getDownloadAction, getOpenExternallyAction } ] = await Promise.all([
+            link.createLink(attachment.ownerId, { showTooltip: false, viewScope }),
+            import("../../../services/attachment_actions")
+        ]);
+        const box = h(TinyIncludeNote, {
+            icon: attachmentIcon(attachment.role, attachment.mime),
+            title: $link[0],
+            description: utils.formatSize(attachment.contentLength),
+            notePath: attachment.ownerId,
+            viewScope,
+            actions: [ getOpenExternallyAction(attachment), getDownloadAction(attachment) ]
+        });
+        await content_renderer.mountInteractiveWidget(box, getWrapper(el));
+        return;
+    }
+
     const $link = await link.createLink(attachment.ownerId, {
         showTooltip: false,
         showNoteIcon: true,
@@ -53,8 +99,8 @@ export async function loadIncludedAttachment(
         { interactive: true, mediaEnvironment: "embedded" }
     );
 
-    await mountIncludeNote($el[0], {
-        boxSize,
+    const box = h(IncludeNote, {
+        boxSize: size,
         title: $link[0],
         content: $renderedContent[0],
         contentType: type,
@@ -62,20 +108,17 @@ export async function loadIncludedAttachment(
         viewScope,
         isFullscreenOffered: true
     });
-}
-
-/**
- * Mounts an include box in `el`: the `.include-note-wrapper` the editor renders, or a
- * `section.include-note`, whose wrapper is reused or created. Without a box size of its own, the
- * box takes the one of its section.
- */
-async function mountIncludeNote(el: HTMLElement, props: IncludeNoteProps) {
-    const boxSize = props.boxSize
-        ?? el.closest<HTMLElement>("section.include-note")?.dataset.boxSize;
-    const box = h(IncludeNote, { ...props, boxSize });
     await content_renderer.mountInteractiveWidget(box, getWrapper(el));
 }
 
+function getSectionBoxSize(el: HTMLElement) {
+    return el.closest<HTMLElement>("section.include-note")?.dataset.boxSize;
+}
+
+/**
+ * The element an include box is mounted in: `el` when it is the `.include-note-wrapper` the
+ * editor renders, otherwise the wrapper of the `section.include-note`, reused or created.
+ */
 function getWrapper(el: HTMLElement) {
     if (el.classList.contains("include-note-wrapper")) {
         return el;

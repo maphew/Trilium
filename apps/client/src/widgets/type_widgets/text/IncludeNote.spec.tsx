@@ -5,22 +5,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
     openTabWithNoteWithHoisting,
+    triggerCommand,
     openContextMenu,
     disposeInteractiveContent
 } = vi.hoisted(() => ({
     openTabWithNoteWithHoisting: vi.fn(),
+    triggerCommand: vi.fn(),
     openContextMenu: vi.fn(),
     disposeInteractiveContent: vi.fn()
 }));
 
 vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
 vi.mock("../../../components/app_context", () => ({
-    default: { tabManager: { openTabWithNoteWithHoisting } }
+    default: { tabManager: { openTabWithNoteWithHoisting }, triggerCommand }
 }));
 vi.mock("../../../menus/link_context_menu", () => ({ default: { openContextMenu } }));
 vi.mock("../../../services/content_renderer", () => ({ default: { disposeInteractiveContent } }));
 
-import IncludeNote, { type IncludeNoteProps } from "./IncludeNote";
+import IncludeNote, {
+    getNoteActions,
+    type IncludeNoteProps,
+    TinyIncludeNote,
+    type TinyIncludeNoteProps
+} from "./IncludeNote";
 
 const ATTACHMENT_SCOPE = { viewMode: "attachments", attachmentId: "att1" } as const;
 
@@ -59,6 +66,18 @@ function renderBox(props: Partial<IncludeNoteProps> = {}) {
         ...props
     };
     act(() => render(<IncludeNote {...boxProps} />, container));
+    return boxProps;
+}
+
+function renderTinyBox(props: Partial<TinyIncludeNoteProps> = {}) {
+    const boxProps: TinyIncludeNoteProps = {
+        icon: "bx bx-note",
+        title: element(`<span><a href="#root/noteA">Note A</a></span>`),
+        notePath: "noteA",
+        actions: [],
+        ...props
+    };
+    act(() => render(<TinyIncludeNote {...boxProps} />, container));
     return boxProps;
 }
 
@@ -240,5 +259,68 @@ describe("IncludeNote", () => {
     it("leaves the fullscreen controls out of a box that offers no fullscreen", () => {
         renderBox({ boxSize: "full" });
         expect(container.querySelector(".include-note-fullscreen-controls")).toBeNull();
+    });
+});
+
+describe("TinyIncludeNote", () => {
+    it("lays out a single row: icon, title and description, actions, menu", () => {
+        const run = vi.fn();
+        const { title } = renderTinyBox({
+            icon: "bx bx-file",
+            description: "2 KiB",
+            notePath: "owner",
+            viewScope: ATTACHMENT_SCOPE,
+            actions: [
+                { title: "Download", icon: "bx bx-download", run },
+                { title: "Other", icon: "bx bx-cog", run: vi.fn() }
+            ]
+        });
+
+        expect(titleRow()).toEqual([
+            "include-note-icon", "include-note-heading",
+            "include-note-action", "include-note-action", "include-note-menu"
+        ]);
+        expect(container.querySelector(".include-note-content")).toBeNull();
+        expect(container.querySelector(".include-note-icon")?.className).toContain("bx-file");
+        expect([ ...container.querySelector("h4.include-note-title")?.childNodes ?? [] ])
+            .toEqual([ title ]);
+        expect(container.querySelector(".include-note-heading > small.include-note-description")
+            ?.textContent).toBe("2 KiB");
+
+        const download = container.querySelector<HTMLButtonElement>("button.include-note-action");
+        expect(download?.className).toContain("bx-download");
+        if (!download) return;
+        expect(tooltipOf(download)).toBe("Download");
+        expect(click(download).isStopped).toBe(true);
+        expect(run).toHaveBeenCalledOnce();
+
+        const { event, isStopped } = click(button("include-note-menu"));
+        expect(isStopped).toBe(true);
+        expect(openContextMenu).toHaveBeenCalledWith("owner", event, ATTACHMENT_SCOPE);
+    });
+
+    it("leaves out the description line when there is none", () => {
+        renderTinyBox();
+        expect(container.querySelector(".include-note-description")).toBeNull();
+    });
+});
+
+describe("getNoteActions", () => {
+    it("quick edits the note, or opens it in a new tab", async () => {
+        const [ quickEdit, open ] = getNoteActions("noteA");
+        expect([ quickEdit.title, quickEdit.icon ])
+            .toEqual([ "link_context_menu.open_note_in_popup", "bx bx-edit" ]);
+        expect([ open.title, open.icon ])
+            .toEqual([ "common.open_in_new_tab", "bx bx-link-external" ]);
+
+        await quickEdit.run();
+        expect(triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "noteA" });
+
+        await open.run();
+        expect(openTabWithNoteWithHoisting).toHaveBeenCalledWith("noteA", {
+            viewScope: undefined,
+            activate: true,
+            placement: "afterCurrent"
+        });
     });
 });
