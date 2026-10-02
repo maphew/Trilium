@@ -30,6 +30,7 @@ interface RelationValuesInputProps {
  */
 export default function RelationValuesInput({ values, onCommit, inputId, tabIndex, disabled }: RelationValuesInputProps) {
     const autocompleteRef = useRef<NoteAutocompleteHandle>(null);
+    const fieldRef = useRef<HTMLDivElement>(null);
     const notes = useNotes(values);
 
     function take(noteId: string) {
@@ -45,7 +46,7 @@ export default function RelationValuesInput({ values, onCommit, inputId, tabInde
     }
 
     return (
-        <div className="tn-field relation-values-input">
+        <div ref={fieldRef} className="tn-field relation-values-input">
             {values.map((noteId) => (
                 <Chip
                     key={noteId}
@@ -59,6 +60,7 @@ export default function RelationValuesInput({ values, onCommit, inputId, tabInde
             <NoteAutocomplete
                 id={inputId}
                 handleRef={autocompleteRef}
+                anchorRef={fieldRef}
                 tabIndex={tabIndex}
                 opts={{ allowCreatingNotes: true, hideAllButtons: true }}
                 noteIdChanged={take}

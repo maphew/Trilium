@@ -651,6 +651,15 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(document.querySelector<HTMLElement>(".note-autocomplete-menu")?.style.width).toBe("320px");
     });
 
+    it("spans the element a host anchors it to instead", async () => {
+        const frame = document.createElement("div");
+        frame.getBoundingClientRect = () => DOMRect.fromRect({ width: 480, height: 30 });
+        const input = await mount({ anchorRef: { current: frame } });
+        await type(input, "a");
+
+        expect(document.querySelector<HTMLElement>(".note-autocomplete-menu")?.style.width).toBe("480px");
+    });
+
     it("picks a clicked note", async () => {
         const noteIdChanged = vi.fn();
         const input = await mount({ noteIdChanged });

@@ -36,6 +36,8 @@ export interface NoteAutocompleteProps {
     tabIndex?: number;
     /** Receives the functions that drive the field from outside it. */
     handleRef?: MutableRef<NoteAutocompleteHandle | null>;
+    /** The element the list hangs from and spans, in place of the field, for a host that frames it. */
+    anchorRef?: RefObject<HTMLElement>;
 }
 
 /** Drives a note autocomplete from outside it, for a caller that decides when. */
@@ -53,7 +55,7 @@ export interface NoteAutocompleteHandle {
     clear(): void;
 }
 
-export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, container, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef }: NoteAutocompleteProps) {
+export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, container, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef, anchorRef }: NoteAutocompleteProps) {
     const inputRef = useSyncedRef<HTMLInputElement>(externalInputRef);
     const groupRef = useRef<HTMLDivElement>(null);
     const [ value, setValue ] = useState("");
@@ -199,6 +201,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         }
     }, [ text, noteId ]);
 
+    const anchor = anchorRef?.current ?? groupRef.current;
     const showButtons = !opts?.hideAllButtons;
     const showGoToButton = showButtons && !opts?.hideGoToSelectedNoteButton;
 
@@ -303,14 +306,14 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 ? container.current && createPortal(
                     <NoteSuggestionList autocomplete={autocomplete} searchingFor={isSearchingFullText ? value : undefined} />,
                     container.current)
-                : groupRef.current && (
+                : anchor && (
                     <Popup
-                        anchor={groupRef.current}
+                        anchor={anchor}
                         placement="bottom-start"
                         // The pointer moves the highlighted row, so `:hover` marks no second one.
                         className="dropdown-menu show tn-dropdown-menu tn-menu-keyboard note-autocomplete-menu"
                         // The list spans the whole field, buttons included.
-                        style={{ width: `${groupRef.current.getBoundingClientRect().width}px` }}
+                        style={{ width: `${anchor.getBoundingClientRect().width}px` }}
                         escapeDismisses={false}
                         onDismiss={autocomplete.close}
                     >
