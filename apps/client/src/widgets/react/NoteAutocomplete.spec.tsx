@@ -267,7 +267,7 @@ describe("NoteAutocomplete's suggestion list", () => {
             scrollIntoView.mockClear();
 
             await act(async () => {
-                rows()[1].dispatchEvent(new MouseEvent("mouseenter"));
+                rows()[1].dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: 10, clientY: 40 }));
             });
             expect(rows()[1].classList.contains("tn-menu-active")).toBe(true);
             expect(scrollIntoView).not.toHaveBeenCalled();
@@ -278,6 +278,31 @@ describe("NoteAutocomplete's suggestion list", () => {
         } finally {
             HTMLElement.prototype.scrollIntoView = original;
         }
+    });
+
+    it("keeps the keyboard's row when the list moves under a pointer that does not", async () => {
+        const input = await mount();
+        await type(input, "b");
+        const hoverAt = async (row: HTMLElement, type: string, clientY: number) => {
+            await act(async () => {
+                row.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: 10, clientY }));
+            });
+        };
+
+        await hoverAt(rows()[1], "mousemove", 40);
+        expect(rows()[1].classList.contains("tn-menu-active")).toBe(true);
+        await press(input, "ArrowUp");
+        expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+
+        // Scrolling slides another row under the pointer: the browser reports it entering, and can
+        // report a move at the same spot.
+        await hoverAt(rows()[1], "mouseenter", 40);
+        await hoverAt(rows()[1], "mousemove", 40);
+        expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+
+        // A pointer that moves takes the row again.
+        await hoverAt(rows()[1], "mousemove", 44);
+        expect(rows()[1].classList.contains("tn-menu-active")).toBe(true);
     });
 
     // Issue #5669: a second Enter that arrives before the list re-renders submits the host's form

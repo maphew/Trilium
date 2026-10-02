@@ -354,7 +354,7 @@ function NoteSuggestionList({ autocomplete, searchingFor }: {
                             className={clsx("aa-suggestion", index === autocomplete.activeIndex && "aa-cursor")}
                             role="option"
                             aria-selected={index === autocomplete.activeIndex}
-                            onMouseEnter={() => autocomplete.hover(index)}
+                            onMouseMove={(e) => autocomplete.hover(index, e)}
                             onClick={() => autocomplete.pick(suggestion)}
                         >
                             <NoteSuggestion suggestion={suggestion} />
@@ -395,7 +395,7 @@ function NoteSuggestionMenu({ autocomplete, searchingFor }: {
                         className={clsx("dropdown-item", index === autocomplete.activeIndex && "tn-menu-active")}
                         role="option"
                         aria-selected={index === autocomplete.activeIndex}
-                        onMouseEnter={() => autocomplete.hover(index)}
+                        onMouseMove={(e) => autocomplete.hover(index, e)}
                         onClick={() => autocomplete.pick(suggestion)}
                     >
                         <NoteSuggestionMenuItem suggestion={suggestion} />

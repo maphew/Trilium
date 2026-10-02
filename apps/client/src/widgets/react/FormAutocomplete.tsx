@@ -202,7 +202,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                                 className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
                                 role="option"
                                 aria-selected={index === activeIndex}
-                                onMouseEnter={() => autocomplete.hover(index)}
+                                onMouseMove={(e) => autocomplete.hover(index, e)}
                                 onClick={() => pick(item)}
                             >
                                 {renderItem ? renderItem(item) : item}
@@ -273,6 +273,9 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
     // Set when the keyboard or a new list moves the highlight, which the effect below scrolls into view.
     // The pointer never sets it: scrolling a partly shown row under the pointer would move the list.
     const scrollToActive = useRef(false);
+    // Where the pointer last moved over the list. Scrolling slides a row under a still pointer, and the
+    // browser can report that as a move at the same spot, which is not the pointer choosing the row.
+    const lastPointer = useRef<{ x: number; y: number }>();
     // Names the entries so the field can point at the highlighted one: focus stays in the box, so
     // that pointer is all a screen reader has to go on.
     const itemIdPrefix = useUniqueName("autocomplete-item");
@@ -398,8 +401,11 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         activeIndex,
         setActiveIndex,
         itemId,
-        /** Highlights the row under the pointer, without scrolling the list. */
-        hover(index: number) {
+        /** Highlights the row the pointer moves over, without scrolling the list. */
+        hover(index: number, e: { clientX: number; clientY: number }) {
+            const last = lastPointer.current;
+            if (last && last.x === e.clientX && last.y === e.clientY) return;
+            lastPointer.current = { x: e.clientX, y: e.clientY };
             scrollToActive.current = false;
             setActiveIndex(index);
         },
