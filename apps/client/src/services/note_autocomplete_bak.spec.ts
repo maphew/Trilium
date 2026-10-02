@@ -398,7 +398,6 @@ describe("initNoteAutocomplete wiring", () => {
 
         expect($el.hasClass("note-autocomplete-input")).toBe(true);
         expect($group.find(".input-clearer-button").length).toBe(1);
-        expect($group.find(".show-recent-notes-button").length).toBe(1);
         expect($group.find(".full-text-search-button").length).toBe(1);
         expect($group.find(".go-to-selected-note-button").length).toBe(1);
 
@@ -410,12 +409,6 @@ describe("initNoteAutocomplete wiring", () => {
         // stale when the value is cleared programmatically instead of by typing.
         $group.find(".input-clearer-button").trigger("click");
         expect(autocompleteCalls.some((c) => c[0] === "val" && c[1] === "")).toBe(true);
-        expect(onInput).toHaveBeenCalled();
-
-        onInput.mockClear();
-        // show-recent-notes button click returns false (prevent focus steal), and likewise
-        // re-triggers "input" for the same reason.
-        $group.find(".show-recent-notes-button").trigger("click");
         expect(onInput).toHaveBeenCalled();
 
         // full text search button click

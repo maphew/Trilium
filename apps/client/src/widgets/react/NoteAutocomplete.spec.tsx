@@ -235,6 +235,30 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(getNoteSuggestions.mock.calls).toEqual([ [ "a" ], [ "alp" ] ]);
     });
 
+    it("lists the recent notes from the clock button, emptying the field", async () => {
+        const onTextChange = vi.fn();
+        const input = await mount({ onTextChange });
+        await type(input, "a");
+        await press(input, "Enter");
+        expect(input.dataset.notePath).toBe("root/a");
+        input.blur();
+
+        const button = document.querySelector<HTMLElement>(".show-recent-notes-button");
+        if (!button) throw new Error("no recent notes button rendered");
+        const mouseDown = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+        button.dispatchEvent(mouseDown);
+        await act(async () => { button.click(); });
+        await settle();
+
+        expect(mouseDown.defaultPrevented).toBe(true);
+        expect(input.value).toBe("");
+        expect(input.dataset.notePath).toBe("");
+        expect(onTextChange).toHaveBeenLastCalledWith("");
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("");
+        expect(rows()).toHaveLength(2);
+        expect(document.activeElement).toBe(input);
+    });
+
     it("spans the whole field, the buttons included", async () => {
         const input = await mount();
         const group = input.closest(".input-group");

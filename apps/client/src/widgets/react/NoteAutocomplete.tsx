@@ -72,6 +72,15 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         schedule
     });
 
+    /** Empties the query, which the server answers with the recently visited notes, and lists them. */
+    function showRecentNotes() {
+        setNotePath("");
+        setValue("");
+        onTextChange?.("");
+        autocomplete.open();
+        inputRef.current?.focus();
+    }
+
     const showButtons = !opts?.hideAllButtons;
     const showGoToButton = showButtons && !opts?.hideGoToSelectedNoteButton;
 
@@ -132,6 +141,9 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 <a
                     className="input-group-text show-recent-notes-button bx bx-time"
                     title={t("note_autocomplete.show-recent-notes")}
+                    // Keeps the focus in the input, which the list closes without.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={showRecentNotes}
                 />
                 <a
                     className="input-group-text input-clearer-button bx bxs-tag-x"

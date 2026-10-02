@@ -151,8 +151,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
 
     const $clearTextButton = $("<a>").addClass("input-group-text input-clearer-button bx bxs-tag-x").prop("title", t("note_autocomplete.clear-text-field"));
 
-    const $showRecentNotesButton = $("<a>").addClass("input-group-text show-recent-notes-button bx bx-time").prop("title", t("note_autocomplete.show-recent-notes"));
-
     const $fullTextSearchButton = $("<a>")
         .addClass("input-group-text full-text-search-button bx bx-search")
         .prop("title", `${t("note_autocomplete.full-text-search")} (Shift+Enter)`);
@@ -160,7 +158,7 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
     const $goToSelectedNoteButton = $("<a>").addClass("input-group-text go-to-selected-note-button bx bx-arrow-to-right");
 
     if (!options.hideAllButtons) {
-        $el.after($clearTextButton).after($showRecentNotesButton).after($fullTextSearchButton);
+        $el.after($clearTextButton).after($fullTextSearchButton);
     }
 
     if (!options.hideGoToSelectedNoteButton && !options.hideAllButtons) {
@@ -168,14 +166,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
     }
 
     $clearTextButton.on("click", () => clearText($el));
-
-    $showRecentNotesButton.on("click", (e) => {
-        showRecentNotes($el);
-
-        // this will cause the click not give focus to the "show recent notes" button
-        // this is important because otherwise input will lose focus immediately and not show the results
-        return false;
-    });
 
     $fullTextSearchButton.on("click", (e) => {
         fullTextSearch($el, options);
