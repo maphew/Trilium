@@ -2,6 +2,7 @@ import { ColumnComponent, EventCallBackMethods, RowComponent, Tabulator } from "
 import contextMenu, { MenuItem } from "../../../menus/context_menu.js";
 import FNote from "../../../entities/fnote.js";
 import { t } from "../../../services/i18n.js";
+import { escapeHtml } from "../../../services/utils.js";
 import { TableData } from "./rows.js";
 import link_context_menu from "../../../menus/link_context_menu.js";
 import froca from "../../../services/froca.js";
@@ -33,7 +34,7 @@ function showColumnContextMenu(parentComponent: Component, e: MouseEvent, column
     contextMenu.show({
         items: [
             {
-                title: t("table_view.sort-column-by", { title }),
+                title: t("table_view.sort-column-by", { title: escapeHtml(title) }),
                 enabled: !!field,
                 uiIcon: "bx bx-sort-alt-2",
                 items: [
@@ -71,7 +72,7 @@ function showColumnContextMenu(parentComponent: Component, e: MouseEvent, column
                 kind: "separator"
             },
             {
-                title: t("table_view.hide-column", { title }),
+                title: t("table_view.hide-column", { title: escapeHtml(title) }),
                 uiIcon: "bx bx-hide",
                 handler: () => column.hide()
             },

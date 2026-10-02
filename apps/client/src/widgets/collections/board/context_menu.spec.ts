@@ -26,7 +26,10 @@ vi.mock("../../../menus/link_context_menu", () => ({
 // i18next is never initialised under test, so `t` echoes the key it is given. The promise is what
 // the command registry awaits as `PromotedAttributesCard` is pulled in for the attribute icons.
 vi.mock("../../../services/i18n", () => ({
-    t: (key: string) => key,
+    // Interpolates `column` unescaped, as i18next does in the client, so a spec sees what the menu
+    // receives.
+    t: (key: string, options?: { column?: string }) =>
+        (options?.column === undefined ? key : `${key}: ${options.column}`),
     translationsInitializedPromise: Promise.resolve()
 }));
 
@@ -350,28 +353,25 @@ describe("Board column context menu", () => {
         expect(places(2)).toEqual([ 0, 1 ]);
     });
 
-    it("boxes the column names it offers to move past, as the status list does", () => {
+    it("boxes and escapes the column names it offers to move past", () => {
         const api = {
+            getColumnTitle: (name: string) => name,
             getColumnIcon: () => DEFAULT_COLUMN_ICON,
             getColumnColorClass: () => "",
             isColumnArchived: () => false
         } as unknown as BoardApi;
 
-        const menu = openMenu(api, { columns: [ "To Do", "Doing", "Done" ], index: 2 });
+        const columns = [ "<img src=x onerror=alert(1)>", "Doing", "Done" ];
+        const menu = openMenu(api, { columns, index: 2 });
         const entry = menu.find(item =>
             item && "uiIcon" in item && item.uiIcon === "bx bx-horizontal-left");
         if (!entry || !("items" in entry)) throw new Error("expected a move-column entry");
 
         // The head of the board carries no name, so only the ones naming a column are boxed.
-        const after = (entry.items ?? []).slice(1);
-        expect(after).toHaveLength(1);
-
-        // i18next is never initialised under test, so what it interpolates comes back undefined;
-        // the box around it is what this is about.
-        for (const item of after) {
-            expect(item && "title" in item ? item.title : "")
-                .toMatch(/^<span class="tn-menu-name">.*<\/span>$/);
-        }
+        const titles = (entry.items ?? []).slice(1)
+            .map(item => (item && "title" in item ? item.title : ""));
+        expect(titles).toEqual([ '<span class="tn-menu-name">board_view.move-column-after: '
+            + "&lt;img src&#x3D;x onerror&#x3D;alert(1)&gt;</span>" ]);
     });
 
     it("offers both sides to put a new column on", () => {

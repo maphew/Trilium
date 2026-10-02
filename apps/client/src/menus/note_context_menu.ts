@@ -151,7 +151,7 @@ export async function buildNoteContextMenuItems(
         }
 
         items.push({
-            title: t("electron_context_menu.add-term-to-dictionary", { term: misspelledWord }),
+            title: t("electron_context_menu.add-term-to-dictionary", { term: utils.escapeHtml(misspelledWord) }),
             uiIcon: "bx bx-plus",
             handler: () => addToDictionary(misspelledWord)
         });
@@ -262,15 +262,15 @@ export async function buildNoteContextMenuItems(
 
         items.push({
             title: t("electron_context_menu.search_online", {
-                term: shortenedSelection,
-                searchEngine: searchEngineName
+                term: utils.escapeHtml(shortenedSelection),
+                searchEngine: utils.escapeHtml(searchEngineName)
             }),
             uiIcon: "bx bx-search-alt",
             handler: () => host.openExternal(searchUrl)
         });
 
         items.push({
-            title: t("electron_context_menu.search_in_trilium", { term: shortenedSelection }),
+            title: t("electron_context_menu.search_in_trilium", { term: utils.escapeHtml(shortenedSelection) }),
             uiIcon: "bx bx-search",
             handler: async () => {
                 await appContext.triggerCommand("searchNotes", { searchString: selectionText });

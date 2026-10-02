@@ -12,6 +12,7 @@ import { copyReferenceWithToast } from "../../../services/clipboard_ext";
 import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import { shared } from "../../../services/note_set";
+import { escapeHtml } from "../../../services/utils";
 import ColorPicker from "../../react/ColorPicker";
 import { buildAttributeMenuItems } from "../attribute_menu";
 import { buildSortMenuItems, type SortMenuOptions } from "../sort_menu";
@@ -367,9 +368,9 @@ function buildMoveColumnItems(api: Api, column: ColumnMenuTarget): MenuItem<stri
         const title = api.getColumnTitle(name);
 
         return [ {
-            // `t()` escapes what it interpolates, so the sentence it builds is boxed as it stands.
+            // `Menu` renders the title as HTML, and a column title is user text.
             title: `<span class="tn-menu-name">`
-                + `${t("board_view.move-column-after", { column: title })}</span>`,
+                + `${t("board_view.move-column-after", { column: escapeHtml(title) })}</span>`,
             uiIcon: api.getColumnIcon(name),
             iconColorClass: api.getColumnColorClass(name),
             badges: api.isColumnArchived(name)
