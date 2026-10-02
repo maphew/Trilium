@@ -54,16 +54,6 @@
 }
 
 
-.jump-to-note-results .aa-suggestion .search-notes-action {
-    border-top: 1px solid var(--main-border-color);
-    margin-top: 8px;
-    padding-top: 8px;
-}
-
-.jump-to-note-results .aa-suggestion:has(.search-notes-action)::after {
-    display: none;
-}
-
 .jump-to-note-dialog .command-icon {
     color: var(--muted-text-color);
     font-size: 1.125rem;

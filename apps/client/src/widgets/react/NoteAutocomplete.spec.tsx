@@ -664,6 +664,21 @@ describe("NoteAutocomplete's suggestion list", () => {
             expect(dividers[0].nextElementSibling).toBe(fullTextRow());
         });
 
+        it("sets them apart with one line in a host's container too", async () => {
+            getNoteSuggestions.mockResolvedValue([ ...notes, searchRow ]);
+            const host = document.createElement("div");
+            document.body.append(host);
+            const input = await mount({ container: { current: host } });
+            await type(input, "al");
+
+            const separators = [ ...host.querySelectorAll(".note-suggestion-separator") ];
+            const suggestions = [ ...host.querySelectorAll(".aa-suggestion") ];
+            expect(separators).toHaveLength(1);
+            expect(separators[0].previousElementSibling).toBe(suggestions[1]);
+            expect(separators[0].nextElementSibling?.querySelector("kbd")?.textContent).toBe("Shift+Enter");
+            host.remove();
+        });
+
         it("runs a search from its row, with its shortcut shown, reporting it for the host to close on", async () => {
             const onChange = vi.fn();
             getNoteSuggestions.mockResolvedValue([ searchRow ]);

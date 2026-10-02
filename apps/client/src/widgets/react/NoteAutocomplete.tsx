@@ -361,17 +361,19 @@ function NoteSuggestionList({ autocomplete, searchingFor }: {
                         </div>
                     )}
                     {searchingFor === undefined && autocomplete.items.map((suggestion, index) => (
-                        <div
-                            key={`${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`}
-                            id={autocomplete.itemId(index)}
-                            className={clsx("aa-suggestion", index === autocomplete.activeIndex && "aa-cursor")}
-                            role="option"
-                            aria-selected={index === autocomplete.activeIndex}
-                            onMouseMove={(e) => autocomplete.hover(index, e)}
-                            onClick={() => autocomplete.pick(suggestion)}
-                        >
-                            <NoteSuggestion suggestion={suggestion} />
-                        </div>
+                        <Fragment key={`${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`}>
+                            {startsSearchRows(autocomplete.items, index) && <div className="note-suggestion-separator" role="separator" />}
+                            <div
+                                id={autocomplete.itemId(index)}
+                                className={clsx("aa-suggestion", index === autocomplete.activeIndex && "aa-cursor")}
+                                role="option"
+                                aria-selected={index === autocomplete.activeIndex}
+                                onMouseMove={(e) => autocomplete.hover(index, e)}
+                                onClick={() => autocomplete.pick(suggestion)}
+                            >
+                                <NoteSuggestion suggestion={suggestion} />
+                            </div>
+                        </Fragment>
                     ))}
                 </span>
             </div>
@@ -402,7 +404,7 @@ function NoteSuggestionMenu({ autocomplete, searchingFor }: {
             )}
             {searchingFor === undefined && autocomplete.items.map((suggestion, index) => (
                 <Fragment key={`${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`}>
-                    {index > 0 && isSearchRow(suggestion) && !isSearchRow(autocomplete.items[index - 1]) && <FormDropdownDivider />}
+                    {startsSearchRows(autocomplete.items, index) && <FormDropdownDivider />}
                     <li
                         id={autocomplete.itemId(index)}
                         className={clsx("dropdown-item", index === autocomplete.activeIndex && "tn-menu-active")}
@@ -486,7 +488,11 @@ function NoteSuggestion({ suggestion }: { suggestion: Suggestion }) {
     );
 }
 
-/** The rows that run a search for the query, which the menu sets apart from the notes above them. */
+/** Whether a line goes above the row at `index`: the first of the rows searching for the query, after a note. */
+function startsSearchRows(items: Suggestion[], index: number) {
+    return index > 0 && isSearchRow(items[index]) && !isSearchRow(items[index - 1]);
+}
+
 function isSearchRow(suggestion: Suggestion) {
     return suggestion.action === "full-text-search" || suggestion.action === "search-notes";
 }
