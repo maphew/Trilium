@@ -478,6 +478,9 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(allRows().at(-1)).toBe(row);
         expect(row?.querySelector("kbd")?.textContent).toBe("Shift+Enter");
         expect(row?.querySelector(".tn-icon")?.className).toBe("bx bx-search tn-icon");
+        // Set apart from the notes above it.
+        expect(row?.previousElementSibling?.className).toBe("dropdown-divider");
+        expect(document.querySelectorAll(".note-autocomplete-menu .dropdown-divider")).toHaveLength(1);
         // The first note keeps the highlight, though the row's title is the query itself.
         expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
 
@@ -588,6 +591,17 @@ describe("NoteAutocomplete's suggestion list", () => {
             });
         });
 
+        it("sets both search rows apart from the notes with one line", async () => {
+            getNoteSuggestions.mockResolvedValue([ ...notes, searchRow ]);
+            const input = await mount();
+            await type(input, "al");
+
+            const dividers = [ ...document.querySelectorAll(".note-autocomplete-menu .dropdown-divider") ];
+            expect(dividers).toHaveLength(1);
+            expect(dividers[0].previousElementSibling).toBe(rows()[1]);
+            expect(dividers[0].nextElementSibling).toBe(fullTextRow());
+        });
+
         it("runs a search from its row, with its shortcut shown, leaving the field", async () => {
             const onChange = vi.fn();
             getNoteSuggestions.mockResolvedValue([ searchRow ]);
@@ -595,6 +609,8 @@ describe("NoteAutocomplete's suggestion list", () => {
             await type(input, "al");
 
             expect(rows()[0].querySelector("kbd")?.textContent).toBe("Ctrl+Enter");
+            // No notes above the search rows to set them apart from.
+            expect(document.querySelector(".note-autocomplete-menu .dropdown-divider")).toBeNull();
             // Past the full-text search row ahead of it.
             await press(input, "ArrowDown");
             await press(input, "Enter");

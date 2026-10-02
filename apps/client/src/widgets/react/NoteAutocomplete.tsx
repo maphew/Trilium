@@ -3,7 +3,7 @@ import "./NoteAutocomplete.css";
 
 import clsx from "clsx";
 import { type RefObject, render } from "preact";
-import { createPortal, type CSSProperties } from "preact/compat";
+import { createPortal, type CSSProperties, Fragment } from "preact/compat";
 import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context";
@@ -12,6 +12,7 @@ import { t } from "../../services/i18n";
 import { createSearchScheduler, createNoteFromSuggestion, getCommandSuggestions, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
 import { escapeHtml } from "../../services/utils";
 import { useAutocomplete } from "./FormAutocomplete";
+import { FormDropdownDivider } from "./FormList";
 import { useSyncedRef } from "./hooks";
 import Icon from "./Icon";
 import Popup from "./Popup";
@@ -387,17 +388,19 @@ function NoteSuggestionMenu({ autocomplete, searchingFor }: {
                 </li>
             )}
             {searchingFor === undefined && autocomplete.items.map((suggestion, index) => (
-                <li
-                    key={`${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`}
-                    id={autocomplete.itemId(index)}
-                    className={clsx("dropdown-item", index === autocomplete.activeIndex && "tn-menu-active")}
-                    role="option"
-                    aria-selected={index === autocomplete.activeIndex}
-                    onMouseEnter={() => autocomplete.setActiveIndex(index)}
-                    onClick={() => autocomplete.pick(suggestion)}
-                >
-                    <NoteSuggestionMenuItem suggestion={suggestion} />
-                </li>
+                <Fragment key={`${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`}>
+                    {index > 0 && isSearchRow(suggestion) && !isSearchRow(autocomplete.items[index - 1]) && <FormDropdownDivider />}
+                    <li
+                        id={autocomplete.itemId(index)}
+                        className={clsx("dropdown-item", index === autocomplete.activeIndex && "tn-menu-active")}
+                        role="option"
+                        aria-selected={index === autocomplete.activeIndex}
+                        onMouseEnter={() => autocomplete.setActiveIndex(index)}
+                        onClick={() => autocomplete.pick(suggestion)}
+                    >
+                        <NoteSuggestionMenuItem suggestion={suggestion} />
+                    </li>
+                </Fragment>
             ))}
         </menu>
     );
@@ -468,6 +471,11 @@ function NoteSuggestion({ suggestion }: { suggestion: Suggestion }) {
             </span>
         </div>
     );
+}
+
+/** The rows that run a search for the query, which the menu sets apart from the notes above them. */
+function isSearchRow(suggestion: Suggestion) {
+    return suggestion.action === "full-text-search" || suggestion.action === "search-notes";
 }
 
 function suggestionIcon(suggestion: Suggestion) {

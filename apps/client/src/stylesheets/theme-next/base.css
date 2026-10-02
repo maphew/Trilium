@@ -332,8 +332,8 @@ html body .dropdown-item[disabled] {
     position: absolute;
     content: "";
     top: -1px;
-    inset-inline-start: calc(0px - var(--menu-padding-size));
-    inset-inline-end: calc(0px - var(--menu-padding-size));
+    inset-inline-start: calc(0px - var(--padding, var(--menu-padding-size)));
+    inset-inline-end: calc(0px - var(--padding, var(--menu-padding-size)));
     border-top: 1px solid var(--menu-item-delimiter-color);
 }
 
