@@ -67,6 +67,12 @@ function keepEditorFocused(
     };
 }
 
+/** The origin of a menu that opens below `anchor` and acts from `target`. */
+function getOriginBelow(anchor: Element, target: Element = anchor): LinkMenuOrigin {
+    const { left, bottom } = anchor.getBoundingClientRect();
+    return { pageX: left + window.scrollX, pageY: bottom + window.scrollY, target };
+}
+
 function getItems(e: LinkMenuOrigin | GeoMouseEvent): MenuItem<CommandNames>[] {
     return [ ...getOpenItems(e), getQuickEditItem() ];
 }
@@ -250,6 +256,7 @@ function getNtxId(e: LinkMenuOrigin | GeoMouseEvent) {
 
 export default {
     getItems,
+    getOriginBelow,
     getQuickEditItem,
     getOpenNoteItem,
     handleLinkContextMenuItem,

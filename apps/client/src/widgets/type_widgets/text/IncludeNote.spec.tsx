@@ -7,11 +7,13 @@ const {
     openTabWithNoteWithHoisting,
     triggerCommand,
     openContextMenu,
+    getOriginBelow,
     disposeInteractiveContent
 } = vi.hoisted(() => ({
     openTabWithNoteWithHoisting: vi.fn(),
     triggerCommand: vi.fn(),
     openContextMenu: vi.fn(),
+    getOriginBelow: vi.fn((anchor: Element) => ({ below: anchor })),
     disposeInteractiveContent: vi.fn()
 }));
 
@@ -19,7 +21,9 @@ vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
 vi.mock("../../../components/app_context", () => ({
     default: { tabManager: { openTabWithNoteWithHoisting }, triggerCommand }
 }));
-vi.mock("../../../menus/link_context_menu", () => ({ default: { openContextMenu } }));
+vi.mock("../../../menus/link_context_menu", () => ({
+    default: { openContextMenu, getOriginBelow }
+}));
 vi.mock("../../../services/content_renderer", () => ({ default: { disposeInteractiveContent } }));
 
 import IncludeNote, {
@@ -207,9 +211,9 @@ describe("IncludeNote", () => {
             placement: "afterCurrent"
         });
 
-        const { event, isStopped } = click(menu);
-        expect(isStopped).toBe(true);
-        expect(openContextMenu).toHaveBeenCalledWith("owner", event, ATTACHMENT_SCOPE);
+        expect(click(menu).isStopped).toBe(true);
+        expect(openContextMenu)
+            .toHaveBeenCalledWith("owner", { below: menu }, ATTACHMENT_SCOPE);
     });
 
     it("gives its content the screen, and takes it back from the overlay button", async () => {
@@ -292,9 +296,10 @@ describe("TinyIncludeNote", () => {
         expect(click(download).isStopped).toBe(true);
         expect(run).toHaveBeenCalledOnce();
 
-        const { event, isStopped } = click(button("include-note-menu"));
-        expect(isStopped).toBe(true);
-        expect(openContextMenu).toHaveBeenCalledWith("owner", event, ATTACHMENT_SCOPE);
+        const menu = button("include-note-menu");
+        expect(click(menu).isStopped).toBe(true);
+        expect(openContextMenu)
+            .toHaveBeenCalledWith("owner", { below: menu }, ATTACHMENT_SCOPE);
     });
 
     it("leaves out the description line when there is none", () => {

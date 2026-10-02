@@ -209,6 +209,19 @@ describe("handleLinkContextMenuItem", () => {
     });
 });
 
+describe("getOriginBelow", () => {
+    it("opens a menu below the anchor, from the anchor or from another element", () => {
+        const anchor = document.createElement("button");
+        anchor.getBoundingClientRect = () => ({ left: 40, bottom: 70 }) as DOMRect;
+        const include = document.createElement("figure");
+        const below = { pageX: 40 + window.scrollX, pageY: 70 + window.scrollY };
+
+        expect(linkContextMenu.getOriginBelow(anchor)).toEqual({ ...below, target: anchor });
+        expect(linkContextMenu.getOriginBelow(anchor, include))
+            .toEqual({ ...below, target: include });
+    });
+});
+
 describe("openContextMenu", () => {
     it("shows the menu at the pointer and routes the choice with the link's state", async () => {
         const event = contextMenuEvent();

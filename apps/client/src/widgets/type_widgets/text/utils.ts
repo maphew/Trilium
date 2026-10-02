@@ -1,5 +1,5 @@
 import { attachmentIcon } from "@triliumnext/commons";
-import { h } from "preact";
+import { h, type JSX } from "preact";
 
 import appContext from "../../../components/app_context";
 import linkContextMenu from "../../../menus/link_context_menu";
@@ -31,7 +31,7 @@ export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>,
             notePath: note.noteId,
             actions: getNoteActions(note.noteId)
         });
-        await content_renderer.mountInteractiveWidget(box, getWrapper(el));
+        await mountIncludeBox(el, box);
         return;
     }
 
@@ -55,7 +55,7 @@ export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>,
         contentType: type,
         notePath: note.noteId
     });
-    await content_renderer.mountInteractiveWidget(box, getWrapper(el));
+    await mountIncludeBox(el, box, $renderedContent);
 }
 
 /**
@@ -87,7 +87,7 @@ export async function loadIncludedAttachment(
             viewScope,
             actions: [ getOpenExternallyAction(attachment), getDownloadAction(attachment) ]
         });
-        await content_renderer.mountInteractiveWidget(box, getWrapper(el));
+        await mountIncludeBox(el, box);
         return;
     }
 
@@ -109,6 +109,21 @@ export async function loadIncludedAttachment(
         notePath: attachment.ownerId,
         viewScope
     });
+    await mountIncludeBox(el, box, $renderedContent);
+}
+
+/**
+ * Mounts `box` in the include `el`. An include that left the page while it loaded gets no box,
+ * and `content` rendered for it is disposed: `watchIncludedNotes()` has already passed it.
+ */
+async function mountIncludeBox(el: HTMLElement, box: JSX.Element, content?: JQuery<HTMLElement>) {
+    if (!el.isConnected) {
+        if (content) {
+            content_renderer.disposeInteractiveContent(content);
+        }
+        return;
+    }
+
     await content_renderer.mountInteractiveWidget(box, getWrapper(el));
 }
 
@@ -144,12 +159,7 @@ function getWrapper(el: HTMLElement) {
  */
 export async function openIncludeNoteMenu(include: HTMLElement, anchor: HTMLElement) {
     const { noteId, attachmentId } = include.dataset;
-    const { left, bottom } = anchor.getBoundingClientRect();
-    const origin = {
-        pageX: left + window.scrollX,
-        pageY: bottom + window.scrollY,
-        target: include
-    };
+    const origin = linkContextMenu.getOriginBelow(anchor, include);
 
     if (attachmentId) {
         const attachment = await froca.getAttachment(attachmentId, true);

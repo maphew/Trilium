@@ -209,7 +209,8 @@ function MoreActionsButton({ notePath, viewScope }: { notePath: string; viewScop
             text={t("common.more_actions")}
             onClick={(e) => {
                 e.stopPropagation();
-                void linkContextMenu.openContextMenu(notePath, e, viewScope);
+                const origin = linkContextMenu.getOriginBelow(e.currentTarget);
+                void linkContextMenu.openContextMenu(notePath, origin, viewScope);
             }}
         />
     );

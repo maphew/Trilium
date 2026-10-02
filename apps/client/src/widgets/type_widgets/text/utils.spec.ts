@@ -28,7 +28,10 @@ vi.mock("../../../services/attachment_actions", () => ({
     getDownloadAction: vi.fn()
 }));
 vi.mock("../../../menus/link_context_menu", () => ({
-    default: { openContextMenu: vi.fn() }
+    default: {
+        openContextMenu: vi.fn(),
+        getOriginBelow: vi.fn((anchor: Element, target: Element) => ({ anchor, target }))
+    }
 }));
 
 import linkContextMenu from "../../../menus/link_context_menu";
@@ -90,8 +93,18 @@ function lastMount() {
     return { type: vnode.type, props: vnode.props, container: call[1] };
 }
 
+afterEach(() => {
+    document.body.replaceChildren();
+});
+
+/** Puts `element` in the page, where the includes that load are. */
+function inPage<T extends HTMLElement>(element: T) {
+    document.body.append(element);
+    return element;
+}
+
 function createWrapper() {
-    const wrapper = document.createElement("div");
+    const wrapper = inPage(document.createElement("div"));
     wrapper.className = "include-note-wrapper";
     return wrapper;
 }
@@ -135,7 +148,7 @@ describe("loadIncludedNote", () => {
     it("mounts a tiny box with the note's path, without the note or a caption", async () => {
         const actions = [ action("edit"), action("open") ];
         vi.mocked(getNoteActions).mockReturnValue(actions);
-        const figure = document.createElement("figure");
+        const figure = inPage(document.createElement("figure"));
         figure.className = "include-note";
         figure.dataset.boxSize = "tiny";
         figure.innerHTML = "<figcaption>Caption</figcaption>";
@@ -227,7 +240,7 @@ describe("loadIncludedAttachment", () => {
 
 describe("the element an include box is mounted in", () => {
     it("is a wrapper created in a read-only include ahead of its caption", async () => {
-        const figure = document.createElement("figure");
+        const figure = inPage(document.createElement("figure"));
         figure.className = "include-note";
         figure.dataset.boxSize = "expandable";
         figure.innerHTML = "&nbsp;<figcaption>Caption</figcaption>";
@@ -248,7 +261,7 @@ describe("the element an include box is mounted in", () => {
     });
 
     it("is a wrapper created in a legacy <section> include", async () => {
-        const section = document.createElement("section");
+        const section = inPage(document.createElement("section"));
         section.className = "include-note";
         section.dataset.boxSize = "medium";
 
@@ -259,7 +272,7 @@ describe("the element an include box is mounted in", () => {
     });
 
     it("is the wrapper an editor include holds, leaving the editor's own elements", async () => {
-        const figure = document.createElement("figure");
+        const figure = inPage(document.createElement("figure"));
         figure.className = "include-note ck-widget";
         figure.dataset.boxSize = "full";
         const wrapper = createWrapper();
@@ -275,9 +288,36 @@ describe("the element an include box is mounted in", () => {
     });
 });
 
+describe("an include that leaves the page while it loads", () => {
+    it("gets no box, and the content rendered for it is disposed", async () => {
+        const loads: [ (wrapper: HTMLElement) => Promise<void>, boolean ][] = [
+            [ (wrapper) => loadIncludedNote("noteY", $(wrapper), "medium"), true ],
+            [ (wrapper) => loadIncludedNote("noteY", $(wrapper), "tiny"), false ],
+            [ (wrapper) => loadIncludedAttachment("att1", $(wrapper), "full"), true ],
+            [ (wrapper) => loadIncludedAttachment("att1", $(wrapper), "tiny"), false ]
+        ];
+
+        for (const [ load, rendersContent ] of loads) {
+            vi.mocked(content_renderer.mountInteractiveWidget).mockClear();
+            vi.mocked(content_renderer.disposeInteractiveContent).mockClear();
+            const wrapper = createWrapper();
+            vi.mocked(link.createLink).mockImplementation(async () => {
+                wrapper.remove();
+                return $(title);
+            });
+
+            await load(wrapper);
+
+            expect(content_renderer.mountInteractiveWidget).not.toHaveBeenCalled();
+            expect(vi.mocked(content_renderer.disposeInteractiveContent).mock.calls
+                .map(([ $element ]) => $element[0])).toEqual(rendersContent ? [ content ] : []);
+        }
+    });
+});
+
 describe("refreshIncludedNote", () => {
     it("reloads every include of the note, of either element", async () => {
-        const container = document.createElement("div");
+        const container = inPage(document.createElement("div"));
         container.innerHTML = `<figure class="include-note" data-note-id="noteY"></figure>`
             + `<section class="include-note" data-note-id="noteY"></section>`
             + `<figure class="include-note" data-note-id="other"></figure>`;
@@ -348,29 +388,27 @@ describe("watchIncludedNotes", () => {
 describe("openIncludeNoteMenu", () => {
     it("opens the menu of the note or attachment an include shows, below the anchor", async () => {
         const anchor = document.createElement("button");
-        anchor.getBoundingClientRect = () => ({ left: 40, bottom: 70 }) as DOMRect;
-        const origin = { pageX: 40 + window.scrollX, pageY: 70 + window.scrollY };
-        const noteInclude = document.createElement("figure");
+        const noteInclude = inPage(document.createElement("figure"));
         noteInclude.dataset.noteId = "noteY";
-        const embed = document.createElement("figure");
+        const embed = inPage(document.createElement("figure"));
         embed.dataset.attachmentId = "att1";
 
         await openIncludeNoteMenu(noteInclude, anchor);
         await openIncludeNoteMenu(embed, anchor);
 
         expect(vi.mocked(linkContextMenu.openContextMenu).mock.calls).toEqual([
-            [ "noteY", { ...origin, target: noteInclude }, {} ],
-            [ "owner", { ...origin, target: embed }, ATTACHMENT_SCOPE ]
+            [ "noteY", { anchor, target: noteInclude }, {} ],
+            [ "owner", { anchor, target: embed }, ATTACHMENT_SCOPE ]
         ]);
     });
 
     it("opens nothing for an include of a deleted attachment, or of nothing", async () => {
         vi.mocked(froca.getAttachment).mockResolvedValue(null);
-        const embed = document.createElement("figure");
+        const embed = inPage(document.createElement("figure"));
         embed.dataset.attachmentId = "att1";
 
         await openIncludeNoteMenu(embed, document.createElement("button"));
-        await openIncludeNoteMenu(document.createElement("figure"), document.createElement("button"));
+        await openIncludeNoteMenu(inPage(document.createElement("figure")), document.createElement("button"));
 
         expect(linkContextMenu.openContextMenu).not.toHaveBeenCalled();
     });
