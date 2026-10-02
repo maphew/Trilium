@@ -173,21 +173,22 @@ describe("NoteAutocomplete's suggestion list", () => {
     }
 
     function rows() {
-        return [ ...document.querySelectorAll<HTMLElement>(".algolia-autocomplete .aa-dropdown-menu .aa-suggestion") ];
+        return [ ...document.querySelectorAll<HTMLElement>(".note-autocomplete-menu > .tn-menu-scroll > .dropdown-item") ];
     }
 
-    it("lists the notes in the plugin's markup, the first one highlighted", async () => {
+    it("lists the notes as the rows of a menu, the first one highlighted", async () => {
         const input = await mount();
         await type(input, "al");
 
         expect(getNoteSuggestions).toHaveBeenLastCalledWith("al");
         const [ alpha, beta ] = rows();
         expect(rows()).toHaveLength(2);
-        expect(alpha.closest(".aa-suggestions")?.parentElement?.className).toBe("aa-dataset-0");
-        expect(alpha.className).toBe("aa-suggestion aa-cursor");
-        expect(alpha.querySelector(".note-suggestion .icon")?.className).toBe("icon bx bx-file");
+        expect(document.querySelector(".note-autocomplete-menu")?.className)
+            .toContain("dropdown-menu show tn-dropdown-menu tn-menu-keyboard");
+        expect(alpha.className).toBe("dropdown-item tn-menu-active");
+        expect(alpha.querySelector(".tn-icon")?.className).toBe("bx bx-file tn-icon");
         expect(alpha.querySelector(".search-result-title")?.innerHTML).toBe("<b>Al</b>pha");
-        expect(beta.querySelector(".icon")?.className).toBe("icon bx bx-note");
+        expect(beta.querySelector(".tn-icon")?.className).toBe("bx bx-note tn-icon");
         expect(beta.querySelector(".search-result-attributes")?.textContent).toBe("#tag");
         expect(input.getAttribute("aria-expanded")).toBe("true");
         expect(input.getAttribute("aria-activedescendant")).toBe(alpha.id);
@@ -206,10 +207,9 @@ describe("NoteAutocomplete's suggestion list", () => {
         const input = await mount();
         await type(input, "x");
 
-        expect(rows().map((row) => row.querySelector(".icon")?.className)).toEqual([
-            "icon bx bx-search", "icon bx bx-plus", "icon bx bx-subdirectory-right", "icon bx bx-link-external", "icon bx bx-note"
+        expect(rows().map((row) => row.querySelector(".tn-icon")?.className)).toEqual([
+            "bx bx-search tn-icon", "bx bx-plus tn-icon", "bx bx-subdirectory-right tn-icon", "bx bx-link-external tn-icon", "bx bx-note tn-icon"
         ]);
-        expect(rows()[0].querySelector(".note-suggestion")?.classList.contains("search-notes-action")).toBe(true);
         expect(rows()[4].textContent).toBe("T");
     });
 
@@ -219,7 +219,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         const input = await mount({ onChange, noteIdChanged });
         await type(input, "b");
         await press(input, "ArrowDown");
-        expect(rows()[1].classList.contains("aa-cursor")).toBe(true);
+        expect(rows()[1].classList.contains("tn-menu-active")).toBe(true);
 
         await press(input, "Enter");
         expect(onChange).toHaveBeenCalledWith(notes[1]);
@@ -310,7 +310,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(menu?.querySelectorAll(".aa-suggestion")).toHaveLength(2);
         // In the host's flow, as `autocomplete.js` left it: its contained menu had only `display: block`.
         expect(menu?.hasAttribute("style")).toBe(false);
-        expect(document.querySelector(".algolia-autocomplete")).toBeNull();
+        expect(document.querySelector(".note-autocomplete-menu")).toBeNull();
 
         await act(async () => {
             input.focus();
@@ -334,18 +334,22 @@ describe("NoteAutocomplete's suggestion list", () => {
     });
 
     it("lists the commands for a `>` in a command palette, in the plugin's markup", async () => {
-        const input = await mount({ opts: { isCommandPalette: true } });
+        // In a host's container, as Jump to Note lists them.
+        const host = document.createElement("div");
+        document.body.append(host);
+        const input = await mount({ opts: { isCommandPalette: true }, container: { current: host } });
         await type(input, "> cmd");
 
         expect(getCommandSuggestions).toHaveBeenLastCalledWith("> cmd");
         expect(getNoteSuggestions).not.toHaveBeenCalled();
-        const [ described, bare ] = rows();
+        const [ described, bare ] = host.querySelectorAll<HTMLElement>(".aa-suggestion");
         expect(described.querySelector(".command-suggestion > .command-icon")?.className).toBe("command-icon bx bx-cog");
         expect(described.querySelector(".command-content > .command-name")?.textContent).toBe("Cmd One");
         expect(described.querySelector(".command-content > .command-description")?.textContent).toBe("Does a thing");
         expect(described.querySelector(".command-suggestion > kbd.command-shortcut")?.textContent).toBe("Ctrl+1");
         expect(bare.querySelector(".command-icon")?.className).toBe("command-icon bx bx-terminal");
         expect(bare.querySelector(".command-description, .command-shortcut")).toBeNull();
+        host.remove();
 
         // Elsewhere a `>` is only text to search for.
         const plain = await mount();
@@ -496,7 +500,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         input.getBoundingClientRect = () => DOMRect.fromRect({ width: 200, height: 30 });
         await type(input, "a");
 
-        expect(document.querySelector<HTMLElement>(".algolia-autocomplete")?.style.width).toBe("320px");
+        expect(document.querySelector<HTMLElement>(".note-autocomplete-menu")?.style.width).toBe("320px");
     });
 
     it("picks a clicked note", async () => {

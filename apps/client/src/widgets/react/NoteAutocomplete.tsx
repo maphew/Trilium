@@ -1,3 +1,4 @@
+import "./Menu.css";
 import "./NoteAutocomplete.css";
 
 import clsx from "clsx";
@@ -10,6 +11,7 @@ import { t } from "../../services/i18n";
 import { createSearchScheduler, getCommandSuggestions, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
 import { useAutocomplete } from "./FormAutocomplete";
 import { useSyncedRef } from "./hooks";
+import Icon from "./Icon";
 import Popup from "./Popup";
 import RawHtml from "./RawHtml";
 
@@ -262,14 +264,14 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                     <Popup
                         anchor={groupRef.current}
                         placement="bottom-start"
-                        capHeight={false}
-                        className="algolia-autocomplete"
+                        // The pointer moves the highlighted row, so `:hover` marks no second one.
+                        className="dropdown-menu show tn-dropdown-menu tn-menu-keyboard note-autocomplete-menu"
                         // The list spans the whole field, buttons included.
                         style={{ width: `${groupRef.current.getBoundingClientRect().width}px` }}
                         escapeDismisses={false}
                         onDismiss={autocomplete.close}
                     >
-                        <NoteSuggestionList autocomplete={autocomplete} searchingFor={isSearchingFullText ? value : undefined} />
+                        <NoteSuggestionMenu autocomplete={autocomplete} searchingFor={isSearchingFullText ? value : undefined} />
                     </Popup>
                 ))}
         </div>
@@ -314,6 +316,63 @@ function NoteSuggestionList({ autocomplete, searchingFor }: {
                     ))}
                 </span>
             </div>
+        </span>
+    );
+}
+
+/**
+ * The list of suggestions as the rows of a menu, for the popup, so it looks like the app's other
+ * dropdowns. With `searchingFor`, it shows a row saying a search is in progress instead.
+ */
+function NoteSuggestionMenu({ autocomplete, searchingFor }: {
+    autocomplete: ReturnType<typeof useAutocomplete<Suggestion>>;
+    searchingFor?: string;
+}) {
+    return (
+        <menu
+            className="tn-menu-scroll"
+            role="listbox"
+            // Keeps the input focused, so its blur does not close the list before the click lands
+            // on a suggestion.
+            onMouseDown={(e) => e.preventDefault()}
+        >
+            {searchingFor !== undefined && (
+                <li className="dropdown-item disabled">
+                    <NoteSuggestionMenuItem suggestion={{ noteTitle: searchingFor, highlightedNotePathTitle: t("quick-search.searching") }} />
+                </li>
+            )}
+            {searchingFor === undefined && autocomplete.items.map((suggestion, index) => (
+                <li
+                    key={`${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`}
+                    id={autocomplete.itemId(index)}
+                    className={clsx("dropdown-item", index === autocomplete.activeIndex && "tn-menu-active")}
+                    role="option"
+                    aria-selected={index === autocomplete.activeIndex}
+                    onMouseEnter={() => autocomplete.setActiveIndex(index)}
+                    onClick={() => autocomplete.pick(suggestion)}
+                >
+                    <NoteSuggestionMenuItem suggestion={suggestion} />
+                </li>
+            ))}
+        </menu>
+    );
+}
+
+/** One row of the menu, laid out as the rows of `FormListItem` are. */
+function NoteSuggestionMenuItem({ suggestion }: { suggestion: Suggestion }) {
+    const isCommand = suggestion.action === "command";
+    const icon = isCommand ? (suggestion.icon || "bx bx-terminal") : suggestionIcon(suggestion);
+    const description = isCommand ? suggestion.commandDescription : suggestion.highlightedAttributeSnippet;
+
+    return (
+        <span>
+            <Icon icon={icon} />
+            <span className="tn-menu-gap" />
+            <div className="note-suggestion-text">
+                <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
+                {description && <RawHtml className="search-result-attributes" html={description} />}
+            </div>
+            {isCommand && suggestion.commandShortcut && <kbd>{suggestion.commandShortcut}</kbd>}
         </span>
     );
 }

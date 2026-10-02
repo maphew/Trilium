@@ -36,22 +36,21 @@
     }
 }
 
-.algolia-autocomplete {
-    z-index: 2000 !important;
+.note-autocomplete-menu .dropdown-item {
+    /* Outranks Bootstrap's `nowrap`, so a long note path wraps within the field's width. */
+    white-space: normal;
+
+    .search-result-attributes {
+        display: block;
+        font-size: small;
+        color: var(--muted-text-color);
+    }
 }
 
-.algolia-autocomplete .aa-dropdown-menu {
-    width: 100%;
-    background-color: var(--main-background-color);
-    border: 1px solid var(--main-border-color);
-    border-top: none;
-    max-height: 500px;
-    overflow: auto;
-    padding: 0;
-    margin: 0;
-}
-
-/* In a popup and in a host's container alike, as `autocomplete.js` set them inline. */
+/*
+ * The lists in a host's container, such as the empty tab's and Jump to Note's, in the markup of
+ * `autocomplete.js`. It set the `display` inline.
+ */
 span.aa-dropdown-menu,
 span.aa-dropdown-menu .aa-suggestions {
     display: block;
