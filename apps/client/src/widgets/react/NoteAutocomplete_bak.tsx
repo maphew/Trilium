@@ -1,10 +1,9 @@
-import { t } from "../../services/i18n";
 import { useEffect } from "preact/hooks";
 import note_autocomplete from "../../services/note_autocomplete";
 import { useSyncedRef } from "./hooks";
 import type { NoteAutocompleteProps } from "./NoteAutocomplete";
 
-export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, onChange, onTextChange, container, containerStyle, opts, noteId, noteIdChanged, onKeyDown, onBlur, readOnly, tabIndex }: NoteAutocompleteProps) {
+export default function NoteAutocomplete({ inputRef: externalInputRef, text, onChange, container, opts, noteId, noteIdChanged }: NoteAutocompleteProps) {
     const ref = useSyncedRef<HTMLInputElement>(externalInputRef);
 
     useEffect(() => {
@@ -20,15 +19,6 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
             ...opts,
             container: container?.current
         });
-        if (onTextChange) {
-            $autoComplete.on("input", () => onTextChange($autoComplete[0].value));
-        }
-        if (onKeyDown) {
-            $autoComplete.on("keydown", (e) => e.originalEvent && onKeyDown(e.originalEvent));
-        }
-        if (onBlur) {
-            $autoComplete.on("blur", () => onBlur($autoComplete.getSelectedNoteId() ?? ""));
-        }
     }, [opts, container?.current]);
 
     // On change event handlers.
@@ -66,29 +56,11 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     }, [opts, container?.current, onChange, noteIdChanged])
 
     useEffect(() => {
-        if (!ref.current) return;
-        const $autoComplete = $(ref.current);
+        if (!ref.current || noteId || !text) return;
 
-        if (noteId) {
-            $autoComplete.setNote(noteId);
-        } else if (text) {
-            note_autocomplete.setText($autoComplete, text);
-        } else {
-            $autoComplete.setSelectedNotePath("");
-            $autoComplete.autocomplete("val", "");
-            ref.current.value = "";
-        }
+        // Opens the dropdown on the given text.
+        note_autocomplete.setText($(ref.current), text);
     }, [text, noteId]);
 
-    return (
-        <div className="input-group" style={containerStyle}>
-            <input
-                id={id}
-                ref={ref}
-                className="note-autocomplete form-control"
-                readOnly={readOnly}
-                tabIndex={tabIndex}
-                placeholder={placeholder ?? t("add_link.search_note")} />
-        </div>
-    );
+    return null;
 }
