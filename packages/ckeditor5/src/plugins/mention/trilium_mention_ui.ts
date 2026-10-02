@@ -481,6 +481,7 @@ export default class TriliumMentionUI extends Plugin {
                 const { left, top, width, height } = this._caretRect(marker);
                 return new DOMRect(left, top, width, height);
             },
+            editable: this.editor.editing.view.getDomRoot() ?? null,
             select: (index) => {
                 this._selectedIndex = index;
                 this._drawList(marker);

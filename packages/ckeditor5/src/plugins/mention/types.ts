@@ -91,6 +91,11 @@ export interface MentionListState {
     selectedIndex: number;
     /** Where the caret ends the query, in viewport coordinates. */
     caretRect(): DOMRect;
+    /**
+     * The editable element the caret is in. A view anchored at {@link caretRect} watches the
+     * containers around it, so the list follows the caret as they scroll.
+     */
+    editable: HTMLElement | null;
     /** Highlights an entry, as the pointer moving over it does. */
     select( index: number ): void;
     /** Commits an entry, as a click on it does. */

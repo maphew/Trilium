@@ -74,7 +74,8 @@ function MentionMenu({ state, elementRef, scrollsToSelection, onPointerSelect }:
     return (
         <Popup
             // A new anchor each time the list changes, so it is placed again at the caret as it moves.
-            anchor={{ getBoundingClientRect: state.caretRect }}
+            // Its `contextElement` places it again as the containers around the editor scroll.
+            anchor={{ getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined }}
             elementRef={elementRef}
             // The pointer moves the highlighted row, so `:hover` marks no second one.
             className={clsx("dropdown-menu show tn-dropdown-menu tn-menu-keyboard note-autocomplete-menu mention-list-menu", state.className)}

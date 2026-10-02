@@ -613,6 +613,7 @@ describe("TriliumMentionUI", () => {
             expect(shown?.entries[0].marker).toBe("#");
             expect(shown?.entries[0].render()).toBe("rendered #alpha");
             expect(shown?.caretRect().height).toBeGreaterThan(0);
+            expect(shown?.editable).toBe(editor.editing.view.getDomRoot());
         });
 
         it("moves the selection with the arrow keys, wrapping, and commits it on Enter", async () => {

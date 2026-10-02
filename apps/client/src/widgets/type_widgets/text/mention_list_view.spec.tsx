@@ -27,6 +27,7 @@ describe("createMentionListView", () => {
             className: "ck-mention-list",
             selectedIndex: 0,
             caretRect: () => new DOMRect(10, 10, 1, 16),
+            editable: null,
             select: vi.fn(),
             pick: vi.fn(),
             ...overrides
@@ -79,6 +80,29 @@ describe("createMentionListView", () => {
         scroll.mockClear();
         await act(async () => view.show({ ...state, selectedIndex: 2 }));
         expect(scroll.mock.contexts[0]).toBe(rows()[2]);
+    });
+
+    it("follows the caret as a container around the editor scrolls", async () => {
+        const scroller = document.createElement("div");
+        scroller.style.overflow = "auto";
+        const editable = document.createElement("div");
+        scroller.append(editable);
+        document.body.append(scroller);
+        let caretTop = 100;
+        // Floating UI reads the viewport and the popup's size, which happy-dom does not lay out.
+        vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1000);
+        vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
+        vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(200);
+        vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+
+        await show(stateWith({ editable, caretRect: () => new DOMRect(10, caretTop, 1, 16) }));
+        const menu = document.querySelector<HTMLElement>(".mention-list-menu");
+        await vi.waitFor(() => expect(menu?.style.top).toBe("116px"));
+
+        caretTop = 40;
+        scroller.dispatchEvent(new Event("scroll"));
+        await vi.waitFor(() => expect(menu?.style.top).toBe("56px"));
+        scroller.remove();
     });
 
     it("reports the row the pointer moves onto and the one clicked, not a row under a still pointer", async () => {
