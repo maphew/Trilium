@@ -518,7 +518,7 @@
   "search_string": {
     "search_prefix": "Cerca:",
     "title_column": "Stringa di ricerca:",
-    "placeholder": "parole chiave a testo completo, #tag = valore...",
+    "placeholder": "Ctrl+Spazio per i suggerimenti, @ per inserire una nota, Maiusc+Invio per iniziare una nuova riga, Invio per effettuare una ricerca",
     "search_syntax": "Sintassi di ricerca",
     "also_see": "vedi anche",
     "complete_help": "aiuto completo sulla sintassi di ricerca",
@@ -1014,7 +1014,8 @@
     "box_size_medium": "media (~ 30 righe)",
     "box_size_full": "completa (la casella mostra il testo completo)",
     "button_include": "Includi nota",
-    "box_size_expandable": "espandibile (nascosto per impostazione predefinita)"
+    "box_size_expandable": "espandibile (nascosto per impostazione predefinita)",
+    "box_size_tiny": "piccolo (una sola riga con il titolo e le azioni)"
   },
   "jump_to_note": {
     "search_placeholder": "Cerca una nota per nome oppure digita > per i comandi...",
@@ -1143,8 +1144,8 @@
     "run": "Definisce su quali eventi deve essere eseguito lo script. I valori possibili sono:\n<ul>\n<li>frontendStartup - quando il frontend Trilium viene avviato (o aggiornato), ma non su dispositivi mobili.</li>\n<li>mobileStartup - quando il frontend Trilium viene avviato (o aggiornato) su dispositivi mobili.</li>\n<li>backendStartup - quando viene avviato il backend Trilium.</li>\n<li>hourly - eseguire una volta all'ora. È possibile utilizzare l'etichetta aggiuntiva <code>runAtHour</code> per specificare a che ora.</li>\n<li>daily - eseguire una volta al giorno.</li>\n</ul>",
     "run_at_hour": "A che ora deve essere eseguito. Deve essere utilizzato insieme a <code>#run=hourly</code>. Può essere definito più volte per più esecuzioni durante il giorno.",
     "disable_inclusion": "Gli script con questa etichetta non saranno inclusi nell'esecuzione dello script principale.",
-    "sorted": "Mantiene le note figlie ordinate alfabeticamente per titolo.",
-    "sort_direction": "L'opzione <code>#sorted</code> ordina le note figlie in ordine: <code>desc</code> per l'ordinamento decrescente, qualsiasi altra opzione per l'ordinamento crescente. Viene ignorata a meno che non sia impostata l'opzione <code>#sorted</code>.",
+    "sorted": "Mantiene le note figlie ordinate in ordine alfabetico per titolo. Un valore ordina invece in base ad altri criteri: livelli separati da virgole di <code>titolo</code>, <code>dataCreazione</code>, <code>dataModifica</code> o un nome di etichetta, ciascuno seguito facoltativamente da <code>asc</code> o <code>desc</code>, ad esempio <code>priorità desc, dataScadenza</code>.",
+    "sort_direction": "L'opzione <code>#sorted</code> ordina le note figlie in ordine: <code>desc</code> per l'ordinamento decrescente, qualsiasi altra opzione per quello crescente. Se un livello è seguito dal proprio <code>asc</code> o <code>desc</code>, quest'ultimo viene ignorato. Viene ignorato a meno che non sia impostato <code>#sorted</code>.",
     "sort_folders_first": "Le cartelle (note con figlie) devono essere ordinate in cima.",
     "top": "Mantieni la nota in cima al suo genitore (si applica solo ai genitori ordinati).",
     "hide_promoted_attributes": "Nascondi gli attributi promossi in questa nota.",
