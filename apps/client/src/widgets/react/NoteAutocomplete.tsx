@@ -351,7 +351,8 @@ function NoteSuggestionList({ autocomplete, searchingFor }: {
 }) {
     return (
         <span
-            className="aa-dropdown-menu"
+            // Faded at an edge only where a host sets `--scroll-fade-top` or `--scroll-fade-bottom`.
+            className="aa-dropdown-menu scroll-edge-fade"
             role="listbox"
             // Keeps the input focused, so its blur does not close the list before the click lands
             // on a suggestion.
