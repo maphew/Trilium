@@ -295,14 +295,15 @@ describe("openContextMenu", () => {
     describe("from the title row of an attachment embed", () => {
         const execute = vi.fn();
         const selectIncludeAt = vi.fn();
-        const convertCommand = { isEnabled: true };
         let hasPlugin = true;
+        let hasCommand = true;
         let editable: HTMLElement;
 
         beforeEach(() => {
-            selectIncludeAt.mockReturnValue(true);
-            convertCommand.isEnabled = true;
+            selectIncludeAt.mockReset().mockReturnValue(true);
+            execute.mockClear();
             hasPlugin = true;
+            hasCommand = true;
             mocks.getAttachmentOfNote.mockResolvedValue({ attachmentId: "att-1" });
             mocks.getAttachmentActionGroups.mockReturnValue([
                 [ { title: "Download", icon: "bx bx-download", run: vi.fn() } ]
@@ -310,8 +311,8 @@ describe("openContextMenu", () => {
             mocks.getTextEditorContaining.mockResolvedValue({
                 plugins: { has: () => hasPlugin, get: () => ({ selectIncludeAt }) },
                 commands: {
-                    get: (name: string) => (name === "convertEmbedToLink"
-                        ? convertCommand
+                    get: (name: string) => (hasCommand && name === "convertEmbedToLink"
+                        ? { isEnabled: true }
                         : undefined)
                 },
                 execute
@@ -319,7 +320,7 @@ describe("openContextMenu", () => {
             editable = document.createElement("div");
             editable.className = "ck-editor__editable";
             editable.setAttribute("contenteditable", "true");
-            editable.innerHTML = `<section class="include-note">`
+            editable.innerHTML = `<section class="include-note" data-attachment-id="att-1">`
                 + `<div class="include-note-title-row">`
                 + `<h4 class="include-note-title"><span><a href="#">report.pdf</a></span></h4>`
                 + `<button class="include-note-menu"></button></div></section>`;
@@ -332,42 +333,54 @@ describe("openContextMenu", () => {
             return mocks.show.mock.lastCall?.[0].items;
         }
 
-        it("ends the menu with converting the embed to a link, selecting it first", async () => {
+        it("ends the menu with converting the embed, selected only once chosen", async () => {
+            const titleRow = editable.querySelector(".include-note-title-row");
+
             // Right-clicking the title, then pressing the menu button beside it.
             for (const selector of [ "a", "button.include-note-menu" ]) {
                 selectIncludeAt.mockClear();
                 execute.mockClear();
                 const items = await openOnTitle(selector);
 
-                const titleRow = editable.querySelector(".include-note-title-row");
-                expect(selectIncludeAt).toHaveBeenCalledWith(titleRow);
                 expect(items.slice(4)).toMatchObject([
                     { kind: "separator" },
                     { title: "Download" },
                     { title: "link_context_menu.convert_embed_to_link", uiIcon: "bx bx-link" }
                 ]);
+                expect(selectIncludeAt).not.toHaveBeenCalled();
+
                 items.at(-1).handler();
+                expect(selectIncludeAt).toHaveBeenCalledWith(titleRow);
                 expect(execute).toHaveBeenCalledWith("convertEmbedToLink");
             }
+
+            // An embed the editor cannot select is left as it is.
+            selectIncludeAt.mockReturnValue(false);
+            execute.mockClear();
+            (await openOnTitle()).at(-1).handler();
+            expect(execute).not.toHaveBeenCalled();
         });
 
-        it("leaves it out in a read-only note, or for an embed it cannot convert", async () => {
+        it("leaves it out in a read-only note, or outside an attachment embed", async () => {
             hasPlugin = false;
             expect(await openOnTitle()).toHaveLength(6);
-            expect(selectIncludeAt).not.toHaveBeenCalled();
 
             hasPlugin = true;
-            selectIncludeAt.mockReturnValue(false);
+            hasCommand = false;
             expect(await openOnTitle()).toHaveLength(6);
 
-            selectIncludeAt.mockReturnValue(true);
-            convertCommand.isEnabled = false;
+            // A title row outside an attachment embed is not looked up in the editor at all.
+            hasCommand = true;
+            const section = editable.querySelector("section");
+            section?.removeAttribute("data-attachment-id");
             expect(await openOnTitle()).toHaveLength(6);
+            expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(2);
 
-            convertCommand.isEnabled = true;
+            section?.setAttribute("data-attachment-id", "att-1");
             editable.removeAttribute("contenteditable");
             expect(await openOnTitle()).toHaveLength(6);
-            expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(3);
+            expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(2);
+            expect(selectIncludeAt).not.toHaveBeenCalled();
         });
     });
 

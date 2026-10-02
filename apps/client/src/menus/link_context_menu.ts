@@ -161,18 +161,23 @@ async function getConvertToLinkItem(e: ContextMenuEvent): Promise<MenuItem<Comma
     const titleRow = e.target instanceof Element
         ? e.target.closest<HTMLElement>(".include-note-title-row")
         : null;
-    const editor = await getEditingTextEditor(titleRow);
-    // `convertEmbedToLink` acts on the selected embed, so the embed of the menu is selected first.
+    const editor = titleRow?.closest("section.include-note[data-attachment-id]")
+        ? await getEditingTextEditor(titleRow)
+        : null;
     if (!titleRow || !editor?.plugins.has("IncludeNote")
-            || !editor.plugins.get("IncludeNote").selectIncludeAt(titleRow)
-            || !editor.commands.get("convertEmbedToLink")?.isEnabled) {
+            || !editor.commands.get("convertEmbedToLink")) {
         return null;
     }
 
     return {
         title: t("link_context_menu.convert_embed_to_link"),
         uiIcon: "bx bx-link",
-        handler: () => editor.execute("convertEmbedToLink")
+        handler: () => {
+            // `convertEmbedToLink` acts on the selected embed.
+            if (editor.plugins.get("IncludeNote").selectIncludeAt(titleRow)) {
+                editor.execute("convertEmbedToLink");
+            }
+        }
     };
 }
 

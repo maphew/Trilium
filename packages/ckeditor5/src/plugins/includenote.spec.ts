@@ -681,6 +681,28 @@ describe("IncludeNote with attachments", () => {
             .toBe(`<paragraph><reference href="${LINK_HREF}"></reference></paragraph>`));
     });
 
+    it("converts the embed that selectIncludeAt() selects from its title row", async () => {
+        editor.setData("<p>before</p>" + embedHtml());
+        const command = editor.commands.get(CONVERT_EMBED_TO_LINK_COMMAND);
+        const wrapper = renderEmbeds()?.[0];
+        if (!wrapper) {
+            throw new Error("Expected a rendered embed.");
+        }
+        const titleRow = document.createElement("div");
+        titleRow.className = "include-note-title-row";
+        wrapper.append(titleRow);
+        expect(command?.isEnabled).toBe(false);
+
+        expect(editor.plugins.get("IncludeNote").selectIncludeAt(titleRow)).toBe(true);
+        expect(command?.isEnabled).toBe(true);
+
+        await editor.execute(CONVERT_EMBED_TO_LINK_COMMAND);
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+            "<paragraph>before</paragraph>"
+            + `<paragraph><reference href="${LINK_HREF}"></reference></paragraph>`
+        );
+    });
+
     it("converts nothing when no attachment embed is selected", async () => {
         editor.setData(embedHtml() + "<p>after</p>");
         setModelData(editor.model, "<paragraph>foo[]bar</paragraph>");
