@@ -130,20 +130,19 @@ div.tn-tool-dialog {
 
  .jump-to-note-dialog .modal-dialog {
     --modal-background-color: var(--menu-background-color);
-    --modal-footer-background: transparent;
     --bs-modal-header-border-width: 0;
-    --bs-modal-footer-border-width: 0;
-    --bs-modal-footer-gap: 0;
 
     backdrop-filter: var(--dropdown-backdrop-filter);
 }
 
 .jump-to-note-dialog .modal-content {
     --bs-modal-header-padding-x: 0;
+    --jump-to-note-padding: 20px;
 
     box-shadow: 0 10px 20px rgba(0, 0, 0, var(--dropdown-shadow-opacity));
     border: 1px solid var(--dropdown-border-color);
-    padding: 20px;
+    /* The results end the dialog, holding its bottom padding themselves. */
+    padding: var(--jump-to-note-padding) var(--jump-to-note-padding) 0;
     border-radius: 8px;
 }
 
@@ -156,8 +155,13 @@ div.tn-tool-dialog {
     padding: 0 !important;
 }
 
-.jump-to-note-dialog .modal-footer {
-    padding-top: 26px;
+.jump-to-note-dialog .jump-to-note-results .aa-dropdown-menu {
+    /* Auto, as a fixed width would shift with the negative margin rather than grow by it. */
+    width: auto;
+    margin-inline-end: calc(0px - var(--jump-to-note-padding));
+    padding-inline-end: var(--jump-to-note-padding);
+    padding-bottom: var(--jump-to-note-padding);
+    scroll-padding-bottom: var(--jump-to-note-padding);
 }
 
 /* Search box wrapper */
