@@ -3,7 +3,7 @@ import note_autocomplete from "../../services/note_autocomplete";
 import { useSyncedRef } from "./hooks";
 import type { NoteAutocompleteProps } from "./NoteAutocomplete";
 
-export default function NoteAutocomplete({ inputRef: externalInputRef, text, onChange, opts, noteId, noteIdChanged }: NoteAutocompleteProps) {
+export default function NoteAutocomplete({ inputRef: externalInputRef, onChange, opts, noteIdChanged }: NoteAutocompleteProps) {
     const ref = useSyncedRef<HTMLInputElement>(externalInputRef);
 
     useEffect(() => {
@@ -39,13 +39,6 @@ export default function NoteAutocomplete({ inputRef: externalInputRef, text, onC
             };
         }
     }, [opts, onChange, noteIdChanged])
-
-    useEffect(() => {
-        if (!ref.current || noteId || !text) return;
-
-        // Opens the dropdown on the given text.
-        note_autocomplete.setText($(ref.current), text);
-    }, [text, noteId]);
 
     return null;
 }

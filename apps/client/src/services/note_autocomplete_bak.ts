@@ -63,13 +63,6 @@ function clearText($el: JQuery<HTMLElement>) {
     $el.trigger("input");
 }
 
-function setText($el: JQuery<HTMLElement>, text: string) {
-    $el.setSelectedNotePath("");
-    $el.autocomplete("val", text.trim());
-    $el.trigger("input");
-    $el.autocomplete("open");
-}
-
 function fullTextSearch($el: JQuery<HTMLElement>, options: Options) {
     const searchString = $el.autocomplete("val") as unknown as string;
     if (options.fastSearch === false || searchString?.trim().length === 0) {
@@ -311,6 +304,5 @@ function init() {
 
 export default {
     initNoteAutocomplete,
-    setText,
     init
 };

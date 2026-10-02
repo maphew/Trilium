@@ -607,17 +607,6 @@ describe("public helpers", () => {
         noteAutocomplete.init();
     });
 
-    it("setText sets the trimmed value and opens the dropdown", () => {
-        const $el = makeEl();
-        const onInput = vi.fn();
-        $el.on("input", onInput);
-        noteAutocomplete.setText($el, "  hello  ");
-        expect(lastCommandWith("open")).toBe(true);
-        expect($el.attr("data-note-path")).toBe("");
-        // re-triggers "input" so consumers tracking the live query stay in sync
-        expect(onInput).toHaveBeenCalled();
-    });
-
     it("returns early when the search string is blank (Shift+Enter on empty input)", () => {
         const $el = makeEl();
         noteAutocomplete.initNoteAutocomplete($el);

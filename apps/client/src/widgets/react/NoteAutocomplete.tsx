@@ -41,6 +41,11 @@ export interface NoteAutocompleteHandle {
     showRecentNotes(): void;
     /** Puts `>` in the field, lists every command and focuses the field. */
     showAllCommands(): void;
+    /**
+     * Puts `text`, trimmed, in the field and lists its suggestions, leaving the focus where it is.
+     * `selectedPath` is the note the text stands for, where it names one already.
+     */
+    setText(text: string, selectedPath?: string): void;
 }
 
 export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, container, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef }: NoteAutocompleteProps) {
@@ -48,16 +53,6 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     const groupRef = useRef<HTMLDivElement>(null);
     const [ value, setValue ] = useState("");
     const [ notePath, setNotePath ] = useState("");
-
-    useEffect(() => {
-        if (noteId) {
-            setNotePath(noteId);
-            void froca.getNote(noteId, true).then((note) => setValue(note?.title ?? ""));
-        } else {
-            setNotePath("");
-            setValue(text?.trim() ?? "");
-        }
-    }, [ text, noteId ]);
 
     const isCommandPalette = !!opts?.isCommandPalette;
     const source = useCallback(async (query: string) => (isCommandPalette && query.startsWith(">")
@@ -91,23 +86,42 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         schedule
     });
 
-    /** Puts `query` in the field, drops the selection, lists the suggestions and focuses the field. */
-    function showSuggestionsFor(query: string) {
-        setNotePath("");
+    /** Puts `query` in the field with `selectedPath` as its selection, and lists the suggestions. */
+    function showSuggestionsFor(query: string, selectedPath = "") {
+        setNotePath(selectedPath);
         setValue(query);
+        // Written at once as well, so a caller can select the text right after the call.
+        if (inputRef.current) inputRef.current.value = query;
         onTextChange?.(query);
         autocomplete.open();
+    }
+
+    function showAndFocus(query: string) {
+        showSuggestionsFor(query);
         inputRef.current?.focus();
     }
 
     // An empty query is answered with the recently visited notes.
-    const showRecentNotes = () => showSuggestionsFor("");
-    const showAllCommands = () => showSuggestionsFor(">");
+    const showRecentNotes = () => showAndFocus("");
+    const showAllCommands = () => showAndFocus(">");
+    const setText = (newText: string, selectedPath?: string) => showSuggestionsFor(newText.trim(), selectedPath);
 
     // Refreshed on every render, so a call from outside reaches the current callbacks.
     useLayoutEffect(() => {
-        if (handleRef) handleRef.current = { showRecentNotes, showAllCommands };
+        if (handleRef) handleRef.current = { showRecentNotes, showAllCommands, setText };
     });
+
+    useEffect(() => {
+        if (noteId) {
+            setNotePath(noteId);
+            void froca.getNote(noteId, true).then((note) => setValue(note?.title ?? ""));
+        } else if (text?.trim()) {
+            setText(text);
+        } else {
+            setNotePath("");
+            setValue("");
+        }
+    }, [ text, noteId ]);
 
     const showButtons = !opts?.hideAllButtons;
     const showGoToButton = showButtons && !opts?.hideGoToSelectedNoteButton;

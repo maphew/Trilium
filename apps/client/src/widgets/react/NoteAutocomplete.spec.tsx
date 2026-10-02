@@ -383,6 +383,35 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(document.activeElement).toBe(input);
     });
 
+    it("lists the suggestions for the text given", async () => {
+        const onTextChange = vi.fn();
+        const input = await mount({ text: "  al ", onTextChange });
+        await settle();
+
+        expect(input.value).toBe("al");
+        expect(onTextChange).toHaveBeenCalledWith("al");
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al");
+        expect(rows()).toHaveLength(2);
+    });
+
+    it("sets the text through the handle at once, with its note selected, and lists it", async () => {
+        const handleRef = createRef<NoteAutocompleteHandle>();
+        const input = await mount({ handleRef });
+        input.blur();
+
+        // Read before any render, as Add Link selects the text right after the call.
+        act(() => {
+            handleRef.current?.setText("  Beta ", "root/x/b");
+            expect(input.value).toBe("Beta");
+        });
+        await settle();
+
+        expect(input.dataset.notePath).toBe("root/x/b");
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("Beta");
+        expect(rows()).toHaveLength(2);
+        expect(document.activeElement).not.toBe(input);
+    });
+
     it("spans the whole field, the buttons included", async () => {
         const input = await mount();
         const group = input.closest(".input-group");

@@ -217,8 +217,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, _options?: Options) {
     return $el;
 }
 
-function setText(_$el: JQuery<HTMLElement>, _text: string) {}
-
 /** Installs the `$.fn` helpers `NoteAutocomplete` and the dialogs call, as no-ops. */
 function init() {
     $.fn.getSelectedNotePath = () => "";
@@ -234,6 +232,5 @@ function init() {
 export default {
     autocompleteSourceForCKEditor,
     initNoteAutocomplete,
-    setText,
     init
 };

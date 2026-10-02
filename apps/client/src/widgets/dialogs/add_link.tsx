@@ -6,7 +6,7 @@ import NoteAutocomplete, { type NoteAutocompleteHandle } from "../react/NoteAuto
 import { useRef, useState, useEffect } from "preact/hooks";
 import tree from "../../services/tree";
 import froca from "../../services/froca";
-import note_autocomplete, { Suggestion } from "../../services/note_autocomplete";
+import type { Suggestion } from "../../services/note_autocomplete";
 import { logError } from "../../services/ws";
 import FormGroup from "../react/FormGroup.js";
 import { refToJQuerySelector } from "../react/react_utils";
@@ -163,13 +163,8 @@ export default function AddLinkDialog() {
         if (!text) {
             handleRef.current?.showRecentNotes();
         } else {
-            note_autocomplete.setText($autocompleteEl, text);
-
-            // What `setText` fills the field with is something being typed, which has nothing picked
-            // behind it; the note the dialog opens on is picked already.
-            if (currentNotePath) {
-                $autocompleteEl.setSelectedNotePath(currentNotePath);
-            }
+            // The note the dialog opens on is picked already, so the field selects it.
+            handleRef.current?.setText(text, currentNotePath);
         }
 
         // to be able to quickly remove entered text
