@@ -275,6 +275,12 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
     // next render: a second Enter in the same task then reaches the host's form (issue #5669).
     const pickedSinceRender = useRef(false);
     pickedSinceRender.current = false;
+    // Whether the entries on show answer an older query than the field's text. An Enter pressed then
+    // is held in `enterHeld` and picks from the newer query's entries once they arrive.
+    const isStale = useRef(false);
+    const enterHeld = useRef(false);
+    const pickLatest = useRef(pick);
+    pickLatest.current = pick;
     // Set when the keyboard or a new list moves the highlight, which the effect below scrolls into view.
     // The pointer never sets it: scrolling a partly shown row under the pointer would move the list.
     const scrollToActive = useRef(false);
@@ -294,6 +300,8 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
     const close = useCallback(() => {
         // Invalidates in-flight queries too, so a late response cannot repopulate a closed dropdown.
         latestQuery.current++;
+        isStale.current = false;
+        enterHeld.current = false;
         setIsOpen(false);
         setActiveIndex(-1);
         setItems([]);
@@ -307,6 +315,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         }
 
         const queryId = ++latestQuery.current;
+        isStale.current = true;
         const lookUp = async () => {
             // A scheduler can run a lookup that a newer query (or a close) has since superseded.
             if (latestQuery.current !== queryId) return;
@@ -315,9 +324,15 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
 
             // A newer query (or a close) happened while awaiting.
             if (latestQuery.current === queryId) {
+                const index = autoActivate ? bestMatchIndex(suggestions, query, isHeading, textOf, fallbackIndex) : -1;
+                isStale.current = false;
                 setItems(suggestions);
                 scrollToActive.current = true;
-                setActiveIndex(autoActivate ? bestMatchIndex(suggestions, query, isHeading, textOf, fallbackIndex) : -1);
+                setActiveIndex(index);
+                if (enterHeld.current) {
+                    enterHeld.current = false;
+                    if (index >= 0) pickLatest.current(suggestions[index]);
+                }
             }
         };
 
@@ -379,7 +394,11 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
                     // Consume the key so it does not also reach the surrounding form or dialog.
                     e.preventDefault();
                     e.stopPropagation();
-                    pick(items[activeIndex]);
+                    if (isStale.current) {
+                        enterHeld.current = true;
+                    } else {
+                        pick(items[activeIndex]);
+                    }
                 } else if (openOnEnter) {
                     open();
                 }
@@ -418,7 +437,11 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         close,
         pick,
         /** Call once the field's text has changed. */
-        handleInput: open,
+        handleInput() {
+            // The lookup effect runs after the next render, and a key can arrive before it.
+            isStale.current = true;
+            open();
+        },
         handleFocus() {
             if (openOnFocus) open();
         },

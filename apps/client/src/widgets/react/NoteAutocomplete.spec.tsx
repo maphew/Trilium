@@ -327,6 +327,26 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(onChange).toHaveBeenCalledWith(notes[1]);
     });
 
+    it("holds an Enter pressed before the newer query's notes come, then picks among them", async () => {
+        const onChange = vi.fn();
+        const input = await mount({ onChange });
+        await type(input, "al");
+        expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+
+        let resolve: (suggestions: Suggestion[]) => void = () => {};
+        getNoteSuggestions.mockImplementationOnce(() => new Promise((r) => { resolve = r; }));
+        await type(input, "be");
+        const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+        await act(async () => { input.dispatchEvent(enter); });
+
+        expect(enter.defaultPrevented).toBe(true);
+        expect(onChange).not.toHaveBeenCalled();
+
+        await act(async () => { resolve([ notes[1] ]); });
+        expect(onChange).toHaveBeenCalledOnce();
+        expect(onChange).toHaveBeenCalledWith(notes[1]);
+    });
+
     it("searches on the first keystroke, and paces the rest of a burst", async () => {
         const input = await mount();
 
