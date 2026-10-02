@@ -257,7 +257,7 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
                 // the popup down before the created note could be filled in. The type menu belongs
                 // to it too: it is portaled to the body, as every dropdown is, so a
                 // press on one of its items lands outside the popup element.
-                || e.target.closest(`${AUTOCOMPLETE_DROPDOWN_SELECTOR}, .algolia-autocomplete, #context-menu-container, .modal, .modal-backdrop, .attr-input-label-type`)) {
+                || e.target.closest(`${AUTOCOMPLETE_DROPDOWN_SELECTOR}, .note-autocomplete-menu, #context-menu-container, .modal, .modal-backdrop, .attr-input-label-type`)) {
                 return;
             }
             onDismiss();

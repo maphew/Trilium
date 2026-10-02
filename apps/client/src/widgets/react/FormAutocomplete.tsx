@@ -263,6 +263,10 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
 
     // Discards responses of queries that were superseded while in flight.
     const latestQuery = useRef(0);
+    // The Enter handler reads the list as last rendered, so a pick holds Enter off that list until the
+    // next render: a second Enter in the same task then reaches the host's form (issue #5669).
+    const pickedSinceRender = useRef(false);
+    pickedSinceRender.current = false;
     // Names the entries so the field can point at the highlighted one: focus stays in the box, so
     // that pointer is all a screen reader has to go on.
     const itemIdPrefix = useUniqueName("autocomplete-item");
@@ -325,6 +329,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
             return;
         }
 
+        pickedSinceRender.current = true;
         onPick(item);
         if (keepOpenOnPick) {
             // Nothing is highlighted until the refreshed entries arrive, so Enter cannot take twice
@@ -353,7 +358,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
                 break;
 
             case "Enter":
-                if (isShown && activeIndex >= 0) {
+                if (isShown && activeIndex >= 0 && !pickedSinceRender.current) {
                     // Consume the key so it does not also reach the surrounding form or dialog.
                     e.preventDefault();
                     e.stopPropagation();

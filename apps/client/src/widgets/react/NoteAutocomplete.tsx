@@ -26,7 +26,7 @@ export interface NoteAutocompleteProps {
     placeholder?: string;
     container?: RefObject<HTMLElement | null | undefined>;
     containerStyle?: CSSProperties;
-    opts?: Omit<Options, "container">;
+    opts?: Options;
     onChange?: (suggestion: Suggestion | null) => void;
     onTextChange?: (text: string) => void;
     onKeyDown?: (e: KeyboardEvent) => void;
@@ -213,9 +213,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
             <input
                 id={id}
                 ref={inputRef}
-                // `note-autocomplete-input` and `aa-input` are the classes the jQuery plugin used to
-                // add, which the stylesheets and the global `$(".aa-input")` closers still select.
-                className="note-autocomplete form-control note-autocomplete-input aa-input"
+                className="note-autocomplete form-control note-autocomplete-input"
                 value={value}
                 readOnly={readOnly}
                 tabIndex={tabIndex}
@@ -241,14 +239,14 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                     const isEnter = e.key === "Enter" && !e.isComposing;
                     if (isEnter && e.ctrlKey && allowJumpToSearchNotes) {
                         // Kept from the host's other listeners, such as a Ctrl+Enter shortcut of its
-                        // own, as the jQuery plugin did.
+                        // own.
                         e.preventDefault();
                         e.stopImmediatePropagation();
                         void appContext.triggerCommand("searchNotes", { searchString: value });
                         return;
                     }
                     if (isEnter && e.shiftKey) {
-                        // Kept from the host and the list, as the jQuery plugin did.
+                        // Kept from the host and the list.
                         e.preventDefault();
                         e.stopPropagation();
                         fullTextSearch();
@@ -328,8 +326,9 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
 }
 
 /**
- * The list of suggestions, in the markup of `autocomplete.js`. With `searchingFor`, the query of a
- * search in progress, it shows a row saying so in place of the suggestions.
+ * The list of suggestions, in the `aa-*` markup that the Empty tab and Jump to Note style. With
+ * `searchingFor`, the query of a search in progress, it shows a row saying so in place of the
+ * suggestions.
  */
 function NoteSuggestionList({ autocomplete, searchingFor }: {
     autocomplete: ReturnType<typeof useAutocomplete<Suggestion>>;
@@ -426,7 +425,7 @@ function NoteSuggestionMenuItem({ suggestion }: { suggestion: Suggestion }) {
     );
 }
 
-/** One row of the list, in the markup of the jQuery plugin's suggestion template. */
+/** One row of the list. */
 function NoteSuggestion({ suggestion }: { suggestion: Suggestion }) {
     if (suggestion.action === "command") {
         return (

@@ -116,9 +116,7 @@ export default class App {
     async goToNoteInNewTab(noteTitle: string) {
         const autocomplete = this.currentNoteSplit.locator(".note-autocomplete");
         await expect(autocomplete).toBeVisible();
-        // The algolia autocomplete listens to keyboard events. `fill()` only
-        // dispatches `input`, which doesn't reliably open the dropdown — clear
-        // and type with real key events instead.
+        // Typed with real key events, as a person types, rather than `fill()`.
         await autocomplete.click();
         await autocomplete.clear();
         await autocomplete.pressSequentially(noteTitle);

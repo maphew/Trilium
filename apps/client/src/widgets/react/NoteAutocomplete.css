@@ -54,8 +54,7 @@
 }
 
 /*
- * The lists in a host's container, such as the empty tab's and Jump to Note's, in the markup of
- * `autocomplete.js`. It set the `display` inline.
+ * The lists in a host's container, such as the empty tab's and Jump to Note's.
  */
 span.aa-dropdown-menu,
 span.aa-dropdown-menu .aa-suggestions {

@@ -264,9 +264,6 @@ importers:
       '@univerjs/presets':
         specifier: 1.0.2
         version: 1.0.2(react@18.3.1)(rxjs@7.8.2)
-      autocomplete.js:
-        specifier: 0.38.1
-        version: 0.38.1
       bootstrap:
         specifier: 5.3.8
         version: 5.3.8(@popperjs/core@2.11.8)
@@ -896,9 +893,6 @@ importers:
       aes-js:
         specifier: 3.1.2
         version: 3.1.2
-      autocomplete.js:
-        specifier: 0.38.1
-        version: 0.38.1
       bootstrap:
         specifier: 5.3.8
         version: 5.3.8(@popperjs/core@2.11.8)
@@ -5858,9 +5852,6 @@ packages:
     resolution: {integrity: sha512-KbWgR8wOYRAPekEmMXrYYdc7BRyhn2Ftk7KWfMUnQ43hFdojWEFRxhhRUm3/OFEdPa1r0KAvTTg9YQK57xTe0g==}
     engines: {node: '>=0.8'}
 
-  autocomplete.js@0.38.1:
-    resolution: {integrity: sha512-6pSJzuRMY3pqpozt+SXThl2DmJfma8Bi3SVFbZHS0PW/N72bOUv+Db0jAh2cWOhTsA4X+GNmKvIl8wExJTnN9w==}
-
   available-typed-arrays@1.0.7:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
@@ -8041,9 +8032,6 @@ packages:
 
   immediate@3.0.6:
     resolution: {integrity: sha512-XXOFtyqDjNDAQxVfYxuF7g9Il/IbWmmlQg2MYKOH8ExIT1qg6xc4zyS3HaEEATgs1btfzxq15ciUiY7gjSXRGQ==}
-
-  immediate@3.3.0:
-    resolution: {integrity: sha512-HR7EVodfFUdQCTIeySw+WDRFJlPcLOJbXfwwZ7Oom6tjsvZ3bOkCDJHehQC3nxJrv7+f9XecwazynjU8e4Vw3Q==}
 
   immutable@5.1.9:
     resolution: {integrity: sha512-m8nVez3rwrgmWxtLMt1ZYXB2Lv7OKYn/disyxAlSDYAlKSlFoPPfIAmAM/M5xqL4m4C/wAPw7S2/CNaUii1Hxg==}
@@ -17419,10 +17407,6 @@ snapshots:
 
   author-regex@1.0.0: {}
 
-  autocomplete.js@0.38.1:
-    dependencies:
-      immediate: 3.3.0
-
   available-typed-arrays@1.0.7:
     dependencies:
       possible-typed-array-names: 1.1.0
@@ -20096,8 +20080,6 @@ snapshots:
       - supports-color
 
   immediate@3.0.6: {}
-
-  immediate@3.3.0: {}
 
   immutable@5.1.9: {}
 

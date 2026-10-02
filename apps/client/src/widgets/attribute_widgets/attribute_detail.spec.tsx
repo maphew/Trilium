@@ -387,6 +387,46 @@ describe("the rows the form carries", () => {
     });
 });
 
+describe("dismissing the attribute detail popup", () => {
+    afterEach(() => {
+        document.body.replaceChildren();
+    });
+
+    it("stays open for a press in the note list of its target field, and closes for one elsewhere", async () => {
+        const { AttributeDetail } = await import("./attribute_detail");
+        const onDismiss = vi.fn();
+        const host = document.createElement("div");
+        document.body.appendChild(host);
+        await act(async () => {
+            render(
+                <ParentComponent.Provider value={new Component()}>
+                    <AttributeDetail
+                        opts={opts({ attribute: { type: "relation", name: "author", value: "" } })}
+                        onDismiss={onDismiss}
+                        onCancel={() => {}}
+                    />
+                </ParentComponent.Provider>,
+                host
+            );
+        });
+
+        // `NoteAutocomplete` portals its list to the body, outside the popup.
+        const noteList = document.createElement("div");
+        noteList.className = "dropdown-menu note-autocomplete-menu";
+        const row = document.createElement("div");
+        noteList.appendChild(row);
+        document.body.appendChild(noteList);
+
+        row.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        expect(onDismiss).not.toHaveBeenCalled();
+
+        document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        expect(onDismiss).toHaveBeenCalledOnce();
+
+        render(null, host);
+    });
+});
+
 const NO_OFFSET = { top: 0, left: 0 };
 
 function opts(overrides: Partial<AttributeDetailOpts>): AttributeDetailOpts {

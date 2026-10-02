@@ -42,11 +42,11 @@ function buttonClasses(container: HTMLElement) {
 }
 
 describe("NoteAutocomplete", () => {
-    it("renders the input with the classes and attributes of the jQuery plugin", async () => {
+    it("renders the input with its classes and attributes", async () => {
         const { container, input } = await render({ id: "picker", placeholder: "Find" });
 
         expect(container.firstElementChild?.className).toBe("input-group");
-        expect(input.className).toBe("note-autocomplete form-control note-autocomplete-input aa-input");
+        expect(input.className).toBe("note-autocomplete form-control note-autocomplete-input");
         expect(input.id).toBe("picker");
         expect(input.placeholder).toBe("Find");
         expect(input.getAttribute("autocomplete")).toBe("off");
@@ -237,6 +237,23 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(rows()).toHaveLength(0);
     });
 
+    // Issue #5669: a second Enter that arrives before the list re-renders submits the host's form
+    // rather than picking a row of the list the first Enter closed.
+    it("leaves a second Enter in the same task to the host", async () => {
+        const onChange = vi.fn();
+        const input = await mount({ onChange });
+        await type(input, "b");
+        await press(input, "ArrowDown");
+
+        const prevented: boolean[] = [];
+        await act(async () => {
+            for (let i = 0; i < 2; i++) {
+                const e = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+                input.dispatchEvent(e);
+                prevented.push(e.defaultPrevented);
+            }
+        });
+
     it("searches on the first keystroke, and paces the rest of a burst", async () => {
         const input = await mount();
 
@@ -316,7 +333,7 @@ describe("NoteAutocomplete's suggestion list", () => {
 
         const menu = host.querySelector<HTMLElement>(":scope > span.aa-dropdown-menu");
         expect(menu?.querySelectorAll(".aa-suggestion")).toHaveLength(2);
-        // In the host's flow, as `autocomplete.js` left it: its contained menu had only `display: block`.
+        // In the host's flow, with no position of its own.
         expect(menu?.hasAttribute("style")).toBe(false);
         expect(document.querySelector(".note-autocomplete-menu")).toBeNull();
 

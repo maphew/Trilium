@@ -213,20 +213,6 @@ export default class Entrypoints extends Component {
         toastService.showMessage(t("entrypoints.note-executed"));
     }
 
-    hideAllPopups() {
-        if (utils.isDesktop()) {
-            $(".aa-input").autocomplete("close");
-        }
-    }
-
-    noteSwitchedEvent() {
-        this.hideAllPopups();
-    }
-
-    activeContextChangedEvent() {
-        this.hideAllPopups();
-    }
-
     async forceSaveRevisionCommand() {
         const noteId = appContext.tabManager.getActiveContextNoteId();
 

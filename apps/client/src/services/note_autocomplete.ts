@@ -29,7 +29,6 @@ export interface Suggestion extends Partial<AutocompleteResult> {
 }
 
 export interface Options {
-    container?: HTMLElement | null;
     fastSearch?: boolean;
     allowCreatingNotes?: boolean;
     allowJumpToSearchNotes?: boolean;
@@ -267,28 +266,6 @@ function buildCreateNoteTitle(term: string, target: InboxTargetResponse | null) 
     return t("note_autocomplete.create-note-into", { term: escapeHtml(term), parentTitle: escapeHtml(target.title) });
 }
 
-// #region Stubs
-// TODO: Stubs that keep the existing callers compiling and running while the implementation is
-// rebuilt. None of them searches for or suggests anything.
-
-function initNoteAutocomplete($el: JQuery<HTMLElement>, _options?: Options) {
-    return $el;
-}
-
-/** Installs the `$.fn` helpers `NoteAutocomplete` and the dialogs call, as no-ops. */
-function init() {
-    $.fn.getSelectedNotePath = () => "";
-    $.fn.getSelectedNoteId = () => null;
-    $.fn.setSelectedNotePath = () => {};
-    $.fn.getSelectedExternalLink = () => "";
-    $.fn.setSelectedExternalLink = () => {};
-    $.fn.setNote = async () => {};
-}
-
-// #endregion
-
 export default {
-    autocompleteSourceForCKEditor,
-    initNoteAutocomplete,
-    init
+    autocompleteSourceForCKEditor
 };
