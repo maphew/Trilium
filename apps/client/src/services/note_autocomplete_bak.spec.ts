@@ -5,7 +5,7 @@ import $ from "jquery";
 
 const {
     triggerCommand, getActiveContextNoteId, getActiveContext, chooseNoteType, createNote,
-    getInboxNotePath, getInboxTarget, translate, getAllCommands, searchCommands, logError
+    getInboxNotePath, getInboxTarget, translate, logError
 } = vi.hoisted(() => ({
     triggerCommand: vi.fn(),
     getActiveContextNoteId: vi.fn<() => string | null>(() => "activeNote"),
@@ -19,8 +19,6 @@ const {
     // i18next is never initialised here, so the real `t` returns undefined. Echoing the key
     // keeps the label assertions about which string is chosen rather than about its English.
     translate: vi.fn((key: string, _opts?: Record<string, unknown>) => key),
-    getAllCommands: vi.fn(() => [] as any[]),
-    searchCommands: vi.fn(() => [] as any[]),
     logError: vi.fn()
 }));
 
@@ -45,10 +43,6 @@ vi.mock("./date_notes.js", () => ({
 vi.mock("./i18n.js", async (importOriginal) => ({
     ...(await importOriginal<typeof import("./i18n.js")>()),
     t: translate
-}));
-
-vi.mock("./command_registry.js", () => ({
-    default: { getAllCommands, searchCommands }
 }));
 
 // Narrows the blanket ws mock from test/setup.ts to a spy, so what the module reports can be asserted.
@@ -150,36 +144,6 @@ describe("autocompleteSource (via dataset)", () => {
         noteAutocomplete.init();
     });
 
-    it("returns command suggestions in command-palette mode (all commands, empty query)", async () => {
-        getAllCommands.mockReturnValue([
-            { id: "cmd1", name: "Cmd One", description: "desc", shortcut: "Ctrl+1", icon: "bx bx-cog" }
-        ]);
-        const { dataset } = initAndGetSource({ isCommandPalette: true });
-        const rows = await runSource(dataset, ">");
-        expect(getAllCommands).toHaveBeenCalled();
-        expect(searchCommands).not.toHaveBeenCalled();
-        expect(rows).toEqual([
-            {
-                action: "command",
-                commandId: "cmd1",
-                noteTitle: "Cmd One",
-                notePathTitle: ">Cmd One",
-                highlightedNotePathTitle: "Cmd One",
-                commandDescription: "desc",
-                commandShortcut: "Ctrl+1",
-                icon: "bx bx-cog"
-            }
-        ]);
-    });
-
-    it("uses searchCommands when a command query is provided", async () => {
-        searchCommands.mockReturnValue([{ id: "c", name: "C" }]);
-        const { dataset } = initAndGetSource({ isCommandPalette: true });
-        const rows = await runSource(dataset, "> hello");
-        expect(searchCommands).toHaveBeenCalledWith("hello");
-        expect(rows[0].commandId).toBe("c");
-    });
-
     it("does the slow-search placeholder branch when fastSearch is false", async () => {
         server.get = vi.fn(async () => [{ noteTitle: "R" }]) as typeof server.get;
         const cbRows: any[][] = [];
@@ -230,33 +194,6 @@ describe("autocompleteSource (via dataset)", () => {
         const { dataset } = initAndGetSource({ allowJumpToSearchNotes: true, allowExternalLinks: true });
         const rows = await runSource(dataset, "   ");
         expect(rows.every((r) => r.action !== "search-notes")).toBe(true);
-    });
-
-    it("renders a command suggestion with description and shortcut", () => {
-        const { dataset } = initAndGetSource();
-        const html = dataset.templates.suggestion({
-            action: "command",
-            highlightedNotePathTitle: "Cmd",
-            commandDescription: "Does a thing",
-            commandShortcut: "Ctrl+K",
-            icon: "bx bx-cog"
-        });
-        expect(html).toContain("command-suggestion");
-        expect(html).toContain("command-name");
-        expect(html).toContain("command-description");
-        expect(html).toContain("command-shortcut");
-        expect(html).toContain("bx bx-cog");
-    });
-
-    it("renders a command suggestion without description/shortcut and a default icon", () => {
-        const { dataset } = initAndGetSource();
-        const html = dataset.templates.suggestion({
-            action: "command",
-            highlightedNotePathTitle: "Cmd"
-        });
-        expect(html).toContain("bx bx-terminal");
-        expect(html).not.toContain("command-description");
-        expect(html).not.toContain("command-shortcut");
     });
 });
 
@@ -576,7 +513,7 @@ describe("autocomplete:selected handler", () => {
         const $el = makeEl();
         const handlers: Record<string, any> = {};
         noteAutocomplete.initNoteAutocomplete($el);
-        ["autocomplete:commandselected", "autocomplete:externallinkselected", "autocomplete:noteselected"].forEach((evt) => {
+        ["autocomplete:externallinkselected", "autocomplete:noteselected"].forEach((evt) => {
             $el.on(evt, (_e: any, s: any) => (handlers[evt] = s));
         });
         return { $el, handlers };
@@ -586,13 +523,6 @@ describe("autocomplete:selected handler", () => {
         ($el as any).trigger("autocomplete:selected", suggestion);
         return new Promise((r) => setTimeout(r, 0));
     }
-
-    it("handles a command selection", async () => {
-        const { $el, handlers } = initWithSelected();
-        await fireSelected($el, { action: "command", commandId: "x" });
-        expect(lastCommandWith("close")).toBe(true);
-        expect(handlers["autocomplete:commandselected"]).toBeDefined();
-    });
 
     it("handles an external-link selection", async () => {
         const { $el, handlers } = initWithSelected();
@@ -686,26 +616,6 @@ describe("public helpers", () => {
         expect($el.attr("data-note-path")).toBe("");
         // re-triggers "input" so consumers tracking the live query stay in sync
         expect(onInput).toHaveBeenCalled();
-    });
-
-    it("showAllCommands sets the '>' prefix and opens", () => {
-        const $el = makeEl();
-        const onInput = vi.fn();
-        $el.on("input", onInput);
-        noteAutocomplete.showAllCommands($el);
-        // val was set to ">"
-        expect($el.autocomplete("val")).toBe(">");
-        expect(lastCommandWith("open")).toBe(true);
-        expect(onInput).toHaveBeenCalled();
-    });
-});
-
-describe("fullTextSearch guards", () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        registerAutocompleteStub();
-        server.get = vi.fn(async () => []) as typeof server.get;
-        noteAutocomplete.init();
     });
 
     it("returns early when the search string is blank (Shift+Enter on empty input)", () => {

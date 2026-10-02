@@ -2,6 +2,7 @@ import type { MentionFeedObjectItem } from "@triliumnext/ckeditor5";
 import type { AutocompleteResult, InboxTargetResponse } from "@triliumnext/commons";
 
 import appContext from "../components/app_context.js";
+import commandRegistry from "./command_registry.js";
 import dateNoteService from "./date_notes.js";
 import { t } from "./i18n.js";
 import server from "./server.js";
@@ -91,6 +92,26 @@ export async function getNoteSuggestions(term: string, { allowCreatingNotes = fa
         },
         ...results
     ];
+}
+
+/**
+ * Returns the commands matching what follows the `>` that opens `term`, or every command when
+ * nothing follows it.
+ */
+export function getCommandSuggestions(term: string): Suggestion[] {
+    const query = term.substring(1).trim();
+    const commands = query ? commandRegistry.searchCommands(query) : commandRegistry.getAllCommands();
+
+    return commands.map((command) => ({
+        action: "command",
+        commandId: command.id,
+        noteTitle: command.name,
+        notePathTitle: `>${command.name}`,
+        highlightedNotePathTitle: command.name,
+        commandDescription: command.description,
+        commandShortcut: command.shortcut,
+        icon: command.icon
+    }));
 }
 
 /**
@@ -196,8 +217,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, _options?: Options) {
     return $el;
 }
 
-function showAllCommands(_$el: JQuery<HTMLElement>) {}
-
 function setText(_$el: JQuery<HTMLElement>, _text: string) {}
 
 /** Installs the `$.fn` helpers `NoteAutocomplete` and the dialogs call, as no-ops. */
@@ -215,7 +234,6 @@ function init() {
 export default {
     autocompleteSourceForCKEditor,
     initNoteAutocomplete,
-    showAllCommands,
     setText,
     init
 };

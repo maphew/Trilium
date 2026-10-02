@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getActiveContextNoteId, getInboxTarget, translate, logError } = vi.hoisted(() => ({
+const { getActiveContextNoteId, getInboxTarget, translate, logError, getAllCommands, searchCommands } = vi.hoisted(() => ({
     getActiveContextNoteId: vi.fn<() => string | null>(() => "activeNote"),
     getInboxTarget: vi.fn<() => Promise<unknown>>(
         async () => ({ kind: "inbox", noteId: "inb", title: "Inbox" })
@@ -8,7 +8,13 @@ const { getActiveContextNoteId, getInboxTarget, translate, logError } = vi.hoist
     // i18next is never initialized here, so the real `t` returns undefined. Echoing the key keeps
     // the label assertions about which string is chosen rather than about its English.
     translate: vi.fn((key: string, _opts?: Record<string, unknown>) => key),
-    logError: vi.fn()
+    logError: vi.fn(),
+    getAllCommands: vi.fn(() => [] as CommandDefinition[]),
+    searchCommands: vi.fn((_query: string) => [] as CommandDefinition[])
+}));
+
+vi.mock("./command_registry.js", () => ({
+    default: { getAllCommands, searchCommands }
 }));
 
 vi.mock("../components/app_context.js", () => ({
@@ -36,7 +42,8 @@ vi.mock("./ws.js", () => ({
     logError
 }));
 
-import noteAutocomplete, { createSearchScheduler, getNoteSuggestions, type Suggestion } from "./note_autocomplete.js";
+import type { CommandDefinition } from "./command_registry.js";
+import noteAutocomplete, { createSearchScheduler, getCommandSuggestions, getNoteSuggestions, type Suggestion } from "./note_autocomplete.js";
 import server from "./server.js";
 
 beforeEach(() => {
@@ -258,5 +265,28 @@ describe("createSearchScheduler", () => {
         schedule(searchFor(ran, "hi"));
         // The failure released the slot, rather than wedging the input for good.
         expect(ran).toEqual([ "h", "hi" ]);
+    });
+});
+
+describe("getCommandSuggestions", () => {
+    const command: CommandDefinition = { id: "cmd1", name: "Cmd One", description: "desc", shortcut: "Ctrl+1", icon: "bx bx-cog" };
+
+    it("lists every command for a bare marker, and searches what follows it", () => {
+        getAllCommands.mockReturnValue([ command ]);
+        expect(getCommandSuggestions(">")).toEqual([ {
+            action: "command",
+            commandId: "cmd1",
+            noteTitle: "Cmd One",
+            notePathTitle: ">Cmd One",
+            highlightedNotePathTitle: "Cmd One",
+            commandDescription: "desc",
+            commandShortcut: "Ctrl+1",
+            icon: "bx bx-cog"
+        } ]);
+        expect(searchCommands).not.toHaveBeenCalled();
+
+        searchCommands.mockReturnValue([ { id: "c", name: "C" } ]);
+        expect(getCommandSuggestions("> hello").map((row) => row.commandId)).toEqual([ "c" ]);
+        expect(searchCommands).toHaveBeenCalledWith("hello");
     });
 });

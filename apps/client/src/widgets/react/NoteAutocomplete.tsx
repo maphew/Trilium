@@ -7,7 +7,7 @@ import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useR
 
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
-import { createSearchScheduler, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
+import { createSearchScheduler, getCommandSuggestions, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
 import { useAutocomplete } from "./FormAutocomplete";
 import { useSyncedRef } from "./hooks";
 import Popup from "./Popup";
@@ -39,6 +39,8 @@ export interface NoteAutocompleteProps {
 export interface NoteAutocompleteHandle {
     /** Empties the field, lists the recently visited notes and focuses the field. */
     showRecentNotes(): void;
+    /** Puts `>` in the field, lists every command and focuses the field. */
+    showAllCommands(): void;
 }
 
 export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, container, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef }: NoteAutocompleteProps) {
@@ -57,10 +59,19 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         }
     }, [ text, noteId ]);
 
-    const source = useCallback((query: string) => getNoteSuggestions(query), []);
+    const isCommandPalette = !!opts?.isCommandPalette;
+    const source = useCallback(async (query: string) => (isCommandPalette && query.startsWith(">")
+        ? getCommandSuggestions(query)
+        : getNoteSuggestions(query)), [ isCommandPalette ]);
     const schedule = useMemo(() => createSearchScheduler(), []);
 
     const pickSuggestion = useCallback((suggestion: Suggestion) => {
+        // The host runs a command; the field keeps what was typed.
+        if (suggestion.action === "command") {
+            onChange?.(suggestion);
+            return;
+        }
+
         setValue(suggestion.noteTitle ?? "");
         setNotePath(suggestion.notePath ?? "");
         onChange?.(suggestion);
@@ -80,18 +91,22 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         schedule
     });
 
-    /** Empties the query, which the server answers with the recently visited notes, and lists them. */
-    function showRecentNotes() {
+    /** Puts `query` in the field, drops the selection, lists the suggestions and focuses the field. */
+    function showSuggestionsFor(query: string) {
         setNotePath("");
-        setValue("");
-        onTextChange?.("");
+        setValue(query);
+        onTextChange?.(query);
         autocomplete.open();
         inputRef.current?.focus();
     }
 
+    // An empty query is answered with the recently visited notes.
+    const showRecentNotes = () => showSuggestionsFor("");
+    const showAllCommands = () => showSuggestionsFor(">");
+
     // Refreshed on every render, so a call from outside reaches the current callbacks.
     useLayoutEffect(() => {
-        if (handleRef) handleRef.current = { showRecentNotes };
+        if (handleRef) handleRef.current = { showRecentNotes, showAllCommands };
     });
 
     const showButtons = !opts?.hideAllButtons;
@@ -201,7 +216,7 @@ function NoteSuggestionList({ autocomplete }: { autocomplete: ReturnType<typeof 
                 <span className="aa-suggestions">
                     {autocomplete.items.map((suggestion, index) => (
                         <div
-                            key={`${suggestion.action ?? ""}:${suggestion.notePath ?? index}`}
+                            key={`${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`}
                             id={autocomplete.itemId(index)}
                             className={clsx("aa-suggestion", index === autocomplete.activeIndex && "aa-cursor")}
                             role="option"
@@ -220,6 +235,21 @@ function NoteSuggestionList({ autocomplete }: { autocomplete: ReturnType<typeof 
 
 /** One row of the list, in the markup of the jQuery plugin's suggestion template. */
 function NoteSuggestion({ suggestion }: { suggestion: Suggestion }) {
+    if (suggestion.action === "command") {
+        return (
+            <div className="command-suggestion">
+                <span className={clsx("command-icon", suggestion.icon || "bx bx-terminal")} />
+                <div className="command-content">
+                    <div className="command-name">{suggestion.highlightedNotePathTitle}</div>
+                    {suggestion.commandDescription && (
+                        <div className="command-description">{suggestion.commandDescription}</div>
+                    )}
+                </div>
+                {suggestion.commandShortcut && <kbd className="command-shortcut">{suggestion.commandShortcut}</kbd>}
+            </div>
+        );
+    }
+
     return (
         <div className={clsx("note-suggestion", suggestion.action === "search-notes" && "search-notes-action")}>
             <span className={clsx("icon", suggestionIcon(suggestion))} />

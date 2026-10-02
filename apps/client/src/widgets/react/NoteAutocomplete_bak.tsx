@@ -12,8 +12,7 @@ export default function NoteAutocomplete({ inputRef: externalInputRef, text, onC
 
         // clear any event listener added in previous invocation of this function
         $autoComplete
-            .off("autocomplete:noteselected")
-            .off("autocomplete:commandselected")
+            .off("autocomplete:noteselected");
 
         note_autocomplete.initNoteAutocomplete($autoComplete, opts);
     }, [opts]);
@@ -33,12 +32,10 @@ export default function NoteAutocomplete({ inputRef: externalInputRef, text, onC
                 }
             };
             $autoComplete
-                .on("autocomplete:externallinkselected", autoCompleteListener)
-                .on("autocomplete:commandselected", autoCompleteListener);
+                .on("autocomplete:externallinkselected", autoCompleteListener);
             return () => {
                 $autoComplete
-                    .off("autocomplete:externallinkselected", autoCompleteListener)
-                    .off("autocomplete:commandselected", autoCompleteListener);
+                    .off("autocomplete:externallinkselected", autoCompleteListener);
             };
         }
     }, [opts, onChange, noteIdChanged])

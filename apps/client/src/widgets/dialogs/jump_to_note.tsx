@@ -5,7 +5,7 @@ import { useRef, useState } from "preact/hooks";
 import appContext from "../../components/app_context";
 import commandRegistry from "../../services/command_registry";
 import { t } from "../../services/i18n";
-import note_autocomplete, { Suggestion } from "../../services/note_autocomplete";
+import type { Suggestion } from "../../services/note_autocomplete";
 import shortcutService from "../../services/shortcuts";
 import Button from "../react/Button";
 import { useTriliumEvent } from "../react/hooks";
@@ -84,7 +84,7 @@ export default function JumpToNoteDialogComponent() {
                 handleRef.current?.showRecentNotes();
                 break;
             case "commands":
-                note_autocomplete.showAllCommands($autoComplete);
+                handleRef.current?.showAllCommands();
                 break;
         }
 

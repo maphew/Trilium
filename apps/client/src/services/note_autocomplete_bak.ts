@@ -1,5 +1,4 @@
 import appContext from "../components/app_context.js";
-import commandRegistry from "./command_registry.js";
 import dateNoteService from "./date_notes.js";
 import froca from "./froca.js";
 import { t } from "./i18n.js";
@@ -13,31 +12,6 @@ const SELECTED_NOTE_PATH_KEY = "data-note-path";
 const SELECTED_EXTERNAL_LINK_KEY = "data-external-link";
 
 async function autocompleteSource(term: string, cb: (rows: Suggestion[]) => void, options: Options = {}) {
-    // Check if we're in command mode
-    if (options.isCommandPalette && term.startsWith(">")) {
-        const commandQuery = term.substring(1).trim();
-
-        // Get commands (all if no query, filtered if query provided)
-        const commands = commandQuery.length === 0
-            ? commandRegistry.getAllCommands()
-            : commandRegistry.searchCommands(commandQuery);
-
-        // Convert commands to suggestions
-        const commandSuggestions: Suggestion[] = commands.map(cmd => ({
-            action: "command",
-            commandId: cmd.id,
-            noteTitle: cmd.name,
-            notePathTitle: `>${cmd.name}`,
-            highlightedNotePathTitle: cmd.name,
-            commandDescription: cmd.description,
-            commandShortcut: cmd.shortcut,
-            icon: cmd.icon
-        }));
-
-        cb(commandSuggestions);
-        return;
-    }
-
     const fastSearch = options.fastSearch !== false;
     if (fastSearch === false) {
         if (term.trim().length === 0) {
@@ -92,13 +66,6 @@ function clearText($el: JQuery<HTMLElement>) {
 function setText($el: JQuery<HTMLElement>, text: string) {
     $el.setSelectedNotePath("");
     $el.autocomplete("val", text.trim());
-    $el.trigger("input");
-    $el.autocomplete("open");
-}
-
-function showAllCommands($el: JQuery<HTMLElement>) {
-    $el.setSelectedNotePath("");
-    $el.autocomplete("val", ">");
     $el.trigger("input");
     $el.autocomplete("open");
 }
@@ -218,25 +185,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
                     });
                 },
                 displayKey: "notePathTitle",
-                templates: {
-                    suggestion: (suggestion) => {
-                        if (suggestion.action === "command") {
-                            let html = `<div class="command-suggestion">`;
-                            html += `<span class="command-icon ${escapeHtml(suggestion.icon || "bx bx-terminal")}"></span>`;
-                            html += `<div class="command-content">`;
-                            html += `<div class="command-name">${suggestion.highlightedNotePathTitle}</div>`;
-                            if (suggestion.commandDescription) {
-                                html += `<div class="command-description">${suggestion.commandDescription}</div>`;
-                            }
-                            html += `</div>`;
-                            if (suggestion.commandShortcut) {
-                                html += `<kbd class="command-shortcut">${suggestion.commandShortcut}</kbd>`;
-                            }
-                            html += '</div>';
-                            return html;
-                        }
-                    }
-                },
                 // we can't cache identical searches because notes can be created / renamed, new recent notes can be added
                 cache: false
             }
@@ -245,12 +193,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
 
     //@ts-expect-error The `autocomplete:selected` handler takes an extra `suggestion` argument that jQuery's `.on()` typings don't model.
     $el.on("autocomplete:selected", async (event: Event, suggestion: Suggestion) => {
-        if (suggestion.action === "command") {
-            $el.autocomplete("close");
-            $el.trigger("autocomplete:commandselected", [suggestion]);
-            return;
-        }
-
         if (suggestion.action === "external-link") {
             $el.setSelectedNotePath(null);
             $el.setSelectedExternalLink(suggestion.externalLink);
@@ -369,7 +311,6 @@ function init() {
 
 export default {
     initNoteAutocomplete,
-    showAllCommands,
     setText,
     init
 };

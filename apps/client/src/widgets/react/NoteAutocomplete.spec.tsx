@@ -2,13 +2,15 @@ import { createRef, render as preactRender } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getNoteSuggestions } = vi.hoisted(() => ({
-    getNoteSuggestions: vi.fn<(term: string) => Promise<Suggestion[]>>(async () => [])
+const { getNoteSuggestions, getCommandSuggestions } = vi.hoisted(() => ({
+    getNoteSuggestions: vi.fn<(term: string) => Promise<Suggestion[]>>(async () => []),
+    getCommandSuggestions: vi.fn<(term: string) => Suggestion[]>(() => [])
 }));
 
 vi.mock("../../services/note_autocomplete", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../services/note_autocomplete")>()),
-    getNoteSuggestions
+    getNoteSuggestions,
+    getCommandSuggestions
 }));
 
 import type { Suggestion } from "../../services/note_autocomplete";
@@ -123,11 +125,18 @@ describe("NoteAutocomplete's suggestion list", () => {
         { notePath: "root/x/b", noteTitle: "Beta", notePathTitle: "X / Beta", highlightedNotePathTitle: "X / Beta",
             highlightedAttributeSnippet: "#tag" }
     ];
+    const commands: Suggestion[] = [
+        { action: "command", commandId: "cmd1", noteTitle: "Cmd One", highlightedNotePathTitle: "Cmd One",
+            commandDescription: "Does a thing", commandShortcut: "Ctrl+1", icon: "bx bx-cog" },
+        { action: "command", commandId: "cmd2", noteTitle: "Cmd Two", highlightedNotePathTitle: "Cmd Two" }
+    ];
 
     beforeEach(() => {
         vi.useFakeTimers();
         getNoteSuggestions.mockReset();
         getNoteSuggestions.mockResolvedValue(notes);
+        getCommandSuggestions.mockReset();
+        getCommandSuggestions.mockReturnValue(commands);
     });
 
     afterEach(() => {
@@ -312,6 +321,56 @@ describe("NoteAutocomplete's suggestion list", () => {
         await press(input, "Escape");
         expect(host.querySelector(".aa-dropdown-menu")).toBeNull();
         host.remove();
+    });
+
+    it("lists the commands for a `>` in a command palette, in the plugin's markup", async () => {
+        const input = await mount({ opts: { isCommandPalette: true } });
+        await type(input, "> cmd");
+
+        expect(getCommandSuggestions).toHaveBeenLastCalledWith("> cmd");
+        expect(getNoteSuggestions).not.toHaveBeenCalled();
+        const [ described, bare ] = rows();
+        expect(described.querySelector(".command-suggestion > .command-icon")?.className).toBe("command-icon bx bx-cog");
+        expect(described.querySelector(".command-content > .command-name")?.textContent).toBe("Cmd One");
+        expect(described.querySelector(".command-content > .command-description")?.textContent).toBe("Does a thing");
+        expect(described.querySelector(".command-suggestion > kbd.command-shortcut")?.textContent).toBe("Ctrl+1");
+        expect(bare.querySelector(".command-icon")?.className).toBe("command-icon bx bx-terminal");
+        expect(bare.querySelector(".command-description, .command-shortcut")).toBeNull();
+
+        // Elsewhere a `>` is only text to search for.
+        const plain = await mount();
+        await type(plain, "> cmd");
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("> cmd");
+        expect(getCommandSuggestions).toHaveBeenCalledTimes(1);
+    });
+
+    it("reports a picked command and leaves the field as it was", async () => {
+        const onChange = vi.fn();
+        const noteIdChanged = vi.fn();
+        const input = await mount({ opts: { isCommandPalette: true }, onChange, noteIdChanged });
+        await type(input, ">");
+        await press(input, "Enter");
+
+        expect(onChange).toHaveBeenCalledWith(commands[0]);
+        expect(noteIdChanged).not.toHaveBeenCalled();
+        expect(input.value).toBe(">");
+        expect(input.dataset.notePath).toBe("");
+        expect(rows()).toHaveLength(0);
+    });
+
+    it("lists every command through the handle", async () => {
+        const handleRef = createRef<NoteAutocompleteHandle>();
+        const onTextChange = vi.fn();
+        const input = await mount({ opts: { isCommandPalette: true }, handleRef, onTextChange });
+
+        await act(async () => { handleRef.current?.showAllCommands(); });
+        await settle();
+
+        expect(input.value).toBe(">");
+        expect(onTextChange).toHaveBeenLastCalledWith(">");
+        expect(getCommandSuggestions).toHaveBeenLastCalledWith(">");
+        expect(rows()).toHaveLength(2);
+        expect(document.activeElement).toBe(input);
     });
 
     it("spans the whole field, the buttons included", async () => {
