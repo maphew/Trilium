@@ -12,10 +12,10 @@ vi.mock("@excalidraw/excalidraw", () => ({
 const { default: CanvasEmbedTools } = await import("./CanvasEmbedTools");
 const { getContentEmbedTools } = await import("../text/content_embed_tools");
 
-const DRAWING_TOOL_IDS = [
-    "selection", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text", "image",
-    "eraser", "hand", "frame", "embeddable", "laser", "lock"
+const MAIN_TOOL_IDS = [
+    "hand", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text", "image"
 ];
+const EXTRA_TOOL_IDS = [ "selection", "eraser", "frame", "embeddable", "laser" ];
 const ICON = expect.stringContaining("<svg");
 
 describe("CanvasEmbedTools", () => {
@@ -68,15 +68,28 @@ describe("CanvasEmbedTools", () => {
 
         expect(getContentEmbedTools(document.createElement("figure"))).toBeNull();
         const tools = provider.getTools();
-        const count = DRAWING_TOOL_IDS.length;
-        expect(tools.slice(0, count)).toEqual(DRAWING_TOOL_IDS.map((id, index) => ({
+        const count = MAIN_TOOL_IDS.length;
+        expect(tools[0]).toEqual({
+            id: "lock", label: "t:toolBar.lock", text: "1", isOn: false, group: "lock"
+        });
+        expect(tools.slice(1, count + 1)).toEqual(MAIN_TOOL_IDS.map((id, index) => ({
             id,
             label: `t:toolBar.${id}`,
-            text: String(index + 1),
-            isOn: id === "selection",
+            text: String(index + 2),
+            isOn: false,
             group: "tools"
         })));
-        expect(tools.slice(count)).toEqual([
+        expect(tools[count + 1]).toEqual({
+            id: "moreTools",
+            label: "t:toolBar.extraTools",
+            icon: ICON,
+            isOn: true,
+            group: "moreTools",
+            children: EXTRA_TOOL_IDS.map((id) => ({
+                id, label: `t:toolBar.${id}`, isOn: id === "selection"
+            }))
+        });
+        expect(tools.slice(count + 2)).toEqual([
             { id: "undo", label: "t:buttons.undo", icon: ICON, isEnabled: true, group: "history" },
             { id: "redo", label: "t:buttons.redo", icon: ICON, isEnabled: false, group: "history" },
             {
@@ -102,8 +115,12 @@ describe("CanvasEmbedTools", () => {
         const listener = vi.fn();
         const unsubscribe = provider.subscribe(listener);
         const getEnabled = () => provider.getTools()
-            .filter((tool) => tool.group !== "tools")
+            .filter((tool) => tool.group === "history" || tool.group === "zoom")
             .map((tool) => `${tool.id}:${tool.isEnabled ?? true}`);
+        const getOn = () => provider.getTools()
+            .flatMap((tool) => [ tool, ...tool.children ?? [] ])
+            .filter((tool) => tool.isOn)
+            .map((tool) => tool.id);
 
         api.change({});
         expect(listener).not.toHaveBeenCalled();
@@ -111,11 +128,14 @@ describe("CanvasEmbedTools", () => {
         api.change({ activeTool: { type: "rectangle", locked: false } });
         api.change({ activeTool: { type: "rectangle", locked: true } });
         expect(listener).toHaveBeenCalledTimes(2);
-        expect(provider.getTools().filter((tool) => tool.isOn).map((tool) => tool.id))
-            .toEqual([ "rectangle", "lock" ]);
+        expect(getOn()).toEqual([ "lock", "rectangle" ]);
+
+        api.change({ activeTool: { type: "eraser", locked: true } });
+        expect(listener).toHaveBeenCalledTimes(3);
+        expect(getOn()).toEqual([ "lock", "moreTools", "eraser" ]);
 
         api.change({ zoom: { value: 30 } });
-        expect(listener).toHaveBeenCalledTimes(3);
+        expect(listener).toHaveBeenCalledTimes(4);
         expect(getEnabled()).toEqual([
             "undo:true", "redo:false", "zoomOut:true", "resetZoom:true", "zoomIn:false"
         ]);
@@ -123,12 +143,12 @@ describe("CanvasEmbedTools", () => {
         await act(async () => {
             container.querySelector("[data-testid=button-redo]")?.removeAttribute("disabled");
         });
-        expect(listener).toHaveBeenCalledTimes(4);
+        expect(listener).toHaveBeenCalledTimes(5);
         expect(getEnabled()).toContain("redo:true");
 
         unsubscribe();
         api.change({ zoom: { value: 0.1 } });
-        expect(listener).toHaveBeenCalledTimes(4);
+        expect(listener).toHaveBeenCalledTimes(5);
         expect(getEnabled()).toContain("zoomOut:false");
     });
 
@@ -138,6 +158,9 @@ describe("CanvasEmbedTools", () => {
         provider.execute("rectangle");
         expect(api.setActiveTool).toHaveBeenCalledWith({ type: "rectangle" });
         expect(document.activeElement).toBe(container.querySelector(".excalidraw-container"));
+
+        provider.execute("laser");
+        expect(api.setActiveTool).toHaveBeenLastCalledWith({ type: "laser" });
 
         provider.execute("lock");
         expect(api.updateScene).toHaveBeenLastCalledWith({
@@ -164,7 +187,8 @@ describe("CanvasEmbedTools", () => {
         });
 
         provider.execute("magicframe");
-        expect(api.setActiveTool).toHaveBeenCalledTimes(1);
+        provider.execute("moreTools");
+        expect(api.setActiveTool).toHaveBeenCalledTimes(2);
         expect(api.updateScene).toHaveBeenCalledTimes(3);
     });
 });

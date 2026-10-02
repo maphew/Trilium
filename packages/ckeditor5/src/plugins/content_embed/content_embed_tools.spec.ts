@@ -1,5 +1,5 @@
 import {
-    ClassicEditor, Essentials, Paragraph, Widget, _setModelData as setModelData
+    ClassicEditor, DropdownView, Essentials, Paragraph, Widget, _setModelData as setModelData
 } from "ckeditor5";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -27,7 +27,20 @@ interface Tool {
     isOn?: boolean;
     isEnabled?: boolean;
     group?: string;
+    children?: Tool[];
 }
+
+const MORE_TOOLS: Tool = {
+    id: "more",
+    label: "More tools",
+    icon: ICON,
+    isOn: false,
+    group: "more",
+    children: [
+        { id: "eraser", label: "Eraser", isOn: false },
+        { id: "laser", label: "Laser pointer", isOn: true }
+    ]
+};
 
 describe("ContentEmbedTools", () => {
     let editor: ClassicEditor;
@@ -76,10 +89,15 @@ describe("ContentEmbedTools", () => {
     }
 
     function getButtonStates(tools: ContentEmbedToolsView) {
-        return tools.buttons.map((button) => [
+        return getButtons(tools).map((button) => [
             button.label, button.withText, button.icon, button.tooltip, button.ariaLabel,
             button.isToggleable, button.isOn, button.isEnabled
         ]);
+    }
+
+    /** The button of each tool: its own, or the one that opens its menu. */
+    function getButtons(tools: ContentEmbedToolsView) {
+        return tools.views.map((item) => item instanceof DropdownView ? item.buttonView : item);
     }
 
     /** The labels of the buttons, and `|` for each separator, in order. */
@@ -122,7 +140,44 @@ describe("ContentEmbedTools", () => {
         expect(getItems(tools)).toEqual([ "1", "2", "|", "Undo" ]);
 
         provider.change([ SELECTION, RECTANGLE, { ...UNDO, isEnabled: true } ]);
-        expect(tools.buttons[2]?.isEnabled).toBe(true);
+        expect(getButtons(tools)[2]?.isEnabled).toBe(true);
+    });
+
+    it("shows the children of a tool in a menu, without taking the focus", () => {
+        const tools = createView();
+        selectEmbed();
+        provider.change([ RECTANGLE, MORE_TOOLS ]);
+        const menu = tools.views[1];
+        if (!(menu instanceof DropdownView)) {
+            throw new Error("Expected a menu.");
+        }
+        expect(getItems(tools)).toEqual([ "2", "|", "More tools" ]);
+        expect([ menu.buttonView.label, menu.buttonView.withText, menu.buttonView.icon ])
+            .toEqual([ "More tools", false, ICON ]);
+
+        menu.isOpen = true;
+        const getMenuItems = () => [
+            ...menu.panelView.element?.querySelectorAll(".ck-button") ?? []
+        ].map((item) => `${item.textContent}:${item.classList.contains("ck-on")}`);
+        expect(getMenuItems()).toEqual([ "Eraser:false", "Laser pointer:true" ]);
+        expect(menu.buttonView.class).toBeUndefined();
+
+        const children = [
+            { id: "eraser", label: "Eraser", isOn: true },
+            { id: "laser", label: "Laser pointer", isOn: false }
+        ];
+        provider.change([ RECTANGLE, { ...MORE_TOOLS, isOn: true, children } ]);
+        expect(tools.views[1]).toBe(menu);
+        expect(getMenuItems()).toEqual([ "Eraser:true", "Laser pointer:false" ]);
+        expect(menu.buttonView.class).toBe("ck-on");
+
+        for (const element of [ menu.buttonView.element, menu.panelView.element ]) {
+            const mousedown = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+            element?.dispatchEvent(mousedown);
+            expect(mousedown.defaultPrevented).toBe(true);
+        }
+        menu.panelView.element?.querySelector<HTMLElement>(".ck-button")?.click();
+        expect(provider.execute).toHaveBeenCalledWith("eraser");
     });
 
     it("shows no tools for content without any, or for a host that offers none", () => {
@@ -143,7 +198,7 @@ describe("ContentEmbedTools", () => {
     it("runs a tool without taking the focus", () => {
         const tools = createView();
         selectEmbed();
-        const rectangle = tools.buttons[1];
+        const rectangle = getButtons(tools)[1];
         const mousedown = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
         rectangle?.element?.dispatchEvent(mousedown);
         rectangle?.fire("execute");
@@ -156,11 +211,11 @@ describe("ContentEmbedTools", () => {
         const tools = createView();
         selectEmbed();
         const update = vi.spyOn(editor.ui, "update");
-        const first = tools.buttons[0];
+        const first = getButtons(tools)[0];
 
         provider.change([ { ...SELECTION, isOn: false }, { ...RECTANGLE, isOn: true } ]);
-        expect(tools.buttons.map((button) => button.isOn)).toEqual([ false, true ]);
-        expect(tools.buttons[0]).toBe(first);
+        expect(getButtons(tools).map((button) => button.isOn)).toEqual([ false, true ]);
+        expect(getButtons(tools)[0]).toBe(first);
         expect(update).not.toHaveBeenCalled();
 
         provider.change([ RECTANGLE ]);
@@ -180,7 +235,7 @@ describe("ContentEmbedTools", () => {
         }
 
         tools.focus();
-        expect(document.activeElement).toBe(tools.buttons[0]?.element);
+        expect(document.activeElement).toBe(getButtons(tools)[0]?.element);
 
         tools.destroy();
         expect(provider.unsubscribe).toHaveBeenCalledTimes(1);

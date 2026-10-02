@@ -2,6 +2,7 @@ import { useI18n } from "@excalidraw/excalidraw";
 import type {
     AppState, ExcalidrawImperativeAPI, NormalizedZoomValue, ToolType
 } from "@excalidraw/excalidraw/types";
+import moreToolsIcon from "boxicons/svg/regular/bx-category.svg?raw";
 import redoIcon from "boxicons/svg/regular/bx-redo.svg?raw";
 import resetZoomIcon from "boxicons/svg/regular/bx-reset.svg?raw";
 import undoIcon from "boxicons/svg/regular/bx-undo.svg?raw";
@@ -16,12 +17,18 @@ import {
     registerContentEmbedTools
 } from "../text/content_embed_tools";
 
-/** The tools in the order of their buttons. Excalidraw also selects the first nine with 1 to 9. */
-export const TOOLS = [
-    "selection", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text", "image",
-    "eraser", "hand", "frame", "embeddable", "laser"
+/** The tools with a button of their own, in the order of their buttons. */
+export const MAIN_TOOLS = [
+    "hand", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text", "image"
 ] as const satisfies readonly ToolType[];
+/** The tools in the "More tools" menu. */
+export const EXTRA_TOOLS = [
+    "selection", "eraser", "frame", "embeddable", "laser"
+] as const satisfies readonly ToolType[];
+const TOOLS = [ ...MAIN_TOOLS, ...EXTRA_TOOLS ];
 export const LOCK = "lock";
+/** The button that opens the "More tools" menu, named by Excalidraw's `toolBar.extraTools`. */
+export const MORE_TOOLS = "moreTools";
 /** The commands that click Excalidraw's own `button-undo` and `button-redo`. */
 export const HISTORY_ACTIONS = [ "undo", "redo" ] as const;
 
@@ -126,19 +133,34 @@ export class CanvasTools implements ContentEmbedToolProvider {
         }
 
         const { activeTool, zoom } = appState;
-        const drawingTools = [
-            ...TOOLS.map((type) => ({ id: type, isOn: activeTool.type === type })),
-            { id: LOCK, isOn: activeTool.locked }
-        ];
         const zoomPercent = Math.round(zoom.value * 100);
         return [
-            ...drawingTools.map(({ id, isOn }, index) => ({
-                id,
-                label: this.t(`toolBar.${id}`),
-                text: String(index + 1),
-                isOn,
+            {
+                id: LOCK,
+                label: this.t("toolBar.lock"),
+                text: "1",
+                isOn: activeTool.locked,
+                group: "lock"
+            },
+            ...MAIN_TOOLS.map((type, index) => ({
+                id: type,
+                label: this.t(`toolBar.${type}`),
+                text: String(index + 2),
+                isOn: activeTool.type === type,
                 group: "tools"
             })),
+            {
+                id: MORE_TOOLS,
+                label: this.t("toolBar.extraTools"),
+                icon: moreToolsIcon,
+                isOn: EXTRA_TOOLS.some((type) => activeTool.type === type),
+                group: MORE_TOOLS,
+                children: EXTRA_TOOLS.map((type) => ({
+                    id: type,
+                    label: this.t(`toolBar.${type}`),
+                    isOn: activeTool.type === type
+                }))
+            },
             this.getHistoryTool("undo", undoIcon),
             this.getHistoryTool("redo", redoIcon),
             {

@@ -1,7 +1,9 @@
 import "../../theme/content_embed_tools.css";
 
 import {
-    ButtonView, type Locale, Plugin, ToolbarSeparatorView, View, type ViewCollection
+    addListToDropdown, ButtonView, Collection, createDropdown, DropdownView,
+    type ListDropdownButtonDefinition, type Locale, Plugin, ToolbarSeparatorView, View,
+    type ViewCollection, ViewModel
 } from "ckeditor5";
 
 import ContentEmbed from "./content_embed.js";
@@ -60,17 +62,24 @@ type ContentEmbedToolsResizeEvent = {
     args: [];
 };
 
+/** The view of a tool, and the way it shows a new state of the tool. */
+interface ToolView {
+    view: ButtonView | DropdownView;
+    update(tool: ContentEmbedTool): void;
+}
+
 /** The buttons of a `ContentEmbedToolProvider`, updated when the provider changes. */
 export class ContentEmbedToolsView extends View {
 
     declare public isVisible: boolean;
-    /** The buttons, in the order of the tools. */
-    public buttons: ButtonView[] = [];
-    /** The buttons and the separators between their groups. */
+    /** The view of each tool: a button, or a dropdown for a tool with children. */
+    public views: Array<ButtonView | DropdownView> = [];
+    /** The views and the separators between their groups. */
     private readonly items: ViewCollection;
+    private updaters: Array<(tool: ContentEmbedTool) => void> = [];
     private provider: ContentEmbedToolProvider | null = null;
     private unsubscribe: (() => void) | undefined;
-    /** The group and the id of each tool, to create the buttons again only for another set. */
+    /** The group and the ids of each tool, to create the views again only for another set. */
     private toolKeys: string[] = [];
 
     constructor(locale?: Locale) {
@@ -109,7 +118,7 @@ export class ContentEmbedToolsView extends View {
     }
 
     focus() {
-        this.buttons[0]?.focus();
+        this.views[0]?.focus();
     }
 
     override destroy() {
@@ -117,64 +126,127 @@ export class ContentEmbedToolsView extends View {
         super.destroy();
     }
 
-    /** Shows the tools of the provider. Returns whether the buttons were created again. */
+    /** Shows the tools of the provider. Returns whether the views were created again. */
     private showTools() {
         const tools = this.provider?.getTools() ?? [];
-        const keys = tools.map(tool => `${tool.group ?? ""}/${tool.id}`);
+        const keys = tools.map(tool => [
+            tool.group ?? "", tool.id, ...tool.children?.map(child => child.id) ?? []
+        ].join("/"));
         const isNewSet = keys.length !== this.toolKeys.length
             || keys.some((key, index) => key !== this.toolKeys[index]);
 
         if (isNewSet) {
             this.toolKeys = keys;
-            this.createButtons(tools);
+            this.createViews(tools);
         }
 
         for (const [ index, tool ] of tools.entries()) {
-            this.buttons[index]?.set({
-                label: tool.text ?? tool.label,
-                withText: tool.text !== undefined,
-                icon: tool.icon,
-                tooltip: tool.label,
-                ariaLabel: tool.label,
-                isToggleable: tool.isOn !== undefined,
-                isOn: tool.isOn ?? false,
-                isEnabled: tool.isEnabled ?? true
-            });
+            this.updaters[index]?.(tool);
         }
         this.isVisible = tools.length > 0;
 
         return isNewSet;
     }
 
-    /** Creates a button for each tool, with a separator between groups. */
-    private createButtons(tools: ContentEmbedTool[]) {
+    /** Creates a view for each tool, with a separator between groups. */
+    private createViews(tools: ContentEmbedTool[]) {
         this.items.clear();
-        this.buttons = [];
+        this.views = [];
+        this.updaters = [];
 
         let group: string | undefined;
         for (const tool of tools) {
-            if (this.buttons.length && tool.group !== group) {
+            if (this.views.length && tool.group !== group) {
                 this.items.add(new ToolbarSeparatorView(this.locale));
             }
             group = tool.group;
 
-            const button = this.createButton(tool.id);
-            this.buttons.push(button);
-            this.items.add(button);
+            const { view, update } = tool.children
+                ? this.createMenu(tool.children)
+                : this.createButton(tool.id);
+            this.views.push(view);
+            this.updaters.push(update);
+            this.items.add(view);
         }
     }
 
-    private createButton(id: string) {
+    private createButton(id: string): ToolView {
         const button = new ButtonView(this.locale);
-        // Keeps the focus in the content that the tool acts on.
-        button.extendTemplate({
-            on: { mousedown: button.bindTemplate.to(evt => evt.preventDefault()) }
-        });
+        keepFocus(button);
         this.listenTo(button, "execute", () => this.provider?.execute(id));
 
-        return button;
+        return {
+            view: button,
+            update: (tool) => button.set({
+                ...getButtonFace(tool),
+                isToggleable: tool.isOn !== undefined,
+                isOn: tool.isOn ?? false,
+                isEnabled: tool.isEnabled ?? true
+            })
+        };
     }
 
+    /** A dropdown that lists `children`, each run as a tool of its own. */
+    private createMenu(children: ContentEmbedTool[]): ToolView {
+        const dropdown = createDropdown(this.locale);
+        keepFocus(dropdown.buttonView);
+        keepFocus(dropdown.panelView);
+
+        const models = children.map(child => new ViewModel({
+            toolId: child.id,
+            withText: true,
+            role: "menuitemradio"
+        }));
+        const definitions = new Collection<ListDropdownButtonDefinition>();
+        for (const model of models) {
+            definitions.add({ type: "button", model });
+        }
+        addListToDropdown(dropdown, definitions);
+        this.listenTo(dropdown, "execute", (evt) => {
+            const { toolId } = evt.source as { toolId?: string };
+            if (toolId) {
+                this.provider?.execute(toolId);
+            }
+        });
+
+        return {
+            view: dropdown,
+            update: (tool) => {
+                // `createDropdown()` binds `isOn` of the button to the dropdown being open.
+                dropdown.buttonView.set({
+                    ...getButtonFace(tool),
+                    class: tool.isOn ? "ck-on" : undefined
+                });
+                dropdown.isEnabled = tool.isEnabled ?? true;
+                for (const [ index, child ] of (tool.children ?? []).entries()) {
+                    models[index]?.set({
+                        label: child.label,
+                        isOn: child.isOn ?? false,
+                        isEnabled: child.isEnabled ?? true
+                    });
+                }
+            }
+        };
+    }
+
+}
+
+/** The label, icon and tooltip of the button of `tool`. */
+function getButtonFace(tool: ContentEmbedTool) {
+    return {
+        label: tool.text ?? tool.label,
+        withText: tool.text !== undefined,
+        icon: tool.icon,
+        tooltip: tool.label,
+        ariaLabel: tool.label
+    };
+}
+
+/** Keeps the focus in the content that the tools act on. */
+function keepFocus(view: View) {
+    view.extendTemplate({
+        on: { mousedown: view.bindTemplate.to(evt => evt.preventDefault()) }
+    });
 }
 
 declare module "ckeditor5" {

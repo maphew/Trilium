@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@excalidraw/excalidraw", () => ({ MainMenu: {}, useI18n: vi.fn() }));
 
 const {
-    HISTORY_ACTIONS, LOCK, MAX_ZOOM, MIN_ZOOM, TOOLS, ZOOM_STEP, ZOOMS
+    EXTRA_TOOLS, HISTORY_ACTIONS, LOCK, MAIN_TOOLS, MAX_ZOOM, MIN_ZOOM, ZOOM_STEP, ZOOMS
 } = await import("./CanvasEmbedTools");
 const { LIBRARY_SIDEBAR } = await import("./CanvasDrawingMenu");
 
@@ -58,7 +58,7 @@ describe("Excalidraw contract of the canvas drawing", () => {
     it("names every button of the toolbar with Excalidraw's own translations", () => {
         const source = readBundle(developmentDir, [ ".js" ]);
         const keys = [
-            ...[ ...TOOLS, LOCK ].map((id) => `toolBar.${id}`),
+            ...[ ...MAIN_TOOLS, ...EXTRA_TOOLS, LOCK, "extraTools" ].map((id) => `toolBar.${id}`),
             ...[ ...HISTORY_ACTIONS, ...Object.keys(ZOOMS) ].map((id) => `buttons.${id}`)
         ];
 

@@ -13,6 +13,8 @@ export interface ContentEmbedTool {
     isEnabled?: boolean;
     /** A separator goes between buttons of different groups. */
     group?: string;
+    /** The tools of the menu that the button opens. */
+    children?: ContentEmbedTool[];
 }
 
 /** The buttons that the content of an embed, such as a canvas drawing, adds to its toolbar. */
