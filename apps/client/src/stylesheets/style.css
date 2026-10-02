@@ -1434,11 +1434,27 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 
 .include-note {
     margin-bottom: 10px;
-    border-radius: 8px;
-    border: 1px solid var(--card-border-color, var(--main-border-color));
+    border-radius: var(--_include-note-top-border-radius, 8px)
+                   var(--_include-note-top-border-radius, 8px)
+                   var(--_include-note-bottom-border-radius, 8px)
+                   var(--_include-note-bottom-border-radius, 8px);
     background-color: var(--card-background-color, var(--accented-background-color));
     display: flex; /* see https://github.com/zadam/trilium/issues/1590 */
     transition: background-color 200ms ease-out;
+}
+
+/* Includes in a series share flush edges, as link previews and collapsible blocks do. */
+.include-note + .include-note {
+    --_include-note-top-border-radius: 0;
+}
+
+.include-note:has(+ .include-note) {
+    --_include-note-bottom-border-radius: 0;
+    margin-bottom: 3px;
+}
+
+.ck-widget.include-note {
+    --ck-color-focus-border: var(--link-color);
 }
 
 /* CKEditor counts only non-UIElements as content (see `hasContent` in the
@@ -1524,18 +1540,16 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     min-width: 0;
 }
 
-/* Header: the standalone title (non-expandable) and the title row (expandable)
-   both act as the card header, mirroring the grid/list note-book-card header. */
+/* The header: the title row, or the bare title of an embed whose upload is under way. */
 .include-note-wrapper > .include-note-title,
 .include-note-title-row {
     display: flex;
     align-items: center;
     gap: 8px;
     margin: 0;
-    padding: .5rem 1rem;
+    padding: .75rem 1rem;
     font-size: 1em;
     font-weight: 500;
-    border-bottom: 1px solid var(--card-border-color, var(--main-border-color));
 }
 
 /* createLink wraps the icon and anchor in a single <span>; lay it out as a flex
@@ -1609,6 +1623,7 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 .include-note-content {
+    border-top: 2px solid var(--main-background-color);
     padding: .75rem 1rem;
 }
 
@@ -1626,10 +1641,6 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 .include-note-content.type-book:has(.note-list-widget.full-height),
 .include-note-content.type-search:has(.note-list-widget.full-height) {
     padding: 0;
-}
-
-.include-note[data-box-size="expandable"] .include-note-content {
-    padding-top: 0;
 }
 
 .include-note-content:fullscreen {
