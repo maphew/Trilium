@@ -162,6 +162,10 @@ body.backdrop-effects-disabled {
     font-size: 0.9rem !important;
 }
 
+.dropdown-menu.note-autocomplete-menu {
+    --padding: var(--suggestion-list-padding);
+}
+
 /* Use this class for non-legacy menus */
 .dropdown-menu.tn-dropdown-menu {
     --menu-item-icon-vert-offset: 0;
