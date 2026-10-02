@@ -8,6 +8,11 @@ import server from "./server.js";
 import { escapeHtml } from "./utils.js";
 import { logError } from "./ws.js";
 
+// Short on purpose: a search costs tens of milliseconds, so this exists to merge keystrokes that
+// arrive faster than a person reads a result, not to wait out a slow server. Anything longer is
+// felt on every keystroke typed at a normal pace.
+const SEARCH_DEBOUNCE_MS = 50;
+
 /**
  * One row of the dropdown: a note from `GET /api/autocomplete`, or a row added by the client.
  * A client row sets `action` to its kind and fills in only the fields that kind uses.
@@ -86,6 +91,69 @@ export async function getNoteSuggestions(term: string, { allowCreatingNotes = fa
         },
         ...results
     ];
+}
+
+/**
+ * Paces one input's searches: the first keystroke after a pause queries immediately, a burst typed
+ * faster than {@link SEARCH_DEBOUNCE_MS} collapses into one search that runs once it stops, and at
+ * most one search is ever outstanding.
+ *
+ * The single-flight part is what keeps a slow search from compounding. The server answers
+ * autocomplete requests one at a time, so firing a second while the first is still running makes
+ * every later keystroke wait out the whole queue ahead of it. Holding the newest term back until
+ * the outstanding search settles paces requests at whatever the server can actually serve, without
+ * the client having to know how slow that is.
+ *
+ * Each input creates its own, so a keystroke in one cannot cancel or delay what another is waiting
+ * on.
+ */
+export function createSearchScheduler() {
+    type Search = () => void | Promise<void>;
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let lastCallAt = 0;
+    let running = false;
+    let queued: Search | undefined;
+
+    function start(runSearch: Search) {
+        // Only the newest term is worth searching for, so a search waiting here replaces the one
+        // before it instead of queueing behind it.
+        if (running) {
+            queued = runSearch;
+            return;
+        }
+
+        running = true;
+        void Promise.resolve(runSearch())
+            .catch((e) => logError(`Autocomplete search failed: ${e}`))
+            .finally(() => {
+                running = false;
+                const next = queued;
+                queued = undefined;
+                if (next) {
+                    start(next);
+                }
+            });
+    }
+
+    return (runSearch: Search) => {
+        // A newer keystroke supersedes whatever the previous one left waiting, be that a pending
+        // timer or a search held back by the one in flight.
+        clearTimeout(timeoutId);
+        queued = undefined;
+
+        // Measured from the previous keystroke rather than the previous search. Measuring from the
+        // search paces requests at a fixed rate instead of ending the window when typing pauses.
+        const now = Date.now();
+        const startsBurst = now - lastCallAt >= SEARCH_DEBOUNCE_MS;
+        lastCallAt = now;
+
+        if (startsBurst) {
+            start(runSearch);
+        } else {
+            timeoutId = setTimeout(() => start(runSearch), SEARCH_DEBOUNCE_MS);
+        }
+    };
 }
 
 async function getInboxTarget() {

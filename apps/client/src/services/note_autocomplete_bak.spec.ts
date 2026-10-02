@@ -260,9 +260,6 @@ describe("autocompleteSource (via dataset)", () => {
     });
 });
 
-// Mirrors SEARCH_DEBOUNCE_MS in note_autocomplete.ts, which is internal.
-const DEBOUNCE_MS = 50;
-
 describe("source debounce", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -275,104 +272,6 @@ describe("source debounce", () => {
 
     afterEach(() => {
         vi.useRealTimers();
-    });
-
-    it("runs the first search of a burst without waiting", () => {
-        const { dataset } = initAndGetSource();
-        dataset.source("hi", vi.fn());
-        // No timer is advanced: an idle input queries on the keystroke itself.
-        expect(server.get).toHaveBeenCalledTimes(1);
-    });
-
-    it("coalesces the rest of a burst into one search for the final term", async () => {
-        const { dataset } = initAndGetSource();
-        for (const term of ["h", "he", "hel", "hell"]) {
-            dataset.source(term, vi.fn());
-        }
-        expect(server.get).toHaveBeenCalledTimes(1);
-
-        await vi.runAllTimersAsync();
-        expect(server.get).toHaveBeenCalledTimes(2);
-        expect(server.get).toHaveBeenLastCalledWith(expect.stringContaining("query=hell"));
-    });
-
-    it("holds the window open while typing continues instead of pacing searches", async () => {
-        const { dataset } = initAndGetSource();
-        // Keystrokes arriving closer together than the window: the one that opens the burst
-        // queries at once, and each one after it pushes the pending search back again.
-        dataset.source("h", vi.fn());
-        for (const term of ["he", "hel", "hell"]) {
-            await vi.advanceTimersByTimeAsync(30);
-            dataset.source(term, vi.fn());
-        }
-        expect(server.get).toHaveBeenCalledTimes(1);
-
-        await vi.runAllTimersAsync();
-        expect(server.get).toHaveBeenCalledTimes(2);
-        expect(server.get).toHaveBeenLastCalledWith(expect.stringContaining("query=hell"));
-    });
-
-    it("gives each input its own timer, so one cannot cancel another's pending search", async () => {
-        const first = initAndGetSource();
-        const second = initAndGetSource();
-        // The leading-edge search of each burst, so both inputs hold a debounced one afterwards.
-        first.dataset.source("a1", vi.fn());
-        second.dataset.source("b1", vi.fn());
-        // Typing in one input must not drop the search the other is waiting on.
-        first.dataset.source("a2", vi.fn());
-        second.dataset.source("b2", vi.fn());
-        await vi.runAllTimersAsync();
-
-        const queries = vi.mocked(server.get).mock.calls.map(([url]) => url);
-        expect(queries.some((url) => url.includes("query=a2"))).toBe(true);
-        expect(queries.some((url) => url.includes("query=b2"))).toBe(true);
-    });
-
-    it("keeps one search in flight, so a slow one cannot make the rest queue behind it", async () => {
-        const pending: Array<() => void> = [];
-        server.get = vi.fn(
-            () => new Promise<any[]>((resolve) => pending.push(() => resolve([])))
-        ) as typeof server.get;
-
-        const { dataset } = initAndGetSource();
-        dataset.source("h", vi.fn());
-        expect(server.get).toHaveBeenCalledTimes(1);
-
-        // Each keystroke opens its own burst, so without single-flight every one of them would
-        // reach the server while the first search is still running.
-        for (const term of ["he", "hel", "hell", "hello"]) {
-            await vi.advanceTimersByTimeAsync(DEBOUNCE_MS + 10);
-            dataset.source(term, vi.fn());
-        }
-        expect(server.get).toHaveBeenCalledTimes(1);
-
-        pending[0]();
-        await vi.runAllTimersAsync();
-
-        // Only the newest term is searched for; the ones typed past are dropped, not queued.
-        expect(server.get).toHaveBeenCalledTimes(2);
-        expect(server.get).toHaveBeenLastCalledWith(expect.stringContaining("query=hello"));
-    });
-
-    it("reports a failed search and keeps accepting the next one", async () => {
-        server.get = vi.fn(async () => {
-            throw new Error("boom");
-        }) as typeof server.get;
-
-        const { dataset } = initAndGetSource();
-        dataset.source("h", vi.fn());
-        await vi.runAllTimersAsync();
-
-        // The scheduler awaits the search, so a rejection has to be reported here rather than
-        // left to surface as an unhandled one.
-        expect(logError).toHaveBeenCalledWith(expect.stringContaining("boom"));
-
-        server.get = vi.fn(async () => []) as typeof server.get;
-        await vi.advanceTimersByTimeAsync(DEBOUNCE_MS + 10);
-        dataset.source("hi", vi.fn());
-
-        // The failure released the slot, rather than wedging the input for good.
-        expect(server.get).toHaveBeenCalledTimes(1);
     });
 
     it("debounces and skips the search while composing input", async () => {

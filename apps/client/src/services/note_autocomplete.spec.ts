@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getActiveContextNoteId, getInboxTarget, translate, logError } = vi.hoisted(() => ({
     getActiveContextNoteId: vi.fn<() => string | null>(() => "activeNote"),
@@ -36,7 +36,7 @@ vi.mock("./ws.js", () => ({
     logError
 }));
 
-import noteAutocomplete, { getNoteSuggestions, type Suggestion } from "./note_autocomplete.js";
+import noteAutocomplete, { createSearchScheduler, getNoteSuggestions, type Suggestion } from "./note_autocomplete.js";
 import server from "./server.js";
 
 beforeEach(() => {
@@ -156,5 +156,107 @@ describe("autocompleteSourceForCKEditor", () => {
 
         const items = await noteAutocomplete.autocompleteSourceForCKEditor("Foo", false);
         expect(items.map((item) => (item as Suggestion).action)).toEqual([ undefined ]);
+    });
+});
+
+describe("createSearchScheduler", () => {
+    const WINDOW_MS = 50;
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    /** A search that records the term it ran for. */
+    function searchFor(ran: string[], term: string, run: () => void | Promise<void> = () => {}) {
+        return () => {
+            ran.push(term);
+            return run();
+        };
+    }
+
+    it("runs the first search of a burst at once, and the last of the rest once typing stops", async () => {
+        const schedule = createSearchScheduler();
+        const ran: string[] = [];
+
+        for (const term of [ "h", "he", "hel", "hell" ]) {
+            schedule(searchFor(ran, term));
+        }
+        // No timer is advanced: an idle input queries on the keystroke itself.
+        expect(ran).toEqual([ "h" ]);
+
+        await vi.runAllTimersAsync();
+        expect(ran).toEqual([ "h", "hell" ]);
+    });
+
+    it("holds the window open while typing continues instead of pacing searches", async () => {
+        const schedule = createSearchScheduler();
+        const ran: string[] = [];
+
+        // Keystrokes arriving closer together than the window: the one that opens the burst
+        // queries at once, and each one after it pushes the pending search back again.
+        schedule(searchFor(ran, "h"));
+        for (const term of [ "he", "hel", "hell" ]) {
+            await vi.advanceTimersByTimeAsync(30);
+            schedule(searchFor(ran, term));
+        }
+        expect(ran).toEqual([ "h" ]);
+
+        await vi.runAllTimersAsync();
+        expect(ran).toEqual([ "h", "hell" ]);
+    });
+
+    it("gives each input its own timer, so one cannot cancel another's pending search", async () => {
+        const first = createSearchScheduler();
+        const second = createSearchScheduler();
+        const ran: string[] = [];
+
+        // The leading-edge search of each burst, so both hold a debounced one afterwards.
+        first(searchFor(ran, "a1"));
+        second(searchFor(ran, "b1"));
+        first(searchFor(ran, "a2"));
+        second(searchFor(ran, "b2"));
+        await vi.runAllTimersAsync();
+
+        expect(ran).toEqual(expect.arrayContaining([ "a2", "b2" ]));
+    });
+
+    it("keeps one search in flight, so a slow one cannot make the rest queue behind it", async () => {
+        const schedule = createSearchScheduler();
+        const ran: string[] = [];
+        let finishFirst = () => {};
+
+        schedule(searchFor(ran, "h", () => new Promise<void>((resolve) => { finishFirst = resolve; })));
+        // Each keystroke opens its own burst, so without single-flight every one of them would
+        // start while the first search is still running.
+        for (const term of [ "he", "hel", "hell", "hello" ]) {
+            await vi.advanceTimersByTimeAsync(WINDOW_MS + 10);
+            schedule(searchFor(ran, term));
+        }
+        expect(ran).toEqual([ "h" ]);
+
+        finishFirst();
+        await vi.runAllTimersAsync();
+        // Only the newest term is searched for; the ones typed past are dropped, not queued.
+        expect(ran).toEqual([ "h", "hello" ]);
+    });
+
+    it("reports a failed search and keeps accepting the next one", async () => {
+        const schedule = createSearchScheduler();
+        const ran: string[] = [];
+
+        schedule(searchFor(ran, "h", async () => { throw new Error("boom"); }));
+        await vi.runAllTimersAsync();
+        // The scheduler awaits the search, so a rejection has to be reported here rather than
+        // left to surface as an unhandled one.
+        expect(logError).toHaveBeenCalledWith(expect.stringContaining("boom"));
+
+        await vi.advanceTimersByTimeAsync(WINDOW_MS + 10);
+        schedule(searchFor(ran, "hi"));
+        // The failure released the slot, rather than wedging the input for good.
+        expect(ran).toEqual([ "h", "hi" ]);
     });
 });

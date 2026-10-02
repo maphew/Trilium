@@ -3,11 +3,11 @@ import "./NoteAutocomplete.css";
 import clsx from "clsx";
 import type { RefObject } from "preact";
 import type { CSSProperties } from "preact/compat";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
-import { getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
+import { createSearchScheduler, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
 import { useAutocomplete } from "./FormAutocomplete";
 import { useSyncedRef } from "./hooks";
 import Popup from "./Popup";
@@ -50,6 +50,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     }, [ text, noteId ]);
 
     const source = useCallback((query: string) => getNoteSuggestions(query), []);
+    const schedule = useMemo(() => createSearchScheduler(), []);
 
     const pickSuggestion = useCallback((suggestion: Suggestion) => {
         setValue(suggestion.noteTitle ?? "");
@@ -67,7 +68,8 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         inputRef,
         disabled: readOnly,
         autoActivate: true,
-        textOf: suggestionText
+        textOf: suggestionText,
+        schedule
     });
 
     const showButtons = !opts?.hideAllButtons;

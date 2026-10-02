@@ -5,13 +5,15 @@ const { getNoteSuggestions } = vi.hoisted(() => ({
     getNoteSuggestions: vi.fn<(term: string) => Promise<Suggestion[]>>(async () => [])
 }));
 
-vi.mock("../../services/note_autocomplete", () => ({ getNoteSuggestions }));
+vi.mock("../../services/note_autocomplete", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../services/note_autocomplete")>()),
+    getNoteSuggestions
+}));
 
 import type { Suggestion } from "../../services/note_autocomplete";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
 import NoteAutocomplete, { type NoteAutocompleteProps } from "./NoteAutocomplete";
-
 
 async function render(props: NoteAutocompleteProps = {}) {
     let container = document.createElement("div");
@@ -215,6 +217,22 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(input.value).toBe("Beta");
         expect(input.dataset.notePath).toBe("root/x/b");
         expect(rows()).toHaveLength(0);
+    });
+
+    it("searches on the first keystroke, and paces the rest of a burst", async () => {
+        const input = await mount();
+
+        for (const term of [ "a", "al", "alp" ]) {
+            await act(async () => {
+                input.value = term;
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+            });
+        }
+        // No timer has run, so the debounce of `FormAutocomplete` would not have searched yet.
+        expect(getNoteSuggestions.mock.calls).toEqual([ [ "a" ] ]);
+
+        await settle();
+        expect(getNoteSuggestions.mock.calls).toEqual([ [ "a" ], [ "alp" ] ]);
     });
 
     it("spans the whole field, the buttons included", async () => {

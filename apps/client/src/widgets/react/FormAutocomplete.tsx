@@ -237,6 +237,11 @@ interface UseAutocompleteOptions<T> {
     isHeading?(item: T): boolean;
     /** The text of an entry, which `autoActivate` matches against the query. Defaults to `String(item)`. */
     textOf?(item: T): string;
+    /**
+     * Runs each lookup in place of the default debounce of {@link DEBOUNCE_MS}, for a source that
+     * needs its own pacing. It must be stable across renders.
+     */
+    schedule?(lookUp: () => Promise<void>): void;
 }
 
 /**
@@ -245,10 +250,10 @@ interface UseAutocompleteOptions<T> {
  * entry through `aria-activedescendant`.
  *
  * The host renders the list from `items`, gives each entry the id `itemId(index)`, and passes the
- * field's events to the `handle*` functions. Entries are fetched debounced while the list is open,
- * and a response to a superseded query is discarded.
+ * field's events to the `handle*` functions. Entries are fetched while the list is open, debounced
+ * or paced by `schedule`, and a response to a superseded query is discarded.
  */
-export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, openOnFocus, openOnEnter, keepOpenOnPick, autoActivate, isHeading, textOf = String }: UseAutocompleteOptions<T>) {
+export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, openOnFocus, openOnEnter, keepOpenOnPick, autoActivate, isHeading, textOf = String, schedule }: UseAutocompleteOptions<T>) {
     const [ isOpen, setIsOpen ] = useState(false);
     const [ items, setItems ] = useState<T[]>([]);
     const [ activeIndex, setActiveIndex ] = useState(-1);
@@ -281,7 +286,10 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         }
 
         const queryId = ++latestQuery.current;
-        const timeout = setTimeout(async () => {
+        const lookUp = async () => {
+            // A scheduler can run a lookup that a newer query (or a close) has since superseded.
+            if (latestQuery.current !== queryId) return;
+
             const suggestions = await source(query);
 
             // A newer query (or a close) happened while awaiting.
@@ -289,10 +297,16 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
                 setItems(suggestions);
                 setActiveIndex(autoActivate ? bestMatchIndex(suggestions, query, isHeading, textOf) : -1);
             }
-        }, DEBOUNCE_MS);
+        };
 
+        if (schedule) {
+            schedule(lookUp);
+            return;
+        }
+
+        const timeout = setTimeout(lookUp, DEBOUNCE_MS);
         return () => clearTimeout(timeout);
-    }, [ isOpen, query, source, autoActivate, isHeading, textOf ]);
+    }, [ isOpen, query, source, autoActivate, isHeading, textOf, schedule ]);
 
     // Keep the highlighted entry in sight: it can be picked out on opening, or arrowed past the
     // bottom of a list taller than the room the dropdown was given.
