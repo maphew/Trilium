@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import server from "../../services/server";
 import { fetchAttributeNames } from "../attribute_widgets/attribute_detail";
-import { searchCompletionIcon, searchCompletionReactivates, searchCompletionSource } from "./search_completions";
+import { searchCompletionIcon, searchCompletionNote, searchCompletionReactivates, searchCompletionSource } from "./search_completions";
 
 // The descriptions are catalogue lookups, which specs don't initialize; the keys identify them.
 vi.mock("../../services/i18n", () => ({ t: (key: string) => key }));
@@ -362,7 +362,6 @@ describe("note mentions", () => {
         // Offered from past the `@`, so "Fo" is matched against the titles.
         expect(result?.from).toBe(20);
         expect(labelsOf(result)).toEqual([ "Foo", "Foobar" ]);
-        expect(optionFor(result, "Foo")?.detail).toBe("Root / Foo");
         expect(optionFor(result, "Foobar")?.boost).toBeLessThan(optionFor(result, "Foo")?.boost ?? 0);
 
         // The `@` at 19 is rewritten along with the "Fo" after it.
@@ -372,12 +371,17 @@ describe("note mentions", () => {
         });
     });
 
-    it("draws each note with its own icon", async () => {
+    it("carries each note's result, to be drawn as the note autocomplete draws it", async () => {
         const result = await complete("@Fo");
 
         expect(result?.from).toBe(1);
-        expect(searchCompletionIcon(optionFor(result, "Foo") ?? { label: "" })).toBe("bx bx-file");
-        expect(searchCompletionIcon(optionFor(result, "Foobar") ?? { label: "" })).toBe("bx bx-note");
+        expect(searchCompletionNote(optionFor(result, "Foo") ?? { label: "" })).toBe(NOTES[0]);
+        expect(searchCompletionNote(optionFor(result, "Foobar") ?? { label: "" })).toBe(NOTES[1]);
+        // Neither an icon nor a detail of its own: the note row draws both.
+        expect(searchCompletionIcon(optionFor(result, "Foo") ?? { label: "" })).toBeUndefined();
+        expect(optionFor(result, "Foo")?.detail).toBeUndefined();
+        // Anything else is drawn by CodeMirror.
+        expect(searchCompletionNote({ label: "note", type: "namespace" })).toBeUndefined();
     });
 
     it("answers with the recently visited notes before anything is typed", async () => {

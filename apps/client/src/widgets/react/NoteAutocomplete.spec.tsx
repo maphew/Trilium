@@ -19,7 +19,7 @@ import appContext from "../../components/app_context";
 import type { NoteSuggestionOptions, Suggestion } from "../../services/note_autocomplete";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
-import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps } from "./NoteAutocomplete";
+import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps, renderNoteSuggestion } from "./NoteAutocomplete";
 
 async function render(props: NoteAutocompleteProps = {}) {
     let container = document.createElement("div");
@@ -206,6 +206,20 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(beta.querySelector(".search-result-attributes")?.textContent).toBe("#tag");
         expect(input.getAttribute("aria-expanded")).toBe("true");
         expect(input.getAttribute("aria-activedescendant")).toBe(alpha.id);
+    });
+
+    it("renders a row's content for a list it does not hold, as its own rows hold it", async () => {
+        const input = await mount();
+        await type(input, "al");
+        const beta = rows()[1];
+        const content = beta.querySelector(":scope > span");
+
+        // Class-less, as the menu's `.dropdown-item > span:not([class])` lays out.
+        const rendered = renderNoteSuggestion(notes[1]);
+        expect(rendered.tagName).toBe("SPAN");
+        expect(rendered.hasAttribute("class")).toBe(false);
+        expect(content).not.toBe(null);
+        expect(rendered.innerHTML).toBe(content?.innerHTML);
     });
 
     it("gives each kind of row its icon, and never shows a content snippet", async () => {

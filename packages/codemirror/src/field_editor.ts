@@ -26,6 +26,16 @@ export interface FieldEditorConfig {
      */
     completionIcon?(completion: Completion): string | undefined;
     /**
+     * Draws a completion whole, in place of its icon, label and detail, for one that needs more
+     * than a line of text. Completions it answers `null` for are drawn as usual.
+     */
+    renderCompletion?(completion: Completion): HTMLElement | null;
+    /**
+     * Classes for the completion popup and for each of its options, so the host can draw the popup
+     * as one of its own menus.
+     */
+    completionClasses?: { popup: string; option: string };
+    /**
      * Whether picking a completion reopens the popup on what follows it, for one that inserts an
      * opening rather than a finished value.
      */
@@ -110,7 +120,7 @@ export function createFieldEditor(config: FieldEditorConfig): FieldEditor {
     }
 
     if (config.completionSource) {
-        const icon = config.completionIcon;
+        const { completionIcon: icon, renderCompletion, completionClasses } = config;
 
         // The completion keymap is registered at the highest precedence, so Enter picks the
         // selected option while the popup is open and reaches `onEnter` the rest of the time.
@@ -121,9 +131,14 @@ export function createFieldEditor(config: FieldEditorConfig): FieldEditor {
             activateOnTyping: true,
             selectOnOpen: false,
             activateOnCompletion: config.activateOnCompletion,
-            icons: !icon,
-            addToOptions: icon ? [ { position: ICON_POSITION, render: (completion) => renderIcon(icon(completion)) } ] : []
-        }));
+            icons: !icon && !renderCompletion,
+            addToOptions: icon || renderCompletion ? [ {
+                position: ICON_POSITION,
+                render: (completion) => markWhole(renderCompletion?.(completion)) ?? renderIcon(icon?.(completion))
+            } ] : [],
+            tooltipClass: completionClasses && (() => completionClasses.popup),
+            optionClass: completionClasses && (() => completionClasses.option)
+        }), wholeCompletionTheme);
     }
 
     return new EditorView({
@@ -168,6 +183,25 @@ function keyBelongsToField(view: EditorView) {
 
 /** Where CodeMirror draws its own icons, which {@link FieldEditorConfig.completionIcon} takes over. */
 const ICON_POSITION = 20;
+
+/**
+ * Marks what {@link FieldEditorConfig.renderCompletion} draws, so the label and detail after it are
+ * hidden. An attribute rather than a class, so the host's rules for a class-less element still apply.
+ */
+const WHOLE_COMPLETION_ATTRIBUTE = "data-completion-whole";
+
+const wholeCompletionTheme = EditorView.baseTheme({
+    // Two selectors rather than an `:is()`: the theme scopes each part of a list split at its commas.
+    [`[${WHOLE_COMPLETION_ATTRIBUTE}] ~ .cm-completionLabel, [${WHOLE_COMPLETION_ATTRIBUTE}] ~ .cm-completionDetail`]: {
+        display: "none"
+    }
+});
+
+function markWhole(element: HTMLElement | null | undefined) {
+    element?.setAttribute(WHOLE_COMPLETION_ATTRIBUTE, "");
+
+    return element;
+}
 
 function renderIcon(classes: string | undefined) {
     if (!classes) {

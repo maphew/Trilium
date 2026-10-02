@@ -71,9 +71,10 @@ body.desktop .dropdown-item.dropdown-submenu.submenu-open,
  * mark a second row until the pointer moves. The row looks unhovered meanwhile, as in the resting
  * `.dropdown-item` rule. `!important` and the extra classes outrank the theme's `:hover` rule in
  * style.css, whose values these undo. A popup whose rows take focus themselves, such as the quick
- * search's results, sets the class too; its focused row is the keys' row.
+ * search's results, sets the class too; its focused row is the keys' row. So does a search field's
+ * completion popup, whose keys' row CodeMirror marks with `aria-selected`.
  */
-.tn-menu-keyboard .dropdown-item:hover:not(.disabled, .active, .dropdown-container-item, .tn-menu-active, .submenu-open, :focus) {
+.tn-menu-keyboard .dropdown-item:hover:not(.disabled, .active, .dropdown-container-item, .tn-menu-active, [aria-selected="true"], .submenu-open, :focus) {
     color: var(--menu-text-color) !important;
     background-color: transparent !important;
     border-color: transparent !important;

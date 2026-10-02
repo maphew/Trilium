@@ -34,16 +34,15 @@
         z-index: 1210;
     }
 
-    /* Outweighs CodeMirror's `&light .cm-tooltip`, which carries two classes. */
+    /*
+     * The popup carries the note autocomplete's menu classes (`search_field_editor.ts`), which draw
+     * its frame and rows. These rules undo only what CodeMirror's theme sets over them: its
+     * `&light .cm-tooltip` and `.cm-tooltip-autocomplete > ul > li` outweigh `.dropdown-menu` and
+     * `.dropdown-item`.
+     */
     .cm-editor .cm-tooltip.cm-tooltip-autocomplete {
-        font-size: 0.8125em;
-        background: var(--menu-background-color-no-backdrop, var(--main-background-color));
-        color: var(--menu-text-color, var(--main-text-color));
-        border: 1px solid var(--dropdown-border-color, var(--main-border-color));
-        border-radius: var(--dropdown-border-radius, var(--bs-border-radius));
-        box-shadow: 0 5px 10px rgba(0, 0, 0, var(--dropdown-shadow-opacity, 0.2));
+        border-color: var(--dropdown-border-color);
         overflow: hidden;
-        padding: var(--suggestion-list-padding);
 
         /* CodeMirror sets monospace on the popup; the field itself is in the UI font. */
         & > ul {
@@ -51,28 +50,26 @@
             max-height: 18em;
         }
 
-        /* A mention row's metrics, over the 1.84/13px line CKEditor gives `.ck-button__label`. */
+        /* Bootstrap's row padding, which the Next theme overrides with `!important`. */
         & > ul > li {
-            display: flex;
             flex-wrap: wrap;
-            align-items: center;
-            padding: var(--suggestion-item-padding-block) var(--suggestion-item-padding-inline);
-            border-radius: 6px;
-            line-height: calc(1.84 * 13px);
+            padding: var(--bs-dropdown-item-padding-y) var(--bs-dropdown-item-padding-x);
+            line-height: inherit;
         }
 
+        /* Matches the `.tn-menu-gap` beside a note row's icon. */
         .cm-completion-glyph {
-            margin-inline-end: 0.4em;
+            margin-inline-end: 0.5em;
             opacity: 0.7;
         }
 
+        /* Matches the second line of a note row, `.search-result-attributes`. */
         .cm-completionDetail {
             flex-basis: 100%;
             margin-left: 0;
-            font-size: 0.75em;
-            line-height: 1.84;
+            font-size: small;
             font-style: normal;
-            opacity: 0.75;
+            color: var(--muted-text-color);
             overflow: hidden;
             text-overflow: ellipsis;
         }

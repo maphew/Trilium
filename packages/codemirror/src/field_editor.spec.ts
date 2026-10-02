@@ -193,6 +193,45 @@ describe("createFieldEditor", () => {
         expect(document.querySelector(".cm-completionIcon")).toBe(null);
     });
 
+    it("draws a completion whole where the consumer renders it, and classes the popup", async () => {
+        const view = build({
+            doc: "#b",
+            completionSource: () => ({ from: 0, options: [ { label: "#book" }, { label: "#borrowed", detail: "Lent" } ] }),
+            completionIcon: () => "bx bx-hash",
+            renderCompletion: (completion) => {
+                if (completion.label !== "#borrowed") return null;
+                const element = document.createElement("span");
+                element.textContent = "Borrowed";
+                return element;
+            },
+            completionClasses: { popup: "my-menu", option: "my-item" }
+        });
+        editor = view;
+        view.dispatch({ selection: EditorSelection.cursor(2) });
+
+        await openCompletion(view);
+
+        const popup = document.querySelector(".cm-tooltip-autocomplete");
+        expect(popup?.classList.contains("my-menu")).toBe(true);
+        const [ book, borrowed ] = Array.from(popup?.querySelectorAll("li") ?? []);
+        expect(book.classList.contains("my-item")).toBe(true);
+        expect(borrowed.classList.contains("my-item")).toBe(true);
+
+        // A completion the consumer renders nothing for keeps its icon and label.
+        expect(book.querySelector(".cm-completion-glyph")).not.toBe(null);
+        expect(book.querySelector(".cm-completionLabel")?.textContent).toBe("#book");
+
+        // The rendered one replaces the icon, and the label and detail after it are hidden.
+        const whole = borrowed.querySelector("[data-completion-whole]");
+        expect(whole?.textContent).toBe("Borrowed");
+        expect(borrowed.querySelector(".cm-completion-glyph")).toBe(null);
+        // The test DOM does not apply the editor's injected styles, so the rule is looked up instead.
+        expect(borrowed.querySelector(".cm-completionLabel")).not.toBe(null);
+        expect(borrowed.querySelector(".cm-completionDetail")).not.toBe(null);
+        const rules = Array.from(document.querySelectorAll("style"), (style) => style.textContent).join("\n");
+        expect(rules).toMatch(/\.ͼ\w+ \[data-completion-whole\] ~ \.cm-completionLabel, \.ͼ\w+ \[data-completion-whole\] ~ \.cm-completionDetail\s*\{\s*display: none/);
+    });
+
     it("keeps the line breaks in inserted text", () => {
         const onChange = vi.fn();
         editor = build({ onChange });
