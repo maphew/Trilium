@@ -32,6 +32,7 @@ export default function RelationNamePopover({ connection, defaultValue, onAnswer
 }) {
     const [ name, setName ] = useState(defaultValue);
     const isComposing = useRef(false);
+    const inputRef = useRef<HTMLInputElement>(null);
     const isRename = !!defaultValue;
 
     const suggestRelationNames = useCallback((query: string) => fetchAttributeNames("relation", query), []);
@@ -55,6 +56,7 @@ export default function RelationNamePopover({ connection, defaultValue, onAnswer
             placement="bottom"
             getAnchorRect={() => connectionAnchorRect(connection)}
             onDismiss={cancel}
+            onPlaced={() => inputRef.current?.focus()}
         >
             <div className="relation-name-header">
                 <span className="relation-name-heading">
@@ -65,7 +67,7 @@ export default function RelationNamePopover({ connection, defaultValue, onAnswer
 
             <div className="relation-name-body">
                 <FormAutocomplete
-                    autoFocus
+                    inputRef={inputRef}
                     currentValue={name}
                     placeholder={t("relation_map.relation_name_placeholder")}
                     source={suggestRelationNames}

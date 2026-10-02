@@ -49,6 +49,11 @@ export interface PopoverProps {
      * and `data-placement` (see the effect below), so only the stylesheet positions it.
      */
     maximized?: boolean;
+    /**
+     * Called once the card is first placed and shown. A field inside the card can only take the focus
+     * from then on, since the card stays `visibility: hidden` until `placeFloating()` resolves.
+     */
+    onPlaced?(): void;
     children: ComponentChildren;
 }
 
@@ -59,7 +64,7 @@ export interface PopoverProps {
  * CLAUDE.md). `placeFloating()` positions it, and `autoUpdate()` places it again as ancestors
  * scroll.
  */
-export default function Popover({ getAnchorRect, placement, updateKey, className, keepOpenSelector, onDismiss, maximized, children }: PopoverProps) {
+export default function Popover({ getAnchorRect, placement, updateKey, className, keepOpenSelector, onDismiss, maximized, onPlaced, children }: PopoverProps) {
     const elRef = useRef<HTMLDivElement>(null);
     const arrowRef = useRef<HTMLDivElement>(null);
     const updateRef = useRef<() => void>();
@@ -68,6 +73,9 @@ export default function Popover({ getAnchorRect, placement, updateKey, className
     // on every render would reset the position mid-interaction.
     const getRectRef = useRef(getAnchorRect);
     getRectRef.current = getAnchorRect;
+    const onPlacedRef = useRef(onPlaced);
+    onPlacedRef.current = onPlaced;
+    const hasBeenPlaced = useRef(false);
 
     useEffect(() => {
         const el = elRef.current;
@@ -97,8 +105,16 @@ export default function Popover({ getAnchorRect, placement, updateKey, className
         };
         // `placeFloating()` resolves later, by which time the card can have been maximized.
         const update = () => void placeFloating(el, anchor, options).then((placed) => {
-            if (released) release();
-            else el.dataset.placement = placed;
+            if (released) {
+                release();
+                return;
+            }
+
+            el.dataset.placement = placed;
+            if (!hasBeenPlaced.current) {
+                hasBeenPlaced.current = true;
+                onPlacedRef.current?.();
+            }
         });
         updateRef.current = update;
         // Places the card again when an ancestor scrolls, the viewport resizes, or the card's

@@ -67,10 +67,11 @@ describe("RelationNamePopover", () => {
         expect(outside.onAnswer).toHaveBeenCalledWith(null);
     });
 
-    it("opens on the current name when renaming", async () => {
+    it("opens on the current name when renaming, with the field focused", async () => {
         const { input } = await mount("author");
 
         expect(input.value).toBe("author");
+        expect(document.activeElement).toBe(input);
         expect(document.querySelector(".relation-name-heading")?.textContent).toBe("relation_map.rename_relation");
     });
 });
@@ -103,6 +104,8 @@ async function mount(defaultValue = "") {
         renderInto(
             <RelationNamePopover connection={fakeConnection()} defaultValue={defaultValue} onAnswer={onAnswer} />);
     });
+    // Lets `placeFloating()` resolve, which is when the popover focuses its field.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 
     const input = document.querySelector<HTMLInputElement>(".relation-name-popover input");
     if (!input) throw new Error("the popover rendered no field");
