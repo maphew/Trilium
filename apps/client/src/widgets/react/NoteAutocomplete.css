@@ -24,11 +24,6 @@
     padding-inline: 5px;
 }
 
-.input-group > :is(.show-recent-notes-button, .go-to-selected-note-button),
-.note-autocomplete ~ .input-clearer-button {
-    padding-top: 8px;
-}
-
 .input-group > .go-to-selected-note-button {
     padding-inline: 4px 3px;
 

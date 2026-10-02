@@ -108,6 +108,5 @@ body[dir=rtl] .label-select-combobox.form-control:focus {
 /* Outranks Bootstrap's `.input-group-text`. */
 .input-group-text.open-external-link-button {
     font-size: 1.3em;
-    padding-top: 8px;
     padding-inline: 5px;
 }
