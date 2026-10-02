@@ -3,7 +3,7 @@ import "./NoteAutocomplete.css";
 import clsx from "clsx";
 import type { RefObject } from "preact";
 import type { CSSProperties } from "preact/compat";
-import { useCallback, useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
@@ -35,6 +35,7 @@ export interface NoteAutocompleteProps {
 
 export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex }: NoteAutocompleteProps) {
     const inputRef = useSyncedRef<HTMLInputElement>(externalInputRef);
+    const groupRef = useRef<HTMLDivElement>(null);
     const [ value, setValue ] = useState("");
     const [ notePath, setNotePath ] = useState("");
 
@@ -73,7 +74,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     const showGoToButton = showButtons && !opts?.hideGoToSelectedNoteButton;
 
     return (
-        <div className="input-group" style={containerStyle}>
+        <div ref={groupRef} className="input-group" style={containerStyle}>
             <input
                 id={id}
                 ref={inputRef}
@@ -136,14 +137,14 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 />
             </>}
 
-            {autocomplete.isShown && inputRef.current && (
+            {autocomplete.isShown && groupRef.current && (
                 <Popup
-                    anchor={inputRef.current}
+                    anchor={groupRef.current}
                     placement="bottom-start"
                     capHeight={false}
                     className="algolia-autocomplete"
-                    // The list spans the input, as `autocomplete.js` sized it.
-                    style={{ width: `${inputRef.current.getBoundingClientRect().width}px` }}
+                    // The list spans the whole field, buttons included.
+                    style={{ width: `${groupRef.current.getBoundingClientRect().width}px` }}
                     escapeDismisses={false}
                     onDismiss={autocomplete.close}
                 >

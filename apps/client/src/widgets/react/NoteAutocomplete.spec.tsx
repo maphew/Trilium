@@ -217,6 +217,17 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(rows()).toHaveLength(0);
     });
 
+    it("spans the whole field, the buttons included", async () => {
+        const input = await mount();
+        const group = input.closest(".input-group");
+        if (!group) throw new Error("no input group rendered");
+        group.getBoundingClientRect = () => DOMRect.fromRect({ width: 320, height: 30 });
+        input.getBoundingClientRect = () => DOMRect.fromRect({ width: 200, height: 30 });
+        await type(input, "a");
+
+        expect(document.querySelector<HTMLElement>(".algolia-autocomplete")?.style.width).toBe("320px");
+    });
+
     it("picks a clicked note", async () => {
         const noteIdChanged = vi.fn();
         const input = await mount({ noteIdChanged });
