@@ -61,10 +61,14 @@
   </li>
   <li>
     <p><a class="reference-link" href="#root/_help_nBAXQFj20hS1">Include Note</a>&nbsp;(no
-      built-in Markdown syntax, but HTML syntax works just fine):</p><pre><code class="language-text-html">&lt;section class="include-note" data-note-id="vJDjQm0VK8Na" data-box-size="expandable"&gt;
-    &amp;nbsp;
-&lt;/section&gt;</code></pre>
+      built-in Markdown syntax, but HTML syntax works just fine):</p><pre><code class="language-text-html">&lt;figure class="include-note" data-note-id="vJDjQm0VK8Na" data-box-size="expandable"&gt;
+    &lt;figcaption&gt;An optional caption, with &lt;strong&gt;HTML&lt;/strong&gt; formatting&lt;/figcaption&gt;
+&lt;/figure&gt;</code></pre>
     <ul>
+      <li>The caption is optional. Markdown is not processed inside the HTML block,
+        so format the caption with HTML tags.</li>
+      <li>Includes written as <code>&lt;section class="include-note"&gt;</code>,
+        the syntax of earlier versions, still work.</li>
       <li>These can also be quickly created via the <code>/include</code> command
         or via a dedicated keyboard shortcut (not assigned by default).</li>
     </ul>

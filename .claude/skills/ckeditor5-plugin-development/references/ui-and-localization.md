@@ -101,7 +101,7 @@ Each `items` / `blockToolbar` entry is one of:
 "bold"                                    // a component-factory name (string)
 "|"                                       // a visual separator
 { label: "Insert", icon, items: [         // a grouped dropdown (nestable)
-	"link", "internallink", "includeNote", "|", "collapsible", "math", "mermaid"
+	"link", "internallink", "contentEmbed", "|", "collapsible", "math", "mermaid"
 ] }
 ```
 

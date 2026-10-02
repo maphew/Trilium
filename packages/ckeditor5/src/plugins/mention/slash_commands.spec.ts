@@ -19,7 +19,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
 import { installGlobMock } from "../../../test/globals-test-kit.js";
-import { COMMAND_NAME as INCLUDE_NOTE_COMMAND } from "../includenote.js";
+import { COMMAND_NAME as CONTENT_EMBED_COMMAND } from "../content_embed/content_embed.js";
 import { INSERT_ICON_COMMAND } from "../inline_icon/inline_icon_editing.js";
 import InlineIconUI from "../inline_icon/inline_icon_ui.js";
 import InsertDateTimePlugin, { COMMAND_NAME as INSERT_DATE_TIME_COMMAND, DATE_TIME_PRESETS } from "../insert_date_time.js";
@@ -624,7 +624,7 @@ describe("buildTriliumSlashCommands", () => {
         [ "internal-link", "Internal link", INTERNAL_LINK_COMMAND ],
         [ "attach-file", "Attach file as a link", "fileUpload" ],
         [ "attach-and-embed-file", "Attach and embed file", "fileUpload" ],
-        [ "include-note", "Include note", INCLUDE_NOTE_COMMAND ],
+        [ "content-embed", "Include note", CONTENT_EMBED_COMMAND ],
         [ "page-break", "Page break", "pageBreak" ],
         [ "markdown-import", "Markdown import", MARKDOWN_IMPORT_COMMAND ],
         [ "icon", "Icon", INSERT_ICON_COMMAND ],
@@ -669,19 +669,19 @@ describe("buildTriliumSlashCommands", () => {
         click.mockRestore();
     });
 
-    it("offers embedding a file only where both a file and an include can go", () => {
+    it("offers embedding a file only where both a file and an embed can go", () => {
         const fileUpload = { isEnabled: true };
-        const includeNote = { isEnabled: true };
+        const contentEmbed = { isEnabled: true };
         const { fake } = makeFakeEditor({
-            fileUpload, [INCLUDE_NOTE_COMMAND]: includeNote
+            fileUpload, [CONTENT_EMBED_COMMAND]: contentEmbed
         });
         const isEnabled = definition("attach-and-embed-file").isEnabled;
         expect(isEnabled?.(fake)).toBe(true);
 
-        includeNote.isEnabled = false;
+        contentEmbed.isEnabled = false;
         expect(isEnabled?.(fake)).toBe(false);
 
-        includeNote.isEnabled = true;
+        contentEmbed.isEnabled = true;
         fileUpload.isEnabled = false;
         expect(isEnabled?.(fake)).toBe(false);
 

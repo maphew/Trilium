@@ -92,7 +92,7 @@ export class ReferenceLinkEditing extends Plugin {
 				let attachmentId: unknown;
 				if ( item.is( 'element', 'reference' ) ) {
 					attachmentId = getAttachmentId( item.getAttribute( 'href' ) );
-				} else if ( item.is( 'element', 'includeNote' ) ) {
+				} else if ( item.is( 'element', 'contentEmbed' ) ) {
 					attachmentId = item.getAttribute( 'attachmentId' );
 				} else {
 					continue;
@@ -237,6 +237,15 @@ export class ReferenceLinkEditing extends Plugin {
 export function getAttachmentId( href: unknown ) {
 	const query = typeof href === 'string' ? href.split( '?' )[ 1 ] : undefined;
 	return query ? new URLSearchParams( query ).get( 'attachmentId' ) : null;
+}
+
+/**
+ * The note a reference link points to, the last segment of its note path. For a link to an
+ * attachment, the note that owns it.
+ */
+export function getNoteId( href: unknown ) {
+	const notePath = typeof href === 'string' ? href.split( '?' )[ 0 ].replace( /^#/, '' ) : '';
+	return notePath.split( '/' ).at( -1 ) || null;
 }
 
 declare module "ckeditor5" {

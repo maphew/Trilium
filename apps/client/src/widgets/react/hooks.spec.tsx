@@ -6,7 +6,15 @@ import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildNote } from "../../test/easy-froca";
-import { type DelayedVisibilityPhase, useDelayedVisibility, useImperativeSearchHighlighlighting, useNoteLabelBoolean, useStaticTooltip, useTooltip } from "./hooks";
+import {
+    type DelayedVisibilityPhase,
+    useDelayedVisibility,
+    useFocusWithin,
+    useImperativeSearchHighlighlighting,
+    useNoteLabelBoolean,
+    useStaticTooltip,
+    useTooltip
+} from "./hooks";
 
 /**
  * mark.js delegating to the real implementation, so marking still works, while recording the calls
@@ -116,6 +124,79 @@ describe("useDelayedVisibility", () => {
         await show(false);
         await advance(0);
         expect(currentPhase).toBe("hidden");
+    });
+});
+
+describe("useFocusWithin", () => {
+    let container: HTMLElement;
+    let isFocusWithin: boolean | undefined;
+
+    function FocusProbe() {
+        const ref = useRef<HTMLDivElement>(null);
+        isFocusWithin = useFocusWithin(ref);
+        return (
+            <div ref={ref}>
+                <button />
+                <iframe />
+            </div>
+        );
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        isFocusWithin = undefined;
+        container = document.createElement("div");
+        document.body.appendChild(container);
+        act(() => render(<FocusProbe />, container));
+    });
+
+    afterEach(() => {
+        act(() => render(null, container));
+        container.remove();
+        vi.useRealTimers();
+    });
+
+    /** Fires `type` at the window, and runs what the hook defers until the focus settles. */
+    async function fireOnWindow(type: "blur" | "focus") {
+        await act(async () => {
+            window.dispatchEvent(new FocusEvent(type));
+            await vi.runAllTimersAsync();
+        });
+    }
+
+    it("follows the focus into the element and out of it, but not out of the window", async () => {
+        const inside = container.querySelector("button");
+        const outside = document.createElement("button");
+        document.body.appendChild(outside);
+        expect(isFocusWithin).toBe(false);
+
+        act(() => inside?.focus());
+        expect(isFocusWithin).toBe(true);
+
+        // Switching to another window leaves the document's active element where it was.
+        await fireOnWindow("blur");
+        expect(isFocusWithin).toBe(true);
+
+        await act(async () => {
+            outside.focus();
+            await vi.runAllTimersAsync();
+        });
+        expect(isFocusWithin).toBe(false);
+        outside.remove();
+    });
+
+    it("counts the focus in a frame inside, which only the window reports", async () => {
+        const activeElement = vi.spyOn(document, "activeElement", "get");
+
+        activeElement.mockReturnValue(container.querySelector("iframe"));
+        await fireOnWindow("blur");
+        expect(isFocusWithin).toBe(true);
+
+        activeElement.mockReturnValue(document.body);
+        await fireOnWindow("focus");
+        expect(isFocusWithin).toBe(false);
+
+        activeElement.mockRestore();
     });
 });
 

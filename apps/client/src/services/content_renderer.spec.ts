@@ -87,6 +87,10 @@ vi.mock("../widgets/type_widgets/WebView", () => ({ default: webViewComponent })
 const mediaPreviewComponent = vi.fn((_props: any): VNode<any> => h("span", { class: "mock-media-marker" }));
 vi.mock("../widgets/type_widgets/file/MediaPreview", () => ({ default: mediaPreviewComponent }));
 
+const imageViewerComponent = vi.fn((_props: any): VNode<any> =>
+    h("span", { class: "mock-image-viewer-marker" }));
+vi.mock("../widgets/react/ImageViewer", () => ({ default: imageViewerComponent }));
+
 const embeddedNoteListComponent = vi.fn((_props: any) => null);
 vi.mock("../widgets/collections/NoteList", () => ({ EmbeddedNoteList: embeddedNoteListComponent }));
 
@@ -111,7 +115,12 @@ vi.mock("@triliumnext/commons/src/lib/markdown_renderer", async (orig) => ({
 import appContext from "../components/app_context.js";
 import FAttachment from "../entities/fattachment.js";
 import { buildNote } from "../test/easy-froca.js";
-import { disposeInteractiveContent, getRenderedContent as rawGetRenderedContent } from "./content_renderer.js";
+import {
+    disposeInteractiveContent,
+    getEmbedBoxSize,
+    getRenderedContent as rawGetRenderedContent,
+    getUploadBoxSize
+} from "./content_renderer.js";
 import froca from "./froca.js";
 import server from "./server.js";
 
@@ -149,6 +158,54 @@ beforeEach(() => {
     vi.clearAllMocks();
     isProtectedSessionAvailable.mockReturnValue(false);
     (window as any).electronApi = undefined;
+});
+
+describe("getEmbedBoxSize", () => {
+    it("sizes an embed by what it previews: none, audio, code or anything else", () => {
+        const protectedCode = buildNote({ title: "Secret", type: "code", mime: "text/javascript" });
+        protectedCode.isProtected = true;
+
+        expect([
+            buildNote({ title: "Map", type: "relationMap" }),
+            buildNote({ title: "Launcher", type: "launcher" }),
+            buildNote({ title: "Blank page", type: "webView" }),
+            buildNote({ title: "Archive", type: "file", mime: "application/zip" }),
+            buildAttachment({ role: "file", mime: "application/zip" }),
+            buildAttachment({ role: "canvasLibraryItem", mime: "application/json" })
+        ].map(getEmbedBoxSize)).toEqual(Array(6).fill("tiny"));
+
+        expect([
+            buildNote({ title: "Song", type: "file", mime: "audio/mpeg" }),
+            buildAttachment({ role: "file", mime: "audio/ogg" })
+        ].map(getEmbedBoxSize)).toEqual([ "small", "small" ]);
+
+        expect([
+            buildNote({ title: "Script", type: "code", mime: "text/javascript" }),
+            protectedCode,
+            buildAttachment({ role: "file", mime: "application/json" })
+        ].map(getEmbedBoxSize)).toEqual([ "full", "full", "full" ]);
+        expect(touchProtectedSession).not.toHaveBeenCalled();
+
+        expect([
+            buildNote({ title: "Text", type: "text" }),
+            buildNote({ title: "Readme", type: "code", mime: "text/x-markdown" }),
+            buildNote({ title: "Books", type: "book" }),
+            buildNote({ title: "Diagram", type: "mermaid" }),
+            buildNote({ title: "Site", type: "webView", "#webViewSrc": "https://example.com" }),
+            buildNote({ title: "Clip", type: "file", mime: "video/mp4" }),
+            buildAttachment({ role: "file", mime: "application/pdf" }),
+            buildAttachment({ role: "image", mime: "image/png" })
+        ].map(getEmbedBoxSize)).toEqual(Array(8).fill("medium"));
+    });
+
+    it("sizes an upload by its media type, as the attachment it becomes", () => {
+        expect([
+            "application/zip", "", "audio/mpeg", "application/json", "application/pdf",
+            "image/png", "video/mp4"
+        ].map(getUploadBoxSize)).toEqual([
+            "tiny", "tiny", "small", "full", "medium", "medium", "medium"
+        ]);
+    });
 });
 
 describe("getRenderedContent dispatch", () => {
@@ -254,6 +311,42 @@ describe("getRenderedContent image rendering", () => {
         const { type, $renderedContent } = await getRenderedContent(att);
         expect(type).toBe("image");
         expect($renderedContent.find("img").attr("src")).toContain(`api/attachments/${att.attachmentId}/image/`);
+    });
+
+    it("mounts the image viewer when the caller embeds an image note or attachment", async () => {
+        const note = buildNote({ title: "Pic", type: "image" });
+        const { type, $renderedContent } = await getRenderedContent(note, {
+            mediaEnvironment: "embedded"
+        });
+        expect(type).toBe("image");
+        const $viewer = $renderedContent.find(".rendered-image-viewer");
+        expect($viewer.find(".mock-image-viewer-marker").length).toBe(1);
+        expect($renderedContent.find("img").length).toBe(0);
+        expect(imageViewerComponent).toHaveBeenCalledWith(expect.objectContaining({
+            src: expect.stringContaining(`api/images/${note.noteId}/`),
+            alt: "Pic",
+            environment: "embedded"
+        }), expect.anything());
+        // The viewer's <img> takes no pointer events, so the menu listens on the container.
+        expect(setupContextMenu).toHaveBeenCalledOnce();
+        expect(setupContextMenu.mock.calls[0][0].get(0)).toBe($viewer.get(0));
+
+        const att = buildAttachment({ role: "image" });
+        await getRenderedContent(att, { mediaEnvironment: "embedded" });
+        expect(imageViewerComponent).toHaveBeenLastCalledWith(expect.objectContaining({
+            src: expect.stringContaining(`api/attachments/${att.attachmentId}/image/`)
+        }), expect.anything());
+    });
+
+    it("keeps a plain image for an embedded canvas and outside an embed", async () => {
+        const canvas = buildNote({ title: "C", type: "canvas" });
+        const embedded = await getRenderedContent(canvas, { mediaEnvironment: "embedded" });
+        expect(embedded.$renderedContent.find("img").length).toBe(1);
+
+        const note = buildNote({ title: "Pic", type: "image" });
+        const native = await getRenderedContent(note, { mediaEnvironment: "native" });
+        expect(native.$renderedContent.find("img").length).toBe(1);
+        expect(imageViewerComponent).not.toHaveBeenCalled();
     });
 
     it("appends OCR text for FNote images when showTextRepresentation and OCR succeeds", async () => {

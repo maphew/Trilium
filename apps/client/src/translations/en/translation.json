@@ -340,7 +340,8 @@
     "box_size_medium": "medium (~ 30 lines)",
     "box_size_full": "full (box shows complete text)",
     "box_size_expandable": "expandable (collapsed by default)",
-    "button_include": "Include note"
+    "button_include": "Include note",
+    "box_size_tiny": "tiny (a single row with the title and the actions)"
   },
   "info": {
     "modalTitle": "Info message",
@@ -3058,7 +3059,12 @@
     "open_note_in_other_split": "Open note in the other split",
     "open_note_in_new_window": "Open note in a new window",
     "open_note_in_popup": "Quick edit",
-    "convert_link_to_embed": "Convert link to an embed"
+    "convert_link_to_embed": "Convert link to an embed",
+    "convert_link_to_included_note": "Convert link to an included note",
+    "convert_embed_to_link": "Convert to link",
+    "include_size": "Size",
+    "show_title": "Show title",
+    "show_caption": "Show caption"
   },
   "electron_integration": {
     "desktop-application": "Desktop Application",
@@ -4217,7 +4223,9 @@
     "save": "Save",
     "cancel": "Cancel",
     "fullscreen": "Fullscreen",
-    "exit_fullscreen": "Exit fullscreen"
+    "exit_fullscreen": "Exit fullscreen",
+    "open_in_new_tab": "Open in new tab",
+    "more_actions": "More actions"
   },
   "spreadsheet": {
     "read-only": "This note is read-only.",
@@ -4251,6 +4259,7 @@
       "attach-file-as-a-link": "Attach file as a link",
       "box-size": "Box size",
       "bulleted-list": "Bulleted list",
+      "caption-for-the-included-note": "Caption for the included note",
       "card": "Card",
       "caution": "Caution",
       "changes": "Changes",
@@ -4278,6 +4287,7 @@
       "edit-task-states": "Edit task states",
       "edit-title": "Edit title",
       "embed": "Embed",
+      "enter-caption": "Enter caption",
       "enter-the-anchor-name-without-spaces": "Enter the anchor name without spaces.",
       "equation-preview": "Equation preview",
       "error-rendering-equation": "Error rendering equation",
@@ -4402,7 +4412,10 @@
       "sort": "Sort",
       "ascending": "Ascending",
       "descending": "Descending",
-      "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "Some rows were sorted together because merged cells tie them to each other"
+      "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "Some rows were sorted together because merged cells tie them to each other",
+      "tiny": "Tiny",
+      "show-title": "Show title",
+      "more-actions": "More actions"
     },
     "task-state-dropped-title": "Invalid task states",
     "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",

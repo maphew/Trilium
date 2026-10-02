@@ -276,7 +276,7 @@ function useSyncedScrolling(view: VanillaCodeMirror | null, preview: HTMLDivElem
  *
  * The marker is painted as the preview's background (see `Markdown.css`), so its geometry has to
  * be measured here. Every block is observed for resize, since a block that grows after render —
- * a mermaid diagram, an image, an included note — shifts everything below it.
+ * a mermaid diagram, an image, an embedded note — shifts everything below it.
  */
 function useSyncedHighlight(view: VanillaCodeMirror | null, preview: HTMLDivElement | null, html: string) {
     useEffect(() => {
@@ -374,10 +374,10 @@ function useTextCommands(parentComponent: TypeWidgetProps["parentComponent"], ed
         addIncludeNoteToTextCommand() {
             if (!editorView) return;
 
-            parentComponent?.triggerCommand("showIncludeNoteDialog", {
+            parentComponent?.triggerCommand("showContentEmbedDialog", {
                 editorApi: {
-                    addIncludeNote(noteId: string, boxSize?: string) {
-                        insertText(editorView, `<section class="include-note" data-note-id="${noteId}" data-box-size="${boxSize ?? "full"}"></section>\n`);
+                    addContentEmbed(noteId: string, boxSize?: string) {
+                        insertText(editorView, `<figure class="include-note" data-note-id="${noteId}" data-box-size="${boxSize ?? "full"}"></figure>\n`);
                         editorView.focus();
                     },
                     async addImage(noteId: string) {

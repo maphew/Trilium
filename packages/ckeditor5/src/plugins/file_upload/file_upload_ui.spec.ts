@@ -20,16 +20,16 @@ import FileUploadUI from "./file_upload_ui.js";
 describe("FileUploadUI", () => {
     let editor: ClassicEditor;
     let command: Command;
-    let includeCommand: Command;
+    let embedCommand: Command;
 
     beforeEach(async () => {
         editor = await createTestEditor([Essentials, Paragraph, FileUploadUI]);
         command = new Command(editor);
         command.refresh();
         editor.commands.add("fileUpload", command);
-        includeCommand = new Command(editor);
-        includeCommand.refresh();
-        editor.commands.add("insertIncludeNote", includeCommand);
+        embedCommand = new Command(editor);
+        embedCommand.refresh();
+        editor.commands.add("insertContentEmbed", embedCommand);
     });
 
     function createDropdown() {
@@ -120,12 +120,12 @@ describe("FileUploadUI", () => {
         dropdown.destroy();
     });
 
-    it("follows the `fileUpload` command, and offers embeds only where an include can go", () => {
+    it("follows the `fileUpload` command, and offers embeds only where an embed can go", () => {
         const { dropdown, actionView, items: [ linkItem, embedItem ] } = createDropdown();
         expect([ dropdown.isEnabled, actionView.isEnabled ]).toEqual([ true, true ]);
         expect([ linkItem.isEnabled, embedItem.isEnabled ]).toEqual([ true, true ]);
 
-        includeCommand.forceDisabled("spec");
+        embedCommand.forceDisabled("spec");
         expect([ linkItem.isEnabled, embedItem.isEnabled ]).toEqual([ true, false ]);
 
         command.forceDisabled("spec");

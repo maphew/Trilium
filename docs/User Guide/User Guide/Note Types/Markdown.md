@@ -36,11 +36,13 @@ The following features are supported by Trilium's Markdown format and will show 
 *   <a class="reference-link" href="Text/Include%20Note.md">Include Note</a> (no built-in Markdown syntax, but HTML syntax works just fine):
     
     ```html
-    <section class="include-note" data-note-id="vJDjQm0VK8Na" data-box-size="expandable">
-        &nbsp;
-    </section>
+    <figure class="include-note" data-note-id="vJDjQm0VK8Na" data-box-size="expandable">
+        <figcaption>An optional caption, with <strong>HTML</strong> formatting</figcaption>
+    </figure>
     ```
     
+    *   The caption is optional. Markdown is not processed inside the HTML block, so format the caption with HTML tags.
+    *   Includes written as `<section class="include-note">`, the syntax of earlier versions, still work.
     *   These can also be quickly created via the `/include` command or via a dedicated keyboard shortcut (not assigned by default).
 *   <a class="reference-link" href="Text/Links/Internal%20(reference)%20links.md">Internal (reference) links</a> via its HTML syntax, or through a _Wikilinks_\-like format (only <a class="reference-link" href="../Advanced%20Usage/Note%20ID.md">Note ID</a>):
     
