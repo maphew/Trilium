@@ -704,7 +704,7 @@ describe("IncludeNote with attachments", () => {
         expect(loadIncludedAttachment).not.toHaveBeenCalled();
     });
 
-    it("turns an attachment embed back into a link, and offers it only for one", async () => {
+    it("turns an embed or an included note into a link, and nothing else", async () => {
         const command = editor.commands.get(CONVERT_EMBED_TO_LINK_COMMAND);
         const button = editor.ui.componentFactory.create(CONVERT_EMBED_TO_LINK_COMMAND);
         if (!(button instanceof ButtonView)) {
@@ -712,7 +712,8 @@ describe("IncludeNote with attachments", () => {
         }
         expect(button.label).toBe("Convert to link");
 
-        insertIncludeNote(editor, "noteX", "small");
+        editor.setData("<figure class=\"include-note\" data-box-size=\"small\"></figure>");
+        selectEmbed();
         expect(command?.isEnabled).toBe(false);
         expect(button.isVisible).toBe(false);
 
@@ -726,6 +727,58 @@ describe("IncludeNote with attachments", () => {
         expect(getAttachmentHref).toHaveBeenCalledWith("att1");
         await vi.waitFor(() => expect(getModelData(editor.model, { withoutSelection: true }))
             .toBe(`<paragraph><reference href="${LINK_HREF}"></reference></paragraph>`));
+
+        editor.setData("<figure class=\"include-note\" data-note-id=\"noteX\""
+            + " data-box-size=\"small\"></figure>");
+        selectEmbed();
+        expect(command?.isEnabled).toBe(true);
+        button.fire("execute");
+
+        await vi.waitFor(() => expect(getModelData(editor.model, { withoutSelection: true }))
+            .toBe("<paragraph><reference href=\"#root/noteX\"></reference></paragraph>"));
+        expect(getAttachmentHref).toHaveBeenCalledOnce();
+    });
+
+    it("describes the include an element is part of, without selecting it", () => {
+        editor.setData(embedHtml()
+            + "<figure class=\"include-note\" data-note-id=\"noteX\" data-box-size=\"medium\""
+            + " data-hide-title=\"true\"><figcaption>Caption</figcaption></figure>"
+            + "<figure class=\"include-note\" data-note-id=\"noteY\" data-box-size=\"tiny\""
+            + " data-hide-title=\"true\"></figure>"
+            + "<p>after</p>");
+        editor.model.change((writer) => {
+            const root = editor.model.document.getRoot();
+            const paragraph = root?.getChild(root.childCount - 1);
+            if (paragraph) {
+                writer.setSelection(paragraph, 0);
+            }
+        });
+        const [ embed, note, tiny ] = renderEmbeds() ?? [];
+        const plugin = editor.plugins.get("IncludeNote");
+
+        const states = [ embed, note, tiny ].map((wrapper) => plugin.getIncludeStateAt(wrapper));
+        expect(states).toEqual([ {
+            boxSize: "small", isTitleShown: true, isTitleToggleable: true,
+            hasCaption: false, isCaptionToggleable: true, isConvertibleToLink: true
+        }, {
+            boxSize: "medium", isTitleShown: false, isTitleToggleable: true,
+            hasCaption: true, isCaptionToggleable: true, isConvertibleToLink: true
+        }, {
+            boxSize: "tiny", isTitleShown: true, isTitleToggleable: false,
+            hasCaption: false, isCaptionToggleable: false, isConvertibleToLink: true
+        } ]);
+        const paragraph = editor.editing.view.getDomRoot()?.querySelector("p") ?? embed;
+        expect(plugin.getIncludeStateAt(paragraph)).toBeNull();
+        const position = editor.model.document.selection.getFirstPosition();
+        expect(position?.parent.is("element", "paragraph")).toBe(true);
+
+        expect(plugin.getBoxSizes()).toEqual([
+            { value: "tiny", label: "Tiny" },
+            { value: "small", label: "Small" },
+            { value: "medium", label: "Medium" },
+            { value: "full", label: "Full" },
+            { value: "expandable", label: "Expandable" }
+        ]);
     });
 
     it("converts the embed that selectIncludeAt() selects from its title row", async () => {
@@ -750,7 +803,7 @@ describe("IncludeNote with attachments", () => {
         );
     });
 
-    it("converts nothing when no attachment embed is selected", async () => {
+    it("converts nothing when no include is selected", async () => {
         editor.setData(embedHtml() + "<p>after</p>");
         setModelData(editor.model, "<paragraph>foo[]bar</paragraph>");
         const before = editor.getData();

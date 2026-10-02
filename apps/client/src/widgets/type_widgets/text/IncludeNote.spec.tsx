@@ -115,6 +115,25 @@ function tooltipOf(target: HTMLElement) {
     return text;
 }
 
+/**
+ * Right-clicks `target`, and tells whether the box opened the include's menu for it, taking the
+ * click from the browser and what surrounds the box.
+ */
+function rightClick(target: Element | null) {
+    if (!target) {
+        throw new Error("Nothing to right-click.");
+    }
+    openContextMenu.mockClear();
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    const stopPropagation = vi.spyOn(event, "stopPropagation");
+    act(() => {
+        target.dispatchEvent(event);
+    });
+    const opened = openContextMenu.mock.calls.length === 1
+        && openContextMenu.mock.calls[0][1] === event;
+    return { opened, isTaken: event.defaultPrevented && stopPropagation.mock.calls.length > 0 };
+}
+
 /** Clicks `target` and tells whether the click was kept from what surrounds the box. */
 function click(target: HTMLElement) {
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
@@ -258,6 +277,20 @@ describe("IncludeNote", () => {
         Reflect.deleteProperty(document, "exitFullscreen");
     });
 
+    it("opens its menu on a right click on the title row, leaving the title link its own", () => {
+        renderBox({ notePath: "owner", viewScope: ATTACHMENT_SCOPE });
+        const row = container.querySelector(".include-note-title-row");
+
+        for (const target of [ row, row?.querySelector("h4"), button("include-note-open") ]) {
+            expect(rightClick(target ?? null)).toEqual({ opened: true, isTaken: true });
+            expect(openContextMenu.mock.calls[0][2]).toEqual(ATTACHMENT_SCOPE);
+        }
+
+        // The title link opens the same menu, and a quick edit with Ctrl, through `link.ts`.
+        expect(rightClick(row?.querySelector("a") ?? null))
+            .toEqual({ opened: false, isTaken: false });
+    });
+
     it("leaves the fullscreen controls out of a box that offers no fullscreen", () => {
         renderBox({ boxSize: "small" });
         expect(container.querySelector(".include-note-fullscreen-controls")).toBeNull();
@@ -300,6 +333,17 @@ describe("TinyIncludeNote", () => {
         expect(click(menu).isStopped).toBe(true);
         expect(openContextMenu)
             .toHaveBeenCalledWith("owner", { below: menu }, ATTACHMENT_SCOPE);
+    });
+
+    it("opens its menu on a right click on the row, leaving the title link its own", () => {
+        renderTinyBox({ notePath: "owner", viewScope: ATTACHMENT_SCOPE });
+        const row = container.querySelector(".include-note-title-row");
+
+        expect(rightClick(row?.querySelector(".include-note-icon") ?? null))
+            .toEqual({ opened: true, isTaken: true });
+        expect(openContextMenu.mock.calls[0][0]).toBe("owner");
+        expect(rightClick(row?.querySelector("a") ?? null))
+            .toEqual({ opened: false, isTaken: false });
     });
 
     it("leaves out the description line when there is none", () => {

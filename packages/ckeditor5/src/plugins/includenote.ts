@@ -38,6 +38,17 @@ export const BOX_SIZES = [ 'tiny', 'small', 'medium', 'full', 'expandable' ] as 
 
 export type BoxSizeValue = typeof BOX_SIZES[number];
 
+/** What the toolbar of an include shows of it, for a menu offering the same commands. */
+export interface IncludeNoteState {
+	boxSize: BoxSizeValue | null;
+	/** Whether the title shows, which a Tiny or an Expandable include always does. */
+	isTitleShown: boolean;
+	isTitleToggleable: boolean;
+	hasCaption: boolean;
+	isCaptionToggleable: boolean;
+	isConvertibleToLink: boolean;
+}
+
 /**
  * The user-facing name of a box size, as shown by the widget toolbar's dropdown.
  *
@@ -90,6 +101,33 @@ export default class IncludeNote extends Plugin {
 		} );
 		return true;
 	}
+
+	/**
+	 * The state of the include that `domElement` is part of, as its toolbar shows it with the
+	 * include selected, or `null`. The selection is left as it is.
+	 */
+	getIncludeStateAt( domElement: Element ): IncludeNoteState | null {
+		const editor = this.editor;
+		const include = getIncludeNoteAt( editor, domElement );
+		if ( !include ) {
+			return null;
+		}
+
+		const isTitleToggleable = isIncludeTitleToggleable( include );
+		return {
+			boxSize: include.getAttribute( 'boxSize' ) as BoxSizeValue | undefined ?? null,
+			isTitleShown: !isTitleToggleable || !include.getAttribute( 'hideTitle' ),
+			isTitleToggleable,
+			hasCaption: !!getCaption( include ),
+			isCaptionToggleable: isIncludeCaptionToggleable( editor, include ),
+			isConvertibleToLink: isIncludeConvertibleToLink( editor, include )
+		};
+	}
+
+	/** The box sizes, with the labels the toolbar gives them. */
+	getBoxSizes(): { value: BoxSizeValue; label: string }[] {
+		return BOX_SIZES.map( value => ( { value, label: getBoxSizeLabel( this.editor.t, value ) } ) );
+	}
 }
 
 class IncludeNoteUI extends Plugin {
@@ -135,7 +173,7 @@ class IncludeNoteUI extends Plugin {
 				tooltip: true
 			} );
 
-			// Shown only on an attachment embed, the one include the command applies to.
+			// Shown only on an include that names a note or an attachment.
 			if ( command ) {
 				buttonView.bind( 'isEnabled' ).to( command );
 				buttonView.bind( 'isVisible' ).to( command, 'isEnabled' );
@@ -577,8 +615,7 @@ export class ToggleIncludeNoteCaptionCommand extends Command {
 	override refresh() {
 		const include = getSelectedIncludeNote( this.editor );
 
-		this.isEnabled = !!include && include.getAttribute( 'boxSize' ) !== 'tiny'
-			&& this.editor.model.schema.checkChild( include, 'caption' );
+		this.isEnabled = !!include && isIncludeCaptionToggleable( this.editor, include );
 		this.value = !!include && !!getCaption( include );
 	}
 
@@ -622,9 +659,8 @@ export class ToggleIncludeNoteTitleCommand extends Command {
 
 	override refresh() {
 		const include = getSelectedIncludeNote( this.editor );
-		const boxSize = include?.getAttribute( 'boxSize' );
 
-		this.isEnabled = !!include && boxSize !== 'tiny' && boxSize !== 'expandable';
+		this.isEnabled = !!include && isIncludeTitleToggleable( include );
 		this.value = !include?.getAttribute( 'hideTitle' );
 	}
 
@@ -674,26 +710,28 @@ class EmbedAttachmentLinkCommand extends Command {
 	}
 }
 
-/** Replaces the selected attachment embed with a link to the attachment. */
+/** Replaces the selected include with a link to the note or attachment it shows. */
 class ConvertEmbedToLinkCommand extends Command {
 	override refresh() {
 		const embed = getSelectedIncludeNote( this.editor );
-		const canHoldLink = this.editor.model.schema.isRegistered( 'reference' );
 
-		this.isEnabled = !!embed?.hasAttribute( 'attachmentId' ) && canHoldLink;
+		this.isEnabled = !!embed && isIncludeConvertibleToLink( this.editor, embed );
 	}
 
 	override async execute() {
 		const editor = this.editor;
 		const embed = getSelectedIncludeNote( editor );
 		const attachmentId = embed?.getAttribute( 'attachmentId' ) as string | undefined;
-		if ( !embed || !attachmentId ) {
+		const noteId = embed?.getAttribute( 'noteId' ) as string | undefined;
+		if ( !embed || ( !attachmentId && !noteId ) ) {
 			return;
 		}
 
 		const editorEl = editor.editing.view.getDomRoot();
 		const component = glob.getComponentByEl<EditorComponent>( editorEl );
-		const href = await component.getAttachmentHref( attachmentId );
+		const href = attachmentId
+			? await component.getAttachmentHref( attachmentId )
+			: `#root/${ noteId }`;
 
 		// The embed can be removed while the host looks the link up.
 		const root = embed.root;
@@ -738,6 +776,24 @@ function getIncludeNoteAt( editor: Editor, domElement: Element ) {
 
 function isIncludeNote( node: ModelNode | ModelDocumentFragment | null ): node is ModelElement {
 	return !!node?.is( 'element', 'includeNote' );
+}
+
+/** Whether the title of `include` can be hidden: a Tiny or an Expandable one always shows it. */
+function isIncludeTitleToggleable( include: ModelElement ) {
+	const boxSize = include.getAttribute( 'boxSize' );
+	return boxSize !== 'tiny' && boxSize !== 'expandable';
+}
+
+/** Whether `include` can have a caption. A Tiny include has none. */
+function isIncludeCaptionToggleable( editor: Editor, include: ModelElement ) {
+	return include.getAttribute( 'boxSize' ) !== 'tiny'
+		&& editor.model.schema.checkChild( include, 'caption' );
+}
+
+/** Whether `include` names a note or an attachment, which a link can then point to. */
+function isIncludeConvertibleToLink( editor: Editor, include: ModelElement ) {
+	return ( !!include.getAttribute( 'attachmentId' ) || !!include.getAttribute( 'noteId' ) )
+		&& editor.model.schema.isRegistered( 'reference' );
 }
 
 /** The caption of `include`, or `null`. */

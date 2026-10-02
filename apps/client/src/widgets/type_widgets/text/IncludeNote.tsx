@@ -61,7 +61,10 @@ export default function IncludeNote({
 
     return (
         <>
-            <div className="include-note-title-row">
+            <div
+                className="include-note-title-row"
+                onContextMenu={(e) => openMenuOnRightClick(e, notePath, viewScope)}
+            >
                 {isExpandable && (
                     <ActionButton
                         className={clsx("include-note-toggle", isExpanded && "expanded")}
@@ -128,7 +131,10 @@ export function TinyIncludeNote({
     icon, title, description, notePath, viewScope, actions
 }: TinyIncludeNoteProps) {
     return (
-        <div className="include-note-title-row">
+        <div
+            className="include-note-title-row"
+            onContextMenu={(e) => openMenuOnRightClick(e, notePath, viewScope)}
+        >
             <Icon className="include-note-icon" icon={icon} />
             <div className="include-note-heading">
                 <IncludeNoteTitle title={title} />
@@ -199,6 +205,20 @@ function IncludeNoteActionButton({ className, action }: {
             }}
         />
     );
+}
+
+/**
+ * Opens the menu of the include for a right click on its title row. The title link is left to the
+ * handler of every link, which opens the same menu, or a quick edit with Ctrl.
+ */
+function openMenuOnRightClick(e: MouseEvent, notePath: string, viewScope?: ViewScope) {
+    if (e.target instanceof Element && e.target.closest("a")) {
+        return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    void linkContextMenu.openContextMenu(notePath, e, viewScope);
 }
 
 function MoreActionsButton({ notePath, viewScope }: { notePath: string; viewScope?: ViewScope }) {

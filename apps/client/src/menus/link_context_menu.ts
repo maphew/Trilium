@@ -1,4 +1,4 @@
-import type { CKTextEditor } from "@triliumnext/ckeditor5";
+import type { CKTextEditor, IncludeNoteState } from "@triliumnext/ckeditor5";
 
 import type { GeoMouseEvent } from "../widgets/collections/geomap/map.js";
 
@@ -7,9 +7,10 @@ import type FAttachment from "../entities/fattachment.js";
 import froca from "../services/froca.js";
 import { t } from "../services/i18n.js";
 import type { ViewScope } from "../services/link.js";
-import utils, { isMobile } from "../services/utils.js";
+import utils, { escapeHtml, isMobile } from "../services/utils.js";
 import { getClosestNtxId } from "../widgets/widget_utils.js";
 import contextMenu, { type ContextMenuOptions, type MenuItem } from "./context_menu.js";
+import { submenuItem } from "./context_menu_utils.js";
 import { getTextEditorContaining } from "./text_editor_context_menu.js";
 
 /**
@@ -17,6 +18,15 @@ import { getTextEditorContaining } from "./text_editor_context_menu.js";
  * acting on something shown elsewhere passes that thing as `target`.
  */
 export type LinkMenuOrigin = Pick<MouseEvent, "pageX" | "pageY" | "target">;
+
+/** The include a menu is opened on, in a text note open for editing. */
+interface MenuInclude {
+    editor: CKTextEditor;
+    element: Element;
+    state: IncludeNoteState;
+}
+
+const CHECK_ICON = "bx bx-check";
 
 let lastMenuRequest = 0;
 
@@ -29,7 +39,10 @@ async function openContextMenu(
     const request = ++lastMenuRequest;
     const noteId = notePath.split("/").at(-1) ?? notePath;
     const editor = await getEditingTextEditor(getTarget(e));
-    const attachmentItems = await getAttachmentItems(noteId, viewScope, e, editor);
+    const include = editor && getMenuInclude(e, editor);
+    const ownItems = viewScope.viewMode === "attachments" && viewScope.attachmentId
+        ? await getAttachmentItems(noteId, viewScope.attachmentId, e, editor, include)
+        : getIncludedNoteItems(include);
     // A later right-click opened its own menu while this one waited for the editor or the
     // attachment.
     if (request !== lastMenuRequest) {
@@ -39,7 +52,7 @@ async function openContextMenu(
     contextMenu.show({
         x: e.pageX,
         y: e.pageY,
-        items: [ ...getItems(e), ...attachmentItems ],
+        items: [ ...getItems(e), ...ownItems ],
         selectMenuItemHandler: ({ command }) => handleLinkContextMenuItem(command, e, notePath, viewScope, hoistedNoteId),
         ...(editor ? keepEditorFocused(editor) : {})
     });
@@ -136,17 +149,17 @@ function handleLinkContextMenuItem(command: string | undefined, e: LinkMenuOrigi
     return false;
 }
 
-/** The actions on the attachment a link points to, each group after a separator. */
+/**
+ * The actions on the attachment a link points to, each group after a separator. A menu opened on
+ * an embed of it has the commands of the embed after the first group.
+ */
 async function getAttachmentItems(
     noteId: string,
-    { viewMode, attachmentId }: ViewScope,
+    attachmentId: string,
     e: LinkMenuOrigin,
-    editor: CKTextEditor | null
+    editor: CKTextEditor | null,
+    include: MenuInclude | null
 ): Promise<MenuItem<CommandNames>[]> {
-    if (viewMode !== "attachments" || !attachmentId) {
-        return [];
-    }
-
     // Imported on demand: `attachment_actions` imports `link`, which imports this module.
     const [ attachment, { getAttachmentActionGroups } ] = await Promise.all([
         froca.getAttachmentOfNote(noteId, attachmentId),
@@ -156,21 +169,102 @@ async function getAttachmentItems(
         return [];
     }
 
-    const groups = getAttachmentActionGroups(attachment);
-    const actionItems = groups.flatMap((group): MenuItem<CommandNames>[] => [
-        { kind: "separator" },
-        ...group.map((action) => ({
+    const [ firstGroup = [], ...otherGroups ] = getAttachmentActionGroups(attachment)
+        .map((group) => group.map((action): MenuItem<CommandNames> => ({
             title: action.title,
             uiIcon: action.icon,
             enabled: !action.disabledReason,
             handler: () => void action.run()
-        }))
-    ]);
+        })));
+    const groups = [ firstGroup, include ? getIncludeItems(include) : [], ...otherGroups ];
+    const actionItems = groups
+        .filter((group) => group.length > 0)
+        .flatMap((group): MenuItem<CommandNames>[] => [ { kind: "separator" }, ...group ]);
 
     const embedItem = await getConvertToEmbedItem(e, editor, attachment);
-    const conversionItems = [ embedItem, getConvertToLinkItem(e, editor) ]
-        .filter((item) => item !== null);
+    const conversionItems = [ embedItem, include && getConvertToLinkItem(include) ]
+        .filter((item) => !!item);
     return [ ...actionItems, ...conversionItems ];
+}
+
+/**
+ * The commands of an included note that the menu is opened on, in a group of their own, and
+ * converting it in another.
+ */
+function getIncludedNoteItems(include: MenuInclude | null): MenuItem<CommandNames>[] {
+    if (!include) {
+        return [];
+    }
+
+    const linkItem = getConvertToLinkItem(include);
+    return [
+        { kind: "separator" },
+        ...getIncludeItems(include),
+        ...(linkItem ? [ { kind: "separator" } as const, linkItem ] : [])
+    ];
+}
+
+/**
+ * The include that a menu is opened on: from its title row, or from a control acting on the whole
+ * include, such as its toolbar. A link inside the included content opens the menu of that link.
+ */
+function getMenuInclude(e: LinkMenuOrigin, editor: CKTextEditor): MenuInclude | null {
+    const target = getTarget(e);
+    const element = target?.matches(".include-note")
+        ? target
+        : target?.closest(".include-note-title-row")?.closest(".include-note");
+    if (!element || !editor.plugins.has("IncludeNote")) {
+        return null;
+    }
+
+    const state = editor.plugins.get("IncludeNote").getIncludeStateAt(element);
+    return state ? { editor, element, state } : null;
+}
+
+/** The commands that the toolbar of an include offers, with what each shows checked. */
+function getIncludeItems(include: MenuInclude): MenuItem<CommandNames>[] {
+    const { editor, state } = include;
+    const sizeItems = editor.plugins.get("IncludeNote").getBoxSizes()
+        .map(({ value, label }): MenuItem<CommandNames> => ({
+            title: escapeHtml(label),
+            trailingIcon: value === state.boxSize ? CHECK_ICON : undefined,
+            handler: () => runIncludeCommand(include, "includeNoteBoxSize", { value })
+        }));
+
+    return [
+        submenuItem({
+            title: t("link_context_menu.include_size"),
+            uiIcon: "bx bx-expand-vertical"
+        }, sizeItems),
+        {
+            title: t("link_context_menu.show_title"),
+            uiIcon: "bx bx-window-alt",
+            enabled: state.isTitleToggleable,
+            trailingIcon: state.isTitleShown ? CHECK_ICON : undefined,
+            handler: () => runIncludeCommand(include, "toggleIncludeNoteTitle")
+        },
+        {
+            title: t("link_context_menu.show_caption"),
+            uiIcon: "bx bx-captions",
+            enabled: state.isCaptionToggleable,
+            trailingIcon: state.hasCaption ? CHECK_ICON : undefined,
+            handler: () => runIncludeCommand(include, "toggleIncludeNoteCaption", {
+                focusCaptionOnShow: true
+            })
+        }
+    ];
+}
+
+/** Runs `command` on the include, which the commands act on once it is selected. */
+function runIncludeCommand(
+    { editor, element }: MenuInclude,
+    command: string,
+    options?: Record<string, unknown>
+) {
+    if (editor.plugins.get("IncludeNote").selectIncludeAt(element)) {
+        editor.execute(command, options);
+        editor.editing.view.focus();
+    }
 }
 
 /** "Convert link to an embed", for an attachment link in a text note open for editing. */
@@ -196,29 +290,16 @@ async function getConvertToEmbedItem(
     };
 }
 
-/**
- * "Convert to link", for a menu opened from the title row of an attachment embed in a text note
- * open for editing.
- */
-function getConvertToLinkItem(
-    e: LinkMenuOrigin,
-    editor: CKTextEditor | null
-): MenuItem<CommandNames> | null {
-    const titleRow = getTarget(e)?.closest<HTMLElement>(".include-note-title-row");
-    if (!titleRow?.closest(".include-note[data-attachment-id]")
-            || !editor?.plugins.has("IncludeNote") || !editor.commands.get("convertEmbedToLink")) {
+/** "Convert to link", for an include that names a note or an attachment. */
+function getConvertToLinkItem(include: MenuInclude): MenuItem<CommandNames> | null {
+    if (!include.state.isConvertibleToLink) {
         return null;
     }
 
     return {
         title: t("link_context_menu.convert_embed_to_link"),
         uiIcon: "bx bx-link",
-        handler: () => {
-            // `convertEmbedToLink` acts on the selected embed.
-            if (editor.plugins.get("IncludeNote").selectIncludeAt(titleRow)) {
-                editor.execute("convertEmbedToLink");
-            }
-        }
+        handler: () => runIncludeCommand(include, "convertEmbedToLink")
     };
 }
 

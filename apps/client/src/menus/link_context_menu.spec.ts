@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ViewScope } from "../services/link";
 import type { ContextMenuEvent } from "./context_menu";
 
 const mocks = vi.hoisted(() => ({
@@ -40,6 +41,7 @@ vi.mock("../services/i18n", () => ({ t: (key: string) => key }));
 
 vi.mock("../services/utils", () => ({
     default: { isDesktop: mocks.isDesktop },
+    escapeHtml: (text: string) => text,
     isMobile: mocks.isMobile
 }));
 
@@ -309,94 +311,178 @@ describe("openContextMenu", () => {
         expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(1);
     });
 
-    describe("from the title row of an attachment embed", () => {
+    describe("opened on an include in a note being edited", () => {
+        const CHECK = "bx bx-check";
         const execute = vi.fn();
+        const focus = vi.fn();
         const selectIncludeAt = vi.fn();
         let hasPlugin = true;
-        let hasCommand = true;
+        let state: Record<string, unknown> | null;
         let editable: HTMLElement;
 
         beforeEach(() => {
             selectIncludeAt.mockReset().mockReturnValue(true);
-            execute.mockClear();
             hasPlugin = true;
-            hasCommand = true;
+            state = {
+                boxSize: "medium", isTitleShown: false, isTitleToggleable: true,
+                hasCaption: true, isCaptionToggleable: true, isConvertibleToLink: true
+            };
             mocks.getAttachmentOfNote.mockResolvedValue({ attachmentId: "att-1" });
             mocks.getAttachmentActionGroups.mockReturnValue([
-                [ { title: "Download", icon: "bx bx-download", run: vi.fn() } ]
+                [ { title: "Download", icon: "bx bx-download", run: vi.fn() } ],
+                [ { title: "Rename", icon: "bx bx-rename", run: vi.fn() } ]
             ]);
             mocks.getTextEditorContaining.mockResolvedValue({
-                plugins: { has: () => hasPlugin, get: () => ({ selectIncludeAt }) },
-                commands: {
-                    get: (name: string) => (hasCommand && name === "convertEmbedToLink"
-                        ? { isEnabled: true }
-                        : undefined)
+                plugins: {
+                    has: () => hasPlugin,
+                    get: () => ({
+                        selectIncludeAt,
+                        getIncludeStateAt: () => state,
+                        getBoxSizes: () => [
+                            { value: "tiny", label: "Tiny" },
+                            { value: "medium", label: "Medium" }
+                        ]
+                    })
                 },
-                execute
+                commands: { get: () => undefined },
+                execute,
+                editing: { view: { focus } }
             });
             editable = document.createElement("div");
             editable.className = "ck-editor__editable";
             editable.setAttribute("contenteditable", "true");
-            editable.innerHTML = `<section class="include-note" data-attachment-id="att-1">`
+            editable.innerHTML = `<figure class="include-note" data-attachment-id="att-1">`
                 + `<div class="include-note-title-row">`
                 + `<h4 class="include-note-title"><span><a href="#">report.pdf</a></span></h4>`
-                + `<button class="include-note-menu"></button></div></section>`;
+                + `<button class="include-note-menu"></button></div>`
+                + `<div class="include-note-content"><a class="reference-link" href="#">x</a></div>`
+                + `</figure>`;
         });
 
-        /** Opens the menu as right-clicking `selector`, the title link by default, does. */
-        async function openOnTitle(selector = "a") {
-            const target = editable.querySelector<HTMLElement>(selector) ?? undefined;
-            await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(target), VIEW_SCOPE);
+        function include() {
+            const figure = editable.querySelector<HTMLElement>("figure");
+            if (!figure) throw new Error("Expected an include.");
+            return figure;
+        }
+
+        /** Opens the menu from `target`, as right-clicking the title link does by default. */
+        async function openOn(target: Element | null, viewScope: ViewScope = VIEW_SCOPE) {
+            await linkContextMenu.openContextMenu(
+                "root/n1", contextMenuEvent((target ?? undefined) as HTMLElement | undefined),
+                viewScope
+            );
             return mocks.show.mock.lastCall?.[0].items;
         }
 
-        it("ends the menu with converting the embed, selected only once chosen", async () => {
-            const titleRow = editable.querySelector(".include-note-title-row");
+        /** Picks `item`, and returns what it ran on the editor. */
+        function pick(item: { handler: () => void }) {
+            execute.mockClear();
+            focus.mockClear();
+            selectIncludeAt.mockClear();
+            item.handler();
+            expect(selectIncludeAt).toHaveBeenCalledWith(include());
+            expect(focus).toHaveBeenCalledOnce();
+            return execute.mock.calls;
+        }
 
-            // Right-clicking the title, then pressing the menu button beside it.
-            for (const selector of [ "a", "button.include-note-menu" ]) {
-                selectIncludeAt.mockClear();
-                execute.mockClear();
-                const items = await openOnTitle(selector);
+        it("puts the commands of an embed after its first group, converting it last", async () => {
+            // From the title, from the menu button beside it, and from a control acting on the
+            // whole include, as its toolbar does.
+            for (const target of [ "a", "button.include-note-menu", "figure" ]) {
+                const items = await openOn(editable.querySelector(target));
 
-                expect(items.slice(4)).toMatchObject([
+                expect(items.slice(4), target).toMatchObject([
                     { kind: "separator" },
                     { title: "Download" },
+                    { kind: "separator" },
+                    {
+                        title: "link_context_menu.include_size",
+                        uiIcon: "bx bx-expand-vertical",
+                        items: [
+                            { title: "Tiny", trailingIcon: undefined },
+                            { title: "Medium", trailingIcon: CHECK }
+                        ]
+                    },
+                    {
+                        title: "link_context_menu.show_title",
+                        uiIcon: "bx bx-window-alt",
+                        enabled: true,
+                        trailingIcon: undefined
+                    },
+                    {
+                        title: "link_context_menu.show_caption",
+                        uiIcon: "bx bx-captions",
+                        enabled: true,
+                        trailingIcon: CHECK
+                    },
+                    { kind: "separator" },
+                    { title: "Rename" },
                     { title: "link_context_menu.convert_embed_to_link", uiIcon: "bx bx-link" }
                 ]);
-                expect(selectIncludeAt).not.toHaveBeenCalled();
-
-                items.at(-1).handler();
-                expect(selectIncludeAt).toHaveBeenCalledWith(titleRow);
-                expect(execute).toHaveBeenCalledWith("convertEmbedToLink");
+                expect(items).toHaveLength(13);
             }
+            expect(selectIncludeAt).not.toHaveBeenCalled();
 
-            // An embed the editor cannot select is left as it is.
+            const items = await openOn(editable.querySelector("a"));
+            expect(pick(items[7].items[0]))
+                .toEqual([ [ "includeNoteBoxSize", { value: "tiny" } ] ]);
+            expect(pick(items[8])).toEqual([ [ "toggleIncludeNoteTitle", undefined ] ]);
+            expect(pick(items[9]))
+                .toEqual([ [ "toggleIncludeNoteCaption", { focusCaptionOnShow: true } ] ]);
+            expect(pick(items[12])).toEqual([ [ "convertEmbedToLink", undefined ] ]);
+
+            // An include the editor cannot select is left as it is.
             selectIncludeAt.mockReturnValue(false);
             execute.mockClear();
-            (await openOnTitle()).at(-1).handler();
+            items[12].handler();
             expect(execute).not.toHaveBeenCalled();
         });
 
-        it("leaves it out in a read-only note, or outside an attachment embed", async () => {
+        it("appends the commands of an included note, its conversion in a group of its own", async () => {
+            include().removeAttribute("data-attachment-id");
+            include().setAttribute("data-note-id", "n1");
+
+            const items = await openOn(editable.querySelector("a"), {});
+
+            expect(items.slice(4)).toMatchObject([
+                { kind: "separator" },
+                { title: "link_context_menu.include_size" },
+                { title: "link_context_menu.show_title" },
+                { title: "link_context_menu.show_caption" },
+                { kind: "separator" },
+                { title: "link_context_menu.convert_embed_to_link" }
+            ]);
+            expect(items).toHaveLength(10);
+            expect(mocks.getAttachmentOfNote).not.toHaveBeenCalled();
+        });
+
+        it("disables what the include cannot do, and offers nothing for no include", async () => {
+            include().removeAttribute("data-attachment-id");
+            state = {
+                boxSize: "tiny", isTitleShown: true, isTitleToggleable: false,
+                hasCaption: false, isCaptionToggleable: false, isConvertibleToLink: false
+            };
+            expect((await openOn(editable.querySelector("a"), {})).slice(4)).toMatchObject([
+                { kind: "separator" },
+                { title: "link_context_menu.include_size" },
+                { title: "link_context_menu.show_title", enabled: false, trailingIcon: CHECK },
+                { title: "link_context_menu.show_caption", enabled: false, trailingIcon: undefined }
+            ]);
+
+            // A link in the included content, an include the editor does not know, and an editor
+            // without includes.
+            expect(await openOn(editable.querySelector(".include-note-content a"), {}))
+                .toHaveLength(4);
+            state = null;
+            expect(await openOn(editable.querySelector("a"), {})).toHaveLength(4);
             hasPlugin = false;
-            expect(await openOnTitle()).toHaveLength(6);
-
-            hasPlugin = true;
-            hasCommand = false;
-            expect(await openOnTitle()).toHaveLength(6);
-
-            hasCommand = true;
-            const section = editable.querySelector("section");
-            section?.removeAttribute("data-attachment-id");
-            expect(await openOnTitle()).toHaveLength(6);
-            expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(3);
+            expect(await openOn(editable.querySelector("a"), {})).toHaveLength(4);
+            expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(4);
 
             // A read-only note is not looked up in the editor at all.
-            section?.setAttribute("data-attachment-id", "att-1");
             editable.removeAttribute("contenteditable");
-            expect(await openOnTitle()).toHaveLength(6);
-            expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(3);
+            expect(await openOn(editable.querySelector("a"), {})).toHaveLength(4);
+            expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(4);
             expect(selectIncludeAt).not.toHaveBeenCalled();
         });
     });

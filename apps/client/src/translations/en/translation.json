@@ -3060,7 +3060,10 @@
     "open_note_in_new_window": "Open note in a new window",
     "open_note_in_popup": "Quick edit",
     "convert_link_to_embed": "Convert link to an embed",
-    "convert_embed_to_link": "Convert to link"
+    "convert_embed_to_link": "Convert to link",
+    "include_size": "Size",
+    "show_title": "Show title",
+    "show_caption": "Show caption"
   },
   "electron_integration": {
     "desktop-application": "Desktop Application",

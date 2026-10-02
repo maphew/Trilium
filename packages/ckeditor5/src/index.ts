@@ -15,6 +15,7 @@ export type { EditorConfig, MentionFeed, MentionFeedObjectItem, ModelNode, Model
 export type { ClipboardImageEmbedConfig } from "./plugins/clipboard_image_embed.js";
 export type { FileUploadData, FileUploadEvent } from "./plugins/file_upload/fileuploadediting.js";
 export type { PasteTarget } from "./plugins/cuttonote.js";
+export type { IncludeNoteState } from "./plugins/includenote.js";
 export type { AttachmentLinkChange } from "./plugins/referencelink.js";
 export type { SlashCommandConfig, SlashCommandDefinition } from "./plugins/mention/slash_commands.js";
 export type { TriliumMentionFeed } from "./plugins/mention/types.js";

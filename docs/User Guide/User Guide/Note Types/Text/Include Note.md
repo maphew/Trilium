@@ -25,7 +25,7 @@ A new include gets the size that suits what it shows:
 *   _Full_ for a code note.
 *   _Medium_ for anything else.
 
-The dialog that includes a note selects that size once the note is picked, and you can choose another one there. To change the size later, select the include and use the _Box size_ menu in its toolbar.
+The dialog that includes a note selects that size once the note is picked, and you can choose another one there. To change the size later, select the include and use the _Box size_ menu in its toolbar, or the _Size_ submenu of its _More actions_ menu.
 
 ## Caption
 
@@ -47,7 +47,9 @@ The title row of an include links to the included note and holds its buttons. To
 
 To open an included note in a new tab, press the <span class="tn-icon bx bx-link-external"></span> _Open in new tab_ button at the end of its title. An embedded attachment has the same button.
 
-The <span class="tn-icon bx bx-dots-vertical-rounded"></span> _More actions_ button at the end of the title row opens the same menu as right-clicking the title: the other places to open the note in and, for an embedded attachment, the actions on the attachment.
+The <span class="tn-icon bx bx-dots-vertical-rounded"></span> _More actions_ button at the end of the title row opens the same menu as right-clicking anywhere on the title row: the other places to open the note in and, for an embedded attachment, the actions on the attachment.
+
+In a note being edited, the menu also has the commands of the include's toolbar: the _Size_ submenu, _Show title_ and _Show caption_, each checked while it is in effect, and _Convert to link_ at the end. For an embedded attachment they follow its first group of actions; for an included note they end the menu.
 
 To show an include of size _Medium_ or _Full_ on the whole screen, press the <span class="tn-icon bx bx-fullscreen"></span> _Fullscreen_ button at the end of its title. To return, press <span class="tn-icon bx bx-exit"></span> _Exit fullscreen_ in the top-right corner, or <kbd>Esc</kbd>.
 
@@ -55,6 +57,10 @@ A _Tiny_ include has these buttons instead, followed by the same _More actions_ 
 
 *   For a note, <span class="tn-icon bx bx-edit"></span> _Quick edit_ opens the note in <a class="reference-link" href="../../Basic%20Concepts%20and%20Features/Navigation/Quick%20edit.md">Quick edit</a>, and <span class="tn-icon bx bx-link-external"></span> _Open in new tab_ opens it in a new tab.
 *   For an embedded attachment, <span class="tn-icon bx bx-file-find"></span> _Open externally_ opens the file in another application, and <span class="tn-icon bx bx-download"></span> _Download_ downloads it. The size of the file is shown under its title.
+
+## Converting an include to a link
+
+To replace an include with a link to the included note, select it and press the <span class="tn-icon cke cke-link"></span> _Convert to link_ button in its toolbar, or choose _Convert to link_ at the end of its _More actions_ menu. An embedded attachment turns into a link to the attachment the same way.
 
 ## Included notes in the share functionality
 
