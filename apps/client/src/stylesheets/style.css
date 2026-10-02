@@ -646,6 +646,16 @@ body.mobile .dropdown-menu .dropdown-submenu {
     }
 }
 
+/* `getTooltipHost()` renders CodeMirror tooltips here, outside the clipping `.cm-editor`.
+   Must stay above dialogs (1101) and below the context menu (2500). */
+.cm-tooltip-host {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2000;
+    font-size: var(--monospace-font-size);
+}
+
 #sql-console-query {
     height: 150px;
     width: 100%;
