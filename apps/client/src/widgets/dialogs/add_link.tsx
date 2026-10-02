@@ -2,7 +2,7 @@ import { t } from "../../services/i18n";
 import Modal from "../react/Modal";
 import Button from "../react/Button";
 import FormRadioGroup from "../react/FormRadioGroup";
-import NoteAutocomplete from "../react/NoteAutocomplete";
+import NoteAutocomplete, { type NoteAutocompleteHandle } from "../react/NoteAutocomplete";
 import { useRef, useState, useEffect } from "preact/hooks";
 import tree from "../../services/tree";
 import froca from "../../services/froca";
@@ -161,7 +161,7 @@ export default function AddLinkDialog() {
             || opts?.text;
 
         if (!text) {
-            note_autocomplete.showRecentNotes($autocompleteEl);
+            handleRef.current?.showRecentNotes();
         } else {
             note_autocomplete.setText($autocompleteEl, text);
 
@@ -190,6 +190,7 @@ export default function AddLinkDialog() {
     }
 
     const autocompleteRef = useRef<HTMLInputElement>(null);
+    const handleRef = useRef<NoteAutocompleteHandle>(null);
 
     return (
         <Modal
@@ -229,6 +230,7 @@ export default function AddLinkDialog() {
             <FormGroup label={t("add_link.note")} name="note">
                 <NoteAutocomplete
                     inputRef={autocompleteRef}
+                    handleRef={handleRef}
                     onChange={setSuggestion}
                     opts={{
                         allowExternalLinks: true,

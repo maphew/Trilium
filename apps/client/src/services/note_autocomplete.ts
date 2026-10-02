@@ -196,8 +196,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, _options?: Options) {
     return $el;
 }
 
-function showRecentNotes(_$el: JQuery<HTMLElement>) {}
-
 function showAllCommands(_$el: JQuery<HTMLElement>) {}
 
 function setText(_$el: JQuery<HTMLElement>, _text: string) {}
@@ -212,14 +210,11 @@ function init() {
     $.fn.setNote = async () => {};
 }
 
-export function triggerRecentNotes(_inputElement: HTMLInputElement | null | undefined) {}
-
 // #endregion
 
 export default {
     autocompleteSourceForCKEditor,
     initNoteAutocomplete,
-    showRecentNotes,
     showAllCommands,
     setText,
     init

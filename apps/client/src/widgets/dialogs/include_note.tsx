@@ -3,9 +3,9 @@ import { t } from "../../services/i18n";
 import FormGroup from "../react/FormGroup";
 import FormRadioGroup from "../react/FormRadioGroup";
 import Modal from "../react/Modal";
-import NoteAutocomplete from "../react/NoteAutocomplete";
+import NoteAutocomplete, { type NoteAutocompleteHandle } from "../react/NoteAutocomplete";
 import Button from "../react/Button";
-import { Suggestion, triggerRecentNotes } from "../../services/note_autocomplete";
+import { Suggestion } from "../../services/note_autocomplete";
 import tree from "../../services/tree";
 import froca from "../../services/froca";
 import { useTriliumEvent, useTriliumOption } from "../react/hooks";
@@ -28,14 +28,14 @@ export default function IncludeNoteDialog() {
         setShown(true);
     });
 
-    const autoCompleteRef = useRef<HTMLInputElement>(null);
+    const autocompleteRef = useRef<NoteAutocompleteHandle>(null);
 
     return (
         <Modal
             className="include-note-dialog"
             title={t("include_note.dialog_title")}
             size="lg"
-            onShown={() => triggerRecentNotes(autoCompleteRef.current)}
+            onShown={() => autocompleteRef.current?.showRecentNotes()}
             onHidden={() => setShown(false)}
             onSubmit={async () => {
                 if (!suggestion?.notePath || !editorApiRef.current) return;
@@ -53,7 +53,7 @@ export default function IncludeNoteDialog() {
                 <NoteAutocomplete
                     placeholder={t("include_note.placeholder_search")}
                     onChange={setSuggestion}
-                    inputRef={autoCompleteRef}
+                    handleRef={autocompleteRef}
                     opts={{
                         hideGoToSelectedNoteButton: true,
                         allowCreatingNotes: true

@@ -3,7 +3,7 @@ import "./NoteAutocomplete.css";
 import clsx from "clsx";
 import type { RefObject } from "preact";
 import type { CSSProperties } from "preact/compat";
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
@@ -31,9 +31,17 @@ export interface NoteAutocompleteProps {
     readOnly?: boolean;
     /** Places the input in the tab order of a host that orders its fields with `tabIndex`. */
     tabIndex?: number;
+    /** Receives the functions that drive the field from outside it. */
+    handleRef?: MutableRef<NoteAutocompleteHandle | null>;
 }
 
-export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex }: NoteAutocompleteProps) {
+/** Drives a note autocomplete from outside it, for a caller that decides when. */
+export interface NoteAutocompleteHandle {
+    /** Empties the field, lists the recently visited notes and focuses the field. */
+    showRecentNotes(): void;
+}
+
+export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef }: NoteAutocompleteProps) {
     const inputRef = useSyncedRef<HTMLInputElement>(externalInputRef);
     const groupRef = useRef<HTMLDivElement>(null);
     const [ value, setValue ] = useState("");
@@ -80,6 +88,11 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         autocomplete.open();
         inputRef.current?.focus();
     }
+
+    // Refreshed on every render, so a call from outside reaches the current callbacks.
+    useLayoutEffect(() => {
+        if (handleRef) handleRef.current = { showRecentNotes };
+    });
 
     const showButtons = !opts?.hideAllButtons;
     const showGoToButton = showButtons && !opts?.hideGoToSelectedNoteButton;

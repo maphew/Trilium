@@ -67,7 +67,7 @@ vi.mock("./ws.js", () => ({
 import server from "./server.js";
 import froca from "./froca.js";
 import { buildNote } from "../test/easy-froca.js";
-import noteAutocomplete, { triggerRecentNotes } from "./note_autocomplete_bak.js";
+import noteAutocomplete from "./note_autocomplete_bak.js";
 
 type Dataset = {
     displayKey: string;
@@ -696,16 +696,6 @@ describe("public helpers", () => {
         expect(onInput).toHaveBeenCalled();
     });
 
-    it("showRecentNotes clears path, blanks val, opens and focuses", () => {
-        const $el = makeEl();
-        const onInput = vi.fn();
-        $el.on("input", onInput);
-        noteAutocomplete.showRecentNotes($el);
-        expect(lastCommandWith("open")).toBe(true);
-        expect($el.attr("data-note-path")).toBe("");
-        expect(onInput).toHaveBeenCalled();
-    });
-
     it("showAllCommands sets the '>' prefix and opens", () => {
         const $el = makeEl();
         const onInput = vi.fn();
@@ -715,17 +705,6 @@ describe("public helpers", () => {
         expect($el.autocomplete("val")).toBe(">");
         expect(lastCommandWith("open")).toBe(true);
         expect(onInput).toHaveBeenCalled();
-    });
-
-    it("triggerRecentNotes is a no-op for a missing element", () => {
-        expect(() => triggerRecentNotes(null)).not.toThrow();
-        expect(() => triggerRecentNotes(undefined)).not.toThrow();
-    });
-
-    it("triggerRecentNotes shows recent notes for a real element", () => {
-        const input = document.createElement("input");
-        triggerRecentNotes(input);
-        expect(lastCommandWith("open")).toBe(true);
     });
 });
 

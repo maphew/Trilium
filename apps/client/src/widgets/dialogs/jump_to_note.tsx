@@ -10,7 +10,7 @@ import shortcutService from "../../services/shortcuts";
 import Button from "../react/Button";
 import { useTriliumEvent } from "../react/hooks";
 import Modal from "../react/Modal";
-import NoteAutocomplete from "../react/NoteAutocomplete";
+import NoteAutocomplete, { type NoteAutocompleteHandle } from "../react/NoteAutocomplete";
 import { refToJQuerySelector } from "../react/react_utils";
 
 const KEEP_LAST_SEARCH_FOR_X_SECONDS = 120;
@@ -22,6 +22,7 @@ export default function JumpToNoteDialogComponent() {
     const [ lastOpenedTs, setLastOpenedTs ] = useState<number>(0);
     const containerRef = useRef<HTMLDivElement>(null);
     const autocompleteRef = useRef<HTMLInputElement>(null);
+    const handleRef = useRef<NoteAutocompleteHandle>(null);
     const [ isCommandMode, setIsCommandMode ] = useState(mode === "commands");
     const [ initialText, setInitialText ] = useState(isCommandMode ? "> " : "");
     const actualText = useRef<string>(initialText);
@@ -80,7 +81,7 @@ export default function JumpToNoteDialogComponent() {
             case "last-search":
                 break;
             case "recent-notes":
-                note_autocomplete.showRecentNotes($autoComplete);
+                handleRef.current?.showRecentNotes();
                 break;
             case "commands":
                 note_autocomplete.showAllCommands($autoComplete);
@@ -130,6 +131,7 @@ export default function JumpToNoteDialogComponent() {
             title={<NoteAutocomplete
                 placeholder={t("jump_to_note.search_placeholder")}
                 inputRef={autocompleteRef}
+                handleRef={handleRef}
                 container={containerRef}
                 text={initialText}
                 opts={{

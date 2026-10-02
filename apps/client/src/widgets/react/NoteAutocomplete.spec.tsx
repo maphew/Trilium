@@ -1,3 +1,4 @@
+import { createRef, render as preactRender } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +14,7 @@ vi.mock("../../services/note_autocomplete", async (importOriginal) => ({
 import type { Suggestion } from "../../services/note_autocomplete";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
-import NoteAutocomplete, { type NoteAutocompleteProps } from "./NoteAutocomplete";
+import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps } from "./NoteAutocomplete";
 
 async function render(props: NoteAutocompleteProps = {}) {
     let container = document.createElement("div");
@@ -254,6 +255,37 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(input.value).toBe("");
         expect(input.dataset.notePath).toBe("");
         expect(onTextChange).toHaveBeenLastCalledWith("");
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("");
+        expect(rows()).toHaveLength(2);
+        expect(document.activeElement).toBe(input);
+    });
+
+    it("lists the recent notes through the handle, with the callbacks of the latest render", async () => {
+        const handleRef = createRef<NoteAutocompleteHandle>();
+        const firstOnTextChange = vi.fn();
+        let container = document.createElement("div");
+        await act(async () => {
+            container = renderInto(<NoteAutocomplete handleRef={handleRef} onTextChange={firstOnTextChange} />);
+        });
+        const input = container.querySelector("input");
+        if (!input) throw new Error("no input rendered");
+        await type(input, "a");
+        await press(input, "Enter");
+
+        const latestOnTextChange = vi.fn();
+        await act(async () => {
+            preactRender(<NoteAutocomplete handleRef={handleRef} onTextChange={latestOnTextChange} />, container);
+        });
+        input.blur();
+        firstOnTextChange.mockClear();
+
+        await act(async () => { handleRef.current?.showRecentNotes(); });
+        await settle();
+
+        expect(input.value).toBe("");
+        expect(input.dataset.notePath).toBe("");
+        expect(latestOnTextChange).toHaveBeenCalledWith("");
+        expect(firstOnTextChange).not.toHaveBeenCalled();
         expect(getNoteSuggestions).toHaveBeenLastCalledWith("");
         expect(rows()).toHaveLength(2);
         expect(document.activeElement).toBe(input);

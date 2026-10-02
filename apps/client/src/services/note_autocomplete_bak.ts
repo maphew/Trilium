@@ -96,14 +96,6 @@ function setText($el: JQuery<HTMLElement>, text: string) {
     $el.autocomplete("open");
 }
 
-function showRecentNotes($el: JQuery<HTMLElement>) {
-    $el.setSelectedNotePath("");
-    $el.autocomplete("val", "");
-    $el.trigger("input");
-    $el.autocomplete("open");
-    $el.trigger("focus");
-}
-
 function showAllCommands($el: JQuery<HTMLElement>) {
     $el.setSelectedNotePath("");
     $el.autocomplete("val", ">");
@@ -382,24 +374,8 @@ function init() {
     };
 }
 
-/**
- * Convenience function which triggers the display of recent notes in the autocomplete input and focuses it.
- *
- * @param inputElement - The input element to trigger recent notes on.
- */
-export function triggerRecentNotes(inputElement: HTMLInputElement | null | undefined) {
-    if (!inputElement) {
-        return;
-    }
-
-    const $el = $(inputElement);
-    showRecentNotes($el);
-    $el.trigger("focus").trigger("select");
-}
-
 export default {
     initNoteAutocomplete,
-    showRecentNotes,
     showAllCommands,
     setText,
     init
