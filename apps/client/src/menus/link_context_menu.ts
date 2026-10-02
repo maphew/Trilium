@@ -197,7 +197,7 @@ function getConvertToLinkItem(
     editor: CKTextEditor | null
 ): MenuItem<CommandNames> | null {
     const titleRow = getTarget(e)?.closest<HTMLElement>(".include-note-title-row");
-    if (!titleRow?.closest("section.include-note[data-attachment-id]")
+    if (!titleRow?.closest(".include-note[data-attachment-id]")
             || !editor?.plugins.has("IncludeNote") || !editor.commands.get("convertEmbedToLink")) {
         return null;
     }

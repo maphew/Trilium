@@ -377,7 +377,7 @@ function useTextCommands(parentComponent: TypeWidgetProps["parentComponent"], ed
             parentComponent?.triggerCommand("showIncludeNoteDialog", {
                 editorApi: {
                     addIncludeNote(noteId: string, boxSize?: string) {
-                        insertText(editorView, `<section class="include-note" data-note-id="${noteId}" data-box-size="${boxSize ?? "full"}"></section>\n`);
+                        insertText(editorView, `<figure class="include-note" data-note-id="${noteId}" data-box-size="${boxSize ?? "full"}"></figure>\n`);
                         editorView.focus();
                     },
                     async addImage(noteId: string) {

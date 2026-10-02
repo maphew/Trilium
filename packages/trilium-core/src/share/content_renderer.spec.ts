@@ -68,6 +68,23 @@ describe("content_renderer", () => {
             `);
         });
 
+        it("keeps the caption of an include under its content, except on a Tiny one", () => {
+            buildShareNotes([ { id: "subnote1", content: `<p>Foo</p>` } ]);
+            const include = (boxSize: string) =>
+                `<figure class="include-note" data-note-id="subnote1" data-box-size="${boxSize}">`
+                + `<figcaption>A <strong>caption</strong></figcaption></figure>`;
+            const note = buildShareNote({
+                id: "note1",
+                content: include("medium") + include("tiny")
+            });
+
+            expect(getContent(note).content).toStrictEqual(
+                `<figure class="include-note" data-note-id="subnote1" data-box-size="medium">`
+                + `<p>Foo</p><figcaption>A <strong>caption</strong></figcaption></figure>`
+                + `<p>Foo</p>`
+            );
+        });
+
         it("renders only the first level of nested includes on the share view (nested include becomes a reference link)", () => {
             buildShareNote({ id: "nestC2", title: "Note C", content: "<p>C body</p>" });
             buildShareNote({

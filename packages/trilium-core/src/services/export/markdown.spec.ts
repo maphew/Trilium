@@ -566,6 +566,17 @@ describe("Markdown export", () => {
         expect(markdownExportService.toMarkdown(html)).toBe(expected);
     });
 
+    it("preserves an include note figure, with or without its caption", () => {
+        const start = `<figure class="include-note" data-note-id="i4A5g9iOg9I0"`
+            + ` data-box-size="full">`;
+        const blank = `${start}&nbsp;</figure>`;
+        const captioned = `${start}<figcaption>A <strong>caption</strong></figcaption></figure>`;
+
+        expect(markdownExportService.toMarkdown(blank)).toBe(blank);
+        expect(markdownExportService.toMarkdown(`<p>Before</p>${captioned}<p>After</p>`))
+            .toBe(`Before\n\n${captioned}\n\nAfter`);
+    });
+
     it("exports todo lists properly", () => {
         const html = trimIndentation/*html*/`\
             <ul class="todo-list">

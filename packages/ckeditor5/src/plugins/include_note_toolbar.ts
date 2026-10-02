@@ -1,5 +1,8 @@
 import { Plugin, WidgetToolbarRepository, isWidget, type ViewElement } from "ckeditor5";
-import IncludeNote, { CONVERT_EMBED_TO_LINK_COMMAND } from "./includenote.js";
+import IncludeNote, {
+    CONVERT_EMBED_TO_LINK_COMMAND,
+    TOGGLE_CAPTION_COMMAND_NAME
+} from "./includenote.js";
 import IncludeNoteBoxSizeDropdown from "./include_note_box_size_dropdown.js";
 
 export default class IncludeNoteToolbar extends Plugin {
@@ -15,6 +18,7 @@ export default class IncludeNoteToolbar extends Plugin {
         widgetToolbarRepository.register("includeNote", {
             items: [
                 "includeNoteBoxSizeDropdown",
+                TOGGLE_CAPTION_COMMAND_NAME,
                 CONVERT_EMBED_TO_LINK_COMMAND
             ],
             balloonClassName: "ck-toolbar-container include-note-toolbar",
@@ -25,6 +29,13 @@ export default class IncludeNoteToolbar extends Plugin {
                     return selectedElement;
                 }
 
+                // The toolbar stays on the include while its caption is edited.
+                for (const ancestor of selection.getFirstPosition()?.getAncestors() ?? []) {
+                    if (ancestor.is("element") && isIncludeNoteWidget(ancestor)) {
+                        return ancestor;
+                    }
+                }
+
                 return null;
             }
         });
@@ -33,15 +44,5 @@ export default class IncludeNoteToolbar extends Plugin {
 }
 
 function isIncludeNoteWidget(element: ViewElement): boolean {
-    if (!isWidget(element)) {
-        return false;
-    }
-
-    if (!element.is("element", "section")) {
-        return false;
-    }
-
-    /* v8 ignore next -- isWidget() only matches toWidget()-wrapped elements, which always carry the ck-widget class, so getAttribute("class") is never falsy here */
-    const classes = element.getAttribute("class") || "";
-    return typeof classes === "string" && classes.includes("include-note");
+    return isWidget(element) && element.hasClass("include-note");
 }

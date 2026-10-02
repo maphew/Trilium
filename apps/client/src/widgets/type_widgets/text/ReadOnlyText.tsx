@@ -166,7 +166,7 @@ function useNoteLanguage(note: FNote) {
 
 function applyIncludedNotes(container: HTMLDivElement) {
     const loaded: Promise<unknown>[] = [];
-    const includedNotes = container.querySelectorAll<HTMLElement>("section.include-note");
+    const includedNotes = container.querySelectorAll<HTMLElement>(".include-note");
     for (const includedNote of includedNotes) {
         const { attachmentId, noteId } = includedNote.dataset;
         if (attachmentId) {

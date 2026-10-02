@@ -750,6 +750,25 @@ describe("saveLinks", () => {
         expect(imageLink.markAsDeleted).not.toHaveBeenCalled();
     });
 
+    it("keeps the includeNoteLink relations of a text note's includes, of either element", () => {
+        const note = buildNote({ title: "Test" });
+        const [ figureTarget, sectionTarget, staleTarget ] = [ "Figure", "Section", "Stale" ]
+            .map((title) => buildNote({ title }));
+        const [ figureLink, sectionLink, staleLink ] = [ figureTarget, sectionTarget, staleTarget ]
+            .map((target) => makeLinkRelation(note.noteId, "includeNoteLink", target.noteId));
+        note.getRelations = () => [ figureLink, sectionLink, staleLink ];
+        note.getAttachments = () => [];
+
+        saveLinks(note, `<figure class="include-note" data-note-id="${figureTarget.noteId}"`
+            + ` data-box-size="medium"><figcaption>Caption</figcaption></figure>`
+            + `<section class="include-note" data-note-id="${sectionTarget.noteId}"`
+            + ` data-box-size="small">&nbsp;</section>`);
+
+        expect(figureLink.markAsDeleted).not.toHaveBeenCalled();
+        expect(sectionLink.markAsDeleted).not.toHaveBeenCalled();
+        expect(staleLink.markAsDeleted).toHaveBeenCalled();
+    });
+
     it("does not delete existing internalLink relations on markdown notes using #root links", () => {
         const note = buildNote({ title: "Test", type: "code", mime: "text/x-markdown" });
         const targetNote = buildNote({ title: "Other Note" });

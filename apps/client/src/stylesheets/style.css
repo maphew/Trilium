@@ -1433,14 +1433,26 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 .include-note {
-    margin-bottom: 10px;
+    margin: 0 0 10px;
     border-radius: var(--_include-note-top-border-radius, 8px)
                    var(--_include-note-top-border-radius, 8px)
                    var(--_include-note-bottom-border-radius, 8px)
                    var(--_include-note-bottom-border-radius, 8px);
     background-color: var(--card-background-color, var(--accented-background-color));
     display: flex; /* see https://github.com/zadam/trilium/issues/1590 */
+    flex-direction: column;
     transition: background-color 200ms ease-out;
+}
+
+/* On the wrapper: the editor gives the caption a border of its own for the focus ring. */
+.include-note-wrapper:has(+ figcaption) {
+    border-bottom: 2px solid var(--main-background-color);
+}
+
+.include-note > figcaption {
+    padding: 6px 1rem;
+    font-size: .8em;
+    text-align: center;
 }
 
 /* Includes in a series share flush edges, as link previews and collapsible blocks do. */
@@ -1531,6 +1543,27 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 .include-note[data-box-size="expandable"] .include-note-content.type-book:has(.note-list-widget.full-height),
 .include-note[data-box-size="expandable"] .include-note-content.type-search:has(.note-list-widget.full-height) {
     height: 20em;
+}
+
+/* Pictures, diagrams and players fit the box height, where text scrolls in it. */
+.include-note[data-box-size="small"] {
+    --include-note-media-max-height: 10em;
+}
+
+.include-note[data-box-size="medium"] {
+    --include-note-media-max-height: 20em;
+}
+
+.include-note[data-box-size] .include-note-content:is(
+    .type-image, .type-canvas, .type-mindMap, .type-spreadsheet, .type-mermaid, .type-video
+) {
+    max-height: none;
+}
+
+.include-note-content:not(:fullscreen) :is(
+    .rendered-content > img, .rendered-content > svg, .video-preview
+) {
+    max-height: var(--include-note-media-max-height, none);
 }
 
 .include-note-wrapper {

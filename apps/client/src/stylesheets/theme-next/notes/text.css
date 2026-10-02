@@ -734,6 +734,10 @@ html .note-detail-editable-text > :not(figure, .include-note, hr):first-child {
     overflow: hidden;
 }
 
+.include-note:has(> figcaption) .include-note-content.type-video .video-preview-wrapper {
+    border-radius: 0;
+}
+
 .ck.ck-editor__editable pre[data-language]::after {
     --ck-color-code-block-label-background: rgba(128, 128, 128, 0.5);
     border-radius: 0 0 5px 5px;

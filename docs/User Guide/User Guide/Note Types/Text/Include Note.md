@@ -14,7 +14,7 @@ An [attachment](../../Basic%20Concepts%20and%20Features/Notes/Attachments.md) ca
 The box size sets how much of the included note is shown.
 
 *   _Tiny_ shows a single row instead of the content: the note's icon, its title with the path to the note above it, and buttons to act on the note.
-*   _Small_ and _Medium_ show the content in a box of limited height, which scrolls.
+*   _Small_ and _Medium_ show the content in a box of limited height. Text scrolls inside the box, while a picture, a diagram or a video is scaled down to fit it.
 *   _Full_ shows the whole content.
 *   _Expandable_ shows only the title until its <span class="tn-icon bx bx-chevron-right"></span> arrow is pressed.
 
@@ -26,6 +26,15 @@ A new include gets the size that suits what it shows:
 *   _Medium_ for anything else.
 
 The dialog that includes a note selects that size once the note is picked, and you can choose another one there. To change the size later, select the include and use the _Box size_ menu in its toolbar.
+
+## Caption
+
+An include can have a caption, shown centered at the bottom of its box. The caption is part of the text note, so it can be formatted like the rest of the text, for example in bold or with a link.
+
+*   To add a caption, select the include, press the <span class="tn-icon cke cke-caption"></span> _Toggle caption on_ button in its toolbar and type the caption.
+*   To remove the caption, press the same button again. Pressing it once more brings back the text it had, as long as the note stays open.
+*   A _Tiny_ include has no caption. Switching an include to _Tiny_ removes its caption, and switching it back to a larger size restores the caption, as long as the note stays open.
+*   An _Expandable_ include shows its caption under the title while the content is collapsed, and under the content once it is expanded.
 
 ## Opening an included note
 
@@ -42,7 +51,7 @@ A _Tiny_ include has these buttons instead, followed by the same _More actions_ 
 
 ## Included notes in the share functionality
 
-If a [shared note](../../Advanced%20Usage/Sharing.md) contains one or more included notes, they will be displayed in the content of the note as if they were part of the note itself.
+If a [shared note](../../Advanced%20Usage/Sharing.md) contains one or more included notes, they will be displayed in the content of the note as if they were part of the note itself. The caption of an include is shown under the included content.
 
 For this to work, the included notes must also be shared, otherwise they will not be shown. However, the included notes can still be hidden from the note tree via `#shareHiddenFromTree`.
 

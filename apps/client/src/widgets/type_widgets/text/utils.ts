@@ -3,6 +3,7 @@ import { h } from "preact";
 
 import appContext from "../../../components/app_context";
 import content_renderer from "../../../services/content_renderer";
+import { getIncludeCaption } from "../../../services/content_renderer_text";
 import froca from "../../../services/froca";
 import link, { ViewScope } from "../../../services/link";
 import utils from "../../../services/utils";
@@ -10,14 +11,14 @@ import IncludeNote, { getNoteActions, TinyIncludeNote } from "./IncludeNote";
 
 /**
  * Fills an include box with a note. Without a box size of its own, the box takes the one of its
- * section.
+ * include.
  */
 export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>, boxSize?: string) {
     const note = await froca.getNote(noteId);
     if (!note) return;
 
     const el = $el[0];
-    const size = boxSize ?? getSectionBoxSize(el);
+    const size = boxSize ?? getIncludeBoxSize(el);
     if (size === "tiny") {
         const $link = await link.createLink(note.noteId, {
             showTooltip: false,
@@ -58,7 +59,7 @@ export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>,
 
 /**
  * Fills an include box with an embedded attachment, under a title linking to it. Without a box
- * size of its own, the box takes the one of its section.
+ * size of its own, the box takes the one of its include.
  */
 export async function loadIncludedAttachment(
     attachmentId: string,
@@ -69,7 +70,7 @@ export async function loadIncludedAttachment(
     if (!attachment) return;
 
     const el = $el[0];
-    const size = boxSize ?? getSectionBoxSize(el);
+    const size = boxSize ?? getIncludeBoxSize(el);
     const viewScope: ViewScope = { viewMode: "attachments", attachmentId };
     if (size === "tiny") {
         // `attachment_actions` is imported on demand: it imports the image compression dialog.
@@ -110,13 +111,14 @@ export async function loadIncludedAttachment(
     await content_renderer.mountInteractiveWidget(box, getWrapper(el));
 }
 
-function getSectionBoxSize(el: HTMLElement) {
-    return el.closest<HTMLElement>("section.include-note")?.dataset.boxSize;
+function getIncludeBoxSize(el: HTMLElement) {
+    return el.closest<HTMLElement>(".include-note")?.dataset.boxSize;
 }
 
 /**
  * The element an include box is mounted in: `el` when it is the `.include-note-wrapper` the
- * editor renders, otherwise the wrapper of the `section.include-note`, reused or created.
+ * editor renders, otherwise the wrapper of the `.include-note`, reused or created ahead of the
+ * caption.
  */
 function getWrapper(el: HTMLElement) {
     if (el.classList.contains("include-note-wrapper")) {
@@ -130,7 +132,8 @@ function getWrapper(el: HTMLElement) {
 
     const wrapper = document.createElement("div");
     wrapper.className = "include-note-wrapper";
-    el.replaceChildren(wrapper);
+    const caption = getIncludeCaption(el);
+    el.replaceChildren(wrapper, ...(caption ? [ caption ] : []));
     return wrapper;
 }
 
@@ -169,7 +172,7 @@ function disposeRemoved(records: MutationRecord[]) {
 }
 
 export function refreshIncludedNote(container: HTMLDivElement, noteId: string) {
-    const includedNotes = container.querySelectorAll(`section[data-note-id="${noteId}"]`);
+    const includedNotes = container.querySelectorAll(`.include-note[data-note-id="${noteId}"]`);
     for (const includedNote of includedNotes) {
         loadIncludedNote(noteId, $(includedNote as HTMLElement));
     }

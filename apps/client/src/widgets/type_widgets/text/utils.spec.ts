@@ -43,6 +43,7 @@ import {
     getAttachmentHref,
     loadIncludedAttachment,
     loadIncludedNote,
+    refreshIncludedNote,
     watchIncludedNotes
 } from "./utils";
 
@@ -126,14 +127,15 @@ describe("loadIncludedNote", () => {
         expect(content_renderer.mountInteractiveWidget).not.toHaveBeenCalled();
     });
 
-    it("mounts a tiny box with the note's path, without rendering the note", async () => {
+    it("mounts a tiny box with the note's path, without the note or a caption", async () => {
         const actions = [ action("edit"), action("open") ];
         vi.mocked(getNoteActions).mockReturnValue(actions);
-        const section = document.createElement("section");
-        section.className = "include-note";
-        section.dataset.boxSize = "tiny";
+        const figure = document.createElement("figure");
+        figure.className = "include-note";
+        figure.dataset.boxSize = "tiny";
+        figure.innerHTML = "<figcaption>Caption</figcaption>";
 
-        await loadIncludedNote("noteY", $(section));
+        await loadIncludedNote("noteY", $(figure));
 
         expect(link.createLink).toHaveBeenCalledWith("noteY", {
             showTooltip: false,
@@ -143,7 +145,7 @@ describe("loadIncludedNote", () => {
         expect(getNoteActions).toHaveBeenCalledWith("noteY");
         const mount = lastMount();
         expect(mount.type).toBe(TinyIncludeNote);
-        expect(mount.container.parentElement).toBe(section);
+        expect([ ...figure.childNodes ]).toEqual([ mount.container ]);
         expect(mount.props).toEqual({
             icon: "bx bx-note",
             title,
@@ -219,38 +221,71 @@ describe("loadIncludedAttachment", () => {
 });
 
 describe("the element an include box is mounted in", () => {
-    it("is a wrapper created in a read-only section, which gives the box size", async () => {
-        const section = document.createElement("section");
-        section.className = "include-note";
-        section.dataset.boxSize = "expandable";
-        section.innerHTML = "&nbsp;";
+    it("is a wrapper created in a read-only include ahead of its caption", async () => {
+        const figure = document.createElement("figure");
+        figure.className = "include-note";
+        figure.dataset.boxSize = "expandable";
+        figure.innerHTML = "&nbsp;<figcaption>Caption</figcaption>";
+        const caption = figure.querySelector("figcaption");
 
-        await loadIncludedNote("noteY", $(section));
+        await loadIncludedNote("noteY", $(figure));
 
         const { container, props } = lastMount();
-        expect([ ...section.childNodes ]).toEqual([ container ]);
+        expect(caption).not.toBeNull();
+        expect([ ...figure.childNodes ]).toEqual([ container, caption ]);
         expect(container.className).toBe("include-note-wrapper");
         expect(props.boxSize).toBe("expandable");
 
         // Loading again, as a refresh does, reuses the wrapper.
-        await loadIncludedNote("noteY", $(section), "small");
+        await loadIncludedNote("noteY", $(figure), "small");
         expect(lastMount().container).toBe(container);
         expect(lastMount().props.boxSize).toBe("small");
     });
 
-    it("is the wrapper an editor section holds, leaving the editor's own elements", async () => {
+    it("is a wrapper created in a legacy <section> include", async () => {
         const section = document.createElement("section");
-        section.className = "include-note ck-widget";
-        section.dataset.boxSize = "full";
-        const wrapper = createWrapper();
-        const typeAround = document.createElement("div");
-        section.append(wrapper, typeAround);
+        section.className = "include-note";
+        section.dataset.boxSize = "medium";
 
-        await loadIncludedAttachment("att1", $(section));
+        await loadIncludedNote("noteY", $(section));
+
+        expect([ ...section.childNodes ]).toEqual([ lastMount().container ]);
+        expect(lastMount().props.boxSize).toBe("medium");
+    });
+
+    it("is the wrapper an editor include holds, leaving the editor's own elements", async () => {
+        const figure = document.createElement("figure");
+        figure.className = "include-note ck-widget";
+        figure.dataset.boxSize = "full";
+        const wrapper = createWrapper();
+        const caption = document.createElement("figcaption");
+        const typeAround = document.createElement("div");
+        figure.append(wrapper, caption, typeAround);
+
+        await loadIncludedAttachment("att1", $(figure));
 
         expect(lastMount().container).toBe(wrapper);
         expect(lastMount().props.boxSize).toBe("full");
-        expect([ ...section.children ]).toEqual([ wrapper, typeAround ]);
+        expect([ ...figure.children ]).toEqual([ wrapper, caption, typeAround ]);
+    });
+});
+
+describe("refreshIncludedNote", () => {
+    it("reloads every include of the note, of either element", async () => {
+        const container = document.createElement("div");
+        container.innerHTML = `<figure class="include-note" data-note-id="noteY"></figure>`
+            + `<section class="include-note" data-note-id="noteY"></section>`
+            + `<figure class="include-note" data-note-id="other"></figure>`;
+        const [ figure, section ] = [ ...container.children ];
+
+        refreshIncludedNote(container, "noteY");
+
+        await vi.waitFor(() => {
+            expect(content_renderer.mountInteractiveWidget).toHaveBeenCalledTimes(2);
+        });
+        const mountedIn = vi.mocked(content_renderer.mountInteractiveWidget).mock.calls
+            .map(([ , wrapper ]) => wrapper.parentElement);
+        expect(mountedIn).toEqual([ figure, section ]);
     });
 });
 
@@ -259,8 +294,8 @@ describe("watchIncludedNotes", () => {
 
     beforeEach(() => {
         container = document.createElement("div");
-        container.innerHTML = `<p>text</p><section class="include-note"></section>`
-            + `<blockquote><section class="include-note"></section></blockquote>`;
+        container.innerHTML = `<p>text</p><figure class="include-note"></figure>`
+            + `<blockquote><figure class="include-note"></figure></blockquote>`;
         document.body.appendChild(container);
     });
 
@@ -279,25 +314,25 @@ describe("watchIncludedNotes", () => {
 
     it("unmounts what is removed from the container, but not what is moved within it", async () => {
         const stop = watchIncludedNotes(container);
-        const [ paragraph, section, quote ] = [ ...container.children ];
+        const [ paragraph, include, quote ] = [ ...container.children ];
 
-        section.remove();
+        include.remove();
         quote.remove();
         container.append(quote);
         paragraph.firstChild?.remove();
         await flush();
 
-        expect(disposed()).toEqual([ section ]);
+        expect(disposed()).toEqual([ include ]);
         stop();
     });
 
     it("unmounts what is left on stop, and stops watching", async () => {
         const stop = watchIncludedNotes(container);
-        const section = container.querySelector("section");
-        section?.remove();
+        const include = container.querySelector("figure");
+        include?.remove();
 
         stop();
-        expect(disposed()).toEqual([ section, container ]);
+        expect(disposed()).toEqual([ include, container ]);
 
         container.querySelector("blockquote")?.remove();
         await flush();

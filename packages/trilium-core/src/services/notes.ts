@@ -530,7 +530,7 @@ export function checkImageAttachments(note: BNote, content: string) {
                 { pattern: /data-(?:image|favicon)="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image/g, previewPicture: true },
                 // <a href="...attachmentId={id}">
                 { pattern: /href="[^"]+attachmentId=([a-zA-Z0-9_]+)/g },
-                // <section class="include-note" data-attachment-id="{id}">
+                // <figure class="include-note" data-attachment-id="{id}">
                 { pattern: /data-attachment-id="([a-zA-Z0-9_]+)"/g }
             ];
 
@@ -851,7 +851,8 @@ export function findLlmChatLinks(content: string, foundLinks: FoundLink[]) {
 }
 
 function findIncludeNoteLinks(content: string, foundLinks: FoundLink[]) {
-    const re = /<section class="include-note[^>]+data-note-id="([a-zA-Z0-9_]+)"[^>]*>/g;
+    // Includes saved before captions existed are `<section>` elements.
+    const re = /<(?:figure|section) class="include-note[^>]+data-note-id="([a-zA-Z0-9_]+)"[^>]*>/g;
     let match;
 
     while ((match = re.exec(content))) {

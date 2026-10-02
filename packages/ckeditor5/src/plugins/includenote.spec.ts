@@ -2,6 +2,7 @@ import {
     _getModelData as getModelData,
     _getViewData as getViewData,
     _setModelData as setModelData,
+    Bold,
     ButtonView,
     ClassicEditor,
     Essentials,
@@ -20,7 +21,8 @@ import IncludeNote, {
     BOX_SIZES,
     COMMAND_NAME,
     EMBED_ATTACHMENT_LINK_COMMAND,
-    CONVERT_EMBED_TO_LINK_COMMAND
+    CONVERT_EMBED_TO_LINK_COMMAND,
+    TOGGLE_CAPTION_COMMAND_NAME
 } from "./includenote.js";
 import ReferenceLink from "./referencelink.js";
 
@@ -81,29 +83,22 @@ describe("IncludeNote", () => {
     // Conversion: upcast / data downcast / editing downcast
     // -----------------------------------------------------------------------
 
-    it("upcasts a <section class=\"include-note\"> into an includeNote model element", () => {
-        editor.setData(
-            '<section class="include-note" data-note-id="abc123" data-box-size="medium"></section>'
-        );
+    it("loads a <figure> include and a legacy <section>, and saves a <figure>", () => {
+        for (const tag of [ "figure", "section" ]) {
+            editor.setData(`<${tag} class="include-note" data-note-id="abc123"`
+                + ` data-box-size="medium"></${tag}>`);
 
-        const element = findIncludeNote(editor);
-        expect(element).toBeDefined();
-        expect(element?.getAttribute("noteId")).toBe("abc123");
-        expect(element?.getAttribute("boxSize")).toBe("medium");
-    });
-
-    it("data-downcasts an includeNote back to a <section class=\"include-note\"> with data attributes", () => {
-        insertIncludeNote(editor, "noteX", "full");
-
-        const data = editor.getData();
-        expect(data).toContain('class="include-note"');
-        expect(data).toContain('data-note-id="noteX"');
-        expect(data).toContain('data-box-size="full"');
+            const element = findIncludeNote(editor);
+            expect(element?.getAttribute("noteId")).toBe("abc123");
+            expect(element?.getAttribute("boxSize")).toBe("medium");
+            expect(editor.getData()).toBe("<figure class=\"include-note\" data-note-id=\"abc123\" "
+                + "data-box-size=\"medium\">&nbsp;</figure>");
+        }
     });
 
     it("editing-downcasts to a widget and invokes loadIncludedNote when the UIElement renders", () => {
         editor.setData(
-            '<section class="include-note" data-note-id="noteY" data-box-size="small"></section>'
+            '<figure class="include-note" data-note-id="noteY" data-box-size="small"></figure>'
         );
 
         const view = getViewData(editor.editing.view);
@@ -129,14 +124,14 @@ describe("IncludeNote", () => {
         insertIncludeNote(editor, "noteZ", "small");
 
         const domRoot = editor.editing.view.getDomRoot();
-        const section = domRoot?.querySelector("section.include-note");
-        expect(section?.classList.contains("box-size-small")).toBe(true);
+        const figure = domRoot?.querySelector("figure.include-note");
+        expect(figure?.classList.contains("box-size-small")).toBe(true);
 
         editor.execute(BOX_SIZE_COMMAND_NAME, { value: "full" });
 
-        expect(section?.classList.contains("box-size-small")).toBe(false);
-        expect(section?.classList.contains("box-size-full")).toBe(true);
-        expect(section?.getAttribute("data-box-size")).toBe("full");
+        expect(figure?.classList.contains("box-size-small")).toBe(false);
+        expect(figure?.classList.contains("box-size-full")).toBe(true);
+        expect(figure?.getAttribute("data-box-size")).toBe("full");
     });
 
     it("re-renders the included note content with the new size on a genuine box-size change", () => {
@@ -165,9 +160,9 @@ describe("IncludeNote", () => {
         });
 
         const domRoot = editor.editing.view.getDomRoot();
-        const section = domRoot?.querySelector("section.include-note");
-        expect(section?.classList.contains("box-size-medium")).toBe(true);
-        expect(section?.getAttribute("data-box-size")).toBe("medium");
+        const figure = domRoot?.querySelector("figure.include-note");
+        expect(figure?.classList.contains("box-size-medium")).toBe(true);
+        expect(figure?.getAttribute("data-box-size")).toBe("medium");
     });
 
     it("ignores a boxSize change cleared to an empty value (no new class to add)", () => {
@@ -178,10 +173,10 @@ describe("IncludeNote", () => {
         });
 
         const domRoot = editor.editing.view.getDomRoot();
-        const section = domRoot?.querySelector("section.include-note");
+        const figure = domRoot?.querySelector("figure.include-note");
         // Old class removed, no new class added because the new value is empty.
-        expect(section?.classList.contains("box-size-small")).toBe(false);
-        expect(section?.classList.contains("box-size-")).toBe(false);
+        expect(figure?.classList.contains("box-size-small")).toBe(false);
+        expect(figure?.classList.contains("box-size-")).toBe(false);
     });
 
     // -----------------------------------------------------------------------
@@ -443,7 +438,7 @@ describe("IncludeNote", () => {
         expect(keyStop).toHaveBeenCalled();
     });
 
-    it("does nothing on a mousedown when the wrapper has no enclosing include-note section", () => {
+    it("does nothing on a mousedown when the wrapper has no enclosing include", () => {
         insertIncludeNote(editor, "noteDetached", "small");
 
         const domRoot = editor.editing.view.getDomRoot();
@@ -454,7 +449,7 @@ describe("IncludeNote", () => {
         }
 
         // Detach the wrapper (which carries the capture-phase mousedown handler) from its
-        // section so that domElement.closest("section.include-note") returns null. The handler
+        // include so that domElement.closest(".include-note") returns null. The handler
         // still fires because it is bound to the wrapper element itself.
         const holder = document.createElement("div");
         document.body.appendChild(holder);
@@ -467,7 +462,7 @@ describe("IncludeNote", () => {
         expect(true).toBe(true);
     });
 
-    it("does nothing on a mousedown when the section is not mapped to a view element", () => {
+    it("does nothing on a mousedown when the include is not mapped to a view element", () => {
         insertIncludeNote(editor, "noteUnmapped", "small");
 
         const domRoot = editor.editing.view.getDomRoot();
@@ -477,35 +472,35 @@ describe("IncludeNote", () => {
             return;
         }
 
-        // Move the wrapper into a hand-built section.include-note that the editor's
-        // DomConverter knows nothing about. closest() then finds this fake section, but
+        // Move the wrapper into a hand-built figure.include-note that the editor's
+        // DomConverter knows nothing about. closest() then finds this fake include, but
         // mapDomToView() returns nothing for it, so selectIncludeNoteWidget returns early.
-        const fakeSection = document.createElement("section");
-        fakeSection.className = "include-note";
-        document.body.appendChild(fakeSection);
-        fakeSection.appendChild(wrapper);
+        const fakeFigure = document.createElement("figure");
+        fakeFigure.className = "include-note";
+        document.body.appendChild(fakeFigure);
+        fakeFigure.appendChild(wrapper);
 
         wrapper.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
 
-        fakeSection.remove();
+        fakeFigure.remove();
         expect(true).toBe(true);
     });
 
-    it("does nothing on a mousedown when the section view element has no mapped model element", () => {
+    it("does nothing on a mousedown when the include's view maps to no model element", () => {
         insertIncludeNote(editor, "noteNoModel", "small");
 
         const domRoot = editor.editing.view.getDomRoot();
         const wrapper = domRoot?.querySelector("div.include-note-wrapper");
-        const section = domRoot?.querySelector<HTMLElement>("section.include-note");
+        const figure = domRoot?.querySelector<HTMLElement>("figure.include-note");
         expect(wrapper).not.toBeNull();
-        expect(section).not.toBeNull();
-        if (!wrapper || !section) {
+        expect(figure).not.toBeNull();
+        if (!wrapper || !figure) {
             return;
         }
 
         // The DOM->view mapping stays intact (mapDomToView succeeds), but we break the
         // view->model mapping so selectIncludeNoteWidget returns at the !modelElement guard.
-        const viewElement = editor.editing.view.domConverter.mapDomToView(section);
+        const viewElement = editor.editing.view.domConverter.mapDomToView(figure);
         expect(viewElement).toBeDefined();
         if (viewElement && viewElement.is("element")) {
             editor.editing.mapper.unbindViewElement(viewElement);
@@ -518,8 +513,8 @@ describe("IncludeNote", () => {
 
     it("selects the include that a DOM element is part of, for a context menu opened on it", () => {
         editor.setData("<p>foo</p>"
-            + "<section class=\"include-note\" data-note-id=\"noteMenu\" data-box-size=\"small\">"
-            + "</section>");
+            + "<figure class=\"include-note\" data-note-id=\"noteMenu\" data-box-size=\"small\">"
+            + "</figure>");
         const domRoot = editor.editing.view.getDomRoot();
         const wrapper = domRoot?.querySelector("div.include-note-wrapper");
         const paragraph = domRoot?.querySelector("p");
@@ -542,7 +537,9 @@ describe("IncludeNote", () => {
         // Exercise the falsy `if (command)` branch in IncludeNoteUI: when the command lookup
         // returns undefined, the button must still be created (just without the binding).
         const realGet = editor.commands.get.bind(editor.commands);
-        const absent: string[] = [ COMMAND_NAME, CONVERT_EMBED_TO_LINK_COMMAND ];
+        const absent: string[] = [
+            COMMAND_NAME, CONVERT_EMBED_TO_LINK_COMMAND, TOGGLE_CAPTION_COMMAND_NAME
+        ];
         const getSpy = vi
             .spyOn(editor.commands, "get")
             .mockImplementation((name) => (absent.includes(name) ? undefined : realGet(name)));
@@ -552,6 +549,8 @@ describe("IncludeNote", () => {
             expect(view.label).toBe("Include note");
             const convert = editor.ui.componentFactory.create(CONVERT_EMBED_TO_LINK_COMMAND);
             expect((convert as unknown as { label: string }).label).toBe("Convert to link");
+            const caption = editor.ui.componentFactory.create(TOGGLE_CAPTION_COMMAND_NAME);
+            expect((caption as unknown as { label: string }).label).toBe("Toggle caption on");
         } finally {
             getSpy.mockRestore();
         }
@@ -561,8 +560,8 @@ describe("IncludeNote", () => {
 describe("IncludeNote with attachments", () => {
     const LINK_HREF = "#root/owner?viewMode=attachments&attachmentId=att1";
     const embedHtml = (attachmentId = "att1") =>
-        `<section class="include-note" data-attachment-id="${attachmentId}" data-box-size="small">`
-        + "</section>";
+        `<figure class="include-note" data-attachment-id="${attachmentId}" data-box-size="small">`
+        + "</figure>";
     let editor: ClassicEditor;
     let loadIncludedNote: ReturnType<typeof vi.fn>;
     let loadIncludedAttachment: ReturnType<typeof vi.fn>;
@@ -635,17 +634,24 @@ describe("IncludeNote with attachments", () => {
         expect(loadIncludedAttachment).not.toHaveBeenCalled();
         expect(loadIncludedNote).not.toHaveBeenCalled();
         const data = editor.getData();
-        expect(data).toContain("<section class=\"include-note\" data-box-size=\"small\">");
+        expect(data).toContain("<figure class=\"include-note\" data-box-size=\"small\">");
         expect(data).not.toMatch(/data-(note|attachment)-id/);
 
-        editor.model.change((writer) => {
-            const element = findIncludeNote(editor);
-            if (element) {
-                writer.setAttribute("attachmentId", "att1", element);
-                writer.removeAttribute("uploadFileName", element);
-            }
-        });
-        renderEmbeds();
+        const element = findIncludeNote(editor);
+        if (!element) {
+            throw new Error("Expected the embed.");
+        }
+
+        // The two steps of `FileUploadEditing` once the upload ends.
+        editor.model.change((writer) => writer.setAttribute("attachmentId", "att1", element));
+        expect(wrapper?.querySelector(".include-note-title")?.textContent).toBe("report.pdf");
+        expect(loadIncludedAttachment).not.toHaveBeenCalled();
+
+        editor.model.change((writer) => writer.removeAttribute("uploadFileName", element));
+        expect(renderEmbeds()?.[0]).toBe(wrapper);
+        expect(wrapper?.querySelector(".include-note-title")).toBeNull();
+        expect(wrapper?.parentElement?.getAttribute("data-attachment-id")).toBe("att1");
+        expect(loadIncludedAttachment).toHaveBeenCalledTimes(1);
         expect(loadIncludedAttachment).toHaveBeenCalledWith("att1", expect.anything(), "small");
     });
 
@@ -687,7 +693,7 @@ describe("IncludeNote with attachments", () => {
     });
 
     it("loads an include that names nothing, as one saved mid-upload, as an empty box", () => {
-        editor.setData("<section class=\"include-note\" data-box-size=\"small\"></section>");
+        editor.setData("<figure class=\"include-note\" data-box-size=\"small\"></figure>");
 
         expect(renderEmbeds()).toHaveLength(1);
         expect(loadIncludedNote).not.toHaveBeenCalled();
@@ -784,6 +790,173 @@ describe("IncludeNote with attachments", () => {
         expect(redrawn).not.toContain("att2");
         expect(getModelData(editor.model, { withoutSelection: true }))
             .toBe("<includeNote attachmentId=\"att1\" boxSize=\"small\"></includeNote>");
+    });
+});
+
+describe("IncludeNote captions", () => {
+    const CAPTIONED = "<figure class=\"include-note\" data-note-id=\"n1\" data-box-size=\"medium\">"
+        + "<figcaption>A <strong>bold</strong> caption</figcaption></figure>";
+    let editor: ClassicEditor;
+    let loadIncludedNote: ReturnType<typeof vi.fn>;
+
+    beforeEach(async () => {
+        loadIncludedNote = vi.fn();
+        installGlobMock({
+            getComponentByEl: () => ({ loadIncludedNote })
+        });
+
+        editor = await createTestEditor([ Essentials, Paragraph, Bold, Undo, Widget, IncludeNote ]);
+    });
+
+    function getCommand() {
+        const command = editor.commands.get(TOGGLE_CAPTION_COMMAND_NAME);
+        if (!command) {
+            throw new Error("Expected the caption command.");
+        }
+        return command;
+    }
+
+    function selectInclude() {
+        editor.model.change((writer) => {
+            const include = findIncludeNote(editor);
+            if (include) {
+                writer.setSelection(include, "on");
+            }
+        });
+    }
+
+    /** The caption the editing view renders, after checking that it follows the content. */
+    function getRenderedCaption() {
+        const figcaption = editor.editing.view.getDomRoot()
+            ?.querySelector("figure.include-note > figcaption");
+        expect(figcaption?.previousElementSibling?.classList.contains("include-note-wrapper"))
+            .toBe(true);
+        return figcaption;
+    }
+
+    function isSelectionInCaption() {
+        const position = editor.model.document.selection.getFirstPosition();
+        return !!position?.parent.is("element", "caption");
+    }
+
+    it("loads and saves a formatted caption, and renders it editable after the content", () => {
+        editor.setData(CAPTIONED);
+
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+            "<includeNote boxSize=\"medium\" noteId=\"n1\">"
+            + "<caption>A <$text bold=\"true\">bold</$text> caption</caption></includeNote>"
+        );
+        expect(editor.getData()).toBe(CAPTIONED);
+        expect(getRenderedCaption()?.getAttribute("contenteditable")).toBe("true");
+    });
+
+    it("toggles a caption on after the content and off again, keeping its text", () => {
+        insertIncludeNote(editor, "n1", "medium");
+        const command = getCommand();
+        expect(command.isEnabled).toBe(true);
+        expect(command.value).toBe(false);
+
+        editor.execute(TOGGLE_CAPTION_COMMAND_NAME, { focusCaptionOnShow: true });
+        expect(command.value).toBe(true);
+        expect(isSelectionInCaption()).toBe(true);
+        expect(getRenderedCaption()).not.toBeNull();
+
+        editor.model.change((writer) => {
+            const position = editor.model.document.selection.getFirstPosition();
+            if (position) {
+                writer.insertText("Caption", position);
+            }
+        });
+        editor.execute(TOGGLE_CAPTION_COMMAND_NAME);
+        expect(command.value).toBe(false);
+        expect(editor.getData()).not.toContain("figcaption");
+        expect(editor.model.document.selection.getSelectedElement()?.name).toBe("includeNote");
+
+        editor.execute(TOGGLE_CAPTION_COMMAND_NAME);
+        expect(editor.getData()).toContain("<figcaption>Caption</figcaption>");
+        expect(isSelectionInCaption()).toBe(false);
+    });
+
+    it("keeps the rendered content while the caption is toggled and edited", () => {
+        insertIncludeNote(editor, "n1", "medium");
+        const wrapper = editor.editing.view.getDomRoot()?.querySelector(".include-note-wrapper");
+        expect(wrapper).not.toBeNull();
+        expect(loadIncludedNote).toHaveBeenCalledTimes(1);
+
+        editor.execute(TOGGLE_CAPTION_COMMAND_NAME, { focusCaptionOnShow: true });
+        editor.model.change((writer) => {
+            const position = editor.model.document.selection.getFirstPosition();
+            if (position) {
+                writer.insertText("Caption", position);
+            }
+        });
+        editor.execute(TOGGLE_CAPTION_COMMAND_NAME);
+        editor.execute(TOGGLE_CAPTION_COMMAND_NAME);
+
+        expect(getRenderedCaption()?.textContent).toBe("Caption");
+        expect(editor.editing.view.getDomRoot()?.querySelector(".include-note-wrapper"))
+            .toBe(wrapper);
+        expect(loadIncludedNote).toHaveBeenCalledTimes(1);
+    });
+
+    it("is disabled with no include selected and on a Tiny include", () => {
+        setModelData(editor.model, "<paragraph>foo[]</paragraph>");
+        expect(getCommand().isEnabled).toBe(false);
+
+        insertIncludeNote(editor, "n1", "tiny");
+        expect(getCommand().isEnabled).toBe(false);
+        expect(getCommand().value).toBe(false);
+    });
+
+    it("labels its toolbar button by whether the caption shows", () => {
+        const button = editor.ui.componentFactory.create(TOGGLE_CAPTION_COMMAND_NAME);
+        if (!(button instanceof ButtonView)) {
+            throw new Error("Expected a button.");
+        }
+        insertIncludeNote(editor, "n1", "medium");
+        expect(button.label).toBe("Toggle caption on");
+        expect(button.isOn).toBe(false);
+
+        button.fire("execute");
+
+        expect(button.label).toBe("Toggle caption off");
+        expect(button.isOn).toBe(true);
+        expect(isSelectionInCaption()).toBe(true);
+    });
+
+    it("removes the caption of a Tiny include and restores it on a larger size, undoably", () => {
+        editor.setData(CAPTIONED);
+        selectInclude();
+
+        editor.execute(BOX_SIZE_COMMAND_NAME, { value: "tiny" });
+        expect(getModelData(editor.model, { withoutSelection: true }))
+            .toBe("<includeNote boxSize=\"tiny\" noteId=\"n1\"></includeNote>");
+
+        editor.execute(BOX_SIZE_COMMAND_NAME, { value: "small" });
+        expect(editor.getData()).toBe(CAPTIONED.replace("medium", "small"));
+        expect(getRenderedCaption()).not.toBeNull();
+
+        editor.execute("undo");
+        editor.execute("undo");
+        expect(editor.getData()).toBe(CAPTIONED);
+    });
+
+    it("leaves a caption hidden with the toggle hidden when the include leaves Tiny", () => {
+        editor.setData(CAPTIONED);
+        selectInclude();
+
+        editor.execute(TOGGLE_CAPTION_COMMAND_NAME);
+        editor.execute(BOX_SIZE_COMMAND_NAME, { value: "tiny" });
+        editor.execute(BOX_SIZE_COMMAND_NAME, { value: "medium" });
+
+        expect(editor.getData()).not.toContain("figcaption");
+    });
+
+    it("drops the caption of a Tiny include it loads", () => {
+        editor.setData(CAPTIONED.replace("medium", "tiny"));
+
+        expect(getModelData(editor.model, { withoutSelection: true }))
+            .toBe("<includeNote boxSize=\"tiny\" noteId=\"n1\"></includeNote>");
     });
 });
 

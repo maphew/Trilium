@@ -80,6 +80,33 @@ describe("Text content renderer", () => {
         expect(contentEl.querySelectorAll("section.include-note p").length).toBe(1);
     });
 
+    it("renders the caption of an include after its content, unless Tiny or nested", async () => {
+        const contentEl = document.createElement("div");
+        const figure = (noteId: string, boxSize: string, caption: string) =>
+            `<figure class="include-note" data-note-id="${noteId}" data-box-size="${boxSize}">`
+            + `<figcaption>${caption}</figcaption></figure>`;
+        const nestedNote = buildNote({ title: "Nested note", content: "<p>Nested.</p>" });
+        const includedNote = buildNote({
+            title: "Included note",
+            content: `<p>Included.</p>${figure(nestedNote.noteId, "medium", "Nested caption")}`
+        });
+        const note = buildNote({
+            title: "New note",
+            content: figure(includedNote.noteId, "medium", "A <strong>caption</strong>")
+                + figure(includedNote.noteId, "tiny", "Tiny caption")
+        });
+
+        await renderText(note, $(contentEl));
+
+        const [ include, tinyInclude ] = contentEl.querySelectorAll(".ck-content > .include-note");
+        expect(include.querySelector("p")?.textContent).toBe("Included.");
+        expect(include.lastElementChild?.outerHTML)
+            .toBe("<figcaption>A <strong>caption</strong></figcaption>");
+        expect(include.querySelectorAll("figcaption")).toHaveLength(1);
+        expect(tinyInclude.querySelector("p")?.textContent).toBe("Included.");
+        expect(tinyInclude.querySelector("figcaption")).toBeNull();
+    });
+
     it("skips rendering included note", async () => {
         const contentEl = document.createElement("div");
         const includedNote = buildNote({

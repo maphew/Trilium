@@ -1,11 +1,21 @@
 import {
 	ButtonView,
 	Command,
+	type DowncastConversionApi,
 	type Editor,
+	enableViewPlaceholder,
+	IconCaption,
 	IconLink,
-	type ModelElement,
+	type MapperModelToViewPositionEvent,
+	ModelElement,
+	type ModelNode,
+	type ModelDocumentFragment,
+	type ModelWriter,
+	type PlaceholderableViewElement,
 	Plugin,
 	toWidget,
+	toWidgetEditable,
+	type ViewEditableElement,
 	type ViewElement,
 	Widget,
 	type Observable
@@ -17,6 +27,7 @@ export const COMMAND_NAME = 'insertIncludeNote';
 export const BOX_SIZE_COMMAND_NAME = 'includeNoteBoxSize';
 export const EMBED_ATTACHMENT_LINK_COMMAND = 'embedAttachmentLink';
 export const CONVERT_EMBED_TO_LINK_COMMAND = 'convertEmbedToLink';
+export const TOGGLE_CAPTION_COMMAND_NAME = 'toggleIncludeNoteCaption';
 
 export const BOX_SIZES = [ 'tiny', 'small', 'medium', 'full', 'expandable' ] as const;
 
@@ -131,6 +142,31 @@ class IncludeNoteUI extends Plugin {
 
 			return buttonView;
 		} );
+
+		editor.ui.componentFactory.add( TOGGLE_CAPTION_COMMAND_NAME, locale => {
+			const command = editor.commands.get( TOGGLE_CAPTION_COMMAND_NAME );
+			const buttonView = new ButtonView( locale );
+
+			buttonView.set( {
+				label: t( 'Toggle caption on' ),
+				icon: IconCaption,
+				tooltip: true,
+				isToggleable: true
+			} );
+
+			if ( command ) {
+				buttonView.bind( 'isOn', 'isEnabled' ).to( command, 'value', 'isEnabled' );
+				buttonView.bind( 'label' ).to( command, 'value', value =>
+					value ? t( 'Toggle caption off' ) : t( 'Toggle caption on' ) );
+			}
+
+			this.listenTo( buttonView, 'execute', () => {
+				editor.execute( TOGGLE_CAPTION_COMMAND_NAME, { focusCaptionOnShow: true } );
+				editor.editing.view.focus();
+			} );
+
+			return buttonView;
+		} );
 	}
 }
 
@@ -138,6 +174,16 @@ class IncludeNoteEditing extends Plugin {
 	static get requires() {
 		return [ Widget ];
 	}
+
+	static get pluginName() {
+		return 'IncludeNoteEditing' as const;
+	}
+
+	/** The captions that were hidden or that a Tiny box size removed, by include. */
+	private readonly savedCaptions = new WeakMap<ModelElement, unknown>();
+
+	/** The includes whose saved caption a Tiny box size removed. */
+	private readonly tinyIncludes = new WeakSet<ModelElement>();
 
 	init() {
 		this._defineSchema();
@@ -149,6 +195,26 @@ class IncludeNoteEditing extends Plugin {
 		commands.add( BOX_SIZE_COMMAND_NAME, new IncludeNoteBoxSizeCommand( editor ) );
 		commands.add( EMBED_ATTACHMENT_LINK_COMMAND, new EmbedAttachmentLinkCommand( editor ) );
 		commands.add( CONVERT_EMBED_TO_LINK_COMMAND, new ConvertEmbedToLinkCommand( editor ) );
+		commands.add( TOGGLE_CAPTION_COMMAND_NAME, new ToggleIncludeNoteCaptionCommand( editor ) );
+
+		editor.model.document.registerPostFixer( writer => this.removeTinyCaptions( writer ) );
+	}
+
+	/** Keeps a copy of `caption`, for `include` to show again. */
+	saveCaption( include: ModelElement, caption: ModelElement ) {
+		this.savedCaptions.set( include, caption.toJSON() );
+		this.tinyIncludes.delete( include );
+	}
+
+	/** A copy of the caption last saved for `include`, or `null`. */
+	getSavedCaption( include: ModelElement ): ModelElement | null {
+		const json = this.savedCaptions.get( include );
+		return json ? ModelElement.fromJSON( json ) : null;
+	}
+
+	/** A copy of the caption that a Tiny box size removed from `include`, or `null`. */
+	takeTinyCaption( include: ModelElement ): ModelElement | null {
+		return this.tinyIncludes.delete( include ) ? this.getSavedCaption( include ) : null;
 	}
 
 	_defineSchema() {
@@ -167,11 +233,23 @@ class IncludeNoteEditing extends Plugin {
 			// Allow in places where other blocks are allowed (e.g. directly in the root).
 			allowWhere: '$block'
 		} );
+
+		// `ImageCaptionEditing` and `TableCaptionEditing` share the same `caption` element.
+		if ( schema.isRegistered( 'caption' ) ) {
+			schema.extend( 'caption', { allowIn: 'includeNote' } );
+		} else {
+			schema.register( 'caption', {
+				allowIn: 'includeNote',
+				allowContentOf: '$block',
+				isLimit: true
+			} );
+		}
 	}
 
 	_defineConverters() {
 		const editor = this.editor;
 		const conversion = editor.conversion;
+		const t = editor.t;
 
 		// <includeNote> converters
 		conversion.for( 'upcast' ).elementToElement( {
@@ -186,16 +264,16 @@ class IncludeNoteEditing extends Plugin {
 					boxSize: viewElement.getAttribute( 'data-box-size' ),
 				} );
 			},
+			// Includes saved before captions existed are `<section>` elements.
 			view: {
-				name: 'section',
+				name: /^(?:figure|section)$/,
 				classes: 'include-note'
 			}
 		} );
 		conversion.for( 'dataDowncast' ).elementToElement( {
 			model: 'includeNote',
 			view: ( modelElement, { writer: viewWriter } ) => {
-				// it would make sense here to downcast to <iframe>, with this even HTML export can support note inclusion
-				return viewWriter.createContainerElement( 'section', {
+				return viewWriter.createContainerElement( 'figure', {
 					class: 'include-note',
 					...getIncludedEntityAttributes( modelElement ),
 					'data-box-size': modelElement.getAttribute( 'boxSize' ),
@@ -203,16 +281,12 @@ class IncludeNoteEditing extends Plugin {
 			}
 		} );
 		conversion.for( 'editingDowncast' ).elementToElement( {
-			// Redraws an uploading embed when its upload sets `attachmentId` and clears
-			// `uploadFileName`.
-			model: { name: 'includeNote', attributes: [ 'attachmentId', 'uploadFileName' ] },
+			model: 'includeNote',
 			view: ( modelElement, { writer: viewWriter } ) => {
 
 				const boxSize = modelElement.getAttribute( 'boxSize' ) as string | undefined;
-				const uploadFileName = modelElement.getAttribute( 'uploadFileName' ) as
-					string | undefined;
 
-				const section = viewWriter.createContainerElement( 'section', {
+				const figure = viewWriter.createContainerElement( 'figure', {
 					class: 'include-note box-size-' + boxSize,
 					...getIncludedEntityAttributes( modelElement ),
 					'data-box-size': boxSize
@@ -224,24 +298,22 @@ class IncludeNoteEditing extends Plugin {
 				}, function( domDocument ) {
 					const domElement = this.toDomElement( domDocument );
 
-					if ( uploadFileName ) {
-						domElement.append( createUploadTitle( domDocument, uploadFileName ) );
-					} else {
-						loadIncludedContent( editor, modelElement, $( domElement ), boxSize );
-					}
-
+					showIncludedContent( editor, modelElement, domElement );
 					preventCKEditorHandling( domElement, editor );
 
 					return domElement;
 				} );
 
-				viewWriter.insert( viewWriter.createPositionAt( section, 0 ), includedNoteWrapper );
+				viewWriter.insert( viewWriter.createPositionAt( figure, 0 ), includedNoteWrapper );
 
 				// hasSelectionHandle gives the block widget CKEditor's own drag grip so it moves
 				// atomically, instead of the browser's native drag tearing the embedded note apart.
 				// The label is announced by screen readers; lowercase to match the "image widget" /
 				// "table widget" labels CKEditor gives its own widgets.
-				return toWidget( section, viewWriter, { label: editor.t('include note widget'), hasSelectionHandle: true } );
+				return toWidget( figure, viewWriter, {
+					label: editor.t( 'include note widget' ),
+					hasSelectionHandle: true
+				} );
 			}
 		} );
 
@@ -273,7 +345,99 @@ class IncludeNoteEditing extends Plugin {
 					reloadIncludedNote( editor, viewElement, data.item as ModelElement, newBoxSize );
 				}
 			} );
+
+			// Redraws the content in place when an upload ends. A converter that lists
+			// `attributes` also reconverts the include on every change of its children, such as
+			// a caption toggle.
+			for ( const attribute of [ 'attachmentId', 'uploadFileName' ] ) {
+				dispatcher.on( `attribute:${ attribute }:includeNote`, ( _evt, data, api ) => {
+					redrawIncludedEntity( editor, data.item as ModelElement, api );
+				} );
+			}
 		} );
+
+		// <caption> converters, for the caption of an include only
+		conversion.for( 'upcast' ).elementToElement( {
+			view: element => isIncludeNoteCaptionView( element ) ? { name: true } : null,
+			model: 'caption'
+		} );
+		conversion.for( 'dataDowncast' ).elementToElement( {
+			model: 'caption',
+			view: ( modelElement, { writer: viewWriter } ) => isIncludeNote( modelElement.parent )
+				? viewWriter.createContainerElement( 'figcaption' )
+				: null
+		} );
+		conversion.for( 'editingDowncast' ).elementToElement( {
+			model: 'caption',
+			view: ( modelElement, { writer: viewWriter } ) => {
+				if ( !isIncludeNote( modelElement.parent ) ) {
+					return null;
+				}
+
+				const figcaption: ViewEditableElement & PlaceholderableViewElement =
+					viewWriter.createEditableElement( 'figcaption' );
+				figcaption.placeholder = t( 'Enter caption' );
+				enableViewPlaceholder( {
+					view: editor.editing.view,
+					element: figcaption,
+					keepOnFocus: true
+				} );
+
+				return toWidgetEditable( figcaption, viewWriter, {
+					label: t( 'Caption for the included note' )
+				} );
+			}
+		} );
+
+		// The default mapping places model offset 0 before the content wrapper, which has no model
+		// length. The caption goes after it.
+		editor.editing.mapper.on<MapperModelToViewPositionEvent>(
+			'modelToViewPosition',
+			( _evt, data ) => {
+				const parent = data.modelPosition.parent;
+				const viewElement = parent.is( 'element', 'includeNote' )
+					? data.mapper.toViewElement( parent )
+					: undefined;
+				const wrapperIndex = viewElement ? getWrapperIndex( viewElement ) : null;
+				if ( !viewElement || wrapperIndex === null ) {
+					return;
+				}
+
+				const offset = wrapperIndex + 1 + data.modelPosition.offset;
+				data.viewPosition = editor.editing.view.createPositionAt(
+					viewElement, Math.min( offset, viewElement.childCount ) );
+			}
+		);
+	}
+
+	/**
+	 * Removes the caption of every Tiny include that a change touched, keeping a copy for when
+	 * the include gets a larger box size.
+	 */
+	private removeTinyCaptions( writer: ModelWriter ) {
+		const includes = new Set<ModelElement>();
+		for ( const change of this.editor.model.document.differ.getChanges() ) {
+			if ( change.type === 'attribute' && change.attributeKey === 'boxSize' ) {
+				addIncludeNotes( includes, change.range.start.nodeAfter );
+			} else if ( change.type === 'insert' && change.name === 'caption' ) {
+				addIncludeNotes( includes, change.position.parent );
+			} else if ( change.type === 'insert' && change.name !== '$text' ) {
+				addIncludeNotes( includes, change.position.nodeAfter );
+			}
+		}
+
+		let isChanged = false;
+		for ( const include of includes ) {
+			const caption = getCaption( include );
+			if ( caption && include.getAttribute( 'boxSize' ) === 'tiny' ) {
+				this.saveCaption( include, caption );
+				this.tinyIncludes.add( include );
+				writer.remove( caption );
+				isChanged = true;
+			}
+		}
+
+		return isChanged;
 	}
 }
 
@@ -298,13 +462,28 @@ class InsertIncludeNoteCommand extends Command {
 class IncludeNoteBoxSizeCommand extends Command {
 	declare value: BoxSizeValue | null;
 
+	/**
+	 * Sets the box size of the selected include. Tiny takes the caption away, and a larger size
+	 * shows it again.
+	 */
 	override execute( options: { value: BoxSizeValue } ) {
-		const model = this.editor.model;
-		const includeNoteElement = getSelectedIncludeNote( this.editor );
+		const editor = this.editor;
+		const includeNoteElement = getSelectedIncludeNote( editor );
 
 		if ( includeNoteElement ) {
-			model.change( writer => {
+			editor.model.change( writer => {
+				const wasTiny = includeNoteElement.getAttribute( 'boxSize' ) === 'tiny';
 				writer.setAttribute( 'boxSize', options.value, includeNoteElement );
+
+				if ( options.value === 'tiny' ) {
+					writer.setSelection( includeNoteElement, 'on' );
+				} else if ( wasTiny && !getCaption( includeNoteElement ) ) {
+					const caption = editor.plugins.get( IncludeNoteEditing )
+						.takeTinyCaption( includeNoteElement );
+					if ( caption ) {
+						writer.append( caption, includeNoteElement );
+					}
+				}
 			} );
 		}
 	}
@@ -314,6 +493,48 @@ class IncludeNoteBoxSizeCommand extends Command {
 
 		this.isEnabled = !!includeNoteElement;
 		this.value = includeNoteElement?.getAttribute( 'boxSize' ) as BoxSizeValue | null ?? null;
+	}
+}
+
+/** Shows or hides the caption of the selected include. A Tiny include has none. */
+export class ToggleIncludeNoteCaptionCommand extends Command {
+	declare value: boolean;
+
+	override refresh() {
+		const include = getSelectedIncludeNote( this.editor );
+
+		this.isEnabled = !!include && include.getAttribute( 'boxSize' ) !== 'tiny'
+			&& this.editor.model.schema.checkChild( include, 'caption' );
+		this.value = !!include && !!getCaption( include );
+	}
+
+	/**
+	 * @param options.focusCaptionOnShow whether a caption that the command shows takes the
+	 * selection.
+	 */
+	override execute( { focusCaptionOnShow = false }: { focusCaptionOnShow?: boolean } = {} ) {
+		const editor = this.editor;
+		const include = getSelectedIncludeNote( editor );
+		if ( !include ) {
+			return;
+		}
+
+		const editing = editor.plugins.get( IncludeNoteEditing );
+		editor.model.change( writer => {
+			const caption = getCaption( include );
+			if ( caption ) {
+				editing.saveCaption( include, caption );
+				writer.setSelection( include, 'on' );
+				writer.remove( caption );
+				return;
+			}
+
+			const shown = editing.getSavedCaption( include ) ?? writer.createElement( 'caption' );
+			writer.append( shown, include );
+			if ( focusCaptionOnShow ) {
+				writer.setSelection( shown, 'in' );
+			}
+		} );
 	}
 }
 
@@ -399,14 +620,61 @@ function getSelectedIncludeNote( editor: Editor ) {
 
 /** The include whose rendering contains `domElement`, or `null`. */
 function getIncludeNoteAt( editor: Editor, domElement: Element ) {
-	const sectionElement = domElement.closest<HTMLElement>( 'section.include-note' );
-	const viewElement = sectionElement
-		&& editor.editing.view.domConverter.mapDomToView( sectionElement );
+	const includeElement = domElement.closest<HTMLElement>( '.include-note' );
+	const viewElement = includeElement
+		&& editor.editing.view.domConverter.mapDomToView( includeElement );
 	if ( !viewElement?.is( 'element' ) ) {
 		return null;
 	}
 
 	return editor.editing.mapper.toModelElement( viewElement ) ?? null;
+}
+
+function isIncludeNote( node: ModelNode | ModelDocumentFragment | null ): node is ModelElement {
+	return !!node?.is( 'element', 'includeNote' );
+}
+
+/** The caption of `include`, or `null`. */
+function getCaption( include: ModelElement ) {
+	for ( const child of include.getChildren() ) {
+		if ( child.is( 'element', 'caption' ) ) {
+			return child;
+		}
+	}
+
+	return null;
+}
+
+/** Whether `element` is the `<figcaption>` of an include. */
+function isIncludeNoteCaptionView( element: ViewElement ) {
+	const parent = element.parent;
+	return element.name === 'figcaption' && !!parent?.is( 'element' )
+		&& parent.hasClass( 'include-note' );
+}
+
+/** The index of the content wrapper among the children of an include's view, or `null`. */
+function getWrapperIndex( viewElement: ViewElement ) {
+	for ( const [ index, child ] of Array.from( viewElement.getChildren() ).entries() ) {
+		if ( child.is( 'uiElement' ) && child.hasClass( 'include-note-wrapper' ) ) {
+			return index;
+		}
+	}
+
+	return null;
+}
+
+/** Adds `node`, when it is an include, and every include inside it to `includes`. */
+function addIncludeNotes(
+	includes: Set<ModelElement>,
+	node: ModelNode | ModelDocumentFragment | null
+) {
+	if ( isIncludeNote( node ) ) {
+		includes.add( node );
+	} else if ( node?.is( 'element' ) ) {
+		for ( const descendant of node.getChildren() ) {
+			addIncludeNotes( includes, descendant );
+		}
+	}
 }
 
 /**
@@ -435,6 +703,66 @@ function createUploadTitle( domDocument: Document, fileName: string ) {
 	title.append( label );
 
 	return title;
+}
+
+/** What each content wrapper shows, so that it is drawn again only when that changes. */
+const shownContents = new WeakMap<HTMLElement, string>();
+
+/**
+ * Draws what an include shows into its content wrapper: the file name while an upload is under
+ * way, then the attachment or note.
+ */
+function showIncludedContent( editor: Editor, element: ModelElement, wrapper: HTMLElement ) {
+	const uploadFileName = element.getAttribute( 'uploadFileName' ) as string | undefined;
+	const shown = uploadFileName
+		? `upload:${ uploadFileName }`
+		: JSON.stringify( getIncludedEntityAttributes( element ) );
+	const previous = shownContents.get( wrapper );
+	if ( previous === shown ) {
+		return;
+	}
+	shownContents.set( wrapper, shown );
+
+	if ( uploadFileName ) {
+		wrapper.replaceChildren( createUploadTitle( wrapper.ownerDocument, uploadFileName ) );
+		return;
+	}
+
+	if ( previous?.startsWith( 'upload:' ) ) {
+		wrapper.replaceChildren();
+	}
+	const boxSize = element.getAttribute( 'boxSize' ) as string | undefined;
+	loadIncludedContent( editor, element, $( wrapper ), boxSize );
+}
+
+/** Updates the `data-*` attribute of an include's view to what it shows, and redraws it. */
+function redrawIncludedEntity(
+	editor: Editor,
+	include: ModelElement,
+	conversionApi: DowncastConversionApi
+) {
+	const viewElement = conversionApi.mapper.toViewElement( include );
+	if ( !viewElement ) {
+		return;
+	}
+
+	const viewWriter = conversionApi.writer;
+	viewWriter.removeAttribute( 'data-attachment-id', viewElement );
+	viewWriter.removeAttribute( 'data-note-id', viewElement );
+	for ( const [ key, value ] of Object.entries( getIncludedEntityAttributes( include ) ) ) {
+		viewWriter.setAttribute( key, value, viewElement );
+	}
+
+	const wrapper = getWrapperDom( editor, viewElement );
+	if ( wrapper ) {
+		showIncludedContent( editor, include, wrapper );
+	}
+}
+
+/** The content wrapper of a rendered include, or `null` before the include is rendered. */
+function getWrapperDom( editor: Editor, viewElement: ViewElement ) {
+	return editor.editing.view.domConverter.mapViewToDom( viewElement )
+		?.querySelector<HTMLElement>( ':scope > .include-note-wrapper' ) ?? null;
 }
 
 /** Has the host render what an include shows into its wrapper. */
@@ -468,8 +796,7 @@ function loadIncludedContent(
  * performs that first paint instead. It only does work on a subsequent, genuine box-size change.
  */
 function reloadIncludedNote( editor: Editor, viewElement: ViewElement, modelElement: ModelElement, boxSize: string ) {
-	const sectionDom = editor.editing.view.domConverter.mapViewToDom( viewElement );
-	const wrapperDom = sectionDom?.querySelector<HTMLElement>( '.include-note-wrapper' );
+	const wrapperDom = getWrapperDom( editor, viewElement );
 
 	if ( wrapperDom ) {
 		loadIncludedContent( editor, modelElement, $( wrapperDom ), boxSize );
@@ -505,7 +832,7 @@ function preventCKEditorHandling( domElement: HTMLElement, editor: Editor ) {
 
 		evt.stopPropagation();
 
-		// Suppress the browser's native caret on non-interactive areas. The widget's <section> is
+		// Suppress the browser's native caret on non-interactive areas. The widget's <figure> is
 		// contenteditable=false inside an editable root, so the default mousedown action drops a caret
 		// next to it that visibly moves as the user clicks around.
 		evt.preventDefault();
@@ -577,5 +904,9 @@ function selectIncludeNoteWidget( domElement: HTMLElement, editor: Editor ) {
 declare module 'ckeditor5' {
 	interface PluginsMap {
 		[ IncludeNote.pluginName ]: IncludeNote;
+	}
+
+	interface CommandsMap {
+		toggleIncludeNoteCaption: ToggleIncludeNoteCaptionCommand;
 	}
 }

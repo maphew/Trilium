@@ -8,7 +8,7 @@ import { getLanguage, highlight, highlightAuto, syncMimeTypes } from "@triliumne
 import ejs from "ejs";
 import escapeHtml from "escape-html";
 import { t } from "i18next";
-import { HTMLElement, Options, parse, TextNode } from "node-html-parser";
+import { HTMLElement, type Node as ParsedNode, Options, parse, TextNode } from "node-html-parser";
 
 import becca from "../becca/becca.js";
 import type BAttachment from "../becca/entities/battachment.js";
@@ -310,13 +310,13 @@ export type CanAccessInclude = (note: SNote) => boolean;
 
 export interface ShareRenderOptions {
     /**
-     * Keep expanding include-note sections recursively at every depth. Used for static export, which
+     * Keep expanding includes recursively at every depth. Used for static export, which
      * preserves full nesting. When false (the default for the on-screen share view), only the first
-     * level of inclusion is rendered and deeper include-note sections are replaced with a reference
+     * level of inclusion is rendered and deeper includes are replaced with a reference
      * link.
      */
     expandNestedIncludes?: boolean;
-    /** Internal: render this note's own include-note sections as reference links instead of expanding. */
+    /** Internal: render this note's own includes as reference links instead of expanding. */
     includesAsReferenceLinks?: boolean;
     /** Internal: note IDs already rendered on the current include path, used as a recursion cycle guard. */
     seenNoteIds?: Set<string>;
@@ -491,13 +491,18 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
 
     const seenNoteIds = new Set(options.seenNoteIds);
     seenNoteIds.add(note.noteId);
-    for (const includeNoteEl of document.querySelectorAll("section.include-note")) {
+    for (const includeNoteEl of document.querySelectorAll(".include-note")) {
         const attachmentId = includeNoteEl.getAttribute("data-attachment-id");
         if (attachmentId) {
             const attachment = getAttachment(attachmentId);
             const asLink = !!options.includesAsReferenceLinks;
             const html = attachment ? renderAttachmentEmbed(attachmentId, attachment, asLink) : "";
-            includeNoteEl.replaceWith(...parse(html, parseOpts).childNodes);
+            const embed = parse(html, parseOpts).childNodes;
+            if (attachment && !asLink && isImageAttachmentRole(attachment.role)) {
+                replaceIncludeContent(includeNoteEl, embed);
+            } else {
+                includeNoteEl.replaceWith(...embed);
+            }
             continue;
         }
 
@@ -529,7 +534,7 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
 
         const includedDocument = parse(includedResult.content, parseOpts).childNodes;
         if (includedDocument) {
-            includeNoteEl.replaceWith(...includedDocument);
+            replaceIncludeContent(includeNoteEl, includedDocument);
         }
     }
 
@@ -578,6 +583,21 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
  *
  * @param asLink renders a picture as a link too, for an embed below the first level of inclusion.
  */
+/**
+ * Puts `content` in place of an include. An include with a caption stays a `<figure>`, holding
+ * `content` and then the caption.
+ */
+function replaceIncludeContent(includeNoteEl: HTMLElement, content: ParsedNode[]) {
+    const caption = includeNoteEl.getAttribute("data-box-size") !== "tiny"
+        && includeNoteEl.childNodes.find((child) =>
+            child instanceof HTMLElement && child.tagName === "FIGCAPTION");
+    if (caption) {
+        includeNoteEl.set_content([ ...content, caption ]);
+    } else {
+        includeNoteEl.replaceWith(...content);
+    }
+}
+
 function renderAttachmentEmbed(
     attachmentId: string,
     attachment: BAttachment | SAttachment,

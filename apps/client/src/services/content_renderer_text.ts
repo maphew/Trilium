@@ -27,7 +27,7 @@ export default async function renderText(note: FNote | FAttachment, $renderedCon
 
 /**
  * Apply the post-render passes that make CKEditor-compatible HTML fully
- * interactive: expand `<section class="include-note">`, render inline math and
+ * interactive: expand `<figure class="include-note">`, render inline math and
  * Mermaid diagrams, rewrite reference-link titles, and highlight code blocks.
  * Assumes the caller has already appended the HTML inside a `.ck-content` child
  * of `$renderedContent`.
@@ -36,7 +36,7 @@ export async function postProcessRichContent(note: FNote | FAttachment, $rendere
     const seenNoteIds = options.seenNoteIds ?? new Set<string>();
     seenNoteIds.add("noteId" in note ? note.noteId : note.attachmentId);
     if (options.noIncludedNotes) {
-        $renderedContent.find("section.include-note").remove();
+        $renderedContent.find(".include-note").remove();
     } else if (options.includesAsReferenceLinks) {
         // This note is itself an included note in display mode: stop after the first level by
         // degrading its own includes to reference links instead of expanding them.
@@ -77,7 +77,7 @@ export async function postProcessRichContent(note: FNote | FAttachment, $rendere
 
 async function renderIncludedNotes(contentEl: HTMLElement, seenNoteIds: Set<string>, expandNested: boolean) {
     // TODO: Consider duplicating with server's share/content_renderer.ts.
-    const includeNoteEls = contentEl.querySelectorAll("section.include-note");
+    const includeNoteEls = contentEl.querySelectorAll(".include-note");
 
     // Gather the list of items to load.
     const noteIds: string[] = [];
@@ -96,7 +96,7 @@ async function renderIncludedNotes(contentEl: HTMLElement, seenNoteIds: Set<stri
         const attachment = await getEmbeddedAttachment(includeNoteEl);
         if (attachment) {
             const { $renderedContent } = await content_renderer.getRenderedContent(attachment);
-            includeNoteEl.replaceChildren(...$renderedContent);
+            replaceIncludeContent(includeNoteEl, $renderedContent.toArray());
             continue;
         }
 
@@ -123,19 +123,34 @@ async function renderIncludedNotes(contentEl: HTMLElement, seenNoteIds: Set<stri
             ? { seenNoteIds: new Set(seenNoteIds), expandNestedIncludes: true }
             : { seenNoteIds: new Set(seenNoteIds), includesAsReferenceLinks: true }
         )).$renderedContent;
-        includeNoteEl.replaceChildren(...renderedContent);
+        replaceIncludeContent(includeNoteEl, renderedContent.toArray());
     }
 }
 
+/** Puts `content` in an include, followed by the include's caption. */
+function replaceIncludeContent(includeNoteEl: Element, content: Node[]) {
+    const caption = getIncludeCaption(includeNoteEl);
+    includeNoteEl.replaceChildren(...content, ...(caption ? [ caption ] : []));
+}
+
+/** The caption of an include, or `null` for a Tiny include, which shows none. */
+export function getIncludeCaption(includeNoteEl: Element) {
+    if (includeNoteEl.getAttribute("data-box-size") === "tiny") {
+        return null;
+    }
+
+    return includeNoteEl.querySelector<HTMLElement>(":scope > figcaption");
+}
+
 /**
- * Replace each `section.include-note` in the given content with a bare reference link to the
+ * Replace each `.include-note` in the given content with a bare reference link to the
  * included note, without expanding it. Used on display to stop inclusion after the first level so a
  * note's transitive include graph is not rendered inline. The link's title, icon and colour are
  * filled in by the reference-link post-processing pass in `postProcessRichContent` (the same pass
  * that resolves reference links authored in the note), which also batch-prefetches the note.
  */
 async function replaceIncludesWithReferenceLinks(contentEl: HTMLElement) {
-    for (const includeNoteEl of contentEl.querySelectorAll("section.include-note")) {
+    for (const includeNoteEl of contentEl.querySelectorAll(".include-note")) {
         const attachment = await getEmbeddedAttachment(includeNoteEl);
         if (attachment) {
             const { ownerId, attachmentId } = attachment;
@@ -159,7 +174,7 @@ async function replaceIncludesWithReferenceLinks(contentEl: HTMLElement) {
     }
 }
 
-/** The attachment an include section embeds, or `null` for an include of a note. */
+/** The attachment an include embeds, or `null` for an include of a note. */
 async function getEmbeddedAttachment(includeNoteEl: Element) {
     const attachmentId = includeNoteEl.getAttribute("data-attachment-id");
     // The ID comes from note HTML, so it is checked before it reaches a request or an href.
