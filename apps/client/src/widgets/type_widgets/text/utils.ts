@@ -105,8 +105,7 @@ export async function loadIncludedAttachment(
         content: $renderedContent[0],
         contentType: type,
         notePath: attachment.ownerId,
-        viewScope,
-        isFullscreenOffered: true
+        viewScope
     });
     await content_renderer.mountInteractiveWidget(box, getWrapper(el));
 }

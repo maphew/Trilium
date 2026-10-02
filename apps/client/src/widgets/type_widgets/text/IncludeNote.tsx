@@ -27,8 +27,6 @@ export interface IncludeNoteProps {
     /** The note opened by the buttons in the title row. */
     notePath: string;
     viewScope?: ViewScope;
-    /** Whether a medium or full box offers to show its content in fullscreen. */
-    isFullscreenOffered?: boolean;
 }
 
 export interface TinyIncludeNoteProps {
@@ -46,12 +44,12 @@ export interface TinyIncludeNoteProps {
 
 /** The title row and the content of an included note or embedded attachment. */
 export default function IncludeNote({
-    boxSize, title, content, contentType, notePath, viewScope, isFullscreenOffered
+    boxSize, title, content, contentType, notePath, viewScope
 }: IncludeNoteProps) {
     const contentRef = useRef<HTMLDivElement>(null);
     const [ isExpanded, setIsExpanded ] = useState(false);
     const isExpandable = boxSize === "expandable";
-    const hasFullscreen = !!isFullscreenOffered && (boxSize === "medium" || boxSize === "full");
+    const hasFullscreen = boxSize === "medium" || boxSize === "full";
 
     useLayoutEffect(() => {
         contentRef.current?.append(content);

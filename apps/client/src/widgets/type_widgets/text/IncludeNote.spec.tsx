@@ -125,20 +125,18 @@ describe("IncludeNote", () => {
     it("lays out the title row for each box size", () => {
         const plain = [ "title", "open", "menu" ];
         const withFullscreen = [ "title", "open", "fullscreen", "menu" ];
-        const layouts: [ string | undefined, boolean, string[] ][] = [
-            [ undefined, false, plain ],
-            [ "small", true, plain ],
-            [ "medium", false, plain ],
-            [ "medium", true, withFullscreen ],
-            [ "full", true, withFullscreen ],
-            [ "expandable", true, [ "toggle", "title", "open", "menu" ] ]
+        const layouts: [ string | undefined, string[] ][] = [
+            [ undefined, plain ],
+            [ "small", plain ],
+            [ "medium", withFullscreen ],
+            [ "full", withFullscreen ],
+            [ "expandable", [ "toggle", "title", "open", "menu" ] ]
         ];
 
-        for (const [ boxSize, isFullscreenOffered, expected ] of layouts) {
+        for (const [ boxSize, expected ] of layouts) {
             act(() => render(null, container));
-            renderBox({ boxSize, isFullscreenOffered });
-            expect(titleRow(), `${boxSize} ${isFullscreenOffered}`)
-                .toEqual(expected.map((name) => `include-note-${name}`));
+            renderBox({ boxSize });
+            expect(titleRow(), boxSize).toEqual(expected.map((name) => `include-note-${name}`));
         }
     });
 
@@ -221,7 +219,7 @@ describe("IncludeNote", () => {
             value: exitFullscreen,
             configurable: true
         });
-        renderBox({ boxSize: "medium", isFullscreenOffered: true });
+        renderBox({ boxSize: "medium" });
         const box = contentBox();
         box.requestFullscreen = vi.fn(async () => {});
 
@@ -257,7 +255,7 @@ describe("IncludeNote", () => {
     });
 
     it("leaves the fullscreen controls out of a box that offers no fullscreen", () => {
-        renderBox({ boxSize: "full" });
+        renderBox({ boxSize: "small" });
         expect(container.querySelector(".include-note-fullscreen-controls")).toBeNull();
     });
 });

@@ -154,7 +154,7 @@ describe("loadIncludedNote", () => {
 });
 
 describe("loadIncludedAttachment", () => {
-    it("mounts a box with the attachment, opened in its note and offered fullscreen", async () => {
+    it("mounts a box with the attachment, opened in its note", async () => {
         const wrapper = createWrapper();
 
         await loadIncludedAttachment("att1", $(wrapper), "full");
@@ -176,8 +176,7 @@ describe("loadIncludedAttachment", () => {
             content,
             contentType: "pdf",
             notePath: "owner",
-            viewScope: ATTACHMENT_SCOPE,
-            isFullscreenOffered: true
+            viewScope: ATTACHMENT_SCOPE
         });
     });
 
