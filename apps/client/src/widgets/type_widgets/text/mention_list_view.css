@@ -1,18 +1,23 @@
 /*
- * A feed's own rows (attribute names, `/` commands, emoji) are CKEditor buttons. The menu row draws
- * the highlight and the padding, so the button draws neither: its own `:hover` and `:focus` rules
- * outweigh a plain class pair, hence the repeated class.
+ * A feed's own rows (attribute names, `/` commands, emoji) are CKEditor buttons, which keep the
+ * padding and layout they have in CKEditor's balloon. The menu row draws the highlight, so the
+ * button draws none: `!important` outranks CKEditor's `:hover`, `:focus` and `.ck-on` rules.
  */
+.mention-list-menu .dropdown-item:has(> span > .ck-button) {
+    /* Outranks the `!important` padding of `.dropdown-item` in the theme. */
+    padding: 0 !important;
+}
+
 .mention-list-menu .ck.ck-button.ck-button {
     width: 100%;
     min-height: 0;
-    padding: 0;
     border: 0;
-    box-shadow: none;
+    box-shadow: none !important;
     color: inherit;
     font: inherit;
+    text-align: start;
     cursor: inherit;
-    background: none;
+    background: none !important;
 }
 
 .mention-list-menu {
