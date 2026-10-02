@@ -49,6 +49,8 @@ export interface NoteAutocompleteHandle {
      * `selectedPath` is the note the text stands for, where it names one already.
      */
     setText(text: string, selectedPath?: string): void;
+    /** Empties the field and drops its selection without reporting either, as after a pick a host spends. */
+    clear(): void;
 }
 
 export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, container, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef }: NoteAutocompleteProps) {
@@ -173,10 +175,16 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     const showRecentNotes = () => showAndFocus("");
     const showAllCommands = () => showAndFocus(">");
     const setText = (newText: string, selectedPath?: string) => showSuggestionsFor(newText.trim(), selectedPath);
+    const clear = () => {
+        setFullTextSearchCount(0);
+        setNotePath("");
+        setValue("");
+        if (inputRef.current) inputRef.current.value = "";
+    };
 
     // Refreshed on every render, so a call from outside reaches the current callbacks.
     useLayoutEffect(() => {
-        if (handleRef) handleRef.current = { showRecentNotes, showAllCommands, setText };
+        if (handleRef) handleRef.current = { showRecentNotes, showAllCommands, setText, clear };
     });
 
     useEffect(() => {

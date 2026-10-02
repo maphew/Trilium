@@ -617,6 +617,29 @@ describe("NoteAutocomplete's suggestion list", () => {
         });
     });
 
+    it("empties the field through the handle without reporting it", async () => {
+        const handleRef = createRef<NoteAutocompleteHandle>();
+        const onChange = vi.fn();
+        const noteIdChanged = vi.fn();
+        const onTextChange = vi.fn();
+        const input = await mount({ handleRef, onChange, noteIdChanged, onTextChange });
+        await type(input, "a");
+        await press(input, "Enter");
+        for (const callback of [ onChange, noteIdChanged, onTextChange ]) callback.mockClear();
+
+        // From the host's own `noteIdChanged`, as the relation field clears the box it took from.
+        act(() => {
+            handleRef.current?.clear();
+            expect(input.value).toBe("");
+        });
+        await settle();
+
+        expect(input.dataset.notePath).toBe("");
+        expect(onChange).not.toHaveBeenCalled();
+        expect(noteIdChanged).not.toHaveBeenCalled();
+        expect(onTextChange).not.toHaveBeenCalled();
+    });
+
     it("spans the whole field, the buttons included", async () => {
         const input = await mount();
         const group = input.closest(".input-group");
