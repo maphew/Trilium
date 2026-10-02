@@ -1,14 +1,102 @@
-/* The styles `autocomplete.js` set inline on its suggestion list. */
-.algolia-autocomplete .aa-dropdown-menu,
+/*
+ * Unlike `style.css`, which loads after Bootstrap and the theme, this file has no fixed place among
+ * them. Each selector carries one more class or element than the rule it competes with (Bootstrap's
+ * `.input-group-text` and `.form-control`, the `.aa-suggestion` rules in the next theme's
+ * `base.css`), so the outcome does not depend on the order.
+ */
+
+.input-group > .note-autocomplete-input {
+    /* Lets the buttons after the input join it seamlessly. */
+    border-inline-end: 0;
+}
+
+.input-group > :is(.show-recent-notes-button, .full-text-search-button, .go-to-selected-note-button) {
+    cursor: pointer;
+    font-size: 1.3em;
+    padding-inline: 5px;
+}
+
+.input-group > :is(.show-recent-notes-button, .go-to-selected-note-button) {
+    padding-top: 8px;
+}
+
+.input-group > .go-to-selected-note-button {
+    padding-inline: 4px 3px;
+
+    &.disabled,
+    &.disabled:hover {
+        cursor: inherit;
+        color: var(--button-disabled-text-color) !important;
+        background-color: var(--button-disabled-background-color) !important;
+        text-decoration: none;
+    }
+}
+
+.algolia-autocomplete {
+    z-index: 2000 !important;
+}
+
+.algolia-autocomplete .aa-dropdown-menu {
+    /* `autocomplete.js` set it inline. */
+    display: block;
+    width: 100%;
+    background-color: var(--main-background-color);
+    border: 1px solid var(--main-border-color);
+    border-top: none;
+    max-height: 500px;
+    overflow: auto;
+    padding: 0;
+    margin: 0;
+}
+
+/* `autocomplete.js` set it inline. */
 .algolia-autocomplete .aa-suggestions {
     display: block;
 }
 
-.algolia-autocomplete .aa-suggestion {
-    white-space: nowrap;
+span.aa-dropdown-menu .aa-suggestion {
     cursor: pointer;
+    padding: 6px 16px;
+    margin: 0;
+    /* `autocomplete.js` set these inline. */
+    white-space: nowrap;
 
     > * {
         white-space: normal;
+    }
+
+    .icon {
+        display: inline-block;
+        line-height: inherit;
+        vertical-align: top;
+    }
+
+    .text {
+        display: inline-block;
+        width: calc(100% - 20px);
+        padding-inline-start: 4px;
+    }
+
+    .search-result-title {
+        display: block;
+    }
+
+    .search-result-attributes {
+        display: block;
+        font-size: 0.8em;
+        color: var(--muted-text-color);
+        opacity: 0.6;
+        line-height: 1;
+        word-wrap: break-word;
+    }
+
+    p {
+        padding: 0;
+        margin: 0;
+    }
+
+    &.aa-cursor {
+        color: var(--active-item-text-color);
+        background-color: var(--active-item-background-color);
     }
 }

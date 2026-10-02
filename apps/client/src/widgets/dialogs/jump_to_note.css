@@ -98,3 +98,28 @@
     opacity: 0.75;
     font-family: inherit !important;
 }
+
+@media (max-width: 991px) {
+    body.mobile .jump-to-note-dialog {
+        .modal-header {
+            padding-bottom: 0.75rem !important;
+        }
+
+        .modal-content {
+            padding-bottom: 0 !important;
+        }
+
+        .modal-body {
+            overflow-y: auto;
+        }
+
+        .aa-dropdown-menu {
+            max-height: unset;
+            overflow: auto;
+        }
+
+        .aa-suggestion {
+            padding-inline: 0;
+        }
+    }
+}
