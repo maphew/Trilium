@@ -2,6 +2,7 @@ import { attachmentIcon } from "@triliumnext/commons";
 import { h } from "preact";
 
 import appContext from "../../../components/app_context";
+import linkContextMenu from "../../../menus/link_context_menu";
 import content_renderer from "../../../services/content_renderer";
 import { getIncludeCaption } from "../../../services/content_renderer_text";
 import froca from "../../../services/froca";
@@ -135,6 +136,32 @@ function getWrapper(el: HTMLElement) {
     const caption = getIncludeCaption(el);
     el.replaceChildren(wrapper, ...(caption ? [ caption ] : []));
     return wrapper;
+}
+
+/**
+ * Opens the context menu of the note or attachment that `include` shows, below `anchor`. The menu
+ * opens from the include, so that the text editor that contains it stays focused.
+ */
+export async function openIncludeNoteMenu(include: HTMLElement, anchor: HTMLElement) {
+    const { noteId, attachmentId } = include.dataset;
+    const { left, bottom } = anchor.getBoundingClientRect();
+    const origin = {
+        pageX: left + window.scrollX,
+        pageY: bottom + window.scrollY,
+        target: include
+    };
+
+    if (attachmentId) {
+        const attachment = await froca.getAttachment(attachmentId, true);
+        if (attachment) {
+            await linkContextMenu.openContextMenu(attachment.ownerId, origin, {
+                viewMode: "attachments",
+                attachmentId
+            });
+        }
+    } else if (noteId) {
+        await linkContextMenu.openContextMenu(noteId, origin, {});
+    }
 }
 
 /** The href of a reference link to the attachment, or `null` once it is deleted. */

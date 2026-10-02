@@ -8,10 +8,12 @@ import {
     Essentials,
     LinkEditing,
     Paragraph,
+    SwitchButtonView,
     Undo,
     Widget,
     type ModelElement
 } from "ckeditor5";
+import bxWindowAlt from "boxicons/svg/regular/bx-window-alt.svg?raw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
@@ -22,7 +24,9 @@ import IncludeNote, {
     COMMAND_NAME,
     EMBED_ATTACHMENT_LINK_COMMAND,
     CONVERT_EMBED_TO_LINK_COMMAND,
-    TOGGLE_CAPTION_COMMAND_NAME
+    INCLUDE_NOTE_MENU,
+    TOGGLE_CAPTION_COMMAND_NAME,
+    TOGGLE_TITLE_COMMAND_NAME
 } from "./includenote.js";
 import ReferenceLink from "./referencelink.js";
 
@@ -957,6 +961,113 @@ describe("IncludeNote captions", () => {
 
         expect(getModelData(editor.model, { withoutSelection: true }))
             .toBe("<includeNote boxSize=\"tiny\" noteId=\"n1\"></includeNote>");
+    });
+});
+
+describe("IncludeNote title", () => {
+    const UNTITLED = "<figure class=\"include-note\" data-note-id=\"n1\" data-box-size=\"medium\""
+        + " data-hide-title=\"true\">&nbsp;</figure>";
+    let editor: ClassicEditor;
+    let loadIncludedNote: ReturnType<typeof vi.fn>;
+    let openIncludeNoteMenu: ReturnType<typeof vi.fn>;
+
+    beforeEach(async () => {
+        loadIncludedNote = vi.fn();
+        openIncludeNoteMenu = vi.fn();
+        installGlobMock({
+            getComponentByEl: () => ({ loadIncludedNote, openIncludeNoteMenu })
+        });
+
+        editor = await createTestEditor([ Essentials, Paragraph, Undo, Widget, IncludeNote ]);
+    });
+
+    function getCommand() {
+        const command = editor.commands.get(TOGGLE_TITLE_COMMAND_NAME);
+        if (!command) {
+            throw new Error("Expected the title command.");
+        }
+        return command;
+    }
+
+    function getRenderedInclude() {
+        const include = editor.editing.view.getDomRoot()?.querySelector("figure.include-note");
+        if (!include) {
+            throw new Error("Expected a rendered include.");
+        }
+        return include;
+    }
+
+    it("loads and saves a hidden title, and marks the include it renders", () => {
+        editor.setData(UNTITLED);
+
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+            "<includeNote boxSize=\"medium\" hideTitle=\"true\" noteId=\"n1\"></includeNote>"
+        );
+        expect(editor.getData()).toBe(UNTITLED);
+        expect(getRenderedInclude().getAttribute("data-hide-title")).toBe("true");
+
+        editor.setData(UNTITLED.replace(" data-hide-title=\"true\"", ""));
+        expect(getModelData(editor.model, { withoutSelection: true })).not.toContain("hideTitle");
+        expect(editor.getData()).not.toContain("data-hide-title");
+    });
+
+    it("hides the title and shows it again, keeping the rendered content", () => {
+        insertIncludeNote(editor, "n1", "medium");
+        const wrapper = getRenderedInclude().querySelector(".include-note-wrapper");
+        const command = getCommand();
+        expect(command.isEnabled).toBe(true);
+        expect(command.value).toBe(true);
+
+        editor.execute(TOGGLE_TITLE_COMMAND_NAME);
+        expect(command.value).toBe(false);
+        expect(getRenderedInclude().getAttribute("data-hide-title")).toBe("true");
+        expect(editor.getData()).toContain("data-hide-title=\"true\"");
+        expect(editor.model.document.selection.getSelectedElement()?.name).toBe("includeNote");
+
+        editor.execute(TOGGLE_TITLE_COMMAND_NAME);
+        expect(command.value).toBe(true);
+        expect(getRenderedInclude().hasAttribute("data-hide-title")).toBe(false);
+        expect(editor.getData()).not.toContain("data-hide-title");
+
+        expect(getRenderedInclude().querySelector(".include-note-wrapper")).toBe(wrapper);
+        expect(loadIncludedNote).toHaveBeenCalledTimes(1);
+    });
+
+    it("is disabled with no include selected, and on a Tiny or Expandable include", () => {
+        setModelData(editor.model, "<paragraph>foo[]</paragraph>");
+        expect(getCommand().isEnabled).toBe(false);
+
+        for (const [ boxSize, isEnabled ] of [
+            [ "tiny", false ], [ "expandable", false ], [ "small", true ], [ "full", true ]
+        ] as const) {
+            insertIncludeNote(editor, "n1", boxSize);
+            expect(getCommand().isEnabled, boxSize).toBe(isEnabled);
+        }
+    });
+
+    it("offers a Show title button, and a menu button while the title is hidden", () => {
+        const toggle = editor.ui.componentFactory.create(TOGGLE_TITLE_COMMAND_NAME);
+        const menu = editor.ui.componentFactory.create(INCLUDE_NOTE_MENU);
+        if (!(toggle instanceof ButtonView) || toggle instanceof SwitchButtonView
+                || !(menu instanceof ButtonView)) {
+            throw new Error("Expected two buttons.");
+        }
+        menu.render();
+        insertIncludeNote(editor, "n1", "medium");
+        expect([ toggle.icon, toggle.withText, toggle.tooltip, toggle.isToggleable ])
+            .toEqual([ bxWindowAlt, false, true, true ]);
+        expect([ toggle.label, toggle.isOn, toggle.isVisible ]).toEqual([ "Show title", true, true ]);
+        expect([ menu.label, menu.isVisible ]).toEqual([ "More actions", false ]);
+
+        toggle.fire("execute");
+        expect(toggle.isOn).toBe(false);
+        expect(menu.isVisible).toBe(true);
+
+        menu.fire("execute");
+        expect(openIncludeNoteMenu).toHaveBeenCalledWith(getRenderedInclude(), menu.element);
+
+        editor.execute(BOX_SIZE_COMMAND_NAME, { value: "tiny" });
+        expect([ toggle.isVisible, menu.isVisible ]).toEqual([ false, false ]);
     });
 });
 

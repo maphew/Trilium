@@ -6,6 +6,7 @@ import {
 	enableViewPlaceholder,
 	IconCaption,
 	IconLink,
+	IconThreeVerticalDots,
 	type MapperModelToViewPositionEvent,
 	ModelElement,
 	type ModelNode,
@@ -20,6 +21,7 @@ import {
 	Widget,
 	type Observable
 } from 'ckeditor5';
+import windowIcon from 'boxicons/svg/regular/bx-window-alt.svg?raw';
 import noteIcon from '../icons/note.svg?raw';
 import { getAttachmentId } from './referencelink.js';
 
@@ -28,6 +30,9 @@ export const BOX_SIZE_COMMAND_NAME = 'includeNoteBoxSize';
 export const EMBED_ATTACHMENT_LINK_COMMAND = 'embedAttachmentLink';
 export const CONVERT_EMBED_TO_LINK_COMMAND = 'convertEmbedToLink';
 export const TOGGLE_CAPTION_COMMAND_NAME = 'toggleIncludeNoteCaption';
+export const TOGGLE_TITLE_COMMAND_NAME = 'toggleIncludeNoteTitle';
+/** The toolbar button that opens the context menu of an include whose title is hidden. */
+export const INCLUDE_NOTE_MENU = 'includeNoteMenu';
 
 export const BOX_SIZES = [ 'tiny', 'small', 'medium', 'full', 'expandable' ] as const;
 
@@ -167,6 +172,54 @@ class IncludeNoteUI extends Plugin {
 
 			return buttonView;
 		} );
+
+		editor.ui.componentFactory.add( TOGGLE_TITLE_COMMAND_NAME, locale => {
+			const command = editor.commands.get( TOGGLE_TITLE_COMMAND_NAME );
+			const buttonView = new ButtonView( locale );
+
+			buttonView.set( {
+				label: t( 'Show title' ),
+				icon: windowIcon,
+				tooltip: true,
+				isToggleable: true
+			} );
+
+			if ( command ) {
+				buttonView.bind( 'isOn', 'isEnabled' ).to( command, 'value', 'isEnabled' );
+				buttonView.bind( 'isVisible' ).to( command, 'isEnabled' );
+			}
+
+			this.listenTo( buttonView, 'execute', () => {
+				editor.execute( TOGGLE_TITLE_COMMAND_NAME );
+				editor.editing.view.focus();
+			} );
+
+			return buttonView;
+		} );
+
+		editor.ui.componentFactory.add( INCLUDE_NOTE_MENU, locale => {
+			const command = editor.commands.get( TOGGLE_TITLE_COMMAND_NAME );
+			const buttonView = new ButtonView( locale );
+
+			buttonView.set( {
+				label: t( 'More actions' ),
+				icon: IconThreeVerticalDots,
+				tooltip: true
+			} );
+
+			// Replaces the menu button of the title row while the title is hidden.
+			if ( command ) {
+				buttonView.bind( 'isEnabled' ).to( command );
+				buttonView.bind( 'isVisible' ).to( command, 'isEnabled', command, 'value',
+					( isEnabled, isTitleShown ) => isEnabled && !isTitleShown );
+			}
+
+			this.listenTo( buttonView, 'execute', () => {
+				openIncludeNoteMenu( editor, buttonView.element );
+			} );
+
+			return buttonView;
+		} );
 	}
 }
 
@@ -196,6 +249,7 @@ class IncludeNoteEditing extends Plugin {
 		commands.add( EMBED_ATTACHMENT_LINK_COMMAND, new EmbedAttachmentLinkCommand( editor ) );
 		commands.add( CONVERT_EMBED_TO_LINK_COMMAND, new ConvertEmbedToLinkCommand( editor ) );
 		commands.add( TOGGLE_CAPTION_COMMAND_NAME, new ToggleIncludeNoteCaptionCommand( editor ) );
+		commands.add( TOGGLE_TITLE_COMMAND_NAME, new ToggleIncludeNoteTitleCommand( editor ) );
 
 		editor.model.document.registerPostFixer( writer => this.removeTinyCaptions( writer ) );
 	}
@@ -227,7 +281,8 @@ class IncludeNoteEditing extends Plugin {
 			// An include shows either a note or, as an embed, an attachment. An embed that
 			// `FileUploadEditing` is uploading carries the upload attributes instead of its id.
 			allowAttributes: [
-				'noteId', 'attachmentId', 'boxSize', 'uploadId', 'uploadStatus', 'uploadFileName'
+				'noteId', 'attachmentId', 'boxSize', 'hideTitle', 'uploadId', 'uploadStatus',
+				'uploadFileName'
 			],
 
 			// Allow in places where other blocks are allowed (e.g. directly in the root).
@@ -262,6 +317,9 @@ class IncludeNoteEditing extends Plugin {
 				return modelWriter.createElement( 'includeNote', {
 					...included,
 					boxSize: viewElement.getAttribute( 'data-box-size' ),
+					...( viewElement.getAttribute( 'data-hide-title' ) === 'true'
+						? { hideTitle: true }
+						: {} )
 				} );
 			},
 			// Includes saved before captions existed are `<section>` elements.
@@ -277,6 +335,7 @@ class IncludeNoteEditing extends Plugin {
 					class: 'include-note',
 					...getIncludedEntityAttributes( modelElement ),
 					'data-box-size': modelElement.getAttribute( 'boxSize' ),
+					...getTitleAttributes( modelElement )
 				} );
 			}
 		} );
@@ -289,7 +348,8 @@ class IncludeNoteEditing extends Plugin {
 				const figure = viewWriter.createContainerElement( 'figure', {
 					class: 'include-note box-size-' + boxSize,
 					...getIncludedEntityAttributes( modelElement ),
-					'data-box-size': boxSize
+					'data-box-size': boxSize,
+					...getTitleAttributes( modelElement )
 				} );
 
 				const includedNoteWrapper = viewWriter.createUIElement( 'div', {
@@ -343,6 +403,20 @@ class IncludeNoteEditing extends Plugin {
 					// content is only rebuilt on a genuine box-size change — not whenever CKEditor
 					// re-applies unrelated attributes (e.g. `draggable` while selecting the widget).
 					reloadIncludedNote( editor, viewElement, data.item as ModelElement, newBoxSize );
+				}
+			} );
+
+			// Shows or hides the title without drawing the content again.
+			dispatcher.on( 'attribute:hideTitle:includeNote', ( _evt, data, conversionApi ) => {
+				const viewElement = conversionApi.mapper.toViewElement( data.item as ModelElement );
+				if ( !viewElement ) {
+					return;
+				}
+
+				if ( data.attributeNewValue ) {
+					conversionApi.writer.setAttribute( 'data-hide-title', 'true', viewElement );
+				} else {
+					conversionApi.writer.removeAttribute( 'data-hide-title', viewElement );
 				}
 			} );
 
@@ -538,6 +612,38 @@ export class ToggleIncludeNoteCaptionCommand extends Command {
 	}
 }
 
+/**
+ * Shows or hides the title row of the selected include. A Tiny or an Expandable include always
+ * shows it.
+ */
+export class ToggleIncludeNoteTitleCommand extends Command {
+	/** Whether the title shows. */
+	declare value: boolean;
+
+	override refresh() {
+		const include = getSelectedIncludeNote( this.editor );
+		const boxSize = include?.getAttribute( 'boxSize' );
+
+		this.isEnabled = !!include && boxSize !== 'tiny' && boxSize !== 'expandable';
+		this.value = !include?.getAttribute( 'hideTitle' );
+	}
+
+	override execute() {
+		const include = getSelectedIncludeNote( this.editor );
+		if ( !include ) {
+			return;
+		}
+
+		this.editor.model.change( writer => {
+			if ( include.getAttribute( 'hideTitle' ) ) {
+				writer.removeAttribute( 'hideTitle', include );
+			} else {
+				writer.setAttribute( 'hideTitle', true, include );
+			}
+		} );
+	}
+}
+
 /** Replaces an attachment link with an embed of the attachment, in the same place. */
 class EmbedAttachmentLinkCommand extends Command {
 	/**
@@ -690,6 +796,24 @@ function getIncludedEntityAttributes( element: ModelElement ): Record<string, st
 	}
 
 	return noteId ? { 'data-note-id': noteId } : {};
+}
+
+/** The `data-hide-title` attribute of an include whose title is hidden. */
+function getTitleAttributes( element: ModelElement ): Record<string, string> {
+	return element.getAttribute( 'hideTitle' ) ? { 'data-hide-title': 'true' } : {};
+}
+
+/** Has the host open the context menu of the selected include, below `anchor`. */
+function openIncludeNoteMenu( editor: Editor, anchor: HTMLElement | null ) {
+	const include = getSelectedIncludeNote( editor );
+	const viewElement = include && editor.editing.mapper.toViewElement( include );
+	const domElement = viewElement && editor.editing.view.domConverter.mapViewToDom( viewElement );
+	if ( !anchor || !( domElement instanceof HTMLElement ) ) {
+		return;
+	}
+
+	const component = glob.getComponentByEl<EditorComponent>( editor.editing.view.getDomRoot() );
+	component.openIncludeNoteMenu?.( domElement, anchor );
 }
 
 /** The title of an embed whose upload is under way: a spinner and the name of the file. */
@@ -908,5 +1032,6 @@ declare module 'ckeditor5' {
 
 	interface CommandsMap {
 		toggleIncludeNoteCaption: ToggleIncludeNoteCaptionCommand;
+		toggleIncludeNoteTitle: ToggleIncludeNoteTitleCommand;
 	}
 }

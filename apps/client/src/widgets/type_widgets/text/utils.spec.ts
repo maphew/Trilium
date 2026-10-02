@@ -27,7 +27,11 @@ vi.mock("../../../services/attachment_actions", () => ({
     getOpenExternallyAction: vi.fn(),
     getDownloadAction: vi.fn()
 }));
+vi.mock("../../../menus/link_context_menu", () => ({
+    default: { openContextMenu: vi.fn() }
+}));
 
+import linkContextMenu from "../../../menus/link_context_menu";
 import { getDownloadAction, getOpenExternallyAction } from "../../../services/attachment_actions";
 import content_renderer from "../../../services/content_renderer";
 import froca from "../../../services/froca";
@@ -43,6 +47,7 @@ import {
     getAttachmentHref,
     loadIncludedAttachment,
     loadIncludedNote,
+    openIncludeNoteMenu,
     refreshIncludedNote,
     watchIncludedNotes
 } from "./utils";
@@ -337,6 +342,37 @@ describe("watchIncludedNotes", () => {
         container.querySelector("blockquote")?.remove();
         await flush();
         expect(disposed()).toHaveLength(2);
+    });
+});
+
+describe("openIncludeNoteMenu", () => {
+    it("opens the menu of the note or attachment an include shows, below the anchor", async () => {
+        const anchor = document.createElement("button");
+        anchor.getBoundingClientRect = () => ({ left: 40, bottom: 70 }) as DOMRect;
+        const origin = { pageX: 40 + window.scrollX, pageY: 70 + window.scrollY };
+        const noteInclude = document.createElement("figure");
+        noteInclude.dataset.noteId = "noteY";
+        const embed = document.createElement("figure");
+        embed.dataset.attachmentId = "att1";
+
+        await openIncludeNoteMenu(noteInclude, anchor);
+        await openIncludeNoteMenu(embed, anchor);
+
+        expect(vi.mocked(linkContextMenu.openContextMenu).mock.calls).toEqual([
+            [ "noteY", { ...origin, target: noteInclude }, {} ],
+            [ "owner", { ...origin, target: embed }, ATTACHMENT_SCOPE ]
+        ]);
+    });
+
+    it("opens nothing for an include of a deleted attachment, or of nothing", async () => {
+        vi.mocked(froca.getAttachment).mockResolvedValue(null);
+        const embed = document.createElement("figure");
+        embed.dataset.attachmentId = "att1";
+
+        await openIncludeNoteMenu(embed, document.createElement("button"));
+        await openIncludeNoteMenu(document.createElement("figure"), document.createElement("button"));
+
+        expect(linkContextMenu.openContextMenu).not.toHaveBeenCalled();
     });
 });
 

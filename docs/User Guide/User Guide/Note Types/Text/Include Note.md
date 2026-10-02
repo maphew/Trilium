@@ -36,6 +36,13 @@ An include can have a caption, shown centered at the bottom of its box. The capt
 *   A _Tiny_ include has no caption. Switching an include to _Tiny_ removes its caption, and switching it back to a larger size restores the caption, as long as the note stays open.
 *   An _Expandable_ include shows its caption under the title while the content is collapsed, and under the content once it is expanded.
 
+## Title
+
+The title row of an include links to the included note and holds its buttons. To show only the content, select the include and press the <span class="tn-icon bx bx-window-alt"></span> _Show title_ button in its toolbar. Pressing it again shows the title.
+
+*   While the title is hidden, the <span class="tn-icon cke cke-three-vertical-dots"></span> _More actions_ button in the toolbar of the include opens the menu of the included note.
+*   A _Tiny_ or _Expandable_ include always shows its title, and its toolbar has no _Show title_ button.
+
 ## Opening an included note
 
 To open an included note in a new tab, press the <span class="tn-icon bx bx-link-external"></span> _Open in new tab_ button at the end of its title. An embedded attachment has the same button.

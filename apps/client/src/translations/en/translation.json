@@ -4409,7 +4409,9 @@
       "ascending": "Ascending",
       "descending": "Descending",
       "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "Some rows were sorted together because merged cells tie them to each other",
-      "tiny": "Tiny"
+      "tiny": "Tiny",
+      "show-title": "Show title",
+      "more-actions": "More actions"
     },
     "task-state-dropped-title": "Invalid task states",
     "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",

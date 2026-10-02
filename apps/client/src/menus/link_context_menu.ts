@@ -9,18 +9,20 @@ import { t } from "../services/i18n.js";
 import type { ViewScope } from "../services/link.js";
 import utils, { isMobile } from "../services/utils.js";
 import { getClosestNtxId } from "../widgets/widget_utils.js";
-import contextMenu, {
-    type ContextMenuEvent,
-    type ContextMenuOptions,
-    type MenuItem
-} from "./context_menu.js";
+import contextMenu, { type ContextMenuOptions, type MenuItem } from "./context_menu.js";
 import { getTextEditorContaining } from "./text_editor_context_menu.js";
+
+/**
+ * Where a link menu opens, and the element it is opened from. A mouse event is one; a control
+ * acting on something shown elsewhere passes that thing as `target`.
+ */
+export type LinkMenuOrigin = Pick<MouseEvent, "pageX" | "pageY" | "target">;
 
 let lastMenuRequest = 0;
 
 async function openContextMenu(
     notePath: string,
-    e: ContextMenuEvent,
+    e: LinkMenuOrigin,
     viewScope: ViewScope = {},
     hoistedNoteId: string | null = null
 ) {
@@ -65,12 +67,12 @@ function keepEditorFocused(
     };
 }
 
-function getItems(e: ContextMenuEvent | GeoMouseEvent): MenuItem<CommandNames>[] {
+function getItems(e: LinkMenuOrigin | GeoMouseEvent): MenuItem<CommandNames>[] {
     return [ ...getOpenItems(e), getQuickEditItem() ];
 }
 
 /** The places the note can be opened in, without the quick edit popup. */
-function getOpenItems(e: ContextMenuEvent | GeoMouseEvent): MenuItem<CommandNames>[] {
+function getOpenItems(e: LinkMenuOrigin | GeoMouseEvent): MenuItem<CommandNames>[] {
     const ntxId = getNtxId(e);
     const isMobileSplitOpen = isMobile() && appContext.tabManager.getNoteContextById(ntxId).getMainContext().getSubContexts().length > 1;
 
@@ -93,7 +95,7 @@ function getQuickEditItem(): MenuItem<CommandNames> {
  * does from the top level. The entry carries the first of those commands itself, so that picking it
  * opens a new tab without going into the submenu for the place it is opened in most often.
  */
-function getOpenNoteItem(e: ContextMenuEvent | GeoMouseEvent): MenuItem<CommandNames> {
+function getOpenNoteItem(e: LinkMenuOrigin | GeoMouseEvent): MenuItem<CommandNames> {
     return {
         title: t("link_context_menu.open_note"),
         uiIcon: "bx bx-link-external",
@@ -102,7 +104,7 @@ function getOpenNoteItem(e: ContextMenuEvent | GeoMouseEvent): MenuItem<CommandN
     };
 }
 
-function handleLinkContextMenuItem(command: string | undefined, e: ContextMenuEvent | GeoMouseEvent, notePath: string, viewScope = {}, hoistedNoteId: string | null = null) {
+function handleLinkContextMenuItem(command: string | undefined, e: LinkMenuOrigin | GeoMouseEvent, notePath: string, viewScope = {}, hoistedNoteId: string | null = null) {
     if (!hoistedNoteId) {
         hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId ?? null;
     }
@@ -132,7 +134,7 @@ function handleLinkContextMenuItem(command: string | undefined, e: ContextMenuEv
 async function getAttachmentItems(
     noteId: string,
     { viewMode, attachmentId }: ViewScope,
-    e: ContextMenuEvent,
+    e: LinkMenuOrigin,
     editor: CKTextEditor | null
 ): Promise<MenuItem<CommandNames>[]> {
     if (viewMode !== "attachments" || !attachmentId) {
@@ -167,7 +169,7 @@ async function getAttachmentItems(
 
 /** "Convert link to an embed", for an attachment link in a text note open for editing. */
 async function getConvertToEmbedItem(
-    e: ContextMenuEvent,
+    e: LinkMenuOrigin,
     editor: CKTextEditor | null,
     attachment: FAttachment
 ): Promise<MenuItem<CommandNames> | null> {
@@ -193,7 +195,7 @@ async function getConvertToEmbedItem(
  * open for editing.
  */
 function getConvertToLinkItem(
-    e: ContextMenuEvent,
+    e: LinkMenuOrigin,
     editor: CKTextEditor | null
 ): MenuItem<CommandNames> | null {
     const titleRow = getTarget(e)?.closest<HTMLElement>(".include-note-title-row");
@@ -214,7 +216,7 @@ function getConvertToLinkItem(
     };
 }
 
-function getTarget(e: ContextMenuEvent) {
+function getTarget(e: LinkMenuOrigin) {
     return e.target instanceof Element ? e.target : null;
 }
 
@@ -228,7 +230,7 @@ async function getEditingTextEditor(element: Element | null) {
     return getTextEditorContaining(element);
 }
 
-function getNtxId(e: ContextMenuEvent | GeoMouseEvent) {
+function getNtxId(e: LinkMenuOrigin | GeoMouseEvent) {
     if (utils.isDesktop()) {
         const subContexts = appContext.tabManager.getActiveContext()?.getSubContexts();
         if (!subContexts) return null;

@@ -39,6 +39,7 @@ import {
     getAttachmentHref,
     loadIncludedAttachment,
     loadIncludedNote,
+    openIncludeNoteMenu,
     refreshIncludedNote,
     setupImageOpening,
     watchIncludedNotes
@@ -198,6 +199,7 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
             return note.noteId;
         },
         getEmbedBoxSize: getUploadBoxSize,
+        openIncludeNoteMenu,
         // Link preview functionality. The insert flow itself lives in the editor (a balloon form),
         // so the host only has to supply the metadata and the rendering.
         async fetchLinkMetadata(url: string) {

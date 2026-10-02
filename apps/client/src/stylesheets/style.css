@@ -1700,6 +1700,18 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     margin-bottom: 0;
 }
 
+.include-note[data-hide-title="true"]:not([data-box-size="tiny"], [data-box-size="expandable"]) {
+    > .include-note-wrapper > .include-note-title-row {
+        display: none;
+    }
+
+    > .include-note-wrapper > .include-note-content:not(:fullscreen) {
+        border-top: none;
+        border-radius: var(--_include-note-top-border-radius, 8px)
+                       var(--_include-note-top-border-radius, 8px) 0 0;
+    }
+}
+
 /* Media that renders edge-to-edge (iframes, images, video, full-height collection views) shouldn't
    be inset. List/grid collections keep their padding (they are content-driven, not full-height). */
 .include-note-content.type-pdf,

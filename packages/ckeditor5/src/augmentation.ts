@@ -59,6 +59,11 @@ declare global {
          */
         getEmbedBoxSize?(mime: string): string;
         /**
+         * Opens the context menu of what `include` shows, below `anchor`. Hosts without includes
+         * leave it out.
+         */
+        openIncludeNoteMenu?(include: HTMLElement, anchor: HTMLElement): void;
+        /**
          * Reads a page's preview metadata through the host. Never rejects: any failure — network
          * error, HTTP error, unparseable page — resolves as `{ unresolved: true }` with
          * hostname-derived placeholders, so callers branch on `unresolved` instead of catching.

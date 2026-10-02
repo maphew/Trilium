@@ -5,7 +5,9 @@ import { createTestEditor } from "../../test/editor-kit.js";
 import { installGlobMock } from "../../test/globals-test-kit.js";
 import IncludeNote, {
     CONVERT_EMBED_TO_LINK_COMMAND,
-    TOGGLE_CAPTION_COMMAND_NAME
+    INCLUDE_NOTE_MENU,
+    TOGGLE_CAPTION_COMMAND_NAME,
+    TOGGLE_TITLE_COMMAND_NAME
 } from "./includenote.js";
 import IncludeNoteBoxSizeDropdown from "./include_note_box_size_dropdown.js";
 import IncludeNoteToolbar from "./include_note_toolbar.js";
@@ -97,15 +99,17 @@ describe("IncludeNoteToolbar", () => {
         expect(requires).toContain(IncludeNoteBoxSizeDropdown);
     });
 
-    it("offers the box size, the caption, and turning an attachment embed into a link", () => {
+    it("offers the box size, the title, the caption, the link conversion and the menu", () => {
         const repository = editor.plugins.get(WidgetToolbarRepository) as unknown as {
             _toolbarDefinitions: Map<string, { itemsConfig: string[] }>;
         };
 
         expect(repository._toolbarDefinitions.get("includeNote")?.itemsConfig).toEqual([
             "includeNoteBoxSizeDropdown",
+            TOGGLE_TITLE_COMMAND_NAME,
             TOGGLE_CAPTION_COMMAND_NAME,
-            CONVERT_EMBED_TO_LINK_COMMAND
+            CONVERT_EMBED_TO_LINK_COMMAND,
+            INCLUDE_NOTE_MENU
         ]);
     });
 
