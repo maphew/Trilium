@@ -492,10 +492,12 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
     const seenNoteIds = new Set(options.seenNoteIds);
     seenNoteIds.add(note.noteId);
     for (const embedEl of document.querySelectorAll(".include-note")) {
+        // A Tiny embed shows only a title, so it links to what it shows instead of rendering it.
+        const asLink = !!options.embedsAsReferenceLinks
+            || embedEl.getAttribute("data-box-size") === "tiny";
         const attachmentId = embedEl.getAttribute("data-attachment-id");
         if (attachmentId) {
             const attachment = getAttachment(attachmentId);
-            const asLink = !!options.embedsAsReferenceLinks;
             const html = attachment ? renderAttachmentEmbed(attachmentId, attachment, asLink) : "";
             const embed = parse(html, parseOpts).childNodes;
             if (attachment && !asLink && isImageAttachmentRole(attachment.role)) {
@@ -520,9 +522,9 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
             continue;
         }
 
-        // Deeper-than-first-level embeds (and any cycle in the recursive path) degrade to a
-        // reference link that the link-processing passes below resolve to the shared note.
-        if (options.embedsAsReferenceLinks || seenNoteIds.has(noteId)) {
+        // Tiny embeds, deeper-than-first-level embeds and any cycle in the recursive path degrade
+        // to a reference link that the link-processing passes below resolve to the shared note.
+        if (asLink || seenNoteIds.has(noteId)) {
             embedEl.replaceWith(...parse(`<a class="reference-link" href="#root/${escapeHtml(noteId)}">${escapeHtml(embeddedNote.title)}</a>`, parseOpts).childNodes);
             continue;
         }
@@ -578,19 +580,12 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
 }
 
 /**
- * The markup that stands in for an embedded attachment: a picture as an image, anything else as the
- * attachment link that `handleAttachmentLink` then resolves.
- *
- * @param asLink renders a picture as a link too, for an embed below the first level of embedding.
- */
-/**
  * Puts `content` in place of an embed. An embed with a caption stays a `<figure>`, holding
  * `content` and then the caption.
  */
 function replaceEmbedContent(embedEl: HTMLElement, content: ParsedNode[]) {
-    const caption = embedEl.getAttribute("data-box-size") !== "tiny"
-        && embedEl.childNodes.find((child) =>
-            child instanceof HTMLElement && child.tagName === "FIGCAPTION");
+    const caption = embedEl.childNodes.find((child) =>
+        child instanceof HTMLElement && child.tagName === "FIGCAPTION");
     if (caption) {
         embedEl.set_content([ ...content, caption ]);
     } else {
@@ -598,6 +593,13 @@ function replaceEmbedContent(embedEl: HTMLElement, content: ParsedNode[]) {
     }
 }
 
+/**
+ * The markup that stands in for an embedded attachment: a picture as an image, anything else as the
+ * attachment link that `handleAttachmentLink` then resolves.
+ *
+ * @param asLink renders a picture as a link too, for a Tiny embed or one below the first level of
+ * embedding.
+ */
 function renderAttachmentEmbed(
     attachmentId: string,
     attachment: BAttachment | SAttachment,

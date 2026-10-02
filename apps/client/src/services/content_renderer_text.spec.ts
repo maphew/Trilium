@@ -7,6 +7,7 @@ import DOMPurify from "dompurify";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import FAttachment from "../entities/fattachment";
+import content_renderer from "./content_renderer";
 import froca from "./froca";
 import server from "./server";
 import { buildNote } from "../test/easy-froca";
@@ -80,7 +81,7 @@ describe("Text content renderer", () => {
         expect(contentEl.querySelectorAll("section.include-note p").length).toBe(1);
     });
 
-    it("renders the caption of an embed after its content, unless Tiny or nested", async () => {
+    it("renders the caption of an embed after its content, unless nested", async () => {
         const contentEl = document.createElement("div");
         const figure = (noteId: string, boxSize: string, caption: string) =>
             `<figure class="include-note" data-note-id="${noteId}" data-box-size="${boxSize}">`
@@ -93,18 +94,56 @@ describe("Text content renderer", () => {
         const note = buildNote({
             title: "New note",
             content: figure(embeddedNote.noteId, "medium", "A <strong>caption</strong>")
-                + figure(embeddedNote.noteId, "tiny", "Tiny caption")
         });
 
         await renderText(note, $(contentEl));
 
-        const [ embed, tinyEmbed ] = contentEl.querySelectorAll(".ck-content > .include-note");
+        const [ embed ] = contentEl.querySelectorAll(".ck-content > .include-note");
         expect(embed.querySelector("p")?.textContent).toBe("Included.");
         expect(embed.lastElementChild?.outerHTML)
             .toBe("<figcaption>A <strong>caption</strong></figcaption>");
         expect(embed.querySelectorAll("figcaption")).toHaveLength(1);
-        expect(tinyEmbed.querySelector("p")?.textContent).toBe("Included.");
-        expect(tinyEmbed.querySelector("figcaption")).toBeNull();
+    });
+
+    it("renders a Tiny embed as a link, without rendering what it shows", async () => {
+        const embeddedNote = buildNote({ title: "Tiny note", content: "<p>Not rendered.</p>" });
+        const owner = buildNote({
+            title: "Tiny owner",
+            content: `<figure class="include-note" data-note-id="${embeddedNote.noteId}"`
+                + ` data-box-size="tiny"><figcaption>Tiny caption</figcaption></figure>`
+                + `<figure class="include-note" data-attachment-id="tinyPic" data-box-size="tiny">`
+                + "</figure>"
+        });
+        new FAttachment(froca, {
+            attachmentId: "tinyPic",
+            ownerId: owner.noteId,
+            role: "image",
+            mime: "image/png",
+            title: "photo.png",
+            dateModified: "",
+            utcDateModified: "",
+            utcDateScheduledForErasureSince: "",
+            contentLength: 0
+        });
+        const getRenderedContent = vi.spyOn(content_renderer, "getRenderedContent");
+
+        try {
+            const contentEl = document.createElement("div");
+            await renderText(owner, $(contentEl));
+
+            expect(getRenderedContent).not.toHaveBeenCalled();
+            expect(contentEl.querySelector(".include-note")).toBeNull();
+            expect(contentEl.querySelector("img")).toBeNull();
+            expect(contentEl.textContent).not.toContain("Not rendered.");
+            expect(contentEl.textContent).not.toContain("Tiny caption");
+            const links = Array.from(contentEl.querySelectorAll("a.reference-link"));
+            expect(links.map((link) => link.getAttribute("href"))).toEqual([
+                `#root/${embeddedNote.noteId}`,
+                `#root/${owner.noteId}?viewMode=attachments&attachmentId=tinyPic`
+            ]);
+        } finally {
+            getRenderedContent.mockRestore();
+        }
     });
 
     it("skips rendering embedded note", async () => {

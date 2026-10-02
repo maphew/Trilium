@@ -68,21 +68,48 @@ describe("content_renderer", () => {
             `);
         });
 
-        it("keeps the caption of an embed under its content, except on a Tiny one", () => {
+        it("keeps the caption of an embed under its content", () => {
             buildShareNotes([ { id: "subnote1", content: `<p>Foo</p>` } ]);
-            const embed = (boxSize: string) =>
-                `<figure class="include-note" data-note-id="subnote1" data-box-size="${boxSize}">`
-                + `<figcaption>A <strong>caption</strong></figcaption></figure>`;
             const note = buildShareNote({
                 id: "note1",
-                content: embed("medium") + embed("tiny")
+                content: `<figure class="include-note" data-note-id="subnote1"`
+                    + ` data-box-size="medium"><figcaption>A <strong>caption</strong></figcaption>`
+                    + `</figure>`
             });
 
             expect(getContent(note).content).toStrictEqual(
                 `<figure class="include-note" data-note-id="subnote1" data-box-size="medium">`
                 + `<p>Foo</p><figcaption>A <strong>caption</strong></figcaption></figure>`
-                + `<p>Foo</p>`
             );
+        });
+
+        it("renders a Tiny embed as a link, without the content it shows", () => {
+            buildShareNotes([
+                { id: "tinyNote1", title: "Tiny note", content: "<p>Not rendered</p>" }
+            ]);
+            const note = buildShareNote({
+                content: `<figure class="include-note" data-note-id="tinyNote1"`
+                    + ` data-box-size="tiny"><figcaption>Tiny caption</figcaption></figure>`
+                    + `<figure class="include-note" data-attachment-id="tinyPic1"`
+                    + ` data-box-size="tiny"></figure>`,
+                attachments: [
+                    { id: "tinyPic1", role: "image", mime: "image/png", title: "my photo.png" }
+                ]
+            });
+            const tinyNote = shaca.getNote("tinyNote1");
+            if (!tinyNote) throw new Error("Expected the embedded note.");
+            const getNoteContent = vi.spyOn(tinyNote, "getContent");
+
+            const content = getContent(note).content as string;
+
+            expect(getNoteContent).not.toHaveBeenCalled();
+            expect(content).not.toContain("include-note");
+            expect(content).not.toContain("Not rendered");
+            expect(content).not.toContain("Tiny caption");
+            expect(content).not.toContain("<img");
+            expect(content).toContain("reference-link");
+            expect(content).toContain("Tiny note");
+            expect(content).toContain(`href="api/attachments/tinyPic1/download"`);
         });
 
         it("renders only the first level of nested embeds on the share view (nested embed becomes a reference link)", () => {

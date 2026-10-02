@@ -93,6 +93,12 @@ async function renderContentEmbeds(contentEl: HTMLElement, seenNoteIds: Set<stri
 
     // Render and integrate the notes.
     for (const embedEl of embedEls) {
+        // A Tiny embed shows only a title, so it links to what it shows instead of rendering it.
+        if (embedEl.getAttribute("data-box-size") === "tiny") {
+            await replaceEmbedWithReferenceLink(embedEl);
+            continue;
+        }
+
         const attachment = await getEmbeddedAttachment(embedEl);
         if (attachment) {
             const { $renderedContent } = await content_renderer.getRenderedContent(attachment);
@@ -151,27 +157,32 @@ export function getEmbedCaption(embedEl: Element) {
  */
 async function replaceEmbedsWithReferenceLinks(contentEl: HTMLElement) {
     for (const embedEl of contentEl.querySelectorAll(".include-note")) {
-        const attachment = await getEmbeddedAttachment(embedEl);
-        if (attachment) {
-            const { ownerId, attachmentId } = attachment;
-            const href = `#root/${ownerId}?viewMode=attachments&attachmentId=${attachmentId}`;
-            const referenceLink = document.createElement("a");
-            referenceLink.className = "reference-link";
-            referenceLink.setAttribute("href", href);
-            embedEl.replaceWith(referenceLink);
-            continue;
-        }
+        await replaceEmbedWithReferenceLink(embedEl);
+    }
+}
 
-        const noteId = embedEl.getAttribute("data-note-id");
-        // Validate the ID against a note-ID allow-list before interpolating it into the href: it
-        // comes from note HTML, and the reference-link pass later reinterprets that href.
-        if (!noteId || !/^[a-zA-Z0-9_]+$/.test(noteId)) continue;
-
+/** Replaces `embedEl` with a bare reference link to the note or attachment it shows. */
+async function replaceEmbedWithReferenceLink(embedEl: Element) {
+    const attachment = await getEmbeddedAttachment(embedEl);
+    if (attachment) {
+        const { ownerId, attachmentId } = attachment;
+        const href = `#root/${ownerId}?viewMode=attachments&attachmentId=${attachmentId}`;
         const referenceLink = document.createElement("a");
         referenceLink.className = "reference-link";
-        referenceLink.setAttribute("href", `#root/${noteId}`);
+        referenceLink.setAttribute("href", href);
         embedEl.replaceWith(referenceLink);
+        return;
     }
+
+    const noteId = embedEl.getAttribute("data-note-id");
+    // Validate the ID against a note-ID allow-list before interpolating it into the href: it
+    // comes from note HTML, and the reference-link pass later reinterprets that href.
+    if (!noteId || !/^[a-zA-Z0-9_]+$/.test(noteId)) return;
+
+    const referenceLink = document.createElement("a");
+    referenceLink.className = "reference-link";
+    referenceLink.setAttribute("href", `#root/${noteId}`);
+    embedEl.replaceWith(referenceLink);
 }
 
 /** The attachment an embed shows, or `null` for an embed of a note. */
