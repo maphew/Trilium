@@ -459,11 +459,10 @@ body.mobile .dropdown-menu.note-autocomplete-menu {
     box-shadow: 0px 10px 20px rgba(0, 0, 0, var(--dropdown-shadow-opacity));
     backdrop-filter: var(--dropdown-backdrop-filter);
     --padding: 6px;
-    font-size: 1rem !important;
+    font-size: 0.95rem !important;
 
-    /* A one-line row is 44px tall, the minimum touch target in Apple's guidelines. */
     .dropdown-item {
-        --menu-item-vertical-padding: 10px;
+        --menu-item-vertical-padding: 7px;
         --menu-item-start-padding: 12px;
         --menu-item-end-padding: 12px;
     }
