@@ -62,10 +62,10 @@ type ContentEmbedToolsResizeEvent = {
     args: [];
 };
 
-/** The view of a tool, and the way it shows a new state of the tool. */
+/** The view of a tool, and the way it shows a new state of the tool and of its children. */
 interface ToolView {
     view: ButtonView | DropdownView;
-    update(tool: ContentEmbedTool): void;
+    update(tool: ContentEmbedTool, children: ContentEmbedTool[]): void;
 }
 
 /** The buttons of a `ContentEmbedToolProvider`, updated when the provider changes. */
@@ -76,7 +76,7 @@ export class ContentEmbedToolsView extends View {
     public views: Array<ButtonView | DropdownView> = [];
     /** The views and the separators between their groups. */
     private readonly items: ViewCollection;
-    private updaters: Array<(tool: ContentEmbedTool) => void> = [];
+    private updaters: Array<ToolView["update"]> = [];
     private provider: ContentEmbedToolProvider | null = null;
     private unsubscribe: (() => void) | undefined;
     /** The group and the ids of each tool, to create the views again only for another set. */
@@ -141,7 +141,7 @@ export class ContentEmbedToolsView extends View {
         }
 
         for (const [ index, tool ] of tools.entries()) {
-            this.updaters[index]?.(tool);
+            this.updaters[index]?.(tool, tool.children ?? []);
         }
         this.isVisible = tools.length > 0;
 
@@ -204,15 +204,12 @@ export class ContentEmbedToolsView extends View {
         }
         addListToDropdown(dropdown, definitions);
         this.listenTo(dropdown, "execute", (evt) => {
-            const { toolId } = evt.source as { toolId?: string };
-            if (toolId) {
-                this.provider?.execute(toolId);
-            }
+            this.provider?.execute((evt.source as { toolId: string }).toolId);
         });
 
         return {
             view: dropdown,
-            update: (tool) => {
+            update: (tool, children) => {
                 // `createDropdown()` binds `isOn` of the button to the dropdown being open.
                 const classes = [ tool.class, tool.isOn && "ck-on" ].filter(Boolean);
                 dropdown.buttonView.set({
@@ -220,7 +217,7 @@ export class ContentEmbedToolsView extends View {
                     class: classes.length ? classes.join(" ") : undefined
                 });
                 dropdown.isEnabled = tool.isEnabled ?? true;
-                for (const [ index, child ] of (tool.children ?? []).entries()) {
+                for (const [ index, child ] of children.entries()) {
                     models[index]?.set({
                         label: child.label,
                         icon: child.icon,

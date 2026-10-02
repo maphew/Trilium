@@ -140,6 +140,9 @@ describe("ContentEmbedTools", () => {
             .toEqual([ "Undo", false, ICON, "Undo", "Undo", false, false, false ]);
         expect(getItems(tools)).toEqual([ "1", "2", "|", "Undo" ]);
 
+        provider.change([ { id: "a", label: "A", text: "A" }, { id: "b", label: "B", text: "B" } ]);
+        expect(getItems(tools)).toEqual([ "A", "B" ]);
+
         provider.change([ SELECTION, RECTANGLE, { ...UNDO, isEnabled: true, class: "undo" } ]);
         expect(getButtons(tools)[2]?.isEnabled).toBe(true);
         expect(getButtons(tools)[2]?.element?.classList.contains("undo")).toBe(true);
@@ -168,7 +171,7 @@ describe("ContentEmbedTools", () => {
 
         const children = [
             { id: "eraser", label: "Eraser", isOn: true },
-            { id: "laser", label: "Laser pointer", isOn: false }
+            { id: "laser", label: "Laser pointer" }
         ];
         provider.change([ RECTANGLE, { ...MORE_TOOLS, isOn: true, children, class: "more" } ]);
         expect(tools.views[1]).toBe(menu);
