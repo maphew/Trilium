@@ -814,13 +814,6 @@ li.dropdown-item a.dropdown-item-button:focus-visible {
     cursor: default;
 }
 
-/* Selected list item */
-.jump-to-note-dialog .aa-suggestions div.aa-cursor,
-.note-detail-empty .aa-suggestions div.aa-cursor {
-    background: var(--hover-item-background-color);
-    color: var(--hover-item-text-color);
-}
-
 /*
  * Alert bars
  */

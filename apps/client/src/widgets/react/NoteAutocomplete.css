@@ -102,8 +102,8 @@ span.aa-dropdown-menu .aa-suggestion {
     }
 
     &.aa-cursor {
-        color: var(--active-item-text-color);
-        background-color: var(--active-item-background-color);
+        color: var(--suggestion-active-text-color);
+        background-color: var(--suggestion-active-background-color);
     }
 }
 
