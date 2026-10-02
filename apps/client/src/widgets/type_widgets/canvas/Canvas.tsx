@@ -2,8 +2,13 @@ import { Excalidraw } from "@excalidraw/excalidraw";
 import { TypeWidgetProps } from "../type_widget";
 import "@excalidraw/excalidraw/index.css";
 import { useColorScheme, useEffectiveReadOnly, useTriliumOption } from "../../react/hooks";
-import { useCallback, useMemo, useRef } from "preact/hooks";
-import { type ExcalidrawImperativeAPI, type AppState } from "@excalidraw/excalidraw/types";
+import type { RefObject } from "preact";
+import { useCallback, useRef } from "preact/hooks";
+import {
+    type AppState,
+    type ExcalidrawImperativeAPI,
+    type ExcalidrawProps
+} from "@excalidraw/excalidraw/types";
 import options from "../../../services/options";
 import "./Canvas.css";
 import { NonDeleted, NonDeletedExcalidrawElement, ExcalidrawEmbeddableElement } from "@excalidraw/excalidraw/element/types";
@@ -23,9 +28,37 @@ export default function Canvas({ note, noteContext }: TypeWidgetProps) {
     const apiRef = useRef<ExcalidrawImperativeAPI>(null);
     const isReadOnly = useEffectiveReadOnly(note, noteContext);
     const colorScheme = useColorScheme();
-    const [ locale ] = useTriliumOption("locale");
     const persistence = useCanvasPersistence(note, noteContext, apiRef, colorScheme, isReadOnly);
+
+    return (
+        <CanvasEditor
+            apiRef={apiRef}
+            isReadOnly={isReadOnly}
+            colorScheme={colorScheme}
+            persistence={persistence}
+        />
+    );
+}
+
+export interface CanvasEditorProps {
+    apiRef: RefObject<ExcalidrawImperativeAPI>;
+    isReadOnly: boolean;
+    colorScheme: AppState["theme"];
+    persistence: Partial<ExcalidrawProps>;
+    /** Whether the editor moves on the page, as inside a text note that scrolls. */
+    isEmbedded?: boolean;
+}
+
+/** The Excalidraw editor of a canvas note or drawing, loaded and saved by `persistence`. */
+export function CanvasEditor({
+    apiRef, isReadOnly, colorScheme, persistence, isEmbedded = false
+}: CanvasEditorProps) {
+    const [ locale ] = useTriliumOption("locale");
     const noteDrop = useCanvasNoteDrop(apiRef, isReadOnly);
+
+    // Excalidraw maps the pointer with the container position it read last. An embedded editor
+    // moves with the note, so it reads the position again before the pointer acts.
+    const refreshPosition = useCallback(() => apiRef.current?.refresh(), [ apiRef ]);
 
     /** Use excalidraw's native zoom instead of the global zoom. */
     const onWheel = useCallback((e: MouseEvent) => {
@@ -63,14 +96,19 @@ export default function Canvas({ note, noteContext }: TypeWidgetProps) {
     }, []);
 
     return (
-        <div className="canvas-render" onWheel={onWheel}>
+        <div
+            className="canvas-render"
+            onWheel={onWheel}
+            onPointerOverCapture={isEmbedded ? refreshPosition : undefined}
+            onPointerMoveCapture={isEmbedded ? refreshPosition : undefined}
+        >
             <div className="excalidraw-wrapper" {...noteDrop}>
                 <Excalidraw
                     theme={colorScheme}
                     viewModeEnabled={isReadOnly || options.is("databaseReadonly")}
                     zenModeEnabled={false}
                     isCollaborating={false}
-                    detectScroll={false}
+                    detectScroll={isEmbedded}
                     handleKeyboardGlobally={false}
                     autoFocus={false}
                     langCode={LANGUAGE_MAPPINGS[locale as DISPLAYABLE_LOCALE_IDS] ?? undefined}

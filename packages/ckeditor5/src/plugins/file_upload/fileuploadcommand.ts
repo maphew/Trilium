@@ -1,11 +1,32 @@
-import { Command, FileRepository, type Editor, type Model, type ModelWriter } from "ckeditor5";
+import {
+    Command,
+    FileRepository,
+    type Editor,
+    type FileLoader,
+    type Model,
+    type ModelWriter
+} from "ckeditor5";
 
+import type { BoxSizeValue } from "../content_embed/content_embed.js";
 import { uploadAsLink } from "../uploadimage.js";
 
 export interface FileUploadOptions {
     file: File[];
     /** Embeds each file in a block of its own instead of linking it. */
     asEmbed?: boolean;
+    /** The box size of the embeds, instead of the one the host picks for the file type. */
+    boxSize?: BoxSizeValue;
+    /** Hides the title row of the embeds. */
+    hideTitle?: boolean;
+    /** Skips the `upload` event, for a file that the editor created itself. */
+    quiet?: boolean;
+}
+
+const quietLoaders = new WeakSet<FileLoader>();
+
+/** Whether the upload of `loader` is left out of the `upload` event. */
+export function isQuietUpload(loader: FileLoader) {
+    return quietLoaders.has(loader);
 }
 
 /**
@@ -21,7 +42,7 @@ export default class FileUploadCommand extends Command {
         this.isEnabled = !!position && model.schema.checkChild(position, "reference");
     }
 
-    override execute({ file: files, asEmbed }: FileUploadOptions) {
+    override execute({ file: files, asEmbed, boxSize, hideTitle, quiet }: FileUploadOptions) {
         const model = this.editor.model;
         const fileRepository = this.editor.plugins.get(FileRepository);
 
@@ -34,9 +55,15 @@ export default class FileUploadCommand extends Command {
                 }
 
                 uploadAsLink(loader);
+                if (quiet) {
+                    quietLoaders.add(loader);
+                }
+
                 if (asEmbed) {
-                    const boxSize = getEmbedBoxSize(this.editor, file);
-                    insertEmbedPlaceholder(writer, model, loader.id, file.name, boxSize);
+                    insertEmbedPlaceholder(writer, model, loader.id, file.name, {
+                        boxSize: boxSize ?? getEmbedBoxSize(this.editor, file),
+                        hideTitle
+                    });
                 } else {
                     insertPlaceholder(writer, model, loader.id, file.name);
                 }
@@ -65,10 +92,11 @@ function insertEmbedPlaceholder(
     model: Model,
     uploadId: string,
     fileName: string,
-    boxSize: string
+    { boxSize, hideTitle }: { boxSize: string; hideTitle?: boolean }
 ) {
     const placeholder = writer.createElement("contentEmbed", {
         boxSize,
+        ...(hideTitle ? { hideTitle: true } : {}),
         uploadId,
         uploadFileName: fileName
     });

@@ -4415,7 +4415,8 @@
       "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "Some rows were sorted together because merged cells tie them to each other",
       "tiny": "Tiny",
       "show-title": "Show title",
-      "more-actions": "More actions"
+      "more-actions": "More actions",
+      "insert-drawing-canvas": "Insert drawing canvas"
     },
     "task-state-dropped-title": "Invalid task states",
     "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",

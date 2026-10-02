@@ -17,7 +17,7 @@ import { createTestEditor } from "../../../test/editor-kit.js";
 import { installGlobMock } from "../../../test/globals-test-kit.js";
 import ContentEmbed from "../content_embed/content_embed.js";
 import { isUploadAsLink } from "../uploadimage.js";
-import FileUploadCommand from "./fileuploadcommand.js";
+import FileUploadCommand, { isQuietUpload } from "./fileuploadcommand.js";
 
 /**
  * Minimal plugin that registers the 'reference' model schema AND the downcast
@@ -182,6 +182,36 @@ describe("FileUploadCommand", () => {
         });
 
         expect(getModelData(editor.model)).toMatch(/^<contentEmbed boxSize="medium" /);
+    });
+
+    it("gives the embeds the box size and hidden title the caller asks for", () => {
+        const getEmbedBoxSize = vi.fn(() => "tiny");
+        installGlobMock({ getComponentByEl: () => ({ getEmbedBoxSize }) });
+        setModelData(editor.model, "<paragraph>[]</paragraph>");
+
+        editor.execute("fileUpload", {
+            file: [ new File(["{}"], "canvas.json", { type: "application/vnd.excalidraw+json" }) ],
+            asEmbed: true,
+            boxSize: "medium",
+            hideTitle: true
+        });
+
+        expect(getModelData(editor.model)).toMatch(new RegExp(
+            "^<contentEmbed boxSize=\"medium\" hideTitle=\"true\" uploadFileName=\"canvas.json\""
+        ));
+        expect(getEmbedBoxSize).not.toHaveBeenCalled();
+    });
+
+    it("marks the loaders of a quiet upload, and only those", () => {
+        installGlobMock({ getComponentByEl: () => ({}) });
+        setModelData(editor.model, "<paragraph>[]</paragraph>");
+        const createLoaderSpy = vi.spyOn(editor.plugins.get(FileRepository), "createLoader");
+
+        editor.execute("fileUpload", { file: [ new File(["1"], "one.txt") ] });
+        editor.execute("fileUpload", { file: [ new File(["2"], "two.txt") ], quiet: true });
+
+        expect(createLoaderSpy.mock.results.map(({ value }) => isQuietUpload(value as FileLoader)))
+            .toEqual([ false, true ]);
     });
 
     it("marks the loader of every file to upload as a link, for an embed too", () => {

@@ -380,9 +380,10 @@ div.tn-tool-dialog {
     margin-top: 0.4em;
 }
 
-/* Keyboard shortcut. Tooltips have their own palette — see the TOOLTIPS section in base.css. */
+/* Keyboard shortcut. Tooltips have their own palette — see the TOOLTIPS section in base.css.
+   `:where(:not(.excalidraw *))` leaves out the menus of an embedded canvas drawing. */
 .help-dialog .help-cards kbd,
-.ck-content kbd {
+.ck-content kbd:where(:not(.excalidraw *)) {
     display: inline-block;
     margin: 0 2px 2px !important;
     border: 1px solid var(--help-kbd-shortcut-border);

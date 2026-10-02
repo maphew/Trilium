@@ -99,11 +99,13 @@ export function useSpacedUpdate(callback: () => void | Promise<void>, interval =
 export interface SavedData {
     content: string;
     attachments?: {
+        /** The attachment to update. Without it, the attachment is matched by its title. */
+        attachmentId?: string;
         role: string;
         title: string;
         mime: string;
         content: string;
-        position: number;
+        position?: number;
         encoding?: "base64";
     }[];
 }

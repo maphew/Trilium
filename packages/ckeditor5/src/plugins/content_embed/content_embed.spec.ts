@@ -493,6 +493,30 @@ describe("ContentEmbed", () => {
         expect(keyStop).toHaveBeenCalled();
     });
 
+    it("lets the embedded content handle a key, then keeps it from the editor", () => {
+        insertContentEmbed(editor, "noteKeys", "small");
+
+        const domRoot = editor.editing.view.getDomRoot();
+        const wrapper = domRoot?.querySelector("div.include-note-wrapper");
+        expect(wrapper).not.toBeNull();
+        if (!domRoot || !wrapper) {
+            return;
+        }
+
+        const content = document.createElement("div");
+        wrapper.append(content);
+        const contentHeard = vi.fn();
+        const rootHeard = vi.fn();
+        content.addEventListener("keydown", contentHeard);
+        domRoot.addEventListener("keydown", rootHeard);
+
+        content.dispatchEvent(new KeyboardEvent("keydown", { key: "r", bubbles: true }));
+
+        expect(contentHeard).toHaveBeenCalledOnce();
+        expect(rootHeard).not.toHaveBeenCalled();
+        domRoot.removeEventListener("keydown", rootHeard);
+    });
+
     it("does nothing on a mousedown when the wrapper has no enclosing embed", () => {
         insertContentEmbed(editor, "noteDetached", "small");
 

@@ -1,0 +1,49 @@
+/* The font size of the note detail in pixels. Excalidraw in a canvas note inherits this size. */
+@property --canvas-drawing-font-size {
+    syntax: "<length>";
+    inherits: true;
+    initial-value: 16px;
+}
+
+.note-detail {
+    --canvas-drawing-font-size: 1em;
+}
+
+.canvas-drawing {
+    height: 20em;
+
+    /* Resets the typography inherited from the text note. */
+    > .canvas-render {
+        height: 100%;
+        font-size: var(--canvas-drawing-font-size);
+        line-height: var(--bs-body-line-height);
+        text-align: start;
+        overflow-wrap: normal;
+    }
+
+    /* Resets CKEditor's content style for `hr`, which matches the menu separators. */
+    .excalidraw hr {
+        display: block;
+        vertical-align: baseline;
+        background: none;
+    }
+}
+
+.include-note {
+    &[data-box-size="small"] .canvas-drawing {
+        height: 10em;
+    }
+
+    &[data-box-size="full"] .canvas-drawing {
+        height: 50em;
+    }
+}
+
+.include-note-content:fullscreen .canvas-drawing {
+    height: 100%;
+}
+
+.canvas-drawing-picture {
+    max-width: 100%;
+    height: auto;
+}

@@ -1,4 +1,10 @@
 import {
+    CANVAS_ATTACHMENT_MIME,
+    CANVAS_ATTACHMENT_TITLE,
+    EMPTY_CANVAS_CONTENT
+} from "@triliumnext/commons";
+import {
+    ButtonView,
     createDropdown,
     FileDialogButtonView,
     FileDialogListItemButtonView,
@@ -11,6 +17,7 @@ import {
     type Locale
 } from "ckeditor5";
 import bxLink from "boxicons/svg/regular/bx-link.svg?raw";
+import bxPen from "boxicons/svg/regular/bx-pen.svg?raw";
 import bxShapeSquare from "boxicons/svg/regular/bx-shape-square.svg?raw";
 
 import type { FileUploadOptions } from "./fileuploadcommand.js";
@@ -18,6 +25,8 @@ import type { FileUploadOptions } from "./fileuploadcommand.js";
 /**
  * Registers the `fileUpload` split button. The button attaches the picked files and links them;
  * the list also offers to embed them.
+ *
+ * Also registers the `drawingCanvas` button, which attaches an empty canvas drawing and embeds it.
  */
 export default class FileUploadUI extends Plugin {
     static get pluginName() {
@@ -71,6 +80,36 @@ export default class FileUploadUI extends Plugin {
             dropdownView.panelView.children.add(listView);
 
             return dropdownView;
+        });
+
+        editor.ui.componentFactory.add("drawingCanvas", (locale) => {
+            const button = new ButtonView(locale);
+            button.set({ label: t("Insert drawing canvas"), icon: bxPen, tooltip: true });
+
+            const uploadCommand = editor.commands.get("fileUpload");
+            const embedCommand = editor.commands.get("insertContentEmbed");
+            if (uploadCommand && embedCommand) {
+                button.bind("isEnabled").to(uploadCommand, "isEnabled", embedCommand, "isEnabled",
+                    (canUpload, canEmbed) => canUpload && canEmbed);
+            } else {
+                button.isEnabled = false;
+            }
+
+            button.on("execute", () => {
+                const file = new File([ EMPTY_CANVAS_CONTENT ], CANVAS_ATTACHMENT_TITLE, {
+                    type: CANVAS_ATTACHMENT_MIME
+                });
+                editor.execute("fileUpload", {
+                    file: [ file ],
+                    asEmbed: true,
+                    boxSize: "medium",
+                    hideTitle: true,
+                    quiet: true
+                });
+                editor.editing.view.focus();
+            });
+
+            return button;
         });
     }
 

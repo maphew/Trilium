@@ -2,6 +2,7 @@ import "./content_renderer.css";
 
 import {
     attachmentIcon,
+    CANVAS_ATTACHMENT_MIME,
     isAcceptedImageMime,
     isImageAttachmentRole,
     isOfficeMimeType,
@@ -83,6 +84,23 @@ export interface RenderOptions {
      * the attachment full-detail view opts in. The viewer remains read-only either way.
      */
     pdfToolbar?: boolean;
+    /**
+     * Saves the changes that interactive content makes to an attachment, such as a canvas drawing.
+     * Without it, that content is read-only.
+     */
+    attachmentEditor?: AttachmentEditor;
+}
+
+/** Saves the changes that rendered content makes to attachments of the note that shows it. */
+export interface AttachmentEditor {
+    /** Whether the rendered content can change `attachment`. */
+    canEdit(attachment: FAttachment): boolean;
+    /** The content of the attachment that is not saved yet, or `undefined`. */
+    getUnsavedContent(attachmentId: string): string | undefined;
+    /** Schedules a save of `attachment`. The save reads the content from `getContent`. */
+    scheduleSave(attachment: FAttachment, getContent: () => string): void;
+    /** Reads the unsaved content of the attachment now, before its editor unmounts. */
+    release(attachmentId: string): void;
 }
 
 const CODE_MIME_TYPES = new Set(["application/json"]);
@@ -92,8 +110,9 @@ const CODE_MIME_TYPES = new Set(["application/json"]);
  * icon, or as the actions of a file. Keep in step with the branches there.
  */
 const PREVIEWED_TYPES = new Set([
-    "book", "search", "text", "markdown", "code", "iconPack", "image", "canvas", "mindMap",
-    "spreadsheet", "office", "pdf", "audio", "video", "mermaid", "render", "doc", "llmChat"
+    "book", "search", "text", "markdown", "code", "iconPack", "image", "canvas", "canvasDrawing",
+    "mindMap", "spreadsheet", "office", "pdf", "audio", "video", "mermaid", "render", "doc",
+    "llmChat"
 ]);
 
 export async function getRenderedContent(this: {} | { ctx: string }, entity: FNote | FAttachment, options: RenderOptions = {}) {
@@ -124,6 +143,8 @@ export async function getRenderedContent(this: {} | { ctx: string }, entity: FNo
         await renderCode(entity, $renderedContent);
     } else if (type === "iconPack" && !options.tooltip && entity instanceof FNote) {
         await renderIconPack(entity, $renderedContent, options);
+    } else if (type === "canvasDrawing") {
+        await renderCanvasDrawing(entity, $renderedContent, options);
     } else if (type === "image" && options.mediaEnvironment === "embedded") {
         await renderImageViewer(entity, $renderedContent);
     } else if (["image", "canvas", "mindMap", "spreadsheet"].includes(type)) {
@@ -313,6 +334,41 @@ async function renderImageViewer(
         imageContextMenuService.setupContextMenu($container);
     }
     $renderedContent.append($container);
+}
+
+/**
+ * Renders a canvas drawing kept in a file or an attachment. Interactive content of an attachment
+ * mounts the Excalidraw editor; anything else shows a picture of the drawing.
+ */
+async function renderCanvasDrawing(
+    entity: FNote | FAttachment,
+    $renderedContent: JQuery<HTMLElement>,
+    options: RenderOptions
+) {
+    const { default: CanvasDrawing, renderCanvasDrawingPicture } =
+        await import("../widgets/type_widgets/canvas/CanvasDrawing");
+
+    if (options.interactive && entity instanceof FAttachment) {
+        const $container = $('<div class="canvas-drawing">');
+        const container = $container.get(0);
+        if (container) {
+            await mountInteractiveWidget(h(CanvasDrawing, {
+                attachment: entity,
+                editor: options.attachmentEditor
+            }), container);
+        }
+        $renderedContent.append($container);
+        return;
+    }
+
+    const picture = await renderCanvasDrawingPicture(entity);
+    if (picture) {
+        $renderedContent.append(picture);
+    } else {
+        $renderedContent.addClass("no-preview");
+        const $icon = $("<span>").addClass(attachmentIcon("file", entity.mime));
+        $renderedContent.append($("<div>").append($icon));
+    }
 }
 
 function getImageUrl(entity: FNote | FAttachment) {
@@ -772,6 +828,7 @@ function getContentType(entity: FNote | FAttachment) {
 /** Narrows a file, or a `viewConfig` attachment, to the kind of file its media type names. */
 function getFileContentType(type: string, mime: string) {
     if (type === "file" && mime === "application/pdf") return "pdf";
+    if (type === "file" && mime === CANVAS_ATTACHMENT_MIME) return "canvasDrawing";
     if ((type === "file" || type === "viewConfig") && CODE_MIME_TYPES.has(mime)) return "code";
     if (type === "file" && mime.startsWith("audio/")) return "audio";
     if (type === "file" && mime.startsWith("video/")) return "video";

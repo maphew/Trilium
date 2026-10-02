@@ -260,6 +260,18 @@ describe("FileUploadEditing", () => {
         }
     });
 
+    it("uploads a quiet file without announcing it", async () => {
+        const controls = installUploadAdapter(editor);
+        const announced = vi.fn();
+        editor.plugins.get(FileUploadEditing).on<FileUploadEvent>("upload", announced);
+        setModelData(editor.model, "<paragraph>[]</paragraph>");
+
+        editor.execute("fileUpload", { file: [ new File(["{}"], "canvas.json") ], quiet: true });
+        await waitFor(() => controls.uploadCalled());
+
+        expect(announced).not.toHaveBeenCalled();
+    });
+
     it("aborts the loader when the placeholder is inserted into the graveyard", () => {
         installUploadAdapter(editor);
         const fileRepository = editor.plugins.get(FileRepository);

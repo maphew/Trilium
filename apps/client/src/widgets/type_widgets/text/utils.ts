@@ -3,7 +3,7 @@ import { h, type JSX } from "preact";
 
 import appContext from "../../../components/app_context";
 import linkContextMenu from "../../../menus/link_context_menu";
-import content_renderer from "../../../services/content_renderer";
+import content_renderer, { type AttachmentEditor } from "../../../services/content_renderer";
 import { getEmbedCaption } from "../../../services/content_renderer_text";
 import froca from "../../../services/froca";
 import link, { ViewScope } from "../../../services/link";
@@ -60,12 +60,14 @@ export async function loadEmbeddedNote(noteId: string, $el: JQuery<HTMLElement>,
 
 /**
  * Fills an embed box with an embedded attachment, under a title linking to it. Without a box
- * size of its own, the box takes the one of its embed.
+ * size of its own, the box takes the one of its embed. `attachmentEditor` saves the changes that
+ * the content makes to the attachment, such as a canvas drawing.
  */
 export async function loadEmbeddedAttachment(
     attachmentId: string,
     $el: JQuery<HTMLElement>,
-    boxSize?: string
+    boxSize?: string,
+    attachmentEditor?: AttachmentEditor
 ) {
     const attachment = await froca.getAttachment(attachmentId, true);
     if (!attachment) return;
@@ -98,7 +100,7 @@ export async function loadEmbeddedAttachment(
     });
     const { $renderedContent, type } = await content_renderer.getRenderedContent(
         attachment,
-        { interactive: true, mediaEnvironment: "embedded" }
+        { interactive: true, mediaEnvironment: "embedded", attachmentEditor }
     );
 
     const box = h(ContentEmbed, {

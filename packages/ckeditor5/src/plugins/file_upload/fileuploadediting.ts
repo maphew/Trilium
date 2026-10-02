@@ -9,7 +9,7 @@ import {
 	type ViewRange
 } from 'ckeditor5';
 import { getAttachmentId } from '../referencelink.js';
-import FileUploadCommand from './fileuploadcommand';
+import FileUploadCommand, { isQuietUpload } from './fileuploadcommand';
 
 /** A file attachment upload, announced by the `upload` event of `FileUploadEditing`. */
 export interface FileUploadData {
@@ -179,11 +179,13 @@ export default class FileUploadEditing extends Plugin {
 				} );
 			} );
 
-		this.fire<FileUploadEvent>( 'upload', {
-			fileName: String( fileElement.getAttribute( 'uploadFileName' ) ?? '' ),
-			loader,
-			done: Promise.allSettled( [ upload ] ).then( () => undefined )
-		} );
+		if ( !isQuietUpload( loader ) ) {
+			this.fire<FileUploadEvent>( 'upload', {
+				fileName: String( fileElement.getAttribute( 'uploadFileName' ) ?? '' ),
+				loader,
+				done: Promise.allSettled( [ upload ] ).then( () => undefined )
+			} );
+		}
 
 		return upload;
 

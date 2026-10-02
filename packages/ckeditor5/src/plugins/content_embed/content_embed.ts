@@ -1043,7 +1043,8 @@ function preventCKEditorHandling( domElement: HTMLElement, editor: Editor ) {
 	domElement.addEventListener( 'focus', stopEventPropagationAndHackRendererFocus, { capture: true } );
 
 	// Prevents TAB handling or other editor keys listeners which might be executed on editors selection.
-	domElement.addEventListener( 'keydown', stopEventPropagationAndHackRendererFocus, { capture: true } );
+	// Listens in the bubble phase, so the embedded content handles its own keys first.
+	domElement.addEventListener( 'keydown', stopEventPropagationAndHackRendererFocus );
 
 	function stopEventPropagationAndHackRendererFocus( evt: Event ) {
 		evt.stopPropagation();

@@ -797,12 +797,8 @@ html .note-detail-editable-text > :not(figure, .include-note, hr):first-child {
     inset-inline-end: 0.35em;
 }
 
-.ck-content h1,
-.ck-content h2,
-.ck-content h3,
-.ck-content h4,
-.ck-content h5,
-.ck-content h6 {
+/* `:where(:not(.excalidraw *))` leaves out the UI of an embedded canvas drawing. */
+.ck-content :is(h1, h2, h3, h4, h5, h6):where(:not(.excalidraw *)) {
     font-weight: 300;
 }
 
@@ -810,7 +806,8 @@ html .note-detail-editable-text > :not(figure, .include-note, hr):first-child {
     font-weight: 600;
 }
 
-:root .ck-content hr {
+/* `:where(:not(.excalidraw *))` leaves out the menus of an embedded canvas drawing. */
+:root .ck-content hr:where(:not(.excalidraw *)) {
     margin-block: 5px;
     height: 0;
     border: thin solid var(--main-border-color);
