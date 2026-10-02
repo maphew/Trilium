@@ -6,8 +6,6 @@ import appContext from "../../components/app_context";
 import commandRegistry from "../../services/command_registry";
 import { t } from "../../services/i18n";
 import type { Suggestion } from "../../services/note_autocomplete";
-import shortcutService from "../../services/shortcuts";
-import Button from "../react/Button";
 import { useTriliumEvent } from "../react/hooks";
 import Modal from "../react/Modal";
 import NoteAutocomplete, { type NoteAutocompleteHandle } from "../react/NoteAutocomplete";
@@ -23,8 +21,7 @@ export default function JumpToNoteDialogComponent() {
     const containerRef = useRef<HTMLDivElement>(null);
     const autocompleteRef = useRef<HTMLInputElement>(null);
     const handleRef = useRef<NoteAutocompleteHandle>(null);
-    const [ isCommandMode, setIsCommandMode ] = useState(mode === "commands");
-    const [ initialText, setInitialText ] = useState(isCommandMode ? "> " : "");
+    const [ initialText, setInitialText ] = useState("");
     const actualText = useRef<string>(initialText);
     const [ shown, setShown ] = useState(false);
 
@@ -49,10 +46,6 @@ export default function JumpToNoteDialogComponent() {
         if (mode !== newMode) {
             setMode(newMode);
         }
-
-        // `showInFullSearch` reads this ref, so it has to follow the text about to be displayed
-        // rather than keep the previous session's query.
-        actualText.current = initialText;
 
         setInitialText(initialText);
         setShown(true);
@@ -101,27 +94,6 @@ export default function JumpToNoteDialogComponent() {
         } else {
             $autoComplete.trigger("select");
         }
-
-        // Add keyboard shortcut for full search
-        shortcutService.bindElShortcut($autoComplete, "ctrl+return", () => {
-            if (!isCommandMode) {
-                showInFullSearch();
-            }
-        });
-    }
-
-    async function showInFullSearch() {
-        try {
-            setShown(false);
-            const searchString = actualText.current?.trim();
-            if (searchString && !searchString.startsWith(">")) {
-                await appContext.triggerCommand("searchNotes", {
-                    searchString
-                });
-            }
-        } catch (error) {
-            console.error("Failed to trigger full search:", error);
-        }
     }
 
     return (
@@ -140,20 +112,11 @@ export default function JumpToNoteDialogComponent() {
                     allowJumpToSearchNotes: true,
                     isCommandPalette: true
                 }}
-                onTextChange={(text) => {
-                    actualText.current = text;
-                    setIsCommandMode(text.startsWith(">"));
-                }}
+                onTextChange={(text) => actualText.current = text}
                 onChange={onItemSelected}
             />}
             onShown={onShown}
             onHidden={() => setShown(false)}
-            footer={!isCommandMode && <Button
-                className="show-in-full-text-button"
-                text={t("jump_to_note.search_button")}
-                keyboardShortcut="Ctrl+Enter"
-                onClick={showInFullSearch}
-            />}
             show={shown}
         >
             <div className="algolia-autocomplete-container jump-to-note-results" ref={containerRef} />

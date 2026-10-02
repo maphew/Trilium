@@ -53,12 +53,6 @@
     background-color: transparent;
 }
 
-.jump-to-note-dialog .show-in-full-search,
-.jump-to-note-results .show-in-full-search {
-    border-top: 1px solid var(--main-border-color);
-    padding-top: 12px;
-    margin-top: 12px;
-}
 
 .jump-to-note-results .aa-suggestion .search-notes-action {
     border-top: 1px solid var(--main-border-color);

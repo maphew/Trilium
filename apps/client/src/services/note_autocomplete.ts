@@ -114,7 +114,7 @@ export async function getNoteSuggestions(term: string, { allowCreatingNotes, all
         after.push({
             action: "search-notes",
             noteTitle: term,
-            highlightedNotePathTitle: t("note_autocomplete.search-for", { term: escapeHtml(term) })
+            highlightedNotePathTitle: t("note_autocomplete.show-in-full-search", { term: escapeHtml(term) })
         });
     }
 

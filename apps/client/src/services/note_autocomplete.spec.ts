@@ -148,7 +148,7 @@ describe("getNoteSuggestions", () => {
         const rows = await getNoteSuggestions("https://example.com/x", all);
         expect(rows.map((r) => r.action)).toEqual([ "external-link", "create-note", "create-child-note", undefined, "search-notes" ]);
         expect(rows[0]).toMatchObject({ externalLink: "https://example.com/x", highlightedNotePathTitle: "note_autocomplete.insert-external-link" });
-        expect(rows[4]).toMatchObject({ noteTitle: "https://example.com/x", highlightedNotePathTitle: "note_autocomplete.search-for" });
+        expect(rows[4]).toMatchObject({ noteTitle: "https://example.com/x", highlightedNotePathTitle: "note_autocomplete.show-in-full-search" });
 
         // Not a URL, and a blank term: neither row is offered.
         expect((await getNoteSuggestions("plain", all)).map((r) => r.action)).not.toContain("external-link");

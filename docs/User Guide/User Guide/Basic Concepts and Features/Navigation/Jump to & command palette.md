@@ -19,14 +19,15 @@ In addition to searching for notes, it is also possible to search for commands. 
 *   If the note doesn't exist, it's possible to create it by typing the desired note title and selecting one of two options:
     *   _Create note_ places it in the <a class="reference-link" href="../Notes/Note%20Inbox.md">Note Inbox</a>: the note labelled `#inbox`, today's <a class="reference-link" href="../../Advanced%20Usage/Advanced%20Showcases/Day%20Notes.md">Day Notes</a> if there is none, or the top level if there is no journal either. While hoisted into a <a class="reference-link" href="Workspaces.md">Workspaces</a>, the workspace's own inbox is used, then today's day note if the workspace has a `#workspaceCalendarRoot`, otherwise the workspace root itself. The option names the destination, so it is always visible before the note is created.
     *   _Create child note_ places it under the note that is currently open.
+*   When the title search does not find a note, the two options at the end of the list search further:
+    *   _Include note contents in the results_ searches the content of the notes as well as their titles, and lists what it finds in place of the current results, without leaving the dialog. Press <kbd>Shift</kbd>+<kbd>Enter</kbd> to run it without selecting it.
+    *   _Show all results in full search_ opens the query in the full <a class="reference-link" href="Search.md">Search</a>, in a new tab, where its options can refine it. Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run it without selecting it.
 
 ## Recent notes
 
 Jump to note also has the ability to show the list of recently viewed / edited notes and quickly jump to it.
 
 To access this functionality, click on `Jump to` button on the top. By default, (when nothing is entered into autocomplete), this dialog will show the list of recent notes.
-
-Alternatively you can click on the "time" icon on the right.
 
 ## Command Palette
 

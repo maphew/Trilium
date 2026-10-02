@@ -1,6 +1,7 @@
 import "./Menu.css";
 import "./NoteAutocomplete.css";
 
+import { NOTE_TYPE_ICONS } from "@triliumnext/commons";
 import clsx from "clsx";
 import { type RefObject, render } from "preact";
 import { createPortal, type CSSProperties, Fragment } from "preact/compat";
@@ -107,7 +108,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 onChange?.(suggestion);
                 break;
             case "search-notes":
-                void appContext.triggerCommand("searchNotes", { searchString: suggestion.noteTitle });
+                showInFullSearch(suggestion.noteTitle ?? "");
                 break;
             case "full-text-search":
                 fullTextSearch();
@@ -156,6 +157,15 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         setFullTextSearchCount(0);
         onTextChange?.("");
         clearSelection();
+    }
+
+    /**
+     * Opens the search screen on `searchString`, and reports it as a picked `search-notes` row so that
+     * a host can close, as Jump to Note does.
+     */
+    function showInFullSearch(searchString: string) {
+        void appContext.triggerCommand("searchNotes", { searchString });
+        onChange?.({ action: "search-notes", noteTitle: searchString });
     }
 
     /** Searches the content of the notes as well as their titles, for the text in the field. */
@@ -249,7 +259,10 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                         // own.
                         e.preventDefault();
                         e.stopImmediatePropagation();
-                        void appContext.triggerCommand("searchNotes", { searchString: value });
+                        // Only where the list offers the row: a query that names notes, not commands.
+                        if (value.trim() && !(isCommandPalette && value.startsWith(">"))) {
+                            showInFullSearch(value.trim());
+                        }
                         return;
                     }
                     if (isEnter && e.shiftKey) {
@@ -480,7 +493,8 @@ function isSearchRow(suggestion: Suggestion) {
 
 function suggestionIcon(suggestion: Suggestion) {
     switch (suggestion.action) {
-        case "search-notes": return "bx bx-search";
+        // The icon of the saved search note it opens.
+        case "search-notes": return NOTE_TYPE_ICONS.search;
         case "full-text-search": return "bx bx-search";
         case "create-note": return "bx bx-plus";
         case "create-child-note": return "bx bx-subdirectory-right";
@@ -508,7 +522,7 @@ function withFullTextSearchRow(rows: Suggestion[], query: string): Suggestion[] 
     const row: Suggestion = {
         action: "full-text-search",
         noteTitle: query,
-        highlightedNotePathTitle: t("note_autocomplete.search-note-contents", { term: escapeHtml(query) })
+        highlightedNotePathTitle: t("note_autocomplete.include-note-contents", { term: escapeHtml(query) })
     };
     const last = rows.at(-1);
     return last?.action === "search-notes" ? [ ...rows.slice(0, -1), row, last ] : [ ...rows, row ];

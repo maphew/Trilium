@@ -349,8 +349,7 @@
     "copy_to_clipboard": "Copy to clipboard"
   },
   "jump_to_note": {
-    "search_placeholder": "Search for note by its name or type > for commands...",
-    "search_button": "Search in full text"
+    "search_placeholder": "Search for note by its name or type > for commands..."
   },
   "markdown_editor": {
     "image_upload_failed": "Cannot upload image \"{{name}}\"."
@@ -3074,7 +3073,7 @@
     "zoom-factor": "Zoom factor"
   },
   "note_autocomplete": {
-    "search-for": "Search for \"{{term}}\"",
+    "show-in-full-search": "Show all results for \"{{term}}\" in full search",
     "create-note": "Create note \"{{term}}\"",
     "create-note-into": "Create note \"{{term}}\" in {{parentTitle}}",
     "create-note-into-day-note": "Create note \"{{term}}\" in today's day note",
@@ -3082,7 +3081,7 @@
     "create-child-note": "Create child note \"{{term}}\"",
     "insert-external-link": "Insert external link to \"{{term}}\"",
     "clear-text-field": "Clear text field",
-    "search-note-contents": "Search note contents for \"{{term}}\""
+    "include-note-contents": "Include note contents in the results for \"{{term}}\""
   },
   "note_tooltip": {
     "note-has-been-deleted": "Note has been deleted.",

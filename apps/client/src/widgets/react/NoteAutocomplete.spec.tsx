@@ -236,7 +236,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         await type(input, "x");
 
         expect(rows().map((row) => row.querySelector(".tn-icon")?.className)).toEqual([
-            "bx bx-search tn-icon", "bx bx-plus tn-icon", "bx bx-subdirectory-right tn-icon", "bx bx-link-external tn-icon", "bx bx-note tn-icon"
+            "bx bx-file-find tn-icon", "bx bx-plus tn-icon", "bx bx-subdirectory-right tn-icon", "bx bx-link-external tn-icon", "bx bx-note tn-icon"
         ]);
         expect(rows()[4].textContent).toBe("T");
     });
@@ -664,7 +664,7 @@ describe("NoteAutocomplete's suggestion list", () => {
             expect(dividers[0].nextElementSibling).toBe(fullTextRow());
         });
 
-        it("runs a search from its row, with its shortcut shown, leaving the field", async () => {
+        it("runs a search from its row, with its shortcut shown, reporting it for the host to close on", async () => {
             const onChange = vi.fn();
             getNoteSuggestions.mockResolvedValue([ searchRow ]);
             const input = await mount({ onChange });
@@ -677,18 +677,29 @@ describe("NoteAutocomplete's suggestion list", () => {
             await press(input, "ArrowDown");
             await press(input, "Enter");
             expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "al" });
-            expect(onChange).not.toHaveBeenCalled();
+            expect(onChange).toHaveBeenCalledWith({ action: "search-notes", noteTitle: "al" });
             expect(input.value).toBe("al");
         });
 
         it("runs a search on Ctrl+Enter where allowed, keeping the key from other listeners", async () => {
-            const input = await mount({ opts: { allowJumpToSearchNotes: true } });
-            await type(input, "al");
+            const onChange = vi.fn();
+            const input = await mount({ onChange, opts: { allowJumpToSearchNotes: true, isCommandPalette: true } });
+            await type(input, " al ");
             const laterListener = vi.fn();
             input.addEventListener("keydown", laterListener);
 
             await press(input, "Enter", { ctrlKey: true });
             expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "al" });
+            expect(onChange).toHaveBeenCalledWith({ action: "search-notes", noteTitle: "al" });
+            expect(laterListener).not.toHaveBeenCalled();
+
+            // Nothing to search for in a blank field or a command query, though the key is still kept.
+            triggerCommand.mockClear();
+            for (const text of [ "  ", "> cmd" ]) {
+                await type(input, text);
+                await press(input, "Enter", { ctrlKey: true });
+            }
+            expect(triggerCommand).not.toHaveBeenCalled();
             expect(laterListener).not.toHaveBeenCalled();
 
             triggerCommand.mockClear();
