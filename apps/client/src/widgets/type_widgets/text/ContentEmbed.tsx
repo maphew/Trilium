@@ -7,6 +7,7 @@ import content_renderer from "../../../services/content_renderer";
 import { t } from "../../../services/i18n";
 import type { ViewScope } from "../../../services/link";
 import ActionButton from "../../react/ActionButton";
+import { useFocusWithin } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import OverlayControlGroup, { OverlayControlButton } from "../../react/OverlayControlGroup";
 
@@ -47,6 +48,7 @@ export default function ContentEmbed({
     boxSize, title, content, contentType, notePath, viewScope
 }: ContentEmbedProps) {
     const contentRef = useRef<HTMLDivElement>(null);
+    const isContentActive = useFocusWithin(contentRef);
     const [ isExpanded, setIsExpanded ] = useState(false);
     const isExpandable = boxSize === "expandable";
     const hasFullscreen = boxSize === "medium" || boxSize === "full";
@@ -97,29 +99,38 @@ export default function ContentEmbed({
                 )}
                 <MoreActionsButton notePath={notePath} viewScope={viewScope} />
             </div>
-            <div
-                ref={contentRef}
-                className={`include-note-content type-${contentType}`}
-                hidden={isExpandable && !isExpanded}
-            >
-                {hasFullscreen && (
-                    <div className="include-note-fullscreen-controls">
-                        <OverlayControlGroup
-                            placement="top-end"
-                            className="include-note-exit-fullscreen"
-                        >
-                            <OverlayControlButton
-                                icon="bx-exit"
-                                text={t("common.exit_fullscreen")}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    document.exitFullscreen().catch((error: unknown) => {
-                                        console.warn("Could not leave fullscreen:", error);
-                                    });
-                                }}
-                            />
-                        </OverlayControlGroup>
-                    </div>
+            <div className={clsx("include-note-body", isContentActive && "active")}>
+                <div
+                    ref={contentRef}
+                    className={`include-note-content type-${contentType}`}
+                    hidden={isExpandable && !isExpanded}
+                    tabIndex={-1}
+                >
+                    {hasFullscreen && (
+                        <div className="include-note-fullscreen-controls">
+                            <OverlayControlGroup
+                                placement="top-end"
+                                className="include-note-exit-fullscreen"
+                            >
+                                <OverlayControlButton
+                                    icon="bx-exit"
+                                    text={t("common.exit_fullscreen")}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        document.exitFullscreen().catch((error: unknown) => {
+                                            console.warn("Could not leave fullscreen:", error);
+                                        });
+                                    }}
+                                />
+                            </OverlayControlGroup>
+                        </div>
+                    )}
+                </div>
+                {!isContentActive && (
+                    <div
+                        className="include-note-backdrop"
+                        onClick={() => contentRef.current?.focus({ preventScroll: true })}
+                    />
                 )}
             </div>
         </>

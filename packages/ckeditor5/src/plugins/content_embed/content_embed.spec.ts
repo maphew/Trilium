@@ -386,6 +386,40 @@ describe("ContentEmbed", () => {
         expect(stop).not.toHaveBeenCalled();
     });
 
+    it("leaves a mousedown in the content alone, and selects the widget on the backdrop", () => {
+        const embed = insertContentEmbed(editor, "noteBackdrop", "small");
+        editor.model.change((writer) => {
+            const paragraph = embed.nextSibling;
+            if (!paragraph) {
+                throw new Error("Expected a paragraph after the embed.");
+            }
+            writer.setSelection(paragraph, 0);
+        });
+
+        const wrapper = editor.editing.view.getDomRoot()?.querySelector("div.include-note-wrapper");
+        expect(wrapper).not.toBeNull();
+        if (!wrapper) {
+            return;
+        }
+        wrapper.innerHTML = `<div class="include-note-body">`
+            + `<div class="include-note-content"><p>text</p></div>`
+            + `<div class="include-note-backdrop"></div></div>`;
+        const text = wrapper.querySelector(".include-note-content p");
+        const backdrop = wrapper.querySelector(".include-note-backdrop");
+
+        const textEvt = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+        const textStop = vi.spyOn(textEvt, "stopPropagation");
+        text?.dispatchEvent(textEvt);
+        expect(textEvt.defaultPrevented).toBe(false);
+        expect(textStop).not.toHaveBeenCalled();
+        expect(editor.model.document.selection.getSelectedElement()).toBeNull();
+
+        const backdropEvt = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+        backdrop?.dispatchEvent(backdropEvt);
+        expect(backdropEvt.defaultPrevented).toBe(true);
+        expect(editor.model.document.selection.getSelectedElement()).toBe(embed);
+    });
+
     it("leaves a mousedown inside an embedded collection untouched so the live widget keeps working", () => {
         insertContentEmbed(editor, "noteColl", "full");
 

@@ -1035,6 +1035,9 @@ function preventCKEditorHandling( domElement: HTMLElement, editor: Editor ) {
  * caret or their own controls) and, crucially, live embedded widgets: web views and collection views
  * (geo map, calendar, board, table) whose own drag/click handlers rely on the native event.
  *
+ * Covers all of `.include-note-content` as well: the host covers it with `.include-note-backdrop`
+ * until the content has the focus, and a press inside it keeps that focus out of the editor.
+ *
  * The match is bounded to within `boundary` (the widget wrapper) so the editable editor root — an
  * ancestor with `contenteditable="true"` — is never mistaken for an interactive target.
  */
@@ -1044,7 +1047,7 @@ function isInteractiveTarget( target: EventTarget | null, boundary: HTMLElement 
 	}
 
 	const match = target.closest(
-		'.rendered-collection, .note-detail-web-view, ' +
+		'.include-note-content, .rendered-collection, .note-detail-web-view, ' +
 		'a, button, input, textarea, select, label, audio, video, ' +
 		'[role="button"], [role="textbox"], [contenteditable]:not([contenteditable="false"])'
 	);

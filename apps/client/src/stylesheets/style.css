@@ -1433,6 +1433,8 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 .include-note {
+    --ck-color-focus-border: var(--link-color);
+
     margin: 0 0 10px;
     border-radius: var(--_include-note-top-border-radius, 8px)
                    var(--_include-note-top-border-radius, 8px)
@@ -1463,10 +1465,6 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 .include-note:has(+ .include-note) {
     --_include-note-bottom-border-radius: 0;
     margin-bottom: 3px;
-}
-
-.ck-widget.include-note {
-    --ck-color-focus-border: var(--link-color);
 }
 
 /* CKEditor counts only non-UIElements as content (see `hasContent` in the
@@ -1692,7 +1690,13 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     }
 }
 
+.include-note-body {
+    position: relative;
+}
+
 .include-note-content {
+    /* Keeps the z-indexes inside the content, such as those of map panes, under the backdrop. */
+    isolation: isolate;
     border-top: 2px solid var(--main-background-color);
     padding: .75rem 1rem;
 }
@@ -1701,8 +1705,26 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     margin-bottom: 0;
 }
 
+/* Takes the wheel and the touch gestures for the page until the content has the focus. */
+.include-note-backdrop {
+    position: absolute;
+    inset: 0;
+}
+
+.include-note-content:focus {
+    outline: none;
+}
+
+/* Outlined as a selected widget in the editor. */
+.include-note:has(> .include-note-wrapper > .include-note-body.active) {
+    /* The editor shows a selected widget as blurred while the focus is in its content. */
+    --ck-color-widget-blurred-border: var(--ck-color-focus-border);
+
+    outline: var(--ck-widget-outline-thickness, 3px) solid var(--ck-color-focus-border);
+}
+
 /* Hides what a larger box size drew, until the Tiny row replaces it. */
-.include-note[data-box-size="tiny"] > .include-note-wrapper > .include-note-content {
+.include-note[data-box-size="tiny"] > .include-note-wrapper > .include-note-body {
     display: none;
 }
 
@@ -1711,7 +1733,7 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
         display: none;
     }
 
-    > .include-note-wrapper > .include-note-content:not(:fullscreen) {
+    > .include-note-wrapper > .include-note-body > .include-note-content:not(:fullscreen) {
         border-top: none;
         border-radius: var(--_include-note-top-border-radius, 8px)
                        var(--_include-note-top-border-radius, 8px) 0 0;

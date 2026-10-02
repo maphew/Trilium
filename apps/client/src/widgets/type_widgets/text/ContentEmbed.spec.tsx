@@ -295,6 +295,29 @@ describe("ContentEmbed", () => {
         renderBox({ boxSize: "small" });
         expect(container.querySelector(".include-note-fullscreen-controls")).toBeNull();
     });
+
+    it("keeps its content behind a backdrop until a click on it focuses the content", async () => {
+        renderBox();
+        const box = contentBox();
+        const isActive = () => box.parentElement?.classList.contains("active");
+        const backdrop = () => container.querySelector<HTMLElement>(
+            ".include-note-body > .include-note-content + .include-note-backdrop"
+        );
+        const firstBackdrop = backdrop();
+        expect(firstBackdrop).not.toBeNull();
+        expect(box.tabIndex).toBe(-1);
+        expect(isActive()).toBe(false);
+        if (!firstBackdrop) return;
+
+        click(firstBackdrop);
+        expect(document.activeElement).toBe(box);
+        expect(backdrop()).toBeNull();
+        expect(isActive()).toBe(true);
+
+        act(() => box.blur());
+        await vi.waitFor(() => expect(backdrop()).not.toBeNull());
+        expect(isActive()).toBe(false);
+    });
 });
 
 describe("TinyContentEmbed", () => {
