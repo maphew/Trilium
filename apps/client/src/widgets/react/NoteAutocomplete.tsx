@@ -2,7 +2,7 @@ import "./Menu.css";
 import "./NoteAutocomplete.css";
 
 import clsx from "clsx";
-import type { RefObject } from "preact";
+import { type RefObject, render } from "preact";
 import { createPortal, type CSSProperties } from "preact/compat";
 import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
@@ -10,6 +10,7 @@ import appContext from "../../components/app_context";
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
 import { createSearchScheduler, createNoteFromSuggestion, getCommandSuggestions, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
+import { escapeHtml } from "../../services/utils";
 import { useAutocomplete } from "./FormAutocomplete";
 import { useSyncedRef } from "./hooks";
 import Icon from "./Icon";
@@ -77,7 +78,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
 
         const options = { allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks };
         if (!fullTextSearchCount) {
-            return getNoteSuggestions(query, options);
+            return withFullTextSearchRow(await getNoteSuggestions(query, options), query);
         }
 
         setSearchingFullText(true);
@@ -98,7 +99,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         }
     }, [ onChange, noteIdChanged ]);
 
-    const pickSuggestion = useCallback((suggestion: Suggestion) => {
+    function pickSuggestion(suggestion: Suggestion) {
         switch (suggestion.action) {
             case "command":
                 // The host runs it; the field keeps what was typed.
@@ -106,6 +107,9 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 break;
             case "search-notes":
                 void appContext.triggerCommand("searchNotes", { searchString: suggestion.noteTitle });
+                break;
+            case "full-text-search":
+                fullTextSearch();
                 break;
             case "external-link":
                 setValue(suggestion.externalLink ?? "");
@@ -122,7 +126,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
             default:
                 selectNote(suggestion);
         }
-    }, [ onChange, selectNote ]);
+    }
 
     const autocomplete = useAutocomplete({
         query: value,
@@ -132,6 +136,8 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         disabled: readOnly,
         autoActivate: true,
         textOf: suggestionText,
+        // The row runs the search again over the notes' content, into the same list.
+        keepOpenOnPick: (suggestion) => suggestion.action === "full-text-search",
         schedule
     });
 
@@ -288,13 +294,6 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
 
             {showButtons && <>
                 <a
-                    className="input-group-text full-text-search-button bx bx-search"
-                    title={`${t("note_autocomplete.full-text-search")} (Shift+Enter)`}
-                    // Keeps the focus in the input, which the list closes without.
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={fullTextSearch}
-                />
-                <a
                     className="input-group-text input-clearer-button bx bxs-tag-x"
                     title={t("note_autocomplete.clear-text-field")}
                     onClick={clearText}
@@ -406,21 +405,38 @@ function NoteSuggestionMenu({ autocomplete, searchingFor }: {
 
 /** One row of the menu, laid out as the rows of `FormListItem` are. */
 function NoteSuggestionMenuItem({ suggestion }: { suggestion: Suggestion }) {
+    return (
+        <span>
+            <NoteSuggestionMenuItemContent suggestion={suggestion} />
+        </span>
+    );
+}
+
+function NoteSuggestionMenuItemContent({ suggestion }: { suggestion: Suggestion }) {
     const isCommand = suggestion.action === "command";
     const icon = isCommand ? (suggestion.icon || "bx bx-terminal") : suggestionIcon(suggestion);
     const description = isCommand ? suggestion.commandDescription : suggestion.highlightedAttributeSnippet;
 
-    return (
-        <span>
-            <Icon icon={icon} />
-            <span className="tn-menu-gap" />
-            <div className="note-suggestion-text">
-                <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
-                {description && <RawHtml className="search-result-attributes" html={description} />}
-            </div>
-            {suggestionShortcut(suggestion) && <kbd>{suggestionShortcut(suggestion)}</kbd>}
-        </span>
-    );
+    return <>
+        <Icon icon={icon} />
+        <span className="tn-menu-gap" />
+        <div className="note-suggestion-text">
+            <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
+            {description && <RawHtml className="search-result-attributes" html={description} />}
+        </div>
+        {suggestionShortcut(suggestion) && <kbd>{suggestionShortcut(suggestion)}</kbd>}
+    </>;
+}
+
+/**
+ * Draws `suggestion` as the content of a `.dropdown-item` in a `.note-autocomplete-menu`, for a
+ * list this component does not render, such as a search field's completions.
+ */
+export function renderNoteSuggestion(suggestion: Suggestion): HTMLElement {
+    const element = document.createElement("span");
+    render(<NoteSuggestionMenuItemContent suggestion={suggestion} />, element);
+
+    return element;
 }
 
 /** One row of the list. */
@@ -441,7 +457,7 @@ function NoteSuggestion({ suggestion }: { suggestion: Suggestion }) {
     }
 
     return (
-        <div className={clsx("note-suggestion", suggestion.action === "search-notes" && "search-notes-action")}>
+        <div className={clsx("note-suggestion", (suggestion.action === "search-notes" || suggestion.action === "full-text-search") && "search-notes-action")}>
             <span className={clsx("icon", suggestionIcon(suggestion))} />
             <span className="text">
                 {suggestionShortcut(suggestion) && <kbd>{suggestionShortcut(suggestion)}</kbd>}
@@ -457,6 +473,7 @@ function NoteSuggestion({ suggestion }: { suggestion: Suggestion }) {
 function suggestionIcon(suggestion: Suggestion) {
     switch (suggestion.action) {
         case "search-notes": return "bx bx-search";
+        case "full-text-search": return "bx bx-search";
         case "create-note": return "bx bx-plus";
         case "create-child-note": return "bx bx-subdirectory-right";
         case "external-link": return "bx bx-link-external";
@@ -469,10 +486,32 @@ function suggestionShortcut(suggestion: Suggestion) {
     switch (suggestion.action) {
         case "command": return suggestion.commandShortcut;
         case "search-notes": return "Ctrl+Enter";
+        case "full-text-search": return "Shift+Enter";
     }
 }
 
+/**
+ * Adds the row that searches the notes' content as well as their titles, ahead of the row that opens
+ * a search, for a non-blank query.
+ */
+function withFullTextSearchRow(rows: Suggestion[], query: string): Suggestion[] {
+    if (!query.trim()) return rows;
+
+    const row: Suggestion = {
+        action: "full-text-search",
+        noteTitle: query,
+        highlightedNotePathTitle: t("note_autocomplete.search-note-contents", { term: escapeHtml(query) })
+    };
+    const last = rows.at(-1);
+    return last?.action === "search-notes" ? [ ...rows.slice(0, -1), row, last ] : [ ...rows, row ];
+}
+
+/**
+ * The text the list opens highlighted on when it equals the query. Empty for an action row, whose
+ * title is the query itself.
+ */
 function suggestionText(suggestion: Suggestion) {
+    if (suggestion.action && suggestion.action !== "command") return "";
     return suggestion.noteTitle ?? "";
 }
 

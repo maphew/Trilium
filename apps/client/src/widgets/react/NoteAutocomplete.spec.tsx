@@ -61,13 +61,11 @@ describe("NoteAutocomplete", () => {
     it("places the buttons after the input in the plugin's order, as the options allow", async () => {
         expect(buttonClasses((await render()).container)).toEqual([
             "input-group-text go-to-selected-note-button bx bx-arrow-to-right disabled",
-            "input-group-text full-text-search-button bx bx-search",
             "input-group-text input-clearer-button bx bxs-tag-x"
         ]);
 
         const withoutGoTo = buttonClasses((await render({ opts: { hideGoToSelectedNoteButton: true } })).container);
-        expect(withoutGoTo).toHaveLength(2);
-        expect(withoutGoTo[0]).toContain("full-text-search-button");
+        expect(withoutGoTo).toEqual([ "input-group-text input-clearer-button bx bxs-tag-x" ]);
 
         expect(buttonClasses((await render({ opts: { hideAllButtons: true } })).container)).toEqual([]);
     });
@@ -179,8 +177,17 @@ describe("NoteAutocomplete's suggestion list", () => {
         return getNoteSuggestions.mock.calls.map(([ query ]) => query);
     }
 
+    /** The rows of the popup, without the full-text search row a non-blank query always ends with. */
     function rows() {
+        return allRows().filter((row) => row !== fullTextRow());
+    }
+
+    function allRows() {
         return [ ...document.querySelectorAll<HTMLElement>(".note-autocomplete-menu > .tn-menu-scroll > .dropdown-item") ];
+    }
+
+    function fullTextRow() {
+        return allRows().find((row) => row.querySelector("kbd")?.textContent === "Shift+Enter");
     }
 
     it("lists the notes as the rows of a menu, the first one highlighted", async () => {
@@ -330,7 +337,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         await type(input, "a");
 
         const menu = host.querySelector<HTMLElement>(":scope > span.aa-dropdown-menu");
-        expect(menu?.querySelectorAll(".aa-suggestion")).toHaveLength(2);
+        expect(menu?.querySelectorAll(".aa-suggestion")).toHaveLength(3);
         // In the host's flow, with no position of its own.
         expect(menu?.hasAttribute("style")).toBe(false);
         expect(document.querySelector(".note-autocomplete-menu")).toBeNull();
@@ -339,7 +346,7 @@ describe("NoteAutocomplete's suggestion list", () => {
             input.focus();
             input.blur();
         });
-        expect(host.querySelectorAll(".aa-suggestion")).toHaveLength(2);
+        expect(host.querySelectorAll(".aa-suggestion")).toHaveLength(3);
 
         // Both are left to the host, as a dialog closes on Escape.
         const reachedHost: string[] = [];
@@ -348,7 +355,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         await press(input, "Escape");
         await press(input, "Tab");
         document.body.removeEventListener("keydown", listen);
-        expect(host.querySelectorAll(".aa-suggestion")).toHaveLength(2);
+        expect(host.querySelectorAll(".aa-suggestion")).toHaveLength(3);
         expect(reachedHost).toEqual([ "Escape", "Tab" ]);
 
         await press(input, "Enter");
@@ -462,19 +469,35 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(noteIdChanged).toHaveBeenLastCalledWith(undefined);
     });
 
-    it("searches the content from the full-text button, saying so until the results come", async () => {
+    it("offers searching the content after the notes, for a non-blank query only", async () => {
+        const input = await mount();
+        await type(input, "al");
+
+        const row = fullTextRow();
+        expect(row).toBeDefined();
+        expect(allRows().at(-1)).toBe(row);
+        expect(row?.querySelector("kbd")?.textContent).toBe("Shift+Enter");
+        expect(row?.querySelector(".tn-icon")?.className).toBe("bx bx-search tn-icon");
+        // The first note keeps the highlight, though the row's title is the query itself.
+        expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+
+        await type(input, " ");
+        expect(rows()).toHaveLength(2);
+        expect(fullTextRow()).toBeUndefined();
+    });
+
+    it("searches the content from its row, saying so until the results come", async () => {
         let finish: (rows: Suggestion[]) => void = () => {};
         const onChange = vi.fn();
         const input = await mount({ onChange });
         await type(input, "al");
         getNoteSuggestions.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
 
-        const mouseDown = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
-        button(".full-text-search-button").dispatchEvent(mouseDown);
-        await act(async () => { button(".full-text-search-button").click(); });
+        const row = fullTextRow();
+        if (!row) throw new Error("no full-text search row rendered");
+        await act(async () => { row.click(); });
         await settle();
 
-        expect(mouseDown.defaultPrevented).toBe(true);
         expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", expect.objectContaining({ fastSearch: false }));
         expect(rows()).toHaveLength(1);
         expect(rows()[0].querySelector(".search-result-title")).not.toBeNull();
@@ -572,6 +595,8 @@ describe("NoteAutocomplete's suggestion list", () => {
             await type(input, "al");
 
             expect(rows()[0].querySelector("kbd")?.textContent).toBe("Ctrl+Enter");
+            // Past the full-text search row ahead of it.
+            await press(input, "ArrowDown");
             await press(input, "Enter");
             expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "al" });
             expect(onChange).not.toHaveBeenCalled();

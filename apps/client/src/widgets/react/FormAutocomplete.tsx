@@ -229,8 +229,11 @@ interface UseAutocompleteOptions<T> {
     openOnFocus?: boolean;
     /** See {@link FormAutocompleteProps.openOnEnter}. */
     openOnEnter?: boolean;
-    /** See {@link FormAutocompleteProps.keepOpenOnPick}. */
-    keepOpenOnPick?: boolean;
+    /**
+     * See {@link FormAutocompleteProps.keepOpenOnPick}. A function decides per entry, for an entry
+     * that refreshes the list rather than choosing from it.
+     */
+    keepOpenOnPick?: boolean | ((item: T) => boolean);
     /** See {@link FormAutocompleteProps.autoActivate}. */
     autoActivate?: boolean;
     /** See {@link FormAutocompleteProps.isHeading}. */
@@ -331,7 +334,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
 
         pickedSinceRender.current = true;
         onPick(item);
-        if (keepOpenOnPick) {
+        if (typeof keepOpenOnPick === "function" ? keepOpenOnPick(item) : keepOpenOnPick) {
             // Nothing is highlighted until the refreshed entries arrive, so Enter cannot take twice
             // what the list is about to stop offering.
             setActiveIndex(-1);

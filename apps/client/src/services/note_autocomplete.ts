@@ -20,7 +20,7 @@ const SEARCH_DEBOUNCE_MS = 50;
  * A client row sets `action` to its kind and fills in only the fields that kind uses.
  */
 export interface Suggestion extends Partial<AutocompleteResult> {
-    action?: string | "create-note" | "create-child-note" | "search-notes" | "external-link" | "command";
+    action?: string | "create-note" | "create-child-note" | "search-notes" | "full-text-search" | "external-link" | "command";
     externalLink?: string;
     parentNoteId?: string;
     commandId?: string;

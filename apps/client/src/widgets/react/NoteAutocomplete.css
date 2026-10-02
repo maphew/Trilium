@@ -10,7 +10,7 @@
 }
 
 /* One class, so the next theme's input-group rules override these. */
-:is(.full-text-search-button, .go-to-selected-note-button, .input-clearer-button) {
+:is(.go-to-selected-note-button, .input-clearer-button) {
     cursor: pointer;
 }
 
@@ -18,7 +18,7 @@
     background: inherit !important;
 }
 
-.input-group > :is(.full-text-search-button, .go-to-selected-note-button),
+.input-group > .go-to-selected-note-button,
 .note-autocomplete ~ .input-clearer-button {
     font-size: 1.3em;
     padding-inline: 5px;
