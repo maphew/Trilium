@@ -47,6 +47,8 @@ declare global {
         group?: string;
         /** The tools of the menu that the button opens. */
         children?: ContentEmbedTool[];
+        /** A class of the button, for the content to style it. */
+        class?: string;
     }
 
     /** The buttons that the content of an embed, such as a canvas drawing, adds to its toolbar. */

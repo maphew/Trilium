@@ -18,7 +18,7 @@ const MAIN_TOOL_IDS = [
     "hand", "selection", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text",
     "image", "eraser"
 ];
-const EXTRA_TOOL_IDS = [ "frame", "embeddable", "laser" ];
+const EXTRA_TOOL_IDS = [ "frame", "embeddable" ];
 const ICON = expect.stringContaining("<svg");
 
 describe("CanvasEmbedTools", () => {
@@ -105,7 +105,13 @@ describe("CanvasEmbedTools", () => {
                 isEnabled: true,
                 group: "zoom"
             },
-            { id: "resetZoom", label: "t:buttons.resetZoom (100%)", icon: ICON, group: "zoom" },
+            {
+                id: "resetZoom",
+                label: "t:buttons.resetZoom",
+                text: "100%",
+                class: "canvas-drawing-zoom-level",
+                group: "zoom"
+            },
             { id: "zoomIn", label: "t:buttons.zoomIn", icon: ICON, isEnabled: true, group: "zoom" }
         ]);
 
@@ -157,15 +163,16 @@ describe("CanvasEmbedTools", () => {
         expect(listener).toHaveBeenCalledTimes(2);
         expect(getOn()).toEqual([ "lock", "rectangle" ]);
 
-        api.change({ activeTool: { type: "laser", locked: true } });
+        api.change({ activeTool: { type: "frame", locked: true } });
         expect(listener).toHaveBeenCalledTimes(3);
-        expect(getOn()).toEqual([ "lock", "moreTools", "laser" ]);
+        expect(getOn()).toEqual([ "lock", "moreTools", "frame" ]);
 
         api.change({ zoom: { value: 30 } });
         expect(listener).toHaveBeenCalledTimes(4);
         expect(getEnabled()).toEqual([
             "undo:true", "redo:false", "zoomOut:true", "resetZoom:true", "zoomIn:false"
         ]);
+        expect(provider.getTools().find((tool) => tool.id === "resetZoom")?.text).toBe("3000%");
 
         await act(async () => {
             container.querySelector("[data-testid=button-redo]")?.removeAttribute("disabled");
@@ -186,8 +193,8 @@ describe("CanvasEmbedTools", () => {
         expect(api.setActiveTool).toHaveBeenCalledWith({ type: "rectangle" });
         expect(document.activeElement).toBe(container.querySelector(".excalidraw-container"));
 
-        provider.execute("laser");
-        expect(api.setActiveTool).toHaveBeenLastCalledWith({ type: "laser" });
+        provider.execute("frame");
+        expect(api.setActiveTool).toHaveBeenLastCalledWith({ type: "frame" });
 
         provider.execute("lock");
         expect(api.updateScene).toHaveBeenLastCalledWith({
@@ -214,6 +221,7 @@ describe("CanvasEmbedTools", () => {
         });
 
         provider.execute("magicframe");
+        provider.execute("laser");
         provider.execute("moreTools");
         expect(api.setActiveTool).toHaveBeenCalledTimes(2);
         expect(api.updateScene).toHaveBeenCalledTimes(3);

@@ -1,3 +1,5 @@
+import "./CanvasEmbedTools.css";
+
 import { useI18n } from "@excalidraw/excalidraw";
 import type {
     AppState, ExcalidrawImperativeAPI, NormalizedZoomValue, ToolType
@@ -13,7 +15,6 @@ import drawIcon from "boxicons/svg/regular/bx-pencil.svg?raw";
 import selectionIcon from "boxicons/svg/regular/bx-pointer.svg?raw";
 import rectangleIcon from "boxicons/svg/regular/bx-rectangle.svg?raw";
 import redoIcon from "boxicons/svg/regular/bx-redo.svg?raw";
-import resetZoomIcon from "boxicons/svg/regular/bx-reset.svg?raw";
 import arrowIcon from "boxicons/svg/regular/bx-right-arrow-alt.svg?raw";
 import squareIcon from "boxicons/svg/regular/bx-square.svg?raw";
 import undoIcon from "boxicons/svg/regular/bx-undo.svg?raw";
@@ -35,9 +36,7 @@ export const MAIN_TOOLS = [
     "image", "eraser"
 ] as const satisfies readonly ToolType[];
 /** The tools in the "More tools" menu. */
-export const EXTRA_TOOLS = [
-    "frame", "embeddable", "laser"
-] as const satisfies readonly ToolType[];
+export const EXTRA_TOOLS = [ "frame", "embeddable" ] as const satisfies readonly ToolType[];
 const TOOLS = [ ...MAIN_TOOLS, ...EXTRA_TOOLS ];
 export const LOCK = "lock";
 /** The button that opens the "More tools" menu, named by Excalidraw's `toolBar.extraTools`. */
@@ -211,8 +210,9 @@ export class CanvasTools implements ContentEmbedToolProvider {
             },
             {
                 id: "resetZoom",
-                label: `${this.t("buttons.resetZoom")} (${zoomPercent}%)`,
-                icon: resetZoomIcon,
+                label: this.t("buttons.resetZoom"),
+                text: `${zoomPercent}%`,
+                class: "canvas-drawing-zoom-level",
                 group: "zoom"
             },
             {

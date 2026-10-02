@@ -179,6 +179,7 @@ export class ContentEmbedToolsView extends View {
             view: button,
             update: (tool) => button.set({
                 ...getButtonFace(tool),
+                class: tool.class,
                 isToggleable: tool.isOn !== undefined,
                 isOn: tool.isOn ?? false,
                 isEnabled: tool.isEnabled ?? true
@@ -213,9 +214,10 @@ export class ContentEmbedToolsView extends View {
             view: dropdown,
             update: (tool) => {
                 // `createDropdown()` binds `isOn` of the button to the dropdown being open.
+                const classes = [ tool.class, tool.isOn && "ck-on" ].filter(Boolean);
                 dropdown.buttonView.set({
                     ...getButtonFace(tool),
-                    class: tool.isOn ? "ck-on" : undefined
+                    class: classes.length ? classes.join(" ") : undefined
                 });
                 dropdown.isEnabled = tool.isEnabled ?? true;
                 for (const [ index, child ] of (tool.children ?? []).entries()) {

@@ -28,6 +28,7 @@ interface Tool {
     isEnabled?: boolean;
     group?: string;
     children?: Tool[];
+    class?: string;
 }
 
 const MORE_TOOLS: Tool = {
@@ -139,8 +140,9 @@ describe("ContentEmbedTools", () => {
             .toEqual([ "Undo", false, ICON, "Undo", "Undo", false, false, false ]);
         expect(getItems(tools)).toEqual([ "1", "2", "|", "Undo" ]);
 
-        provider.change([ SELECTION, RECTANGLE, { ...UNDO, isEnabled: true } ]);
+        provider.change([ SELECTION, RECTANGLE, { ...UNDO, isEnabled: true, class: "undo" } ]);
         expect(getButtons(tools)[2]?.isEnabled).toBe(true);
+        expect(getButtons(tools)[2]?.element?.classList.contains("undo")).toBe(true);
     });
 
     it("shows the children of a tool in a menu, without taking the focus", () => {
@@ -168,10 +170,10 @@ describe("ContentEmbedTools", () => {
             { id: "eraser", label: "Eraser", isOn: true },
             { id: "laser", label: "Laser pointer", isOn: false }
         ];
-        provider.change([ RECTANGLE, { ...MORE_TOOLS, isOn: true, children } ]);
+        provider.change([ RECTANGLE, { ...MORE_TOOLS, isOn: true, children, class: "more" } ]);
         expect(tools.views[1]).toBe(menu);
         expect(getMenuItems()).toEqual([ "Eraser:true", "Laser pointer:false" ]);
-        expect(menu.buttonView.class).toBe("ck-on");
+        expect(menu.buttonView.class).toBe("more ck-on");
 
         for (const element of [ menu.buttonView.element, menu.panelView.element ]) {
             const mousedown = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
