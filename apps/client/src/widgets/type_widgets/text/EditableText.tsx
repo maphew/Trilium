@@ -39,7 +39,8 @@ import {
     loadIncludedAttachment,
     loadIncludedNote,
     refreshIncludedNote,
-    setupImageOpening
+    setupImageOpening,
+    watchIncludedNotes
 } from "./utils";
 
 /**
@@ -55,6 +56,7 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
     const contentNoteIdRef = useRef<string>();
     const pendingAttachmentChangesRef = useRef<PendingAttachmentChanges>();
     const watchdogRef = useRef<EditorWatchdog>(null);
+    const stopWatchingIncludesRef = useRef<() => void>();
     const editorApiRef = useRef<CKEditorApi>(null);
     /** The open icon picker request and its balloon container, or `null` when none is open. */
     const [ iconPickerRequest, setIconPickerRequest ] = useState<IconPickerOpts & { container: HTMLElement } | null>(null);
@@ -288,6 +290,8 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
         if (!containerRef.current) return;
         refreshIncludedNote(containerRef.current, noteId);
     });
+
+    useEffect(() => () => stopWatchingIncludesRef.current?.(), []);
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         const editor = watchdogRef.current?.editor as CKTextEditor | null | undefined;
@@ -530,6 +534,8 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
                 onEditorInitialized={(editor) => {
                     if (containerRef.current) {
                         setupImageOpening(containerRef.current, false);
+                        stopWatchingIncludesRef.current?.();
+                        stopWatchingIncludesRef.current = watchIncludedNotes(containerRef.current);
                     }
 
                     editor.plugins.get("FileUploadEditing")

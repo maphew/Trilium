@@ -1594,28 +1594,12 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     flex-grow: 1;
 }
 
-.include-note-toggle,
-.include-note-open,
-.include-note-fullscreen,
-.include-note-menu {
-    background: none;
-    border: none;
-    padding: 2px;
-    cursor: pointer;
-    font-size: 1.2em;
-    color: var(--muted-text-color);
-    transition: transform 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.include-note-title-row > .icon-action {
     flex-shrink: 0;
 }
 
-.include-note-toggle:hover,
-.include-note-open:hover,
-.include-note-fullscreen:hover,
-.include-note-menu:hover {
-    color: var(--main-link-color);
+.include-note-toggle {
+    transition: transform 0.2s ease;
 }
 
 .include-note-toggle.expanded {

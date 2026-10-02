@@ -26,7 +26,8 @@ import {
     loadIncludedAttachment,
     loadIncludedNote,
     refreshIncludedNote,
-    setupImageOpening
+    setupImageOpening,
+    watchIncludedNotes
 } from "./utils";
 
 export default function ReadOnlyText({ note, noteContext, ntxId, parentComponent, isVisible }: TypeWidgetProps) {
@@ -123,6 +124,11 @@ export function ReadOnlyTextContent({ html, ntxId, dir, className, contentRef: e
         applyMath(container);
         setupImageOpening(container, true);
     }, [ html, ntxId, contentRef ]);
+
+    useEffect(() => {
+        if (!contentRef.current) return;
+        return watchIncludedNotes(contentRef.current);
+    }, [ contentRef ]);
 
     // React to included note changes.
     useTriliumEvent("refreshIncludedNote", ({ noteId }) => {

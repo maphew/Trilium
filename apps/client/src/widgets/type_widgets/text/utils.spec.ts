@@ -1,5 +1,5 @@
 import type { VNode } from "preact";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type FAttachment from "../../../entities/fattachment";
 import type FNote from "../../../entities/fnote";
@@ -10,289 +10,219 @@ vi.mock("../../../services/froca", () => ({
 vi.mock("../../../services/link", () => ({
     default: { createLink: vi.fn() }
 }));
-vi.mock("../../../services/content_renderer", async () => {
-    const { render } = await import("preact");
-    return {
-        default: {
-            getRenderedContent: vi.fn(),
-            disposeInteractiveContent: vi.fn(),
-            mountInteractiveWidget: vi.fn(async (vnode: VNode, container: HTMLElement) => {
-                render(vnode, container);
-            })
-        }
-    };
-});
-vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
-const { openTabWithNoteWithHoisting, openContextMenu } = vi.hoisted(() => ({
-    openTabWithNoteWithHoisting: vi.fn(),
-    openContextMenu: vi.fn()
+vi.mock("../../../services/content_renderer", () => ({
+    default: {
+        getRenderedContent: vi.fn(),
+        disposeInteractiveContent: vi.fn(),
+        mountInteractiveWidget: vi.fn()
+    }
 }));
-vi.mock("../../../components/app_context", () => ({
-    default: { tabManager: { openTabWithNoteWithHoisting } }
-}));
-vi.mock("../../../menus/link_context_menu", () => ({ default: { openContextMenu } }));
+vi.mock("./IncludeNote", () => ({ default: () => null }));
 
 import content_renderer from "../../../services/content_renderer";
 import froca from "../../../services/froca";
 import link from "../../../services/link";
-import { getAttachmentHref, loadIncludedAttachment, loadIncludedNote } from "./utils";
+import IncludeNote, { type IncludeNoteProps } from "./IncludeNote";
+import {
+    getAttachmentHref,
+    loadIncludedAttachment,
+    loadIncludedNote,
+    watchIncludedNotes
+} from "./utils";
 
 const note = { noteId: "noteY" } as unknown as FNote;
+const attachment = { attachmentId: "att1", ownerId: "owner" } as unknown as FAttachment;
+const ATTACHMENT_SCOPE = { viewMode: "attachments", attachmentId: "att1" };
+
+let title: HTMLElement;
+let content: HTMLElement;
+
+beforeEach(() => {
+    vi.clearAllMocks();
+    title = document.createElement("span");
+    content = document.createElement("div");
+    vi.mocked(froca.getNote).mockResolvedValue(note);
+    vi.mocked(froca.getAttachment).mockResolvedValue(attachment);
+    vi.mocked(link.createLink).mockResolvedValue($(title));
+    vi.mocked(content_renderer.getRenderedContent)
+        .mockResolvedValue({ $renderedContent: $(content), type: "pdf" } as never);
+});
+
+/** The include box mounted last, and the element it was mounted in. */
+function lastMount() {
+    const call = vi.mocked(content_renderer.mountInteractiveWidget).mock.lastCall;
+    if (!call) {
+        throw new Error("Expected a mounted include box.");
+    }
+    const vnode = call[0] as VNode<IncludeNoteProps>;
+    return { type: vnode.type, props: vnode.props, container: call[1] };
+}
+
+function createWrapper() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "include-note-wrapper";
+    return wrapper;
+}
 
 describe("loadIncludedNote", () => {
-    beforeEach(() => {
-        vi.mocked(froca.getNote).mockResolvedValue(note);
-        vi.mocked(link.createLink).mockResolvedValue($('<span class="link"><a href="#">noteY</a></span>'));
-        vi.mocked(content_renderer.getRenderedContent).mockResolvedValue({ $renderedContent: $("<p>body</p>"), type: "text" } as never);
-        vi.mocked(content_renderer.disposeInteractiveContent).mockReset();
+    it("mounts a box with the note, its own includes reduced to reference links", async () => {
+        const wrapper = createWrapper();
+
+        await loadIncludedNote("noteY", $(wrapper), "medium");
+
+        expect(link.createLink).toHaveBeenCalledWith("noteY", {
+            showTooltip: false,
+            showNoteIcon: true
+        });
+        expect(content_renderer.getRenderedContent).toHaveBeenCalledWith(note, {
+            interactive: true,
+            includesAsReferenceLinks: true,
+            mediaEnvironment: "embedded"
+        });
+        const mount = lastMount();
+        expect(mount.type).toBe(IncludeNote);
+        expect(mount.container).toBe(wrapper);
+        expect(mount.props).toEqual({
+            boxSize: "medium",
+            title,
+            content,
+            contentType: "pdf",
+            notePath: "noteY"
+        });
     });
 
-    it("reuses the wrapper element without nesting a second one (editing-view path)", async () => {
-        // The editing-view downcast hands us the `.include-note-wrapper` element itself.
-        const $el = $('<div class="include-note-wrapper">');
+    it("leaves the box alone for a note that no longer exists", async () => {
+        vi.mocked(froca.getNote).mockResolvedValue(null);
 
-        await loadIncludedNote("noteY", $el, "small");
+        await loadIncludedNote("noteY", $(createWrapper()), "small");
 
-        const wrappers = $el.find(".include-note-wrapper");
-        expect(wrappers.length).toBe(0);
-        expect($el.children(".include-note-title-row").children(".include-note-title").length)
-            .toBe(1);
-        expect($el.children(".include-note-content").length).toBe(1);
-    });
-
-    it("builds a single wrapper inside the section (read-only / refresh path)", async () => {
-        // The read-only and refresh paths hand us the outer `section.include-note`.
-        const $el = $('<section class="include-note" data-note-id="noteY">');
-
-        await loadIncludedNote("noteY", $el, "small");
-
-        const wrappers = $el.find(".include-note-wrapper");
-        expect(wrappers.length).toBe(1);
-        expect(wrappers.children(".include-note-title-row").children(".include-note-title").length)
-            .toBe(1);
-        expect(wrappers.children(".include-note-content").length).toBe(1);
-    });
-
-    it("builds an expandable include (toggle) and degrades the note's own includes to reference links", async () => {
-        const $el = $('<div class="include-note-wrapper">');
-
-        await loadIncludedNote("noteY", $el, "expandable");
-
-        // The expandable branch adds a title row with a toggle button.
-        expect($el.children(".include-note-title-row").length).toBe(1);
-        expect($el.find("button.include-note-toggle").length).toBe(1);
-        // The included note is rendered with its own includes reduced to reference links.
-        expect(content_renderer.getRenderedContent).toHaveBeenCalledWith(note, { interactive: true, includesAsReferenceLinks: true, mediaEnvironment: "embedded" });
-    });
-
-    it("offers no fullscreen button at any box size", async () => {
-        for (const boxSize of [ "small", "medium", "full", "expandable" ]) {
-            const $el = $('<div class="include-note-wrapper">');
-            await loadIncludedNote("noteY", $el, boxSize);
-            expect($el.find(".include-note-fullscreen, .include-note-fullscreen-controls"))
-                .toHaveLength(0);
-        }
-    });
-
-    it("disposes interactive content of a previous render before replacing it", async () => {
-        const $el = $('<div class="include-note-wrapper">');
-
-        await loadIncludedNote("noteY", $el, "small");
-
-        expect(content_renderer.disposeInteractiveContent).toHaveBeenCalledWith($el);
+        expect(link.createLink).not.toHaveBeenCalled();
+        expect(content_renderer.mountInteractiveWidget).not.toHaveBeenCalled();
     });
 });
 
 describe("loadIncludedAttachment", () => {
-    const attachment = {
-        attachmentId: "att1",
-        ownerId: "owner",
-        title: "report.pdf"
-    } as unknown as FAttachment;
+    it("mounts a box with the attachment, opened in its note and offered fullscreen", async () => {
+        const wrapper = createWrapper();
 
-    beforeEach(() => {
-        vi.mocked(froca.getAttachment).mockResolvedValue(attachment);
-        vi.mocked(link.createLink).mockResolvedValue($('<span><a href="#">report.pdf</a></span>'));
-        vi.mocked(content_renderer.getRenderedContent)
-            .mockResolvedValue({ $renderedContent: $("<p>body</p>"), type: "pdf" } as never);
-    });
-
-    it("fills the box with the attachment, under a title linking to it", async () => {
-        const $el = $('<div class="include-note-wrapper">');
-
-        await loadIncludedAttachment("att1", $el, "expandable");
+        await loadIncludedAttachment("att1", $(wrapper), "full");
 
         expect(froca.getAttachment).toHaveBeenCalledWith("att1", true);
         expect(link.createLink).toHaveBeenCalledWith("owner", {
             showTooltip: false,
             showNoteIcon: true,
-            viewScope: { viewMode: "attachments", attachmentId: "att1" }
+            viewScope: ATTACHMENT_SCOPE
         });
         expect(content_renderer.getRenderedContent)
             .toHaveBeenCalledWith(attachment, { interactive: true, mediaEnvironment: "embedded" });
-        expect($el.find("button.include-note-toggle").length).toBe(1);
-        expect($el.find(".include-note-content.type-pdf").text()).toBe("body");
-    });
-
-    it("offers fullscreen from the end of a medium or full box's title row", async () => {
-        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-        // The read-only path reads the box size from the section rather than taking it.
-        const boxes: [ JQuery<HTMLElement>, string | undefined ][] = [
-            [ $('<div class="include-note-wrapper">'), "medium" ],
-            [ $('<section class="include-note" data-box-size="full">'), undefined ]
-        ];
-
-        for (const [ $el, boxSize ] of boxes) {
-            await loadIncludedAttachment("att1", $el, boxSize);
-
-            const $row = $el.find(".include-note-title-row");
-            const button = $row.children("button.include-note-fullscreen.bx-fullscreen")[0];
-            expect($row.children().map((_, child) => child.className).get()).toEqual([
-                "include-note-title",
-                "include-note-open bx bx-link-external",
-                "include-note-fullscreen bx bx-fullscreen",
-                "include-note-menu bx bx-dots-vertical-rounded"
-            ]);
-            expect(button.title).toBe("common.fullscreen");
-
-            const content = $el.find(".include-note-content")[0];
-            content.requestFullscreen = vi.fn(async () => {});
-            const click = new MouseEvent("click", { bubbles: true });
-            const stopPropagation = vi.spyOn(click, "stopPropagation");
-            button.dispatchEvent(click);
-            expect(content.requestFullscreen).toHaveBeenCalledOnce();
-            expect(stopPropagation).toHaveBeenCalled();
-        }
-
-        // A refused request is logged rather than left unhandled.
-        const content = boxes[1][0].find(".include-note-content")[0];
-        content.requestFullscreen = vi.fn(async () => {
-            throw new Error("Denied");
+        const mount = lastMount();
+        expect(mount.type).toBe(IncludeNote);
+        expect(mount.container).toBe(wrapper);
+        expect(mount.props).toEqual({
+            boxSize: "full",
+            title,
+            content,
+            contentType: "pdf",
+            notePath: "owner",
+            viewScope: ATTACHMENT_SCOPE,
+            isFullscreenOffered: true
         });
-        boxes[1][0].find("button.include-note-fullscreen")[0].click();
-        await vi.waitFor(() => expect(warn).toHaveBeenCalled());
-        warn.mockRestore();
-
-        for (const boxSize of [ "small", "expandable" ]) {
-            const $el = $('<div class="include-note-wrapper">');
-            await loadIncludedAttachment("att1", $el, boxSize);
-            expect($el.find(".include-note-fullscreen, .include-note-fullscreen-controls"))
-                .toHaveLength(0);
-        }
-    });
-
-    it("puts a labeled button leaving fullscreen over the top end of the content", async () => {
-        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-        const exitFullscreen = vi.fn<() => Promise<void>>(async () => {});
-        Object.defineProperty(document, "exitFullscreen", {
-            value: exitFullscreen,
-            configurable: true
-        });
-        const $el = $('<div class="include-note-wrapper">');
-
-        await loadIncludedAttachment("att1", $el, "full");
-
-        const controls = $el.children(".include-note-content")[0].firstElementChild;
-        const group = controls?.querySelector<HTMLElement>(".tn-overlay-control-group");
-        const button = group?.querySelector("button");
-        expect(controls?.className).toBe("include-note-fullscreen-controls");
-        expect(group?.className).toContain("include-note-exit-fullscreen");
-        expect(group?.dataset.placement).toBe("top-end");
-        expect(button?.textContent).toBe("common.exit_fullscreen");
-        expect(button?.querySelector(".bx.bx-exit")).not.toBeNull();
-
-        const click = new MouseEvent("click", { bubbles: true });
-        const stopPropagation = vi.spyOn(click, "stopPropagation");
-        button?.dispatchEvent(click);
-        expect(exitFullscreen).toHaveBeenCalledOnce();
-        expect(stopPropagation).toHaveBeenCalled();
-
-        // A refused request is logged rather than left unhandled.
-        exitFullscreen.mockRejectedValueOnce(new Error("Not in fullscreen"));
-        button?.click();
-        await vi.waitFor(() => expect(warn).toHaveBeenCalled());
-
-        warn.mockRestore();
-        Reflect.deleteProperty(document, "exitFullscreen");
     });
 
     it("leaves the box alone for a deleted attachment", async () => {
         vi.mocked(froca.getAttachment).mockResolvedValue(null);
-        vi.mocked(link.createLink).mockClear();
-        const $el = $('<div class="include-note-wrapper"><span>kept</span></div>');
 
-        await loadIncludedAttachment("att1", $el, "small");
+        await loadIncludedAttachment("att1", $(createWrapper()), "small");
 
         expect(link.createLink).not.toHaveBeenCalled();
-        expect($el.text()).toBe("kept");
+        expect(content_renderer.mountInteractiveWidget).not.toHaveBeenCalled();
     });
 });
 
-describe("the buttons after the title of an include", () => {
-    const attachmentScope = { viewMode: "attachments", attachmentId: "att1" };
+describe("the element an include box is mounted in", () => {
+    it("is a wrapper created in a read-only section, which gives the box size", async () => {
+        const section = document.createElement("section");
+        section.className = "include-note";
+        section.dataset.boxSize = "expandable";
+        section.innerHTML = "&nbsp;";
+
+        await loadIncludedNote("noteY", $(section));
+
+        const { container, props } = lastMount();
+        expect([ ...section.childNodes ]).toEqual([ container ]);
+        expect(container.className).toBe("include-note-wrapper");
+        expect(props.boxSize).toBe("expandable");
+
+        // Loading again, as a refresh does, reuses the wrapper.
+        await loadIncludedNote("noteY", $(section), "small");
+        expect(lastMount().container).toBe(container);
+        expect(lastMount().props.boxSize).toBe("small");
+    });
+
+    it("is the wrapper an editor section holds, leaving the editor's own elements", async () => {
+        const section = document.createElement("section");
+        section.className = "include-note ck-widget";
+        section.dataset.boxSize = "full";
+        const wrapper = createWrapper();
+        const typeAround = document.createElement("div");
+        section.append(wrapper, typeAround);
+
+        await loadIncludedAttachment("att1", $(section));
+
+        expect(lastMount().container).toBe(wrapper);
+        expect(lastMount().props.boxSize).toBe("full");
+        expect([ ...section.children ]).toEqual([ wrapper, typeAround ]);
+    });
+});
+
+describe("watchIncludedNotes", () => {
+    let container: HTMLElement;
 
     beforeEach(() => {
-        openTabWithNoteWithHoisting.mockClear();
-        openContextMenu.mockClear();
-        vi.mocked(froca.getNote).mockResolvedValue(note);
-        vi.mocked(froca.getAttachment).mockResolvedValue(
-            { attachmentId: "att1", ownerId: "owner" } as unknown as FAttachment
-        );
-        vi.mocked(link.createLink)
-            .mockImplementation(async () => $('<span><a href="#">x</a></span>'));
-        vi.mocked(content_renderer.getRenderedContent).mockImplementation(async () => (
-            { $renderedContent: $("<p>body</p>"), type: "text" } as never
-        ));
+        container = document.createElement("div");
+        container.innerHTML = `<p>text</p><section class="include-note"></section>`
+            + `<blockquote><section class="include-note"></section></blockquote>`;
+        document.body.appendChild(container);
     });
 
-    /** A note box and an attachment box of each size, with the note and view scope each shows. */
-    async function loadEveryBox() {
-        const boxes: [ JQuery<HTMLElement>, string, object | undefined ][] = [];
-        for (const boxSize of [ "small", "medium", "full", "expandable" ]) {
-            const $note = $('<div class="include-note-wrapper">');
-            const $attachment = $('<div class="include-note-wrapper">');
-            await loadIncludedNote("noteY", $note, boxSize);
-            await loadIncludedAttachment("att1", $attachment, boxSize);
-            boxes.push([ $note, "noteY", undefined ], [ $attachment, "owner", attachmentScope ]);
-        }
-        return boxes;
-    }
-
-    function click(button: HTMLElement) {
-        const event = new MouseEvent("click", { bubbles: true });
-        const stopPropagation = vi.spyOn(event, "stopPropagation");
-        button.dispatchEvent(event);
-        return { event, stopPropagation };
-    }
-
-    it("opens the note or attachment in a new tab, from right after the title", async () => {
-        for (const [ $el, notePath, viewScope ] of await loadEveryBox()) {
-            const $button = $el.find(".include-note-title").next();
-            expect($button.attr("class")).toBe("include-note-open bx bx-link-external");
-            expect($button.attr("title")).toBe("common.open_in_new_tab");
-
-            const { stopPropagation } = click($button[0]);
-            expect(openTabWithNoteWithHoisting).toHaveBeenLastCalledWith(notePath, {
-                viewScope,
-                activate: true,
-                placement: "afterCurrent"
-            });
-            expect(stopPropagation).toHaveBeenCalled();
-        }
-        expect(openTabWithNoteWithHoisting).toHaveBeenCalledTimes(8);
+    afterEach(() => {
+        container.remove();
     });
 
-    it("opens the context menu of the note or attachment from the end of the row", async () => {
-        for (const [ $el, notePath, viewScope ] of await loadEveryBox()) {
-            const $button = $el.find(".include-note-title-row").children().last();
-            expect($button.attr("class")).toBe("include-note-menu bx bx-dots-vertical-rounded");
-            expect($button.attr("title")).toBe("common.more_actions");
+    function disposed() {
+        return vi.mocked(content_renderer.disposeInteractiveContent).mock.calls
+            .map(([ $element ]) => $element[0]);
+    }
 
-            const { event, stopPropagation } = click($button[0]);
-            expect(openContextMenu).toHaveBeenLastCalledWith(notePath, event, viewScope);
-            expect(stopPropagation).toHaveBeenCalled();
-        }
-        expect(openContextMenu).toHaveBeenCalledTimes(8);
+    function flush() {
+        return new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    it("unmounts what is removed from the container, but not what is moved within it", async () => {
+        const stop = watchIncludedNotes(container);
+        const [ paragraph, section, quote ] = [ ...container.children ];
+
+        section.remove();
+        quote.remove();
+        container.append(quote);
+        paragraph.firstChild?.remove();
+        await flush();
+
+        expect(disposed()).toEqual([ section ]);
+        stop();
+    });
+
+    it("unmounts what is left on stop, and stops watching", async () => {
+        const stop = watchIncludedNotes(container);
+        const section = container.querySelector("section");
+        section?.remove();
+
+        stop();
+        expect(disposed()).toEqual([ section, container ]);
+
+        container.querySelector("blockquote")?.remove();
+        await flush();
+        expect(disposed()).toHaveLength(2);
     });
 });
 
