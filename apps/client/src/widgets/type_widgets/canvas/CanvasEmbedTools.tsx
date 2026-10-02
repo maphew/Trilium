@@ -17,25 +17,27 @@ import {
 } from "../text/content_embed_tools";
 
 /** The tools in the order of their buttons. Excalidraw also selects the first nine with 1 to 9. */
-const TOOLS = [
+export const TOOLS = [
     "selection", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text", "image",
     "eraser", "hand", "frame", "embeddable", "laser"
 ] as const satisfies readonly ToolType[];
-const LOCK = "lock";
+export const LOCK = "lock";
+/** The commands that click Excalidraw's own `button-undo` and `button-redo`. */
+export const HISTORY_ACTIONS = [ "undo", "redo" ] as const;
 
 /** Excalidraw's zoom step and limits, from its own zoom buttons. */
-const ZOOM_STEP = 0.1;
-const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 30;
+export const ZOOM_STEP = 0.1;
+export const MIN_ZOOM = 0.1;
+export const MAX_ZOOM = 30;
 /** The zoom that each zoom button sets, from the current one. */
-const ZOOMS: Record<string, (zoom: number) => number> = {
+export const ZOOMS: Record<string, (zoom: number) => number> = {
     zoomOut: (zoom) => zoom - ZOOM_STEP,
     resetZoom: () => 1,
     zoomIn: (zoom) => zoom + ZOOM_STEP
 };
 
 type Tool = typeof TOOLS[number];
-type HistoryAction = "undo" | "redo";
+type HistoryAction = typeof HISTORY_ACTIONS[number];
 /** Excalidraw's `t()`, for a key such as `toolBar.rectangle`. */
 type Translate = (key: string) => string;
 
