@@ -164,12 +164,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
         return false;
     });
 
-    const autocompleteOptions: AutoCompleteConfig = {};
-    if (options.container) {
-        autocompleteOptions.dropdownMenuContainer = options.container;
-        autocompleteOptions.debug = true; // don't close on blur
-    }
-
     if (options.allowJumpToSearchNotes) {
         $el.on("keydown", (event) => {
             if (event.ctrlKey && event.key === "Enter") {
@@ -203,7 +197,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
 
     $el.autocomplete(
         {
-            ...autocompleteOptions,
             appendTo: document.querySelector("body"),
             hint: false,
             autoselect: true,

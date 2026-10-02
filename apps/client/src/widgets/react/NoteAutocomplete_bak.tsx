@@ -3,7 +3,7 @@ import note_autocomplete from "../../services/note_autocomplete";
 import { useSyncedRef } from "./hooks";
 import type { NoteAutocompleteProps } from "./NoteAutocomplete";
 
-export default function NoteAutocomplete({ inputRef: externalInputRef, text, onChange, container, opts, noteId, noteIdChanged }: NoteAutocompleteProps) {
+export default function NoteAutocomplete({ inputRef: externalInputRef, text, onChange, opts, noteId, noteIdChanged }: NoteAutocompleteProps) {
     const ref = useSyncedRef<HTMLInputElement>(externalInputRef);
 
     useEffect(() => {
@@ -15,11 +15,8 @@ export default function NoteAutocomplete({ inputRef: externalInputRef, text, onC
             .off("autocomplete:noteselected")
             .off("autocomplete:commandselected")
 
-        note_autocomplete.initNoteAutocomplete($autoComplete, {
-            ...opts,
-            container: container?.current
-        });
-    }, [opts, container?.current]);
+        note_autocomplete.initNoteAutocomplete($autoComplete, opts);
+    }, [opts]);
 
     // On change event handlers.
     useEffect(() => {
@@ -44,7 +41,7 @@ export default function NoteAutocomplete({ inputRef: externalInputRef, text, onC
                     .off("autocomplete:commandselected", autoCompleteListener);
             };
         }
-    }, [opts, container?.current, onChange, noteIdChanged])
+    }, [opts, onChange, noteIdChanged])
 
     useEffect(() => {
         if (!ref.current || noteId || !text) return;

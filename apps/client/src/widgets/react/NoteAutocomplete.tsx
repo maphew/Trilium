@@ -2,7 +2,7 @@ import "./NoteAutocomplete.css";
 
 import clsx from "clsx";
 import type { RefObject } from "preact";
-import type { CSSProperties } from "preact/compat";
+import { createPortal, type CSSProperties } from "preact/compat";
 import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import froca from "../../services/froca";
@@ -41,7 +41,7 @@ export interface NoteAutocompleteHandle {
     showRecentNotes(): void;
 }
 
-export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef }: NoteAutocompleteProps) {
+export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, container, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef }: NoteAutocompleteProps) {
     const inputRef = useSyncedRef<HTMLInputElement>(externalInputRef);
     const groupRef = useRef<HTMLDivElement>(null);
     const [ value, setValue ] = useState("");
@@ -134,7 +134,8 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                     onKeyDown?.(e);
                 }}
                 onBlur={() => {
-                    autocomplete.handleBlur();
+                    // A list in the host's container stays open until Escape or a pick.
+                    if (!container) autocomplete.handleBlur();
                     onBlur?.(value.trim() ? lastSegment(notePath) : "");
                 }}
             />
@@ -164,45 +165,56 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 />
             </>}
 
-            {autocomplete.isShown && groupRef.current && (
-                <Popup
-                    anchor={groupRef.current}
-                    placement="bottom-start"
-                    capHeight={false}
-                    className="algolia-autocomplete"
-                    // The list spans the whole field, buttons included.
-                    style={{ width: `${groupRef.current.getBoundingClientRect().width}px` }}
-                    escapeDismisses={false}
-                    onDismiss={autocomplete.close}
-                >
-                    <span
-                        className="aa-dropdown-menu"
-                        role="listbox"
-                        // Keeps the input focused, so its blur does not close the list before the
-                        // click lands on a suggestion.
-                        onMouseDown={(e) => e.preventDefault()}
+            {autocomplete.isShown && (container
+                ? container.current && createPortal(
+                    <NoteSuggestionList autocomplete={autocomplete} />,
+                    container.current)
+                : groupRef.current && (
+                    <Popup
+                        anchor={groupRef.current}
+                        placement="bottom-start"
+                        capHeight={false}
+                        className="algolia-autocomplete"
+                        // The list spans the whole field, buttons included.
+                        style={{ width: `${groupRef.current.getBoundingClientRect().width}px` }}
+                        escapeDismisses={false}
+                        onDismiss={autocomplete.close}
                     >
-                        <div className="aa-dataset-0">
-                            <span className="aa-suggestions">
-                                {autocomplete.items.map((suggestion, index) => (
-                                    <div
-                                        key={`${suggestion.action ?? ""}:${suggestion.notePath ?? index}`}
-                                        id={autocomplete.itemId(index)}
-                                        className={clsx("aa-suggestion", index === autocomplete.activeIndex && "aa-cursor")}
-                                        role="option"
-                                        aria-selected={index === autocomplete.activeIndex}
-                                        onMouseEnter={() => autocomplete.setActiveIndex(index)}
-                                        onClick={() => autocomplete.pick(suggestion)}
-                                    >
-                                        <NoteSuggestion suggestion={suggestion} />
-                                    </div>
-                                ))}
-                            </span>
-                        </div>
-                    </span>
-                </Popup>
-            )}
+                        <NoteSuggestionList autocomplete={autocomplete} />
+                    </Popup>
+                ))}
         </div>
+    );
+}
+
+/** The list of suggestions, in the markup of `autocomplete.js`. */
+function NoteSuggestionList({ autocomplete }: { autocomplete: ReturnType<typeof useAutocomplete<Suggestion>> }) {
+    return (
+        <span
+            className="aa-dropdown-menu"
+            role="listbox"
+            // Keeps the input focused, so its blur does not close the list before the click lands
+            // on a suggestion.
+            onMouseDown={(e) => e.preventDefault()}
+        >
+            <div className="aa-dataset-0">
+                <span className="aa-suggestions">
+                    {autocomplete.items.map((suggestion, index) => (
+                        <div
+                            key={`${suggestion.action ?? ""}:${suggestion.notePath ?? index}`}
+                            id={autocomplete.itemId(index)}
+                            className={clsx("aa-suggestion", index === autocomplete.activeIndex && "aa-cursor")}
+                            role="option"
+                            aria-selected={index === autocomplete.activeIndex}
+                            onMouseEnter={() => autocomplete.setActiveIndex(index)}
+                            onClick={() => autocomplete.pick(suggestion)}
+                        >
+                            <NoteSuggestion suggestion={suggestion} />
+                        </div>
+                    ))}
+                </span>
+            </div>
+        </span>
     );
 }
 

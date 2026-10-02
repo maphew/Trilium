@@ -434,14 +434,6 @@ describe("initNoteAutocomplete wiring", () => {
         expect($group.find(".go-to-selected-note-button").length).toBe(0);
     });
 
-    it("passes a container into the autocomplete config and enables debug", () => {
-        const container = document.createElement("div");
-        const $el = makeEl();
-        noteAutocomplete.initNoteAutocomplete($el, { container });
-        expect(lastConfig?.dropdownMenuContainer).toBe(container);
-        expect(lastConfig?.debug).toBe(true);
-    });
-
     it("Ctrl+Enter triggers a search-notes selection when allowJumpToSearchNotes", () => {
         const $el = makeEl();
         const selected = vi.fn();

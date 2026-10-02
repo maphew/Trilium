@@ -291,6 +291,29 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(document.activeElement).toBe(input);
     });
 
+    it("lists into the host's container, open past a blur until Escape", async () => {
+        const host = document.createElement("div");
+        document.body.append(host);
+        const input = await mount({ container: { current: host } });
+        await type(input, "a");
+
+        const menu = host.querySelector<HTMLElement>(":scope > span.aa-dropdown-menu");
+        expect(menu?.querySelectorAll(".aa-suggestion")).toHaveLength(2);
+        // In the host's flow, as `autocomplete.js` left it: its contained menu had only `display: block`.
+        expect(menu?.hasAttribute("style")).toBe(false);
+        expect(document.querySelector(".algolia-autocomplete")).toBeNull();
+
+        await act(async () => {
+            input.focus();
+            input.blur();
+        });
+        expect(host.querySelectorAll(".aa-suggestion")).toHaveLength(2);
+
+        await press(input, "Escape");
+        expect(host.querySelector(".aa-dropdown-menu")).toBeNull();
+        host.remove();
+    });
+
     it("spans the whole field, the buttons included", async () => {
         const input = await mount();
         const group = input.closest(".input-group");

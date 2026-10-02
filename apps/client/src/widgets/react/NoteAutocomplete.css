@@ -41,7 +41,6 @@
 }
 
 .algolia-autocomplete .aa-dropdown-menu {
-    display: block;
     width: 100%;
     background-color: var(--main-background-color);
     border: 1px solid var(--main-border-color);
@@ -52,7 +51,9 @@
     margin: 0;
 }
 
-.algolia-autocomplete .aa-suggestions {
+/* In a popup and in a host's container alike, as `autocomplete.js` set them inline. */
+span.aa-dropdown-menu,
+span.aa-dropdown-menu .aa-suggestions {
     display: block;
 }
 
