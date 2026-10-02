@@ -3,11 +3,23 @@ import type {
     AppState, ExcalidrawImperativeAPI, NormalizedZoomValue, ToolType
 } from "@excalidraw/excalidraw/types";
 import moreToolsIcon from "boxicons/svg/regular/bx-category.svg?raw";
+import ellipseIcon from "boxicons/svg/regular/bx-circle.svg?raw";
+import eraserIcon from "boxicons/svg/regular/bx-eraser.svg?raw";
+import textIcon from "boxicons/svg/regular/bx-font.svg?raw";
+import imageIcon from "boxicons/svg/regular/bx-image.svg?raw";
+import lockIcon from "boxicons/svg/regular/bx-lock-open-alt.svg?raw";
+import lineIcon from "boxicons/svg/regular/bx-minus.svg?raw";
+import drawIcon from "boxicons/svg/regular/bx-pencil.svg?raw";
+import selectionIcon from "boxicons/svg/regular/bx-pointer.svg?raw";
+import rectangleIcon from "boxicons/svg/regular/bx-rectangle.svg?raw";
 import redoIcon from "boxicons/svg/regular/bx-redo.svg?raw";
 import resetZoomIcon from "boxicons/svg/regular/bx-reset.svg?raw";
+import arrowIcon from "boxicons/svg/regular/bx-right-arrow-alt.svg?raw";
+import squareIcon from "boxicons/svg/regular/bx-square.svg?raw";
 import undoIcon from "boxicons/svg/regular/bx-undo.svg?raw";
 import zoomInIcon from "boxicons/svg/regular/bx-zoom-in.svg?raw";
 import zoomOutIcon from "boxicons/svg/regular/bx-zoom-out.svg?raw";
+import handIcon from "boxicons/svg/solid/bxs-hand.svg?raw";
 import type { RefObject } from "preact";
 import { useEffect, useState } from "preact/hooks";
 
@@ -19,11 +31,12 @@ import {
 
 /** The tools with a button of their own, in the order of their buttons. */
 export const MAIN_TOOLS = [
-    "hand", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text", "image"
+    "hand", "selection", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text",
+    "image", "eraser"
 ] as const satisfies readonly ToolType[];
 /** The tools in the "More tools" menu. */
 export const EXTRA_TOOLS = [
-    "selection", "eraser", "frame", "embeddable", "laser"
+    "frame", "embeddable", "laser"
 ] as const satisfies readonly ToolType[];
 const TOOLS = [ ...MAIN_TOOLS, ...EXTRA_TOOLS ];
 export const LOCK = "lock";
@@ -47,6 +60,28 @@ type Tool = typeof TOOLS[number];
 type HistoryAction = typeof HISTORY_ACTIONS[number];
 /** Excalidraw's `t()`, for a key such as `toolBar.rectangle`. */
 type Translate = (key: string) => string;
+
+/** Boxicons' square turned by 45°, and scaled down to stay inside the box of the icon. */
+const diamondIcon = squareIcon.replace(
+    "<path ",
+    "<path transform=\"translate(12 12) rotate(45) scale(0.8) translate(-12 -12)\" "
+);
+
+/** The icons of the tools, for their buttons and their entries in the "More tools" menu. */
+const ICONS: Partial<Record<Tool | typeof LOCK, string>> = {
+    [LOCK]: lockIcon,
+    hand: handIcon,
+    selection: selectionIcon,
+    rectangle: rectangleIcon,
+    diamond: diamondIcon,
+    ellipse: ellipseIcon,
+    arrow: arrowIcon,
+    line: lineIcon,
+    freedraw: drawIcon,
+    text: textIcon,
+    image: imageIcon,
+    eraser: eraserIcon
+};
 
 interface CanvasEmbedToolsProps {
     /** The element of the drawing, inside the embed whose toolbar shows the tools. */
@@ -141,14 +176,14 @@ export class CanvasTools implements ContentEmbedToolProvider {
             {
                 id: LOCK,
                 label: this.t("toolBar.lock"),
-                text: "1",
+                icon: ICONS[LOCK],
                 isOn: activeTool.locked,
                 group: "lock"
             },
-            ...MAIN_TOOLS.map((type, index) => ({
+            ...MAIN_TOOLS.map((type) => ({
                 id: type,
                 label: this.t(`toolBar.${type}`),
-                text: String(index + 2),
+                icon: ICONS[type],
                 isOn: activeTool.type === type,
                 group: "tools"
             })),
@@ -161,6 +196,7 @@ export class CanvasTools implements ContentEmbedToolProvider {
                 children: EXTRA_TOOLS.map((type) => ({
                     id: type,
                     label: this.t(`toolBar.${type}`),
+                    icon: ICONS[type],
                     isOn: activeTool.type === type
                 }))
             },

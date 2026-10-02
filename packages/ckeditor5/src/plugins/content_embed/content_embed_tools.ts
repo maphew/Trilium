@@ -221,6 +221,7 @@ export class ContentEmbedToolsView extends View {
                 for (const [ index, child ] of (tool.children ?? []).entries()) {
                     models[index]?.set({
                         label: child.label,
+                        icon: child.icon,
                         isOn: child.isOn ?? false,
                         isEnabled: child.isEnabled ?? true
                     });

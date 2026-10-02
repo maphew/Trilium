@@ -15,9 +15,10 @@ const {
 } = await import("../text/content_embed_tools");
 
 const MAIN_TOOL_IDS = [
-    "hand", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text", "image"
+    "hand", "selection", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text",
+    "image", "eraser"
 ];
-const EXTRA_TOOL_IDS = [ "selection", "eraser", "frame", "embeddable", "laser" ];
+const EXTRA_TOOL_IDS = [ "frame", "embeddable", "laser" ];
 const ICON = expect.stringContaining("<svg");
 
 describe("CanvasEmbedTools", () => {
@@ -72,23 +73,26 @@ describe("CanvasEmbedTools", () => {
         const tools = provider.getTools();
         const count = MAIN_TOOL_IDS.length;
         expect(tools[0]).toEqual({
-            id: "lock", label: "t:toolBar.lock", text: "1", isOn: false, group: "lock"
+            id: "lock", label: "t:toolBar.lock", icon: ICON, isOn: false, group: "lock"
         });
-        expect(tools.slice(1, count + 1)).toEqual(MAIN_TOOL_IDS.map((id, index) => ({
+        expect(tools.slice(1, count + 1)).toEqual(MAIN_TOOL_IDS.map((id) => ({
             id,
             label: `t:toolBar.${id}`,
-            text: String(index + 2),
-            isOn: false,
+            icon: ICON,
+            isOn: id === "selection",
             group: "tools"
         })));
+        expect(tools.find((tool) => tool.id === "diamond")?.icon).toContain("rotate(45)");
         expect(tools[count + 1]).toEqual({
             id: "moreTools",
             label: "t:toolBar.extraTools",
             icon: ICON,
-            isOn: true,
+            isOn: false,
             group: "moreTools",
             children: EXTRA_TOOL_IDS.map((id) => ({
-                id, label: `t:toolBar.${id}`, isOn: id === "selection"
+                id,
+                label: `t:toolBar.${id}`,
+                isOn: id === "selection"
             }))
         });
         expect(tools.slice(count + 2)).toEqual([
@@ -153,9 +157,9 @@ describe("CanvasEmbedTools", () => {
         expect(listener).toHaveBeenCalledTimes(2);
         expect(getOn()).toEqual([ "lock", "rectangle" ]);
 
-        api.change({ activeTool: { type: "eraser", locked: true } });
+        api.change({ activeTool: { type: "laser", locked: true } });
         expect(listener).toHaveBeenCalledTimes(3);
-        expect(getOn()).toEqual([ "lock", "moreTools", "eraser" ]);
+        expect(getOn()).toEqual([ "lock", "moreTools", "laser" ]);
 
         api.change({ zoom: { value: 30 } });
         expect(listener).toHaveBeenCalledTimes(4);

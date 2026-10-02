@@ -37,7 +37,7 @@ const MORE_TOOLS: Tool = {
     isOn: false,
     group: "more",
     children: [
-        { id: "eraser", label: "Eraser", isOn: false },
+        { id: "eraser", label: "Eraser", icon: ICON, isOn: false },
         { id: "laser", label: "Laser pointer", isOn: true }
     ]
 };
@@ -160,6 +160,8 @@ describe("ContentEmbedTools", () => {
             ...menu.panelView.element?.querySelectorAll(".ck-button") ?? []
         ].map((item) => `${item.textContent}:${item.classList.contains("ck-on")}`);
         expect(getMenuItems()).toEqual([ "Eraser:false", "Laser pointer:true" ]);
+        expect([ ...menu.panelView.element?.querySelectorAll(".ck-button") ?? [] ]
+            .map((item) => !!item.querySelector(".ck-button__icon"))).toEqual([ true, false ]);
         expect(menu.buttonView.class).toBeUndefined();
 
         const children = [
