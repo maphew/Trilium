@@ -433,7 +433,8 @@ function bestMatchIndex<T>(items: T[], text: string, isHeading: ((item: T) => bo
  * which row a heading was skipped for.
  */
 export function stepOver<T>(items: T[], from: number, delta: number, isHeading?: (item: T) => boolean) {
-    let index = from;
+    // With nothing highlighted, stepping up starts past the end so that it lands on the last entry.
+    let index = from < 0 && delta < 0 ? items.length : from;
 
     for (let step = 0; step < items.length; step++) {
         index = (index + delta + items.length) % items.length;

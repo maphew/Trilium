@@ -46,6 +46,11 @@ describe("stepping through a list with headings in it", () => {
         expect(stepOver(items, 1, -1, isHeading)).toBe(4);
     });
 
+    it("goes up to the last entry from a list with nothing highlighted", () => {
+        expect(stepOver(items, -1, -1, isHeading)).toBe(4);
+        expect(stepOver([ "a", "b", "c" ], -1, -1)).toBe(2);
+    });
+
     it("highlights nothing in a list that is headings alone", () => {
         expect(stepOver([ "Nearby" ], -1, 1, isHeading)).toBe(-1);
     });
