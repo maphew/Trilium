@@ -275,7 +275,7 @@ body.mobile .dropdown-submenu {
     padding: 0 !important;
 }
 
-body.mobile .dropdown-item:not(:last-of-type) {
+body.mobile .dropdown-item:not(:last-of-type):where(:not(.note-autocomplete-menu .dropdown-item)) {
     margin-bottom: 0.5em;
 }
 
@@ -452,6 +452,14 @@ body.mobile .dropdown-menu.mobile-bottom-menu {
     border-radius: var(--dropdown-border-radius) var(--dropdown-border-radius) 0 0;
 }
 
+/* A list of suggestions keeps its desktop look, in place of the context menu's cards. */
+body.mobile .dropdown-menu.note-autocomplete-menu {
+    /* Matches `body.desktop .dropdown-menu` in style.css. */
+    border: 1px solid var(--dropdown-border-color);
+    box-shadow: 0px 10px 20px rgba(0, 0, 0, var(--dropdown-shadow-opacity));
+    backdrop-filter: var(--dropdown-backdrop-filter);
+}
+
 /* Pinned to the bottom like a sheet only in the phone layout; see style.css. */
 @media (max-width: 991px) {
     body.mobile .tn-dropdown-portal.global-menu .dropdown-menu {
@@ -471,7 +479,7 @@ body.mobile .dropdown-menu.mobile-bottom-menu {
     }
 }
 
-body.mobile .dropdown-menu {
+body.mobile .dropdown-menu:where(:not(.note-autocomplete-menu)) {
     --dropdown-menu-padding-vertical: 0.7em;
     --dropdown-menu-padding-horizontal: 1em;
     --hover-item-background-color: var(--card-background-color);
