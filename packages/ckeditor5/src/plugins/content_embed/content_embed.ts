@@ -447,6 +447,7 @@ class ContentEmbedEditing extends Plugin {
 			// Shows or hides the title without drawing the content again.
 			dispatcher.on( 'attribute:hideTitle:contentEmbed', ( _evt, data, conversionApi ) => {
 				const viewElement = conversionApi.mapper.toViewElement( data.item as ModelElement );
+				/* v8 ignore next 3 -- converted after the embed itself, so always mapped */
 				if ( !viewElement ) {
 					return;
 				}
@@ -510,12 +511,11 @@ class ContentEmbedEditing extends Plugin {
 				const viewElement = parent.is( 'element', 'contentEmbed' )
 					? data.mapper.toViewElement( parent )
 					: undefined;
-				const wrapperIndex = viewElement ? getWrapperIndex( viewElement ) : null;
-				if ( !viewElement || wrapperIndex === null ) {
+				if ( !viewElement ) {
 					return;
 				}
 
-				const offset = wrapperIndex + 1 + data.modelPosition.offset;
+				const offset = getWrapperIndex( viewElement ) + 1 + data.modelPosition.offset;
 				data.viewPosition = editor.editing.view.createPositionAt(
 					viewElement, Math.min( offset, viewElement.childCount ) );
 			}
@@ -798,13 +798,8 @@ function isEmbedConvertibleToLink( editor: Editor, embed: ModelElement ) {
 
 /** The caption of `embed`, or `null`. */
 function getCaption( embed: ModelElement ) {
-	for ( const child of embed.getChildren() ) {
-		if ( child.is( 'element', 'caption' ) ) {
-			return child;
-		}
-	}
-
-	return null;
+	return Array.from( embed.getChildren() )
+		.find( ( child ): child is ModelElement => child.is( 'element', 'caption' ) ) ?? null;
 }
 
 /** Whether `element` is the `<figcaption>` of an embed. */
@@ -814,15 +809,10 @@ function isContentEmbedCaptionView( element: ViewElement ) {
 		&& parent.hasClass( 'include-note' );
 }
 
-/** The index of the content wrapper among the children of an embed's view, or `null`. */
+/** The index of the content wrapper among the children of an embed's view, or `-1`. */
 function getWrapperIndex( viewElement: ViewElement ) {
-	for ( const [ index, child ] of Array.from( viewElement.getChildren() ).entries() ) {
-		if ( child.is( 'uiElement' ) && child.hasClass( 'include-note-wrapper' ) ) {
-			return index;
-		}
-	}
-
-	return null;
+	return Array.from( viewElement.getChildren() )
+		.findIndex( child => child.is( 'uiElement' ) && child.hasClass( 'include-note-wrapper' ) );
 }
 
 /** Adds `node`, when it is an embed, and every embed inside it to `embeds`. */
@@ -922,6 +912,7 @@ function redrawEmbeddedEntity(
 	conversionApi: DowncastConversionApi
 ) {
 	const viewElement = conversionApi.mapper.toViewElement( embed );
+	/* v8 ignore next 3 -- converted after the embed itself, so always mapped */
 	if ( !viewElement ) {
 		return;
 	}

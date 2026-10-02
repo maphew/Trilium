@@ -6,6 +6,8 @@ import {
     ButtonView,
     ClassicEditor,
     Essentials,
+    ImageBlock,
+    ImageCaption,
     LinkEditing,
     Paragraph,
     SwitchButtonView,
@@ -277,6 +279,21 @@ describe("ContentEmbed", () => {
         expect(editor.getData()).toBe(before);
     });
 
+    it("toggles neither a caption nor a title when nothing is selected", () => {
+        setModelData(editor.model, "<paragraph>foo[]bar</paragraph>");
+        const before = getModelData(editor.model);
+
+        // The decorated `Command#execute()` skips a disabled command, so each command is forced
+        // enabled to run `execute()` with no embed selected.
+        for (const name of [ TOGGLE_CAPTION_COMMAND_NAME, TOGGLE_TITLE_COMMAND_NAME ]) {
+            const command = editor.commands.get(name) as { isEnabled: boolean; execute(): void };
+            command.isEnabled = true;
+            command.execute();
+        }
+
+        expect(getModelData(editor.model)).toBe(before);
+    });
+
     // -----------------------------------------------------------------------
     // preventCKEditorHandling / selectContentEmbedWidget (DOM event handlers)
     // -----------------------------------------------------------------------
@@ -542,7 +559,8 @@ describe("ContentEmbed", () => {
         // returns undefined, the button must still be created (just without the binding).
         const realGet = editor.commands.get.bind(editor.commands);
         const absent: string[] = [
-            COMMAND_NAME, CONVERT_EMBED_TO_LINK_COMMAND, TOGGLE_CAPTION_COMMAND_NAME
+            COMMAND_NAME, CONVERT_EMBED_TO_LINK_COMMAND, TOGGLE_CAPTION_COMMAND_NAME,
+            TOGGLE_TITLE_COMMAND_NAME
         ];
         const getSpy = vi
             .spyOn(editor.commands, "get")
@@ -555,6 +573,10 @@ describe("ContentEmbed", () => {
             expect((convert as unknown as { label: string }).label).toBe("Convert to link");
             const caption = editor.ui.componentFactory.create(TOGGLE_CAPTION_COMMAND_NAME);
             expect((caption as unknown as { label: string }).label).toBe("Toggle caption on");
+            const title = editor.ui.componentFactory.create(TOGGLE_TITLE_COMMAND_NAME);
+            expect((title as unknown as { label: string }).label).toBe("Show title");
+            const menu = editor.ui.componentFactory.create(CONTENT_EMBED_MENU);
+            expect((menu as unknown as { label: string }).label).toBe("More actions");
         } finally {
             getSpy.mockRestore();
         }
@@ -745,6 +767,7 @@ describe("ContentEmbed with attachments", () => {
             + " data-hide-title=\"true\"><figcaption>Caption</figcaption></figure>"
             + "<figure class=\"include-note\" data-note-id=\"noteY\" data-box-size=\"tiny\""
             + " data-hide-title=\"true\"></figure>"
+            + "<figure class=\"include-note\" data-note-id=\"noteZ\"></figure>"
             + "<p>after</p>");
         editor.model.change((writer) => {
             const root = editor.model.document.getRoot();
@@ -753,10 +776,11 @@ describe("ContentEmbed with attachments", () => {
                 writer.setSelection(paragraph, 0);
             }
         });
-        const [ embed, note, tiny ] = renderEmbeds() ?? [];
+        const [ embed, note, tiny, unsized ] = renderEmbeds() ?? [];
         const plugin = editor.plugins.get("ContentEmbed");
 
-        const states = [ embed, note, tiny ].map((wrapper) => plugin.getEmbedStateAt(wrapper));
+        const states = [ embed, note, tiny, unsized ]
+            .map((wrapper) => plugin.getEmbedStateAt(wrapper));
         expect(states).toEqual([ {
             boxSize: "small", isTitleShown: true, isTitleToggleable: true,
             hasCaption: false, isCaptionToggleable: true, isConvertibleToLink: true
@@ -766,6 +790,9 @@ describe("ContentEmbed with attachments", () => {
         }, {
             boxSize: "tiny", isTitleShown: true, isTitleToggleable: false,
             hasCaption: false, isCaptionToggleable: false, isConvertibleToLink: true
+        }, {
+            boxSize: null, isTitleShown: true, isTitleToggleable: true,
+            hasCaption: false, isCaptionToggleable: true, isConvertibleToLink: true
         } ]);
         const paragraph = editor.editing.view.getDomRoot()?.querySelector("p") ?? embed;
         expect(plugin.getEmbedStateAt(paragraph)).toBeNull();
@@ -1017,6 +1044,33 @@ describe("ContentEmbed captions", () => {
         expect(getModelData(editor.model, { withoutSelection: true }))
             .toBe("<contentEmbed boxSize=\"tiny\" noteId=\"n1\"></contentEmbed>");
     });
+
+    it("shares the caption element with image captions, whichever registers it first", async () => {
+        const data = "<figure class=\"image\"><img src=\"a.png\"><figcaption>Picture</figcaption>"
+            + "</figure>" + CAPTIONED;
+
+        for (const plugins of [
+            [ ImageBlock, ImageCaption, ContentEmbed ],
+            [ ContentEmbed, ImageBlock, ImageCaption ]
+        ]) {
+            const imageEditor = await createTestEditor([
+                Essentials, Paragraph, Bold, Widget, ...plugins
+            ]);
+            imageEditor.setData(data);
+
+            expect(getModelData(imageEditor.model, { withoutSelection: true })).toBe(
+                "<imageBlock src=\"a.png\"><caption>Picture</caption></imageBlock>"
+                + "<contentEmbed boxSize=\"medium\" noteId=\"n1\">"
+                + "<caption>A <$text bold=\"true\">bold</$text> caption</caption></contentEmbed>"
+            );
+            expect(imageEditor.getData()).toBe(data);
+            const root = imageEditor.editing.view.getDomRoot();
+            expect(root?.querySelector("figure.image > figcaption")?.textContent)
+                .toBe("Picture");
+            expect(root?.querySelector("figure.include-note > figcaption")?.textContent)
+                .toBe("A bold caption");
+        }
+    });
 });
 
 describe("ContentEmbed title", () => {
@@ -1123,6 +1177,21 @@ describe("ContentEmbed title", () => {
 
         editor.execute(BOX_SIZE_COMMAND_NAME, { value: "tiny" });
         expect([ toggle.isVisible, menu.isVisible ]).toEqual([ false, false ]);
+    });
+
+    it("opens no menu from a button not rendered yet, or with no embed selected", () => {
+        const menu = editor.ui.componentFactory.create(CONTENT_EMBED_MENU);
+        insertContentEmbed(editor, "n1", "medium");
+        menu.fire("execute");
+
+        menu.render();
+        setModelData(editor.model, "<paragraph>foo[]</paragraph>");
+        menu.fire("execute");
+        expect(openContentEmbedMenu).not.toHaveBeenCalled();
+
+        insertContentEmbed(editor, "n1", "medium");
+        menu.fire("execute");
+        expect(openContentEmbedMenu).toHaveBeenCalledTimes(1);
     });
 });
 
