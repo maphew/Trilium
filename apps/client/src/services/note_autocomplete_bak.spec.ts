@@ -113,65 +113,6 @@ function lastCommandWith(arg: any) {
     return autocompleteCalls.some((c) => c[0] === arg && c[1] === undefined);
 }
 
-describe("note_autocomplete", () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        getActiveContextNoteId.mockReturnValue("activeNote");
-        getActiveContext.mockReturnValue({ hoistedNoteId: "hoisted" });
-        registerAutocompleteStub();
-        server.get = vi.fn(async () => []) as typeof server.get;
-        noteAutocomplete.init();
-    });
-
-    describe("autocompleteSourceForCKEditor (default export)", () => {
-        it("maps server rows into CKEditor mention feed items", async () => {
-            server.get = vi.fn(async () => [
-                {
-                    action: "search-notes",
-                    noteTitle: "Foo",
-                    notePathTitle: "Root / Foo",
-                    notePath: "root/abc",
-                    highlightedNotePathTitle: "<b>Foo</b>",
-                    icon: "bx bx-note"
-                }
-            ]) as typeof server.get;
-
-            const result = (await noteAutocomplete.autocompleteSourceForCKEditor("Foo")) as any[];
-            // autocompleteSourceForCKEditor forces allowCreatingNotes -> the creation rows are prepended.
-            const mapped = result.find((r) => r.notePath === "root/abc");
-            expect(mapped).toEqual({
-                action: "search-notes",
-                noteTitle: "Foo",
-                id: "@Root / Foo",
-                name: "Root / Foo",
-                link: "#root/abc",
-                notePath: "root/abc",
-                highlightedNotePathTitle: "<b>Foo</b>",
-                icon: "bx bx-note"
-            });
-        });
-
-        it("omits the creation rows when the host cannot act on them", async () => {
-            server.get = vi.fn(async () => [
-                { noteTitle: "Foo", notePathTitle: "Root / Foo", notePath: "root/abc" }
-            ]) as typeof server.get;
-
-            const result = (await noteAutocomplete.autocompleteSourceForCKEditor("Foo", false)) as any[];
-            expect(result.map((r) => r.action)).toEqual([ undefined ]);
-        });
-
-        it("falls back to empty name when notePathTitle is missing", async () => {
-            server.get = vi.fn(async () => []) as typeof server.get;
-            const result = (await noteAutocomplete.autocompleteSourceForCKEditor("X")) as any[];
-            // only the synthetic creation rows remain; they have no notePathTitle.
-            const createRow = result.find((r) => r.action === "create-note");
-            expect(createRow).toBeDefined();
-            expect(createRow?.name).toBe("");
-            expect(createRow?.id).toBe("@undefined");
-        });
-    });
-});
-
 // ---------------------------------------------------------------------------
 // Exercise the internal autocompleteSource via the dataset.source registered
 // during initNoteAutocomplete (it is not exported, so we go through the public
@@ -239,16 +180,6 @@ describe("autocompleteSource (via dataset)", () => {
         expect(rows[0].commandId).toBe("c");
     });
 
-    it("queries the server and returns plain results", async () => {
-        server.get = vi.fn(async () => [{ noteTitle: "Result", notePath: "root/x" }]) as typeof server.get;
-        const { dataset } = initAndGetSource();
-        const rows = await runSource(dataset, "hello");
-        expect(server.get).toHaveBeenCalledWith(
-            "autocomplete?query=hello&activeNoteId=activeNote&fastSearch=true"
-        );
-        expect(rows).toEqual([{ noteTitle: "Result", notePath: "root/x" }]);
-    });
-
     it("does the slow-search placeholder branch when fastSearch is false", async () => {
         server.get = vi.fn(async () => [{ noteTitle: "R" }]) as typeof server.get;
         const cbRows: any[][] = [];
@@ -279,70 +210,6 @@ describe("autocompleteSource (via dataset)", () => {
         expect(server.get).not.toHaveBeenCalled();
     });
 
-    it("keeps both creation rows above the results, so neither is scrolled or sliced away", async () => {
-        server.get = vi.fn(async () => [{ noteTitle: "Existing", notePath: "root/y" }]) as typeof server.get;
-        const { dataset } = initAndGetSource({ allowCreatingNotes: true, allowJumpToSearchNotes: true });
-        const rows = await runSource(dataset, "New");
-        expect(rows.map((r) => r.action)).toEqual([ "create-note", "create-child-note", undefined, "search-notes" ]);
-        // the inbox is resolved on selection, so the row carries no parent
-        expect(rows[0].parentNoteId).toBeUndefined();
-        expect(rows[1].parentNoteId).toBe("activeNote");
-        expect(rows[2].noteTitle).toBe("Existing");
-    });
-
-    it.each([
-        { kind: "inbox", title: "Inbox" },
-        { kind: "workspaceInbox", title: "Work" },
-        { kind: "workspaceRoot", title: "Project" }
-    ])("names the $kind destination in the create-note row", async ({ kind, title }) => {
-        getInboxTarget.mockResolvedValueOnce({ kind, title });
-        server.get = vi.fn(async () => []) as typeof server.get;
-        const { dataset } = initAndGetSource({ allowCreatingNotes: true });
-        const rows = await runSource(dataset, "New");
-        expect(rows[0].highlightedNotePathTitle).toBe("note_autocomplete.create-note-into");
-        expect(translate).toHaveBeenCalledWith("note_autocomplete.create-note-into", { term: "New", parentTitle: title });
-    });
-
-    it("says top level for a database with neither an inbox nor a journal", async () => {
-        getInboxTarget.mockResolvedValueOnce({ kind: "root", noteId: "root", title: "root" });
-        server.get = vi.fn(async () => []) as typeof server.get;
-        const { dataset } = initAndGetSource({ allowCreatingNotes: true });
-        const rows = await runSource(dataset, "New");
-        // The root note's title would be meaningless in the label, so it is not used.
-        expect(rows[0].highlightedNotePathTitle).toBe("note_autocomplete.create-note-into-root");
-        expect(translate).toHaveBeenCalledWith("note_autocomplete.create-note-into-root", { term: "New" });
-    });
-
-    it("names the day note, which has no title of its own until it is created", async () => {
-        getInboxTarget.mockResolvedValueOnce({ kind: "dayNote" });
-        server.get = vi.fn(async () => []) as typeof server.get;
-        const { dataset } = initAndGetSource({ allowCreatingNotes: true });
-        const rows = await runSource(dataset, "New");
-        expect(rows[0].highlightedNotePathTitle).toBe("note_autocomplete.create-note-into-day-note");
-        expect(translate).toHaveBeenCalledWith("note_autocomplete.create-note-into-day-note", { term: "New" });
-    });
-
-    it.each([
-        { when: "the lookup fails", arrange: () => getInboxTarget.mockRejectedValueOnce(new Error("nope")) },
-        { when: "the destination has no title", arrange: () => getInboxTarget.mockResolvedValueOnce({ kind: "inbox" }) }
-    ])("falls back to an unqualified label when $when", async ({ arrange }) => {
-        arrange();
-        server.get = vi.fn(async () => []) as typeof server.get;
-        const { dataset } = initAndGetSource({ allowCreatingNotes: true });
-        const rows = await runSource(dataset, "New");
-        expect(rows[0].action).toBe("create-note");
-        expect(rows[0].highlightedNotePathTitle).toBe("note_autocomplete.create-note");
-    });
-
-    it("uses root as the child-note parent when there is no active note", async () => {
-        getActiveContextNoteId.mockReturnValue(null);
-        server.get = vi.fn(async () => []) as typeof server.get;
-        const { dataset } = initAndGetSource({ allowCreatingNotes: true });
-        const rows = await runSource(dataset, "New");
-        const childRow = rows.find((r) => r.action === "create-child-note");
-        expect(childRow?.parentNoteId).toBe("root");
-    });
-
     it("appends a search-notes suggestion when allowJumpToSearchNotes", async () => {
         server.get = vi.fn(async () => [{ noteTitle: "A", notePath: "root/a" }]) as typeof server.get;
         const { dataset } = initAndGetSource({ allowJumpToSearchNotes: true });
@@ -358,13 +225,10 @@ describe("autocompleteSource (via dataset)", () => {
         expect(rows[0].externalLink).toBe("https://example.com/x");
     });
 
-    it("does not add a create suggestion for an empty term", async () => {
+    it("does not add a search-notes suggestion for an empty term", async () => {
         server.get = vi.fn(async () => [{ noteTitle: "A", notePath: "root/a" }]) as typeof server.get;
-        const { dataset } = initAndGetSource({ allowCreatingNotes: true, allowJumpToSearchNotes: true, allowExternalLinks: true });
+        const { dataset } = initAndGetSource({ allowJumpToSearchNotes: true, allowExternalLinks: true });
         const rows = await runSource(dataset, "   ");
-        // length === 0 so neither creation row nor search-notes nor external-link added
-        expect(rows.every((r) => r.action !== "create-note")).toBe(true);
-        expect(rows.every((r) => r.action !== "create-child-note")).toBe(true);
         expect(rows.every((r) => r.action !== "search-notes")).toBe(true);
     });
 

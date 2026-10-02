@@ -1,5 +1,12 @@
 import type { MentionFeedObjectItem } from "@triliumnext/ckeditor5";
-import type { AutocompleteResult } from "@triliumnext/commons";
+import type { AutocompleteResult, InboxTargetResponse } from "@triliumnext/commons";
+
+import appContext from "../components/app_context.js";
+import dateNoteService from "./date_notes.js";
+import { t } from "./i18n.js";
+import server from "./server.js";
+import { escapeHtml } from "./utils.js";
+import { logError } from "./ws.js";
 
 /**
  * One row of the dropdown: a note from `GET /api/autocomplete`, or a row added by the client.
@@ -28,13 +35,94 @@ export interface Options {
     isCommandPalette?: boolean;
 }
 
+/**
+ * Feeds a CKEditor mention. Creation entries are offered only where the editor's host component
+ * implements `createNoteForReferenceLink`, which is what `MentionCustomization` calls to act on
+ * them.
+ */
+async function autocompleteSourceForCKEditor(queryText: string, allowCreatingNotes = true): Promise<MentionFeedObjectItem[]> {
+    const rows = await getNoteSuggestions(queryText, { allowCreatingNotes });
+
+    return rows.map((row) => ({
+        action: row.action,
+        noteTitle: row.noteTitle,
+        id: `@${row.notePathTitle}`,
+        name: row.notePathTitle || "",
+        link: `#${row.notePath}`,
+        notePath: row.notePath,
+        highlightedNotePathTitle: row.highlightedNotePathTitle,
+        icon: row.icon
+    }));
+}
+
+/**
+ * Returns the notes matching `term`, or the recently visited notes when `term` is blank. With
+ * `allowCreatingNotes`, a non-blank term also gets the two note-creation rows, ahead of the notes.
+ */
+export async function getNoteSuggestions(term: string, { allowCreatingNotes = false, fastSearch = true } = {}): Promise<Suggestion[]> {
+    const activeNoteId = appContext.tabManager.getActiveContextNoteId();
+
+    // Runs concurrently with the search, so naming the destination costs a request but no wait.
+    const pendingInboxTarget = term.trim().length >= 1 && allowCreatingNotes ? getInboxTarget() : null;
+
+    const results = await server.get<AutocompleteResult[]>(`autocomplete?query=${encodeURIComponent(term)}&activeNoteId=${activeNoteId}&fastSearch=${fastSearch}`);
+    if (!pendingInboxTarget) {
+        return results;
+    }
+
+    // Both rows stay above the results: the CKEditor mention feed renders only the first
+    // `mention.dropdownLimit` items.
+    return [
+        {
+            action: "create-note",
+            noteTitle: term,
+            highlightedNotePathTitle: buildCreateNoteTitle(term, await pendingInboxTarget)
+        },
+        {
+            action: "create-child-note",
+            noteTitle: term,
+            parentNoteId: activeNoteId || "root",
+            highlightedNotePathTitle: t("note_autocomplete.create-child-note", { term: escapeHtml(term) })
+        },
+        ...results
+    ];
+}
+
+async function getInboxTarget() {
+    try {
+        return await dateNoteService.getInboxTarget();
+    } catch (e) {
+        // The entry falls back to a label with no destination rather than failing the dropdown.
+        logError(`Unable to resolve the inbox target: ${e}`);
+        return null;
+    }
+}
+
+/** Labels the creation entry with the note the capture would land in. */
+function buildCreateNoteTitle(term: string, target: InboxTargetResponse | null) {
+    if (!target) {
+        return t("note_autocomplete.create-note", { term: escapeHtml(term) });
+    }
+
+    if (target.kind === "dayNote") {
+        return t("note_autocomplete.create-note-into-day-note", { term: escapeHtml(term) });
+    }
+
+    // The root note's own title is not one the user recognizes in the tree.
+    if (target.kind === "root") {
+        return t("note_autocomplete.create-note-into-root", { term: escapeHtml(term) });
+    }
+
+    if (!target.title) {
+        return t("note_autocomplete.create-note", { term: escapeHtml(term) });
+    }
+
+    return t("note_autocomplete.create-note-into", { term: escapeHtml(term), parentTitle: escapeHtml(target.title) });
+}
+
 // #region Stubs
 // TODO: Stubs that keep the existing callers compiling and running while the implementation is
 // rebuilt. None of them searches for or suggests anything.
-
-async function autocompleteSourceForCKEditor(_queryText: string, _allowCreatingNotes = true): Promise<MentionFeedObjectItem[]> {
-    return [];
-}
 
 function initNoteAutocomplete($el: JQuery<HTMLElement>, _options?: Options) {
     return $el;

@@ -1,14 +1,10 @@
-import type { MentionFeedObjectItem } from "@triliumnext/ckeditor5";
-import type { InboxTargetResponse } from "@triliumnext/commons";
-
 import appContext from "../components/app_context.js";
 import commandRegistry from "./command_registry.js";
 import dateNoteService from "./date_notes.js";
 import froca from "./froca.js";
 import { t } from "./i18n.js";
-import type { Options, Suggestion } from "./note_autocomplete.js";
+import { getNoteSuggestions, type Options, type Suggestion } from "./note_autocomplete.js";
 import noteCreateService from "./note_create.js";
-import server from "./server.js";
 import { escapeHtml } from "./utils.js";
 import { logError } from "./ws.js";
 
@@ -85,70 +81,6 @@ function createSearchScheduler() {
     };
 }
 
-async function getInboxTarget() {
-    try {
-        return await dateNoteService.getInboxTarget();
-    } catch (e) {
-        // The entry falls back to a label with no destination rather than failing the dropdown.
-        logError(`Unable to resolve the inbox target: ${e}`);
-        return null;
-    }
-}
-
-/** Labels the creation entry with the note the capture would land in. */
-function buildCreateNoteTitle(term: string, target: InboxTargetResponse | null) {
-    if (!target) {
-        return t("note_autocomplete.create-note", { term: escapeHtml(term) });
-    }
-
-    if (target.kind === "dayNote") {
-        return t("note_autocomplete.create-note-into-day-note", { term: escapeHtml(term) });
-    }
-
-    // The root note's own title names nothing the user recognises in the tree.
-    if (target.kind === "root") {
-        return t("note_autocomplete.create-note-into-root", { term: escapeHtml(term) });
-    }
-
-    if (!target.title) {
-        return t("note_autocomplete.create-note", { term: escapeHtml(term) });
-    }
-
-    return t("note_autocomplete.create-note-into", { term: escapeHtml(term), parentTitle: escapeHtml(target.title) });
-}
-
-/**
- * Feeds a CKEditor mention. Creation entries are offered only where the editor's host component
- * implements `createNoteForReferenceLink`, which is what `MentionCustomization` calls to act on
- * them.
- */
-async function autocompleteSourceForCKEditor(queryText: string, allowCreatingNotes = true) {
-    return await new Promise<MentionFeedObjectItem[]>((res, rej) => {
-        autocompleteSource(
-            queryText,
-            (rows) => {
-                res(
-                    rows.map((row) => {
-                        return {
-                            action: row.action,
-                            noteTitle: row.noteTitle,
-                            id: `@${row.notePathTitle}`,
-                            name: row.notePathTitle || "",
-                            link: `#${row.notePath}`,
-                            notePath: row.notePath,
-                            highlightedNotePathTitle: row.highlightedNotePathTitle,
-                            icon: row.icon
-                        };
-                    })
-                );
-            },
-            {
-                allowCreatingNotes
-            }
-        );
-    });
-}
-
 async function autocompleteSource(term: string, cb: (rows: Suggestion[]) => void, options: Options = {}) {
     // Check if we're in command mode
     if (options.isCommandPalette && term.startsWith(">")) {
@@ -188,33 +120,11 @@ async function autocompleteSource(term: string, cb: (rows: Suggestion[]) => void
         ]);
     }
 
-    const activeNoteId = appContext.tabManager.getActiveContextNoteId();
     const length = term.trim().length;
 
-    // Runs concurrently with the search, so naming the destination costs a request but no wait.
-    const pendingInboxTarget = length >= 1 && options.allowCreatingNotes ? getInboxTarget() : null;
-
-    let results = await server.get<Suggestion[]>(`autocomplete?query=${encodeURIComponent(term)}&activeNoteId=${activeNoteId}&fastSearch=${fastSearch}`);
+    let results = await getNoteSuggestions(term, { allowCreatingNotes: options.allowCreatingNotes, fastSearch });
 
     options.fastSearch = true;
-
-    // Both rows stay above the results: the CKEditor mention feed renders only the first
-    // `mention.dropdownLimit` items, and the jQuery dropdown scrolls past as many as 200.
-    if (pendingInboxTarget) {
-        results = [
-            {
-                action: "create-note",
-                noteTitle: term,
-                highlightedNotePathTitle: buildCreateNoteTitle(term, await pendingInboxTarget)
-            } as Suggestion,
-            {
-                action: "create-child-note",
-                noteTitle: term,
-                parentNoteId: activeNoteId || "root",
-                highlightedNotePathTitle: t("note_autocomplete.create-child-note", { term: escapeHtml(term) })
-            } as Suggestion
-        ].concat(results);
-    }
 
     if (length >= 1 && options.allowJumpToSearchNotes) {
         results = results.concat([
@@ -602,7 +512,6 @@ export function triggerRecentNotes(inputElement: HTMLInputElement | null | undef
 }
 
 export default {
-    autocompleteSourceForCKEditor,
     initNoteAutocomplete,
     showRecentNotes,
     showAllCommands,
