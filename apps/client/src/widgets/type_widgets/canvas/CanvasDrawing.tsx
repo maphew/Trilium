@@ -35,6 +35,7 @@ export default function CanvasDrawing({ attachment, editor }: CanvasDrawingProps
     );
     const isToolbarOverPanel = useIsToolbarOverPanel(rootRef);
     useFocusFromEmbedBox(rootRef);
+    useSidePanel(rootRef, isEditable);
 
     return (
         <div
@@ -134,4 +135,153 @@ export function useIsToolbarOverPanel(rootRef: RefObject<HTMLElement>) {
     }, [ rootRef ]);
 
     return isOver;
+}
+
+/** The space between the drawing, the properties panel and the edges of the window, in rem. */
+const SIDE_PANEL_GAP_REM = 0.5;
+
+/**
+ * Shows Excalidraw's properties panel beside the drawing while the drawing has the focus, in the
+ * top layer so that no clip or stacking of the note covers it. Sets `data-side-panel` on the root
+ * while the panel is there, and its position in `--side-panel-*`.
+ */
+export function useSidePanel(rootRef: RefObject<HTMLElement>, isEnabled: boolean) {
+    useEffect(() => {
+        const root = rootRef.current;
+        const viewport = root?.closest<HTMLElement>(".scrolling-container");
+        const embedBody = root?.closest<HTMLElement>(".include-note-body");
+        if (!root || !viewport || !embedBody || !isEnabled) return;
+
+        let panel: HTMLElement | null = null;
+
+        const update = () => {
+            // `ContentEmbed` marks the body active while the drawing has the focus.
+            const isShown = embedBody.classList.contains("active")
+                && !document.fullscreenElement?.contains(root);
+            const position = panel && isShown ? getSidePanelPosition(root, viewport, panel) : null;
+
+            root.toggleAttribute("data-side-panel", !!position);
+            if (position) {
+                root.style.setProperty("--side-panel-left", `${position.left}px`);
+                root.style.setProperty("--side-panel-top", `${position.top}px`);
+                root.style.setProperty("--side-panel-max-height", `${position.maxHeight}px`);
+            }
+            setTopLayer(panel, !!position);
+        };
+
+        const resizeObserver = new ResizeObserver(update);
+        resizeObserver.observe(root);
+        resizeObserver.observe(viewport);
+        const activeObserver = new MutationObserver(update);
+        activeObserver.observe(embedBody, { attributes: true, attributeFilter: [ "class" ] });
+
+        // The panel mounts when a shape is selected or a tool is picked, and its height follows
+        // the properties of the selection.
+        const watchPanel = () => {
+            const current = root.querySelector<HTMLElement>(".App-menu__left");
+            if (current === panel) return;
+
+            if (panel) resizeObserver.unobserve(panel);
+            panel = current;
+            if (panel) resizeObserver.observe(panel);
+            update();
+        };
+        const mutationObserver = new MutationObserver(watchPanel);
+        mutationObserver.observe(root, { childList: true, subtree: true });
+        viewport.addEventListener("scroll", update, { passive: true });
+        document.addEventListener("fullscreenchange", update);
+        watchPanel();
+        update();
+
+        return () => {
+            resizeObserver.disconnect();
+            activeObserver.disconnect();
+            mutationObserver.disconnect();
+            viewport.removeEventListener("scroll", update);
+            document.removeEventListener("fullscreenchange", update);
+            root.removeAttribute("data-side-panel");
+            setTopLayer(panel, false);
+        };
+    }, [ rootRef, isEnabled ]);
+}
+
+/**
+ * The position of `panel` beside the drawing `root`: on its right when the window has room there,
+ * otherwise on its left, level with the top of the drawing and inside the window. `null` when
+ * neither side has room or the drawing is scrolled out of `viewport`.
+ */
+function getSidePanelPosition(root: HTMLElement, viewport: HTMLElement, panel: HTMLElement) {
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const gap = SIDE_PANEL_GAP_REM * rem;
+    const drawing = root.getBoundingClientRect();
+    const noteArea = getVisibleArea(viewport);
+    if (drawing.bottom <= noteArea.top || drawing.top >= noteArea.bottom) {
+        return null;
+    }
+
+    const area = getWindowArea();
+    const left = getSidePanelLeft(drawing, area, panel.offsetWidth, gap);
+    if (left === null) {
+        return null;
+    }
+
+    const maxHeight = area.bottom - area.top - 2 * gap;
+    const height = Math.min(panel.offsetHeight, maxHeight);
+    const top = Math.max(area.top + gap, Math.min(drawing.top, area.bottom - gap - height));
+    return { left, top, maxHeight };
+}
+
+/**
+ * Moves `panel` into the top layer, or back into the drawing. The `popover` attribute is present
+ * exactly while the panel is in the top layer; removing it hides the popover.
+ */
+function setTopLayer(panel: HTMLElement | null, isMoved: boolean) {
+    if (!panel || isMoved === panel.hasAttribute("popover")) return;
+
+    if (isMoved) {
+        panel.setAttribute("popover", "manual");
+        panel.showPopover();
+    } else {
+        panel.removeAttribute("popover");
+    }
+}
+
+interface VisibleArea {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+}
+
+/** The part of `viewport` that shows the note, without its scrollbars. */
+function getVisibleArea(viewport: HTMLElement): VisibleArea {
+    const rect = viewport.getBoundingClientRect();
+    const left = rect.left + viewport.clientLeft;
+    const top = rect.top + viewport.clientTop;
+    return {
+        left,
+        top,
+        right: left + viewport.clientWidth,
+        bottom: top + viewport.clientHeight
+    };
+}
+
+/** The window, without its scrollbars. */
+function getWindowArea(): VisibleArea {
+    const { clientWidth, clientHeight } = document.documentElement;
+    return { left: 0, top: 0, right: clientWidth, bottom: clientHeight };
+}
+
+/**
+ * The left edge of a panel `width` wide in the margin right of `drawing`, else in the margin left
+ * of it, or `null` when neither margin fits the panel with a `gap` on both sides.
+ */
+function getSidePanelLeft(drawing: DOMRect, area: VisibleArea, width: number, gap: number) {
+    const rightOfDrawing = drawing.right + gap;
+    if (rightOfDrawing + width + gap <= area.right) {
+        return rightOfDrawing;
+    }
+
+    const leftOfDrawing = drawing.left - gap - width;
+    return leftOfDrawing >= area.left + gap ? leftOfDrawing : null;
 }

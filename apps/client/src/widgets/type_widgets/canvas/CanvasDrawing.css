@@ -85,6 +85,24 @@
     opacity: 0;
 }
 
+/* The properties panel beside the drawing, in the top layer, placed by `useSidePanel()`. */
+.canvas-drawing-editor[data-side-panel] {
+    /* Resets the user agent style of a popover as well as Excalidraw's own placement. */
+    .Island.App-menu__left[popover] {
+        position: fixed;
+        inset: var(--side-panel-top) auto auto var(--side-panel-left);
+        margin: 0;
+        border: none;
+        /* Overrides the height limit that Excalidraw sets inline. */
+        max-height: var(--side-panel-max-height) !important;
+        color: inherit;
+    }
+
+    .layer-ui__wrapper__footer-right {
+        visibility: inherit;
+    }
+}
+
 /* The tools are buttons of the embed's toolbar, which fullscreen hides. */
 .include-note-content:not(:fullscreen) .canvas-drawing .excalidraw {
     .App-toolbar-container > .App-toolbar,
