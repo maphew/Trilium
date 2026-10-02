@@ -266,7 +266,8 @@ describe("FileUploadEditing", () => {
         editor.plugins.get(FileUploadEditing).on<FileUploadEvent>("upload", announced);
         setModelData(editor.model, "<paragraph>[]</paragraph>");
 
-        editor.execute("fileUpload", { file: [ new File(["{}"], "canvas.json") ], quiet: true });
+        const file = new File(["{}"], "Canvas.excalidraw");
+        editor.execute("fileUpload", { file: [ file ], quiet: true });
         await waitFor(() => controls.uploadCalled());
 
         expect(announced).not.toHaveBeenCalled();
@@ -648,7 +649,7 @@ describe("FileUploadEditing with embeds", () => {
         const controls = installUploadAdapter(editor);
         setModelData(editor.model, "<paragraph>[]</paragraph>");
 
-        const file = new File(["{}"], "canvas.json");
+        const file = new File(["{}"], "Canvas.excalidraw");
         editor.execute("fileUpload", { file: [ file ], asEmbed: true, focusEmbed: true });
         await waitFor(() => controls.uploadCalled());
         controls.resolveUpload({ default: "#root/owner?viewMode=attachments&attachmentId=att1" });

@@ -190,14 +190,17 @@ describe("FileUploadCommand", () => {
         setModelData(editor.model, "<paragraph>[]</paragraph>");
 
         editor.execute("fileUpload", {
-            file: [ new File(["{}"], "canvas.json", { type: "application/vnd.excalidraw+json" }) ],
+            file: [
+                new File(["{}"], "Canvas.excalidraw", { type: "application/vnd.excalidraw+json" })
+            ],
             asEmbed: true,
             boxSize: "medium",
             hideTitle: true
         });
 
         expect(getModelData(editor.model)).toMatch(new RegExp(
-            "^<contentEmbed boxSize=\"medium\" hideTitle=\"true\" uploadFileName=\"canvas.json\""
+            "^<contentEmbed boxSize=\"medium\" hideTitle=\"true\" " +
+            "uploadFileName=\"Canvas.excalidraw\""
         ));
         expect(getEmbedBoxSize).not.toHaveBeenCalled();
     });

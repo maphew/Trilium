@@ -59,7 +59,7 @@ export function getImageAttachmentTitle(type: NoteType | null | undefined): stri
 export const CANVAS_ATTACHMENT_MIME = "application/vnd.excalidraw+json";
 
 /** The title of the attachment a new canvas drawing is saved in. */
-export const CANVAS_ATTACHMENT_TITLE = "canvas.json";
+export const CANVAS_ATTACHMENT_TITLE = "Canvas.excalidraw";
 
 /** The content of a new, empty canvas drawing. */
 export const EMPTY_CANVAS_CONTENT = JSON.stringify({

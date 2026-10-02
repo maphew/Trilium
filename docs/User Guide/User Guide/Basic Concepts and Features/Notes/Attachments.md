@@ -41,7 +41,7 @@ An attachment can be shown in the text instead of linked, the way <a class="ref
 
 *   To attach files and embed them straight away, select _Attach and embed file_ from the arrow beside the <span class="tn-icon cke cke-paper-clip"></span> _Attach file_ button. Each file gets an embed of its own, which shows the file name while the file uploads.
 *   To embed an attachment that is already linked, right-click a link to it in a text note being edited and select _Convert link to an embed_, at the end of the menu.
-*   A drawing canvas, inserted with the <span class="tn-icon bx bx-pen"></span> _Insert drawing canvas_ button, is an embed of a `canvas.json` attachment that can be drawn on in place (see _Drawing canvases_ in <a class="reference-link" href="../../Note%20Types/Text/Include%20Note.md">Include Note</a>).
+*   A drawing canvas, inserted with the <span class="tn-icon bx bx-pen"></span> _Insert drawing canvas_ button, is an embed of a `Canvas.excalidraw` attachment that can be drawn on in place (see _Drawing canvases_ in <a class="reference-link" href="../../Note%20Types/Text/Include%20Note.md">Include Note</a>).
 *   An embed gets the box size that suits the attachment, as a new included note does (see _Box sizes_ there). To change its size, select the embed and use the box size menu in its toolbar, or the _Size_ submenu of its <span class="tn-icon bx bx-dots-vertical-rounded"></span> _More actions_ menu.
 *   An embed can have a caption, as an included note can (see _Caption_ there).
 *   To show only the attachment, select the embed and press the <span class="tn-icon bx bx-window-alt"></span> _Show title_ button in its toolbar, as for an included note (see _Title_ there).

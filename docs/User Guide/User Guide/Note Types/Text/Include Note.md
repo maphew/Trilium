@@ -91,7 +91,7 @@ In a _Small_ or _Medium_ box, the image is scaled down to fit the height of the 
 
 ## Drawing canvases
 
-A drawing canvas is an Excalidraw canvas, like the one of a <a class="reference-link" href="../Canvas.md">Canvas</a> note, drawn directly in the text note. It is not a note of its own: the drawing is kept in a `canvas.json` [attachment](../../Basic%20Concepts%20and%20Features/Notes/Attachments.md) of the text note and is saved together with the text.
+A drawing canvas is an Excalidraw canvas, like the one of a <a class="reference-link" href="../Canvas.md">Canvas</a> note, drawn directly in the text note. It is not a note of its own: the drawing is kept in a `Canvas.excalidraw` [attachment](../../Basic%20Concepts%20and%20Features/Notes/Attachments.md) of the text note and is saved together with the text.
 
 *   To insert a drawing canvas, press the <span class="tn-icon bx bx-pen"></span> _Insert drawing canvas_ button in the <a class="reference-link" href="Formatting%20toolbar.md">Formatting toolbar</a>, next to the <span class="tn-icon cke cke-paper-clip"></span> _Attach file_ button. The canvas is added empty, in a _Medium_ box with its title hidden, and takes the focus, ready for drawing.
 *   To draw on a canvas that does not have the focus, click it first. Until then, the mouse wheel and touch gestures scroll the note. The canvas then has the tools, menus and keyboard shortcuts of a Canvas note. The toolbars, the menus and the properties of the selected shapes show only while the canvas has the focus, so elsewhere the drawing reads like a picture in the text.
@@ -103,5 +103,5 @@ A drawing canvas is an Excalidraw canvas, like the one of a <a class="reference-
 ### Limitations
 
 *   The Excalidraw shape library is not saved for a drawing canvas.
-*   Outside the editor, for example in a tooltip, when printing or in the list of attachments, the drawing is shown as a picture. On a [shared page](../../Advanced%20Usage/Sharing.md), it appears as a link to download `canvas.json`.
+*   Outside the editor, for example in a tooltip, when printing or in the list of attachments, the drawing is shown as a picture. On a [shared page](../../Advanced%20Usage/Sharing.md), it appears as a link to download `Canvas.excalidraw`.
 *   A copy of a drawing canvas pasted in the same note shares the drawing with the original, so a change to one shows in the other only after the note is opened again. A copy pasted in another note gets a drawing of its own.

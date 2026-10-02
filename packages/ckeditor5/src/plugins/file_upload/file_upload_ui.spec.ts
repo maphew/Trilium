@@ -170,7 +170,7 @@ describe("FileUploadUI", () => {
             });
             const [ file ] = (execute.mock.calls[0][1] as { file: File[] }).file;
             expect([ file.name, file.type ])
-                .toEqual([ "canvas.json", "application/vnd.excalidraw+json" ]);
+                .toEqual([ "Canvas.excalidraw", "application/vnd.excalidraw+json" ]);
             expect(JSON.parse(await file.text())).toEqual({
                 type: "excalidraw", version: 2, elements: [], files: {}, appState: {}
             });

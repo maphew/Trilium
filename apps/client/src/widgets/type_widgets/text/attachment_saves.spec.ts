@@ -8,7 +8,7 @@ const drawing = {
     ownerId: "note1",
     role: "file",
     mime: "application/vnd.excalidraw+json",
-    title: "canvas.json"
+    title: "Canvas.excalidraw"
 } as FAttachment;
 
 function setUp() {
@@ -42,7 +42,7 @@ describe("AttachmentSaves", () => {
             attachmentId: "drawing1",
             role: "file",
             mime: "application/vnd.excalidraw+json",
-            title: "canvas.json",
+            title: "Canvas.excalidraw",
             content: "second"
         } ]);
     });
