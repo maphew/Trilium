@@ -1,6 +1,8 @@
 import "../../theme/content_embed_tools.css";
 
-import { ButtonView, type Locale, Plugin, View, type ViewCollection } from "ckeditor5";
+import {
+    ButtonView, type Locale, Plugin, ToolbarSeparatorView, View, type ViewCollection
+} from "ckeditor5";
 
 import ContentEmbed from "./content_embed.js";
 
@@ -62,15 +64,19 @@ type ContentEmbedToolsResizeEvent = {
 export class ContentEmbedToolsView extends View {
 
     declare public isVisible: boolean;
-    public readonly buttons: ViewCollection<ButtonView>;
+    /** The buttons, in the order of the tools. */
+    public buttons: ButtonView[] = [];
+    /** The buttons and the separators between their groups. */
+    private readonly items: ViewCollection;
     private provider: ContentEmbedToolProvider | null = null;
     private unsubscribe: (() => void) | undefined;
-    private toolIds: string[] = [];
+    /** The group and the id of each tool, to create the buttons again only for another set. */
+    private toolKeys: string[] = [];
 
     constructor(locale?: Locale) {
         super(locale);
         this.set("isVisible", false);
-        this.buttons = this.createCollection();
+        this.items = this.createCollection();
 
         const bind = this.bindTemplate;
         this.setTemplate({
@@ -82,7 +88,7 @@ export class ContentEmbedToolsView extends View {
                     bind.if("isVisible", "ck-hidden", isVisible => !isVisible)
                 ]
             },
-            children: this.buttons
+            children: this.items
         });
     }
 
@@ -103,7 +109,7 @@ export class ContentEmbedToolsView extends View {
     }
 
     focus() {
-        this.buttons.first?.focus();
+        this.buttons[0]?.focus();
     }
 
     override destroy() {
@@ -114,22 +120,25 @@ export class ContentEmbedToolsView extends View {
     /** Shows the tools of the provider. Returns whether the buttons were created again. */
     private showTools() {
         const tools = this.provider?.getTools() ?? [];
-        const ids = tools.map(tool => tool.id);
-        const isNewSet = ids.length !== this.toolIds.length
-            || ids.some((id, index) => id !== this.toolIds[index]);
+        const keys = tools.map(tool => `${tool.group ?? ""}/${tool.id}`);
+        const isNewSet = keys.length !== this.toolKeys.length
+            || keys.some((key, index) => key !== this.toolKeys[index]);
 
         if (isNewSet) {
-            this.toolIds = ids;
-            this.buttons.clear();
-            this.buttons.addMany(ids.map(id => this.createButton(id)));
+            this.toolKeys = keys;
+            this.createButtons(tools);
         }
 
         for (const [ index, tool ] of tools.entries()) {
-            this.buttons.get(index)?.set({
-                label: tool.label,
-                tooltip: tool.tooltip,
-                ariaLabel: tool.tooltip,
-                isOn: tool.isOn
+            this.buttons[index]?.set({
+                label: tool.text ?? tool.label,
+                withText: tool.text !== undefined,
+                icon: tool.icon,
+                tooltip: tool.label,
+                ariaLabel: tool.label,
+                isToggleable: tool.isOn !== undefined,
+                isOn: tool.isOn ?? false,
+                isEnabled: tool.isEnabled ?? true
             });
         }
         this.isVisible = tools.length > 0;
@@ -137,9 +146,26 @@ export class ContentEmbedToolsView extends View {
         return isNewSet;
     }
 
+    /** Creates a button for each tool, with a separator between groups. */
+    private createButtons(tools: ContentEmbedTool[]) {
+        this.items.clear();
+        this.buttons = [];
+
+        let group: string | undefined;
+        for (const tool of tools) {
+            if (this.buttons.length && tool.group !== group) {
+                this.items.add(new ToolbarSeparatorView(this.locale));
+            }
+            group = tool.group;
+
+            const button = this.createButton(tool.id);
+            this.buttons.push(button);
+            this.items.add(button);
+        }
+    }
+
     private createButton(id: string) {
         const button = new ButtonView(this.locale);
-        button.set({ withText: true, isToggleable: true });
         // Keeps the focus in the content that the tool acts on.
         button.extendTemplate({
             on: { mousedown: button.bindTemplate.to(evt => evt.preventDefault()) }

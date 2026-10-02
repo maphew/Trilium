@@ -1,5 +1,12 @@
 import { useI18n } from "@excalidraw/excalidraw";
-import type { AppState, ExcalidrawImperativeAPI, ToolType } from "@excalidraw/excalidraw/types";
+import type {
+    AppState, ExcalidrawImperativeAPI, NormalizedZoomValue, ToolType
+} from "@excalidraw/excalidraw/types";
+import redoIcon from "boxicons/svg/regular/bx-redo.svg?raw";
+import resetZoomIcon from "boxicons/svg/regular/bx-reset.svg?raw";
+import undoIcon from "boxicons/svg/regular/bx-undo.svg?raw";
+import zoomInIcon from "boxicons/svg/regular/bx-zoom-in.svg?raw";
+import zoomOutIcon from "boxicons/svg/regular/bx-zoom-out.svg?raw";
 import type { RefObject } from "preact";
 import { useEffect, useState } from "preact/hooks";
 
@@ -16,7 +23,19 @@ const TOOLS = [
 ] as const satisfies readonly ToolType[];
 const LOCK = "lock";
 
+/** Excalidraw's zoom step and limits, from its own zoom buttons. */
+const ZOOM_STEP = 0.1;
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 30;
+/** The zoom that each zoom button sets, from the current one. */
+const ZOOMS: Record<string, (zoom: number) => number> = {
+    zoomOut: (zoom) => zoom - ZOOM_STEP,
+    resetZoom: () => 1,
+    zoomIn: (zoom) => zoom + ZOOM_STEP
+};
+
 type Tool = typeof TOOLS[number];
+type HistoryAction = "undo" | "redo";
 /** Excalidraw's `t()`, for a key such as `toolBar.rectangle`. */
 type Translate = (key: string) => string;
 
@@ -27,8 +46,8 @@ interface CanvasEmbedToolsProps {
 }
 
 /**
- * Adds Excalidraw's tools to the toolbar of the embed that shows the drawing. Renders inside
- * `<Excalidraw>`, for its translations.
+ * Adds Excalidraw's tools, undo and redo, and zoom to the toolbar of the embed that shows the
+ * drawing. Renders inside `<Excalidraw>`, for its translations.
  */
 export default function CanvasEmbedTools({ rootRef, apiRef }: CanvasEmbedToolsProps) {
     // Excalidraw types the key of `t()` as a union that TypeScript cannot check a string against.
@@ -53,51 +72,89 @@ export default function CanvasEmbedTools({ rootRef, apiRef }: CanvasEmbedToolsPr
     return null;
 }
 
-/** Excalidraw's tools, as buttons of the toolbar of the embed that shows the drawing. */
+/** Excalidraw's tools and commands, as buttons of the toolbar of the embed with the drawing. */
 export class CanvasTools implements ContentEmbedToolProvider {
     private api: ExcalidrawImperativeAPI | null = null;
     private translate: Translate | null = null;
     private listeners = new Set<() => void>();
-    /** The active tool and its lock, to notify the listeners only when they change. */
-    private shownTool = "";
+    /** The tools as last notified, to notify the listeners only when they change. */
+    private shownTools = "";
 
     constructor(private readonly rootRef: RefObject<HTMLElement>) {}
 
-    /** Follows the active tool of `api`, until the returned function is called. */
+    /** Follows `api` and its undo and redo buttons, until the returned function is called. */
     connect(api: ExcalidrawImperativeAPI) {
         this.api = api;
-        const unsubscribe = api.onChange((_elements, appState) => this.update(appState));
-        this.update(api.getAppState());
+        const unsubscribe = api.onChange(() => this.update());
+        // Excalidraw enables its undo and redo buttons once it renders them again.
+        const observer = new MutationObserver(() => this.update());
+        const root = this.rootRef.current;
+        if (root) {
+            observer.observe(root, {
+                subtree: true,
+                childList: true,
+                attributes: true,
+                attributeFilter: [ "disabled" ]
+            });
+        }
+        this.update();
 
         return () => {
             unsubscribe();
+            observer.disconnect();
             this.api = null;
-            this.shownTool = "";
-            this.notify();
+            this.update();
         };
     }
 
     setTranslate(translate: Translate) {
         this.translate = translate;
-        this.notify();
+        this.update();
     }
 
     getTools(): ContentEmbedTool[] {
-        const activeTool = this.api?.getAppState().activeTool;
-        if (!activeTool) {
+        const appState = this.api?.getAppState();
+        if (!appState) {
             return [];
         }
 
-        const tools = [
+        const { activeTool, zoom } = appState;
+        const drawingTools = [
             ...TOOLS.map((type) => ({ id: type, isOn: activeTool.type === type })),
             { id: LOCK, isOn: activeTool.locked }
         ];
-        return tools.map(({ id, isOn }, index) => ({
-            id,
-            label: String(index + 1),
-            tooltip: this.translate?.(`toolBar.${id}`) ?? id,
-            isOn
-        }));
+        const zoomPercent = Math.round(zoom.value * 100);
+        return [
+            ...drawingTools.map(({ id, isOn }, index) => ({
+                id,
+                label: this.t(`toolBar.${id}`),
+                text: String(index + 1),
+                isOn,
+                group: "tools"
+            })),
+            this.getHistoryTool("undo", undoIcon),
+            this.getHistoryTool("redo", redoIcon),
+            {
+                id: "zoomOut",
+                label: this.t("buttons.zoomOut"),
+                icon: zoomOutIcon,
+                isEnabled: zoom.value > MIN_ZOOM,
+                group: "zoom"
+            },
+            {
+                id: "resetZoom",
+                label: `${this.t("buttons.resetZoom")} (${zoomPercent}%)`,
+                icon: resetZoomIcon,
+                group: "zoom"
+            },
+            {
+                id: "zoomIn",
+                label: this.t("buttons.zoomIn"),
+                icon: zoomInIcon,
+                isEnabled: zoom.value < MAX_ZOOM,
+                group: "zoom"
+            }
+        ];
     }
 
     execute(id: string) {
@@ -110,10 +167,15 @@ export class CanvasTools implements ContentEmbedToolProvider {
             container.focus({ preventScroll: true });
         }
 
-        const { activeTool } = api.getAppState();
-        if (id === LOCK) {
-            const locked = !activeTool.locked;
-            api.updateScene({ appState: { activeTool: { ...activeTool, locked } } });
+        const appState = api.getAppState();
+        const getZoom = ZOOMS[id];
+        if (id === "undo" || id === "redo") {
+            this.getHistoryButton(id)?.click();
+        } else if (getZoom) {
+            api.updateScene({ appState: getZoomState(appState, getZoom(appState.zoom.value)) });
+        } else if (id === LOCK) {
+            const locked = !appState.activeTool.locked;
+            api.updateScene({ appState: { activeTool: { ...appState.activeTool, locked } } });
         } else if (isTool(id)) {
             api.setActiveTool({ type: id });
         }
@@ -126,22 +188,54 @@ export class CanvasTools implements ContentEmbedToolProvider {
         };
     }
 
-    private update(appState: AppState) {
-        const { type, locked } = appState.activeTool;
-        const shownTool = `${type}:${locked}`;
-        if (shownTool !== this.shownTool) {
-            this.shownTool = shownTool;
-            this.notify();
+    private update() {
+        const shownTools = JSON.stringify(this.getTools());
+        if (shownTools !== this.shownTools) {
+            this.shownTools = shownTools;
+            for (const listener of this.listeners) {
+                listener();
+            }
         }
     }
 
-    private notify() {
-        for (const listener of this.listeners) {
-            listener();
-        }
+    private t(key: string) {
+        return this.translate?.(key) ?? key;
+    }
+
+    /** Undo or redo, enabled while Excalidraw's own button is: Excalidraw keeps the history. */
+    private getHistoryTool(id: HistoryAction, icon: string): ContentEmbedTool {
+        const button = this.getHistoryButton(id);
+        return {
+            id,
+            label: this.t(`buttons.${id}`),
+            icon,
+            isEnabled: !!button && !button.disabled,
+            group: "history"
+        };
+    }
+
+    /** Excalidraw's undo or redo button, which the canvas layout hides. */
+    private getHistoryButton(id: HistoryAction) {
+        return this.rootRef.current
+            ?.querySelector<HTMLButtonElement>(`[data-testid="button-${id}"]`) ?? null;
     }
 }
 
 function isTool(id: string): id is Tool {
     return (TOOLS as readonly string[]).includes(id);
+}
+
+/**
+ * The scroll and the zoom that zoom the view to `zoom` around its center, as Excalidraw's own
+ * zoom buttons compute them.
+ */
+function getZoomState(appState: AppState, zoom: number) {
+    const value = Math.min(Math.max(Math.round(zoom * 1e6) / 1e6, MIN_ZOOM), MAX_ZOOM);
+    const centerX = appState.width / 2;
+    const centerY = appState.height / 2;
+    return {
+        scrollX: appState.scrollX + centerX / value - centerX / appState.zoom.value,
+        scrollY: appState.scrollY + centerY / value - centerY / appState.zoom.value,
+        zoom: { value: value as NormalizedZoomValue }
+    };
 }

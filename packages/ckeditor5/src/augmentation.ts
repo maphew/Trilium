@@ -33,11 +33,18 @@ declare global {
     /** A button that the content of an embed adds to the toolbar of the embed. */
     interface ContentEmbedTool {
         id: string;
-        /** The text of the button. */
-        label: string;
         /** The name of what the button does, shown as its tooltip. */
-        tooltip: string;
-        isOn: boolean;
+        label: string;
+        /** The text of a button without an icon. */
+        text?: string;
+        /** The SVG of the icon of the button. */
+        icon?: string;
+        /** Whether a button that toggles is on. A command leaves it out. */
+        isOn?: boolean;
+        /** `true` when left out. */
+        isEnabled?: boolean;
+        /** A separator goes between buttons of different groups. */
+        group?: string;
     }
 
     /** The buttons that the content of an embed, such as a canvas drawing, adds to its toolbar. */

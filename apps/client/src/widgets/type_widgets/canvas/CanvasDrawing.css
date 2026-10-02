@@ -103,12 +103,15 @@
     }
 }
 
-/* The tools are buttons of the embed's toolbar, which fullscreen hides. */
+/* The tools, undo and redo, and zoom are buttons of the embed's toolbar, which fullscreen hides.
+   `CanvasTools` clicks the hidden undo and redo buttons. */
 .include-note-content:not(:fullscreen) .canvas-drawing .excalidraw {
     .App-toolbar-container > .App-toolbar,
     .mobile-misc-tools-container > label:has(
         [data-testid="toolbar-lock"], [data-testid="toolbar-hand"]
-    ) {
+    ),
+    .layer-ui__wrapper__footer-left :is(.zoom-actions, .undo-redo-buttons),
+    .App-toolbar-content > div:has(> [data-testid="button-undo"]) {
         display: none;
     }
 }

@@ -2,7 +2,7 @@ import type { AppState, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/t
 import { render } from "preact";
 import { useRef } from "preact/hooks";
 import { act } from "preact/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 const translate = vi.hoisted(() => (key: string) => `t:${key}`);
 vi.mock("@excalidraw/excalidraw", () => ({
@@ -12,19 +12,20 @@ vi.mock("@excalidraw/excalidraw", () => ({
 const { default: CanvasEmbedTools } = await import("./CanvasEmbedTools");
 const { getContentEmbedTools } = await import("../text/content_embed_tools");
 
-type ActiveTool = AppState["activeTool"];
-
-const TOOL_IDS = [
+const DRAWING_TOOL_IDS = [
     "selection", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text", "image",
     "eraser", "hand", "frame", "embeddable", "laser", "lock"
 ];
+const ICON = expect.stringContaining("<svg");
 
 describe("CanvasEmbedTools", () => {
     let container: HTMLElement;
     let api: ReturnType<typeof createApi>;
+    let undo: Mock<() => void>;
 
     beforeEach(() => {
         api = createApi();
+        undo = vi.fn();
         container = document.createElement("div");
         document.body.appendChild(container);
     });
@@ -34,6 +35,7 @@ describe("CanvasEmbedTools", () => {
         container.remove();
     });
 
+    /** A drawing with Excalidraw's container and its undo and redo buttons. */
     function Drawing() {
         const rootRef = useRef<HTMLDivElement>(null);
         const apiRef = useRef<ExcalidrawImperativeAPI>(api.api);
@@ -41,6 +43,8 @@ describe("CanvasEmbedTools", () => {
             <figure className="include-note">
                 <div ref={rootRef}>
                     <div className="excalidraw-container" tabIndex={0} />
+                    <button type="button" data-testid="button-undo" onClick={() => undo()} />
+                    <button type="button" data-testid="button-redo" disabled />
                     <CanvasEmbedTools rootRef={rootRef} apiRef={apiRef} />
                 </div>
             </figure>
@@ -63,12 +67,28 @@ describe("CanvasEmbedTools", () => {
         provider.subscribe(listener);
 
         expect(getContentEmbedTools(document.createElement("figure"))).toBeNull();
-        expect(provider.getTools()).toEqual(TOOL_IDS.map((id, index) => ({
+        const tools = provider.getTools();
+        const count = DRAWING_TOOL_IDS.length;
+        expect(tools.slice(0, count)).toEqual(DRAWING_TOOL_IDS.map((id, index) => ({
             id,
-            label: String(index + 1),
-            tooltip: `t:toolBar.${id}`,
-            isOn: id === "selection"
+            label: `t:toolBar.${id}`,
+            text: String(index + 1),
+            isOn: id === "selection",
+            group: "tools"
         })));
+        expect(tools.slice(count)).toEqual([
+            { id: "undo", label: "t:buttons.undo", icon: ICON, isEnabled: true, group: "history" },
+            { id: "redo", label: "t:buttons.redo", icon: ICON, isEnabled: false, group: "history" },
+            {
+                id: "zoomOut",
+                label: "t:buttons.zoomOut",
+                icon: ICON,
+                isEnabled: true,
+                group: "zoom"
+            },
+            { id: "resetZoom", label: "t:buttons.resetZoom (100%)", icon: ICON, group: "zoom" },
+            { id: "zoomIn", label: "t:buttons.zoomIn", icon: ICON, isEnabled: true, group: "zoom" }
+        ]);
 
         await act(async () => render(null, container));
         expect(getContentEmbedTools(embed)).toBeNull();
@@ -77,23 +97,39 @@ describe("CanvasEmbedTools", () => {
         expect(provider.getTools()).toEqual([]);
     });
 
-    it("notifies its listeners when the active tool or its lock changes", async () => {
+    it("notifies its listeners when a tool, the zoom or the history changes", async () => {
         const { provider } = await mount();
         const listener = vi.fn();
         const unsubscribe = provider.subscribe(listener);
+        const getEnabled = () => provider.getTools()
+            .filter((tool) => tool.group !== "tools")
+            .map((tool) => `${tool.id}:${tool.isEnabled ?? true}`);
 
-        api.change({ type: "selection", locked: false });
+        api.change({});
         expect(listener).not.toHaveBeenCalled();
 
-        api.change({ type: "rectangle", locked: false });
-        api.change({ type: "rectangle", locked: true });
+        api.change({ activeTool: { type: "rectangle", locked: false } });
+        api.change({ activeTool: { type: "rectangle", locked: true } });
         expect(listener).toHaveBeenCalledTimes(2);
         expect(provider.getTools().filter((tool) => tool.isOn).map((tool) => tool.id))
             .toEqual([ "rectangle", "lock" ]);
 
+        api.change({ zoom: { value: 30 } });
+        expect(listener).toHaveBeenCalledTimes(3);
+        expect(getEnabled()).toEqual([
+            "undo:true", "redo:false", "zoomOut:true", "resetZoom:true", "zoomIn:false"
+        ]);
+
+        await act(async () => {
+            container.querySelector("[data-testid=button-redo]")?.removeAttribute("disabled");
+        });
+        expect(listener).toHaveBeenCalledTimes(4);
+        expect(getEnabled()).toContain("redo:true");
+
         unsubscribe();
-        api.change({ type: "text", locked: true });
-        expect(listener).toHaveBeenCalledTimes(2);
+        api.change({ zoom: { value: 0.1 } });
+        expect(listener).toHaveBeenCalledTimes(4);
+        expect(getEnabled()).toContain("zoomOut:false");
     });
 
     it("runs a tool with the focus in the drawing", async () => {
@@ -104,24 +140,60 @@ describe("CanvasEmbedTools", () => {
         expect(document.activeElement).toBe(container.querySelector(".excalidraw-container"));
 
         provider.execute("lock");
-        expect(api.updateScene).toHaveBeenCalledWith({
+        expect(api.updateScene).toHaveBeenLastCalledWith({
             appState: { activeTool: expect.objectContaining({ type: "selection", locked: true }) }
+        });
+
+        provider.execute("undo");
+        expect(undo).toHaveBeenCalledTimes(1);
+
+        // Zooms around the center of the 800 × 400 view, as Excalidraw's zoom buttons do.
+        provider.execute("zoomIn");
+        expect(api.updateScene).toHaveBeenLastCalledWith({
+            appState: {
+                scrollX: expect.closeTo(10 + 400 / 1.1 - 400),
+                scrollY: expect.closeTo(20 + 200 / 1.1 - 200),
+                zoom: { value: 1.1 }
+            }
+        });
+
+        api.change({ zoom: { value: 2 } });
+        provider.execute("resetZoom");
+        expect(api.updateScene).toHaveBeenLastCalledWith({
+            appState: { scrollX: 210, scrollY: 120, zoom: { value: 1 } }
         });
 
         provider.execute("magicframe");
         expect(api.setActiveTool).toHaveBeenCalledTimes(1);
-        expect(api.updateScene).toHaveBeenCalledTimes(1);
+        expect(api.updateScene).toHaveBeenCalledTimes(3);
     });
 });
 
-/** An Excalidraw API whose active tool the spec changes. */
+/** The part of Excalidraw's app state that the tools read. */
+interface FakeAppState {
+    activeTool: { type: string; locked: boolean };
+    zoom: { value: number };
+    scrollX: number;
+    scrollY: number;
+    width: number;
+    height: number;
+}
+
+/** An Excalidraw API whose app state the spec changes. */
 function createApi() {
-    let activeTool = { type: "selection", locked: false } as ActiveTool;
+    let appState: FakeAppState = {
+        activeTool: { type: "selection", locked: false },
+        zoom: { value: 1 },
+        scrollX: 10,
+        scrollY: 20,
+        width: 800,
+        height: 400
+    };
     let onChange: ((elements: unknown[], appState: AppState) => void) | undefined;
     const unsubscribe = vi.fn();
     const setActiveTool = vi.fn();
     const updateScene = vi.fn();
-    const getAppState = () => ({ activeTool }) as AppState;
+    const getAppState = () => appState as unknown as AppState;
 
     const api = {
         getAppState,
@@ -138,8 +210,8 @@ function createApi() {
         unsubscribe,
         setActiveTool,
         updateScene,
-        change(next: Pick<ActiveTool, "type" | "locked">) {
-            activeTool = { ...activeTool, ...next } as ActiveTool;
+        change(next: Partial<FakeAppState>) {
+            appState = { ...appState, ...next };
             onChange?.([], getAppState());
         }
     };

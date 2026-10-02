@@ -10,10 +10,24 @@ import ContentEmbedTools, {
     CONTENT_EMBED_TOOLS, ContentEmbedToolsView
 } from "./content_embed_tools.js";
 
-const SELECTION = { id: "selection", label: "1", tooltip: "Selection", isOn: true };
-const RECTANGLE = { id: "rectangle", label: "2", tooltip: "Rectangle", isOn: false };
+const ICON = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"></svg>";
+const SELECTION: Tool = {
+    id: "selection", label: "Selection", text: "1", isOn: true, group: "tools"
+};
+const RECTANGLE: Tool = {
+    id: "rectangle", label: "Rectangle", text: "2", isOn: false, group: "tools"
+};
+const UNDO: Tool = { id: "undo", label: "Undo", icon: ICON, isEnabled: false, group: "history" };
 
-type Tool = typeof SELECTION;
+interface Tool {
+    id: string;
+    label: string;
+    text?: string;
+    icon?: string;
+    isOn?: boolean;
+    isEnabled?: boolean;
+    group?: string;
+}
 
 describe("ContentEmbedTools", () => {
     let editor: ClassicEditor;
@@ -62,9 +76,16 @@ describe("ContentEmbedTools", () => {
     }
 
     function getButtonStates(tools: ContentEmbedToolsView) {
-        return [ ...tools.buttons ].map((button) => [
-            button.label, button.tooltip, button.ariaLabel, button.isOn, button.withText
+        return tools.buttons.map((button) => [
+            button.label, button.withText, button.icon, button.tooltip, button.ariaLabel,
+            button.isToggleable, button.isOn, button.isEnabled
         ]);
+    }
+
+    /** The labels of the buttons, and `|` for each separator, in order. */
+    function getItems(tools: ContentEmbedToolsView) {
+        return [ ...tools.element?.children ?? [] ].map((item) =>
+            item.classList.contains("ck-toolbar__separator") ? "|" : item.textContent);
     }
 
     it("shows the tools of the selected embed's content, and hides them elsewhere", () => {
@@ -81,14 +102,27 @@ describe("ContentEmbedTools", () => {
         expect(provider.subscribe).toHaveBeenCalledTimes(1);
         expect(tools.element?.classList.contains("ck-hidden")).toBe(false);
         expect(getButtonStates(tools)).toEqual([
-            [ "1", "Selection", "Selection", true, true ],
-            [ "2", "Rectangle", "Rectangle", false, true ]
+            [ "1", true, undefined, "Selection", "Selection", true, true, true ],
+            [ "2", true, undefined, "Rectangle", "Rectangle", true, false, true ]
         ]);
 
         setModelData(editor.model, "<paragraph>foo[]</paragraph>");
         editor.ui.update();
         expect(provider.unsubscribe).toHaveBeenCalledTimes(1);
         expect(tools.isVisible).toBe(false);
+    });
+
+    it("shows a command with an icon, and separates the groups of tools", () => {
+        const tools = createView();
+        selectEmbed();
+
+        provider.change([ SELECTION, RECTANGLE, UNDO ]);
+        expect(getButtonStates(tools)[2])
+            .toEqual([ "Undo", false, ICON, "Undo", "Undo", false, false, false ]);
+        expect(getItems(tools)).toEqual([ "1", "2", "|", "Undo" ]);
+
+        provider.change([ SELECTION, RECTANGLE, { ...UNDO, isEnabled: true } ]);
+        expect(tools.buttons[2]?.isEnabled).toBe(true);
     });
 
     it("shows no tools for content without any, or for a host that offers none", () => {
@@ -109,7 +143,7 @@ describe("ContentEmbedTools", () => {
     it("runs a tool without taking the focus", () => {
         const tools = createView();
         selectEmbed();
-        const rectangle = tools.buttons.get(1);
+        const rectangle = tools.buttons[1];
         const mousedown = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
         rectangle?.element?.dispatchEvent(mousedown);
         rectangle?.fire("execute");
@@ -122,15 +156,16 @@ describe("ContentEmbedTools", () => {
         const tools = createView();
         selectEmbed();
         const update = vi.spyOn(editor.ui, "update");
-        const first = tools.buttons.first;
+        const first = tools.buttons[0];
 
         provider.change([ { ...SELECTION, isOn: false }, { ...RECTANGLE, isOn: true } ]);
-        expect([ ...tools.buttons ].map((button) => button.isOn)).toEqual([ false, true ]);
-        expect(tools.buttons.first).toBe(first);
+        expect(tools.buttons.map((button) => button.isOn)).toEqual([ false, true ]);
+        expect(tools.buttons[0]).toBe(first);
         expect(update).not.toHaveBeenCalled();
 
         provider.change([ RECTANGLE ]);
-        expect(getButtonStates(tools)).toEqual([ [ "2", "Rectangle", "Rectangle", false, true ] ]);
+        expect(getButtonStates(tools))
+            .toEqual([ [ "2", true, undefined, "Rectangle", "Rectangle", true, false, true ] ]);
         expect(update).toHaveBeenCalledTimes(1);
 
         provider.change([]);
@@ -145,7 +180,7 @@ describe("ContentEmbedTools", () => {
         }
 
         tools.focus();
-        expect(document.activeElement).toBe(tools.buttons.first?.element);
+        expect(document.activeElement).toBe(tools.buttons[0]?.element);
 
         tools.destroy();
         expect(provider.unsubscribe).toHaveBeenCalledTimes(1);
