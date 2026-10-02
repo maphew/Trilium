@@ -65,21 +65,20 @@ span.aa-dropdown-menu .aa-suggestion {
     cursor: pointer;
     padding: 6px 16px;
     margin: 0;
-    white-space: nowrap;
 
-    > * {
-        white-space: normal;
+    .note-suggestion {
+        display: flex;
     }
 
     .icon {
-        display: inline-block;
+        flex: none;
         line-height: inherit;
-        vertical-align: top;
     }
 
+    /* The rest of the row, so the keys floated in it end at the row's padding. */
     .text {
-        display: inline-block;
-        width: calc(100% - 20px);
+        flex: 1;
+        min-width: 0;
         padding-inline-start: 4px;
     }
 
