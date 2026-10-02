@@ -121,7 +121,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
         autoActivate,
         isHeading
     });
-    const { isOpen, items, activeIndex, setActiveIndex, itemId, pick } = autocomplete;
+    const { isOpen, items, activeIndex, itemId, pick } = autocomplete;
 
     // Keep the dropdown glued to the input.
     useLayoutEffect(() => {
@@ -202,7 +202,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                                 className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
                                 role="option"
                                 aria-selected={index === activeIndex}
-                                onMouseEnter={() => setActiveIndex(index)}
+                                onMouseEnter={() => autocomplete.hover(index)}
                                 onClick={() => pick(item)}
                             >
                                 {renderItem ? renderItem(item) : item}
@@ -270,6 +270,9 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
     // next render: a second Enter in the same task then reaches the host's form (issue #5669).
     const pickedSinceRender = useRef(false);
     pickedSinceRender.current = false;
+    // Set when the keyboard or a new list moves the highlight, which the effect below scrolls into view.
+    // The pointer never sets it: scrolling a partly shown row under the pointer would move the list.
+    const scrollToActive = useRef(false);
     // Names the entries so the field can point at the highlighted one: focus stays in the box, so
     // that pointer is all a screen reader has to go on.
     const itemIdPrefix = useUniqueName("autocomplete-item");
@@ -305,6 +308,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
             // A newer query (or a close) happened while awaiting.
             if (latestQuery.current === queryId) {
                 setItems(suggestions);
+                scrollToActive.current = true;
                 setActiveIndex(autoActivate ? bestMatchIndex(suggestions, query, isHeading, textOf) : -1);
             }
         };
@@ -321,9 +325,10 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
     // Keep the highlighted entry in sight: it can be picked out on opening, or arrowed past the
     // bottom of a list taller than the room the dropdown was given.
     useEffect(() => {
-        if (activeIndex < 0) return;
+        if (activeIndex < 0 || !scrollToActive.current) return;
+        scrollToActive.current = false;
         // `nearest` scrolls the list by as little as it takes, and not at all while the entry is
-        // already in view — so hovering down a visible list never moves it under the pointer.
+        // already in view.
         document.getElementById(itemId(activeIndex))?.scrollIntoView({ block: "nearest" });
     }, [ activeIndex, items, itemId ]);
 
@@ -356,6 +361,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
                     open();
                 } else {
                     const delta = e.key === "ArrowDown" ? 1 : -1;
+                    scrollToActive.current = true;
                     setActiveIndex((index) => stepOver(items, index, delta, isHeading));
                 }
                 break;
@@ -392,6 +398,11 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         activeIndex,
         setActiveIndex,
         itemId,
+        /** Highlights the row under the pointer, without scrolling the list. */
+        hover(index: number) {
+            scrollToActive.current = false;
+            setActiveIndex(index);
+        },
         open,
         close,
         pick,

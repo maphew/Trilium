@@ -243,6 +243,29 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(rows()).toHaveLength(0);
     });
 
+    it("scrolls the highlighted row into view for the keyboard, not for the pointer", async () => {
+        const scrollIntoView = vi.fn();
+        const original = HTMLElement.prototype.scrollIntoView;
+        HTMLElement.prototype.scrollIntoView = scrollIntoView;
+        try {
+            const input = await mount();
+            await type(input, "b");
+            scrollIntoView.mockClear();
+
+            await act(async () => {
+                rows()[1].dispatchEvent(new MouseEvent("mouseenter"));
+            });
+            expect(rows()[1].classList.contains("tn-menu-active")).toBe(true);
+            expect(scrollIntoView).not.toHaveBeenCalled();
+
+            await press(input, "ArrowUp");
+            expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+            expect(scrollIntoView).toHaveBeenCalledOnce();
+        } finally {
+            HTMLElement.prototype.scrollIntoView = original;
+        }
+    });
+
     // Issue #5669: a second Enter that arrives before the list re-renders submits the host's form
     // rather than picking a row of the list the first Enter closed.
     it("leaves a second Enter in the same task to the host", async () => {
