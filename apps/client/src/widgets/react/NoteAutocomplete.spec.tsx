@@ -2,18 +2,21 @@ import { createRef, render as preactRender } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getNoteSuggestions, getCommandSuggestions } = vi.hoisted(() => ({
-    getNoteSuggestions: vi.fn<(term: string) => Promise<Suggestion[]>>(async () => []),
+const { getNoteSuggestions, getCommandSuggestions, createNoteFromSuggestion } = vi.hoisted(() => ({
+    createNoteFromSuggestion: vi.fn<(suggestion: Suggestion) => Promise<string | undefined>>(),
+    getNoteSuggestions: vi.fn<(term: string, options?: NoteSuggestionOptions) => Promise<Suggestion[]>>(async () => []),
     getCommandSuggestions: vi.fn<(term: string) => Suggestion[]>(() => [])
 }));
 
 vi.mock("../../services/note_autocomplete", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../services/note_autocomplete")>()),
     getNoteSuggestions,
-    getCommandSuggestions
+    getCommandSuggestions,
+    createNoteFromSuggestion
 }));
 
-import type { Suggestion } from "../../services/note_autocomplete";
+import appContext from "../../components/app_context";
+import type { NoteSuggestionOptions, Suggestion } from "../../services/note_autocomplete";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
 import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps } from "./NoteAutocomplete";
@@ -165,11 +168,16 @@ describe("NoteAutocomplete's suggestion list", () => {
         await settle();
     }
 
-    async function press(input: HTMLInputElement, key: string) {
+    async function press(input: HTMLInputElement, key: string, modifiers: KeyboardEventInit = {}) {
         await act(async () => {
-            input.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+            input.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...modifiers }));
         });
         await settle();
+    }
+
+    /** The queries the notes were looked up for, in order. */
+    function queries() {
+        return getNoteSuggestions.mock.calls.map(([ query ]) => query);
     }
 
     function rows() {
@@ -180,7 +188,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         const input = await mount();
         await type(input, "al");
 
-        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al");
+        expect(queries().at(-1)).toBe("al");
         const [ alpha, beta ] = rows();
         expect(rows()).toHaveLength(2);
         expect(document.querySelector(".note-autocomplete-menu")?.className)
@@ -239,10 +247,10 @@ describe("NoteAutocomplete's suggestion list", () => {
             });
         }
         // No timer has run, so the debounce of `FormAutocomplete` would not have searched yet.
-        expect(getNoteSuggestions.mock.calls).toEqual([ [ "a" ] ]);
+        expect(queries()).toEqual([ "a" ]);
 
         await settle();
-        expect(getNoteSuggestions.mock.calls).toEqual([ [ "a" ], [ "alp" ] ]);
+        expect(queries()).toEqual([ "a", "alp" ]);
     });
 
     it("lists the recent notes from the clock button, emptying the field", async () => {
@@ -264,7 +272,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(input.value).toBe("");
         expect(input.dataset.notePath).toBe("");
         expect(onTextChange).toHaveBeenLastCalledWith("");
-        expect(getNoteSuggestions).toHaveBeenLastCalledWith("");
+        expect(queries().at(-1)).toBe("");
         expect(rows()).toHaveLength(2);
         expect(document.activeElement).toBe(input);
     });
@@ -295,7 +303,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(input.dataset.notePath).toBe("");
         expect(latestOnTextChange).toHaveBeenCalledWith("");
         expect(firstOnTextChange).not.toHaveBeenCalled();
-        expect(getNoteSuggestions).toHaveBeenLastCalledWith("");
+        expect(queries().at(-1)).toBe("");
         expect(rows()).toHaveLength(2);
         expect(document.activeElement).toBe(input);
     });
@@ -354,7 +362,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         // Elsewhere a `>` is only text to search for.
         const plain = await mount();
         await type(plain, "> cmd");
-        expect(getNoteSuggestions).toHaveBeenLastCalledWith("> cmd");
+        expect(queries().at(-1)).toBe("> cmd");
         expect(getCommandSuggestions).toHaveBeenCalledTimes(1);
     });
 
@@ -394,7 +402,7 @@ describe("NoteAutocomplete's suggestion list", () => {
 
         expect(input.value).toBe("al");
         expect(onTextChange).toHaveBeenCalledWith("al");
-        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al");
+        expect(queries().at(-1)).toBe("al");
         expect(rows()).toHaveLength(2);
     });
 
@@ -411,7 +419,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         await settle();
 
         expect(input.dataset.notePath).toBe("root/x/b");
-        expect(getNoteSuggestions).toHaveBeenLastCalledWith("Beta");
+        expect(queries().at(-1)).toBe("Beta");
         expect(rows()).toHaveLength(2);
         expect(document.activeElement).not.toBe(input);
     });
@@ -452,7 +460,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         await settle();
 
         expect(mouseDown.defaultPrevented).toBe(true);
-        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", { fastSearch: false });
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", expect.objectContaining({ fastSearch: false }));
         expect(rows()).toHaveLength(1);
         expect(rows()[0].querySelector(".search-result-title")).not.toBeNull();
         expect(rows()[0].getAttribute("role")).toBeNull();
@@ -469,7 +477,7 @@ describe("NoteAutocomplete's suggestion list", () => {
 
         // The next keystroke searches the titles again.
         await type(input, "alp");
-        expect(getNoteSuggestions).toHaveBeenLastCalledWith("alp");
+        expect(queries().at(-1)).toBe("alp");
     });
 
     it("searches the content on Shift+Enter, keeping the key from the host", async () => {
@@ -488,7 +496,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         await settle();
 
         expect(shiftEnter.defaultPrevented).toBe(true);
-        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", { fastSearch: false });
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", expect.objectContaining({ fastSearch: false }));
         expect(onKeyDown).not.toHaveBeenCalledWith(shiftEnter);
     });
 
@@ -515,7 +523,98 @@ describe("NoteAutocomplete's suggestion list", () => {
 
         await act(async () => { input.dispatchEvent(new Event("compositionend", { bubbles: true })); });
         await settle();
-        expect(getNoteSuggestions.mock.calls).toEqual([ [ "nih" ] ]);
+        expect(queries()).toEqual([ "nih" ]);
+    });
+
+    describe("action rows", () => {
+        const searchRow: Suggestion = { action: "search-notes", noteTitle: "al", highlightedNotePathTitle: "Search for al" };
+        const linkRow: Suggestion = { action: "external-link", externalLink: "https://e.com", highlightedNotePathTitle: "Insert" };
+        const createRow: Suggestion = { action: "create-note", noteTitle: "New", highlightedNotePathTitle: "Create New" };
+
+        let triggerCommand: ReturnType<typeof vi.spyOn>;
+        beforeEach(() => {
+            triggerCommand = vi.spyOn(appContext, "triggerCommand").mockImplementation(() => Promise.resolve() as never);
+            createNoteFromSuggestion.mockReset();
+        });
+
+        afterEach(() => {
+            triggerCommand.mockRestore();
+        });
+
+        it("asks for the rows the options allow", async () => {
+            const input = await mount({ opts: { allowCreatingNotes: true, allowJumpToSearchNotes: true, allowExternalLinks: true } });
+            await type(input, "al");
+
+            expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", {
+                allowCreatingNotes: true, allowJumpToSearchNotes: true, allowExternalLinks: true
+            });
+        });
+
+        it("runs a search from its row, with its shortcut shown, leaving the field", async () => {
+            const onChange = vi.fn();
+            getNoteSuggestions.mockResolvedValue([ searchRow ]);
+            const input = await mount({ onChange });
+            await type(input, "al");
+
+            expect(rows()[0].querySelector("kbd")?.textContent).toBe("Ctrl+Enter");
+            await press(input, "Enter");
+            expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "al" });
+            expect(onChange).not.toHaveBeenCalled();
+            expect(input.value).toBe("al");
+        });
+
+        it("runs a search on Ctrl+Enter where allowed, keeping the key from other listeners", async () => {
+            const input = await mount({ opts: { allowJumpToSearchNotes: true } });
+            await type(input, "al");
+            const laterListener = vi.fn();
+            input.addEventListener("keydown", laterListener);
+
+            await press(input, "Enter", { ctrlKey: true });
+            expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "al" });
+            expect(laterListener).not.toHaveBeenCalled();
+
+            triggerCommand.mockClear();
+            const plain = await mount();
+            await type(plain, "al");
+            await press(plain, "Enter", { ctrlKey: true });
+            expect(triggerCommand).not.toHaveBeenCalled();
+        });
+
+        it("fills in an external link from its row, with no note selected", async () => {
+            const onChange = vi.fn();
+            const noteIdChanged = vi.fn();
+            getNoteSuggestions.mockResolvedValue([ linkRow ]);
+            const input = await mount({ onChange, noteIdChanged });
+            await type(input, "https://e.com");
+            await press(input, "Enter");
+
+            expect(input.value).toBe("https://e.com");
+            expect(input.dataset.notePath).toBe("");
+            expect(onChange).toHaveBeenCalledWith(linkRow);
+            expect(noteIdChanged).not.toHaveBeenCalled();
+        });
+
+        it("creates a note from its row and reports it as picked, or nothing when canceled", async () => {
+            const onChange = vi.fn();
+            const noteIdChanged = vi.fn();
+            getNoteSuggestions.mockResolvedValue([ createRow ]);
+            createNoteFromSuggestion.mockResolvedValueOnce("root/inbox/created");
+            const input = await mount({ onChange, noteIdChanged });
+            await type(input, "New");
+            await press(input, "Enter");
+
+            expect(createNoteFromSuggestion).toHaveBeenCalledWith(createRow);
+            expect(onChange).toHaveBeenCalledWith({ ...createRow, notePath: "root/inbox/created" });
+            expect(noteIdChanged).toHaveBeenCalledWith("created");
+            expect(input.value).toBe("New");
+            expect(input.dataset.notePath).toBe("root/inbox/created");
+
+            onChange.mockClear();
+            createNoteFromSuggestion.mockResolvedValueOnce(undefined);
+            await type(input, "New");
+            await press(input, "Enter");
+            expect(onChange).not.toHaveBeenCalled();
+        });
     });
 
     it("spans the whole field, the buttons included", async () => {

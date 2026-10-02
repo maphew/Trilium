@@ -5,6 +5,7 @@ import appContext from "../components/app_context.js";
 import commandRegistry from "./command_registry.js";
 import dateNoteService from "./date_notes.js";
 import { t } from "./i18n.js";
+import noteCreateService from "./note_create.js";
 import server from "./server.js";
 import { escapeHtml } from "./utils.js";
 import { logError } from "./ws.js";
@@ -61,37 +62,94 @@ async function autocompleteSourceForCKEditor(queryText: string, allowCreatingNot
     }));
 }
 
+export interface NoteSuggestionOptions {
+    /** Adds the two note-creation rows ahead of the notes, for a non-blank term. */
+    allowCreatingNotes?: boolean;
+    /** Adds a row that runs a search for a non-blank term, after the notes. */
+    allowJumpToSearchNotes?: boolean;
+    /** Adds a row that inserts a term that is a URL as an external link, ahead of everything. */
+    allowExternalLinks?: boolean;
+    /** Searches the titles only, as autocompletion does, or the content as well. */
+    fastSearch?: boolean;
+}
+
 /**
- * Returns the notes matching `term`, or the recently visited notes when `term` is blank. With
- * `allowCreatingNotes`, a non-blank term also gets the two note-creation rows, ahead of the notes.
+ * Returns the notes matching `term`, or the recently visited notes when `term` is blank, with the
+ * action rows the options ask for.
  */
-export async function getNoteSuggestions(term: string, { allowCreatingNotes = false, fastSearch = true } = {}): Promise<Suggestion[]> {
+export async function getNoteSuggestions(term: string, { allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks, fastSearch = true }: NoteSuggestionOptions = {}): Promise<Suggestion[]> {
     const activeNoteId = appContext.tabManager.getActiveContextNoteId();
+    const hasTerm = term.trim().length >= 1;
 
     // Runs concurrently with the search, so naming the destination costs a request but no wait.
-    const pendingInboxTarget = term.trim().length >= 1 && allowCreatingNotes ? getInboxTarget() : null;
+    const pendingInboxTarget = hasTerm && allowCreatingNotes ? getInboxTarget() : null;
 
-    const results = await server.get<AutocompleteResult[]>(`autocomplete?query=${encodeURIComponent(term)}&activeNoteId=${activeNoteId}&fastSearch=${fastSearch}`);
-    if (!pendingInboxTarget) {
-        return results;
+    const results: Suggestion[] = await server.get<AutocompleteResult[]>(`autocomplete?query=${encodeURIComponent(term)}&activeNoteId=${activeNoteId}&fastSearch=${fastSearch}`);
+    const before: Suggestion[] = [];
+    const after: Suggestion[] = [];
+
+    if (allowExternalLinks && /^[a-z]+:\/\/.+/i.test(term)) {
+        before.push({
+            action: "external-link",
+            externalLink: term,
+            highlightedNotePathTitle: t("note_autocomplete.insert-external-link", { term: escapeHtml(term) })
+        });
     }
 
     // Both rows stay above the results: the CKEditor mention feed renders only the first
     // `mention.dropdownLimit` items.
-    return [
-        {
+    if (pendingInboxTarget) {
+        before.push({
             action: "create-note",
             noteTitle: term,
             highlightedNotePathTitle: buildCreateNoteTitle(term, await pendingInboxTarget)
-        },
-        {
+        }, {
             action: "create-child-note",
             noteTitle: term,
             parentNoteId: activeNoteId || "root",
             highlightedNotePathTitle: t("note_autocomplete.create-child-note", { term: escapeHtml(term) })
-        },
-        ...results
-    ];
+        });
+    }
+
+    if (hasTerm && allowJumpToSearchNotes) {
+        after.push({
+            action: "search-notes",
+            noteTitle: term,
+            highlightedNotePathTitle: t("note_autocomplete.search-for", { term: escapeHtml(term) })
+        });
+    }
+
+    return [ ...before, ...results, ...after ];
+}
+
+/**
+ * Creates the note a creation row offers, under the parent the user picks in the type chooser, or
+ * else in the inbox (`create-note`) or under the row's parent (`create-child-note`). Returns the
+ * new note's path, or nothing when the chooser is canceled or no parent is found.
+ */
+export async function createNoteFromSuggestion(suggestion: Suggestion) {
+    const { success, noteType, templateNoteId, notePath, cloneToNoteIds } = await noteCreateService.chooseNoteType();
+    if (!success) {
+        return;
+    }
+
+    const parentNotePath = notePath ?? (suggestion.action === "create-note"
+        ? await dateNoteService.getInboxNotePath()
+        : suggestion.parentNoteId);
+    if (!parentNotePath) {
+        return;
+    }
+
+    const { note } = await noteCreateService.createNote(parentNotePath, {
+        title: suggestion.noteTitle,
+        activate: false,
+        type: noteType,
+        templateNoteId,
+        cloneToNoteIds
+    });
+
+    const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
+    return note?.getBestNotePathString(hoistedNoteId);
 }
 
 /**

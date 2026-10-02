@@ -101,3 +101,10 @@ span.aa-dropdown-menu .aa-suggestion {
         background-color: var(--active-item-background-color);
     }
 }
+
+/* The shortcut of the row that runs a search, at the end of its title line. */
+.search-notes-action .text > kbd {
+    float: inline-end;
+    color: var(--muted-text-color);
+    background-color: transparent;
+}

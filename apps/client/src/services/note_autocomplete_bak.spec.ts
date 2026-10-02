@@ -107,66 +107,6 @@ function lastCommandWith(arg: any) {
     return autocompleteCalls.some((c) => c[0] === arg && c[1] === undefined);
 }
 
-// ---------------------------------------------------------------------------
-// Exercise the internal autocompleteSource via the dataset.source registered
-// during initNoteAutocomplete (it is not exported, so we go through the public
-// init path and capture the dataset callbacks).
-// ---------------------------------------------------------------------------
-
-function initAndGetSource(options?: any) {
-    const $el = makeEl();
-    noteAutocomplete.initNoteAutocomplete($el, options);
-    return { $el, dataset: lastDatasets![0] };
-}
-
-/** Runs the dataset.source and resolves with the rows it passes to cb. */
-function runSource(dataset: Dataset, term: string): Promise<any[]> {
-    return new Promise((resolve) => {
-        dataset.source(term, (rows) => resolve(rows));
-    });
-}
-
-/**
- * Fires the (debounced) dataset.source with the given cb and waits long enough
- * for the debounce timer + the awaited body to flush, even when cb is never called.
- */
-function runSourceRaw(dataset: Dataset, term: string, cb: (rows: any[]) => void): Promise<void> {
-    dataset.source(term, cb);
-    return new Promise((resolve) => setTimeout(resolve, 30));
-}
-
-describe("autocompleteSource (via dataset)", () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        getActiveContextNoteId.mockReturnValue("activeNote");
-        registerAutocompleteStub();
-        server.get = vi.fn(async () => []) as typeof server.get;
-        noteAutocomplete.init();
-    });
-
-    it("appends a search-notes suggestion when allowJumpToSearchNotes", async () => {
-        server.get = vi.fn(async () => [{ noteTitle: "A", notePath: "root/a" }]) as typeof server.get;
-        const { dataset } = initAndGetSource({ allowJumpToSearchNotes: true });
-        const rows = await runSource(dataset, "term");
-        expect(rows[rows.length - 1].action).toBe("search-notes");
-    });
-
-    it("prepends an external-link suggestion when allowExternalLinks and term is a URL", async () => {
-        server.get = vi.fn(async () => [{ noteTitle: "A", notePath: "root/a" }]) as typeof server.get;
-        const { dataset } = initAndGetSource({ allowExternalLinks: true });
-        const rows = await runSource(dataset, "https://example.com/x");
-        expect(rows[0].action).toBe("external-link");
-        expect(rows[0].externalLink).toBe("https://example.com/x");
-    });
-
-    it("does not add a search-notes suggestion for an empty term", async () => {
-        server.get = vi.fn(async () => [{ noteTitle: "A", notePath: "root/a" }]) as typeof server.get;
-        const { dataset } = initAndGetSource({ allowJumpToSearchNotes: true, allowExternalLinks: true });
-        const rows = await runSource(dataset, "   ");
-        expect(rows.every((r) => r.action !== "search-notes")).toBe(true);
-    });
-});
-
 describe("$.fn jQuery extensions (init)", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -262,33 +202,6 @@ describe("initNoteAutocomplete wiring", () => {
         expect(result).toBe($el);
     });
 
-    it("Ctrl+Enter triggers a search-notes selection when allowJumpToSearchNotes", () => {
-        const $el = makeEl();
-        const selected = vi.fn();
-        ($el as any).on("autocomplete:selected", selected);
-        noteAutocomplete.initNoteAutocomplete($el, { allowJumpToSearchNotes: true });
-
-        $el.autocomplete("val", "find this");
-        const ev = $.Event("keydown", { ctrlKey: true, key: "Enter" });
-        $el.trigger(ev);
-        expect(selected).toHaveBeenCalled();
-        const payload = selected.mock.calls[0][1];
-        expect(payload.action).toBe("search-notes");
-    });
-
-    it("ignores keydowns that are not Ctrl+Enter", () => {
-        const $el = makeEl();
-        const selected = vi.fn();
-        ($el as any).on("autocomplete:selected", selected);
-        noteAutocomplete.initNoteAutocomplete($el, { allowJumpToSearchNotes: true });
-
-        // a plain key press -> neither handler fires its body
-        $el.trigger($.Event("keydown", { key: "a" }));
-        // Ctrl without Enter
-        $el.trigger($.Event("keydown", { ctrlKey: true, key: "a" }));
-        expect(selected).not.toHaveBeenCalled();
-    });
-
     // Issue #5669: autocomplete.js empties its suggestion list only a tick after closing
     // it, and its Enter handler selects from the closed-but-not-yet-emptied dropdown, so
     // a fast second Enter right after a selection would consume a stale suggestion row.
@@ -363,73 +276,6 @@ describe("autocomplete:selected handler", () => {
         ($el as any).trigger("autocomplete:selected", suggestion);
         return new Promise((r) => setTimeout(r, 0));
     }
-
-    it("handles an external-link selection", async () => {
-        const { $el, handlers } = initWithSelected();
-        await fireSelected($el, { action: "external-link", externalLink: "https://e.com" });
-        expect($el.attr("data-external-link")).toBe("https://e.com");
-        expect(handlers["autocomplete:externallinkselected"]).toBeDefined();
-    });
-
-    it("handles a search-notes selection by triggering searchNotes", async () => {
-        const { $el } = initWithSelected();
-        await fireSelected($el, { action: "search-notes", noteTitle: "query" });
-        expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "query" });
-    });
-
-    it("creates a note in the inbox then selects it", async () => {
-        chooseNoteType.mockResolvedValue({ success: true, noteType: "text", templateNoteId: undefined, notePath: undefined });
-        createNote.mockResolvedValue({ note: { getBestNotePathString: () => "root/created" } });
-        const { $el, handlers } = initWithSelected();
-        await fireSelected($el, { action: "create-note", noteTitle: "Created" });
-        expect(chooseNoteType).toHaveBeenCalled();
-        expect(createNote).toHaveBeenCalledWith("root/inbox", expect.objectContaining({ title: "Created", type: "text" }));
-        expect(handlers["autocomplete:noteselected"]).toBeDefined();
-        expect(handlers["autocomplete:noteselected"].notePath).toBe("root/created");
-    });
-
-    it("creates a child note under the suggested parent", async () => {
-        chooseNoteType.mockResolvedValue({ success: true, noteType: "text", templateNoteId: undefined, notePath: undefined });
-        createNote.mockResolvedValue({ note: { getBestNotePathString: () => "root/created" } });
-        const { $el } = initWithSelected();
-        await fireSelected($el, { action: "create-child-note", noteTitle: "Created", parentNoteId: "parent" });
-        expect(getInboxNotePath).not.toHaveBeenCalled();
-        expect(createNote).toHaveBeenCalledWith("parent", expect.objectContaining({ title: "Created" }));
-    });
-
-    it("aborts when the inbox cannot be resolved", async () => {
-        chooseNoteType.mockResolvedValue({ success: true, noteType: "text" });
-        getInboxNotePath.mockResolvedValueOnce(undefined);
-        const { $el, handlers } = initWithSelected();
-        await fireSelected($el, { action: "create-note", noteTitle: "X" });
-        expect(createNote).not.toHaveBeenCalled();
-        expect(handlers["autocomplete:noteselected"]).toBeUndefined();
-    });
-
-    it("aborts the create-note flow when the type chooser is cancelled", async () => {
-        chooseNoteType.mockResolvedValue({ success: false });
-        const { $el, handlers } = initWithSelected();
-        await fireSelected($el, { action: "create-note", noteTitle: "X", parentNoteId: "p" });
-        expect(createNote).not.toHaveBeenCalled();
-        expect(handlers["autocomplete:noteselected"]).toBeUndefined();
-    });
-
-    it("uses the chosen notePath as parent and tolerates a missing created note", async () => {
-        chooseNoteType.mockResolvedValue({ success: true, noteType: "text", notePath: "chosen/path" });
-        createNote.mockResolvedValue({ note: undefined });
-        getActiveContext.mockReturnValue(undefined);
-        const { $el, handlers } = initWithSelected();
-        await fireSelected($el, { action: "create-note", noteTitle: "X", parentNoteId: "p" });
-        expect(createNote).toHaveBeenCalledWith("chosen/path", expect.any(Object));
-        // The missing-note branch must be tolerated end to end: note?.getBestNotePathString
-        // and getActiveContext()?.hoistedNoteId are both undefined and must not throw.
-        // The flow still falls through to fire autocomplete:noteselected with an
-        // undefined notePath (rather than crashing inside the async handler).
-        expect(handlers["autocomplete:noteselected"]).toBeDefined();
-        expect(handlers["autocomplete:noteselected"].notePath).toBeUndefined();
-        // the selection was written back as a cleared path (setSelectedNotePath(undefined))
-        expect($el.attr("data-note-path") ?? "").toBe("");
-    });
 
     it("handles a plain note selection", async () => {
         const { $el, handlers } = initWithSelected();

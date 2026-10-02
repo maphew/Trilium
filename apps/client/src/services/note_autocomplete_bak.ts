@@ -1,10 +1,5 @@
-import appContext from "../components/app_context.js";
-import dateNoteService from "./date_notes.js";
 import froca from "./froca.js";
-import { t } from "./i18n.js";
 import { createSearchScheduler, getNoteSuggestions, type Options, type Suggestion } from "./note_autocomplete.js";
-import noteCreateService from "./note_create.js";
-import { escapeHtml } from "./utils.js";
 
 // this key needs to have this value, so it's hit by the tooltip
 const SELECTED_NOTE_PATH_KEY = "data-note-path";
@@ -12,31 +7,7 @@ const SELECTED_NOTE_PATH_KEY = "data-note-path";
 const SELECTED_EXTERNAL_LINK_KEY = "data-external-link";
 
 async function autocompleteSource(term: string, cb: (rows: Suggestion[]) => void, options: Options = {}) {
-    const length = term.trim().length;
-
-    let results = await getNoteSuggestions(term, { allowCreatingNotes: options.allowCreatingNotes });
-
-    if (length >= 1 && options.allowJumpToSearchNotes) {
-        results = results.concat([
-            {
-                action: "search-notes",
-                noteTitle: term,
-                highlightedNotePathTitle: `${t("note_autocomplete.search-for", { term: escapeHtml(term) })} <kbd style='color: var(--muted-text-color); background-color: transparent; float: right;'>Ctrl+Enter</kbd>`
-            }
-        ]);
-    }
-
-    if (term.match(/^[a-z]+:\/\/.+/i) && options.allowExternalLinks) {
-        results = [
-            {
-                action: "external-link",
-                externalLink: term,
-                highlightedNotePathTitle: t("note_autocomplete.insert-external-link", { term: escapeHtml(term) })
-            } as Suggestion
-        ].concat(results);
-    }
-
-    cb(results);
+    cb(await getNoteSuggestions(term, { allowCreatingNotes: options.allowCreatingNotes }));
 }
 
 function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
@@ -53,16 +24,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
 
     $el.addClass("note-autocomplete-input");
 
-    if (options.allowJumpToSearchNotes) {
-        $el.on("keydown", (event) => {
-            if (event.ctrlKey && event.key === "Enter") {
-                // Prevent Ctrl + Enter from triggering autoComplete.
-                event.stopImmediatePropagation();
-                event.preventDefault();
-                $el.trigger("autocomplete:selected", { action: "search-notes", noteTitle: $el.autocomplete("val") });
-            }
-        });
-    }
     $el.on("keydown", (event) => {
         const isPlainEnter = event.key === "Enter"
             && !event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
@@ -104,50 +65,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
 
     //@ts-expect-error The `autocomplete:selected` handler takes an extra `suggestion` argument that jQuery's `.on()` typings don't model.
     $el.on("autocomplete:selected", async (event: Event, suggestion: Suggestion) => {
-        if (suggestion.action === "external-link") {
-            $el.setSelectedNotePath(null);
-            $el.setSelectedExternalLink(suggestion.externalLink);
-
-            $el.autocomplete("val", suggestion.externalLink);
-
-            $el.autocomplete("close");
-
-            $el.trigger("autocomplete:externallinkselected", [suggestion]);
-
-            return;
-        }
-
-        if (suggestion.action === "create-note" || suggestion.action === "create-child-note") {
-            const { success, noteType, templateNoteId, notePath, cloneToNoteIds } = await noteCreateService.chooseNoteType();
-            if (!success) {
-                return;
-            }
-
-            const parentNotePath = notePath ?? (suggestion.action === "create-note"
-                ? await dateNoteService.getInboxNotePath()
-                : suggestion.parentNoteId);
-            if (!parentNotePath) {
-                return;
-            }
-
-            const { note } = await noteCreateService.createNote(parentNotePath, {
-                title: suggestion.noteTitle,
-                activate: false,
-                type: noteType,
-                templateNoteId,
-                cloneToNoteIds
-            });
-
-            const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
-            suggestion.notePath = note?.getBestNotePathString(hoistedNoteId);
-        }
-
-        if (suggestion.action === "search-notes") {
-            const searchString = suggestion.noteTitle;
-            appContext.triggerCommand("searchNotes", { searchString });
-            return;
-        }
-
         $el.setSelectedNotePath(suggestion.notePath);
         $el.setSelectedExternalLink(null);
 

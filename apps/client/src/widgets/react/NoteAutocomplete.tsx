@@ -6,9 +6,10 @@ import type { RefObject } from "preact";
 import { createPortal, type CSSProperties } from "preact/compat";
 import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
+import appContext from "../../components/app_context";
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
-import { createSearchScheduler, getCommandSuggestions, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
+import { createSearchScheduler, createNoteFromSuggestion, getCommandSuggestions, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
 import { useAutocomplete } from "./FormAutocomplete";
 import { useSyncedRef } from "./hooks";
 import Icon from "./Icon";
@@ -61,31 +62,27 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     const [ fullTextSearchCount, setFullTextSearchCount ] = useState(0);
     const [ isSearchingFullText, setSearchingFullText ] = useState(false);
 
-    const isCommandPalette = !!opts?.isCommandPalette;
+    const { isCommandPalette, allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks } = opts ?? {};
     const source = useCallback(async (query: string) => {
         if (isCommandPalette && query.startsWith(">")) {
             return getCommandSuggestions(query);
         }
+
+        const options = { allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks };
         if (!fullTextSearchCount) {
-            return getNoteSuggestions(query);
+            return getNoteSuggestions(query, options);
         }
 
         setSearchingFullText(true);
         try {
-            return await getNoteSuggestions(query, { fastSearch: false });
+            return await getNoteSuggestions(query, { ...options, fastSearch: false });
         } finally {
             setSearchingFullText(false);
         }
-    }, [ isCommandPalette, fullTextSearchCount ]);
+    }, [ isCommandPalette, allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks, fullTextSearchCount ]);
     const schedule = useMemo(() => createSearchScheduler(), []);
 
-    const pickSuggestion = useCallback((suggestion: Suggestion) => {
-        // The host runs a command; the field keeps what was typed.
-        if (suggestion.action === "command") {
-            onChange?.(suggestion);
-            return;
-        }
-
+    const selectNote = useCallback((suggestion: Suggestion) => {
         setValue(suggestion.noteTitle ?? "");
         setNotePath(suggestion.notePath ?? "");
         onChange?.(suggestion);
@@ -93,6 +90,32 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
             noteIdChanged(lastSegment(suggestion.notePath));
         }
     }, [ onChange, noteIdChanged ]);
+
+    const pickSuggestion = useCallback((suggestion: Suggestion) => {
+        switch (suggestion.action) {
+            case "command":
+                // The host runs it; the field keeps what was typed.
+                onChange?.(suggestion);
+                break;
+            case "search-notes":
+                void appContext.triggerCommand("searchNotes", { searchString: suggestion.noteTitle });
+                break;
+            case "external-link":
+                setValue(suggestion.externalLink ?? "");
+                setNotePath("");
+                onChange?.(suggestion);
+                break;
+            case "create-note":
+            case "create-child-note":
+                // Reported as a picked note once created, with the row's `action` kept.
+                void createNoteFromSuggestion(suggestion).then((notePath) => {
+                    if (notePath) selectNote({ ...suggestion, notePath });
+                });
+                break;
+            default:
+                selectNote(suggestion);
+        }
+    }, [ onChange, selectNote ]);
 
     const autocomplete = useAutocomplete({
         query: value,
@@ -202,6 +225,14 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 onKeyDown={(e) => {
                     // An Enter while composing commits the input method's candidate instead.
                     const isEnter = e.key === "Enter" && !e.isComposing;
+                    if (isEnter && e.ctrlKey && allowJumpToSearchNotes) {
+                        // Kept from the host's other listeners, such as a Ctrl+Enter shortcut of its
+                        // own, as the jQuery plugin did.
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        void appContext.triggerCommand("searchNotes", { searchString: value });
+                        return;
+                    }
                     if (isEnter && e.shiftKey) {
                         // Kept from the host and the list, as the jQuery plugin did.
                         e.preventDefault();
@@ -376,7 +407,7 @@ function NoteSuggestionMenuItem({ suggestion }: { suggestion: Suggestion }) {
                 <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
                 {description && <RawHtml className="search-result-attributes" html={description} />}
             </div>
-            {isCommand && suggestion.commandShortcut && <kbd>{suggestion.commandShortcut}</kbd>}
+            {suggestionShortcut(suggestion) && <kbd>{suggestionShortcut(suggestion)}</kbd>}
         </span>
     );
 }
@@ -402,6 +433,7 @@ function NoteSuggestion({ suggestion }: { suggestion: Suggestion }) {
         <div className={clsx("note-suggestion", suggestion.action === "search-notes" && "search-notes-action")}>
             <span className={clsx("icon", suggestionIcon(suggestion))} />
             <span className="text">
+                {suggestionShortcut(suggestion) && <kbd>{suggestionShortcut(suggestion)}</kbd>}
                 <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
                 {suggestion.highlightedAttributeSnippet && (
                     <RawHtml className="search-result-attributes" html={suggestion.highlightedAttributeSnippet} />
@@ -418,6 +450,14 @@ function suggestionIcon(suggestion: Suggestion) {
         case "create-child-note": return "bx bx-subdirectory-right";
         case "external-link": return "bx bx-link-external";
         default: return suggestion.icon ?? "bx bx-note";
+    }
+}
+
+/** The keys that act on a row from the field, without picking it from the list. */
+function suggestionShortcut(suggestion: Suggestion) {
+    switch (suggestion.action) {
+        case "command": return suggestion.commandShortcut;
+        case "search-notes": return "Ctrl+Enter";
     }
 }
 

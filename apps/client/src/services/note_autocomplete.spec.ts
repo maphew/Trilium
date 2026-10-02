@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getActiveContextNoteId, getInboxTarget, translate, logError, getAllCommands, searchCommands } = vi.hoisted(() => ({
+const {
+    getActiveContextNoteId, getActiveContext, getInboxTarget, getInboxNotePath, chooseNoteType, createNote, translate, logError,
+    getAllCommands, searchCommands
+} = vi.hoisted(() => ({
     getActiveContextNoteId: vi.fn<() => string | null>(() => "activeNote"),
+    getActiveContext: vi.fn<() => { hoistedNoteId: string } | undefined>(() => ({ hoistedNoteId: "hoisted" })),
+    getInboxNotePath: vi.fn<() => Promise<string | undefined>>(async () => "root/inbox"),
+    chooseNoteType: vi.fn(),
+    createNote: vi.fn(),
     getInboxTarget: vi.fn<() => Promise<unknown>>(
         async () => ({ kind: "inbox", noteId: "inb", title: "Inbox" })
     ),
@@ -18,11 +25,15 @@ vi.mock("./command_registry.js", () => ({
 }));
 
 vi.mock("../components/app_context.js", () => ({
-    default: { tabManager: { getActiveContextNoteId } }
+    default: { tabManager: { getActiveContextNoteId, getActiveContext } }
 }));
 
 vi.mock("./date_notes.js", () => ({
-    default: { getInboxTarget }
+    default: { getInboxTarget, getInboxNotePath }
+}));
+
+vi.mock("./note_create.js", () => ({
+    default: { chooseNoteType, createNote }
 }));
 
 vi.mock("./i18n.js", async (importOriginal) => ({
@@ -43,12 +54,13 @@ vi.mock("./ws.js", () => ({
 }));
 
 import type { CommandDefinition } from "./command_registry.js";
-import noteAutocomplete, { createSearchScheduler, getCommandSuggestions, getNoteSuggestions, type Suggestion } from "./note_autocomplete.js";
+import noteAutocomplete, { createNoteFromSuggestion, createSearchScheduler, getCommandSuggestions, getNoteSuggestions, type Suggestion } from "./note_autocomplete.js";
 import server from "./server.js";
 
 beforeEach(() => {
     vi.clearAllMocks();
     getActiveContextNoteId.mockReturnValue("activeNote");
+    getActiveContext.mockReturnValue({ hoistedNoteId: "hoisted" });
     server.get = vi.fn(async () => []) as typeof server.get;
 });
 
@@ -127,6 +139,22 @@ describe("getNoteSuggestions", () => {
 
         await getNoteSuggestions("New", { allowCreatingNotes: true });
         expect(logError).toHaveBeenCalledWith(expect.stringContaining("nope"));
+    });
+
+    it("adds the external-link row first for a URL, and the search row last for any term", async () => {
+        server.get = vi.fn(async () => [ { noteTitle: "A", notePath: "root/a" } ]) as typeof server.get;
+        const all = { allowCreatingNotes: true, allowJumpToSearchNotes: true, allowExternalLinks: true };
+
+        const rows = await getNoteSuggestions("https://example.com/x", all);
+        expect(rows.map((r) => r.action)).toEqual([ "external-link", "create-note", "create-child-note", undefined, "search-notes" ]);
+        expect(rows[0]).toMatchObject({ externalLink: "https://example.com/x", highlightedNotePathTitle: "note_autocomplete.insert-external-link" });
+        expect(rows[4]).toMatchObject({ noteTitle: "https://example.com/x", highlightedNotePathTitle: "note_autocomplete.search-for" });
+
+        // Not a URL, and a blank term: neither row is offered.
+        expect((await getNoteSuggestions("plain", all)).map((r) => r.action)).not.toContain("external-link");
+        expect((await getNoteSuggestions("   ", all)).map((r) => r.action)).toEqual([ undefined ]);
+        // And only when asked for.
+        expect((await getNoteSuggestions("https://example.com/x")).map((r) => r.action)).toEqual([ undefined ]);
     });
 });
 
@@ -288,5 +316,45 @@ describe("getCommandSuggestions", () => {
         searchCommands.mockReturnValue([ { id: "c", name: "C" } ]);
         expect(getCommandSuggestions("> hello").map((row) => row.commandId)).toEqual([ "c" ]);
         expect(searchCommands).toHaveBeenCalledWith("hello");
+    });
+});
+
+describe("createNoteFromSuggestion", () => {
+    beforeEach(() => {
+        chooseNoteType.mockResolvedValue({ success: true, noteType: "text", templateNoteId: undefined, notePath: undefined });
+        createNote.mockResolvedValue({ note: { getBestNotePathString: (hoisted: string) => `root/${hoisted}/created` } });
+    });
+
+    it("creates the note in the inbox, or under the row's parent, and returns its path", async () => {
+        expect(await createNoteFromSuggestion({ action: "create-note", noteTitle: "Created" })).toBe("root/hoisted/created");
+        expect(createNote).toHaveBeenLastCalledWith("root/inbox", expect.objectContaining({ title: "Created", type: "text", activate: false }));
+
+        await createNoteFromSuggestion({ action: "create-child-note", noteTitle: "Child", parentNoteId: "parent" });
+        expect(createNote).toHaveBeenLastCalledWith("parent", expect.objectContaining({ title: "Child" }));
+        expect(getInboxNotePath).toHaveBeenCalledTimes(1);
+    });
+
+    it("puts the note where the type chooser says, over the row's own parent", async () => {
+        chooseNoteType.mockResolvedValue({ success: true, noteType: "code", notePath: "chosen/path" });
+
+        await createNoteFromSuggestion({ action: "create-child-note", noteTitle: "X", parentNoteId: "p" });
+        expect(createNote).toHaveBeenCalledWith("chosen/path", expect.objectContaining({ type: "code" }));
+    });
+
+    it.each([
+        { when: "the type chooser is canceled", arrange: () => chooseNoteType.mockResolvedValue({ success: false }) },
+        { when: "there is no inbox", arrange: () => getInboxNotePath.mockResolvedValueOnce(undefined) }
+    ])("creates nothing when $when", async ({ arrange }) => {
+        arrange();
+
+        expect(await createNoteFromSuggestion({ action: "create-note", noteTitle: "X" })).toBeUndefined();
+        expect(createNote).not.toHaveBeenCalled();
+    });
+
+    it("returns nothing for a note that was not created", async () => {
+        createNote.mockResolvedValue({ note: undefined });
+        getActiveContext.mockReturnValue(undefined);
+
+        expect(await createNoteFromSuggestion({ action: "create-note", noteTitle: "X" })).toBeUndefined();
     });
 });
