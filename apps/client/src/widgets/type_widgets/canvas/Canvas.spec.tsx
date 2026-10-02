@@ -1,5 +1,5 @@
 import type { ExcalidrawImperativeAPI, ExcalidrawProps } from "@excalidraw/excalidraw/types";
-import { type RefObject, render } from "preact";
+import { type ComponentChildren, type RefObject, render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,7 +7,7 @@ const excalidrawProps = vi.fn((_props: ExcalidrawProps) => undefined);
 vi.mock("@excalidraw/excalidraw", () => ({
     Excalidraw: (props: ExcalidrawProps) => {
         excalidrawProps(props);
-        return <div className="mock-excalidraw" />;
+        return <div className="mock-excalidraw">{props.children as ComponentChildren}</div>;
     }
 }));
 vi.mock("../../react/hooks", async (importOriginal) => ({
@@ -35,7 +35,7 @@ describe("CanvasEditor", () => {
         container.remove();
     });
 
-    async function mount(isEmbedded?: boolean) {
+    async function mount(isEmbedded?: boolean, children?: ComponentChildren) {
         await act(async () => {
             render(
                 <CanvasEditor
@@ -44,7 +44,9 @@ describe("CanvasEditor", () => {
                     colorScheme="light"
                     persistence={{}}
                     isEmbedded={isEmbedded}
-                />,
+                >
+                    {children}
+                </CanvasEditor>,
                 container
             );
         });
@@ -71,5 +73,11 @@ describe("CanvasEditor", () => {
 
         expect(refresh).not.toHaveBeenCalled();
         expect(excalidrawProps).toHaveBeenLastCalledWith(expect.objectContaining({ detectScroll: false }));
+    });
+
+    it("renders its children inside Excalidraw", async () => {
+        const excalidraw = await mount(true, <span className="excalidraw-child" />);
+
+        expect(excalidraw?.querySelector(".excalidraw-child")).not.toBeNull();
     });
 });

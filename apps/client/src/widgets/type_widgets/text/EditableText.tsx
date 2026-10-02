@@ -33,6 +33,7 @@ import { setEditorNoteId } from "../../react/NoteStore";
 import { TypeWidgetProps } from "../type_widget";
 import AttachmentSaves from "./attachment_saves";
 import CKEditorWithWatchdog, { CKEditorApi, NotificationEventData, NotificationEventInfo } from "./CKEditorWithWatchdog";
+import { getContentEmbedTools } from "./content_embed_tools";
 import getTemplates, { updateTemplateCache } from "./snippets.js";
 import linkEmbedService from "../../../services/link_embed";
 import { usesClassicToolbar } from "./toolbar";
@@ -221,6 +222,7 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
         },
         getEmbedBoxSize: getUploadBoxSize,
         openContentEmbedMenu,
+        getContentEmbedTools,
         // Link preview functionality. The insert flow itself lives in the editor (a balloon form),
         // so the host only has to supply the metadata and the rendering.
         async fetchLinkMetadata(url: string) {

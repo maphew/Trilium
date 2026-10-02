@@ -12,6 +12,7 @@ import ContentEmbed, {
 } from "./content_embed.js";
 import ContentEmbedBoxSizeDropdown from "./content_embed_box_size_dropdown.js";
 import ContentEmbedToolbar from "./content_embed_toolbar.js";
+import ContentEmbedTools, { CONTENT_EMBED_TOOLS } from "./content_embed_tools.js";
 
 // ---------------------------------------------------------------------------
 // Minimal inline plugin that registers a widget without a class attribute.
@@ -97,14 +98,16 @@ describe("ContentEmbedToolbar", () => {
         expect(requires).toContain(WidgetToolbarRepository);
         expect(requires).toContain(ContentEmbed);
         expect(requires).toContain(ContentEmbedBoxSizeDropdown);
+        expect(requires).toContain(ContentEmbedTools);
     });
 
-    it("offers the box size, the title, the caption, the link conversion and the menu", () => {
+    it("offers the content's tools, the box size, the title, the caption, the link conversion and the menu", () => {
         const repository = editor.plugins.get(WidgetToolbarRepository) as unknown as {
             _toolbarDefinitions: Map<string, { itemsConfig: string[] }>;
         };
 
         expect(repository._toolbarDefinitions.get("contentEmbed")?.itemsConfig).toEqual([
+            CONTENT_EMBED_TOOLS,
             "contentEmbedBoxSizeDropdown",
             TOGGLE_TITLE_COMMAND_NAME,
             TOGGLE_CAPTION_COMMAND_NAME,

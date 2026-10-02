@@ -2,7 +2,7 @@ import { Excalidraw } from "@excalidraw/excalidraw";
 import { TypeWidgetProps } from "../type_widget";
 import "@excalidraw/excalidraw/index.css";
 import { useColorScheme, useEffectiveReadOnly, useTriliumOption } from "../../react/hooks";
-import type { RefObject } from "preact";
+import type { ComponentChildren, RefObject } from "preact";
 import { useCallback, useRef } from "preact/hooks";
 import {
     type AppState,
@@ -47,11 +47,13 @@ export interface CanvasEditorProps {
     persistence: Partial<ExcalidrawProps>;
     /** Whether the editor moves on the page, as inside a text note that scrolls. */
     isEmbedded?: boolean;
+    /** Rendered inside Excalidraw, where its hooks such as `useI18n()` work. */
+    children?: ComponentChildren;
 }
 
 /** The Excalidraw editor of a canvas note or drawing, loaded and saved by `persistence`. */
 export function CanvasEditor({
-    apiRef, isReadOnly, colorScheme, persistence, isEmbedded = false
+    apiRef, isReadOnly, colorScheme, persistence, isEmbedded = false, children
 }: CanvasEditorProps) {
     const [ locale ] = useTriliumOption("locale");
     const noteDrop = useCanvasNoteDrop(apiRef, isReadOnly);
@@ -122,7 +124,9 @@ export function CanvasEditor({
                     validateEmbeddable={validateEmbeddable}
                     renderEmbeddable={renderEmbeddable}
                     {...persistence}
-                />
+                >
+                    {children}
+                </Excalidraw>
             </div>
         </div>
     )

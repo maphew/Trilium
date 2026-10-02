@@ -124,6 +124,11 @@ export default class ContentEmbed extends Plugin {
 		};
 	}
 
+	/** The rendered `<figure>` of the selected embed, or `null`. */
+	getSelectedEmbedDom(): HTMLElement | null {
+		return getSelectedContentEmbedDom( this.editor );
+	}
+
 	/** Whether `domElement` is a reference link that `convertLinkToEmbed` turns into an embed. */
 	canConvertLinkToEmbed( domElement: HTMLElement ): boolean {
 		return !!getLinkToEmbed( this.editor, domElement );
@@ -875,15 +880,21 @@ function getTitleAttributes( element: ModelElement ): Record<string, string> {
 
 /** Has the host open the context menu of the selected embed, below `anchor`. */
 function openContentEmbedMenu( editor: Editor, anchor: HTMLElement | null ) {
-	const embed = getSelectedContentEmbed( editor );
-	const viewElement = embed && editor.editing.mapper.toViewElement( embed );
-	const domElement = viewElement && editor.editing.view.domConverter.mapViewToDom( viewElement );
-	if ( !anchor || !( domElement instanceof HTMLElement ) ) {
+	const domElement = getSelectedContentEmbedDom( editor );
+	if ( !anchor || !domElement ) {
 		return;
 	}
 
 	const component = glob.getComponentByEl<EditorComponent>( editor.editing.view.getDomRoot() );
 	component.openContentEmbedMenu?.( domElement, anchor );
+}
+
+/** The rendered `<figure>` of the selected embed, or `null`. */
+function getSelectedContentEmbedDom( editor: Editor ): HTMLElement | null {
+	const embed = getSelectedContentEmbed( editor );
+	const viewElement = embed && editor.editing.mapper.toViewElement( embed );
+	const domElement = viewElement && editor.editing.view.domConverter.mapViewToDom( viewElement );
+	return domElement instanceof HTMLElement ? domElement : null;
 }
 
 /** The title of an embed whose upload is under way: a spinner and the name of the file. */

@@ -85,6 +85,16 @@
     opacity: 0;
 }
 
+/* The tools are buttons of the embed's toolbar, which fullscreen hides. */
+.include-note-content:not(:fullscreen) .canvas-drawing .excalidraw {
+    .App-toolbar-container > .App-toolbar,
+    .mobile-misc-tools-container > label:has(
+        [data-testid="toolbar-lock"], [data-testid="toolbar-hand"]
+    ) {
+        display: none;
+    }
+}
+
 .include-note {
     &[data-box-size="small"] .canvas-drawing {
         height: 10em;

@@ -30,6 +30,24 @@ declare global {
         onSelect(iconClass: string): void;
     }
 
+    /** A button that the content of an embed adds to the toolbar of the embed. */
+    interface ContentEmbedTool {
+        id: string;
+        /** The text of the button. */
+        label: string;
+        /** The name of what the button does, shown as its tooltip. */
+        tooltip: string;
+        isOn: boolean;
+    }
+
+    /** The buttons that the content of an embed, such as a canvas drawing, adds to its toolbar. */
+    interface ContentEmbedToolProvider {
+        getTools(): ContentEmbedTool[];
+        execute(id: string): void;
+        /** Calls `callback` when `getTools()` changes, until the returned function is called. */
+        subscribe(callback: () => void): () => void;
+    }
+
     interface EditorComponent extends Component {
         /**
          * Paints the host's icon picker into `container`, and answers with the way to take it down
@@ -64,6 +82,11 @@ declare global {
          * leave it out.
          */
         openContentEmbedMenu?(embed: HTMLElement, anchor: HTMLElement): void;
+        /**
+         * The buttons that what `embed` shows adds to the toolbar of the embed, or `null`. Hosts
+         * without embeds leave it out.
+         */
+        getContentEmbedTools?(embed: HTMLElement): ContentEmbedToolProvider | null;
         /**
          * Gives the focus to what the embed of the attachment shows, once it renders. Hosts
          * without embeds leave it out.
