@@ -1561,7 +1561,8 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 .include-note-content:not(:fullscreen) :is(
-    .rendered-content > img, .rendered-content > svg, .video-preview
+    .rendered-content > img, .rendered-content > svg,
+    .video-preview-wrapper:not(:fullscreen) > .video-preview
 ) {
     max-height: var(--include-note-media-max-height, none);
 }
@@ -1698,6 +1699,11 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 
 .include-note-content > .rendered-content > *:last-child {
     margin-bottom: 0;
+}
+
+/* Hides what a larger box size drew, until the Tiny row replaces it. */
+.include-note[data-box-size="tiny"] > .include-note-wrapper > .include-note-content {
+    display: none;
 }
 
 .include-note[data-hide-title="true"]:not([data-box-size="tiny"], [data-box-size="expandable"]) {

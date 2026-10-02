@@ -728,7 +728,7 @@ html .note-detail-editable-text > :not(figure, .include-note, hr):first-child {
 }
 
 /* Round the player, not the card: clipping the card would crop the insert-paragraph buttons. */
-.include-note-content.type-video .video-preview-wrapper {
+.include-note-content.type-video .video-preview-wrapper:not(:fullscreen) {
     border-radius: 0 0 var(--_include-note-bottom-border-radius, 8px)
                    var(--_include-note-bottom-border-radius, 8px);
     overflow: hidden;
