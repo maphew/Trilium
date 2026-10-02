@@ -7,6 +7,7 @@ import {
     MentionEditing,
     type MentionFeedObjectItem,
     Paragraph,
+    Rect,
     _setModelData as setModelData,
     View
 } from "ckeditor5";
@@ -14,7 +15,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
 import type { TriliumMentionFeed } from "./types.js";
-import TriliumMentionUI from "./trilium_mention_ui.js";
+import TriliumMentionUI, { balloonPositions } from "./trilium_mention_ui.js";
 
 /** Longer than the plugin's 100 ms feed debounce. */
 const AFTER_DEBOUNCE = 160;
@@ -165,6 +166,17 @@ describe("TriliumMentionUI", () => {
         balloonElement?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
 
         expect(isPanelVisible()).toBe(true);
+    });
+
+    it("caps the list's height to the room the visible viewport leaves beside the caret", async () => {
+        type("#al");
+        await settle();
+
+        const list = document.querySelector<HTMLElement>(".ck-mention-balloon .ck-mentions");
+        expect(list).not.toBe(null);
+        const height = parseFloat(list?.style.getPropertyValue("--tn-mention-visible-height") ?? "");
+        expect(height).toBeGreaterThan(0);
+        expect(height).toBeLessThan(window.visualViewport?.height ?? window.innerHeight);
     });
 
     it("positions the panel from the right in a right-to-left UI", async () => {
@@ -561,5 +573,37 @@ describe("TriliumMentionUI", () => {
         await settle();
 
         expect(editor.plugins.get(ContextualBalloon).visibleView?.element?.textContent).toContain("label:#alpha");
+    });
+});
+
+describe("balloonPositions", () => {
+    const rect = (left: number, top: number, width: number, height: number) =>
+        new Rect({ left, top, width, height, right: left + width, bottom: top + height });
+    const viewport = rect(0, 0, 400, 800);
+    const balloon = rect(0, 0, 300, 200);
+
+    function place(caret: Rect, ...args: Parameters<typeof balloonPositions>) {
+        return balloonPositions(...args).map((position) => position(caret, balloon, viewport));
+    }
+
+    it("slides each corner sideways to keep the panel within the viewport", () => {
+        // A caret near the right edge: opening rightward from it would run off the screen.
+        const [ se, sw ] = place(rect(350, 100, 1, 20), undefined, "ltr");
+        expect(se).toMatchObject({ name: "caret_se", top: 123, left: 400 - 8 - 300 });
+        expect(sw).toMatchObject({ name: "caret_sw", left: 51 });
+
+        // Near the left edge, opening leftward stops at the margin.
+        const [ , leftward ] = place(rect(20, 100, 1, 20), undefined, "ltr");
+        expect(leftward).toMatchObject({ name: "caret_sw", left: 8 });
+    });
+
+    it("offers the corners above first where asked, and the matched one first of all, the others after it", () => {
+        const caret = rect(100, 400, 1, 20);
+        const names = (...args: Parameters<typeof balloonPositions>) => place(caret, ...args).map((position) => position?.name);
+
+        expect(names(undefined, "ltr")).toEqual([ "caret_se", "caret_sw", "caret_ne", "caret_nw" ]);
+        expect(names(undefined, "rtl")).toEqual([ "caret_sw", "caret_se", "caret_nw", "caret_ne" ]);
+        expect(names(undefined, "ltr", true)).toEqual([ "caret_ne", "caret_nw", "caret_se", "caret_sw" ]);
+        expect(names("caret_nw", "ltr")).toEqual([ "caret_nw", "caret_se", "caret_sw", "caret_ne" ]);
     });
 });

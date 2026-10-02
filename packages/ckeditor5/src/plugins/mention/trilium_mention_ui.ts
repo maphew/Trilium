@@ -23,6 +23,10 @@ import { createMarkerPattern, findMarkerMatch, type MarkerMatch } from "./marker
 import type { TriliumMentionFeed } from "./types.js";
 
 const VERTICAL_SPACING = 3;
+/** The least gap kept between the panel and an edge of the visible viewport, which `style.css` matches. */
+const VIEWPORT_MARGIN = 8;
+/** Below this the space under the caret is unusable, and the panel opens above it where there is more room. */
+const MIN_LIST_HEIGHT = 150;
 const MARKER_NAME = "mention";
 const FEED_DEBOUNCE_MS = 100;
 const DEFAULT_DROPDOWN_LIMIT = 10;
@@ -314,15 +318,22 @@ export default class TriliumMentionUI extends Plugin {
         // throws `contextualballoon-add-view-exist` for a view that is already registered in any
         // stack, visible or not. Upstream's `MentionUI` branches on visibility here and so crashes
         // as soon as another plugin's balloon (added with `singleViewMode`) buries the panel.
+        // Rendered ahead of `ContextualBalloon.add()`, which would otherwise render it, so the height
+        // is capped before the first placement measures the panel.
+        if (!this._view.isRendered) {
+            this._view.render();
+        }
+        const preferAbove = this._fitToVisibleViewport(marker);
+
         if (!this._balloon.hasView(this._view)) {
             this._balloon.add({
                 view: this._view,
-                position: this._positionData(marker),
+                position: this._positionData(marker, preferAbove),
                 singleViewMode: true,
                 balloonClassName: "ck-mention-balloon"
             });
         } else if (this._isVisible) {
-            this._balloon.updatePosition(this._positionData(marker));
+            this._balloon.updatePosition(this._positionData(marker, preferAbove));
         }
 
         this._view.position = this._balloon.view.position;
@@ -425,32 +436,55 @@ export default class TriliumMentionUI extends Plugin {
         return button;
     }
 
-    private _positionData(marker: Marker): Partial<DomOptimalPositionOptions> {
+    /**
+     * Caps the list's height to the larger of the spaces above and below the caret in the visible
+     * viewport, which on a phone excludes the on-screen keyboard. Returns whether the panel opens above
+     * the caret.
+     */
+    private _fitToVisibleViewport(marker: Marker): boolean {
+        const caret = this._caretRect(marker);
+        const viewport = window.visualViewport;
+        const visibleTop = viewport?.offsetTop ?? 0;
+        const visibleBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+
+        const below = visibleBottom - caret.bottom - VERTICAL_SPACING - VIEWPORT_MARGIN;
+        const above = caret.top - visibleTop - VERTICAL_SPACING - VIEWPORT_MARGIN;
+        const preferAbove = below < MIN_LIST_HEIGHT && above > below;
+
+        this._view.element?.style.setProperty("--tn-mention-visible-height", `${Math.max(preferAbove ? above : below, 0)}px`);
+        return preferAbove;
+    }
+
+    /** The rect the panel is placed against: the end of the marker, or of the selection once it is gone. */
+    private _caretRect(marker: Marker): Rect {
+        const editing = this.editor.editing;
+        let range = marker.getRange();
+
+        // The marker may already be gone; fall back to the selection so ContextualBalloon
+        // can still place a panel here.
+        if (range.start.root.rootName === "$graveyard") {
+            /* v8 ignore next -- the document selection always holds at least one range, so the `?? range` arm never runs */
+            range = this.editor.model.document.selection.getFirstRange() ?? range;
+        }
+
+        const viewRange = editing.mapper.toViewRange(range);
+        const rects = Rect.getDomRangeRects(editing.view.domConverter.viewRangeToDom(viewRange));
+
+        return rects[rects.length - 1];
+    }
+
+    private _positionData(marker: Marker, preferAbove: boolean): Partial<DomOptimalPositionOptions> {
         const editing = this.editor.editing;
 
         return {
-            target: () => {
-                let range = marker.getRange();
-
-                // The marker may already be gone; fall back to the selection so ContextualBalloon
-                // can still place a panel here.
-                if (range.start.root.rootName === "$graveyard") {
-                    /* v8 ignore next -- the document selection always holds at least one range, so the `?? range` arm never runs */
-                    range = this.editor.model.document.selection.getFirstRange() ?? range;
-                }
-
-                const viewRange = editing.mapper.toViewRange(range);
-                const rects = Rect.getDomRangeRects(editing.view.domConverter.viewRangeToDom(viewRange));
-
-                return rects[rects.length - 1];
-            },
+            target: () => this._caretRect(marker),
             limiter: () => {
                 const editable = editing.view.document.selection.editableElement;
 
                 /* v8 ignore next -- the editing view selection is inside the root editable whenever the panel is positioned, so the `null` arm only satisfies the limiter's return type */
                 return editable ? editing.view.domConverter.mapViewToDom(editable.root) as HTMLElement : null;
             },
-            positions: balloonPositions(this._view.position, this.editor.locale.uiLanguageDirection)
+            positions: balloonPositions(this._view.position, this.editor.locale.uiLanguageDirection, preferAbove)
         };
     }
 }
@@ -478,42 +512,41 @@ function isBeforeExistingMention(markerPosition: ModelPosition): boolean {
 
 /**
  * Balloon placement callbacks, anchored to the caret. Lifted from upstream's
- * `getBalloonPanelPositions()`, which is module-private.
+ * `getBalloonPanelPositions()`, which is module-private, with each corner slid sideways to stay
+ * within the viewport.
+ *
+ * The position that matched last comes first, so the panel does not jump as the list grows, but the
+ * others follow it, so a panel that no longer fits there can move. `preferAbove` puts the corners
+ * above the caret first.
+ *
+ * Exported for its own tests.
  */
-function balloonPositions(preferred: string | undefined, uiLanguageDirection: string): DomOptimalPositionOptions["positions"] {
+export function balloonPositions(preferred: string | undefined, uiLanguageDirection: string, preferAbove = false): DomOptimalPositionOptions["positions"] {
+    const below = (target: Rect) => target.bottom + VERTICAL_SPACING;
+    const above = (target: Rect, balloon: Rect) => target.top - balloon.height - VERTICAL_SPACING;
+    const fromCaret = (target: Rect) => target.right;
+    const toCaret = (target: Rect, balloon: Rect) => target.right - balloon.width;
+
     const positions: Record<string, DomOptimalPositionOptions["positions"][0]> = {
-        caret_se: (target) => ({
-            top: target.bottom + VERTICAL_SPACING,
-            left: target.right,
-            name: "caret_se",
-            config: { withArrow: false }
-        }),
-        caret_ne: (target, balloon) => ({
-            top: target.top - balloon.height - VERTICAL_SPACING,
-            left: target.right,
-            name: "caret_ne",
-            config: { withArrow: false }
-        }),
-        caret_sw: (target, balloon) => ({
-            top: target.bottom + VERTICAL_SPACING,
-            left: target.right - balloon.width,
-            name: "caret_sw",
-            config: { withArrow: false }
-        }),
-        caret_nw: (target, balloon) => ({
-            top: target.top - balloon.height - VERTICAL_SPACING,
-            left: target.right - balloon.width,
-            name: "caret_nw",
-            config: { withArrow: false }
-        })
+        caret_se: (target, balloon, viewport) => corner("caret_se", below(target), fromCaret(target), balloon, viewport),
+        caret_ne: (target, balloon, viewport) => corner("caret_ne", above(target, balloon), fromCaret(target), balloon, viewport),
+        caret_sw: (target, balloon, viewport) => corner("caret_sw", below(target), toCaret(target, balloon), balloon, viewport),
+        caret_nw: (target, balloon, viewport) => corner("caret_nw", above(target, balloon), toCaret(target, balloon), balloon, viewport)
     };
 
-    // Stick to the position that already matched, so the panel does not jump as the list grows.
-    if (preferred && preferred in positions) {
-        return [ positions[preferred] ];
+    const south = uiLanguageDirection !== "rtl" ? [ "caret_se", "caret_sw" ] : [ "caret_sw", "caret_se" ];
+    const north = uiLanguageDirection !== "rtl" ? [ "caret_ne", "caret_nw" ] : [ "caret_nw", "caret_ne" ];
+    const order = preferAbove ? [ ...north, ...south ] : [ ...south, ...north ];
+    if (preferred && order.includes(preferred)) {
+        order.splice(order.indexOf(preferred), 1);
+        order.unshift(preferred);
     }
 
-    return uiLanguageDirection !== "rtl"
-        ? [ positions.caret_se, positions.caret_sw, positions.caret_ne, positions.caret_nw ]
-        : [ positions.caret_sw, positions.caret_se, positions.caret_nw, positions.caret_ne ];
+    return order.map((name) => positions[name]);
+}
+
+function corner(name: string, top: number, left: number, balloon: Rect, viewport: Rect) {
+    const fittedLeft = Math.max(viewport.left + VIEWPORT_MARGIN, Math.min(left, viewport.right - VIEWPORT_MARGIN - balloon.width));
+
+    return { top, left: fittedLeft, name, config: { withArrow: false } };
 }
