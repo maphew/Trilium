@@ -372,7 +372,8 @@ export function useCanvasDrawingPersistence(
 
         return {
             elements,
-            appState: { ...content.appState, theme },
+            // A drawing shows the background of the note unless one is picked for it.
+            appState: { viewBackgroundColor: "transparent", ...content.appState, theme },
             files: getInlineFiles(content)
         };
     });

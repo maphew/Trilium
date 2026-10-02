@@ -2,7 +2,9 @@ import "./CanvasDrawing.css";
 
 import { exportToSvg } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import { useRef } from "preact/hooks";
+import clsx from "clsx";
+import type { RefObject } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import type FAttachment from "../../../entities/fattachment";
 import type FNote from "../../../entities/fnote";
@@ -20,6 +22,7 @@ interface CanvasDrawingProps {
 
 /** A canvas drawing saved in an attachment, edited in place inside the note that shows it. */
 export default function CanvasDrawing({ attachment, editor }: CanvasDrawingProps) {
+    const rootRef = useRef<HTMLDivElement>(null);
     const apiRef = useRef<ExcalidrawImperativeAPI>(null);
     const colorScheme = useColorScheme();
     const isEditable = !!editor?.canEdit(attachment) && !options.is("databaseReadonly");
@@ -29,15 +32,21 @@ export default function CanvasDrawing({ attachment, editor }: CanvasDrawingProps
         apiRef,
         colorScheme
     );
+    const isToolbarOverPanel = useIsToolbarOverPanel(rootRef);
 
     return (
-        <CanvasEditor
-            apiRef={apiRef}
-            isReadOnly={!isEditable}
-            colorScheme={colorScheme}
-            persistence={persistence}
-            isEmbedded
-        />
+        <div
+            ref={rootRef}
+            className={clsx("canvas-drawing-editor", isToolbarOverPanel && "toolbar-over-panel")}
+        >
+            <CanvasEditor
+                apiRef={apiRef}
+                isReadOnly={!isEditable}
+                colorScheme={colorScheme}
+                persistence={persistence}
+                isEmbedded
+            />
+        </div>
     );
 }
 
@@ -58,4 +67,38 @@ export async function renderCanvasDrawingPicture(entity: FNote | FAttachment) {
     });
     svg.classList.add("canvas-drawing-picture");
     return svg;
+}
+
+/**
+ * Whether Excalidraw's toolbar reaches over the column of the properties panel, which then starts
+ * below the toolbar instead of at the top of the canvas.
+ */
+export function useIsToolbarOverPanel(rootRef: RefObject<HTMLElement>) {
+    const [ isOver, setIsOver ] = useState(false);
+
+    useEffect(() => {
+        const root = rootRef.current;
+        if (!root) return;
+
+        // Compares the horizontal edges only, which do not depend on where the panel starts.
+        const update = () => {
+            const toolbar = root.querySelector(".App-toolbar-container")?.getBoundingClientRect();
+            const panel = root.querySelector(".App-menu__left")?.getBoundingClientRect();
+            if (toolbar && panel) {
+                setIsOver(panel.left < toolbar.right && panel.right > toolbar.left);
+            }
+        };
+        const resizeObserver = new ResizeObserver(update);
+        resizeObserver.observe(root);
+        // The panel mounts when a shape is selected or a tool is picked.
+        const mutationObserver = new MutationObserver(update);
+        mutationObserver.observe(root, { childList: true, subtree: true });
+
+        return () => {
+            resizeObserver.disconnect();
+            mutationObserver.disconnect();
+        };
+    }, [ rootRef ]);
+
+    return isOver;
 }

@@ -1,3 +1,7 @@
+:where(:root) {
+    --canvas-drawing-background-color: var(--main-background-color);
+}
+
 /* The font size of the note detail in pixels. Excalidraw in a canvas note inherits this size. */
 @property --canvas-drawing-font-size {
     syntax: "<length>";
@@ -11,14 +15,19 @@
 
 .canvas-drawing {
     height: 20em;
+    background-color: var(--canvas-drawing-background-color);
 
     /* Resets the typography inherited from the text note. */
-    > .canvas-render {
+    > .canvas-drawing-editor {
         height: 100%;
         font-size: var(--canvas-drawing-font-size);
         line-height: var(--bs-body-line-height);
         text-align: start;
         overflow-wrap: normal;
+
+        > .canvas-render {
+            height: 100%;
+        }
     }
 
     /* Resets CKEditor's content style for `hr`, which matches the menu separators. */
@@ -27,6 +36,53 @@
         vertical-align: baseline;
         background: none;
     }
+
+    /* The Library button follows the menu button, in the first column of the top bar. */
+    .excalidraw .App-menu.App-menu_top {
+        > .App-menu_top__left,
+        > .layer-ui__wrapper__top-right {
+            grid-row: 1;
+            grid-column: 1;
+        }
+
+        > .shapes-section {
+            grid-row: 1;
+            grid-column: 2;
+        }
+
+        > .layer-ui__wrapper__top-right {
+            flex-direction: row;
+            justify-content: flex-start;
+            padding-inline-start: calc(var(--lg-button-size) + 0.5rem);
+        }
+    }
+
+    /* The properties panel spans the height of the canvas. */
+    .Island.App-menu__left {
+        top: 0;
+        bottom: 0;
+        /* Overrides the height limit that Excalidraw sets inline. */
+        max-height: none !important;
+    }
+
+    /* Below the toolbar, which is `--lg-button-size` tall plus its padding. */
+    .toolbar-over-panel .Island.App-menu__left {
+        top: calc(var(--lg-button-size) + 1rem);
+    }
+
+    /* The help button is in the corner that the properties panel covers. */
+    .excalidraw:has(.App-menu__left) .layer-ui__wrapper__footer-right {
+        visibility: hidden;
+    }
+}
+
+/* Excalidraw's toolbars, menus, panels and selection show only while the drawing has the focus.
+   `opacity` hides the footer too, which sets `visibility` of its own. */
+.include-note-body:not(.active) .canvas-drawing :is(
+    .layer-ui__wrapper, .excalidraw > .FixedSideContainer, .excalidraw > .App-bottom-bar,
+    canvas.interactive
+) {
+    opacity: 0;
 }
 
 .include-note {
