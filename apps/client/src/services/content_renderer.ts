@@ -71,6 +71,8 @@ export interface RenderOptions {
      * the player, for the callers that serialize the rendered content into an HTML string or into a separate
      * document (presentation, printing) — a mounted player would be dead markup there.
      *
+     * For images, `embedded` mounts the zoom/pan image viewer and the others a plain `<img>`.
+     *
      * A full-size player has no entry here: it needs the tab it lives in (for sibling navigation and the OS
      * media session), which the renderer has no access to, so its hosts mount {@link MediaPreview} themselves.
      */
@@ -122,6 +124,8 @@ export async function getRenderedContent(this: {} | { ctx: string }, entity: FNo
         await renderCode(entity, $renderedContent);
     } else if (type === "iconPack" && !options.tooltip && entity instanceof FNote) {
         await renderIconPack(entity, $renderedContent, options);
+    } else if (type === "image" && options.mediaEnvironment === "embedded") {
+        await renderImageViewer(entity, $renderedContent);
     } else if (["image", "canvas", "mindMap", "spreadsheet"].includes(type)) {
         await renderImage(entity, $renderedContent, options);
     } else if (!options.tooltip && type === "office") {
@@ -268,16 +272,6 @@ async function renderCode(note: FNote | FAttachment, $renderedContent: JQuery<HT
 }
 
 async function renderImage(entity: FNote | FAttachment, $renderedContent: JQuery<HTMLElement>, options: RenderOptions = {}) {
-    const encodedTitle = encodeURIComponent(entity.title);
-
-    let url;
-
-    if (entity instanceof FNote) {
-        url = `api/images/${entity.noteId}/${encodedTitle}?${Math.random()}`;
-    } else if (entity instanceof FAttachment) {
-        url = `api/attachments/${entity.attachmentId}/image/${encodedTitle}?${entity.utcDateModified}`;
-    }
-
     $renderedContent // styles needed for the zoom to work well
         .css("display", "flex")
         .css("align-items", "center")
@@ -285,7 +279,7 @@ async function renderImage(entity: FNote | FAttachment, $renderedContent: JQuery
         .css("flex-direction", "column");   // OCR text is displayed below the image.
 
     const $img = $("<img>")
-        .attr("src", url || "")
+        .attr("src", getImageUrl(entity))
         .attr("id", `attachment-image-${idCounter++}`)
         .css("max-width", "100%");
 
@@ -296,6 +290,41 @@ async function renderImage(entity: FNote | FAttachment, $renderedContent: JQuery
     if (entity instanceof FNote && options.showTextRepresentation) {
         await addOCRTextIfAvailable(entity, $renderedContent);
     }
+}
+
+/**
+ * Mounts the zoom/pan {@link ImageViewer} for an image note or attachment. As with the media
+ * player, the embedding caller must tear it down via {@link disposeInteractiveContent}.
+ */
+async function renderImageViewer(
+    entity: FNote | FAttachment,
+    $renderedContent: JQuery<HTMLElement>
+) {
+    const ImageViewer = (await import("../widgets/react/ImageViewer")).default;
+    const $container = $('<div class="rendered-image-viewer">');
+    const container = $container.get(0);
+    if (container) {
+        await mountInteractiveWidget(h(ImageViewer, {
+            src: getImageUrl(entity),
+            alt: entity.title,
+            environment: "embedded"
+        }), container);
+        // The viewer's <img> takes no pointer events, so the menu goes on its container.
+        imageContextMenuService.setupContextMenu($container);
+    }
+    $renderedContent.append($container);
+}
+
+function getImageUrl(entity: FNote | FAttachment) {
+    const encodedTitle = encodeURIComponent(entity.title);
+
+    if (entity instanceof FNote) {
+        return `api/images/${entity.noteId}/${encodedTitle}?${Math.random()}`;
+    } else if (entity instanceof FAttachment) {
+        const { attachmentId, utcDateModified } = entity;
+        return `api/attachments/${attachmentId}/image/${encodedTitle}?${utcDateModified}`;
+    }
+    return "";
 }
 
 async function addOCRTextIfAvailable(note: FNote, $content: JQuery<HTMLElement>) {

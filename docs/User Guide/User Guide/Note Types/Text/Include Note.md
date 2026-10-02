@@ -75,3 +75,14 @@ Since v0.104.0, included notes might become interactive depending on their note 
 *   <a class="reference-link" href="../../Collections.md">Collections</a> (e.g. <a class="reference-link" href="../../Collections/Geo%20Map.md">Geo Map</a>) will render fully interactive, including creating new notes.
 *   <a class="reference-link" href="../Saved%20Search.md">Saved Search</a> will also display the results.
 *   <a class="reference-link" href="../Web%20View.md">Web View</a> provides an interactive preview of the website.
+
+## Included images
+
+An included image, whether an image note or an image attachment, is shown in the image viewer, which zooms and pans it:
+
+*   To zoom, press the <span class="tn-icon bx bx-plus-circle"></span> _Zoom in_ and <span class="tn-icon bx bx-minus-circle"></span> _Zoom out_ buttons in the bottom-right corner of the image, or pinch on a touch screen. The percentage between them resets the zoom.
+*   To zoom with the mouse wheel, click the image first. Until then, the mouse wheel scrolls the note.
+*   To pan an image that is zoomed in, drag it. At its fitted size, dragging the image on a touch screen scrolls the note.
+*   To return to the fitted size, double-click the image.
+
+In a _Small_ or _Medium_ box, the image is scaled down to fit the height of the box. In fullscreen, it fits the screen.

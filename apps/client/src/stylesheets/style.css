@@ -1561,7 +1561,7 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 .include-note-content:not(:fullscreen) :is(
-    .rendered-content > img, .rendered-content > svg,
+    .rendered-content > img, .rendered-content > svg, .image-viewer-content > img,
     .video-preview-wrapper:not(:fullscreen) > .video-preview
 ) {
     max-height: var(--include-note-media-max-height, none);

@@ -87,6 +87,10 @@ vi.mock("../widgets/type_widgets/WebView", () => ({ default: webViewComponent })
 const mediaPreviewComponent = vi.fn((_props: any): VNode<any> => h("span", { class: "mock-media-marker" }));
 vi.mock("../widgets/type_widgets/file/MediaPreview", () => ({ default: mediaPreviewComponent }));
 
+const imageViewerComponent = vi.fn((_props: any): VNode<any> =>
+    h("span", { class: "mock-image-viewer-marker" }));
+vi.mock("../widgets/react/ImageViewer", () => ({ default: imageViewerComponent }));
+
 const embeddedNoteListComponent = vi.fn((_props: any) => null);
 vi.mock("../widgets/collections/NoteList", () => ({ EmbeddedNoteList: embeddedNoteListComponent }));
 
@@ -307,6 +311,42 @@ describe("getRenderedContent image rendering", () => {
         const { type, $renderedContent } = await getRenderedContent(att);
         expect(type).toBe("image");
         expect($renderedContent.find("img").attr("src")).toContain(`api/attachments/${att.attachmentId}/image/`);
+    });
+
+    it("mounts the image viewer when the caller embeds an image note or attachment", async () => {
+        const note = buildNote({ title: "Pic", type: "image" });
+        const { type, $renderedContent } = await getRenderedContent(note, {
+            mediaEnvironment: "embedded"
+        });
+        expect(type).toBe("image");
+        const $viewer = $renderedContent.find(".rendered-image-viewer");
+        expect($viewer.find(".mock-image-viewer-marker").length).toBe(1);
+        expect($renderedContent.find("img").length).toBe(0);
+        expect(imageViewerComponent).toHaveBeenCalledWith(expect.objectContaining({
+            src: expect.stringContaining(`api/images/${note.noteId}/`),
+            alt: "Pic",
+            environment: "embedded"
+        }), expect.anything());
+        // The viewer's <img> takes no pointer events, so the menu listens on the container.
+        expect(setupContextMenu).toHaveBeenCalledOnce();
+        expect(setupContextMenu.mock.calls[0][0].get(0)).toBe($viewer.get(0));
+
+        const att = buildAttachment({ role: "image" });
+        await getRenderedContent(att, { mediaEnvironment: "embedded" });
+        expect(imageViewerComponent).toHaveBeenLastCalledWith(expect.objectContaining({
+            src: expect.stringContaining(`api/attachments/${att.attachmentId}/image/`)
+        }), expect.anything());
+    });
+
+    it("keeps a plain image for an embedded canvas and outside an embed", async () => {
+        const canvas = buildNote({ title: "C", type: "canvas" });
+        const embedded = await getRenderedContent(canvas, { mediaEnvironment: "embedded" });
+        expect(embedded.$renderedContent.find("img").length).toBe(1);
+
+        const note = buildNote({ title: "Pic", type: "image" });
+        const native = await getRenderedContent(note, { mediaEnvironment: "native" });
+        expect(native.$renderedContent.find("img").length).toBe(1);
+        expect(imageViewerComponent).not.toHaveBeenCalled();
     });
 
     it("appends OCR text for FNote images when showTextRepresentation and OCR succeeds", async () => {
