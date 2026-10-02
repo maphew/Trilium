@@ -145,11 +145,15 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                     noteIdChanged?.(undefined as unknown as string);
                 }}
                 onKeyDown={(e) => {
-                    autocomplete.handleKeyDown(e);
+                    // A list in the host's container stays until a pick, so the keys that close a
+                    // popup are left to the host, such as a dialog closing on Escape.
+                    if (!container || (e.key !== "Escape" && e.key !== "Tab")) {
+                        autocomplete.handleKeyDown(e);
+                    }
                     onKeyDown?.(e);
                 }}
                 onBlur={() => {
-                    // A list in the host's container stays open until Escape or a pick.
+                    // A list in the host's container stays open until a pick.
                     if (!container) autocomplete.handleBlur();
                     onBlur?.(value.trim() ? lastSegment(notePath) : "");
                 }}

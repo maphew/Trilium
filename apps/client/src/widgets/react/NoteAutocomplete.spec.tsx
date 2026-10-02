@@ -300,7 +300,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(document.activeElement).toBe(input);
     });
 
-    it("lists into the host's container, open past a blur until Escape", async () => {
+    it("lists into the host's container, open past a blur, Escape and Tab, until a pick", async () => {
         const host = document.createElement("div");
         document.body.append(host);
         const input = await mount({ container: { current: host } });
@@ -318,7 +318,17 @@ describe("NoteAutocomplete's suggestion list", () => {
         });
         expect(host.querySelectorAll(".aa-suggestion")).toHaveLength(2);
 
+        // Both are left to the host, as a dialog closes on Escape.
+        const reachedHost: string[] = [];
+        const listen = (e: KeyboardEvent) => reachedHost.push(e.key);
+        document.body.addEventListener("keydown", listen);
         await press(input, "Escape");
+        await press(input, "Tab");
+        document.body.removeEventListener("keydown", listen);
+        expect(host.querySelectorAll(".aa-suggestion")).toHaveLength(2);
+        expect(reachedHost).toEqual([ "Escape", "Tab" ]);
+
+        await press(input, "Enter");
         expect(host.querySelector(".aa-dropdown-menu")).toBeNull();
         host.remove();
     });
