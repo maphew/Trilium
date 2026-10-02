@@ -18,7 +18,7 @@ export type { PasteTarget } from "./plugins/cuttonote.js";
 export type { ContentEmbedState } from "./plugins/content_embed/content_embed.js";
 export type { AttachmentLinkChange } from "./plugins/referencelink.js";
 export type { SlashCommandConfig, SlashCommandDefinition } from "./plugins/mention/slash_commands.js";
-export type { TriliumMentionFeed } from "./plugins/mention/types.js";
+export type { MentionListEntry, MentionListState, MentionListView, TriliumMentionFeed } from "./plugins/mention/types.js";
 export { default as TriliumSnippets } from "./plugins/snippets/snippets.js";
 export type { SnippetDefinition } from "./plugins/snippets/snippetsconfig.js";
 export { default as TriliumAiAssistant } from "./plugins/ai_assistant/ai_assistant.js";

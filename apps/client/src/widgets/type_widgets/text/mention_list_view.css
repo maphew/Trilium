@@ -1,0 +1,24 @@
+/*
+ * A feed's own rows (attribute names, `/` commands, emoji) are CKEditor buttons. The menu row draws
+ * the highlight and the padding, so the button draws neither: its own `:hover` and `:focus` rules
+ * outweigh a plain class pair, hence the repeated class.
+ */
+.mention-list-menu .ck.ck-button.ck-button {
+    width: 100%;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    color: inherit;
+    font: inherit;
+    cursor: inherit;
+    background: none;
+}
+
+.mention-list-menu {
+    max-width: min(700px, calc(100vw - 10px));
+}
+
+.mention-list-menu > .tn-menu-scroll {
+    max-height: var(--ck-mention-list-max-height);
+}

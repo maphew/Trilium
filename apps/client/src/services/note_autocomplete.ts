@@ -45,13 +45,12 @@ export interface Options {
  * Feeds a CKEditor mention. Creation entries are offered only where the editor's host component
  * implements `createNoteForReferenceLink`, which is what `MentionCustomization` calls to act on
  * them.
+ *
+ * The creation entries come last, so a feed using this source sets `dropdownLimit` to
+ * `Number.MAX_SAFE_INTEGER`: the plugin's default limit of 10 cuts them off after the notes.
  */
 async function autocompleteSourceForCKEditor(queryText: string, allowCreatingNotes = true): Promise<MentionFeedObjectItem[]> {
     const rows = await getNoteSuggestions(queryText, { allowCreatingNotes });
-    // The creation rows go first here: the mention list renders only the first
-    // `mention.dropdownLimit` items, which a long result list would push them past.
-    const isCreation = (row: Suggestion) => row.action === "create-note" || row.action === "create-child-note";
-    rows.sort((a, b) => Number(isCreation(b)) - Number(isCreation(a)));
 
     return rows.map((row) => ({
         action: row.action,

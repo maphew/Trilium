@@ -159,7 +159,7 @@ describe("getNoteSuggestions", () => {
 });
 
 describe("autocompleteSourceForCKEditor", () => {
-    it("maps the rows into mention feed items, creation rows first", async () => {
+    it("maps the rows into mention feed items, in the note autocomplete's order", async () => {
         server.get = vi.fn(async () => [ {
             noteTitle: "Foo",
             notePathTitle: "Root / Foo",
@@ -169,8 +169,8 @@ describe("autocompleteSourceForCKEditor", () => {
         } ]) as typeof server.get;
 
         const items = await noteAutocomplete.autocompleteSourceForCKEditor("Foo");
-        expect(items.map((item) => (item as Suggestion).action)).toEqual([ "create-note", "create-child-note", undefined ]);
-        expect(items[2]).toEqual({
+        expect(items.map((item) => (item as Suggestion).action)).toEqual([ undefined, "create-note", "create-child-note" ]);
+        expect(items[0]).toEqual({
             action: undefined,
             noteTitle: "Foo",
             id: "@Root / Foo",
@@ -181,7 +181,7 @@ describe("autocompleteSourceForCKEditor", () => {
             icon: "bx bx-note"
         });
         // A creation row has no path title of its own.
-        expect(items[0]).toMatchObject({ id: "@undefined", name: "" });
+        expect(items[1]).toMatchObject({ id: "@undefined", name: "" });
     });
 
     it("omits the creation rows when the host cannot act on them", async () => {

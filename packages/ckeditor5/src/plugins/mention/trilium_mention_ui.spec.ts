@@ -14,7 +14,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
-import type { TriliumMentionFeed } from "./types.js";
+import type { MentionListState, MentionListView, TriliumMentionFeed } from "./types.js";
 import TriliumMentionUI, { balloonPositions } from "./trilium_mention_ui.js";
 
 /** Longer than the plugin's 100 ms feed debounce. */
@@ -573,6 +573,113 @@ describe("TriliumMentionUI", () => {
         await settle();
 
         expect(editor.plugins.get(ContextualBalloon).visibleView?.element?.textContent).toContain("label:#alpha");
+    });
+
+    describe("a host's own list view", () => {
+        let shown: MentionListState | null;
+        let listElement: HTMLElement;
+        let view: MentionListView & { show: ReturnType<typeof vi.fn>; hide: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn> };
+
+        beforeEach(async () => {
+            shown = null;
+            listElement = document.createElement("div");
+            document.body.append(listElement);
+            view = {
+                show: vi.fn((state: MentionListState) => { shown = state; }),
+                hide: vi.fn(() => { shown = null; }),
+                destroy: vi.fn(),
+                get element() { return shown ? listElement : null; }
+            };
+        });
+
+        async function createWithView(overrides: Partial<TriliumMentionFeed> = {}) {
+            await createEditor(overrides, { mention: {
+                feeds: [ { marker: "#", feed: labelFeed as unknown as TriliumMentionFeed["feed"], minimumCharacters: 0, ...overrides } ],
+                listView: () => view
+            } });
+            setModelData(editor.model, "<paragraph>[]</paragraph>");
+        }
+
+        const ids = () => shown?.entries.map((entry) => entry.item.id);
+
+        it("draws the entries through it instead of the balloon, at the caret", async () => {
+            await createWithView({ itemRenderer: (item) => `rendered ${item.id}` });
+            type("#a");
+            await settle();
+
+            expect(isPanelVisible()).toBe(false);
+            expect(ids()).toEqual([ "#alpha" ]);
+            expect(shown?.selectedIndex).toBe(0);
+            expect(shown?.entries[0].marker).toBe("#");
+            expect(shown?.entries[0].render()).toBe("rendered #alpha");
+            expect(shown?.caretRect().height).toBeGreaterThan(0);
+        });
+
+        it("moves the selection with the arrow keys, wrapping, and commits it on Enter", async () => {
+            labelFeed.mockImplementation(async () => [ "alpha", "albert" ].map((name) => ({ id: `#${name}`, text: `#${name}` })));
+            await createWithView();
+            type("#al");
+            await settle();
+
+            pressKey(keyCodes.arrowdown);
+            expect(shown?.selectedIndex).toBe(1);
+            pressKey(keyCodes.arrowdown);
+            expect(shown?.selectedIndex).toBe(0);
+            pressKey(keyCodes.arrowup);
+            expect(shown?.selectedIndex).toBe(1);
+
+            pressKey(keyCodes.enter);
+            expect(getModelData(editor.model, { withoutSelection: true })).toContain("#albert");
+            expect(view.hide).toHaveBeenCalled();
+            expect(shown).toBe(null);
+        });
+
+        it("highlights and commits what the view reports the pointer on", async () => {
+            labelFeed.mockImplementation(async () => [ "alpha", "albert" ].map((name) => ({ id: `#${name}`, text: `#${name}` })));
+            await createWithView();
+            type("#al");
+            await settle();
+
+            shown?.select(1);
+            expect(shown?.selectedIndex).toBe(1);
+            shown?.pick(1);
+            expect(getModelData(editor.model, { withoutSelection: true })).toContain("#albert");
+        });
+
+        it("leaves Enter alone with nothing selected where preselectFirstItem is off", async () => {
+            await createWithView({ preselectFirstItem: false });
+            type("#al");
+            await settle();
+            expect(shown?.selectedIndex).toBe(-1);
+
+            pressKey(keyCodes.enter);
+            expect(getModelData(editor.model, { withoutSelection: true })).toContain("#al<");
+            expect(shown).not.toBe(null);
+        });
+
+        it("closes on Escape, on a press outside its element, and not on one inside it", async () => {
+            await createWithView();
+            type("#al");
+            await settle();
+            pressKey(keyCodes.esc);
+            expect(shown).toBe(null);
+
+            setModelData(editor.model, "<paragraph>[]</paragraph>");
+            type("#al");
+            await settle();
+            expect(shown).not.toBe(null);
+
+            listElement.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+            expect(shown).not.toBe(null);
+            document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+            expect(shown).toBe(null);
+        });
+
+        it("is destroyed with the editor", async () => {
+            await createWithView();
+            await editor.destroy();
+            expect(view.destroy).toHaveBeenCalled();
+        });
     });
 });
 

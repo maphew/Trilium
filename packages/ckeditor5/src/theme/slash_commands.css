@@ -23,7 +23,7 @@
     --ck-slash-command-description-width: calc(var(--ck-slash-command-button-width) - 4.8em);
 }
 
-.ck-mentions .ck.ck-button.ck-slash-command-button {
+:is(.ck-mentions, .ck-mention-list) .ck.ck-button.ck-slash-command-button {
     display: flex;
     justify-content: flex-start;
     width: var(--ck-slash-command-button-width);
@@ -103,7 +103,7 @@
     }
 }
 
-[dir="rtl"] .ck-mentions .ck.ck-button.ck-slash-command-button {
+[dir="rtl"] :is(.ck-mentions, .ck-mention-list) .ck.ck-button.ck-slash-command-button {
     & .ck.ck-icon {
         margin: 0 0 0 var(--ck-spacing-small);
     }

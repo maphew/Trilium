@@ -6,6 +6,7 @@ import imageService from "../../../services/image.js";
 import noteAutocompleteService from "../../../services/note_autocomplete.js";
 import { ensureMimeTypesForHighlighting } from "../../../services/syntax_highlight.js";
 import { buildConfig, type BuildEditorOptions, OPEN_SOURCE_LICENSE_KEY } from "./config.js";
+import { createMentionListView } from "./mention_list_view.js";
 
 // Mutable option values, reset before each test (see `beforeEach`).
 const optionsState = vi.hoisted(() => ({
@@ -103,12 +104,6 @@ function baseOpts(overrides: Partial<BuildEditorOptions> = {}): BuildEditorOptio
     };
 }
 
-interface MentionSuggestion {
-    icon?: string;
-    action?: string;
-    highlightedNotePathTitle?: string;
-}
-
 /** The dynamically-attached config members that CKEditor's `EditorConfig` type doesn't declare. */
 interface DynamicConfig {
     renderShortcut(shortcut: string): string;
@@ -124,9 +119,11 @@ interface DynamicConfig {
         feeds: {
             marker: string;
             minimumCharacters: number;
+            dropdownLimit?: number;
             feed(queryText: string): Promise<unknown>;
-            itemRenderer(item: MentionSuggestion): HTMLElement;
+            itemRenderer?: unknown;
         }[];
+        listView?: unknown;
     };
 }
 
@@ -570,40 +567,27 @@ describe("CK config - lazy loaders", () => {
 });
 
 describe("CK config - mention feed", () => {
-    it("is omitted when note completion is disabled", async () => {
-        const config = await buildDynamicConfig();
-        expect(config.mention).toBeUndefined();
-    });
+    it("draws the list as the note autocomplete's, with the @ feed only when note completion is enabled", async () => {
+        const off = await buildDynamicConfig();
+        expect(off.mention?.feeds).toEqual([]);
+        // The `/` and emoji feeds the plugins add are drawn through it all the same.
+        expect(off.mention?.listView).toBe(createMentionListView);
 
-    it("builds the @-mention feed and renders suggestions when note completion is enabled", async () => {
         optionsState.map["textNoteCompletionEnabled"] = "true";
         const config = await buildDynamicConfig();
+        expect(config.mention?.listView).toBe(createMentionListView);
 
         const feedConfig = config.mention?.feeds[0];
         if (!feedConfig) throw new Error("expected the mention feed to be configured");
         expect(feedConfig.marker).toBe("@");
         expect(feedConfig.minimumCharacters).toBe(0);
+        // The creation rows come after every note.
+        expect(feedConfig.dropdownLimit).toBe(Number.MAX_SAFE_INTEGER);
+        // The view draws a note as the note autocomplete does, so the feed renders nothing itself.
+        expect(feedConfig.itemRenderer).toBeUndefined();
 
         await feedConfig.feed("query-text");
         expect(noteAutocompleteService.autocompleteSourceForCKEditor).toHaveBeenCalledWith("query-text");
-
-        // A normal note suggestion keeps its own icon and renders its highlighted title.
-        const noteItem = feedConfig.itemRenderer({ icon: "bx bx-folder", action: "open", highlightedNotePathTitle: "<b>Hello</b>" });
-        expect(noteItem.tagName).toBe("BUTTON");
-        expect((noteItem.firstChild as HTMLElement).className).toBe("bx bx-folder");
-        expect(noteItem.querySelector("b")?.textContent).toBe("Hello");
-
-        // The row is exactly the icon and a wrapped title: the stylesheet lays the two out against
-        // each other, which it cannot do if the title is spread into the button as loose nodes.
-        expect(noteItem.className).toBe("note-mention-suggestion");
-        expect(noteItem.childNodes).toHaveLength(2);
-        const title = noteItem.querySelector(".note-mention-suggestion-title");
-        expect(title?.textContent).toBe("Hello");
-
-        // A "create note" suggestion with no icon/title gets the plus icon and an empty title.
-        const createItem = feedConfig.itemRenderer({ action: "create-note" });
-        expect((createItem.firstChild as HTMLElement).className).toBe("bx bx-plus");
-        expect(createItem.querySelector("b")).toBeNull();
     });
 });
 

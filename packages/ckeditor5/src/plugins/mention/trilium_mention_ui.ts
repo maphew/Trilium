@@ -20,7 +20,7 @@ import {
 } from "ckeditor5";
 
 import { createMarkerPattern, findMarkerMatch, type MarkerMatch } from "./marker_pattern.js";
-import type { TriliumMentionFeed } from "./types.js";
+import type { MentionListView, TriliumMentionFeed } from "./types.js";
 
 const VERTICAL_SPACING = 3;
 /** The least gap kept between the panel and an edge of the visible viewport, which `style.css` matches. */
@@ -30,6 +30,9 @@ const MIN_LIST_HEIGHT = 150;
 const MARKER_NAME = "mention";
 const FEED_DEBOUNCE_MS = 100;
 const DEFAULT_DROPDOWN_LIMIT = 10;
+
+/** See {@link MentionListState.className}, which `slash_commands.css` styles the `/` rows under. */
+const MENTION_LIST_CLASS = "ck-mention-list";
 
 /** A configured feed with its compiled trigger pattern. */
 type Pattern = TriliumMentionFeed & { pattern: RegExp };
@@ -59,6 +62,13 @@ export default class TriliumMentionUI extends Plugin {
     private readonly _view: MentionsView;
     private readonly _items = new Collection<{ item: MentionFeedObjectItem; marker: string }>();
     private _patterns: Pattern[] = [];
+
+    /** The host's drawing of the list, from `mention.listView`, which replaces the balloon. */
+    private _listView?: MentionListView;
+    /** Whether {@link _listView} is shown. */
+    private _listShown = false;
+    /** The entry {@link _listView} highlights, or `-1`. */
+    private _selectedIndex = -1;
 
     private _balloon?: ContextualBalloon;
     private _feedTimer?: ReturnType<typeof setTimeout>;
@@ -94,6 +104,7 @@ export default class TriliumMentionUI extends Plugin {
         /* v8 ignore next -- the constructor defines `mention.feeds` as `[]`, so `get()` never returns undefined; the fallback only satisfies the optional return type */
         const feeds = (editor.config.get("mention.feeds") ?? []) as TriliumMentionFeed[];
         this._patterns = feeds.map((feed) => ({ ...feed, pattern: createMarkerPattern(feed.marker, feed) }));
+        this._listView = editor.config.get("mention.listView")?.(editor);
 
         editor.editing.view.document.on<ViewDocumentKeyDownEvent>("keydown", (evt, data) => {
             if (this._isVisible && this._handleKeyDown(data.keyCode)) {
@@ -106,7 +117,10 @@ export default class TriliumMentionUI extends Plugin {
             emitter: this._view,
             activator: () => this._isVisible,
             /* v8 ignore next -- `clickOutsideHandler` only calls `contextElements()` once the activator reported the panel visible, and a visible balloon is a rendered one, so its element is never null */
-            contextElements: () => (this._balloon?.view.element ? [ this._balloon.view.element ] : []),
+            contextElements: () => {
+                const element = this._listView ? this._listView.element : this._balloon?.view.element;
+                return element ? [ element ] : [];
+            },
             callback: () => this._hide()
         });
 
@@ -121,10 +135,11 @@ export default class TriliumMentionUI extends Plugin {
         this._clearDismissal();
         // Balloon views are not destroyed automatically — see ckeditor5#1341.
         this._view.destroy();
+        this._listView?.destroy?.();
     }
 
     private get _isVisible() {
-        return this._balloon?.visibleView === this._view;
+        return this._listView ? this._listShown : this._balloon?.visibleView === this._view;
     }
 
     private _isCurrentRequest(requestId: number) {
@@ -137,13 +152,14 @@ export default class TriliumMentionUI extends Plugin {
      * saves instead of being swallowed by an open panel.
      */
     private _handleKeyDown(keyCode: number): boolean {
-        if (keyCode === keyCodes.arrowdown) {
-            this._view.selectNext();
-            return true;
-        }
-
-        if (keyCode === keyCodes.arrowup) {
-            this._view.selectPrevious();
+        if (keyCode === keyCodes.arrowdown || keyCode === keyCodes.arrowup) {
+            if (this._listView) {
+                this._moveSelection(keyCode === keyCodes.arrowdown ? 1 : -1);
+            } else if (keyCode === keyCodes.arrowdown) {
+                this._view.selectNext();
+            } else {
+                this._view.selectPrevious();
+            }
             return true;
         }
 
@@ -153,6 +169,16 @@ export default class TriliumMentionUI extends Plugin {
         }
 
         if (keyCode === keyCodes.enter || keyCode === keyCodes.tab) {
+            if (this._listView) {
+                const entry = this._items.get(this._selectedIndex);
+                if (!entry) {
+                    return false;
+                }
+
+                this._commit(entry);
+                return true;
+            }
+
             if (!this._view.selected) {
                 return false;
             }
@@ -314,6 +340,14 @@ export default class TriliumMentionUI extends Plugin {
             return;
         }
 
+        if (this._listView) {
+            // Pre-selecting the first item makes Enter always commit *something*; see below.
+            this._selectedIndex = (feed.preselectFirstItem ?? true) ? 0 : -1;
+            this._listShown = true;
+            this._drawList(marker);
+            return;
+        }
+
         // The add/update decision keys off *membership*, not visibility: `ContextualBalloon.add()`
         // throws `contextualballoon-add-view-exist` for a view that is already registered in any
         // stack, visible or not. Upstream's `MentionUI` branches on visibility here and so crashes
@@ -351,6 +385,12 @@ export default class TriliumMentionUI extends Plugin {
     private _hide() {
         clearTimeout(this._feedTimer);
 
+        if (this._listShown) {
+            this._listShown = false;
+            this._selectedIndex = -1;
+            this._listView?.hide();
+        }
+
         if (this._balloon?.hasView(this._view)) {
             this._balloon.remove(this._view);
         }
@@ -379,47 +419,95 @@ export default class TriliumMentionUI extends Plugin {
             return listItem;
         });
 
-        view.on("execute", (evt, data) => {
-            const editor = this.editor;
-            const model = editor.model;
-            const marker = model.markers.get(MARKER_NAME);
-            const focus = model.document.selection.focus;
-
-            /* v8 ignore next 3 -- the list only fires "execute" while the panel is visible, which means the marker is registered, and a live selection always has a focus */
-            if (!marker || !focus) {
-                return;
-            }
-
-            // Replace everything from the marker up to the caret, not just the marker itself.
-            const range = model.createRange(model.createPositionAt(marker.getStart()), model.createPositionAt(focus));
-            const feed = this._patterns.find((pattern) => pattern.marker === data.marker);
-
-            this._hide();
-            this._clearDismissal();
-
-            // Bail before deleting anything if the item went stale while it sat in the open panel —
-            // a `/` command that lost `isEnabled` as the selection settled. Committing it would drop
-            // the trigger text and then no-op, eating what the user typed.
-            if (feed?.canCommit && !feed.canCommit(editor, data.item)) {
-                return;
-            }
-
-            if (feed?.commit) {
-                // Drop the trigger text first so the callback sees a collapsed selection where the
-                // query used to be, and run it outside the change block — some callbacks open a
-                // balloon (`/math`, `/anchor`) rather than touching the model, which needs a settled
-                // view. Focus is restored *before* the callback for the same reason: one that opens
-                // a UI takes focus itself, and must do so last.
-                model.change((writer) => model.deleteContent(writer.createSelection(range)));
-                editor.editing.view.focus();
-                feed.commit(editor, data.item);
-            } else {
-                editor.execute("mention", { mention: data.item, text: data.item.text, marker: data.marker, range });
-                editor.editing.view.focus();
-            }
-        });
+        view.on("execute", (evt, data) => this._commit(data));
 
         return view;
+    }
+
+    /** Replaces the trigger text with `item`, or hands it to its feed's `commit`. */
+    private _commit(data: { item: MentionFeedObjectItem; marker: string }) {
+        const editor = this.editor;
+        const model = editor.model;
+        const marker = model.markers.get(MARKER_NAME);
+        const focus = model.document.selection.focus;
+
+        /* v8 ignore next 3 -- an entry is only committed while the list is visible, which means the marker is registered, and a live selection always has a focus */
+        if (!marker || !focus) {
+            return;
+        }
+
+        // Replace everything from the marker up to the caret, not just the marker itself.
+        const range = model.createRange(model.createPositionAt(marker.getStart()), model.createPositionAt(focus));
+        const feed = this._patterns.find((pattern) => pattern.marker === data.marker);
+
+        this._hide();
+        this._clearDismissal();
+
+        // Bail before deleting anything if the item went stale while it sat in the open panel —
+        // a `/` command that lost `isEnabled` as the selection settled. Committing it would drop
+        // the trigger text and then no-op, eating what the user typed.
+        if (feed?.canCommit && !feed.canCommit(editor, data.item)) {
+            return;
+        }
+
+        if (feed?.commit) {
+            // Drop the trigger text first so the callback sees a collapsed selection where the
+            // query used to be, and run it outside the change block — some callbacks open a
+            // balloon (`/math`, `/anchor`) rather than touching the model, which needs a settled
+            // view. Focus is restored *before* the callback for the same reason: one that opens
+            // a UI takes focus itself, and must do so last.
+            model.change((writer) => model.deleteContent(writer.createSelection(range)));
+            editor.editing.view.focus();
+            feed.commit(editor, data.item);
+        } else {
+            editor.execute("mention", { mention: data.item, text: data.item.text, marker: data.marker, range });
+            editor.editing.view.focus();
+        }
+    }
+
+    /** Hands the entries and the selection to {@link _listView}, which draws them at the caret. */
+    private _drawList(marker: Marker) {
+        const entries = this._items.map(({ item, marker: feedMarker }) => ({
+            item,
+            marker: feedMarker,
+            render: () => this._patterns.find((feed) => feed.marker === feedMarker)?.itemRenderer?.(item)
+        }));
+
+        this._listView?.show({
+            entries,
+            className: MENTION_LIST_CLASS,
+            selectedIndex: this._selectedIndex,
+            caretRect: () => {
+                const { left, top, width, height } = this._caretRect(marker);
+                return new DOMRect(left, top, width, height);
+            },
+            select: (index) => {
+                this._selectedIndex = index;
+                this._drawList(marker);
+            },
+            pick: (index) => {
+                const entry = this._items.get(index);
+                if (entry) {
+                    this._commit(entry);
+                }
+            }
+        });
+    }
+
+    /** Steps the selection of {@link _listView}, wrapping at either end, as `MentionsView` does. */
+    private _moveSelection(delta: number) {
+        const marker = this.editor.model.markers.get(MARKER_NAME);
+        const count = this._items.length;
+
+        /* v8 ignore next 3 -- the keys only reach here while the list is shown, which means it has entries and a marker */
+        if (!marker || !count) {
+            return;
+        }
+
+        this._selectedIndex = this._selectedIndex < 0
+            ? (delta > 0 ? 0 : count - 1)
+            : (this._selectedIndex + delta + count) % count;
+        this._drawList(marker);
     }
 
     private _renderItem(item: MentionFeedObjectItem, marker: string): MentionDomWrapperView | ButtonView {

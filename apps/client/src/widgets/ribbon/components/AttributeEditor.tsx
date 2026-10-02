@@ -19,7 +19,7 @@ import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { ATTRIBUTE_HELP_PAGE } from "../../../services/in_app_help";
 import link from "../../../services/link";
-import note_autocomplete, { Suggestion } from "../../../services/note_autocomplete";
+import note_autocomplete from "../../../services/note_autocomplete";
 import note_create from "../../../services/note_create";
 import server from "../../../services/server";
 import { isIMEComposing } from "../../../services/shortcuts";
@@ -29,6 +29,7 @@ import ActionButton from "../../react/ActionButton";
 import CKEditor, { CKEditorApi } from "../../react/CKEditor";
 import HelpDropdown from "../../react/HelpDropdown";
 import { useLegacyImperativeHandlers, useLegacyWidget, useTriliumEvent } from "../../react/hooks";
+import { createMentionListView } from "../../type_widgets/text/mention_list_view";
 import AttributeHelp from "./AttributeHelp";
 
 type AttributeCommandNames = FilteredCommandNames<CommandData>;
@@ -45,15 +46,8 @@ const mentionSetup: TriliumMentionFeed[] = [
     {
         marker: "@",
         feed: (queryText) => note_autocomplete.autocompleteSourceForCKEditor(queryText),
-        itemRenderer: (_item) => {
-            const item = _item as Suggestion;
-            const itemElement = document.createElement("button");
-
-            itemElement.innerHTML = `${item.highlightedNotePathTitle} `;
-
-            return itemElement;
-        },
         minimumCharacters: 0,
+        dropdownLimit: Number.MAX_SAFE_INTEGER,
         // Relation targets are note titles, which contain spaces.
         allowSpaces: true,
         preselectFirstItem: false
@@ -309,7 +303,7 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
                         config={{
                             toolbar: { items: [] },
                             placeholder: t("attribute_editor.placeholder"),
-                            mention: { feeds: mentionSetup },
+                            mention: { feeds: mentionSetup, listView: createMentionListView },
                             licenseKey: "GPL",
                             language: "en"
                         }}

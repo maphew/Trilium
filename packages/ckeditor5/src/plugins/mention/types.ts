@@ -58,3 +58,50 @@ declare module "@ckeditor/ckeditor5-mention" {
  * that exists to name the Trilium-flavoured shape at call sites.
  */
 export type TriliumMentionFeed = MentionFeed;
+
+declare module "@ckeditor/ckeditor5-mention" {
+    interface MentionConfig {
+        /**
+         * Draws the suggestion list in place of CKEditor's balloon, for a host that draws its own
+         * lists. Called once per editor. {@link TriliumMentionUI} still owns when the list opens and
+         * closes, which entry is selected, the keys and the commit.
+         */
+        listView?: ( editor: Editor ) => MentionListView;
+    }
+}
+
+/** One entry of the list, as {@link MentionListView.show} receives it. */
+export interface MentionListEntry {
+    item: MentionFeedObjectItem;
+    /** The marker of the feed the entry comes from, such as `@`. */
+    marker: string;
+    /** Runs the feed's `itemRenderer`, for an entry the view has no rendering of its own for. */
+    render(): HTMLElement | string | undefined;
+}
+
+/** What a {@link MentionListView} draws, each time the list or its selection changes. */
+export interface MentionListState {
+    entries: readonly MentionListEntry[];
+    /**
+     * A class for the list, under which the rows of the built-in feeds (the `/` commands) keep the
+     * layout they have in CKEditor's balloon.
+     */
+    className: string;
+    /** The highlighted entry, or `-1` where none is. */
+    selectedIndex: number;
+    /** Where the caret ends the query, in viewport coordinates. */
+    caretRect(): DOMRect;
+    /** Highlights an entry, as the pointer moving over it does. */
+    select( index: number ): void;
+    /** Commits an entry, as a click on it does. */
+    pick( index: number ): void;
+}
+
+/** A host's own drawing of the suggestion list. See `mention.listView`. */
+export interface MentionListView {
+    show( state: MentionListState ): void;
+    hide(): void;
+    /** The list's element while it is shown, inside which a press does not close it. */
+    readonly element: HTMLElement | null;
+    destroy?(): void;
+}
