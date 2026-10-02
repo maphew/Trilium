@@ -167,41 +167,6 @@ describe("autocompleteSource (via dataset)", () => {
     });
 });
 
-describe("source debounce", () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        vi.useFakeTimers();
-        getActiveContextNoteId.mockReturnValue("activeNote");
-        registerAutocompleteStub();
-        server.get = vi.fn(async () => []) as typeof server.get;
-        noteAutocomplete.init();
-    });
-
-    afterEach(() => {
-        vi.useRealTimers();
-    });
-
-    it("debounces and skips the search while composing input", async () => {
-        const { $el, dataset } = initAndGetSource();
-        // simulate IME composition active
-        $el.trigger("compositionstart");
-        const cb = vi.fn();
-        dataset.source("hi", cb);
-        await vi.runAllTimersAsync();
-        // isComposingInput is true -> autocompleteSource not invoked
-        expect(server.get).not.toHaveBeenCalled();
-        expect(cb).not.toHaveBeenCalled();
-    });
-
-    it("runs the search after the debounce when not composing", async () => {
-        const { dataset } = initAndGetSource();
-        const cb = vi.fn();
-        dataset.source("hi", cb);
-        await vi.runAllTimersAsync();
-        expect(server.get).toHaveBeenCalled();
-    });
-});
-
 describe("$.fn jQuery extensions (init)", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -371,16 +336,6 @@ describe("initNoteAutocomplete wiring", () => {
         $el.trigger($.Event("keydown", { key: "Enter", ctrlKey: true }));
 
         expect(autocompleteKeydown).toHaveBeenCalledOnce();
-    });
-
-    it("composition end re-sets the autocomplete value", () => {
-        const $el = makeEl();
-        noteAutocomplete.initNoteAutocomplete($el);
-        $el.autocomplete("val", "composed");
-        $el.trigger("compositionstart");
-        $el.trigger("compositionend");
-        // value was read then re-applied -> still "composed"
-        expect($el.autocomplete("val")).toBe("composed");
     });
 
 });

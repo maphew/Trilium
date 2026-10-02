@@ -492,6 +492,32 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(onKeyDown).not.toHaveBeenCalledWith(shiftEnter);
     });
 
+    it("searches for what an input method commits, not what it is composing", async () => {
+        const onChange = vi.fn();
+        const input = await mount({ onChange });
+        await type(input, "n");
+        getNoteSuggestions.mockClear();
+
+        await act(async () => { input.dispatchEvent(new Event("compositionstart", { bubbles: true })); });
+        await type(input, "ni");
+        await type(input, "nih");
+        expect(getNoteSuggestions).not.toHaveBeenCalled();
+
+        // The Enter that commits a candidate, and a Shift+Enter, belong to the input method.
+        for (const shiftKey of [ false, true ]) {
+            const key = new KeyboardEvent("keydown", { key: "Enter", shiftKey, isComposing: true, bubbles: true, cancelable: true });
+            await act(async () => { input.dispatchEvent(key); });
+            expect(key.defaultPrevented).toBe(false);
+        }
+        await settle();
+        expect(onChange).not.toHaveBeenCalled();
+        expect(getNoteSuggestions).not.toHaveBeenCalled();
+
+        await act(async () => { input.dispatchEvent(new Event("compositionend", { bubbles: true })); });
+        await settle();
+        expect(getNoteSuggestions.mock.calls).toEqual([ [ "nih" ] ]);
+    });
+
     it("spans the whole field, the buttons included", async () => {
         const input = await mount();
         const group = input.closest(".input-group");

@@ -200,7 +200,9 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                     if (!e.currentTarget.value) clearSelection();
                 }}
                 onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.shiftKey) {
+                    // An Enter while composing commits the input method's candidate instead.
+                    const isEnter = e.key === "Enter" && !e.isComposing;
+                    if (isEnter && e.shiftKey) {
                         // Kept from the host and the list, as the jQuery plugin did.
                         e.preventDefault();
                         e.stopPropagation();
@@ -209,7 +211,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                     }
                     // The rows of the fast search stay behind the row saying it is searching, so Enter
                     // waits for the full-text results instead of taking one of them.
-                    if (e.key === "Enter" && isSearchingFullText) {
+                    if (isEnter && isSearchingFullText) {
                         e.preventDefault();
                         return;
                     }
@@ -220,6 +222,8 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                     }
                     onKeyDown?.(e);
                 }}
+                onCompositionStart={autocomplete.handleCompositionStart}
+                onCompositionEnd={autocomplete.handleCompositionEnd}
                 onBlur={() => {
                     // A list in the host's container stays open until a pick.
                     if (!container) autocomplete.handleBlur();

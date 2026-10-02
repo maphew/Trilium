@@ -255,6 +255,9 @@ interface UseAutocompleteOptions<T> {
  */
 export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, openOnFocus, openOnEnter, keepOpenOnPick, autoActivate, isHeading, textOf = String, schedule }: UseAutocompleteOptions<T>) {
     const [ isOpen, setIsOpen ] = useState(false);
+    // What an input method is composing is not yet what the user means, so nothing is looked up for
+    // it until the composition ends.
+    const [ isComposing, setIsComposing ] = useState(false);
     const [ items, setItems ] = useState<T[]>([]);
     const [ activeIndex, setActiveIndex ] = useState(-1);
 
@@ -281,7 +284,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
     // Fetch suggestions for the current query, debounced. The previous items stay visible while
     // the request is in flight, so refining a query does not make the dropdown flicker.
     useEffect(() => {
-        if (!isOpen) {
+        if (!isOpen || isComposing) {
             return;
         }
 
@@ -306,7 +309,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
 
         const timeout = setTimeout(lookUp, DEBOUNCE_MS);
         return () => clearTimeout(timeout);
-    }, [ isOpen, query, source, autoActivate, isHeading, textOf, schedule ]);
+    }, [ isOpen, isComposing, query, source, autoActivate, isHeading, textOf, schedule ]);
 
     // Keep the highlighted entry in sight: it can be picked out on opening, or arrowed past the
     // bottom of a list taller than the room the dropdown was given.
@@ -334,6 +337,9 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
     }
 
     function handleKeyDown(e: KeyboardEvent) {
+        // The keys belong to the input method, such as the Enter that commits a candidate.
+        if (e.isComposing) return;
+
         switch (e.key) {
             case "ArrowDown":
             case "ArrowUp":
@@ -387,6 +393,12 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
             if (openOnFocus) open();
         },
         handleBlur: close,
+        handleCompositionStart() {
+            setIsComposing(true);
+        },
+        handleCompositionEnd() {
+            setIsComposing(false);
+        },
         handleKeyDown,
         /** The field's combobox attributes. */
         comboboxProps: {

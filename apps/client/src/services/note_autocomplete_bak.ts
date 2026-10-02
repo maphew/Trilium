@@ -51,18 +51,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
 
     const scheduleSearch = createSearchScheduler();
 
-    // Used to track whether the user is performing character composition with an input method (such as Chinese Pinyin, Japanese, Korean, etc.) and to avoid triggering a search during the composition process.
-    let isComposingInput = false;
-    $el.on("compositionstart", () => {
-        isComposingInput = true;
-    });
-    $el.on("compositionend", () => {
-        isComposingInput = false;
-        const searchString = $el.autocomplete("val") as unknown as string;
-        $el.autocomplete("val", "");
-        $el.autocomplete("val", searchString);
-    });
-
     $el.addClass("note-autocomplete-input");
 
     if (options.allowJumpToSearchNotes) {
@@ -103,9 +91,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
             {
                 source: (term, cb) => {
                     scheduleSearch(() => {
-                        if (isComposingInput) {
-                            return;
-                        }
                         // Returned so the scheduler holds the next search until this one settles.
                         return autocompleteSource(term, cb, options);
                     });
