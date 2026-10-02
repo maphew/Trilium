@@ -1585,6 +1585,8 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 
 /* The title inside the expandable row defers its header styling to the row. */
 .include-note-title-row .include-note-title {
+    display: flex;
+    align-items: center;
     margin: 0;
     padding: 0;
     border-bottom: none;
@@ -1649,6 +1651,10 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
         line-height: 1;
         letter-spacing: .5pt;
         opacity: .5;
+    }
+
+    .include-note-description {
+        margin-top: 4px;
     }
 }
 
