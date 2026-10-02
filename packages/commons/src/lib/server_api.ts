@@ -1172,3 +1172,11 @@ export interface NetworkAddressesResponse {
 }
 
 export type ScriptParams = any[];
+
+/** A script failure, as the parts a caller wants rather than as one sentence to unpick. */
+export interface ScriptFailure {
+    /** What went wrong, unwrapped from the per-note wrappers the bundle puts round it. */
+    message: string;
+    /** The note that failed, which is a child module note where one of those did. */
+    noteId?: string;
+}
