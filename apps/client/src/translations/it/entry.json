@@ -140,7 +140,7 @@
     "login": {
         "password": "Password",
         "remember-me": "Ricordami",
-        "incorrect-totp": "La password one-time non è corretta. Per favore riprova.",
+        "incorrect-totp": "La password monouso non è corretta. Riprova.",
         "heading": "Accedi a Trilium Notes",
         "totp-token": "Password monouso o codice di recupero",
         "button": "Login",
