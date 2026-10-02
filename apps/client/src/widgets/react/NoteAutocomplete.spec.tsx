@@ -863,6 +863,20 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(document.querySelector<HTMLElement>(".note-autocomplete-menu")?.style.width).toBe("680px");
     });
 
+    it("lists inside the modal around the field, above the modal's own layer", async () => {
+        let modal: HTMLElement | null = null;
+        await act(async () => {
+            modal = renderInto(<div className="modal"><NoteAutocomplete /></div>).querySelector(".modal");
+        });
+        const input = (modal as HTMLElement | null)?.querySelector("input");
+        if (!modal || !input) throw new Error("no input rendered");
+        await type(input, "a");
+
+        const menu = document.querySelector(".note-autocomplete-menu");
+        expect(menu).not.toBe(null);
+        expect(menu?.closest(".modal")).toBe(modal);
+    });
+
     it("widens past a narrow field, and spans a wide one", async () => {
         const input = await mount();
         const group = input.closest(".input-group");
