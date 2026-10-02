@@ -1,8 +1,7 @@
 /*
- * Unlike `style.css`, which loads after Bootstrap and the theme, this file has no fixed place among
- * them. Each selector carries one more class or element than the rule it competes with (Bootstrap's
- * `.input-group-text` and `.form-control`, the `.aa-suggestion` rules in the next theme's
- * `base.css`), so the outcome does not depend on the order.
+ * This file has no fixed place in the load order against Bootstrap and the theme, so specificity
+ * settles each conflict: a rule that must win carries a class more than its rival, and a rule the
+ * next theme overrides keeps to one class.
  */
 
 .input-group > .note-autocomplete-input {
@@ -10,13 +9,23 @@
     border-inline-end: 0;
 }
 
-.input-group > :is(.show-recent-notes-button, .full-text-search-button, .go-to-selected-note-button) {
+/* One class, so the next theme's input-group rules override these. */
+:is(.show-recent-notes-button, .full-text-search-button, .go-to-selected-note-button, .input-clearer-button) {
     cursor: pointer;
+}
+
+.input-clearer-button {
+    background: inherit !important;
+}
+
+.input-group > :is(.show-recent-notes-button, .full-text-search-button, .go-to-selected-note-button),
+.note-autocomplete ~ .input-clearer-button {
     font-size: 1.3em;
     padding-inline: 5px;
 }
 
-.input-group > :is(.show-recent-notes-button, .go-to-selected-note-button) {
+.input-group > :is(.show-recent-notes-button, .go-to-selected-note-button),
+.note-autocomplete ~ .input-clearer-button {
     padding-top: 8px;
 }
 
@@ -37,7 +46,6 @@
 }
 
 .algolia-autocomplete .aa-dropdown-menu {
-    /* `autocomplete.js` set it inline. */
     display: block;
     width: 100%;
     background-color: var(--main-background-color);
@@ -49,7 +57,6 @@
     margin: 0;
 }
 
-/* `autocomplete.js` set it inline. */
 .algolia-autocomplete .aa-suggestions {
     display: block;
 }
@@ -58,7 +65,6 @@ span.aa-dropdown-menu .aa-suggestion {
     cursor: pointer;
     padding: 6px 16px;
     margin: 0;
-    /* `autocomplete.js` set these inline. */
     white-space: nowrap;
 
     > * {

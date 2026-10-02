@@ -138,3 +138,16 @@ body.mobile {
     letter-spacing: normal;
     text-transform: none;
 }
+
+/* One class, so the next theme's input-group rules override these. */
+.input-clearer-button {
+    cursor: pointer;
+    background: inherit !important;
+}
+
+/* Outranks Bootstrap's `.input-group-text`. */
+.active-content-filter > .input-clearer-button {
+    font-size: 1.3em;
+    padding-top: 8px;
+    padding-inline: 5px;
+}
