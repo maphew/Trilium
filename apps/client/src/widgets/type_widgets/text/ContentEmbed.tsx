@@ -64,7 +64,9 @@ export default function ContentEmbed({
     }, [ content ]);
 
     useLayoutEffect(() => {
-        if (isFocusedOnMount) {
+        // The box mounts after an upload, by which time the focus can have left the editor.
+        const editable = contentRef.current?.closest(".ck-editor__editable");
+        if (isFocusedOnMount && (!editable || editable.contains(document.activeElement))) {
             (content.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? contentRef.current)?.focus();
         }
     }, []);

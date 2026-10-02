@@ -78,7 +78,7 @@ export async function renderCanvasDrawingPicture(entity: FNote | FAttachment) {
 
 /**
  * Moves the focus into Excalidraw when the embed box around the drawing holds it. Excalidraw
- * renders its container only once its language loads, after the box may have taken the focus.
+ * renders its container only once its language loads, which can be after the box took the focus.
  */
 function useFocusFromEmbedBox(rootRef: RefObject<HTMLElement>) {
     useEffect(() => {

@@ -59,8 +59,19 @@ export function CanvasEditor({
     const noteDrop = useCanvasNoteDrop(apiRef, isReadOnly);
 
     // Excalidraw maps the pointer with the container position it read last. An embedded editor
-    // moves with the note, so it reads the position again before the pointer acts.
-    const refreshPosition = useCallback(() => apiRef.current?.refresh(), [ apiRef ]);
+    // moves with the note, so it reads the position again before the pointer acts. `refresh()`
+    // renders all of Excalidraw, so it runs only once the position changed.
+    const refreshPosition = useCallback((e: PointerEvent) => {
+        const api = apiRef.current;
+        const container = (e.currentTarget as HTMLElement).querySelector(".excalidraw-container");
+        if (!api || !container) return;
+
+        const { left, top } = container.getBoundingClientRect();
+        const { offsetLeft, offsetTop } = api.getAppState();
+        if (left !== offsetLeft || top !== offsetTop) {
+            api.refresh();
+        }
+    }, [ apiRef ]);
 
     /** Use excalidraw's native zoom instead of the global zoom. */
     const onWheel = useCallback((e: MouseEvent) => {

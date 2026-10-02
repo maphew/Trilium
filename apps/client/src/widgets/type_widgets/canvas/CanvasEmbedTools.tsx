@@ -71,7 +71,10 @@ export default function CanvasEmbedTools({ rootRef, apiRef }: CanvasEmbedToolsPr
 
         const disconnect = tools.connect(api);
         const unregister = registerContentEmbedTools(root, tools);
+        // `CanvasDrawing.css` hides Excalidraw's own controls while these replace them.
+        root.setAttribute("data-embed-tools", "");
         return () => {
+            root.removeAttribute("data-embed-tools");
             unregister();
             disconnect();
         };

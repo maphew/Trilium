@@ -26,6 +26,7 @@ export interface ContentEmbedToolProvider {
 }
 
 const providers = new Map<HTMLElement, ContentEmbedToolProvider>();
+const watchers = new Set<{ container: HTMLElement; callback: () => void }>();
 
 /**
  * Adds the buttons of `provider` to the toolbar of the embed that contains `element`, until the
@@ -36,8 +37,25 @@ export function registerContentEmbedTools(
     provider: ContentEmbedToolProvider
 ) {
     providers.set(element, provider);
+    for (const { container, callback } of watchers) {
+        if (container.contains(element)) {
+            callback();
+        }
+    }
     return () => {
         providers.delete(element);
+    };
+}
+
+/**
+ * Calls `callback` when content inside `container` adds its buttons, as a canvas drawing does
+ * once it renders after its embed was selected. Stops when the returned function is called.
+ */
+export function watchContentEmbedTools(container: HTMLElement, callback: () => void) {
+    const watcher = { container, callback };
+    watchers.add(watcher);
+    return () => {
+        watchers.delete(watcher);
     };
 }
 

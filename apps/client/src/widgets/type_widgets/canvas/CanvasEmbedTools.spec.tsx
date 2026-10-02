@@ -10,7 +10,9 @@ vi.mock("@excalidraw/excalidraw", () => ({
 }));
 
 const { default: CanvasEmbedTools } = await import("./CanvasEmbedTools");
-const { getContentEmbedTools } = await import("../text/content_embed_tools");
+const {
+    getContentEmbedTools, watchContentEmbedTools
+} = await import("../text/content_embed_tools");
 
 const MAIN_TOOL_IDS = [
     "hand", "rectangle", "diamond", "ellipse", "arrow", "line", "freedraw", "text", "image"
@@ -108,6 +110,27 @@ describe("CanvasEmbedTools", () => {
         expect(api.unsubscribe).toHaveBeenCalledTimes(1);
         expect(listener).toHaveBeenCalledTimes(1);
         expect(provider.getTools()).toEqual([]);
+    });
+
+    it("tells the editor around the drawing, and marks the drawing, about its tools", async () => {
+        const inside = vi.fn();
+        const outside = vi.fn();
+        const stopInside = watchContentEmbedTools(container, inside);
+        const stopOutside = watchContentEmbedTools(document.createElement("div"), outside);
+
+        const { embed } = await mount();
+        const root = embed.querySelector(":scope > div");
+        expect(inside).toHaveBeenCalledTimes(1);
+        expect(outside).not.toHaveBeenCalled();
+        expect(root?.hasAttribute("data-embed-tools")).toBe(true);
+
+        await act(async () => render(null, container));
+        expect(root?.hasAttribute("data-embed-tools")).toBe(false);
+
+        stopInside();
+        stopOutside();
+        await mount();
+        expect(inside).toHaveBeenCalledTimes(1);
     });
 
     it("notifies its listeners when a tool, the zoom or the history changes", async () => {

@@ -7,7 +7,11 @@ const excalidrawProps = vi.fn((_props: ExcalidrawProps) => undefined);
 vi.mock("@excalidraw/excalidraw", () => ({
     Excalidraw: (props: ExcalidrawProps) => {
         excalidrawProps(props);
-        return <div className="mock-excalidraw">{props.children as ComponentChildren}</div>;
+        return (
+            <div className="mock-excalidraw excalidraw-container">
+                {props.children as ComponentChildren}
+            </div>
+        );
     }
 }));
 vi.mock("../../react/hooks", async (importOriginal) => ({
@@ -21,11 +25,18 @@ describe("CanvasEditor", () => {
     let container: HTMLElement;
     let refresh: ReturnType<typeof vi.fn>;
     let apiRef: RefObject<ExcalidrawImperativeAPI>;
+    /** The position of the container as Excalidraw last read it; happy-dom places it at 0, 0. */
+    let offsets: { offsetLeft: number; offsetTop: number };
 
     beforeEach(() => {
         excalidrawProps.mockClear();
-        refresh = vi.fn();
-        apiRef = { current: { refresh } as unknown as ExcalidrawImperativeAPI };
+        offsets = { offsetLeft: 0, offsetTop: 0 };
+        refresh = vi.fn(() => {
+            offsets = { offsetLeft: 0, offsetTop: 0 };
+        });
+        apiRef = {
+            current: { refresh, getAppState: () => offsets } as unknown as ExcalidrawImperativeAPI
+        };
         container = document.createElement("div");
         document.body.appendChild(container);
     });
@@ -61,15 +72,22 @@ describe("CanvasEditor", () => {
         }
     }
 
-    it("reads its position again before pointer input when it is embedded in a note", async () => {
-        point(await mount(true));
+    it("reads its position again before pointer input once the drawing moved", async () => {
+        const excalidraw = await mount(true);
+        point(excalidraw);
+        expect(refresh).not.toHaveBeenCalled();
 
-        expect(refresh).toHaveBeenCalledTimes(2);
+        // The note scrolled, so the position that Excalidraw read last is out of date.
+        offsets = { offsetLeft: 0, offsetTop: 120 };
+        point(excalidraw);
+        expect(refresh).toHaveBeenCalledTimes(1);
         expect(excalidrawProps).toHaveBeenLastCalledWith(expect.objectContaining({ detectScroll: true }));
     });
 
     it("leaves the position to Excalidraw in a canvas note, which does not move", async () => {
-        point(await mount());
+        const excalidraw = await mount();
+        offsets = { offsetLeft: 0, offsetTop: 120 };
+        point(excalidraw);
 
         expect(refresh).not.toHaveBeenCalled();
         expect(excalidrawProps).toHaveBeenLastCalledWith(expect.objectContaining({ detectScroll: false }));
